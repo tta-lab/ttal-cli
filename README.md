@@ -133,6 +133,17 @@ ttal project get clawd
 # Modify project tags (use -- to separate from flags)
 ttal project modify clawd -- +new-tag -old-tag
 
+# Modify project fields
+ttal project modify clawd -- name:'New Project Name'
+ttal project modify clawd -- path:/new/path
+ttal project modify clawd -- description:'Updated description'
+ttal project modify clawd -- repo:owner/repo-name
+ttal project modify clawd -- repo-type:forgejo
+ttal project modify clawd -- owner:username
+
+# Modify multiple fields and tags at once
+ttal project modify clawd -- name:'New Name' path:/new/path +backend -legacy
+
 # Archive a project
 ttal project archive old-project
 
@@ -158,6 +169,12 @@ ttal agent info yuki
 # Modify agent tags (use -- to separate from flags)
 ttal agent modify yuki -- +new-tag -old-tag
 
+# Modify agent path
+ttal agent modify yuki -- path:/Users/neil/clawd/.openclaw-main
+
+# Modify path and tags together
+ttal agent modify yuki -- path:/new/path +backend -legacy
+
 # Update agent status
 ttal agent status yuki busy
 
@@ -178,14 +195,54 @@ ttal memory capture --date=2026-02-08
 ttal memory capture --date=2026-02-08 --output=/path/to/memory
 ```
 
+## Modify Command Syntax
+
+The `modify` command supports both tag operations and field updates using taskwarrior-like syntax:
+
+### Tag Operations
+- `+tag` - Add a tag
+- `-tag` - Remove a tag
+- `+tag1 +tag2` - Add multiple tags
+- `-old +new` - Mix add and remove operations
+
+### Field Updates
+- `field:value` - Update a field value
+- Use quotes for values with spaces: `name:'My Project Name'`
+- Combine multiple operations: `path:/new/path +backend -legacy`
+
+### Available Fields
+
+**Agent fields:**
+- `path` - Agent workspace path
+
+**Project fields:**
+- `name` - Project name
+- `description` - Project description
+- `path` - Filesystem path
+- `repo` - Repository ID (e.g., owner/repo)
+- `repo-type` - Repository type (forgejo, github, or codeberg)
+- `owner` - Project owner
+
+### Important Notes
+- Always use `--` before your modifications to prevent `-tag` from being interpreted as a command flag
+- Field names are case-insensitive
+- Tag names are automatically converted to lowercase
+
+### Examples
+```bash
+# Tags only
+ttal project modify clawd -- +backend -legacy
+
+# Fields only
+ttal project modify clawd -- name:'New Name' path:/new/path
+
+# Combined
+ttal agent modify yuki -- path:/new/path +research -demo
+```
+
 ## Tag System
 
-Tags use taskwarrior-like syntax:
-
-- `+tag` - Add a tag
-- `-tag` - Remove a tag (use `--` before tags when removing: `ttal project modify alias -- -tag`)
-- `+tag1 +tag2` - Add multiple tags
-- `-old +new` - Mix add and remove operations (use `--`: `ttal project modify alias -- -old +new`)
+Tags use taskwarrior-like syntax as described above in the Modify Command Syntax section
 
 ### Agent-Project Matching
 

@@ -202,22 +202,28 @@ Example:
 }
 
 var agentModifyCmd = &cobra.Command{
-	Use:   "modify <name> [+tag1 -tag2...]",
-	Short: "Modify agent tags",
-	Long: `Add or remove tags from an agent (taskwarrior-like syntax).
+	Use:   "modify <name> [+tag1 -tag2 field:value...]",
+	Short: "Modify agent tags and fields",
+	Long: `Add or remove tags and modify fields (taskwarrior-like syntax).
 
 Examples:
+  # Tag operations
   ttal agent modify yuki +secretary +core
   ttal agent modify yuki -old +research
-  ttal agent modify athena +backend +api -legacy`,
+
+  # Field modifications
+  ttal agent modify yuki path:/Users/neil/clawd/.openclaw-main
+
+  # Combined operations
+  ttal agent modify yuki path:/new/path +backend -legacy`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		name := strings.ToLower(args[0])
-		addTagNames, removeTagNames := parseModifyTags(args[1:])
+		addTagNames, removeTagNames, fieldUpdates := parseModifyArgs(args[1:])
 
-		if len(addTagNames) == 0 && len(removeTagNames) == 0 {
-			return fmt.Errorf("no tags to add or remove (use +tag to add, -tag to remove)")
+		if len(addTagNames) == 0 && len(removeTagNames) == 0 && len(fieldUpdates) == 0 {
+			return fmt.Errorf("no modifications specified (use +tag to add, -tag to remove, field:value to update)")
 		}
 
 		// Get agent
@@ -232,6 +238,16 @@ Examples:
 		}
 
 		updater := ag.Update()
+
+		// Apply field updates
+		for field, value := range fieldUpdates {
+			switch field {
+			case "path":
+				updater = updater.SetPath(value)
+			default:
+				return fmt.Errorf("unknown field '%s' (available: path)", field)
+			}
+		}
 
 		// Add tags
 		if len(addTagNames) > 0 {
@@ -267,15 +283,21 @@ Examples:
 
 		_, err = updater.Save(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to modify tags: %w", err)
+			return fmt.Errorf("failed to modify agent: %w", err)
 		}
 
-		fmt.Printf("Agent '%s' tags updated\n", name)
+		fmt.Printf("Agent '%s' updated successfully\n", name)
+		if len(fieldUpdates) > 0 {
+			fmt.Println("Fields updated:")
+			for field, value := range fieldUpdates {
+				fmt.Printf("  %s: %s\n", field, value)
+			}
+		}
 		if len(addTagNames) > 0 {
-			fmt.Printf("Added: %s\n", formatTags(addTagNames))
+			fmt.Printf("Tags added: %s\n", formatTags(addTagNames))
 		}
 		if len(removeTagNames) > 0 {
-			fmt.Printf("Removed: %s\n", formatTags(removeTagNames))
+			fmt.Printf("Tags removed: %s\n", formatTags(removeTagNames))
 		}
 
 		return nil

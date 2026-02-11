@@ -284,22 +284,33 @@ Example:
 }
 
 var projectModifyCmd = &cobra.Command{
-	Use:   "modify <alias> [+tag1 -tag2 +tag3...]",
-	Short: "Modify project tags",
-	Long: `Add or remove tags from a project (taskwarrior-like syntax).
+	Use:   "modify <alias> [+tag1 -tag2 field:value...]",
+	Short: "Modify project tags and fields",
+	Long: `Add or remove tags and modify fields (taskwarrior-like syntax).
 
 Examples:
+  # Tag operations
   ttal project modify clawd +infrastructure +core
   ttal project modify clawd -old +new
-  ttal project modify flicknote +backend +api -legacy`,
+
+  # Field modifications
+  ttal project modify clawd name:'New Project Name'
+  ttal project modify clawd path:/new/path
+  ttal project modify clawd description:'Updated description'
+  ttal project modify clawd repo:neil/new-repo
+  ttal project modify clawd repo-type:forgejo
+  ttal project modify clawd owner:neil
+
+  # Combined operations
+  ttal project modify clawd path:/new/path +backend -legacy`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		alias := args[0]
-		addTagNames, removeTagNames := parseModifyTags(args[1:])
+		addTagNames, removeTagNames, fieldUpdates := parseModifyArgs(args[1:])
 
-		if len(addTagNames) == 0 && len(removeTagNames) == 0 {
-			return fmt.Errorf("no tags to add or remove (use +tag to add, -tag to remove)")
+		if len(addTagNames) == 0 && len(removeTagNames) == 0 && len(fieldUpdates) == 0 {
+			return fmt.Errorf("no modifications specified (use +tag to add, -tag to remove, field:value to update)")
 		}
 
 		// Get project
@@ -314,6 +325,31 @@ Examples:
 		}
 
 		updater := proj.Update()
+
+		// Apply field updates
+		for field, value := range fieldUpdates {
+			switch field {
+			case "name":
+				updater = updater.SetName(value)
+			case "description":
+				updater = updater.SetDescription(value)
+			case "path":
+				updater = updater.SetPath(value)
+			case "repo":
+				updater = updater.SetRepo(value)
+			case "repo-type":
+				// Validate repo type
+				validTypes := map[string]bool{"forgejo": true, "github": true, "codeberg": true}
+				if !validTypes[value] {
+					return fmt.Errorf("invalid repo-type '%s' (must be: forgejo, github, or codeberg)", value)
+				}
+				updater = updater.SetRepoType(project.RepoType(value))
+			case "owner":
+				updater = updater.SetOwner(value)
+			default:
+				return fmt.Errorf("unknown field '%s' (available: name, description, path, repo, repo-type, owner)", field)
+			}
+		}
 
 		// Add tags
 		if len(addTagNames) > 0 {
@@ -349,15 +385,21 @@ Examples:
 
 		_, err = updater.Save(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to modify tags: %w", err)
+			return fmt.Errorf("failed to modify project: %w", err)
 		}
 
-		fmt.Printf("Project '%s' tags updated\n", alias)
+		fmt.Printf("Project '%s' updated successfully\n", alias)
+		if len(fieldUpdates) > 0 {
+			fmt.Println("Fields updated:")
+			for field, value := range fieldUpdates {
+				fmt.Printf("  %s: %s\n", field, value)
+			}
+		}
 		if len(addTagNames) > 0 {
-			fmt.Printf("Added: %s\n", formatTags(addTagNames))
+			fmt.Printf("Tags added: %s\n", formatTags(addTagNames))
 		}
 		if len(removeTagNames) > 0 {
-			fmt.Printf("Removed: %s\n", formatTags(removeTagNames))
+			fmt.Printf("Tags removed: %s\n", formatTags(removeTagNames))
 		}
 
 		return nil
@@ -409,6 +451,28 @@ func parseModifyTags(args []string) (addTags, removeTags []string) {
 		} else if strings.HasPrefix(arg, "-") {
 			tagName := strings.TrimPrefix(arg, "-")
 			removeTags = append(removeTags, strings.ToLower(tagName))
+		}
+	}
+	return
+}
+
+func parseModifyArgs(args []string) (addTags, removeTags []string, fieldUpdates map[string]string) {
+	fieldUpdates = make(map[string]string)
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "+") {
+			tagName := strings.TrimPrefix(arg, "+")
+			addTags = append(addTags, strings.ToLower(tagName))
+		} else if strings.HasPrefix(arg, "-") {
+			tagName := strings.TrimPrefix(arg, "-")
+			removeTags = append(removeTags, strings.ToLower(tagName))
+		} else if strings.Contains(arg, ":") {
+			// Field update: field:value
+			parts := strings.SplitN(arg, ":", 2)
+			if len(parts) == 2 {
+				field := strings.ToLower(strings.TrimSpace(parts[0]))
+				value := strings.TrimSpace(parts[1])
+				fieldUpdates[field] = value
+			}
 		}
 	}
 	return
