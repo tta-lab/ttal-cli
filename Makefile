@@ -1,4 +1,4 @@
-.PHONY: help build clean test generate install run fmt vet lint
+.PHONY: help build clean clean-db reset test generate install run fmt vet lint
 
 # Default target
 help:
@@ -7,6 +7,8 @@ help:
 	@echo "  make install       - Install ttal to GOPATH/bin"
 	@echo "  make run           - Run ttal (usage: make run ARGS='project list')"
 	@echo "  make clean         - Remove built binaries"
+	@echo "  make clean-db      - Remove database (destructive!)"
+	@echo "  make reset         - Remove binaries and database (destructive!)"
 	@echo "  make test          - Run tests"
 	@echo "  make generate      - Regenerate ent code from schemas"
 	@echo "  make fmt           - Format code with gofmt"
@@ -26,7 +28,7 @@ build:
 # Install to GOPATH/bin
 install:
 	@echo "Installing ttal..."
-	@go install .
+	@go build -o $(shell go env GOPATH)/bin/ttal .
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/ttal"
 
 # Run the CLI
@@ -35,10 +37,19 @@ run: build
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning..."
+	@echo "Cleaning build artifacts..."
 	@rm -f ttal
+	@echo "✓ Cleaned build artifacts"
+
+# Clean database (destructive!)
+clean-db:
+	@echo "⚠️  WARNING: This will delete your database!"
 	@rm -rf ~/.ttal/ttal.db
-	@echo "✓ Cleaned build artifacts and test database"
+	@echo "✓ Database removed"
+
+# Reset everything (destructive!)
+reset: clean clean-db
+	@echo "✓ Full reset complete"
 
 # Run tests
 test:
@@ -49,7 +60,7 @@ test:
 generate:
 	@echo "Regenerating ent code..."
 	@go mod tidy
-	@cd ent && go generate .
+	@(cd ent && go generate .)
 	@echo "✓ ent code regenerated"
 
 # Format code
@@ -79,7 +90,7 @@ all: fmt generate vet build
 	@echo "✓ All checks passed and binary built"
 
 # Development workflow
-dev: clean all
+dev: all
 	@echo "✓ Development build complete"
 
 # CI target - runs all checks (same as all but exits on failure)
