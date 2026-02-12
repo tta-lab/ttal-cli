@@ -131,6 +131,7 @@ func init() {
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
 	workerCmd.AddCommand(workerPollCmd)
+	workerCmd.AddCommand(workerHookCmd)
 
 	// Spawn flags
 	workerSpawnCmd.Flags().StringVar(&spawnName, "name", "", "Worker name (required)")
