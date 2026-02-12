@@ -27,13 +27,16 @@ func Client() (*forgejo_sdk.Client, error) {
 	clientOnce.Do(func() {
 		url := os.Getenv("FORGEJO_URL")
 		token := os.Getenv("FORGEJO_TOKEN")
+		if token == "" {
+			token = os.Getenv("FORGEJO_ACCESS_TOKEN")
+		}
 
 		if url == "" {
 			clientErr = fmt.Errorf("FORGEJO_URL environment variable is required")
 			return
 		}
 		if token == "" {
-			clientErr = fmt.Errorf("FORGEJO_TOKEN environment variable is required")
+			clientErr = fmt.Errorf("FORGEJO_TOKEN or FORGEJO_ACCESS_TOKEN environment variable is required")
 			return
 		}
 

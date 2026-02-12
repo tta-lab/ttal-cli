@@ -226,8 +226,9 @@ func runWorktreeSetup(worktreeDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, setupScript)
-	cmd.Dir = worktreeDir
+	// Run through fish to get proper PATH (proto, moon, bun, etc.)
+	// matching how the zellij session itself runs via fish -C
+	cmd := exec.CommandContext(ctx, "fish", "-c", fmt.Sprintf("cd %s && ./.worktree-setup", worktreeDir))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: .worktree-setup failed (non-fatal): %v\n", err)
