@@ -16,53 +16,53 @@ func setupAgentTest(t *testing.T) {
 
 func TestParseModifyArgs(t *testing.T) {
 	tests := []struct {
-		name          string
-		args          []string
-		wantAddTags   []string
+		name           string
+		args           []string
+		wantAddTags    []string
 		wantRemoveTags []string
-		wantFields    map[string]string
+		wantFields     map[string]string
 	}{
 		{
-			name:          "add tags only",
-			args:          []string{"+backend", "+api"},
-			wantAddTags:   []string{"backend", "api"},
+			name:           "add tags only",
+			args:           []string{"+backend", "+api"},
+			wantAddTags:    []string{"backend", "api"},
 			wantRemoveTags: []string{},
-			wantFields:    map[string]string{},
+			wantFields:     map[string]string{},
 		},
 		{
-			name:          "remove tags only",
-			args:          []string{"-legacy", "-old"},
-			wantAddTags:   []string{},
+			name:           "remove tags only",
+			args:           []string{"-legacy", "-old"},
+			wantAddTags:    []string{},
 			wantRemoveTags: []string{"legacy", "old"},
-			wantFields:    map[string]string{},
+			wantFields:     map[string]string{},
 		},
 		{
-			name:          "field updates only",
-			args:          []string{"path:/new/path", "name:test"},
-			wantAddTags:   []string{},
+			name:           "field updates only",
+			args:           []string{"path:/new/path", "name:test"},
+			wantAddTags:    []string{},
 			wantRemoveTags: []string{},
-			wantFields:    map[string]string{"path": "/new/path", "name": "test"},
+			wantFields:     map[string]string{"path": "/new/path", "name": "test"},
 		},
 		{
-			name:          "mixed operations",
-			args:          []string{"+backend", "-legacy", "path:/new/path", "+api"},
-			wantAddTags:   []string{"backend", "api"},
+			name:           "mixed operations",
+			args:           []string{"+backend", "-legacy", "path:/new/path", "+api"},
+			wantAddTags:    []string{"backend", "api"},
 			wantRemoveTags: []string{"legacy"},
-			wantFields:    map[string]string{"path": "/new/path"},
+			wantFields:     map[string]string{"path": "/new/path"},
 		},
 		{
-			name:          "field with spaces",
-			args:          []string{"name:My Project Name"},
-			wantAddTags:   []string{},
+			name:           "field with spaces",
+			args:           []string{"name:My Project Name"},
+			wantAddTags:    []string{},
 			wantRemoveTags: []string{},
-			wantFields:    map[string]string{"name": "My Project Name"},
+			wantFields:     map[string]string{"name": "My Project Name"},
 		},
 		{
-			name:          "empty args",
-			args:          []string{},
-			wantAddTags:   []string{},
+			name:           "empty args",
+			args:           []string{},
+			wantAddTags:    []string{},
 			wantRemoveTags: []string{},
-			wantFields:    map[string]string{},
+			wantFields:     map[string]string{},
 		},
 	}
 

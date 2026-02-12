@@ -1,11 +1,12 @@
 # TTAL CLI - Project Reference Manager
 
-A command-line tool for managing projects, agents, and automated memory capture with tag-based filtering and agent routing.
+A command-line tool for managing projects, agents, automated memory capture, and Claude Code workers with tag-based filtering and agent routing.
 
 ## Features
 
 - **Project Management**: Add, list, archive, and tag projects
 - **Agent Management**: Configure agents with tags, status tracking, and heartbeat periods
+- **Worker Management**: Spawn, close, and poll Claude Code workers in isolated zellij sessions
 - **Tag-Based Filtering**: Taskwarrior-like syntax for tag management (`+tag` to add, `-tag` to remove)
 - **Agent Routing**: Automatic project matching based on shared tags
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
@@ -194,6 +195,119 @@ ttal memory capture --date=2026-02-08
 # Specify output directory
 ttal memory capture --date=2026-02-08 --output=/path/to/memory
 ```
+
+### Worker Commands
+
+Worker commands manage Claude Code instances running in isolated zellij sessions, tracked via taskwarrior. These commands do **not** require the ttal database.
+
+```bash
+# List active workers
+ttal worker list
+
+# Spawn a new worker
+ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
+
+# Spawn with brainstorming mode (explores design before implementing)
+ttal worker spawn --name design-api --project ~/code/myapp --task <uuid> --brainstorm
+
+# Spawn without worktree (work directly in project directory)
+ttal worker spawn --name hotfix --project ~/code/myapp --task <uuid> --worktree=false
+
+# Force respawn (close existing session)
+ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid> --force
+
+# Close a worker (smart mode - auto-cleanup if PR merged + clean worktree)
+ttal worker close <session-name>
+
+# Force close (dump state and cleanup regardless of PR status)
+ttal worker close <session-name> --force
+
+# Poll for completed workers (auto-completes tasks with merged PRs)
+ttal worker poll
+```
+
+#### Spawn Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | (required) | Worker name, used for branch and worktree naming |
+| `--project` | (required) | Project directory path |
+| `--task` | (required) | Taskwarrior task UUID |
+| `--session` | random 8-char ID | Custom zellij session name |
+| `--worktree` | `true` | Create git worktree for isolation |
+| `--force` | `false` | Force respawn (close existing session) |
+| `--yolo` | `true` | Skip Claude Code permission prompts |
+| `--brainstorm` | `false` | Use brainstorming skill before implementation |
+
+#### Close Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Cleaned up successfully |
+| 1 | Needs manual decision (PR not merged, dirty worktree) |
+| 2 | Error (worker not found, script failure) |
+
+#### Automated Polling (launchd)
+
+The `ttal worker poll` command is designed to run every 60 seconds via launchd:
+
+```bash
+# Install the launchd service
+./scripts/poll-install.sh
+
+# Uninstall the launchd service
+./scripts/poll-uninstall.sh
+
+# Check status
+launchctl list | grep ttal.poll
+
+# View logs
+tail -f ~/.ttal/poll_completion.log
+```
+
+See [Worker Migration Guide](docs/WORKER_MIGRATION.md) for migrating from the Python scripts.
+
+## Environment Variables
+
+### Worker Commands
+
+Worker commands (`ttal worker spawn/close/poll`) require these environment variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FORGEJO_URL` | For `poll` and `close` | Forgejo instance URL (e.g., `https://git.guion.io`) |
+| `FORGEJO_TOKEN` | For `poll` and `close` | Forgejo API token for PR status checks |
+| `TTAL_ZELLIJ_DATA_DIR` | No | Custom zellij data directory (default: `$TMPDIR/ttal-zellij-data`) |
+
+**Note:** `spawn` does not need Forgejo credentials. Only `poll` and `close` (smart mode) need them to check PR merge status.
+
+### Taskwarrior UDAs
+
+Worker commands require these User Defined Attributes in `~/.taskrc`:
+
+```
+uda.session_name.type=string
+uda.session_name.label=Session Name
+
+uda.branch.type=string
+uda.branch.label=Branch
+
+uda.project_path.type=string
+uda.project_path.label=Project Path
+
+uda.pr_id.type=numeric
+uda.pr_id.label=PR ID
+```
+
+### External Dependencies
+
+Worker commands require these tools in `$PATH`:
+
+- `task` - Taskwarrior (task tracking)
+- `zellij` - Terminal multiplexer (worker sessions)
+- `git` - Version control (worktrees, branch management)
+- `fish` - Fish shell (used in zellij layouts)
+- `python3` - For the worker gatekeeper script (`~/clawd/scripts/worker-gatekeeper.py`)
 
 ## Modify Command Syntax
 

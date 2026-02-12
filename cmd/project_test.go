@@ -10,6 +10,11 @@ import (
 	"github.com/guion-opensource/ttal-cli/internal/db"
 )
 
+const (
+	testNewName = "New Name"
+	testNewPath = "/new/path"
+)
+
 func setupProjectTest(t *testing.T) {
 	t.Helper()
 	database = db.NewTestDB(t)
@@ -30,7 +35,7 @@ func TestProjectModifyName(t *testing.T) {
 
 	// Modify name
 	_, err = proj.Update().
-		SetName("New Name").
+		SetName(testNewName).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to update project name: %v", err)
@@ -44,8 +49,8 @@ func TestProjectModifyName(t *testing.T) {
 		t.Fatalf("failed to query project: %v", err)
 	}
 
-	if updated.Name != "New Name" {
-		t.Errorf("project name = %v, want %v", updated.Name, "New Name")
+	if updated.Name != testNewName {
+		t.Errorf("project name = %v, want %v", updated.Name, testNewName)
 	}
 }
 
@@ -99,7 +104,7 @@ func TestProjectModifyPath(t *testing.T) {
 
 	// Modify path
 	_, err = proj.Update().
-		SetPath("/new/path").
+		SetPath(testNewPath).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to update project path: %v", err)
@@ -113,8 +118,8 @@ func TestProjectModifyPath(t *testing.T) {
 		t.Fatalf("failed to query project: %v", err)
 	}
 
-	if updated.Path != "/new/path" {
-		t.Errorf("project path = %v, want %v", updated.Path, "/new/path")
+	if updated.Path != testNewPath {
+		t.Errorf("project path = %v, want %v", updated.Path, testNewPath)
 	}
 }
 
@@ -293,9 +298,9 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 
 	// Modify multiple fields at once
 	_, err = proj.Update().
-		SetName("New Name").
+		SetName(testNewName).
 		SetDescription("New description").
-		SetPath("/new/path").
+		SetPath(testNewPath).
 		SetRepo("owner/repo").
 		SetRepoType(project.RepoTypeGithub).
 		SetOwner("newowner").
@@ -312,13 +317,13 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 		t.Fatalf("failed to query project: %v", err)
 	}
 
-	if updated.Name != "New Name" {
+	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want New Name", updated.Name)
 	}
 	if updated.Description != "New description" {
 		t.Errorf("project description = %v, want New description", updated.Description)
 	}
-	if updated.Path != "/new/path" {
+	if updated.Path != testNewPath {
 		t.Errorf("project path = %v, want /new/path", updated.Path)
 	}
 	if updated.Repo != "owner/repo" {
@@ -359,8 +364,8 @@ func TestProjectModifyCombined(t *testing.T) {
 
 	// Modify fields and tags in one operation
 	_, err = proj.Update().
-		SetName("New Name").
-		SetPath("/new/path").
+		SetName(testNewName).
+		SetPath(testNewPath).
 		SetDescription("New description").
 		AddTags(newTag).
 		RemoveTags(oldTag).
@@ -378,10 +383,10 @@ func TestProjectModifyCombined(t *testing.T) {
 		t.Fatalf("failed to query project: %v", err)
 	}
 
-	if updated.Name != "New Name" {
+	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want New Name", updated.Name)
 	}
-	if updated.Path != "/new/path" {
+	if updated.Path != testNewPath {
 		t.Errorf("project path = %v, want /new/path", updated.Path)
 	}
 	if updated.Description != "New description" {

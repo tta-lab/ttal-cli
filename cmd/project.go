@@ -443,19 +443,6 @@ func parseTagsFromArgs(args []string) []string {
 	return tags
 }
 
-func parseModifyTags(args []string) (addTags, removeTags []string) {
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "+") {
-			tagName := strings.TrimPrefix(arg, "+")
-			addTags = append(addTags, strings.ToLower(tagName))
-		} else if strings.HasPrefix(arg, "-") {
-			tagName := strings.TrimPrefix(arg, "-")
-			removeTags = append(removeTags, strings.ToLower(tagName))
-		}
-	}
-	return
-}
-
 func parseModifyArgs(args []string) (addTags, removeTags []string, fieldUpdates map[string]string) {
 	fieldUpdates = make(map[string]string)
 	for _, arg := range args {
