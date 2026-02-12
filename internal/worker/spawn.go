@@ -178,6 +178,9 @@ func setupWorktree(project, name string) (string, error) {
 		return worktreeDir, nil
 	}
 
+	// Pull latest from remote so worktree branches from up-to-date main
+	pullLatest(project)
+
 	if err := createWorktree(project, worktreeDir, workerBranch); err != nil {
 		return "", err
 	}
@@ -237,6 +240,21 @@ func runWorktreeSetup(worktreeDir string) {
 		}
 	} else {
 		fmt.Println("  .worktree-setup completed successfully")
+	}
+}
+
+func pullLatest(project string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	fmt.Println("Pulling latest changes...")
+	cmd := exec.CommandContext(ctx, "git", "-C", project, "pull", "--ff-only")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: git pull failed (non-fatal): %v\n", err)
+		if len(out) > 0 {
+			fmt.Fprintf(os.Stderr, "  output: %s\n", strings.TrimSpace(string(out)))
+		}
 	}
 }
 
