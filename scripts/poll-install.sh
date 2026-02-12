@@ -26,8 +26,8 @@ mkdir -p "$LOG_DIR"
 
 # Unload existing service if present
 if launchctl list 2>/dev/null | grep -q "$PLIST_NAME"; then
-    echo "Unloading existing service..."
-    launchctl unload "$PLIST_PATH" 2>/dev/null || true
+    echo "Removing existing service..."
+    launchctl bootout "gui/$(id -u)/${PLIST_NAME}" 2>/dev/null || true
 fi
 
 # Create plist
@@ -65,14 +65,15 @@ cat > "$PLIST_PATH" << EOF
         <key>FORGEJO_URL</key>
         <string>${FORGEJO_URL:-}</string>
         <key>FORGEJO_TOKEN</key>
-        <string>${FORGEJO_TOKEN:-}</string>
+        <string>${FORGEJO_TOKEN:-${FORGEJO_ACCESS_TOKEN:-}}</string>
     </dict>
 </dict>
 </plist>
 EOF
 
-# Restrict permissions — plist may contain FORGEJO_TOKEN
-chmod 600 "$PLIST_PATH"
+# launchd requires readable plist (644). The token is baked in but the file is
+# in ~/Library/LaunchAgents which is user-only by default.
+chmod 644 "$PLIST_PATH"
 
 echo "Created plist at: $PLIST_PATH"
 
@@ -82,14 +83,14 @@ if [[ -z "${FORGEJO_URL:-}" ]]; then
     echo "Warning: FORGEJO_URL is not set. Poll won't be able to check PR status."
     echo "  Set it in your shell config and re-run this script."
 fi
-if [[ -z "${FORGEJO_TOKEN:-}" ]]; then
+if [[ -z "${FORGEJO_TOKEN:-}" && -z "${FORGEJO_ACCESS_TOKEN:-}" ]]; then
     echo ""
-    echo "Warning: FORGEJO_TOKEN is not set. Poll won't be able to check PR status."
+    echo "Warning: FORGEJO_TOKEN/FORGEJO_ACCESS_TOKEN is not set. Poll won't be able to check PR status."
     echo "  Set it in your shell config and re-run this script."
 fi
 
-# Load service
-launchctl load "$PLIST_PATH"
+# Load service using modern bootstrap API
+launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"
 
 echo ""
 echo "Service loaded and running."

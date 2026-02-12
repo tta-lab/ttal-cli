@@ -16,10 +16,10 @@ if [[ ! -f "$PLIST_PATH" ]]; then
     exit 0
 fi
 
-# Unload service
+# Remove service using modern bootout API
 if launchctl list 2>/dev/null | grep -q "$PLIST_NAME"; then
-    echo "Unloading service..."
-    launchctl unload "$PLIST_PATH"
+    echo "Removing service..."
+    launchctl bootout "gui/$(id -u)/${PLIST_NAME}" 2>/dev/null || true
 fi
 
 # Remove plist

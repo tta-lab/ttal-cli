@@ -77,7 +77,8 @@ func Poll() error {
 				"session", task.SessionName,
 				"pr_id", task.PRID,
 				"owner", owner,
-				"repo", repo)
+				"repo", repo,
+				"error", err.Error())
 			continue
 		}
 
