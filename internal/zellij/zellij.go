@@ -42,12 +42,25 @@ func SessionExists(name string) bool {
 	return false
 }
 
-// DeleteSession deletes a zellij session.
+// KillSession sends a kill signal to a zellij session, terminating all its processes.
+func KillSession(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "zellij", "--data-dir", DataDir(), "kill-session", name)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to kill session %s: %w: %s", name, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// DeleteSession deletes an exited zellij session.
 func DeleteSession(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "zellij", "--data-dir", DataDir(), "delete-session", name, "--force")
+	cmd := exec.CommandContext(ctx, "zellij", "--data-dir", DataDir(), "delete-session", name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to delete session %s: %w: %s", name, err, strings.TrimSpace(string(out)))
@@ -317,10 +330,25 @@ func DumpSessionState(sessionName, workDir, workerName string) (string, error) {
 
 // CleanupWorker removes the zellij session, git worktree, and worker branch.
 func CleanupWorker(sessionName, workDir, branch, projectDir string) error {
-	// Delete zellij session
+	// Kill then delete zellij session
 	if SessionExists(sessionName) {
-		if err := DeleteSession(sessionName); err != nil {
-			return fmt.Errorf("failed to delete session: %w", err)
+		if err := KillSession(sessionName); err != nil {
+			return fmt.Errorf("failed to kill session: %w", err)
+		}
+
+		// Wait for session processes to exit before deleting
+		for range 15 {
+			time.Sleep(200 * time.Millisecond)
+			if !SessionExists(sessionName) {
+				break
+			}
+		}
+
+		// Delete the now-exited session
+		if SessionExists(sessionName) {
+			if err := DeleteSession(sessionName); err != nil {
+				return fmt.Errorf("failed to delete session: %w", err)
+			}
 		}
 	}
 
