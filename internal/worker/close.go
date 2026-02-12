@@ -1,11 +1,14 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/guion-opensource/ttal-cli/internal/forgejo"
 	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
@@ -68,6 +71,7 @@ func Close(sessionName string, force bool) (*CloseResult, error) {
 				StateDump: dumpPath,
 			}, fmt.Errorf("cleanup failed: %w", err)
 		}
+		pullMainBranch(projectPath)
 		return &CloseResult{
 			Cleaned:   true,
 			Forced:    true,
@@ -126,6 +130,7 @@ func Close(sessionName string, force bool) (*CloseResult, error) {
 		if err := zellij.CleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
 			return &CloseResult{Error: true, Status: "Worker cleanup failed"}, fmt.Errorf("cleanup failed: %w", err)
 		}
+		pullMainBranch(projectPath)
 		return &CloseResult{
 			Cleaned: true,
 			Status:  "Worker cleaned up (PR merged, worktree clean)",
@@ -140,6 +145,22 @@ func Close(sessionName string, force bool) (*CloseResult, error) {
 		Status:    "PR merged but worktree has uncommitted changes",
 		StateDump: dumpPath,
 	}, ErrNeedsDecision
+}
+
+// pullMainBranch pulls latest changes in the main project directory after cleanup.
+func pullMainBranch(projectPath string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", projectPath, "pull", "--ff-only")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: git pull in %s failed (non-fatal): %v\n", projectPath, err)
+		if len(out) > 0 {
+			fmt.Fprintf(os.Stderr, "  output: %s\n", strings.TrimSpace(string(out)))
+		}
+	} else {
+		fmt.Printf("Pulled latest changes in %s\n", projectPath)
+	}
 }
 
 // ErrNeedsDecision indicates the worker needs manual intervention (exit code 1).
