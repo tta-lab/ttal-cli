@@ -11,6 +11,20 @@ var workerHookCmd = &cobra.Command{
 	Long:  `Commands invoked by taskwarrior on-modify hooks to handle worker lifecycle events.`,
 }
 
+var workerHookOnModifyCmd = &cobra.Command{
+	Use:   "on-modify",
+	Short: "Handle any on-modify event",
+	Long: `Main entry point for taskwarrior on-modify hook.
+
+Reads two JSON lines from stdin, detects the event type (start or complete),
+and dispatches to the appropriate handler. For unmatched events, passes through.
+
+This is what the installed hook shim calls. Always exits 0.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		worker.HookOnModify()
+	},
+}
+
 var workerHookOnStartCmd = &cobra.Command{
 	Use:   "on-start",
 	Short: "Handle task start event",
@@ -19,8 +33,7 @@ var workerHookOnStartCmd = &cobra.Command{
 Reads two JSON lines from stdin (original and modified task).
 Outputs the modified task JSON to stdout (required by taskwarrior).
 
-For research-tagged tasks, triggers the research pipeline.
-For regular tasks, notifies the agent for a spawn decision.
+Routes to matching agent by tag overlap, or defaults to worker-lifecycle.
 
 This command always exits 0 to avoid blocking taskwarrior.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -47,37 +60,8 @@ This command always exits 0 to avoid blocking taskwarrior.`,
 	},
 }
 
-var workerHookOnModifyCmd = &cobra.Command{
-	Use:    "on-modify",
-	Short:  "Handle any on-modify event",
-	Long: `Main entry point for taskwarrior on-modify hook.
-
-Reads two JSON lines from stdin, detects the event type (start or complete),
-and dispatches to the appropriate handler. For unmatched events, passes through.
-
-This is what the installed hook shim calls. Always exits 0.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		worker.HookOnModify()
-	},
-}
-
-var workerHookInstallCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install taskwarrior hooks",
-	Long: `Install the on-modify hook script in ~/.task/hooks/.
-
-Creates a shim script that delegates task lifecycle events
-to ttal worker hook on-start and on-complete commands.
-
-Replaces the existing Python-based on-modify-worker-lifecycle hook.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return worker.HookInstall()
-	},
-}
-
 func init() {
 	workerHookCmd.AddCommand(workerHookOnModifyCmd)
 	workerHookCmd.AddCommand(workerHookOnStartCmd)
 	workerHookCmd.AddCommand(workerHookOnCompleteCmd)
-	workerHookCmd.AddCommand(workerHookInstallCmd)
 }

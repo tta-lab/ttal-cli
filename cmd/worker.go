@@ -33,6 +33,34 @@ var workerCmd = &cobra.Command{
 	},
 }
 
+var workerInstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install taskwarrior hook and poll service",
+	Long: `Set up everything needed for worker lifecycle management:
+
+1. Taskwarrior on-modify hook (routes task events to ttal)
+2. launchd poll service (checks for merged PRs every 60s)
+
+Safe to re-run — updates existing installations.
+
+Example:
+  make install          # build ttal binary
+  ttal worker install   # set up hook + poll service`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return worker.Install()
+	},
+}
+
+var workerUninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Remove taskwarrior hook and poll service",
+	Long: `Remove the taskwarrior hook and launchd poll service.
+Log files are preserved.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return worker.Uninstall()
+	},
+}
+
 var workerSpawnCmd = &cobra.Command{
 	Use:   "spawn",
 	Short: "Spawn a new worker",
@@ -127,6 +155,8 @@ Intended to run periodically via launchd/cron:
 func init() {
 	rootCmd.AddCommand(workerCmd)
 
+	workerCmd.AddCommand(workerInstallCmd)
+	workerCmd.AddCommand(workerUninstallCmd)
 	workerCmd.AddCommand(workerSpawnCmd)
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
