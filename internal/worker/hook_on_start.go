@@ -1,10 +1,18 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/guion-opensource/ttal-cli/ent/agent"
+	"github.com/guion-opensource/ttal-cli/ent/tag"
+	"github.com/guion-opensource/ttal-cli/internal/db"
 )
+
+const defaultAgent = "worker-lifecycle"
 
 // HookOnStart handles the task start (+ACTIVE) event.
 // Reads two JSON lines from stdin, outputs modified task to stdout.
@@ -30,48 +38,96 @@ func handleOnStart(_ hookTask, modified hookTask) {
 
 	hookLog("START", modified.UUID(), modified.Description())
 
-	// Research tasks → trigger research agent
-	if modified.HasTag("research") {
-		hookLog("RESEARCH_DETECT", modified.UUID(), modified.Description())
-		triggerResearch(modified)
+	taskTags := modified.Tags()
+	if len(taskTags) == 0 {
+		// No tags → default agent
+		message := extractTaskContext(modified)
+		notifyAgent(message)
+		hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
+			"reason", "task_started", "agent", defaultAgent)
 		return
 	}
 
-	// Regular tasks → notify agent for spawn decision
+	// Find matching agent by tag overlap
+	matchedAgent := findMatchingAgent(taskTags)
+	if matchedAgent == "" {
+		// No match → default agent (kestrel/worker-lifecycle)
+		message := extractTaskContext(modified)
+		notifyAgent(message)
+		hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
+			"reason", "task_started", "agent", defaultAgent)
+		return
+	}
+
+	// Matched an agent → route to it
 	message := extractTaskContext(modified)
-	notifyAgent(message)
-	hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(), "reason", "task_started")
+	notifyAgentWith(message, matchedAgent)
+	hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
+		"reason", "task_started", "agent", matchedAgent)
 }
 
-func triggerResearch(task hookTask) {
-	annotations := task.Annotations()
-	var annLines []string
-	for _, ann := range annotations {
-		if desc, ok := ann["description"].(string); ok {
-			annLines = append(annLines, "  - "+desc)
+// findMatchingAgent queries the ttal database for an agent whose tags
+// overlap with the given task tags. Returns the agent name or empty string.
+func findMatchingAgent(taskTags []string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	dbPath := filepath.Join(home, ".ttal", "ttal.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		hookLogFile("DB not found at " + dbPath + ", skipping agent routing")
+		return ""
+	}
+
+	database, err := db.New(dbPath)
+	if err != nil {
+		hookLogFile("ERROR opening DB for agent routing: " + err.Error())
+		return ""
+	}
+	defer database.Close()
+
+	ctx := context.Background()
+
+	// Find agents that have at least one tag matching the task's tags
+	agents, err := database.Agent.Query().
+		Where(agent.HasTagsWith(tag.NameIn(taskTags...))).
+		WithTags().
+		All(ctx)
+	if err != nil {
+		hookLogFile("ERROR querying agents: " + err.Error())
+		return ""
+	}
+
+	if len(agents) == 0 {
+		return ""
+	}
+
+	// Return the first matching agent
+	// If multiple match, pick the one with most overlapping tags
+	best := agents[0]
+	bestOverlap := 0
+
+	tagSet := make(map[string]bool, len(taskTags))
+	for _, t := range taskTags {
+		tagSet[strings.ToLower(t)] = true
+	}
+
+	for _, ag := range agents {
+		overlap := 0
+		for _, t := range ag.Edges.Tags {
+			if tagSet[t.Name] {
+				overlap++
+			}
+		}
+		if overlap > bestOverlap {
+			best = ag
+			bestOverlap = overlap
 		}
 	}
 
-	prompt := fmt.Sprintf(`Research Task
+	hookLog("ROUTE", best.Name, fmt.Sprintf("matched %d tags", bestOverlap),
+		"task_tags", strings.Join(taskTags, ","))
 
-**Task:** %s
-**Project:** %s
-**Tags:** %s
-
-**Context:**
-%s
-
-Please research this topic thoroughly and provide:
-1. Key findings and recommendations
-2. Technical details and specifications
-3. Best practices and pitfalls
-4. Implementation suggestions
-
-Format your response as markdown with clear sections.`,
-		task.Description(), task.Project(),
-		strings.Join(task.Tags(), " "),
-		strings.Join(annLines, "\n"))
-
-	notifyAgentWith(prompt, "research-agent")
-	hookLog("RESEARCH_TRIGGER", task.UUID(), task.Description())
+	return best.Name
 }

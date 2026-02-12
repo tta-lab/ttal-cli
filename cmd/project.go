@@ -469,9 +469,5 @@ func formatTags(tags []string) string {
 	if len(tags) == 0 {
 		return "-"
 	}
-	formatted := make([]string, 0, len(tags))
-	for _, t := range tags {
-		formatted = append(formatted, "+"+t)
-	}
-	return strings.Join(formatted, " ")
+	return strings.Join(tags, ", ")
 }
