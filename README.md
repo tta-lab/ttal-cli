@@ -8,20 +8,22 @@ A command-line tool for managing projects, agents, automated memory capture, and
 - **Agent Management**: Configure agents with tags, status tracking, and heartbeat periods
 - **Worker Management**: Spawn, close, and poll Claude Code workers in isolated zellij sessions
 - **Tag-Based Filtering**: Taskwarrior-like syntax for tag management (`+tag` to add, `-tag` to remove)
-- **Agent Routing**: Automatic project matching based on shared tags
+- **Agent Routing**: Tag-based task routing to matching agents
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
 
 ## Installation
 
 ```bash
-# Build from source
-make build
-
-# Or use go directly
-go build -o ttal
-
-# Install to GOPATH/bin
+# Build and install binary
 make install
+
+# Set up taskwarrior hook + launchd poll service
+ttal worker install
+```
+
+To remove:
+```bash
+ttal worker uninstall
 ```
 
 ## Development
@@ -247,25 +249,46 @@ ttal worker poll
 | 1 | Needs manual decision (PR not merged, dirty worktree) |
 | 2 | Error (worker not found, script failure) |
 
-#### Automated Polling (launchd)
+#### Worker Setup
 
-The `ttal worker poll` command is designed to run every 60 seconds via launchd:
+`ttal worker install` sets up both components:
+
+1. **Taskwarrior hook** (`~/.task/hooks/on-modify-ttal`) — routes task start/complete events
+2. **launchd poll service** — checks for merged PRs every 60 seconds (macOS)
 
 ```bash
-# Install the launchd service
-./scripts/poll-install.sh
+# Install both hook and poll service
+ttal worker install
 
-# Uninstall the launchd service
-./scripts/poll-uninstall.sh
+# Remove both
+ttal worker uninstall
 
-# Check status
+# Check poll service status
 launchctl list | grep ttal.poll
 
-# View logs
+# View poll logs
 tail -f ~/.ttal/poll_completion.log
+
+# View hook logs
+tail -f ~/.task/hooks.log
 ```
 
-See [Worker Migration Guide](docs/WORKER_MIGRATION.md) for migrating from the Python scripts.
+#### Task Routing
+
+When a task is started (`task <id> start`), the hook routes it to a matching agent based on tag overlap:
+
+```bash
+# Athena has tags: research, design
+ttal agent add athena +research +design
+
+# Task with +research tag → routed to athena
+task add "Research authentication patterns" +research
+
+# Task with no matching tags → routed to worker-lifecycle (kestrel)
+task add "Fix login bug" +backend
+```
+
+The agent with the most overlapping tags wins. If no agent matches, the task is sent to the default agent (`worker-lifecycle`) for worker spawning.
 
 ## Environment Variables
 
@@ -276,7 +299,7 @@ Worker commands (`ttal worker spawn/close/poll`) require these environment varia
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FORGEJO_URL` | For `poll` and `close` | Forgejo instance URL (e.g., `https://git.guion.io`) |
-| `FORGEJO_TOKEN` | For `poll` and `close` | Forgejo API token for PR status checks |
+| `FORGEJO_TOKEN` or `FORGEJO_ACCESS_TOKEN` | For `poll` and `close` | Forgejo API token for PR status checks |
 | `TTAL_ZELLIJ_DATA_DIR` | No | Custom zellij data directory (default: `$TMPDIR/ttal-zellij-data`) |
 
 **Note:** `spawn` does not need Forgejo credentials. Only `poll` and `close` (smart mode) need them to check PR merge status.
@@ -307,7 +330,7 @@ Worker commands require these tools in `$PATH`:
 - `zellij` - Terminal multiplexer (worker sessions)
 - `git` - Version control (worktrees, branch management)
 - `fish` - Fish shell (used in zellij layouts)
-- `python3` - For the worker gatekeeper script (`~/clawd/scripts/worker-gatekeeper.py`)
+- `openclaw` - Agent notification (optional, for task routing)
 
 ## Modify Command Syntax
 
@@ -360,17 +383,20 @@ Tags use taskwarrior-like syntax as described above in the Modify Command Syntax
 
 ### Agent-Project Matching
 
-Agents can see projects that share at least one tag:
+Agents see projects that share at least one tag. Tags also drive task routing — when a taskwarrior task is started, it's routed to the agent with the most matching tags.
 
 ```bash
-# Agent with tags: +secretary +core
-ttal agent add yuki +secretary +core
+# Agent with tags: research, design
+ttal agent add athena +research +design
 
-# Project with tags: +core +infrastructure
+# Project with tags: core, infrastructure
 ttal project add clawd +core +infrastructure
 
-# yuki can work on clawd (both have +core tag)
-ttal agent info yuki  # Shows clawd in matching projects
+# athena can work on projects with research or design tags
+ttal agent info athena  # Shows matching projects
+
+# Tasks tagged +research are automatically routed to athena
+# Tasks with no matching agent go to worker-lifecycle (default)
 ```
 
 ## Memory File Format
