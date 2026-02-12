@@ -1,7 +1,7 @@
 ---
 name: ttal
 description: Agent registry and text-to-speech. Look up agent info, project details, and generate spoken audio using your assigned Kokoro voice. Use when you need to speak aloud, send voice messages, or look up project/agent metadata.
-metadata: { "openclaw": { "requires": { "bins": ["ttal"], "os": ["darwin"] } } }
+metadata: { "openclaw": { "emoji": "🗣️" } }
 ---
 
 # ttal — Agent Management & Voice
