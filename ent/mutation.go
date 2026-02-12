@@ -39,6 +39,7 @@ type AgentMutation struct {
 	id            *int
 	name          *string
 	_path         *string
+	voice         *string
 	created_at    *time.Time
 	clearedFields map[string]struct{}
 	tags          map[int]struct{}
@@ -232,6 +233,55 @@ func (m *AgentMutation) ResetPath() {
 	delete(m.clearedFields, agent.FieldPath)
 }
 
+// SetVoice sets the "voice" field.
+func (m *AgentMutation) SetVoice(s string) {
+	m.voice = &s
+}
+
+// Voice returns the value of the "voice" field in the mutation.
+func (m *AgentMutation) Voice() (r string, exists bool) {
+	v := m.voice
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVoice returns the old "voice" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldVoice(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVoice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVoice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVoice: %w", err)
+	}
+	return oldValue.Voice, nil
+}
+
+// ClearVoice clears the value of the "voice" field.
+func (m *AgentMutation) ClearVoice() {
+	m.voice = nil
+	m.clearedFields[agent.FieldVoice] = struct{}{}
+}
+
+// VoiceCleared returns if the "voice" field was cleared in this mutation.
+func (m *AgentMutation) VoiceCleared() bool {
+	_, ok := m.clearedFields[agent.FieldVoice]
+	return ok
+}
+
+// ResetVoice resets all changes to the "voice" field.
+func (m *AgentMutation) ResetVoice() {
+	m.voice = nil
+	delete(m.clearedFields, agent.FieldVoice)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *AgentMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -356,12 +406,15 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 4)
 	if m.name != nil {
 		fields = append(fields, agent.FieldName)
 	}
 	if m._path != nil {
 		fields = append(fields, agent.FieldPath)
+	}
+	if m.voice != nil {
+		fields = append(fields, agent.FieldVoice)
 	}
 	if m.created_at != nil {
 		fields = append(fields, agent.FieldCreatedAt)
@@ -378,6 +431,8 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case agent.FieldPath:
 		return m.Path()
+	case agent.FieldVoice:
+		return m.Voice()
 	case agent.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -393,6 +448,8 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldName(ctx)
 	case agent.FieldPath:
 		return m.OldPath(ctx)
+	case agent.FieldVoice:
+		return m.OldVoice(ctx)
 	case agent.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -417,6 +474,13 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPath(v)
+		return nil
+	case agent.FieldVoice:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVoice(v)
 		return nil
 	case agent.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -458,6 +522,9 @@ func (m *AgentMutation) ClearedFields() []string {
 	if m.FieldCleared(agent.FieldPath) {
 		fields = append(fields, agent.FieldPath)
 	}
+	if m.FieldCleared(agent.FieldVoice) {
+		fields = append(fields, agent.FieldVoice)
+	}
 	return fields
 }
 
@@ -475,6 +542,9 @@ func (m *AgentMutation) ClearField(name string) error {
 	case agent.FieldPath:
 		m.ClearPath()
 		return nil
+	case agent.FieldVoice:
+		m.ClearVoice()
+		return nil
 	}
 	return fmt.Errorf("unknown Agent nullable field %s", name)
 }
@@ -488,6 +558,9 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldPath:
 		m.ResetPath()
+		return nil
+	case agent.FieldVoice:
+		m.ResetVoice()
 		return nil
 	case agent.FieldCreatedAt:
 		m.ResetCreatedAt()

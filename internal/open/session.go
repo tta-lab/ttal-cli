@@ -35,4 +35,3 @@ func Session(uuid string) error {
 		"zellij", "--data-dir", zellij.DataDir(), "attach", task.SessionName,
 	}, os.Environ())
 }
-

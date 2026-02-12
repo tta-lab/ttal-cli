@@ -62,6 +62,26 @@ func (_u *AgentUpdate) ClearPath() *AgentUpdate {
 	return _u
 }
 
+// SetVoice sets the "voice" field.
+func (_u *AgentUpdate) SetVoice(v string) *AgentUpdate {
+	_u.mutation.SetVoice(v)
+	return _u
+}
+
+// SetNillableVoice sets the "voice" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableVoice(v *string) *AgentUpdate {
+	if v != nil {
+		_u.SetVoice(*v)
+	}
+	return _u
+}
+
+// ClearVoice clears the value of the "voice" field.
+func (_u *AgentUpdate) ClearVoice() *AgentUpdate {
+	_u.mutation.ClearVoice()
+	return _u
+}
+
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdate) AddTagIDs(ids ...int) *AgentUpdate {
 	_u.mutation.AddTagIDs(ids...)
@@ -161,6 +181,12 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.PathCleared() {
 		_spec.ClearField(agent.FieldPath, field.TypeString)
 	}
+	if value, ok := _u.mutation.Voice(); ok {
+		_spec.SetField(agent.FieldVoice, field.TypeString, value)
+	}
+	if _u.mutation.VoiceCleared() {
+		_spec.ClearField(agent.FieldVoice, field.TypeString)
+	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2M,
@@ -257,6 +283,26 @@ func (_u *AgentUpdateOne) SetNillablePath(v *string) *AgentUpdateOne {
 // ClearPath clears the value of the "path" field.
 func (_u *AgentUpdateOne) ClearPath() *AgentUpdateOne {
 	_u.mutation.ClearPath()
+	return _u
+}
+
+// SetVoice sets the "voice" field.
+func (_u *AgentUpdateOne) SetVoice(v string) *AgentUpdateOne {
+	_u.mutation.SetVoice(v)
+	return _u
+}
+
+// SetNillableVoice sets the "voice" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableVoice(v *string) *AgentUpdateOne {
+	if v != nil {
+		_u.SetVoice(*v)
+	}
+	return _u
+}
+
+// ClearVoice clears the value of the "voice" field.
+func (_u *AgentUpdateOne) ClearVoice() *AgentUpdateOne {
+	_u.mutation.ClearVoice()
 	return _u
 }
 
@@ -388,6 +434,12 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if _u.mutation.PathCleared() {
 		_spec.ClearField(agent.FieldPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.Voice(); ok {
+		_spec.SetField(agent.FieldVoice, field.TypeString, value)
+	}
+	if _u.mutation.VoiceCleared() {
+		_spec.ClearField(agent.FieldVoice, field.TypeString)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{

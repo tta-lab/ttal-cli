@@ -21,6 +21,8 @@ type Agent struct {
 	Name string `json:"name,omitempty"`
 	// Agent workspace path
 	Path string `json:"path,omitempty"`
+	// Kokoro TTS voice ID (e.g. af_heart, af_sky)
+	Voice string `json:"voice,omitempty"`
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -54,7 +56,7 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldID:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldPath:
+		case agent.FieldName, agent.FieldPath, agent.FieldVoice:
 			values[i] = new(sql.NullString)
 		case agent.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -90,6 +92,12 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field path", values[i])
 			} else if value.Valid {
 				_m.Path = value.String
+			}
+		case agent.FieldVoice:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field voice", values[i])
+			} else if value.Valid {
+				_m.Voice = value.String
 			}
 		case agent.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -143,6 +151,9 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("path=")
 	builder.WriteString(_m.Path)
+	builder.WriteString(", ")
+	builder.WriteString("voice=")
+	builder.WriteString(_m.Voice)
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

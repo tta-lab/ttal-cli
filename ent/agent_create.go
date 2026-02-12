@@ -41,6 +41,20 @@ func (_c *AgentCreate) SetNillablePath(v *string) *AgentCreate {
 	return _c
 }
 
+// SetVoice sets the "voice" field.
+func (_c *AgentCreate) SetVoice(v string) *AgentCreate {
+	_c.mutation.SetVoice(v)
+	return _c
+}
+
+// SetNillableVoice sets the "voice" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableVoice(v *string) *AgentCreate {
+	if v != nil {
+		_c.SetVoice(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AgentCreate) SetCreatedAt(v time.Time) *AgentCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -157,6 +171,10 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Path(); ok {
 		_spec.SetField(agent.FieldPath, field.TypeString, value)
 		_node.Path = value
+	}
+	if value, ok := _c.mutation.Voice(); ok {
+		_spec.SetField(agent.FieldVoice, field.TypeString, value)
+		_node.Voice = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agent.FieldCreatedAt, field.TypeTime, value)

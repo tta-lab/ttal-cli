@@ -36,7 +36,7 @@ func init() {
 		}
 	}()
 	// agentDescCreatedAt is the schema descriptor for created_at field.
-	agentDescCreatedAt := agentFields[2].Descriptor()
+	agentDescCreatedAt := agentFields[3].Descriptor()
 	// agent.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agent.DefaultCreatedAt = agentDescCreatedAt.Default.(func() time.Time)
 	projectFields := schema.Project{}.Fields()

@@ -11,12 +11,14 @@ import (
 	"github.com/guion-opensource/ttal-cli/ent/agent"
 	"github.com/guion-opensource/ttal-cli/ent/project"
 	"github.com/guion-opensource/ttal-cli/ent/tag"
+	"github.com/guion-opensource/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
 
 var (
-	agentName string
-	agentPath string
+	agentName  string
+	agentPath  string
+	agentVoice string
 )
 
 var agentCmd = &cobra.Command{
@@ -66,6 +68,12 @@ Example:
 
 		if agentPath != "" {
 			creator = creator.SetPath(agentPath)
+		}
+		if agentVoice != "" {
+			if !voice.IsValidVoice(agentVoice) {
+				return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", agentVoice)
+			}
+			creator = creator.SetVoice(agentVoice)
 		}
 		if len(tags) > 0 {
 			creator = creator.AddTags(tags...)
@@ -165,6 +173,9 @@ Example:
 		if ag.Path != "" {
 			fmt.Printf("Path:      %s\n", ag.Path)
 		}
+		if ag.Voice != "" {
+			fmt.Printf("Voice:     %s\n", ag.Voice)
+		}
 
 		// Extract tag names
 		var tagNames []string
@@ -244,8 +255,13 @@ Examples:
 			switch field {
 			case "path":
 				updater = updater.SetPath(value)
+			case "voice":
+				if !voice.IsValidVoice(value) {
+					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
+				}
+				updater = updater.SetVoice(value)
 			default:
-				return fmt.Errorf("unknown field '%s' (available: path)", field)
+				return fmt.Errorf("unknown field '%s' (available: path, voice)", field)
 			}
 		}
 
@@ -315,4 +331,5 @@ func init() {
 
 	// Flags for agent add
 	agentAddCmd.Flags().StringVar(&agentPath, "path", "", "Agent workspace path")
+	agentAddCmd.Flags().StringVar(&agentVoice, "voice", "", "Kokoro TTS voice ID (e.g. af_heart, af_sky)")
 }

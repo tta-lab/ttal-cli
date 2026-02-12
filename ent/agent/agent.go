@@ -18,6 +18,8 @@ const (
 	FieldName = "name"
 	// FieldPath holds the string denoting the path field in the database.
 	FieldPath = "path"
+	// FieldVoice holds the string denoting the voice field in the database.
+	FieldVoice = "voice"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
@@ -36,6 +38,7 @@ var Columns = []string{
 	FieldID,
 	FieldName,
 	FieldPath,
+	FieldVoice,
 	FieldCreatedAt,
 }
 
@@ -78,6 +81,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByPath orders the results by the path field.
 func ByPath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPath, opts...).ToFunc()
+}
+
+// ByVoice orders the results by the voice field.
+func ByVoice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVoice, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

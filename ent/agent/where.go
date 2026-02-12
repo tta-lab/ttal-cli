@@ -65,6 +65,11 @@ func Path(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldPath, v))
 }
 
+// Voice applies equality check predicate on the "voice" field. It's identical to VoiceEQ.
+func Voice(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldVoice, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldCreatedAt, v))
@@ -208,6 +213,81 @@ func PathEqualFold(v string) predicate.Agent {
 // PathContainsFold applies the ContainsFold predicate on the "path" field.
 func PathContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldPath, v))
+}
+
+// VoiceEQ applies the EQ predicate on the "voice" field.
+func VoiceEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldVoice, v))
+}
+
+// VoiceNEQ applies the NEQ predicate on the "voice" field.
+func VoiceNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldVoice, v))
+}
+
+// VoiceIn applies the In predicate on the "voice" field.
+func VoiceIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldVoice, vs...))
+}
+
+// VoiceNotIn applies the NotIn predicate on the "voice" field.
+func VoiceNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldVoice, vs...))
+}
+
+// VoiceGT applies the GT predicate on the "voice" field.
+func VoiceGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldVoice, v))
+}
+
+// VoiceGTE applies the GTE predicate on the "voice" field.
+func VoiceGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldVoice, v))
+}
+
+// VoiceLT applies the LT predicate on the "voice" field.
+func VoiceLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldVoice, v))
+}
+
+// VoiceLTE applies the LTE predicate on the "voice" field.
+func VoiceLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldVoice, v))
+}
+
+// VoiceContains applies the Contains predicate on the "voice" field.
+func VoiceContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldVoice, v))
+}
+
+// VoiceHasPrefix applies the HasPrefix predicate on the "voice" field.
+func VoiceHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldVoice, v))
+}
+
+// VoiceHasSuffix applies the HasSuffix predicate on the "voice" field.
+func VoiceHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldVoice, v))
+}
+
+// VoiceIsNil applies the IsNil predicate on the "voice" field.
+func VoiceIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldVoice))
+}
+
+// VoiceNotNil applies the NotNil predicate on the "voice" field.
+func VoiceNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldVoice))
+}
+
+// VoiceEqualFold applies the EqualFold predicate on the "voice" field.
+func VoiceEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldVoice, v))
+}
+
+// VoiceContainsFold applies the ContainsFold predicate on the "voice" field.
+func VoiceContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldVoice, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

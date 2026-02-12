@@ -31,6 +31,9 @@ func (Agent) Fields() []ent.Field {
 		field.String("path").
 			Optional().
 			Comment("Agent workspace path"),
+		field.String("voice").
+			Optional().
+			Comment("Kokoro TTS voice ID (e.g. af_heart, af_sky)"),
 		field.Time("created_at").
 			Default(time.Now).
 			Immutable().
