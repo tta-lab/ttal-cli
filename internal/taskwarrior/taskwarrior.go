@@ -72,7 +72,6 @@ func (t *Task) FormatPrompt() string {
 	var lines []string
 
 	lines = append(lines, t.Description)
-	lines = append(lines, fmt.Sprintf("Task UUID: %s", t.UUID))
 
 	// Separate file-reference annotations, worker annotations, and content annotations
 	fileRefDescs := make(map[string]bool)
