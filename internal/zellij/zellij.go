@@ -73,7 +73,7 @@ func ListSessions() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "zellij", "--data-dir", DataDir(), "list-sessions")
+	cmd := exec.CommandContext(ctx, "zellij", "--data-dir", DataDir(), "list-sessions", "--short")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
@@ -81,13 +81,8 @@ func ListSessions() ([]string, error) {
 
 	var sessions []string
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			// Session names appear as the first word on each line
-			parts := strings.Fields(line)
-			if len(parts) > 0 {
-				sessions = append(sessions, parts[0])
-			}
+		if name := strings.TrimSpace(line); name != "" {
+			sessions = append(sessions, name)
 		}
 	}
 	return sessions, nil
