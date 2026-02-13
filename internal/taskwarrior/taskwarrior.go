@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -26,18 +28,29 @@ func userError(format string, args ...any) error {
 	return &UserError{Msg: fmt.Sprintf(format, args...)}
 }
 
+// Annotation represents a taskwarrior annotation.
+type Annotation struct {
+	Description string `json:"description"`
+	Entry       string `json:"entry,omitempty"`
+}
+
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
-	UUID        string   `json:"uuid"`
-	Description string   `json:"description"`
-	Status      string   `json:"status"`
-	Tags        []string `json:"tags,omitempty"`
-	Start       string   `json:"start,omitempty"`
-	Modified    string   `json:"modified,omitempty"`
-	SessionName string   `json:"session_name"`
-	Branch      string   `json:"branch"`
-	ProjectPath string   `json:"project_path"`
-	PRID        string   `json:"pr_id,omitempty"`
+	ID          int          `json:"id"`
+	UUID        string       `json:"uuid"`
+	Description string       `json:"description"`
+	Status      string       `json:"status"`
+	Project     string       `json:"project,omitempty"`
+	Tags        []string     `json:"tags,omitempty"`
+	Priority    string       `json:"priority,omitempty"`
+	Due         string       `json:"due,omitempty"`
+	Annotations []Annotation `json:"annotations,omitempty"`
+	Start       string       `json:"start,omitempty"`
+	Modified    string       `json:"modified,omitempty"`
+	SessionName string       `json:"session_name"`
+	Branch      string       `json:"branch"`
+	ProjectPath string       `json:"project_path"`
+	PRID        string       `json:"pr_id,omitempty"`
 }
 
 // HasTag returns true if the task has the given tag.
@@ -48,6 +61,103 @@ func (t *Task) HasTag(tag string) bool {
 		}
 	}
 	return false
+}
+
+// fileRefPattern matches annotations like "Design: ~/path/to/file.md"
+var fileRefPattern = regexp.MustCompile(`(?:Design|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
+
+// FormatPrompt formats the task as a rich prompt matching task-open.py output.
+// Includes task metadata, annotations, and inlined referenced markdown files.
+func (t *Task) FormatPrompt() string {
+	var lines []string
+
+	lines = append(lines, fmt.Sprintf("Task #%d: %s", t.ID, t.Description))
+
+	if t.Project != "" {
+		lines = append(lines, fmt.Sprintf("Project: %s", t.Project))
+	}
+	if len(t.Tags) > 0 {
+		lines = append(lines, fmt.Sprintf("Tags: %s", strings.Join(t.Tags, ", ")))
+	}
+	if t.Priority != "" {
+		lines = append(lines, fmt.Sprintf("Priority: %s", t.Priority))
+	}
+	if t.Due != "" {
+		due := strings.ReplaceAll(t.Due, "T", " ")
+		due = strings.TrimSuffix(due, "Z")
+		if len(due) > 16 {
+			due = due[:16]
+		}
+		lines = append(lines, fmt.Sprintf("Due: %s", due))
+	}
+	lines = append(lines, fmt.Sprintf("Status: %s", capitalizeFirst(t.Status)))
+
+	// Separate file-reference annotations from regular ones
+	fileRefDescs := make(map[string]bool)
+	type fileRef struct {
+		label string
+		path  string
+	}
+	var fileRefs []fileRef
+
+	for _, ann := range t.Annotations {
+		matches := fileRefPattern.FindAllStringSubmatch(ann.Description, -1)
+		for _, m := range matches {
+			fileRefDescs[ann.Description] = true
+			fileRefs = append(fileRefs, fileRef{label: ann.Description, path: m[1]})
+		}
+	}
+
+	// Non-file-reference annotations
+	var otherAnns []Annotation
+	for _, ann := range t.Annotations {
+		if !fileRefDescs[ann.Description] {
+			otherAnns = append(otherAnns, ann)
+		}
+	}
+	if len(otherAnns) > 0 {
+		lines = append(lines, "\nAnnotations:")
+		for _, ann := range otherAnns {
+			for _, line := range strings.Split(ann.Description, "\n") {
+				lines = append(lines, fmt.Sprintf("  %s", line))
+			}
+		}
+	}
+
+	result := strings.Join(lines, "\n") + "\n"
+
+	// Inline referenced markdown files
+	if len(fileRefs) > 0 {
+		result += "\nReferenced Documentation:\n"
+		sep := strings.Repeat("═", 80)
+		subSep := strings.Repeat("─", 80)
+		for _, ref := range fileRefs {
+			result += sep + "\n"
+			result += ref.label + "\n"
+			result += subSep + "\n"
+			result += readFileRef(ref.path) + "\n"
+			result += sep + "\n"
+		}
+	}
+
+	return result
+}
+
+// readFileRef reads a file path, expanding ~ to home directory.
+func readFileRef(path string) string {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Sprintf("[Error expanding home directory: %v]", err)
+		}
+		path = filepath.Join(home, path[1:])
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Sprintf("[File not found: %s]", path)
+	}
+	return string(data)
 }
 
 // ValidateUUID checks that s is a valid taskwarrior UUID.
@@ -263,6 +373,13 @@ func isNumeric(s string) bool {
 		}
 	}
 	return true
+}
+
+func capitalizeFirst(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func capitalizeWords(s string) string {

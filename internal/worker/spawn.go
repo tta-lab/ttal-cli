@@ -134,7 +134,7 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	fmt.Printf("  Model: %s\n", model)
 	layoutFile, _, err := zellij.CreateLayout(zellij.LayoutConfig{
 		WorkDir:        workDir,
-		Task:           task.Description,
+		Task:           task.FormatPrompt(),
 		Yolo:           cfg.Yolo,
 		Brainstorm:     task.HasTag("brainstorm"),
 		Model:          model,
