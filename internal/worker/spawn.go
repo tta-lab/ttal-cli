@@ -67,10 +67,6 @@ func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
 	}
 	fmt.Printf("Loaded task from taskwarrior\n  UUID: %s\n", task.UUID)
 
-	if err := taskwarrior.AnnotateTask(task.UUID, fmt.Sprintf("Worker: %s", cfg.Name)); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to annotate task (non-fatal): %v\n", err)
-	}
-
 	if err := taskwarrior.VerifyRequiredUDAs(); err != nil {
 		return nil, err
 	}

@@ -36,14 +36,10 @@ type Annotation struct {
 
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
-	ID          int          `json:"id"`
 	UUID        string       `json:"uuid"`
 	Description string       `json:"description"`
 	Status      string       `json:"status"`
-	Project     string       `json:"project,omitempty"`
 	Tags        []string     `json:"tags,omitempty"`
-	Priority    string       `json:"priority,omitempty"`
-	Due         string       `json:"due,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Start       string       `json:"start,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
@@ -66,33 +62,19 @@ func (t *Task) HasTag(tag string) bool {
 // fileRefPattern matches annotations like "Design: ~/path/to/file.md"
 var fileRefPattern = regexp.MustCompile(`(?:Design|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
 
-// FormatPrompt formats the task as a rich prompt matching task-open.py output.
-// Includes task metadata, annotations, and inlined referenced markdown files.
+// workerAnnotationPattern matches "Worker: <name>" annotations added by spawn.
+var workerAnnotationPattern = regexp.MustCompile(`^Worker:\s+\S+$`)
+
+// FormatPrompt formats the task for injection into a worker's Claude prompt.
+// Only includes what's actionable: description, UUID, meaningful annotations,
+// and inlined referenced markdown docs.
 func (t *Task) FormatPrompt() string {
 	var lines []string
 
-	lines = append(lines, fmt.Sprintf("Task #%d: %s", t.ID, t.Description))
+	lines = append(lines, t.Description)
+	lines = append(lines, fmt.Sprintf("Task UUID: %s", t.UUID))
 
-	if t.Project != "" {
-		lines = append(lines, fmt.Sprintf("Project: %s", t.Project))
-	}
-	if len(t.Tags) > 0 {
-		lines = append(lines, fmt.Sprintf("Tags: %s", strings.Join(t.Tags, ", ")))
-	}
-	if t.Priority != "" {
-		lines = append(lines, fmt.Sprintf("Priority: %s", t.Priority))
-	}
-	if t.Due != "" {
-		due := strings.ReplaceAll(t.Due, "T", " ")
-		due = strings.TrimSuffix(due, "Z")
-		if len(due) > 16 {
-			due = due[:16]
-		}
-		lines = append(lines, fmt.Sprintf("Due: %s", due))
-	}
-	lines = append(lines, fmt.Sprintf("Status: %s", capitalizeFirst(t.Status)))
-
-	// Separate file-reference annotations from regular ones
+	// Separate file-reference annotations, worker annotations, and content annotations
 	fileRefDescs := make(map[string]bool)
 	type fileRef struct {
 		label string
@@ -108,20 +90,20 @@ func (t *Task) FormatPrompt() string {
 		}
 	}
 
-	// Non-file-reference annotations
-	var otherAnns []Annotation
+	// Content annotations only (skip file refs and "Worker: xxx" metadata)
+	var contentAnns []Annotation
 	for _, ann := range t.Annotations {
-		if !fileRefDescs[ann.Description] {
-			otherAnns = append(otherAnns, ann)
+		if fileRefDescs[ann.Description] {
+			continue
 		}
+		if workerAnnotationPattern.MatchString(ann.Description) {
+			continue
+		}
+		contentAnns = append(contentAnns, ann)
 	}
-	if len(otherAnns) > 0 {
-		lines = append(lines, "\nAnnotations:")
-		for _, ann := range otherAnns {
-			for _, line := range strings.Split(ann.Description, "\n") {
-				lines = append(lines, fmt.Sprintf("  %s", line))
-			}
-		}
+	for _, ann := range contentAnns {
+		lines = append(lines, "")
+		lines = append(lines, ann.Description)
 	}
 
 	result := strings.Join(lines, "\n") + "\n"
@@ -373,13 +355,6 @@ func isNumeric(s string) bool {
 		}
 	}
 	return true
-}
-
-func capitalizeFirst(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func capitalizeWords(s string) string {
