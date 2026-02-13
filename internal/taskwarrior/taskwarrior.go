@@ -62,18 +62,14 @@ func (t *Task) HasTag(tag string) bool {
 // fileRefPattern matches annotations like "Design: ~/path/to/file.md"
 var fileRefPattern = regexp.MustCompile(`(?:Design|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
 
-// workerAnnotationPattern matches "Worker: <name>" annotations added by spawn.
-var workerAnnotationPattern = regexp.MustCompile(`^Worker:\s+\S+$`)
-
 // FormatPrompt formats the task for injection into a worker's Claude prompt.
-// Only includes what's actionable: description, UUID, meaningful annotations,
-// and inlined referenced markdown docs.
+// Includes description, annotations, and inlined referenced markdown docs.
 func (t *Task) FormatPrompt() string {
 	var lines []string
 
 	lines = append(lines, t.Description)
 
-	// Separate file-reference annotations, worker annotations, and content annotations
+	// Separate file-reference annotations from content annotations
 	fileRefDescs := make(map[string]bool)
 	type fileRef struct {
 		label string
@@ -89,18 +85,11 @@ func (t *Task) FormatPrompt() string {
 		}
 	}
 
-	// Content annotations only (skip file refs and "Worker: xxx" metadata)
-	var contentAnns []Annotation
+	// Content annotations (skip file refs, they're inlined below)
 	for _, ann := range t.Annotations {
 		if fileRefDescs[ann.Description] {
 			continue
 		}
-		if workerAnnotationPattern.MatchString(ann.Description) {
-			continue
-		}
-		contentAnns = append(contentAnns, ann)
-	}
-	for _, ann := range contentAnns {
 		lines = append(lines, "")
 		lines = append(lines, ann.Description)
 	}
