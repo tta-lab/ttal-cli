@@ -151,7 +151,7 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return err
 	}
 
-	if err := zellij.WaitForSession(sessionName, handle, 10*time.Second); err != nil {
+	if err := zellij.WaitForSession(sessionName, handle, 30*time.Second); err != nil {
 		return fmt.Errorf("failed to create zellij session\n"+
 			"  Session name: %s\n"+
 			"  Worker: %s\n\n"+
