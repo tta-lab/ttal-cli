@@ -9,15 +9,14 @@ import (
 )
 
 var (
-	spawnName       string
-	spawnProject    string
-	spawnTask       string
-	spawnSession    string
-	spawnWorktree   bool
-	spawnForce      bool
-	spawnYolo       bool
-	spawnBrainstorm bool
-	closeForce      bool
+	spawnName     string
+	spawnProject  string
+	spawnTask     string
+	spawnSession  string
+	spawnWorktree bool
+	spawnForce    bool
+	spawnYolo     bool
+	closeForce    bool
 )
 
 var workerCmd = &cobra.Command{
@@ -69,19 +68,21 @@ var workerSpawnCmd = &cobra.Command{
 Creates a git worktree, launches a zellij session with Claude Code,
 and tracks the worker in taskwarrior.
 
+Task tags control behavior:
+  +brainstorm  Use brainstorming skill before implementation
+  +sonnet      Use sonnet model instead of opus (default)
+
 Example:
-  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
-  ttal worker spawn --name refactor --project . --task <uuid> --brainstorm`,
+  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return worker.Spawn(worker.SpawnConfig{
-			Name:       spawnName,
-			Project:    spawnProject,
-			TaskUUID:   spawnTask,
-			Session:    spawnSession,
-			Worktree:   spawnWorktree,
-			Force:      spawnForce,
-			Yolo:       spawnYolo,
-			Brainstorm: spawnBrainstorm,
+			Name:     spawnName,
+			Project:  spawnProject,
+			TaskUUID: spawnTask,
+			Session:  spawnSession,
+			Worktree: spawnWorktree,
+			Force:    spawnForce,
+			Yolo:     spawnYolo,
 		})
 	},
 }
@@ -171,7 +172,6 @@ func init() {
 	workerSpawnCmd.Flags().BoolVar(&spawnWorktree, "worktree", true, "Create git worktree")
 	workerSpawnCmd.Flags().BoolVar(&spawnForce, "force", false, "Force respawn (close existing session)")
 	workerSpawnCmd.Flags().BoolVar(&spawnYolo, "yolo", true, "Skip permissions prompts")
-	workerSpawnCmd.Flags().BoolVar(&spawnBrainstorm, "brainstorm", false, "Use brainstorming skill")
 
 	_ = workerSpawnCmd.MarkFlagRequired("name")
 	_ = workerSpawnCmd.MarkFlagRequired("project")

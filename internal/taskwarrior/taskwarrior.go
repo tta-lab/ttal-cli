@@ -28,15 +28,26 @@ func userError(format string, args ...any) error {
 
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
-	UUID        string `json:"uuid"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-	Start       string `json:"start,omitempty"`
-	Modified    string `json:"modified,omitempty"`
-	SessionName string `json:"session_name"`
-	Branch      string `json:"branch"`
-	ProjectPath string `json:"project_path"`
-	PRID        string `json:"pr_id,omitempty"`
+	UUID        string   `json:"uuid"`
+	Description string   `json:"description"`
+	Status      string   `json:"status"`
+	Tags        []string `json:"tags,omitempty"`
+	Start       string   `json:"start,omitempty"`
+	Modified    string   `json:"modified,omitempty"`
+	SessionName string   `json:"session_name"`
+	Branch      string   `json:"branch"`
+	ProjectPath string   `json:"project_path"`
+	PRID        string   `json:"pr_id,omitempty"`
+}
+
+// HasTag returns true if the task has the given tag.
+func (t *Task) HasTag(tag string) bool {
+	for _, tt := range t.Tags {
+		if tt == tag {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateUUID checks that s is a valid taskwarrior UUID.

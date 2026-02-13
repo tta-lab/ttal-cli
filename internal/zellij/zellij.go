@@ -109,6 +109,7 @@ type LayoutConfig struct {
 	Task           string
 	Yolo           bool
 	Brainstorm     bool
+	Model          string
 	Branch         string
 	IsWorktree     bool
 	GatekeeperPath string
@@ -171,7 +172,12 @@ Then proceed with:
 		return "", "", fmt.Errorf("gatekeeper path is required")
 	}
 
-	fishCommand := fmt.Sprintf("%s --task-file %s -- claude --model opus %s--", cfg.GatekeeperPath, taskFilePath, yoloFlag)
+	model := cfg.Model
+	if model == "" {
+		model = "opus"
+	}
+
+	fishCommand := fmt.Sprintf("%s --task-file %s -- claude --model %s %s--", cfg.GatekeeperPath, taskFilePath, model, yoloFlag)
 
 	// Create layout file
 	layoutContent := fmt.Sprintf(`layout {

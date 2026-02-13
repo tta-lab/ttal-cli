@@ -15,14 +15,13 @@ import (
 
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
-	Name       string
-	Project    string
-	TaskUUID   string
-	Session    string
-	Worktree   bool
-	Force      bool
-	Yolo       bool
-	Brainstorm bool
+	Name     string
+	Project  string
+	TaskUUID string
+	Session  string
+	Worktree bool
+	Force    bool
+	Yolo     bool
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches zellij session,
@@ -126,12 +125,19 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return err
 	}
 
+	model := "opus"
+	if task.HasTag("sonnet") {
+		model = "sonnet"
+	}
+
 	fmt.Printf("\nLaunching Claude Code with task: %s\n", task.Description)
+	fmt.Printf("  Model: %s\n", model)
 	layoutFile, _, err := zellij.CreateLayout(zellij.LayoutConfig{
 		WorkDir:        workDir,
 		Task:           task.Description,
 		Yolo:           cfg.Yolo,
-		Brainstorm:     cfg.Brainstorm,
+		Brainstorm:     task.HasTag("brainstorm"),
+		Model:          model,
 		Branch:         branch,
 		IsWorktree:     cfg.Worktree,
 		GatekeeperPath: gatekeeperPath,
