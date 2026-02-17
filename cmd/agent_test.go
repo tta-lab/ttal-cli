@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
-	"github.com/guion-opensource/ttal-cli/internal/db"
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/internal/db"
 )
 
 func setupAgentTest(t *testing.T) {

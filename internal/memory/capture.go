@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/ent"
-	"github.com/guion-opensource/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/ent/project"
 )
 
 type Commit struct {

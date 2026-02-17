@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
-	"github.com/guion-opensource/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
 // SpawnConfig holds configuration for spawning a worker.

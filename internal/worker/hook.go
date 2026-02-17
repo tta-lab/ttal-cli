@@ -4,12 +4,76 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
+
+// taskwarrior task status constants used across hook handlers.
+const (
+	taskStatusPending   = "pending"
+	taskStatusCompleted = "completed"
+)
+
+// daemonSendRequest mirrors daemon.SendRequest to avoid import cycle.
+type daemonSendRequest struct {
+	From    string `json:"from,omitempty"`
+	To      string `json:"to,omitempty"`
+	Message string `json:"message"`
+}
+
+type daemonSendResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+// errDaemonNotRunning is returned when the daemon socket cannot be reached.
+// Callers use this to distinguish "daemon down, fall back" from
+// "daemon up but rejected the request".
+var errDaemonNotRunning = fmt.Errorf("daemon not running")
+
+// sendToDaemon sends a request to the daemon socket.
+// Returns errDaemonNotRunning if the socket is unreachable.
+// Returns a descriptive error (prefixed "daemon error:") if the daemon
+// accepted the connection but rejected the request.
+func sendToDaemon(req daemonSendRequest) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return errDaemonNotRunning
+	}
+	sockPath := filepath.Join(home, ".ttal", "daemon.sock")
+
+	conn, err := net.DialTimeout("unix", sockPath, 5*time.Second)
+	if err != nil {
+		return errDaemonNotRunning
+	}
+	defer conn.Close()                                //nolint:errcheck
+	conn.SetDeadline(time.Now().Add(5 * time.Second)) //nolint:errcheck
+
+	data, _ := json.Marshal(req)
+	if _, err := conn.Write(append(data, '\n')); err != nil {
+		return fmt.Errorf("failed to send to daemon: %w", err)
+	}
+
+	scanner := bufio.NewScanner(conn)
+	if !scanner.Scan() {
+		return fmt.Errorf("no response from daemon")
+	}
+
+	var resp daemonSendResponse
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("daemon error: %s", resp.Error)
+	}
+	return nil
+}
 
 // hookTask represents a taskwarrior task as received via on-modify hook stdin.
 // Uses map for flexibility — we only inspect specific fields.
@@ -90,10 +154,32 @@ func (t hookTask) Annotations() []map[string]any {
 	return anns
 }
 
-// hookConfig holds config for hook operations.
+// hookConfig holds config for hook delivery routing.
+//
+// Example config.json:
+//
+//	{
+//	  "primary": "zellij",
+//	  "channels": {
+//	    "zellij": { "session": "cclaw", "tab": "kestrel" },
+//	    "telegram": { "chat_id": "123", "account_id": "kestrel" }
+//	  }
+//	}
 type hookConfig struct {
-	TelegramChatID    string `json:"telegram_chat_id"`
-	TelegramAccountID string `json:"telegram_account_id"`
+	Primary  string                   `json:"primary"`
+	Channels map[string]channelConfig `json:"channels"`
+}
+
+// channelConfig holds channel-specific settings (union of all channel fields).
+type channelConfig struct {
+	// Zellij
+	Session string `json:"session,omitempty"`
+	Tab     string `json:"tab,omitempty"`
+	DataDir string `json:"data_dir,omitempty"`
+
+	// Telegram (via openclaw)
+	ChatID    string `json:"chat_id,omitempty"`
+	AccountID string `json:"account_id,omitempty"`
 }
 
 func loadHookConfig() (*hookConfig, error) {
@@ -112,6 +198,17 @@ func loadHookConfig() (*hookConfig, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid hook config: %w", err)
 	}
+
+	if cfg.Primary == "" {
+		return nil, fmt.Errorf("hook config missing 'primary' channel")
+	}
+	if cfg.Channels == nil {
+		return nil, fmt.Errorf("hook config missing 'channels'")
+	}
+	if _, ok := cfg.Channels[cfg.Primary]; !ok {
+		return nil, fmt.Errorf("primary channel %q not found in channels", cfg.Primary)
+	}
+
 	return &cfg, nil
 }
 
@@ -121,6 +218,9 @@ func readHookInput() (original, modified hookTask, err error) {
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 
 	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return nil, nil, fmt.Errorf("reading original task from stdin: %w", err)
+		}
 		return nil, nil, fmt.Errorf("failed to read original task from stdin")
 	}
 	if err := json.Unmarshal(scanner.Bytes(), &original); err != nil {
@@ -128,6 +228,9 @@ func readHookInput() (original, modified hookTask, err error) {
 	}
 
 	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return nil, nil, fmt.Errorf("reading modified task from stdin: %w", err)
+		}
 		return nil, nil, fmt.Errorf("failed to read modified task from stdin")
 	}
 	if err := json.Unmarshal(scanner.Bytes(), &modified); err != nil {
@@ -137,14 +240,11 @@ func readHookInput() (original, modified hookTask, err error) {
 	return original, modified, nil
 }
 
-// outputModifiedTask writes the modified task JSON to stdout (required by taskwarrior).
-func outputModifiedTask(modified hookTask) {
-	data, err := json.Marshal(modified)
-	if err != nil {
-		// Fallback: taskwarrior needs something on stdout
-		fmt.Fprintln(os.Stderr, "ERROR: failed to marshal modified task:", err)
-		return
-	}
+// passthroughTask writes the task JSON back to stdout as required by the
+// taskwarrior hook protocol. We never mutate the task — this is a pure echo.
+// Marshal of a JSON-sourced map[string]any cannot fail.
+func passthroughTask(task hookTask) {
+	data, _ := json.Marshal(task)
 	fmt.Println(string(data))
 }
 
@@ -174,8 +274,8 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
-	f.WriteString(line)
+	defer f.Close()     //nolint:errcheck
+	f.WriteString(line) //nolint:errcheck
 }
 
 // notifyAgent sends a fire-and-forget message to the worker-lifecycle agent.
@@ -183,16 +283,62 @@ func notifyAgent(message string) {
 	notifyAgentWith(message, "worker-lifecycle")
 }
 
-// notifyAgentWith sends a fire-and-forget message to a specific openclaw agent.
+// notifyAgentWith dispatches a message to the named agent.
+// Tries the daemon socket first; falls back to direct delivery only if the
+// daemon is not running. A daemon rejection (unknown agent, etc.) is logged
+// and does not trigger fallback.
 func notifyAgentWith(message, agent string) {
+	// Try daemon socket first
+	req := daemonSendRequest{To: agent, Message: message}
+	err := sendToDaemon(req)
+	if err == nil {
+		hookLogFile(fmt.Sprintf("Delivered via daemon: agent=%s", agent))
+		return
+	}
+	if err != errDaemonNotRunning {
+		// Daemon is running but rejected the request — don't fall back silently
+		hookLogFile(fmt.Sprintf("ERROR: daemon rejected notify for agent=%s: %v", agent, err))
+		return
+	}
+
+	// Daemon not running — fall back to direct zellij delivery via hook config
 	cfg, err := loadHookConfig()
 	if err != nil {
 		hookLogFile("ERROR: cannot load config for agent notify: " + err.Error())
 		return
 	}
 
-	if cfg.TelegramChatID == "" {
-		hookLogFile("ERROR: telegram_chat_id not configured")
+	ch := cfg.Channels[cfg.Primary]
+
+	switch cfg.Primary {
+	case "zellij":
+		deliverViaZellij(message, ch)
+	case "telegram":
+		deliverViaTelegram(message, agent, ch)
+	default:
+		hookLogFile("ERROR: unknown channel: " + cfg.Primary)
+	}
+}
+
+// deliverViaZellij sends the message as typed input to a CC session in a zellij tab.
+func deliverViaZellij(message string, ch channelConfig) {
+	if ch.Session == "" {
+		hookLogFile("ERROR: zellij channel missing 'session'")
+		return
+	}
+
+	if err := zellij.WriteChars(ch.Session, ch.Tab, ch.DataDir, message); err != nil {
+		hookLogFile("ERROR: failed to deliver to zellij: " + err.Error())
+		return
+	}
+
+	hookLogFile(fmt.Sprintf("Delivered to zellij session=%s tab=%s", ch.Session, ch.Tab))
+}
+
+// deliverViaTelegram sends the message via openclaw agent to Telegram.
+func deliverViaTelegram(message, agent string, ch channelConfig) {
+	if ch.ChatID == "" {
+		hookLogFile("ERROR: telegram channel missing 'chat_id'")
 		return
 	}
 
@@ -202,7 +348,7 @@ func notifyAgentWith(message, agent string) {
 		return
 	}
 
-	accountID := cfg.TelegramAccountID
+	accountID := ch.AccountID
 	if accountID == "" {
 		accountID = "kestrel"
 	}
@@ -213,7 +359,7 @@ func notifyAgentWith(message, agent string) {
 		"--deliver",
 		"--channel", "telegram",
 		"--reply-account", accountID,
-		"--to", cfg.TelegramChatID,
+		"--to", ch.ChatID,
 	)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
@@ -224,7 +370,7 @@ func notifyAgentWith(message, agent string) {
 	}
 
 	// Fire-and-forget: release the child process
-	go cmd.Wait()
+	go cmd.Wait() //nolint:errcheck
 	hookLogFile(fmt.Sprintf("Agent notification spawned (pid=%d)", cmd.Process.Pid))
 }
 
@@ -239,8 +385,8 @@ func hookLogFile(message string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
-	fmt.Fprintf(f, "[%s] %s\n", timestamp, message)
+	defer f.Close()                                 //nolint:errcheck
+	fmt.Fprintf(f, "[%s] %s\n", timestamp, message) //nolint:errcheck
 }
 
 // extractTaskContext formats task info for agent notification.

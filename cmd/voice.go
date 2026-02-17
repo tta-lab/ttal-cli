@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/internal/voice"
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
 

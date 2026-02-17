@@ -8,9 +8,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/ent"
-	"github.com/guion-opensource/ttal-cli/ent/project"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"github.com/spf13/cobra"
 )
 

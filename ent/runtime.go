@@ -5,10 +5,10 @@ package ent
 import (
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/project"
-	"github.com/guion-opensource/ttal-cli/ent/schema"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/ent/schema"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 )
 
 // The init function reads all schema descriptors with runtime code

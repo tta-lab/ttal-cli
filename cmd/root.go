@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/guion-opensource/ttal-cli/internal/db"
+	"codeberg.org/clawteam/ttal-cli/internal/db"
 	"github.com/spf13/cobra"
 )
 

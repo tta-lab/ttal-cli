@@ -7,11 +7,11 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/guion-opensource/ttal-cli/ent"
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/project"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
-	"github.com/guion-opensource/ttal-cli/internal/voice"
+	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
 

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
 )
 
 // AgentCreate is the builder for creating a Agent entity.

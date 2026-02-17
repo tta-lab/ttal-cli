@@ -17,8 +17,8 @@ func HookOnComplete() {
 	}
 
 	// Only handle transitions to completed
-	if original.Status() != "pending" || modified.Status() != "completed" {
-		outputModifiedTask(modified)
+	if original.Status() != taskStatusPending || modified.Status() != taskStatusCompleted {
+		passthroughTask(modified)
 		return
 	}
 
@@ -27,7 +27,7 @@ func HookOnComplete() {
 
 // handleOnComplete contains the completion logic, callable from HookOnComplete or HookOnModify.
 func handleOnComplete(_ hookTask, modified hookTask) {
-	defer outputModifiedTask(modified)
+	defer passthroughTask(modified)
 
 	sessionName := modified.SessionName()
 	if sessionName == "" {

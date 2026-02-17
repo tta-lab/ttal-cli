@@ -65,7 +65,7 @@ var fileRefPattern = regexp.MustCompile(`(?:Design|Doc|Reference|File):\s*([~\/]
 // FormatPrompt formats the task for injection into a worker's Claude prompt.
 // Includes description, annotations, and inlined referenced markdown docs.
 func (t *Task) FormatPrompt() string {
-	var lines []string
+	lines := make([]string, 0, 1+len(t.Annotations))
 
 	lines = append(lines, t.Description)
 

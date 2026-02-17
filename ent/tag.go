@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
 )
 
 // Tag is the model entity for the Tag schema.

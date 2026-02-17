@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/internal/forgejo"
-	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
-	"github.com/guion-opensource/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
 // CloseResult holds the outcome of a close operation.
@@ -35,9 +35,9 @@ type CloseResult struct {
 //	other error               → script/worker error (exit 2)
 func Close(sessionName string, force bool) (*CloseResult, error) {
 	// Find the task by session_name (try completed first, then pending)
-	task, err := taskwarrior.ExportTaskBySession(sessionName, "completed")
+	task, err := taskwarrior.ExportTaskBySession(sessionName, taskStatusCompleted)
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySession(sessionName, "pending")
+		task, err = taskwarrior.ExportTaskBySession(sessionName, taskStatusPending)
 	}
 	if err != nil {
 		result := &CloseResult{

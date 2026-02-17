@@ -14,17 +14,17 @@ func HookOnModify() {
 	}
 
 	// Detect: Task Start (pending, no start → pending, has start)
-	if original.Start() == "" && modified.Start() != "" && modified.Status() == "pending" {
+	if original.Start() == "" && modified.Start() != "" && modified.Status() == taskStatusPending {
 		handleOnStart(original, modified)
 		return
 	}
 
 	// Detect: Task Complete (pending → completed)
-	if original.Status() == "pending" && modified.Status() == "completed" {
+	if original.Status() == taskStatusPending && modified.Status() == taskStatusCompleted {
 		handleOnComplete(original, modified)
 		return
 	}
 
 	// No matching event — pass through
-	outputModifiedTask(modified)
+	passthroughTask(modified)
 }

@@ -87,15 +87,38 @@ cmd/             - CLI commands (cobra)
   ├── root.go    - Root command and database initialization
   ├── project.go - Project CRUD commands
   ├── agent.go   - Agent CRUD commands
-  └── memory.go  - Memory capture command
+  ├── memory.go  - Memory capture command
+  ├── daemon.go  - ttal daemon run/install/uninstall/status
+  ├── send.go    - ttal send --from/--to (messaging)
+  └── worker.go  - ttal worker spawn/close/list
 
 ent/             - ent ORM (mostly auto-generated)
   └── schema/    - Schema definitions (source of truth)
 
 internal/
   ├── db/        - Database connection wrapper
-  └── memory/    - Memory capture logic (git commit extraction)
+  ├── memory/    - Memory capture logic (git commit extraction)
+  ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
+  ├── worker/    - Worker lifecycle (hook, spawn, close, poll)
+  └── zellij/    - Zellij session management and write-chars delivery
 ```
+
+### Daemon Architecture
+
+The daemon (`internal/daemon/`) is a communication hub managed by launchd. It handles all
+inter-agent and human-agent messaging. **Do not add fallback logic** — each path is explicit:
+
+| `ttal send` flags | Channel | Handler |
+|---|---|---|
+| `--from kestrel` | Telegram (outbound) | `handleFrom` |
+| `--to kestrel` | Zellij write-chars | `handleTo` |
+| `--from yuki --to kestrel` | Zellij write-chars + attribution | `handleAgentToAgent` |
+
+Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
+are set. Taskwarrior hooks use `--to` (daemon socket → agent's Zellij terminal).
+
+Completion polling (every 60s) is built into the daemon — **not** a separate launchd plist.
+`ttal worker install` only installs the taskwarrior hook, not a poll service.
 
 ### Tag-Based Routing
 
@@ -225,6 +248,8 @@ ttal --db=/custom/path/ttal.db project list
 
 - `README.md` - User-facing documentation and usage
 - `ENT_REFACTOR.md` - Detailed comparison of ent vs raw SQL
-- `DATABASE.md` - Database schema details
+- `docs/DATABASE.md` - Database schema details
 - `CI_CD_SETUP.md` - CI/CD pipeline documentation
 - `TESTING.md` - Testing guidelines
+- `docs/plans/2026-02-17-daemon-design.md` - Daemon design doc (see implementation note at top for API changes)
+- `docs/TELEGRAM_LIB_DECISION.md` - Why we chose go-telegram/bot

@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/predicate"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/predicate"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
 )
 
 // AgentUpdate is the builder for updating Agent entities.

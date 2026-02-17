@@ -10,6 +10,7 @@ A command-line tool for managing projects, agents, automated memory capture, and
 - **Tag-Based Filtering**: Taskwarrior-like syntax for tag management (`+tag` to add, `-tag` to remove)
 - **Agent Routing**: Tag-based task routing to matching agents
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
+- **Daemon**: Bidirectional communication hub — Telegram ↔ agents, agent-to-agent messaging, worker completion polling
 
 ## Installation
 
@@ -17,13 +18,17 @@ A command-line tool for managing projects, agents, automated memory capture, and
 # Build and install binary
 make install
 
-# Set up taskwarrior hook + launchd poll service
+# Set up taskwarrior hook (routes task events to agents)
 ttal worker install
+
+# Set up daemon (Telegram integration + completion polling, macOS)
+ttal daemon install
 ```
 
 To remove:
 ```bash
 ttal worker uninstall
+ttal daemon uninstall
 ```
 
 ## Development
@@ -251,23 +256,15 @@ ttal worker poll
 
 #### Worker Setup
 
-`ttal worker install` sets up both components:
-
-1. **Taskwarrior hook** (`~/.task/hooks/on-modify-ttal`) — routes task start/complete events
-2. **launchd poll service** — checks for merged PRs every 60 seconds (macOS)
+`ttal worker install` installs the taskwarrior hook only. Worker completion polling
+is handled by the daemon (see [Daemon Setup](#daemon-setup) below).
 
 ```bash
-# Install both hook and poll service
+# Install taskwarrior hook
 ttal worker install
 
-# Remove both
+# Remove taskwarrior hook
 ttal worker uninstall
-
-# Check poll service status
-launchctl list | grep ttal.poll
-
-# View poll logs
-tail -f ~/.ttal/poll_completion.log
 
 # View hook logs
 tail -f ~/.task/hooks.log
@@ -289,6 +286,88 @@ task add "Fix login bug" +backend
 ```
 
 The agent with the most overlapping tags wins. If no agent matches, the task is sent to the default agent (`worker-lifecycle`) for worker spawning.
+
+### Daemon Setup
+
+The daemon is a long-running process (managed by launchd on macOS) that acts as a communication hub for agents.
+
+#### What it does
+
+- **Telegram → Agent**: Polls each agent's Telegram bot for inbound messages, delivers them to the agent's zellij session via `write-chars`
+- **Agent → Telegram**: Receives `ttal send --from` requests and sends via Telegram Bot API
+- **Agent → Agent**: Routes `ttal send --from a --to b` between agents via zellij with attribution
+- **Worker completion polling**: Checks for merged PRs every 60 seconds and auto-completes taskwarrior tasks
+
+#### Config
+
+Create `~/.ttal/daemon.json` (a template is created by `ttal daemon install`):
+
+```json
+{
+  "agents": {
+    "kestrel": {
+      "telegram": {
+        "bot_token": "123:ABC...",
+        "chat_id": "845849177"
+      },
+      "zellij": {
+        "session": "cclaw",
+        "tab": "kestrel"
+      }
+    }
+  }
+}
+```
+
+#### Commands
+
+```bash
+# Install launchd plist + create config template
+ttal daemon install
+
+# Remove launchd plist, socket, and pid file
+ttal daemon uninstall
+
+# Check if daemon is running
+ttal daemon status
+
+# Run daemon in foreground (for debugging)
+ttal daemon
+```
+
+#### Logs
+
+```bash
+tail -f ~/.ttal/daemon.log
+```
+
+### Messaging — `ttal send`
+
+Send messages between agents and humans with explicit direction:
+
+```bash
+# Agent speaks to human via Telegram
+ttal send --from kestrel "PR #42 is ready for review"
+
+# System/hook delivers to agent via Zellij
+ttal send --to kestrel "Task started: implement auth"
+
+# Agent-to-agent via Zellij (recipient sees [agent from:yuki] attribution)
+ttal send --from yuki --to kestrel "Can you review my auth module?"
+
+# Read message from stdin
+echo "done" | ttal send --from kestrel --stdin
+```
+
+Message formats delivered to CC terminal:
+
+```
+[telegram from:neil]
+Can you check the deployment?
+
+[agent from:yuki]
+Can you review my auth module?
+```
 
 ## Environment Variables
 
@@ -330,7 +409,6 @@ Worker commands require these tools in `$PATH`:
 - `zellij` - Terminal multiplexer (worker sessions)
 - `git` - Version control (worktrees, branch management)
 - `fish` - Fish shell (used in zellij layouts)
-- `openclaw` - Agent notification (optional, for task routing)
 
 ## Modify Command Syntax
 

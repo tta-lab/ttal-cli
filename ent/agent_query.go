@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"math"
 
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/predicate"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/predicate"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
 )
 
 // AgentQuery is the builder for querying Agent entities.

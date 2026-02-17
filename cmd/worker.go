@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/guion-opensource/ttal-cli/internal/worker"
+	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,7 @@ var (
 var workerCmd = &cobra.Command{
 	Use:   "worker",
 	Short: "Manage Claude Code workers",
-	Long:  `Spawn, list, close, and poll Claude Code workers running in isolated zellij sessions.`,
+	Long:  `Spawn, list, and close Claude Code workers running in isolated zellij sessions.`,
 	// Skip database initialization — worker commands don't need ttal's DB
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
@@ -34,17 +34,18 @@ var workerCmd = &cobra.Command{
 
 var workerInstallCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install taskwarrior hook and poll service",
-	Long: `Set up everything needed for worker lifecycle management:
-
-1. Taskwarrior on-modify hook (routes task events to ttal)
-2. launchd poll service (checks for merged PRs every 60s)
+	Short: "Install taskwarrior hook",
+	Long: `Set up the taskwarrior on-modify hook for worker lifecycle management.
 
 Safe to re-run — updates existing installations.
 
+Worker completion polling is handled by the ttal daemon.
+Run 'ttal daemon install' to set up the daemon.
+
 Example:
   make install          # build ttal binary
-  ttal worker install   # set up hook + poll service`,
+  ttal worker install   # set up taskwarrior hook
+  ttal daemon install   # set up completion daemon`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return worker.Install()
 	},
@@ -52,9 +53,9 @@ Example:
 
 var workerUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Remove taskwarrior hook and poll service",
-	Long: `Remove the taskwarrior hook and launchd poll service.
-Log files are preserved.`,
+	Short: "Remove taskwarrior hook",
+	Long: `Remove the taskwarrior hook.
+Log files are preserved. To also remove the daemon: ttal daemon uninstall`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return worker.Uninstall()
 	},
@@ -137,22 +138,6 @@ Example:
 	},
 }
 
-var workerPollCmd = &cobra.Command{
-	Use:   "poll",
-	Short: "Poll for completed workers",
-	Long: `Poll for merged PRs and auto-complete worker tasks.
-
-Checks each active worker task for a merged PR. If merged,
-marks the task as done (triggers existing cleanup hooks).
-Also cleans up stale temp files older than 24 hours.
-
-Intended to run periodically via launchd/cron:
-  ttal worker poll`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return worker.Poll()
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(workerCmd)
 
@@ -161,7 +146,6 @@ func init() {
 	workerCmd.AddCommand(workerSpawnCmd)
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
-	workerCmd.AddCommand(workerPollCmd)
 	workerCmd.AddCommand(workerHookCmd)
 
 	// Spawn flags

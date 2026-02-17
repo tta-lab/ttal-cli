@@ -5,11 +5,11 @@ package ent
 import (
 	"context"
 
+	"codeberg.org/clawteam/ttal-cli/ent/predicate"
+	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/guion-opensource/ttal-cli/ent/predicate"
-	"github.com/guion-opensource/ttal-cli/ent/project"
 )
 
 // ProjectDelete is the builder for deleting a Project entity.

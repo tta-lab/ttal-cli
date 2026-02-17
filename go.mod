@@ -1,4 +1,4 @@
-module github.com/guion-opensource/ttal-cli
+module codeberg.org/clawteam/ttal-cli
 
 go 1.23.0
 
@@ -6,6 +6,7 @@ require (
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
 	entgo.io/ent v0.14.5
 	github.com/creack/pty v1.1.24
+	github.com/go-telegram/bot v1.18.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/spf13/cobra v1.8.1
 )

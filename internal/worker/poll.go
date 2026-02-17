@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/internal/forgejo"
-	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
+	"codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 var (

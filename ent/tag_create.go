@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/project"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
 )
 
 // TagCreate is the builder for creating a Tag entity.

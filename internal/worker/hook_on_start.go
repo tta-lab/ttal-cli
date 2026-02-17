@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/guion-opensource/ttal-cli/ent/agent"
-	"github.com/guion-opensource/ttal-cli/ent/tag"
-	"github.com/guion-opensource/ttal-cli/internal/db"
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/internal/db"
 )
 
 const defaultAgent = "worker-lifecycle"
@@ -24,8 +24,8 @@ func HookOnStart() {
 	}
 
 	// Only handle transitions to +ACTIVE
-	if original.Start() != "" || modified.Start() == "" || modified.Status() != "pending" {
-		outputModifiedTask(modified)
+	if original.Start() != "" || modified.Start() == "" || modified.Status() != taskStatusPending {
+		passthroughTask(modified)
 		return
 	}
 
@@ -34,7 +34,7 @@ func HookOnStart() {
 
 // handleOnStart contains the start logic, callable from HookOnStart or HookOnModify.
 func handleOnStart(_ hookTask, modified hookTask) {
-	defer outputModifiedTask(modified)
+	defer passthroughTask(modified)
 
 	hookLog("START", modified.UUID(), modified.Description())
 
@@ -85,7 +85,7 @@ func findMatchingAgent(taskTags []string) string {
 		hookLogFile("ERROR opening DB for agent routing: " + err.Error())
 		return ""
 	}
-	defer database.Close()
+	defer database.Close() //nolint:errcheck
 
 	ctx := context.Background()
 

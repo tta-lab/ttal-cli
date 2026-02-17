@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/guion-opensource/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/ent"
 	_ "github.com/mattn/go-sqlite3"
 )
 

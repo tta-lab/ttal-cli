@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/creack/pty"
 )
@@ -26,6 +27,71 @@ func DataDir() string {
 		tmpDir = "/tmp"
 	}
 	return filepath.Join(tmpDir, "ttal-zellij-data")
+}
+
+// WriteChars sends text to a zellij pane via write-chars, then sends Enter via
+// a separate `write 10` command (raw byte). This is the only reliable way to
+// trigger Enter — embedding `\n` in write-chars does not send Enter.
+//
+// The text is sanitized before sending: newlines and carriage returns are
+// replaced with spaces, and other control characters are stripped. This
+// prevents shell injection via external input (e.g. Telegram messages).
+func WriteChars(session, tab, dataDir, text string) error {
+	zellijBin, err := exec.LookPath("zellij")
+	if err != nil {
+		return fmt.Errorf("zellij not found in PATH")
+	}
+
+	baseArgs := []string{}
+	if dataDir != "" {
+		baseArgs = append(baseArgs, "--data-dir", dataDir)
+	}
+	baseArgs = append(baseArgs, "--session", session, "action")
+
+	// Focus target tab if specified
+	if tab != "" {
+		focusArgs := append(append([]string{}, baseArgs...), "go-to-tab-name", tab)
+		cmd := exec.Command(zellijBin, focusArgs...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to focus tab %q: %w: %s", tab, err, strings.TrimSpace(string(out)))
+		}
+	}
+
+	// Sanitize: replace newlines/CR with space, strip other control chars
+	safe := sanitizeForTerminal(text)
+
+	// Write sanitized text
+	writeArgs := append(append([]string{}, baseArgs...), "write-chars", safe)
+	cmd := exec.Command(zellijBin, writeArgs...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("write-chars failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Send Enter as raw byte 10 — write-chars does not send Enter
+	enterArgs := append(append([]string{}, baseArgs...), "write", "10")
+	cmd = exec.Command(zellijBin, enterArgs...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("write Enter failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	return nil
+}
+
+// sanitizeForTerminal replaces newlines/CR with spaces and strips other
+// control characters to prevent injection via external input.
+func sanitizeForTerminal(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\n' || r == '\r':
+			b.WriteRune(' ')
+		case unicode.IsControl(r):
+			// strip DEL, ESC, and other control chars
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // SessionExists checks if a zellij session with the given name exists.
@@ -172,7 +238,9 @@ Then proceed with:
 		model = "opus"
 	}
 
-	fishCommand := fmt.Sprintf("%s --task-file %s -- claude --model %s %s--", cfg.GatekeeperPath, taskFilePath, model, yoloFlag)
+	fishCommand := fmt.Sprintf(
+		"%s --task-file %s -- claude --model %s %s--",
+		cfg.GatekeeperPath, taskFilePath, model, yoloFlag)
 
 	// Create layout file
 	layoutContent := fmt.Sprintf(`layout {
@@ -247,6 +315,9 @@ func LaunchSession(name, layoutFile string) (*SessionHandle, error) {
 		"--session", name,
 	)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+
+	// Strip CLAUDECODE env var so the spawned CC session doesn't think it's nested
+	cmd.Env = cleanEnv()
 
 	// Start with a PTY so zellij-client can query terminal attributes
 	ptmx, err := pty.Start(cmd)
@@ -391,4 +462,17 @@ func runGit(dir string, args ...string) (string, error) {
 		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil
+}
+
+// cleanEnv returns the current environment with CC-specific vars removed,
+// so spawned sessions don't detect themselves as nested.
+func cleanEnv() []string {
+	env := make([]string, 0, len(os.Environ()))
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "CLAUDECODE=") || strings.HasPrefix(e, "CLAUDE_CODE_ENTRYPOINT=") {
+			continue
+		}
+		env = append(env, e)
+	}
+	return env
 }

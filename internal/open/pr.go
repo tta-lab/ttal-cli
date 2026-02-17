@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 var remoteURLPattern = regexp.MustCompile(`(?:ssh://[^/]*/|git@[^:]+:)([^/]+)/([^/]+?)(?:\.git)?$`)
@@ -36,7 +36,7 @@ func PR(uuid string) error {
 	}
 
 	if task.ProjectPath == "" {
-		return fmt.Errorf("task has PR #%s but no project_path UDA\n\n  Unable to construct PR URL.", task.PRID)
+		return fmt.Errorf("task has PR #%s but no project_path UDA", task.PRID)
 	}
 
 	owner, repo := resolveOwnerRepo(task.ProjectPath)

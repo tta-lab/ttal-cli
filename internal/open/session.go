@@ -5,8 +5,8 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
-	"github.com/guion-opensource/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
 // Session attaches to the zellij session associated with a task.

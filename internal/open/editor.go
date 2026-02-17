@@ -7,7 +7,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/guion-opensource/ttal-cli/internal/taskwarrior"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 // Editor opens the task's project directory (or worktree) in an editor.
@@ -22,8 +22,7 @@ func Editor(uuid string) error {
 	}
 
 	if task.ProjectPath == "" {
-		return fmt.Errorf("no project path associated with this task\n\n" +
-			"  This task doesn't have a project_path UDA set.")
+		return fmt.Errorf("no project path associated with this task: missing project_path UDA")
 	}
 
 	workDir := resolveWorkDir(task)

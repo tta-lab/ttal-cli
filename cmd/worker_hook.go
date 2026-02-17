@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/guion-opensource/ttal-cli/internal/worker"
+	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
 

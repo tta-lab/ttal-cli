@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/guion-opensource/ttal-cli/ent/project"
 )
 
 // Project is the model entity for the Project schema.

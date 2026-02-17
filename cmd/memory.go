@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/guion-opensource/ttal-cli/internal/memory"
+	"codeberg.org/clawteam/ttal-cli/internal/memory"
 	"github.com/spf13/cobra"
 )
 
