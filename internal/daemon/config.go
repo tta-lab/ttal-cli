@@ -13,9 +13,10 @@ import (
 // Tab name = agent name (convention, not configurable).
 // ChatID is global default — agents inherit it unless they override.
 type Config struct {
-	ZellijSession string                 `json:"zellij_session"`
-	ChatID        string                 `json:"chat_id"`
-	Agents        map[string]AgentConfig `json:"agents"`
+	ZellijSession  string                 `json:"zellij_session"`
+	ChatID         string                 `json:"chat_id"`
+	LifecycleAgent string                 `json:"lifecycle_agent"`
+	Agents         map[string]AgentConfig `json:"agents"`
 }
 
 // AgentConfig holds per-agent Telegram credentials.
@@ -85,8 +86,9 @@ func WriteTemplate() error {
 	}
 
 	template := Config{
-		ZellijSession: "ttal-team",
-		ChatID:        "TODO",
+		ZellijSession:  "ttal-team",
+		ChatID:         "TODO",
+		LifecycleAgent: "kestrel",
 		Agents: map[string]AgentConfig{
 			"kestrel": {
 				BotToken: "TODO",

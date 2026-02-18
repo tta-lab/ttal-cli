@@ -154,9 +154,10 @@ func (t hookTask) Annotations() []map[string]any {
 }
 
 // hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used when the
-// daemon is not running. Only the zellij_session field is needed — tab = agent name.
+// daemon is not running and for resolving the lifecycle agent name.
 type hookFallbackConfig struct {
-	ZellijSession string `json:"zellij_session"`
+	ZellijSession  string `json:"zellij_session"`
+	LifecycleAgent string `json:"lifecycle_agent"`
 }
 
 func loadHookFallbackConfig() (*hookFallbackConfig, error) {
@@ -249,9 +250,14 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	f.WriteString(line) //nolint:errcheck
 }
 
-// notifyAgent sends a fire-and-forget message to the worker-lifecycle agent.
+// notifyAgent sends a fire-and-forget message to the lifecycle agent.
+// Resolves the agent name from daemon.json lifecycle_agent field.
 func notifyAgent(message string) {
-	notifyAgentWith(message, "worker-lifecycle")
+	agent := defaultLifecycleAgent
+	if cfg, err := loadHookFallbackConfig(); err == nil && cfg.LifecycleAgent != "" {
+		agent = cfg.LifecycleAgent
+	}
+	notifyAgentWith(message, agent)
 }
 
 // notifyAgentWith dispatches a message to the named agent.

@@ -12,7 +12,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/db"
 )
 
-const defaultAgent = "worker-lifecycle"
+const defaultLifecycleAgent = "kestrel"
 
 // HookOnStart handles the task start (+ACTIVE) event.
 // Reads two JSON lines from stdin, outputs modified task to stdout.
@@ -40,22 +40,22 @@ func handleOnStart(_ hookTask, modified hookTask) {
 
 	taskTags := modified.Tags()
 	if len(taskTags) == 0 {
-		// No tags → default agent
+		// No tags → lifecycle agent
 		message := extractTaskContext(modified)
 		notifyAgent(message)
 		hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
-			"reason", "task_started", "agent", defaultAgent)
+			"reason", "task_started", "agent", "lifecycle")
 		return
 	}
 
 	// Find matching agent by tag overlap
 	matchedAgent := findMatchingAgent(taskTags)
 	if matchedAgent == "" {
-		// No match → default agent (kestrel/worker-lifecycle)
+		// No match → lifecycle agent
 		message := extractTaskContext(modified)
 		notifyAgent(message)
 		hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
-			"reason", "task_started", "agent", defaultAgent)
+			"reason", "task_started", "agent", "lifecycle")
 		return
 	}
 
