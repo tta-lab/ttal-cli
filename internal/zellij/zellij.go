@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	cmdTimeout     = 10 * time.Second
+	cmdTimeout      = 10 * time.Second
 	writeCharsDelay = 200 * time.Millisecond // delay between write-chars and Enter to let text render
 )
 

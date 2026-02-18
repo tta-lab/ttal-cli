@@ -1,40 +1,30 @@
 package daemon
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
-// SyncTokens reads {AGENT}_BOT_TOKEN env vars for each agent in daemon.json
+// SyncTokens reads {AGENT}_BOT_TOKEN env vars for each agent in config.toml
 // and writes the tokens into the config file.
 func SyncTokens() error {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
 	path, err := ConfigPath()
 	if err != nil {
 		return err
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("daemon config not found: %s (run: ttal daemon install)", path)
-	}
-
-	// Use raw map to preserve unknown fields and ordering
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return fmt.Errorf("invalid daemon config: %w", err)
-	}
-
-	var agents map[string]AgentConfig
-	if err := json.Unmarshal(raw["agents"], &agents); err != nil {
-		return fmt.Errorf("invalid agents config: %w", err)
-	}
-
 	updated := 0
 	skipped := 0
 
-	for name, ac := range agents {
+	for name, ac := range cfg.Agents {
 		envVar := strings.ToUpper(name) + "_BOT_TOKEN"
 		token := os.Getenv(envVar)
 		if token == "" {
@@ -49,7 +39,7 @@ func SyncTokens() error {
 		}
 
 		ac.BotToken = token
-		agents[name] = ac
+		cfg.Agents[name] = ac
 		updated++
 		fmt.Printf("  %-12s  set   (from %s)\n", name, envVar)
 	}
@@ -62,18 +52,13 @@ func SyncTokens() error {
 		return nil
 	}
 
-	agentsJSON, err := json.Marshal(agents)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
-	raw["agents"] = agentsJSON
+	defer f.Close() //nolint:errcheck
 
-	out, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(path, out, 0o600); err != nil {
+	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
 		return err
 	}
 

@@ -14,6 +14,15 @@ type DB struct {
 	*ent.Client
 }
 
+// DefaultPath returns the default database path (~/.ttal/ttal.db).
+func DefaultPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	return filepath.Join(home, ".ttal", "ttal.db")
+}
+
 // New creates a new database connection and runs migrations
 func New(dbPath string) (*DB, error) {
 	// Ensure directory exists

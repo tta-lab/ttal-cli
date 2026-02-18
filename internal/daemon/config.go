@@ -1,29 +1,30 @@
 package daemon
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/BurntSushi/toml"
 )
 
-// Config is the top-level structure for ~/.ttal/daemon.json.
+// Config is the top-level structure for ~/.config/ttal/config.toml.
 //
 // Zellij session is global — all agents live in the same session.
 // Tab name = agent name (convention, not configurable).
 // ChatID is global default — agents inherit it unless they override.
 type Config struct {
-	ZellijSession  string                 `json:"zellij_session"`
-	ChatID         string                 `json:"chat_id"`
-	LifecycleAgent string                 `json:"lifecycle_agent"`
-	Agents         map[string]AgentConfig `json:"agents"`
+	ZellijSession  string                 `toml:"zellij_session"`
+	ChatID         string                 `toml:"chat_id"`
+	LifecycleAgent string                 `toml:"lifecycle_agent"`
+	Agents         map[string]AgentConfig `toml:"agents"`
 }
 
 // AgentConfig holds per-agent Telegram credentials.
 // ChatID is optional — falls back to the global Config.ChatID.
 type AgentConfig struct {
-	BotToken string `json:"bot_token"`
-	ChatID   string `json:"chat_id,omitempty"`
+	BotToken string `toml:"bot_token"`
+	ChatID   string `toml:"chat_id"`
 }
 
 // AgentChatID returns the effective chat ID for an agent (per-agent override or global).
@@ -34,43 +35,41 @@ func (c *Config) AgentChatID(agent string) string {
 	return c.ChatID
 }
 
-// ConfigPath returns the default path to daemon.json.
+// ConfigPath returns the default path to config.toml.
 func ConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".ttal", "daemon.json"), nil
+	return filepath.Join(home, ".config", "ttal", "config.toml"), nil
 }
 
-// LoadConfig reads and validates ~/.ttal/daemon.json.
+// LoadConfig reads and validates ~/.config/ttal/config.toml.
 func LoadConfig() (*Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("daemon config not found: %s (run: ttal daemon install)", path)
-	}
-
 	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("invalid daemon config: %w", err)
+	if _, err := toml.DecodeFile(path, &cfg); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("config not found: %s (run: ttal daemon install)", path)
+		}
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	if cfg.ZellijSession == "" {
-		return nil, fmt.Errorf("daemon config missing 'zellij_session'")
+		return nil, fmt.Errorf("config missing 'zellij_session'")
 	}
 	if len(cfg.Agents) == 0 {
-		return nil, fmt.Errorf("daemon config has no agents defined")
+		return nil, fmt.Errorf("config has no agents defined")
 	}
 
 	return &cfg, nil
 }
 
-// WriteTemplate creates a starter daemon.json with example config.
+// WriteTemplate creates a starter config.toml with example config.
 func WriteTemplate() error {
 	path, err := ConfigPath()
 	if err != nil {
@@ -85,21 +84,13 @@ func WriteTemplate() error {
 		return err
 	}
 
-	template := Config{
-		ZellijSession:  "ttal-team",
-		ChatID:         "TODO",
-		LifecycleAgent: "kestrel",
-		Agents: map[string]AgentConfig{
-			"kestrel": {
-				BotToken: "TODO",
-			},
-		},
-	}
+	template := `zellij_session = "ttal-team"
+chat_id = "TODO"
+lifecycle_agent = "kestrel"
 
-	data, err := json.MarshalIndent(template, "", "  ")
-	if err != nil {
-		return err
-	}
+[agents.kestrel]
+bot_token = "TODO"
+`
 
-	return os.WriteFile(path, data, 0o600)
+	return os.WriteFile(path, []byte(template), 0o600)
 }

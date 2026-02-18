@@ -68,7 +68,10 @@ func startTelegramPoller(
 	}()
 }
 
-func runPoller(agentName string, cfg AgentConfig, effectiveChatID string, onMessage func(agentName, text string), done <-chan struct{}) error {
+func runPoller(
+	agentName string, cfg AgentConfig, effectiveChatID string,
+	onMessage func(agentName, text string), done <-chan struct{},
+) error {
 	chatID, err := parseChatID(effectiveChatID)
 	if err != nil {
 		return err

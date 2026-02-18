@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
 	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/internal/daemon"
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 
 	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
@@ -31,7 +31,10 @@ func Start(database *ent.Client, force bool) error {
 	sessionName := cfg.ZellijSession
 	if zellij.SessionExists(sessionName) {
 		if !force {
-			return fmt.Errorf("session %q already exists — use --force to recreate, or attach with: zellij --data-dir %s attach %s", sessionName, zellij.DataDir(), sessionName)
+			return fmt.Errorf(
+				"session %q already exists — use --force to recreate, or attach with: zellij --data-dir %s attach %s",
+				sessionName, zellij.DataDir(), sessionName,
+			)
 		}
 		fmt.Printf("Killing existing session %q...\n", sessionName)
 		if err := zellij.KillSession(sessionName); err != nil {
@@ -48,9 +51,9 @@ func Start(database *ent.Client, force bool) error {
 	// Delete exited session if present (killed or crashed)
 	_ = zellij.DeleteSession(sessionName)
 
-	// Look up agents from daemon.json in ttal DB to get their paths
+	// Look up agents from config in ttal DB to get their paths
 	ctx := context.Background()
-	var tabs []AgentTab
+	tabs := make([]AgentTab, 0, len(cfg.Agents))
 
 	for agentName := range cfg.Agents {
 		ag, err := database.Agent.Query().
@@ -96,7 +99,7 @@ func Start(database *ent.Client, force bool) error {
 }
 
 func createTeamLayout(tabs []AgentTab) (string, error) {
-	var tabBlocks []string
+	tabBlocks := make([]string, 0, len(tabs))
 
 	for i, tab := range tabs {
 		focus := ""

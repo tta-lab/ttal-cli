@@ -88,8 +88,9 @@ cmd/             - CLI commands (cobra)
   ├── project.go - Project CRUD commands
   ├── agent.go   - Agent CRUD commands
   ├── memory.go  - Memory capture command
+  ├── bridge.go  - ttal bridge (CC Stop hook → Telegram, hidden)
   ├── daemon.go  - ttal daemon run/install/uninstall/status
-  ├── send.go    - ttal send --from/--to (messaging)
+  ├── send.go    - ttal send --to/--from+--to (messaging)
   ├── pr.go      - ttal pr create/modify/merge/comment
   └── worker.go  - ttal worker spawn/close/list
 
@@ -99,6 +100,7 @@ ent/             - ent ORM (mostly auto-generated)
 internal/
   ├── db/        - Database connection wrapper
   ├── memory/    - Memory capture logic (git commit extraction)
+  ├── bridge/    - CC→Telegram bridge (Stop hook, JSONL parsing)
   ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/   - Forgejo SDK client and repo helpers
   ├── pr/        - PR operations (create, modify, merge, comment)
@@ -111,14 +113,18 @@ internal/
 The daemon (`internal/daemon/`) is a communication hub managed by launchd. It handles all
 inter-agent and human-agent messaging. **Do not add fallback logic** — each path is explicit:
 
-| `ttal send` flags | Channel | Handler |
+| Path | Channel | Handler |
 |---|---|---|
-| `--from kestrel` | Telegram (outbound) | `handleFrom` |
-| `--to kestrel` | Zellij write-chars | `handleTo` |
-| `--from yuki --to kestrel` | Zellij write-chars + attribution | `handleAgentToAgent` |
+| `ttal bridge` (Stop hook) | Telegram (outbound) | `handleFrom` |
+| `ttal send --to kestrel` | Zellij write-chars | `handleTo` |
+| `ttal send --from yuki --to kestrel` | Zellij write-chars + attribution | `handleAgentToAgent` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
 are set. Taskwarrior hooks use `--to` (daemon socket → agent's Zellij terminal).
+
+The bridge (`internal/bridge/`) is called by CC's Stop hook at every turn end. It reads the last
+assistant text from the session JSONL transcript, resolves the agent by cwd, and sends to the
+daemon socket. Agents write normal text — the bridge handles routing to Telegram automatically.
 
 Completion polling (every 60s) is built into the daemon — **not** a separate launchd plist.
 `ttal worker install` only installs the taskwarrior hook, not a poll service.

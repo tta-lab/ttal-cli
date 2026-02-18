@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"codeberg.org/clawteam/ttal-cli/internal/db"
 	"github.com/spf13/cobra"
@@ -41,12 +39,5 @@ func Execute() error {
 }
 
 func init() {
-	// Get default database path
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "."
-	}
-	defaultDBPath := filepath.Join(home, ".ttal", "ttal.db")
-
-	rootCmd.PersistentFlags().StringVar(&dbPath, "db", defaultDBPath, "Path to SQLite database")
+	rootCmd.PersistentFlags().StringVar(&dbPath, "db", db.DefaultPath(), "Path to SQLite database")
 }

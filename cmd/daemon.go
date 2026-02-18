@@ -30,14 +30,14 @@ var daemonInstallCmd = &cobra.Command{
 	Long: `Install the ttal daemon as a launchd service and create a config template.
 
 Creates:
-  ~/.ttal/daemon.json   — config template (edit before starting)
+  ~/.config/ttal/config.toml   — config template (edit before starting)
   ~/Library/LaunchAgents/io.guion.ttal.daemon.plist
 
 Also removes the old io.guion.ttal.poll-completion plist if present.
 
 Example:
   ttal daemon install
-  # Edit ~/.ttal/daemon.json
+  # Edit ~/.config/ttal/config.toml
   # ttal daemon status`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if runtime.GOOS != "darwin" {
@@ -87,7 +87,7 @@ var daemonStatusCmd = &cobra.Command{
 var daemonSyncTokensCmd = &cobra.Command{
 	Use:   "sync-tokens",
 	Short: "Fill bot tokens from env vars into daemon.json",
-	Long: `Read {AGENT}_BOT_TOKEN env vars for each agent in daemon.json
+	Long: `Read {AGENT}_BOT_TOKEN env vars for each agent in config.toml
 and write the tokens into the config file.
 
 Example:

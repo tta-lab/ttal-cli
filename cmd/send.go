@@ -22,15 +22,13 @@ var sendCmd = &cobra.Command{
 	Short: "Send a message between agents or to a human",
 	Long: `Send a message with explicit direction:
 
-  --from <agent>              agent speaks to human via Telegram
   --to <agent>                system/hook delivers to agent via Zellij
   --from <a> --to <b>         agent-to-agent via Zellij with attribution
 
 Examples:
-  ttal send --from kestrel "PR #42 ready for review"
   ttal send --to kestrel "task started: implement auth"
   ttal send --from yuki --to kestrel "can you review my auth module?"
-  echo "done" | ttal send --from kestrel --stdin`,
+  echo "done" | ttal send --to kestrel --stdin`,
 	// Skip database initialization
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
@@ -40,8 +38,8 @@ Examples:
 	},
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if sendFrom == "" && sendTo == "" {
-			return fmt.Errorf("must specify --from, --to, or both")
+		if sendTo == "" {
+			return fmt.Errorf("--to is required (agent→Telegram is handled by the bridge)")
 		}
 
 		var message string
@@ -73,7 +71,7 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(sendCmd)
-	sendCmd.Flags().StringVar(&sendFrom, "from", "", "Sending agent (routes via Telegram)")
+	sendCmd.Flags().StringVar(&sendFrom, "from", "", "Source agent (for attribution)")
 	sendCmd.Flags().StringVar(&sendTo, "to", "", "Receiving agent (routes via Zellij)")
 	sendCmd.Flags().BoolVar(&sendStdin, "stdin", false, "Read message from stdin")
 }
