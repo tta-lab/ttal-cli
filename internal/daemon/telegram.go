@@ -39,7 +39,7 @@ func sendTelegramMessage(botToken, chatID, text string) error {
 // It calls onMessage for each new user message, formatted for CC delivery.
 // Runs until done is closed.
 func startTelegramPoller(
-	agentName string, cfg AgentConfig, onMessage func(agentName, text string), done <-chan struct{},
+	agentName string, cfg AgentConfig, chatID string, onMessage func(agentName, text string), done <-chan struct{},
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -51,7 +51,7 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(agentName, cfg, onMessage, done); err != nil {
+			if err := runPoller(agentName, cfg, chatID, onMessage, done); err != nil {
 				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
 				select {
 				case <-done:
@@ -68,8 +68,8 @@ func startTelegramPoller(
 	}()
 }
 
-func runPoller(agentName string, cfg AgentConfig, onMessage func(agentName, text string), done <-chan struct{}) error {
-	chatID, err := parseChatID(cfg.Telegram.ChatID)
+func runPoller(agentName string, cfg AgentConfig, effectiveChatID string, onMessage func(agentName, text string), done <-chan struct{}) error {
+	chatID, err := parseChatID(effectiveChatID)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func runPoller(agentName string, cfg AgentConfig, onMessage func(agentName, text
 		onMessage(agentName, formatted)
 	}
 
-	b, err := bot.New(cfg.Telegram.BotToken, bot.WithDefaultHandler(handler))
+	b, err := bot.New(cfg.BotToken, bot.WithDefaultHandler(handler))
 	if err != nil {
 		return fmt.Errorf("bot init: %w", err)
 	}

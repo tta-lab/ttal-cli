@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -154,59 +153,31 @@ func (t hookTask) Annotations() []map[string]any {
 	return anns
 }
 
-// hookConfig holds config for hook delivery routing.
-//
-// Example config.json:
-//
-//	{
-//	  "primary": "zellij",
-//	  "channels": {
-//	    "zellij": { "session": "cclaw", "tab": "kestrel" },
-//	    "telegram": { "chat_id": "123", "account_id": "kestrel" }
-//	  }
-//	}
-type hookConfig struct {
-	Primary  string                   `json:"primary"`
-	Channels map[string]channelConfig `json:"channels"`
+// hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used when the
+// daemon is not running. Only the zellij_session field is needed — tab = agent name.
+type hookFallbackConfig struct {
+	ZellijSession string `json:"zellij_session"`
 }
 
-// channelConfig holds channel-specific settings (union of all channel fields).
-type channelConfig struct {
-	// Zellij
-	Session string `json:"session,omitempty"`
-	Tab     string `json:"tab,omitempty"`
-	DataDir string `json:"data_dir,omitempty"`
-
-	// Telegram (via openclaw)
-	ChatID    string `json:"chat_id,omitempty"`
-	AccountID string `json:"account_id,omitempty"`
-}
-
-func loadHookConfig() (*hookConfig, error) {
+func loadHookFallbackConfig() (*hookFallbackConfig, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 
-	path := filepath.Join(home, ".task", "hooks", "config.json")
+	path := filepath.Join(home, ".ttal", "daemon.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("hook config not found: %s", path)
+		return nil, fmt.Errorf("daemon config not found: %s", path)
 	}
 
-	var cfg hookConfig
+	var cfg hookFallbackConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("invalid hook config: %w", err)
+		return nil, fmt.Errorf("invalid daemon config: %w", err)
 	}
 
-	if cfg.Primary == "" {
-		return nil, fmt.Errorf("hook config missing 'primary' channel")
-	}
-	if cfg.Channels == nil {
-		return nil, fmt.Errorf("hook config missing 'channels'")
-	}
-	if _, ok := cfg.Channels[cfg.Primary]; !ok {
-		return nil, fmt.Errorf("primary channel %q not found in channels", cfg.Primary)
+	if cfg.ZellijSession == "" {
+		return nil, fmt.Errorf("daemon config missing 'zellij_session'")
 	}
 
 	return &cfg, nil
@@ -301,77 +272,19 @@ func notifyAgentWith(message, agent string) {
 		return
 	}
 
-	// Daemon not running — fall back to direct zellij delivery via hook config
-	cfg, err := loadHookConfig()
+	// Daemon not running — fall back to direct zellij delivery
+	cfg, err := loadHookFallbackConfig()
 	if err != nil {
-		hookLogFile("ERROR: cannot load config for agent notify: " + err.Error())
+		hookLogFile("ERROR: cannot load fallback config: " + err.Error())
 		return
 	}
 
-	ch := cfg.Channels[cfg.Primary]
-
-	switch cfg.Primary {
-	case "zellij":
-		deliverViaZellij(message, ch)
-	case "telegram":
-		deliverViaTelegram(message, agent, ch)
-	default:
-		hookLogFile("ERROR: unknown channel: " + cfg.Primary)
-	}
-}
-
-// deliverViaZellij sends the message as typed input to a CC session in a zellij tab.
-func deliverViaZellij(message string, ch channelConfig) {
-	if ch.Session == "" {
-		hookLogFile("ERROR: zellij channel missing 'session'")
-		return
-	}
-
-	if err := zellij.WriteChars(ch.Session, ch.Tab, ch.DataDir, message); err != nil {
+	if err := zellij.WriteChars(cfg.ZellijSession, agent, "", message); err != nil {
 		hookLogFile("ERROR: failed to deliver to zellij: " + err.Error())
 		return
 	}
 
-	hookLogFile(fmt.Sprintf("Delivered to zellij session=%s tab=%s", ch.Session, ch.Tab))
-}
-
-// deliverViaTelegram sends the message via openclaw agent to Telegram.
-func deliverViaTelegram(message, agent string, ch channelConfig) {
-	if ch.ChatID == "" {
-		hookLogFile("ERROR: telegram channel missing 'chat_id'")
-		return
-	}
-
-	openclaw, err := exec.LookPath("openclaw")
-	if err != nil {
-		hookLogFile("ERROR: openclaw command not found")
-		return
-	}
-
-	accountID := ch.AccountID
-	if accountID == "" {
-		accountID = "kestrel"
-	}
-
-	cmd := exec.Command(openclaw, "agent",
-		"--message", message,
-		"--agent", agent,
-		"--deliver",
-		"--channel", "telegram",
-		"--reply-account", accountID,
-		"--to", ch.ChatID,
-	)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Start(); err != nil {
-		hookLogFile("ERROR: failed to spawn openclaw: " + err.Error())
-		return
-	}
-
-	// Fire-and-forget: release the child process
-	go cmd.Wait() //nolint:errcheck
-	hookLogFile(fmt.Sprintf("Agent notification spawned (pid=%d)", cmd.Process.Pid))
+	hookLogFile(fmt.Sprintf("Delivered via zellij fallback: session=%s tab=%s", cfg.ZellijSession, agent))
 }
 
 func hookLogFile(message string) {

@@ -15,7 +15,10 @@ import (
 	"github.com/creack/pty"
 )
 
-const cmdTimeout = 10 * time.Second
+const (
+	cmdTimeout     = 10 * time.Second
+	writeCharsDelay = 200 * time.Millisecond // delay between write-chars and Enter to let text render
+)
 
 // DataDir returns the zellij data directory.
 func DataDir() string {
@@ -67,8 +70,10 @@ func WriteChars(session, tab, dataDir, text string) error {
 		return fmt.Errorf("write-chars failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 
-	// Send Enter as raw byte 10 — write-chars does not send Enter
-	enterArgs := append(append([]string{}, baseArgs...), "write", "10")
+	time.Sleep(writeCharsDelay)
+
+	// Send Enter as raw byte 13 (CR) — terminals use CR to submit input
+	enterArgs := append(append([]string{}, baseArgs...), "write", "13")
 	cmd = exec.Command(zellijBin, enterArgs...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("write Enter failed: %w: %s", err, strings.TrimSpace(string(out)))

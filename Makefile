@@ -1,10 +1,12 @@
-.PHONY: help build clean clean-db reset test generate install run fmt vet lint
+.PHONY: help build clean clean-db reset test generate install reinstall setup run fmt vet lint
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  make build         - Build the ttal binary"
 	@echo "  make install       - Install ttal to GOPATH/bin"
+	@echo "  make reinstall     - Install and restart daemon"
+	@echo "  make setup         - First-time setup (install + hook + daemon)"
 	@echo "  make run           - Run ttal (usage: make run ARGS='project list')"
 	@echo "  make clean         - Remove built binaries"
 	@echo "  make clean-db      - Remove database (destructive!)"
@@ -30,6 +32,25 @@ install:
 	@echo "Installing ttal..."
 	@go build -o $(shell go env GOPATH)/bin/ttal .
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/ttal"
+
+# First-time setup: install binary, taskwarrior hook, and daemon service
+setup: install
+	@echo "Setting up ttal..."
+	@$(shell go env GOPATH)/bin/ttal worker install
+	@$(shell go env GOPATH)/bin/ttal daemon install
+	@echo "✓ Setup complete"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Edit ~/.ttal/daemon.json with bot tokens"
+	@echo "  2. Run: ttal daemon sync-tokens"
+
+# Install and restart daemon
+reinstall: install
+	@if launchctl list 2>/dev/null | grep -q io.guion.ttal.daemon; then \
+		echo "Restarting daemon..."; \
+		launchctl kickstart -k "gui/$$(id -u)/io.guion.ttal.daemon"; \
+		echo "✓ Daemon restarted"; \
+	fi
 
 # Run the CLI
 run: build

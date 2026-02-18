@@ -58,14 +58,13 @@ func Run() error {
 
 	// Start Telegram pollers
 	for agentName, agentCfg := range cfg.Agents {
-		if agentCfg.Telegram.BotToken == "" {
+		if agentCfg.BotToken == "" {
 			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", agentName)
 			continue
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
-		startTelegramPoller(agentName, agentCfg, func(name, text string) {
-			ac := cfg.Agents[name]
-			if err := deliverToZellij(ac.Zellij, text); err != nil {
+		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
+			if err := deliverToZellij(cfg.ZellijSession, name, text); err != nil {
 				log.Printf("[daemon] zellij delivery failed for %s: %v", name, err)
 			}
 		}, done)
@@ -117,19 +116,18 @@ func handleFrom(cfg *Config, req SendRequest) error {
 	if !ok {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	if agentCfg.Telegram.BotToken == "" {
+	if agentCfg.BotToken == "" {
 		return fmt.Errorf("agent %s has no telegram configured", req.From)
 	}
-	return sendTelegramMessage(agentCfg.Telegram.BotToken, agentCfg.Telegram.ChatID, req.Message)
+	return sendTelegramMessage(agentCfg.BotToken, cfg.AgentChatID(req.From), req.Message)
 }
 
-// handleTo delivers a message to an agent's zellij session.
+// handleTo delivers a message to an agent's zellij tab.
 func handleTo(cfg *Config, req SendRequest) error {
-	agentCfg, ok := cfg.Agents[req.To]
-	if !ok {
+	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToZellij(agentCfg.Zellij, req.Message)
+	return deliverToZellij(cfg.ZellijSession, req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another via zellij,
@@ -138,13 +136,12 @@ func handleAgentToAgent(cfg *Config, req SendRequest) error {
 	if _, ok := cfg.Agents[req.From]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	toAgentCfg, ok := cfg.Agents[req.To]
-	if !ok {
+	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToZellij(toAgentCfg.Zellij, msg)
+	return deliverToZellij(cfg.ZellijSession, req.To, msg)
 }
 
 // runCompletionPoller runs worker.Poll every 60s until done is closed.

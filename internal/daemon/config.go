@@ -8,26 +8,29 @@ import (
 )
 
 // Config is the top-level structure for ~/.ttal/daemon.json.
+//
+// Zellij session is global — all agents live in the same session.
+// Tab name = agent name (convention, not configurable).
+// ChatID is global default — agents inherit it unless they override.
 type Config struct {
-	Agents map[string]AgentConfig `json:"agents"`
+	ZellijSession string                 `json:"zellij_session"`
+	ChatID        string                 `json:"chat_id"`
+	Agents        map[string]AgentConfig `json:"agents"`
 }
 
-// AgentConfig holds per-agent delivery settings.
+// AgentConfig holds per-agent Telegram credentials.
+// ChatID is optional — falls back to the global Config.ChatID.
 type AgentConfig struct {
-	Telegram TelegramConfig `json:"telegram"`
-	Zellij   ZellijConfig   `json:"zellij"`
-}
-
-// TelegramConfig holds bot credentials for one agent.
-type TelegramConfig struct {
 	BotToken string `json:"bot_token"`
-	ChatID   string `json:"chat_id"`
+	ChatID   string `json:"chat_id,omitempty"`
 }
 
-// ZellijConfig holds zellij delivery target for one agent.
-type ZellijConfig struct {
-	Session string `json:"session"`
-	Tab     string `json:"tab"`
+// AgentChatID returns the effective chat ID for an agent (per-agent override or global).
+func (c *Config) AgentChatID(agent string) string {
+	if ac, ok := c.Agents[agent]; ok && ac.ChatID != "" {
+		return ac.ChatID
+	}
+	return c.ChatID
 }
 
 // ConfigPath returns the default path to daemon.json.
@@ -56,6 +59,9 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid daemon config: %w", err)
 	}
 
+	if cfg.ZellijSession == "" {
+		return nil, fmt.Errorf("daemon config missing 'zellij_session'")
+	}
 	if len(cfg.Agents) == 0 {
 		return nil, fmt.Errorf("daemon config has no agents defined")
 	}
@@ -79,16 +85,11 @@ func WriteTemplate() error {
 	}
 
 	template := Config{
+		ZellijSession: "ttal-team",
+		ChatID:        "TODO",
 		Agents: map[string]AgentConfig{
 			"kestrel": {
-				Telegram: TelegramConfig{
-					BotToken: "123:ABC...",
-					ChatID:   "845849177",
-				},
-				Zellij: ZellijConfig{
-					Session: "cclaw",
-					Tab:     "kestrel",
-				},
+				BotToken: "TODO",
 			},
 		},
 	}
