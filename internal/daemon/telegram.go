@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
@@ -39,7 +40,7 @@ func sendTelegramMessage(botToken, chatID, text string) error {
 // It calls onMessage for each new user message, formatted for CC delivery.
 // Runs until done is closed.
 func startTelegramPoller(
-	agentName string, cfg AgentConfig, chatID string, onMessage func(agentName, text string), done <-chan struct{},
+	agentName string, cfg config.AgentConfig, chatID string, onMessage func(agentName, text string), done <-chan struct{},
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -69,7 +70,7 @@ func startTelegramPoller(
 }
 
 func runPoller(
-	agentName string, cfg AgentConfig, effectiveChatID string,
+	agentName string, cfg config.AgentConfig, effectiveChatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 ) error {
 	chatID, err := parseChatID(effectiveChatID)

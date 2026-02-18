@@ -1,4 +1,4 @@
-package daemon
+package config
 
 import (
 	"fmt"
@@ -8,23 +8,28 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// SyncTokens reads {AGENT}_BOT_TOKEN env vars for each agent in config.toml
-// and writes the tokens into the config file.
-func SyncTokens() error {
-	cfg, err := LoadConfig()
+// SyncTokens reads {AGENT}_BOT_TOKEN env vars for the given agents and writes
+// the tokens into config.toml. Agent names come from the ttal database (SSOT).
+// New agents are added to the config automatically if they have a token set.
+func SyncTokens(agentNames []string) error {
+	cfg, err := Load()
 	if err != nil {
 		return err
 	}
 
-	path, err := ConfigPath()
+	path, err := Path()
 	if err != nil {
 		return err
+	}
+
+	if cfg.Agents == nil {
+		cfg.Agents = make(map[string]AgentConfig)
 	}
 
 	updated := 0
 	skipped := 0
 
-	for name, ac := range cfg.Agents {
+	for _, name := range agentNames {
 		envVar := strings.ToUpper(name) + "_BOT_TOKEN"
 		token := os.Getenv(envVar)
 		if token == "" {
@@ -33,6 +38,7 @@ func SyncTokens() error {
 			continue
 		}
 
+		ac := cfg.Agents[name]
 		if ac.BotToken == token {
 			fmt.Printf("  %-12s  ok    (unchanged)\n", name)
 			continue

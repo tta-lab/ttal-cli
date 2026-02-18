@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 
 	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
@@ -23,7 +23,7 @@ type AgentTab struct {
 
 // Start creates the team zellij session with a tab per agent.
 func Start(database *ent.Client, force bool) error {
-	cfg, err := daemon.LoadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}

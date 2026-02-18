@@ -1,4 +1,4 @@
-package daemon
+package config
 
 import (
 	"fmt"
@@ -35,8 +35,8 @@ func (c *Config) AgentChatID(agent string) string {
 	return c.ChatID
 }
 
-// ConfigPath returns the default path to config.toml.
-func ConfigPath() (string, error) {
+// Path returns the default path to config.toml.
+func Path() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -44,9 +44,9 @@ func ConfigPath() (string, error) {
 	return filepath.Join(home, ".config", "ttal", "config.toml"), nil
 }
 
-// LoadConfig reads and validates ~/.config/ttal/config.toml.
-func LoadConfig() (*Config, error) {
-	path, err := ConfigPath()
+// Load reads and validates ~/.config/ttal/config.toml.
+func Load() (*Config, error) {
+	path, err := Path()
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func LoadConfig() (*Config, error) {
 
 // WriteTemplate creates a starter config.toml with example config.
 func WriteTemplate() error {
-	path, err := ConfigPath()
+	path, err := Path()
 	if err != nil {
 		return err
 	}

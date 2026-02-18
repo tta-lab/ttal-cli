@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
 
 const (
@@ -32,9 +34,9 @@ func Install() error {
 	}
 
 	// Create config template if not present
-	if cfgPath, err := ConfigPath(); err == nil {
+	if cfgPath, err := config.Path(); err == nil {
 		if _, statErr := os.Stat(cfgPath); os.IsNotExist(statErr) {
-			if err := WriteTemplate(); err != nil {
+			if err := config.WriteTemplate(); err != nil {
 				return fmt.Errorf("failed to write config template: %w", err)
 			}
 			fmt.Printf("Created config template: %s\n", cfgPath)

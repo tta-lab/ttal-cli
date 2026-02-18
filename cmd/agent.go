@@ -11,6 +11,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"codeberg.org/clawteam/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
@@ -320,6 +321,31 @@ Examples:
 	},
 }
 
+var agentSyncTokensCmd = &cobra.Command{
+	Use:   "sync-tokens",
+	Short: "Fill bot tokens from env vars into config.toml",
+	Long: `Read {AGENT}_BOT_TOKEN env vars for all agents in the database
+and write the tokens into config.toml. New agents are added automatically.
+
+Example:
+  export KESTREL_BOT_TOKEN="123:ABC..."
+  export YUKI_BOT_TOKEN="456:DEF..."
+  ttal agent sync-tokens`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		agents, err := database.Agent.Query().All(cmd.Context())
+		if err != nil {
+			return fmt.Errorf("query agents: %w", err)
+		}
+
+		names := make([]string, len(agents))
+		for i, a := range agents {
+			names[i] = a.Name
+		}
+
+		return config.SyncTokens(names)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(agentCmd)
 
@@ -328,6 +354,7 @@ func init() {
 	agentCmd.AddCommand(agentListCmd)
 	agentCmd.AddCommand(agentInfoCmd)
 	agentCmd.AddCommand(agentModifyCmd)
+	agentCmd.AddCommand(agentSyncTokensCmd)
 
 	// Flags for agent add
 	agentAddCmd.Flags().StringVar(&agentPath, "path", "", "Agent workspace path")

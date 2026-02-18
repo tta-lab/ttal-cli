@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 )
 
@@ -20,7 +21,7 @@ const (
 
 // Run starts the daemon in the foreground. This is what launchd calls.
 func Run() error {
-	cfg, err := LoadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
@@ -97,7 +98,7 @@ func Run() error {
 }
 
 // handleSend routes an incoming SendRequest based on From/To fields.
-func handleSend(cfg *Config, req SendRequest) error {
+func handleSend(cfg *config.Config, req SendRequest) error {
 	switch {
 	case req.From != "" && req.To != "":
 		return handleAgentToAgent(cfg, req)
@@ -111,7 +112,7 @@ func handleSend(cfg *Config, req SendRequest) error {
 }
 
 // handleFrom sends a message from an agent to the human via Telegram.
-func handleFrom(cfg *Config, req SendRequest) error {
+func handleFrom(cfg *config.Config, req SendRequest) error {
 	agentCfg, ok := cfg.Agents[req.From]
 	if !ok {
 		return fmt.Errorf("unknown agent: %s", req.From)
@@ -123,7 +124,7 @@ func handleFrom(cfg *Config, req SendRequest) error {
 }
 
 // handleTo delivers a message to an agent's zellij tab.
-func handleTo(cfg *Config, req SendRequest) error {
+func handleTo(cfg *config.Config, req SendRequest) error {
 	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
@@ -132,7 +133,7 @@ func handleTo(cfg *Config, req SendRequest) error {
 
 // handleAgentToAgent delivers a message from one agent to another via zellij,
 // wrapping the message with attribution so the recipient knows who sent it.
-func handleAgentToAgent(cfg *Config, req SendRequest) error {
+func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	if _, ok := cfg.Agents[req.From]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}

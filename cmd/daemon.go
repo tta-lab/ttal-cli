@@ -84,25 +84,9 @@ var daemonStatusCmd = &cobra.Command{
 	},
 }
 
-var daemonSyncTokensCmd = &cobra.Command{
-	Use:   "sync-tokens",
-	Short: "Fill bot tokens from env vars into daemon.json",
-	Long: `Read {AGENT}_BOT_TOKEN env vars for each agent in config.toml
-and write the tokens into the config file.
-
-Example:
-  export KESTREL_BOT_TOKEN="123:ABC..."
-  export YUKI_BOT_TOKEN="456:DEF..."
-  ttal daemon sync-tokens`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return daemon.SyncTokens()
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(daemonCmd)
 	daemonCmd.AddCommand(daemonInstallCmd)
 	daemonCmd.AddCommand(daemonUninstallCmd)
 	daemonCmd.AddCommand(daemonStatusCmd)
-	daemonCmd.AddCommand(daemonSyncTokensCmd)
 }
