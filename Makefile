@@ -33,16 +33,17 @@ install:
 	@go build -o $(shell go env GOPATH)/bin/ttal .
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/ttal"
 
-# First-time setup: install binary, taskwarrior hook, and daemon service
+# First-time setup: install binary, hooks, and daemon service
 setup: install
 	@echo "Setting up ttal..."
 	@$(shell go env GOPATH)/bin/ttal worker install
 	@$(shell go env GOPATH)/bin/ttal daemon install
+	@$(shell go env GOPATH)/bin/ttal bridge install
 	@echo "✓ Setup complete"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Edit ~/.ttal/daemon.json with bot tokens"
-	@echo "  2. Run: ttal daemon sync-tokens"
+	@echo "  1. Edit ~/.config/ttal/config.toml with bot tokens"
+	@echo "  2. Run: ttal agent sync-tokens"
 
 # Install and restart daemon
 reinstall: install

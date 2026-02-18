@@ -21,6 +21,41 @@ var bridgeCmd = &cobra.Command{
 	},
 }
 
+var bridgeInstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install the CC Stop hook for Telegram bridging",
+	Long: `Add a global Stop hook to ~/.claude/settings.json so that Claude Code
+automatically sends assistant responses to Telegram via the daemon.
+
+The hook calls 'ttal bridge' at the end of every CC turn. Non-agent sessions
+are silently ignored.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return bridge.Install()
+	},
+}
+
+var bridgeUninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Remove the CC Stop hook for Telegram bridging",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return bridge.Uninstall()
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(bridgeCmd)
+	bridgeCmd.AddCommand(bridgeInstallCmd)
+	bridgeCmd.AddCommand(bridgeUninstallCmd)
 }
