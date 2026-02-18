@@ -90,6 +90,7 @@ cmd/             - CLI commands (cobra)
   ├── memory.go  - Memory capture command
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --from/--to (messaging)
+  ├── pr.go      - ttal pr create/modify/merge/comment
   └── worker.go  - ttal worker spawn/close/list
 
 ent/             - ent ORM (mostly auto-generated)
@@ -99,6 +100,8 @@ internal/
   ├── db/        - Database connection wrapper
   ├── memory/    - Memory capture logic (git commit extraction)
   ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
+  ├── forgejo/   - Forgejo SDK client and repo helpers
+  ├── pr/        - PR operations (create, modify, merge, comment)
   ├── worker/    - Worker lifecycle (hook, spawn, close, poll)
   └── zellij/    - Zellij session management and write-chars delivery
 ```

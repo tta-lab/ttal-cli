@@ -248,6 +248,15 @@ func UpdateWorkerMetadata(uuid, sessionName, branch, projectPath string) error {
 	return nil
 }
 
+// SetPRID sets the pr_id UDA on a task.
+func SetPRID(uuid, prID string) error {
+	_, err := runTask(uuid, "modify", fmt.Sprintf("pr_id:%s", prID))
+	if err != nil {
+		return fmt.Errorf("failed to set pr_id on task %s: %w", uuid, err)
+	}
+	return nil
+}
+
 // AnnotateTask adds an annotation to a task.
 func AnnotateTask(uuid, message string) error {
 	_, err := runTask(uuid, "annotate", message)

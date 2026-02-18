@@ -4,15 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"regexp"
 	"runtime"
-	"strings"
 
+	forgejoapi "codeberg.org/clawteam/ttal-cli/internal/forgejo"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
-
-var remoteURLPattern = regexp.MustCompile(`(?:ssh://[^/]*/|git@[^:]+:)([^/]+)/([^/]+?)(?:\.git)?$`)
 
 // PR opens the Forgejo PR URL for a task in the default browser.
 func PR(uuid string) error {
@@ -39,7 +35,10 @@ func PR(uuid string) error {
 		return fmt.Errorf("task has PR #%s but no project_path UDA", task.PRID)
 	}
 
-	owner, repo := resolveOwnerRepo(task.ProjectPath)
+	owner, repo, err := forgejoapi.ParseRepoInfo(task.ProjectPath)
+	if err != nil {
+		return fmt.Errorf("cannot determine repo: %w", err)
+	}
 
 	forgejoURL := os.Getenv("FORGEJO_URL")
 	if forgejoURL == "" {
@@ -51,36 +50,6 @@ func PR(uuid string) error {
 	fmt.Printf("Repository: %s/%s\n", owner, repo)
 
 	return openBrowser(prURL)
-}
-
-func resolveOwnerRepo(projectPath string) (owner, repo string) {
-	repo = filepath.Base(projectPath)
-	owner = os.Getenv("FORGEJO_DEFAULT_OWNER")
-	if owner == "" {
-		owner = "neil"
-	}
-
-	remoteURL, err := gitRemoteURL(projectPath)
-	if err != nil {
-		return owner, repo
-	}
-
-	matches := remoteURLPattern.FindStringSubmatch(remoteURL)
-	if len(matches) >= 3 {
-		owner = matches[1]
-		repo = strings.TrimSuffix(matches[2], ".git")
-	}
-
-	return owner, repo
-}
-
-func gitRemoteURL(dir string) (string, error) {
-	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin")
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 func openBrowser(url string) error {

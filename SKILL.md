@@ -1,12 +1,12 @@
 ---
 name: ttal
-description: Agent registry and text-to-speech. Look up agent info, project details, and generate spoken audio using your assigned Kokoro voice. Use when you need to speak aloud, send voice messages, or look up project/agent metadata.
+description: Agent infrastructure CLI. Manage PRs, send messages (Telegram/agent-to-agent), look up agent/project info, and generate spoken audio with your Kokoro voice.
 metadata: { "openclaw": { "emoji": "🗣️" } }
 ---
 
-# ttal — Agent Management & Voice
+# ttal — Agent Infrastructure CLI
 
-ttal is a CLI for managing agents, projects, and text-to-speech. Every agent has a registered voice for generating spoken audio.
+ttal is the single interface for agent operations: PRs, messaging, agent/project registry, and voice.
 
 ## Voice (Text-to-Speech)
 
@@ -49,6 +49,85 @@ ttal voice status
 ```
 
 If the server is not running, tell the user to run `ttal voice install`.
+
+## PR Management
+
+Manage Forgejo pull requests from your worker session. Context is auto-resolved from your zellij session — no flags needed.
+
+### Create a PR
+
+```bash
+ttal pr create "feat: add user authentication"
+ttal pr create "fix: timeout bug" --body "Fixes #42"
+```
+
+Creates a PR using your task's branch. The PR index is stored in the task automatically.
+
+### Modify a PR
+
+```bash
+ttal pr modify --title "updated title"
+ttal pr modify --body "updated description"
+```
+
+### Merge a PR (squash)
+
+```bash
+ttal pr merge
+ttal pr merge --keep-branch
+```
+
+Squash-merges the PR. Fails with a clear error if checks are failing or there are conflicts.
+
+### Comment on a PR
+
+```bash
+ttal pr comment create "LGTM, ready to merge"
+ttal pr comment list
+```
+
+### Override context
+
+If not in a zellij worker session, provide the task UUID explicitly:
+
+```bash
+ttal pr create "title" --task <uuid>
+```
+
+## Messaging
+
+Send messages between agents and humans via the daemon.
+
+### Reply to a human (via Telegram)
+
+```bash
+ttal send --from <your-agent-name> "PR #42 is ready for review"
+```
+
+### Send to another agent (via Zellij)
+
+```bash
+ttal send --from <your-name> --to <agent-name> "can you review my auth module?"
+```
+
+### Read message from stdin
+
+```bash
+echo "task complete" | ttal send --from <your-agent-name> --stdin
+```
+
+### Inbound message formats
+
+Messages arrive as prefixed text in your input:
+
+- `[telegram from:<name>]` — from a human via Telegram
+- `[agent from:<name>]` — from another agent
+
+### When to reply
+
+- Meaningful updates: task complete, blocked, need input, PR ready
+- Keep replies concise
+- You don't need to reply to every message — use judgement
 
 ## Agent Info
 

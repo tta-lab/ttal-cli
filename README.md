@@ -1,16 +1,18 @@
-# TTAL CLI - Project Reference Manager
+# TTAL CLI - Agent Infrastructure
 
-A command-line tool for managing projects, agents, automated memory capture, and Claude Code workers with tag-based filtering and agent routing.
+A command-line tool for managing agents, projects, workers, PRs, messaging, and voice — the single interface for agent operations in zellij sessions.
 
 ## Features
 
 - **Project Management**: Add, list, archive, and tag projects
 - **Agent Management**: Configure agents with tags, status tracking, and heartbeat periods
 - **Worker Management**: Spawn, close, and poll Claude Code workers in isolated zellij sessions
-- **Tag-Based Filtering**: Taskwarrior-like syntax for tag management (`+tag` to add, `-tag` to remove)
-- **Agent Routing**: Tag-based task routing to matching agents
+- **PR Management**: Create, modify, merge (squash), and comment on Forgejo PRs — context auto-resolved from worker session
+- **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (Zellij) communication via `ttal send`
+- **Tag-Based Routing**: Tag-based task routing to matching agents on task start
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
-- **Daemon**: Bidirectional communication hub — Telegram ↔ agents, agent-to-agent messaging, worker completion polling
+- **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
+- **Daemon**: Communication hub — Telegram polling, message delivery, worker completion polling (launchd)
 
 ## Installation
 
@@ -281,11 +283,11 @@ ttal agent add athena +research +design
 # Task with +research tag → routed to athena
 task add "Research authentication patterns" +research
 
-# Task with no matching tags → routed to worker-lifecycle (kestrel)
+# Task with no matching tags → routed to lifecycle agent (configured in daemon.json)
 task add "Fix login bug" +backend
 ```
 
-The agent with the most overlapping tags wins. If no agent matches, the task is sent to the default agent (`worker-lifecycle`) for worker spawning.
+The agent with the most overlapping tags wins. If no agent matches, the task is sent to the `lifecycle_agent` configured in `~/.ttal/daemon.json` (defaults to `kestrel`).
 
 ### Daemon Setup
 
@@ -304,20 +306,21 @@ Create `~/.ttal/daemon.json` (a template is created by `ttal daemon install`):
 
 ```json
 {
+  "zellij_session": "ttal-team",
+  "chat_id": "845849177",
+  "lifecycle_agent": "kestrel",
   "agents": {
     "kestrel": {
-      "telegram": {
-        "bot_token": "123:ABC...",
-        "chat_id": "845849177"
-      },
-      "zellij": {
-        "session": "cclaw",
-        "tab": "kestrel"
-      }
+      "bot_token": "123:ABC..."
     }
   }
 }
 ```
+
+- `zellij_session` — all agents live in this session (tab name = agent name)
+- `chat_id` — global Telegram chat ID (per-agent override via `chat_id` field)
+- `lifecycle_agent` — which agent handles task start/complete events
+- `agents` — per-agent Telegram bot tokens
 
 #### Commands
 
@@ -330,6 +333,9 @@ ttal daemon uninstall
 
 # Check if daemon is running
 ttal daemon status
+
+# Fill bot tokens from environment variables
+ttal daemon sync-tokens
 
 # Run daemon in foreground (for debugging)
 ttal daemon
@@ -369,19 +375,51 @@ Can you check the deployment?
 Can you review my auth module?
 ```
 
+### PR Commands
+
+Manage Forgejo pull requests directly from worker sessions. Context is auto-resolved from `ZELLIJ_SESSION_NAME` → task `session_name` UDA → `project_path` → `git remote get-url origin`.
+
+```bash
+# Create PR (stores pr_id in task UDA automatically)
+ttal pr create "feat: add user authentication"
+ttal pr create "fix: timeout bug" --body "Fixes #42"
+
+# Modify PR title or body
+ttal pr modify --title "updated title"
+ttal pr modify --body "updated description"
+
+# Squash-merge the PR (deletes branch by default)
+ttal pr merge
+ttal pr merge --keep-branch
+
+# Add a comment to the PR
+ttal pr comment create "LGTM, ready to merge"
+
+# List comments on the PR
+ttal pr comment list
+
+# Override auto-resolution with explicit task UUID
+ttal pr create "title" --task <uuid>
+```
+
+Requires `FORGEJO_URL` and `FORGEJO_TOKEN` environment variables.
+
 ## Environment Variables
 
-### Worker Commands
-
-Worker commands (`ttal worker spawn/close/poll`) require these environment variables:
+### Forgejo API
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `FORGEJO_URL` | For `poll` and `close` | Forgejo instance URL (e.g., `https://git.guion.io`) |
-| `FORGEJO_TOKEN` or `FORGEJO_ACCESS_TOKEN` | For `poll` and `close` | Forgejo API token for PR status checks |
-| `TTAL_ZELLIJ_DATA_DIR` | No | Custom zellij data directory (default: `$TMPDIR/ttal-zellij-data`) |
+| `FORGEJO_URL` | Yes | Forgejo instance URL (e.g., `https://git.guion.io`) |
+| `FORGEJO_TOKEN` or `FORGEJO_ACCESS_TOKEN` | Yes | Forgejo API token |
 
-**Note:** `spawn` does not need Forgejo credentials. Only `poll` and `close` (smart mode) need them to check PR merge status.
+Required by: `ttal pr *`, `ttal worker poll`, `ttal worker close` (smart mode).
+
+### Worker Commands
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TTAL_ZELLIJ_DATA_DIR` | No | Custom zellij data directory (default: `$TMPDIR/ttal-zellij-data`) |
 
 ### Taskwarrior UDAs
 
@@ -397,7 +435,7 @@ uda.branch.label=Branch
 uda.project_path.type=string
 uda.project_path.label=Project Path
 
-uda.pr_id.type=numeric
+uda.pr_id.type=string
 uda.pr_id.label=PR ID
 ```
 
