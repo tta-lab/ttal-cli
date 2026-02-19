@@ -96,21 +96,10 @@ ttal pr create "title" --task <uuid>
 
 ## Messaging
 
-### Telegram (automatic)
-
-Your assistant text is automatically bridged to Telegram at the end of each turn via the CC Stop hook. No action needed — just reply naturally.
-
-### Send to another agent (via Zellij)
+### Send to another agent
 
 ```bash
-ttal send --to <agent-name> "can you review my auth module?"
 ttal send --from <your-name> --to <agent-name> "can you review my auth module?"
-```
-
-### Read message from stdin
-
-```bash
-echo "task complete" | ttal send --to <agent-name> --stdin
 ```
 
 ### Inbound message formats
