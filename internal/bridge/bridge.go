@@ -74,35 +74,39 @@ func Run() error {
 		return nil // no matching agent — silent exit
 	}
 
-	// Extract last assistant text with retry — the Stop hook fires before CC
-	// flushes the current turn to JSONL, so we retry until we find a fresh
-	// (non-stale) assistant message.
-	var text string
+	// Extract all assistant texts from the current turn with retry — the Stop
+	// hook fires before CC flushes all entries to JSONL, so we retry until
+	// the count stabilizes (two consecutive reads return the same count).
+	var texts []string
+	prevCount := -1
 	for attempt := range retryAttempts {
-		text, err = extractCurrentTurnText(input.TranscriptPath)
+		texts, err = extractCurrentTurnTexts(input.TranscriptPath)
 		if err != nil {
 			logBridge("extract error (attempt %d): %v", attempt, err)
 			return nil
 		}
-		if text != "" {
-			break
+		if len(texts) > 0 && len(texts) == prevCount {
+			break // count stabilized
 		}
+		prevCount = len(texts)
 		time.Sleep(retryDelay)
 	}
 
-	if text == "" {
+	if len(texts) == 0 {
 		logBridge("no fresh text after %d attempts for %s", retryAttempts, agentName)
 		return nil
 	}
 
-	logBridge("sending %d chars for %s", len(text), agentName)
+	logBridge("sending %d messages for %s", len(texts), agentName)
 
-	// Send to daemon via socket — swallow errors silently
-	if err := daemon.Send(daemon.SendRequest{
-		From:    agentName,
-		Message: text,
-	}); err != nil {
-		logBridge("send error: %v", err)
+	// Send each text block as a separate message to daemon
+	for _, text := range texts {
+		if err := daemon.Send(daemon.SendRequest{
+			From:    agentName,
+			Message: text,
+		}); err != nil {
+			logBridge("send error: %v", err)
+		}
 	}
 
 	return nil
@@ -127,21 +131,19 @@ func resolveAgent(cwd string) (string, error) {
 	return a.Name, nil
 }
 
-// extractCurrentTurnText reads the last N lines of the JSONL transcript and
-// finds the last assistant text that is NOT followed by a stop_hook_summary.
+// extractCurrentTurnTexts reads the last N lines of the JSONL transcript and
+// collects ALL assistant text blocks from the current turn (not followed by a
+// stop_hook_summary).
 //
-// Why: The stop_hook_summary is written AFTER all Stop hooks complete. So while
-// our hook is running, the current turn's assistant text won't have a
-// stop_hook_summary after it, but all previous turns will. This is our
-// staleness signal — if the last assistant text is followed by a
-// stop_hook_summary, it's from a previous turn and CC hasn't flushed the
-// current turn yet.
+// A single turn may produce multiple assistant entries (text blocks separated
+// by tool calls). We return all of them in order so each can be sent as a
+// separate Telegram message.
 //
-// Returns "" if no fresh (current-turn) assistant text is found.
-func extractCurrentTurnText(path string) (string, error) {
+// Returns nil if no fresh (current-turn) assistant text is found.
+func extractCurrentTurnTexts(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer f.Close() //nolint:errcheck
 
@@ -152,7 +154,7 @@ func extractCurrentTurnText(path string) (string, error) {
 		lines = append(lines, scanner.Text())
 	}
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Take last N lines
@@ -195,29 +197,22 @@ func extractCurrentTurnText(path string) (string, error) {
 		entries = append(entries, pe)
 	}
 
-	// Scan backwards: find the last assistant text that is NOT followed
-	// by a stop_hook_summary.
+	// Find the last stop_hook_summary — everything after it is the current turn.
+	lastSummary := -1
 	for i := len(entries) - 1; i >= 0; i-- {
-		if entries[i].text == "" {
-			continue
+		if entries[i].typ == "system" && entries[i].subtype == "stop_hook_summary" {
+			lastSummary = i
+			break
 		}
-
-		// Check if any stop_hook_summary appears after this entry
-		stale := false
-		for j := i + 1; j < len(entries); j++ {
-			if entries[j].typ == "system" && entries[j].subtype == "stop_hook_summary" {
-				stale = true
-				break
-			}
-		}
-
-		if stale {
-			// This text belongs to a previous turn — no fresh text found yet
-			return "", nil
-		}
-
-		return entries[i].text, nil
 	}
 
-	return "", nil
+	// Collect all assistant texts after the last stop_hook_summary.
+	var result []string
+	for i := lastSummary + 1; i < len(entries); i++ {
+		if entries[i].text != "" {
+			result = append(result, entries[i].text)
+		}
+	}
+
+	return result, nil
 }
