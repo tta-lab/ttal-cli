@@ -25,22 +25,6 @@ This is what the installed hook shim calls. Always exits 0.`,
 	},
 }
 
-var workerHookOnStartCmd = &cobra.Command{
-	Use:   "on-start",
-	Short: "Handle task start event",
-	Long: `Handle task start (+ACTIVE) event from taskwarrior on-modify hook.
-
-Reads two JSON lines from stdin (original and modified task).
-Outputs the modified task JSON to stdout (required by taskwarrior).
-
-Routes to matching agent by tag overlap, or defaults to worker-lifecycle.
-
-This command always exits 0 to avoid blocking taskwarrior.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		worker.HookOnStart()
-	},
-}
-
 var workerHookOnCompleteCmd = &cobra.Command{
 	Use:   "on-complete",
 	Short: "Handle task completion event",
@@ -62,6 +46,5 @@ This command always exits 0 to avoid blocking taskwarrior.`,
 
 func init() {
 	workerHookCmd.AddCommand(workerHookOnModifyCmd)
-	workerHookCmd.AddCommand(workerHookOnStartCmd)
 	workerHookCmd.AddCommand(workerHookOnCompleteCmd)
 }

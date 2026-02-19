@@ -15,8 +15,9 @@ import (
 
 // taskwarrior task status constants used across hook handlers.
 const (
-	taskStatusPending   = "pending"
-	taskStatusCompleted = "completed"
+	taskStatusPending      = "pending"
+	taskStatusCompleted    = "completed"
+	defaultLifecycleAgent  = "kestrel"
 )
 
 // daemonSendRequest mirrors daemon.SendRequest to avoid import cycle.
@@ -83,14 +84,6 @@ func (t hookTask) UUID() string {
 	return v
 }
 
-func (t hookTask) ShortUUID() string {
-	u := t.UUID()
-	if len(u) > 8 {
-		return u[:4] + "..." + u[len(u)-4:]
-	}
-	return u
-}
-
 func (t hookTask) Description() string {
 	v, _ := t["description"].(string)
 	return v
@@ -104,53 +97,6 @@ func (t hookTask) Status() string {
 func (t hookTask) SessionName() string {
 	v, _ := t["session_name"].(string)
 	return v
-}
-
-func (t hookTask) Start() string {
-	v, _ := t["start"].(string)
-	return v
-}
-
-func (t hookTask) Tags() []string {
-	raw, ok := t["tags"].([]any)
-	if !ok {
-		return nil
-	}
-	tags := make([]string, 0, len(raw))
-	for _, v := range raw {
-		if s, ok := v.(string); ok {
-			tags = append(tags, s)
-		}
-	}
-	return tags
-}
-
-func (t hookTask) HasTag(tag string) bool {
-	for _, v := range t.Tags() {
-		if v == tag {
-			return true
-		}
-	}
-	return false
-}
-
-func (t hookTask) Project() string {
-	v, _ := t["project"].(string)
-	return v
-}
-
-func (t hookTask) Annotations() []map[string]any {
-	raw, ok := t["annotations"].([]any)
-	if !ok {
-		return nil
-	}
-	anns := make([]map[string]any, 0, len(raw))
-	for _, v := range raw {
-		if m, ok := v.(map[string]any); ok {
-			anns = append(anns, m)
-		}
-	}
-	return anns
 }
 
 // hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used when the
@@ -308,30 +254,3 @@ func hookLogFile(message string) {
 	fmt.Fprintf(f, "[%s] %s\n", timestamp, message) //nolint:errcheck
 }
 
-// extractTaskContext formats task info for agent notification.
-func extractTaskContext(task hookTask) string {
-	annotations := task.Annotations()
-	var annTexts []string
-	for _, ann := range annotations {
-		if desc, ok := ann["description"].(string); ok {
-			annTexts = append(annTexts, desc)
-		}
-	}
-	annText := strings.Join(annTexts, "\n")
-	if len(annText) > 2000 {
-		annText = annText[:2000]
-	}
-
-	return fmt.Sprintf(`Task %s started: %s
-Project: %s
-Tags: %s
-
-Annotations:
-%s
-
-Please analyze this task and spawn a worker if appropriate.
-Derive worker name and project path from the context.`,
-		task.UUID(), task.Description(),
-		task.Project(), strings.Join(task.Tags(), ", "),
-		annText)
-}

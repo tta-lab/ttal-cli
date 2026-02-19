@@ -296,7 +296,7 @@ The daemon is a long-running process (managed by launchd on macOS) that acts as 
 #### What it does
 
 - **Telegram → Agent**: Polls each agent's Telegram bot for inbound messages, delivers them to the agent's zellij session via `write-chars`
-- **Agent → Telegram**: Receives `ttal send --from` requests and sends via Telegram Bot API
+- **CC → Telegram**: JSONL watcher tails active CC session files (via fsnotify) and sends assistant text blocks to Telegram automatically — no agent action needed
 - **Agent → Agent**: Routes `ttal send --from a --to b` between agents via zellij with attribution
 - **Worker completion polling**: Checks for merged PRs every 60 seconds and auto-completes taskwarrior tasks
 
@@ -352,9 +352,6 @@ tail -f ~/.ttal/daemon.log
 Send messages between agents and humans with explicit direction:
 
 ```bash
-# Agent speaks to human via Telegram
-ttal send --from kestrel "PR #42 is ready for review"
-
 # System/hook delivers to agent via Zellij
 ttal send --to kestrel "Task started: implement auth"
 
@@ -362,8 +359,10 @@ ttal send --to kestrel "Task started: implement auth"
 ttal send --from yuki --to kestrel "Can you review my auth module?"
 
 # Read message from stdin
-echo "done" | ttal send --from kestrel --stdin
+echo "done" | ttal send --to kestrel --stdin
 ```
+
+> **Note:** Agent → Telegram is handled automatically by the daemon's JSONL watcher — agents don't need to call `ttal send` to reach humans.
 
 Message formats delivered to CC terminal:
 

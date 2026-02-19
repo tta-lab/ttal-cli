@@ -95,7 +95,8 @@ func Poll() error {
 			pollLog("ERROR", "Failed to mark task done",
 				"uuid", task.UUID,
 				"session", task.SessionName,
-				"pr", "#"+task.PRID)
+				"pr", "#"+task.PRID,
+				"error", err.Error())
 			continue
 		}
 

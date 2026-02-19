@@ -13,12 +13,6 @@ func HookOnModify() {
 		os.Exit(0)
 	}
 
-	// Detect: Task Start (pending, no start → pending, has start)
-	if original.Start() == "" && modified.Start() != "" && modified.Status() == taskStatusPending {
-		handleOnStart(original, modified)
-		return
-	}
-
 	// Detect: Task Complete (pending → completed)
 	if original.Status() == taskStatusPending && modified.Status() == taskStatusCompleted {
 		handleOnComplete(original, modified)

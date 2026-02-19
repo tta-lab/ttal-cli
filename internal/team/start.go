@@ -32,25 +32,33 @@ func Start(database *ent.Client, force bool) error {
 	sessionName := cfg.ZellijSession
 	if zellij.SessionExists(sessionName) {
 		if !force {
-			return fmt.Errorf(
-				"session %q already exists — use --force to recreate, or attach with: zellij --data-dir %s attach %s",
-				sessionName, zellij.DataDir(), sessionName,
-			)
-		}
-		fmt.Printf("Killing existing session %q...\n", sessionName)
-		if err := zellij.KillSession(sessionName); err != nil {
-			return fmt.Errorf("failed to kill session: %w", err)
-		}
-		// Wait for session to exit before deleting
-		for range 15 {
-			if !zellij.SessionExists(sessionName) {
-				break
+			// Try deleting — only succeeds for exited/dead sessions
+			if zellij.DeleteSession(sessionName) != nil {
+				return fmt.Errorf(
+					"session %q already exists — use --force to recreate, or attach with: zellij --data-dir %s attach %s",
+					sessionName, zellij.DataDir(), sessionName,
+				)
 			}
-			time.Sleep(200 * time.Millisecond)
+		} else {
+			// Force: kill live session, fall back to delete for exited ones
+			fmt.Printf("Removing existing session %q...\n", sessionName)
+			if err := zellij.KillSession(sessionName); err != nil {
+				// kill-session fails on exited sessions — try delete instead
+				if err := zellij.DeleteSession(sessionName); err != nil {
+					return fmt.Errorf("failed to remove session: %w", err)
+				}
+			} else {
+				// Wait for killed session to exit before deleting
+				for range 15 {
+					if !zellij.SessionExists(sessionName) {
+						break
+					}
+					time.Sleep(200 * time.Millisecond)
+				}
+				_ = zellij.DeleteSession(sessionName)
+			}
 		}
 	}
-	// Delete exited session if present (killed or crashed)
-	_ = zellij.DeleteSession(sessionName)
 
 	// Look up agents from config in ttal DB to get their paths
 	ctx := context.Background()
