@@ -2,26 +2,8 @@ package worker
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
-
-// HookOnStart handles the task start (+ACTIVE) event.
-// Reads two JSON lines from stdin, outputs modified task to stdout.
-func HookOnStart() {
-	original, modified, err := readHookInput()
-	if err != nil {
-		hookLogFile("ERROR in on-start: " + err.Error())
-		os.Exit(0)
-	}
-
-	if original.Start() != "" || modified.Start() == "" || modified.Status() != taskStatusPending {
-		passthroughTask(modified)
-		return
-	}
-
-	handleOnStart(original, modified)
-}
 
 // handleOnStart forks a background spawn if the task has enriched UDAs.
 func handleOnStart(_ hookTask, modified hookTask) {

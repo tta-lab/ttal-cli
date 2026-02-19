@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -14,9 +15,13 @@ import (
 // Reads one JSON line from stdin, outputs it back to stdout.
 // If the task's tags don't match any agent, forks background enrichment.
 func HookOnAdd() {
-	task, err := readHookAddInput()
+	task, rawLine, err := readHookAddInput()
 	if err != nil {
 		hookLogFile("ERROR in on-add: " + err.Error())
+		// Echo raw bytes so taskwarrior doesn't silently drop the task
+		if len(rawLine) > 0 {
+			fmt.Println(string(rawLine))
+		}
 		os.Exit(0)
 	}
 	defer passthroughTask(task)
@@ -56,6 +61,7 @@ func tagsMatchAgent(taskTags []string) bool {
 
 	database, err := db.New(dbPath)
 	if err != nil {
+		hookLogFile(fmt.Sprintf("tagsMatchAgent: failed to open DB: %v", err))
 		return false
 	}
 	defer database.Close() //nolint:errcheck

@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"os/exec"
 	"syscall"
+	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
@@ -110,7 +109,7 @@ func (t hookTask) Tags() []string {
 	tags := make([]string, 0, len(raw))
 	for _, v := range raw {
 		if s, ok := v.(string); ok {
-			tags = append(tags, s)
+			tags = append(tags, strings.ToLower(s))
 		}
 	}
 	return tags
@@ -191,23 +190,26 @@ func readHookInput() (original, modified hookTask, err error) {
 }
 
 // readHookAddInput reads a single task JSON from stdin (taskwarrior on-add protocol).
-func readHookAddInput() (hookTask, error) {
+// On success returns the parsed task. On failure returns the raw line so the caller
+// can echo it back to stdout (taskwarrior drops the task if nothing is written).
+func readHookAddInput() (task hookTask, rawLine []byte, err error) {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			return nil, fmt.Errorf("reading task from stdin: %w", err)
+			return nil, nil, fmt.Errorf("reading task from stdin: %w", err)
 		}
-		return nil, fmt.Errorf("failed to read task from stdin")
+		return nil, nil, fmt.Errorf("failed to read task from stdin")
 	}
 
-	var task hookTask
-	if err := json.Unmarshal(scanner.Bytes(), &task); err != nil {
-		return nil, fmt.Errorf("failed to parse task: %w", err)
+	rawLine = append([]byte{}, scanner.Bytes()...)
+
+	if err := json.Unmarshal(rawLine, &task); err != nil {
+		return nil, rawLine, fmt.Errorf("failed to parse task: %w", err)
 	}
 
-	return task, nil
+	return task, rawLine, nil
 }
 
 // forkBackground launches a detached subprocess that runs independently of the hook process.

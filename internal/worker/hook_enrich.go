@@ -20,6 +20,7 @@ func HookEnrich(uuid string) {
 	task, err := taskwarrior.ExportTask(uuid)
 	if err != nil {
 		hookLogFile(fmt.Sprintf("enrich: ERROR exporting task %s: %v", uuid, err))
+		notifyTelegram(fmt.Sprintf("⚠ Enrichment failed (export): %s\n%v", uuid, err))
 		return
 	}
 
@@ -39,6 +40,7 @@ func HookEnrich(uuid string) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		hookLogFile(fmt.Sprintf("enrich: ERROR running claude for %s: %v\nOutput: %s", uuid, err, string(out)))
+		notifyTelegram(fmt.Sprintf("⚠ Enrichment failed (claude): %s\n%v", task.Description, err))
 		return
 	}
 
