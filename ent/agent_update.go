@@ -82,6 +82,66 @@ func (_u *AgentUpdate) ClearVoice() *AgentUpdate {
 	return _u
 }
 
+// SetEmoji sets the "emoji" field.
+func (_u *AgentUpdate) SetEmoji(v string) *AgentUpdate {
+	_u.mutation.SetEmoji(v)
+	return _u
+}
+
+// SetNillableEmoji sets the "emoji" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableEmoji(v *string) *AgentUpdate {
+	if v != nil {
+		_u.SetEmoji(*v)
+	}
+	return _u
+}
+
+// ClearEmoji clears the value of the "emoji" field.
+func (_u *AgentUpdate) ClearEmoji() *AgentUpdate {
+	_u.mutation.ClearEmoji()
+	return _u
+}
+
+// SetDescription sets the "description" field.
+func (_u *AgentUpdate) SetDescription(v string) *AgentUpdate {
+	_u.mutation.SetDescription(v)
+	return _u
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableDescription(v *string) *AgentUpdate {
+	if v != nil {
+		_u.SetDescription(*v)
+	}
+	return _u
+}
+
+// ClearDescription clears the value of the "description" field.
+func (_u *AgentUpdate) ClearDescription() *AgentUpdate {
+	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetModel sets the "model" field.
+func (_u *AgentUpdate) SetModel(v agent.Model) *AgentUpdate {
+	_u.mutation.SetModel(v)
+	return _u
+}
+
+// SetNillableModel sets the "model" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableModel(v *agent.Model) *AgentUpdate {
+	if v != nil {
+		_u.SetModel(*v)
+	}
+	return _u
+}
+
+// ClearModel clears the value of the "model" field.
+func (_u *AgentUpdate) ClearModel() *AgentUpdate {
+	_u.mutation.ClearModel()
+	return _u
+}
+
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdate) AddTagIDs(ids ...int) *AgentUpdate {
 	_u.mutation.AddTagIDs(ids...)
@@ -157,6 +217,11 @@ func (_u *AgentUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Model(); ok {
+		if err := agent.ModelValidator(v); err != nil {
+			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -186,6 +251,24 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.VoiceCleared() {
 		_spec.ClearField(agent.FieldVoice, field.TypeString)
+	}
+	if value, ok := _u.mutation.Emoji(); ok {
+		_spec.SetField(agent.FieldEmoji, field.TypeString, value)
+	}
+	if _u.mutation.EmojiCleared() {
+		_spec.ClearField(agent.FieldEmoji, field.TypeString)
+	}
+	if value, ok := _u.mutation.Description(); ok {
+		_spec.SetField(agent.FieldDescription, field.TypeString, value)
+	}
+	if _u.mutation.DescriptionCleared() {
+		_spec.ClearField(agent.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.Model(); ok {
+		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
+	}
+	if _u.mutation.ModelCleared() {
+		_spec.ClearField(agent.FieldModel, field.TypeEnum)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -306,6 +389,66 @@ func (_u *AgentUpdateOne) ClearVoice() *AgentUpdateOne {
 	return _u
 }
 
+// SetEmoji sets the "emoji" field.
+func (_u *AgentUpdateOne) SetEmoji(v string) *AgentUpdateOne {
+	_u.mutation.SetEmoji(v)
+	return _u
+}
+
+// SetNillableEmoji sets the "emoji" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableEmoji(v *string) *AgentUpdateOne {
+	if v != nil {
+		_u.SetEmoji(*v)
+	}
+	return _u
+}
+
+// ClearEmoji clears the value of the "emoji" field.
+func (_u *AgentUpdateOne) ClearEmoji() *AgentUpdateOne {
+	_u.mutation.ClearEmoji()
+	return _u
+}
+
+// SetDescription sets the "description" field.
+func (_u *AgentUpdateOne) SetDescription(v string) *AgentUpdateOne {
+	_u.mutation.SetDescription(v)
+	return _u
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableDescription(v *string) *AgentUpdateOne {
+	if v != nil {
+		_u.SetDescription(*v)
+	}
+	return _u
+}
+
+// ClearDescription clears the value of the "description" field.
+func (_u *AgentUpdateOne) ClearDescription() *AgentUpdateOne {
+	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetModel sets the "model" field.
+func (_u *AgentUpdateOne) SetModel(v agent.Model) *AgentUpdateOne {
+	_u.mutation.SetModel(v)
+	return _u
+}
+
+// SetNillableModel sets the "model" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableModel(v *agent.Model) *AgentUpdateOne {
+	if v != nil {
+		_u.SetModel(*v)
+	}
+	return _u
+}
+
+// ClearModel clears the value of the "model" field.
+func (_u *AgentUpdateOne) ClearModel() *AgentUpdateOne {
+	_u.mutation.ClearModel()
+	return _u
+}
+
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdateOne) AddTagIDs(ids ...int) *AgentUpdateOne {
 	_u.mutation.AddTagIDs(ids...)
@@ -394,6 +537,11 @@ func (_u *AgentUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Model(); ok {
+		if err := agent.ModelValidator(v); err != nil {
+			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -440,6 +588,24 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if _u.mutation.VoiceCleared() {
 		_spec.ClearField(agent.FieldVoice, field.TypeString)
+	}
+	if value, ok := _u.mutation.Emoji(); ok {
+		_spec.SetField(agent.FieldEmoji, field.TypeString, value)
+	}
+	if _u.mutation.EmojiCleared() {
+		_spec.ClearField(agent.FieldEmoji, field.TypeString)
+	}
+	if value, ok := _u.mutation.Description(); ok {
+		_spec.SetField(agent.FieldDescription, field.TypeString, value)
+	}
+	if _u.mutation.DescriptionCleared() {
+		_spec.ClearField(agent.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.Model(); ok {
+		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
+	}
+	if _u.mutation.ModelCleared() {
+		_spec.ClearField(agent.FieldModel, field.TypeEnum)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{

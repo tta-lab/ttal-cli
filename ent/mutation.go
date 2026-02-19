@@ -40,6 +40,9 @@ type AgentMutation struct {
 	name          *string
 	_path         *string
 	voice         *string
+	emoji         *string
+	description   *string
+	model         *agent.Model
 	created_at    *time.Time
 	clearedFields map[string]struct{}
 	tags          map[int]struct{}
@@ -282,6 +285,153 @@ func (m *AgentMutation) ResetVoice() {
 	delete(m.clearedFields, agent.FieldVoice)
 }
 
+// SetEmoji sets the "emoji" field.
+func (m *AgentMutation) SetEmoji(s string) {
+	m.emoji = &s
+}
+
+// Emoji returns the value of the "emoji" field in the mutation.
+func (m *AgentMutation) Emoji() (r string, exists bool) {
+	v := m.emoji
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmoji returns the old "emoji" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldEmoji(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmoji is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmoji requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmoji: %w", err)
+	}
+	return oldValue.Emoji, nil
+}
+
+// ClearEmoji clears the value of the "emoji" field.
+func (m *AgentMutation) ClearEmoji() {
+	m.emoji = nil
+	m.clearedFields[agent.FieldEmoji] = struct{}{}
+}
+
+// EmojiCleared returns if the "emoji" field was cleared in this mutation.
+func (m *AgentMutation) EmojiCleared() bool {
+	_, ok := m.clearedFields[agent.FieldEmoji]
+	return ok
+}
+
+// ResetEmoji resets all changes to the "emoji" field.
+func (m *AgentMutation) ResetEmoji() {
+	m.emoji = nil
+	delete(m.clearedFields, agent.FieldEmoji)
+}
+
+// SetDescription sets the "description" field.
+func (m *AgentMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *AgentMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *AgentMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[agent.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *AgentMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[agent.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *AgentMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, agent.FieldDescription)
+}
+
+// SetModel sets the "model" field.
+func (m *AgentMutation) SetModel(a agent.Model) {
+	m.model = &a
+}
+
+// Model returns the value of the "model" field in the mutation.
+func (m *AgentMutation) Model() (r agent.Model, exists bool) {
+	v := m.model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModel returns the old "model" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldModel(ctx context.Context) (v agent.Model, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModel: %w", err)
+	}
+	return oldValue.Model, nil
+}
+
+// ClearModel clears the value of the "model" field.
+func (m *AgentMutation) ClearModel() {
+	m.model = nil
+	m.clearedFields[agent.FieldModel] = struct{}{}
+}
+
+// ModelCleared returns if the "model" field was cleared in this mutation.
+func (m *AgentMutation) ModelCleared() bool {
+	_, ok := m.clearedFields[agent.FieldModel]
+	return ok
+}
+
+// ResetModel resets all changes to the "model" field.
+func (m *AgentMutation) ResetModel() {
+	m.model = nil
+	delete(m.clearedFields, agent.FieldModel)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *AgentMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -406,7 +556,7 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 7)
 	if m.name != nil {
 		fields = append(fields, agent.FieldName)
 	}
@@ -415,6 +565,15 @@ func (m *AgentMutation) Fields() []string {
 	}
 	if m.voice != nil {
 		fields = append(fields, agent.FieldVoice)
+	}
+	if m.emoji != nil {
+		fields = append(fields, agent.FieldEmoji)
+	}
+	if m.description != nil {
+		fields = append(fields, agent.FieldDescription)
+	}
+	if m.model != nil {
+		fields = append(fields, agent.FieldModel)
 	}
 	if m.created_at != nil {
 		fields = append(fields, agent.FieldCreatedAt)
@@ -433,6 +592,12 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.Path()
 	case agent.FieldVoice:
 		return m.Voice()
+	case agent.FieldEmoji:
+		return m.Emoji()
+	case agent.FieldDescription:
+		return m.Description()
+	case agent.FieldModel:
+		return m.Model()
 	case agent.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -450,6 +615,12 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldPath(ctx)
 	case agent.FieldVoice:
 		return m.OldVoice(ctx)
+	case agent.FieldEmoji:
+		return m.OldEmoji(ctx)
+	case agent.FieldDescription:
+		return m.OldDescription(ctx)
+	case agent.FieldModel:
+		return m.OldModel(ctx)
 	case agent.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -481,6 +652,27 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetVoice(v)
+		return nil
+	case agent.FieldEmoji:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmoji(v)
+		return nil
+	case agent.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case agent.FieldModel:
+		v, ok := value.(agent.Model)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModel(v)
 		return nil
 	case agent.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -525,6 +717,15 @@ func (m *AgentMutation) ClearedFields() []string {
 	if m.FieldCleared(agent.FieldVoice) {
 		fields = append(fields, agent.FieldVoice)
 	}
+	if m.FieldCleared(agent.FieldEmoji) {
+		fields = append(fields, agent.FieldEmoji)
+	}
+	if m.FieldCleared(agent.FieldDescription) {
+		fields = append(fields, agent.FieldDescription)
+	}
+	if m.FieldCleared(agent.FieldModel) {
+		fields = append(fields, agent.FieldModel)
+	}
 	return fields
 }
 
@@ -545,6 +746,15 @@ func (m *AgentMutation) ClearField(name string) error {
 	case agent.FieldVoice:
 		m.ClearVoice()
 		return nil
+	case agent.FieldEmoji:
+		m.ClearEmoji()
+		return nil
+	case agent.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case agent.FieldModel:
+		m.ClearModel()
+		return nil
 	}
 	return fmt.Errorf("unknown Agent nullable field %s", name)
 }
@@ -561,6 +771,15 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldVoice:
 		m.ResetVoice()
+		return nil
+	case agent.FieldEmoji:
+		m.ResetEmoji()
+		return nil
+	case agent.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case agent.FieldModel:
+		m.ResetModel()
 		return nil
 	case agent.FieldCreatedAt:
 		m.ResetCreatedAt()

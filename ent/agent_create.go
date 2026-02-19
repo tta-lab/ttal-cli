@@ -55,6 +55,48 @@ func (_c *AgentCreate) SetNillableVoice(v *string) *AgentCreate {
 	return _c
 }
 
+// SetEmoji sets the "emoji" field.
+func (_c *AgentCreate) SetEmoji(v string) *AgentCreate {
+	_c.mutation.SetEmoji(v)
+	return _c
+}
+
+// SetNillableEmoji sets the "emoji" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableEmoji(v *string) *AgentCreate {
+	if v != nil {
+		_c.SetEmoji(*v)
+	}
+	return _c
+}
+
+// SetDescription sets the "description" field.
+func (_c *AgentCreate) SetDescription(v string) *AgentCreate {
+	_c.mutation.SetDescription(v)
+	return _c
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableDescription(v *string) *AgentCreate {
+	if v != nil {
+		_c.SetDescription(*v)
+	}
+	return _c
+}
+
+// SetModel sets the "model" field.
+func (_c *AgentCreate) SetModel(v agent.Model) *AgentCreate {
+	_c.mutation.SetModel(v)
+	return _c
+}
+
+// SetNillableModel sets the "model" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableModel(v *agent.Model) *AgentCreate {
+	if v != nil {
+		_c.SetModel(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AgentCreate) SetCreatedAt(v time.Time) *AgentCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -135,6 +177,11 @@ func (_c *AgentCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.Model(); ok {
+		if err := agent.ModelValidator(v); err != nil {
+			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Agent.created_at"`)}
 	}
@@ -175,6 +222,18 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Voice(); ok {
 		_spec.SetField(agent.FieldVoice, field.TypeString, value)
 		_node.Voice = value
+	}
+	if value, ok := _c.mutation.Emoji(); ok {
+		_spec.SetField(agent.FieldEmoji, field.TypeString, value)
+		_node.Emoji = value
+	}
+	if value, ok := _c.mutation.Description(); ok {
+		_spec.SetField(agent.FieldDescription, field.TypeString, value)
+		_node.Description = value
+	}
+	if value, ok := _c.mutation.Model(); ok {
+		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
+		_node.Model = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agent.FieldCreatedAt, field.TypeTime, value)

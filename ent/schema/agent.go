@@ -34,6 +34,16 @@ func (Agent) Fields() []ent.Field {
 		field.String("voice").
 			Optional().
 			Comment("Kokoro TTS voice ID (e.g. af_heart, af_sky)"),
+		field.String("emoji").
+			Optional().
+			Comment("Display emoji (e.g. 🐱, 🦅)"),
+		field.String("description").
+			Optional().
+			Comment("Short role summary (e.g. 'Task orchestration and planning')"),
+		field.Enum("model").
+			Values("haiku", "sonnet", "opus").
+			Optional().
+			Comment("Claude model tier (haiku, sonnet, opus)"),
 		field.Time("created_at").
 			Default(time.Now).
 			Immutable().

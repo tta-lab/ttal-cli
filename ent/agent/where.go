@@ -70,6 +70,16 @@ func Voice(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldVoice, v))
 }
 
+// Emoji applies equality check predicate on the "emoji" field. It's identical to EmojiEQ.
+func Emoji(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldEmoji, v))
+}
+
+// Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
+func Description(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldDescription, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldCreatedAt, v))
@@ -288,6 +298,186 @@ func VoiceEqualFold(v string) predicate.Agent {
 // VoiceContainsFold applies the ContainsFold predicate on the "voice" field.
 func VoiceContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldVoice, v))
+}
+
+// EmojiEQ applies the EQ predicate on the "emoji" field.
+func EmojiEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldEmoji, v))
+}
+
+// EmojiNEQ applies the NEQ predicate on the "emoji" field.
+func EmojiNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldEmoji, v))
+}
+
+// EmojiIn applies the In predicate on the "emoji" field.
+func EmojiIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldEmoji, vs...))
+}
+
+// EmojiNotIn applies the NotIn predicate on the "emoji" field.
+func EmojiNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldEmoji, vs...))
+}
+
+// EmojiGT applies the GT predicate on the "emoji" field.
+func EmojiGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldEmoji, v))
+}
+
+// EmojiGTE applies the GTE predicate on the "emoji" field.
+func EmojiGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldEmoji, v))
+}
+
+// EmojiLT applies the LT predicate on the "emoji" field.
+func EmojiLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldEmoji, v))
+}
+
+// EmojiLTE applies the LTE predicate on the "emoji" field.
+func EmojiLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldEmoji, v))
+}
+
+// EmojiContains applies the Contains predicate on the "emoji" field.
+func EmojiContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldEmoji, v))
+}
+
+// EmojiHasPrefix applies the HasPrefix predicate on the "emoji" field.
+func EmojiHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldEmoji, v))
+}
+
+// EmojiHasSuffix applies the HasSuffix predicate on the "emoji" field.
+func EmojiHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldEmoji, v))
+}
+
+// EmojiIsNil applies the IsNil predicate on the "emoji" field.
+func EmojiIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldEmoji))
+}
+
+// EmojiNotNil applies the NotNil predicate on the "emoji" field.
+func EmojiNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldEmoji))
+}
+
+// EmojiEqualFold applies the EqualFold predicate on the "emoji" field.
+func EmojiEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldEmoji, v))
+}
+
+// EmojiContainsFold applies the ContainsFold predicate on the "emoji" field.
+func EmojiContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldEmoji, v))
+}
+
+// DescriptionEQ applies the EQ predicate on the "description" field.
+func DescriptionEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldDescription, v))
+}
+
+// DescriptionNEQ applies the NEQ predicate on the "description" field.
+func DescriptionNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldDescription, v))
+}
+
+// DescriptionIn applies the In predicate on the "description" field.
+func DescriptionIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldDescription, vs...))
+}
+
+// DescriptionNotIn applies the NotIn predicate on the "description" field.
+func DescriptionNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldDescription, vs...))
+}
+
+// DescriptionGT applies the GT predicate on the "description" field.
+func DescriptionGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldDescription, v))
+}
+
+// DescriptionGTE applies the GTE predicate on the "description" field.
+func DescriptionGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldDescription, v))
+}
+
+// DescriptionLT applies the LT predicate on the "description" field.
+func DescriptionLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldDescription, v))
+}
+
+// DescriptionLTE applies the LTE predicate on the "description" field.
+func DescriptionLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldDescription, v))
+}
+
+// DescriptionContains applies the Contains predicate on the "description" field.
+func DescriptionContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldDescription, v))
+}
+
+// DescriptionHasPrefix applies the HasPrefix predicate on the "description" field.
+func DescriptionHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldDescription, v))
+}
+
+// DescriptionHasSuffix applies the HasSuffix predicate on the "description" field.
+func DescriptionHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldDescription, v))
+}
+
+// DescriptionIsNil applies the IsNil predicate on the "description" field.
+func DescriptionIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldDescription))
+}
+
+// DescriptionNotNil applies the NotNil predicate on the "description" field.
+func DescriptionNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldDescription))
+}
+
+// DescriptionEqualFold applies the EqualFold predicate on the "description" field.
+func DescriptionEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldDescription, v))
+}
+
+// DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
+func DescriptionContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// ModelEQ applies the EQ predicate on the "model" field.
+func ModelEQ(v Model) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldModel, v))
+}
+
+// ModelNEQ applies the NEQ predicate on the "model" field.
+func ModelNEQ(v Model) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldModel, v))
+}
+
+// ModelIn applies the In predicate on the "model" field.
+func ModelIn(vs ...Model) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldModel, vs...))
+}
+
+// ModelNotIn applies the NotIn predicate on the "model" field.
+func ModelNotIn(vs ...Model) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldModel, vs...))
+}
+
+// ModelIsNil applies the IsNil predicate on the "model" field.
+func ModelIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldModel))
+}
+
+// ModelNotNil applies the NotNil predicate on the "model" field.
+func ModelNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldModel))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

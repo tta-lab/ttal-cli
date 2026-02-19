@@ -17,9 +17,12 @@ import (
 )
 
 var (
-	agentName  string
-	agentPath  string
-	agentVoice string
+	agentName        string
+	agentPath        string
+	agentVoice       string
+	agentEmoji       string
+	agentDescription string
+	agentModel       string
 )
 
 var agentCmd = &cobra.Command{
@@ -76,6 +79,18 @@ Example:
 			}
 			creator = creator.SetVoice(agentVoice)
 		}
+		if agentEmoji != "" {
+			creator = creator.SetEmoji(agentEmoji)
+		}
+		if agentDescription != "" {
+			creator = creator.SetDescription(agentDescription)
+		}
+		if agentModel != "" {
+			if err := validateModel(agentModel); err != nil {
+				return err
+			}
+			creator = creator.SetModel(agent.Model(agentModel))
+		}
 		if len(tags) > 0 {
 			creator = creator.AddTags(tags...)
 		}
@@ -129,7 +144,7 @@ Examples:
 
 		// Print table
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tTAGS\tPATH")
+		_, _ = fmt.Fprintln(w, "NAME\tMODEL\tTAGS\tPATH")
 		for _, a := range agents {
 			// Extract tag names from edges
 			var tags []string
@@ -137,8 +152,18 @@ Examples:
 				tags = append(tags, t.Name)
 			}
 
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
-				a.Name, formatTags(tags), a.Path)
+			name := a.Name
+			if a.Emoji != "" {
+				name = a.Emoji + " " + a.Name
+			}
+
+			model := ""
+			if a.Model != "" {
+				model = string(a.Model)
+			}
+
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+				name, model, formatTags(tags), a.Path)
 		}
 		_ = w.Flush()
 
@@ -170,7 +195,17 @@ Example:
 			return fmt.Errorf("failed to get agent: %w", err)
 		}
 
-		fmt.Printf("Name:      %s\n", ag.Name)
+		displayName := ag.Name
+		if ag.Emoji != "" {
+			displayName = ag.Emoji + " " + displayName
+		}
+		fmt.Printf("Name:      %s\n", displayName)
+		if ag.Description != "" {
+			fmt.Printf("Role:      %s\n", ag.Description)
+		}
+		if ag.Model != "" {
+			fmt.Printf("Model:     %s\n", ag.Model)
+		}
 		if ag.Path != "" {
 			fmt.Printf("Path:      %s\n", ag.Path)
 		}
@@ -261,8 +296,17 @@ Examples:
 					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
 				}
 				updater = updater.SetVoice(value)
+			case "emoji":
+				updater = updater.SetEmoji(value)
+			case "description":
+				updater = updater.SetDescription(value)
+			case "model":
+				if err := validateModel(value); err != nil {
+					return err
+				}
+				updater = updater.SetModel(agent.Model(value))
 			default:
-				return fmt.Errorf("unknown field '%s' (available: path, voice)", field)
+				return fmt.Errorf("unknown field '%s' (available: path, voice, emoji, description, model)", field)
 			}
 		}
 
@@ -346,6 +390,16 @@ Example:
 	},
 }
 
+// validateModel checks that the model value is one of the allowed options.
+func validateModel(m string) error {
+	switch m {
+	case "haiku", "sonnet", "opus":
+		return nil
+	default:
+		return fmt.Errorf("unknown model '%s' (available: haiku, sonnet, opus)", m)
+	}
+}
+
 func init() {
 	rootCmd.AddCommand(agentCmd)
 
@@ -359,4 +413,7 @@ func init() {
 	// Flags for agent add
 	agentAddCmd.Flags().StringVar(&agentPath, "path", "", "Agent workspace path")
 	agentAddCmd.Flags().StringVar(&agentVoice, "voice", "", "Kokoro TTS voice ID (e.g. af_heart, af_sky)")
+	agentAddCmd.Flags().StringVar(&agentEmoji, "emoji", "", "Display emoji (e.g. 🐱, 🦅)")
+	agentAddCmd.Flags().StringVar(&agentDescription, "description", "", "Short role summary")
+	agentAddCmd.Flags().StringVar(&agentModel, "model", "", "Claude model tier (haiku, sonnet, opus)")
 }

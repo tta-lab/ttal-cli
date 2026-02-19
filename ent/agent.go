@@ -23,6 +23,12 @@ type Agent struct {
 	Path string `json:"path,omitempty"`
 	// Kokoro TTS voice ID (e.g. af_heart, af_sky)
 	Voice string `json:"voice,omitempty"`
+	// Display emoji (e.g. 🐱, 🦅)
+	Emoji string `json:"emoji,omitempty"`
+	// Short role summary (e.g. 'Task orchestration and planning')
+	Description string `json:"description,omitempty"`
+	// Claude model tier (haiku, sonnet, opus)
+	Model agent.Model `json:"model,omitempty"`
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -56,7 +62,7 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldID:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldPath, agent.FieldVoice:
+		case agent.FieldName, agent.FieldPath, agent.FieldVoice, agent.FieldEmoji, agent.FieldDescription, agent.FieldModel:
 			values[i] = new(sql.NullString)
 		case agent.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -98,6 +104,24 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field voice", values[i])
 			} else if value.Valid {
 				_m.Voice = value.String
+			}
+		case agent.FieldEmoji:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field emoji", values[i])
+			} else if value.Valid {
+				_m.Emoji = value.String
+			}
+		case agent.FieldDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field description", values[i])
+			} else if value.Valid {
+				_m.Description = value.String
+			}
+		case agent.FieldModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field model", values[i])
+			} else if value.Valid {
+				_m.Model = agent.Model(value.String)
 			}
 		case agent.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -154,6 +178,15 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("voice=")
 	builder.WriteString(_m.Voice)
+	builder.WriteString(", ")
+	builder.WriteString("emoji=")
+	builder.WriteString(_m.Emoji)
+	builder.WriteString(", ")
+	builder.WriteString("description=")
+	builder.WriteString(_m.Description)
+	builder.WriteString(", ")
+	builder.WriteString("model=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Model))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

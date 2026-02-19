@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -20,6 +21,12 @@ const (
 	FieldPath = "path"
 	// FieldVoice holds the string denoting the voice field in the database.
 	FieldVoice = "voice"
+	// FieldEmoji holds the string denoting the emoji field in the database.
+	FieldEmoji = "emoji"
+	// FieldDescription holds the string denoting the description field in the database.
+	FieldDescription = "description"
+	// FieldModel holds the string denoting the model field in the database.
+	FieldModel = "model"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
@@ -39,6 +46,9 @@ var Columns = []string{
 	FieldName,
 	FieldPath,
 	FieldVoice,
+	FieldEmoji,
+	FieldDescription,
+	FieldModel,
 	FieldCreatedAt,
 }
 
@@ -65,6 +75,30 @@ var (
 	DefaultCreatedAt func() time.Time
 )
 
+// Model defines the type for the "model" enum field.
+type Model string
+
+// Model values.
+const (
+	ModelHaiku  Model = "haiku"
+	ModelSonnet Model = "sonnet"
+	ModelOpus   Model = "opus"
+)
+
+func (m Model) String() string {
+	return string(m)
+}
+
+// ModelValidator is a validator for the "model" field enum values. It is called by the builders before save.
+func ModelValidator(m Model) error {
+	switch m {
+	case ModelHaiku, ModelSonnet, ModelOpus:
+		return nil
+	default:
+		return fmt.Errorf("agent: invalid enum value for model field: %q", m)
+	}
+}
+
 // OrderOption defines the ordering options for the Agent queries.
 type OrderOption func(*sql.Selector)
 
@@ -86,6 +120,21 @@ func ByPath(opts ...sql.OrderTermOption) OrderOption {
 // ByVoice orders the results by the voice field.
 func ByVoice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldVoice, opts...).ToFunc()
+}
+
+// ByEmoji orders the results by the emoji field.
+func ByEmoji(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmoji, opts...).ToFunc()
+}
+
+// ByDescription orders the results by the description field.
+func ByDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByModel orders the results by the model field.
+func ByModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldModel, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.
