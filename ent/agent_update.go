@@ -136,12 +136,6 @@ func (_u *AgentUpdate) SetNillableModel(v *agent.Model) *AgentUpdate {
 	return _u
 }
 
-// ClearModel clears the value of the "model" field.
-func (_u *AgentUpdate) ClearModel() *AgentUpdate {
-	_u.mutation.ClearModel()
-	return _u
-}
-
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdate) AddTagIDs(ids ...int) *AgentUpdate {
 	_u.mutation.AddTagIDs(ids...)
@@ -266,9 +260,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Model(); ok {
 		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
-	}
-	if _u.mutation.ModelCleared() {
-		_spec.ClearField(agent.FieldModel, field.TypeEnum)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -443,12 +434,6 @@ func (_u *AgentUpdateOne) SetNillableModel(v *agent.Model) *AgentUpdateOne {
 	return _u
 }
 
-// ClearModel clears the value of the "model" field.
-func (_u *AgentUpdateOne) ClearModel() *AgentUpdateOne {
-	_u.mutation.ClearModel()
-	return _u
-}
-
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdateOne) AddTagIDs(ids ...int) *AgentUpdateOne {
 	_u.mutation.AddTagIDs(ids...)
@@ -603,9 +588,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if value, ok := _u.mutation.Model(); ok {
 		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
-	}
-	if _u.mutation.ModelCleared() {
-		_spec.ClearField(agent.FieldModel, field.TypeEnum)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -414,22 +414,9 @@ func (m *AgentMutation) OldModel(ctx context.Context) (v agent.Model, err error)
 	return oldValue.Model, nil
 }
 
-// ClearModel clears the value of the "model" field.
-func (m *AgentMutation) ClearModel() {
-	m.model = nil
-	m.clearedFields[agent.FieldModel] = struct{}{}
-}
-
-// ModelCleared returns if the "model" field was cleared in this mutation.
-func (m *AgentMutation) ModelCleared() bool {
-	_, ok := m.clearedFields[agent.FieldModel]
-	return ok
-}
-
 // ResetModel resets all changes to the "model" field.
 func (m *AgentMutation) ResetModel() {
 	m.model = nil
-	delete(m.clearedFields, agent.FieldModel)
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -723,9 +710,6 @@ func (m *AgentMutation) ClearedFields() []string {
 	if m.FieldCleared(agent.FieldDescription) {
 		fields = append(fields, agent.FieldDescription)
 	}
-	if m.FieldCleared(agent.FieldModel) {
-		fields = append(fields, agent.FieldModel)
-	}
 	return fields
 }
 
@@ -751,9 +735,6 @@ func (m *AgentMutation) ClearField(name string) error {
 		return nil
 	case agent.FieldDescription:
 		m.ClearDescription()
-		return nil
-	case agent.FieldModel:
-		m.ClearModel()
 		return nil
 	}
 	return fmt.Errorf("unknown Agent nullable field %s", name)

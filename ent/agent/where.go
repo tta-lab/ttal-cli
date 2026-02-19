@@ -470,16 +470,6 @@ func ModelNotIn(vs ...Model) predicate.Agent {
 	return predicate.Agent(sql.FieldNotIn(FieldModel, vs...))
 }
 
-// ModelIsNil applies the IsNil predicate on the "model" field.
-func ModelIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldModel))
-}
-
-// ModelNotNil applies the NotNil predicate on the "model" field.
-func ModelNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldModel))
-}
-
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldCreatedAt, v))

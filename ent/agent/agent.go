@@ -78,6 +78,9 @@ var (
 // Model defines the type for the "model" enum field.
 type Model string
 
+// ModelOpus is the default value of the Model enum.
+const DefaultModel = ModelOpus
+
 // Model values.
 const (
 	ModelHaiku  Model = "haiku"

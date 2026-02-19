@@ -161,6 +161,10 @@ func (_c *AgentCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AgentCreate) defaults() {
+	if _, ok := _c.mutation.Model(); !ok {
+		v := agent.DefaultModel
+		_c.mutation.SetModel(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := agent.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -176,6 +180,9 @@ func (_c *AgentCreate) check() error {
 		if err := agent.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.Model(); !ok {
+		return &ValidationError{Name: "model", err: errors.New(`ent: missing required field "Agent.model"`)}
 	}
 	if v, ok := _c.mutation.Model(); ok {
 		if err := agent.ModelValidator(v); err != nil {

@@ -42,7 +42,7 @@ func (Agent) Fields() []ent.Field {
 			Comment("Short role summary (e.g. 'Task orchestration and planning')"),
 		field.Enum("model").
 			Values("haiku", "sonnet", "opus").
-			Optional().
+			Default("opus").
 			Comment("Claude model tier (haiku, sonnet, opus)"),
 		field.Time("created_at").
 			Default(time.Now).

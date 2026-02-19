@@ -17,8 +17,9 @@ import (
 
 // AgentTab holds the info needed to create a tab for one agent.
 type AgentTab struct {
-	Name string
-	Path string
+	Name  string
+	Path  string
+	Model string
 }
 
 // Start creates the team zellij session with a tab per agent.
@@ -67,7 +68,7 @@ func Start(database *ent.Client, force bool) error {
 			fmt.Fprintf(os.Stderr, "warning: agent %q has no path, skipping\n", agentName)
 			continue
 		}
-		tabs = append(tabs, AgentTab{Name: agentName, Path: ag.Path})
+		tabs = append(tabs, AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model)})
 	}
 
 	if len(tabs) == 0 {
@@ -108,6 +109,9 @@ func createTeamLayout(tabs []AgentTab) (string, error) {
 		}
 
 		claudeCmd := "claude --dangerously-skip-permissions"
+		if tab.Model != "" {
+			claudeCmd += " --model " + tab.Model
+		}
 		if hasConversation(tab.Path) {
 			claudeCmd += " --continue"
 		}
