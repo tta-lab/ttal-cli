@@ -96,24 +96,21 @@ ttal pr create "title" --task <uuid>
 
 ## Messaging
 
-Send messages between agents and humans via the daemon.
+### Telegram (automatic)
 
-### Reply to a human (via Telegram)
-
-```bash
-ttal send --from <your-agent-name> "PR #42 is ready for review"
-```
+Your assistant text is automatically bridged to Telegram at the end of each turn via the CC Stop hook. No action needed — just reply naturally.
 
 ### Send to another agent (via Zellij)
 
 ```bash
+ttal send --to <agent-name> "can you review my auth module?"
 ttal send --from <your-name> --to <agent-name> "can you review my auth module?"
 ```
 
 ### Read message from stdin
 
 ```bash
-echo "task complete" | ttal send --from <your-agent-name> --stdin
+echo "task complete" | ttal send --to <agent-name> --stdin
 ```
 
 ### Inbound message formats
