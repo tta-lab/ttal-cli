@@ -5,6 +5,7 @@ import "encoding/json"
 // jsonlEntry represents a single line in the CC session JSONL transcript.
 type jsonlEntry struct {
 	Type    string          `json:"type"`
+	Subtype string          `json:"subtype,omitempty"`
 	Message json.RawMessage `json:"message,omitempty"`
 }
 
