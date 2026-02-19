@@ -258,36 +258,40 @@ ttal worker poll
 
 #### Worker Setup
 
-`ttal worker install` installs the taskwarrior hook only. Worker completion polling
-is handled by the daemon (see [Daemon Setup](#daemon-setup) below).
+`ttal worker install` installs two taskwarrior hooks (`on-add-ttal` and `on-modify-ttal`).
+Worker completion polling is handled by the daemon (see [Daemon Setup](#daemon-setup) below).
 
 ```bash
-# Install taskwarrior hook
+# Install taskwarrior hooks
 ttal worker install
 
-# Remove taskwarrior hook
+# Remove taskwarrior hooks
 ttal worker uninstall
 
 # View hook logs
 tail -f ~/.task/hooks.log
 ```
 
-#### Task Routing
+#### Task Lifecycle
 
-When a task is started (`task <id> start`), the hook routes it to a matching agent based on tag overlap:
+Tasks go through three hook-driven stages:
+
+**1. on-add: Auto-enrichment** — When a task is created, the on-add hook checks if its tags already match a registered agent. If not, it forks a background `claude -p --model haiku` process to enrich the task with `project_path` and `branch` UDAs.
+
+**2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal worker spawn` to create a zellij session with a git worktree.
+
+**3. on-modify (complete): Auto-cleanup** — When a task is completed, the hook closes the worker session, auto-cleans if the PR is merged and the worktree is clean, or notifies the lifecycle agent if manual cleanup is needed.
+
+All lifecycle events are reported to the lifecycle agent's Telegram chat via the daemon socket.
 
 ```bash
-# Athena has tags: research, design
-ttal agent add athena +research +design
-
-# Task with +research tag → routed to athena
-task add "Research authentication patterns" +research
-
-# Task with no matching tags → routed to lifecycle agent (configured in daemon.json)
-task add "Fix login bug" +backend
+# Example flow:
+task add "Fix auth timeout in login API" +backend    # on-add: haiku enriches with project_path/branch
+task <id> start                                       # on-modify: spawns worker/fix-auth-timeout
+task <id> done                                        # on-modify: auto-cleanup if PR merged
 ```
 
-The agent with the most overlapping tags wins. If no agent matches, the task is sent to the `lifecycle_agent` configured in `~/.ttal/daemon.json` (defaults to `kestrel`).
+If a task's tags already match an agent (e.g., `+kestrel`), enrichment is skipped — the task is assumed to be pre-configured.
 
 ### Daemon Setup
 

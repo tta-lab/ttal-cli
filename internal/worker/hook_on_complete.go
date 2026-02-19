@@ -44,6 +44,7 @@ func handleOnComplete(_ hookTask, modified hookTask) {
 		// Auto-cleaned successfully
 		hookLog("COMPLETE", modified.UUID(), modified.Description(),
 			"worker", sessionName, "clean", "yes", "duration", duration)
+		notifyTelegram(fmt.Sprintf("✅ Worker auto-cleaned: %s\nTask: %s", sessionName, modified.Description()))
 		return
 	}
 
@@ -66,6 +67,8 @@ Please decide whether to:
 			sessionName, result.Status, result.StateDump, sessionName)
 
 		notifyAgent(message)
+		notifyTelegram(fmt.Sprintf("⚠ Worker needs cleanup decision: %s\nTask: %s\nStatus: %s",
+			sessionName, modified.Description(), result.Status))
 		hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
 			"worker", sessionName, "reason", "needs_decision")
 		return
@@ -92,6 +95,8 @@ Check ~/.task/hooks.log for details.`,
 		sessionName, status)
 
 	notifyAgent(message)
+	notifyTelegram(fmt.Sprintf("❌ Worker cleanup error: %s\nTask: %s\nError: %s",
+		sessionName, modified.Description(), status))
 	hookLog("AGENT_NOTIFY", modified.UUID(), modified.Description(),
 		"worker", sessionName, "reason", "cleanup_error")
 }

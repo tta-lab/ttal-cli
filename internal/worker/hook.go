@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"os/exec"
+	"syscall"
+
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
@@ -99,6 +102,35 @@ func (t hookTask) SessionName() string {
 	return v
 }
 
+func (t hookTask) Tags() []string {
+	raw, ok := t["tags"].([]any)
+	if !ok {
+		return nil
+	}
+	tags := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			tags = append(tags, s)
+		}
+	}
+	return tags
+}
+
+func (t hookTask) ProjectPath() string {
+	v, _ := t["project_path"].(string)
+	return v
+}
+
+func (t hookTask) Branch() string {
+	v, _ := t["branch"].(string)
+	return v
+}
+
+func (t hookTask) Start() string {
+	v, _ := t["start"].(string)
+	return v
+}
+
 // hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used when the
 // daemon is not running and for resolving the lifecycle agent name.
 type hookFallbackConfig struct {
@@ -158,6 +190,49 @@ func readHookInput() (original, modified hookTask, err error) {
 	return original, modified, nil
 }
 
+// readHookAddInput reads a single task JSON from stdin (taskwarrior on-add protocol).
+func readHookAddInput() (hookTask, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return nil, fmt.Errorf("reading task from stdin: %w", err)
+		}
+		return nil, fmt.Errorf("failed to read task from stdin")
+	}
+
+	var task hookTask
+	if err := json.Unmarshal(scanner.Bytes(), &task); err != nil {
+		return nil, fmt.Errorf("failed to parse task: %w", err)
+	}
+
+	return task, nil
+}
+
+// forkBackground launches a detached subprocess that runs independently of the hook process.
+// Used for fire-and-forget operations that must not block taskwarrior.
+func forkBackground(args ...string) error {
+	ttalBin, err := exec.LookPath("ttal")
+	if err != nil {
+		return fmt.Errorf("ttal not found in PATH: %w", err)
+	}
+
+	cmd := exec.Command(ttalBin, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	cmd.Stdin = nil
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to fork background process: %w", err)
+	}
+
+	// Detach — don't wait for child
+	go cmd.Wait() //nolint:errcheck
+	return nil
+}
+
 // passthroughTask writes the task JSON back to stdout as required by the
 // taskwarrior hook protocol. We never mutate the task — this is a pure echo.
 // Marshal of a JSON-sourced map[string]any cannot fail.
@@ -204,6 +279,20 @@ func notifyAgent(message string) {
 		agent = cfg.LifecycleAgent
 	}
 	notifyAgentWith(message, agent)
+}
+
+// notifyTelegram sends a message to an agent's Telegram chat via the daemon.
+// Uses From-only routing (daemon's handleFrom → Telegram Bot API).
+// Fire-and-forget: errors are logged but not propagated.
+func notifyTelegram(message string) {
+	agent := defaultLifecycleAgent
+	if cfg, err := loadHookFallbackConfig(); err == nil && cfg.LifecycleAgent != "" {
+		agent = cfg.LifecycleAgent
+	}
+	req := daemonSendRequest{From: agent, Message: message}
+	if err := sendToDaemon(req); err != nil {
+		hookLogFile(fmt.Sprintf("ERROR: telegram notify failed for %s: %v", agent, err))
+	}
 }
 
 // notifyAgentWith dispatches a message to the named agent.

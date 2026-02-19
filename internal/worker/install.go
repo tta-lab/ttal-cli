@@ -8,18 +8,25 @@ import (
 )
 
 const (
-	hookName = "on-modify-ttal"
+	onModifyHookName = "on-modify-ttal"
+	onAddHookName    = "on-add-ttal"
 )
 
-const hookShim = `#!/bin/bash
+const onModifyHookShim = `#!/bin/bash
 # Taskwarrior on-modify hook — delegates to ttal.
 # Installed by: ttal worker install
 
 exec ttal worker hook on-modify
 `
 
-// Install sets up the taskwarrior hook.
-// Worker completion polling is now handled by the ttal daemon (ttal daemon install).
+const onAddHookShim = `#!/bin/bash
+# Taskwarrior on-add hook — delegates to ttal.
+# Installed by: ttal worker install
+
+exec ttal worker hook on-add
+`
+
+// Install sets up the taskwarrior hooks (on-add and on-modify).
 func Install() error {
 	ttalBin, err := exec.LookPath("ttal")
 	if err != nil {
@@ -33,7 +40,7 @@ func Install() error {
 
 	fmt.Printf("Using ttal binary: %s\n\n", ttalBin)
 
-	if err := installHook(home); err != nil {
+	if err := installHooks(home); err != nil {
 		return fmt.Errorf("hook install failed: %w", err)
 	}
 
@@ -43,19 +50,22 @@ func Install() error {
 	return nil
 }
 
-// Uninstall removes the taskwarrior hook.
+// Uninstall removes the taskwarrior hooks.
 func Uninstall() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	hookPath := filepath.Join(home, ".task", "hooks", hookName)
-	if _, err := os.Stat(hookPath); err == nil {
-		os.Remove(hookPath) //nolint:errcheck
-		fmt.Printf("Removed taskwarrior hook: %s\n", hookPath)
-	} else {
-		fmt.Println("Taskwarrior hook: not installed")
+	hookDir := filepath.Join(home, ".task", "hooks")
+	for _, name := range []string{onModifyHookName, onAddHookName} {
+		hookPath := filepath.Join(hookDir, name)
+		if _, err := os.Stat(hookPath); err == nil {
+			os.Remove(hookPath) //nolint:errcheck
+			fmt.Printf("Removed taskwarrior hook: %s\n", hookPath)
+		} else {
+			fmt.Printf("Taskwarrior hook %s: not installed\n", name)
+		}
 	}
 
 	fmt.Println("\nNote: Log files remain at ~/.ttal/ and ~/.task/hooks.log")
@@ -63,13 +73,11 @@ func Uninstall() error {
 	return nil
 }
 
-func installHook(home string) error {
+func installHooks(home string) error {
 	hookDir := filepath.Join(home, ".task", "hooks")
 	if err := os.MkdirAll(hookDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}
-
-	hookPath := filepath.Join(hookDir, hookName)
 
 	// Backup existing Python hook if present
 	pythonHook := filepath.Join(hookDir, "on-modify-worker-lifecycle")
@@ -81,10 +89,19 @@ func installHook(home string) error {
 		fmt.Printf("Backed up Python hook: %s\n", backupPath)
 	}
 
-	if err := os.WriteFile(hookPath, []byte(hookShim), 0o755); err != nil {
+	// Install on-modify hook
+	onModifyPath := filepath.Join(hookDir, onModifyHookName)
+	if err := os.WriteFile(onModifyPath, []byte(onModifyHookShim), 0o755); err != nil {
 		return err
 	}
+	fmt.Printf("Taskwarrior hook: %s\n", onModifyPath)
 
-	fmt.Printf("Taskwarrior hook: %s\n", hookPath)
+	// Install on-add hook
+	onAddPath := filepath.Join(hookDir, onAddHookName)
+	if err := os.WriteFile(onAddPath, []byte(onAddHookShim), 0o755); err != nil {
+		return err
+	}
+	fmt.Printf("Taskwarrior hook: %s\n", onAddPath)
+
 	return nil
 }

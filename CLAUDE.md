@@ -117,6 +117,9 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
 | `ttal send --to kestrel` | Zellij write-chars | `handleTo` |
 | `ttal send --from yuki --to kestrel` | Zellij write-chars + attribution | `handleAgentToAgent` |
+| on-add hook (task created) | Background `claude -p` enrichment | `HookOnAdd` → `HookEnrich` |
+| on-modify hook (task started) | Background `ttal worker spawn` | `handleOnStart` → `HookSpawnWorker` |
+| on-modify hook (task completed) | Direct worker close | `handleOnComplete` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
 are set. Taskwarrior hooks use `--to` (daemon socket → agent's Zellij terminal).
@@ -127,7 +130,7 @@ offsets, and sends assistant text blocks to Telegram via the daemon's send callb
 normal text — the watcher handles routing to Telegram automatically.
 
 Completion polling (every 60s) is built into the daemon — **not** a separate launchd plist.
-`ttal worker install` only installs the taskwarrior hook, not a poll service.
+`ttal worker install` installs both `on-add-ttal` and `on-modify-ttal` taskwarrior hooks, not a poll service.
 
 ### Tag-Based Routing
 
