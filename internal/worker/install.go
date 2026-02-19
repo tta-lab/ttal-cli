@@ -44,9 +44,6 @@ func Install() error {
 		return fmt.Errorf("hook install failed: %w", err)
 	}
 
-	fmt.Println("\nNote: Worker completion polling is now handled by the ttal daemon.")
-	fmt.Println("  Run: ttal daemon install")
-
 	return nil
 }
 

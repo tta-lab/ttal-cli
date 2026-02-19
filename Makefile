@@ -46,6 +46,7 @@ setup: install
 
 # Install and restart daemon
 reinstall: install
+	@ttal worker install
 	@if launchctl list 2>/dev/null | grep -q io.guion.ttal.daemon; then \
 		echo "Restarting daemon..."; \
 		launchctl kickstart -k "gui/$$(id -u)/io.guion.ttal.daemon"; \
