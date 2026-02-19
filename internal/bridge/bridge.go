@@ -68,9 +68,6 @@ func Run() error {
 		return nil
 	}
 
-	// Debug: log what the hook received
-	logBridge("input: cwd=%s transcript=%s active=%v", input.Cwd, input.TranscriptPath, input.StopHookActive)
-
 	// Resolve cwd → agent name via database
 	agentName, err := resolveAgent(input.Cwd)
 	if err != nil {
@@ -90,7 +87,6 @@ func Run() error {
 		if text != "" {
 			break
 		}
-		logBridge("no fresh text (attempt %d), retrying...", attempt)
 		time.Sleep(retryDelay)
 	}
 
