@@ -230,8 +230,8 @@ func forkBackground(args ...string) error {
 		return fmt.Errorf("failed to fork background process: %w", err)
 	}
 
-	// Detach — don't wait for child
-	go cmd.Wait() //nolint:errcheck
+	// Child is in its own session (Setsid), so it gets reparented to PID 1
+	// on hook exit. PID 1 (launchd) reaps it — no Wait() needed.
 	return nil
 }
 
