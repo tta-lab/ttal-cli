@@ -7,6 +7,7 @@ require (
 	entgo.io/ent v0.14.5
 	github.com/BurntSushi/toml v1.6.0
 	github.com/creack/pty v1.1.24
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-telegram/bot v1.18.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/spf13/cobra v1.8.1

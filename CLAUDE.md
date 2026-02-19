@@ -88,7 +88,6 @@ cmd/             - CLI commands (cobra)
   ├── project.go - Project CRUD commands
   ├── agent.go   - Agent CRUD commands
   ├── memory.go  - Memory capture command
-  ├── bridge.go  - ttal bridge (CC Stop hook → Telegram, hidden)
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to/--from+--to (messaging)
   ├── pr.go      - ttal pr create/modify/merge/comment
@@ -100,7 +99,7 @@ ent/             - ent ORM (mostly auto-generated)
 internal/
   ├── db/        - Database connection wrapper
   ├── memory/    - Memory capture logic (git commit extraction)
-  ├── bridge/    - CC→Telegram bridge (Stop hook, JSONL parsing)
+  ├── watcher/   - JSONL file watcher (CC → Telegram via daemon)
   ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/   - Forgejo SDK client and repo helpers
   ├── pr/        - PR operations (create, modify, merge, comment)
@@ -115,16 +114,17 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 
 | Path | Channel | Handler |
 |---|---|---|
-| `ttal bridge` (Stop hook) | Telegram (outbound) | `handleFrom` |
+| JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
 | `ttal send --to kestrel` | Zellij write-chars | `handleTo` |
 | `ttal send --from yuki --to kestrel` | Zellij write-chars + attribution | `handleAgentToAgent` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
 are set. Taskwarrior hooks use `--to` (daemon socket → agent's Zellij terminal).
 
-The bridge (`internal/bridge/`) is called by CC's Stop hook at every turn end. It reads the last
-assistant text from the session JSONL transcript, resolves the agent by cwd, and sends to the
-daemon socket. Agents write normal text — the bridge handles routing to Telegram automatically.
+The watcher (`internal/watcher/`) uses fsnotify to tail active CC session JSONL files. It maps
+encoded project directory names back to registered agent paths, reads new bytes from tracked
+offsets, and sends assistant text blocks to Telegram via the daemon's send callback. Agents write
+normal text — the watcher handles routing to Telegram automatically.
 
 Completion polling (every 60s) is built into the daemon — **not** a separate launchd plist.
 `ttal worker install` only installs the taskwarrior hook, not a poll service.

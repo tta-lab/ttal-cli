@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/watcher"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 )
 
@@ -20,7 +22,7 @@ const (
 )
 
 // Run starts the daemon in the foreground. This is what launchd calls.
-func Run() error {
+func Run(database *ent.Client) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -73,6 +75,9 @@ func Run() error {
 
 	// Start completion poller
 	go runCompletionPoller(done)
+
+	// Start JSONL watcher for CC -> Telegram bridging
+	startWatcher(database, cfg, done)
 
 	// Start socket listener
 	cleanup, err := listenSocket(sockPath, func(req SendRequest) error {
@@ -143,6 +148,28 @@ func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 	return deliverToZellij(cfg.ZellijSession, req.To, msg)
+}
+
+// startWatcher initializes and runs the JSONL watcher in a goroutine.
+func startWatcher(database *ent.Client, cfg *config.Config, done <-chan struct{}) {
+	w, err := watcher.New(database, func(agentName, text string) {
+		agentCfg, ok := cfg.Agents[agentName]
+		if !ok || agentCfg.BotToken == "" {
+			return
+		}
+		if err := sendTelegramMessage(agentCfg.BotToken, cfg.AgentChatID(agentName), text); err != nil {
+			log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
+		}
+	})
+	if err != nil {
+		log.Printf("[daemon] watcher disabled: %v — CC→Telegram bridging will not work", err)
+		return
+	}
+	go func() {
+		if err := w.Run(done); err != nil {
+			log.Printf("[daemon] watcher error: %v", err)
+		}
+	}()
 }
 
 // runCompletionPoller runs worker.Poll every 60s until done is closed.

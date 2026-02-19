@@ -39,7 +39,7 @@ Examples:
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {
-			return fmt.Errorf("--to is required (agent→Telegram is handled by the bridge)")
+			return fmt.Errorf("--to is required (agent→Telegram is handled by the daemon JSONL watcher)")
 		}
 
 		var message string

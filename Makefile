@@ -38,7 +38,6 @@ setup: install
 	@echo "Setting up ttal..."
 	@$(shell go env GOPATH)/bin/ttal worker install
 	@$(shell go env GOPATH)/bin/ttal daemon install
-	@$(shell go env GOPATH)/bin/ttal bridge install
 	@echo "✓ Setup complete"
 	@echo ""
 	@echo "Next steps:"
