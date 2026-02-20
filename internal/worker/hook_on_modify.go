@@ -16,11 +16,8 @@ func HookOnModify() {
 		return
 	}
 
-	// Detect: Task Complete (pending → completed)
-	if original.Status() == taskStatusPending && modified.Status() == taskStatusCompleted {
-		handleOnComplete(original, modified)
-		return
-	}
+	// Task completion is handled by the daemon's completion poller (poll.go),
+	// which owns the full lifecycle: check PR → close worker → mark done → notify.
 
 	// No matching event — pass through
 	passthroughTask(modified)

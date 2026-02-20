@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"errors"
+
 	"codeberg.org/clawteam/ttal-cli/internal/forgejo"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
@@ -90,17 +92,47 @@ func Poll() error {
 			continue
 		}
 
-		// PR is merged — mark task as done
+		// PR is merged — close worker (session + worktree), then mark task done
+		result, closeErr := Close(task.SessionName, false)
+
+		if closeErr != nil && errors.Is(closeErr, ErrNeedsDecision) && result != nil {
+			pollLog("NEEDS_DECISION", result.Status,
+				"uuid", task.UUID,
+				"session", task.SessionName,
+				"pr", "#"+task.PRID)
+			notifyTelegram(fmt.Sprintf("⚠ Worker needs cleanup decision: %s\nTask: %s\nStatus: %s",
+				task.SessionName, task.Description, result.Status))
+			continue
+		}
+
+		if closeErr != nil {
+			status := "unknown error"
+			if result != nil {
+				status = result.Status
+			}
+			pollLog("ERROR", "Worker cleanup failed",
+				"uuid", task.UUID,
+				"session", task.SessionName,
+				"pr", "#"+task.PRID,
+				"error", status)
+			notifyTelegram(fmt.Sprintf("❌ Worker cleanup error: %s\nTask: %s\nError: %s",
+				task.SessionName, task.Description, status))
+			continue
+		}
+
+		// Cleanup succeeded — mark task done
 		if err := taskwarrior.MarkDone(task.UUID); err != nil {
 			pollLog("ERROR", "Failed to mark task done",
 				"uuid", task.UUID,
 				"session", task.SessionName,
 				"pr", "#"+task.PRID,
 				"error", err.Error())
+			notifyTelegram(fmt.Sprintf("❌ Failed to mark task done: %s\nTask: %s\nError: %v",
+				task.SessionName, task.Description, err))
 			continue
 		}
 
-		pollLog("SUCCESS", "Task auto-completed",
+		pollLog("SUCCESS", "Worker cleaned up and task completed",
 			"uuid", task.UUID,
 			"session", task.SessionName,
 			"pr", "#"+task.PRID)

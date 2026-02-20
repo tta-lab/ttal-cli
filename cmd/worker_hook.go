@@ -42,25 +42,6 @@ This command always exits 0 to avoid blocking taskwarrior.`,
 	},
 }
 
-var workerHookOnCompleteCmd = &cobra.Command{
-	Use:   "on-complete",
-	Short: "Handle task completion event",
-	Long: `Handle task completion event from taskwarrior on-modify hook.
-
-Reads two JSON lines from stdin (original and modified task).
-Outputs the modified task JSON to stdout (required by taskwarrior).
-
-For worker tasks (with session_name UDA):
-- Calls worker close directly (no subprocess)
-- Auto-cleans if PR merged + worktree clean
-- Notifies agent if manual decision needed or on error
-
-This command always exits 0 to avoid blocking taskwarrior.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		worker.HookOnComplete()
-	},
-}
-
 var workerHookEnrichCmd = &cobra.Command{
 	Use:    "enrich <uuid>",
 	Short:  "Background task enrichment via haiku",
@@ -86,7 +67,6 @@ var workerHookSpawnWorkerCmd = &cobra.Command{
 func init() {
 	workerHookCmd.AddCommand(workerHookOnModifyCmd)
 	workerHookCmd.AddCommand(workerHookOnAddCmd)
-	workerHookCmd.AddCommand(workerHookOnCompleteCmd)
 	workerHookCmd.AddCommand(workerHookEnrichCmd)
 	workerHookCmd.AddCommand(workerHookSpawnWorkerCmd)
 }
