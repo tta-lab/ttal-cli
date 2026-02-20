@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"codeberg.org/clawteam/ttal-cli/internal/env"
 	"github.com/creack/pty"
 )
 
@@ -322,7 +323,7 @@ func LaunchSession(name, layoutFile string) (*SessionHandle, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	// Strip CLAUDECODE env var so the spawned CC session doesn't think it's nested
-	cmd.Env = cleanEnv()
+	cmd.Env = env.ForSpawnCC()
 
 	// Start with a PTY so zellij-client can query terminal attributes
 	ptmx, err := pty.Start(cmd)
@@ -469,15 +470,3 @@ func runGit(dir string, args ...string) (string, error) {
 	return string(out), nil
 }
 
-// cleanEnv returns the current environment with CC-specific vars removed,
-// so spawned sessions don't detect themselves as nested.
-func cleanEnv() []string {
-	env := make([]string, 0, len(os.Environ()))
-	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "CLAUDECODE=") || strings.HasPrefix(e, "CLAUDE_CODE_ENTRYPOINT=") {
-			continue
-		}
-		env = append(env, e)
-	}
-	return env
-}

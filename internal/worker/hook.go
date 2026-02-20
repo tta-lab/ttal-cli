@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/env"
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
@@ -217,6 +218,7 @@ func forkBackground(args ...string) error {
 
 	cmd := exec.Command(ttalBin, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Env = env.ForSpawnCC()
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.Stdin = nil
