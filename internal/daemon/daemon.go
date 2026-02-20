@@ -67,7 +67,7 @@ func Run(database *ent.Client) error {
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
 		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
-			if err := deliverToZellij(cfg.ZellijSession, name, text); err != nil {
+			if err := deliverToZellij(name, text); err != nil {
 				log.Printf("[daemon] zellij delivery failed for %s: %v", name, err)
 			}
 		}, done)
@@ -133,7 +133,7 @@ func handleTo(cfg *config.Config, req SendRequest) error {
 	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToZellij(cfg.ZellijSession, req.To, req.Message)
+	return deliverToZellij(req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another via zellij,
@@ -147,7 +147,7 @@ func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToZellij(cfg.ZellijSession, req.To, msg)
+	return deliverToZellij(req.To, msg)
 }
 
 // startWatcher initializes and runs the JSONL watcher in a goroutine.

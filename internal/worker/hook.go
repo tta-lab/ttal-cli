@@ -12,14 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
 // taskwarrior task status constants used across hook handlers.
 const (
-	taskStatusPending      = "pending"
-	taskStatusCompleted    = "completed"
-	defaultLifecycleAgent  = "kestrel"
+	taskStatusPending   = "pending"
+	taskStatusCompleted = "completed"
 )
 
 // daemonSendRequest mirrors daemon.SendRequest to avoid import cycle.
@@ -130,10 +130,9 @@ func (t hookTask) Start() string {
 	return v
 }
 
-// hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used when the
-// daemon is not running and for resolving the lifecycle agent name.
+// hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used for
+// resolving the lifecycle agent name.
 type hookFallbackConfig struct {
-	ZellijSession  string `json:"zellij_session"`
 	LifecycleAgent string `json:"lifecycle_agent"`
 }
 
@@ -152,10 +151,6 @@ func loadHookFallbackConfig() (*hookFallbackConfig, error) {
 	var cfg hookFallbackConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("invalid daemon config: %w", err)
-	}
-
-	if cfg.ZellijSession == "" {
-		return nil, fmt.Errorf("daemon config missing 'zellij_session'")
 	}
 
 	return &cfg, nil
@@ -275,10 +270,11 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 
 // notifyAgent sends a fire-and-forget message to the lifecycle agent.
 // Resolves the agent name from daemon.json lifecycle_agent field.
+// No-ops if config cannot be loaded (no guessing).
 func notifyAgent(message string) {
-	agent := defaultLifecycleAgent
-	if cfg, err := loadHookFallbackConfig(); err == nil && cfg.LifecycleAgent != "" {
-		agent = cfg.LifecycleAgent
+	agent := resolveLifecycleAgent()
+	if agent == "" {
+		return
 	}
 	notifyAgentWith(message, agent)
 }
@@ -286,15 +282,31 @@ func notifyAgent(message string) {
 // notifyTelegram sends a message to an agent's Telegram chat via the daemon.
 // Uses From-only routing (daemon's handleFrom → Telegram Bot API).
 // Fire-and-forget: errors are logged but not propagated.
+// No-ops if config cannot be loaded (no guessing).
 func notifyTelegram(message string) {
-	agent := defaultLifecycleAgent
-	if cfg, err := loadHookFallbackConfig(); err == nil && cfg.LifecycleAgent != "" {
-		agent = cfg.LifecycleAgent
+	agent := resolveLifecycleAgent()
+	if agent == "" {
+		return
 	}
 	req := daemonSendRequest{From: agent, Message: message}
 	if err := sendToDaemon(req); err != nil {
 		hookLogFile(fmt.Sprintf("ERROR: telegram notify failed for %s: %v", agent, err))
 	}
+}
+
+// resolveLifecycleAgent reads the lifecycle agent from daemon.json.
+// Returns empty string (and logs) if config is missing or has no lifecycle_agent.
+func resolveLifecycleAgent() string {
+	cfg, err := loadHookFallbackConfig()
+	if err != nil {
+		hookLogFile("WARNING: cannot resolve lifecycle agent: " + err.Error())
+		return ""
+	}
+	if cfg.LifecycleAgent == "" {
+		hookLogFile("WARNING: daemon.json has no lifecycle_agent configured")
+		return ""
+	}
+	return cfg.LifecycleAgent
 }
 
 // notifyAgentWith dispatches a message to the named agent.
@@ -316,18 +328,13 @@ func notifyAgentWith(message, agent string) {
 	}
 
 	// Daemon not running — fall back to direct zellij delivery
-	cfg, err := loadHookFallbackConfig()
-	if err != nil {
-		hookLogFile("ERROR: cannot load fallback config: " + err.Error())
-		return
-	}
-
-	if err := zellij.WriteChars(cfg.ZellijSession, agent, "", message); err != nil {
+	session := config.AgentSessionName(agent)
+	if err := zellij.WriteChars(session, agent, "", message); err != nil {
 		hookLogFile("ERROR: failed to deliver to zellij: " + err.Error())
 		return
 	}
 
-	hookLogFile(fmt.Sprintf("Delivered via zellij fallback: session=%s tab=%s", cfg.ZellijSession, agent))
+	hookLogFile(fmt.Sprintf("Delivered via zellij fallback: session=%s tab=%s", session, agent))
 }
 
 func hookLogFile(message string) {
@@ -344,4 +351,3 @@ func hookLogFile(message string) {
 	defer f.Close()                                 //nolint:errcheck
 	fmt.Fprintf(f, "[%s] %s\n", timestamp, message) //nolint:errcheck
 }
-

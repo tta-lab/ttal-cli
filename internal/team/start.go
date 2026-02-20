@@ -22,47 +22,18 @@ type AgentTab struct {
 	Model string
 }
 
-// Start creates the team zellij session with a tab per agent.
+// Start creates per-agent zellij sessions (one session per agent).
+// Without --force: skips already-running sessions, only starts missing ones.
+// With --force: kills and recreates all sessions.
 func Start(database *ent.Client, force bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	sessionName := cfg.ZellijSession
-	if zellij.SessionExists(sessionName) {
-		if !force {
-			// Try deleting — only succeeds for exited/dead sessions
-			if zellij.DeleteSession(sessionName) != nil {
-				return fmt.Errorf(
-					"session %q already exists — use --force to recreate, or attach with: zellij --data-dir %s attach %s",
-					sessionName, zellij.DataDir(), sessionName,
-				)
-			}
-		} else {
-			// Force: kill live session, fall back to delete for exited ones
-			fmt.Printf("Removing existing session %q...\n", sessionName)
-			if err := zellij.KillSession(sessionName); err != nil {
-				// kill-session fails on exited sessions — try delete instead
-				if err := zellij.DeleteSession(sessionName); err != nil {
-					return fmt.Errorf("failed to remove session: %w", err)
-				}
-			} else {
-				// Wait for killed session to exit before deleting
-				for range 15 {
-					if !zellij.SessionExists(sessionName) {
-						break
-					}
-					time.Sleep(200 * time.Millisecond)
-				}
-				_ = zellij.DeleteSession(sessionName)
-			}
-		}
-	}
-
-	// Look up agents from config in ttal DB to get their paths
 	ctx := context.Background()
-	tabs := make([]AgentTab, 0, len(cfg.Agents))
+	started := make([]AgentTab, 0, len(cfg.Agents))
+	skipped := make([]string, 0, len(cfg.Agents))
 
 	for agentName := range cfg.Agents {
 		ag, err := database.Agent.Query().
@@ -76,55 +47,98 @@ func Start(database *ent.Client, force bool) error {
 			fmt.Fprintf(os.Stderr, "warning: agent %q has no path, skipping\n", agentName)
 			continue
 		}
-		tabs = append(tabs, AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model)})
+
+		tab := AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model)}
+		sessionName := config.AgentSessionName(agentName)
+
+		if zellij.SessionExists(sessionName) {
+			if !force {
+				skipped = append(skipped, agentName)
+				continue
+			}
+			if err := removeSession(sessionName); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to remove session %q: %v\n", sessionName, err)
+				continue
+			}
+		}
+
+		if err := launchAgentSession(sessionName, tab); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s: %v\n", agentName, err)
+			continue
+		}
+
+		started = append(started, tab)
 	}
 
-	if len(tabs) == 0 {
-		return fmt.Errorf("no agents with paths found — register agents with: ttal agent add <name> --path <path>")
+	if len(started) == 0 && len(skipped) == 0 {
+		return fmt.Errorf("no agent sessions started — register agents with: ttal agent add <name> --path <path>")
 	}
 
-	// Build layout KDL
-	layoutPath, err := createTeamLayout(tabs)
-	if err != nil {
-		return err
+	if len(started) > 0 {
+		fmt.Printf("Started %d agent sessions:\n", len(started))
+		for _, t := range started {
+			fmt.Printf("  %s → %s (session: %s)\n", t.Name, t.Path, config.AgentSessionName(t.Name))
+		}
 	}
-
-	handle, err := zellij.LaunchSession(sessionName, layoutPath)
-	if err != nil {
-		return err
+	if len(skipped) > 0 {
+		fmt.Printf("Skipped %d already running: %s\n", len(skipped), strings.Join(skipped, ", "))
 	}
-
-	if err := zellij.WaitForSession(sessionName, handle, 30e9); err != nil {
-		return fmt.Errorf("session failed to start: %w", err)
-	}
-
-	fmt.Printf("Team session %q started with %d agents\n", sessionName, len(tabs))
-	for _, t := range tabs {
-		fmt.Printf("  %s → %s\n", t.Name, t.Path)
-	}
-	fmt.Printf("\nAttach with: zellij --data-dir %s attach %s\n", zellij.DataDir(), sessionName)
+	fmt.Printf("\nAttach with: ttal team attach <agent-name>\n")
 
 	return nil
 }
 
-func createTeamLayout(tabs []AgentTab) (string, error) {
-	tabBlocks := make([]string, 0, len(tabs))
+// launchAgentSession creates a layout and starts a zellij session for one agent.
+func launchAgentSession(sessionName string, tab AgentTab) error {
+	layoutPath, err := createAgentLayout(tab)
+	if err != nil {
+		return fmt.Errorf("failed to create layout: %w", err)
+	}
+	defer os.Remove(layoutPath) //nolint:errcheck
 
-	for i, tab := range tabs {
-		focus := ""
-		if i == 0 {
-			focus = " focus=true"
-		}
+	handle, err := zellij.LaunchSession(sessionName, layoutPath)
+	if err != nil {
+		return fmt.Errorf("failed to launch session: %w", err)
+	}
 
-		claudeCmd := "claude --dangerously-skip-permissions"
-		if tab.Model != "" {
-			claudeCmd += " --model " + tab.Model
-		}
-		if hasConversation(tab.Path) {
-			claudeCmd += " --continue"
-		}
+	if err := zellij.WaitForSession(sessionName, handle, 30*time.Second); err != nil {
+		return fmt.Errorf("session failed to start: %w", err)
+	}
 
-		block := fmt.Sprintf(`    tab name="%s"%s {
+	return nil
+}
+
+// removeSession kills and deletes an existing zellij session.
+func removeSession(sessionName string) error {
+	fmt.Printf("Removing existing session %q...\n", sessionName)
+	if err := zellij.KillSession(sessionName); err != nil {
+		return zellij.DeleteSession(sessionName)
+	}
+	for range 15 {
+		if !zellij.SessionExists(sessionName) {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if zellij.SessionExists(sessionName) {
+		return zellij.DeleteSession(sessionName)
+	}
+	return nil
+}
+
+// buildAgentLayoutKDL generates the KDL layout content for an agent session.
+// Pure function — no I/O, fully testable.
+func buildAgentLayoutKDL(tab AgentTab, hasContinue bool) string {
+	claudeCmd := "claude --dangerously-skip-permissions"
+	if tab.Model != "" {
+		claudeCmd += " --model " + tab.Model
+	}
+	if hasContinue {
+		claudeCmd += " --continue"
+	}
+
+	return fmt.Sprintf(`layout {
+    tab name="%s" focus=true {
         pane size=1 borderless=true {
             plugin location="tab-bar"
         }
@@ -138,29 +152,31 @@ func createTeamLayout(tabs []AgentTab) (string, error) {
         pane size=2 borderless=true {
             plugin location="status-bar"
         }
-    }`, tab.Name, focus, tab.Path, claudeCmd)
+    }
 
-		tabBlocks = append(tabBlocks, block)
-	}
-
-	// Add a plain terminal tab at the end
-	tabBlocks = append(tabBlocks, `    tab name="term" {
+    tab name="term" {
         pane size=1 borderless=true {
             plugin location="tab-bar"
         }
 
         pane {
+            cwd "%s"
             command "fish"
         }
 
         pane size=2 borderless=true {
             plugin location="status-bar"
         }
-    }`)
+    }
+}
+`, tab.Name, tab.Path, claudeCmd, tab.Path)
+}
 
-	layoutContent := "layout {\n" + strings.Join(tabBlocks, "\n\n") + "\n}\n"
+func createAgentLayout(tab AgentTab) (string, error) {
+	hasContinue := hasConversation(tab.Path)
+	layoutContent := buildAgentLayoutKDL(tab, hasContinue)
 
-	layoutFile, err := os.CreateTemp("", "ttal-team-layout-*.kdl")
+	layoutFile, err := os.CreateTemp("", "ttal-agent-layout-*.kdl")
 	if err != nil {
 		return "", fmt.Errorf("failed to create layout file: %w", err)
 	}

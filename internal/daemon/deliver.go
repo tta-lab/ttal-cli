@@ -3,6 +3,7 @@ package daemon
 import (
 	"fmt"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
@@ -16,8 +17,9 @@ func formatAgentMessage(fromAgent, text string) string {
 	return fmt.Sprintf("[agent from:%s]\n%s", fromAgent, text)
 }
 
-// deliverToZellij sends text to an agent's zellij tab via write-chars + Enter.
-// Tab name = agent name (convention).
-func deliverToZellij(session, agentName, text string) error {
+// deliverToZellij sends text to an agent's zellij session via write-chars + Enter.
+// Session name = "session-<agentName>" (convention). Tab name = agent name.
+func deliverToZellij(agentName, text string) error {
+	session := config.AgentSessionName(agentName)
 	return zellij.WriteChars(session, agentName, "", text)
 }

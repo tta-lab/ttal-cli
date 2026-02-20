@@ -48,6 +48,7 @@ func HookEnrich(uuid string) {
 }
 
 func buildEnrichPrompt(taskContext, uuid string) string {
+	//nolint:lll // prompt template reads better as a single block
 	return fmt.Sprintf(`You are a task enrichment agent. Your job is to enrich a taskwarrior task with project_path and branch UDAs so it can be automatically spawned as a worker.
 
 TASK UUID: %s

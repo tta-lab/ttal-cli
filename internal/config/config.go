@@ -8,10 +8,16 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// AgentSessionName returns the zellij session name for an agent.
+// Convention: "session-<agent-name>". Derived, not stored.
+func AgentSessionName(agent string) string {
+	return "session-" + agent
+}
+
 // Config is the top-level structure for ~/.config/ttal/config.toml.
 //
-// Zellij session is global — all agents live in the same session.
-// Tab name = agent name (convention, not configurable).
+// ZellijSession is deprecated — sessions are now per-agent (session-<name>).
+// Kept for backward compatibility but no longer required.
 // ChatID is global default — agents inherit it unless they override.
 type Config struct {
 	ZellijSession  string                 `toml:"zellij_session"`
@@ -59,9 +65,6 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	if cfg.ZellijSession == "" {
-		return nil, fmt.Errorf("config missing 'zellij_session'")
-	}
 	if len(cfg.Agents) == 0 {
 		return nil, fmt.Errorf("config has no agents defined")
 	}
@@ -84,8 +87,7 @@ func WriteTemplate() error {
 		return err
 	}
 
-	template := `zellij_session = "ttal-team"
-chat_id = "TODO"
+	template := `chat_id = "TODO"
 lifecycle_agent = "kestrel"
 
 [agents.kestrel]
