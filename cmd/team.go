@@ -48,10 +48,19 @@ var teamListCmd = &cobra.Command{
 	},
 }
 
+var teamStopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop all agent tmux sessions",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return team.Stop()
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(teamCmd)
 	teamStartCmd.Flags().Bool("force", false, "Kill and recreate existing sessions")
 	teamCmd.AddCommand(teamStartCmd)
 	teamCmd.AddCommand(teamAttachCmd)
 	teamCmd.AddCommand(teamListCmd)
+	teamCmd.AddCommand(teamStopCmd)
 }
