@@ -38,6 +38,7 @@ type Annotation struct {
 type Task struct {
 	UUID        string       `json:"uuid"`
 	Description string       `json:"description"`
+	Project     string       `json:"project,omitempty"`
 	Status      string       `json:"status"`
 	Tags        []string     `json:"tags,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
