@@ -3,7 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,6 +32,8 @@ func HookEnrich(uuid string) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "claude", "-p", "--model", "haiku", "--allowedTools", "Bash", "Read")
+	// Run in ~/.ttal/ so CC writes JSONL there, not in the agent's watched directory.
+	cmd.Dir = filepath.Join(os.Getenv("HOME"), ".ttal")
 	cmd.Stdin = strings.NewReader(prompt)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
