@@ -12,9 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/env"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
 // taskwarrior task status constants used across hook handlers.
@@ -270,17 +268,6 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	f.WriteString(line) //nolint:errcheck
 }
 
-// notifyAgent sends a fire-and-forget message to the lifecycle agent.
-// Resolves the agent name from daemon.json lifecycle_agent field.
-// No-ops if config cannot be loaded (no guessing).
-func notifyAgent(message string) {
-	agent := resolveLifecycleAgent()
-	if agent == "" {
-		return
-	}
-	notifyAgentWith(message, agent)
-}
-
 // notifyTelegram sends a message to an agent's Telegram chat via the daemon.
 // Uses From-only routing (daemon's handleFrom → Telegram Bot API).
 // Fire-and-forget: errors are logged but not propagated.
@@ -309,34 +296,6 @@ func resolveLifecycleAgent() string {
 		return ""
 	}
 	return cfg.LifecycleAgent
-}
-
-// notifyAgentWith dispatches a message to the named agent.
-// Tries the daemon socket first; falls back to direct delivery only if the
-// daemon is not running. A daemon rejection (unknown agent, etc.) is logged
-// and does not trigger fallback.
-func notifyAgentWith(message, agent string) {
-	// Try daemon socket first
-	req := daemonSendRequest{To: agent, Message: message}
-	err := sendToDaemon(req)
-	if err == nil {
-		hookLogFile(fmt.Sprintf("Delivered via daemon: agent=%s", agent))
-		return
-	}
-	if err != errDaemonNotRunning {
-		// Daemon is running but rejected the request — don't fall back silently
-		hookLogFile(fmt.Sprintf("ERROR: daemon rejected notify for agent=%s: %v", agent, err))
-		return
-	}
-
-	// Daemon not running — fall back to direct zellij delivery
-	session := config.AgentSessionName(agent)
-	if err := zellij.WriteChars(session, agent, "", message); err != nil {
-		hookLogFile("ERROR: failed to deliver to zellij: " + err.Error())
-		return
-	}
-
-	hookLogFile(fmt.Sprintf("Delivered via zellij fallback: session=%s tab=%s", session, agent))
 }
 
 func hookLogFile(message string) {

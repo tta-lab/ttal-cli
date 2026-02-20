@@ -44,101 +44,105 @@ func Poll() error {
 	}
 
 	for _, task := range tasks {
-		if task.SessionName == "" || task.ProjectPath == "" {
-			continue
-		}
-
-		owner, repo, err := forgejo.ParseRepoInfo(task.ProjectPath)
-		if err != nil {
-			pollLog("ERROR", "Could not detect repo info",
-				"uuid", task.UUID,
-				"session", task.SessionName,
-				"path", task.ProjectPath)
-			continue
-		}
-
-		if task.PRID == "" {
-			pollLog("WAITING", "No pr_id UDA set",
-				"uuid", task.UUID,
-				"session", task.SessionName)
-			continue
-		}
-
-		prID, err := strconv.ParseInt(task.PRID, 10, 64)
-		if err != nil {
-			pollLog("ERROR", "Invalid pr_id",
-				"uuid", task.UUID,
-				"pr_id", task.PRID)
-			continue
-		}
-
-		merged, err := forgejo.IsPRMerged(owner, repo, prID)
-		if err != nil {
-			pollLog("ERROR", "Failed to fetch PR info",
-				"uuid", task.UUID,
-				"session", task.SessionName,
-				"pr_id", task.PRID,
-				"owner", owner,
-				"repo", repo,
-				"error", err.Error())
-			continue
-		}
-
-		if !merged {
-			pollLog("WAITING", "PR not merged",
-				"uuid", task.UUID,
-				"session", task.SessionName,
-				"pr", "#"+task.PRID)
-			continue
-		}
-
-		// PR is merged — close worker (session + worktree), then mark task done
-		result, closeErr := Close(task.SessionName, false)
-
-		if closeErr != nil && errors.Is(closeErr, ErrNeedsDecision) && result != nil {
-			pollLog("NEEDS_DECISION", result.Status,
-				"uuid", task.UUID,
-				"session", task.SessionName,
-				"pr", "#"+task.PRID)
-			notifyTelegram(fmt.Sprintf("⚠ Worker needs cleanup decision: %s\nTask: %s\nStatus: %s",
-				task.SessionName, task.Description, result.Status))
-			continue
-		}
-
-		if closeErr != nil {
-			status := "unknown error"
-			if result != nil {
-				status = result.Status
-			}
-			pollLog("ERROR", "Worker cleanup failed",
-				"uuid", task.UUID,
-				"session", task.SessionName,
-				"pr", "#"+task.PRID,
-				"error", status)
-			notifyTelegram(fmt.Sprintf("❌ Worker cleanup error: %s\nTask: %s\nError: %s",
-				task.SessionName, task.Description, status))
-			continue
-		}
-
-		// Cleanup succeeded — mark task done
-		if err := taskwarrior.MarkDone(task.UUID); err != nil {
-			pollLog("ERROR", "Failed to mark task done",
-				"uuid", task.UUID,
-				"session", task.SessionName,
-				"pr", "#"+task.PRID,
-				"error", err.Error())
-			notifyTelegram(fmt.Sprintf("❌ Failed to mark task done: %s\nTask: %s\nError: %v",
-				task.SessionName, task.Description, err))
-			continue
-		}
-
-		pollLog("SUCCESS", "Worker cleaned up and task completed",
-			"uuid", task.UUID,
-			"session", task.SessionName,
-			"pr", "#"+task.PRID)
+		pollTask(task)
 	}
 
 	return nil
+}
+
+func pollTask(task taskwarrior.Task) {
+	if task.SessionName == "" || task.ProjectPath == "" {
+		return
+	}
+
+	owner, repo, err := forgejo.ParseRepoInfo(task.ProjectPath)
+	if err != nil {
+		pollLog("ERROR", "Could not detect repo info",
+			"uuid", task.UUID,
+			"session", task.SessionName,
+			"path", task.ProjectPath)
+		return
+	}
+
+	if task.PRID == "" {
+		pollLog("WAITING", "No pr_id UDA set",
+			"uuid", task.UUID,
+			"session", task.SessionName)
+		return
+	}
+
+	prID, err := strconv.ParseInt(task.PRID, 10, 64)
+	if err != nil {
+		pollLog("ERROR", "Invalid pr_id",
+			"uuid", task.UUID,
+			"pr_id", task.PRID)
+		return
+	}
+
+	merged, err := forgejo.IsPRMerged(owner, repo, prID)
+	if err != nil {
+		pollLog("ERROR", "Failed to fetch PR info",
+			"uuid", task.UUID,
+			"session", task.SessionName,
+			"pr_id", task.PRID,
+			"owner", owner,
+			"repo", repo,
+			"error", err.Error())
+		return
+	}
+
+	if !merged {
+		pollLog("WAITING", "PR not merged",
+			"uuid", task.UUID,
+			"session", task.SessionName,
+			"pr", "#"+task.PRID)
+		return
+	}
+
+	// PR is merged — close worker (session + worktree), then mark task done
+	result, closeErr := Close(task.SessionName, false)
+
+	if closeErr != nil && errors.Is(closeErr, ErrNeedsDecision) && result != nil {
+		pollLog("NEEDS_DECISION", result.Status,
+			"uuid", task.UUID,
+			"session", task.SessionName,
+			"pr", "#"+task.PRID)
+		notifyTelegram(fmt.Sprintf("⚠ Worker needs cleanup decision: %s\nTask: %s\nStatus: %s",
+			task.SessionName, task.Description, result.Status))
+		return
+	}
+
+	if closeErr != nil {
+		status := "unknown error"
+		if result != nil {
+			status = result.Status
+		}
+		pollLog("ERROR", "Worker cleanup failed",
+			"uuid", task.UUID,
+			"session", task.SessionName,
+			"pr", "#"+task.PRID,
+			"error", status)
+		notifyTelegram(fmt.Sprintf("❌ Worker cleanup error: %s\nTask: %s\nError: %s",
+			task.SessionName, task.Description, status))
+		return
+	}
+
+	// Cleanup succeeded — mark task done
+	if err := taskwarrior.MarkDone(task.UUID); err != nil {
+		pollLog("ERROR", "Failed to mark task done",
+			"uuid", task.UUID,
+			"session", task.SessionName,
+			"pr", "#"+task.PRID,
+			"error", err.Error())
+		notifyTelegram(fmt.Sprintf("❌ Failed to mark task done: %s\nTask: %s\nError: %v",
+			task.SessionName, task.Description, err))
+		return
+	}
+
+	pollLog("SUCCESS", "Worker cleaned up and task completed",
+		"uuid", task.UUID,
+		"session", task.SessionName,
+		"pr", "#"+task.PRID)
 }
 
 func cleanupOldTaskFiles() {

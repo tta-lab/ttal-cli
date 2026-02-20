@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
 // List shows all agent sessions and their status.
@@ -30,7 +30,7 @@ func List() error {
 	for _, agentName := range names {
 		sessionName := config.AgentSessionName(agentName)
 		status := "stopped"
-		if zellij.SessionExists(sessionName) {
+		if tmux.SessionExists(sessionName) {
 			status = "running"
 		}
 		fmt.Printf("%-15s %-25s %s\n", agentName, sessionName, status)

@@ -1,0 +1,139 @@
+package tmux
+
+import (
+	"context"
+	"fmt"
+	"os/exec"
+	"strings"
+	"time"
+	"unicode"
+)
+
+const (
+	cmdTimeout    = 10 * time.Second
+	sendKeysDelay = 200 * time.Millisecond
+)
+
+// SendKeys sends text to a tmux pane, then sends Enter.
+// target format: "session:window" or "session:window.pane"
+// Text is sanitized before sending.
+func SendKeys(session, window, text string) error {
+	target := session
+	if window != "" {
+		target = session + ":" + window
+	}
+
+	safe := sanitizeForTerminal(text)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "tmux", "send-keys", "-l", "-t", target, safe)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("send-keys failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	time.Sleep(sendKeysDelay)
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel2()
+	cmd = exec.CommandContext(ctx2, "tmux", "send-keys", "-t", target, "Enter")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("send-keys Enter failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	return nil
+}
+
+// SessionExists checks if a tmux session exists (exact match).
+func SessionExists(name string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "tmux", "has-session", "-t", "="+name)
+	return cmd.Run() == nil
+}
+
+// NewSession creates a new detached tmux session.
+// window is the name for the first window. command is run in that window.
+func NewSession(session, window, workDir, command string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	args := []string{"new-session", "-d", "-s", session, "-n", window, "-c", workDir}
+	if command != "" {
+		args = append(args, command)
+	}
+
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("new-session failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// NewWindow adds a window to an existing session.
+func NewWindow(session, window, workDir, command string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	args := []string{"new-window", "-t", session, "-n", window, "-c", workDir}
+	if command != "" {
+		args = append(args, command)
+	}
+
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("new-window failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// KillSession kills a tmux session.
+func KillSession(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "kill-session", "-t", "="+name)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("kill-session failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// ListSessions returns names of all tmux sessions.
+func ListSessions() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "list-sessions", "-F", "#{session_name}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "no server running") {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list-sessions failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	var sessions []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if name := strings.TrimSpace(line); name != "" {
+			sessions = append(sessions, name)
+		}
+	}
+	return sessions, nil
+}
+
+// sanitizeForTerminal replaces newlines/CR with spaces and strips control chars.
+func sanitizeForTerminal(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\n' || r == '\r':
+			b.WriteRune(' ')
+		case unicode.IsControl(r):
+			// strip DEL, ESC, and other control chars
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}

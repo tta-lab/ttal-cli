@@ -7,23 +7,23 @@ import (
 	"syscall"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
-// Attach attaches the current terminal to an agent's zellij session.
+// Attach attaches the current terminal to an agent's tmux session.
 // Uses exec (replaces current process) so the user's terminal becomes the session.
 func Attach(agentName string) error {
 	sessionName := config.AgentSessionName(agentName)
 
-	if !zellij.SessionExists(sessionName) {
+	if !tmux.SessionExists(sessionName) {
 		return fmt.Errorf("session %q not found — start with: ttal team start", sessionName)
 	}
 
-	zellijBin, err := exec.LookPath("zellij")
+	tmuxBin, err := exec.LookPath("tmux")
 	if err != nil {
-		return fmt.Errorf("zellij not found in PATH")
+		return fmt.Errorf("tmux not found in PATH")
 	}
 
-	args := []string{"zellij", "--data-dir", zellij.DataDir(), "attach", sessionName}
-	return syscall.Exec(zellijBin, args, os.Environ())
+	args := []string{"tmux", "attach-session", "-t", sessionName}
+	return syscall.Exec(tmuxBin, args, os.Environ())
 }

@@ -74,9 +74,11 @@ func buildEnrichPrompt(task *taskwarrior.Task) string {
 			fileInstructions += fmt.Sprintf("  - %s\n", f)
 		}
 		fileInstructions += "Read these files to understand what project the task is actually about.\n" +
-			"IMPORTANT: The file may live in a different repo than the target project (e.g. plans are often stored in ~/clawd but the work targets another repo)."
+			"IMPORTANT: The file may live in a different repo than the target project " +
+			"(e.g. plans are often stored in ~/clawd but the work targets another repo)."
 	}
 
+	//nolint:lll // raw string prompt template
 	return fmt.Sprintf(`You are a task enrichment agent. Your job is to enrich a taskwarrior task with project_path and branch UDAs so it can be automatically spawned as a worker.
 
 TASK UUID: %s

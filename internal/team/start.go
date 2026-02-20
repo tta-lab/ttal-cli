@@ -6,11 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 
 	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
 )
@@ -22,7 +21,7 @@ type AgentTab struct {
 	Model string
 }
 
-// Start creates per-agent zellij sessions (one session per agent).
+// Start creates per-agent tmux sessions (one session per agent).
 // Without --force: skips already-running sessions, only starts missing ones.
 // With --force: kills and recreates all sessions.
 func Start(database *ent.Client, force bool) error {
@@ -51,12 +50,13 @@ func Start(database *ent.Client, force bool) error {
 		tab := AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model)}
 		sessionName := config.AgentSessionName(agentName)
 
-		if zellij.SessionExists(sessionName) {
+		if tmux.SessionExists(sessionName) {
 			if !force {
 				skipped = append(skipped, agentName)
 				continue
 			}
-			if err := removeSession(sessionName); err != nil {
+			fmt.Printf("Removing existing session %q...\n", sessionName)
+			if err := tmux.KillSession(sessionName); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to remove session %q: %v\n", sessionName, err)
 				continue
 			}
@@ -88,105 +88,33 @@ func Start(database *ent.Client, force bool) error {
 	return nil
 }
 
-// launchAgentSession creates a layout and starts a zellij session for one agent.
+// launchAgentSession creates a tmux session for one agent with CC in the first window.
 func launchAgentSession(sessionName string, tab AgentTab) error {
-	layoutPath, err := createAgentLayout(tab)
-	if err != nil {
-		return fmt.Errorf("failed to create layout: %w", err)
-	}
-	defer os.Remove(layoutPath) //nolint:errcheck
+	claudeCmd := buildClaudeCommand(tab)
 
-	handle, err := zellij.LaunchSession(sessionName, layoutPath)
-	if err != nil {
-		return fmt.Errorf("failed to launch session: %w", err)
+	// Create session with CC in the first window (named after agent)
+	fishCmd := fmt.Sprintf("fish -C '%s'", claudeCmd)
+	if err := tmux.NewSession(sessionName, tab.Name, tab.Path, fishCmd); err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
 	}
 
-	if err := zellij.WaitForSession(sessionName, handle, 30*time.Second); err != nil {
-		return fmt.Errorf("session failed to start: %w", err)
+	// Add a second "term" window for manual use
+	if err := tmux.NewWindow(sessionName, "term", tab.Path, "fish"); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to add term window: %v\n", err)
 	}
 
 	return nil
 }
 
-// removeSession kills and deletes an existing zellij session.
-func removeSession(sessionName string) error {
-	fmt.Printf("Removing existing session %q...\n", sessionName)
-	if err := zellij.KillSession(sessionName); err != nil {
-		return zellij.DeleteSession(sessionName)
-	}
-	for range 15 {
-		if !zellij.SessionExists(sessionName) {
-			break
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	if zellij.SessionExists(sessionName) {
-		return zellij.DeleteSession(sessionName)
-	}
-	return nil
-}
-
-// buildAgentLayoutKDL generates the KDL layout content for an agent session.
-// Pure function — no I/O, fully testable.
-func buildAgentLayoutKDL(tab AgentTab, hasContinue bool) string {
-	claudeCmd := "claude --dangerously-skip-permissions"
+func buildClaudeCommand(tab AgentTab) string {
+	cmd := "claude --dangerously-skip-permissions"
 	if tab.Model != "" {
-		claudeCmd += " --model " + tab.Model
+		cmd += " --model " + tab.Model
 	}
-	if hasContinue {
-		claudeCmd += " --continue"
+	if hasConversation(tab.Path) {
+		cmd += " --continue"
 	}
-
-	return fmt.Sprintf(`layout {
-    tab name="%s" focus=true {
-        pane size=1 borderless=true {
-            plugin location="tab-bar"
-        }
-
-        pane {
-            cwd "%s"
-            command "fish"
-            args "-C" "%s"
-        }
-
-        pane size=2 borderless=true {
-            plugin location="status-bar"
-        }
-    }
-
-    tab name="term" {
-        pane size=1 borderless=true {
-            plugin location="tab-bar"
-        }
-
-        pane {
-            cwd "%s"
-            command "fish"
-        }
-
-        pane size=2 borderless=true {
-            plugin location="status-bar"
-        }
-    }
-}
-`, tab.Name, tab.Path, claudeCmd, tab.Path)
-}
-
-func createAgentLayout(tab AgentTab) (string, error) {
-	hasContinue := hasConversation(tab.Path)
-	layoutContent := buildAgentLayoutKDL(tab, hasContinue)
-
-	layoutFile, err := os.CreateTemp("", "ttal-agent-layout-*.kdl")
-	if err != nil {
-		return "", fmt.Errorf("failed to create layout file: %w", err)
-	}
-	if _, err := layoutFile.WriteString(layoutContent); err != nil {
-		_ = layoutFile.Close()
-		return "", fmt.Errorf("failed to write layout file: %w", err)
-	}
-	_ = layoutFile.Close()
-
-	return layoutFile.Name(), nil
+	return cmd
 }
 
 // hasConversation checks if Claude Code has a previous conversation for the given path.
