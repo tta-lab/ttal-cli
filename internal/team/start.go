@@ -98,11 +98,6 @@ func launchAgentSession(sessionName string, tab AgentTab) error {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 
-	// Add a second "term" window for manual use
-	if err := tmux.NewWindow(sessionName, "term", tab.Path, "fish"); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to add term window: %v\n", err)
-	}
-
 	return nil
 }
 
