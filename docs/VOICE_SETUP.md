@@ -62,7 +62,7 @@ ttal voice status                              # check server health
 ttal voice list                                # list 26 available voices
 ttal voice speak "Hello world"                 # speak with default voice (af_heart)
 ttal voice speak "Hello" --voice af_sky        # use specific voice
-ttal voice speak "Hello" --agent yuki          # use agent's assigned voice
+ttal voice speak "Hello"                       # use agent's assigned voice (via TTAL_AGENT_NAME env)
 ttal voice speak "Hello" --output speech.wav   # save to file
 ```
 
@@ -81,8 +81,8 @@ launchd (io.guion.ttal.voice)
         └── mlx-audio FastAPI server
               └── Kokoro-82M-bf16 model (~160MB RAM)
 
-ttal voice speak "text" --agent yuki
-  └── DB lookup → agent voice
+ttal voice speak "text"  # TTAL_AGENT_NAME=yuki
+  └── DB lookup → agent voice (via TTAL_AGENT_NAME env)
   └── POST localhost:8877/v1/audio/speech
   └── afplay (auto-play + delete temp file)
 ```

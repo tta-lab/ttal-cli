@@ -8,18 +8,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/watcher"
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
 )
 
-const (
-	pidFileName  = "daemon.pid"
-	pollInterval = 60 * time.Second
-)
+const pidFileName = "daemon.pid"
 
 // Run starts the daemon in the foreground. This is what launchd calls.
 func Run(database *ent.Client) error {
@@ -87,8 +82,8 @@ func Run(database *ent.Client) error {
 		}, done)
 	}
 
-	// Start completion poller
-	go runCompletionPoller(done)
+	// Start cleanup watcher for post-merge worker lifecycle
+	startCleanupWatcher(done)
 
 	// Start JSONL watcher for CC -> Telegram bridging
 	startWatcher(database, cfg, done)
@@ -187,28 +182,6 @@ func startWatcher(database *ent.Client, cfg *config.Config, done <-chan struct{}
 			log.Printf("[daemon] watcher error: %v", err)
 		}
 	}()
-}
-
-// runCompletionPoller runs worker.Poll every 60s until done is closed.
-func runCompletionPoller(done <-chan struct{}) {
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	// Run once immediately
-	if err := worker.Poll(); err != nil {
-		log.Printf("[daemon] completion poll error: %v", err)
-	}
-
-	for {
-		select {
-		case <-done:
-			return
-		case <-ticker.C:
-			if err := worker.Poll(); err != nil {
-				log.Printf("[daemon] completion poll error: %v", err)
-			}
-		}
-	}
 }
 
 // IsRunning checks whether the daemon is running by inspecting the pid file.

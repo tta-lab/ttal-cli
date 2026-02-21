@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
@@ -12,7 +13,6 @@ import (
 
 var (
 	speakVoice  string
-	speakAgent  string
 	speakOutput string
 	speakSpeed  float64
 )
@@ -60,28 +60,30 @@ var voiceSpeakCmd = &cobra.Command{
 	Short: "Generate and play speech",
 	Long: `Convert text to speech and play it.
 
-Voice priority: --voice flag > --agent DB lookup > default (af_heart)
+Voice priority: --voice flag > TTAL_AGENT_NAME DB lookup > default (af_heart)
 
 Examples:
   ttal voice speak "Hello world"
   ttal voice speak "Good morning" --voice af_nova
-  ttal voice speak "Task complete" --agent yuki
   ttal voice speak "Save this" --output ~/speech.wav`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		text := args[0]
 		voiceID := speakVoice
 
-		// Look up agent voice if --agent is set and --voice is not
-		if voiceID == "" && speakAgent != "" {
-			ctx := context.Background()
-			ag, err := database.Agent.Query().
-				Where(agent.Name(strings.ToLower(speakAgent))).
-				Only(ctx)
-			if err != nil {
-				return fmt.Errorf("agent '%s' not found", speakAgent)
+		// Look up agent voice from TTAL_AGENT_NAME env if --voice is not set
+		if voiceID == "" {
+			agentName := os.Getenv("TTAL_AGENT_NAME")
+			if agentName != "" {
+				ctx := context.Background()
+				ag, err := database.Agent.Query().
+					Where(agent.Name(strings.ToLower(agentName))).
+					Only(ctx)
+				if err != nil {
+					return fmt.Errorf("agent '%s' not found", agentName)
+				}
+				voiceID = ag.Voice
 			}
-			voiceID = ag.Voice
 		}
 
 		if voiceID != "" && !voice.IsValidVoice(voiceID) {
@@ -111,7 +113,6 @@ func init() {
 	voiceCmd.AddCommand(voiceListCmd)
 
 	voiceSpeakCmd.Flags().StringVar(&speakVoice, "voice", "", "Voice ID (e.g. af_heart, af_sky)")
-	voiceSpeakCmd.Flags().StringVar(&speakAgent, "agent", "", "Look up voice from agent record")
 	voiceSpeakCmd.Flags().StringVar(&speakOutput, "output", "", "Save audio to file instead of playing")
 	voiceSpeakCmd.Flags().Float64Var(&speakSpeed, "speed", 1.0, "Speech speed (0.25-4.0)")
 }

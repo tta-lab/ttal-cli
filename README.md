@@ -6,13 +6,13 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 
 - **Project Management**: Add, list, archive, and tag projects
 - **Agent Management**: Configure agents with tags, status tracking, and heartbeat periods
-- **Worker Management**: Spawn, close, and poll Claude Code workers in isolated zellij sessions
+- **Worker Management**: Spawn and close Claude Code workers in isolated sessions
 - **PR Management**: Create, modify, merge (squash), and comment on Forgejo PRs — context auto-resolved from worker session
 - **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (Zellij) communication via `ttal send`
 - **Tag-Based Routing**: Tag-based task routing to matching agents on task start
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
 - **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
-- **Daemon**: Communication hub — Telegram polling, message delivery, worker completion polling (launchd)
+- **Daemon**: Communication hub — Telegram polling, message delivery, worker cleanup (launchd)
 
 ## Installation
 
@@ -23,7 +23,7 @@ make install
 # Set up taskwarrior hook (routes task events to agents)
 ttal worker install
 
-# Set up daemon (Telegram integration + completion polling, macOS)
+# Set up daemon (Telegram integration + worker cleanup, macOS)
 ttal daemon install
 ```
 
@@ -230,9 +230,6 @@ ttal worker close <session-name>
 
 # Force close (dump state and cleanup regardless of PR status)
 ttal worker close <session-name> --force
-
-# Poll for completed workers (auto-completes tasks with merged PRs)
-ttal worker poll
 ```
 
 #### Spawn Flags
@@ -259,7 +256,7 @@ ttal worker poll
 #### Worker Setup
 
 `ttal worker install` installs two taskwarrior hooks (`on-add-ttal` and `on-modify-ttal`).
-Worker completion polling is handled by the daemon (see [Daemon Setup](#daemon-setup) below).
+Worker cleanup after PR merge is handled by the daemon (see [Daemon Setup](#daemon-setup) below).
 
 ```bash
 # Install taskwarrior hooks
@@ -301,8 +298,8 @@ The daemon is a long-running process (managed by launchd on macOS) that acts as 
 
 - **Telegram → Agent**: Polls each agent's Telegram bot for inbound messages, delivers them to the agent's zellij session via `write-chars`
 - **CC → Telegram**: JSONL watcher tails active CC session files (via fsnotify) and sends assistant text blocks to Telegram automatically — no agent action needed
-- **Agent → Agent**: Routes `ttal send --from a --to b` between agents via zellij with attribution
-- **Worker completion polling**: Checks for merged PRs every 60 seconds and auto-completes taskwarrior tasks
+- **Agent → Agent**: Routes `ttal send --to b` between agents via tmux with attribution (agent identity from `TTAL_AGENT_NAME` env)
+- **Worker cleanup**: Processes post-merge cleanup requests (close session, remove worktree, mark task done)
 
 #### Config
 
@@ -359,8 +356,9 @@ Send messages between agents and humans with explicit direction:
 # System/hook delivers to agent via Zellij
 ttal send --to kestrel "Task started: implement auth"
 
-# Agent-to-agent via Zellij (recipient sees [agent from:yuki] attribution)
-ttal send --from yuki --to kestrel "Can you review my auth module?"
+# Agent-to-agent via tmux (recipient sees [agent from:yuki] attribution)
+# Agent identity comes from TTAL_AGENT_NAME env var
+ttal send --to kestrel "Can you review my auth module?"
 
 # Read message from stdin
 echo "done" | ttal send --to kestrel --stdin
@@ -416,7 +414,7 @@ Requires `FORGEJO_URL` and `FORGEJO_TOKEN` environment variables.
 | `FORGEJO_URL` | Yes | Forgejo instance URL (e.g., `https://git.guion.io`) |
 | `FORGEJO_TOKEN` or `FORGEJO_ACCESS_TOKEN` | Yes | Forgejo API token |
 
-Required by: `ttal pr *`, `ttal worker poll`, `ttal worker close` (smart mode).
+Required by: `ttal pr *`, `ttal worker close` (smart mode).
 
 ### Worker Commands
 

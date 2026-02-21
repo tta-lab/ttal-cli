@@ -89,7 +89,7 @@ cmd/             - CLI commands (cobra)
   ├── agent.go   - Agent CRUD commands
   ├── memory.go  - Memory capture command
   ├── daemon.go  - ttal daemon run/install/uninstall/status
-  ├── send.go    - ttal send --to/--from+--to (messaging)
+  ├── send.go    - ttal send --to (messaging)
   ├── pr.go      - ttal pr create/modify/merge/comment
   └── worker.go  - ttal worker spawn/close/list
 
@@ -103,7 +103,7 @@ internal/
   ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/   - Forgejo SDK client and repo helpers
   ├── pr/        - PR operations (create, modify, merge, comment)
-  ├── worker/    - Worker lifecycle (hook, spawn, close, poll)
+  ├── worker/    - Worker lifecycle (hook, spawn, close)
   └── zellij/    - Zellij session management and write-chars delivery
 ```
 
@@ -116,10 +116,10 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 |---|---|---|
 | JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
 | `ttal send --to kestrel` | Zellij write-chars | `handleTo` |
-| `ttal send --from yuki --to kestrel` | Zellij write-chars + attribution | `handleAgentToAgent` |
+| `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Background `claude -p` enrichment | `HookOnAdd` → `HookEnrich` |
 | on-modify hook (task started) | Background `ttal worker spawn` | `handleOnStart` → `HookSpawnWorker` |
-| Completion poller (every 60s) | Close worker + mark done | `Poll` → `Close` → `MarkDone` |
+| Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
 are set. Taskwarrior hooks use `--to` (daemon socket → agent's Zellij terminal).
@@ -129,9 +129,10 @@ encoded project directory names back to registered agent paths, reads new bytes 
 offsets, and sends assistant text blocks to Telegram via the daemon's send callback. Agents write
 normal text — the watcher handles routing to Telegram automatically.
 
-Completion polling (every 60s) is built into the daemon — **not** a separate launchd plist.
-The poller owns the full completion lifecycle: check PR merged → close worker (session + worktree) → mark task done → notify Telegram on errors only. Task completion is **not** handled by hooks.
-`ttal worker install` installs both `on-add-ttal` and `on-modify-ttal` taskwarrior hooks, not a poll service.
+Workers self-report completion via `ttal pr merge`, which drops a cleanup request file
+to `~/.ttal/cleanup/`. The daemon picks it up via fsnotify and handles the full
+lifecycle: close session, remove worktree, mark task done.
+`ttal worker install` installs both `on-add-ttal` and `on-modify-ttal` taskwarrior hooks.
 
 ### Tag-Based Routing
 

@@ -39,7 +39,7 @@ var workerInstallCmd = &cobra.Command{
 
 Safe to re-run — updates existing installations.
 
-Worker completion polling is handled by the ttal daemon.
+Worker cleanup after PR merge is handled by the ttal daemon.
 Run 'ttal daemon install' to set up the daemon.
 
 Example:

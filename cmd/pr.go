@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/pr"
+	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
 
@@ -108,6 +111,14 @@ Examples:
 
 		keepBranch, _ := cmd.Flags().GetBool("keep-branch")
 
+		// Check for uncommitted changes before merging — clean worktree
+		// ensures the daemon cleanup can remove the worktree without issues
+		if out, err := exec.Command("git", "status", "--porcelain").Output(); err == nil {
+			if strings.TrimSpace(string(out)) != "" {
+				return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
+			}
+		}
+
 		if err := pr.Merge(ctx, !keepBranch); err != nil {
 			return err
 		}
@@ -116,6 +127,16 @@ Examples:
 		if !keepBranch {
 			fmt.Println("  Branch deleted")
 		}
+
+		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
+		if ctx.Task.SessionName != "" {
+			if err := worker.RequestCleanup(ctx.Task.SessionName, ctx.Task.UUID); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: cleanup request failed: %v\n", err)
+			} else {
+				fmt.Println("  Cleanup requested (daemon will close session + worktree)")
+			}
+		}
+
 		return nil
 	},
 }

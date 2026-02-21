@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	sendFrom  string
 	sendTo    string
 	sendStdin bool
 )
@@ -22,14 +21,14 @@ var sendCmd = &cobra.Command{
 	Short: "Send a message between agents or to a human",
 	Long: `Send a message with explicit direction:
 
-  --to <agent>                system/hook delivers to agent via tmux
-  --from <a> --to <b>         agent-to-agent via tmux with attribution
-  --from <a> --to human       agent sends to human via Telegram
+  --to <agent>         delivers to agent via tmux
+  --to human           sends to human via Telegram
+
+Agent identity comes from TTAL_AGENT_NAME env var (set automatically in team tmux sessions).
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
-  ttal send --from yuki --to kestrel "can you review my auth module?"
-  ttal send --from athena --to human "compact complete"
+  ttal send --to human "compact complete"
   echo "done" | ttal send --to kestrel --stdin`,
 	// Skip database initialization
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -63,8 +62,13 @@ Examples:
 			return fmt.Errorf("message cannot be empty")
 		}
 
+		from := os.Getenv("TTAL_AGENT_NAME")
+		if sendTo == "human" && from == "" {
+			return fmt.Errorf("TTAL_AGENT_NAME env var required to send to human")
+		}
+
 		return daemon.Send(daemon.SendRequest{
-			From:    sendFrom,
+			From:    from,
 			To:      sendTo,
 			Message: message,
 		})
@@ -73,7 +77,6 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(sendCmd)
-	sendCmd.Flags().StringVar(&sendFrom, "from", "", "Source agent (for attribution)")
-	sendCmd.Flags().StringVar(&sendTo, "to", "", "Receiving agent (routes via Zellij)")
+	sendCmd.Flags().StringVar(&sendTo, "to", "", "Receiving agent (routes via tmux)")
 	sendCmd.Flags().BoolVar(&sendStdin, "stdin", false, "Read message from stdin")
 }

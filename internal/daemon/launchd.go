@@ -152,7 +152,7 @@ func installDaemonPlist(home, ttalBin, logDir string) error {
 	}
 
 	if len(warnings) > 0 {
-		fmt.Printf("  Warning: %s (worker poll won't check PR status)\n", strings.Join(warnings, ", "))
+		fmt.Printf("  Warning: %s (worker cleanup won't function)\n", strings.Join(warnings, ", "))
 	}
 
 	cmd = exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", uid), plistPath)

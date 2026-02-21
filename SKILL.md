@@ -15,10 +15,10 @@ Generate speech using your assigned Kokoro TTS voice. Audio is generated locally
 ### Speak with your agent voice
 
 ```bash
-ttal voice speak "<text>" --agent <your-agent-name>
+ttal voice speak "<text>"
 ```
 
-This looks up your registered voice from the agent database and generates + plays the audio.
+This looks up your registered voice from the agent database via the `TTAL_AGENT_NAME` env var (set automatically in team tmux sessions) and generates + plays the audio.
 
 ### Speak with a specific voice
 
@@ -29,7 +29,7 @@ ttal voice speak "<text>" --voice <voice_id>
 ### Save to file (for sending as voice note)
 
 ```bash
-ttal voice speak "<text>" --agent <your-agent-name> --output <path>
+ttal voice speak "<text>" --output <path>
 ```
 
 The output file is a `.wav`. Use this when you need to send audio as a voice message or attachment.
@@ -37,7 +37,7 @@ The output file is a `.wav`. Use this when you need to send audio as a voice mes
 ### Speed control
 
 ```bash
-ttal voice speak "<text>" --agent <your-agent-name> --speed 1.2
+ttal voice speak "<text>" --speed 1.2
 ```
 
 Speed range: 0.25 (slow) to 4.0 (fast). Default: 1.0.
@@ -99,7 +99,7 @@ ttal pr create "title" --task <uuid>
 ### Send to another agent
 
 ```bash
-ttal send --from <your-name> --to <agent-name> "can you review my auth module?"
+ttal send --to <agent-name> "can you review my auth module?"
 ```
 
 ### Inbound message formats
