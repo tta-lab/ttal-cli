@@ -11,6 +11,7 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/watcher"
 )
 
@@ -137,7 +138,7 @@ func handleFrom(cfg *config.Config, req SendRequest) error {
 	if agentCfg.BotToken == "" {
 		return fmt.Errorf("agent %s has no telegram configured", req.From)
 	}
-	return sendTelegramMessage(agentCfg.BotToken, cfg.AgentChatID(req.From), req.Message)
+	return telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(req.From), req.Message)
 }
 
 // handleTo delivers a message to an agent's zellij tab.
@@ -169,7 +170,7 @@ func startWatcher(database *ent.Client, cfg *config.Config, done <-chan struct{}
 		if !ok || agentCfg.BotToken == "" {
 			return
 		}
-		if err := sendTelegramMessage(agentCfg.BotToken, cfg.AgentChatID(agentName), text); err != nil {
+		if err := telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(agentName), text); err != nil {
 			log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 		}
 	})

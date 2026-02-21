@@ -10,6 +10,7 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
+	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
@@ -164,5 +165,5 @@ func sendEscToAgent(agentName, botToken, chatID string) {
 
 func replyTelegram(botToken, chatID, text string) {
 	// Best-effort reply — log errors but don't propagate
-	_ = sendTelegramMessage(botToken, chatID, text)
+	_ = telegram.SendMessage(botToken, chatID, text)
 }

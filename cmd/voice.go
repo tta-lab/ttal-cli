@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
 
 var (
-	speakVoice  string
-	speakOutput string
-	speakSpeed  float64
+	speakVoice string
+	speakSpeed float64
 )
 
 var voiceCmd = &cobra.Command{
@@ -57,40 +58,66 @@ var voiceStatusCmd = &cobra.Command{
 
 var voiceSpeakCmd = &cobra.Command{
 	Use:   `speak "text to speak"`,
-	Short: "Generate and play speech",
-	Long: `Convert text to speech and play it.
+	Short: "Generate speech and send as Telegram voice message",
+	Long: `Convert text to speech and send as a Telegram voice bubble.
 
+Requires TTAL_AGENT_NAME env var to resolve bot token and chat ID.
 Voice priority: --voice flag > TTAL_AGENT_NAME DB lookup > default (af_heart)
 
 Examples:
   ttal voice speak "Hello world"
-  ttal voice speak "Good morning" --voice af_nova
-  ttal voice speak "Save this" --output ~/speech.wav`,
+  ttal voice speak "Good morning" --voice af_nova`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		text := args[0]
 		voiceID := speakVoice
+		agentName := os.Getenv("TTAL_AGENT_NAME")
+		if agentName == "" {
+			return fmt.Errorf("TTAL_AGENT_NAME is required to send voice via Telegram")
+		}
 
-		// Look up agent voice from TTAL_AGENT_NAME env if --voice is not set
+		// Look up agent voice from DB if --voice is not set
 		if voiceID == "" {
-			agentName := os.Getenv("TTAL_AGENT_NAME")
-			if agentName != "" {
-				ctx := context.Background()
-				ag, err := database.Agent.Query().
-					Where(agent.Name(strings.ToLower(agentName))).
-					Only(ctx)
-				if err != nil {
-					return fmt.Errorf("agent '%s' not found", agentName)
-				}
-				voiceID = ag.Voice
+			ctx := context.Background()
+			ag, err := database.Agent.Query().
+				Where(agent.Name(strings.ToLower(agentName))).
+				Only(ctx)
+			if err != nil {
+				return fmt.Errorf("agent '%s' not found", agentName)
 			}
+			voiceID = ag.Voice
 		}
 
 		if voiceID != "" && !voice.IsValidVoice(voiceID) {
 			return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", voiceID)
 		}
 
-		return voice.Speak(text, voiceID, speakSpeed, speakOutput)
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+		agentCfg, ok := cfg.Agents[agentName]
+		if !ok {
+			return fmt.Errorf("agent %s not found in config", agentName)
+		}
+
+		wavData, err := voice.SpeakToBytes(text, voiceID, speakSpeed)
+		if err != nil {
+			return err
+		}
+
+		oggData, err := voice.ConvertWAVToOGG(wavData)
+		if err != nil {
+			return err
+		}
+
+		chatIDStr := cfg.AgentChatID(agentName)
+		chatID, err := telegram.ParseChatID(chatIDStr)
+		if err != nil {
+			return err
+		}
+
+		return telegram.SendVoice(agentCfg.BotToken, chatID, oggData)
 	},
 }
 
@@ -113,6 +140,5 @@ func init() {
 	voiceCmd.AddCommand(voiceListCmd)
 
 	voiceSpeakCmd.Flags().StringVar(&speakVoice, "voice", "", "Voice ID (e.g. af_heart, af_sky)")
-	voiceSpeakCmd.Flags().StringVar(&speakOutput, "output", "", "Save audio to file instead of playing")
 	voiceSpeakCmd.Flags().Float64Var(&speakSpeed, "speed", 1.0, "Speech speed (0.25-4.0)")
 }
