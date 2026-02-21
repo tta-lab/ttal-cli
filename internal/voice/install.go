@@ -47,6 +47,11 @@ func plistContent(pythonBin, scriptPath, logPath string) string {
         <string>%s</string>
         <string>%s</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
     <key>KeepAlive</key>
     <true/>
     <key>RunAtLoad</key>

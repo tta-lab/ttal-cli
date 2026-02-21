@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
@@ -36,6 +37,7 @@ func Stop() error {
 			fmt.Printf("  ✗ %s: %v\n", agentName, err)
 			continue
 		}
+		status.Remove(agentName) //nolint:errcheck
 		fmt.Printf("  ✓ %s stopped\n", agentName)
 		killed++
 	}

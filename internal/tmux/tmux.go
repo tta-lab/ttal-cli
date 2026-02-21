@@ -122,6 +122,36 @@ func ListSessions() ([]string, error) {
 	return sessions, nil
 }
 
+// SendRawKey sends a special key (e.g. "Escape", "C-c") to a tmux pane
+// without the -l (literal) flag. Used for control keys that aren't text.
+func SendRawKey(session, window, key string) error {
+	target := session
+	if window != "" {
+		target = session + ":" + window
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, key)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("send-keys failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// SetEnv sets an environment variable on a tmux session.
+// New processes spawned in the session will inherit this variable.
+func SetEnv(session, key, value string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "set-environment", "-t", session, key, value)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("set-environment failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // sanitizeForTerminal replaces newlines/CR with spaces and strips control chars.
 func sanitizeForTerminal(s string) string {
 	var b strings.Builder

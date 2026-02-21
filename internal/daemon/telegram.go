@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
@@ -100,12 +101,19 @@ func runPoller(
 			return
 		}
 
+		text := strings.TrimSpace(update.Message.Text)
+
+		// Check for bot commands first (status, help, new, compact, wait)
+		if handleBotCommand(agentName, cfg.BotToken, effectiveChatID, text) {
+			return
+		}
+
 		senderName := update.Message.From.Username
 		if senderName == "" {
 			senderName = update.Message.From.FirstName
 		}
 
-		formatted := formatInboundMessage(agentName, senderName, update.Message.Text)
+		formatted := formatInboundMessage(agentName, senderName, text)
 		onMessage(agentName, formatted)
 	}
 

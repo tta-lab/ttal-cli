@@ -22,12 +22,14 @@ var sendCmd = &cobra.Command{
 	Short: "Send a message between agents or to a human",
 	Long: `Send a message with explicit direction:
 
-  --to <agent>                system/hook delivers to agent via Zellij
-  --from <a> --to <b>         agent-to-agent via Zellij with attribution
+  --to <agent>                system/hook delivers to agent via tmux
+  --from <a> --to <b>         agent-to-agent via tmux with attribution
+  --from <a> --to human       agent sends to human via Telegram
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
   ttal send --from yuki --to kestrel "can you review my auth module?"
+  ttal send --from athena --to human "compact complete"
   echo "done" | ttal send --to kestrel --stdin`,
 	// Skip database initialization
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

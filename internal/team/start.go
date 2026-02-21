@@ -9,6 +9,7 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 
 	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
@@ -60,6 +61,7 @@ func Start(database *ent.Client, force bool) error {
 				fmt.Fprintf(os.Stderr, "warning: failed to remove session %q: %v\n", sessionName, err)
 				continue
 			}
+			status.Remove(agentName) //nolint:errcheck
 		}
 
 		if err := launchAgentSession(sessionName, tab); err != nil {
@@ -92,8 +94,10 @@ func Start(database *ent.Client, force bool) error {
 func launchAgentSession(sessionName string, tab AgentTab) error {
 	claudeCmd := buildClaudeCommand(tab)
 
-	// Create session with CC in the first window (named after agent)
-	fishCmd := fmt.Sprintf("fish -C '%s'", claudeCmd)
+	// Set TTAL_AGENT_NAME in the command so fish (and its child CC) inherit it.
+	// Can't use tmux set-environment here — the session command starts immediately,
+	// before set-environment could be called.
+	fishCmd := fmt.Sprintf("env TTAL_AGENT_NAME=%s fish -C '%s'", tab.Name, claudeCmd)
 	if err := tmux.NewSession(sessionName, tab.Name, tab.Path, fishCmd); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}

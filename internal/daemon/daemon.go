@@ -59,6 +59,20 @@ func Run(database *ent.Client) error {
 
 	done := make(chan struct{})
 
+	// Register Telegram bot commands (best-effort, non-fatal)
+	registeredBots := make(map[string]bool)
+	for name, agentCfg := range cfg.Agents {
+		if agentCfg.BotToken == "" || registeredBots[agentCfg.BotToken] {
+			continue
+		}
+		if err := RegisterBotCommands(agentCfg.BotToken); err != nil {
+			log.Printf("[daemon] warning: failed to register bot commands for %s: %v", name, err)
+		} else {
+			log.Printf("[daemon] registered bot commands for %s", name)
+		}
+		registeredBots[agentCfg.BotToken] = true
+	}
+
 	// Start Telegram pollers
 	for agentName, agentCfg := range cfg.Agents {
 		if agentCfg.BotToken == "" {
@@ -103,8 +117,11 @@ func Run(database *ent.Client) error {
 }
 
 // handleSend routes an incoming SendRequest based on From/To fields.
+// Special target "human" routes to Telegram instead of agent delivery.
 func handleSend(cfg *config.Config, req SendRequest) error {
 	switch {
+	case req.From != "" && req.To == "human":
+		return handleFrom(cfg, req)
 	case req.From != "" && req.To != "":
 		return handleAgentToAgent(cfg, req)
 	case req.From != "":
