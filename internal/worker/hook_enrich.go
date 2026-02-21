@@ -46,49 +46,32 @@ func HookEnrich(uuid string) {
 }
 
 func buildEnrichPrompt(task *taskwarrior.Task) string {
-	// Build context from description + annotations
-	taskContext := task.Description
-	var referencedFiles []string
-	for _, ann := range task.Annotations {
-		taskContext += "\n" + ann.Description
-		// Extract file references (Plan: /path, Doc: /path, etc.)
-		for _, prefix := range []string{"Plan:", "Doc:", "Reference:", "File:", "Design:"} {
-			if idx := strings.Index(ann.Description, prefix); idx != -1 {
-				path := strings.TrimSpace(ann.Description[idx+len(prefix):])
-				// Take first line only
-				if nl := strings.IndexByte(path, '\n'); nl != -1 {
-					path = path[:nl]
-				}
-				path = strings.TrimSpace(path)
-				if path != "" {
-					referencedFiles = append(referencedFiles, path)
-				}
-			}
-		}
-	}
+	// Use FormatPrompt() which handles annotations, file refs, and inlines docs
+	taskContext := task.FormatPrompt()
 
-	fileInstructions := ""
-	if len(referencedFiles) > 0 {
-		fileInstructions = "\n\nREFERENCED FILES (read these for context):\n"
-		for _, f := range referencedFiles {
-			fileInstructions += fmt.Sprintf("  - %s\n", f)
-		}
-		fileInstructions += "Read these files to understand what project the task is actually about.\n" +
-			"IMPORTANT: The file may live in a different repo than the target project " +
-			"(e.g. plans are often stored in ~/clawd but the work targets another repo)."
+	// Add tags and project if present
+	var metadata []string
+	if task.Project != "" {
+		metadata = append(metadata, fmt.Sprintf("Project: %s", task.Project))
+	}
+	if len(task.Tags) > 0 {
+		metadata = append(metadata, fmt.Sprintf("Tags: %s", strings.Join(task.Tags, ", ")))
+	}
+	metadataSection := ""
+	if len(metadata) > 0 {
+		metadataSection = "\n" + strings.Join(metadata, "\n")
 	}
 
 	//nolint:lll // raw string prompt template
 	return fmt.Sprintf(`You are a task enrichment agent. Your job is to enrich a taskwarrior task with project_path and branch UDAs so it can be automatically spawned as a worker.
 
 TASK UUID: %s
-
+%s
 TASK CONTEXT:
-%s%s
-
+%s
 INSTRUCTIONS:
 1. Run: ttal project list — read the descriptions to understand each project
-2. If the task references any doc/plan files, read them to understand the actual target project
+2. Read any referenced documentation included above to understand the actual target project
 3. Match the task to the correct project based on content, NOT based on where the plan file is stored
 4. Run: ttal project get <alias> to get the project path
 5. Derive a short, kebab-case branch name from the task description (e.g., "fix-auth-timeout", "add-user-api")
@@ -99,5 +82,5 @@ RULES:
 - Branch name should be descriptive but short (2-4 words, kebab-case)
 - If you cannot determine the project, do NOT modify the task — just print "SKIP: could not determine project"
 - Do not add any other modifications
-- Do not start the task`, task.UUID, taskContext, fileInstructions, task.UUID)
+- Do not start the task`, task.UUID, metadataSection, taskContext, task.UUID)
 }

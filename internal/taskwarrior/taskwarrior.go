@@ -61,7 +61,7 @@ func (t *Task) HasTag(tag string) bool {
 }
 
 // fileRefPattern matches annotations like "Design: ~/path/to/file.md"
-var fileRefPattern = regexp.MustCompile(`(?:Design|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
+var fileRefPattern = regexp.MustCompile(`(?:Plan|Design|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
 
 // FormatPrompt formats the task for injection into a worker's Claude prompt.
 // Includes description, annotations, and inlined referenced markdown docs.
