@@ -24,6 +24,14 @@ type Config struct {
 	ChatID         string                 `toml:"chat_id"`
 	LifecycleAgent string                 `toml:"lifecycle_agent"`
 	Agents         map[string]AgentConfig `toml:"agents"`
+	Voice          VoiceConfig            `toml:"voice"`
+}
+
+// VoiceConfig holds voice-related settings.
+type VoiceConfig struct {
+	// Vocabulary is a list of domain-specific terms passed as the context
+	// parameter to mlx-audio STT to improve recognition of project-specific words.
+	Vocabulary []string `toml:"vocabulary"`
 }
 
 // AgentConfig holds per-agent Telegram credentials.
@@ -92,6 +100,9 @@ lifecycle_agent = "kestrel"
 
 [agents.kestrel]
 bot_token = "TODO"
+
+# [voice]
+# vocabulary = ["ttal", "treemd", "zellij", "taskwarrior"]
 `
 
 	return os.WriteFile(path, []byte(template), 0o600)

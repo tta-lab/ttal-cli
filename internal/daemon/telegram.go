@@ -22,7 +22,7 @@ import (
 // It calls onMessage for each new user message, formatted for CC delivery.
 // Runs until done is closed.
 func startTelegramPoller(
-	agentName string, cfg config.AgentConfig, chatID string, onMessage func(agentName, text string), done <-chan struct{},
+	agentName string, cfg config.AgentConfig, chatID string, vocabulary []string, onMessage func(agentName, text string), done <-chan struct{},
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -34,7 +34,7 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(agentName, cfg, chatID, onMessage, done); err != nil {
+			if err := runPoller(agentName, cfg, chatID, vocabulary, onMessage, done); err != nil {
 				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
 				select {
 				case <-done:
@@ -52,7 +52,7 @@ func startTelegramPoller(
 }
 
 func runPoller(
-	agentName string, cfg config.AgentConfig, effectiveChatID string,
+	agentName string, cfg config.AgentConfig, effectiveChatID string, vocabulary []string,
 	onMessage func(agentName, text string), done <-chan struct{},
 ) error {
 	chatID, err := telegram.ParseChatID(effectiveChatID)
@@ -89,7 +89,7 @@ func runPoller(
 
 		// Handle voice messages
 		if update.Message.Voice != nil {
-			transcription, err := transcribeVoiceMessage(ctx, b, update.Message.Voice)
+			transcription, err := transcribeVoiceMessage(ctx, b, update.Message.Voice, vocabulary)
 			if err != nil {
 				log.Printf("[telegram] voice transcription failed for %s: %v", agentName, err)
 				errMsg := "Voice transcription failed — check daemon logs for details"
@@ -190,7 +190,7 @@ const (
 )
 
 // transcribeVoiceMessage downloads a Telegram voice message and transcribes it via mlx-audio STT.
-func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice) (string, error) {
+func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice, vocabulary []string) (string, error) {
 	file, err := b.GetFile(ctx, &bot.GetFileParams{FileID: v.FileID})
 	if err != nil {
 		return "", fmt.Errorf("get file: %w", err)
@@ -212,11 +212,12 @@ func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice) (s
 		return "", fmt.Errorf("read voice data: %w", err)
 	}
 
-	return sttTranscribe(audioData, "voice.ogg")
+	return sttTranscribe(audioData, "voice.ogg", vocabulary)
 }
 
 // sttTranscribe sends audio data to the mlx-audio STT endpoint and returns the transcribed text.
-func sttTranscribe(audioData []byte, filename string) (string, error) {
+// vocabulary is joined into a context string that biases Whisper toward domain-specific terms.
+func sttTranscribe(audioData []byte, filename string, vocabulary []string) (string, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
@@ -233,6 +234,12 @@ func sttTranscribe(audioData []byte, filename string) (string, error) {
 	}
 	if err := writer.WriteField("language", "en"); err != nil {
 		return "", err
+	}
+	if len(vocabulary) > 0 {
+		hotwords := strings.Join(vocabulary, ", ")
+		if err := writer.WriteField("context", hotwords); err != nil {
+			return "", err
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return "", err
