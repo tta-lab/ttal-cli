@@ -44,10 +44,18 @@ type Task struct {
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Start       string       `json:"start,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
-	SessionName string       `json:"session_name"`
 	Branch      string       `json:"branch"`
 	ProjectPath string       `json:"project_path"`
 	PRID        string       `json:"pr_id,omitempty"`
+}
+
+// SessionID returns a deterministic session identifier derived from the task UUID.
+// Uses the first 8 characters of the UUID (4 billion possible values).
+func (t *Task) SessionID() string {
+	if len(t.UUID) >= 8 {
+		return t.UUID[:8]
+	}
+	return t.UUID
 }
 
 // HasTag returns true if the task has the given tag.
@@ -180,7 +188,7 @@ func ValidateUUID(s string) error {
 	return nil
 }
 
-// VerifyRequiredUDAs checks that session_name, branch, and project_path UDAs
+// VerifyRequiredUDAs checks that branch and project_path UDAs
 // are configured in taskwarrior.
 func VerifyRequiredUDAs() error {
 	out, err := runTask("show")
@@ -189,7 +197,7 @@ func VerifyRequiredUDAs() error {
 			"  This prevents creating orphaned sessions that aren't tracked.", err)}
 	}
 
-	required := []string{"session_name", "branch", "project_path"}
+	required := []string{"branch", "project_path"}
 	var missing []string
 	for _, uda := range required {
 		if !strings.Contains(out, fmt.Sprintf("uda.%s.", uda)) {
@@ -220,26 +228,25 @@ func ExportTask(uuid string) (*Task, error) {
 	return parseFirstTask(out)
 }
 
-// ExportTaskBySession finds a task by session_name UDA.
+// ExportTaskBySessionID finds a task by UUID prefix (first 8 chars).
 // If status is non-empty, filters by that status.
-func ExportTaskBySession(sessionName, status string) (*Task, error) {
+func ExportTaskBySessionID(sessionID, status string) (*Task, error) {
 	var args []string
 	if status != "" {
 		args = append(args, fmt.Sprintf("status:%s", status))
 	}
-	args = append(args, fmt.Sprintf("session_name:%s", sessionName), "export")
+	args = append(args, fmt.Sprintf("uuid:%s", sessionID), "export")
 
 	out, err := runTask(args...)
 	if err != nil {
-		return nil, fmt.Errorf("no task found with session_name:%s: %w", sessionName, err)
+		return nil, fmt.Errorf("no task found with uuid prefix %s: %w", sessionID, err)
 	}
 	return parseFirstTask(out)
 }
 
-// UpdateWorkerMetadata sets session_name, branch, and project_path UDAs on a task.
-func UpdateWorkerMetadata(uuid, sessionName, branch, projectPath string) error {
+// UpdateWorkerMetadata sets branch and project_path UDAs on a task.
+func UpdateWorkerMetadata(uuid, branch, projectPath string) error {
 	_, err := runTask(uuid, "modify",
-		fmt.Sprintf("session_name:%s", sessionName),
 		fmt.Sprintf("branch:%s", branch),
 		fmt.Sprintf("project_path:%s", projectPath),
 	)
@@ -285,9 +292,9 @@ func MarkDeleted(uuid string) error {
 	return nil
 }
 
-// GetActiveWorkerTasks returns all pending+active tasks that have a session_name UDA.
+// GetActiveWorkerTasks returns all pending+active tasks that have a branch UDA (worker tasks).
 func GetActiveWorkerTasks() ([]Task, error) {
-	out, err := runTask("status:pending", "+ACTIVE", "session_name.any:", "export")
+	out, err := runTask("status:pending", "+ACTIVE", "branch.any:", "export")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active worker tasks: %w", err)
 	}

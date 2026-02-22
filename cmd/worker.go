@@ -12,7 +12,6 @@ var (
 	spawnName     string
 	spawnProject  string
 	spawnTask     string
-	spawnSession  string
 	spawnWorktree bool
 	spawnForce    bool
 	spawnYolo     bool
@@ -80,7 +79,6 @@ Example:
 			Name:     spawnName,
 			Project:  spawnProject,
 			TaskUUID: spawnTask,
-			Session:  spawnSession,
 			Worktree: spawnWorktree,
 			Force:    spawnForce,
 			Yolo:     spawnYolo,
@@ -152,7 +150,6 @@ func init() {
 	workerSpawnCmd.Flags().StringVar(&spawnName, "name", "", "Worker name (required)")
 	workerSpawnCmd.Flags().StringVar(&spawnProject, "project", "", "Project directory (required)")
 	workerSpawnCmd.Flags().StringVar(&spawnTask, "task", "", "Task UUID (required)")
-	workerSpawnCmd.Flags().StringVar(&spawnSession, "session", "", "Custom session name (default: random 8-char ID)")
 	workerSpawnCmd.Flags().BoolVar(&spawnWorktree, "worktree", true, "Create git worktree")
 	workerSpawnCmd.Flags().BoolVar(&spawnForce, "force", false, "Force respawn (close existing session)")
 	workerSpawnCmd.Flags().BoolVar(&spawnYolo, "yolo", true, "Skip permissions prompts")

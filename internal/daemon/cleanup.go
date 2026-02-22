@@ -94,16 +94,16 @@ func processCleanupFile(path string) {
 		return
 	}
 
-	log.Printf("[cleanup] processing: session=%s task=%s", req.SessionName, req.TaskUUID)
+	log.Printf("[cleanup] processing: session=%s task=%s", req.SessionID, req.TaskUUID)
 
 	// Close worker (kill session + remove worktree + delete branch + git pull)
-	result, closeErr := worker.Close(req.SessionName, false)
+	result, closeErr := worker.Close(req.SessionID, false)
 	if closeErr != nil {
 		status := "unknown"
 		if result != nil {
 			status = result.Status
 		}
-		log.Printf("[cleanup] close failed for %s: %s", req.SessionName, status)
+		log.Printf("[cleanup] close failed for %s: %s", req.SessionID, status)
 		// Don't delete the file — daemon will retry on next startup
 		return
 	}
@@ -118,5 +118,5 @@ func processCleanupFile(path string) {
 
 	// Success — remove the request file
 	os.Remove(path) //nolint:errcheck
-	log.Printf("[cleanup] completed: session=%s", req.SessionName)
+	log.Printf("[cleanup] completed: session=%s", req.SessionID)
 }

@@ -95,11 +95,6 @@ func (t hookTask) Status() string {
 	return v
 }
 
-func (t hookTask) SessionName() string {
-	v, _ := t["session_name"].(string)
-	return v
-}
-
 func (t hookTask) Tags() []string {
 	raw, ok := t["tags"].([]any)
 	if !ok {

@@ -49,7 +49,7 @@ var openSessionCmd = &cobra.Command{
 	Short: "Attach to worker zellij session",
 	Long: `Attach to the zellij session associated with a task's worker.
 
-Reads session_name UDA from the task and exec's into zellij attach.
+Derives session name from task UUID and exec's into zellij attach.
 
 Example:
   ttal open session 12345678-1234-1234-1234-123456789abc`,
@@ -64,8 +64,8 @@ var openEditorCmd = &cobra.Command{
 	Short: "Open project in editor",
 	Long: `Open the task's project directory (or worktree) in your editor.
 
-Detects worktree from session_name or branch UDAs. Falls back to the
-project root if no worktree is found.
+Detects worktree from branch UDA. Falls back to the project root
+if no worktree is found.
 
 Editor priority: TT_EDITOR > EDITOR > vi
 

@@ -33,19 +33,21 @@ type CloseResult struct {
 //	nil error + Cleaned=true  → cleaned up successfully (exit 0)
 //	ErrNeedsDecision          → needs manual decision (exit 1)
 //	other error               → script/worker error (exit 2)
-func Close(sessionName string, force bool) (*CloseResult, error) {
-	// Find the task by session_name (try completed first, then pending)
-	task, err := taskwarrior.ExportTaskBySession(sessionName, taskStatusCompleted)
+func Close(sessionID string, force bool) (*CloseResult, error) {
+	// Find the task by UUID prefix (try completed first, then pending)
+	task, err := taskwarrior.ExportTaskBySessionID(sessionID, taskStatusCompleted)
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySession(sessionName, taskStatusPending)
+		task, err = taskwarrior.ExportTaskBySessionID(sessionID, taskStatusPending)
 	}
 	if err != nil {
 		result := &CloseResult{
 			Error:  true,
-			Status: fmt.Sprintf("Task with session_name '%s' not found", sessionName),
+			Status: fmt.Sprintf("Task with UUID prefix '%s' not found", sessionID),
 		}
 		return result, fmt.Errorf("task not found")
 	}
+
+	sessionName := task.SessionID()
 
 	branch := task.Branch
 	if branch == "" {

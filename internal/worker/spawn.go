@@ -18,7 +18,6 @@ type SpawnConfig struct {
 	Name     string
 	Project  string
 	TaskUUID string
-	Session  string
 	Worktree bool
 	Force    bool
 	Yolo     bool
@@ -40,13 +39,14 @@ func Spawn(cfg SpawnConfig) error {
 		return fmt.Errorf("project directory not found: %s", project)
 	}
 
-	sessionName, err := resolveSession(cfg, project)
-	if err != nil {
-		return err
-	}
+	sessionName := task.SessionID()
 
 	fmt.Printf("Spawning CC worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Name, project, task.Description)
-	fmt.Printf("Creating zellij session: %s (random ID for worker '%s')\n", sessionName, cfg.Name)
+	fmt.Printf("Creating zellij session: %s (from task UUID for worker '%s')\n", sessionName, cfg.Name)
+
+	if err := ensureSessionAvailable(cfg, sessionName, project); err != nil {
+		return err
+	}
 
 	workDir, branch, err := setupWorkDir(cfg, project)
 	if err != nil {
@@ -74,31 +74,19 @@ func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
 	return task, nil
 }
 
-func resolveSession(cfg SpawnConfig, project string) (string, error) {
-	sessionName := cfg.Session
-	if sessionName == "" {
-		sessionName = zellij.GenerateSessionID()
-	}
-	if len(sessionName) > 40 {
-		fmt.Fprintf(os.Stderr, "warning: session name '%s' exceeds 40 chars, truncating\n", sessionName)
-		sessionName = sessionName[:40]
-	}
-
+func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error {
 	if !zellij.SessionExists(sessionName) {
-		return sessionName, nil
+		return nil
 	}
 
 	if cfg.Force {
 		fmt.Printf("Session '%s' exists, closing it (--force)\n", sessionName)
-		if err := zellij.DeleteSession(sessionName); err != nil {
-			return "", err
-		}
-		return sessionName, nil
+		return zellij.DeleteSession(sessionName)
 	}
 
-	return "", fmt.Errorf("session '%s' already exists\n"+
+	return fmt.Errorf("session '%s' already exists\n"+
 		"  Worker '%s' in project '%s' is already running\n"+
-		"  Use --force to respawn or choose a different worker name",
+		"  Use --force to respawn",
 		sessionName, cfg.Name, filepath.Base(project))
 }
 
@@ -154,7 +142,7 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 			"  %w", sessionName, cfg.Name, err)
 	}
 
-	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, sessionName, branch, project); err != nil {
+	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
 		return fmt.Errorf("worker spawn incomplete - session created but task tracking failed\n"+
 			"  Session: %s\n"+
 			"  To attach: zellij --data-dir %s attach %s\n\n"+

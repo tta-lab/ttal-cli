@@ -20,7 +20,8 @@ func Session(uuid string) error {
 		return err
 	}
 
-	if task.SessionName == "" {
+	sessionID := task.SessionID()
+	if task.Branch == "" {
 		return fmt.Errorf("no worker session assigned to this task\n\n" +
 			"  To spawn a worker for this task:\n" +
 			"  ttal worker spawn --task " + uuid + " --project <path> --name <worker-name>")
@@ -32,6 +33,6 @@ func Session(uuid string) error {
 	}
 
 	return syscall.Exec(zellijBin, []string{
-		"zellij", "--data-dir", zellij.DataDir(), "attach", task.SessionName,
+		"zellij", "--data-dir", zellij.DataDir(), "attach", sessionID,
 	}, os.Environ())
 }

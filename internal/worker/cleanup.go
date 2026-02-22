@@ -12,14 +12,14 @@ const cleanupDir = "cleanup"
 
 // CleanupRequest is written to ~/.ttal/cleanup/<session>.json by workers after merge.
 type CleanupRequest struct {
-	SessionName string    `json:"session_name"`
-	TaskUUID    string    `json:"task_uuid"`
-	CreatedAt   time.Time `json:"created_at"`
+	SessionID string    `json:"session_id"`
+	TaskUUID  string    `json:"task_uuid"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // RequestCleanup writes a cleanup request file for the daemon to process.
 // This is fire-and-forget — the file persists even if the daemon is down.
-func RequestCleanup(sessionName, taskUUID string) error {
+func RequestCleanup(sessionID, taskUUID string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -31,9 +31,9 @@ func RequestCleanup(sessionName, taskUUID string) error {
 	}
 
 	req := CleanupRequest{
-		SessionName: sessionName,
-		TaskUUID:    taskUUID,
-		CreatedAt:   time.Now(),
+		SessionID: sessionID,
+		TaskUUID:  taskUUID,
+		CreatedAt: time.Now(),
 	}
 
 	data, err := json.Marshal(req)
@@ -41,7 +41,7 @@ func RequestCleanup(sessionName, taskUUID string) error {
 		return err
 	}
 
-	path := filepath.Join(dir, sessionName+".json")
+	path := filepath.Join(dir, sessionID+".json")
 	return os.WriteFile(path, data, 0o644)
 }
 

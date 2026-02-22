@@ -378,7 +378,7 @@ Can you review my auth module?
 
 ### PR Commands
 
-Manage Forgejo pull requests directly from worker sessions. Context is auto-resolved from `ZELLIJ_SESSION_NAME` → task `session_name` UDA → `project_path` → `git remote get-url origin`.
+Manage Forgejo pull requests directly from worker sessions. Context is auto-resolved from `ZELLIJ_SESSION_NAME` (task UUID prefix) → `project_path` → `git remote get-url origin`.
 
 ```bash
 # Create PR (stores pr_id in task UDA automatically)
@@ -427,9 +427,6 @@ Required by: `ttal pr *`, `ttal worker close` (smart mode).
 Worker commands require these User Defined Attributes in `~/.taskrc`:
 
 ```
-uda.session_name.type=string
-uda.session_name.label=Session Name
-
 uda.branch.type=string
 uda.branch.label=Branch
 

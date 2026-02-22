@@ -48,14 +48,6 @@ func Editor(uuid string) error {
 }
 
 func resolveWorkDir(task *taskwarrior.Task) string {
-	// Try worktree by session name
-	if task.SessionName != "" {
-		dir := filepath.Join(task.ProjectPath, ".worktrees", task.SessionName)
-		if isDir(dir) {
-			return dir
-		}
-	}
-
 	// Try worktree by branch name (without worker/ prefix)
 	if task.Branch != "" {
 		name := strings.TrimPrefix(task.Branch, "worker/")

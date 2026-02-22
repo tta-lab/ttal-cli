@@ -18,7 +18,7 @@ var prCmd = &cobra.Command{
 	Short: "Manage pull requests for the current worker task",
 	Long: `Create, modify, and comment on Forgejo pull requests.
 
-Context is auto-resolved from ZELLIJ_SESSION_NAME → task session_name UDA.
+Context is auto-resolved from ZELLIJ_SESSION_NAME (task UUID prefix).
 Use --task to override with an explicit task UUID.
 
 Environment:
@@ -129,8 +129,8 @@ Examples:
 		}
 
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
-		if ctx.Task.SessionName != "" {
-			if err := worker.RequestCleanup(ctx.Task.SessionName, ctx.Task.UUID); err != nil {
+		if ctx.Task.Branch != "" {
+			if err := worker.RequestCleanup(ctx.Task.SessionID(), ctx.Task.UUID); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: cleanup request failed: %v\n", err)
 			} else {
 				fmt.Println("  Cleanup requested (daemon will close session + worktree)")

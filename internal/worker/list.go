@@ -54,14 +54,15 @@ func List() error {
 		return nil
 	}
 
-	// Deduplicate by session_name (keep first, which is most recent from taskwarrior)
+	// Deduplicate by session ID (keep first, which is most recent from taskwarrior)
 	seen := make(map[string]bool)
 	unique := make([]taskwarrior.Task, 0, len(tasks))
 	for _, t := range tasks {
-		if t.SessionName == "" || seen[t.SessionName] {
+		sid := t.SessionID()
+		if sid == "" || seen[sid] {
 			continue
 		}
-		seen[t.SessionName] = true
+		seen[sid] = true
 		unique = append(unique, t)
 	}
 
@@ -183,7 +184,7 @@ func printWorkerTable(workers []WorkerInfo) {
 		}
 
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			t.SessionName, info.Status, pr, branch, project, desc)
+			t.SessionID(), info.Status, pr, branch, project, desc)
 	}
 
 	_ = w.Flush()
