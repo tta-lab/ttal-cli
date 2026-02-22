@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,6 +21,15 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Format
+        run: |
+          make fmt
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Code not formatted. Run 'make fmt' and commit the changes."
+            git status --porcelain
+            exit 1
+          fi
+
       - name: Generate ent code
         run: make generate
 
@@ -32,38 +41,17 @@ jobs:
             exit 1
           fi
 
-      - name: Run tests
-        run: make test
-
-      - name: Build
-        run: make build
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Run gofmt
-        run: |
-          make fmt
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Code not formatted. Run 'make fmt' and commit the changes."
-            git status --porcelain
-            exit 1
-          fi
-
-      - name: Run go vet
+      - name: Vet
         run: make vet
 
-      - name: golangci-lint
+      - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.6
           args: --timeout=5m
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build

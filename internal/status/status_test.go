@@ -200,6 +200,83 @@ func TestReadAllFrom(t *testing.T) {
 	})
 }
 
+func TestWriteAgentTo(t *testing.T) {
+	t.Run("writes and reads back", func(t *testing.T) {
+		dir := t.TempDir()
+		now := time.Now().UTC().Truncate(time.Second)
+		want := AgentStatus{
+			Agent:               "kestrel",
+			ContextUsedPct:      42,
+			ContextRemainingPct: 58,
+			ModelID:             "claude-opus-4-6",
+			ModelName:           "Claude Opus 4.6",
+			SessionID:           "sess1",
+			CCVersion:           "1.0.20",
+			UpdatedAt:           now,
+		}
+
+		if err := writeAgentTo(dir, want); err != nil {
+			t.Fatalf("writeAgentTo: %v", err)
+		}
+
+		got, err := readAgentFrom(dir, "kestrel")
+		if err != nil {
+			t.Fatalf("readAgentFrom: %v", err)
+		}
+		if got == nil {
+			t.Fatal("expected non-nil status")
+		}
+		if got.Agent != want.Agent {
+			t.Errorf("Agent = %q, want %q", got.Agent, want.Agent)
+		}
+		if got.ContextUsedPct != want.ContextUsedPct {
+			t.Errorf("ContextUsedPct = %v, want %v", got.ContextUsedPct, want.ContextUsedPct)
+		}
+		if got.ModelID != want.ModelID {
+			t.Errorf("ModelID = %q, want %q", got.ModelID, want.ModelID)
+		}
+		if got.SessionID != want.SessionID {
+			t.Errorf("SessionID = %q, want %q", got.SessionID, want.SessionID)
+		}
+		if got.CCVersion != want.CCVersion {
+			t.Errorf("CCVersion = %q, want %q", got.CCVersion, want.CCVersion)
+		}
+
+		// Verify tmp file is cleaned up
+		tmpPath := filepath.Join(dir, ".kestrel.tmp")
+		if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
+			t.Error("expected tmp file to be cleaned up after rename")
+		}
+	})
+
+	t.Run("rejects path traversal in agent name", func(t *testing.T) {
+		dir := t.TempDir()
+		for _, bad := range []string{"", "../evil", "a/b", ".hidden", "..\\evil"} {
+			s := AgentStatus{Agent: bad}
+			if err := writeAgentTo(dir, s); err == nil {
+				t.Errorf("expected error for agent name %q", bad)
+			}
+		}
+	})
+
+	t.Run("creates directory if missing", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "nested", "status")
+		s := AgentStatus{Agent: "bot", UpdatedAt: time.Now().UTC()}
+
+		if err := writeAgentTo(dir, s); err != nil {
+			t.Fatalf("writeAgentTo: %v", err)
+		}
+
+		got, err := readAgentFrom(dir, "bot")
+		if err != nil {
+			t.Fatalf("readAgentFrom: %v", err)
+		}
+		if got == nil {
+			t.Fatal("expected non-nil status")
+		}
+	})
+}
+
 func TestRemoveFrom(t *testing.T) {
 	t.Run("removes existing file", func(t *testing.T) {
 		dir := t.TempDir()

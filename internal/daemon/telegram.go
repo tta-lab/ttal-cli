@@ -22,7 +22,8 @@ import (
 // It calls onMessage for each new user message, formatted for CC delivery.
 // Runs until done is closed.
 func startTelegramPoller(
-	agentName string, cfg config.AgentConfig, chatID string, vocabulary []string, onMessage func(agentName, text string), done <-chan struct{},
+	agentName string, cfg config.AgentConfig, chatID string, vocabulary []string,
+	onMessage func(agentName, text string), done <-chan struct{},
 ) {
 	go func() {
 		backoff := 2 * time.Second

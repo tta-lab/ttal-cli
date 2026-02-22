@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -35,6 +36,11 @@ func ReadAgent(name string) (*AgentStatus, error) {
 // ReadAll reads status files for all agents that have them.
 func ReadAll() ([]AgentStatus, error) {
 	return readAllFrom(StatusDir())
+}
+
+// WriteAgent atomically writes an agent's status file.
+func WriteAgent(s AgentStatus) error {
+	return writeAgentTo(StatusDir(), s)
 }
 
 // Remove deletes the status file for an agent (called on session teardown).
@@ -91,6 +97,35 @@ func readAllFrom(dir string) ([]AgentStatus, error) {
 		statuses = append(statuses, *s)
 	}
 	return statuses, nil
+}
+
+// writeAgentTo atomically writes an agent's status to the given directory.
+func writeAgentTo(dir string, s AgentStatus) error {
+	if s.Agent == "" || strings.ContainsAny(s.Agent, "/\\") || s.Agent[0] == '.' {
+		return fmt.Errorf("invalid agent name: %q", s.Agent)
+	}
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create status dir: %w", err)
+	}
+
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal status: %w", err)
+	}
+	data = append(data, '\n')
+
+	tmp := filepath.Join(dir, "."+s.Agent+".tmp")
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return fmt.Errorf("write tmp: %w", err)
+	}
+
+	target := filepath.Join(dir, s.Agent+".json")
+	if err := os.Rename(tmp, target); err != nil {
+		os.Remove(tmp) //nolint:errcheck
+		return err
+	}
+	return nil
 }
 
 // removeFrom deletes the status file for an agent from the given directory.
