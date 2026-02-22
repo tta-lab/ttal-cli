@@ -44,7 +44,7 @@ func Run(database *ent.Client) error {
 	if err := writePID(pidPath); err != nil {
 		return fmt.Errorf("failed to write pid file: %w", err)
 	}
-	defer os.Remove(pidPath) //nolint:errcheck
+	defer os.Remove(pidPath)
 
 	sockPath, err := SocketPath()
 	if err != nil {

@@ -69,18 +69,18 @@ func Uninstall() error {
 	} else {
 		uid := os.Getuid()
 		cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, daemonPlistName))
-		cmd.Run() //nolint:errcheck
+		cmd.Run()
 
-		os.Remove(plistPath) //nolint:errcheck
+		os.Remove(plistPath)
 		fmt.Printf("Removed daemon plist: %s\n", plistPath)
 	}
 
 	// Remove socket and pid
 	sockPath, _ := SocketPath()
-	os.Remove(sockPath) //nolint:errcheck
+	os.Remove(sockPath)
 
 	pidPath := filepath.Join(home, ".ttal", pidFileName)
-	os.Remove(pidPath) //nolint:errcheck
+	os.Remove(pidPath)
 
 	fmt.Println("Daemon uninstalled. Config and logs preserved.")
 	return nil
@@ -91,7 +91,7 @@ func installDaemonPlist(home, ttalBin, logDir string) error {
 
 	uid := os.Getuid()
 	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, daemonPlistName))
-	cmd.Run() //nolint:errcheck
+	cmd.Run()
 
 	// Bake env vars into plist
 	forgejoURL := os.Getenv("FORGEJO_URL")
@@ -183,8 +183,8 @@ func removeOldPollPlist(home string) {
 
 	uid := os.Getuid()
 	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, oldPollPlist))
-	cmd.Run() //nolint:errcheck
+	cmd.Run()
 
-	os.Remove(plistPath) //nolint:errcheck
+	os.Remove(plistPath)
 	fmt.Printf("Removed old poll-completion plist: %s\n", plistPath)
 }

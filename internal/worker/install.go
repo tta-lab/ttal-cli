@@ -58,7 +58,7 @@ func Uninstall() error {
 	for _, name := range []string{onModifyHookName, onAddHookName} {
 		hookPath := filepath.Join(hookDir, name)
 		if _, err := os.Stat(hookPath); err == nil {
-			os.Remove(hookPath) //nolint:errcheck
+			os.Remove(hookPath)
 			fmt.Printf("Removed taskwarrior hook: %s\n", hookPath)
 		} else {
 			fmt.Printf("Taskwarrior hook %s: not installed\n", name)

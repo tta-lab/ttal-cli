@@ -53,8 +53,8 @@ func sendToDaemon(req daemonSendRequest) error {
 	if err != nil {
 		return errDaemonNotRunning
 	}
-	defer conn.Close()                                //nolint:errcheck
-	conn.SetDeadline(time.Now().Add(5 * time.Second)) //nolint:errcheck
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
 
 	data, _ := json.Marshal(req)
 	if _, err := conn.Write(append(data, '\n')); err != nil {
@@ -259,8 +259,8 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()     //nolint:errcheck
-	f.WriteString(line) //nolint:errcheck
+	defer f.Close()
+	f.WriteString(line)
 }
 
 // notifyTelegram sends a message to an agent's Telegram chat via the daemon.
@@ -304,6 +304,6 @@ func hookLogFile(message string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()                                 //nolint:errcheck
-	fmt.Fprintf(f, "[%s] %s\n", timestamp, message) //nolint:errcheck
+	defer f.Close()
+	fmt.Fprintf(f, "[%s] %s\n", timestamp, message)
 }

@@ -74,9 +74,9 @@ func Send(req SendRequest) error {
 	if err != nil {
 		return fmt.Errorf("daemon not running (could not connect to %s): %w", sockPath, err)
 	}
-	defer conn.Close() //nolint:errcheck
+	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(socketTimeout)) //nolint:errcheck
+	conn.SetDeadline(time.Now().Add(socketTimeout))
 
 	data, err := json.Marshal(req)
 	if err != nil {
@@ -119,9 +119,9 @@ func QueryStatus(agent string) (*StatusResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("daemon not running (could not connect to %s): %w", sockPath, err)
 	}
-	defer conn.Close() //nolint:errcheck
+	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(socketTimeout)) //nolint:errcheck
+	conn.SetDeadline(time.Now().Add(socketTimeout))
 
 	envelope := Request{
 		Type:   "status",
@@ -157,7 +157,7 @@ func QueryStatus(agent string) (*StatusResponse, error) {
 // to the handler function. Returns a cleanup function and any startup error.
 func listenSocket(sockPath string, sendHandler func(SendRequest) error) (func(), error) {
 	// Remove stale socket file
-	os.Remove(sockPath) //nolint:errcheck
+	os.Remove(sockPath)
 
 	ln, err := net.Listen("unix", sockPath)
 	if err != nil {
@@ -176,16 +176,16 @@ func listenSocket(sockPath string, sendHandler func(SendRequest) error) (func(),
 	}()
 
 	cleanup := func() {
-		ln.Close()          //nolint:errcheck
-		os.Remove(sockPath) //nolint:errcheck
+		ln.Close()
+		os.Remove(sockPath)
 	}
 
 	return cleanup, nil
 }
 
 func handleConn(conn net.Conn, sendHandler func(SendRequest) error) {
-	defer conn.Close()                              //nolint:errcheck
-	conn.SetDeadline(time.Now().Add(socketTimeout)) //nolint:errcheck
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(socketTimeout))
 
 	scanner := bufio.NewScanner(conn)
 	if !scanner.Scan() {
@@ -257,5 +257,5 @@ func writeJSON(conn net.Conn, v interface{}) {
 	if err != nil {
 		return
 	}
-	conn.Write(append(data, '\n')) //nolint:errcheck
+	conn.Write(append(data, '\n'))
 }

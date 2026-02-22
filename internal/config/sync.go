@@ -62,7 +62,7 @@ func SyncTokens(agentNames []string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close()
 
 	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
 		return err

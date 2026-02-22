@@ -37,7 +37,7 @@ func Stop() error {
 			fmt.Printf("  ✗ %s: %v\n", agentName, err)
 			continue
 		}
-		status.Remove(agentName) //nolint:errcheck
+		status.Remove(agentName)
 		fmt.Printf("  ✓ %s stopped\n", agentName)
 		killed++
 	}

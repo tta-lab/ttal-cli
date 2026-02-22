@@ -61,7 +61,7 @@ func Start(database *ent.Client, force bool) error {
 				fmt.Fprintf(os.Stderr, "warning: failed to remove session %q: %v\n", sessionName, err)
 				continue
 			}
-			status.Remove(agentName) //nolint:errcheck
+			status.Remove(agentName)
 		}
 
 		if err := launchAgentSession(sessionName, tab); err != nil {

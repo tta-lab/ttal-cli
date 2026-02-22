@@ -33,7 +33,7 @@ func startCleanupWatcher(done <-chan struct{}) {
 
 	if err := watcher.Add(dir); err != nil {
 		log.Printf("[cleanup] watch failed on %s: %v", dir, err)
-		watcher.Close() //nolint:errcheck
+		watcher.Close()
 		return
 	}
 
@@ -42,7 +42,7 @@ func startCleanupWatcher(done <-chan struct{}) {
 	processPendingCleanups(dir)
 
 	go func() {
-		defer watcher.Close() //nolint:errcheck
+		defer watcher.Close()
 		for {
 			select {
 			case <-done:
@@ -117,6 +117,6 @@ func processCleanupFile(path string) {
 	}
 
 	// Success — remove the request file
-	os.Remove(path) //nolint:errcheck
+	os.Remove(path)
 	log.Printf("[cleanup] completed: session=%s", req.SessionID)
 }

@@ -26,7 +26,7 @@ JSONL watching, and worker cleanup.`,
 		if err != nil {
 			return fmt.Errorf("open database: %w", err)
 		}
-		defer database.Close() //nolint:errcheck
+		defer database.Close()
 		return daemon.Run(database.Client)
 	},
 }

@@ -24,6 +24,47 @@ linters:
     - unused
 
   settings:
+    # errcheck exclude-functions: centralised here instead of //nolint:errcheck
+    # on every call site. Each entry was audited — see rationale below.
+    #
+    # SAFE — defer cleanup, nothing useful to do with the error:
+    #   .Close() variants, os.Remove, status.Remove
+    #
+    # SAFE — test-only helpers:
+    #   os.Mkdir, os.WriteFile
+    #
+    # BORDERLINE but OK in context:
+    #   (*os/exec.Cmd).Run     — only launchctl bootout "unload-before-load" (3 sites)
+    #   (net.Conn).Write       — socket.go:260 courtesy reply after handler ran
+    #   (*os.File).WriteString — hook.go:263 taskwarrior JSON passthrough on stdout
+    #   fmt.Fprintf            — hook.go:308 best-effort debug log line
+    #   (net.Conn).SetDeadline — only fails if conn already closed; next op catches it
+    #
+    # Important call sites that DO check errors (not excluded):
+    #   socket.go:87,136  conn.Write (client-facing send)
+    #   hook.go:60        conn.Write (daemon send)
+    #   voice/client.go:69 cmd.Run   (ffmpeg)
+    errcheck:
+      exclude-functions:
+        # defer cleanup — nothing to do with error
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - (*github.com/fsnotify/fsnotify.Watcher).Close
+        - (*os.File).Close
+        - (*codeberg.org/clawteam/ttal-cli/internal/db.DB).Close
+        - os.Remove
+        - codeberg.org/clawteam/ttal-cli/internal/status.Remove
+        # best-effort writes / commands (see rationale above)
+        - (net.Conn).SetDeadline
+        - (net.Conn).Write
+        - (*os.File).WriteString
+        - (*os/exec.Cmd).Run
+        - fmt.Fprintf
+        # test-only
+        - os.Mkdir
+        - os.WriteFile
     revive:
       rules:
         - name: comment-spacings

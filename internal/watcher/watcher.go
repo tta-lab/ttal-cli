@@ -73,7 +73,7 @@ func (w *Watcher) Run(done <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	defer fsw.Close() //nolint:errcheck
+	defer fsw.Close()
 
 	// Watch each agent's project directory and seed offsets for existing files
 	for encoded := range w.agents {
@@ -150,7 +150,7 @@ func (w *Watcher) handleFileWrite(path string) {
 		log.Printf("[watcher] open %s: %v", path, err)
 		return
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close()
 
 	// Check file size for truncation detection
 	info, err := f.Stat()

@@ -48,7 +48,7 @@ func RegisterBotCommands(botToken string) error {
 	if err != nil {
 		return fmt.Errorf("setMyCommands request: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("setMyCommands returned %d", resp.StatusCode)

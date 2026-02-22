@@ -122,7 +122,7 @@ func writeAgentTo(dir string, s AgentStatus) error {
 
 	target := filepath.Join(dir, s.Agent+".json")
 	if err := os.Rename(tmp, target); err != nil {
-		os.Remove(tmp) //nolint:errcheck
+		os.Remove(tmp)
 		return err
 	}
 	return nil

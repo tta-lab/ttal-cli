@@ -64,7 +64,7 @@ func tagsMatchAgent(taskTags []string) bool {
 		hookLogFile(fmt.Sprintf("tagsMatchAgent: failed to open DB: %v", err))
 		return false
 	}
-	defer database.Close() //nolint:errcheck
+	defer database.Close()
 
 	count, err := database.Agent.Query().
 		Where(agent.HasTagsWith(tag.NameIn(taskTags...))).

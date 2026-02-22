@@ -12,9 +12,9 @@ import (
 func writeJunkFiles(t *testing.T, dir string) {
 	t.Helper()
 	// bare .json (no name) — should skip without panic
-	os.WriteFile(filepath.Join(dir, ".json"), []byte("{}"), 0o644)      //nolint:errcheck
-	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hi"), 0o644) //nolint:errcheck
-	os.Mkdir(filepath.Join(dir, "subdir"), 0o755)                       //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, ".json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hi"), 0o644)
+	os.Mkdir(filepath.Join(dir, "subdir"), 0o755)
 }
 
 func writeStatusFile(t *testing.T, dir, name string, s AgentStatus) {
