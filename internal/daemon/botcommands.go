@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -53,39 +54,6 @@ func RegisterBotCommands(botToken string) error {
 		return fmt.Errorf("setMyCommands returned %d", resp.StatusCode)
 	}
 	return nil
-}
-
-// handleBotCommand checks if text is a bot command and handles it.
-// Returns true if it was handled (caller should not forward to agent).
-func handleBotCommand(agentName, botToken, chatID, text string) bool {
-	// Normalize: strip leading "/" from Telegram command syntax
-	normalized := strings.TrimPrefix(text, "/")
-	parts := strings.Fields(normalized)
-	if len(parts) == 0 {
-		return false
-	}
-	// Strip @botname suffix (Telegram appends it in groups, e.g. "/status@mybot")
-	cmd := strings.Split(parts[0], "@")[0]
-
-	switch cmd {
-	case "status":
-		handleStatusCommand(agentName, botToken, chatID, parts[1:])
-		return true
-	case "help":
-		handleHelpCommand(botToken, chatID)
-		return true
-	case "new":
-		sendKeysToAgent(agentName, botToken, chatID, "/new", "Sent /new — starting fresh conversation")
-		return true
-	case "compact":
-		sendKeysToAgent(agentName, botToken, chatID, "/compact", "Sent /compact — compacting conversation")
-		return true
-	case "wait":
-		sendEscToAgent(agentName, botToken, chatID)
-		return true
-	default:
-		return false
-	}
 }
 
 func handleStatusCommand(_, botToken, chatID string, args []string) {
@@ -164,6 +132,7 @@ func sendEscToAgent(agentName, botToken, chatID string) {
 }
 
 func replyTelegram(botToken, chatID, text string) {
-	// Best-effort reply — log errors but don't propagate
-	_ = telegram.SendMessage(botToken, chatID, text)
+	if err := telegram.SendMessage(botToken, chatID, text); err != nil {
+		log.Printf("[telegram] reply failed: %v", err)
+	}
 }
