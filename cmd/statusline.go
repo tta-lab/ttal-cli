@@ -116,7 +116,14 @@ func printStatusLine(input statuslineInput) {
 		gitInfo = getGitInfo(cwd)
 	}
 
-	ctx := fmt.Sprintf(" ctx:%.0f%%", input.ContextWindow.UsedPercentage)
+	ctx := ""
+	pct := input.ContextWindow.UsedPercentage
+	switch {
+	case pct >= 75:
+		ctx = fmt.Sprintf(" %sctx:%.0f%%%s", ansiYellow, pct, ansiReset)
+	case pct >= 65:
+		ctx = fmt.Sprintf(" ctx:%.0f%%", pct)
+	}
 
 	fmt.Printf("%s#%s %s%s%s @ %s%s%s in %s%s%s%s [%s]%s\n",
 		ansiBoldBlue, ansiReset,
