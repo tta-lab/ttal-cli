@@ -9,7 +9,8 @@ import (
 // HookSpawnWorker runs worker spawn as a background process and reports to Telegram.
 // Called as a detached subprocess by the on-start hook.
 func HookSpawnWorker(uuid, workerName, projectPath string, runtime Runtime) {
-	hookLogFile(fmt.Sprintf("spawn-worker: starting %s for task %s in %s (runtime=%s)", workerName, uuid, projectPath, runtime))
+	hookLogFile(fmt.Sprintf("spawn-worker: starting %s for task %s in %s (runtime=%s)",
+		workerName, uuid, projectPath, runtime))
 
 	// Load task to get description for notifications
 	task, err := taskwarrior.ExportTask(uuid)

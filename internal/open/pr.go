@@ -6,11 +6,10 @@ import (
 	"os/exec"
 	"runtime"
 
-	forgejoapi "codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
-// PR opens the Forgejo PR URL for a task in the default browser.
 func PR(uuid string) error {
 	if err := taskwarrior.ValidateUUID(uuid); err != nil {
 		return err
@@ -35,19 +34,29 @@ func PR(uuid string) error {
 		return fmt.Errorf("task has PR #%s but no project_path UDA", task.PRID)
 	}
 
-	owner, repo, err := forgejoapi.ParseRepoInfo(task.ProjectPath)
+	info, err := gitprovider.DetectProvider(task.ProjectPath)
 	if err != nil {
 		return fmt.Errorf("cannot determine repo: %w", err)
 	}
 
-	forgejoURL := os.Getenv("FORGEJO_URL")
-	if forgejoURL == "" {
-		forgejoURL = "https://git.guion.io"
+	var baseURL string
+	var prSegment string
+
+	switch info.Provider {
+	case gitprovider.ProviderGitHub:
+		baseURL = "https://github.com"
+		prSegment = "pull"
+	default:
+		baseURL = os.Getenv("FORGEJO_URL")
+		if baseURL == "" {
+			baseURL = "https://" + info.Host
+		}
+		prSegment = "pulls"
 	}
 
-	prURL := fmt.Sprintf("%s/%s/%s/pulls/%s", forgejoURL, owner, repo, task.PRID)
+	prURL := fmt.Sprintf("%s/%s/%s/%s/%s", baseURL, info.Owner, info.Repo, prSegment, task.PRID)
 	fmt.Printf("Opening PR #%s: %s\n", task.PRID, prURL)
-	fmt.Printf("Repository: %s/%s\n", owner, repo)
+	fmt.Printf("Repository: %s/%s (%s)\n", info.Owner, info.Repo, info.Provider)
 
 	return openBrowser(prURL)
 }

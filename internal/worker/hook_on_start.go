@@ -28,7 +28,7 @@ func handleOnStart(_ hookTask, modified hookTask) {
 	// Detect runtime from task tags (+opencode or +oc)
 	runtime := RuntimeClaudeCode
 	for _, tag := range modified.Tags() {
-		if tag == "opencode" || tag == "oc" {
+		if tag == string(RuntimeOpenCode) || tag == "oc" {
 			runtime = RuntimeOpenCode
 			break
 		}

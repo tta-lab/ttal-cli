@@ -4,19 +4,18 @@ import (
 	"fmt"
 	"os"
 
-	forgejoapi "codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
-// Context holds the resolved PR context from the current worker session.
 type Context struct {
-	Task  *taskwarrior.Task
-	Owner string
-	Repo  string
+	Task     *taskwarrior.Task
+	Owner    string
+	Repo     string
+	Provider gitprovider.Provider
+	Info     *gitprovider.RepoInfo
 }
 
-// ResolveContext resolves the full PR context from the current worker session.
-// Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
 func ResolveContext() (*Context, error) {
 	task, err := resolveTask()
 	if err != nil {
@@ -27,12 +26,23 @@ func ResolveContext() (*Context, error) {
 		return nil, fmt.Errorf("task has no project_path UDA set")
 	}
 
-	owner, repo, err := forgejoapi.ParseRepoInfo(task.ProjectPath)
+	info, err := gitprovider.DetectProvider(task.ProjectPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot determine repo from %s: %w", task.ProjectPath, err)
 	}
 
-	return &Context{Task: task, Owner: owner, Repo: repo}, nil
+	provider, err := gitprovider.NewProvider(info)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create provider client: %w", err)
+	}
+
+	return &Context{
+		Task:     task,
+		Owner:    info.Owner,
+		Repo:     info.Repo,
+		Provider: provider,
+		Info:     info,
+	}, nil
 }
 
 // resolveTask finds the task from TTAL_JOB_ID.

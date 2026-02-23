@@ -212,7 +212,7 @@ func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwar
 	return fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), claudeCmd)
 }
 
-func buildOpenCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string) string {
+func buildOpenCodeCmd(_ SpawnConfig, ttalBin, taskFile string, envParts []string) string {
 	// Note: OPENCODE_PERMISSION is set via tmux.SetEnv in launchAndTrack
 	// to avoid shell quoting issues with JSON in fish -C context.
 	// Uses --task-file so gatekeeper appends task content as --prompt value.

@@ -16,14 +16,15 @@ import (
 var prCmd = &cobra.Command{
 	Use:   "pr",
 	Short: "Manage pull requests for the current worker task",
-	Long: `Create, modify, and comment on Forgejo pull requests.
+	Long: `Create, modify, and comment on pull requests.
 
 Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
+Provider is auto-detected from git remote URL (github.com → GitHub, else → Forgejo).
 
 Environment:
-  FORGEJO_URL    Forgejo instance URL (default: https://git.guion.io)
-  FORGEJO_TOKEN  API token for authentication`,
-	// Skip database initialization
+  GITHUB_TOKEN    GitHub API token (required for GitHub repos)
+  FORGEJO_URL     Forgejo instance URL (required for Forgejo repos)
+  FORGEJO_TOKEN   Forgejo API token (required for Forgejo repos)`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
@@ -57,7 +58,7 @@ Examples:
 		}
 
 		fmt.Printf("PR #%d created: %s\n", result.Index, result.HTMLURL)
-		fmt.Printf("  %s → %s\n", result.Head.Name, result.Base.Name)
+		fmt.Printf("  %s → %s\n", result.Head, result.Base)
 		fmt.Println()
 		fmt.Println("  To request a code review:")
 		fmt.Println("    ttal pr review")
@@ -285,7 +286,7 @@ var prCommentListCmd = &cobra.Command{
 		}
 
 		for _, c := range comments {
-			fmt.Printf("--- %s (%s) ---\n%s\n\n", c.Poster.UserName, c.Created.Format("2006-01-02 15:04"), c.Body)
+			fmt.Printf("--- %s (%s) ---\n%s\n\n", c.User, c.CreatedAt.Format("2006-01-02 15:04"), c.Body)
 		}
 
 		return nil
