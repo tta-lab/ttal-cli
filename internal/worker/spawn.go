@@ -104,11 +104,6 @@ func setupWorkDir(cfg SpawnConfig, project string) (workDir, branch string, err 
 }
 
 func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
-	gatekeeperPath, err := findGatekeeper()
-	if err != nil {
-		return err
-	}
-
 	model := "opus"
 	if task.HasTag("sonnet") {
 		model = "sonnet"
@@ -117,14 +112,13 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	fmt.Printf("\nLaunching Claude Code with task: %s\n", task.Description)
 	fmt.Printf("  Model: %s\n", model)
 	layoutFile, _, err := zellij.CreateLayout(zellij.LayoutConfig{
-		WorkDir:        workDir,
-		Task:           task.FormatPrompt(),
-		Yolo:           cfg.Yolo,
-		Brainstorm:     task.HasTag("brainstorm"),
-		Model:          model,
-		Branch:         branch,
-		IsWorktree:     cfg.Worktree,
-		GatekeeperPath: gatekeeperPath,
+		WorkDir:    workDir,
+		Task:       task.FormatPrompt(),
+		Yolo:       cfg.Yolo,
+		Brainstorm: task.HasTag("brainstorm"),
+		Model:      model,
+		Branch:     branch,
+		IsWorktree: cfg.Worktree,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create layout: %w", err)
@@ -261,17 +255,4 @@ func detectBranch(workDir string) string {
 		return b
 	}
 	return "unknown"
-}
-
-func findGatekeeper() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	path := filepath.Join(home, "clawd", "scripts", "worker-gatekeeper.py")
-	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("worker gatekeeper not found at %s", path)
-	}
-	return path, nil
 }

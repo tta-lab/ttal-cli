@@ -9,13 +9,14 @@ import (
 )
 
 var (
-	spawnName     string
-	spawnProject  string
-	spawnTask     string
-	spawnWorktree bool
-	spawnForce    bool
-	spawnYolo     bool
-	closeForce    bool
+	spawnName          string
+	spawnProject       string
+	spawnTask          string
+	spawnWorktree      bool
+	spawnForce         bool
+	spawnYolo          bool
+	closeForce         bool
+	gatekeeperTaskFile string
 )
 
 var workerCmd = &cobra.Command{
@@ -119,6 +120,26 @@ Example:
 	},
 }
 
+var workerGatekeeperCmd = &cobra.Command{
+	Use:    "gatekeeper -- <command> [args...]",
+	Short:  "Run a command with deadman's switch (internal)",
+	Long:   `Wraps a child process with orphan detection and signal forwarding. Used internally by worker spawn.`,
+	Hidden: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dashIdx := cmd.ArgsLenAtDash()
+		if dashIdx < 0 || dashIdx >= len(args) {
+			return errors.New("usage: ttal worker gatekeeper [--task-file FILE] -- <command> [args...]")
+		}
+		childArgs := args[dashIdx:]
+		exitCode := worker.Gatekeeper(worker.GatekeeperConfig{
+			TaskFile: gatekeeperTaskFile,
+			Command:  childArgs,
+		})
+		os.Exit(exitCode) // bypass cobra to propagate child's exact exit code
+		return nil
+	},
+}
+
 var workerListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List active workers",
@@ -145,6 +166,7 @@ func init() {
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
 	workerCmd.AddCommand(workerHookCmd)
+	workerCmd.AddCommand(workerGatekeeperCmd)
 
 	// Spawn flags
 	workerSpawnCmd.Flags().StringVar(&spawnName, "name", "", "Worker name (required)")
@@ -160,6 +182,12 @@ func init() {
 
 	// Close flags
 	workerCloseCmd.Flags().BoolVar(&closeForce, "force", false, "Force cleanup regardless of PR status")
+
+	// Gatekeeper flags
+	workerGatekeeperCmd.Flags().StringVar(
+		&gatekeeperTaskFile, "task-file", "", "Task file to read and append to command",
+	)
+
 }
 
 func init() {

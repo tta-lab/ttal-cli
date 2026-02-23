@@ -172,14 +172,13 @@ func GenerateSessionID() string {
 
 // LayoutConfig holds configuration for creating a zellij layout.
 type LayoutConfig struct {
-	WorkDir        string
-	Task           string
-	Yolo           bool
-	Brainstorm     bool
-	Model          string
-	Branch         string
-	IsWorktree     bool
-	GatekeeperPath string
+	WorkDir    string
+	Task       string
+	Yolo       bool
+	Brainstorm bool
+	Model      string
+	Branch     string
+	IsWorktree bool
 }
 
 // CreateLayout writes a KDL layout file and task file to temp directory.
@@ -229,14 +228,16 @@ Then proceed with:
 	_ = taskFile.Close()
 	taskFilePath = taskFile.Name()
 
+	// Resolve ttal binary path for gatekeeper
+	ttalBin, err := os.Executable()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to resolve ttal binary path: %w", err)
+	}
+
 	// Build fish command
 	yoloFlag := ""
 	if cfg.Yolo {
 		yoloFlag = "--dangerously-skip-permissions "
-	}
-
-	if cfg.GatekeeperPath == "" {
-		return "", "", fmt.Errorf("gatekeeper path is required")
 	}
 
 	model := cfg.Model
@@ -245,8 +246,8 @@ Then proceed with:
 	}
 
 	fishCommand := fmt.Sprintf(
-		"%s --task-file %s -- claude --model %s %s--",
-		cfg.GatekeeperPath, taskFilePath, model, yoloFlag)
+		"'%s' worker gatekeeper --task-file '%s' -- claude --model %s %s--",
+		ttalBin, taskFilePath, model, yoloFlag)
 
 	// Create layout file
 	layoutContent := fmt.Sprintf(`layout {
