@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const osDarwin = "darwin"
+
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Bidirectional agent communication daemon",
@@ -47,7 +49,7 @@ Example:
   # Edit ~/.config/ttal/config.toml
   # ttal daemon status`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if runtime.GOOS != "darwin" {
+		if runtime.GOOS != osDarwin {
 			return fmt.Errorf("daemon install is macOS-only (launchd)")
 		}
 		return daemon.Install()
@@ -59,7 +61,7 @@ var daemonUninstallCmd = &cobra.Command{
 	Short: "Remove daemon launchd plist",
 	Long:  `Remove the ttal daemon launchd service. Config and logs are preserved.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if runtime.GOOS != "darwin" {
+		if runtime.GOOS != osDarwin {
 			return fmt.Errorf("daemon uninstall is macOS-only (launchd)")
 		}
 		return daemon.Uninstall()
@@ -91,9 +93,45 @@ var daemonStatusCmd = &cobra.Command{
 	},
 }
 
+var daemonStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start the daemon via launchd",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if runtime.GOOS != osDarwin {
+			return fmt.Errorf("daemon start is macOS-only (launchd)")
+		}
+		return daemon.Start()
+	},
+}
+
+var daemonStopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop the daemon via launchd",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if runtime.GOOS != osDarwin {
+			return fmt.Errorf("daemon stop is macOS-only (launchd)")
+		}
+		return daemon.Stop()
+	},
+}
+
+var daemonRestartCmd = &cobra.Command{
+	Use:   "restart",
+	Short: "Restart the daemon via launchd",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if runtime.GOOS != osDarwin {
+			return fmt.Errorf("daemon restart is macOS-only (launchd)")
+		}
+		return daemon.Restart()
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(daemonCmd)
 	daemonCmd.AddCommand(daemonInstallCmd)
 	daemonCmd.AddCommand(daemonUninstallCmd)
 	daemonCmd.AddCommand(daemonStatusCmd)
+	daemonCmd.AddCommand(daemonStartCmd)
+	daemonCmd.AddCommand(daemonStopCmd)
+	daemonCmd.AddCommand(daemonRestartCmd)
 }

@@ -54,6 +54,7 @@ linters:
         - (*github.com/fsnotify/fsnotify.Watcher).Close
         - (*os.File).Close
         - (*codeberg.org/clawteam/ttal-cli/internal/db.DB).Close
+        - (*codeberg.org/clawteam/ttal-cli/ent.Client).Close
         - os.Remove
         - codeberg.org/clawteam/ttal-cli/internal/status.Remove
         # best-effort writes / commands (see rationale above)

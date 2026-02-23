@@ -175,6 +175,58 @@ func xmlEscape(s string) string {
 	return b.String()
 }
 
+// Start boots the daemon launchd service.
+func Start() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	plistPath := filepath.Join(home, "Library", "LaunchAgents", daemonPlistName+".plist")
+	if _, err := os.Stat(plistPath); err != nil {
+		return fmt.Errorf("daemon not installed (run: ttal daemon install)")
+	}
+
+	uid := os.Getuid()
+	cmd := exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", uid), plistPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		outStr := strings.TrimSpace(string(out))
+		if strings.Contains(outStr, "already bootstrapped") || strings.Contains(outStr, "36:") {
+			fmt.Println("Daemon already running")
+			return nil
+		}
+		return fmt.Errorf("launchctl bootstrap failed: %w: %s", err, outStr)
+	}
+
+	fmt.Println("Daemon started")
+	return nil
+}
+
+// Stop stops the daemon launchd service.
+func Stop() error {
+	uid := os.Getuid()
+	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, daemonPlistName))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		outStr := strings.TrimSpace(string(out))
+		if strings.Contains(outStr, "No such process") || strings.Contains(outStr, "3:") {
+			fmt.Println("Daemon not running")
+			return nil
+		}
+		return fmt.Errorf("launchctl bootout failed: %w: %s", err, outStr)
+	}
+
+	fmt.Println("Daemon stopped")
+	return nil
+}
+
+// Restart stops then starts the daemon.
+func Restart() error {
+	if err := Stop(); err != nil {
+		return err
+	}
+	return Start()
+}
+
 func removeOldPollPlist(home string) {
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", oldPollPlist+".plist")
 	if _, err := os.Stat(plistPath); err != nil {
