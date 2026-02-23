@@ -103,8 +103,8 @@ func launchAgentSession(sessionName string, tab AgentTab, cfg *config.Config) er
 		envParts = append(envParts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 
-	fishCmd := fmt.Sprintf("env %s fish -C '%s'", strings.Join(envParts, " "), claudeCmd)
-	if err := tmux.NewSession(sessionName, tab.Name, tab.Path, fishCmd); err != nil {
+	shellCmd := cfg.BuildEnvShellCommand(envParts, claudeCmd)
+	if err := tmux.NewSession(sessionName, tab.Name, tab.Path, shellCmd); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 

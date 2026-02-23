@@ -130,13 +130,18 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return err
 	}
 
-	taskrc := resolveTaskRC()
+	shellCfg, _ := config.Load()
+	if shellCfg == nil {
+		shellCfg = &config.Config{}
+	}
+
+	taskrc := resolveTaskRCFromConfig(shellCfg)
 	envParts := buildEnvParts(task, taskrc)
-	fishCmd := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts)
+	shellCmd := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, "worker", workDir, fishCmd); err != nil {
+	if err := tmux.NewSession(sessionName, "worker", workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
@@ -184,16 +189,20 @@ func buildEnvParts(task *taskwarrior.Task, taskrc string) []string {
 	return parts
 }
 
-func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task, envParts []string) string {
+func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task,
+	envParts []string, shellCfg *config.Config,
+) string {
 	switch cfg.Runtime {
 	case RuntimeOpenCode:
-		return buildOpenCodeCmd(cfg, ttalBin, taskFile, envParts)
+		return buildOpenCodeCmd(ttalBin, taskFile, envParts, shellCfg)
 	default:
-		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts)
+		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
 	}
 }
 
-func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task, envParts []string) string {
+func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task,
+	envParts []string, shellCfg *config.Config,
+) string {
 	model := "opus"
 	if task.HasTag("sonnet") {
 		model = "sonnet"
@@ -206,21 +215,18 @@ func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwar
 	}
 
 	claudeCmd := fmt.Sprintf(
-		"'%s' worker gatekeeper --task-file '%s' -- claude --model %s %s--",
+		"%s worker gatekeeper --task-file %s -- claude --model %s %s--",
 		ttalBin, taskFile, model, yoloFlag)
 
-	return fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), claudeCmd)
+	return shellCfg.BuildEnvShellCommand(envParts, claudeCmd)
 }
 
-func buildOpenCodeCmd(_ SpawnConfig, ttalBin, taskFile string, envParts []string) string {
-	// Note: OPENCODE_PERMISSION is set via tmux.SetEnv in launchAndTrack
-	// to avoid shell quoting issues with JSON in fish -C context.
-	// Uses --task-file so gatekeeper appends task content as --prompt value.
+func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *config.Config) string {
 	ocCmd := fmt.Sprintf(
-		"'%s' worker gatekeeper --task-file '%s' -- opencode --prompt",
+		"%s worker gatekeeper --task-file %s -- opencode --prompt",
 		ttalBin, taskFile)
 
-	return fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), ocCmd)
+	return shellCfg.BuildEnvShellCommand(envParts, ocCmd)
 }
 
 func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string) (string, error) {
@@ -326,7 +332,8 @@ func runWorktreeSetup(worktreeDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "fish", "-c", fmt.Sprintf("cd %s && ./.worktree-setup", worktreeDir))
+	cmd := exec.CommandContext(ctx, setupScript)
+	cmd.Dir = worktreeDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: .worktree-setup failed (non-fatal): %v\n", err)
@@ -353,15 +360,13 @@ func pullLatest(project string) {
 	}
 }
 
-// resolveTaskRC returns the taskrc path from the active team config.
-// Returns empty string if using default taskrc or config is unavailable.
-func resolveTaskRC() string {
-	cfg, err := config.Load()
-	if err != nil {
+// resolveTaskRCFromConfig returns the taskrc path from the provided config.
+// Returns empty string if using default taskrc.
+func resolveTaskRCFromConfig(cfg *config.Config) string {
+	if cfg == nil {
 		return ""
 	}
 	taskrc := cfg.TaskRC()
-	// Don't set TASKRC if it's the default path
 	if taskrc == config.DefaultTaskRC() {
 		return ""
 	}

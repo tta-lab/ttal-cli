@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
@@ -58,8 +59,9 @@ func TestBuildClaudeCodeCmd(t *testing.T) {
 
 	cfg := SpawnConfig{Name: "test", Yolo: true, Runtime: RuntimeClaudeCode}
 	envParts := []string{"TTAL_JOB_ID=test-id"}
+	shellCfg := &config.Config{}
 
-	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, envParts)
+	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, envParts, shellCfg)
 
 	if !strings.Contains(cmd, "claude") {
 		t.Error("CC command should contain 'claude'")
@@ -83,7 +85,8 @@ func TestBuildClaudeCodeCmd_Sonnet(t *testing.T) {
 	}
 
 	cfg := SpawnConfig{Name: "test", Runtime: RuntimeClaudeCode}
-	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, nil)
+	shellCfg := &config.Config{}
+	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, nil, shellCfg)
 
 	if !strings.Contains(cmd, "--model sonnet") {
 		t.Error("CC command should use sonnet model when task has +sonnet tag")
@@ -91,10 +94,10 @@ func TestBuildClaudeCodeCmd_Sonnet(t *testing.T) {
 }
 
 func TestBuildOpenCodeCmd(t *testing.T) {
-	cfg := SpawnConfig{Name: "test", Yolo: false, Runtime: RuntimeOpenCode}
 	envParts := []string{"TTAL_JOB_ID=test-id"}
+	shellCfg := &config.Config{}
 
-	cmd := buildOpenCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts)
+	cmd := buildOpenCodeCmd("/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg)
 
 	if !strings.Contains(cmd, "opencode --prompt") {
 		t.Error("OC command should use 'opencode --prompt' for interactive TUI")
@@ -114,10 +117,10 @@ func TestBuildOpenCodeCmd(t *testing.T) {
 }
 
 func TestBuildOpenCodeCmd_NoYoloInCommand(t *testing.T) {
-	cfg := SpawnConfig{Name: "test", Yolo: true, Runtime: RuntimeOpenCode}
 	envParts := []string{"TTAL_JOB_ID=test-id"}
+	shellCfg := &config.Config{}
 
-	cmd := buildOpenCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts)
+	cmd := buildOpenCodeCmd("/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg)
 
 	// OPENCODE_PERMISSION should NOT be in the fish command — it's set via tmux.SetEnv
 	if strings.Contains(cmd, "OPENCODE_PERMISSION") {

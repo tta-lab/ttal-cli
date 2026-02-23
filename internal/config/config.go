@@ -33,6 +33,7 @@ type Config struct {
 	LifecycleAgent string                 `toml:"lifecycle_agent"`
 	Agents         map[string]AgentConfig `toml:"agents"`
 	Voice          VoiceConfig            `toml:"voice"`
+	Shell          string                 `toml:"shell"`
 
 	// Team-aware fields — optional, empty for legacy configs.
 	DefaultTeam string                `toml:"default_team"`
@@ -87,6 +88,44 @@ func (c *Config) TaskRC() string {
 // TeamName returns the resolved active team name.
 func (c *Config) TeamName() string {
 	return c.resolvedTeamName
+}
+
+const DefaultShell = "zsh"
+
+var validShells = map[string]bool{"zsh": true, "fish": true}
+
+func (c *Config) GetShell() string {
+	if c.Shell != "" {
+		if validShells[c.Shell] {
+			return c.Shell
+		}
+		fmt.Fprintf(os.Stderr, "warning: invalid shell %q in config, falling back to %s\n", c.Shell, DefaultShell)
+	}
+	return DefaultShell
+}
+
+func (c *Config) ShellCommand(cmd string) string {
+	shell := c.GetShell()
+	switch shell {
+	case "fish":
+		return fmt.Sprintf("fish -C '%s'", cmd)
+	default:
+		return fmt.Sprintf("zsh -c '%s'", cmd)
+	}
+}
+
+func (c *Config) BuildEnvShellCommand(envParts []string, cmd string) string {
+	shell := c.GetShell()
+	envStr := ""
+	if len(envParts) > 0 {
+		envStr = fmt.Sprintf("env %s ", strings.Join(envParts, " "))
+	}
+	switch shell {
+	case "fish":
+		return fmt.Sprintf("%sfish -C '%s'", envStr, cmd)
+	default:
+		return fmt.Sprintf("%szsh -c '%s'", envStr, cmd)
+	}
 }
 
 // Path returns the default path to config.toml.

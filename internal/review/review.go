@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/pr"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
@@ -36,18 +37,21 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 	}
 
 	claudeCmd := fmt.Sprintf(
-		"'%s' worker gatekeeper --task-file '%s' -- claude --model opus --dangerously-skip-permissions --",
+		"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
 		ttalBin, promptFile)
 
-	// TTAL_JOB_ID is inherited from tmux session env (set by worker spawn)
-	fishCmd := fmt.Sprintf(`fish -C "%s"`, claudeCmd)
+	shellCfg, _ := config.Load()
+	if shellCfg == nil {
+		shellCfg = &config.Config{}
+	}
+	shellCmd := shellCfg.ShellCommand(claudeCmd)
 
 	workDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	if err := tmux.NewWindow(sessionName, windowName, workDir, fishCmd); err != nil {
+	if err := tmux.NewWindow(sessionName, windowName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 
