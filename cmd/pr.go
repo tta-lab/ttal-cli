@@ -191,8 +191,23 @@ Examples:
 			// Find the coder's window (may be auto-renamed by tmux from "worker").
 			coderWindow := tmux.FirstWindowExcept(sessionName, "review")
 			if coderWindow != "" {
-				notification := "[agent from:reviewer] PR reviewed — see PR comments. " +
-					"Run /triage to triage, fix issues, then run `ttal pr review` to request re-review."
+				// Write review comment to temp file for direct delivery to worker
+				reviewFile, fileErr := writeReviewFile(body)
+				if fileErr != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to write review file: %v\n", fileErr)
+				}
+
+				var notification string
+				if reviewFile != "" {
+					notification = fmt.Sprintf(
+						"[agent from:reviewer] PR review posted. Full review at %s"+
+							" — read it and run /triage to assess and fix issues."+
+							" Run `ttal pr review` when done to request re-review.",
+						reviewFile)
+				} else {
+					notification = "[agent from:reviewer] PR reviewed — see PR comments. " +
+						"Run /triage to triage, fix issues, then run `ttal pr review` to request re-review."
+				}
 				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
 				}
@@ -275,6 +290,19 @@ var prCommentListCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func writeReviewFile(body string) (string, error) {
+	f, err := os.CreateTemp("", "ttal-review-*.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create review file: %w", err)
+	}
+	if _, err := f.WriteString(body); err != nil {
+		_ = f.Close()
+		return "", fmt.Errorf("failed to write review file: %w", err)
+	}
+	_ = f.Close()
+	return f.Name(), nil
 }
 
 func init() {
