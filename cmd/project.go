@@ -22,7 +22,7 @@ var (
 	projectRepo        string
 	projectRepoType    string
 	projectOwner       string
-	includeArchived    bool
+	archivedOnly       bool
 )
 
 var projectCmd = &cobra.Command{
@@ -135,7 +135,7 @@ Examples:
 		}
 
 		// Filter by archive status
-		if includeArchived {
+		if archivedOnly {
 			query = query.Where(project.ArchivedAtNotNil())
 		} else {
 			query = query.Where(project.ArchivedAtIsNil())
@@ -292,6 +292,26 @@ var projectDeleteCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		alias := strings.ToLower(args[0])
+
+		// Verify project exists before prompting
+		exists, err := database.Project.Query().
+			Where(project.Alias(alias)).
+			Exist(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to query project: %w", err)
+		}
+		if !exists {
+			return fmt.Errorf("project '%s' not found", alias)
+		}
+
+		// Confirmation prompt
+		fmt.Printf("Are you sure you want to permanently delete project '%s'? [y/N] ", alias)
+		var answer string
+		fmt.Scanln(&answer)
+		if strings.ToLower(answer) != "y" {
+			fmt.Println("Aborted.")
+			return nil
+		}
 
 		count, err := database.Project.Delete().
 			Where(project.Alias(alias)).
@@ -456,7 +476,7 @@ func init() {
 	projectAddCmd.Flags().StringVar(&projectOwner, "owner", "", "Project owner")
 
 	// Flags for project list
-	projectListCmd.Flags().BoolVar(&includeArchived, "archived", false, "Show only archived projects")
+	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
 }
 
 // Helper functions
