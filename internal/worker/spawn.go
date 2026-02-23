@@ -215,8 +215,9 @@ func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwar
 func buildOpenCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string) string {
 	// Note: OPENCODE_PERMISSION is set via tmux.SetEnv in launchAndTrack
 	// to avoid shell quoting issues with JSON in fish -C context.
+	// Uses --task-file so gatekeeper appends task content as --prompt value.
 	ocCmd := fmt.Sprintf(
-		"'%s' worker gatekeeper -- opencode run --file '%s' 'Start working on this task'",
+		"'%s' worker gatekeeper --task-file '%s' -- opencode --prompt",
 		ttalBin, taskFile)
 
 	return fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), ocCmd)

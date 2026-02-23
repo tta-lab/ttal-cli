@@ -96,11 +96,14 @@ func TestBuildOpenCodeCmd(t *testing.T) {
 
 	cmd := buildOpenCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts)
 
-	if !strings.Contains(cmd, "opencode run") {
-		t.Error("OC command should contain 'opencode run'")
+	if !strings.Contains(cmd, "opencode --prompt") {
+		t.Error("OC command should use 'opencode --prompt' for interactive TUI")
 	}
-	if !strings.Contains(cmd, "--file") {
-		t.Error("OC command should pass task file via --file")
+	if strings.Contains(cmd, "opencode run") {
+		t.Error("OC command should use TUI mode (opencode), not batch mode (opencode run)")
+	}
+	if !strings.Contains(cmd, "--task-file") {
+		t.Error("OC command should pass task file via gatekeeper --task-file")
 	}
 	if !strings.Contains(cmd, "gatekeeper") {
 		t.Error("OC command should use gatekeeper wrapper")
