@@ -25,8 +25,18 @@ func handleOnStart(_ hookTask, modified hookTask) {
 	// Derive worker name from branch (worker/fix-auth → fix-auth)
 	workerName := strings.TrimPrefix(branch, "worker/")
 
+	// Detect runtime from task tags (+opencode or +oc)
+	runtime := RuntimeClaudeCode
+	for _, tag := range modified.Tags() {
+		if tag == "opencode" || tag == "oc" {
+			runtime = RuntimeOpenCode
+			break
+		}
+	}
+
 	// Fork background spawn
 	if err := forkBackground("worker", "hook", "spawn-worker",
+		"--runtime", string(runtime),
 		modified.UUID(), workerName, projectPath); err != nil {
 		hookLogFile(fmt.Sprintf("ERROR forking spawn for %s: %v", modified.UUID(), err))
 		notifyTelegram(fmt.Sprintf("⚠ Failed to fork worker spawn:\n%s\nError: %v",
@@ -35,5 +45,5 @@ func handleOnStart(_ hookTask, modified hookTask) {
 	}
 
 	hookLog("START_SPAWN", modified.UUID(), modified.Description(),
-		"worker", workerName, "project", projectPath, "status", "forked")
+		"worker", workerName, "project", projectPath, "runtime", string(runtime), "status", "forked")
 }

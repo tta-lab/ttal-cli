@@ -22,6 +22,7 @@ type SpawnConfig struct {
 	Worktree bool
 	Force    bool
 	Yolo     bool
+	Runtime  Runtime
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
@@ -40,9 +41,23 @@ func Spawn(cfg SpawnConfig) error {
 		return fmt.Errorf("project directory not found: %s", project)
 	}
 
+	// Route by task tag: +opencode or +oc overrides default runtime
+	if cfg.Runtime == "" || cfg.Runtime == RuntimeClaudeCode {
+		if task.HasTag("opencode") || task.HasTag("oc") {
+			cfg.Runtime = RuntimeOpenCode
+		}
+	}
+	if cfg.Runtime == "" {
+		cfg.Runtime = RuntimeClaudeCode
+	}
+
+	if err := validateRuntime(cfg.Runtime); err != nil {
+		return err
+	}
+
 	sessionName := task.SessionName()
 
-	fmt.Printf("Spawning CC worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Name, project, task.Description)
+	fmt.Printf("Spawning %s worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Runtime, cfg.Name, project, task.Description)
 	fmt.Printf("Creating tmux session: %s (from task UUID for worker '%s')\n", sessionName, cfg.Name)
 
 	if err := ensureSessionAvailable(cfg, sessionName, project); err != nil {
@@ -105,11 +120,6 @@ func setupWorkDir(cfg SpawnConfig, project string) (workDir, branch string, err 
 }
 
 func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
-	model := "opus"
-	if task.HasTag("sonnet") {
-		model = "sonnet"
-	}
-
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -120,28 +130,11 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return err
 	}
 
-	yoloFlag := ""
-	if cfg.Yolo {
-		yoloFlag = "--dangerously-skip-permissions "
-	}
-
-	claudeCmd := fmt.Sprintf(
-		"'%s' worker gatekeeper --task-file '%s' -- claude --model %s %s--",
-		ttalBin, taskFile, model, yoloFlag)
-
-	// Build env vars for fish: TTAL_JOB_ID + team context (TTAL_TEAM, TASKRC).
-	envParts := []string{fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID())}
-	if team := os.Getenv("TTAL_TEAM"); team != "" {
-		envParts = append(envParts, fmt.Sprintf("TTAL_TEAM=%s", team))
-	}
 	taskrc := resolveTaskRC()
-	if taskrc != "" {
-		envParts = append(envParts, fmt.Sprintf("TASKRC=%s", taskrc))
-	}
-	fishCmd := fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), claudeCmd)
+	envParts := buildEnvParts(task, taskrc)
+	fishCmd := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts)
 
-	fmt.Printf("\nLaunching Claude Code with task: %s\n", task.Description)
-	fmt.Printf("  Model: %s\n", model)
+	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
 	if err := tmux.NewSession(sessionName, "worker", workDir, fishCmd); err != nil {
 		return fmt.Errorf("failed to create tmux session: %w", err)
@@ -156,6 +149,11 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	}
 	if taskrc != "" {
 		_ = tmux.SetEnv(sessionName, "TASKRC", taskrc)
+	}
+	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON
+	if cfg.Runtime == RuntimeOpenCode && cfg.Yolo {
+		_ = tmux.SetEnv(sessionName, "OPENCODE_PERMISSION",
+			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
 	}
 
 	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
@@ -172,6 +170,56 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	fmt.Printf("  tmux attach -t %s\n", sessionName)
 
 	return nil
+}
+
+// buildEnvParts returns the shared env vars for any runtime.
+func buildEnvParts(task *taskwarrior.Task, taskrc string) []string {
+	parts := []string{fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID())}
+	if team := os.Getenv("TTAL_TEAM"); team != "" {
+		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
+	}
+	if taskrc != "" {
+		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
+	}
+	return parts
+}
+
+func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task, envParts []string) string {
+	switch cfg.Runtime {
+	case RuntimeOpenCode:
+		return buildOpenCodeCmd(cfg, ttalBin, taskFile, envParts)
+	default:
+		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts)
+	}
+}
+
+func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task, envParts []string) string {
+	model := "opus"
+	if task.HasTag("sonnet") {
+		model = "sonnet"
+	}
+	fmt.Printf("  Model: %s\n", model)
+
+	yoloFlag := ""
+	if cfg.Yolo {
+		yoloFlag = "--dangerously-skip-permissions "
+	}
+
+	claudeCmd := fmt.Sprintf(
+		"'%s' worker gatekeeper --task-file '%s' -- claude --model %s %s--",
+		ttalBin, taskFile, model, yoloFlag)
+
+	return fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), claudeCmd)
+}
+
+func buildOpenCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string) string {
+	// Note: OPENCODE_PERMISSION is set via tmux.SetEnv in launchAndTrack
+	// to avoid shell quoting issues with JSON in fish -C context.
+	ocCmd := fmt.Sprintf(
+		"'%s' worker gatekeeper -- opencode run --file '%s' 'Start working on this task'",
+		ttalBin, taskFile)
+
+	return fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), ocCmd)
 }
 
 func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string) (string, error) {

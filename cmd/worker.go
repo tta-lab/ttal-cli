@@ -21,8 +21,8 @@ var (
 
 var workerCmd = &cobra.Command{
 	Use:   "worker",
-	Short: "Manage Claude Code workers",
-	Long:  `Spawn, list, and close Claude Code workers running in isolated tmux sessions.`,
+	Short: "Manage coding agent workers",
+	Long:  `Spawn, list, and close coding agent workers running in isolated tmux sessions.`,
 	// Skip database initialization — worker commands don't need ttal's DB
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
@@ -64,18 +64,29 @@ Log files are preserved. To also remove the daemon: ttal daemon uninstall`,
 var workerSpawnCmd = &cobra.Command{
 	Use:   "spawn",
 	Short: "Spawn a new worker",
-	Long: `Spawn a Claude Code worker in an isolated tmux session.
+	Long: `Spawn a coding agent worker in an isolated tmux session.
 
-Creates a git worktree, launches a tmux session with Claude Code,
+Creates a git worktree, launches a tmux session with the selected runtime,
 and tracks the worker in taskwarrior.
 
 Task tags control behavior:
   +brainstorm  Use brainstorming skill before implementation
-  +sonnet      Use sonnet model instead of opus (default)
+  +sonnet      Use sonnet model instead of opus (Claude Code only)
+  +opencode    Use OpenCode runtime instead of Claude Code
+
+Runtime selection:
+  --runtime claude-code  (default) Use Claude Code
+  --runtime opencode     Use OpenCode
 
 Example:
-  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>`,
+  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
+  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid> --runtime opencode`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		runtimeStr, _ := cmd.Flags().GetString("runtime")
+		runtime, err := worker.ParseRuntime(runtimeStr)
+		if err != nil {
+			return err
+		}
 		return worker.Spawn(worker.SpawnConfig{
 			Name:     spawnName,
 			Project:  spawnProject,
@@ -83,6 +94,7 @@ Example:
 			Worktree: spawnWorktree,
 			Force:    spawnForce,
 			Yolo:     spawnYolo,
+			Runtime:  runtime,
 		})
 	},
 }
@@ -175,6 +187,7 @@ func init() {
 	workerSpawnCmd.Flags().BoolVar(&spawnWorktree, "worktree", true, "Create git worktree")
 	workerSpawnCmd.Flags().BoolVar(&spawnForce, "force", false, "Force respawn (close existing session)")
 	workerSpawnCmd.Flags().BoolVar(&spawnYolo, "yolo", true, "Skip permissions prompts")
+	workerSpawnCmd.Flags().String("runtime", "claude-code", "Coding agent runtime (claude-code, opencode)")
 
 	_ = workerSpawnCmd.MarkFlagRequired("name")
 	_ = workerSpawnCmd.MarkFlagRequired("project")
