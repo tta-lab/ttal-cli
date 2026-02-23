@@ -11,23 +11,23 @@ func TestSlugify(t *testing.T) {
 		maxLen int
 		want   string
 	}{
-		{"branch with feat prefix", "feat/fix-auth-flow", 29, "fix-auth-flow"},
-		{"branch with worker prefix", "worker/molt", 29, "molt"},
-		{"branch with fix prefix", "fix/timeout-bug", 29, "timeout-bug"},
-		{"conventional commit desc", "feat(doctor): add ttal doctor command scaffold", 29, "add-ttal-doctor-command"},
-		{"plain description", "add user authentication", 29, "add-user-authentication"},
-		{"special chars cleaned", "feat/fix_auth--flow!!!", 29, "fix-auth-flow"},
+		{"branch with feat prefix", "feat/fix-auth-flow", 24, "fix-auth-flow"},
+		{"branch with worker prefix", "worker/molt", 24, "molt"},
+		{"branch with fix prefix", "fix/timeout-bug", 24, "timeout-bug"},
+		{"conventional commit desc", "feat(doctor): add ttal doctor command scaffold", 24, "add-ttal-doctor-command"},
+		{"plain description", "add user authentication", 24, "add-user-authentication"},
+		{"special chars cleaned", "feat/fix_auth--flow!!!", 24, "fix-auth-flow"},
 		{
 			"truncation at word boundary",
-			"this-is-a-very-long-slug-that-exceeds-the-max-length", 29,
-			"this-is-a-very-long-slug",
+			"this-is-a-very-long-slug-that-exceeds-the-max-length", 24,
+			"this-is-a-very-long",
 		},
-		{"empty input", "", 29, ""},
-		{"only special chars", "!!!", 29, ""},
-		{"refactor prefix", "refactor/clean-up-tests", 29, "clean-up-tests"},
-		{"docs prefix", "docs/update-readme", 29, "update-readme"},
-		{"chore prefix", "chore/bump-deps", 29, "bump-deps"},
-		{"colon prefix", "fix: resolve panic on nil", 29, "resolve-panic-on-nil"},
+		{"empty input", "", 24, ""},
+		{"only special chars", "!!!", 24, ""},
+		{"refactor prefix", "refactor/clean-up-tests", 24, "clean-up-tests"},
+		{"docs prefix", "docs/update-readme", 24, "update-readme"},
+		{"chore prefix", "chore/bump-deps", 24, "bump-deps"},
+		{"colon prefix", "fix: resolve panic on nil", 24, "resolve-panic-on-nil"},
 	}
 
 	for _, tt := range tests {
@@ -75,7 +75,13 @@ func TestSessionName(t *testing.T) {
 			"max length respected",
 			"feat/this-is-a-very-long-branch-name-that-should-be-truncated",
 			"",
-			"w-e9d4b7c1-this-is-a-very-long-branch",
+			"w-e9d4b7c1-this-is-a-very-long",
+		},
+		{
+			"socket path safe for deploy slug",
+			"",
+			"deploy secrets-ui to local k3s with cloudflare tunnel",
+			"w-e9d4b7c1-deploy-secrets-ui-to",
 		},
 	}
 
@@ -90,10 +96,29 @@ func TestSessionName(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("SessionName() = %q, want %q", got, tt.want)
 			}
-			if len(got) > maxSessionLen {
-				t.Errorf("SessionName() length %d exceeds max %d", len(got), maxSessionLen)
+			if len(got) > DefaultMaxSessionLen {
+				t.Errorf("SessionName() length %d exceeds max %d", len(got), DefaultMaxSessionLen)
 			}
 		})
+	}
+}
+
+func TestSessionNameWithLimit(t *testing.T) {
+	task := &Task{
+		UUID:        testUUID,
+		Description: "deploy secrets-ui to local k3s with cloudflare tunnel",
+	}
+
+	// With limit 37 (typical macOS budget), should fit
+	got := task.SessionNameWithLimit(37)
+	if len(got) > 37 {
+		t.Errorf("SessionNameWithLimit(37) = %q (len %d), exceeds 37", got, len(got))
+	}
+
+	// With limit 50, should get a longer name
+	long := task.SessionNameWithLimit(50)
+	if len(long) <= len(got) && len(task.Description) > 37 {
+		t.Errorf("SessionNameWithLimit(50) = %q should be longer than (37) = %q", long, got)
 	}
 }
 
