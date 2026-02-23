@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -113,7 +115,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	cfg.resolve()
+	if err := cfg.resolve(); err != nil {
+		return nil, err
+	}
 
 	if len(cfg.Agents) == 0 {
 		return nil, fmt.Errorf("config has no agents defined")
@@ -124,13 +128,13 @@ func Load() (*Config, error) {
 
 // resolve populates flat fields from the active team config.
 // For legacy (flat) configs, it just sets default data dir and taskrc.
-func (c *Config) resolve() {
+func (c *Config) resolve() error {
 	if len(c.Teams) == 0 {
 		// Legacy flat config — use defaults for data dir and taskrc.
 		c.resolvedTeamName = "default"
 		c.resolvedDataDir = defaultDataDir()
 		c.resolvedTaskRC = defaultTaskRC()
-		return
+		return nil
 	}
 
 	// Resolve active team: TTAL_TEAM env > default_team > "default"
@@ -144,11 +148,7 @@ func (c *Config) resolve() {
 
 	team, ok := c.Teams[teamName]
 	if !ok {
-		// Team not found — fall back to defaults.
-		c.resolvedTeamName = teamName
-		c.resolvedDataDir = defaultDataDir()
-		c.resolvedTaskRC = defaultTaskRC()
-		return
+		return fmt.Errorf("team %q not found in config", teamName)
 	}
 
 	c.resolvedTeamName = teamName
@@ -170,17 +170,29 @@ func (c *Config) resolve() {
 	} else {
 		c.resolvedTaskRC = defaultTaskRC()
 	}
+
+	return nil
 }
+
+var (
+	resolveOnce    sync.Once
+	resolvedDirVal string
+)
 
 // ResolveDataDir returns the data directory for the active team without
 // requiring a full config load. Falls back to ~/.ttal if config is unavailable.
 // Used by path helpers that need to work before config is loaded (e.g. db.DefaultPath).
+// Result is cached after first call.
 func ResolveDataDir() string {
-	cfg, err := Load()
-	if err != nil {
-		return defaultDataDir()
-	}
-	return cfg.resolvedDataDir
+	resolveOnce.Do(func() {
+		cfg, err := Load()
+		if err != nil {
+			resolvedDirVal = defaultDataDir()
+			return
+		}
+		resolvedDirVal = cfg.resolvedDataDir
+	})
+	return resolvedDirVal
 }
 
 // DefaultDataDir returns the default data directory (~/.ttal).
@@ -218,17 +230,25 @@ func (c *Config) clearResolvedFields() {
 	c.Voice = VoiceConfig{}
 }
 
-// expandHome replaces a leading ~ with the user's home directory.
+// expandHome replaces a leading ~ or ~/ with the user's home directory.
+// Does NOT expand ~username syntax (that would require OS-specific user lookup).
 func expandHome(path string) string {
 	if len(path) == 0 {
 		return path
 	}
-	if path[0] == '~' {
+	if path == "~" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return path
 		}
-		return filepath.Join(home, path[1:])
+		return home
+	}
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
 	}
 	return path
 }

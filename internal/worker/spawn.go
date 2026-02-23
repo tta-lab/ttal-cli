@@ -134,7 +134,8 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	if team := os.Getenv("TTAL_TEAM"); team != "" {
 		envParts = append(envParts, fmt.Sprintf("TTAL_TEAM=%s", team))
 	}
-	if taskrc := resolveTaskRC(); taskrc != "" {
+	taskrc := resolveTaskRC()
+	if taskrc != "" {
 		envParts = append(envParts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 	fishCmd := fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), claudeCmd)
@@ -153,7 +154,7 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	if team := os.Getenv("TTAL_TEAM"); team != "" {
 		_ = tmux.SetEnv(sessionName, "TTAL_TEAM", team)
 	}
-	if taskrc := resolveTaskRC(); taskrc != "" {
+	if taskrc != "" {
 		_ = tmux.SetEnv(sessionName, "TASKRC", taskrc)
 	}
 
