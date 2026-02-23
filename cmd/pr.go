@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/pr"
+	"codeberg.org/clawteam/ttal-cli/internal/review"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
@@ -56,6 +58,9 @@ Examples:
 
 		fmt.Printf("PR #%d created: %s\n", result.Index, result.HTMLURL)
 		fmt.Printf("  %s → %s\n", result.Head.Name, result.Base.Name)
+		fmt.Println()
+		fmt.Println("  To request a code review:")
+		fmt.Println("    ttal pr review")
 		return nil
 	},
 }
@@ -110,10 +115,12 @@ Examples:
 
 		// Check for uncommitted changes before merging — clean worktree
 		// ensures the daemon cleanup can remove the worktree without issues
-		if out, err := exec.Command("git", "status", "--porcelain").Output(); err == nil {
-			if strings.TrimSpace(string(out)) != "" {
-				return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
-			}
+		statusOut, statusErr := exec.Command("git", "status", "--porcelain").Output()
+		if statusErr != nil {
+			return fmt.Errorf("failed to check worktree status: %w", statusErr)
+		}
+		if strings.TrimSpace(string(statusOut)) != "" {
+			return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
 		}
 
 		if err := pr.Merge(ctx, !keepBranch); err != nil {
@@ -128,7 +135,9 @@ Examples:
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
 		if ctx.Task.Branch != "" {
 			if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: cleanup request failed: %v\n  run: ttal worker close %s\n", err, ctx.Task.SessionName())
+				fmt.Fprintf(os.Stderr,
+					"warning: cleanup request failed: %v\n  run: ttal worker close %s\n",
+					err, ctx.Task.SessionName())
 			} else {
 				fmt.Println("  Cleanup requested (daemon will close session + worktree)")
 			}
@@ -165,7 +174,72 @@ Examples:
 		}
 
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
+
+		// Notify worker window if we're posting from a non-worker window (e.g. reviewer)
+		sessionName, sessionErr := review.ResolveSessionName()
+		if sessionErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
+		}
+		currentWindow, windowErr := tmux.CurrentWindow()
+		if windowErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux window: %v\n", windowErr)
+		}
+		if sessionName != "" && currentWindow != "worker" && tmux.WindowExists(sessionName, "worker") {
+			notification := "[agent from:reviewer] PR reviewed — see PR comments. " +
+				"Run /triage to triage, fix issues, then run `ttal pr review` to request re-review."
+			if err := tmux.SendKeys(sessionName, "worker", notification); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to notify worker window: %v\n", err)
+			}
+		}
+
 		return nil
+	},
+}
+
+var (
+	reviewForce bool
+	reviewFull  bool
+)
+
+var prReviewCmd = &cobra.Command{
+	Use:   "review",
+	Short: "Spawn a reviewer to review the current PR",
+	Long: `Spawns a Claude Code instance in a new tmux window to review the PR
+associated with the current task.
+
+First run spawns the reviewer. Subsequent runs send a re-review request
+to the existing reviewer window.
+
+Examples:
+  ttal pr review         # spawn reviewer (or re-review if window exists)
+  ttal pr review --full  # force full re-review (not delta)
+  ttal pr review --force # kill and respawn reviewer window`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, err := pr.ResolveContext()
+		if err != nil {
+			return err
+		}
+
+		sessionName, err := review.ResolveSessionName()
+		if err != nil {
+			return fmt.Errorf("failed to detect tmux session: %w", err)
+		}
+		if sessionName == "" {
+			return fmt.Errorf("must be run inside a tmux session")
+		}
+
+		if reviewForce && tmux.WindowExists(sessionName, "review") {
+			if err := tmux.KillWindow(sessionName, "review"); err != nil {
+				return fmt.Errorf("failed to kill reviewer window: %w", err)
+			}
+			fmt.Println("Killed existing reviewer window")
+		}
+
+		if tmux.WindowExists(sessionName, "review") {
+			return review.RequestReReview(sessionName, reviewFull)
+		}
+
+		return review.SpawnReviewer(sessionName, ctx)
 	},
 }
 
@@ -205,9 +279,13 @@ func init() {
 
 	prMergeCmd.Flags().Bool("keep-branch", false, "Don't delete the branch after merge")
 
+	prReviewCmd.Flags().BoolVar(&reviewForce, "force", false, "Kill and respawn reviewer window")
+	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
+
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)
 	prCmd.AddCommand(prMergeCmd)
+	prCmd.AddCommand(prReviewCmd)
 	prCmd.AddCommand(prCommentCmd)
 
 	prCommentCmd.AddCommand(prCommentCreateCmd)

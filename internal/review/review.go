@@ -1,0 +1,133 @@
+package review
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+
+	"codeberg.org/clawteam/ttal-cli/internal/pr"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+)
+
+const windowName = "review"
+
+// SpawnReviewer creates a new tmux window with a Claude Code instance
+// configured as a PR reviewer.
+func SpawnReviewer(sessionName string, ctx *pr.Context) error {
+	if ctx.Task.PRID == "" {
+		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
+	}
+
+	prIndex, err := strconv.ParseInt(ctx.Task.PRID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid pr_id %q: %w", ctx.Task.PRID, err)
+	}
+
+	prompt := buildReviewerPrompt(ctx, prIndex)
+
+	promptFile, err := writePromptFile(prompt)
+	if err != nil {
+		return err
+	}
+
+	ttalBin, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
+	}
+
+	claudeCmd := fmt.Sprintf(
+		"'%s' worker gatekeeper --task-file '%s' -- claude --model opus --dangerously-skip-permissions --",
+		ttalBin, promptFile)
+
+	// TTAL_JOB_ID is inherited from tmux session env (set by worker spawn)
+	fishCmd := fmt.Sprintf(`fish -C "%s"`, claudeCmd)
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	if err := tmux.NewWindow(sessionName, windowName, workDir, fishCmd); err != nil {
+		return fmt.Errorf("failed to create reviewer window: %w", err)
+	}
+
+	fmt.Println("Reviewer spawned in 'review' window")
+	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prIndex, ctx.Owner, ctx.Repo)
+	return nil
+}
+
+// RequestReReview sends a re-review message to the existing reviewer window.
+// If full is true, requests a full re-review of all PR changes.
+// If full is false, requests a delta re-review of only new changes.
+func RequestReReview(sessionName string, full bool) error {
+	msg := `Worker has pushed fixes addressing your review. Please re-review:` +
+		` 1. Run /pr-review-toolkit:review-pr scoped to new changes` +
+		` 2. Post updated review via: ttal pr comment create "your review"` +
+		` 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not` +
+		` 4. If LGTM: FIRST post your comment (audit trail), THEN run ttal pr merge`
+	if full {
+		msg = `Please do a full re-review of the entire PR:` +
+			` 1. Run /pr-review-toolkit:review-pr on all changes` +
+			` 2. Post review via: ttal pr comment create "your review"` +
+			` 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK` +
+			` 4. If LGTM: FIRST post your comment (audit trail), THEN run ttal pr merge`
+	}
+
+	fmt.Println("Sending re-review request to existing reviewer window...")
+	return tmux.SendKeys(sessionName, windowName, msg)
+}
+
+func buildReviewerPrompt(ctx *pr.Context, prIndex int64) string {
+	return fmt.Sprintf(`You are a code reviewer for PR #%d — "%s" in %s/%s.
+Branch: %s
+
+## Your Task
+
+1. Run /pr-review-toolkit:review-pr to perform a comprehensive code review
+   - Review scope: ONLY changes in this PR (the diff), not the entire codebase
+   - Focus on: correctness, security, architecture, tests
+
+2. Structure your findings as a PR comment with clear sections:
+   - Critical Issues (must fix before merge)
+   - Important Issues (should fix)
+   - Suggestions (nice to have)
+   - Strengths (what's well done)
+
+3. Post your review using:
+   ttal pr comment create "your structured review"
+
+4. End your comment with one of:
+   - VERDICT: NEEDS_WORK (if any critical issues)
+   - VERDICT: LGTM (if no critical issues)
+
+5. If your verdict is LGTM:
+   a. FIRST post your review comment (so the approval reasoning is on record)
+   b. THEN merge: ttal pr merge
+   Always comment before merging — we need the audit trail of why it was approved.
+
+## Important
+- Only review what changed in the PR, not pre-existing code
+- Be specific: reference file:line for each finding
+- Be constructive: suggest fixes, not just problems
+- If you're unsure about something, say so rather than raising a false alarm
+`,
+		prIndex, ctx.Task.Description, ctx.Owner, ctx.Repo, ctx.Task.Branch)
+}
+
+func writePromptFile(prompt string) (string, error) {
+	f, err := os.CreateTemp("", "claude-review-*.txt")
+	if err != nil {
+		return "", fmt.Errorf("failed to create review prompt file: %w", err)
+	}
+	if _, err := f.WriteString(prompt); err != nil {
+		_ = f.Close()
+		return "", fmt.Errorf("failed to write review prompt: %w", err)
+	}
+	_ = f.Close()
+	return f.Name(), nil
+}
+
+// ResolveSessionName returns the name of the current tmux session.
+func ResolveSessionName() (string, error) {
+	return tmux.CurrentSession()
+}

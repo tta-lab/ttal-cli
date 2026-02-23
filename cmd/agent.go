@@ -365,6 +365,22 @@ Examples:
 	},
 }
 
+var agentDeleteCmd = &cobra.Command{
+	Use:   "delete <name>",
+	Short: "Permanently delete an agent",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runAgentDelete,
+}
+
+func runAgentDelete(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	name := strings.ToLower(args[0])
+	return deleteEntity("agent", name,
+		func() (bool, error) { return database.Agent.Query().Where(agent.Name(name)).Exist(ctx) },
+		func() (int, error) { return database.Agent.Delete().Where(agent.Name(name)).Exec(ctx) },
+	)
+}
+
 var agentSyncTokensCmd = &cobra.Command{
 	Use:   "sync-tokens",
 	Short: "Fill bot tokens from env vars into config.toml",
@@ -408,6 +424,7 @@ func init() {
 	agentCmd.AddCommand(agentListCmd)
 	agentCmd.AddCommand(agentInfoCmd)
 	agentCmd.AddCommand(agentModifyCmd)
+	agentCmd.AddCommand(agentDeleteCmd)
 	agentCmd.AddCommand(agentSyncTokensCmd)
 
 	// Flags for agent add

@@ -289,43 +289,16 @@ var projectDeleteCmd = &cobra.Command{
 	Use:   "delete <alias>",
 	Short: "Permanently delete a project",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
-		alias := strings.ToLower(args[0])
+	RunE:  runProjectDelete,
+}
 
-		// Verify project exists before prompting
-		exists, err := database.Project.Query().
-			Where(project.Alias(alias)).
-			Exist(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to query project: %w", err)
-		}
-		if !exists {
-			return fmt.Errorf("project '%s' not found", alias)
-		}
-
-		// Confirmation prompt
-		fmt.Printf("Are you sure you want to permanently delete project '%s'? [y/N] ", alias)
-		var answer string
-		fmt.Scanln(&answer)
-		if strings.ToLower(answer) != "y" {
-			fmt.Println("Aborted.")
-			return nil
-		}
-
-		count, err := database.Project.Delete().
-			Where(project.Alias(alias)).
-			Exec(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to delete project: %w", err)
-		}
-		if count == 0 {
-			return fmt.Errorf("project '%s' not found", alias)
-		}
-
-		fmt.Printf("Project '%s' deleted permanently\n", alias)
-		return nil
-	},
+func runProjectDelete(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	alias := strings.ToLower(args[0])
+	return deleteEntity("project", alias,
+		func() (bool, error) { return database.Project.Query().Where(project.Alias(alias)).Exist(ctx) },
+		func() (int, error) { return database.Project.Delete().Where(project.Alias(alias)).Exec(ctx) },
+	)
 }
 
 var projectModifyCmd = &cobra.Command{

@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/db"
 	"github.com/spf13/cobra"
@@ -40,4 +43,43 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", db.DefaultPath(), "Path to SQLite database")
+}
+
+// confirmPrompt asks the user a yes/no question and returns true if they answer "y".
+func confirmPrompt(message string) bool {
+	fmt.Print(message)
+	reader := bufio.NewReader(os.Stdin)
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	return strings.ToLower(strings.TrimSpace(answer)) == "y"
+}
+
+// deleteEntity checks existence, confirms with user, then deletes.
+// existFn checks if the entity exists, deleteFn performs the deletion.
+func deleteEntity(kind, name string, existFn func() (bool, error), deleteFn func() (int, error)) error {
+	exists, err := existFn()
+	if err != nil {
+		return fmt.Errorf("failed to query %s: %w", kind, err)
+	}
+	if !exists {
+		return fmt.Errorf("%s '%s' not found", kind, name)
+	}
+
+	if !confirmPrompt(fmt.Sprintf("Permanently delete %s '%s'? [y/N] ", kind, name)) {
+		fmt.Println("Aborted.")
+		return nil
+	}
+
+	count, err := deleteFn()
+	if err != nil {
+		return fmt.Errorf("failed to delete %s: %w", kind, err)
+	}
+	if count == 0 {
+		return fmt.Errorf("%s '%s' not found", kind, name)
+	}
+
+	fmt.Printf("%s '%s' deleted permanently\n", strings.ToUpper(kind[:1])+kind[1:], name)
+	return nil
 }

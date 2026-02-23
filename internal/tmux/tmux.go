@@ -3,6 +3,7 @@ package tmux
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -87,6 +88,37 @@ func NewWindow(session, window, workDir, command string) error {
 	return nil
 }
 
+// WindowExists checks if a named window exists in a session.
+func WindowExists(session, window string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "list-windows", "-t", session, "-F", "#{window_name}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) == window {
+			return true
+		}
+	}
+	return false
+}
+
+// KillWindow kills a specific window in a session.
+func KillWindow(session, window string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "kill-window", "-t", session+":"+window)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("kill-window failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // KillSession kills a tmux session.
 func KillSession(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
@@ -150,6 +182,42 @@ func SetEnv(session, key, value string) error {
 		return fmt.Errorf("set-environment failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// CurrentSession returns the name of the tmux session this process is running in.
+// Returns ("", nil) if not inside tmux. Returns an error if tmux command fails.
+func CurrentSession() (string, error) {
+	if os.Getenv("TMUX") == "" {
+		return "", nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-p", "#{session_name}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get session name: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CurrentWindow returns the name of the tmux window this process is running in.
+// Returns ("", nil) if not inside tmux.
+func CurrentWindow() (string, error) {
+	if os.Getenv("TMUX") == "" {
+		return "", nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-p", "#{window_name}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get window name: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // sanitizeForTerminal replaces newlines/CR with spaces and strips control chars.
