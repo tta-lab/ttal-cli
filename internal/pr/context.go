@@ -16,9 +16,9 @@ type Context struct {
 }
 
 // ResolveContext resolves the full PR context from the current worker session.
-// Falls back to --task flag if not in a worker session.
-func ResolveContext(taskUUID string) (*Context, error) {
-	task, err := resolveTask(taskUUID)
+// Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
+func ResolveContext() (*Context, error) {
+	task, err := resolveTask()
 	if err != nil {
 		return nil, err
 	}
@@ -35,19 +35,11 @@ func ResolveContext(taskUUID string) (*Context, error) {
 	return &Context{Task: task, Owner: owner, Repo: repo}, nil
 }
 
-// resolveTask finds the task either from TTAL_JOB_ID or an explicit UUID.
-func resolveTask(taskUUID string) (*taskwarrior.Task, error) {
-	if taskUUID != "" {
-		if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
-			return nil, err
-		}
-		return taskwarrior.ExportTask(taskUUID)
-	}
-
-	// Auto-resolve from job ID (task UUID[:8])
+// resolveTask finds the task from TTAL_JOB_ID.
+func resolveTask() (*taskwarrior.Task, error) {
 	jobID := os.Getenv("TTAL_JOB_ID")
 	if jobID == "" {
-		return nil, fmt.Errorf("not in a worker session — provide --task <uuid> explicitly")
+		return nil, fmt.Errorf("not in a worker session — run this from a worker session")
 	}
 
 	// Try pending (active worker), then completed (just finished)
@@ -55,7 +47,7 @@ func resolveTask(taskUUID string) (*taskwarrior.Task, error) {
 	if err != nil {
 		task, err = taskwarrior.ExportTaskBySessionID(jobID, "completed")
 		if err != nil {
-			return nil, fmt.Errorf("no task found for job ID %q", jobID)
+			return nil, fmt.Errorf("no task found for job ID %q: %w", jobID, err)
 		}
 	}
 

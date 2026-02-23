@@ -1,6 +1,9 @@
 package taskwarrior
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 const testUUID = "e9d4b7c1-1234-5678-9abc-def012345678"
 
@@ -117,6 +120,45 @@ func TestSessionName(t *testing.T) {
 			// Session names should be reasonable length
 			if len(got) > 80 {
 				t.Errorf("SessionName() length %d exceeds 80", len(got))
+			}
+		})
+	}
+}
+
+func TestValidateUUID(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantErr       bool
+		wantUserError bool // expect *UserError (formatted CLI guidance)
+	}{
+		{"full UUID", "e9d4b7c1-1234-5678-9abc-def012345678", false, false},
+		{"8-char hex mixed", "e9d4b7c1", false, false},
+		{"8-char hex all digits", "95502130", false, false},
+		{"8-char hex sequential digits", "12345678", false, false},
+		{"short numeric 2-char rejected", "42", true, true},
+		{"short numeric 6-char rejected", "123456", true, true},
+		{"short numeric 7-char rejected", "1234567", true, true},
+		{"9-char numeric rejected", "123456789", true, true},
+		{"hash prefix rejected", "#42", true, true},
+		{"hash before valid hex rejected", "#e9d4b7c1", true, true},
+		{"uppercase hex rejected", "E9D4B7C1", true, true},
+		{"invalid string rejected", "not-a-uuid", true, true},
+		{"empty rejected", "", true, false},
+		{"spaces only rejected", "   ", true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateUUID(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateUUID(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if tt.wantUserError {
+				var ue *UserError
+				if !errors.As(err, &ue) {
+					t.Errorf("ValidateUUID(%q) expected *UserError, got %T", tt.input, err)
+				}
 			}
 		})
 	}

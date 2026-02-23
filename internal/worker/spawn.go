@@ -139,6 +139,11 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
+	// Set TTAL_JOB_ID at session level so new windows/panes inherit it
+	if err := tmux.SetEnv(sessionName, "TTAL_JOB_ID", task.SessionID()); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to set session env: %v\n", err)
+	}
+
 	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
 		return fmt.Errorf("session created but task tracking failed\n"+
 			"  Session: %s\n"+

@@ -115,7 +115,7 @@ var projectListCmd = &cobra.Command{
 
 Examples:
   ttal project list                    # List all active projects
-  ttal project list --archived         # Include archived projects
+  ttal project list --archived         # List only archived projects
   ttal project list +backend           # Only projects with backend tag
   ttal project list +backend +core     # Projects with both tags`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -134,8 +134,10 @@ Examples:
 			)
 		}
 
-		// Filter archived unless explicitly included
-		if !includeArchived {
+		// Filter by archive status
+		if includeArchived {
+			query = query.Where(project.ArchivedAtNotNil())
+		} else {
 			query = query.Where(project.ArchivedAtIsNil())
 		}
 
@@ -283,6 +285,29 @@ Example:
 	},
 }
 
+var projectDeleteCmd = &cobra.Command{
+	Use:   "delete <alias>",
+	Short: "Permanently delete a project",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+		alias := strings.ToLower(args[0])
+
+		count, err := database.Project.Delete().
+			Where(project.Alias(alias)).
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to delete project: %w", err)
+		}
+		if count == 0 {
+			return fmt.Errorf("project '%s' not found", alias)
+		}
+
+		fmt.Printf("Project '%s' deleted permanently\n", alias)
+		return nil
+	},
+}
+
 var projectModifyCmd = &cobra.Command{
 	Use:   "modify <alias> [+tag1 -tag2 field:value...]",
 	Short: "Modify project tags and fields",
@@ -294,6 +319,7 @@ Examples:
   ttal project modify clawd -old +new
 
   # Field modifications
+  ttal project modify clawd alias:new-alias
   ttal project modify clawd name:'New Project Name'
   ttal project modify clawd path:/new/path
   ttal project modify clawd description:'Updated description'
@@ -329,6 +355,8 @@ Examples:
 		// Apply field updates
 		for field, value := range fieldUpdates {
 			switch field {
+			case "alias":
+				updater = updater.SetAlias(strings.ToLower(value))
 			case "name":
 				updater = updater.SetName(value)
 			case "description":
@@ -347,7 +375,7 @@ Examples:
 			case "owner":
 				updater = updater.SetOwner(value)
 			default:
-				return fmt.Errorf("unknown field '%s' (available: name, description, path, repo, repo-type, owner)", field)
+				return fmt.Errorf("unknown field '%s' (available: alias, name, description, path, repo, repo-type, owner)", field)
 			}
 		}
 
@@ -415,6 +443,7 @@ func init() {
 	projectCmd.AddCommand(projectGetCmd)
 	projectCmd.AddCommand(projectArchiveCmd)
 	projectCmd.AddCommand(projectUnarchiveCmd)
+	projectCmd.AddCommand(projectDeleteCmd)
 	projectCmd.AddCommand(projectModifyCmd)
 
 	// Flags for project add
@@ -427,7 +456,7 @@ func init() {
 	projectAddCmd.Flags().StringVar(&projectOwner, "owner", "", "Project owner")
 
 	// Flags for project list
-	projectListCmd.Flags().BoolVar(&includeArchived, "archived", false, "Include archived projects")
+	projectListCmd.Flags().BoolVar(&includeArchived, "archived", false, "Show only archived projects")
 }
 
 // Helper functions

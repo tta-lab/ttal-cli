@@ -396,9 +396,6 @@ ttal pr comment create "LGTM, ready to merge"
 
 # List comments on the PR
 ttal pr comment list
-
-# Override auto-resolution with explicit task UUID
-ttal pr create "title" --task <uuid>
 ```
 
 Requires `FORGEJO_URL` and `FORGEJO_TOKEN` environment variables.

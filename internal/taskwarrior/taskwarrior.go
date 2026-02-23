@@ -13,6 +13,7 @@ import (
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 
 const cmdTimeout = 5 * time.Second
 
@@ -230,17 +231,6 @@ func ValidateUUID(s string) error {
 		return fmt.Errorf("task UUID is required")
 	}
 
-	if isNumeric(s) {
-		return userError("numeric task IDs are no longer supported\n\n"+
-			"  You provided: %s\n\n"+
-			"  Numeric IDs are unstable (they change when tasks complete).\n"+
-			"  Use the permanent UUID instead:\n\n"+
-			"  # Get UUID for task #%s:\n"+
-			"  task %s export | jq -r '.[0].uuid'\n\n"+
-			"  # Then use the UUID:\n"+
-			"  ttal worker spawn --task <uuid> ...", s, s, s)
-	}
-
 	if strings.HasPrefix(s, "#") {
 		remaining := s[1:]
 		if isNumeric(remaining) {
@@ -256,15 +246,24 @@ func ValidateUUID(s string) error {
 			"  ttal worker spawn --task %s ...", s, remaining)
 	}
 
-	if !uuidPattern.MatchString(s) {
-		return userError("only UUIDs are supported for task spawning\n\n"+
+	// Reject short numeric IDs (taskwarrior task numbers like "42", "123")
+	// but allow 8-char hex strings (UUID prefixes like "95502130")
+	if isNumeric(s) && len(s) < 8 {
+		return userError("numeric task IDs are no longer supported\n\n"+
 			"  You provided: %s\n\n"+
-			"  ttal worker spawn requires a taskwarrior UUID.\n"+
-			"  This ensures all workers are tracked in taskwarrior.\n\n"+
-			"  To spawn a worker:\n"+
-			"  1. Create task: task add \"%s\" project:... +tag priority:H\n"+
-			"  2. Get UUID: task export | jq -r '.[-1].uuid'\n"+
-			"  3. Spawn: ttal worker spawn --task <uuid> ...", s, s)
+			"  Numeric IDs are unstable (they change when tasks complete).\n"+
+			"  Use the permanent UUID instead:\n\n"+
+			"  # Get UUID for task #%s:\n"+
+			"  task %s export | jq -r '.[0].uuid'\n\n"+
+			"  # Then use the UUID:\n"+
+			"  ttal worker spawn --task <uuid> ...", s, s, s)
+	}
+
+	if !uuidPattern.MatchString(s) && !uuidPrefixPattern.MatchString(s) {
+		return userError("only UUIDs are supported\n\n"+
+			"  You provided: %s\n\n"+
+			"  Provide a full UUID or 8-char prefix.\n"+
+			"  Example: task export | jq -r '.[0].uuid'", s)
 	}
 
 	return nil

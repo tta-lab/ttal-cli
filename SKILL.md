@@ -86,14 +86,6 @@ ttal pr comment create "LGTM, ready to merge"
 ttal pr comment list
 ```
 
-### Override context
-
-If not in a worker session, provide the task UUID explicitly:
-
-```bash
-ttal pr create "title" --task <uuid>
-```
-
 ## Messaging
 
 ### Send to another agent

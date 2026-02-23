@@ -20,6 +20,50 @@ func setupProjectTest(t *testing.T) {
 	database = db.NewTestDB(t)
 }
 
+func TestProjectModifyAlias(t *testing.T) {
+	setupProjectTest(t)
+	ctx := context.Background()
+
+	// Create project
+	proj, err := database.Project.Create().
+		SetAlias("old-alias").
+		SetName("Test Project").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+
+	// Modify alias
+	_, err = proj.Update().
+		SetAlias("new-alias").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to update project alias: %v", err)
+	}
+
+	// Verify old alias no longer works
+	exists, err := database.Project.Query().
+		Where(project.Alias("old-alias")).
+		Exist(ctx)
+	if err != nil {
+		t.Fatalf("failed to query project: %v", err)
+	}
+	if exists {
+		t.Error("old alias should not exist after rename")
+	}
+
+	// Verify new alias works
+	updated, err := database.Project.Query().
+		Where(project.Alias("new-alias")).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("failed to query project by new alias: %v", err)
+	}
+	if updated.Alias != "new-alias" {
+		t.Errorf("project alias = %v, want new-alias", updated.Alias)
+	}
+}
+
 func TestProjectModifyName(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
@@ -457,6 +501,149 @@ func TestProjectArchive(t *testing.T) {
 
 	if updated.ArchivedAt != nil {
 		t.Errorf("project should not be archived")
+	}
+}
+
+func TestProjectDelete(t *testing.T) {
+	setupProjectTest(t)
+	ctx := context.Background()
+
+	// Create project
+	_, err := database.Project.Create().
+		SetAlias("to-delete").
+		SetName("Delete Me").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+
+	// Delete project
+	count, err := database.Project.Delete().
+		Where(project.Alias("to-delete")).
+		Exec(ctx)
+	if err != nil {
+		t.Fatalf("failed to delete project: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("deleted %d projects, want 1", count)
+	}
+
+	// Verify it's gone
+	exists, err := database.Project.Query().
+		Where(project.Alias("to-delete")).
+		Exist(ctx)
+	if err != nil {
+		t.Fatalf("failed to query project: %v", err)
+	}
+	if exists {
+		t.Error("project should not exist after deletion")
+	}
+}
+
+func TestProjectDeleteWithTags(t *testing.T) {
+	setupProjectTest(t)
+	ctx := context.Background()
+
+	// Create tag and project with tag
+	testTag, err := database.Tag.Create().SetName("deletable").Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create tag: %v", err)
+	}
+
+	_, err = database.Project.Create().
+		SetAlias("tagged-delete").
+		SetName("Tagged Delete").
+		AddTags(testTag).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+
+	// Delete project
+	_, err = database.Project.Delete().
+		Where(project.Alias("tagged-delete")).
+		Exec(ctx)
+	if err != nil {
+		t.Fatalf("failed to delete project with tags: %v", err)
+	}
+
+	// Tag should still exist (only M2M relation removed)
+	tagExists, err := database.Tag.Query().
+		Where(tag.Name("deletable")).
+		Exist(ctx)
+	if err != nil {
+		t.Fatalf("failed to query tag: %v", err)
+	}
+	if !tagExists {
+		t.Error("tag should still exist after project deletion")
+	}
+}
+
+func TestProjectDeleteNotFound(t *testing.T) {
+	setupProjectTest(t)
+	ctx := context.Background()
+
+	count, err := database.Project.Delete().
+		Where(project.Alias("nonexistent")).
+		Exec(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("deleted %d projects, want 0", count)
+	}
+}
+
+func TestProjectListArchivedOnly(t *testing.T) {
+	setupProjectTest(t)
+	ctx := context.Background()
+
+	// Create active project
+	_, err := database.Project.Create().
+		SetAlias("active-proj").
+		SetName("Active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create active project: %v", err)
+	}
+
+	// Create archived project
+	now := time.Now()
+	_, err = database.Project.Create().
+		SetAlias("archived-proj").
+		SetName("Archived").
+		SetArchivedAt(now).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create archived project: %v", err)
+	}
+
+	// Query with archived filter (should only return archived)
+	archived, err := database.Project.Query().
+		Where(project.ArchivedAtNotNil()).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("failed to query archived projects: %v", err)
+	}
+	if len(archived) != 1 {
+		t.Errorf("found %d archived projects, want 1", len(archived))
+	}
+	if len(archived) > 0 && archived[0].Alias != "archived-proj" {
+		t.Errorf("archived project alias = %v, want archived-proj", archived[0].Alias)
+	}
+
+	// Query without archived filter (should only return active)
+	active, err := database.Project.Query().
+		Where(project.ArchivedAtIsNil()).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("failed to query active projects: %v", err)
+	}
+	if len(active) != 1 {
+		t.Errorf("found %d active projects, want 1", len(active))
+	}
+	if len(active) > 0 && active[0].Alias != "active-proj" {
+		t.Errorf("active project alias = %v, want active-proj", active[0].Alias)
 	}
 }
 

@@ -11,15 +11,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var prTaskUUID string
-
 var prCmd = &cobra.Command{
 	Use:   "pr",
 	Short: "Manage pull requests for the current worker task",
 	Long: `Create, modify, and comment on Forgejo pull requests.
 
 Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
-Use --task to override with an explicit task UUID.
 
 Environment:
   FORGEJO_URL    Forgejo instance URL (default: https://git.guion.io)
@@ -44,7 +41,7 @@ Examples:
   ttal pr create "fix: resolve timeout bug" --body "Fixes #42"`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext(prTaskUUID)
+		ctx, err := pr.ResolveContext()
 		if err != nil {
 			return err
 		}
@@ -72,7 +69,7 @@ Examples:
   ttal pr modify --title "new title"
   ttal pr modify --body "updated description"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext(prTaskUUID)
+		ctx, err := pr.ResolveContext()
 		if err != nil {
 			return err
 		}
@@ -104,7 +101,7 @@ Examples:
   ttal pr merge
   ttal pr merge --keep-branch`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext(prTaskUUID)
+		ctx, err := pr.ResolveContext()
 		if err != nil {
 			return err
 		}
@@ -131,7 +128,7 @@ Examples:
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
 		if ctx.Task.Branch != "" {
 			if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: cleanup request failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "warning: cleanup request failed: %v\n  run: ttal worker close %s\n", err, ctx.Task.SessionName())
 			} else {
 				fmt.Println("  Cleanup requested (daemon will close session + worktree)")
 			}
@@ -156,7 +153,7 @@ Examples:
   ttal pr comment create "Please fix the error handling in auth.go"`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext(prTaskUUID)
+		ctx, err := pr.ResolveContext()
 		if err != nil {
 			return err
 		}
@@ -176,7 +173,7 @@ var prCommentListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List comments on the PR",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext(prTaskUUID)
+		ctx, err := pr.ResolveContext()
 		if err != nil {
 			return err
 		}
@@ -201,8 +198,6 @@ var prCommentListCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(prCmd)
-
-	prCmd.PersistentFlags().StringVar(&prTaskUUID, "task", "", "Task UUID (auto-resolved from TTAL_JOB_ID if omitted)")
 
 	prCreateCmd.Flags().String("body", "", "PR body/description")
 	prModifyCmd.Flags().String("title", "", "New PR title")
