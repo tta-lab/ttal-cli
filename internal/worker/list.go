@@ -184,7 +184,7 @@ func printWorkerTable(workers []WorkerInfo) {
 		}
 
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			t.SessionID(), info.Status, pr, branch, project, desc)
+			t.SessionName(), info.Status, pr, branch, project, desc)
 	}
 
 	_ = w.Flush()

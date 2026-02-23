@@ -58,6 +58,91 @@ func (t *Task) SessionID() string {
 	return t.UUID
 }
 
+const maxSessionLen = 40
+
+// SessionName returns a human-readable session name: w-{uuid[:8]}-{slug}.
+// Slug is derived from branch (preferred) or task description (fallback).
+//
+// Worker sessions use this format to be identifiable at a glance:
+//
+//	w-e9d4b7c1-fix-auth
+//	w-a3f29bc0-add-doctor
+//
+// This is distinct from agent sessions which use "session-<name>".
+func (t *Task) SessionName() string {
+	prefix := "w-" + t.SessionID() + "-" // "w-e9d4b7c1-" = 11 chars
+	maxSlug := maxSessionLen - len(prefix)
+
+	source := t.Branch
+	if source == "" {
+		source = t.Description
+	}
+
+	slug := slugify(source, maxSlug)
+	if slug == "" {
+		return "w-" + t.SessionID()
+	}
+
+	return prefix + slug
+}
+
+// ExtractSessionID extracts the UUID[:8] from a session name.
+// Handles both old format (bare UUID[:8]) and new format (w-UUID[:8]-slug).
+func ExtractSessionID(sessionName string) string {
+	if strings.HasPrefix(sessionName, "w-") {
+		parts := strings.SplitN(sessionName[2:], "-", 2)
+		if len(parts) > 0 {
+			return parts[0]
+		}
+	}
+	return sessionName
+}
+
+// slugify converts a branch name or description into a short URL-safe slug.
+// It strips common prefixes (feat/, fix/, worker/, etc.) and truncates to maxLen.
+func slugify(input string, maxLen int) string {
+	s := strings.ToLower(strings.TrimSpace(input))
+
+	// Strip common branch prefixes
+	for _, prefix := range []string{
+		"feat/", "fix/", "worker/", "chore/", "refactor/", "docs/",
+		"feat:", "fix:", "chore:", "refactor:", "docs:",
+		"feat(", "fix(", "chore(", "refactor(",
+	} {
+		s = strings.TrimPrefix(s, prefix)
+	}
+
+	// Strip scope from conventional commits (e.g. "doctor): add foo" → "add foo")
+	if idx := strings.Index(s, "):"); idx != -1 {
+		s = strings.TrimSpace(s[idx+2:])
+	}
+
+	// Replace non-alphanumeric with hyphens
+	var b strings.Builder
+	prev := '-'
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			prev = r
+		} else if prev != '-' {
+			b.WriteRune('-')
+			prev = '-'
+		}
+	}
+
+	result := strings.Trim(b.String(), "-")
+
+	// Truncate at word boundary
+	if len(result) > maxLen {
+		result = result[:maxLen]
+		if last := strings.LastIndex(result, "-"); last > maxLen/2 {
+			result = result[:last]
+		}
+	}
+
+	return result
+}
+
 // HasTag returns true if the task has the given tag.
 func (t *Task) HasTag(tag string) bool {
 	for _, tt := range t.Tags {

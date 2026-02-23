@@ -44,16 +44,19 @@ func resolveTask(taskUUID string) (*taskwarrior.Task, error) {
 		return taskwarrior.ExportTask(taskUUID)
 	}
 
-	// Auto-resolve from zellij session name (which is UUID[:8])
+	// Auto-resolve from zellij session name (w-UUID[:8]-slug or bare UUID[:8])
 	session := os.Getenv("ZELLIJ_SESSION_NAME")
 	if session == "" {
 		return nil, fmt.Errorf("not in a zellij session — provide --task <uuid> explicitly")
 	}
 
+	// Extract UUID[:8] from session name (handles both old and new formats)
+	sessionID := taskwarrior.ExtractSessionID(session)
+
 	// Try pending (active worker), then completed (just finished)
-	task, err := taskwarrior.ExportTaskBySessionID(session, "pending")
+	task, err := taskwarrior.ExportTaskBySessionID(sessionID, "pending")
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySessionID(session, "completed")
+		task, err = taskwarrior.ExportTaskBySessionID(sessionID, "completed")
 		if err != nil {
 			return nil, fmt.Errorf("no task found for session %q", session)
 		}

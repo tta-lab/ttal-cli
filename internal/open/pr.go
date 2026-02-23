@@ -24,7 +24,7 @@ func PR(uuid string) error {
 	if task.PRID == "" {
 		msg := "no PR associated with this task"
 		if task.Branch != "" {
-			msg += fmt.Sprintf("\n\n  Worker session '%s' is active but hasn't created a PR yet.", task.SessionID())
+			msg += fmt.Sprintf("\n\n  Worker session '%s' is active but hasn't created a PR yet.", task.SessionName())
 		} else {
 			msg += "\n\n  No worker is currently working on this task."
 		}

@@ -9,7 +9,10 @@ import (
 )
 
 // AgentSessionName returns the zellij session name for an agent.
-// Convention: "session-<agent-name>". Derived, not stored.
+// Convention: "session-<agent-name>" (e.g. "session-athena"). Derived, not stored.
+//
+// This is distinct from worker sessions which use "w-<uuid[:8]>-<slug>"
+// (e.g. "w-e9d4b7c1-fix-auth"). See taskwarrior.Task.SessionName().
 func AgentSessionName(agent string) string {
 	return "session-" + agent
 }

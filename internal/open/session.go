@@ -20,7 +20,7 @@ func Session(uuid string) error {
 		return err
 	}
 
-	sessionID := task.SessionID()
+	sessionID := task.SessionName()
 	if task.Branch == "" {
 		return fmt.Errorf("no worker session assigned to this task\n\n" +
 			"  To spawn a worker for this task:\n" +

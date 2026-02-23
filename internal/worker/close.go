@@ -35,9 +35,11 @@ type CloseResult struct {
 //	other error               → script/worker error (exit 2)
 func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Find the task by UUID prefix (try completed first, then pending)
-	task, err := taskwarrior.ExportTaskBySessionID(sessionID, taskStatusCompleted)
+	// Handle both old (bare UUID[:8]) and new (w-UUID[:8]-slug) formats
+	sid := taskwarrior.ExtractSessionID(sessionID)
+	task, err := taskwarrior.ExportTaskBySessionID(sid, taskStatusCompleted)
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySessionID(sessionID, taskStatusPending)
+		task, err = taskwarrior.ExportTaskBySessionID(sid, taskStatusPending)
 	}
 	if err != nil {
 		result := &CloseResult{
@@ -47,7 +49,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return result, fmt.Errorf("task not found")
 	}
 
-	sessionName := task.SessionID()
+	sessionName := task.SessionName()
 
 	branch := task.Branch
 	if branch == "" {

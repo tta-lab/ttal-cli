@@ -130,7 +130,7 @@ Examples:
 
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
 		if ctx.Task.Branch != "" {
-			if err := worker.RequestCleanup(ctx.Task.SessionID(), ctx.Task.UUID); err != nil {
+			if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: cleanup request failed: %v\n", err)
 			} else {
 				fmt.Println("  Cleanup requested (daemon will close session + worktree)")
