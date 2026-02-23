@@ -164,17 +164,14 @@ func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch stri
 	fullTask := task.FormatPrompt()
 
 	if cfg.Worktree && branch != "" {
-		worktreePrefix := fmt.Sprintf(`IMPORTANT - You are in a git worktree:
-- Working directory: %s
-- Branch: %s
-- This is an isolated workspace for your task
-- STAY in this directory - do NOT cd to parent/main workspace
-- All your work should happen here
-- When done: Use the /create-pr skill to finalize (commits, pushes, creates PR, updates task)
-
-Your task:
-
-`, workDir, branch)
+		worktreePrefix := fmt.Sprintf("IMPORTANT - You are in a git worktree:\n"+
+			"- Working directory: %s\n"+
+			"- Branch: %s\n"+
+			"- This is an isolated workspace for your task\n"+
+			"- STAY in this directory - do NOT cd to parent/main workspace\n"+
+			"- All your work should happen here\n"+
+			"- When done: commit, push, and create PR with `ttal pr create \"title\" --body \"description\"`\n"+
+			"\nYour task:\n\n", workDir, branch)
 		fullTask = worktreePrefix + fullTask
 	}
 
