@@ -54,7 +54,11 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = env
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid:    true,
+		Foreground: true,
+		Ctty:       int(os.Stdin.Fd()),
+	}
 
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "gatekeeper: failed to start child: %v\n", err)
