@@ -96,29 +96,10 @@ func TestSessionName(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("SessionName() = %q, want %q", got, tt.want)
 			}
-			if len(got) > DefaultMaxSessionLen {
-				t.Errorf("SessionName() length %d exceeds max %d", len(got), DefaultMaxSessionLen)
+			if len(got) > maxSessionLen {
+				t.Errorf("SessionName() length %d exceeds max %d", len(got), maxSessionLen)
 			}
 		})
-	}
-}
-
-func TestSessionNameWithLimit(t *testing.T) {
-	task := &Task{
-		UUID:        testUUID,
-		Description: "deploy secrets-ui to local k3s with cloudflare tunnel",
-	}
-
-	// With limit 37 (typical macOS budget), should fit
-	got := task.SessionNameWithLimit(37)
-	if len(got) > 37 {
-		t.Errorf("SessionNameWithLimit(37) = %q (len %d), exceeds 37", got, len(got))
-	}
-
-	// With limit 50, should get a longer name
-	long := task.SessionNameWithLimit(50)
-	if len(long) <= len(got) && len(task.Description) > 37 {
-		t.Errorf("SessionNameWithLimit(50) = %q should be longer than (37) = %q", long, got)
 	}
 }
 

@@ -19,10 +19,6 @@ import (
 const (
 	cmdTimeout      = 10 * time.Second
 	writeCharsDelay = 200 * time.Millisecond // delay between write-chars and Enter to let text render
-
-	// Unix domain sockets have a max path length of 104 bytes (macOS) or 108 (Linux).
-	// Zellij socket path: $TMPDIR/zellij-$UID/$VERSION/$SESSION_NAME
-	unixSocketMaxPath = 104
 )
 
 // DataDir returns the zellij data directory.
@@ -35,39 +31,6 @@ func DataDir() string {
 		tmpDir = "/tmp"
 	}
 	return filepath.Join(tmpDir, "ttal-zellij-data")
-}
-
-// MaxSessionNameLen returns the maximum session name length that fits within
-// the Unix domain socket path limit. Computed from the actual socket prefix:
-// $TMPDIR/zellij-$UID/$VERSION/
-func MaxSessionNameLen() int {
-	tmpDir := os.Getenv("TMPDIR")
-	if tmpDir == "" {
-		tmpDir = "/tmp"
-	}
-	// Socket prefix: $TMPDIR/zellij-$UID/$VERSION/
-	prefix := filepath.Join(tmpDir, fmt.Sprintf("zellij-%d", os.Getuid()), zellijVersion()) + "/"
-	maxLen := unixSocketMaxPath - len(prefix)
-	if maxLen < 10 {
-		maxLen = 10
-	}
-	return maxLen
-}
-
-// zellijVersion returns the installed zellij version string for socket path calculation.
-func zellijVersion() string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "zellij", "--version").Output()
-	if err != nil {
-		return "0.43.1" // fallback
-	}
-	// "zellij 0.43.1" → "0.43.1"
-	parts := strings.Fields(strings.TrimSpace(string(out)))
-	if len(parts) >= 2 {
-		return parts[1]
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // WriteChars sends text to a zellij pane via write-chars, then sends Enter via

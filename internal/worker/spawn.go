@@ -39,7 +39,7 @@ func Spawn(cfg SpawnConfig) error {
 		return fmt.Errorf("project directory not found: %s", project)
 	}
 
-	sessionName := task.SessionNameWithLimit(zellij.MaxSessionNameLen())
+	sessionName := task.SessionName()
 
 	fmt.Printf("Spawning CC worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Name, project, task.Description)
 	fmt.Printf("Creating zellij session: %s (from task UUID for worker '%s')\n", sessionName, cfg.Name)
