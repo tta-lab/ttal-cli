@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
@@ -128,9 +129,15 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		"'%s' worker gatekeeper --task-file '%s' -- claude --model %s %s--",
 		ttalBin, taskFile, model, yoloFlag)
 
-	// Set TTAL_JOB_ID (task UUID[:8]) so CC can resolve task context.
-	// Use double quotes for sh — single quotes in claudeCmd pass through to fish.
-	fishCmd := fmt.Sprintf(`env TTAL_JOB_ID=%s fish -C "%s"`, task.SessionID(), claudeCmd)
+	// Build env vars for fish: TTAL_JOB_ID + team context (TTAL_TEAM, TASKRC).
+	envParts := []string{fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID())}
+	if team := os.Getenv("TTAL_TEAM"); team != "" {
+		envParts = append(envParts, fmt.Sprintf("TTAL_TEAM=%s", team))
+	}
+	if taskrc := resolveTaskRC(); taskrc != "" {
+		envParts = append(envParts, fmt.Sprintf("TASKRC=%s", taskrc))
+	}
+	fishCmd := fmt.Sprintf(`env %s fish -C "%s"`, strings.Join(envParts, " "), claudeCmd)
 
 	fmt.Printf("\nLaunching Claude Code with task: %s\n", task.Description)
 	fmt.Printf("  Model: %s\n", model)
@@ -139,9 +146,15 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	// Set TTAL_JOB_ID at session level so new windows/panes inherit it
+	// Set env vars at session level so new windows/panes inherit them
 	if err := tmux.SetEnv(sessionName, "TTAL_JOB_ID", task.SessionID()); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to set session env: %v\n", err)
+	}
+	if team := os.Getenv("TTAL_TEAM"); team != "" {
+		_ = tmux.SetEnv(sessionName, "TTAL_TEAM", team)
+	}
+	if taskrc := resolveTaskRC(); taskrc != "" {
+		_ = tmux.SetEnv(sessionName, "TASKRC", taskrc)
 	}
 
 	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
@@ -288,6 +301,21 @@ func pullLatest(project string) {
 			fmt.Fprintf(os.Stderr, "  output: %s\n", strings.TrimSpace(string(out)))
 		}
 	}
+}
+
+// resolveTaskRC returns the taskrc path from the active team config.
+// Returns empty string if using default taskrc or config is unavailable.
+func resolveTaskRC() string {
+	cfg, err := config.Load()
+	if err != nil {
+		return ""
+	}
+	taskrc := cfg.TaskRC()
+	// Don't set TASKRC if it's the default path
+	if taskrc == config.DefaultTaskRC() {
+		return ""
+	}
+	return taskrc
 }
 
 func detectBranch(workDir string) string {

@@ -261,18 +261,21 @@ func checkConfig(fix bool) Section {
 
 func checkTaskwarrior(fix bool) Section {
 	section := Section{Name: "Taskwarrior UDAs"}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		section.add(LevelError, "home", fmt.Sprintf("cannot determine home dir: %v", err))
-		return section
+
+	// Resolve taskrc from active team config
+	taskrc := config.DefaultTaskRC()
+	if cfg, err := config.Load(); err == nil {
+		taskrc = cfg.TaskRC()
 	}
 
-	taskrc := home + "/.taskrc"
+	home, _ := os.UserHomeDir()
+	// Companion files (.taskrc.ttal, .taskrc.tasktui) live next to the default taskrc
+	// and are shared across teams (they define UDAs, not team-specific config).
 	taskrcTtalPath := home + "/.taskrc.ttal"
 
 	// Check .taskrc exists
 	if _, err := os.Stat(taskrc); os.IsNotExist(err) {
-		section.add(LevelError, ".taskrc", "not found (install taskwarrior first)")
+		section.add(LevelError, ".taskrc", fmt.Sprintf("%s not found (install taskwarrior first)", taskrc))
 		return section
 	}
 

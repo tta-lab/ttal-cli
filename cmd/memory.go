@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/memory"
 	"github.com/spf13/cobra"
 )
@@ -44,11 +44,7 @@ Examples:
 
 		// Set default output directory
 		if memoryOutputDir == "" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("failed to get home directory: %w", err)
-			}
-			memoryOutputDir = filepath.Join(home, ".ttal", "memory")
+			memoryOutputDir = filepath.Join(config.ResolveDataDir(), "memory")
 		}
 
 		// Create capturer

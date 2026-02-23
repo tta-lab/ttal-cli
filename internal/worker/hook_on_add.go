@@ -8,6 +8,7 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/db"
 )
 
@@ -49,12 +50,7 @@ func tagsMatchAgent(taskTags []string) bool {
 		return false
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
-	}
-
-	dbPath := filepath.Join(home, ".ttal", "ttal.db")
+	dbPath := filepath.Join(config.ResolveDataDir(), "ttal.db")
 	if _, err := os.Stat(dbPath); err != nil {
 		return false
 	}

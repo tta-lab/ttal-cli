@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
 
 // AgentStatus represents the live state of an agent's CC session.
@@ -23,8 +25,7 @@ type AgentStatus struct {
 
 // StatusDir returns the path to the status directory.
 func StatusDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".ttal", "status")
+	return filepath.Join(config.ResolveDataDir(), "status")
 }
 
 // ReadAgent reads the status file for a single agent.

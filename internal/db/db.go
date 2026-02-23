@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -14,13 +15,9 @@ type DB struct {
 	*ent.Client
 }
 
-// DefaultPath returns the default database path (~/.ttal/ttal.db).
+// DefaultPath returns the default database path (<data_dir>/ttal.db).
 func DefaultPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "."
-	}
-	return filepath.Join(home, ".ttal", "ttal.db")
+	return filepath.Join(config.ResolveDataDir(), "ttal.db")
 }
 
 // New creates a new database connection and runs migrations

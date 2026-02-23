@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
 
 const (
@@ -81,20 +83,20 @@ func Install() error {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	ttalDir := filepath.Join(home, ".ttal")
-	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create ~/.ttal: %w", err)
+	dataDir := config.ResolveDataDir()
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create data dir: %w", err)
 	}
 
 	// Write server script
-	scriptPath := filepath.Join(ttalDir, "voice-server.py")
+	scriptPath := filepath.Join(dataDir, "voice-server.py")
 	if err := os.WriteFile(scriptPath, []byte(serverScript), 0o755); err != nil {
 		return fmt.Errorf("failed to write server script: %w", err)
 	}
 	fmt.Printf("Server script: %s\n", scriptPath)
 
 	// Write launchd plist
-	logPath := filepath.Join(ttalDir, "voice-server.log")
+	logPath := filepath.Join(dataDir, "voice-server.log")
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", plistName+".plist")
 	content := plistContent(pythonBin, scriptPath, logPath)
 	if err := os.WriteFile(plistPath, []byte(content), 0o644); err != nil {
@@ -134,7 +136,7 @@ func Uninstall() error {
 	}
 
 	// Remove server script
-	scriptPath := filepath.Join(home, ".ttal", "voice-server.py")
+	scriptPath := filepath.Join(config.ResolveDataDir(), "voice-server.py")
 	if _, err := os.Stat(scriptPath); err == nil {
 		_ = os.Remove(scriptPath)
 		fmt.Printf("Removed script: %s\n", scriptPath)

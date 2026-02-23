@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/env"
 )
 
@@ -43,11 +44,7 @@ var errDaemonNotRunning = fmt.Errorf("daemon not running")
 // Returns a descriptive error (prefixed "daemon error:") if the daemon
 // accepted the connection but rejected the request.
 func sendToDaemon(req daemonSendRequest) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return errDaemonNotRunning
-	}
-	sockPath := filepath.Join(home, ".ttal", "daemon.sock")
+	sockPath := filepath.Join(config.ResolveDataDir(), "daemon.sock")
 
 	conn, err := net.DialTimeout("unix", sockPath, 5*time.Second)
 	if err != nil {
@@ -131,12 +128,7 @@ type hookFallbackConfig struct {
 }
 
 func loadHookFallbackConfig() (*hookFallbackConfig, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	path := filepath.Join(home, ".ttal", "daemon.json")
+	path := filepath.Join(config.ResolveDataDir(), "daemon.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("daemon config not found: %s", path)
@@ -233,14 +225,9 @@ func passthroughTask(task hookTask) {
 	fmt.Println(string(data))
 }
 
-// hookLog writes a structured log line to ~/.task/hooks.log.
+// hookLog writes a structured log line to <data_dir>/hooks.log.
 func hookLog(eventType, taskUUID, description string, kvs ...string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-
-	logPath := filepath.Join(home, ".task", "hooks.log")
+	logPath := filepath.Join(config.ResolveDataDir(), "hooks.log")
 	timestamp := time.Now().Format("15:04:05")
 
 	shortUUID := taskUUID
@@ -294,11 +281,7 @@ func resolveLifecycleAgent() string {
 }
 
 func hookLogFile(message string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-	logPath := filepath.Join(home, ".task", "hooks.log")
+	logPath := filepath.Join(config.ResolveDataDir(), "hooks.log")
 	timestamp := time.Now().Format(time.RFC3339)
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {

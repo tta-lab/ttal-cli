@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -33,14 +34,14 @@ func Install() error {
 		return fmt.Errorf("ttal not found in PATH — install with: make install")
 	}
 
-	home, err := os.UserHomeDir()
+	hookDir, err := taskHookDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return err
 	}
 
 	fmt.Printf("Using ttal binary: %s\n\n", ttalBin)
 
-	if err := installHooks(home); err != nil {
+	if err := installHooks(hookDir); err != nil {
 		return fmt.Errorf("hook install failed: %w", err)
 	}
 
@@ -49,12 +50,11 @@ func Install() error {
 
 // Uninstall removes the taskwarrior hooks.
 func Uninstall() error {
-	home, err := os.UserHomeDir()
+	hookDir, err := taskHookDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return err
 	}
 
-	hookDir := filepath.Join(home, ".task", "hooks")
 	for _, name := range []string{onModifyHookName, onAddHookName} {
 		hookPath := filepath.Join(hookDir, name)
 		if _, err := os.Stat(hookPath); err == nil {
@@ -65,13 +65,12 @@ func Uninstall() error {
 		}
 	}
 
-	fmt.Println("\nNote: Log files remain at ~/.ttal/ and ~/.task/hooks.log")
+	fmt.Println("\nNote: Log files remain at data dir and hooks.log")
 	fmt.Println("  To also remove the daemon: ttal daemon uninstall")
 	return nil
 }
 
-func installHooks(home string) error {
-	hookDir := filepath.Join(home, ".task", "hooks")
+func installHooks(hookDir string) error {
 	if err := os.MkdirAll(hookDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}
@@ -101,4 +100,32 @@ func installHooks(home string) error {
 	fmt.Printf("Taskwarrior hook: %s\n", onAddPath)
 
 	return nil
+}
+
+// taskHookDir resolves the taskwarrior hooks directory.
+// Respects TASKRC env var (set by team config) via `task _get rc.data.location`.
+// Falls back to ~/.task/hooks/ if taskwarrior is unavailable.
+func taskHookDir() (string, error) {
+	out, err := exec.Command("task", "_get", "rc.data.location").Output()
+	if err == nil {
+		dataLoc := strings.TrimSpace(string(out))
+		if dataLoc != "" {
+			// Expand ~ if present
+			if strings.HasPrefix(dataLoc, "~") {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return "", fmt.Errorf("failed to expand ~: %w", err)
+				}
+				dataLoc = filepath.Join(home, dataLoc[1:])
+			}
+			return filepath.Join(dataLoc, "hooks"), nil
+		}
+	}
+
+	// Fallback: default taskwarrior location
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(home, ".task", "hooks"), nil
 }

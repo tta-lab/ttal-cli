@@ -3,12 +3,11 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
@@ -32,8 +31,8 @@ func HookEnrich(uuid string) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "claude", "-p", "--model", "haiku", "--allowedTools", "Bash", "Read")
-	// Run in ~/.ttal/ so CC writes JSONL there, not in the agent's watched directory.
-	cmd.Dir = filepath.Join(os.Getenv("HOME"), ".ttal")
+	// Run in data dir so CC writes JSONL there, not in the agent's watched directory.
+	cmd.Dir = config.ResolveDataDir()
 	cmd.Stdin = strings.NewReader(prompt)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

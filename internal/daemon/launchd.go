@@ -12,9 +12,20 @@ import (
 )
 
 const (
-	daemonPlistName = "io.guion.ttal.daemon"
+	daemonPlistBase = "io.guion.ttal.daemon"
 	oldPollPlist    = "io.guion.ttal.poll-completion"
 )
+
+// daemonPlistName returns the launchd label for the active team's daemon.
+// Single-team (default): "io.guion.ttal.daemon"
+// Multi-team: "io.guion.ttal.daemon.<team>"
+func daemonPlistName() string {
+	cfg, err := config.Load()
+	if err != nil || len(cfg.Teams) == 0 {
+		return daemonPlistBase
+	}
+	return daemonPlistBase + "." + cfg.TeamName()
+}
 
 // Install installs the launchd plist and creates a config template if needed.
 func Install() error {
@@ -28,8 +39,8 @@ func Install() error {
 		return err
 	}
 
-	ttalDir := filepath.Join(home, ".ttal")
-	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
+	dataDir := config.ResolveDataDir()
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}
 
@@ -48,7 +59,7 @@ func Install() error {
 	removeOldPollPlist(home)
 
 	// Install daemon plist
-	if err := installDaemonPlist(home, ttalBin, ttalDir); err != nil {
+	if err := installDaemonPlist(home, ttalBin, dataDir); err != nil {
 		return err
 	}
 
@@ -62,13 +73,14 @@ func Uninstall() error {
 		return err
 	}
 
-	plistPath := filepath.Join(home, "Library", "LaunchAgents", daemonPlistName+".plist")
+	label := daemonPlistName()
+	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 
 	if _, err := os.Stat(plistPath); err != nil {
 		fmt.Println("Daemon plist: not installed")
 	} else {
 		uid := os.Getuid()
-		cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, daemonPlistName))
+		cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, label))
 		cmd.Run()
 
 		os.Remove(plistPath)
@@ -79,18 +91,20 @@ func Uninstall() error {
 	sockPath, _ := SocketPath()
 	os.Remove(sockPath)
 
-	pidPath := filepath.Join(home, ".ttal", pidFileName)
+	dataDir := config.ResolveDataDir()
+	pidPath := filepath.Join(dataDir, pidFileName)
 	os.Remove(pidPath)
 
 	fmt.Println("Daemon uninstalled. Config and logs preserved.")
 	return nil
 }
 
-func installDaemonPlist(home, ttalBin, logDir string) error {
-	plistPath := filepath.Join(home, "Library", "LaunchAgents", daemonPlistName+".plist")
+func installDaemonPlist(home, ttalBin, dataDir string) error {
+	label := daemonPlistName()
+	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 
 	uid := os.Getuid()
-	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, daemonPlistName))
+	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, label))
 	cmd.Run()
 
 	// Bake env vars into plist
@@ -100,12 +114,23 @@ func installDaemonPlist(home, ttalBin, logDir string) error {
 		forgejoToken = os.Getenv("FORGEJO_ACCESS_TOKEN")
 	}
 
+	// Resolve TTAL_TEAM for multi-team setups
+	ttalTeam := os.Getenv("TTAL_TEAM")
+
 	var warnings []string
 	if forgejoURL == "" {
 		warnings = append(warnings, "FORGEJO_URL is not set")
 	}
 	if forgejoToken == "" {
 		warnings = append(warnings, "FORGEJO_TOKEN/FORGEJO_ACCESS_TOKEN is not set")
+	}
+
+	// Build optional TTAL_TEAM env entry
+	ttalTeamEntry := ""
+	if ttalTeam != "" {
+		ttalTeamEntry = fmt.Sprintf(`
+        <key>TTAL_TEAM</key>
+        <string>%s</string>`, xmlEscape(ttalTeam))
 	}
 
 	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -140,12 +165,12 @@ func installDaemonPlist(home, ttalBin, logDir string) error {
         <key>FORGEJO_URL</key>
         <string>%s</string>
         <key>FORGEJO_TOKEN</key>
-        <string>%s</string>
+        <string>%s</string>%s
     </dict>
 </dict>
 </plist>
-`, daemonPlistName, ttalBin, logDir, logDir, home, home,
-		xmlEscape(forgejoURL), xmlEscape(forgejoToken))
+`, label, ttalBin, dataDir, dataDir, home, home,
+		xmlEscape(forgejoURL), xmlEscape(forgejoToken), ttalTeamEntry)
 
 	if err := os.WriteFile(plistPath, []byte(plist), 0o600); err != nil {
 		return err
@@ -161,7 +186,7 @@ func installDaemonPlist(home, ttalBin, logDir string) error {
 	}
 
 	fmt.Printf("Daemon plist installed: %s\n", plistPath)
-	fmt.Printf("Logs: %s/daemon.log\n", logDir)
+	fmt.Printf("Logs: %s/daemon.log\n", dataDir)
 	return nil
 }
 
@@ -182,7 +207,8 @@ func Start() error {
 		return err
 	}
 
-	plistPath := filepath.Join(home, "Library", "LaunchAgents", daemonPlistName+".plist")
+	label := daemonPlistName()
+	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 	if _, err := os.Stat(plistPath); err != nil {
 		return fmt.Errorf("daemon not installed (run: ttal daemon install)")
 	}
@@ -204,8 +230,9 @@ func Start() error {
 
 // Stop stops the daemon launchd service.
 func Stop() error {
+	label := daemonPlistName()
 	uid := os.Getuid()
-	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, daemonPlistName))
+	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, label))
 	if out, err := cmd.CombinedOutput(); err != nil {
 		outStr := strings.TrimSpace(string(out))
 		if strings.Contains(outStr, "No such process") || strings.Contains(outStr, "3:") {

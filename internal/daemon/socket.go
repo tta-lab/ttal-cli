@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 )
 
@@ -16,11 +17,7 @@ const socketTimeout = 5 * time.Second
 
 // SocketPath returns the path to the daemon unix socket.
 func SocketPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".ttal", "daemon.sock"), nil
+	return filepath.Join(config.ResolveDataDir(), "daemon.sock"), nil
 }
 
 // Request is the top-level socket message envelope.

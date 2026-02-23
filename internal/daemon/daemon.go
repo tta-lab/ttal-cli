@@ -29,18 +29,13 @@ func Run(database *ent.Client) error {
 		return fmt.Errorf("daemon already running (pid=%d)", pid)
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	ttalDir := filepath.Join(home, ".ttal")
-	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
+	dataDir := cfg.DataDir()
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}
 
 	// Write pid file
-	pidPath := filepath.Join(ttalDir, pidFileName)
+	pidPath := filepath.Join(dataDir, pidFileName)
 	if err := writePID(pidPath); err != nil {
 		return fmt.Errorf("failed to write pid file: %w", err)
 	}
@@ -187,12 +182,7 @@ func startWatcher(database *ent.Client, cfg *config.Config, done <-chan struct{}
 
 // IsRunning checks whether the daemon is running by inspecting the pid file.
 func IsRunning() (bool, int, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false, 0, err
-	}
-
-	pidPath := filepath.Join(home, ".ttal", pidFileName)
+	pidPath := filepath.Join(config.ResolveDataDir(), pidFileName)
 	data, err := os.ReadFile(pidPath)
 	if err != nil {
 		return false, 0, nil

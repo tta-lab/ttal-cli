@@ -58,6 +58,16 @@ func SyncTokens(agentNames []string) error {
 		return nil
 	}
 
+	// For team configs, sync the agents map back into the active team
+	// and clear flat fields to avoid duplication.
+	if len(cfg.Teams) > 0 {
+		if team, ok := cfg.Teams[cfg.resolvedTeamName]; ok {
+			team.Agents = cfg.Agents
+			cfg.Teams[cfg.resolvedTeamName] = team
+		}
+		cfg.clearResolvedFields()
+	}
+
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err

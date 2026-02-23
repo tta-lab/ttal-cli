@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
 
 const cleanupDir = "cleanup"
@@ -20,12 +22,7 @@ type CleanupRequest struct {
 // RequestCleanup writes a cleanup request file for the daemon to process.
 // This is fire-and-forget — the file persists even if the daemon is down.
 func RequestCleanup(sessionID, taskUUID string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	dir := filepath.Join(home, ".ttal", cleanupDir)
+	dir := filepath.Join(config.ResolveDataDir(), cleanupDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cleanup dir: %w", err)
 	}
@@ -45,11 +42,7 @@ func RequestCleanup(sessionID, taskUUID string) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// CleanupDir returns the path to ~/.ttal/cleanup/.
+// CleanupDir returns the path to <data_dir>/cleanup/.
 func CleanupDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".ttal", cleanupDir), nil
+	return filepath.Join(config.ResolveDataDir(), cleanupDir), nil
 }

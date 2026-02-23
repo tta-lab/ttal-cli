@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
 
 const cmdTimeout = 10 * time.Second
@@ -15,12 +17,7 @@ const cmdTimeout = 10 * time.Second
 // DumpWorkerState captures git state for debugging.
 // Returns the path to the dump file.
 func DumpWorkerState(sessionName, workDir, workerName string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	dumpDir := filepath.Join(home, ".ttal", "dumps")
+	dumpDir := filepath.Join(config.ResolveDataDir(), "dumps")
 	if err := os.MkdirAll(dumpDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create dump directory: %w", err)
 	}

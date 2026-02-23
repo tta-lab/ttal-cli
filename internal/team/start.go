@@ -64,7 +64,7 @@ func Start(database *ent.Client, force bool) error {
 			status.Remove(agentName)
 		}
 
-		if err := launchAgentSession(sessionName, tab); err != nil {
+		if err := launchAgentSession(sessionName, tab, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: %s: %v\n", agentName, err)
 			continue
 		}
@@ -91,15 +91,29 @@ func Start(database *ent.Client, force bool) error {
 }
 
 // launchAgentSession creates a tmux session for one agent with CC in the first window.
-func launchAgentSession(sessionName string, tab AgentTab) error {
+func launchAgentSession(sessionName string, tab AgentTab, cfg *config.Config) error {
 	claudeCmd := buildClaudeCommand(tab)
 
-	// Set TTAL_AGENT_NAME in the command so fish (and its child CC) inherit it.
-	// Can't use tmux set-environment here — the session command starts immediately,
-	// before set-environment could be called.
-	fishCmd := fmt.Sprintf("env TTAL_AGENT_NAME=%s fish -C '%s'", tab.Name, claudeCmd)
+	// Build env vars: TTAL_AGENT_NAME + team context (TTAL_TEAM, TASKRC).
+	envParts := []string{fmt.Sprintf("TTAL_AGENT_NAME=%s", tab.Name)}
+	if team := cfg.TeamName(); team != "default" || os.Getenv("TTAL_TEAM") != "" {
+		envParts = append(envParts, fmt.Sprintf("TTAL_TEAM=%s", team))
+	}
+	if taskrc := cfg.TaskRC(); taskrc != config.DefaultTaskRC() {
+		envParts = append(envParts, fmt.Sprintf("TASKRC=%s", taskrc))
+	}
+
+	fishCmd := fmt.Sprintf("env %s fish -C '%s'", strings.Join(envParts, " "), claudeCmd)
 	if err := tmux.NewSession(sessionName, tab.Name, tab.Path, fishCmd); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
+	}
+
+	// Set team env at session level so new windows/panes inherit
+	if team := cfg.TeamName(); team != "default" || os.Getenv("TTAL_TEAM") != "" {
+		_ = tmux.SetEnv(sessionName, "TTAL_TEAM", team)
+	}
+	if taskrc := cfg.TaskRC(); taskrc != config.DefaultTaskRC() {
+		_ = tmux.SetEnv(sessionName, "TASKRC", taskrc)
 	}
 
 	return nil
