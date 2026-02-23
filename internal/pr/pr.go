@@ -13,7 +13,12 @@ func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) 
 		return nil, fmt.Errorf("task has no branch UDA set")
 	}
 
-	pr, err := ctx.Provider.CreatePR(ctx.Owner, ctx.Repo, ctx.Task.Branch, "main", title, body)
+	base := ctx.Info.DefaultBranch
+	if base == "" {
+		base = "main"
+	}
+
+	pr, err := ctx.Provider.CreatePR(ctx.Owner, ctx.Repo, ctx.Task.Branch, base, title, body)
 	if err != nil {
 		return nil, err
 	}

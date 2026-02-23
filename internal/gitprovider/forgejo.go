@@ -3,7 +3,6 @@ package gitprovider
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	forgejo_sdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
 )
@@ -12,23 +11,11 @@ type ForgejoProvider struct {
 	client *forgejo_sdk.Client
 }
 
-var (
-	forgejoTokenOnce sync.Once
-	forgejoToken     string
-)
-
-func getForgejoToken() string {
-	forgejoTokenOnce.Do(func() {
-		forgejoToken = os.Getenv("FORGEJO_TOKEN")
-		if forgejoToken == "" {
-			forgejoToken = os.Getenv("FORGEJO_ACCESS_TOKEN")
-		}
-	})
-	return forgejoToken
-}
-
-func NewForgejoProvider(_ string) (Provider, error) {
-	token := getForgejoToken()
+func NewForgejoProvider() (Provider, error) {
+	token := os.Getenv("FORGEJO_TOKEN")
+	if token == "" {
+		token = os.Getenv("FORGEJO_ACCESS_TOKEN")
+	}
 	if token == "" {
 		return nil, fmt.Errorf("FORGEJO_TOKEN or FORGEJO_ACCESS_TOKEN environment variable is required")
 	}

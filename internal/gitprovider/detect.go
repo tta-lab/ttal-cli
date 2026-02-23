@@ -12,10 +12,11 @@ import (
 const remoteTimeout = 10 * time.Second
 
 type RepoInfo struct {
-	Owner    string
-	Repo     string
-	Provider ProviderType
-	Host     string
+	Owner         string
+	Repo          string
+	Provider      ProviderType
+	Host          string
+	DefaultBranch string
 }
 
 func DetectProvider(workDir string) (*RepoInfo, error) {
@@ -29,18 +30,42 @@ func DetectProvider(workDir string) (*RepoInfo, error) {
 	}
 
 	remoteURL := strings.TrimSpace(string(out))
-	return ParseRemoteURL(remoteURL)
+	info, err := ParseRemoteURL(remoteURL)
+	if err != nil {
+		return nil, err
+	}
+
+	info.DefaultBranch = detectDefaultBranch(workDir)
+	return info, nil
+}
+
+func detectDefaultBranch(workDir string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "symbolic-ref", "refs/remotes/origin/HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "main"
+	}
+
+	// Output is like "refs/remotes/origin/main" — extract the branch name
+	ref := strings.TrimSpace(string(out))
+	const prefix = "refs/remotes/origin/"
+	if !strings.HasPrefix(ref, prefix) {
+		return "main"
+	}
+	return ref[len(prefix):]
 }
 
 func ParseRemoteURL(remoteURL string) (*RepoInfo, error) {
 	if strings.HasPrefix(remoteURL, "git@") {
 		return parseSSHShorthand(remoteURL)
 	}
-	if strings.HasPrefix(remoteURL, "ssh://") {
-		return parseSSHProtocol(remoteURL)
-	}
-	if strings.HasPrefix(remoteURL, "http://") || strings.HasPrefix(remoteURL, "https://") {
-		return parseHTTP(remoteURL)
+	if strings.HasPrefix(remoteURL, "ssh://") ||
+		strings.HasPrefix(remoteURL, "http://") ||
+		strings.HasPrefix(remoteURL, "https://") {
+		return parseURL(remoteURL)
 	}
 	return nil, fmt.Errorf("could not parse git remote URL: %s", remoteURL)
 }
@@ -65,37 +90,10 @@ func parseSSHShorthand(url string) (*RepoInfo, error) {
 	}, nil
 }
 
-func parseSSHProtocol(url string) (*RepoInfo, error) {
-	u, err := urlpkg.Parse(url)
+func parseURL(raw string) (*RepoInfo, error) {
+	u, err := urlpkg.Parse(raw)
 	if err != nil {
-		return nil, fmt.Errorf("invalid SSH URL: %w", err)
-	}
-
-	host := u.Hostname()
-	if host == "" {
-		host = u.Host
-	}
-	if strings.Contains(host, "@") {
-		parts := strings.SplitN(host, "@", 2)
-		host = parts[1]
-	}
-
-	owner, repo, err := splitPath(strings.TrimPrefix(u.Path, "/"))
-	if err != nil {
-		return nil, err
-	}
-	return &RepoInfo{
-		Owner:    owner,
-		Repo:     repo,
-		Provider: detectProviderFromHost(host),
-		Host:     host,
-	}, nil
-}
-
-func parseHTTP(url string) (*RepoInfo, error) {
-	u, err := urlpkg.Parse(url)
-	if err != nil {
-		return nil, fmt.Errorf("invalid HTTP URL: %w", err)
+		return nil, fmt.Errorf("invalid URL: %w", err)
 	}
 
 	host := u.Hostname()
@@ -137,7 +135,7 @@ func NewProvider(info *RepoInfo) (Provider, error) {
 	case ProviderGitHub:
 		return NewGitHubProvider()
 	case ProviderForgejo:
-		return NewForgejoProvider("https://" + info.Host)
+		return NewForgejoProvider()
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", info.Provider)
 	}

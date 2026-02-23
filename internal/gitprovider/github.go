@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/google/go-github/v69/github"
 )
@@ -13,20 +12,8 @@ type GitHubProvider struct {
 	client *github.Client
 }
 
-var (
-	githubTokenOnce sync.Once
-	githubToken     string
-)
-
-func getGitHubToken() string {
-	githubTokenOnce.Do(func() {
-		githubToken = os.Getenv("GITHUB_TOKEN")
-	})
-	return githubToken
-}
-
 func NewGitHubProvider() (Provider, error) {
-	token := getGitHubToken()
+	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		return nil, fmt.Errorf("GITHUB_TOKEN environment variable is required")
 	}

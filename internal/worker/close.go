@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
 	"codeberg.org/clawteam/ttal-cli/internal/gitutil"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
@@ -111,12 +111,17 @@ func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string) (*Cl
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
 	}
 
-	owner, repo, err := forgejo.ParseRepoInfo(projectPath)
+	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not detect repo info: %v", err)}, err
 	}
 
-	merged, err := forgejo.IsPRMerged(owner, repo, prID)
+	provider, err := gitprovider.NewProvider(info)
+	if err != nil {
+		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not create provider: %v", err)}, err
+	}
+
+	fetchedPR, err := provider.GetPR(info.Owner, info.Repo, prID)
 	if err != nil {
 		return &CloseResult{
 			Error:  true,
@@ -129,7 +134,7 @@ func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string) (*Cl
 		fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
 	}
 
-	if !merged {
+	if !fetchedPR.Merged {
 		dumpPath := dumpState(sessionName, workDir)
 		return &CloseResult{
 			Merged:    "false",

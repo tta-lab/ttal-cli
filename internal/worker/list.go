@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	"codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
@@ -109,21 +109,30 @@ func checkPRMerged(t taskwarrior.Task) bool {
 		return false
 	}
 
-	owner, repo, err := forgejo.ParseRepoInfo(t.ProjectPath)
-	if err != nil {
-		return false
-	}
-
 	prID, err := strconv.ParseInt(t.PRID, 10, 64)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: invalid PR ID %q: %v\n", t.PRID, err)
 		return false
 	}
 
-	merged, err := forgejo.IsPRMerged(owner, repo, prID)
+	info, err := gitprovider.DetectProvider(t.ProjectPath)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not detect provider for %s: %v\n", t.ProjectPath, err)
 		return false
 	}
-	return merged
+
+	provider, err := gitprovider.NewProvider(info)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not create %s provider: %v\n", info.Provider, err)
+		return false
+	}
+
+	pr, err := provider.GetPR(info.Owner, info.Repo, prID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not check PR #%d for %s/%s: %v\n", prID, info.Owner, info.Repo, err)
+		return false
+	}
+	return pr.Merged
 }
 
 func printWorkerTable(workers []WorkerInfo) {
