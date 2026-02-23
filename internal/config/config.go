@@ -8,7 +8,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// AgentSessionName returns the zellij session name for an agent.
+// AgentSessionName returns the tmux session name for an agent.
 // Convention: "session-<agent-name>" (e.g. "session-athena"). Derived, not stored.
 //
 // This is distinct from worker sessions which use "w-<uuid[:8]>-<slug>"
@@ -19,11 +19,8 @@ func AgentSessionName(agent string) string {
 
 // Config is the top-level structure for ~/.config/ttal/config.toml.
 //
-// ZellijSession is deprecated — sessions are now per-agent (session-<name>).
-// Kept for backward compatibility but no longer required.
 // ChatID is global default — agents inherit it unless they override.
 type Config struct {
-	ZellijSession  string                 `toml:"zellij_session"`
 	ChatID         string                 `toml:"chat_id"`
 	LifecycleAgent string                 `toml:"lifecycle_agent"`
 	Agents         map[string]AgentConfig `toml:"agents"`
@@ -105,7 +102,7 @@ lifecycle_agent = "kestrel"
 bot_token = "TODO"
 
 # [voice]
-# vocabulary = ["ttal", "treemd", "zellij", "taskwarrior"]
+# vocabulary = ["ttal", "treemd", "taskwarrior"]
 `
 
 	return os.WriteFile(path, []byte(template), 0o600)

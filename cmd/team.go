@@ -7,14 +7,14 @@ import (
 
 var teamCmd = &cobra.Command{
 	Use:   "team",
-	Short: "Manage agent zellij sessions",
+	Short: "Manage agent sessions",
 }
 
 var teamStartCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start per-agent zellij sessions",
-	Long: `Creates a separate zellij session for each agent configured in config.toml.
-Each session is named "session-<agent>" and contains a Claude Code tab + terminal tab.
+	Short: "Start per-agent tmux sessions",
+	Long: `Creates a separate tmux session for each agent configured in config.toml.
+Each session is named "session-<agent>" and contains a Claude Code window + terminal window.
 
 Without --force: skips already-running sessions (only starts missing ones).
 With --force: kills and recreates all sessions.`,
@@ -26,10 +26,10 @@ With --force: kills and recreates all sessions.`,
 
 var teamAttachCmd = &cobra.Command{
 	Use:   "attach <agent-name>",
-	Short: "Attach to an agent's zellij session",
-	Long: `Attach the current terminal to an agent's zellij session.
+	Short: "Attach to an agent's tmux session",
+	Long: `Attach the current terminal to an agent's tmux session.
 
-Equivalent to: zellij --data-dir <datadir> attach session-<agent-name>
+Equivalent to: tmux attach-session -t session-<agent-name>
 
 Example:
   ttal team attach kestrel

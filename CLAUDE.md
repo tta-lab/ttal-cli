@@ -104,7 +104,8 @@ internal/
   ├── forgejo/   - Forgejo SDK client and repo helpers
   ├── pr/        - PR operations (create, modify, merge, comment)
   ├── worker/    - Worker lifecycle (hook, spawn, close)
-  └── zellij/    - Zellij session management and write-chars delivery
+  ├── gitutil/   - Git/worktree utilities (dump state, cleanup)
+  └── tmux/      - tmux session management and send-keys delivery
 ```
 
 ### Daemon Architecture
@@ -115,14 +116,14 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | Path | Channel | Handler |
 |---|---|---|
 | JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
-| `ttal send --to kestrel` | Zellij write-chars | `handleTo` |
+| `ttal send --to kestrel` | tmux send-keys | `handleTo` |
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Background `claude -p` enrichment | `HookOnAdd` → `HookEnrich` |
 | on-modify hook (task started) | Background `ttal worker spawn` | `handleOnStart` → `HookSpawnWorker` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
-are set. Taskwarrior hooks use `--to` (daemon socket → agent's Zellij terminal).
+are set. Taskwarrior hooks use `--to` (daemon socket → agent's tmux session).
 
 The watcher (`internal/watcher/`) uses fsnotify to tail active CC session JSONL files. It maps
 encoded project directory names back to registered agent paths, reads new bytes from tracked

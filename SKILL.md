@@ -52,7 +52,7 @@ If the server is not running, tell the user to run `ttal voice install`.
 
 ## PR Management
 
-Manage Forgejo pull requests from your worker session. Context is auto-resolved from your zellij session — no flags needed.
+Manage Forgejo pull requests from your worker session. Context is auto-resolved from TTAL_JOB_ID — no flags needed.
 
 ### Create a PR
 
@@ -88,7 +88,7 @@ ttal pr comment list
 
 ### Override context
 
-If not in a zellij worker session, provide the task UUID explicitly:
+If not in a worker session, provide the task UUID explicitly:
 
 ```bash
 ttal pr create "title" --task <uuid>

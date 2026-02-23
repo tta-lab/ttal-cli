@@ -121,7 +121,6 @@ var prerequisites = []prerequisite{
 	{"tmux", "tmux", true, "brew install tmux"},
 	{"taskwarrior", "task", true, "brew install task"},
 	{"git", "git", true, "brew install git"},
-	{"zellij", "zellij", true, "brew install zellij"},
 	{"ffmpeg", "ffmpeg", false, "brew install ffmpeg (needed for voice)"},
 }
 
@@ -165,7 +164,6 @@ func getToolVersion(bin string) string {
 		"tmux ",           // "tmux 3.6a"
 		"git version ",    // "git version 2.47.1"
 		"task ",           // "task 3.1.0"
-		"zellij ",         // "zellij 0.43.1"
 		"ffmpeg version ", // "ffmpeg version 7.1 ..."
 	} {
 		if strings.HasPrefix(line, prefix) {

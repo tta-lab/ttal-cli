@@ -22,7 +22,7 @@ var (
 var workerCmd = &cobra.Command{
 	Use:   "worker",
 	Short: "Manage Claude Code workers",
-	Long:  `Spawn, list, and close Claude Code workers running in isolated zellij sessions.`,
+	Long:  `Spawn, list, and close Claude Code workers running in isolated tmux sessions.`,
 	// Skip database initialization — worker commands don't need ttal's DB
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
@@ -64,9 +64,9 @@ Log files are preserved. To also remove the daemon: ttal daemon uninstall`,
 var workerSpawnCmd = &cobra.Command{
 	Use:   "spawn",
 	Short: "Spawn a new worker",
-	Long: `Spawn a Claude Code worker in an isolated zellij session.
+	Long: `Spawn a Claude Code worker in an isolated tmux session.
 
-Creates a git worktree, launches a zellij session with Claude Code,
+Creates a git worktree, launches a tmux session with Claude Code,
 and tracks the worker in taskwarrior.
 
 Task tags control behavior:

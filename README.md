@@ -1,6 +1,6 @@
 # TTAL CLI - Agent Infrastructure
 
-A command-line tool for managing agents, projects, workers, PRs, messaging, and voice — the single interface for agent operations in zellij sessions.
+A command-line tool for managing agents, projects, workers, PRs, messaging, and voice — the single interface for agent operations in tmux sessions.
 
 ## Features
 
@@ -8,7 +8,7 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 - **Agent Management**: Configure agents with tags, status tracking, and heartbeat periods
 - **Worker Management**: Spawn and close Claude Code workers in isolated sessions
 - **PR Management**: Create, modify, merge (squash), and comment on Forgejo PRs — context auto-resolved from worker session
-- **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (Zellij) communication via `ttal send`
+- **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (tmux) communication via `ttal send`
 - **Tag-Based Routing**: Tag-based task routing to matching agents on task start
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
 - **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
@@ -207,7 +207,7 @@ ttal memory capture --date=2026-02-08 --output=/path/to/memory
 
 ### Worker Commands
 
-Worker commands manage Claude Code instances running in isolated zellij sessions, tracked via taskwarrior. These commands do **not** require the ttal database.
+Worker commands manage Claude Code instances running in isolated tmux sessions, tracked via taskwarrior. These commands do **not** require the ttal database.
 
 ```bash
 # List active workers
@@ -239,7 +239,7 @@ ttal worker close <session-name> --force
 | `--name` | (required) | Worker name, used for branch and worktree naming |
 | `--project` | (required) | Project directory path |
 | `--task` | (required) | Taskwarrior task UUID |
-| `--session` | random 8-char ID | Custom zellij session name |
+| `--session` | from task UUID | tmux session name (auto-derived) |
 | `--worktree` | `true` | Create git worktree for isolation |
 | `--force` | `false` | Force respawn (close existing session) |
 | `--yolo` | `true` | Skip Claude Code permission prompts |
@@ -275,7 +275,7 @@ Tasks go through three hook-driven stages:
 
 **1. on-add: Auto-enrichment** — When a task is created, the on-add hook checks if its tags already match a registered agent. If not, it forks a background `claude -p --model haiku` process to enrich the task with `project_path` and `branch` UDAs.
 
-**2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal worker spawn` to create a zellij session with a git worktree.
+**2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal worker spawn` to create a tmux session with a git worktree.
 
 **3. on-modify (complete): Auto-cleanup** — When a task is completed, the hook closes the worker session, auto-cleans if the PR is merged and the worktree is clean, or notifies the lifecycle agent if manual cleanup is needed.
 
@@ -296,7 +296,7 @@ The daemon is a long-running process (managed by launchd on macOS) that acts as 
 
 #### What it does
 
-- **Telegram → Agent**: Polls each agent's Telegram bot for inbound messages, delivers them to the agent's zellij session via `write-chars`
+- **Telegram → Agent**: Polls each agent's Telegram bot for inbound messages, delivers them to the agent's tmux session via `send-keys`
 - **CC → Telegram**: JSONL watcher tails active CC session files (via fsnotify) and sends assistant text blocks to Telegram automatically — no agent action needed
 - **Agent → Agent**: Routes `ttal send --to b` between agents via tmux with attribution (agent identity from `TTAL_AGENT_NAME` env)
 - **Worker cleanup**: Processes post-merge cleanup requests (close session, remove worktree, mark task done)
@@ -307,7 +307,6 @@ Create `~/.ttal/daemon.json` (a template is created by `ttal daemon install`):
 
 ```json
 {
-  "zellij_session": "ttal-team",
   "chat_id": "845849177",
   "lifecycle_agent": "kestrel",
   "agents": {
@@ -318,7 +317,6 @@ Create `~/.ttal/daemon.json` (a template is created by `ttal daemon install`):
 }
 ```
 
-- `zellij_session` — all agents live in this session (tab name = agent name)
 - `chat_id` — global Telegram chat ID (per-agent override via `chat_id` field)
 - `lifecycle_agent` — which agent handles task start/complete events
 - `agents` — per-agent Telegram bot tokens
@@ -353,7 +351,7 @@ tail -f ~/.ttal/daemon.log
 Send messages between agents and humans with explicit direction:
 
 ```bash
-# System/hook delivers to agent via Zellij
+# System/hook delivers to agent via tmux
 ttal send --to kestrel "Task started: implement auth"
 
 # Agent-to-agent via tmux (recipient sees [agent from:yuki] attribution)
@@ -378,7 +376,7 @@ Can you review my auth module?
 
 ### PR Commands
 
-Manage Forgejo pull requests directly from worker sessions. Context is auto-resolved from `ZELLIJ_SESSION_NAME` (task UUID prefix) → `project_path` → `git remote get-url origin`.
+Manage Forgejo pull requests directly from worker sessions. Context is auto-resolved from `TTAL_JOB_ID` (task UUID prefix) → `project_path` → `git remote get-url origin`.
 
 ```bash
 # Create PR (stores pr_id in task UDA automatically)
@@ -420,7 +418,7 @@ Required by: `ttal pr *`, `ttal worker close` (smart mode).
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TTAL_ZELLIJ_DATA_DIR` | No | Custom zellij data directory (default: `$TMPDIR/ttal-zellij-data`) |
+| `TTAL_JOB_ID` | No | Task UUID prefix (set automatically in worker sessions) |
 
 ### Taskwarrior UDAs
 
@@ -442,9 +440,9 @@ uda.pr_id.label=PR ID
 Worker commands require these tools in `$PATH`:
 
 - `task` - Taskwarrior (task tracking)
-- `zellij` - Terminal multiplexer (worker sessions)
+- `tmux` - Terminal multiplexer (worker and agent sessions)
 - `git` - Version control (worktrees, branch management)
-- `fish` - Fish shell (used in zellij layouts)
+- `fish` - Fish shell (used in tmux sessions)
 
 ## Modify Command Syntax
 

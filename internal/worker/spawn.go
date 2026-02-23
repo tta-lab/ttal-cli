@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
 // SpawnConfig holds configuration for spawning a worker.
@@ -23,7 +23,7 @@ type SpawnConfig struct {
 	Yolo     bool
 }
 
-// Spawn creates a new worker: validates task, sets up worktree, launches zellij session,
+// Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
 // and tracks the worker in taskwarrior.
 func Spawn(cfg SpawnConfig) error {
 	task, err := loadAndValidateTask(cfg)
@@ -42,7 +42,7 @@ func Spawn(cfg SpawnConfig) error {
 	sessionName := task.SessionName()
 
 	fmt.Printf("Spawning CC worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Name, project, task.Description)
-	fmt.Printf("Creating zellij session: %s (from task UUID for worker '%s')\n", sessionName, cfg.Name)
+	fmt.Printf("Creating tmux session: %s (from task UUID for worker '%s')\n", sessionName, cfg.Name)
 
 	if err := ensureSessionAvailable(cfg, sessionName, project); err != nil {
 		return err
@@ -75,13 +75,13 @@ func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
 }
 
 func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error {
-	if !zellij.SessionExists(sessionName) {
+	if !tmux.SessionExists(sessionName) {
 		return nil
 	}
 
 	if cfg.Force {
 		fmt.Printf("Session '%s' exists, closing it (--force)\n", sessionName)
-		return zellij.DeleteSession(sessionName)
+		return tmux.KillSession(sessionName)
 	}
 
 	return fmt.Errorf("session '%s' already exists\n"+
@@ -109,47 +109,95 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		model = "sonnet"
 	}
 
-	fmt.Printf("\nLaunching Claude Code with task: %s\n", task.Description)
-	fmt.Printf("  Model: %s\n", model)
-	layoutFile, _, err := zellij.CreateLayout(zellij.LayoutConfig{
-		WorkDir:    workDir,
-		Task:       task.FormatPrompt(),
-		Yolo:       cfg.Yolo,
-		Brainstorm: task.HasTag("brainstorm"),
-		Model:      model,
-		Branch:     branch,
-		IsWorktree: cfg.Worktree,
-	})
+	ttalBin, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("failed to create layout: %w", err)
+		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	handle, err := zellij.LaunchSession(sessionName, layoutFile)
+	taskFile, err := writeTaskFile(task, cfg, workDir, branch)
 	if err != nil {
 		return err
 	}
 
-	if err := zellij.WaitForSession(sessionName, handle, 30*time.Second); err != nil {
-		return fmt.Errorf("failed to create zellij session\n"+
-			"  Session name: %s\n"+
-			"  Worker: %s\n\n"+
-			"  %w", sessionName, cfg.Name, err)
+	yoloFlag := ""
+	if cfg.Yolo {
+		yoloFlag = "--dangerously-skip-permissions "
+	}
+
+	claudeCmd := fmt.Sprintf(
+		"'%s' worker gatekeeper --task-file '%s' -- claude --model %s %s--",
+		ttalBin, taskFile, model, yoloFlag)
+
+	// Set TTAL_JOB_ID (task UUID[:8]) so CC can resolve task context.
+	// Use double quotes for sh — single quotes in claudeCmd pass through to fish.
+	fishCmd := fmt.Sprintf(`env TTAL_JOB_ID=%s fish -C "%s"`, task.SessionID(), claudeCmd)
+
+	fmt.Printf("\nLaunching Claude Code with task: %s\n", task.Description)
+	fmt.Printf("  Model: %s\n", model)
+
+	if err := tmux.NewSession(sessionName, "worker", workDir, fishCmd); err != nil {
+		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
 	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
-		return fmt.Errorf("worker spawn incomplete - session created but task tracking failed\n"+
+		return fmt.Errorf("session created but task tracking failed\n"+
 			"  Session: %s\n"+
-			"  To attach: zellij --data-dir %s attach %s\n\n"+
-			"  %w", sessionName, zellij.DataDir(), sessionName, err)
+			"  To attach: tmux attach -t %s\n\n"+
+			"  %w", sessionName, sessionName, err)
 	}
 
 	fmt.Printf("\nWorker '%s' spawned successfully\n", cfg.Name)
 	fmt.Printf("  Session: %s\n", sessionName)
 	fmt.Printf("  Work dir: %s\n", workDir)
 	fmt.Printf("\nTo attach:\n")
-	fmt.Printf("  zellij --data-dir %s attach %s\n", zellij.DataDir(), sessionName)
+	fmt.Printf("  tmux attach -t %s\n", sessionName)
 
 	return nil
+}
+
+func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string) (string, error) {
+	fullTask := task.FormatPrompt()
+
+	if cfg.Worktree && branch != "" {
+		worktreePrefix := fmt.Sprintf(`IMPORTANT - You are in a git worktree:
+- Working directory: %s
+- Branch: %s
+- This is an isolated workspace for your task
+- STAY in this directory - do NOT cd to parent/main workspace
+- All your work should happen here
+- When done: Use the /create-pr skill to finalize (commits, pushes, creates PR, updates task)
+
+Your task:
+
+`, workDir, branch)
+		fullTask = worktreePrefix + fullTask
+	}
+
+	if task.HasTag("brainstorm") {
+		brainstormPrefix := `Use the brainstorming skill before implementation:
+
+1. Understand the project context (check files, docs, recent commits)
+2. Ask clarifying questions one at a time to refine requirements
+3. Explore different approaches with trade-offs
+4. Present the design in sections, validating each part
+5. Document the design in docs/plans/YYYY-MM-DD-<topic>-design.md
+
+Then proceed with:
+
+`
+		fullTask = brainstormPrefix + fullTask
+	}
+
+	taskFile, err := os.CreateTemp("", "claude-task-*.txt")
+	if err != nil {
+		return "", fmt.Errorf("failed to create task file: %w", err)
+	}
+	if _, err := taskFile.WriteString(fullTask); err != nil {
+		_ = taskFile.Close()
+		return "", fmt.Errorf("failed to write task file: %w", err)
+	}
+	_ = taskFile.Close()
+	return taskFile.Name(), nil
 }
 
 func setupWorktree(project, name string) (string, error) {
@@ -213,8 +261,6 @@ func runWorktreeSetup(worktreeDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Run through fish to get proper PATH (proto, moon, bun, etc.)
-	// matching how the zellij session itself runs via fish -C
 	cmd := exec.CommandContext(ctx, "fish", "-c", fmt.Sprintf("cd %s && ./.worktree-setup", worktreeDir))
 	out, err := cmd.CombinedOutput()
 	if err != nil {

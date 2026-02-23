@@ -18,7 +18,7 @@ var prCmd = &cobra.Command{
 	Short: "Manage pull requests for the current worker task",
 	Long: `Create, modify, and comment on Forgejo pull requests.
 
-Context is auto-resolved from ZELLIJ_SESSION_NAME (task UUID prefix).
+Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
 Use --task to override with an explicit task UUID.
 
 Environment:
@@ -202,7 +202,7 @@ var prCommentListCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(prCmd)
 
-	prCmd.PersistentFlags().StringVar(&prTaskUUID, "task", "", "Task UUID (auto-resolved from zellij session if omitted)")
+	prCmd.PersistentFlags().StringVar(&prTaskUUID, "task", "", "Task UUID (auto-resolved from TTAL_JOB_ID if omitted)")
 
 	prCreateCmd.Flags().String("body", "", "PR body/description")
 	prModifyCmd.Flags().String("title", "", "New PR title")

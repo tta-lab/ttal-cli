@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/forgejo"
+	"codeberg.org/clawteam/ttal-cli/internal/gitutil"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
 // CloseResult holds the outcome of a close operation.
@@ -67,8 +68,8 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
-		dumpPath, _ := zellij.DumpSessionState(sessionName, workDir, sessionName)
-		if err := zellij.CleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
+		dumpPath := dumpState(sessionName, workDir)
+		if err := cleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
 			return &CloseResult{
 				Error:     true,
 				Status:    "Worker cleanup failed",
@@ -87,8 +88,11 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Smart mode: check PR + worktree
 	if task.PRID == "" {
 		// No pr_id — worker hasn't created a PR yet
-		clean := zellij.CheckWorktreeClean(workDir)
-		dumpPath, _ := zellij.DumpSessionState(sessionName, workDir, sessionName)
+		clean, cleanErr := gitutil.IsWorktreeClean(workDir)
+		if cleanErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
+		}
+		dumpPath := dumpState(sessionName, workDir)
 		return &CloseResult{
 			Merged:    "no_pr",
 			Clean:     clean,
@@ -97,12 +101,16 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	prID, err := strconv.ParseInt(task.PRID, 10, 64)
+	return closeWithPR(task.PRID, projectPath, sessionName, workDir, branch)
+}
+
+// closeWithPR handles the smart-close path when a PR exists.
+func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string) (*CloseResult, error) {
+	prID, err := strconv.ParseInt(prIDStr, 10, 64)
 	if err != nil {
-		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", task.PRID)}, err
+		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
 	}
 
-	// Check if PR is merged
 	owner, repo, err := forgejo.ParseRepoInfo(projectPath)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not detect repo info: %v", err)}, err
@@ -112,26 +120,28 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	if err != nil {
 		return &CloseResult{
 			Error:  true,
-			Status: fmt.Sprintf("Failed to check PR #%s: %v", task.PRID, err),
+			Status: fmt.Sprintf("Failed to check PR #%s: %v", prIDStr, err),
 		}, err
 	}
 
-	clean := zellij.CheckWorktreeClean(workDir)
+	clean, cleanErr := gitutil.IsWorktreeClean(workDir)
+	if cleanErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
+	}
 
 	if !merged {
-		dumpPath, _ := zellij.DumpSessionState(sessionName, workDir, sessionName)
+		dumpPath := dumpState(sessionName, workDir)
 		return &CloseResult{
 			Merged:    "false",
 			Clean:     clean,
-			Status:    fmt.Sprintf("PR #%s not merged yet - worker needs review", task.PRID),
+			Status:    fmt.Sprintf("PR #%s not merged yet - worker needs review", prIDStr),
 			StateDump: dumpPath,
 		}, ErrNeedsDecision
 	}
 
-	// PR is merged
+	// PR is merged + worktree clean → auto-cleanup
 	if clean {
-		// Safe to auto-cleanup
-		if err := zellij.CleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
 			return &CloseResult{Error: true, Status: "Worker cleanup failed"}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		pullMainBranch(projectPath)
@@ -142,13 +152,33 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	}
 
 	// PR merged but worktree dirty
-	dumpPath, _ := zellij.DumpSessionState(sessionName, workDir, sessionName)
+	dumpPath := dumpState(sessionName, workDir)
 	return &CloseResult{
 		Merged:    "true",
 		Clean:     false,
 		Status:    "PR merged but worktree has uncommitted changes",
 		StateDump: dumpPath,
 	}, ErrNeedsDecision
+}
+
+// dumpState captures worker git state, logging any errors to stderr.
+func dumpState(sessionName, workDir string) string {
+	path, err := gitutil.DumpWorkerState(sessionName, workDir, sessionName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to dump worker state: %v\n", err)
+	}
+	return path
+}
+
+// cleanupWorker kills the tmux session and removes the git worktree + branch.
+func cleanupWorker(sessionName, workDir, branch, projectDir string) error {
+	if tmux.SessionExists(sessionName) {
+		if err := tmux.KillSession(sessionName); err != nil {
+			return fmt.Errorf("failed to kill session: %w", err)
+		}
+	}
+
+	return gitutil.RemoveWorktree(projectDir, workDir, branch)
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.

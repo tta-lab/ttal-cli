@@ -17,11 +17,9 @@ func formatAgentMessage(fromAgent, text string) string {
 	return fmt.Sprintf("[agent from:%s]\n%s", fromAgent, text)
 }
 
-// deliverToZellij sends text to an agent's tmux session via send-keys + Enter.
+// deliverToAgent sends text to an agent's tmux session via send-keys + Enter.
 // Session name = "session-<agentName>" (convention). Window name = agent name.
-// NOTE: Function name kept as deliverToZellij to minimize caller changes.
-// TODO: Rename to deliverToAgent in a follow-up.
-func deliverToZellij(agentName, text string) error {
+func deliverToAgent(agentName, text string) error {
 	session := config.AgentSessionName(agentName)
 	return tmux.SendKeys(session, agentName, text)
 }

@@ -6,10 +6,9 @@ import (
 	"syscall"
 
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/zellij"
 )
 
-// Session attaches to the zellij session associated with a task.
+// Session attaches to the tmux session associated with a task.
 func Session(uuid string) error {
 	if err := taskwarrior.ValidateUUID(uuid); err != nil {
 		return err
@@ -27,12 +26,12 @@ func Session(uuid string) error {
 			"  ttal worker spawn --task " + uuid + " --project <path> --name <worker-name>")
 	}
 
-	zellijBin, err := lookPath("zellij")
+	tmuxBin, err := lookPath("tmux")
 	if err != nil {
-		return fmt.Errorf("zellij not found in PATH")
+		return fmt.Errorf("tmux not found in PATH")
 	}
 
-	return syscall.Exec(zellijBin, []string{
-		"zellij", "--data-dir", zellij.DataDir(), "attach", sessionID,
+	return syscall.Exec(tmuxBin, []string{
+		"tmux", "attach-session", "-t", sessionID,
 	}, os.Environ())
 }

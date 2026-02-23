@@ -36,8 +36,8 @@ type Request struct {
 // Direction is determined by which fields are set:
 //
 //	From only:       agent → human via Telegram
-//	To only:         system/hook → agent via Zellij
-//	From + To:       agent → agent via Zellij with attribution
+//	To only:         system/hook → agent via tmux
+//	From + To:       agent → agent via tmux with attribution
 type SendRequest struct {
 	From    string `json:"from,omitempty"`
 	To      string `json:"to,omitempty"`

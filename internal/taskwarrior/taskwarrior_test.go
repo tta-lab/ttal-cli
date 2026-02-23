@@ -28,6 +28,18 @@ func TestSlugify(t *testing.T) {
 		{"docs prefix", "docs/update-readme", 24, "update-readme"},
 		{"chore prefix", "chore/bump-deps", 24, "bump-deps"},
 		{"colon prefix", "fix: resolve panic on nil", 24, "resolve-panic-on-nil"},
+		{
+			"64-char boundary truncation",
+			"this-is-a-slug-that-is-exactly-long-enough-to-hit-the-sixty-four-char-boundary-and-beyond",
+			64,
+			"this-is-a-slug-that-is-exactly-long-enough-to-hit-the-sixty",
+		},
+		{
+			"64-char boundary exact fit",
+			"abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz-abcdefghij",
+			64,
+			"abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz-abcdefghij",
+		},
 	}
 
 	for _, tt := range tests {
@@ -63,7 +75,7 @@ func TestSessionName(t *testing.T) {
 			"description fallback",
 			"",
 			"feat(doctor): add ttal doctor command scaffold",
-			"w-e9d4b7c1-add-ttal-doctor-command",
+			"w-e9d4b7c1-add-ttal-doctor-command-scaffold",
 		},
 		{
 			"no branch no description",
@@ -72,16 +84,22 @@ func TestSessionName(t *testing.T) {
 			"w-e9d4b7c1",
 		},
 		{
-			"max length respected",
+			"long branch name preserved",
 			"feat/this-is-a-very-long-branch-name-that-should-be-truncated",
 			"",
-			"w-e9d4b7c1-this-is-a-very-long",
+			"w-e9d4b7c1-this-is-a-very-long-branch-name-that-should-be-truncated",
 		},
 		{
-			"socket path safe for deploy slug",
+			"long description preserved",
 			"",
 			"deploy secrets-ui to local k3s with cloudflare tunnel",
-			"w-e9d4b7c1-deploy-secrets-ui-to",
+			"w-e9d4b7c1-deploy-secrets-ui-to-local-k3s-with-cloudflare-tunnel",
+		},
+		{
+			"slug truncated at 64 chars",
+			"feat/implement-very-long-feature-name-that-exceeds-sixty-four-characters-and-should-be-truncated",
+			"",
+			"w-e9d4b7c1-implement-very-long-feature-name-that-exceeds-sixty-four",
 		},
 	}
 
@@ -96,8 +114,9 @@ func TestSessionName(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("SessionName() = %q, want %q", got, tt.want)
 			}
-			if len(got) > maxSessionLen {
-				t.Errorf("SessionName() length %d exceeds max %d", len(got), maxSessionLen)
+			// Session names should be reasonable length
+			if len(got) > 80 {
+				t.Errorf("SessionName() length %d exceeds 80", len(got))
 			}
 		})
 	}

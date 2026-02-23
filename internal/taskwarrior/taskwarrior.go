@@ -58,12 +58,6 @@ func (t *Task) SessionID() string {
 	return t.UUID
 }
 
-// maxSessionLen caps session names to fit within the Unix socket path limit.
-// Zellij socket path: $TMPDIR/zellij-$UID/$VERSION/$SESSION_NAME
-// On macOS, $TMPDIR is ~51 bytes, leaving ~37 for the session name (104 byte limit).
-// 35 gives a safe margin for longer UIDs or version strings.
-const maxSessionLen = 35
-
 // SessionName returns a human-readable session name: w-{uuid[:8]}-{slug}.
 // Slug is derived from branch (preferred) or task description (fallback).
 //
@@ -75,14 +69,13 @@ const maxSessionLen = 35
 // This is distinct from agent sessions which use "session-<name>".
 func (t *Task) SessionName() string {
 	prefix := "w-" + t.SessionID() + "-" // "w-e9d4b7c1-" = 11 chars
-	maxSlug := maxSessionLen - len(prefix)
 
 	source := t.Branch
 	if source == "" {
 		source = t.Description
 	}
 
-	slug := slugify(source, maxSlug)
+	slug := slugify(source, 64)
 	if slug == "" {
 		return "w-" + t.SessionID()
 	}

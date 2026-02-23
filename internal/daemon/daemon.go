@@ -77,8 +77,8 @@ func Run(database *ent.Client) error {
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
 		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), cfg.Voice.Vocabulary, func(name, text string) {
-			if err := deliverToZellij(name, text); err != nil {
-				log.Printf("[daemon] zellij delivery failed for %s: %v", name, err)
+			if err := deliverToAgent(name, text); err != nil {
+				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
 			}
 		}, done)
 	}
@@ -141,15 +141,15 @@ func handleFrom(cfg *config.Config, req SendRequest) error {
 	return telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(req.From), req.Message)
 }
 
-// handleTo delivers a message to an agent's zellij tab.
+// handleTo delivers a message to an agent's tmux session.
 func handleTo(cfg *config.Config, req SendRequest) error {
 	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToZellij(req.To, req.Message)
+	return deliverToAgent(req.To, req.Message)
 }
 
-// handleAgentToAgent delivers a message from one agent to another via zellij,
+// handleAgentToAgent delivers a message from one agent to another via tmux,
 // wrapping the message with attribution so the recipient knows who sent it.
 func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	if _, ok := cfg.Agents[req.From]; !ok {
@@ -160,7 +160,7 @@ func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToZellij(req.To, msg)
+	return deliverToAgent(req.To, msg)
 }
 
 // startWatcher initializes and runs the JSONL watcher in a goroutine.
