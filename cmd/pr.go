@@ -175,7 +175,10 @@ Examples:
 
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
 
-		// Notify worker window if we're posting from a non-worker window (e.g. reviewer)
+		// Notify the coder window only if this comment is posted from the "review" window.
+		// Previously checked currentWindow != "worker", but tmux auto-renames the
+		// worker window to the session name (e.g. "w-12211abd-fix-something"), so
+		// the coder's own comments would also trigger the notification.
 		sessionName, sessionErr := review.ResolveSessionName()
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
@@ -184,11 +187,15 @@ Examples:
 		if windowErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux window: %v\n", windowErr)
 		}
-		if sessionName != "" && currentWindow != "worker" && tmux.WindowExists(sessionName, "worker") {
-			notification := "[agent from:reviewer] PR reviewed — see PR comments. " +
-				"Run /triage to triage, fix issues, then run `ttal pr review` to request re-review."
-			if err := tmux.SendKeys(sessionName, "worker", notification); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to notify worker window: %v\n", err)
+		if sessionName != "" && currentWindow == "review" {
+			// Find the coder's window (may be auto-renamed by tmux from "worker").
+			coderWindow := tmux.FirstWindowExcept(sessionName, "review")
+			if coderWindow != "" {
+				notification := "[agent from:reviewer] PR reviewed — see PR comments. " +
+					"Run /triage to triage, fix issues, then run `ttal pr review` to request re-review."
+				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
+				}
 			}
 		}
 
