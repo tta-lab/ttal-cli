@@ -130,9 +130,11 @@ encoded project directory names back to registered agent paths, reads new bytes 
 offsets, and sends assistant text blocks to Telegram via the daemon's send callback. Agents write
 normal text — the watcher handles routing to Telegram automatically.
 
-Workers self-report completion via `ttal pr merge`, which drops a cleanup request file
-to `~/.ttal/cleanup/`. The daemon picks it up via fsnotify and handles the full
-lifecycle: close session, remove worktree, mark task done.
+The reviewer is advisory only — posts `VERDICT: LGTM` or `VERDICT: NEEDS_WORK` but never merges.
+Even with LGTM, the coder triages remaining non-blocking issues before merging. The coder
+runs `ttal pr merge` after triage, which drops a cleanup request file to `~/.ttal/cleanup/`.
+The daemon picks it up via fsnotify and handles the full lifecycle: close session, remove
+worktree, mark task done.
 `ttal worker install` installs both `on-add-ttal` and `on-modify-ttal` taskwarrior hooks.
 
 ### Tag-Based Routing

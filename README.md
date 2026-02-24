@@ -392,11 +392,20 @@ ttal pr merge
 ttal pr merge --keep-branch
 
 # Add a comment to the PR
-ttal pr comment create "LGTM, ready to merge"
+ttal pr comment create "LGTM — no critical issues"
 
 # List comments on the PR
 ttal pr comment list
 ```
+
+#### Review Flow
+
+The reviewer is advisory only — they post a verdict but never merge:
+
+1. **Reviewer** examines the PR and posts a comment ending with `VERDICT: LGTM` or `VERDICT: NEEDS_WORK`
+2. **Coder** triages the review. Even with LGTM, the reviewer may note non-blocking issues that should be addressed first
+3. **Coder** fixes remaining issues, posts a triage update via `ttal pr comment create`
+4. **Coder** merges with `ttal pr merge` once all issues are addressed — the PR is already approved
 
 Requires `FORGEJO_URL` and `FORGEJO_TOKEN` environment variables.
 

@@ -82,7 +82,7 @@ Squash-merges the PR. Fails with a clear error if checks are failing or there ar
 ### Comment on a PR
 
 ```bash
-ttal pr comment create "LGTM, ready to merge"
+ttal pr comment create "LGTM — no critical issues"
 ttal pr comment list
 ```
 
