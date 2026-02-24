@@ -45,14 +45,14 @@ setup: install setup-opencode-plugin
 	@echo "  1. Edit ~/.config/ttal/config.toml with bot tokens"
 	@echo "  2. Run: ttal agent sync-tokens"
 
-# Install and restart daemon
+# Install and restart all running daemons
 reinstall: install
 	@ttal worker install
-	@if launchctl list 2>/dev/null | grep -q io.guion.ttal.daemon; then \
-		echo "Restarting daemon..."; \
-		launchctl kickstart -k "gui/$$(id -u)/io.guion.ttal.daemon"; \
-		echo "✓ Daemon restarted"; \
-	fi
+	@for label in $$(launchctl list 2>/dev/null | awk '/io\.guion\.ttal\.daemon/ {print $$3}'); do \
+		echo "Restarting $$label..."; \
+		launchctl kickstart -k "gui/$$(id -u)/$$label"; \
+		echo "✓ $$label restarted"; \
+	done
 
 # Run the CLI
 run: build
