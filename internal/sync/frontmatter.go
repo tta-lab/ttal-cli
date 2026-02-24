@@ -7,9 +7,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ManagedMarker is embedded in deployed files so CleanAgents can identify
-// ttal-managed files and avoid deleting user-created ones.
-const ManagedMarker = "<!-- managed by ttal sync -->"
+// ManagedMarkerField is a YAML frontmatter field embedded in deployed files
+// so CleanAgents can identify ttal-managed files and avoid deleting user-created ones.
+const ManagedMarkerField = "managed_by: ttal-sync"
 
 // AgentFrontmatter holds parsed frontmatter from a canonical agent .md file.
 type AgentFrontmatter struct {
@@ -101,14 +101,14 @@ func GenerateOCVariant(agent *ParsedAgent) (string, error) {
 }
 
 func renderAgentFile(fm map[string]interface{}, body string) (string, error) {
+	fm["managed_by"] = "ttal-sync"
 	yamlBytes, err := yaml.Marshal(fm)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal frontmatter: %w", err)
 	}
 
 	var sb strings.Builder
-	sb.WriteString(ManagedMarker)
-	sb.WriteString("\n---\n")
+	sb.WriteString("---\n")
 	sb.Write(yamlBytes)
 	sb.WriteString("---\n")
 	if body != "" {

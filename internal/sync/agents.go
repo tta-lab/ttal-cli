@@ -123,7 +123,7 @@ func deployOneAgent(srcPath, ccDir, ocDir string, dryRun bool) (AgentResult, err
 }
 
 // CleanAgents removes ttal-managed agent files that no longer exist in source paths.
-// Only removes files containing the ManagedMarker to avoid deleting user-created agents.
+// Only removes files containing the ManagedMarkerField to avoid deleting user-created agents.
 func CleanAgents(subagentsPaths []string, dryRun bool) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -205,7 +205,7 @@ func cleanManagedAgentsInDir(dir string, validNames map[string]bool, dryRun bool
 		if err != nil {
 			continue
 		}
-		if !strings.HasPrefix(string(content), ManagedMarker) {
+		if !strings.Contains(string(content), ManagedMarkerField) {
 			continue
 		}
 

@@ -267,7 +267,7 @@ func TestCleanAgentsOnlyRemovesManaged(t *testing.T) {
 
 	// Create a stale ttal-managed file
 	staleManaged := filepath.Join(ccDir, "old-bot.md")
-	if err := os.WriteFile(staleManaged, []byte(ManagedMarker+"\n---\nname: old-bot\n---\n"), 0o644); err != nil {
+	if err := os.WriteFile(staleManaged, []byte("---\nname: old-bot\n"+ManagedMarkerField+"\n---\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

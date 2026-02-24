@@ -135,8 +135,8 @@ func TestGenerateCCVariant(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.HasPrefix(result, ManagedMarker) {
-		t.Error("CC variant should start with managed marker")
+	if !strings.Contains(result, ManagedMarkerField) {
+		t.Error("CC variant should contain managed marker field")
 	}
 	if !strings.Contains(result, "name: test-agent") {
 		t.Error("CC variant should contain name")

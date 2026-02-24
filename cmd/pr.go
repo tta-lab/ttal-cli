@@ -183,9 +183,12 @@ var prCommentCreateCmd = &cobra.Command{
 	Short: "Add a comment to the PR",
 	Long: `Adds a comment to the PR associated with the current task.
 
+Use --no-review to skip auto-triggering a re-review (e.g. after LGTM,
+when posting a final triage update before merging).
+
 Examples:
   ttal pr comment create "LGTM, ready to merge"
-  ttal pr comment create "Please fix the error handling in auth.go"`,
+  ttal pr comment create --no-review "Triage complete, merging"`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContext()
@@ -242,7 +245,8 @@ Examples:
 		}
 
 		// Auto-trigger re-review when coder posts a comment (triage done).
-		if sessionName != "" && role == "coder" {
+		noReview, _ := cmd.Flags().GetBool("no-review")
+		if sessionName != "" && role == "coder" && !noReview {
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Triggering re-review...")
 				if err := review.RequestReReview(sessionName, false); err != nil {
@@ -364,6 +368,8 @@ func init() {
 
 	prReviewCmd.Flags().BoolVar(&reviewForce, "force", false, "Kill and respawn reviewer window")
 	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
+
+	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
 
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)

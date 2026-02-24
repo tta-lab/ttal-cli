@@ -121,27 +121,6 @@ func (t hookTask) Start() string {
 	return v
 }
 
-// hookFallbackConfig is a minimal reader for ~/.ttal/daemon.json used for
-// resolving the lifecycle agent name.
-type hookFallbackConfig struct {
-	LifecycleAgent string `json:"lifecycle_agent"`
-}
-
-func loadHookFallbackConfig() (*hookFallbackConfig, error) {
-	path := filepath.Join(config.ResolveDataDir(), "daemon.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("daemon config not found: %s", path)
-	}
-
-	var cfg hookFallbackConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("invalid daemon config: %w", err)
-	}
-
-	return &cfg, nil
-}
-
 // readHookInput reads original and modified task JSON from stdin (taskwarrior on-modify protocol).
 func readHookInput() (original, modified hookTask, err error) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -265,19 +244,30 @@ func notifyTelegram(message string) {
 	}
 }
 
-// resolveLifecycleAgent reads the lifecycle agent from daemon.json.
+// resolveLifecycleAgent reads the lifecycle agent from config.toml.
 // Returns empty string (and logs) if config is missing or has no lifecycle_agent.
 func resolveLifecycleAgent() string {
-	cfg, err := loadHookFallbackConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		hookLogFile("WARNING: cannot resolve lifecycle agent: " + err.Error())
 		return ""
 	}
 	if cfg.LifecycleAgent == "" {
-		hookLogFile("WARNING: daemon.json has no lifecycle_agent configured")
+		hookLogFile("WARNING: config has no lifecycle_agent configured")
 		return ""
 	}
 	return cfg.LifecycleAgent
+}
+
+// resolveTaskSchedulerAgent reads the task scheduler agent from config.toml.
+// Returns empty string if config is missing or field is not set.
+func resolveTaskSchedulerAgent() string {
+	cfg, err := config.Load()
+	if err != nil {
+		hookLogFile("WARNING: cannot resolve task scheduler agent: " + err.Error())
+		return ""
+	}
+	return cfg.TaskSchedulerAgent
 }
 
 func hookLogFile(message string) {
