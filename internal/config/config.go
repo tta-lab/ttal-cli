@@ -30,13 +30,12 @@ func AgentSessionName(agent string) string {
 // if using team layout). Callers access ChatID, Agents, etc. without caring about teams.
 type Config struct {
 	// Resolved fields — always populated after Load().
-	ChatID             string                 `toml:"chat_id"`
-	LifecycleAgent     string                 `toml:"lifecycle_agent"`
-	TaskSchedulerAgent string                 `toml:"task_scheduler_agent"`
-	Agents             map[string]AgentConfig `toml:"agents"`
-	Voice              VoiceConfig            `toml:"voice"`
-	Shell              string                 `toml:"shell"`
-	Sync               SyncConfig             `toml:"sync"`
+	ChatID         string                 `toml:"chat_id"`
+	LifecycleAgent string                 `toml:"lifecycle_agent"`
+	Agents         map[string]AgentConfig `toml:"agents"`
+	Voice          VoiceConfig            `toml:"voice"`
+	Shell          string                 `toml:"shell"`
+	Sync           SyncConfig             `toml:"sync"`
 
 	// Team-aware fields — optional, empty for legacy configs.
 	DefaultTeam string                `toml:"default_team"`
@@ -51,14 +50,13 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
-	DataDir            string                 `toml:"data_dir"`
-	TaskRC             string                 `toml:"taskrc"`
-	ChatID             string                 `toml:"chat_id"`
-	LifecycleAgent     string                 `toml:"lifecycle_agent"`
-	TaskSchedulerAgent string                 `toml:"task_scheduler_agent"`
-	DefaultRuntime     string                 `toml:"default_runtime"`
-	Agents             map[string]AgentConfig `toml:"agents"`
-	VoiceVocabulary    []string               `toml:"voice_vocabulary"`
+	DataDir         string                 `toml:"data_dir"`
+	TaskRC          string                 `toml:"taskrc"`
+	ChatID          string                 `toml:"chat_id"`
+	LifecycleAgent  string                 `toml:"lifecycle_agent"`
+	DefaultRuntime  string                 `toml:"default_runtime"`
+	Agents          map[string]AgentConfig `toml:"agents"`
+	VoiceVocabulary []string               `toml:"voice_vocabulary"`
 }
 
 // SyncConfig holds paths for subagent and skill deployment.
@@ -215,7 +213,6 @@ func (c *Config) resolve() error {
 	// Promote team fields to top-level.
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
-	c.TaskSchedulerAgent = team.TaskSchedulerAgent
 	c.Agents = team.Agents
 	c.Voice = VoiceConfig{Vocabulary: team.VoiceVocabulary}
 
@@ -336,7 +333,6 @@ func WriteTemplate() error {
 
 	template := `chat_id = "TODO"
 lifecycle_agent = "kestrel"
-# task_scheduler_agent = "yuki"  # agent notified on task completion
 
 [agents.kestrel]
 bot_token = "TODO"
@@ -352,7 +348,6 @@ bot_token = "TODO"
 # taskrc = "~/.taskrc"
 # chat_id = "TODO"
 # lifecycle_agent = "kestrel"
-# task_scheduler_agent = "yuki"
 # default_runtime = "claude-code"  # or "opencode"
 # voice_vocabulary = ["ttal"]
 #

@@ -259,17 +259,6 @@ func resolveLifecycleAgent() string {
 	return cfg.LifecycleAgent
 }
 
-// resolveTaskSchedulerAgent reads the task scheduler agent from config.toml.
-// Returns empty string if config is missing or field is not set.
-func resolveTaskSchedulerAgent() string {
-	cfg, err := config.Load()
-	if err != nil {
-		hookLogFile("WARNING: cannot resolve task scheduler agent: " + err.Error())
-		return ""
-	}
-	return cfg.TaskSchedulerAgent
-}
-
 func hookLogFile(message string) {
 	logPath := filepath.Join(config.ResolveDataDir(), "hooks.log")
 	timestamp := time.Now().Format(time.RFC3339)
