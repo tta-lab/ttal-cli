@@ -183,7 +183,10 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 
 // buildEnvParts returns the shared env vars for any runtime.
 func buildEnvParts(task *taskwarrior.Task, taskrc string) []string {
-	parts := []string{fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID())}
+	parts := []string{
+		"TTAL_ROLE=coder",
+		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
+	}
 	if team := os.Getenv("TTAL_TEAM"); team != "" {
 		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
 	}

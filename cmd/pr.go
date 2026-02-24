@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/pr"
@@ -60,6 +61,10 @@ Examples:
 		fmt.Printf("PR #%d created: %s\n", result.Index, result.HTMLURL)
 		fmt.Printf("  %s → %s\n", result.Head, result.Base)
 		fmt.Println()
+
+		// Update ctx with newly created PR index so SpawnReviewer can use it.
+		// pr.Create stores it in taskwarrior, but ctx.Task is a stale snapshot.
+		ctx.Task.PRID = strconv.FormatInt(result.Index, 10)
 
 		// Auto-spawn reviewer
 		sessionName, sessionErr := review.ResolveSessionName()
@@ -196,19 +201,14 @@ Examples:
 
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
 
-		// Notify the coder window only if this comment is posted from the "review" window.
-		// Previously checked currentWindow != "worker", but tmux auto-renames the
-		// worker window to the session name (e.g. "w-12211abd-fix-something"), so
-		// the coder's own comments would also trigger the notification.
+		// Route based on TTAL_ROLE (set by worker/reviewer spawn).
+		// Reviewer → notify coder window. Coder → trigger re-review.
 		sessionName, sessionErr := review.ResolveSessionName()
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		}
-		currentWindow, windowErr := tmux.CurrentWindow()
-		if windowErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux window: %v\n", windowErr)
-		}
-		if sessionName != "" && currentWindow == "review" {
+		role := tmux.Role()
+		if sessionName != "" && role == "reviewer" {
 			// Reviewer posting → notify the coder window
 			coderWindow, cwErr := tmux.FirstWindowExcept(sessionName, "review")
 			if cwErr != nil {
@@ -221,16 +221,19 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: failed to write review file: %v\n", fileErr)
 				}
 
+				mergeHint := " If verdict is LGTM and no remaining issues, merge with: ttal pr merge"
 				var notification string
 				if reviewFile != "" {
 					notification = fmt.Sprintf(
 						"/triage PR review posted. Full review at %s"+
 							" — read it, assess and fix issues."+
-							" Post your triage update with ttal pr comment create when done.",
+							" Post your triage update with ttal pr comment create when done."+
+							mergeHint,
 						reviewFile)
 				} else {
 					notification = "/triage PR reviewed — see PR comments. " +
-						"Assess and fix issues, then post your triage update with ttal pr comment create."
+						"Assess and fix issues, then post your triage update with ttal pr comment create." +
+						mergeHint
 				}
 				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
@@ -239,8 +242,7 @@ Examples:
 		}
 
 		// Auto-trigger re-review when coder posts a comment (triage done).
-		// Require windowErr == nil to avoid firing when we can't confirm which window we're in.
-		if sessionName != "" && windowErr == nil && currentWindow != "review" {
+		if sessionName != "" && role == "coder" {
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Triggering re-review...")
 				if err := review.RequestReReview(sessionName, false); err != nil {

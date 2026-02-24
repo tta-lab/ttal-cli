@@ -35,6 +35,7 @@ type Config struct {
 	Agents         map[string]AgentConfig `toml:"agents"`
 	Voice          VoiceConfig            `toml:"voice"`
 	Shell          string                 `toml:"shell"`
+	Sync           SyncConfig             `toml:"sync"`
 
 	// Team-aware fields — optional, empty for legacy configs.
 	DefaultTeam string                `toml:"default_team"`
@@ -56,6 +57,13 @@ type TeamConfig struct {
 	DefaultRuntime  string                 `toml:"default_runtime"`
 	Agents          map[string]AgentConfig `toml:"agents"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary"`
+	Sync            SyncConfig             `toml:"sync"`
+}
+
+// SyncConfig holds paths for subagent and skill deployment.
+type SyncConfig struct {
+	SubagentsPaths []string `toml:"subagents_paths"`
+	SkillsPaths    []string `toml:"skills_paths"`
 }
 
 // VoiceConfig holds voice-related settings (legacy flat layout).
@@ -223,6 +231,11 @@ func (c *Config) resolve() error {
 
 	c.resolvedDefRuntime = team.DefaultRuntime
 
+	// Promote team sync config if it has any paths configured.
+	if len(team.Sync.SubagentsPaths) > 0 || len(team.Sync.SkillsPaths) > 0 {
+		c.Sync = team.Sync
+	}
+
 	return nil
 }
 
@@ -282,8 +295,12 @@ func (c *Config) clearResolvedFields() {
 	c.Voice = VoiceConfig{}
 }
 
-// expandHome replaces a leading ~ or ~/ with the user's home directory.
+// ExpandHome replaces a leading ~ or ~/ with the user's home directory.
 // Does NOT expand ~username syntax (that would require OS-specific user lookup).
+func ExpandHome(path string) string {
+	return expandHome(path)
+}
+
 func expandHome(path string) string {
 	if len(path) == 0 {
 		return path

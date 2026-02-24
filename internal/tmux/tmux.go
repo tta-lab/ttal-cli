@@ -229,6 +229,8 @@ func CurrentSession() (string, error) {
 }
 
 // CurrentWindow returns the name of the tmux window this process is running in.
+// Uses TMUX_PANE to target the actual pane, not the active window — without -t,
+// display-message returns whichever window the user is looking at.
 // Returns ("", nil) if not inside tmux.
 func CurrentWindow() (string, error) {
 	if os.Getenv("TMUX") == "" {
@@ -238,12 +240,26 @@ func CurrentWindow() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-p", "#{window_name}")
+	args := []string{"display-message"}
+	if pane := os.Getenv("TMUX_PANE"); pane != "" {
+		args = append(args, "-t", pane)
+	}
+	args = append(args, "-p", "#{window_name}")
+
+	cmd := exec.CommandContext(ctx, "tmux", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get window name: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// Role returns the TTAL_ROLE of this process ("coder", "reviewer", or "").
+// Set by worker spawn (TTAL_ROLE=coder) and reviewer spawn (TTAL_ROLE=reviewer).
+// Avoids querying tmux for window names, which can return the active tab
+// instead of the pane's actual window.
+func Role() string {
+	return os.Getenv("TTAL_ROLE")
 }
 
 // sanitizeForTerminal replaces newlines/CR with spaces and strips control chars.

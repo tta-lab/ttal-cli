@@ -17,11 +17,14 @@ func TestBuildEnvParts(t *testing.T) {
 
 	parts := buildEnvParts(task, "/custom/taskrc")
 
-	if len(parts) < 1 {
-		t.Fatal("expected at least TTAL_JOB_ID")
+	if len(parts) < 2 {
+		t.Fatal("expected at least TTAL_ROLE and TTAL_JOB_ID")
 	}
-	if !strings.HasPrefix(parts[0], "TTAL_JOB_ID=") {
-		t.Errorf("first part should be TTAL_JOB_ID, got %q", parts[0])
+	if parts[0] != "TTAL_ROLE=coder" {
+		t.Errorf("first part should be TTAL_ROLE=coder, got %q", parts[0])
+	}
+	if !strings.HasPrefix(parts[1], "TTAL_JOB_ID=") {
+		t.Errorf("second part should be TTAL_JOB_ID, got %q", parts[1])
 	}
 
 	// Check taskrc is included

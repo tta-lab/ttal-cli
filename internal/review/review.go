@@ -44,7 +44,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	shellCmd := shellCfg.ShellCommand(claudeCmd)
+	shellCmd := shellCfg.BuildEnvShellCommand([]string{"TTAL_ROLE=reviewer"}, claudeCmd)
 
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -67,14 +67,12 @@ func RequestReReview(sessionName string, full bool) error {
 	msg := `Worker has pushed fixes addressing your review. Please re-review:` +
 		` 1. Run /pr-review-toolkit:review-pr scoped to new changes` +
 		` 2. Post updated review via: ttal pr comment create "your review"` +
-		` 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not` +
-		` 4. If LGTM: FIRST post your comment (audit trail), THEN run ttal pr merge`
+		` 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not`
 	if full {
 		msg = `Please do a full re-review of the entire PR:` +
 			` 1. Run /pr-review-toolkit:review-pr on all changes` +
 			` 2. Post review via: ttal pr comment create "your review"` +
-			` 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK` +
-			` 4. If LGTM: FIRST post your comment (audit trail), THEN run ttal pr merge`
+			` 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK`
 	}
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
@@ -104,10 +102,7 @@ Branch: %s
    - VERDICT: NEEDS_WORK (if any critical issues)
    - VERDICT: LGTM (if no critical issues)
 
-5. If your verdict is LGTM:
-   a. FIRST post your review comment (so the approval reasoning is on record)
-   b. THEN merge: ttal pr merge
-   Always comment before merging — we need the audit trail of why it was approved.
+Do NOT merge the PR. The coder handles merging after triage.
 
 ## Important
 - Only review what changed in the PR, not pre-existing code

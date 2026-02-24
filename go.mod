@@ -11,6 +11,7 @@ require (
 	github.com/google/go-github/v69 v69.2.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/spf13/cobra v1.8.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
