@@ -80,12 +80,12 @@ func (w *Watcher) Run(done <-chan struct{}) error {
 	// so they're watched from the start (not silently skipped).
 	for encoded, agentName := range w.agents {
 		dir := filepath.Join(w.projectsDir, encoded)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			log.Printf("[watcher] failed to create project dir for %s: %v", agentName, err)
 			continue
 		}
 		if err := fsw.Add(dir); err != nil {
-			log.Printf("[watcher] failed to watch %s (%s): %v", agentName, dir, err)
+			log.Printf("[watcher] failed to watch %s: %v", agentName, err)
 			continue
 		}
 		w.seedExistingOffsets(dir)

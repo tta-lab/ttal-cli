@@ -78,7 +78,7 @@ func List() error {
 		return filtered[i].Urgency > filtered[j].Urgency
 	})
 
-	var rows [][]string
+	rows := make([][]string, 0, len(filtered))
 	for _, t := range filtered {
 		due := ""
 		if t.Due != "" {
@@ -141,7 +141,7 @@ func Completed() error {
 		return tasks[i].End > tasks[j].End
 	})
 
-	var rows [][]string
+	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {
 		rows = append(rows, []string{
 			t.ShortUUID(),

@@ -44,7 +44,7 @@ func routeToAgent(agentName string, task hookTask) {
 	if len(uuid) > 8 {
 		uuid = uuid[:8]
 	}
-	msg := fmt.Sprintf("[task assigned] %s\nUUID: %s\nRun `ttal task get %s` to get full task details including annotations and referenced docs.",
+	msg := fmt.Sprintf("[task assigned] %s\nUUID: %s\nRun `ttal task get %s` for full details.",
 		task.Description(), uuid, uuid)
 
 	err := sendToDaemon(daemonSendRequest{
