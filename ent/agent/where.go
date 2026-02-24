@@ -470,6 +470,36 @@ func ModelNotIn(vs ...Model) predicate.Agent {
 	return predicate.Agent(sql.FieldNotIn(FieldModel, vs...))
 }
 
+// RuntimeEQ applies the EQ predicate on the "runtime" field.
+func RuntimeEQ(v Runtime) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldRuntime, v))
+}
+
+// RuntimeNEQ applies the NEQ predicate on the "runtime" field.
+func RuntimeNEQ(v Runtime) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldRuntime, v))
+}
+
+// RuntimeIn applies the In predicate on the "runtime" field.
+func RuntimeIn(vs ...Runtime) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldRuntime, vs...))
+}
+
+// RuntimeNotIn applies the NotIn predicate on the "runtime" field.
+func RuntimeNotIn(vs ...Runtime) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldRuntime, vs...))
+}
+
+// RuntimeIsNil applies the IsNil predicate on the "runtime" field.
+func RuntimeIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldRuntime))
+}
+
+// RuntimeNotNil applies the NotNil predicate on the "runtime" field.
+func RuntimeNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldRuntime))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldCreatedAt, v))

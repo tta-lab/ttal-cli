@@ -27,6 +27,8 @@ const (
 	FieldDescription = "description"
 	// FieldModel holds the string denoting the model field in the database.
 	FieldModel = "model"
+	// FieldRuntime holds the string denoting the runtime field in the database.
+	FieldRuntime = "runtime"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
@@ -49,6 +51,7 @@ var Columns = []string{
 	FieldEmoji,
 	FieldDescription,
 	FieldModel,
+	FieldRuntime,
 	FieldCreatedAt,
 }
 
@@ -102,6 +105,29 @@ func ModelValidator(m Model) error {
 	}
 }
 
+// Runtime defines the type for the "runtime" enum field.
+type Runtime string
+
+// Runtime values.
+const (
+	RuntimeClaudeCode Runtime = "claude-code"
+	RuntimeOpencode   Runtime = "opencode"
+)
+
+func (r Runtime) String() string {
+	return string(r)
+}
+
+// RuntimeValidator is a validator for the "runtime" field enum values. It is called by the builders before save.
+func RuntimeValidator(r Runtime) error {
+	switch r {
+	case RuntimeClaudeCode, RuntimeOpencode:
+		return nil
+	default:
+		return fmt.Errorf("agent: invalid enum value for runtime field: %q", r)
+	}
+}
+
 // OrderOption defines the ordering options for the Agent queries.
 type OrderOption func(*sql.Selector)
 
@@ -138,6 +164,11 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByModel orders the results by the model field.
 func ByModel(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldModel, opts...).ToFunc()
+}
+
+// ByRuntime orders the results by the runtime field.
+func ByRuntime(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRuntime, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

@@ -9,6 +9,7 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 
@@ -17,9 +18,10 @@ import (
 
 // AgentTab holds the info needed to create a tab for one agent.
 type AgentTab struct {
-	Name  string
-	Path  string
-	Model string
+	Name    string
+	Path    string
+	Model   string
+	Runtime runtime.Runtime
 }
 
 // Start creates per-agent tmux sessions (one session per agent).
@@ -48,7 +50,12 @@ func Start(database *ent.Client, force bool) error {
 			continue
 		}
 
-		tab := AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model)}
+		// Precedence: agent DB runtime > team default_runtime > "claude-code"
+		rt := cfg.DefaultRuntime()
+		if ag.Runtime != nil {
+			rt = runtime.Runtime(*ag.Runtime)
+		}
+		tab := AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model), Runtime: rt}
 		sessionName := config.AgentSessionName(agentName)
 
 		if tmux.SessionExists(sessionName) {
@@ -90,9 +97,9 @@ func Start(database *ent.Client, force bool) error {
 	return nil
 }
 
-// launchAgentSession creates a tmux session for one agent with CC in the first window.
+// launchAgentSession creates a tmux session for one agent in the first window.
 func launchAgentSession(sessionName string, tab AgentTab, cfg *config.Config) error {
-	claudeCmd := buildClaudeCommand(tab)
+	agentCmd := buildAgentCommand(tab)
 
 	// Build env vars: TTAL_AGENT_NAME + team context (TTAL_TEAM, TASKRC).
 	envParts := []string{fmt.Sprintf("TTAL_AGENT_NAME=%s", tab.Name)}
@@ -103,7 +110,7 @@ func launchAgentSession(sessionName string, tab AgentTab, cfg *config.Config) er
 		envParts = append(envParts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 
-	shellCmd := cfg.BuildEnvShellCommand(envParts, claudeCmd)
+	shellCmd := cfg.BuildEnvShellCommand(envParts, agentCmd)
 	if err := tmux.NewSession(sessionName, tab.Name, tab.Path, shellCmd); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
@@ -116,23 +123,47 @@ func launchAgentSession(sessionName string, tab AgentTab, cfg *config.Config) er
 		_ = tmux.SetEnv(sessionName, "TASKRC", taskrc)
 	}
 
+	// OpenCode-specific env vars
+	if tab.Runtime == runtime.OpenCode {
+		_ = tmux.SetEnv(sessionName, "OPENCODE_PERMISSION",
+			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
+		_ = tmux.SetEnv(sessionName, "TTAL_DATA_DIR", cfg.DataDir())
+	}
+
 	return nil
 }
 
-func buildClaudeCommand(tab AgentTab) string {
+func buildAgentCommand(tab AgentTab) string {
+	switch tab.Runtime {
+	case runtime.OpenCode:
+		return buildOpenCodeAgentCommand(tab)
+	default:
+		return buildClaudeCodeAgentCommand(tab)
+	}
+}
+
+func buildClaudeCodeAgentCommand(tab AgentTab) string {
 	cmd := "claude --dangerously-skip-permissions"
 	if tab.Model != "" {
 		cmd += " --model " + tab.Model
 	}
-	if hasConversation(tab.Path) {
+	if hasClaudeConversation(tab.Path) {
 		cmd += " --continue"
 	}
 	return cmd
 }
 
-// hasConversation checks if Claude Code has a previous conversation for the given path.
+func buildOpenCodeAgentCommand(tab AgentTab) string {
+	cmd := "opencode"
+	if hasOpenCodeSession(tab.Path) {
+		cmd += " --continue"
+	}
+	return cmd
+}
+
+// hasClaudeConversation checks if Claude Code has a previous conversation for the given path.
 // Claude stores conversations as .jsonl files in ~/.claude/projects/<sanitized-path>/.
-func hasConversation(workDir string) bool {
+func hasClaudeConversation(workDir string) bool {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return false
@@ -148,4 +179,11 @@ func hasConversation(workDir string) bool {
 		return false
 	}
 	return len(matches) > 0
+}
+
+// hasOpenCodeSession checks if OpenCode has a previous session for the given path.
+// OpenCode stores state in a .opencode/ directory within the project.
+func hasOpenCodeSession(workDir string) bool {
+	_, err := os.Stat(filepath.Join(workDir, ".opencode"))
+	return err == nil
 }

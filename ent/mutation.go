@@ -43,6 +43,7 @@ type AgentMutation struct {
 	emoji         *string
 	description   *string
 	model         *agent.Model
+	runtime       *agent.Runtime
 	created_at    *time.Time
 	clearedFields map[string]struct{}
 	tags          map[int]struct{}
@@ -419,6 +420,55 @@ func (m *AgentMutation) ResetModel() {
 	m.model = nil
 }
 
+// SetRuntime sets the "runtime" field.
+func (m *AgentMutation) SetRuntime(a agent.Runtime) {
+	m.runtime = &a
+}
+
+// Runtime returns the value of the "runtime" field in the mutation.
+func (m *AgentMutation) Runtime() (r agent.Runtime, exists bool) {
+	v := m.runtime
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRuntime returns the old "runtime" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldRuntime(ctx context.Context) (v *agent.Runtime, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRuntime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRuntime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRuntime: %w", err)
+	}
+	return oldValue.Runtime, nil
+}
+
+// ClearRuntime clears the value of the "runtime" field.
+func (m *AgentMutation) ClearRuntime() {
+	m.runtime = nil
+	m.clearedFields[agent.FieldRuntime] = struct{}{}
+}
+
+// RuntimeCleared returns if the "runtime" field was cleared in this mutation.
+func (m *AgentMutation) RuntimeCleared() bool {
+	_, ok := m.clearedFields[agent.FieldRuntime]
+	return ok
+}
+
+// ResetRuntime resets all changes to the "runtime" field.
+func (m *AgentMutation) ResetRuntime() {
+	m.runtime = nil
+	delete(m.clearedFields, agent.FieldRuntime)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *AgentMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -543,7 +593,7 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.name != nil {
 		fields = append(fields, agent.FieldName)
 	}
@@ -561,6 +611,9 @@ func (m *AgentMutation) Fields() []string {
 	}
 	if m.model != nil {
 		fields = append(fields, agent.FieldModel)
+	}
+	if m.runtime != nil {
+		fields = append(fields, agent.FieldRuntime)
 	}
 	if m.created_at != nil {
 		fields = append(fields, agent.FieldCreatedAt)
@@ -585,6 +638,8 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case agent.FieldModel:
 		return m.Model()
+	case agent.FieldRuntime:
+		return m.Runtime()
 	case agent.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -608,6 +663,8 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDescription(ctx)
 	case agent.FieldModel:
 		return m.OldModel(ctx)
+	case agent.FieldRuntime:
+		return m.OldRuntime(ctx)
 	case agent.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -661,6 +718,13 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetModel(v)
 		return nil
+	case agent.FieldRuntime:
+		v, ok := value.(agent.Runtime)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRuntime(v)
+		return nil
 	case agent.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -710,6 +774,9 @@ func (m *AgentMutation) ClearedFields() []string {
 	if m.FieldCleared(agent.FieldDescription) {
 		fields = append(fields, agent.FieldDescription)
 	}
+	if m.FieldCleared(agent.FieldRuntime) {
+		fields = append(fields, agent.FieldRuntime)
+	}
 	return fields
 }
 
@@ -736,6 +803,9 @@ func (m *AgentMutation) ClearField(name string) error {
 	case agent.FieldDescription:
 		m.ClearDescription()
 		return nil
+	case agent.FieldRuntime:
+		m.ClearRuntime()
+		return nil
 	}
 	return fmt.Errorf("unknown Agent nullable field %s", name)
 }
@@ -761,6 +831,9 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldModel:
 		m.ResetModel()
+		return nil
+	case agent.FieldRuntime:
+		m.ResetRuntime()
 		return nil
 	case agent.FieldCreatedAt:
 		m.ResetCreatedAt()

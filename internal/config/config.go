@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/BurntSushi/toml"
 )
 
@@ -40,9 +41,10 @@ type Config struct {
 	Teams       map[string]TeamConfig `toml:"teams"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir  string
-	resolvedTaskRC   string
-	resolvedTeamName string
+	resolvedDataDir    string
+	resolvedTaskRC     string
+	resolvedTeamName   string
+	resolvedDefRuntime string
 }
 
 // TeamConfig holds per-team configuration.
@@ -51,6 +53,7 @@ type TeamConfig struct {
 	TaskRC          string                 `toml:"taskrc"`
 	ChatID          string                 `toml:"chat_id"`
 	LifecycleAgent  string                 `toml:"lifecycle_agent"`
+	DefaultRuntime  string                 `toml:"default_runtime"`
 	Agents          map[string]AgentConfig `toml:"agents"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary"`
 }
@@ -88,6 +91,14 @@ func (c *Config) TaskRC() string {
 // TeamName returns the resolved active team name.
 func (c *Config) TeamName() string {
 	return c.resolvedTeamName
+}
+
+// DefaultRuntime returns the team's default runtime ("claude-code" if unset).
+func (c *Config) DefaultRuntime() runtime.Runtime {
+	if c.resolvedDefRuntime != "" {
+		return runtime.Runtime(c.resolvedDefRuntime)
+	}
+	return runtime.ClaudeCode
 }
 
 const DefaultShell = "zsh"
@@ -210,6 +221,8 @@ func (c *Config) resolve() error {
 		c.resolvedTaskRC = defaultTaskRC()
 	}
 
+	c.resolvedDefRuntime = team.DefaultRuntime
+
 	return nil
 }
 
@@ -324,6 +337,7 @@ bot_token = "TODO"
 # taskrc = "~/.taskrc"
 # chat_id = "TODO"
 # lifecycle_agent = "kestrel"
+# default_runtime = "claude-code"  # or "opencode"
 # voice_vocabulary = ["ttal"]
 #
 # [teams.personal.agents.kestrel]

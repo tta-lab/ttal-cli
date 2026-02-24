@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/watcher"
 )
@@ -85,8 +87,11 @@ func Run(database *ent.Client) error {
 	startWatcher(database, cfg, done)
 
 	// Start socket listener
-	cleanup, err := listenSocket(sockPath, func(req SendRequest) error {
-		return handleSend(cfg, req)
+	cleanup, err := listenSocket(sockPath, socketHandlers{
+		send: func(req SendRequest) error {
+			return handleSend(cfg, req)
+		},
+		statusUpdate: handleStatusUpdate,
 	})
 	if err != nil {
 		close(done)
@@ -156,6 +161,21 @@ func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 	return deliverToAgent(req.To, msg)
+}
+
+// handleStatusUpdate writes agent context status to the status directory.
+func handleStatusUpdate(req StatusUpdateRequest) {
+	s := status.AgentStatus{
+		Agent:               req.Agent,
+		ContextUsedPct:      req.ContextUsedPct,
+		ContextRemainingPct: req.ContextRemainingPct,
+		ModelID:             req.ModelID,
+		SessionID:           req.SessionID,
+		UpdatedAt:           time.Now(),
+	}
+	if err := status.WriteAgent(s); err != nil {
+		log.Printf("[daemon] failed to write status for %s: %v", req.Agent, err)
+	}
 }
 
 // startWatcher initializes and runs the JSONL watcher in a goroutine.

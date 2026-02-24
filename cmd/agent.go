@@ -12,6 +12,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +24,7 @@ var (
 	agentEmoji       string
 	agentDescription string
 	agentModel       string
+	agentRuntime     string
 )
 
 var agentCmd = &cobra.Command{
@@ -91,6 +93,12 @@ Example:
 			}
 			creator = creator.SetModel(agent.Model(agentModel))
 		}
+		if agentRuntime != "" {
+			if err := runtime.Validate(agentRuntime); err != nil {
+				return err
+			}
+			creator = creator.SetRuntime(agent.Runtime(agentRuntime))
+		}
 		if len(tags) > 0 {
 			creator = creator.AddTags(tags...)
 		}
@@ -144,7 +152,7 @@ Examples:
 
 		// Print table
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tMODEL\tTAGS\tPATH")
+		_, _ = fmt.Fprintln(w, "NAME\tMODEL\tRUNTIME\tTAGS\tPATH")
 		for _, a := range agents {
 			// Extract tag names from edges
 			var tags []string
@@ -162,8 +170,13 @@ Examples:
 				model = string(a.Model)
 			}
 
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-				name, model, formatTags(tags), a.Path)
+			rt := string(runtime.ClaudeCode)
+			if a.Runtime != nil {
+				rt = string(*a.Runtime)
+			}
+
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				name, model, rt, formatTags(tags), a.Path)
 		}
 		_ = w.Flush()
 
@@ -211,6 +224,9 @@ Example:
 		}
 		if ag.Voice != "" {
 			fmt.Printf("Voice:     %s\n", ag.Voice)
+		}
+		if ag.Runtime != nil {
+			fmt.Printf("Runtime:   %s\n", *ag.Runtime)
 		}
 
 		// Extract tag names
@@ -305,8 +321,13 @@ Examples:
 					return err
 				}
 				updater = updater.SetModel(agent.Model(value))
+			case "runtime":
+				if err := runtime.Validate(value); err != nil {
+					return err
+				}
+				updater = updater.SetRuntime(agent.Runtime(value))
 			default:
-				return fmt.Errorf("unknown field '%s' (available: path, voice, emoji, description, model)", field)
+				return fmt.Errorf("unknown field '%s' (available: path, voice, emoji, description, model, runtime)", field)
 			}
 		}
 
@@ -433,4 +454,5 @@ func init() {
 	agentAddCmd.Flags().StringVar(&agentEmoji, "emoji", "", "Display emoji (e.g. 🐱, 🦅)")
 	agentAddCmd.Flags().StringVar(&agentDescription, "description", "", "Short role summary")
 	agentAddCmd.Flags().StringVar(&agentModel, "model", "", "Claude model tier (haiku, sonnet, opus)")
+	agentAddCmd.Flags().StringVar(&agentRuntime, "runtime", "", "Coding agent runtime (claude-code, opencode)")
 }

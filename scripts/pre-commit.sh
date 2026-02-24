@@ -41,6 +41,14 @@ if ! make vet > /dev/null 2>&1; then
     exit 1
 fi
 
+# Lint
+echo "  🔍 Running lint..."
+if ! make lint > /dev/null 2>&1; then
+    echo "  ❌ Lint failed"
+    make lint 2>&1 | tail -10
+    exit 1
+fi
+
 # Run tests
 echo "  🧪 Running tests..."
 if ! make test > /dev/null 2>&1; then

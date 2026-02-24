@@ -136,6 +136,26 @@ func (_u *AgentUpdate) SetNillableModel(v *agent.Model) *AgentUpdate {
 	return _u
 }
 
+// SetRuntime sets the "runtime" field.
+func (_u *AgentUpdate) SetRuntime(v agent.Runtime) *AgentUpdate {
+	_u.mutation.SetRuntime(v)
+	return _u
+}
+
+// SetNillableRuntime sets the "runtime" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableRuntime(v *agent.Runtime) *AgentUpdate {
+	if v != nil {
+		_u.SetRuntime(*v)
+	}
+	return _u
+}
+
+// ClearRuntime clears the value of the "runtime" field.
+func (_u *AgentUpdate) ClearRuntime() *AgentUpdate {
+	_u.mutation.ClearRuntime()
+	return _u
+}
+
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdate) AddTagIDs(ids ...int) *AgentUpdate {
 	_u.mutation.AddTagIDs(ids...)
@@ -216,6 +236,11 @@ func (_u *AgentUpdate) check() error {
 			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Runtime(); ok {
+		if err := agent.RuntimeValidator(v); err != nil {
+			return &ValidationError{Name: "runtime", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -260,6 +285,12 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Model(); ok {
 		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Runtime(); ok {
+		_spec.SetField(agent.FieldRuntime, field.TypeEnum, value)
+	}
+	if _u.mutation.RuntimeCleared() {
+		_spec.ClearField(agent.FieldRuntime, field.TypeEnum)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -434,6 +465,26 @@ func (_u *AgentUpdateOne) SetNillableModel(v *agent.Model) *AgentUpdateOne {
 	return _u
 }
 
+// SetRuntime sets the "runtime" field.
+func (_u *AgentUpdateOne) SetRuntime(v agent.Runtime) *AgentUpdateOne {
+	_u.mutation.SetRuntime(v)
+	return _u
+}
+
+// SetNillableRuntime sets the "runtime" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableRuntime(v *agent.Runtime) *AgentUpdateOne {
+	if v != nil {
+		_u.SetRuntime(*v)
+	}
+	return _u
+}
+
+// ClearRuntime clears the value of the "runtime" field.
+func (_u *AgentUpdateOne) ClearRuntime() *AgentUpdateOne {
+	_u.mutation.ClearRuntime()
+	return _u
+}
+
 // AddTagIDs adds the "tags" edge to the Tag entity by IDs.
 func (_u *AgentUpdateOne) AddTagIDs(ids ...int) *AgentUpdateOne {
 	_u.mutation.AddTagIDs(ids...)
@@ -527,6 +578,11 @@ func (_u *AgentUpdateOne) check() error {
 			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Runtime(); ok {
+		if err := agent.RuntimeValidator(v); err != nil {
+			return &ValidationError{Name: "runtime", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -588,6 +644,12 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if value, ok := _u.mutation.Model(); ok {
 		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Runtime(); ok {
+		_spec.SetField(agent.FieldRuntime, field.TypeEnum, value)
+	}
+	if _u.mutation.RuntimeCleared() {
+		_spec.ClearField(agent.FieldRuntime, field.TypeEnum)
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{

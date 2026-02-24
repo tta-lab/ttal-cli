@@ -97,6 +97,20 @@ func (_c *AgentCreate) SetNillableModel(v *agent.Model) *AgentCreate {
 	return _c
 }
 
+// SetRuntime sets the "runtime" field.
+func (_c *AgentCreate) SetRuntime(v agent.Runtime) *AgentCreate {
+	_c.mutation.SetRuntime(v)
+	return _c
+}
+
+// SetNillableRuntime sets the "runtime" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableRuntime(v *agent.Runtime) *AgentCreate {
+	if v != nil {
+		_c.SetRuntime(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AgentCreate) SetCreatedAt(v time.Time) *AgentCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -189,6 +203,11 @@ func (_c *AgentCreate) check() error {
 			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.Runtime(); ok {
+		if err := agent.RuntimeValidator(v); err != nil {
+			return &ValidationError{Name: "runtime", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Agent.created_at"`)}
 	}
@@ -241,6 +260,10 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Model(); ok {
 		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
 		_node.Model = value
+	}
+	if value, ok := _c.mutation.Runtime(); ok {
+		_spec.SetField(agent.FieldRuntime, field.TypeEnum, value)
+		_node.Runtime = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agent.FieldCreatedAt, field.TypeTime, value)

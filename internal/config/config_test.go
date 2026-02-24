@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 )
 
 func TestAgentSessionName(t *testing.T) {
@@ -55,6 +57,25 @@ func TestShellCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.cfg.ShellCommand(tt.cmd); got != tt.wantCmd {
 				t.Errorf("ShellCommand() = %q, want %q", got, tt.wantCmd)
+			}
+		})
+	}
+}
+
+func TestDefaultRuntime(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want runtime.Runtime
+	}{
+		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
+		{"explicit opencode", &Config{resolvedDefRuntime: "opencode"}, runtime.OpenCode},
+		{"explicit claude-code", &Config{resolvedDefRuntime: "claude-code"}, runtime.ClaudeCode},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.DefaultRuntime(); got != tt.want {
+				t.Errorf("DefaultRuntime() = %q, want %q", got, tt.want)
 			}
 		})
 	}

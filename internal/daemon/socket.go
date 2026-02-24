@@ -21,12 +21,22 @@ func SocketPath() (string, error) {
 }
 
 // Request is the top-level socket message envelope.
-// Type discriminates between request kinds. Empty type is treated as "send"
-// for backwards compatibility with existing ttal send clients.
-type Request struct {
-	Type   string         `json:"type,omitempty"` // "send" (default) or "status"
-	Send   *SendRequest   `json:"send,omitempty"`
-	Status *StatusRequest `json:"status,omitempty"`
+// GetStatusRequest queries agent status from the daemon.
+// Wire format: {"type":"getStatus","agent":"kestrel"}
+type GetStatusRequest struct {
+	Type  string `json:"type"`            // "getStatus"
+	Agent string `json:"agent,omitempty"` // empty = all agents
+}
+
+// StatusUpdateRequest writes agent context status to the daemon.
+// Wire format: {"type":"statusUpdate","agent":"kestrel","context_used_pct":45.2,...}
+type StatusUpdateRequest struct {
+	Type                string  `json:"type"`                  // "statusUpdate"
+	Agent               string  `json:"agent"`                 // agent name
+	ContextUsedPct      float64 `json:"context_used_pct"`      // percentage of context used
+	ContextRemainingPct float64 `json:"context_remaining_pct"` // percentage remaining
+	ModelID             string  `json:"model_id"`              // model identifier
+	SessionID           string  `json:"session_id"`            // session identifier
 }
 
 // SendRequest is the JSON message sent to the daemon.
@@ -45,11 +55,6 @@ type SendRequest struct {
 type SendResponse struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
-}
-
-// StatusRequest asks for agent status data.
-type StatusRequest struct {
-	Agent string `json:"agent"` // empty = all agents
 }
 
 // StatusResponse returns agent status data.
@@ -120,11 +125,8 @@ func QueryStatus(agent string) (*StatusResponse, error) {
 
 	conn.SetDeadline(time.Now().Add(socketTimeout))
 
-	envelope := Request{
-		Type:   "status",
-		Status: &StatusRequest{Agent: agent},
-	}
-	data, err := json.Marshal(envelope)
+	req := GetStatusRequest{Type: "getStatus", Agent: agent}
+	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -150,9 +152,15 @@ func QueryStatus(agent string) (*StatusResponse, error) {
 	return &resp, nil
 }
 
+// socketHandlers groups all handler functions for the socket dispatcher.
+type socketHandlers struct {
+	send         func(SendRequest) error
+	statusUpdate func(StatusUpdateRequest)
+}
+
 // listenSocket starts the unix socket server and dispatches incoming requests
-// to the handler function. Returns a cleanup function and any startup error.
-func listenSocket(sockPath string, sendHandler func(SendRequest) error) (func(), error) {
+// to the handler functions. Returns a cleanup function and any startup error.
+func listenSocket(sockPath string, handlers socketHandlers) (func(), error) {
 	// Remove stale socket file
 	os.Remove(sockPath)
 
@@ -168,7 +176,7 @@ func listenSocket(sockPath string, sendHandler func(SendRequest) error) (func(),
 				// Listener closed — exit goroutine
 				return
 			}
-			go handleConn(conn, sendHandler)
+			go handleConn(conn, handlers)
 		}
 	}()
 
@@ -180,7 +188,7 @@ func listenSocket(sockPath string, sendHandler func(SendRequest) error) (func(),
 	return cleanup, nil
 }
 
-func handleConn(conn net.Conn, sendHandler func(SendRequest) error) {
+func handleConn(conn net.Conn, handlers socketHandlers) {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(socketTimeout))
 
@@ -196,41 +204,30 @@ func handleConn(conn net.Conn, sendHandler func(SendRequest) error) {
 
 	raw := scanner.Bytes()
 
-	// Try to parse as Request envelope first
-	var envelope Request
-	if err := json.Unmarshal(raw, &envelope); err != nil {
+	// Peek at type field to route the message.
+	var peek struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &peek); err != nil {
 		writeJSON(conn, SendResponse{OK: false, Error: "invalid JSON: " + err.Error()})
 		return
 	}
 
-	switch envelope.Type {
-	case "status":
-		if envelope.Status == nil {
-			writeJSON(conn, StatusResponse{OK: false, Error: "missing status field"})
-			return
-		}
-		writeJSON(conn, handleStatusRequest(envelope.Status))
-
+	switch peek.Type {
+	case "getStatus":
+		writeJSON(conn, handleConnGetStatus(raw))
+	case "statusUpdate":
+		writeJSON(conn, handleConnStatusUpdate(raw, handlers))
 	default:
-		// Backwards compat: no type or type="send" → treat as SendRequest.
-		// If envelope.Send is populated, use it. Otherwise, re-parse as bare SendRequest.
-		var req SendRequest
-		if envelope.Send != nil {
-			req = *envelope.Send
-		} else if err := json.Unmarshal(raw, &req); err != nil {
-			writeJSON(conn, SendResponse{OK: false, Error: "invalid JSON: " + err.Error()})
-			return
-		}
-
-		if err := sendHandler(req); err != nil {
-			writeJSON(conn, SendResponse{OK: false, Error: err.Error()})
-			return
-		}
-		writeJSON(conn, SendResponse{OK: true})
+		writeJSON(conn, handleConnSend(raw, handlers))
 	}
 }
 
-func handleStatusRequest(req *StatusRequest) StatusResponse {
+func handleConnGetStatus(raw []byte) StatusResponse {
+	var req GetStatusRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return StatusResponse{OK: false, Error: "invalid JSON: " + err.Error()}
+	}
 	if req.Agent != "" {
 		s, err := status.ReadAgent(req.Agent)
 		if err != nil {
@@ -247,6 +244,29 @@ func handleStatusRequest(req *StatusRequest) StatusResponse {
 		return StatusResponse{OK: false, Error: err.Error()}
 	}
 	return StatusResponse{OK: true, Agents: all}
+}
+
+func handleConnStatusUpdate(raw []byte, handlers socketHandlers) SendResponse {
+	var req StatusUpdateRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return SendResponse{OK: false, Error: "invalid statusUpdate JSON: " + err.Error()}
+	}
+	if handlers.statusUpdate != nil {
+		handlers.statusUpdate(req)
+	}
+	return SendResponse{OK: true}
+}
+
+func handleConnSend(raw []byte, handlers socketHandlers) SendResponse {
+	var req SendRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return SendResponse{OK: false, Error: "invalid JSON: " + err.Error()}
+	}
+
+	if err := handlers.send(req); err != nil {
+		return SendResponse{OK: false, Error: err.Error()}
+	}
+	return SendResponse{OK: true}
 }
 
 func writeJSON(conn net.Conn, v interface{}) {
