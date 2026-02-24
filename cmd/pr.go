@@ -60,8 +60,28 @@ Examples:
 		fmt.Printf("PR #%d created: %s\n", result.Index, result.HTMLURL)
 		fmt.Printf("  %s → %s\n", result.Head, result.Base)
 		fmt.Println()
-		fmt.Println("  To request a code review:")
-		fmt.Println("    ttal pr review")
+
+		// Auto-spawn reviewer
+		sessionName, sessionErr := review.ResolveSessionName()
+		if sessionErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
+		} else if sessionName != "" {
+			if tmux.WindowExists(sessionName, "review") {
+				fmt.Println("  Reviewer already running, sending review request...")
+				if err := review.RequestReReview(sessionName, false); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
+				}
+			} else {
+				fmt.Println("  Spawning reviewer...")
+				if err := review.SpawnReviewer(sessionName, ctx); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
+				}
+			}
+		} else {
+			fmt.Println("  To request a code review:")
+			fmt.Println("    ttal pr review")
+		}
+
 		return nil
 	},
 }
@@ -189,7 +209,7 @@ Examples:
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux window: %v\n", windowErr)
 		}
 		if sessionName != "" && currentWindow == "review" {
-			// Find the coder's window (may be auto-renamed by tmux from "worker").
+			// Reviewer posting → notify the coder window
 			coderWindow := tmux.FirstWindowExcept(sessionName, "review")
 			if coderWindow != "" {
 				// Write review comment to temp file for direct delivery to worker
@@ -201,16 +221,33 @@ Examples:
 				var notification string
 				if reviewFile != "" {
 					notification = fmt.Sprintf(
-						"[agent from:reviewer] PR review posted. Full review at %s"+
-							" — read it and run /triage to assess and fix issues."+
-							" Run `ttal pr review` when done to request re-review.",
+						"/triage PR review posted. Full review at %s"+
+							" — read it, assess and fix issues."+
+							" Post your triage update with ttal pr comment create when done.",
 						reviewFile)
 				} else {
-					notification = "[agent from:reviewer] PR reviewed — see PR comments. " +
-						"Run /triage to triage, fix issues, then run `ttal pr review` to request re-review."
+					notification = "/triage PR reviewed — see PR comments. " +
+						"Assess and fix issues, then post your triage update with ttal pr comment create."
 				}
 				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
+				}
+			}
+		}
+
+		// Auto-trigger re-review when coder posts a comment (triage done).
+		// Require windowErr == nil to avoid firing when we can't confirm which window we're in.
+		if sessionName != "" && windowErr == nil && currentWindow != "review" {
+			if tmux.WindowExists(sessionName, "review") {
+				fmt.Println("  Triggering re-review...")
+				if err := review.RequestReReview(sessionName, false); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
+				}
+			} else {
+				// Reviewer window gone (crashed or closed) — respawn it
+				fmt.Println("  Reviewer not running, spawning...")
+				if err := review.SpawnReviewer(sessionName, ctx); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
 		}
@@ -227,11 +264,16 @@ var (
 var prReviewCmd = &cobra.Command{
 	Use:   "review",
 	Short: "Spawn a reviewer to review the current PR",
-	Long: `Spawns a Claude Code instance in a new tmux window to review the PR
-associated with the current task.
+	Long: `Manually spawn or re-trigger a PR reviewer.
 
-First run spawns the reviewer. Subsequent runs send a re-review request
-to the existing reviewer window.
+In normal flow, reviews are triggered automatically:
+- On PR create: reviewer spawns automatically
+- On worker comment: re-review triggers automatically
+
+Use this command when you need to:
+- Respawn a crashed reviewer (--force)
+- Force a full re-review instead of delta (--full)
+- Manually trigger a review in non-standard situations
 
 Examples:
   ttal pr review         # spawn reviewer (or re-review if window exists)
