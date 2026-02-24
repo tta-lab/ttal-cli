@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
@@ -83,7 +84,7 @@ Example:
   ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid> --runtime opencode`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runtimeStr, _ := cmd.Flags().GetString("runtime")
-		runtime, err := worker.ParseRuntime(runtimeStr)
+		rt, err := runtime.Parse(runtimeStr)
 		if err != nil {
 			return err
 		}
@@ -94,7 +95,7 @@ Example:
 			Worktree: spawnWorktree,
 			Force:    spawnForce,
 			Yolo:     spawnYolo,
-			Runtime:  runtime,
+			Runtime:  rt,
 		})
 	},
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
@@ -22,7 +23,7 @@ type SpawnConfig struct {
 	Worktree bool
 	Force    bool
 	Yolo     bool
-	Runtime  Runtime
+	Runtime  runtime.Runtime
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
@@ -42,13 +43,13 @@ func Spawn(cfg SpawnConfig) error {
 	}
 
 	// Route by task tag: +opencode or +oc overrides default runtime
-	if cfg.Runtime == "" || cfg.Runtime == RuntimeClaudeCode {
+	if cfg.Runtime == "" || cfg.Runtime == runtime.ClaudeCode {
 		if task.HasTag("opencode") || task.HasTag("oc") {
-			cfg.Runtime = RuntimeOpenCode
+			cfg.Runtime = runtime.OpenCode
 		}
 	}
 	if cfg.Runtime == "" {
-		cfg.Runtime = RuntimeClaudeCode
+		cfg.Runtime = runtime.ClaudeCode
 	}
 
 	if err := validateRuntime(cfg.Runtime); err != nil {
@@ -130,9 +131,9 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return err
 	}
 
-	shellCfg, _ := config.Load()
-	if shellCfg == nil {
-		shellCfg = &config.Config{}
+	shellCfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
@@ -146,18 +147,21 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 	}
 
 	// Set env vars at session level so new windows/panes inherit them
-	if err := tmux.SetEnv(sessionName, "TTAL_JOB_ID", task.SessionID()); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to set session env: %v\n", err)
+	setEnv := func(key, val string) {
+		if err := tmux.SetEnv(sessionName, key, val); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
+		}
 	}
+	setEnv("TTAL_JOB_ID", task.SessionID())
 	if team := os.Getenv("TTAL_TEAM"); team != "" {
-		_ = tmux.SetEnv(sessionName, "TTAL_TEAM", team)
+		setEnv("TTAL_TEAM", team)
 	}
 	if taskrc != "" {
-		_ = tmux.SetEnv(sessionName, "TASKRC", taskrc)
+		setEnv("TASKRC", taskrc)
 	}
 	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON
-	if cfg.Runtime == RuntimeOpenCode && cfg.Yolo {
-		_ = tmux.SetEnv(sessionName, "OPENCODE_PERMISSION",
+	if cfg.Runtime == runtime.OpenCode && cfg.Yolo {
+		setEnv("OPENCODE_PERMISSION",
 			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
 	}
 
@@ -193,7 +197,7 @@ func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior
 	envParts []string, shellCfg *config.Config,
 ) string {
 	switch cfg.Runtime {
-	case RuntimeOpenCode:
+	case runtime.OpenCode:
 		return buildOpenCodeCmd(ttalBin, taskFile, envParts, shellCfg)
 	default:
 		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)

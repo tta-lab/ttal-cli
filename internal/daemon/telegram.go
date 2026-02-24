@@ -76,83 +76,13 @@ func runPoller(
 		if update.Message == nil {
 			return
 		}
-		// Only accept messages from the configured chat
 		if update.Message.Chat.ID != chatID {
 			return
 		}
-		// From is nil for channel posts
 		if update.Message.From == nil {
 			return
 		}
-
-		senderName := update.Message.From.Username
-		if senderName == "" {
-			senderName = update.Message.From.FirstName
-		}
-
-		// Handle voice messages
-		if update.Message.Voice != nil {
-			transcription, err := transcribeVoiceMessage(ctx, b, update.Message.Voice, vocabulary)
-			if err != nil {
-				log.Printf("[telegram] voice transcription failed for %s: %v", agentName, err)
-				errMsg := "Voice transcription failed — check daemon logs for details"
-				_ = telegram.SendMessage(cfg.BotToken, effectiveChatID, errMsg)
-				return
-			}
-			formatted := formatInboundMessage(agentName, senderName, "[🎤 voice] "+transcription)
-			onMessage(agentName, formatted)
-			return
-		}
-
-		// Handle photo messages
-		if len(update.Message.Photo) > 0 {
-			// Telegram sends multiple sizes — last is largest
-			photo := update.Message.Photo[len(update.Message.Photo)-1]
-			filename := fmt.Sprintf("photo_%d.jpg", update.Message.ID)
-
-			localPath, err := downloadTelegramFile(ctx, b, photo.FileID, agentName, filename)
-			if err != nil {
-				log.Printf("[telegram] photo download failed for %s: %v", agentName, err)
-				_ = telegram.SendMessage(cfg.BotToken, effectiveChatID, "Photo download failed — check daemon logs for details")
-				return
-			}
-
-			text := fmt.Sprintf("[📷 photo] %s", localPath)
-			if caption := update.Message.Caption; caption != "" {
-				text += " " + caption
-			}
-			formatted := formatInboundMessage(agentName, senderName, text)
-			onMessage(agentName, formatted)
-			return
-		}
-
-		// Handle document/file messages
-		if update.Message.Document != nil {
-			doc := update.Message.Document
-			filename := doc.FileName
-			if filename == "" {
-				filename = fmt.Sprintf("file_%d", update.Message.ID)
-			}
-
-			localPath, err := downloadTelegramFile(ctx, b, doc.FileID, agentName, filename)
-			if err != nil {
-				log.Printf("[telegram] document download failed for %s: %v", agentName, err)
-				_ = telegram.SendMessage(cfg.BotToken, effectiveChatID, "File download failed — check daemon logs for details")
-				return
-			}
-
-			text := fmt.Sprintf("[📎 file] %s", localPath)
-			if caption := update.Message.Caption; caption != "" {
-				text += " " + caption
-			}
-			formatted := formatInboundMessage(agentName, senderName, text)
-			onMessage(agentName, formatted)
-			return
-		}
-
-		text := strings.TrimSpace(update.Message.Text)
-		formatted := formatInboundMessage(agentName, senderName, text)
-		onMessage(agentName, formatted)
+		handleInboundMessage(ctx, b, update.Message, agentName, cfg.BotToken, effectiveChatID, vocabulary, onMessage)
 	}
 
 	b, err := bot.New(cfg.BotToken, bot.WithDefaultHandler(defaultHandler))
@@ -168,6 +98,75 @@ func runPoller(
 
 	b.Start(ctx)
 	return nil
+}
+
+func handleInboundMessage(
+	ctx context.Context, b *bot.Bot, msg *models.Message,
+	agentName, botToken, chatIDStr string, vocabulary []string,
+	onMessage func(string, string),
+) {
+	senderName := msg.From.Username
+	if senderName == "" {
+		senderName = msg.From.FirstName
+	}
+
+	// Handle voice messages
+	if msg.Voice != nil {
+		transcription, err := transcribeVoiceMessage(ctx, b, msg.Voice, vocabulary)
+		if err != nil {
+			log.Printf("[telegram] voice transcription failed for %s: %v", agentName, err)
+			_ = telegram.SendMessage(botToken, chatIDStr, "Voice transcription failed — check daemon logs for details")
+			return
+		}
+		formatted := formatInboundMessage(agentName, senderName, "[🎤 voice] "+transcription)
+		onMessage(agentName, formatted)
+		return
+	}
+
+	// Handle photo messages
+	if len(msg.Photo) > 0 {
+		photo := msg.Photo[len(msg.Photo)-1]
+		filename := fmt.Sprintf("photo_%d.jpg", msg.ID)
+
+		localPath, err := downloadTelegramFile(ctx, b, photo.FileID, agentName, filename)
+		if err != nil {
+			log.Printf("[telegram] photo download failed for %s: %v", agentName, err)
+			_ = telegram.SendMessage(botToken, chatIDStr, "Photo download failed — check daemon logs for details")
+			return
+		}
+
+		text := fmt.Sprintf("[📷 photo] %s", localPath)
+		if caption := msg.Caption; caption != "" {
+			text += " " + caption
+		}
+		onMessage(agentName, formatInboundMessage(agentName, senderName, text))
+		return
+	}
+
+	// Handle document/file messages
+	if msg.Document != nil {
+		filename := msg.Document.FileName
+		if filename == "" {
+			filename = fmt.Sprintf("file_%d", msg.ID)
+		}
+
+		localPath, err := downloadTelegramFile(ctx, b, msg.Document.FileID, agentName, filename)
+		if err != nil {
+			log.Printf("[telegram] document download failed for %s: %v", agentName, err)
+			_ = telegram.SendMessage(botToken, chatIDStr, "File download failed — check daemon logs for details")
+			return
+		}
+
+		text := fmt.Sprintf("[📎 file] %s", localPath)
+		if caption := msg.Caption; caption != "" {
+			text += " " + caption
+		}
+		onMessage(agentName, formatInboundMessage(agentName, senderName, text))
+		return
+	}
+
+	text := strings.TrimSpace(msg.Text)
+	onMessage(agentName, formatInboundMessage(agentName, senderName, text))
 }
 
 // registerBotCommands registers each bot command as a handler on the bot instance.

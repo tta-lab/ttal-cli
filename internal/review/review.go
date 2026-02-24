@@ -40,9 +40,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 		"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
 		ttalBin, promptFile)
 
-	shellCfg, _ := config.Load()
-	if shellCfg == nil {
-		shellCfg = &config.Config{}
+	shellCfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 	shellCmd := shellCfg.ShellCommand(claudeCmd)
 

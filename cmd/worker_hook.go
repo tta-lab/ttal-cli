@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
@@ -64,12 +65,12 @@ var workerHookSpawnWorkerCmd = &cobra.Command{
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		runtimeStr, _ := cmd.Flags().GetString("runtime")
-		runtime, err := worker.ParseRuntime(runtimeStr)
+		rt, err := runtime.Parse(runtimeStr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "invalid runtime: %v\n", err)
 			os.Exit(1)
 		}
-		worker.HookSpawnWorker(args[0], args[1], args[2], runtime)
+		worker.HookSpawnWorker(args[0], args[1], args[2], rt)
 	},
 }
 

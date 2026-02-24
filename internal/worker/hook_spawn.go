@@ -3,14 +3,15 @@ package worker
 import (
 	"fmt"
 
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 // HookSpawnWorker runs worker spawn as a background process and reports to Telegram.
 // Called as a detached subprocess by the on-start hook.
-func HookSpawnWorker(uuid, workerName, projectPath string, runtime Runtime) {
+func HookSpawnWorker(uuid, workerName, projectPath string, rt runtime.Runtime) {
 	hookLogFile(fmt.Sprintf("spawn-worker: starting %s for task %s in %s (runtime=%s)",
-		workerName, uuid, projectPath, runtime))
+		workerName, uuid, projectPath, rt))
 
 	// Load task to get description for notifications
 	task, err := taskwarrior.ExportTask(uuid)
@@ -26,7 +27,7 @@ func HookSpawnWorker(uuid, workerName, projectPath string, runtime Runtime) {
 		TaskUUID: uuid,
 		Worktree: true,
 		Yolo:     true,
-		Runtime:  runtime,
+		Runtime:  rt,
 	})
 
 	if err != nil {

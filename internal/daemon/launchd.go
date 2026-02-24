@@ -19,12 +19,15 @@ const (
 // daemonPlistName returns the launchd label for the active team's daemon.
 // Single-team (default): "io.guion.ttal.daemon"
 // Multi-team: "io.guion.ttal.daemon.<team>"
-func daemonPlistName() string {
+func daemonPlistName() (string, error) {
 	cfg, err := config.Load()
-	if err != nil || len(cfg.Teams) == 0 {
-		return daemonPlistBase
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
 	}
-	return daemonPlistBase + "." + cfg.TeamName()
+	if len(cfg.Teams) == 0 {
+		return daemonPlistBase, nil
+	}
+	return daemonPlistBase + "." + cfg.TeamName(), nil
 }
 
 // Install installs the launchd plist and creates a config template if needed.
@@ -73,7 +76,10 @@ func Uninstall() error {
 		return err
 	}
 
-	label := daemonPlistName()
+	label, err := daemonPlistName()
+	if err != nil {
+		return err
+	}
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 
 	if _, err := os.Stat(plistPath); err != nil {
@@ -100,7 +106,10 @@ func Uninstall() error {
 }
 
 func installDaemonPlist(home, ttalBin, dataDir string) error {
-	label := daemonPlistName()
+	label, err := daemonPlistName()
+	if err != nil {
+		return err
+	}
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 
 	uid := os.Getuid()
@@ -207,7 +216,10 @@ func Start() error {
 		return err
 	}
 
-	label := daemonPlistName()
+	label, err := daemonPlistName()
+	if err != nil {
+		return err
+	}
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 	if _, err := os.Stat(plistPath); err != nil {
 		return fmt.Errorf("daemon not installed (run: ttal daemon install)")
@@ -230,7 +242,10 @@ func Start() error {
 
 // Stop stops the daemon launchd service.
 func Stop() error {
-	label := daemonPlistName()
+	label, err := daemonPlistName()
+	if err != nil {
+		return err
+	}
 	uid := os.Getuid()
 	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, label))
 	if out, err := cmd.CombinedOutput(); err != nil {

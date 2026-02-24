@@ -263,10 +263,12 @@ func checkTaskwarrior(fix bool) Section {
 	section := Section{Name: "Taskwarrior UDAs"}
 
 	// Resolve taskrc from active team config
-	taskrc := config.DefaultTaskRC()
-	if cfg, err := config.Load(); err == nil {
-		taskrc = cfg.TaskRC()
+	cfg, err := config.Load()
+	if err != nil {
+		section.add(LevelError, "config", fmt.Sprintf("failed to load config: %v", err))
+		return section
 	}
+	taskrc := cfg.TaskRC()
 
 	home, _ := os.UserHomeDir()
 	// Companion files (.taskrc.ttal, .taskrc.tasktui) live next to the default taskrc

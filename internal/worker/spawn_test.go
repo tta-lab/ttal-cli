@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
@@ -57,7 +58,7 @@ func TestBuildClaudeCodeCmd(t *testing.T) {
 		Tags:        []string{},
 	}
 
-	cfg := SpawnConfig{Name: "test", Yolo: true, Runtime: RuntimeClaudeCode}
+	cfg := SpawnConfig{Name: "test", Yolo: true, Runtime: runtime.ClaudeCode}
 	envParts := []string{"TTAL_JOB_ID=test-id"}
 	shellCfg := &config.Config{}
 
@@ -84,7 +85,7 @@ func TestBuildClaudeCodeCmd_Sonnet(t *testing.T) {
 		Tags:        []string{"sonnet"},
 	}
 
-	cfg := SpawnConfig{Name: "test", Runtime: RuntimeClaudeCode}
+	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
 	shellCfg := &config.Config{}
 	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, nil, shellCfg)
 

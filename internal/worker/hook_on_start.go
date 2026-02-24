@@ -3,6 +3,8 @@ package worker
 import (
 	"fmt"
 	"strings"
+
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 )
 
 // handleOnStart forks a background spawn if the task has enriched UDAs.
@@ -26,17 +28,17 @@ func handleOnStart(_ hookTask, modified hookTask) {
 	workerName := strings.TrimPrefix(branch, "worker/")
 
 	// Detect runtime from task tags (+opencode or +oc)
-	runtime := RuntimeClaudeCode
+	rt := runtime.ClaudeCode
 	for _, tag := range modified.Tags() {
-		if tag == string(RuntimeOpenCode) || tag == "oc" {
-			runtime = RuntimeOpenCode
+		if tag == string(runtime.OpenCode) || tag == "oc" {
+			rt = runtime.OpenCode
 			break
 		}
 	}
 
 	// Fork background spawn
 	if err := forkBackground("worker", "hook", "spawn-worker",
-		"--runtime", string(runtime),
+		"--runtime", string(rt),
 		modified.UUID(), workerName, projectPath); err != nil {
 		hookLogFile(fmt.Sprintf("ERROR forking spawn for %s: %v", modified.UUID(), err))
 		notifyTelegram(fmt.Sprintf("⚠ Failed to fork worker spawn:\n%s\nError: %v",
@@ -45,5 +47,5 @@ func handleOnStart(_ hookTask, modified hookTask) {
 	}
 
 	hookLog("START_SPAWN", modified.UUID(), modified.Description(),
-		"worker", workerName, "project", projectPath, "runtime", string(runtime), "status", "forked")
+		"worker", workerName, "project", projectPath, "runtime", string(rt), "status", "forked")
 }

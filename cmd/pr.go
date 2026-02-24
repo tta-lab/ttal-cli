@@ -210,7 +210,10 @@ Examples:
 		}
 		if sessionName != "" && currentWindow == "review" {
 			// Reviewer posting → notify the coder window
-			coderWindow := tmux.FirstWindowExcept(sessionName, "review")
+			coderWindow, cwErr := tmux.FirstWindowExcept(sessionName, "review")
+			if cwErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to find coder window: %v\n", cwErr)
+			}
 			if coderWindow != "" {
 				// Write review comment to temp file for direct delivery to worker
 				reviewFile, fileErr := writeReviewFile(body)
