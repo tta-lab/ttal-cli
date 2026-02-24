@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAL is a CLI tool for managing projects, agents, and memory capture with tag-based filtering and routing. It uses a schema-first database approach with type-safe queries.
+TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus with tag-based filtering and routing. It uses a schema-first database approach with type-safe queries, plus taskwarrior integration for task and today commands.
 
 ## Essential Commands
 
@@ -91,7 +91,9 @@ cmd/             - CLI commands (cobra)
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
   ├── pr.go      - ttal pr create/modify/merge/comment
-  └── worker.go  - ttal worker spawn/close/list
+  ├── worker.go  - ttal worker spawn/close/list
+  ├── today.go   - ttal today list/completed/add/remove (daily focus)
+  └── task.go    - ttal task get/find (taskwarrior queries)
 
 ent/             - ent ORM (mostly auto-generated)
   └── schema/    - Schema definitions (source of truth)
@@ -105,7 +107,9 @@ internal/
   ├── pr/        - PR operations (create, modify, merge, comment)
   ├── worker/    - Worker lifecycle (hook, spawn, close)
   ├── gitutil/   - Git/worktree utilities (dump state, cleanup)
-  └── tmux/      - tmux session management and send-keys delivery
+  ├── tmux/      - tmux session management and send-keys delivery
+  ├── today/     - Today focus list (lipgloss tables, scheduled date mgmt)
+  └── taskwarrior/ - Shared taskwarrior helpers (export, find, prompt, UDAs)
 ```
 
 ### Daemon Architecture

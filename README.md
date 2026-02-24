@@ -10,6 +10,8 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 - **PR Management**: Create, modify, merge (squash), and comment on Forgejo PRs — context auto-resolved from worker session
 - **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (tmux) communication via `ttal send`
 - **Tag-Based Routing**: Tag-based task routing to matching agents on task start
+- **Today Focus**: Manage daily task focus list via taskwarrior's `scheduled` date
+- **Task Utilities**: Search tasks and export rich prompts with inlined markdown context
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
 - **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
 - **Daemon**: Communication hub — Telegram polling, message delivery, worker cleanup (launchd)
@@ -289,6 +291,41 @@ task <id> done                                        # on-modify: auto-cleanup 
 ```
 
 If a task's tags already match an agent (e.g., `+kestrel`), enrichment is skipped — the task is assumed to be pre-configured.
+
+### Today Commands
+
+Manage your daily focus list. Tasks are filtered by taskwarrior's `scheduled` date. These commands do **not** require the ttal database.
+
+```bash
+# List today's focus tasks (scheduled on or before today, sorted by urgency)
+ttal today list
+
+# Show tasks completed today
+ttal today completed
+
+# Add tasks to today's focus (accepts 8-char UUID prefix or full UUID)
+ttal today add <uuid> [uuid...]
+
+# Remove tasks from today's focus
+ttal today remove <uuid> [uuid...]
+```
+
+### Task Commands
+
+Taskwarrior query utilities for searching tasks and exporting rich prompts. These commands do **not** require the ttal database.
+
+```bash
+# Export a task as a rich prompt (inlines referenced markdown files from annotations)
+ttal task get <uuid>
+
+# Search tasks by keyword (OR logic, case-insensitive)
+ttal task find <keyword> [keyword...]
+
+# Search completed tasks
+ttal task find <keyword> --completed
+```
+
+`ttal task get` is designed for piping to agents — it formats the task with description, annotations, and inlined content from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns.
 
 ### Daemon Setup
 

@@ -126,6 +126,29 @@ ttal project list              # list all active projects
 ttal project info <alias>      # project details (path, repo, tags)
 ```
 
+## Today Focus
+
+Manage your daily task focus list (uses taskwarrior `scheduled` date):
+
+```bash
+ttal today list                # pending tasks scheduled on or before today
+ttal today completed           # tasks completed today
+ttal today add <uuid>          # set scheduled:today on a task
+ttal today remove <uuid>       # clear scheduled date from a task
+```
+
+## Task Utilities
+
+Search tasks and export rich prompts for piping to agents:
+
+```bash
+ttal task get <uuid>           # export task as rich prompt (inlines referenced docs)
+ttal task find <keyword>       # search pending tasks by keyword (OR, case-insensitive)
+ttal task find <keyword> --completed  # search completed tasks
+```
+
+`ttal task get` inlines markdown files from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns — useful for feeding full context to agents.
+
 ## Tag-Based Routing
 
 Agents and projects share tags. An agent can see projects that share at least one tag:
