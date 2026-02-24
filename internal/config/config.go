@@ -57,7 +57,6 @@ type TeamConfig struct {
 	DefaultRuntime  string                 `toml:"default_runtime"`
 	Agents          map[string]AgentConfig `toml:"agents"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary"`
-	Sync            SyncConfig             `toml:"sync"`
 }
 
 // SyncConfig holds paths for subagent and skill deployment.
@@ -230,11 +229,6 @@ func (c *Config) resolve() error {
 	}
 
 	c.resolvedDefRuntime = team.DefaultRuntime
-
-	// Promote team sync config if it has any paths configured.
-	if len(team.Sync.SubagentsPaths) > 0 || len(team.Sync.SkillsPaths) > 0 {
-		c.Sync = team.Sync
-	}
 
 	return nil
 }
