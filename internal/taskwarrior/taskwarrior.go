@@ -37,6 +37,7 @@ type Annotation struct {
 
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
+	ID          int          `json:"id"`
 	UUID        string       `json:"uuid"`
 	Description string       `json:"description"`
 	Project     string       `json:"project,omitempty"`
@@ -323,6 +324,34 @@ func ExportTaskBySessionID(sessionID, status string) (*Task, error) {
 		return nil, fmt.Errorf("no task found with uuid prefix %s: %w", sessionID, err)
 	}
 	return parseFirstTask(out)
+}
+
+// FindTasks searches for tasks matching any of the given keywords (OR logic).
+// status filters by task status (e.g. "pending", "completed"). Empty means no filter.
+func FindTasks(keywords []string, status string) ([]Task, error) {
+	parts := make([]string, len(keywords))
+	for i, kw := range keywords {
+		quoted := `"` + strings.ReplaceAll(kw, `"`, `\"`) + `"`
+		parts[i] = "description.contains:" + quoted
+	}
+	filter := "(" + strings.Join(parts, " or ") + ")"
+
+	args := []string{filter}
+	if status != "" {
+		args = append(args, fmt.Sprintf("status:%s", status))
+	}
+	args = append(args, "export")
+
+	out, err := runTask(args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search tasks: %w", err)
+	}
+
+	var tasks []Task
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse task JSON (output: %q): %w", out, err)
+	}
+	return tasks, nil
 }
 
 // UpdateWorkerMetadata sets branch and project_path UDAs on a task.
