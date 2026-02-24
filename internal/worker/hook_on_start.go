@@ -1,18 +1,69 @@
 package worker
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"codeberg.org/clawteam/ttal-cli/ent/agent"
+	"codeberg.org/clawteam/ttal-cli/ent/tag"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/db"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 )
 
-// handleOnStart forks a background spawn if the task has enriched UDAs.
+// handleOnStart routes a started task to either an existing agent session (tag match)
+// or spawns a new worker (UDA match).
+//
+// Resolution order:
+//  1. Tag-based: match task tags against registered agents → send to existing session via daemon
+//  2. UDA-based: use project_path and branch UDAs set by enrichment → spawn new worker
 func handleOnStart(_ hookTask, modified hookTask) {
 	defer passthroughTask(modified)
 
 	hookLog("START", modified.UUID(), modified.Description())
 
+	// 1. Try tag-based routing to existing agent session
+	if agentName := resolveAgentNameByTags(modified.Tags()); agentName != "" {
+		hookLog("START_ROUTE", modified.UUID(), modified.Description(),
+			"method", "tag_match", "agent", agentName)
+		routeToAgent(agentName, modified)
+		return
+	}
+
+	// 2. Fall back to UDA-based worker spawn
+	spawnFromUDAs(modified)
+}
+
+// routeToAgent sends the task to an existing agent session via the daemon.
+// Sends a short message with the task ID — the agent uses `ttal task get` for full details.
+func routeToAgent(agentName string, task hookTask) {
+	uuid := task.UUID()
+	if len(uuid) > 8 {
+		uuid = uuid[:8]
+	}
+	msg := fmt.Sprintf("[task assigned] %s\nUUID: %s\nRun `ttal task get %s` to get full task details including annotations and referenced docs.",
+		task.Description(), uuid, uuid)
+
+	err := sendToDaemon(daemonSendRequest{
+		To:      agentName,
+		Message: msg,
+	})
+	if err != nil {
+		hookLogFile(fmt.Sprintf("ERROR routing task to %s: %v", agentName, err))
+		notifyTelegram(fmt.Sprintf("⚠ Failed to route task to %s:\n%s\nError: %v",
+			agentName, task.Description(), err))
+		return
+	}
+
+	hookLog("START_ROUTED", task.UUID(), task.Description(),
+		"agent", agentName, "status", "delivered")
+}
+
+// spawnFromUDAs spawns a new worker using project_path and branch UDAs.
+func spawnFromUDAs(modified hookTask) {
 	projectPath := modified.ProjectPath()
 	branch := modified.Branch()
 
@@ -24,19 +75,17 @@ func handleOnStart(_ hookTask, modified hookTask) {
 		return
 	}
 
-	// Derive worker name from branch (worker/fix-auth → fix-auth)
 	workerName := strings.TrimPrefix(branch, "worker/")
 
 	// Detect runtime from task tags (+opencode or +oc)
 	rt := runtime.ClaudeCode
-	for _, tag := range modified.Tags() {
-		if tag == string(runtime.OpenCode) || tag == "oc" {
+	for _, t := range modified.Tags() {
+		if t == string(runtime.OpenCode) || t == "oc" {
 			rt = runtime.OpenCode
 			break
 		}
 	}
 
-	// Fork background spawn
 	if err := forkBackground("worker", "hook", "spawn-worker",
 		"--runtime", string(rt),
 		modified.UUID(), workerName, projectPath); err != nil {
@@ -48,4 +97,33 @@ func handleOnStart(_ hookTask, modified hookTask) {
 
 	hookLog("START_SPAWN", modified.UUID(), modified.Description(),
 		"worker", workerName, "project", projectPath, "runtime", string(rt), "status", "forked")
+}
+
+// resolveAgentNameByTags queries the DB for an agent whose tags overlap with the task tags.
+// Returns the agent's name, or empty string if no match.
+func resolveAgentNameByTags(taskTags []string) string {
+	if len(taskTags) == 0 {
+		return ""
+	}
+
+	dbPath := filepath.Join(config.ResolveDataDir(), "ttal.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		return ""
+	}
+
+	database, err := db.New(dbPath)
+	if err != nil {
+		hookLogFile(fmt.Sprintf("resolveAgentNameByTags: failed to open DB: %v", err))
+		return ""
+	}
+	defer database.Close()
+
+	matched, err := database.Agent.Query().
+		Where(agent.HasTagsWith(tag.NameIn(taskTags...))).
+		First(context.Background())
+	if err != nil {
+		return ""
+	}
+
+	return matched.Name
 }

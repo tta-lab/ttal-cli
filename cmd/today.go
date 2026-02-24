@@ -46,13 +46,15 @@ Example:
 }
 
 var todayAddCmd = &cobra.Command{
-	Use:   "add <id> [id...]",
+	Use:   "add <uuid> [uuid...]",
 	Short: "Add tasks to today's focus list",
 	Long: `Schedule tasks for today by setting their scheduled date.
 
+Accepts 8-char UUID prefixes or full UUIDs.
+
 Example:
-  ttal today add 106
-  ttal today add 106 107 108`,
+  ttal today add 5b8fd90c
+  ttal today add 5b8fd90c 841f4ec8`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return today.Add(args)
@@ -60,13 +62,15 @@ Example:
 }
 
 var todayRemoveCmd = &cobra.Command{
-	Use:   "remove <id> [id...]",
+	Use:   "remove <uuid> [uuid...]",
 	Short: "Remove tasks from today's focus list",
 	Long: `Clear the scheduled date from tasks, removing them from today's list.
 
+Accepts 8-char UUID prefixes or full UUIDs.
+
 Example:
-  ttal today remove 106
-  ttal today remove 106 107 108`,
+  ttal today remove 5b8fd90c
+  ttal today remove 5b8fd90c 841f4ec8`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return today.Remove(args)

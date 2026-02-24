@@ -1,15 +1,8 @@
 package worker
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/db"
 )
 
 // HookOnAdd handles the taskwarrior on-add event.
@@ -46,28 +39,5 @@ func HookOnAdd() {
 
 // tagsMatchAgent checks if any of the given tags match a registered agent's tags.
 func tagsMatchAgent(taskTags []string) bool {
-	if len(taskTags) == 0 {
-		return false
-	}
-
-	dbPath := filepath.Join(config.ResolveDataDir(), "ttal.db")
-	if _, err := os.Stat(dbPath); err != nil {
-		return false
-	}
-
-	database, err := db.New(dbPath)
-	if err != nil {
-		hookLogFile(fmt.Sprintf("tagsMatchAgent: failed to open DB: %v", err))
-		return false
-	}
-	defer database.Close()
-
-	count, err := database.Agent.Query().
-		Where(agent.HasTagsWith(tag.NameIn(taskTags...))).
-		Count(context.Background())
-	if err != nil {
-		return false
-	}
-
-	return count > 0
+	return resolveAgentNameByTags(taskTags) != ""
 }
