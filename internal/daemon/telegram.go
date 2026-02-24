@@ -9,6 +9,8 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -98,6 +100,52 @@ func runPoller(
 				return
 			}
 			formatted := formatInboundMessage(agentName, senderName, "[🎤 voice] "+transcription)
+			onMessage(agentName, formatted)
+			return
+		}
+
+		// Handle photo messages
+		if len(update.Message.Photo) > 0 {
+			// Telegram sends multiple sizes — last is largest
+			photo := update.Message.Photo[len(update.Message.Photo)-1]
+			filename := fmt.Sprintf("photo_%d.jpg", update.Message.ID)
+
+			localPath, err := downloadTelegramFile(ctx, b, photo.FileID, agentName, filename)
+			if err != nil {
+				log.Printf("[telegram] photo download failed for %s: %v", agentName, err)
+				_ = telegram.SendMessage(cfg.BotToken, effectiveChatID, "Photo download failed — check daemon logs for details")
+				return
+			}
+
+			text := fmt.Sprintf("[📷 photo] %s", localPath)
+			if caption := update.Message.Caption; caption != "" {
+				text += " " + caption
+			}
+			formatted := formatInboundMessage(agentName, senderName, text)
+			onMessage(agentName, formatted)
+			return
+		}
+
+		// Handle document/file messages
+		if update.Message.Document != nil {
+			doc := update.Message.Document
+			filename := doc.FileName
+			if filename == "" {
+				filename = fmt.Sprintf("file_%d", update.Message.ID)
+			}
+
+			localPath, err := downloadTelegramFile(ctx, b, doc.FileID, agentName, filename)
+			if err != nil {
+				log.Printf("[telegram] document download failed for %s: %v", agentName, err)
+				_ = telegram.SendMessage(cfg.BotToken, effectiveChatID, "File download failed — check daemon logs for details")
+				return
+			}
+
+			text := fmt.Sprintf("[📎 file] %s", localPath)
+			if caption := update.Message.Caption; caption != "" {
+				text += " " + caption
+			}
+			formatted := formatInboundMessage(agentName, senderName, text)
 			onMessage(agentName, formatted)
 			return
 		}
@@ -266,4 +314,56 @@ func sttTranscribe(audioData []byte, filename string, vocabulary []string) (stri
 	}
 
 	return strings.TrimSpace(result.Text), nil
+}
+
+// downloadTelegramFile downloads a file from Telegram and saves it to the agent's file directory.
+// Returns the local file path.
+func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, agentName, filename string) (string, error) {
+	// Sanitize filename to prevent path traversal
+	filename = filepath.Base(filename)
+
+	file, err := b.GetFile(ctx, &bot.GetFileParams{FileID: fileID})
+	if err != nil {
+		return "", fmt.Errorf("get file: %w", err)
+	}
+
+	fileURL := b.FileDownloadLink(file)
+	resp, err := http.Get(fileURL) //nolint:gosec
+	if err != nil {
+		return "", fmt.Errorf("download file: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("download file: HTTP %d", resp.StatusCode)
+	}
+
+	dir := filepath.Join(config.ResolveDataDir(), "files", agentName)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create file dir: %w", err)
+	}
+
+	localPath := filepath.Join(dir, filename)
+
+	// Avoid overwriting existing files — append timestamp
+	if _, err := os.Stat(localPath); err == nil {
+		ext := filepath.Ext(filename)
+		base := strings.TrimSuffix(filename, ext)
+		localPath = filepath.Join(dir, fmt.Sprintf("%s_%d%s", base, time.Now().UnixMilli(), ext))
+	}
+
+	out, err := os.Create(localPath) //nolint:gosec
+	if err != nil {
+		return "", fmt.Errorf("create file: %w", err)
+	}
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		_ = out.Close()
+		return "", fmt.Errorf("write file: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		return "", fmt.Errorf("close file: %w", err)
+	}
+
+	return localPath, nil
 }
