@@ -5,7 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
 
 const (
@@ -102,30 +103,16 @@ func installHooks(hookDir string) error {
 	return nil
 }
 
-// taskHookDir resolves the taskwarrior hooks directory.
-// Respects TASKRC env var (set by team config) via `task _get rc.data.location`.
-// Falls back to ~/.task/hooks/ if taskwarrior is unavailable.
+// taskHookDir resolves the taskwarrior hooks directory from config.
 func taskHookDir() (string, error) {
-	out, err := exec.Command("task", "_get", "rc.data.location").Output()
-	if err == nil {
-		dataLoc := strings.TrimSpace(string(out))
-		if dataLoc != "" {
-			// Expand ~ if present
-			if strings.HasPrefix(dataLoc, "~") {
-				home, err := os.UserHomeDir()
-				if err != nil {
-					return "", fmt.Errorf("failed to expand ~: %w", err)
-				}
-				dataLoc = filepath.Join(home, dataLoc[1:])
-			}
-			return filepath.Join(dataLoc, "hooks"), nil
-		}
-	}
-
-	// Fallback: default taskwarrior location
-	home, err := os.UserHomeDir()
+	cfg, err := config.Load()
 	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+		// Fallback: default taskwarrior location
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get home directory: %w", err)
+		}
+		return filepath.Join(home, ".task", "hooks"), nil
 	}
-	return filepath.Join(home, ".task", "hooks"), nil
+	return filepath.Join(cfg.TaskData(), "hooks"), nil
 }

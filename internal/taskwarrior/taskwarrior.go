@@ -1,6 +1,7 @@
 package taskwarrior
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -429,19 +430,29 @@ func runTaskWithInput(input string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "task", args...)
+	// Prepend rc.verbose:nothing to suppress TASKRC override warnings and other chatter
+	fullArgs := append([]string{"rc.verbose:nothing"}, args...)
+	cmd := exec.CommandContext(ctx, "task", fullArgs...)
 	if input != "" {
 		cmd.Stdin = strings.NewReader(input)
 	}
 
-	out, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if ctx.Err() != nil {
 		return "", fmt.Errorf("taskwarrior timeout after %s", cmdTimeout)
 	}
 	if err != nil {
-		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+		// Include stderr in error message for diagnostics
+		errMsg := strings.TrimSpace(stderr.String())
+		if errMsg == "" {
+			errMsg = strings.TrimSpace(stdout.String())
+		}
+		return "", fmt.Errorf("%w: %s", err, errMsg)
 	}
-	return string(out), nil
+	return stdout.String(), nil
 }
 
 func parseFirstTask(output string) (*Task, error) {

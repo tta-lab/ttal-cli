@@ -45,6 +45,7 @@ type Config struct {
 	// Resolved at load time, not from TOML.
 	resolvedDataDir    string
 	resolvedTaskRC     string
+	resolvedTaskData   string
 	resolvedTeamName   string
 	resolvedDefRuntime string
 	resolvedMergeMode  string
@@ -101,6 +102,11 @@ func (c *Config) TaskRC() string {
 	return c.resolvedTaskRC
 }
 
+// TaskData returns the resolved taskwarrior data directory for the active team.
+func (c *Config) TaskData() string {
+	return c.resolvedTaskData
+}
+
 // TeamName returns the resolved active team name.
 func (c *Config) TeamName() string {
 	return c.resolvedTeamName
@@ -115,6 +121,7 @@ func (c *Config) DefaultRuntime() runtime.Runtime {
 }
 
 const (
+	DefaultTeamName = "default"
 	MergeModeAuto   = "auto"
 	MergeModeManual = "manual"
 )
@@ -208,9 +215,10 @@ func Load() (*Config, error) {
 func (c *Config) resolve() error {
 	if len(c.Teams) == 0 {
 		// Legacy flat config — use defaults for data dir and taskrc.
-		c.resolvedTeamName = "default"
+		c.resolvedTeamName = DefaultTeamName
 		c.resolvedDataDir = defaultDataDir()
 		c.resolvedTaskRC = defaultTaskRC()
+		c.resolvedTaskData = filepath.Join(c.resolvedDataDir, "tasks")
 		c.resolvedMergeMode = c.MergeMode
 		return c.validateMergeMode()
 	}
@@ -221,7 +229,7 @@ func (c *Config) resolve() error {
 		teamName = c.DefaultTeam
 	}
 	if teamName == "" {
-		teamName = "default"
+		teamName = DefaultTeamName
 	}
 
 	team, ok := c.Teams[teamName]
@@ -240,17 +248,27 @@ func (c *Config) resolve() error {
 		Language:   team.VoiceLanguage,
 	}
 
+	// Resolve DataDir: explicit override > convention
 	if team.DataDir != "" {
 		c.resolvedDataDir = expandHome(team.DataDir)
-	} else {
+	} else if teamName == DefaultTeamName {
 		c.resolvedDataDir = defaultDataDir()
+	} else {
+		// Non-default teams use convention: ~/.ttal/<teamName>/
+		c.resolvedDataDir = filepath.Join(defaultDataDir(), teamName)
 	}
 
+	// Resolve TaskRC: explicit override > convention
 	if team.TaskRC != "" {
 		c.resolvedTaskRC = expandHome(team.TaskRC)
-	} else {
+	} else if teamName == DefaultTeamName {
 		c.resolvedTaskRC = defaultTaskRC()
+	} else {
+		c.resolvedTaskRC = filepath.Join(c.resolvedDataDir, "taskrc")
 	}
+
+	// TaskData: always derived from DataDir
+	c.resolvedTaskData = filepath.Join(c.resolvedDataDir, "tasks")
 
 	c.resolvedDefRuntime = team.DefaultRuntime
 
@@ -381,20 +399,17 @@ bot_token = "TODO"
 # vocabulary = ["ttal", "treemd", "taskwarrior"]
 
 # Multi-team setup (optional):
-# default_team = "personal"
+# default_team = "default"
 #
-# [teams.personal]
-# data_dir = "~/.ttal"
-# taskrc = "~/.taskrc"
+# [teams.default]
 # chat_id = "TODO"
 # lifecycle_agent = "kestrel"
-# default_runtime = "claude-code"  # or "opencode"
-# merge_mode = "manual"  # override global merge_mode per team
-# voice_vocabulary = ["ttal"]
-# voice_language = "en"  # ISO 639-1: "en", "zh", "auto" for auto-detect (default: "en")
 #
-# [teams.personal.agents.kestrel]
-# bot_token = "TODO"
+# [teams.guion]
+# chat_id = "TODO"
+# lifecycle_agent = "kestrel"
+# # Paths auto-derived: ~/.ttal/guion/{ttal.db, taskrc, tasks/}
+# # Override only if needed: data_dir, taskrc
 `
 
 	return os.WriteFile(path, []byte(template), 0o600)

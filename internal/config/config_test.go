@@ -182,6 +182,109 @@ func TestMergeModeResolution(t *testing.T) {
 	}
 }
 
+func TestConventionBasedPaths(t *testing.T) {
+	defDataDir := defaultDataDir()
+	defTaskRC := defaultTaskRC()
+
+	tests := []struct {
+		name         string
+		cfg          *Config
+		wantDataDir  string
+		wantTaskRC   string
+		wantTaskData string
+	}{
+		{
+			name:         "legacy flat config uses defaults",
+			cfg:          &Config{MergeMode: "auto"},
+			wantDataDir:  defDataDir,
+			wantTaskRC:   defTaskRC,
+			wantTaskData: defDataDir + "/tasks",
+		},
+		{
+			name: "default team uses traditional paths",
+			cfg: &Config{
+				DefaultTeam: DefaultTeamName,
+				Teams: map[string]TeamConfig{
+					DefaultTeamName: {
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			wantDataDir:  defDataDir,
+			wantTaskRC:   defTaskRC,
+			wantTaskData: defDataDir + "/tasks",
+		},
+		{
+			name: "non-default team uses convention paths",
+			cfg: &Config{
+				DefaultTeam: "guion",
+				Teams: map[string]TeamConfig{
+					"guion": {
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			wantDataDir:  defDataDir + "/guion",
+			wantTaskRC:   defDataDir + "/guion/taskrc",
+			wantTaskData: defDataDir + "/guion/tasks",
+		},
+		{
+			name: "explicit data_dir overrides convention",
+			cfg: &Config{
+				DefaultTeam: "guion",
+				Teams: map[string]TeamConfig{
+					"guion": {
+						DataDir:        "/tmp/custom",
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			wantDataDir:  "/tmp/custom",
+			wantTaskRC:   "/tmp/custom/taskrc",
+			wantTaskData: "/tmp/custom/tasks",
+		},
+		{
+			name: "explicit taskrc overrides convention",
+			cfg: &Config{
+				DefaultTeam: "guion",
+				Teams: map[string]TeamConfig{
+					"guion": {
+						TaskRC:         "/tmp/my-taskrc",
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			wantDataDir:  defDataDir + "/guion",
+			wantTaskRC:   "/tmp/my-taskrc",
+			wantTaskData: defDataDir + "/guion/tasks",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.cfg.resolve(); err != nil {
+				t.Fatalf("resolve() error: %v", err)
+			}
+			if got := tt.cfg.DataDir(); got != tt.wantDataDir {
+				t.Errorf("DataDir() = %q, want %q", got, tt.wantDataDir)
+			}
+			if got := tt.cfg.TaskRC(); got != tt.wantTaskRC {
+				t.Errorf("TaskRC() = %q, want %q", got, tt.wantTaskRC)
+			}
+			if got := tt.cfg.TaskData(); got != tt.wantTaskData {
+				t.Errorf("TaskData() = %q, want %q", got, tt.wantTaskData)
+			}
+		})
+	}
+}
+
 func TestBuildEnvShellCommand(t *testing.T) {
 	tests := []struct {
 		name         string
