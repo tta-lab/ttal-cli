@@ -3,16 +3,12 @@ package open
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"syscall"
 
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
-// Term opens a terminal for the tmux session associated with a task.
-// If already inside tmux, it switches the client to the worker session.
-// Otherwise, it attaches to the session directly.
+// Term opens a terminal (shell) in the task's working directory (worktree or project root).
 func Term(uuid string) error {
 	if err := taskwarrior.ValidateUUID(uuid); err != nil {
 		return err
@@ -23,36 +19,35 @@ func Term(uuid string) error {
 		return err
 	}
 
-	sessionName := task.SessionName()
-	if task.Branch == "" {
-		return fmt.Errorf("no worker session assigned to this task\n\n" +
-			"  To spawn a worker for this task:\n" +
-			"  ttal worker spawn --task " + uuid + " --project <path> --name <worker-name>")
+	if task.ProjectPath == "" {
+		return fmt.Errorf("no project path associated with this task: missing project_path UDA")
 	}
 
-	if !tmux.SessionExists(sessionName) {
-		return fmt.Errorf("tmux session %q not found\n\n"+
-			"  The worker session may have been closed.\n"+
-			"  Spawn a new worker with:\n"+
-			"  ttal worker spawn --task "+uuid+" --project <path> --name <worker-name>", sessionName)
+	workDir := resolveWorkDir(task)
+
+	if _, err := os.Stat(workDir); err != nil {
+		return fmt.Errorf("directory not found: %s", workDir)
 	}
 
-	tmuxBin, err := lookPath("tmux")
+	shell := resolveShell()
+
+	shellBin, err := lookPath(shell)
 	if err != nil {
-		return fmt.Errorf("tmux not found in PATH")
+		return fmt.Errorf("shell %q not found in PATH", shell)
 	}
 
-	// Inside tmux: switch-client to the worker session (no nesting).
-	// Outside tmux: attach-session directly.
-	if os.Getenv("TMUX") != "" {
-		cmd := exec.Command(tmuxBin, "switch-client", "-t", sessionName)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+	fmt.Printf("Opening terminal in %s...\n", workDir)
+
+	if err := os.Chdir(workDir); err != nil {
+		return fmt.Errorf("failed to chdir to %s: %w", workDir, err)
 	}
 
-	return syscall.Exec(tmuxBin, []string{
-		"tmux", "attach-session", "-t", sessionName,
-	}, os.Environ())
+	return syscall.Exec(shellBin, []string{shell}, os.Environ())
+}
+
+func resolveShell() string {
+	if s := os.Getenv("SHELL"); s != "" {
+		return s
+	}
+	return "/bin/sh"
 }
