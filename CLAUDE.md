@@ -274,3 +274,7 @@ ttal --db=/custom/path/ttal.db project list
 - `TESTING.md` - Testing guidelines
 - `docs/plans/2026-02-17-daemon-design.md` - Daemon design doc (see implementation note at top for API changes)
 - `docs/TELEGRAM_LIB_DECISION.md` - Why we chose go-telegram/bot
+- `docs/ECOSYSTEM.md` - GuionAI ecosystem overview (FlickNote + TTAL)
+- `docs/AIOPS.md` - AIOps system overview and stack
+- `docs/guides/` - Architecture guide series (philosophy and "why" behind TTAL)
+- `docs/posts/` - Blog posts (unpublished drafts for dev.to/HN)
