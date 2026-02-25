@@ -70,7 +70,7 @@ func createAdapter(
 }
 
 // bridgeEvents reads events from an adapter and routes them to Telegram.
-func bridgeEvents(agentName string, adapter runtime.Adapter, cfg *config.Config) {
+func bridgeEvents(agentName string, adapter runtime.Adapter, cfg *config.Config, qs *questionStore) {
 	agentCfg, ok := cfg.Agents[agentName]
 	if !ok || agentCfg.BotToken == "" {
 		return
@@ -86,6 +86,8 @@ func bridgeEvents(agentName string, adapter runtime.Adapter, cfg *config.Config)
 				}
 			case runtime.EventError:
 				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
+			case runtime.EventQuestion:
+				handleIncomingQuestion(qs, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, cfg)
 			}
 		}
 	}()

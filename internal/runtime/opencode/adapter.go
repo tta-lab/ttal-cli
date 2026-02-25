@@ -1,9 +1,13 @@
 package opencode
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"sync"
 
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
@@ -186,6 +190,97 @@ func (a *Adapter) processSSEEvent(ctx context.Context, event oc.EventListRespons
 				Text:  string(typed.Properties.Error.Name),
 			})
 		}
+
+	default:
+		// Handle question events not yet in the SDK typed constants.
+		// OC emits "question.asked" SSE events for interactive questions.
+		if string(event.Type) == "question.asked" {
+			a.handleQuestionEvent(ctx, event)
+		}
 	}
 	return true
+}
+
+// handleQuestionEvent parses a raw "question.asked" SSE event into EventQuestion.
+func (a *Adapter) handleQuestionEvent(ctx context.Context, event oc.EventListResponse) {
+	raw := event.JSON.RawJSON()
+
+	var qEvent struct {
+		Properties struct {
+			RequestID string `json:"requestID"`
+			Questions []struct {
+				Question string `json:"question"`
+				Header   string `json:"header"`
+				Options  []struct {
+					Label       string `json:"label"`
+					Description string `json:"description"`
+				} `json:"options"`
+				Multiple bool `json:"multiple"`
+				Custom   bool `json:"custom"`
+			} `json:"questions"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal([]byte(raw), &qEvent); err != nil {
+		log.Printf("[opencode] failed to parse question event for %s: %v", a.cfg.AgentName, err)
+		return
+	}
+
+	var questions []runtime.Question
+	for _, q := range qEvent.Properties.Questions {
+		rq := runtime.Question{
+			Header:      q.Header,
+			Text:        q.Question,
+			MultiSelect: q.Multiple,
+			AllowCustom: q.Custom,
+		}
+		for _, opt := range q.Options {
+			rq.Options = append(rq.Options, runtime.QuestionOption{
+				Label:       opt.Label,
+				Description: opt.Description,
+			})
+		}
+		questions = append(questions, rq)
+	}
+
+	if len(questions) > 0 {
+		a.sendEvent(ctx, runtime.Event{
+			Type:          runtime.EventQuestion,
+			Agent:         a.cfg.AgentName,
+			CorrelationID: qEvent.Properties.RequestID,
+			Questions:     questions,
+		})
+	}
+}
+
+// ReplyToQuestion sends a reply to a pending question via OC REST API.
+func (a *Adapter) ReplyToQuestion(ctx context.Context, requestID string, answers []string) error {
+	a.mu.Lock()
+	sid := a.sessionID
+	a.mu.Unlock()
+
+	answerArrays := make([][]string, len(answers))
+	for i, ans := range answers {
+		answerArrays[i] = []string{ans}
+	}
+
+	replyURL := fmt.Sprintf("http://127.0.0.1:%d/session/%s/question/%s/reply", a.cfg.Port, sid, requestID)
+	body, err := json.Marshal(map[string]interface{}{"answers": answerArrays})
+	if err != nil {
+		return fmt.Errorf("marshal OC question reply: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", replyURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("reply to OC question %s: %w", requestID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("OC question reply %s: status %d: %s", requestID, resp.StatusCode, string(respBody))
+	}
+	return nil
 }

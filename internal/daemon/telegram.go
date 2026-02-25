@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 func startTelegramPoller(
 	agentName string, cfg config.AgentConfig, chatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
+	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -35,7 +37,7 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(agentName, cfg, chatID, onMessage, done); err != nil {
+			if err := runPoller(agentName, cfg, chatID, onMessage, done, qs, cas, registry); err != nil {
 				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
 				select {
 				case <-done:
@@ -55,6 +57,7 @@ func startTelegramPoller(
 func runPoller(
 	agentName string, cfg config.AgentConfig, effectiveChatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
+	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 ) error {
 	chatID, err := telegram.ParseChatID(effectiveChatID)
 	if err != nil {
@@ -71,6 +74,12 @@ func runPoller(
 	}()
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		// Handle callback queries from inline keyboards
+		if update.CallbackQuery != nil {
+			handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
+			return
+		}
+
 		if update.Message == nil {
 			return
 		}
@@ -80,6 +89,14 @@ func runPoller(
 		if update.Message.From == nil {
 			return
 		}
+
+		// Check for pending custom answer before forwarding to agent
+		if update.Message.Text != "" {
+			if interceptedAsCustomAnswer(ctx, b, update.Message, qs, cas, registry) {
+				return
+			}
+		}
+
 		handleInboundMessage(ctx, b, update.Message, agentName, cfg.BotToken, effectiveChatID, onMessage)
 	}
 
@@ -306,4 +323,281 @@ func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, agentName, fi
 	}
 
 	return localPath, nil
+}
+
+// handleCallbackQuery processes inline keyboard button presses for question batches.
+func handleCallbackQuery(
+	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery,
+	chatID int64, qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+) {
+	// Always acknowledge the callback
+	defer func() {
+		_, _ = b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+			CallbackQueryID: cq.ID,
+		})
+	}()
+
+	// Validate chat ID — MaybeInaccessibleMessage is a struct, check Type
+	if cq.Message.Type != models.MaybeInaccessibleMessageTypeMessage || cq.Message.Message == nil {
+		return
+	}
+	msg := cq.Message.Message
+	if msg.Chat.ID != chatID {
+		return
+	}
+
+	// Clear any pending custom answer state on any button press
+	cas.clear(msg.Chat.ID)
+
+	data := cq.Data
+
+	switch {
+	case strings.HasPrefix(data, "q:"):
+		handleOptionSelect(ctx, b, cq, data, qs, cas, registry)
+	case strings.HasPrefix(data, "qnav:"):
+		handleNavigation(ctx, b, cq, data, qs, cas)
+	case strings.HasPrefix(data, "qsubmit:"):
+		handleSubmit(ctx, b, cq, data, qs, registry)
+	}
+}
+
+func handleOptionSelect(
+	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
+	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+) {
+	// Parse: q:<shortID>:<qIdx>:<optIdx> or q:<shortID>:<qIdx>:custom
+	parts := strings.Split(data, ":")
+	if len(parts) != 4 {
+		return
+	}
+	shortID := parts[1]
+	qIdx, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return
+	}
+
+	batch, ok := qs.get(shortID)
+	if !ok {
+		answerExpiredCallback(ctx, b, cq)
+		return
+	}
+
+	// Validate qIdx before any use (including "custom" branch)
+	if qIdx < 0 || qIdx >= len(batch.Questions) {
+		return
+	}
+
+	if parts[3] == "custom" {
+		cas.set(cq.Message.Message.Chat.ID, &customAnswerState{
+			ShortID:     shortID,
+			QuestionIdx: qIdx,
+			SetAt:       time.Now(),
+		})
+
+		page := buildQuestionPage(batch)
+		text, markup := telegram.RenderCustomInputPrompt(page)
+		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+			ChatID:      batch.ChatID,
+			MessageID:   batch.TelegramMsgID,
+			Text:        text,
+			ParseMode:   models.ParseModeHTML,
+			ReplyMarkup: markup,
+		})
+		return
+	}
+
+	optIdx, err := strconv.Atoi(parts[3])
+	if err != nil || optIdx < 0 || optIdx >= len(batch.Questions[qIdx].Options) {
+		return
+	}
+
+	batch.mu.Lock()
+	batch.Answers[qIdx] = batch.Questions[qIdx].Options[optIdx].Label
+	batch.mu.Unlock()
+
+	// Single question batch: submit immediately
+	if len(batch.Questions) == 1 {
+		if err := submitBatch(ctx, b, batch, qs, registry); err != nil {
+			_ = telegram.SendMessage(batch.BotToken, fmt.Sprintf("%d", batch.ChatID), "Failed to send answer: "+err.Error())
+		}
+		return
+	}
+
+	// Multi-question: auto-advance to next unanswered
+	batch.mu.Lock()
+	advanceToNextUnanswered(batch)
+	batch.mu.Unlock()
+
+	page := buildQuestionPage(batch)
+	text, markup := telegram.RenderQuestionPage(page)
+	_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      batch.ChatID,
+		MessageID:   batch.TelegramMsgID,
+		Text:        text,
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: markup,
+	})
+}
+
+func handleNavigation(
+	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
+	qs *questionStore, cas *customAnswerStore,
+) {
+	parts := strings.Split(data, ":")
+	if len(parts) != 3 {
+		return
+	}
+	shortID := parts[1]
+	action := parts[2]
+
+	batch, ok := qs.get(shortID)
+	if !ok {
+		answerExpiredCallback(ctx, b, cq)
+		return
+	}
+
+	batch.mu.Lock()
+	switch action {
+	case "prev":
+		if batch.CurrentPage > 0 {
+			batch.CurrentPage--
+		}
+	case "next":
+		if batch.CurrentPage < len(batch.Questions)-1 {
+			batch.CurrentPage++
+		}
+	case "cancel_custom":
+		cas.clear(cq.Message.Message.Chat.ID)
+	}
+	batch.mu.Unlock()
+
+	page := buildQuestionPage(batch)
+	text, markup := telegram.RenderQuestionPage(page)
+	_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      batch.ChatID,
+		MessageID:   batch.TelegramMsgID,
+		Text:        text,
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: markup,
+	})
+}
+
+func handleSubmit(
+	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
+	qs *questionStore, registry *adapterRegistry,
+) {
+	parts := strings.Split(data, ":")
+	if len(parts) != 2 {
+		return
+	}
+	shortID := parts[1]
+
+	batch, ok := qs.get(shortID)
+	if !ok {
+		answerExpiredCallback(ctx, b, cq)
+		return
+	}
+	if !batch.AllAnswered() {
+		return
+	}
+
+	if err := submitBatch(ctx, b, batch, qs, registry); err != nil {
+		_, _ = b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+			CallbackQueryID: cq.ID,
+			Text:            "Failed to send answer: " + err.Error(),
+			ShowAlert:       true,
+		})
+	}
+}
+
+// submitBatch routes answers to the runtime and updates the Telegram message.
+// Returns error so callers can provide appropriate user feedback.
+func submitBatch(
+	ctx context.Context, b *bot.Bot, batch *QuestionBatch,
+	qs *questionStore, registry *adapterRegistry,
+) error {
+	if err := routeQuestionResponse(batch, registry); err != nil {
+		log.Printf("[questions] failed to route response for %s: %v", batch.AgentName, err)
+		return err
+	}
+
+	var questions, answers []string
+	for i, q := range batch.Questions {
+		questions = append(questions, q.Text)
+		answers = append(answers, batch.Answers[i])
+	}
+	summary := telegram.RenderSubmittedSummary(batch.AgentName, questions, answers)
+	_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    batch.ChatID,
+		MessageID: batch.TelegramMsgID,
+		Text:      summary,
+		ParseMode: models.ParseModeHTML,
+	})
+
+	qs.remove(batch.ShortID)
+	log.Printf("[questions] submitted answers for %s batch %s", batch.AgentName, batch.ShortID)
+	return nil
+}
+
+// answerExpiredCallback tells the user via callback alert that the question has expired.
+func answerExpiredCallback(ctx context.Context, b *bot.Bot, cq *models.CallbackQuery) {
+	_, _ = b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: cq.ID,
+		Text:            "This question has expired.",
+		ShowAlert:       true,
+	})
+}
+
+// interceptedAsCustomAnswer checks if a text message is a custom answer to a pending question.
+// Returns true if the message was consumed as a custom answer and should not be forwarded.
+func interceptedAsCustomAnswer(
+	ctx context.Context, b *bot.Bot, msg *models.Message,
+	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+) bool {
+	state, ok := cas.getAndClear(msg.Chat.ID)
+	if !ok {
+		return false
+	}
+
+	// Check timeout (2 minutes)
+	if time.Since(state.SetAt) >= 2*time.Minute {
+		return false
+	}
+
+	batch, ok := qs.get(state.ShortID)
+	if !ok {
+		return false
+	}
+
+	customText := strings.TrimSpace(msg.Text)
+	if customText == "" {
+		return false
+	}
+
+	batch.mu.Lock()
+	batch.Answers[state.QuestionIdx] = customText
+	batch.mu.Unlock()
+
+	// Single question: submit immediately
+	if len(batch.Questions) == 1 {
+		if err := submitBatch(ctx, b, batch, qs, registry); err != nil {
+			_ = telegram.SendMessage(batch.BotToken, fmt.Sprintf("%d", batch.ChatID), "Failed to send answer: "+err.Error())
+		}
+		return true
+	}
+
+	// Multi-question: advance and re-render
+	batch.mu.Lock()
+	advanceToNextUnanswered(batch)
+	batch.mu.Unlock()
+	page := buildQuestionPage(batch)
+	text, markup := telegram.RenderQuestionPage(page)
+	_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      batch.ChatID,
+		MessageID:   batch.TelegramMsgID,
+		Text:        text,
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: markup,
+	})
+	return true
 }

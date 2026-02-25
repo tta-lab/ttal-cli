@@ -59,7 +59,10 @@ func Run(database *ent.Client) error {
 
 	// Create runtime adapter registry
 	registry := newAdapterRegistry()
-	initAdapters(ctx, database, cfg, registry)
+	// Create question state stores
+	qs := newQuestionStore()
+	cas := newCustomAnswerStore()
+	initAdapters(ctx, database, cfg, registry, qs)
 
 	// Register Telegram bot commands (best-effort, non-fatal)
 	registeredBots := make(map[string]bool)
@@ -86,14 +89,14 @@ func Run(database *ent.Client) error {
 			if err := deliverToAgent(registry, name, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
 			}
-		}, done)
+		}, done, qs, cas, registry)
 	}
 
 	// Start cleanup watcher for post-merge worker lifecycle
 	startCleanupWatcher(done)
 
 	// Start JSONL watcher for CC -> Telegram bridging
-	startWatcher(database, cfg, done)
+	startWatcher(database, cfg, qs, done)
 
 	// Start socket listener
 	cleanup, err := listenSocket(sockPath, socketHandlers{
@@ -106,6 +109,20 @@ func Run(database *ent.Client) error {
 		close(done)
 		return err
 	}
+
+	// Periodically clean up stale question batches
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				qs.cleanup(30 * time.Minute)
+			}
+		}
+	}()
 
 	log.Printf("[daemon] ready")
 
@@ -126,7 +143,7 @@ func Run(database *ent.Client) error {
 // initAdapters creates and starts runtime adapters for OC/Codex agents.
 // CC agents use the existing JSONL watcher path — their adapters are only
 // registered but not started from the daemon (team start handles tmux).
-func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config, registry *adapterRegistry) {
+func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config, registry *adapterRegistry, qs *questionStore) {
 	for agentName := range cfg.Agents {
 		ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx)
 		if err != nil {
@@ -159,7 +176,7 @@ func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config,
 		}
 		registry.set(agentName, adapter)
 		log.Printf("[daemon] started %s adapter for %s on port %d", rt, agentName, port)
-		bridgeEvents(agentName, adapter, cfg)
+		bridgeEvents(agentName, adapter, cfg, qs)
 	}
 }
 
@@ -244,16 +261,21 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 }
 
 // startWatcher initializes and runs the JSONL watcher in a goroutine.
-func startWatcher(database *ent.Client, cfg *config.Config, done <-chan struct{}) {
-	w, err := watcher.New(database, func(agentName, text string) {
-		agentCfg, ok := cfg.Agents[agentName]
-		if !ok || agentCfg.BotToken == "" {
-			return
-		}
-		if err := telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(agentName), text); err != nil {
-			log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
-		}
-	})
+func startWatcher(database *ent.Client, cfg *config.Config, qs *questionStore, done <-chan struct{}) {
+	w, err := watcher.New(database,
+		func(agentName, text string) {
+			agentCfg, ok := cfg.Agents[agentName]
+			if !ok || agentCfg.BotToken == "" {
+				return
+			}
+			if err := telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(agentName), text); err != nil {
+				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
+			}
+		},
+		func(agentName, correlationID string, questions []runtime.Question) {
+			handleIncomingQuestion(qs, agentName, runtime.ClaudeCode, correlationID, questions, cfg)
+		},
+	)
 	if err != nil {
 		log.Printf("[daemon] watcher disabled: %v — CC→Telegram bridging will not work", err)
 		return

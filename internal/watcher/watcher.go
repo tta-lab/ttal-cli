@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -20,6 +21,9 @@ const jsonlExt = ".jsonl"
 // agentName is the resolved agent, text is the assistant text block.
 type SendFunc func(agentName, text string)
 
+// QuestionFunc is called when an AskUserQuestion is detected in CC JSONL.
+type QuestionFunc func(agentName, correlationID string, questions []runtime.Question)
+
 // Watcher tails active CC JSONL files and sends assistant text to Telegram.
 type Watcher struct {
 	projectsDir string            // ~/.claude/projects/
@@ -27,11 +31,12 @@ type Watcher struct {
 	offsets     map[string]int64  // file path -> last read offset
 	mu          sync.Mutex
 	send        SendFunc
+	onQuestion  QuestionFunc
 }
 
 // New creates a Watcher. It queries the DB for all agents with paths and
 // builds the encoded-dir -> agent-name mapping.
-func New(database *ent.Client, send SendFunc) (*Watcher, error) {
+func New(database *ent.Client, send SendFunc, onQuestion QuestionFunc) (*Watcher, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -58,6 +63,7 @@ func New(database *ent.Client, send SendFunc) (*Watcher, error) {
 		agents:      agentMap,
 		offsets:     make(map[string]int64),
 		send:        send,
+		onQuestion:  onQuestion,
 	}, nil
 }
 
@@ -198,6 +204,14 @@ func (w *Watcher) handleFileWrite(path string) {
 	consumed := 0
 	for _, line := range splitCompleteLines(newBytes) {
 		consumed += len(line) + 1 // +1 for newline
+
+		if correlationID, questions := extractQuestions(line); len(questions) > 0 {
+			if w.onQuestion != nil {
+				w.onQuestion(agentName, correlationID, questions)
+			}
+			continue
+		}
+
 		text := extractAssistantText(line)
 		if text != "" {
 			w.send(agentName, text)
