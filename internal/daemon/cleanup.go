@@ -96,6 +96,22 @@ func processCleanupFile(path string) {
 
 	log.Printf("[cleanup] processing: session=%s task=%s", req.SessionID, req.TaskUUID)
 
+	// Skip requests with empty session IDs (malformed tasks)
+	if req.SessionID == "" {
+		log.Printf("[cleanup] skipping %s: empty session ID", filepath.Base(path))
+		if req.TaskUUID != "" {
+			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
+				log.Printf("[cleanup] failed to mark task done %s: %v", req.TaskUUID, err)
+			}
+		} else {
+			log.Printf("[cleanup] %s: both session ID and task UUID empty — removing orphaned request", filepath.Base(path))
+		}
+		if err := os.Remove(path); err != nil {
+			log.Printf("[cleanup] failed to remove request file %s: %v", filepath.Base(path), err)
+		}
+		return
+	}
+
 	// Close worker (kill session + remove worktree + delete branch + git pull)
 	result, closeErr := worker.Close(req.SessionID, false)
 	if closeErr != nil {
@@ -117,6 +133,8 @@ func processCleanupFile(path string) {
 	}
 
 	// Success — remove the request file
-	os.Remove(path)
+	if err := os.Remove(path); err != nil {
+		log.Printf("[cleanup] failed to remove request file %s: %v", filepath.Base(path), err)
+	}
 	log.Printf("[cleanup] completed: session=%s", req.SessionID)
 }

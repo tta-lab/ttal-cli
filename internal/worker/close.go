@@ -85,12 +85,19 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, nil
 	}
 
+	// If worktree directory is already gone, skip dirty checks entirely
+	worktreeExists := dirExists(workDir)
+
 	// Smart mode: check PR + worktree
 	if task.PRID == "" {
 		// No pr_id — worker hasn't created a PR yet
-		clean, cleanErr := gitutil.IsWorktreeClean(workDir)
-		if cleanErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
+		clean := !worktreeExists // missing worktree = nothing to lose
+		if worktreeExists {
+			var cleanErr error
+			clean, cleanErr = gitutil.IsWorktreeClean(workDir)
+			if cleanErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
+			}
 		}
 		dumpPath := dumpState(sessionName, workDir)
 		return &CloseResult{
@@ -101,11 +108,11 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	return closeWithPR(task.PRID, projectPath, sessionName, workDir, branch)
+	return closeWithPR(task.PRID, projectPath, sessionName, workDir, branch, worktreeExists)
 }
 
 // closeWithPR handles the smart-close path when a PR exists.
-func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string) (*CloseResult, error) {
+func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string, worktreeExists bool) (*CloseResult, error) {
 	prID, err := strconv.ParseInt(prIDStr, 10, 64)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
@@ -129,9 +136,13 @@ func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string) (*Cl
 		}, err
 	}
 
-	clean, cleanErr := gitutil.IsWorktreeClean(workDir)
-	if cleanErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
+	clean := !worktreeExists // missing worktree = nothing to lose
+	if worktreeExists {
+		var cleanErr error
+		clean, cleanErr = gitutil.IsWorktreeClean(workDir)
+		if cleanErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
+		}
 	}
 
 	if !fetchedPR.Merged {
@@ -200,6 +211,18 @@ func pullMainBranch(projectPath string) {
 	} else {
 		fmt.Printf("Pulled latest changes in %s\n", projectPath)
 	}
+}
+
+// dirExists returns true if path exists and is a directory.
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "warning: cannot stat worktree %s: %v (treating as missing)\n", path, err)
+		}
+		return false
+	}
+	return info.IsDir()
 }
 
 // ErrNeedsDecision indicates the worker needs manual intervention (exit code 1).
