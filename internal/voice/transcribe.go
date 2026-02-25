@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
@@ -29,11 +31,24 @@ func Transcribe(audioData []byte, filename string) (string, error) {
 		log.Printf("[voice] WARNING: config load failed, transcribing without vocabulary/language: %v", err)
 		return transcribe(audioData, filename, nil, defaultLanguage)
 	}
+	// Merge agent names into vocabulary for Whisper accuracy.
+	vocab := append([]string{}, cfg.Voice.Vocabulary...)
+	for name := range cfg.Agents {
+		vocab = append(vocab, name)
+		if len(name) > 0 {
+			r, size := utf8.DecodeRuneInString(name)
+			capitalized := string(unicode.ToUpper(r)) + name[size:]
+			if capitalized != name {
+				vocab = append(vocab, capitalized)
+			}
+		}
+	}
+
 	lang := cfg.Voice.Language
 	if lang == "" {
 		lang = defaultLanguage
 	}
-	return transcribe(audioData, filename, cfg.Voice.Vocabulary, lang)
+	return transcribe(audioData, filename, vocab, lang)
 }
 
 func transcribe(audioData []byte, filename string, vocabulary []string, language string) (string, error) {
