@@ -16,6 +16,7 @@ var yoloCmd = &cobra.Command{
 	Long: `Launch Claude Code or OpenCode in yolo mode (skip all permission prompts).
 
 For human use only - starts the agent with full permissions enabled.`,
+	// Skip database initialization — yolo commands don't need ttal's DB.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
@@ -33,24 +34,20 @@ Example:
   ttal yolo cc              # Start in current directory with opus model
   ttal yolo cc --model sonnet`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		workDir, _ := os.Getwd()
+		if _, err := exec.LookPath("claude"); err != nil {
+			return fmt.Errorf("claude not found in PATH — install Claude Code first")
+		}
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
 		fmt.Printf("Starting Claude Code in yolo mode...\n")
 		fmt.Printf("  Directory: %s\n", workDir)
 		fmt.Printf("  Model: %s\n", yoloModel)
 		fmt.Println()
 
 		ccCmd := exec.Command("claude", "--dangerously-skip-permissions", "--model", yoloModel)
-		ccCmd.Stdin = os.Stdin
-		ccCmd.Stdout = os.Stdout
-		ccCmd.Stderr = os.Stderr
-
-		if err := ccCmd.Run(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				os.Exit(exitErr.ExitCode())
-			}
-			return fmt.Errorf("failed to run claude: %w", err)
-		}
-		return nil
+		return runYolo(ccCmd, "claude")
 	},
 }
 
@@ -62,26 +59,39 @@ var yoloOcCmd = &cobra.Command{
 Example:
   ttal yolo oc              # Start in current directory`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		workDir, _ := os.Getwd()
+		if _, err := exec.LookPath("opencode"); err != nil {
+			return fmt.Errorf("opencode not found in PATH — install OpenCode first")
+		}
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
 		fmt.Printf("Starting OpenCode in yolo mode...\n")
 		fmt.Printf("  Directory: %s\n", workDir)
 		fmt.Println()
 
 		ocCmd := exec.Command("opencode")
-		ocCmd.Stdin = os.Stdin
-		ocCmd.Stdout = os.Stdout
-		ocCmd.Stderr = os.Stderr
 		ocCmd.Env = append(os.Environ(),
 			`OPENCODE_PERMISSION={"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
-
-		if err := ocCmd.Run(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				os.Exit(exitErr.ExitCode())
-			}
-			return fmt.Errorf("failed to run opencode: %w", err)
-		}
-		return nil
+		return runYolo(ocCmd, "opencode")
 	},
+}
+
+// runYolo executes the command with stdio wired for interactive TUI.
+// os.Exit is used to propagate the child's exit code directly, bypassing
+// cobra's cleanup — safe here since PersistentPostRunE is a no-op.
+func runYolo(cmd *exec.Cmd, name string) error {
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ExitCode())
+		}
+		return fmt.Errorf("failed to run %s: %w", name, err)
+	}
+	return nil
 }
 
 func init() {
