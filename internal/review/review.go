@@ -63,17 +63,31 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 // RequestReReview sends a re-review message to the existing reviewer window.
 // If full is true, requests a full re-review of all PR changes.
 // If full is false, requests a delta re-review of only new changes.
-func RequestReReview(sessionName string, full bool) error {
-	msg := `Worker has pushed fixes addressing your review. Please re-review:` +
-		` 1. Run /pr-review-toolkit:review-pr scoped to new changes` +
-		` 2. Post updated review via: ttal pr comment create "your review"` +
-		` 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not`
-	if full {
-		msg = `Please do a full re-review of the entire PR:` +
-			` 1. Run /pr-review-toolkit:review-pr on all changes` +
-			` 2. Post review via: ttal pr comment create "your review"` +
-			` 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK`
+// coderComment, if non-empty, is written to a temp file and its path included
+// in the message so the reviewer can read the coder's triage update.
+func RequestReReview(sessionName string, full bool, coderComment string) error {
+	var commentRef string
+	if coderComment != "" {
+		f, err := os.CreateTemp("", "ttal-coder-comment-*.md")
+		if err == nil {
+			_, writeErr := f.WriteString(coderComment)
+			_ = f.Close()
+			if writeErr == nil {
+				commentRef = fmt.Sprintf(" Coder's comment at %s —", f.Name())
+			}
+		}
 	}
+
+	scope := "scoped to new changes"
+	if full {
+		scope = "on all changes"
+	}
+	msg := fmt.Sprintf(
+		"Worker has pushed fixes addressing your review.%s Please re-review:"+
+			" 1. Run /pr-review-toolkit:review-pr %s"+
+			" 2. Post updated review via: ttal pr comment create \"your review\""+
+			" 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not",
+		commentRef, scope)
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
 	return tmux.SendKeys(sessionName, windowName, msg)

@@ -8,11 +8,12 @@ type Runtime string
 const (
 	ClaudeCode Runtime = "claude-code"
 	OpenCode   Runtime = "opencode"
+	Codex      Runtime = "codex"
 )
 
 // All returns all valid runtime values.
 func All() []Runtime {
-	return []Runtime{ClaudeCode, OpenCode}
+	return []Runtime{ClaudeCode, OpenCode, Codex}
 }
 
 // Values returns all valid runtime strings (for ent schema enum).
@@ -33,6 +34,8 @@ func Parse(s string) (Runtime, error) {
 		return ClaudeCode, nil
 	case string(OpenCode), "oc":
 		return OpenCode, nil
+	case string(Codex), "cx":
+		return Codex, nil
 	default:
 		return "", fmt.Errorf("unknown runtime: %q (valid: %s)", s, joinRuntimes())
 	}

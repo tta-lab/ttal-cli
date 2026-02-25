@@ -16,6 +16,8 @@ func TestParse(t *testing.T) {
 		{"cc alias", "cc", ClaudeCode, false},
 		{"opencode literal", "opencode", OpenCode, false},
 		{"oc alias", "oc", OpenCode, false},
+		{"codex literal", "codex", Codex, false},
+		{"cx alias", "cx", Codex, false},
 		{"unknown errors", "vim", "", true},
 		{"partial match errors", "claude", "", true},
 	}
@@ -42,6 +44,7 @@ func TestValidate(t *testing.T) {
 	}{
 		{"claude-code valid", "claude-code", false},
 		{"opencode valid", "opencode", false},
+		{"codex valid", "codex", false},
 		{"alias not valid for Validate", "cc", true},
 		{"empty not valid for Validate", "", true},
 		{"unknown not valid", "neovim", true},
@@ -59,8 +62,8 @@ func TestValidate(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	all := All()
-	if len(all) != 2 {
-		t.Fatalf("All() returned %d runtimes, want 2", len(all))
+	if len(all) != 3 {
+		t.Fatalf("All() returned %d runtimes, want 3", len(all))
 	}
 	if all[0] != ClaudeCode {
 		t.Errorf("All()[0] = %q, want %q", all[0], ClaudeCode)
@@ -68,17 +71,23 @@ func TestAll(t *testing.T) {
 	if all[1] != OpenCode {
 		t.Errorf("All()[1] = %q, want %q", all[1], OpenCode)
 	}
+	if all[2] != Codex {
+		t.Errorf("All()[2] = %q, want %q", all[2], Codex)
+	}
 }
 
 func TestValues(t *testing.T) {
 	vals := Values()
-	if len(vals) != 2 {
-		t.Fatalf("Values() returned %d strings, want 2", len(vals))
+	if len(vals) != 3 {
+		t.Fatalf("Values() returned %d strings, want 3", len(vals))
 	}
 	if vals[0] != "claude-code" {
 		t.Errorf("Values()[0] = %q, want %q", vals[0], "claude-code")
 	}
 	if vals[1] != "opencode" {
 		t.Errorf("Values()[1] = %q, want %q", vals[1], "opencode")
+	}
+	if vals[2] != "codex" {
+		t.Errorf("Values()[2] = %q, want %q", vals[2], "codex")
 	}
 }

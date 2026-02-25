@@ -13,8 +13,9 @@ var yoloModel string
 var yoloCmd = &cobra.Command{
 	Use:   "yolo",
 	Short: "Launch coding agent in yolo mode",
-	Long: `Launch Claude Code or OpenCode in yolo mode (skip all permission prompts).
+	Long: `Launch a coding agent in yolo mode (skip all permission prompts).
 
+Supported runtimes: cc (Claude Code), oc (OpenCode), codex.
 For human use only - starts the agent with full permissions enabled.`,
 	// Skip database initialization — yolo commands don't need ttal's DB.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -77,6 +78,30 @@ Example:
 	},
 }
 
+var yoloCxCmd = &cobra.Command{
+	Use:   "codex",
+	Short: "Launch Codex in yolo mode",
+	Long: `Launch Codex with --yolo flag.
+
+Example:
+  ttal yolo codex           # Start in current directory`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if _, err := exec.LookPath("codex"); err != nil {
+			return fmt.Errorf("codex not found in PATH — install Codex first")
+		}
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+		fmt.Printf("Starting Codex in yolo mode...\n")
+		fmt.Printf("  Directory: %s\n", workDir)
+		fmt.Println()
+
+		cxCmd := exec.Command("codex", "--yolo")
+		return runYolo(cxCmd, "codex")
+	},
+}
+
 // runYolo executes the command with stdio wired for interactive TUI.
 // os.Exit is used to propagate the child's exit code directly, bypassing
 // cobra's cleanup — safe here since PersistentPostRunE is a no-op.
@@ -93,10 +118,10 @@ func runYolo(cmd *exec.Cmd, name string) error {
 	}
 	return nil
 }
-
 func init() {
 	yoloCcCmd.Flags().StringVarP(&yoloModel, "model", "m", "opus", "Model to use (opus, sonnet)")
 	yoloCmd.AddCommand(yoloCcCmd)
 	yoloCmd.AddCommand(yoloOcCmd)
+	yoloCmd.AddCommand(yoloCxCmd)
 	rootCmd.AddCommand(yoloCmd)
 }

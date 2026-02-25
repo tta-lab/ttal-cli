@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -11,7 +12,9 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
+	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/watcher"
@@ -51,6 +54,12 @@ func Run(database *ent.Client) error {
 	log.Printf("[daemon] starting — socket=%s agents=%d", sockPath, len(cfg.Agents))
 
 	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create runtime adapter registry
+	registry := newAdapterRegistry()
+	initAdapters(ctx, database, cfg, registry)
 
 	// Register Telegram bot commands (best-effort, non-fatal)
 	registeredBots := make(map[string]bool)
@@ -74,7 +83,7 @@ func Run(database *ent.Client) error {
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
 		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
-			if err := deliverToAgent(name, text); err != nil {
+			if err := deliverToAgent(registry, name, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
 			}
 		}, done)
@@ -89,7 +98,7 @@ func Run(database *ent.Client) error {
 	// Start socket listener
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
-			return handleSend(cfg, req)
+			return handleSend(cfg, registry, req)
 		},
 		statusUpdate: handleStatusUpdate,
 	})
@@ -107,23 +116,73 @@ func Run(database *ent.Client) error {
 
 	log.Printf("[daemon] shutting down")
 	close(done)
+	cancel()
+	registry.stopAll(context.Background())
 	cleanup()
 
 	return nil
 }
 
+// initAdapters creates and starts runtime adapters for OC/Codex agents.
+// CC agents use the existing JSONL watcher path — their adapters are only
+// registered but not started from the daemon (team start handles tmux).
+func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config, registry *adapterRegistry) {
+	for agentName := range cfg.Agents {
+		ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx)
+		if err != nil || ag.Path == "" {
+			continue
+		}
+
+		rt := cfg.DefaultRuntime()
+		if ag.Runtime != nil {
+			rt = runtime.Runtime(*ag.Runtime)
+		}
+
+		port := cfg.Agents[agentName].Port
+		env := buildAgentEnv(agentName, cfg)
+
+		adapter := createAdapter(agentName, rt, ag.Path, port, string(ag.Model), true, env)
+		registry.set(agentName, adapter)
+
+		// Only start API-server adapters (OC/Codex) from daemon.
+		// CC agents are started via `ttal team start` (tmux).
+		if rt == runtime.OpenCode || rt == runtime.Codex {
+			if err := adapter.Start(ctx); err != nil {
+				log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, agentName, err)
+				continue
+			}
+			log.Printf("[daemon] started %s adapter for %s on port %d", rt, agentName, port)
+			bridgeEvents(agentName, adapter, cfg)
+		}
+	}
+}
+
+// buildAgentEnv returns env vars for an agent adapter.
+func buildAgentEnv(agentName string, cfg *config.Config) []string {
+	env := []string{
+		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+	}
+	if team := cfg.TeamName(); team != "default" || os.Getenv("TTAL_TEAM") != "" {
+		env = append(env, fmt.Sprintf("TTAL_TEAM=%s", team))
+	}
+	if taskrc := cfg.TaskRC(); taskrc != config.DefaultTaskRC() {
+		env = append(env, fmt.Sprintf("TASKRC=%s", taskrc))
+	}
+	return env
+}
+
 // handleSend routes an incoming SendRequest based on From/To fields.
 // Special target "human" routes to Telegram instead of agent delivery.
-func handleSend(cfg *config.Config, req SendRequest) error {
+func handleSend(cfg *config.Config, registry *adapterRegistry, req SendRequest) error {
 	switch {
 	case req.From != "" && req.To == "human":
 		return handleFrom(cfg, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgent(cfg, req)
+		return handleAgentToAgent(cfg, registry, req)
 	case req.From != "":
 		return handleFrom(cfg, req)
 	case req.To != "":
-		return handleTo(cfg, req)
+		return handleTo(cfg, registry, req)
 	default:
 		return fmt.Errorf("send request missing from/to")
 	}
@@ -141,17 +200,17 @@ func handleFrom(cfg *config.Config, req SendRequest) error {
 	return telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(req.From), req.Message)
 }
 
-// handleTo delivers a message to an agent's tmux session.
-func handleTo(cfg *config.Config, req SendRequest) error {
+// handleTo delivers a message to an agent via its runtime adapter.
+func handleTo(cfg *config.Config, registry *adapterRegistry, req SendRequest) error {
 	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToAgent(req.To, req.Message)
+	return deliverToAgent(registry, req.To, req.Message)
 }
 
-// handleAgentToAgent delivers a message from one agent to another via tmux,
+// handleAgentToAgent delivers a message from one agent to another,
 // wrapping the message with attribution so the recipient knows who sent it.
-func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
+func handleAgentToAgent(cfg *config.Config, registry *adapterRegistry, req SendRequest) error {
 	if _, ok := cfg.Agents[req.From]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
@@ -160,7 +219,7 @@ func handleAgentToAgent(cfg *config.Config, req SendRequest) error {
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(req.To, msg)
+	return deliverToAgent(registry, req.To, msg)
 }
 
 // handleStatusUpdate writes agent context status to the status directory.

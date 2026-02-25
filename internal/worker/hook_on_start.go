@@ -77,12 +77,14 @@ func spawnFromUDAs(modified hookTask) {
 
 	workerName := strings.TrimPrefix(branch, "worker/")
 
-	// Detect runtime from task tags (+opencode or +oc)
+	// Detect runtime from task tags (+opencode/+oc or +codex/+cx)
 	rt := runtime.ClaudeCode
 	for _, t := range modified.Tags() {
-		if t == string(runtime.OpenCode) || t == "oc" {
+		switch t {
+		case string(runtime.OpenCode), "oc":
 			rt = runtime.OpenCode
-			break
+		case string(runtime.Codex), "cx":
+			rt = runtime.Codex
 		}
 	}
 

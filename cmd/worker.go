@@ -74,10 +74,12 @@ Task tags control behavior:
   +brainstorm  Use brainstorming skill before implementation
   +sonnet      Use sonnet model instead of opus (Claude Code only)
   +opencode    Use OpenCode runtime instead of Claude Code
+  +codex       Use Codex runtime instead of Claude Code
 
 Runtime selection:
   --runtime claude-code  (default) Use Claude Code
   --runtime opencode     Use OpenCode
+  --runtime codex        Use Codex
 
 Example:
   ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
@@ -188,7 +190,7 @@ func init() {
 	workerSpawnCmd.Flags().BoolVar(&spawnWorktree, "worktree", true, "Create git worktree")
 	workerSpawnCmd.Flags().BoolVar(&spawnForce, "force", false, "Force respawn (close existing session)")
 	workerSpawnCmd.Flags().BoolVar(&spawnYolo, "yolo", true, "Skip permissions prompts")
-	workerSpawnCmd.Flags().String("runtime", "claude-code", "Coding agent runtime (claude-code, opencode)")
+	workerSpawnCmd.Flags().String("runtime", "claude-code", "Coding agent runtime (claude-code, opencode, codex)")
 
 	_ = workerSpawnCmd.MarkFlagRequired("name")
 	_ = workerSpawnCmd.MarkFlagRequired("project")

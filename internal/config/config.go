@@ -72,11 +72,12 @@ type VoiceConfig struct {
 	Language   string   `toml:"language"`
 }
 
-// AgentConfig holds per-agent Telegram credentials.
+// AgentConfig holds per-agent Telegram credentials and runtime settings.
 // ChatID is optional — falls back to the team/global ChatID.
 type AgentConfig struct {
 	BotToken string `toml:"bot_token"`
 	ChatID   string `toml:"chat_id"`
+	Port     int    `toml:"port"` // API server port for opencode/codex agents
 }
 
 // AgentChatID returns the effective chat ID for an agent (per-agent override or global).

@@ -42,10 +42,12 @@ func Spawn(cfg SpawnConfig) error {
 		return fmt.Errorf("project directory not found: %s", project)
 	}
 
-	// Route by task tag: +opencode or +oc overrides default runtime
+	// Route by task tag: +opencode/+oc or +codex/+cx overrides default runtime
 	if cfg.Runtime == "" || cfg.Runtime == runtime.ClaudeCode {
 		if task.HasTag("opencode") || task.HasTag("oc") {
 			cfg.Runtime = runtime.OpenCode
+		} else if task.HasTag("codex") || task.HasTag("cx") {
+			cfg.Runtime = runtime.Codex
 		}
 	}
 	if cfg.Runtime == "" {
@@ -121,6 +123,11 @@ func setupWorkDir(cfg SpawnConfig, project string) (workDir, branch string, err 
 }
 
 func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, project)
+}
+
+// launchTmuxWorker spawns a worker in a tmux session.
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -146,7 +153,6 @@ func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDi
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	// Set env vars at session level so new windows/panes inherit them
 	setEnv := func(key, val string) {
 		if err := tmux.SetEnv(sessionName, key, val); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
@@ -202,6 +208,8 @@ func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior
 	switch cfg.Runtime {
 	case runtime.OpenCode:
 		return buildOpenCodeCmd(ttalBin, taskFile, envParts, shellCfg)
+	case runtime.Codex:
+		return buildCodexCmd(cfg, ttalBin, taskFile, envParts, shellCfg)
 	default:
 		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
 	}
@@ -234,6 +242,19 @@ func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *con
 		ttalBin, taskFile)
 
 	return shellCfg.BuildEnvShellCommand(envParts, ocCmd)
+}
+
+func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string, shellCfg *config.Config) string {
+	yoloFlag := ""
+	if cfg.Yolo {
+		yoloFlag = "--yolo "
+	}
+
+	cxCmd := fmt.Sprintf(
+		"%s worker gatekeeper --task-file %s -- codex %s--prompt",
+		ttalBin, taskFile, yoloFlag)
+
+	return shellCfg.BuildEnvShellCommand(envParts, cxCmd)
 }
 
 func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string) (string, error) {

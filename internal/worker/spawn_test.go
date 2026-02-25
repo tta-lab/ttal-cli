@@ -96,38 +96,3 @@ func TestBuildClaudeCodeCmd_Sonnet(t *testing.T) {
 		t.Error("CC command should use sonnet model when task has +sonnet tag")
 	}
 }
-
-func TestBuildOpenCodeCmd(t *testing.T) {
-	envParts := []string{"TTAL_JOB_ID=test-id"}
-	shellCfg := &config.Config{}
-
-	cmd := buildOpenCodeCmd("/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg)
-
-	if !strings.Contains(cmd, "opencode --prompt") {
-		t.Error("OC command should use 'opencode --prompt' for interactive TUI")
-	}
-	if strings.Contains(cmd, "opencode run") {
-		t.Error("OC command should use TUI mode (opencode), not batch mode (opencode run)")
-	}
-	if !strings.Contains(cmd, "--task-file") {
-		t.Error("OC command should pass task file via gatekeeper --task-file")
-	}
-	if !strings.Contains(cmd, "gatekeeper") {
-		t.Error("OC command should use gatekeeper wrapper")
-	}
-	if strings.Contains(cmd, "OPENCODE_PERMISSION") {
-		t.Error("OC command should not contain OPENCODE_PERMISSION (set via tmux.SetEnv)")
-	}
-}
-
-func TestBuildOpenCodeCmd_NoYoloInCommand(t *testing.T) {
-	envParts := []string{"TTAL_JOB_ID=test-id"}
-	shellCfg := &config.Config{}
-
-	cmd := buildOpenCodeCmd("/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg)
-
-	// OPENCODE_PERMISSION should NOT be in the fish command — it's set via tmux.SetEnv
-	if strings.Contains(cmd, "OPENCODE_PERMISSION") {
-		t.Error("OPENCODE_PERMISSION should be set via tmux.SetEnv, not in command string")
-	}
-}

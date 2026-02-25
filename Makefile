@@ -1,4 +1,4 @@
-.PHONY: help build clean clean-db reset test generate install reinstall setup setup-opencode-plugin run fmt vet lint
+.PHONY: help build clean clean-db reset test generate install reinstall setup run fmt vet lint
 
 # Default target
 help:
@@ -20,7 +20,7 @@ help:
 	@echo "  make ci            - Run all CI checks (fmt, generate, vet, lint, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
 	@echo "  make install-hooks - Install git pre-commit hook"
-	@echo "  make setup-opencode-plugin - Symlink bridge.ts into global OpenCode plugins"
+
 
 # Build the binary
 build:
@@ -34,8 +34,8 @@ install:
 	@go build -o $(shell go env GOPATH)/bin/ttal .
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/ttal"
 
-# First-time setup: install binary, hooks, daemon, and OpenCode plugin
-setup: install setup-opencode-plugin
+# First-time setup: install binary, hooks, and daemon
+setup: install
 	@echo "Setting up ttal..."
 	@$(shell go env GOPATH)/bin/ttal worker install
 	@$(shell go env GOPATH)/bin/ttal daemon install
@@ -129,13 +129,6 @@ check-clean:
 	else \
 		echo "✓ Working directory is clean"; \
 	fi
-
-# Symlink bridge.ts into global OpenCode plugins directory
-setup-opencode-plugin:
-	@echo "Setting up OpenCode bridge plugin..."
-	@mkdir -p ~/.config/opencode/plugins
-	@ln -sf $(CURDIR)/.opencode/plugin/bridge.ts ~/.config/opencode/plugins/ttal-bridge.ts
-	@echo "✓ Symlinked bridge.ts → ~/.config/opencode/plugins/ttal-bridge.ts"
 
 # Install pre-commit hook
 install-hooks:

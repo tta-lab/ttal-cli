@@ -17,7 +17,7 @@ var (
 		{Name: "emoji", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "model", Type: field.TypeEnum, Enums: []string{"haiku", "sonnet", "opus"}, Default: "opus"},
-		{Name: "runtime", Type: field.TypeEnum, Nullable: true, Enums: []string{"claude-code", "opencode"}},
+		{Name: "runtime", Type: field.TypeEnum, Nullable: true, Enums: []string{"claude-code", "opencode", "codex"}},
 		{Name: "created_at", Type: field.TypeTime},
 	}
 	// AgentsTable holds the schema information for the "agents" table.

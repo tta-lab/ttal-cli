@@ -13,6 +13,8 @@ func validateRuntime(rt runtime.Runtime) error {
 	switch rt {
 	case runtime.OpenCode:
 		bin = "opencode"
+	case runtime.Codex:
+		bin = "codex"
 	default:
 		bin = "claude"
 	}

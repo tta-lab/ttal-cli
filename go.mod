@@ -10,8 +10,10 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-telegram/bot v1.18.0
 	github.com/google/go-github/v69 v69.2.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/spf13/cobra v1.8.1
+	github.com/sst/opencode-sdk-go v0.19.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -43,6 +45,10 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect

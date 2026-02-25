@@ -14,6 +14,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+const jsonlExt = ".jsonl"
+
 // SendFunc is the callback for sending a message to Telegram.
 // agentName is the resolved agent, text is the assistant text block.
 type SendFunc func(agentName, text string)
@@ -102,7 +104,7 @@ func (w *Watcher) Run(done <-chan struct{}) error {
 			if !event.Has(fsnotify.Write) {
 				continue
 			}
-			if filepath.Ext(event.Name) != ".jsonl" {
+			if filepath.Ext(event.Name) != jsonlExt {
 				continue
 			}
 			w.handleFileWrite(event.Name)
@@ -124,7 +126,7 @@ func (w *Watcher) seedExistingOffsets(dir string) {
 		return
 	}
 	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
+		if e.IsDir() || filepath.Ext(e.Name()) != jsonlExt {
 			continue
 		}
 		info, err := e.Info()

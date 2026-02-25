@@ -73,7 +73,7 @@ Examples:
 		} else if sessionName != "" {
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Reviewer already running, sending review request...")
-				if err := review.RequestReReview(sessionName, false); err != nil {
+				if err := review.RequestReReview(sessionName, false, ""); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
@@ -253,7 +253,7 @@ Examples:
 		if sessionName != "" && role == "coder" && !noReview {
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Triggering re-review...")
-				if err := review.RequestReReview(sessionName, false); err != nil {
+				if err := review.RequestReReview(sessionName, false, body); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
@@ -314,7 +314,7 @@ Examples:
 		}
 
 		if tmux.WindowExists(sessionName, "review") {
-			return review.RequestReReview(sessionName, reviewFull)
+			return review.RequestReReview(sessionName, reviewFull, "")
 		}
 
 		return review.SpawnReviewer(sessionName, ctx)
