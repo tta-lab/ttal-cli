@@ -7,14 +7,15 @@ import (
 
 var openCmd = &cobra.Command{
 	Use:   "open",
-	Short: "Open task resources (PR, session, editor)",
+	Short: "Open task resources (PR, session, editor, term)",
 	Long: `Open resources associated with a taskwarrior task.
 
 These commands are designed to be called from taskwarrior-tui shortcuts:
 
   ttal open pr <uuid>        Open the Forgejo PR in browser
   ttal open session <uuid>   Attach to the tmux worker session
-  ttal open editor <uuid>    Open the project/worktree in your editor`,
+  ttal open editor <uuid>    Open the project/worktree in your editor
+  ttal open term <uuid>      Open terminal for the worker session`,
 	// Skip database initialization — open commands use taskwarrior, not ttal's DB
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
@@ -77,10 +78,27 @@ Example:
 	},
 }
 
+var openTermCmd = &cobra.Command{
+	Use:   "term <uuid>",
+	Short: "Open terminal for worker session",
+	Long: `Open a terminal for the tmux session associated with a task's worker.
+
+If already inside tmux, switches the client to the worker session.
+Otherwise, attaches to the session directly.
+
+Example:
+  ttal open term 12345678-1234-1234-1234-123456789abc`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return open.Term(args[0])
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(openCmd)
 
 	openCmd.AddCommand(openPRCmd)
 	openCmd.AddCommand(openSessionCmd)
 	openCmd.AddCommand(openEditorCmd)
+	openCmd.AddCommand(openTermCmd)
 }

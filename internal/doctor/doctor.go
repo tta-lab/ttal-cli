@@ -369,11 +369,13 @@ const taskrcTasktuiContent = `# Taskwarrior-tui Shortcuts & Keybindings
 uda.taskwarrior-tui.shortcuts.1=ttal open session
 uda.taskwarrior-tui.shortcuts.2=ttal open pr
 uda.taskwarrior-tui.shortcuts.3=ttal open editor
+uda.taskwarrior-tui.shortcuts.4=ttal open term
 
 # Map shortcuts to keys
 uda.taskwarrior-tui.keyconfig.shortcut1=z
 uda.taskwarrior-tui.keyconfig.shortcut2=p
-uda.taskwarrior-tui.keyconfig.shortcut3=o
+uda.taskwarrior-tui.keyconfig.shortcut3=e
+uda.taskwarrior-tui.keyconfig.shortcut4=o
 `
 
 const taskrcTtalContent = `# TTAL Worker UDAs
