@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/project"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 const enrichTimeout = 60 * time.Second
 
-// HookEnrich runs background task enrichment via claude -p --model haiku.
-// Called as a detached subprocess by the on-add hook.
+// HookEnrich runs background task enrichment: resolves project_path from DB,
+// then asks haiku only for a branch name. Called as a detached subprocess by the on-add hook.
 func HookEnrich(uuid string) {
 	hookLogFile(fmt.Sprintf("enrich: starting for task %s", uuid))
 
@@ -25,61 +26,91 @@ func HookEnrich(uuid string) {
 		return
 	}
 
-	prompt := buildEnrichPrompt(task)
+	// Always resolve project_path from DB — haiku never picks the project
+	projectPath := project.ResolveProjectPath(task.Project)
+
+	if projectPath == "" {
+		msg := fmt.Sprintf("⚠ Enrichment: no project match for task %s\n"+
+			"  project field: %q\n"+
+			"  task: %s\n"+
+			"  Fix: set correct project with `task %s modify project:<alias>`",
+			task.SessionID(), task.Project, task.Description, task.SessionID())
+		hookLogFile(msg)
+		NotifyTelegram(msg)
+		return
+	}
+
+	hookLogFile(fmt.Sprintf("enrich: resolved project_path=%s from project=%s", projectPath, task.Project))
+	enrichBranchOnly(task, projectPath)
+}
+
+// enrichBranchOnly asks haiku for just a branch name (no tools), then sets both UDAs.
+func enrichBranchOnly(task *taskwarrior.Task, projectPath string) {
+	prompt := buildBranchPrompt(task)
 
 	ctx, cancel := context.WithTimeout(context.Background(), enrichTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "claude", "-p", "--model", "haiku", "--allowedTools", "Bash", "Read")
-	// Run in data dir so CC writes JSONL there, not in the agent's watched directory.
+	cmd := exec.CommandContext(ctx, "claude", "-p", "--model", "haiku")
 	cmd.Dir = config.ResolveDataDir()
 	cmd.Stdin = strings.NewReader(prompt)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		hookLogFile(fmt.Sprintf("enrich: ERROR running claude for %s: %v\nOutput: %s", uuid, err, string(out)))
-		NotifyTelegram(fmt.Sprintf("⚠ Enrichment failed (claude): %s\n%v", task.Description, err))
+		hookLogFile(fmt.Sprintf("enrich: ERROR branch generation for %s: %v\nOutput: %s", task.UUID, err, string(out)))
+		NotifyTelegram(fmt.Sprintf("⚠ Enrichment failed (branch): %s\n%v", task.Description, err))
 		return
 	}
 
-	hookLogFile(fmt.Sprintf("enrich: completed for task %s\nOutput: %s", uuid, string(out)))
+	branch := parseBranchFromOutput(string(out))
+	if branch == "" {
+		msg := fmt.Sprintf("⚠ Enrichment: could not parse branch name for %s\nHaiku output: %s",
+			task.SessionID(), string(out))
+		hookLogFile(msg)
+		NotifyTelegram(msg)
+		return
+	}
+
+	branchWithPrefix := "worker/" + branch
+	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branchWithPrefix, projectPath); err != nil {
+		hookLogFile(fmt.Sprintf("enrich: ERROR setting UDAs for %s: %v", task.UUID, err))
+		NotifyTelegram(fmt.Sprintf("⚠ Enrichment failed (modify): %s\n%v", task.Description, err))
+		return
+	}
+
+	hookLogFile(fmt.Sprintf("enrich: set project_path=%s branch=%s for %s", projectPath, branchWithPrefix, task.UUID))
 }
 
-func buildEnrichPrompt(task *taskwarrior.Task) string {
-	// Use FormatPrompt() which handles annotations, file refs, and inlines docs
-	taskContext := task.FormatPrompt()
+func buildBranchPrompt(task *taskwarrior.Task) string {
+	return fmt.Sprintf(`Generate a git branch name for this task. Output ONLY the branch name, nothing else.
 
-	// Add tags and project if present
-	var metadata []string
-	if task.Project != "" {
-		metadata = append(metadata, fmt.Sprintf("Project: %s", task.Project))
+Rules:
+- Short, kebab-case, 2-4 words (e.g., "fix-auth-timeout", "add-voice-config")
+- Descriptive of the task content
+- No "worker/" prefix (that's added automatically)
+
+Task: %s
+Description: %s`, task.UUID, task.Description)
+}
+
+func parseBranchFromOutput(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.ToLower(line)
+		line = strings.ReplaceAll(line, " ", "-")
+		// Strip anything that's not a-z, 0-9, or hyphen
+		var clean strings.Builder
+		for _, r := range line {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+				clean.WriteRune(r)
+			}
+		}
+		result := strings.Trim(clean.String(), "-")
+		if result != "" {
+			return result
+		}
 	}
-	if len(task.Tags) > 0 {
-		metadata = append(metadata, fmt.Sprintf("Tags: %s", strings.Join(task.Tags, ", ")))
-	}
-	metadataSection := ""
-	if len(metadata) > 0 {
-		metadataSection = "\n" + strings.Join(metadata, "\n")
-	}
-
-	//nolint:lll // raw string prompt template
-	return fmt.Sprintf(`You are a task enrichment agent. Your job is to enrich a taskwarrior task with project_path and branch UDAs so it can be automatically spawned as a worker.
-
-TASK UUID: %s
-%s
-TASK CONTEXT:
-%s
-INSTRUCTIONS:
-1. Run: ttal project list — read the descriptions to understand each project
-2. Read any referenced documentation included above to understand the actual target project
-3. Match the task to the correct project based on content, NOT based on where the plan file is stored
-4. Run: ttal project get <alias> to get the project path
-5. Derive a short, kebab-case branch name from the task description (e.g., "fix-auth-timeout", "add-user-api")
-6. Run: task %s modify project_path:<path> branch:worker/<branch-name>
-7. Print a one-line summary of what you set
-
-RULES:
-- Branch name should be descriptive but short (2-4 words, kebab-case)
-- If you cannot determine the project, do NOT modify the task — just print "SKIP: could not determine project"
-- Do not add any other modifications
-- Do not start the task`, task.UUID, metadataSection, taskContext, task.UUID)
+	return ""
 }
