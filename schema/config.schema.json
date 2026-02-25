@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codeberg.org/clawteam/ttal-cli/raw/branch/main/schema/config.schema.json",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "AgentConfig": {
+      "properties": {
+        "bot_token": {
+          "type": "string",
+          "description": "Telegram bot token for this agent"
+        },
+        "chat_id": {
+          "type": "string",
+          "description": "Per-agent chat ID override (falls back to team/global)"
+        },
+        "port": {
+          "type": "integer",
+          "description": "API server port for opencode/codex runtimes"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Config": {
+      "properties": {
+        "chat_id": {
+          "type": "string",
+          "description": "Telegram chat ID for notifications"
+        },
+        "lifecycle_agent": {
+          "type": "string",
+          "description": "Agent responsible for worker lifecycle (e.g. kestrel)"
+        },
+        "merge_mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "description": "PR merge mode: auto (merge immediately) or manual (notify only)"
+        },
+        "agents": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AgentConfig"
+          },
+          "type": "object",
+          "description": "Per-agent Telegram credentials and settings"
+        },
+        "voice": {
+          "$ref": "#/$defs/VoiceConfig",
+          "description": "Voice settings (legacy flat layout)"
+        },
+        "shell": {
+          "type": "string",
+          "enum": [
+            "zsh",
+            "fish"
+          ],
+          "description": "Shell for spawning workers"
+        },
+        "sync": {
+          "$ref": "#/$defs/SyncConfig",
+          "description": "Paths for subagent and skill deployment"
+        },
+        "default_team": {
+          "type": "string",
+          "description": "Active team when TTAL_TEAM env is not set"
+        },
+        "teams": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TeamConfig"
+          },
+          "type": "object",
+          "description": "Per-team configuration sections"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncConfig": {
+      "properties": {
+        "subagents_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Directories to scan for subagent definitions"
+        },
+        "skills_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Directories to scan for skill definitions"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TeamConfig": {
+      "properties": {
+        "data_dir": {
+          "type": "string",
+          "description": "ttal data directory (default: ~/.ttal/\u003cteam\u003e)"
+        },
+        "taskrc": {
+          "type": "string",
+          "description": "Taskwarrior config file path (default: \u003cdata_dir\u003e/taskrc)"
+        },
+        "chat_id": {
+          "type": "string",
+          "description": "Telegram chat ID for this team"
+        },
+        "lifecycle_agent": {
+          "type": "string",
+          "description": "Agent responsible for worker lifecycle"
+        },
+        "default_runtime": {
+          "type": "string",
+          "enum": [
+            "claude-code",
+            "opencode",
+            "codex"
+          ],
+          "description": "Default runtime for workers"
+        },
+        "merge_mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "description": "PR merge mode override for this team"
+        },
+        "voice_language": {
+          "type": "string",
+          "description": "ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"
+        },
+        "agents": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AgentConfig"
+          },
+          "type": "object",
+          "description": "Per-agent credentials for this team"
+        },
+        "voice_vocabulary": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Custom vocabulary words for Whisper transcription accuracy"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "VoiceConfig": {
+      "properties": {
+        "vocabulary": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Custom vocabulary words for Whisper"
+        },
+        "language": {
+          "type": "string",
+          "description": "ISO 639-1 language code (default: en)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  },
+  "title": "ttal CLI configuration",
+  "description": "Configuration file for ttal CLI (~/.config/ttal/config.toml)"
+}

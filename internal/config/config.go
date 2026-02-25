@@ -30,17 +30,17 @@ func AgentSessionName(agent string) string {
 // if using team layout). Callers access ChatID, Agents, etc. without caring about teams.
 type Config struct {
 	// Resolved fields — always populated after Load().
-	ChatID         string                 `toml:"chat_id"`
-	LifecycleAgent string                 `toml:"lifecycle_agent"`
-	MergeMode      string                 `toml:"merge_mode"`
-	Agents         map[string]AgentConfig `toml:"agents"`
-	Voice          VoiceConfig            `toml:"voice"`
-	Shell          string                 `toml:"shell"`
-	Sync           SyncConfig             `toml:"sync"`
+	ChatID         string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for notifications"`
+	LifecycleAgent string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle (e.g. kestrel)"`
+	MergeMode      string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode: auto (merge immediately) or manual (notify only)"`
+	Agents         map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent Telegram credentials and settings"`
+	Voice          VoiceConfig            `toml:"voice" jsonschema:"description=Voice settings (legacy flat layout)"`
+	Shell          string                 `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
+	Sync           SyncConfig             `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
 
 	// Team-aware fields — optional, empty for legacy configs.
-	DefaultTeam string                `toml:"default_team"`
-	Teams       map[string]TeamConfig `toml:"teams"`
+	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"`
+	Teams       map[string]TeamConfig `toml:"teams" jsonschema:"description=Per-team configuration sections"`
 
 	// Resolved at load time, not from TOML.
 	resolvedDataDir    string
@@ -53,35 +53,35 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
-	DataDir         string                 `toml:"data_dir"`
-	TaskRC          string                 `toml:"taskrc"`
-	ChatID          string                 `toml:"chat_id"`
-	LifecycleAgent  string                 `toml:"lifecycle_agent"`
-	DefaultRuntime  string                 `toml:"default_runtime"`
-	MergeMode       string                 `toml:"merge_mode"`
-	VoiceLanguage   string                 `toml:"voice_language"`
-	Agents          map[string]AgentConfig `toml:"agents"`
-	VoiceVocabulary []string               `toml:"voice_vocabulary"`
+	DataDir         string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`
+	TaskRC          string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`
+	ChatID          string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
+	LifecycleAgent  string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle"`
+	DefaultRuntime  string                 `toml:"default_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,description=Default runtime for workers"`
+	MergeMode       string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`
+	VoiceLanguage   string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"`
+	Agents          map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
+	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`
 }
 
 // SyncConfig holds paths for subagent and skill deployment.
 type SyncConfig struct {
-	SubagentsPaths []string `toml:"subagents_paths"`
-	SkillsPaths    []string `toml:"skills_paths"`
+	SubagentsPaths []string `toml:"subagents_paths" jsonschema:"description=Directories to scan for subagent definitions"`
+	SkillsPaths    []string `toml:"skills_paths" jsonschema:"description=Directories to scan for skill definitions"`
 }
 
 // VoiceConfig holds voice-related settings (legacy flat layout).
 type VoiceConfig struct {
-	Vocabulary []string `toml:"vocabulary"`
-	Language   string   `toml:"language"`
+	Vocabulary []string `toml:"vocabulary" jsonschema:"description=Custom vocabulary words for Whisper"`
+	Language   string   `toml:"language" jsonschema:"description=ISO 639-1 language code (default: en)"`
 }
 
 // AgentConfig holds per-agent Telegram credentials and runtime settings.
 // ChatID is optional — falls back to the team/global ChatID.
 type AgentConfig struct {
-	BotToken string `toml:"bot_token"`
-	ChatID   string `toml:"chat_id"`
-	Port     int    `toml:"port"` // API server port for opencode/codex agents
+	BotToken string `toml:"bot_token" jsonschema:"description=Telegram bot token for this agent"`
+	ChatID   string `toml:"chat_id" jsonschema:"description=Per-agent chat ID override (falls back to team/global)"`
+	Port     int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
 }
 
 // AgentChatID returns the effective chat ID for an agent (per-agent override or global).

@@ -1,4 +1,4 @@
-.PHONY: help build build-dictate clean clean-db reset test generate install install-dictate reinstall setup run fmt vet lint
+.PHONY: help build build-dictate clean clean-db reset test generate schema check-schema install install-dictate reinstall setup run fmt vet lint
 
 # Default target
 help:
@@ -18,8 +18,9 @@ help:
 	@echo "  make fmt           - Format code with gofmt"
 	@echo "  make vet           - Run go vet"
 	@echo "  make lint          - Run golangci-lint (if installed)"
-	@echo "  make all           - Format, generate, vet, and build"
-	@echo "  make ci            - Run all CI checks (fmt, generate, vet, lint, test, build)"
+	@echo "  make schema        - Generate JSON Schema from config structs"
+	@echo "  make all           - Format, generate, schema, vet, and build"
+	@echo "  make ci            - Run all CI checks (fmt, generate, schema, vet, lint, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
 	@echo "  make install-hooks - Install git pre-commit hook"
 
@@ -102,6 +103,23 @@ generate:
 	@(cd ent && go generate .)
 	@echo "✓ ent code regenerated"
 
+# Generate JSON Schema from config structs
+schema:
+	@echo "Generating config schema..."
+	@mkdir -p schema
+	@go run ./cmd/gen-schema > schema/config.schema.json
+	@echo "✓ Schema generated: schema/config.schema.json"
+
+# Verify committed schema matches generated output
+check-schema: schema
+	@if [ -n "$$(git diff schema/)" ]; then \
+		echo "❌ schema/config.schema.json is out of date — run: make schema"; \
+		git diff schema/; \
+		exit 1; \
+	else \
+		echo "✓ Schema is up to date"; \
+	fi
+
 # Format code
 fmt:
 	@echo "Formatting code..."
@@ -125,7 +143,7 @@ lint:
 	fi
 
 # Run all checks and build
-all: fmt generate vet build
+all: fmt generate schema vet build
 	@echo "✓ All checks passed and binary built"
 
 # Development workflow
@@ -133,7 +151,7 @@ dev: all
 	@echo "✓ Development build complete"
 
 # CI target - runs all checks (same as all but exits on failure)
-ci: fmt generate vet lint test build
+ci: fmt generate check-schema vet lint test build
 	@echo "✓ CI checks complete"
 
 # Check if working directory is clean (for CI)

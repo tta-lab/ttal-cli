@@ -21,8 +21,10 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Generate ent code
-        run: make generate
+      - name: Generate ent code and schema
+        run: |
+          make generate
+          make schema
 
       - name: Run tests
         run: make test
