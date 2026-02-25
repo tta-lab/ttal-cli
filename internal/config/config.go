@@ -32,6 +32,7 @@ type Config struct {
 	// Resolved fields — always populated after Load().
 	ChatID         string                 `toml:"chat_id"`
 	LifecycleAgent string                 `toml:"lifecycle_agent"`
+	MergeMode      string                 `toml:"merge_mode"`
 	Agents         map[string]AgentConfig `toml:"agents"`
 	Voice          VoiceConfig            `toml:"voice"`
 	Shell          string                 `toml:"shell"`
@@ -46,6 +47,7 @@ type Config struct {
 	resolvedTaskRC     string
 	resolvedTeamName   string
 	resolvedDefRuntime string
+	resolvedMergeMode  string
 }
 
 // TeamConfig holds per-team configuration.
@@ -55,6 +57,7 @@ type TeamConfig struct {
 	ChatID          string                 `toml:"chat_id"`
 	LifecycleAgent  string                 `toml:"lifecycle_agent"`
 	DefaultRuntime  string                 `toml:"default_runtime"`
+	MergeMode       string                 `toml:"merge_mode"`
 	VoiceLanguage   string                 `toml:"voice_language"`
 	Agents          map[string]AgentConfig `toml:"agents"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary"`
@@ -109,6 +112,20 @@ func (c *Config) DefaultRuntime() runtime.Runtime {
 		return runtime.Runtime(c.resolvedDefRuntime)
 	}
 	return runtime.ClaudeCode
+}
+
+const (
+	MergeModeAuto   = "auto"
+	MergeModeManual = "manual"
+)
+
+// GetMergeMode returns the resolved merge mode ("auto" if unset).
+// "auto" merges immediately; "manual" sends a notification instead.
+func (c *Config) GetMergeMode() string {
+	if c.resolvedMergeMode != "" {
+		return c.resolvedMergeMode
+	}
+	return MergeModeAuto
 }
 
 const DefaultShell = "zsh"
@@ -194,7 +211,8 @@ func (c *Config) resolve() error {
 		c.resolvedTeamName = "default"
 		c.resolvedDataDir = defaultDataDir()
 		c.resolvedTaskRC = defaultTaskRC()
-		return nil
+		c.resolvedMergeMode = c.MergeMode
+		return c.validateMergeMode()
 	}
 
 	// Resolve active team: TTAL_TEAM env > default_team > "default"
@@ -236,6 +254,20 @@ func (c *Config) resolve() error {
 
 	c.resolvedDefRuntime = team.DefaultRuntime
 
+	// Merge mode: team > global > default("auto")
+	if team.MergeMode != "" {
+		c.resolvedMergeMode = team.MergeMode
+	} else {
+		c.resolvedMergeMode = c.MergeMode
+	}
+
+	return c.validateMergeMode()
+}
+
+func (c *Config) validateMergeMode() error {
+	if c.resolvedMergeMode != "" && c.resolvedMergeMode != MergeModeAuto && c.resolvedMergeMode != MergeModeManual {
+		return fmt.Errorf("invalid merge_mode %q (must be %q or %q)", c.resolvedMergeMode, MergeModeAuto, MergeModeManual)
+	}
 	return nil
 }
 
@@ -343,6 +375,8 @@ lifecycle_agent = "kestrel"
 [agents.kestrel]
 bot_token = "TODO"
 
+# merge_mode = "auto"  # "auto" (merge immediately) or "manual" (notify, human merges)
+
 # [voice]
 # vocabulary = ["ttal", "treemd", "taskwarrior"]
 
@@ -355,6 +389,7 @@ bot_token = "TODO"
 # chat_id = "TODO"
 # lifecycle_agent = "kestrel"
 # default_runtime = "claude-code"  # or "opencode"
+# merge_mode = "manual"  # override global merge_mode per team
 # voice_vocabulary = ["ttal"]
 # voice_language = "en"  # ISO 639-1: "en", "zh", "auto" for auto-detect (default: "en")
 #

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/pr"
 	"codeberg.org/clawteam/ttal-cli/internal/review"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
@@ -149,6 +150,28 @@ Examples:
 			return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
 		}
 
+		// Check mergeability before deciding mode — both modes need this.
+		if err := pr.CheckMergeable(ctx); err != nil {
+			return err
+		}
+
+		// Resolve merge mode from config (team > global > "auto").
+		prURL := pr.BuildPRURL(ctx)
+		mergeMode := config.MergeModeAuto
+		cfg, cfgErr := config.Load()
+		if cfgErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not load config, defaulting to auto merge: %v\n", cfgErr)
+		} else {
+			mergeMode = cfg.GetMergeMode()
+		}
+
+		if mergeMode == config.MergeModeManual {
+			// Manual mode: notify instead of merging. Human decides.
+			worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s\n%s", ctx.Task.Description, prURL))
+			fmt.Printf("PR #%s is mergeable (manual mode — notification sent)\n", ctx.Task.PRID)
+			return nil
+		}
+
 		if err := pr.Merge(ctx, !keepBranch); err != nil {
 			return err
 		}
@@ -159,7 +182,6 @@ Examples:
 		}
 
 		// Notify lifecycle agent with PR link
-		prURL := pr.BuildPRURL(ctx)
 		worker.NotifyTelegram(fmt.Sprintf("✅ PR merged: %s\n%s", ctx.Task.Description, prURL))
 
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)

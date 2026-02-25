@@ -58,7 +58,9 @@ func CommentList(ctx *Context) ([]*gitprovider.Comment, error) {
 	return ctx.Provider.ListComments(ctx.Owner, ctx.Repo, index)
 }
 
-func Merge(ctx *Context, deleteAfterMerge bool) error {
+// CheckMergeable verifies the PR is not already merged and is mergeable.
+// Returns an error if the PR cannot be merged (conflicts, failing CI, already merged).
+func CheckMergeable(ctx *Context) error {
 	index, err := prIndex(ctx)
 	if err != nil {
 		return err
@@ -74,6 +76,19 @@ func Merge(ctx *Context, deleteAfterMerge bool) error {
 	if !fetchedPR.Mergeable {
 		reason := diagnoseMergeFailure(ctx, fetchedPR)
 		return fmt.Errorf("PR #%d is not mergeable:\n%s", index, reason)
+	}
+
+	return nil
+}
+
+func Merge(ctx *Context, deleteAfterMerge bool) error {
+	if err := CheckMergeable(ctx); err != nil {
+		return err
+	}
+
+	index, err := prIndex(ctx)
+	if err != nil {
+		return err
 	}
 
 	return ctx.Provider.MergePR(ctx.Owner, ctx.Repo, index, deleteAfterMerge)

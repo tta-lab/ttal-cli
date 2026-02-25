@@ -81,6 +81,107 @@ func TestDefaultRuntime(t *testing.T) {
 	}
 }
 
+func TestGetMergeMode(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{"unset defaults to auto", &Config{}, MergeModeAuto},
+		{"explicit auto", &Config{resolvedMergeMode: "auto"}, MergeModeAuto},
+		{"explicit manual", &Config{resolvedMergeMode: "manual"}, MergeModeManual},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.GetMergeMode(); got != tt.want {
+				t.Errorf("GetMergeMode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMergeModeResolution(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *Config
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "legacy flat with merge_mode",
+			cfg:  &Config{MergeMode: "manual"},
+			want: MergeModeManual,
+		},
+		{
+			name: "team overrides global",
+			cfg: &Config{
+				MergeMode:   "auto",
+				DefaultTeam: "test",
+				Teams: map[string]TeamConfig{
+					"test": {
+						MergeMode:      "manual",
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			want: MergeModeManual,
+		},
+		{
+			name: "team empty falls back to global",
+			cfg: &Config{
+				MergeMode:   "manual",
+				DefaultTeam: "test",
+				Teams: map[string]TeamConfig{
+					"test": {
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			want: MergeModeManual,
+		},
+		{
+			name:    "invalid merge_mode rejected",
+			cfg:     &Config{MergeMode: "manaul"},
+			wantErr: true,
+		},
+		{
+			name: "both empty defaults to auto",
+			cfg: &Config{
+				DefaultTeam: "test",
+				Teams: map[string]TeamConfig{
+					"test": {
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
+			want: MergeModeAuto,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.resolve()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("resolve() should have returned an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolve() error: %v", err)
+			}
+			if got := tt.cfg.GetMergeMode(); got != tt.want {
+				t.Errorf("GetMergeMode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildEnvShellCommand(t *testing.T) {
 	tests := []struct {
 		name         string
