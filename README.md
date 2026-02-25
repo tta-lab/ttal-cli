@@ -129,6 +129,8 @@ The CLI uses SQLite with four tables:
 
 ### Project Commands
 
+Project aliases support hierarchical matching for taskwarrior integration. When a task has `project:ttal.daemon.watcher`, ttal tries matching in order: `ttal.daemon.watcher` → `ttal.daemon` → `ttal`. This lets `ttal` act as a catch-all for all sub-projects.
+
 ```bash
 # Add a project
 ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd --repo=neil/clawd --repo-type=forgejo +infrastructure +core

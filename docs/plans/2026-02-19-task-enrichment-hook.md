@@ -1,8 +1,13 @@
 # Task Enrichment Hook + Deterministic Spawn
 
+> **Implementation Note (PR #41):** Project resolution changed from haiku-based to DB lookup.
+> - `project_path` is now resolved via `internal/project/resolve.go` using hierarchical alias matching
+> - Haiku only generates the branch name (no tool access needed)
+> - See `internal/worker/hook_enrich.go` for current implementation
+
 > **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
 
-**Goal:** Auto-enrich new taskwarrior tasks with `project_path` and `branch` UDAs via a haiku one-shot, then deterministically spawn workers on task start — no LLM or agent messaging needed at start time.
+**Goal:** Auto-enrich new taskwarrior tasks with `project_path` and `branch` UDAs, then deterministically spawn workers on task start.
 
 **Architecture:** Two separate taskwarrior hooks: `on-add-ttal` enriches tasks via `claude -p --model haiku` (fire-and-forget background), `on-modify-ttal` (existing) gains start detection that reads enriched UDAs and calls `ttal worker spawn` directly (fire-and-forget background). All lifecycle events (spawn, cleanup, errors) are reported to kestrel's Telegram chat via the daemon socket.
 
