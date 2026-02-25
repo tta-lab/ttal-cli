@@ -15,7 +15,7 @@ func TestBuildEnvParts(t *testing.T) {
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, "/custom/taskrc")
+	parts := buildEnvParts(task, runtime.ClaudeCode, "/custom/taskrc")
 
 	if len(parts) < 2 {
 		t.Fatal("expected at least TTAL_ROLE and TTAL_JOB_ID")
@@ -25,6 +25,17 @@ func TestBuildEnvParts(t *testing.T) {
 	}
 	if !strings.HasPrefix(parts[1], "TTAL_JOB_ID=") {
 		t.Errorf("second part should be TTAL_JOB_ID, got %q", parts[1])
+	}
+
+	// Check TTAL_RUNTIME is included
+	foundRuntime := false
+	for _, p := range parts {
+		if p == "TTAL_RUNTIME=claude-code" {
+			foundRuntime = true
+		}
+	}
+	if !foundRuntime {
+		t.Error("expected TTAL_RUNTIME=claude-code in env parts")
 	}
 
 	// Check taskrc is included
@@ -45,7 +56,7 @@ func TestBuildEnvParts_NoTaskRC(t *testing.T) {
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, "")
+	parts := buildEnvParts(task, runtime.ClaudeCode, "")
 
 	for _, p := range parts {
 		if strings.HasPrefix(p, "TASKRC=") {

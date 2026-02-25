@@ -144,7 +144,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
-	envParts := buildEnvParts(task, taskrc)
+	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
 	shellCmd := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
@@ -188,10 +188,11 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, taskrc string) []string {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []string {
 	parts := []string{
 		"TTAL_ROLE=coder",
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
+		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
 	if team := os.Getenv("TTAL_TEAM"); team != "" {
 		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))

@@ -10,6 +10,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/pr"
 	"codeberg.org/clawteam/ttal-cli/internal/review"
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
@@ -250,19 +251,21 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: failed to write review file: %v\n", fileErr)
 				}
 
+				rt := resolveCoderRuntime()
 				mergeHint := " If verdict is LGTM and no remaining issues, merge with: ttal pr merge"
 				var notification string
 				if reviewFile != "" {
-					notification = fmt.Sprintf(
-						"/triage PR review posted. Full review at %s"+
+					notification = runtime.FormatSkillMessage(rt, "triage",
+						fmt.Sprintf("PR review posted. Full review at %s"+
 							" — read it, assess and fix issues."+
 							" Post your triage update with ttal pr comment create when done."+
 							mergeHint,
-						reviewFile)
+							reviewFile))
 				} else {
-					notification = "/triage PR reviewed — see PR comments. " +
-						"Assess and fix issues, then post your triage update with ttal pr comment create." +
-						mergeHint
+					notification = runtime.FormatSkillMessage(rt, "triage",
+						"PR reviewed — see PR comments. "+
+							"Assess and fix issues, then post your triage update with ttal pr comment create."+
+							mergeHint)
 				}
 				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
@@ -381,6 +384,17 @@ func writeReviewFile(body string) (string, error) {
 	}
 	_ = f.Close()
 	return f.Name(), nil
+}
+
+// resolveCoderRuntime returns the coder's runtime from TTAL_RUNTIME env var,
+// falling back to ClaudeCode if unset or invalid.
+func resolveCoderRuntime() runtime.Runtime {
+	if env := os.Getenv("TTAL_RUNTIME"); env != "" {
+		if r, err := runtime.Parse(env); err == nil {
+			return r
+		}
+	}
+	return runtime.ClaudeCode
 }
 
 func init() {

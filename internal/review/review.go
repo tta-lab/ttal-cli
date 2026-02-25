@@ -44,7 +44,11 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	shellCmd := shellCfg.BuildEnvShellCommand([]string{"TTAL_ROLE=reviewer"}, claudeCmd)
+	envParts := []string{"TTAL_ROLE=reviewer"}
+	if rt := os.Getenv("TTAL_RUNTIME"); rt != "" {
+		envParts = append(envParts, "TTAL_RUNTIME="+rt)
+	}
+	shellCmd := shellCfg.BuildEnvShellCommand(envParts, claudeCmd)
 
 	workDir, err := os.Getwd()
 	if err != nil {
