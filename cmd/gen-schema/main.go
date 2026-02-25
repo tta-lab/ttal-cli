@@ -16,7 +16,7 @@ func main() {
 	}
 
 	schema := r.Reflect(&config.Config{})
-	schema.ID = "https://codeberg.org/clawteam/ttal-cli/raw/branch/main/schema/config.schema.json"
+	schema.ID = "https://ttal.guion.io/schema/config.schema.json"
 	schema.Title = "ttal CLI configuration"
 	schema.Description = "Configuration file for ttal CLI (~/.config/ttal/config.toml)"
 

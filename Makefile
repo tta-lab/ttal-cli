@@ -106,9 +106,10 @@ generate:
 # Generate JSON Schema from config structs
 schema:
 	@echo "Generating config schema..."
-	@mkdir -p schema
+	@mkdir -p schema docs/public/schema
 	@go run ./cmd/gen-schema > schema/config.schema.json
-	@echo "✓ Schema generated: schema/config.schema.json"
+	@cp schema/config.schema.json docs/public/schema/config.schema.json
+	@echo "✓ Schema generated and copied to doc site"
 
 # Verify committed schema matches generated output
 check-schema: schema

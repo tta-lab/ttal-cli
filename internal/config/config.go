@@ -387,7 +387,8 @@ func WriteTemplate() error {
 		return err
 	}
 
-	template := `chat_id = "TODO"
+	template := `#:schema https://ttal.guion.io/schema/config.schema.json
+chat_id = "TODO"
 lifecycle_agent = "kestrel"
 
 [agents.kestrel]

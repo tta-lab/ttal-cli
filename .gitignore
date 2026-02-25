@@ -36,6 +36,11 @@ dist/
 *.swo
 *~
 
+# Astro doc site
+docs/dist/
+docs/node_modules/
+docs/.astro/
+
 # OS
 .DS_Store
 Thumbs.db
