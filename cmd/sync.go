@@ -104,7 +104,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for _, r := range results {
 				fmt.Printf("  %s → %s (symlink)\n", shortenHome(r.Source), shortenHome(r.Dest))
 			}
-			skillCount = len(results)
+			skillCount = countUniqueSkills(results)
 
 			if syncClean {
 				removed, err := sync.CleanSkills(syncCfg.SkillsPaths, syncDryRun)
@@ -143,4 +143,12 @@ func shortenHome(path string) string {
 		return "~" + abs[len(home):]
 	}
 	return path
+}
+
+func countUniqueSkills(results []sync.SkillResult) int {
+	seen := make(map[string]struct{}, len(results))
+	for _, r := range results {
+		seen[r.Name] = struct{}{}
+	}
+	return len(seen)
 }
