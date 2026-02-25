@@ -1,10 +1,12 @@
-.PHONY: help build clean clean-db reset test generate install reinstall setup run fmt vet lint
+.PHONY: help build build-dictate clean clean-db reset test generate install install-dictate reinstall setup run fmt vet lint
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  make build         - Build the ttal binary"
 	@echo "  make install       - Install ttal to GOPATH/bin"
+	@echo "  make build-dictate - Build with voice dictation (macOS, requires portaudio)"
+	@echo "  make install-dictate - Install with voice dictation (macOS, requires portaudio)"
 	@echo "  make reinstall     - Install and restart daemon"
 	@echo "  make setup         - First-time setup (install + hook + daemon)"
 	@echo "  make run           - Run ttal (usage: make run ARGS='project list')"
@@ -33,6 +35,20 @@ install:
 	@echo "Installing ttal..."
 	@go build -o $(shell go env GOPATH)/bin/ttal .
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/ttal"
+
+# Build with voice dictation support (macOS only, requires portaudio)
+build-dictate:
+	@echo "Building ttal with voice dictation..."
+	@go build -tags voice_dictate -o ttal .
+	@codesign -s - ./ttal
+	@echo "✓ Build complete: ./ttal (signed, dictation enabled)"
+
+# Install with voice dictation support
+install-dictate:
+	@echo "Installing ttal with voice dictation..."
+	@go build -tags voice_dictate -o $(shell go env GOPATH)/bin/ttal .
+	@codesign -s - $(shell go env GOPATH)/bin/ttal
+	@echo "✓ Installed to $(shell go env GOPATH)/bin/ttal (signed, dictation enabled)"
 
 # First-time setup: install binary, hooks, and daemon
 setup: install
