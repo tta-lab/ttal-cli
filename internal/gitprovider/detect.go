@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	urlpkg "net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -17,6 +18,23 @@ type RepoInfo struct {
 	Provider      ProviderType
 	Host          string
 	DefaultBranch string
+}
+
+// PRURL constructs the full web URL for a pull request.
+func (r *RepoInfo) PRURL(prID string) string {
+	var baseURL, prSegment string
+	switch r.Provider {
+	case ProviderGitHub:
+		baseURL = "https://github.com"
+		prSegment = "pull"
+	default:
+		baseURL = os.Getenv("FORGEJO_URL")
+		if baseURL == "" {
+			baseURL = "https://" + r.Host
+		}
+		prSegment = "pulls"
+	}
+	return fmt.Sprintf("%s/%s/%s/%s/%s", baseURL, r.Owner, r.Repo, prSegment, prID)
 }
 
 func DetectProvider(workDir string) (*RepoInfo, error) {

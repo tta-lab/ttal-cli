@@ -2,7 +2,6 @@ package open
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 
@@ -39,22 +38,7 @@ func PR(uuid string) error {
 		return fmt.Errorf("cannot determine repo: %w", err)
 	}
 
-	var baseURL string
-	var prSegment string
-
-	switch info.Provider {
-	case gitprovider.ProviderGitHub:
-		baseURL = "https://github.com"
-		prSegment = "pull"
-	default:
-		baseURL = os.Getenv("FORGEJO_URL")
-		if baseURL == "" {
-			baseURL = "https://" + info.Host
-		}
-		prSegment = "pulls"
-	}
-
-	prURL := fmt.Sprintf("%s/%s/%s/%s/%s", baseURL, info.Owner, info.Repo, prSegment, task.PRID)
+	prURL := info.PRURL(task.PRID)
 	fmt.Printf("Opening PR #%s: %s\n", task.PRID, prURL)
 	fmt.Printf("Repository: %s/%s (%s)\n", info.Owner, info.Repo, info.Provider)
 

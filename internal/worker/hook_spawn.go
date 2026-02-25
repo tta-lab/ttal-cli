@@ -17,7 +17,7 @@ func HookSpawnWorker(uuid, workerName, projectPath string, rt runtime.Runtime) {
 	task, err := taskwarrior.ExportTask(uuid)
 	if err != nil {
 		hookLogFile(fmt.Sprintf("spawn-worker: ERROR exporting task %s: %v", uuid, err))
-		notifyTelegram(fmt.Sprintf("⚠ Worker spawn failed: %s\nError: could not load task: %v", workerName, err))
+		NotifyTelegram(fmt.Sprintf("⚠ Worker spawn failed: %s\nError: could not load task: %v", workerName, err))
 		return
 	}
 
@@ -32,12 +32,12 @@ func HookSpawnWorker(uuid, workerName, projectPath string, rt runtime.Runtime) {
 
 	if err != nil {
 		hookLogFile(fmt.Sprintf("spawn-worker: ERROR spawning %s: %v", workerName, err))
-		notifyTelegram(fmt.Sprintf("⚠ Worker spawn failed: %s\nTask: %s\nError: %v",
+		NotifyTelegram(fmt.Sprintf("⚠ Worker spawn failed: %s\nTask: %s\nError: %v",
 			workerName, task.Description, err))
 		return
 	}
 
 	hookLogFile(fmt.Sprintf("spawn-worker: successfully spawned %s", workerName))
-	notifyTelegram(fmt.Sprintf("🚀 Worker spawned: %s\nTask: %s\nProject: %s",
+	NotifyTelegram(fmt.Sprintf("🚀 Worker spawned: %s\nTask: %s\nProject: %s",
 		workerName, task.Description, projectPath))
 }

@@ -229,11 +229,11 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	f.WriteString(line)
 }
 
-// notifyTelegram sends a message to an agent's Telegram chat via the daemon.
+// NotifyTelegram sends a message to an agent's Telegram chat via the daemon.
 // Uses From-only routing (daemon's handleFrom → Telegram Bot API).
 // Fire-and-forget: errors are logged but not propagated.
 // No-ops if config cannot be loaded (no guessing).
-func notifyTelegram(message string) {
+func NotifyTelegram(message string) {
 	agent := resolveLifecycleAgent()
 	if agent == "" {
 		return

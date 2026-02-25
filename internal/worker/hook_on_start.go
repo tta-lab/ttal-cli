@@ -53,7 +53,7 @@ func routeToAgent(agentName string, task hookTask) {
 	})
 	if err != nil {
 		hookLogFile(fmt.Sprintf("ERROR routing task to %s: %v", agentName, err))
-		notifyTelegram(fmt.Sprintf("⚠ Failed to route task to %s:\n%s\nError: %v",
+		NotifyTelegram(fmt.Sprintf("⚠ Failed to route task to %s:\n%s\nError: %v",
 			agentName, task.Description(), err))
 		return
 	}
@@ -70,7 +70,7 @@ func spawnFromUDAs(modified hookTask) {
 	if projectPath == "" || branch == "" {
 		hookLog("START_SKIP", modified.UUID(), modified.Description(),
 			"reason", "missing_udas", "project_path", projectPath, "branch", branch)
-		notifyTelegram(fmt.Sprintf("⚠ Task started but missing UDAs (not enriched?):\n%s\nproject_path=%s branch=%s",
+		NotifyTelegram(fmt.Sprintf("⚠ Task started but missing UDAs (not enriched?):\n%s\nproject_path=%s branch=%s",
 			modified.Description(), projectPath, branch))
 		return
 	}
@@ -90,7 +90,7 @@ func spawnFromUDAs(modified hookTask) {
 		"--runtime", string(rt),
 		modified.UUID(), workerName, projectPath); err != nil {
 		hookLogFile(fmt.Sprintf("ERROR forking spawn for %s: %v", modified.UUID(), err))
-		notifyTelegram(fmt.Sprintf("⚠ Failed to fork worker spawn:\n%s\nError: %v",
+		NotifyTelegram(fmt.Sprintf("⚠ Failed to fork worker spawn:\n%s\nError: %v",
 			modified.Description(), err))
 		return
 	}
