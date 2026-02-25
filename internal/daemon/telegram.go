@@ -1,13 +1,10 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +13,7 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
+	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
@@ -24,7 +22,7 @@ import (
 // It calls onMessage for each new user message, formatted for CC delivery.
 // Runs until done is closed.
 func startTelegramPoller(
-	agentName string, cfg config.AgentConfig, chatID string, vocabulary []string,
+	agentName string, cfg config.AgentConfig, chatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 ) {
 	go func() {
@@ -37,7 +35,7 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(agentName, cfg, chatID, vocabulary, onMessage, done); err != nil {
+			if err := runPoller(agentName, cfg, chatID, onMessage, done); err != nil {
 				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
 				select {
 				case <-done:
@@ -55,7 +53,7 @@ func startTelegramPoller(
 }
 
 func runPoller(
-	agentName string, cfg config.AgentConfig, effectiveChatID string, vocabulary []string,
+	agentName string, cfg config.AgentConfig, effectiveChatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 ) error {
 	chatID, err := telegram.ParseChatID(effectiveChatID)
@@ -82,7 +80,7 @@ func runPoller(
 		if update.Message.From == nil {
 			return
 		}
-		handleInboundMessage(ctx, b, update.Message, agentName, cfg.BotToken, effectiveChatID, vocabulary, onMessage)
+		handleInboundMessage(ctx, b, update.Message, agentName, cfg.BotToken, effectiveChatID, onMessage)
 	}
 
 	b, err := bot.New(cfg.BotToken, bot.WithDefaultHandler(defaultHandler))
@@ -102,7 +100,7 @@ func runPoller(
 
 func handleInboundMessage(
 	ctx context.Context, b *bot.Bot, msg *models.Message,
-	agentName, botToken, chatIDStr string, vocabulary []string,
+	agentName, botToken, chatIDStr string,
 	onMessage func(string, string),
 ) {
 	senderName := msg.From.Username
@@ -112,7 +110,7 @@ func handleInboundMessage(
 
 	// Handle voice messages
 	if msg.Voice != nil {
-		transcription, err := transcribeVoiceMessage(ctx, b, msg.Voice, vocabulary)
+		transcription, err := transcribeVoiceMessage(ctx, b, msg.Voice)
 		if err != nil {
 			log.Printf("[telegram] voice transcription failed for %s: %v", agentName, err)
 			_ = telegram.SendMessage(botToken, chatIDStr, "Voice transcription failed — check daemon logs for details")
@@ -232,13 +230,8 @@ func parseCommandArgs(text string) []string {
 	return parts[1:]
 }
 
-const (
-	sttModel    = "mlx-community/whisper-large-v3-turbo-asr-fp16"
-	sttEndpoint = "http://localhost:8877/v1/audio/transcriptions"
-)
-
-// transcribeVoiceMessage downloads a Telegram voice message and transcribes it via mlx-audio STT.
-func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice, vocabulary []string) (string, error) {
+// transcribeVoiceMessage downloads a Telegram voice message and transcribes it via the voice package.
+func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice) (string, error) {
 	file, err := b.GetFile(ctx, &bot.GetFileParams{FileID: v.FileID})
 	if err != nil {
 		return "", fmt.Errorf("get file: %w", err)
@@ -260,59 +253,7 @@ func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice, vo
 		return "", fmt.Errorf("read voice data: %w", err)
 	}
 
-	return sttTranscribe(audioData, "voice.ogg", vocabulary)
-}
-
-// sttTranscribe sends audio data to the mlx-audio STT endpoint and returns the transcribed text.
-// vocabulary is joined into a context string that biases Whisper toward domain-specific terms.
-func sttTranscribe(audioData []byte, filename string, vocabulary []string) (string, error) {
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		return "", err
-	}
-	if _, err := part.Write(audioData); err != nil {
-		return "", err
-	}
-
-	if err := writer.WriteField("model", sttModel); err != nil {
-		return "", err
-	}
-	if err := writer.WriteField("language", "en"); err != nil {
-		return "", err
-	}
-	if len(vocabulary) > 0 {
-		hotwords := strings.Join(vocabulary, ", ")
-		if err := writer.WriteField("context", hotwords); err != nil {
-			return "", err
-		}
-	}
-	if err := writer.Close(); err != nil {
-		return "", err
-	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Post(sttEndpoint, writer.FormDataContentType(), &buf) //nolint:noctx
-	if err != nil {
-		return "", fmt.Errorf("STT request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("STT returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Text string `json:"text"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("parse STT response: %w", err)
-	}
-
-	return strings.TrimSpace(result.Text), nil
+	return voice.Transcribe(audioData, "voice.ogg")
 }
 
 // downloadTelegramFile downloads a file from Telegram and saves it to the agent's file directory.

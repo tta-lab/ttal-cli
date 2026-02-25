@@ -73,7 +73,7 @@ func Run(database *ent.Client) error {
 			continue
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
-		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), cfg.Voice.Vocabulary, func(name, text string) {
+		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
 			if err := deliverToAgent(name, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
 			}

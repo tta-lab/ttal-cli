@@ -55,6 +55,7 @@ type TeamConfig struct {
 	ChatID          string                 `toml:"chat_id"`
 	LifecycleAgent  string                 `toml:"lifecycle_agent"`
 	DefaultRuntime  string                 `toml:"default_runtime"`
+	VoiceLanguage   string                 `toml:"voice_language"`
 	Agents          map[string]AgentConfig `toml:"agents"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary"`
 }
@@ -68,6 +69,7 @@ type SyncConfig struct {
 // VoiceConfig holds voice-related settings (legacy flat layout).
 type VoiceConfig struct {
 	Vocabulary []string `toml:"vocabulary"`
+	Language   string   `toml:"language"`
 }
 
 // AgentConfig holds per-agent Telegram credentials.
@@ -214,7 +216,10 @@ func (c *Config) resolve() error {
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
 	c.Agents = team.Agents
-	c.Voice = VoiceConfig{Vocabulary: team.VoiceVocabulary}
+	c.Voice = VoiceConfig{
+		Vocabulary: team.VoiceVocabulary,
+		Language:   team.VoiceLanguage,
+	}
 
 	if team.DataDir != "" {
 		c.resolvedDataDir = expandHome(team.DataDir)
@@ -350,6 +355,7 @@ bot_token = "TODO"
 # lifecycle_agent = "kestrel"
 # default_runtime = "claude-code"  # or "opencode"
 # voice_vocabulary = ["ttal"]
+# voice_language = "en"  # ISO 639-1: "en", "zh", "auto" for auto-detect (default: "en")
 #
 # [teams.personal.agents.kestrel]
 # bot_token = "TODO"
