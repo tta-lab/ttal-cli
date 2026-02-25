@@ -129,7 +129,11 @@ func Run(database *ent.Client) error {
 func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config, registry *adapterRegistry) {
 	for agentName := range cfg.Agents {
 		ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx)
-		if err != nil || ag.Path == "" {
+		if err != nil {
+			log.Printf("[daemon] skipping adapter for %s: db lookup failed: %v", agentName, err)
+			continue
+		}
+		if ag.Path == "" {
 			continue
 		}
 
@@ -138,22 +142,24 @@ func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config,
 			rt = runtime.Runtime(*ag.Runtime)
 		}
 
+		// Only register API-server adapters (OC/Codex) that the daemon manages.
+		// CC agents use tmux directly — registering them would shadow the tmux
+		// fallback in deliverToAgent() since SendMessage() requires Start().
+		if rt != runtime.OpenCode && rt != runtime.Codex {
+			continue
+		}
+
 		port := cfg.Agents[agentName].Port
 		env := buildAgentEnv(agentName, cfg)
 
 		adapter := createAdapter(agentName, rt, ag.Path, port, string(ag.Model), true, env)
-		registry.set(agentName, adapter)
-
-		// Only start API-server adapters (OC/Codex) from daemon.
-		// CC agents are started via `ttal team start` (tmux).
-		if rt == runtime.OpenCode || rt == runtime.Codex {
-			if err := adapter.Start(ctx); err != nil {
-				log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, agentName, err)
-				continue
-			}
-			log.Printf("[daemon] started %s adapter for %s on port %d", rt, agentName, port)
-			bridgeEvents(agentName, adapter, cfg)
+		if err := adapter.Start(ctx); err != nil {
+			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, agentName, err)
+			continue
 		}
+		registry.set(agentName, adapter)
+		log.Printf("[daemon] started %s adapter for %s on port %d", rt, agentName, port)
+		bridgeEvents(agentName, adapter, cfg)
 	}
 }
 

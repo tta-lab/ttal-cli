@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ type process struct {
 	port    int
 	workDir string
 	env     []string
+	exited  chan struct{} // closed when cmd.Wait() returns
 }
 
 // start spawns `codex app-server --listen ws://127.0.0.1:<port>`.
@@ -31,6 +33,15 @@ func (p *process) start(ctx context.Context) error {
 	if err := p.cmd.Start(); err != nil {
 		return fmt.Errorf("start codex app-server: %w", err)
 	}
+
+	// Reap the child process to avoid zombies and populate ProcessState.
+	p.exited = make(chan struct{})
+	go func() {
+		if err := p.cmd.Wait(); err != nil {
+			log.Printf("[codex] app-server exited with error: %v", err)
+		}
+		close(p.exited)
+	}()
 
 	if err := p.waitReady(ctx, 15*time.Second); err != nil {
 		p.stop()
@@ -68,20 +79,27 @@ func (p *process) stop() {
 		return
 	}
 	_ = p.cmd.Process.Signal(os.Interrupt)
-	done := make(chan error, 1)
-	go func() { done <- p.cmd.Wait() }()
 	select {
-	case <-done:
+	case <-p.exited:
 	case <-time.After(5 * time.Second):
 		_ = p.cmd.Process.Kill()
-		<-done
+		select {
+		case <-p.exited:
+		case <-time.After(3 * time.Second):
+			log.Printf("[codex] process did not exit after SIGKILL, giving up")
+		}
 	}
 }
 
 // isRunning checks if the process is still alive.
 func (p *process) isRunning() bool {
-	if p.cmd == nil || p.cmd.Process == nil {
+	if p.exited == nil {
 		return false
 	}
-	return p.cmd.ProcessState == nil
+	select {
+	case <-p.exited:
+		return false
+	default:
+		return true
+	}
 }

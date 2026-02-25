@@ -7,7 +7,6 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime/claudecode"
 	cx "codeberg.org/clawteam/ttal-cli/internal/runtime/codex"
 	oc "codeberg.org/clawteam/ttal-cli/internal/runtime/opencode"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
@@ -48,6 +47,7 @@ func (r *adapterRegistry) stopAll(ctx context.Context) {
 }
 
 // createAdapter builds the appropriate adapter for an agent's runtime.
+// Only called for OC/Codex agents — CC agents use tmux directly.
 func createAdapter(
 	agentName string, rt runtime.Runtime, agentPath string,
 	port int, model string, yolo bool, env []string,
@@ -62,12 +62,10 @@ func createAdapter(
 	}
 
 	switch rt {
-	case runtime.OpenCode:
-		return oc.New(cfg)
 	case runtime.Codex:
 		return cx.New(cfg)
 	default:
-		return claudecode.New(cfg)
+		return oc.New(cfg)
 	}
 }
 
