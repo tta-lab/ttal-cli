@@ -112,11 +112,38 @@ func (p *ForgejoProvider) ListComments(owner, repo string, index int64) ([]*Comm
 	return result, nil
 }
 
+func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error) {
+	cs, _, err := p.client.GetCombinedStatus(owner, repo, ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit status: %w", err)
+	}
+	if cs == nil {
+		return &CombinedStatus{State: "unknown"}, nil
+	}
+
+	statuses := make([]*CommitStatus, len(cs.Statuses))
+	for i, s := range cs.Statuses {
+		statuses[i] = &CommitStatus{
+			Context:     s.Context,
+			State:       string(s.State),
+			Description: s.Description,
+			TargetURL:   s.TargetURL,
+		}
+	}
+
+	return &CombinedStatus{
+		State:    string(cs.State),
+		Statuses: statuses,
+	}, nil
+}
+
 func toPullRequest(pr *forgejo_sdk.PullRequest) *PullRequest {
 	head := ""
+	headSHA := ""
 	base := ""
 	if pr.Head != nil {
 		head = pr.Head.Name
+		headSHA = pr.Head.Sha
 	}
 	if pr.Base != nil {
 		base = pr.Base.Name
@@ -128,6 +155,7 @@ func toPullRequest(pr *forgejo_sdk.PullRequest) *PullRequest {
 		State:     string(pr.State),
 		HTMLURL:   pr.HTMLURL,
 		Head:      head,
+		HeadSHA:   headSHA,
 		Base:      base,
 		Mergeable: pr.Mergeable,
 		Merged:    pr.HasMerged,

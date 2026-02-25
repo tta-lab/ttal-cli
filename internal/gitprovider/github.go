@@ -115,11 +115,42 @@ func (p *GitHubProvider) ListComments(owner, repo string, index int64) ([]*Comme
 	return result, nil
 }
 
+func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error) {
+	cs, _, err := p.client.Repositories.GetCombinedStatus(context.Background(), owner, repo, ref, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit status: %w", err)
+	}
+	if cs == nil {
+		return &CombinedStatus{State: "unknown"}, nil
+	}
+
+	statuses := make([]*CommitStatus, len(cs.Statuses))
+	for i, s := range cs.Statuses {
+		statuses[i] = &CommitStatus{
+			Context:     s.GetContext(),
+			State:       s.GetState(),
+			Description: s.GetDescription(),
+			TargetURL:   s.GetTargetURL(),
+		}
+	}
+
+	return &CombinedStatus{
+		State:    cs.GetState(),
+		Statuses: statuses,
+	}, nil
+}
+
 func toGitHubPullRequest(pr *github.PullRequest) *PullRequest {
 	head := ""
+	headSHA := ""
 	base := ""
-	if pr.Head != nil && pr.Head.Ref != nil {
-		head = *pr.Head.Ref
+	if pr.Head != nil {
+		if pr.Head.Ref != nil {
+			head = *pr.Head.Ref
+		}
+		if pr.Head.SHA != nil {
+			headSHA = *pr.Head.SHA
+		}
 	}
 	if pr.Base != nil && pr.Base.Ref != nil {
 		base = *pr.Base.Ref
@@ -135,6 +166,7 @@ func toGitHubPullRequest(pr *github.PullRequest) *PullRequest {
 		State:     pr.GetState(),
 		HTMLURL:   pr.GetHTMLURL(),
 		Head:      head,
+		HeadSHA:   headSHA,
 		Base:      base,
 		Mergeable: mergeable,
 		Merged:    pr.GetMerged(),

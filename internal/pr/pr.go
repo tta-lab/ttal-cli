@@ -3,6 +3,7 @@ package pr
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
@@ -71,10 +72,57 @@ func Merge(ctx *Context, deleteAfterMerge bool) error {
 		return fmt.Errorf("PR #%d is already merged", index)
 	}
 	if !fetchedPR.Mergeable {
-		return fmt.Errorf("PR #%d is not mergeable (check for conflicts or failing CI)", index)
+		reason := diagnoseMergeFailure(ctx, fetchedPR)
+		return fmt.Errorf("PR #%d is not mergeable:\n%s", index, reason)
 	}
 
 	return ctx.Provider.MergePR(ctx.Owner, ctx.Repo, index, deleteAfterMerge)
+}
+
+// diagnoseMergeFailure queries CI status and returns a human-readable explanation.
+func diagnoseMergeFailure(ctx *Context, pr *gitprovider.PullRequest) string {
+	const possibleCauses = "Possible causes: merge conflicts or branch protection rules."
+	if pr.HeadSHA == "" {
+		return "  Could not determine HEAD SHA to check CI status.\n  " + possibleCauses
+	}
+
+	cs, err := ctx.Provider.GetCombinedStatus(ctx.Owner, ctx.Repo, pr.HeadSHA)
+	if err != nil {
+		return fmt.Sprintf("  Could not fetch CI status: %v\n  %s", err, possibleCauses)
+	}
+
+	var lines []string
+	var failing, pending int
+	for _, s := range cs.Statuses {
+		switch s.State {
+		case "failure", "error":
+			failing++
+			line := fmt.Sprintf("  ✗ %s — %s", s.Context, s.Description)
+			if s.TargetURL != "" {
+				line += fmt.Sprintf("\n    %s", s.TargetURL)
+			}
+			lines = append(lines, line)
+		case "pending":
+			pending++
+		}
+	}
+
+	if failing > 0 {
+		lines = append([]string{fmt.Sprintf("  %d CI check(s) failed:", failing)}, lines...)
+	}
+	if pending > 0 {
+		lines = append(lines, fmt.Sprintf("  ⏳ %d check(s) still pending", pending))
+	}
+
+	if failing == 0 && pending == 0 {
+		if len(cs.Statuses) == 0 {
+			lines = append(lines, "  No CI checks found. Likely cause: merge conflicts or branch protection rules.")
+		} else {
+			lines = append(lines, "  All CI checks passed. Likely cause: merge conflicts or branch protection rules.")
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func prIndex(ctx *Context) (int64, error) {
