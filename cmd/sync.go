@@ -18,8 +18,8 @@ var (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Deploy subagents and skills to runtime directories",
-	Long: `Reads canonical subagent .md files and skill directories, then deploys them
-to Claude Code and OpenCode runtime directories.
+	Long: `Reads canonical subagent .md files, skill directories, and command definitions,
+then deploys them to Claude Code and OpenCode runtime directories.
 
 Subagents are split into runtime-specific variants:
   Claude Code → ~/.claude/agents/{name}.md
@@ -28,10 +28,15 @@ Subagents are split into runtime-specific variants:
 Skills are symlinked:
   ~/.claude/skills/{name}/ → source directory
 
+Commands are deployed as runtime-specific variants:
+  Claude Code → ~/.claude/skills/{name}/SKILL.md (CC treats commands as skills)
+  OpenCode    → ~/.config/opencode/commands/{name}.md
+
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
   subagents_paths = ["~/clawd/docs/agents"]
-  skills_paths = ["~/clawd/docs/skills"]`,
+  skills_paths = ["~/clawd/docs/skills"]
+  commands_paths = ["~/clawd/docs/commands"]`,
 	// No database needed
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
@@ -47,16 +52,18 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 		syncCfg := cfg.Sync
 
-		if len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 {
+		if len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 && len(syncCfg.CommandsPaths) == 0 {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
 				"  [sync]\n" +
 				"  subagents_paths = [\"~/path/to/agents\"]\n" +
-				"  skills_paths = [\"~/path/to/skills\"]")
+				"  skills_paths = [\"~/path/to/skills\"]\n" +
+				"  commands_paths = [\"~/path/to/commands\"]")
 		}
 
 		agentCount := 0
 		skillCount := 0
+		commandCount := 0
 
 		if len(syncCfg.SubagentsPaths) > 0 {
 			if syncDryRun {
@@ -117,11 +124,42 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
+		if len(syncCfg.CommandsPaths) > 0 {
+			fmt.Println()
+			if syncDryRun {
+				fmt.Println("Syncing commands (dry run)...")
+			} else {
+				fmt.Println("Syncing commands...")
+			}
+
+			cmdResults, cmdErr := sync.DeployCommands(syncCfg.CommandsPaths, syncDryRun)
+			if cmdErr != nil {
+				return fmt.Errorf("command sync failed: %w", cmdErr)
+			}
+
+			for _, r := range cmdResults {
+				fmt.Printf("  %s\n", shortenHome(r.Source))
+				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
+				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
+			}
+			commandCount = len(cmdResults)
+
+			if syncClean {
+				removed, cleanErr := sync.CleanCommands(syncCfg.CommandsPaths, syncDryRun)
+				if cleanErr != nil {
+					return fmt.Errorf("command cleanup failed: %w", cleanErr)
+				}
+				for _, path := range removed {
+					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
+				}
+			}
+		}
+
 		suffix := ""
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d subagents, %d skills.%s\n", agentCount, skillCount, suffix)
+		fmt.Printf("\nSynced %d subagents, %d skills, %d commands.%s\n", agentCount, skillCount, commandCount, suffix)
 		return nil
 	},
 }

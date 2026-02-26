@@ -64,10 +64,11 @@ type TeamConfig struct {
 	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`
 }
 
-// SyncConfig holds paths for subagent and skill deployment.
+// SyncConfig holds paths for subagent, skill, and command deployment.
 type SyncConfig struct {
 	SubagentsPaths []string `toml:"subagents_paths" jsonschema:"description=Directories to scan for subagent definitions"`
 	SkillsPaths    []string `toml:"skills_paths" jsonschema:"description=Directories to scan for skill definitions"`
+	CommandsPaths  []string `toml:"commands_paths" jsonschema:"description=Directories to scan for command definitions"`
 }
 
 // VoiceConfig holds voice-related settings (legacy flat layout).

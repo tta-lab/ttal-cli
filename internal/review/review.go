@@ -88,7 +88,7 @@ func RequestReReview(sessionName string, full bool, coderComment string) error {
 	}
 	msg := fmt.Sprintf(
 		"Worker has pushed fixes addressing your review.%s Please re-review:"+
-			" 1. Run /pr-review-toolkit:review-pr %s"+
+			" 1. Run /pr-review %s"+
 			" 2. Post updated review via: ttal pr comment create \"your review\" (NEVER use --no-review)"+
 			" 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not",
 		commentRef, scope)
@@ -103,7 +103,7 @@ Branch: %s
 
 ## Your Task
 
-1. Run /pr-review-toolkit:review-pr to perform a comprehensive code review
+1. Run /pr-review to perform a comprehensive code review
    - Review scope: ONLY changes in this PR (the diff), not the entire codebase
    - Focus on: correctness, security, architecture, tests
 
