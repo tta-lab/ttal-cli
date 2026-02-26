@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"gopkg.in/yaml.v3"
 )
 
 // BotCommand represents a Telegram bot command for the menu.
@@ -30,13 +33,98 @@ var registeredCommands = []BotCommand{
 	{Command: "help", Description: "List available commands"},
 }
 
+// DiscoverCommands reads canonical command .md files from configured paths
+// and returns BotCommand entries for Telegram registration.
+func DiscoverCommands(commandsPaths []string) []BotCommand {
+	var discovered []BotCommand
+	for _, rawPath := range commandsPaths {
+		dir := config.ExpandHome(rawPath)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			log.Printf("[commands] warning: cannot read commands_path %q: %v", rawPath, err)
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+				continue
+			}
+			content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+			if err != nil {
+				continue
+			}
+			name, desc := parseCommandFrontmatter(content)
+			if name == "" {
+				continue
+			}
+			if isStaticCommand(name) {
+				continue
+			}
+			discovered = append(discovered, BotCommand{
+				Command:     name,
+				Description: truncateDescription(desc),
+			})
+		}
+	}
+	return discovered
+}
+
+func parseCommandFrontmatter(content []byte) (string, string) {
+	s := string(content)
+	if !strings.HasPrefix(strings.TrimSpace(s), "---") {
+		return "", ""
+	}
+	rest := s[strings.Index(s, "---")+3:]
+	idx := strings.Index(rest, "\n---")
+	if idx < 0 {
+		return "", ""
+	}
+	var fm struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}
+	if err := yaml.Unmarshal([]byte(rest[:idx]), &fm); err != nil {
+		return "", ""
+	}
+	return fm.Name, fm.Description
+}
+
+func isStaticCommand(name string) bool {
+	for _, cmd := range registeredCommands {
+		if cmd.Command == name {
+			return true
+		}
+	}
+	return false
+}
+
+// truncateDescription truncates to Telegram's 256-char limit for command descriptions.
+// Uses rune-based counting for correct handling of multi-byte UTF-8 characters.
+func truncateDescription(desc string) string {
+	if idx := strings.Index(desc, "\n"); idx > 0 {
+		desc = desc[:idx]
+	}
+	runes := []rune(desc)
+	if len(runes) > 256 {
+		desc = string(runes[:253]) + "..."
+	}
+	return desc
+}
+
+// AllCommands returns the full command list: static commands + discovered dynamic commands.
+func AllCommands(discovered []BotCommand) []BotCommand {
+	allCommands := make([]BotCommand, len(registeredCommands))
+	copy(allCommands, registeredCommands)
+	return append(allCommands, discovered...)
+}
+
 // RegisterBotCommands calls Telegram setMyCommands API to expose
-// the command menu in the chat UI.
-func RegisterBotCommands(botToken string) error {
+// the command menu in the chat UI. Includes both static and discovered commands.
+func RegisterBotCommands(botToken string, allCommands []BotCommand) error {
+
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/setMyCommands", botToken)
 
 	payload := map[string]interface{}{
-		"commands": registeredCommands,
+		"commands": allCommands,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -101,10 +189,10 @@ func handleStatusCommand(_, botToken, chatID string, args []string) {
 	replyTelegram(botToken, chatID, sb.String())
 }
 
-func handleHelpCommand(botToken, chatID string) {
+func handleHelpCommand(botToken, chatID string, allCommands []BotCommand) {
 	var sb strings.Builder
 	sb.WriteString("Available commands:\n")
-	for _, cmd := range registeredCommands {
+	for _, cmd := range allCommands {
 		sb.WriteString(fmt.Sprintf("/%s — %s\n", cmd.Command, cmd.Description))
 	}
 	sb.WriteString("\nAnything else is sent as a message to the agent.")

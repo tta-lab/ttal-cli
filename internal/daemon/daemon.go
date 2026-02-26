@@ -64,13 +64,18 @@ func Run(database *ent.Client) error {
 	cas := newCustomAnswerStore()
 	initAdapters(ctx, database, cfg, registry, qs)
 
+	// Discover dynamic commands once at startup
+	discovered := DiscoverCommands(cfg.Sync.CommandsPaths)
+	allCommands := AllCommands(discovered)
+	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
+
 	// Register Telegram bot commands (best-effort, non-fatal)
 	registeredBots := make(map[string]bool)
 	for name, agentCfg := range cfg.Agents {
 		if agentCfg.BotToken == "" || registeredBots[agentCfg.BotToken] {
 			continue
 		}
-		if err := RegisterBotCommands(agentCfg.BotToken); err != nil {
+		if err := RegisterBotCommands(agentCfg.BotToken, allCommands); err != nil {
 			log.Printf("[daemon] warning: failed to register bot commands for %s: %v", name, err)
 		} else {
 			log.Printf("[daemon] registered bot commands for %s", name)
@@ -89,7 +94,7 @@ func Run(database *ent.Client) error {
 			if err := deliverToAgent(registry, name, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
 			}
-		}, done, qs, cas, registry)
+		}, done, qs, cas, registry, allCommands)
 	}
 
 	// Start cleanup watcher for post-merge worker lifecycle

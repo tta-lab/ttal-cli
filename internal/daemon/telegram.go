@@ -26,6 +26,7 @@ func startTelegramPoller(
 	agentName string, cfg config.AgentConfig, chatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	allCommands []BotCommand,
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -37,7 +38,7 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(agentName, cfg, chatID, onMessage, done, qs, cas, registry); err != nil {
+			if err := runPoller(agentName, cfg, chatID, onMessage, done, qs, cas, registry, allCommands); err != nil {
 				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
 				select {
 				case <-done:
@@ -58,6 +59,7 @@ func runPoller(
 	agentName string, cfg config.AgentConfig, effectiveChatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	allCommands []BotCommand,
 ) error {
 	chatID, err := telegram.ParseChatID(effectiveChatID)
 	if err != nil {
@@ -109,7 +111,7 @@ func runPoller(
 	// MatchTypeCommandStartOnly uses Telegram's message entities to match
 	// /command at the start of the message, avoiding false matches on
 	// plain text like "new task..." that starts with a command word.
-	registerBotCommands(b, agentName, cfg.BotToken, effectiveChatID, chatID)
+	registerBotCommands(b, agentName, cfg.BotToken, effectiveChatID, chatID, allCommands)
 
 	b.Start(ctx)
 	return nil
@@ -189,7 +191,7 @@ func handleInboundMessage(
 //   - Checks for bot_command entity at message start (like MatchTypeCommandStartOnly)
 //   - Strips @botname suffix from the command for group chat compatibility
 //   - Validates chat ID so commands only work from the configured chat
-func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chatID int64) {
+func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chatID int64, allCommands []BotCommand) {
 	matchCommand := func(cmd string) bot.MatchFunc {
 		return func(update *models.Update) bool {
 			if update.Message == nil || update.Message.Chat.ID != chatID {
@@ -218,7 +220,7 @@ func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chat
 
 	b.RegisterHandlerMatchFunc(matchCommand("help"),
 		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
-			handleHelpCommand(botToken, chatIDStr)
+			handleHelpCommand(botToken, chatIDStr, allCommands)
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("new"),
@@ -235,6 +237,24 @@ func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chat
 		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
 			sendEscToAgent(agentName, botToken, chatIDStr)
 		})
+
+	// Register discovered commands — forward as /command to agent's tmux pane
+	for _, cmd := range allCommands {
+		if isStaticCommand(cmd.Command) {
+			continue
+		}
+		cmdName := cmd.Command // capture for closure
+		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
+			func(_ context.Context, _ *bot.Bot, update *models.Update) {
+				args := parseCommandArgs(update.Message.Text)
+				fullCmd := "/" + cmdName
+				if len(args) > 0 {
+					fullCmd += " " + strings.Join(args, " ")
+				}
+				sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd,
+					fmt.Sprintf("Sent /%s to %s", cmdName, agentName))
+			})
+	}
 }
 
 // parseCommandArgs extracts arguments after a /command from message text.
