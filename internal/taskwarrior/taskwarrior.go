@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -430,9 +429,7 @@ func runTaskWithInput(input string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	// Prepend rc.verbose:nothing to suppress TASKRC override warnings and other chatter
-	fullArgs := append([]string{"rc.verbose:nothing"}, args...)
-	cmd := exec.CommandContext(ctx, "task", fullArgs...)
+	cmd := CommandContext(ctx, args...)
 	if input != "" {
 		cmd.Stdin = strings.NewReader(input)
 	}
@@ -445,7 +442,6 @@ func runTaskWithInput(input string, args ...string) (string, error) {
 		return "", fmt.Errorf("taskwarrior timeout after %s", cmdTimeout)
 	}
 	if err != nil {
-		// Include stderr in error message for diagnostics
 		errMsg := strings.TrimSpace(stderr.String())
 		if errMsg == "" {
 			errMsg = strings.TrimSpace(stdout.String())

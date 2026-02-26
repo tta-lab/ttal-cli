@@ -3,7 +3,6 @@ package today
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -44,7 +43,7 @@ var (
 
 // List shows pending tasks scheduled for today or earlier, sorted by urgency.
 func List() error {
-	out, err := exec.Command("task", "status:pending", "export").Output()
+	out, err := taskwarrior.Command("status:pending", "export").Output()
 	if err != nil {
 		return fmt.Errorf("failed to export tasks: %w", err)
 	}
@@ -122,7 +121,7 @@ func List() error {
 
 // Completed shows tasks completed today.
 func Completed() error {
-	out, err := exec.Command("task", "status:completed", "end:today", "export").Output()
+	out, err := taskwarrior.Command("status:completed", "end:today", "export").Output()
 	if err != nil {
 		return fmt.Errorf("failed to export tasks: %w", err)
 	}
@@ -177,7 +176,7 @@ func Add(ids []string) error {
 		return err
 	}
 	for _, id := range ids {
-		out, err := exec.Command("task", id, "modify", "scheduled:today").CombinedOutput()
+		out, err := taskwarrior.Command(id, "modify", "scheduled:today").CombinedOutput()
 		if err != nil {
 			fmt.Printf("Error adding task %s: %s\n", id, strings.TrimSpace(string(out)))
 			continue
@@ -193,7 +192,7 @@ func Remove(ids []string) error {
 		return err
 	}
 	for _, id := range ids {
-		out, err := exec.Command("task", id, "modify", "scheduled:").CombinedOutput()
+		out, err := taskwarrior.Command(id, "modify", "scheduled:").CombinedOutput()
 		if err != nil {
 			fmt.Printf("Error removing task %s: %s\n", id, strings.TrimSpace(string(out)))
 			continue
