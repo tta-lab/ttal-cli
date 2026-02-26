@@ -25,9 +25,7 @@ func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error
 		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	// CC: commands deploy as skills (CC merged commands into skills)
 	ccSkillsDir := filepath.Join(home, ".claude", "skills")
-	// OC: commands deploy as commands
 	ocCmdsDir := filepath.Join(home, ".config", "opencode", "commands")
 
 	if !dryRun {
@@ -115,19 +113,12 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir string, dryRun bool) (Comm
 		return result, nil
 	}
 
-	// CC: remove existing symlink if present (e.g. from old skill deployment),
-	// then mkdir for skill dir, write SKILL.md
-	if info, err := os.Lstat(ccSkillDir); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		_ = os.Remove(ccSkillDir)
-	}
 	if err := os.MkdirAll(ccSkillDir, 0o755); err != nil {
 		return CommandResult{}, fmt.Errorf("creating CC skill dir %s: %w", ccSkillDir, err)
 	}
 	if err := os.WriteFile(ccDest, []byte(ccContent), 0o644); err != nil {
 		return CommandResult{}, fmt.Errorf("writing CC command %s: %w", ccDest, err)
 	}
-
-	// OC: write flat command file
 	if err := os.WriteFile(ocDest, []byte(ocContent), 0o644); err != nil {
 		return CommandResult{}, fmt.Errorf("writing OC command %s: %w", ocDest, err)
 	}
@@ -149,7 +140,6 @@ func CleanCommands(commandsPaths []string, dryRun bool) ([]string, error) {
 
 	var removed []string
 
-	// Clean CC skill dirs (check SKILL.md inside for managed_by marker)
 	ccSkillsDir := filepath.Join(home, ".claude", "skills")
 	ccRemoved, err := cleanManagedCommandSkills(ccSkillsDir, validNames, dryRun)
 	if err != nil {
@@ -157,7 +147,6 @@ func CleanCommands(commandsPaths []string, dryRun bool) ([]string, error) {
 	}
 	removed = append(removed, ccRemoved...)
 
-	// Clean OC command files
 	ocCmdsDir := filepath.Join(home, ".config", "opencode", "commands")
 	ocRemoved, err := cleanManagedCommandFiles(ocCmdsDir, validNames, dryRun)
 	if err != nil {
@@ -183,13 +172,14 @@ func collectValidCommandNames(commandsPaths []string) (map[string]bool, error) {
 			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 				continue
 			}
-			content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+			filePath := filepath.Join(dir, entry.Name())
+			content, err := os.ReadFile(filePath)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("reading command file %s for cleanup validation: %w", filePath, err)
 			}
 			cmd, err := ParseCommandFile(string(content))
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("parsing command file %s during cleanup: %w", filePath, err)
 			}
 			validNames[cmd.Frontmatter.Name] = true
 		}
@@ -219,10 +209,13 @@ func cleanManagedCommandSkills(skillsDir string, validNames map[string]bool, dry
 		skillMD := filepath.Join(skillsDir, name, "SKILL.md")
 		content, err := os.ReadFile(skillMD)
 		if err != nil {
-			continue // not a command-deployed skill, or doesn't exist
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("reading %s during cleanup: %w", skillMD, err)
 		}
 		if !strings.Contains(string(content), ManagedMarkerField) {
-			continue // user-created or symlinked skill, don't touch
+			continue
 		}
 		path := filepath.Join(skillsDir, name)
 		removed = append(removed, path)
@@ -257,7 +250,10 @@ func cleanManagedCommandFiles(cmdsDir string, validNames map[string]bool, dryRun
 		path := filepath.Join(cmdsDir, entry.Name())
 		content, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("reading %s during cleanup: %w", path, err)
 		}
 		if !strings.Contains(string(content), ManagedMarkerField) {
 			continue

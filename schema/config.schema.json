@@ -92,6 +92,13 @@
           },
           "type": "array",
           "description": "Directories to scan for skill definitions"
+        },
+        "commands_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Directories to scan for command definitions"
         }
       },
       "additionalProperties": false,

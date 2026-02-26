@@ -18,7 +18,7 @@ var (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Deploy subagents and skills to runtime directories",
-	Long: `Reads canonical subagent .md files, skill directories, and command definitions,
+	Long: `Reads canonical subagent .md files, skill directories, and command .md files,
 then deploys them to Claude Code and OpenCode runtime directories.
 
 Subagents are split into runtime-specific variants:
@@ -28,8 +28,8 @@ Subagents are split into runtime-specific variants:
 Skills are symlinked:
   ~/.claude/skills/{name}/ → source directory
 
-Commands are deployed as runtime-specific variants:
-  Claude Code → ~/.claude/skills/{name}/SKILL.md (CC treats commands as skills)
+Commands are deployed as written files (variant generation):
+  Claude Code → ~/.claude/skills/{name}/SKILL.md
   OpenCode    → ~/.config/opencode/commands/{name}.md
 
 Configure source paths in ~/.config/ttal/config.toml:
@@ -132,22 +132,22 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Println("Syncing commands...")
 			}
 
-			cmdResults, cmdErr := sync.DeployCommands(syncCfg.CommandsPaths, syncDryRun)
-			if cmdErr != nil {
-				return fmt.Errorf("command sync failed: %w", cmdErr)
+			results, err := sync.DeployCommands(syncCfg.CommandsPaths, syncDryRun)
+			if err != nil {
+				return fmt.Errorf("command sync failed: %w", err)
 			}
 
-			for _, r := range cmdResults {
+			for _, r := range results {
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
 				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
 			}
-			commandCount = len(cmdResults)
+			commandCount = len(results)
 
 			if syncClean {
-				removed, cleanErr := sync.CleanCommands(syncCfg.CommandsPaths, syncDryRun)
-				if cleanErr != nil {
-					return fmt.Errorf("command cleanup failed: %w", cleanErr)
+				removed, err := sync.CleanCommands(syncCfg.CommandsPaths, syncDryRun)
+				if err != nil {
+					return fmt.Errorf("command cleanup failed: %w", err)
 				}
 				for _, path := range removed {
 					fmt.Printf("  Removed stale: %s\n", shortenHome(path))

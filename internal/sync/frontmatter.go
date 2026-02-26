@@ -8,7 +8,7 @@ import (
 )
 
 // ManagedMarkerField is a YAML frontmatter field embedded in deployed files
-// so CleanAgents can identify ttal-managed files and avoid deleting user-created ones.
+// so CleanAgents and CleanCommands can identify ttal-managed files and avoid deleting user-created ones.
 const ManagedMarkerField = "managed_by: ttal-sync"
 
 // AgentFrontmatter holds parsed frontmatter from a canonical agent .md file.
@@ -25,21 +25,14 @@ type ParsedAgent struct {
 	Body        string
 }
 
-// ParseAgentFile splits a canonical agent .md file into frontmatter and body.
-// Expected format:
-//
-//	---
-//	name: foo
-//	...
-//	---
-//	Body text here
-func ParseAgentFile(content string) (*ParsedAgent, error) {
+// splitFrontmatter splits content into raw YAML frontmatter and body text.
+// Returns the YAML string between --- delimiters and the body after the closing delimiter.
+func splitFrontmatter(content string) (yamlContent string, body string, err error) {
 	content = strings.TrimSpace(content)
 	if !strings.HasPrefix(content, "---") {
-		return nil, fmt.Errorf("missing opening --- delimiter")
+		return "", "", fmt.Errorf("missing opening --- delimiter")
 	}
 
-	// Find closing delimiter
 	rest := content[3:]
 	rest = strings.TrimLeft(rest, " \t")
 	if len(rest) > 0 && rest[0] == '\n' {
@@ -50,12 +43,28 @@ func ParseAgentFile(content string) (*ParsedAgent, error) {
 
 	idx := strings.Index(rest, "\n---")
 	if idx < 0 {
-		return nil, fmt.Errorf("missing closing --- delimiter")
+		return "", "", fmt.Errorf("missing closing --- delimiter")
 	}
 
-	yamlContent := rest[:idx]
-	body := rest[idx+4:]
+	yamlContent = rest[:idx]
+	body = rest[idx+4:]
 	body = strings.TrimLeft(body, "\r\n")
+	return yamlContent, body, nil
+}
+
+// ParseAgentFile splits a canonical agent .md file into frontmatter and body.
+// Expected format:
+//
+//	---
+//	name: foo
+//	...
+//	---
+//	Body text here
+func ParseAgentFile(content string) (*ParsedAgent, error) {
+	yamlContent, body, err := splitFrontmatter(content)
+	if err != nil {
+		return nil, err
+	}
 
 	var fm AgentFrontmatter
 	if err := yaml.Unmarshal([]byte(yamlContent), &fm); err != nil {
@@ -83,7 +92,7 @@ func GenerateCCVariant(agent *ParsedAgent) (string, error) {
 	for k, v := range agent.Frontmatter.ClaudeCode {
 		fm[k] = v
 	}
-	return renderAgentFile(fm, agent.Body)
+	return renderFile(fm, agent.Body)
 }
 
 // GenerateOCVariant produces an OpenCode agent .md file from a parsed canonical agent.
@@ -97,7 +106,7 @@ func GenerateOCVariant(agent *ParsedAgent) (string, error) {
 	for k, v := range agent.Frontmatter.OpenCode {
 		fm[k] = v
 	}
-	return renderAgentFile(fm, agent.Body)
+	return renderFile(fm, agent.Body)
 }
 
 // CommandFrontmatter holds parsed frontmatter from a canonical command .md file.
@@ -116,28 +125,19 @@ type ParsedCommand struct {
 }
 
 // ParseCommandFile splits a canonical command .md file into frontmatter and body.
+// Expected format:
+//
+//	---
+//	name: foo
+//	description: Short description
+//	...
+//	---
+//	Body text here
 func ParseCommandFile(content string) (*ParsedCommand, error) {
-	content = strings.TrimSpace(content)
-	if !strings.HasPrefix(content, "---") {
-		return nil, fmt.Errorf("missing opening --- delimiter")
+	yamlContent, body, err := splitFrontmatter(content)
+	if err != nil {
+		return nil, err
 	}
-
-	rest := content[3:]
-	rest = strings.TrimLeft(rest, " \t")
-	if len(rest) > 0 && rest[0] == '\n' {
-		rest = rest[1:]
-	} else if len(rest) > 1 && rest[0] == '\r' && rest[1] == '\n' {
-		rest = rest[2:]
-	}
-
-	idx := strings.Index(rest, "\n---")
-	if idx < 0 {
-		return nil, fmt.Errorf("missing closing --- delimiter")
-	}
-
-	yamlContent := rest[:idx]
-	body := rest[idx+4:]
-	body = strings.TrimLeft(body, "\r\n")
 
 	var fm CommandFrontmatter
 	if err := yaml.Unmarshal([]byte(yamlContent), &fm); err != nil {
@@ -155,7 +155,7 @@ func ParseCommandFile(content string) (*ParsedCommand, error) {
 }
 
 // GenerateCCCommandVariant produces a CC skill SKILL.md from a parsed canonical command.
-// CC treats commands as skills: context:fork, allowed-tools, wrapped in a skill directory.
+// Includes shared fields (description, argument-hint) plus claude-code specific fields.
 func GenerateCCCommandVariant(cmd *ParsedCommand) (string, error) {
 	fm := make(map[string]interface{})
 	if cmd.Frontmatter.Description != "" {
@@ -167,10 +167,11 @@ func GenerateCCCommandVariant(cmd *ParsedCommand) (string, error) {
 	for k, v := range cmd.Frontmatter.ClaudeCode {
 		fm[k] = v
 	}
-	return renderFrontmatterFile(fm, cmd.Body)
+	return renderFile(fm, cmd.Body)
 }
 
 // GenerateOCCommandVariant produces an OC command .md from a parsed canonical command.
+// Includes shared fields (description, argument-hint) plus opencode specific fields.
 func GenerateOCCommandVariant(cmd *ParsedCommand) (string, error) {
 	fm := make(map[string]interface{})
 	if cmd.Frontmatter.Description != "" {
@@ -182,32 +183,10 @@ func GenerateOCCommandVariant(cmd *ParsedCommand) (string, error) {
 	for k, v := range cmd.Frontmatter.OpenCode {
 		fm[k] = v
 	}
-	return renderFrontmatterFile(fm, cmd.Body)
+	return renderFile(fm, cmd.Body)
 }
 
-// renderFrontmatterFile renders a frontmatter map and body into a markdown file
-// with managed_by marker.
-func renderFrontmatterFile(fm map[string]interface{}, body string) (string, error) {
-	fm["managed_by"] = "ttal-sync"
-	yamlBytes, err := yaml.Marshal(fm)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal frontmatter: %w", err)
-	}
-
-	var sb strings.Builder
-	sb.WriteString("---\n")
-	sb.Write(yamlBytes)
-	sb.WriteString("---\n")
-	if body != "" {
-		sb.WriteString(body)
-		if !strings.HasSuffix(body, "\n") {
-			sb.WriteString("\n")
-		}
-	}
-	return sb.String(), nil
-}
-
-func renderAgentFile(fm map[string]interface{}, body string) (string, error) {
+func renderFile(fm map[string]interface{}, body string) (string, error) {
 	fm["managed_by"] = "ttal-sync"
 	yamlBytes, err := yaml.Marshal(fm)
 	if err != nil {
