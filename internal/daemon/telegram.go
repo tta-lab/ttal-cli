@@ -23,7 +23,7 @@ import (
 // It calls onMessage for each new user message, formatted for CC delivery.
 // Runs until done is closed.
 func startTelegramPoller(
-	agentName string, cfg config.AgentConfig, chatID string,
+	teamName, agentName string, cfg config.AgentConfig, chatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	allCommands []BotCommand,
@@ -38,7 +38,7 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(agentName, cfg, chatID, onMessage, done, qs, cas, registry, allCommands); err != nil {
+			if err := runPoller(teamName, agentName, cfg, chatID, onMessage, done, qs, cas, registry, allCommands); err != nil {
 				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
 				select {
 				case <-done:
@@ -56,7 +56,7 @@ func startTelegramPoller(
 }
 
 func runPoller(
-	agentName string, cfg config.AgentConfig, effectiveChatID string,
+	teamName, agentName string, cfg config.AgentConfig, effectiveChatID string,
 	onMessage func(agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	allCommands []BotCommand,
@@ -111,7 +111,7 @@ func runPoller(
 	// MatchTypeCommandStartOnly uses Telegram's message entities to match
 	// /command at the start of the message, avoiding false matches on
 	// plain text like "new task..." that starts with a command word.
-	registerBotCommands(b, agentName, cfg.BotToken, effectiveChatID, chatID, allCommands)
+	registerBotCommands(b, teamName, agentName, cfg.BotToken, effectiveChatID, chatID, allCommands)
 
 	b.Start(ctx)
 	return nil
@@ -191,7 +191,7 @@ func handleInboundMessage(
 //   - Checks for bot_command entity at message start (like MatchTypeCommandStartOnly)
 //   - Strips @botname suffix from the command for group chat compatibility
 //   - Validates chat ID so commands only work from the configured chat
-func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chatID int64, allCommands []BotCommand) {
+func registerBotCommands(b *bot.Bot, teamName, agentName, botToken, chatIDStr string, chatID int64, allCommands []BotCommand) {
 	matchCommand := func(cmd string) bot.MatchFunc {
 		return func(update *models.Update) bool {
 			if update.Message == nil || update.Message.Chat.ID != chatID {
@@ -226,18 +226,18 @@ func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chat
 	b.RegisterHandlerMatchFunc(matchCommand("new"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			fullCmd := buildFullCommand("new", update.Message.Text)
-			sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd, "Sent /new — starting fresh conversation")
+			sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "Sent /new — starting fresh conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("compact"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			fullCmd := buildFullCommand("compact", update.Message.Text)
-			sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd, "Sent /compact — compacting conversation")
+			sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "Sent /compact — compacting conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("wait"),
 		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
-			sendEscToAgent(agentName, botToken, chatIDStr)
+			sendEscToAgent(teamName, agentName, botToken, chatIDStr)
 		})
 
 	// Register discovered commands — forward as /command to agent's tmux pane
@@ -249,7 +249,7 @@ func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chat
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
 				fullCmd := buildFullCommand(cmdName, update.Message.Text)
-				sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd,
+				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd,
 					fmt.Sprintf("Sent /%s to %s", cmdName, agentName))
 			})
 	}

@@ -36,7 +36,12 @@ func New(cfg runtime.AdapterConfig) *Adapter {
 func (a *Adapter) Runtime() runtime.Runtime { return runtime.ClaudeCode }
 
 func (a *Adapter) Start(_ context.Context) error {
-	sessionName := config.AgentSessionName(a.cfg.AgentName)
+	shellCfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	sessionName := config.AgentSessionName(shellCfg.TeamName(), a.cfg.AgentName)
 
 	cmd := "claude"
 	if a.cfg.Yolo {
@@ -49,10 +54,6 @@ func (a *Adapter) Start(_ context.Context) error {
 		cmd += " --continue"
 	}
 
-	shellCfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
 	shellCmd := shellCfg.BuildEnvShellCommand(a.cfg.Env, cmd)
 
 	if err := tmux.NewSession(sessionName, a.cfg.AgentName, a.cfg.WorkDir, shellCmd); err != nil {

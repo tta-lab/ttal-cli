@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+
 	"codeberg.org/clawteam/ttal-cli/internal/team"
 	"github.com/spf13/cobra"
 )
@@ -11,14 +13,26 @@ var teamCmd = &cobra.Command{
 }
 
 var teamStartCmd = &cobra.Command{
-	Use:   "start",
+	Use:   "start [team-name]",
 	Short: "Start per-agent tmux sessions",
 	Long: `Creates a separate tmux session for each agent configured in config.toml.
-Each session is named "session-<agent>" and contains a Claude Code window + terminal window.
+Each session is named "ttal-<team>-<agent>" (e.g. "ttal-default-kestrel").
+
+Without team name: uses TTAL_TEAM env or default_team from config.
+With team name: starts that team directly.
 
 Without --force: skips already-running sessions (only starts missing ones).
-With --force: kills and recreates all sessions.`,
+With --force: kills and recreates all sessions.
+
+Examples:
+  ttal team start              # start active team
+  ttal team start default      # start default team
+  ttal team start guion        # start guion team`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 1 {
+			os.Setenv("TTAL_TEAM", args[0])
+		}
 		force, _ := cmd.Flags().GetBool("force")
 		return team.Start(database.Client, force)
 	},
@@ -29,11 +43,11 @@ var teamAttachCmd = &cobra.Command{
 	Short: "Attach to an agent's tmux session",
 	Long: `Attach the current terminal to an agent's tmux session.
 
-Equivalent to: tmux attach-session -t session-<agent-name>
+Supports "team:agent" syntax for explicit team, or bare "agent" for active team.
 
-Example:
-  ttal team attach kestrel
-  ttal team attach yuki`,
+Examples:
+  ttal team attach kestrel         # active team
+  ttal team attach guion:mira      # explicit team`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return team.Attach(args[0])
@@ -41,17 +55,25 @@ Example:
 }
 
 var teamListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [team-name]",
 	Short: "List agent sessions and their status",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 1 {
+			os.Setenv("TTAL_TEAM", args[0])
+		}
 		return team.List()
 	},
 }
 
 var teamStopCmd = &cobra.Command{
-	Use:   "stop",
+	Use:   "stop [team-name]",
 	Short: "Stop all agent tmux sessions",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 1 {
+			os.Setenv("TTAL_TEAM", args[0])
+		}
 		return team.Stop()
 	},
 }

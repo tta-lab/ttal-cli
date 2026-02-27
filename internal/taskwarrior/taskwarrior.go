@@ -68,7 +68,7 @@ func (t *Task) SessionID() string {
 //	w-e9d4b7c1-fix-auth
 //	w-a3f29bc0-add-doctor
 //
-// This is distinct from agent sessions which use "session-<name>".
+// This is distinct from agent sessions which use "ttal-<team>-<agent>".
 func (t *Task) SessionName() string {
 	prefix := "w-" + t.SessionID() + "-" // "w-e9d4b7c1-" = 11 chars
 

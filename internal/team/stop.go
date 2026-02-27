@@ -29,7 +29,7 @@ func Stop() error {
 
 	killed := 0
 	for _, agentName := range names {
-		sessionName := config.AgentSessionName(agentName)
+		sessionName := config.AgentSessionName(cfg.TeamName(), agentName)
 		if !tmux.SessionExists(sessionName) {
 			continue
 		}

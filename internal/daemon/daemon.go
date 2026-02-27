@@ -95,8 +95,9 @@ func Run(database *ent.Client) error {
 			continue
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
-		startTelegramPoller(agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
-			if err := deliverToAgent(registry, name, text); err != nil {
+		teamName := cfg.TeamName()
+		startTelegramPoller(teamName, agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
+			if err := deliverToAgent(registry, teamName, name, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
 			}
 		}, done, qs, cas, registry, allCommands)
@@ -268,7 +269,7 @@ func handleTo(cfg *config.Config, registry *adapterRegistry, req SendRequest) er
 	if _, ok := cfg.Agents[req.To]; !ok {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToAgent(registry, req.To, req.Message)
+	return deliverToAgent(registry, cfg.TeamName(), req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another,
@@ -282,7 +283,7 @@ func handleAgentToAgent(cfg *config.Config, registry *adapterRegistry, req SendR
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, req.To, msg)
+	return deliverToAgent(registry, cfg.TeamName(), req.To, msg)
 }
 
 // handleStatusUpdate writes agent context status to the status directory.

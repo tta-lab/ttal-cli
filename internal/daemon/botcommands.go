@@ -199,8 +199,8 @@ func handleHelpCommand(botToken, chatID string, allCommands []BotCommand) {
 	replyTelegram(botToken, chatID, sb.String())
 }
 
-func sendKeysToAgent(agentName, botToken, chatID, keys, confirmMsg string) {
-	session := config.AgentSessionName(agentName)
+func sendKeysToAgent(teamName, agentName, botToken, chatID, keys, confirmMsg string) {
+	session := config.AgentSessionName(teamName, agentName)
 	if err := tmux.SendKeys(session, agentName, keys); err != nil {
 		replyTelegram(botToken, chatID, "Error: "+err.Error())
 		return
@@ -208,10 +208,8 @@ func sendKeysToAgent(agentName, botToken, chatID, keys, confirmMsg string) {
 	replyTelegram(botToken, chatID, confirmMsg)
 }
 
-func sendEscToAgent(agentName, botToken, chatID string) {
-	session := config.AgentSessionName(agentName)
-	// SendKeys with literal "Escape" — but we need raw tmux send-keys without -l
-	// Use tmux.SendRawKey for special keys
+func sendEscToAgent(teamName, agentName, botToken, chatID string) {
+	session := config.AgentSessionName(teamName, agentName)
 	if err := tmux.SendRawKey(session, agentName, "Escape"); err != nil {
 		replyTelegram(botToken, chatID, "Error: "+err.Error())
 		return

@@ -20,13 +20,13 @@ func formatAgentMessage(fromAgent, text string) string {
 
 // deliverToAgent sends text to an agent via its runtime adapter.
 // Falls back to direct tmux send-keys if no adapter is registered.
-func deliverToAgent(registry *adapterRegistry, agentName, text string) error {
+func deliverToAgent(registry *adapterRegistry, teamName, agentName, text string) error {
 	if registry != nil {
 		if adapter, ok := registry.get(agentName); ok {
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}
 	// Fallback: direct tmux for agents not yet using adapters
-	session := config.AgentSessionName(agentName)
+	session := config.AgentSessionName(teamName, agentName)
 	return tmux.SendKeys(session, agentName, text)
 }

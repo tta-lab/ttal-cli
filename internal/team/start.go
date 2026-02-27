@@ -61,7 +61,7 @@ func Start(database *ent.Client, force bool) error {
 		}
 		port := cfg.Agents[agentName].Port
 		tab := AgentTab{Name: agentName, Path: agentPath, Model: string(ag.Model), Runtime: rt, Port: port}
-		sessionName := config.AgentSessionName(agentName)
+		sessionName := config.AgentSessionName(cfg.TeamName(), agentName)
 
 		if tmux.SessionExists(sessionName) {
 			if !force {
@@ -91,7 +91,7 @@ func Start(database *ent.Client, force bool) error {
 	if len(started) > 0 {
 		fmt.Printf("Started %d agent sessions:\n", len(started))
 		for _, t := range started {
-			fmt.Printf("  %s → %s (session: %s)\n", t.Name, t.Path, config.AgentSessionName(t.Name))
+			fmt.Printf("  %s → %s (session: %s)\n", t.Name, t.Path, config.AgentSessionName(cfg.TeamName(), t.Name))
 		}
 	}
 	if len(skipped) > 0 {

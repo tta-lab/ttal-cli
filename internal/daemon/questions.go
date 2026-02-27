@@ -28,6 +28,7 @@ type QuestionBatch struct {
 	mu            sync.Mutex
 	ShortID       string
 	CorrelationID string
+	TeamName      string
 	AgentName     string
 	Runtime       runtime.Runtime
 	Questions     []runtime.Question
@@ -171,6 +172,7 @@ func handleIncomingQuestion(
 	batch := &QuestionBatch{
 		ShortID:       store.nextShortID(),
 		CorrelationID: correlationID,
+		TeamName:      cfg.TeamName(),
 		AgentName:     agentName,
 		Runtime:       rt,
 		Questions:     questions,
@@ -246,7 +248,7 @@ func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) erro
 // pressing 4 selects "Other"). CC requires Enter after the digit to confirm,
 // which SendKeys provides automatically.
 func routeCCResponse(batch *QuestionBatch) error {
-	session := config.AgentSessionName(batch.AgentName)
+	session := config.AgentSessionName(batch.TeamName, batch.AgentName)
 	window := batch.AgentName
 
 	for i, q := range batch.Questions {

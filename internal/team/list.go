@@ -28,7 +28,7 @@ func List() error {
 
 	fmt.Printf("%-15s %-25s %s\n", "AGENT", "SESSION", "STATUS")
 	for _, agentName := range names {
-		sessionName := config.AgentSessionName(agentName)
+		sessionName := config.AgentSessionName(cfg.TeamName(), agentName)
 		status := "stopped"
 		if tmux.SessionExists(sessionName) {
 			status = "running"

@@ -49,7 +49,7 @@ func showAllStatus() error {
 
 	for name := range cfg.Agents {
 		s, _ := status.ReadAgent(name)
-		sessionUp := tmux.SessionExists(config.AgentSessionName(name))
+		sessionUp := tmux.SessionExists(config.AgentSessionName(cfg.TeamName(), name))
 
 		if s != nil && !s.IsStale(staleThreshold) {
 			age := time.Since(s.UpdatedAt).Truncate(time.Second)
@@ -76,7 +76,11 @@ func showAgentStatus(name string) error {
 		return err
 	}
 
-	sessionUp := tmux.SessionExists(config.AgentSessionName(name))
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	sessionUp := tmux.SessionExists(config.AgentSessionName(cfg.TeamName(), name))
 
 	if s == nil || s.IsStale(staleThreshold) {
 		if sessionUp {

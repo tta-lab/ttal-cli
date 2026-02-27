@@ -12,12 +12,12 @@ import (
 )
 
 // AgentSessionName returns the tmux session name for an agent.
-// Convention: "session-<agent-name>" (e.g. "session-athena"). Derived, not stored.
+// Convention: "ttal-<team>-<agent>" (e.g. "ttal-default-athena", "ttal-guion-mira").
 //
 // This is distinct from worker sessions which use "w-<uuid[:8]>-<slug>"
 // (e.g. "w-e9d4b7c1-fix-auth"). See taskwarrior.Task.SessionName().
-func AgentSessionName(agent string) string {
-	return "session-" + agent
+func AgentSessionName(team, agent string) string {
+	return fmt.Sprintf("ttal-%s-%s", team, agent)
 }
 
 // Config is the top-level structure for ~/.config/ttal/config.toml.
