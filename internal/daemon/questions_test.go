@@ -11,27 +11,26 @@ func TestQuestionStoreAddGetRemove(t *testing.T) {
 	store := newQuestionStore()
 
 	batch := &QuestionBatch{
+		ShortID:   store.nextShortID(),
 		AgentName: "test",
 		Questions: []runtime.Question{{Text: "Q1"}},
 		Answers:   make(map[int]string),
 		CreatedAt: time.Now(),
 	}
 
-	shortID := store.add(batch)
-	if shortID == "" {
-		t.Fatal("expected non-empty shortID")
-	}
-	if batch.ShortID != shortID {
-		t.Errorf("batch.ShortID = %q, want %q", batch.ShortID, shortID)
+	if batch.ShortID == "" {
+		t.Fatal("expected non-empty shortID from nextShortID")
 	}
 
-	got, ok := store.get(shortID)
+	store.store(batch)
+
+	got, ok := store.get(batch.ShortID)
 	if !ok || got != batch {
-		t.Error("expected to find batch after add")
+		t.Error("expected to find batch after store")
 	}
 
-	store.remove(shortID)
-	_, ok = store.get(shortID)
+	store.remove(batch.ShortID)
+	_, ok = store.get(batch.ShortID)
 	if ok {
 		t.Error("expected batch removed")
 	}
@@ -41,27 +40,29 @@ func TestQuestionStoreCleanup(t *testing.T) {
 	store := newQuestionStore()
 
 	old := &QuestionBatch{
+		ShortID:   store.nextShortID(),
 		AgentName: "old",
 		Questions: []runtime.Question{{Text: "Q"}},
 		Answers:   make(map[int]string),
 		CreatedAt: time.Now().Add(-1 * time.Hour),
 	}
 	fresh := &QuestionBatch{
+		ShortID:   store.nextShortID(),
 		AgentName: "fresh",
 		Questions: []runtime.Question{{Text: "Q"}},
 		Answers:   make(map[int]string),
 		CreatedAt: time.Now(),
 	}
 
-	oldID := store.add(old)
-	freshID := store.add(fresh)
+	store.store(old)
+	store.store(fresh)
 
 	store.cleanup(30 * time.Minute)
 
-	if _, ok := store.get(oldID); ok {
+	if _, ok := store.get(old.ShortID); ok {
 		t.Error("expected old batch to be cleaned up")
 	}
-	if _, ok := store.get(freshID); !ok {
+	if _, ok := store.get(fresh.ShortID); !ok {
 		t.Error("expected fresh batch to survive cleanup")
 	}
 }
@@ -138,6 +139,30 @@ func TestAdvanceToNextUnanswered(t *testing.T) {
 			t.Errorf("CurrentPage = %d, want 2", batch.CurrentPage)
 		}
 	})
+}
+
+func TestBuildQuestionPageUsesShortID(t *testing.T) {
+	batch := &QuestionBatch{
+		ShortID:   "abc123",
+		AgentName: "test",
+		Questions: []runtime.Question{
+			{
+				Text:   "Which DB?",
+				Header: "Database",
+				Options: []runtime.QuestionOption{
+					{Label: "Postgres", Description: "SQL"},
+				},
+				AllowCustom: true,
+			},
+		},
+		Answers:     make(map[int]string),
+		CurrentPage: 0,
+	}
+
+	page := buildQuestionPage(batch)
+	if page.CallbackPrefix != "abc123" {
+		t.Errorf("CallbackPrefix = %q, want %q", page.CallbackPrefix, "abc123")
+	}
 }
 
 func TestCustomAnswerStore(t *testing.T) {

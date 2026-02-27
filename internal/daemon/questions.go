@@ -49,11 +49,19 @@ func newQuestionStore() *questionStore {
 	return &questionStore{}
 }
 
-func (s *questionStore) add(batch *QuestionBatch) string {
-	id := fmt.Sprintf("%06x", s.nextID.Add(1))
-	batch.ShortID = id
-	s.batches.Store(id, batch)
-	return id
+// nextShortID generates a unique short ID without storing the batch.
+// Call store() to make the batch visible to callback handlers.
+func (s *questionStore) nextShortID() string {
+	return fmt.Sprintf("%06x", s.nextID.Add(1))
+}
+
+// store registers a batch (whose ShortID was previously assigned via nextShortID).
+func (s *questionStore) store(batch *QuestionBatch) {
+	if batch.ShortID == "" {
+		log.Printf("[questions] BUG: store() called with empty ShortID, skipping")
+		return
+	}
+	s.batches.Store(batch.ShortID, batch)
 }
 
 func (s *questionStore) get(shortID string) (*QuestionBatch, bool) {
@@ -156,6 +164,7 @@ func handleIncomingQuestion(
 	}
 
 	batch := &QuestionBatch{
+		ShortID:       store.nextShortID(),
 		CorrelationID: correlationID,
 		AgentName:     agentName,
 		Runtime:       rt,
@@ -170,8 +179,8 @@ func handleIncomingQuestion(
 	page := buildQuestionPage(batch)
 	text, markup := telegram.RenderQuestionPage(page)
 
-	// Send to Telegram before adding to store so the batch is fully initialized
-	// (including TelegramMsgID) when it becomes visible to callback handlers.
+	// Send to Telegram before registering in store so the batch is fully
+	// initialized (including TelegramMsgID) when visible to callback handlers.
 	msgID, err := telegram.SendQuestionMessage(agentCfg.BotToken, chatID, text, markup)
 	if err != nil {
 		log.Printf("[questions] failed to send question to Telegram for %s: %v", agentName, err)
@@ -179,8 +188,8 @@ func handleIncomingQuestion(
 	}
 	batch.TelegramMsgID = msgID
 
-	shortID := store.add(batch)
-	log.Printf("[questions] sent question %s for %s (batch %s)", correlationID, agentName, shortID)
+	store.store(batch)
+	log.Printf("[questions] sent question %s for %s (batch %s)", correlationID, agentName, batch.ShortID)
 }
 
 // buildQuestionPage converts a QuestionBatch into a QuestionPage for rendering.
