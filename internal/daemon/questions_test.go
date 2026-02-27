@@ -165,6 +165,33 @@ func TestBuildQuestionPageUsesShortID(t *testing.T) {
 	}
 }
 
+func TestFindOptionIndex(t *testing.T) {
+	options := []runtime.QuestionOption{
+		{Label: "Ramen"},
+		{Label: "Salad"},
+		{Label: "Pizza"},
+	}
+
+	tests := []struct {
+		label string
+		want  int
+	}{
+		{"Ramen", 0},
+		{"Salad", 1},
+		{"Pizza", 2},
+		{"Sushi", -1}, // custom answer, not in options
+		{"ramen", -1}, // case-sensitive
+		{"", -1},
+	}
+
+	for _, tt := range tests {
+		got := findOptionIndex(options, tt.label)
+		if got != tt.want {
+			t.Errorf("findOptionIndex(%q) = %d, want %d", tt.label, got, tt.want)
+		}
+	}
+}
+
 func TestCustomAnswerStore(t *testing.T) {
 	store := newCustomAnswerStore()
 

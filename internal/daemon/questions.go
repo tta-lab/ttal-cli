@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -15,6 +14,13 @@ import (
 	oc "codeberg.org/clawteam/ttal-cli/internal/runtime/opencode"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+)
+
+// Timing constants for CC TUI arrow-key navigation.
+const (
+	ccArrowKeyDelay      = 50 * time.Millisecond  // pause between Down key presses
+	ccOtherInputDelay    = 500 * time.Millisecond // wait for "Other" text input to appear
+	ccInterQuestionDelay = 1 * time.Second        // wait for next question prompt to render
 )
 
 // QuestionBatch holds state for a pending multi-question interaction.
@@ -235,24 +241,61 @@ func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) erro
 	}
 }
 
-// routeCCResponse sends the answer via tmux send-keys.
+// routeCCResponse navigates CC's TUI select prompt using arrow keys.
+// CC's AskUserQuestion renders an interactive select list — literal text input
+// is ignored, so we must send Down arrow keys to reach the desired option, then Enter.
 func routeCCResponse(batch *QuestionBatch) error {
 	session := config.AgentSessionName(batch.AgentName)
+	window := batch.AgentName
 
-	if len(batch.Questions) == 1 {
-		return tmux.SendKeys(session, batch.AgentName, batch.Answers[0])
-	}
-
-	// Multi-question: send JSON answer mapping
-	answerMap := make(map[string]string)
 	for i, q := range batch.Questions {
-		answerMap[q.Text] = batch.Answers[i]
+		answer := batch.Answers[i]
+		optIdx := findOptionIndex(q.Options, answer)
+
+		if optIdx >= 0 {
+			// Standard option: navigate with Down arrow keys, then Enter
+			if err := selectCCOption(session, window, optIdx); err != nil {
+				return fmt.Errorf("select option for Q%d: %w", i, err)
+			}
+		} else {
+			// Custom answer: navigate past all options to "Other", Enter, type text, Enter
+			otherIdx := len(q.Options)
+			if err := selectCCOption(session, window, otherIdx); err != nil {
+				return fmt.Errorf("select Other for Q%d: %w", i, err)
+			}
+			time.Sleep(ccOtherInputDelay)
+			if err := tmux.SendKeys(session, window, answer); err != nil {
+				return fmt.Errorf("type custom answer for Q%d: %w", i, err)
+			}
+		}
+
+		// Wait between questions for the next prompt to render
+		if i < len(batch.Questions)-1 {
+			time.Sleep(ccInterQuestionDelay)
+		}
 	}
-	answerJSON, err := json.Marshal(map[string]interface{}{"answers": answerMap})
-	if err != nil {
-		return fmt.Errorf("marshal CC question answers: %w", err)
+	return nil
+}
+
+// selectCCOption navigates a CC select prompt to the given 0-indexed option and presses Enter.
+func selectCCOption(session, window string, optIdx int) error {
+	for i := 0; i < optIdx; i++ {
+		if err := tmux.SendRawKey(session, window, "Down"); err != nil {
+			return fmt.Errorf("navigate Down: %w", err)
+		}
+		time.Sleep(ccArrowKeyDelay)
 	}
-	return tmux.SendKeys(session, batch.AgentName, string(answerJSON))
+	return tmux.SendRawKey(session, window, "Enter")
+}
+
+// findOptionIndex returns the index of the option with the given label, or -1 for custom answers.
+func findOptionIndex(options []runtime.QuestionOption, label string) int {
+	for i, opt := range options {
+		if opt.Label == label {
+			return i
+		}
+	}
+	return -1
 }
 
 func routeOCResponse(batch *QuestionBatch, registry *adapterRegistry) error {
