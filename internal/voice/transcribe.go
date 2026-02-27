@@ -83,7 +83,7 @@ func transcribe(audioData []byte, filename string, vocabulary []string, language
 		return "", err
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 3 * time.Minute}
 	resp, err := client.Post(sttEndpoint, writer.FormDataContentType(), &buf) //nolint:noctx
 	if err != nil {
 		return "", fmt.Errorf("STT request: %w", err)
