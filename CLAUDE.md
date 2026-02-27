@@ -93,7 +93,8 @@ cmd/             - CLI commands (cobra)
   ├── pr.go      - ttal pr create/modify/merge/comment
   ├── worker.go  - ttal worker spawn/close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
-  └── task.go    - ttal task get/find (taskwarrior queries)
+  ├── task.go    - ttal task get/find (taskwarrior queries)
+  └── task_route.go - ttal task design/research/test/execute (routing + spawn)
 
 ent/             - ent ORM (mostly auto-generated)
   └── schema/    - Schema definitions (source of truth)
@@ -124,6 +125,9 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Background `claude -p` enrichment | `HookOnAdd` → `HookEnrich` |
 | `ttal task execute <uuid>` | Worker spawn via CLI | `spawnWorkerForTask` → `worker.Spawn` |
+| `ttal task design <uuid>` | Daemon socket → agent tmux | `routeTaskToAgent` (design_agent) |
+| `ttal task research <uuid>` | Daemon socket → agent tmux | `routeTaskToAgent` (research_agent) |
+| `ttal task test <uuid>` | Daemon socket → agent tmux | `routeTaskToAgent` (test_agent) |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields

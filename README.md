@@ -11,6 +11,7 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 - **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (tmux) communication via `ttal send`
 - **Tag-Based Routing**: Tag-based task routing to matching agents on task start
 - **Today Focus**: Manage daily task focus list via taskwarrior's `scheduled` date
+- **Task Routing**: Route tasks to design/research/test agents or spawn workers with `ttal task design|research|test|execute`
 - **Task Utilities**: Search tasks and export rich prompts with inlined markdown context
 - **Memory Capture**: Extract git commits and generate agent-filtered memory logs
 - **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
@@ -325,9 +326,34 @@ ttal task find <keyword> [keyword...]
 
 # Search completed tasks
 ttal task find <keyword> --completed
+
+# Route task to team's design agent (writes implementation plan)
+ttal task design <uuid>
+
+# Route task to team's research agent (researches and writes findings)
+ttal task research <uuid>
+
+# Route task to team's test agent (integration test end-to-end)
+ttal task test <uuid>
+
+# Spawn a worker to execute a task (replaces hook-based spawning)
+ttal task execute <uuid>
 ```
 
 `ttal task get` is designed for piping to agents — it formats the task with description, annotations, and inlined content from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns.
+
+#### Task Routing
+
+The `design`, `research`, and `test` subcommands route tasks to named agents configured per team in `config.toml`:
+
+```toml
+[teams.default]
+design_agent = "inke"       # ttal task design → inke
+research_agent = "athena"   # ttal task research → athena
+test_agent = "sage"         # ttal task test → sage
+```
+
+Each command sends a role-tagged message (e.g., `[task design]`) with the UUID, description, and completion instructions. The agent gets full context via `ttal task get`. If the agent isn't configured, the command shows an actionable error with the exact TOML snippet to add.
 
 ### Daemon Setup
 
