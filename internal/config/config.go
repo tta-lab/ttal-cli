@@ -22,23 +22,20 @@ func AgentSessionName(agent string) string {
 
 // Config is the top-level structure for ~/.config/ttal/config.toml.
 //
-// Supports two layouts:
-//   - Flat (legacy): chat_id, lifecycle_agent, agents, voice at top level
-//   - Team-aware: default_team + [teams.<name>] sections
-//
-// After Load(), the flat fields are always populated (resolved from the active team
-// if using team layout). Callers access ChatID, Agents, etc. without caring about teams.
+// Requires [teams] sections. After Load(), resolved fields are populated from the active team.
+// Callers access ChatID, Agents, etc. without caring about which team is active.
 type Config struct {
-	// Resolved fields — always populated after Load().
-	ChatID         string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for notifications"`
-	LifecycleAgent string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle (e.g. kestrel)"`
-	MergeMode      string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode: auto (merge immediately) or manual (notify only)"`
-	Agents         map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent Telegram credentials and settings"`
-	Voice          VoiceConfig            `toml:"voice" jsonschema:"description=Voice settings (legacy flat layout)"`
-	Shell          string                 `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
-	Sync           SyncConfig             `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
+	// Resolved fields — populated from active team after Load(). Not directly settable in TOML.
+	ChatID         string                 `toml:"-" json:"-"`
+	LifecycleAgent string                 `toml:"-" json:"-"`
+	Agents         map[string]AgentConfig `toml:"-" json:"-"`
+	Voice          VoiceConfig            `toml:"-" json:"-"`
 
-	// Team-aware fields — optional, empty for legacy configs.
+	// Global fields — not per-team.
+	Shell string     `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
+	Sync  SyncConfig `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
+
+	// Team-aware fields.
 	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"`
 	Teams       map[string]TeamConfig `toml:"teams" jsonschema:"description=Per-team configuration sections"`
 
@@ -54,6 +51,9 @@ type Config struct {
 	resolvedDBPath        string
 	resolvedGatewayURL    string
 	resolvedHooksToken    string
+	resolvedDesignAgent   string
+	resolvedResearchAgent string
+	resolvedTestAgent     string
 }
 
 // TeamConfig holds per-team configuration.
@@ -70,6 +70,9 @@ type TeamConfig struct {
 	HooksToken      string                 `toml:"hooks_token" jsonschema:"description=OpenClaw hooks auth token"`
 	MergeMode       string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`
 	VoiceLanguage   string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"`
+	DesignAgent     string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
+	ResearchAgent   string                 `toml:"research_agent" jsonschema:"description=Research agent"`
+	TestAgent       string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
 	Agents          map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`
 }
@@ -81,7 +84,7 @@ type SyncConfig struct {
 	CommandsPaths  []string `toml:"commands_paths" jsonschema:"description=Directories to scan for command definitions"`
 }
 
-// VoiceConfig holds voice-related settings (legacy flat layout).
+// VoiceConfig holds voice-related settings resolved from the active team.
 type VoiceConfig struct {
 	Vocabulary []string `toml:"vocabulary" jsonschema:"description=Custom vocabulary words for Whisper"`
 	Language   string   `toml:"language" jsonschema:"description=ISO 639-1 language code (default: en)"`
@@ -170,6 +173,21 @@ func (c *Config) GatewayURL() string {
 // HooksToken returns the OpenClaw hooks auth token for the active team.
 func (c *Config) HooksToken() string {
 	return c.resolvedHooksToken
+}
+
+// DesignAgent returns the team's design agent name.
+func (c *Config) DesignAgent() string {
+	return c.resolvedDesignAgent
+}
+
+// ResearchAgent returns the team's research agent name.
+func (c *Config) ResearchAgent() string {
+	return c.resolvedResearchAgent
+}
+
+// TestAgent returns the team's test agent name.
+func (c *Config) TestAgent() string {
+	return c.resolvedTestAgent
 }
 
 const (
@@ -262,18 +280,10 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
-// resolve populates flat fields from the active team config.
-// For legacy (flat) configs, it just sets default data dir and taskrc.
+// resolve populates resolved fields from the active team config.
 func (c *Config) resolve() error {
 	if len(c.Teams) == 0 {
-		// Legacy flat config — use defaults for data dir and taskrc.
-		c.resolvedTeamName = DefaultTeamName
-		c.resolvedDataDir = defaultDataDir()
-		c.resolvedTaskRC = defaultTaskRC()
-		c.resolvedTaskData = filepath.Join(c.resolvedDataDir, "tasks")
-		c.resolvedDBPath = filepath.Join(c.resolvedDataDir, "ttal.db")
-		c.resolvedMergeMode = c.MergeMode
-		return c.validateMergeMode()
+		return fmt.Errorf("config requires [teams] sections (flat config no longer supported)")
 	}
 
 	// Resolve active team: TTAL_TEAM env > default_team > "default"
@@ -340,6 +350,9 @@ func (c *Config) resolve() error {
 	c.resolvedWorkerRuntime = team.WorkerRuntime
 	c.resolvedGatewayURL = team.GatewayURL
 	c.resolvedHooksToken = team.HooksToken
+	c.resolvedDesignAgent = team.DesignAgent
+	c.resolvedResearchAgent = team.ResearchAgent
+	c.resolvedTestAgent = team.TestAgent
 
 	// Validate worker_runtime is not openclaw (agent-only)
 	if c.resolvedWorkerRuntime != "" {
@@ -350,12 +363,8 @@ func (c *Config) resolve() error {
 		}
 	}
 
-	// Merge mode: team > global > default("auto")
-	if team.MergeMode != "" {
-		c.resolvedMergeMode = team.MergeMode
-	} else {
-		c.resolvedMergeMode = c.MergeMode
-	}
+	// Merge mode: from team config (defaults to empty = "auto" behavior).
+	c.resolvedMergeMode = team.MergeMode
 
 	return c.validateMergeMode()
 }
@@ -482,31 +491,26 @@ func WriteTemplate() error {
 	}
 
 	template := `#:schema https://ttal.guion.io/schema/config.schema.json
+default_team = "default"
+
+[teams.default]
 chat_id = "TODO"
 lifecycle_agent = "kestrel"
+team_path = "TODO"           # Root path for agent workspaces
+design_agent = "inke"        # Agent for ttal task design
+research_agent = "athena"    # Agent for ttal task research
+# test_agent = ""            # Agent for ttal task test
+# worker_runtime = "claude-code"
+# agent_runtime = "claude-code"
+# merge_mode = "auto"
 
-[agents.kestrel]
+[teams.default.agents.kestrel]
 bot_token = "TODO"
 
-# merge_mode = "auto"  # "auto" (merge immediately) or "manual" (notify, human merges)
-
-# [voice]
+# Voice settings go under teams:
+# [teams.default.voice]
 # vocabulary = ["ttal", "treemd", "taskwarrior"]
-
-# Multi-team setup (optional):
-# default_team = "default"
-#
-# [teams.default]
-# chat_id = "TODO"
-# lifecycle_agent = "kestrel"
-#
-# [teams.guion]
-# chat_id = "TODO"
-# lifecycle_agent = "kestrel"
-# agent_runtime = "claude-code"   # Runtime for agent sessions
-# worker_runtime = "claude-code"  # Runtime for spawned workers
-# # Paths auto-derived: ~/.ttal/guion/{ttal.db, taskrc, tasks/}
-# # Override only if needed: data_dir, taskrc, db_path, team_path
+# language = "en"
 `
 
 	return os.WriteFile(path, []byte(template), 0o600)

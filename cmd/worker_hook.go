@@ -1,10 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
 )
@@ -57,28 +53,8 @@ var workerHookEnrichCmd = &cobra.Command{
 	},
 }
 
-var workerHookSpawnWorkerCmd = &cobra.Command{
-	Use:    "spawn-worker <uuid> <worker-name> <project-path>",
-	Short:  "Background worker spawn",
-	Long:   `Internal command — called by on-start hook as a detached subprocess. Not for direct use.`,
-	Args:   cobra.ExactArgs(3),
-	Hidden: true,
-	Run: func(cmd *cobra.Command, args []string) {
-		runtimeStr, _ := cmd.Flags().GetString("runtime")
-		rt, err := runtime.Parse(runtimeStr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "invalid runtime: %v\n", err)
-			os.Exit(1)
-		}
-		worker.HookSpawnWorker(args[0], args[1], args[2], rt)
-	},
-}
-
 func init() {
 	workerHookCmd.AddCommand(workerHookOnModifyCmd)
 	workerHookCmd.AddCommand(workerHookOnAddCmd)
 	workerHookCmd.AddCommand(workerHookEnrichCmd)
-	workerHookCmd.AddCommand(workerHookSpawnWorkerCmd)
-
-	workerHookSpawnWorkerCmd.Flags().String("runtime", "claude-code", "Coding agent runtime")
 }

@@ -23,33 +23,6 @@
     },
     "Config": {
       "properties": {
-        "chat_id": {
-          "type": "string",
-          "description": "Telegram chat ID for notifications"
-        },
-        "lifecycle_agent": {
-          "type": "string",
-          "description": "Agent responsible for worker lifecycle (e.g. kestrel)"
-        },
-        "merge_mode": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "manual"
-          ],
-          "description": "PR merge mode: auto (merge immediately) or manual (notify only)"
-        },
-        "agents": {
-          "additionalProperties": {
-            "$ref": "#/$defs/AgentConfig"
-          },
-          "type": "object",
-          "description": "Per-agent Telegram credentials and settings"
-        },
-        "voice": {
-          "$ref": "#/$defs/VoiceConfig",
-          "description": "Voice settings (legacy flat layout)"
-        },
         "shell": {
           "type": "string",
           "enum": [
@@ -138,7 +111,7 @@
             "codex",
             "openclaw"
           ],
-          "description": "Runtime for agent sessions (ttal team start)"
+          "description": "Runtime for agent sessions"
         },
         "worker_runtime": {
           "type": "string",
@@ -151,7 +124,7 @@
         },
         "gateway_url": {
           "type": "string",
-          "description": "OpenClaw Gateway URL (default: http://127.0.0.1:18789)"
+          "description": "OpenClaw Gateway URL"
         },
         "hooks_token": {
           "type": "string",
@@ -169,6 +142,18 @@
           "type": "string",
           "description": "ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"
         },
+        "design_agent": {
+          "type": "string",
+          "description": "Design/brainstorm agent"
+        },
+        "research_agent": {
+          "type": "string",
+          "description": "Research agent"
+        },
+        "test_agent": {
+          "type": "string",
+          "description": "Test writing agent"
+        },
         "agents": {
           "additionalProperties": {
             "$ref": "#/$defs/AgentConfig"
@@ -182,23 +167,6 @@
           },
           "type": "array",
           "description": "Custom vocabulary words for Whisper transcription accuracy"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "VoiceConfig": {
-      "properties": {
-        "vocabulary": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Custom vocabulary words for Whisper"
-        },
-        "language": {
-          "type": "string",
-          "description": "ISO 639-1 language code (default: en)"
         }
       },
       "additionalProperties": false,

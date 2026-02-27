@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
@@ -133,10 +134,101 @@ Examples:
 	},
 }
 
+const (
+	designPrompt = "When done: task %s annotate " +
+		"'Plan: ~/clawd/docs/plans/YYYY-MM-DD-topic.md'"
+	researchPrompt = "When done: task %s annotate " +
+		"'Research: ~/clawd/docs/research/YYYY-MM-DD-topic.md'"
+	testPrompt = "Integration test this end-to-end.\n" +
+		"When done: task %s annotate 'Tested: <pass/fail summary>'"
+)
+
+func agentNotConfigured(field, team string) error {
+	return fmt.Errorf(
+		"%s not configured for team %s\n\n"+
+			"Add to config.toml:\n  [teams.%s]\n  %s = \"<agent-name>\"",
+		field, team, team, field)
+}
+
+var taskDesignCmd = &cobra.Command{
+	Use:   "design <uuid>",
+	Short: "Route task to design agent",
+	Long:  `Send a task to the team's design agent (design_agent in config).`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		agent := cfg.DesignAgent()
+		if agent == "" {
+			return agentNotConfigured("design_agent", cfg.TeamName())
+		}
+		uuid := args[0]
+		prompt := fmt.Sprintf(designPrompt, uuid)
+		return routeTaskToAgent(agent, uuid, "task design", prompt)
+	},
+}
+
+var taskResearchCmd = &cobra.Command{
+	Use:   "research <uuid>",
+	Short: "Route task to research agent",
+	Long:  `Send a task to the team's research agent (research_agent in config).`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		agent := cfg.ResearchAgent()
+		if agent == "" {
+			return agentNotConfigured("research_agent", cfg.TeamName())
+		}
+		uuid := args[0]
+		prompt := fmt.Sprintf(researchPrompt, uuid)
+		return routeTaskToAgent(agent, uuid, "task research", prompt)
+	},
+}
+
+var taskTestCmd = &cobra.Command{
+	Use:   "test <uuid>",
+	Short: "Route task to test agent",
+	Long:  `Send a task to the team's test agent (test_agent in config).`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		agent := cfg.TestAgent()
+		if agent == "" {
+			return agentNotConfigured("test_agent", cfg.TeamName())
+		}
+		uuid := args[0]
+		prompt := fmt.Sprintf(testPrompt, uuid)
+		return routeTaskToAgent(agent, uuid, "task test", prompt)
+	},
+}
+
+var taskExecuteCmd = &cobra.Command{
+	Use:   "execute <uuid>",
+	Short: "Spawn a worker for a task",
+	Long: `Spawn a worker to execute a task. Resolves runtime from task tags
+or team's worker_runtime config. Creates a git worktree and tmux session.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return spawnWorkerForTask(args[0])
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(taskCmd)
 	taskCmd.AddCommand(taskGetCmd)
 	taskCmd.AddCommand(taskFindCmd)
+	taskCmd.AddCommand(taskDesignCmd)
+	taskCmd.AddCommand(taskResearchCmd)
+	taskCmd.AddCommand(taskTestCmd)
+	taskCmd.AddCommand(taskExecuteCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 }

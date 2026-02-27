@@ -146,14 +146,8 @@ func TestMergeModeResolution(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "legacy flat with merge_mode",
-			cfg:  &Config{MergeMode: "manual"},
-			want: MergeModeManual,
-		},
-		{
-			name: "team overrides global",
+			name: "team sets merge mode",
 			cfg: &Config{
-				MergeMode:   "auto",
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
@@ -168,9 +162,8 @@ func TestMergeModeResolution(t *testing.T) {
 			want: MergeModeManual,
 		},
 		{
-			name: "team empty falls back to global",
+			name: "team empty defaults to auto",
 			cfg: &Config{
-				MergeMode:   "manual",
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
@@ -181,11 +174,22 @@ func TestMergeModeResolution(t *testing.T) {
 					},
 				},
 			},
-			want: MergeModeManual,
+			want: MergeModeAuto,
 		},
 		{
-			name:    "invalid merge_mode rejected",
-			cfg:     &Config{MergeMode: "manaul"},
+			name: "invalid merge_mode rejected",
+			cfg: &Config{
+				DefaultTeam: "test",
+				Teams: map[string]TeamConfig{
+					"test": {
+						TeamPath:       "/tmp/test",
+						MergeMode:      "manaul",
+						ChatID:         "x",
+						LifecycleAgent: "k",
+						Agents:         map[string]AgentConfig{"k": {}},
+					},
+				},
+			},
 			wantErr: true,
 		},
 		{
@@ -223,6 +227,17 @@ func TestMergeModeResolution(t *testing.T) {
 	}
 }
 
+func TestFlatConfigRejected(t *testing.T) {
+	cfg := &Config{Shell: "zsh"}
+	err := cfg.resolve()
+	if err == nil {
+		t.Fatal("resolve() should reject flat config (no teams)")
+	}
+	if !strings.Contains(err.Error(), "flat config no longer supported") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestConventionBasedPaths(t *testing.T) {
 	defDataDir := defaultDataDir()
 	defTaskRC := defaultTaskRC()
@@ -234,13 +249,6 @@ func TestConventionBasedPaths(t *testing.T) {
 		wantTaskRC   string
 		wantTaskData string
 	}{
-		{
-			name:         "legacy flat config uses defaults",
-			cfg:          &Config{MergeMode: "auto"},
-			wantDataDir:  defDataDir,
-			wantTaskRC:   defTaskRC,
-			wantTaskData: defDataDir + "/tasks",
-		},
 		{
 			name: "default team uses traditional paths",
 			cfg: &Config{
