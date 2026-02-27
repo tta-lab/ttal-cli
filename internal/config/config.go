@@ -54,6 +54,7 @@ type Config struct {
 	resolvedDesignAgent   string
 	resolvedResearchAgent string
 	resolvedTestAgent     string
+	resolvedTaskSyncURL   string
 }
 
 // TeamConfig holds per-team configuration.
@@ -75,6 +76,7 @@ type TeamConfig struct {
 	TestAgent       string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
 	Agents          map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
 	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`
+	TaskSyncURL     string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`
 }
 
 // SyncConfig holds paths for subagent, skill, and command deployment.
@@ -188,6 +190,11 @@ func (c *Config) ResearchAgent() string {
 // TestAgent returns the team's test agent name.
 func (c *Config) TestAgent() string {
 	return c.resolvedTestAgent
+}
+
+// TaskSyncURL returns the TaskChampion sync server URL for the active team.
+func (c *Config) TaskSyncURL() string {
+	return c.resolvedTaskSyncURL
 }
 
 const (
@@ -353,6 +360,7 @@ func (c *Config) resolve() error {
 	c.resolvedDesignAgent = team.DesignAgent
 	c.resolvedResearchAgent = team.ResearchAgent
 	c.resolvedTestAgent = team.TestAgent
+	c.resolvedTaskSyncURL = team.TaskSyncURL
 
 	// Validate worker_runtime is not openclaw (agent-only)
 	if c.resolvedWorkerRuntime != "" {

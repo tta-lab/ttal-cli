@@ -167,6 +167,10 @@
           },
           "type": "array",
           "description": "Custom vocabulary words for Whisper transcription accuracy"
+        },
+        "task_sync_url": {
+          "type": "string",
+          "description": "TaskChampion sync server URL for ttal doctor --fix"
         }
       },
       "additionalProperties": false,

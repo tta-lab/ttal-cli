@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/doctor"
 	"codeberg.org/clawteam/ttal-cli/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -164,8 +166,67 @@ Configure source paths in ~/.config/ttal/config.toml:
 	},
 }
 
+var syncSetupCmd = &cobra.Command{
+	Use:   "setup",
+	Short: "Generate TaskChampion sync credentials for the active team",
+	Long: `Generates TaskChampion sync credentials (client_id and encryption_secret)
+and writes them to {dataDir}/taskrc.sync. Ensures the team's taskrc includes the file.
+
+Requires task_sync_url to be set in the team's config.toml section.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+
+		syncURL := cfg.TaskSyncURL()
+		if syncURL == "" {
+			return fmt.Errorf("task_sync_url not set for team %q — add it to config.toml first", cfg.TeamName())
+		}
+
+		syncFilePath := filepath.Join(cfg.DataDir(), "taskrc.sync")
+
+		if _, err := os.Stat(syncFilePath); err == nil {
+			content, err := os.ReadFile(syncFilePath)
+			if err != nil {
+				return fmt.Errorf("reading existing sync file: %w", err)
+			}
+			fmt.Printf("Sync already configured: %s\n\n%s", syncFilePath, string(content))
+			return nil
+		}
+
+		if err := doctor.GenerateSyncCredentials(cfg.DataDir(), syncURL); err != nil {
+			return fmt.Errorf("generating credentials: %w", err)
+		}
+		fmt.Printf("Generated sync credentials: %s\n", syncFilePath)
+
+		// Ensure taskrc includes the sync file
+		taskrc := cfg.TaskRC()
+		content, err := os.ReadFile(taskrc)
+		if err != nil {
+			return fmt.Errorf("reading taskrc: %w", err)
+		}
+		syncInc := "include " + syncFilePath
+		if !strings.Contains(string(content), syncInc) {
+			f, err := os.OpenFile(taskrc, os.O_APPEND|os.O_WRONLY, 0o644)
+			if err != nil {
+				return fmt.Errorf("opening taskrc: %w", err)
+			}
+			defer f.Close()
+			if _, err := f.WriteString("\n" + syncInc + "\n"); err != nil {
+				return fmt.Errorf("writing taskrc include: %w", err)
+			}
+			fmt.Printf("Added include to %s\n", taskrc)
+		}
+
+		fmt.Println("\nSync configured. Run `task sync` to start syncing.")
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(syncCmd)
+	syncCmd.AddCommand(syncSetupCmd)
 	syncCmd.Flags().BoolVar(&syncDryRun, "dry-run", false, "Show what would be deployed without doing it")
 	syncCmd.Flags().BoolVar(&syncClean, "clean", false, "Remove deployed agents/skills that no longer exist in source")
 }
