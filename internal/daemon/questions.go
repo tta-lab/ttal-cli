@@ -16,9 +16,8 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 )
 
-// Timing constants for CC TUI arrow-key navigation.
+// Timing constants for CC TUI interaction.
 const (
-	ccArrowKeyDelay      = 50 * time.Millisecond  // pause between Down key presses
 	ccOtherInputDelay    = 500 * time.Millisecond // wait for "Other" text input to appear
 	ccInterQuestionDelay = 1 * time.Second        // wait for next question prompt to render
 )
@@ -241,9 +240,11 @@ func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) erro
 	}
 }
 
-// routeCCResponse navigates CC's TUI select prompt using arrow keys.
-// CC's AskUserQuestion renders an interactive select list — literal text input
-// is ignored, so we must send Down arrow keys to reach the desired option, then Enter.
+// routeCCResponse sends number keystrokes to CC's TUI select prompt.
+// CC's AskUserQuestion accepts digit keys (1-N) for direct option selection;
+// the digit after the last option selects "Other" (e.g., if 3 options exist,
+// pressing 4 selects "Other"). CC requires Enter after the digit to confirm,
+// which SendKeys provides automatically.
 func routeCCResponse(batch *QuestionBatch) error {
 	session := config.AgentSessionName(batch.AgentName)
 	window := batch.AgentName
@@ -253,14 +254,16 @@ func routeCCResponse(batch *QuestionBatch) error {
 		optIdx := findOptionIndex(q.Options, answer)
 
 		if optIdx >= 0 {
-			// Standard option: navigate with Down arrow keys, then Enter
-			if err := selectCCOption(session, window, optIdx); err != nil {
+			// Standard option: send 1-indexed digit key
+			if err := selectCCOption(session, window, optIdx+1); err != nil {
 				return fmt.Errorf("select option for Q%d: %w", i, err)
 			}
 		} else {
-			// Custom answer: navigate past all options to "Other", Enter, type text, Enter
-			otherIdx := len(q.Options)
-			if err := selectCCOption(session, window, otherIdx); err != nil {
+			// Custom answer: "Other" is the digit after the last option
+			if len(q.Options) == 0 {
+				return fmt.Errorf("select Other for Q%d: no options to derive Other position", i)
+			}
+			if err := selectCCOption(session, window, len(q.Options)+1); err != nil {
 				return fmt.Errorf("select Other for Q%d: %w", i, err)
 			}
 			time.Sleep(ccOtherInputDelay)
@@ -277,15 +280,11 @@ func routeCCResponse(batch *QuestionBatch) error {
 	return nil
 }
 
-// selectCCOption navigates a CC select prompt to the given 0-indexed option and presses Enter.
-func selectCCOption(session, window string, optIdx int) error {
-	for i := 0; i < optIdx; i++ {
-		if err := tmux.SendRawKey(session, window, "Down"); err != nil {
-			return fmt.Errorf("navigate Down: %w", err)
-		}
-		time.Sleep(ccArrowKeyDelay)
-	}
-	return tmux.SendRawKey(session, window, "Enter")
+// selectCCOption sends a digit keystroke followed by Enter to select an option
+// in CC's TUI prompt. digit is 1-indexed (1 for first option, 2 for second, etc.).
+// CC's select prompt requires Enter after the digit to confirm the selection.
+func selectCCOption(session, window string, digit int) error {
+	return tmux.SendKeys(session, window, fmt.Sprintf("%d", digit))
 }
 
 // findOptionIndex returns the index of the option with the given label, or -1 for custom answers.
