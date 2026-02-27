@@ -62,22 +62,60 @@ func TestShellCommand(t *testing.T) {
 	}
 }
 
-func TestDefaultRuntime(t *testing.T) {
+func TestAgentRuntime(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *Config
 		want runtime.Runtime
 	}{
 		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
-		{"explicit opencode", &Config{resolvedDefRuntime: "opencode"}, runtime.OpenCode},
-		{"explicit claude-code", &Config{resolvedDefRuntime: "claude-code"}, runtime.ClaudeCode},
+		{"explicit opencode", &Config{resolvedAgentRuntime: "opencode"}, runtime.OpenCode},
+		{"explicit openclaw", &Config{resolvedAgentRuntime: "openclaw"}, runtime.OpenClaw},
+		{"explicit claude-code", &Config{resolvedAgentRuntime: "claude-code"}, runtime.ClaudeCode},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.DefaultRuntime(); got != tt.want {
-				t.Errorf("DefaultRuntime() = %q, want %q", got, tt.want)
+			if got := tt.cfg.AgentRuntime(); got != tt.want {
+				t.Errorf("AgentRuntime() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestWorkerRuntime(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want runtime.Runtime
+	}{
+		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
+		{"explicit opencode", &Config{resolvedWorkerRuntime: "opencode"}, runtime.OpenCode},
+		{"explicit claude-code", &Config{resolvedWorkerRuntime: "claude-code"}, runtime.ClaudeCode},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.WorkerRuntime(); got != tt.want {
+				t.Errorf("WorkerRuntime() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkerRuntimeRejectsOpenClaw(t *testing.T) {
+	cfg := &Config{
+		DefaultTeam: "test",
+		Teams: map[string]TeamConfig{
+			"test": {
+				TeamPath:       "/tmp/test",
+				WorkerRuntime:  "openclaw",
+				ChatID:         "x",
+				LifecycleAgent: "k",
+				Agents:         map[string]AgentConfig{"k": {}},
+			},
+		},
+	}
+	if err := cfg.resolve(); err == nil {
+		t.Fatal("resolve() should reject openclaw as worker_runtime")
 	}
 }
 

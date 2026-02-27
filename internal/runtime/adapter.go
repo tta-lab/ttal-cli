@@ -84,10 +84,12 @@ type Adapter interface {
 
 // AdapterConfig holds common configuration for all adapters.
 type AdapterConfig struct {
-	AgentName string
-	WorkDir   string   // Agent workspace directory
-	Port      int      // API server port (0 = not applicable for CC)
-	Model     string   // Model override
-	Yolo      bool     // Skip permission prompts
-	Env       []string // Additional env vars (TTAL_AGENT_NAME, TTAL_TEAM, etc.)
+	AgentName  string
+	WorkDir    string   // Agent workspace directory
+	Port       int      // API server port (0 = not applicable for CC)
+	Model      string   // Model override
+	Yolo       bool     // Skip permission prompts
+	Env        []string // Additional env vars (TTAL_AGENT_NAME, TTAL_TEAM, etc.)
+	GatewayURL string   // OpenClaw Gateway URL (for openclaw runtime)
+	HooksToken string   // OpenClaw hooks auth token (for openclaw runtime)
 }

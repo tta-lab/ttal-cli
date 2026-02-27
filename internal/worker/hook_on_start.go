@@ -76,8 +76,11 @@ func spawnFromUDAs(modified hookTask) {
 
 	workerName := strings.TrimPrefix(branch, "worker/")
 
-	// Detect runtime from task tags (+opencode/+oc or +codex/+cx)
+	// Detect runtime from task tags (+opencode/+oc or +codex/+cx), fall back to team worker_runtime
 	rt := runtime.ClaudeCode
+	if shellCfg, err := config.Load(); err == nil {
+		rt = shellCfg.WorkerRuntime()
+	}
 	for _, t := range modified.Tags() {
 		switch t {
 		case string(runtime.OpenCode), "oc":

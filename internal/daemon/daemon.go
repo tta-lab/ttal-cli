@@ -83,10 +83,15 @@ func Run(database *ent.Client) error {
 		registeredBots[agentCfg.BotToken] = true
 	}
 
-	// Start Telegram pollers
+	// Start Telegram pollers (skip for OpenClaw agents — OpenClaw owns messaging)
 	for agentName, agentCfg := range cfg.Agents {
 		if agentCfg.BotToken == "" {
 			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", agentName)
+			continue
+		}
+		rt := resolveAgentRuntime(ctx, database, cfg, agentName)
+		if rt == runtime.OpenClaw {
+			log.Printf("[daemon] agent %s uses OpenClaw — skipping Telegram poller", agentName)
 			continue
 		}
 		log.Printf("[daemon] starting telegram poller for %s", agentName)
@@ -100,8 +105,20 @@ func Run(database *ent.Client) error {
 	// Start cleanup watcher for post-merge worker lifecycle
 	startCleanupWatcher(done)
 
-	// Start JSONL watcher for CC -> Telegram bridging
-	startWatcher(database, cfg, qs, done)
+	// Start JSONL watcher for CC -> Telegram bridging (skip if all agents are OpenClaw)
+	hasNonOpenClaw := false
+	for agentName := range cfg.Agents {
+		rt := resolveAgentRuntime(ctx, database, cfg, agentName)
+		if rt != runtime.OpenClaw {
+			hasNonOpenClaw = true
+			break
+		}
+	}
+	if hasNonOpenClaw {
+		startWatcher(database, cfg, qs, done)
+	} else {
+		log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
+	}
 
 	// Start socket listener
 	cleanup, err := listenSocket(sockPath, socketHandlers{
@@ -162,30 +179,45 @@ func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config,
 			continue
 		}
 
-		rt := cfg.DefaultRuntime()
+		rt := cfg.AgentRuntime()
 		if ag.Runtime != nil {
 			rt = runtime.Runtime(*ag.Runtime)
 		}
 
-		// Only register API-server adapters (OC/Codex) that the daemon manages.
+		// Only register adapters for runtimes the daemon manages.
 		// CC agents use tmux directly — registering them would shadow the tmux
 		// fallback in deliverToAgent() since SendMessage() requires Start().
-		if rt != runtime.OpenCode && rt != runtime.Codex {
+		if rt != runtime.OpenCode && rt != runtime.Codex && rt != runtime.OpenClaw {
 			continue
 		}
 
 		port := cfg.Agents[agentName].Port
 		env := buildAgentEnv(agentName, cfg)
 
-		adapter := createAdapter(agentName, rt, agentPath, port, string(ag.Model), true, env)
+		adapter := createAdapter(agentName, rt, agentPath, port, string(ag.Model), true, env, cfg)
 		if err := adapter.Start(ctx); err != nil {
 			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, agentName, err)
 			continue
 		}
 		registry.set(agentName, adapter)
 		log.Printf("[daemon] started %s adapter for %s on port %d", rt, agentName, port)
-		bridgeEvents(agentName, adapter, cfg, qs)
+		// OpenClaw owns messaging — skip Telegram event bridging
+		if rt != runtime.OpenClaw {
+			bridgeEvents(agentName, adapter, cfg, qs)
+		}
 	}
+}
+
+// resolveAgentRuntime returns the effective runtime for an agent,
+// checking the per-agent DB override first, then the team agent_runtime.
+func resolveAgentRuntime(
+	ctx context.Context, database *ent.Client, cfg *config.Config, agentName string,
+) runtime.Runtime {
+	rt := cfg.AgentRuntime()
+	if ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx); err == nil && ag.Runtime != nil {
+		rt = runtime.Runtime(*ag.Runtime)
+	}
+	return rt
 }
 
 // buildAgentEnv returns env vars for an agent adapter.

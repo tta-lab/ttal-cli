@@ -42,7 +42,7 @@ func (Agent) Fields() []ent.Field {
 			Default("opus").
 			Comment("Claude model tier (haiku, sonnet, opus)"),
 		field.Enum("runtime").
-			Values("claude-code", "opencode", "codex").
+			Values("claude-code", "opencode", "codex", "openclaw").
 			Optional().
 			Nillable().
 			Comment("Coding agent runtime override. Nil = use team default."),

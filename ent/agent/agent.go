@@ -110,6 +110,7 @@ const (
 	RuntimeClaudeCode Runtime = "claude-code"
 	RuntimeOpencode   Runtime = "opencode"
 	RuntimeCodex      Runtime = "codex"
+	RuntimeOpenclaw   Runtime = "openclaw"
 )
 
 func (r Runtime) String() string {
@@ -119,7 +120,7 @@ func (r Runtime) String() string {
 // RuntimeValidator is a validator for the "runtime" field enum values. It is called by the builders before save.
 func RuntimeValidator(r Runtime) error {
 	switch r {
-	case RuntimeClaudeCode, RuntimeOpencode, RuntimeCodex:
+	case RuntimeClaudeCode, RuntimeOpencode, RuntimeCodex, RuntimeOpenclaw:
 		return nil
 	default:
 		return fmt.Errorf("agent: invalid enum value for runtime field: %q", r)

@@ -54,8 +54,8 @@ func Start(database *ent.Client, force bool) error {
 			continue
 		}
 
-		// Precedence: agent DB runtime > team default_runtime > "claude-code"
-		rt := cfg.DefaultRuntime()
+		// Precedence: agent DB runtime > team agent_runtime > "claude-code"
+		rt := cfg.AgentRuntime()
 		if ag.Runtime != nil {
 			rt = runtime.Runtime(*ag.Runtime)
 		}
@@ -106,6 +106,10 @@ func Start(database *ent.Client, force bool) error {
 // daemon management for OC/Codex agents.
 func launchAgentSession(sessionName string, tab AgentTab, cfg *config.Config) error {
 	switch tab.Runtime {
+	case runtime.OpenClaw:
+		// OpenClaw manages its own sessions — nothing to spawn.
+		fmt.Printf("  %s agent %s managed by OpenClaw\n", tab.Runtime, tab.Name)
+		return nil
 	case runtime.OpenCode, runtime.Codex:
 		// OC/Codex agents are managed by the daemon, not tmux.
 		if running, _, _ := daemon.IsRunning(); !running {

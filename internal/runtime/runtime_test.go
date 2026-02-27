@@ -18,6 +18,8 @@ func TestParse(t *testing.T) {
 		{"oc alias", "oc", OpenCode, false},
 		{"codex literal", "codex", Codex, false},
 		{"cx alias", "cx", Codex, false},
+		{"openclaw literal", "openclaw", OpenClaw, false},
+		{"oclw alias", "oclw", OpenClaw, false},
 		{"unknown errors", "vim", "", true},
 		{"partial match errors", "claude", "", true},
 	}
@@ -45,6 +47,7 @@ func TestValidate(t *testing.T) {
 		{"claude-code valid", "claude-code", false},
 		{"opencode valid", "opencode", false},
 		{"codex valid", "codex", false},
+		{"openclaw valid", "openclaw", false},
 		{"alias not valid for Validate", "cc", true},
 		{"empty not valid for Validate", "", true},
 		{"unknown not valid", "neovim", true},
@@ -62,32 +65,43 @@ func TestValidate(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	all := All()
-	if len(all) != 3 {
-		t.Fatalf("All() returned %d runtimes, want 3", len(all))
+	if len(all) != 4 {
+		t.Fatalf("All() returned %d runtimes, want 4", len(all))
 	}
-	if all[0] != ClaudeCode {
-		t.Errorf("All()[0] = %q, want %q", all[0], ClaudeCode)
-	}
-	if all[1] != OpenCode {
-		t.Errorf("All()[1] = %q, want %q", all[1], OpenCode)
-	}
-	if all[2] != Codex {
-		t.Errorf("All()[2] = %q, want %q", all[2], Codex)
+	want := []Runtime{ClaudeCode, OpenCode, Codex, OpenClaw}
+	for i, w := range want {
+		if all[i] != w {
+			t.Errorf("All()[%d] = %q, want %q", i, all[i], w)
+		}
 	}
 }
 
 func TestValues(t *testing.T) {
 	vals := Values()
-	if len(vals) != 3 {
-		t.Fatalf("Values() returned %d strings, want 3", len(vals))
+	if len(vals) != 4 {
+		t.Fatalf("Values() returned %d strings, want 4", len(vals))
 	}
-	if vals[0] != "claude-code" {
-		t.Errorf("Values()[0] = %q, want %q", vals[0], "claude-code")
+	want := []string{"claude-code", "opencode", "codex", "openclaw"}
+	for i, w := range want {
+		if vals[i] != w {
+			t.Errorf("Values()[%d] = %q, want %q", i, vals[i], w)
+		}
 	}
-	if vals[1] != "opencode" {
-		t.Errorf("Values()[1] = %q, want %q", vals[1], "opencode")
+}
+
+func TestIsWorkerRuntime(t *testing.T) {
+	tests := []struct {
+		rt   Runtime
+		want bool
+	}{
+		{ClaudeCode, true},
+		{OpenCode, true},
+		{Codex, true},
+		{OpenClaw, false},
 	}
-	if vals[2] != "codex" {
-		t.Errorf("Values()[2] = %q, want %q", vals[2], "codex")
+	for _, tt := range tests {
+		if got := tt.rt.IsWorkerRuntime(); got != tt.want {
+			t.Errorf("%s.IsWorkerRuntime() = %v, want %v", tt.rt, got, tt.want)
+		}
 	}
 }

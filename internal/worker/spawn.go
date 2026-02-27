@@ -51,7 +51,13 @@ func Spawn(cfg SpawnConfig) error {
 		}
 	}
 	if cfg.Runtime == "" {
-		cfg.Runtime = runtime.ClaudeCode
+		// Fall back to team worker_runtime config (defaults to claude-code)
+		shellCfg, _ := config.Load()
+		if shellCfg != nil {
+			cfg.Runtime = shellCfg.WorkerRuntime()
+		} else {
+			cfg.Runtime = runtime.ClaudeCode
+		}
 	}
 
 	if err := validateRuntime(cfg.Runtime); err != nil {

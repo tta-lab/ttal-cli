@@ -224,6 +224,13 @@ func checkConfig(fix bool) Section {
 		return section
 	}
 
+	// Check for deprecated default_runtime before loading
+	rawContent, _ := os.ReadFile(cfgPath)
+	if strings.Contains(string(rawContent), "default_runtime") {
+		section.add(LevelError, "default_runtime",
+			"deprecated: rename default_runtime to worker_runtime (and add agent_runtime if needed)")
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		section.add(LevelError, "config", fmt.Sprintf("invalid config: %v", err))

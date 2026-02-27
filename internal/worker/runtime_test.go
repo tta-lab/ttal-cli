@@ -30,3 +30,13 @@ func TestValidateRuntime(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRuntime_RejectsNonWorkerRuntimes(t *testing.T) {
+	err := validateRuntime(runtime.OpenClaw)
+	if err == nil {
+		t.Fatal("validateRuntime(openclaw) should return error for non-worker runtime")
+	}
+	if !strings.Contains(err.Error(), "cannot be used for workers") {
+		t.Errorf("error should mention 'cannot be used for workers', got: %s", err.Error())
+	}
+}

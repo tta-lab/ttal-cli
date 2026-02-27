@@ -43,14 +43,17 @@ type Config struct {
 	Teams       map[string]TeamConfig `toml:"teams" jsonschema:"description=Per-team configuration sections"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir    string
-	resolvedTaskRC     string
-	resolvedTaskData   string
-	resolvedTeamName   string
-	resolvedDefRuntime string
-	resolvedMergeMode  string
-	resolvedTeamPath   string
-	resolvedDBPath     string
+	resolvedDataDir       string
+	resolvedTaskRC        string
+	resolvedTaskData      string
+	resolvedTeamName      string
+	resolvedAgentRuntime  string
+	resolvedWorkerRuntime string
+	resolvedMergeMode     string
+	resolvedTeamPath      string
+	resolvedDBPath        string
+	resolvedGatewayURL    string
+	resolvedHooksToken    string
 }
 
 // TeamConfig holds per-team configuration.
@@ -61,7 +64,10 @@ type TeamConfig struct {
 	TaskRC          string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`
 	ChatID          string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
 	LifecycleAgent  string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle"`
-	DefaultRuntime  string                 `toml:"default_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,description=Default runtime for workers"`
+	AgentRuntime    string                 `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Runtime for agent sessions"` //nolint:lll
+	WorkerRuntime   string                 `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,description=Runtime for spawned workers"`             //nolint:lll
+	GatewayURL      string                 `toml:"gateway_url" jsonschema:"description=OpenClaw Gateway URL"`
+	HooksToken      string                 `toml:"hooks_token" jsonschema:"description=OpenClaw hooks auth token"`
 	MergeMode       string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`
 	VoiceLanguage   string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"`
 	Agents          map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
@@ -135,12 +141,35 @@ func (c *Config) TeamName() string {
 	return c.resolvedTeamName
 }
 
-// DefaultRuntime returns the team's default runtime ("claude-code" if unset).
-func (c *Config) DefaultRuntime() runtime.Runtime {
-	if c.resolvedDefRuntime != "" {
-		return runtime.Runtime(c.resolvedDefRuntime)
+// AgentRuntime returns the team's agent runtime ("claude-code" if unset).
+func (c *Config) AgentRuntime() runtime.Runtime {
+	if c.resolvedAgentRuntime != "" {
+		return runtime.Runtime(c.resolvedAgentRuntime)
 	}
 	return runtime.ClaudeCode
+}
+
+// WorkerRuntime returns the team's worker runtime ("claude-code" if unset).
+func (c *Config) WorkerRuntime() runtime.Runtime {
+	if c.resolvedWorkerRuntime != "" {
+		return runtime.Runtime(c.resolvedWorkerRuntime)
+	}
+	return runtime.ClaudeCode
+}
+
+const DefaultGatewayURL = "http://127.0.0.1:18789"
+
+// GatewayURL returns the OpenClaw Gateway URL for the active team.
+func (c *Config) GatewayURL() string {
+	if c.resolvedGatewayURL != "" {
+		return c.resolvedGatewayURL
+	}
+	return DefaultGatewayURL
+}
+
+// HooksToken returns the OpenClaw hooks auth token for the active team.
+func (c *Config) HooksToken() string {
+	return c.resolvedHooksToken
 }
 
 const (
@@ -307,7 +336,19 @@ func (c *Config) resolve() error {
 		c.resolvedDBPath = filepath.Join(c.resolvedDataDir, "ttal.db")
 	}
 
-	c.resolvedDefRuntime = team.DefaultRuntime
+	c.resolvedAgentRuntime = team.AgentRuntime
+	c.resolvedWorkerRuntime = team.WorkerRuntime
+	c.resolvedGatewayURL = team.GatewayURL
+	c.resolvedHooksToken = team.HooksToken
+
+	// Validate worker_runtime is not openclaw (agent-only)
+	if c.resolvedWorkerRuntime != "" {
+		rt := runtime.Runtime(c.resolvedWorkerRuntime)
+		if !rt.IsWorkerRuntime() {
+			return fmt.Errorf("worker_runtime %q is not valid for workers"+
+				" (use claude-code, opencode, or codex)", c.resolvedWorkerRuntime)
+		}
+	}
 
 	// Merge mode: team > global > default("auto")
 	if team.MergeMode != "" {
@@ -462,6 +503,8 @@ bot_token = "TODO"
 # [teams.guion]
 # chat_id = "TODO"
 # lifecycle_agent = "kestrel"
+# agent_runtime = "claude-code"   # Runtime for agent sessions
+# worker_runtime = "claude-code"  # Runtime for spawned workers
 # # Paths auto-derived: ~/.ttal/guion/{ttal.db, taskrc, tasks/}
 # # Override only if needed: data_dir, taskrc, db_path, team_path
 `

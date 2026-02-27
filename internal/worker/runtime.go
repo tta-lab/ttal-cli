@@ -7,8 +7,12 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 )
 
-// validateRuntime checks that the runtime's binary is available in PATH.
+// validateRuntime checks that the runtime is valid for workers and its binary is available.
 func validateRuntime(rt runtime.Runtime) error {
+	if !rt.IsWorkerRuntime() {
+		return fmt.Errorf("runtime %q cannot be used for workers (use claude-code, opencode, or codex)", rt)
+	}
+
 	var bin string
 	switch rt {
 	case runtime.OpenCode:

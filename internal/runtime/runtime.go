@@ -9,11 +9,12 @@ const (
 	ClaudeCode Runtime = "claude-code"
 	OpenCode   Runtime = "opencode"
 	Codex      Runtime = "codex"
+	OpenClaw   Runtime = "openclaw"
 )
 
 // All returns all valid runtime values.
 func All() []Runtime {
-	return []Runtime{ClaudeCode, OpenCode, Codex}
+	return []Runtime{ClaudeCode, OpenCode, Codex, OpenClaw}
 }
 
 // Values returns all valid runtime strings (for ent schema enum).
@@ -36,6 +37,8 @@ func Parse(s string) (Runtime, error) {
 		return OpenCode, nil
 	case string(Codex), "cx":
 		return Codex, nil
+	case string(OpenClaw), "oclw":
+		return OpenClaw, nil
 	default:
 		return "", fmt.Errorf("unknown runtime: %q (valid: %s)", s, joinRuntimes())
 	}
@@ -49,6 +52,17 @@ func Validate(s string) error {
 		}
 	}
 	return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
+}
+
+// IsWorkerRuntime returns true if the runtime can be used for workers.
+// OpenClaw is agent-only — workers always use CC/OC/Codex.
+func (r Runtime) IsWorkerRuntime() bool {
+	switch r {
+	case ClaudeCode, OpenCode, Codex:
+		return true
+	default:
+		return false
+	}
 }
 
 func joinRuntimes() string {
