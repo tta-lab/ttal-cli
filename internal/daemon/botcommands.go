@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -18,10 +19,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// sanitizeCommandName replaces hyphens with underscores to comply with
+// Telegram's command name restriction: only [a-z0-9_] allowed.
+func sanitizeCommandName(name string) string {
+	return strings.ReplaceAll(name, "-", "_")
+}
+
 // BotCommand represents a Telegram bot command for the menu.
 type BotCommand struct {
-	Command     string `json:"command"`
-	Description string `json:"description"`
+	Command      string `json:"command"`
+	Description  string `json:"description"`
+	OriginalName string `json:"-"` // original name before sanitization (for dispatch to agent)
 }
 
 // registeredCommands is the canonical list of commands the bot understands.
@@ -56,12 +64,14 @@ func DiscoverCommands(commandsPaths []string) []BotCommand {
 			if name == "" {
 				continue
 			}
-			if isStaticCommand(name) {
+			sanitized := sanitizeCommandName(name)
+			if isStaticCommand(sanitized) {
 				continue
 			}
 			discovered = append(discovered, BotCommand{
-				Command:     name,
-				Description: truncateDescription(desc),
+				Command:      sanitized,
+				Description:  truncateDescription(desc),
+				OriginalName: name,
 			})
 		}
 	}
@@ -88,6 +98,8 @@ func parseCommandFrontmatter(content []byte) (string, string) {
 	return fm.Name, fm.Description
 }
 
+// isStaticCommand checks whether name matches a built-in command.
+// Callers must pass the already-sanitized name.
 func isStaticCommand(name string) bool {
 	for _, cmd := range registeredCommands {
 		if cmd.Command == name {
@@ -139,7 +151,8 @@ func RegisterBotCommands(botToken string, allCommands []BotCommand) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("setMyCommands returned %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("setMyCommands returned %d: %s", resp.StatusCode, string(respBody))
 	}
 	return nil
 }

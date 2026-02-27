@@ -240,17 +240,23 @@ func registerBotCommands(b *bot.Bot, teamName, agentName, botToken, chatIDStr st
 			sendEscToAgent(teamName, agentName, botToken, chatIDStr)
 		})
 
-	// Register discovered commands — forward as /command to agent's tmux pane
+	// Register discovered commands — forward as /command to agent's tmux pane.
+	// Use OriginalName (with hyphens) for dispatch since Claude Code skills
+	// use hyphenated names, but match on Command (sanitized with underscores).
 	for _, cmd := range allCommands {
 		if isStaticCommand(cmd.Command) {
 			continue
 		}
-		cmdName := cmd.Command // capture for closure
+		cmdName := cmd.Command       // sanitized name for Telegram matching
+		origName := cmd.OriginalName // original name for agent dispatch
+		if origName == "" {
+			origName = cmdName
+		}
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
-				fullCmd := buildFullCommand(cmdName, update.Message.Text)
+				fullCmd := buildFullCommand(origName, update.Message.Text)
 				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd,
-					fmt.Sprintf("Sent /%s to %s", cmdName, agentName))
+					fmt.Sprintf("Sent /%s to %s", origName, agentName))
 			})
 	}
 }
