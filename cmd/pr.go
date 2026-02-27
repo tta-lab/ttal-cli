@@ -64,6 +64,9 @@ Examples:
 		fmt.Printf("  %s → %s\n", result.Head, result.Base)
 		fmt.Println()
 
+		// Notify lifecycle agent
+		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, result.HTMLURL))
+
 		// Update ctx with newly created PR index so SpawnReviewer can use it.
 		// pr.Create stores it in taskwarrior, but ctx.Task is a stale snapshot.
 		ctx.Task.PRID = strconv.FormatInt(result.Index, 10)
