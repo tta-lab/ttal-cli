@@ -139,14 +139,14 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	taskFile, err := writeTaskFile(task, cfg, workDir, branch)
-	if err != nil {
-		return err
-	}
-
 	shellCfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	taskFile, err := writeTaskFile(task, cfg, workDir, branch, shellCfg)
+	if err != nil {
+		return err
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
@@ -264,7 +264,7 @@ func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string,
 	return shellCfg.BuildEnvShellCommand(envParts, cxCmd)
 }
 
-func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string) (string, error) {
+func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string, shellCfg *config.Config) (string, error) {
 	fullTask := task.FormatPrompt()
 
 	if cfg.Worktree && branch != "" {
@@ -279,19 +279,14 @@ func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch stri
 		fullTask = worktreePrefix + fullTask
 	}
 
-	if task.HasTag("brainstorm") {
-		brainstormPrefix := `Use the brainstorming skill before implementation:
-
-1. Understand the project context (check files, docs, recent commits)
-2. Ask clarifying questions one at a time to refine requirements
-3. Explore different approaches with trade-offs
-4. Present the design in sections, validating each part
-5. Document the design in docs/plans/YYYY-MM-DD-<topic>-design.md
-
-Then proceed with:
-
-`
-		fullTask = brainstormPrefix + fullTask
+	// Prepend execute prompt from config (skill invocation at top for OpenCode compat)
+	shortID := task.UUID
+	if len(shortID) > 8 {
+		shortID = shortID[:8]
+	}
+	executePrompt := shellCfg.RenderPrompt("execute", shortID)
+	if executePrompt != "" {
+		fullTask = executePrompt + "\n\n" + fullTask
 	}
 
 	taskFile, err := os.CreateTemp("", "claude-task-*.txt")

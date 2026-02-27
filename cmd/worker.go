@@ -71,7 +71,6 @@ Creates a git worktree, launches a tmux session with the selected runtime,
 and tracks the worker in taskwarrior.
 
 Task tags control behavior:
-  +brainstorm  Use brainstorming skill before implementation
   +sonnet      Use sonnet model instead of opus (Claude Code only)
   +opencode    Use OpenCode runtime instead of Claude Code
   +codex       Use Codex runtime instead of Claude Code

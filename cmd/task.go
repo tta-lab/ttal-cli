@@ -134,15 +134,6 @@ Examples:
 	},
 }
 
-const (
-	designPrompt = "When done: task %s annotate " +
-		"'Plan: ~/clawd/docs/plans/YYYY-MM-DD-topic.md'"
-	researchPrompt = "When done: task %s annotate " +
-		"'Research: ~/clawd/docs/research/YYYY-MM-DD-topic.md'"
-	testPrompt = "Integration test this end-to-end.\n" +
-		"When done: task %s annotate 'Tested: <pass/fail summary>'"
-)
-
 func agentNotConfigured(field, team string) error {
 	return fmt.Errorf(
 		"%s not configured for team %s\n\n"+
@@ -165,7 +156,7 @@ var taskDesignCmd = &cobra.Command{
 			return agentNotConfigured("design_agent", cfg.TeamName())
 		}
 		uuid := args[0]
-		prompt := fmt.Sprintf(designPrompt, uuid)
+		prompt := cfg.RenderPrompt("design", uuid)
 		return routeTaskToAgent(agent, uuid, "task design", prompt)
 	},
 }
@@ -185,7 +176,7 @@ var taskResearchCmd = &cobra.Command{
 			return agentNotConfigured("research_agent", cfg.TeamName())
 		}
 		uuid := args[0]
-		prompt := fmt.Sprintf(researchPrompt, uuid)
+		prompt := cfg.RenderPrompt("research", uuid)
 		return routeTaskToAgent(agent, uuid, "task research", prompt)
 	},
 }
@@ -205,7 +196,7 @@ var taskTestCmd = &cobra.Command{
 			return agentNotConfigured("test_agent", cfg.TeamName())
 		}
 		uuid := args[0]
-		prompt := fmt.Sprintf(testPrompt, uuid)
+		prompt := cfg.RenderPrompt("test", uuid)
 		return routeTaskToAgent(agent, uuid, "task test", prompt)
 	},
 }

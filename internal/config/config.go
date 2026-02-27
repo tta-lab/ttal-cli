@@ -11,6 +11,39 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// PromptsConfig holds configurable prompt templates for task routing and worker spawn.
+// Supports {{task-id}} template variable (replaced with the task's short UUID at runtime).
+type PromptsConfig struct {
+	Design   string `toml:"design" jsonschema:"description=Prompt for design agent"`
+	Research string `toml:"research" jsonschema:"description=Prompt for research agent"`
+	Test     string `toml:"test" jsonschema:"description=Prompt for test agent"`
+	Execute  string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
+}
+
+// DefaultPrompts returns sensible defaults for all prompt templates.
+func DefaultPrompts() PromptsConfig {
+	return PromptsConfig{
+		Design: `/sp-writing-plans
+Write an implementation plan for this task.
+
+When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'`,
+
+		Research: `/tell-me-more
+Research this topic thoroughly.
+
+When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'`,
+
+		Test: `/sp-tdd
+Integration test this end-to-end.
+
+When done: task {{task-id}} annotate 'Tested: <pass/fail summary>'`,
+
+		Execute: `/sp-executing-plans
+Use the executing-plans skill to implement this plan task-by-task.
+Follow each task in order: read the plan, make changes, verify, commit.`,
+	}
+}
+
 // AgentSessionName returns the tmux session name for an agent.
 // Convention: "ttal-<team>-<agent>" (e.g. "ttal-default-athena", "ttal-guion-mira").
 //
@@ -32,8 +65,9 @@ type Config struct {
 	Voice          VoiceConfig            `toml:"-" json:"-"`
 
 	// Global fields — not per-team.
-	Shell string     `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
-	Sync  SyncConfig `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
+	Shell   string        `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
+	Sync    SyncConfig    `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
+	Prompts PromptsConfig `toml:"prompts" jsonschema:"description=Prompt templates for task routing"`
 
 	// Team-aware fields.
 	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"`
@@ -210,6 +244,41 @@ func (c *Config) GetMergeMode() string {
 		return c.resolvedMergeMode
 	}
 	return MergeModeAuto
+}
+
+// Prompt returns the prompt template for a given key, falling back to defaults.
+func (c *Config) Prompt(key string) string {
+	defaults := DefaultPrompts()
+	switch key {
+	case "design":
+		if c.Prompts.Design != "" {
+			return c.Prompts.Design
+		}
+		return defaults.Design
+	case "research":
+		if c.Prompts.Research != "" {
+			return c.Prompts.Research
+		}
+		return defaults.Research
+	case "test":
+		if c.Prompts.Test != "" {
+			return c.Prompts.Test
+		}
+		return defaults.Test
+	case "execute":
+		if c.Prompts.Execute != "" {
+			return c.Prompts.Execute
+		}
+		return defaults.Execute
+	default:
+		return ""
+	}
+}
+
+// RenderPrompt returns a prompt with {{task-id}} replaced by the actual task ID.
+func (c *Config) RenderPrompt(key, taskID string) string {
+	tmpl := c.Prompt(key)
+	return strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
 }
 
 const DefaultShell = "zsh"
@@ -500,6 +569,33 @@ func WriteTemplate() error {
 
 	template := `#:schema https://ttal.guion.io/schema/config.schema.json
 default_team = "default"
+
+# Configurable prompts for task routing and worker spawn.
+# Supports {{task-id}} template variable.
+# Skill invocations (/skill-name) should be at the top for OpenCode compatibility.
+[prompts]
+design = """
+/sp-writing-plans
+Write an implementation plan for this task.
+
+When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'"""
+
+research = """
+/tell-me-more
+Research this topic thoroughly.
+
+When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'"""
+
+test = """
+/sp-tdd
+Integration test this end-to-end.
+
+When done: task {{task-id}} annotate 'Tested: <pass/fail summary>'"""
+
+execute = """
+/sp-executing-plans
+Use the executing-plans skill to implement this plan task-by-task.
+Follow each task in order: read the plan, make changes, verify, commit."""
 
 [teams.default]
 chat_id = "TODO"

@@ -35,6 +35,10 @@
           "$ref": "#/$defs/SyncConfig",
           "description": "Paths for subagent and skill deployment"
         },
+        "prompts": {
+          "$ref": "#/$defs/PromptsConfig",
+          "description": "Prompt templates for task routing"
+        },
         "default_team": {
           "type": "string",
           "description": "Active team when TTAL_TEAM env is not set"
@@ -45,6 +49,28 @@
           },
           "type": "object",
           "description": "Per-team configuration sections"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PromptsConfig": {
+      "properties": {
+        "design": {
+          "type": "string",
+          "description": "Prompt for design agent"
+        },
+        "research": {
+          "type": "string",
+          "description": "Prompt for research agent"
+        },
+        "test": {
+          "type": "string",
+          "description": "Prompt for test agent"
+        },
+        "execute": {
+          "type": "string",
+          "description": "Prompt prefix for worker spawn"
         }
       },
       "additionalProperties": false,
