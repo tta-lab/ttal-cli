@@ -224,13 +224,15 @@ func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chat
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("new"),
-		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
-			sendKeysToAgent(agentName, botToken, chatIDStr, "/new", "Sent /new — starting fresh conversation")
+		func(_ context.Context, _ *bot.Bot, update *models.Update) {
+			fullCmd := buildFullCommand("new", update.Message.Text)
+			sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd, "Sent /new — starting fresh conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("compact"),
-		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
-			sendKeysToAgent(agentName, botToken, chatIDStr, "/compact", "Sent /compact — compacting conversation")
+		func(_ context.Context, _ *bot.Bot, update *models.Update) {
+			fullCmd := buildFullCommand("compact", update.Message.Text)
+			sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd, "Sent /compact — compacting conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("wait"),
@@ -246,11 +248,7 @@ func registerBotCommands(b *bot.Bot, agentName, botToken, chatIDStr string, chat
 		cmdName := cmd.Command // capture for closure
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
-				args := parseCommandArgs(update.Message.Text)
-				fullCmd := "/" + cmdName
-				if len(args) > 0 {
-					fullCmd += " " + strings.Join(args, " ")
-				}
+				fullCmd := buildFullCommand(cmdName, update.Message.Text)
 				sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd,
 					fmt.Sprintf("Sent /%s to %s", cmdName, agentName))
 			})
@@ -265,6 +263,16 @@ func parseCommandArgs(text string) []string {
 		return nil
 	}
 	return parts[1:]
+}
+
+// buildFullCommand constructs a slash command string from a command name and
+// the raw message text, forwarding any arguments that follow the command.
+func buildFullCommand(cmdName, messageText string) string {
+	fullCmd := "/" + cmdName
+	if args := parseCommandArgs(messageText); len(args) > 0 {
+		fullCmd += " " + strings.Join(args, " ")
+	}
+	return fullCmd
 }
 
 // transcribeVoiceMessage downloads a Telegram voice message and transcribes it via the voice package.
