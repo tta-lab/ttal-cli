@@ -10,7 +10,6 @@ import (
 	cx "codeberg.org/clawteam/ttal-cli/internal/runtime/codex"
 	oclw "codeberg.org/clawteam/ttal-cli/internal/runtime/openclaw"
 	oc "codeberg.org/clawteam/ttal-cli/internal/runtime/opencode"
-	"codeberg.org/clawteam/ttal-cli/internal/telegram"
 )
 
 // adapterRegistry holds adapters for all agents, keyed by agent name.
@@ -47,11 +46,12 @@ func (r *adapterRegistry) stopAll(ctx context.Context) {
 	}
 }
 
-// createAdapter builds the appropriate adapter for an agent's runtime.
-// Only called for OC/Codex/OpenClaw agents — CC agents use tmux directly.
-func createAdapter(
+// createAdapterFromTeam builds the appropriate adapter for an agent's runtime,
+// using team-resolved config values for GatewayURL and HooksToken.
+func createAdapterFromTeam(
 	agentName string, rt runtime.Runtime, agentPath string,
-	port int, model string, yolo bool, env []string, teamCfg *config.Config,
+	port int, model string, yolo bool, env []string,
+	team *config.ResolvedTeam,
 ) runtime.Adapter {
 	cfg := runtime.AdapterConfig{
 		AgentName: agentName,
@@ -61,9 +61,12 @@ func createAdapter(
 		Yolo:      yolo,
 		Env:       env,
 	}
-	if teamCfg != nil {
-		cfg.GatewayURL = teamCfg.GatewayURL()
-		cfg.HooksToken = teamCfg.HooksToken()
+	if team != nil {
+		cfg.GatewayURL = team.GatewayURL
+		if cfg.GatewayURL == "" {
+			cfg.GatewayURL = config.DefaultGatewayURL
+		}
+		cfg.HooksToken = team.HooksToken
 	}
 
 	switch rt {
@@ -74,28 +77,4 @@ func createAdapter(
 	default:
 		return oc.New(cfg)
 	}
-}
-
-// bridgeEvents reads events from an adapter and routes them to Telegram.
-func bridgeEvents(agentName string, adapter runtime.Adapter, cfg *config.Config, qs *questionStore) {
-	agentCfg, ok := cfg.Agents[agentName]
-	if !ok || agentCfg.BotToken == "" {
-		return
-	}
-	chatID := cfg.AgentChatID(agentName)
-
-	go func() {
-		for event := range adapter.Events() {
-			switch event.Type {
-			case runtime.EventText:
-				if err := telegram.SendMessage(agentCfg.BotToken, chatID, event.Text); err != nil {
-					log.Printf("[daemon] telegram send error for %s: %v", agentName, err)
-				}
-			case runtime.EventError:
-				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
-			case runtime.EventQuestion:
-				handleIncomingQuestion(qs, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, cfg)
-			}
-		}
-	}()
 }

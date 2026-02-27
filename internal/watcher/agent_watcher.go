@@ -25,7 +25,7 @@ type AgentWatcher struct {
 // NewAgentWatcher creates a watcher for a single CC agent's JSONL output.
 func NewAgentWatcher(agentName, workDir string, send SendTextFunc) *AgentWatcher {
 	home, _ := os.UserHomeDir()
-	encoded := encodePath(workDir)
+	encoded := EncodePath(workDir)
 	projectDir := filepath.Join(home, ".claude", "projects", encoded)
 
 	return &AgentWatcher{

@@ -2,7 +2,6 @@ package watcher
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"log"
 	"os"
@@ -10,76 +9,60 @@ import (
 	"strings"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
-	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/fsnotify/fsnotify"
 )
 
 const jsonlExt = ".jsonl"
 
+// AgentInfo pairs an agent with its team context.
+type AgentInfo struct {
+	TeamName  string
+	AgentName string
+}
+
 // SendFunc is the callback for sending a message to Telegram.
-// agentName is the resolved agent, text is the assistant text block.
-type SendFunc func(agentName, text string)
+// teamName and agentName identify the agent, text is the assistant text block.
+type SendFunc func(teamName, agentName, text string)
 
 // QuestionFunc is called when an AskUserQuestion is detected in CC JSONL.
-type QuestionFunc func(agentName, correlationID string, questions []runtime.Question)
+type QuestionFunc func(teamName, agentName, correlationID string, questions []runtime.Question)
 
 // Watcher tails active CC JSONL files and sends assistant text to Telegram.
 type Watcher struct {
-	projectsDir string            // ~/.claude/projects/
-	agents      map[string]string // encoded dir name -> agent name
-	offsets     map[string]int64  // file path -> last read offset
+	projectsDir string               // ~/.claude/projects/
+	agents      map[string]AgentInfo // encoded dir name -> agent info
+	offsets     map[string]int64     // file path -> last read offset
 	mu          sync.Mutex
 	send        SendFunc
 	onQuestion  QuestionFunc
 }
 
-// New creates a Watcher. It queries the DB for all agents with paths and
-// builds the encoded-dir -> agent-name mapping.
-func New(database *ent.Client, send SendFunc, onQuestion QuestionFunc) (*Watcher, error) {
+// EncodePath converts an absolute path to CC's encoded project directory name.
+// CC replaces / and . with - (e.g. /Users/neil/clawd -> -Users-neil-clawd).
+func EncodePath(path string) string {
+	encoded := strings.ReplaceAll(path, string(filepath.Separator), "-")
+	encoded = strings.ReplaceAll(encoded, ".", "-")
+	return encoded
+}
+
+// New creates a Watcher from a pre-built agent path mapping.
+// Config-driven: no DB or config.Load() required.
+func New(agents map[string]AgentInfo, send SendFunc, onQuestion QuestionFunc) (*Watcher, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	agents, err := database.Agent.Query().All(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	agentMap := make(map[string]string)
-	for _, a := range agents {
-		agentPath := cfg.AgentPath(a.Name)
-		if agentPath == "" {
-			continue
-		}
-		encoded := encodePath(agentPath)
-		agentMap[encoded] = a.Name
-	}
-
-	log.Printf("[watcher] watching %d agents", len(agentMap))
+	log.Printf("[watcher] watching %d agents", len(agents))
 
 	return &Watcher{
 		projectsDir: filepath.Join(home, ".claude", "projects"),
-		agents:      agentMap,
+		agents:      agents,
 		offsets:     make(map[string]int64),
 		send:        send,
 		onQuestion:  onQuestion,
 	}, nil
-}
-
-// encodePath converts an absolute path to CC's encoded project directory name.
-// CC replaces / and . with - (e.g. /Users/neil/clawd -> -Users-neil-clawd).
-func encodePath(path string) string {
-	encoded := strings.ReplaceAll(path, string(filepath.Separator), "-")
-	encoded = strings.ReplaceAll(encoded, ".", "-")
-	return encoded
 }
 
 // Run starts watching. Blocks until done is closed.
@@ -93,14 +76,14 @@ func (w *Watcher) Run(done <-chan struct{}) error {
 	// Watch each agent's project directory and seed offsets for existing files.
 	// MkdirAll ensures new agents get their project dir created at startup
 	// so they're watched from the start (not silently skipped).
-	for encoded, agentName := range w.agents {
+	for encoded, info := range w.agents {
 		dir := filepath.Join(w.projectsDir, encoded)
 		if err := os.MkdirAll(dir, 0o700); err != nil {
-			log.Printf("[watcher] failed to create project dir for %s: %v", agentName, err)
+			log.Printf("[watcher] failed to create project dir for %s: %v", info.AgentName, err)
 			continue
 		}
 		if err := fsw.Add(dir); err != nil {
-			log.Printf("[watcher] failed to watch %s: %v", agentName, err)
+			log.Printf("[watcher] failed to watch %s: %v", info.AgentName, err)
 			continue
 		}
 		w.seedExistingOffsets(dir)
@@ -154,7 +137,7 @@ func (w *Watcher) seedExistingOffsets(dir string) {
 // handleFileWrite reads new bytes from a JSONL file and processes them.
 func (w *Watcher) handleFileWrite(path string) {
 	dir := filepath.Base(filepath.Dir(path))
-	agentName, ok := w.agents[dir]
+	agentInfo, ok := w.agents[dir]
 	if !ok {
 		return
 	}
@@ -214,14 +197,14 @@ func (w *Watcher) handleFileWrite(path string) {
 
 		if correlationID, questions := extractQuestions(line); len(questions) > 0 {
 			if w.onQuestion != nil {
-				w.onQuestion(agentName, correlationID, questions)
+				w.onQuestion(agentInfo.TeamName, agentInfo.AgentName, correlationID, questions)
 			}
 			continue
 		}
 
 		text := extractAssistantText(line)
 		if text != "" {
-			w.send(agentName, text)
+			w.send(agentInfo.TeamName, agentInfo.AgentName, text)
 		}
 	}
 

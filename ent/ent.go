@@ -11,7 +11,6 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -77,7 +76,6 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			agent.Table:   agent.ValidColumn,
 			project.Table: project.ValidColumn,
-			tag.Table:     tag.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

@@ -16,18 +16,10 @@ const (
 	oldPollPlist    = "io.guion.ttal.poll-completion"
 )
 
-// daemonPlistName returns the launchd label for the active team's daemon.
-// Single-team (default): "io.guion.ttal.daemon"
-// Multi-team: "io.guion.ttal.daemon.<team>"
-func daemonPlistName() (string, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
-	}
-	if len(cfg.Teams) == 0 {
-		return daemonPlistBase, nil
-	}
-	return daemonPlistBase + "." + cfg.TeamName(), nil
+// daemonPlistName returns the fixed launchd label for the single daemon.
+// One daemon serves all teams — no per-team labels.
+func daemonPlistName() string {
+	return daemonPlistBase
 }
 
 // Install installs the launchd plist and creates a config template if needed.
@@ -42,7 +34,7 @@ func Install() error {
 		return err
 	}
 
-	dataDir := config.ResolveDataDir()
+	dataDir := config.DefaultDataDir()
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}
@@ -76,10 +68,7 @@ func Uninstall() error {
 		return err
 	}
 
-	label, err := daemonPlistName()
-	if err != nil {
-		return err
-	}
+	label := daemonPlistName()
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 
 	if _, err := os.Stat(plistPath); err != nil {
@@ -97,7 +86,7 @@ func Uninstall() error {
 	sockPath, _ := SocketPath()
 	os.Remove(sockPath)
 
-	dataDir := config.ResolveDataDir()
+	dataDir := config.DefaultDataDir()
 	pidPath := filepath.Join(dataDir, pidFileName)
 	os.Remove(pidPath)
 
@@ -106,10 +95,7 @@ func Uninstall() error {
 }
 
 func installDaemonPlist(home, ttalBin, dataDir string) error {
-	label, err := daemonPlistName()
-	if err != nil {
-		return err
-	}
+	label := daemonPlistName()
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 
 	uid := os.Getuid()
@@ -123,9 +109,6 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
 		forgejoToken = os.Getenv("FORGEJO_ACCESS_TOKEN")
 	}
 
-	// Resolve TTAL_TEAM for multi-team setups
-	ttalTeam := os.Getenv("TTAL_TEAM")
-
 	var warnings []string
 	if forgejoURL == "" {
 		warnings = append(warnings, "FORGEJO_URL is not set")
@@ -134,14 +117,7 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
 		warnings = append(warnings, "FORGEJO_TOKEN/FORGEJO_ACCESS_TOKEN is not set")
 	}
 
-	// Build optional TTAL_TEAM env entry
-	ttalTeamEntry := ""
-	if ttalTeam != "" {
-		ttalTeamEntry = fmt.Sprintf(`
-        <key>TTAL_TEAM</key>
-        <string>%s</string>`, xmlEscape(ttalTeam))
-	}
-
+	// One daemon serves all teams — no TTAL_TEAM in plist.
 	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -174,12 +150,12 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
         <key>FORGEJO_URL</key>
         <string>%s</string>
         <key>FORGEJO_TOKEN</key>
-        <string>%s</string>%s
+        <string>%s</string>
     </dict>
 </dict>
 </plist>
 `, label, ttalBin, dataDir, dataDir, home, home,
-		xmlEscape(forgejoURL), xmlEscape(forgejoToken), ttalTeamEntry)
+		xmlEscape(forgejoURL), xmlEscape(forgejoToken))
 
 	if err := os.WriteFile(plistPath, []byte(plist), 0o600); err != nil {
 		return err
@@ -216,10 +192,7 @@ func Start() error {
 		return err
 	}
 
-	label, err := daemonPlistName()
-	if err != nil {
-		return err
-	}
+	label := daemonPlistName()
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
 	if _, err := os.Stat(plistPath); err != nil {
 		return fmt.Errorf("daemon not installed (run: ttal daemon install)")
@@ -242,10 +215,7 @@ func Start() error {
 
 // Stop stops the daemon launchd service.
 func Stop() error {
-	label, err := daemonPlistName()
-	if err != nil {
-		return err
-	}
+	label := daemonPlistName()
 	uid := os.Getuid()
 	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, label))
 	if out, err := cmd.CombinedOutput(); err != nil {

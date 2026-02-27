@@ -15,8 +15,6 @@ var (
 		{Name: "voice", Type: field.TypeString, Nullable: true},
 		{Name: "emoji", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString, Nullable: true},
-		{Name: "model", Type: field.TypeEnum, Enums: []string{"haiku", "sonnet", "opus"}, Default: "opus"},
-		{Name: "runtime", Type: field.TypeEnum, Nullable: true, Enums: []string{"claude-code", "opencode", "codex", "openclaw"}},
 		{Name: "created_at", Type: field.TypeTime},
 	}
 	// AgentsTable holds the schema information for the "agents" table.
@@ -52,80 +50,12 @@ var (
 			},
 		},
 	}
-	// TagsColumns holds the columns for the "tags" table.
-	TagsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "name", Type: field.TypeString, Unique: true},
-	}
-	// TagsTable holds the schema information for the "tags" table.
-	TagsTable = &schema.Table{
-		Name:       "tags",
-		Columns:    TagsColumns,
-		PrimaryKey: []*schema.Column{TagsColumns[0]},
-	}
-	// AgentTagsColumns holds the columns for the "agent_tags" table.
-	AgentTagsColumns = []*schema.Column{
-		{Name: "agent_id", Type: field.TypeInt},
-		{Name: "tag_id", Type: field.TypeInt},
-	}
-	// AgentTagsTable holds the schema information for the "agent_tags" table.
-	AgentTagsTable = &schema.Table{
-		Name:       "agent_tags",
-		Columns:    AgentTagsColumns,
-		PrimaryKey: []*schema.Column{AgentTagsColumns[0], AgentTagsColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "agent_tags_agent_id",
-				Columns:    []*schema.Column{AgentTagsColumns[0]},
-				RefColumns: []*schema.Column{AgentsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "agent_tags_tag_id",
-				Columns:    []*schema.Column{AgentTagsColumns[1]},
-				RefColumns: []*schema.Column{TagsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
-	// ProjectTagsColumns holds the columns for the "project_tags" table.
-	ProjectTagsColumns = []*schema.Column{
-		{Name: "project_id", Type: field.TypeInt},
-		{Name: "tag_id", Type: field.TypeInt},
-	}
-	// ProjectTagsTable holds the schema information for the "project_tags" table.
-	ProjectTagsTable = &schema.Table{
-		Name:       "project_tags",
-		Columns:    ProjectTagsColumns,
-		PrimaryKey: []*schema.Column{ProjectTagsColumns[0], ProjectTagsColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "project_tags_project_id",
-				Columns:    []*schema.Column{ProjectTagsColumns[0]},
-				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "project_tags_tag_id",
-				Columns:    []*schema.Column{ProjectTagsColumns[1]},
-				RefColumns: []*schema.Column{TagsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
 		ProjectsTable,
-		TagsTable,
-		AgentTagsTable,
-		ProjectTagsTable,
 	}
 )
 
 func init() {
-	AgentTagsTable.ForeignKeys[0].RefTable = AgentsTable
-	AgentTagsTable.ForeignKeys[1].RefTable = TagsTable
-	ProjectTagsTable.ForeignKeys[0].RefTable = ProjectsTable
-	ProjectTagsTable.ForeignKeys[1].RefTable = TagsTable
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 )
@@ -143,21 +142,6 @@ func (_c *ProjectCreate) SetNillableUpdatedAt(v *time.Time) *ProjectCreate {
 		_c.SetUpdatedAt(*v)
 	}
 	return _c
-}
-
-// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
-func (_c *ProjectCreate) AddTagIDs(ids ...int) *ProjectCreate {
-	_c.mutation.AddTagIDs(ids...)
-	return _c
-}
-
-// AddTags adds the "tags" edges to the Tag entity.
-func (_c *ProjectCreate) AddTags(v ...*Tag) *ProjectCreate {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddTagIDs(ids...)
 }
 
 // Mutation returns the ProjectMutation object of the builder.
@@ -299,22 +283,6 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(project.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
-	}
-	if nodes := _c.mutation.TagsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   project.TagsTable,
-			Columns: project.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

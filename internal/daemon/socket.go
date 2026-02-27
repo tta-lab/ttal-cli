@@ -9,15 +9,19 @@ import (
 	"path/filepath"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 )
 
 const socketTimeout = 5 * time.Second
 
 // SocketPath returns the path to the daemon unix socket.
+// Fixed at ~/.ttal/daemon.sock — one daemon serves all teams.
 func SocketPath() (string, error) {
-	return filepath.Join(config.ResolveDataDir(), "daemon.sock"), nil
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".ttal", "daemon.sock"), nil
 }
 
 // Request is the top-level socket message envelope.
@@ -45,9 +49,13 @@ type StatusUpdateRequest struct {
 //	From only:       agent → human via Telegram
 //	To only:         system/hook → agent via tmux
 //	From + To:       agent → agent via tmux with attribution
+//
+// Team disambiguates when agent names collide across teams.
+// Auto-populated from TTAL_TEAM env if unset.
 type SendRequest struct {
 	From    string `json:"from,omitempty"`
 	To      string `json:"to,omitempty"`
+	Team    string `json:"team,omitempty"`
 	Message string `json:"message"`
 }
 
@@ -66,7 +74,12 @@ type StatusResponse struct {
 
 // Send connects to the daemon socket and sends a message.
 // Returns an error if the daemon is not running or if delivery fails.
+// Auto-populates Team from TTAL_TEAM env if not set.
 func Send(req SendRequest) error {
+	if req.Team == "" {
+		req.Team = os.Getenv("TTAL_TEAM")
+	}
+
 	sockPath, err := SocketPath()
 	if err != nil {
 		return err

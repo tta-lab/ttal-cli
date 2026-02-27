@@ -11,8 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
-	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
@@ -22,9 +20,18 @@ import (
 
 const pidFileName = "daemon.pid"
 
+// pollerTarget groups agent info for Telegram poller dispatch by chat ID.
+type pollerTarget struct {
+	teamName  string
+	agentName string
+	chatID    string
+	agentCfg  config.AgentConfig
+}
+
 // Run starts the daemon in the foreground. This is what launchd calls.
-func Run(database *ent.Client) error {
-	cfg, err := config.Load()
+// Config-driven: loads all teams from config.toml, no database required.
+func Run() error {
+	mcfg, err := config.LoadAll()
 	if err != nil {
 		return err
 	}
@@ -34,7 +41,12 @@ func Run(database *ent.Client) error {
 		return fmt.Errorf("daemon already running (pid=%d)", pid)
 	}
 
-	dataDir := cfg.DataDir()
+	// Fixed data dir at ~/.ttal/
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dataDir := filepath.Join(home, ".ttal")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}
@@ -51,7 +63,8 @@ func Run(database *ent.Client) error {
 		return err
 	}
 
-	log.Printf("[daemon] starting — socket=%s agents=%d", sockPath, len(cfg.Agents))
+	allAgents := mcfg.AllAgents()
+	log.Printf("[daemon] starting — socket=%s teams=%d agents=%d", sockPath, len(mcfg.Teams), len(allAgents))
 
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -62,43 +75,66 @@ func Run(database *ent.Client) error {
 	// Create question state stores
 	qs := newQuestionStore()
 	cas := newCustomAnswerStore()
-	initAdapters(ctx, database, cfg, registry, qs)
+	initAdaptersMultiTeam(ctx, mcfg, registry, qs)
 
 	// Discover dynamic commands once at startup
-	discovered := DiscoverCommands(cfg.Sync.CommandsPaths)
+	discovered := DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
 	allCommands := AllCommands(discovered)
 	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
 
-	// Register Telegram bot commands (best-effort, non-fatal)
+	// Register Telegram bot commands (best-effort, non-fatal, deduplicate by token)
 	registeredBots := make(map[string]bool)
-	for name, agentCfg := range cfg.Agents {
-		if agentCfg.BotToken == "" || registeredBots[agentCfg.BotToken] {
+	for _, ta := range allAgents {
+		if ta.Config.BotToken == "" || registeredBots[ta.Config.BotToken] {
 			continue
 		}
-		if err := RegisterBotCommands(agentCfg.BotToken, allCommands); err != nil {
-			log.Printf("[daemon] warning: failed to register bot commands for %s: %v", name, err)
+		if err := RegisterBotCommands(ta.Config.BotToken, allCommands); err != nil {
+			log.Printf("[daemon] warning: failed to register bot commands for %s: %v", ta.AgentName, err)
 		} else {
-			log.Printf("[daemon] registered bot commands for %s", name)
+			log.Printf("[daemon] registered bot commands for %s", ta.AgentName)
 		}
-		registeredBots[agentCfg.BotToken] = true
+		registeredBots[ta.Config.BotToken] = true
 	}
 
-	// Start Telegram pollers (skip for OpenClaw agents — OpenClaw owns messaging)
-	for agentName, agentCfg := range cfg.Agents {
-		if agentCfg.BotToken == "" {
-			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", agentName)
+	// Deduplicate Telegram pollers by bot token — one poller per unique token
+	tokenTargets := make(map[string][]pollerTarget)
+	for _, ta := range allAgents {
+		if ta.Config.BotToken == "" {
+			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", ta.AgentName)
 			continue
 		}
-		rt := resolveAgentRuntime(ctx, database, cfg, agentName)
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 		if rt == runtime.OpenClaw {
-			log.Printf("[daemon] agent %s uses OpenClaw — skipping Telegram poller", agentName)
+			log.Printf("[daemon] agent %s uses OpenClaw — skipping Telegram poller", ta.AgentName)
 			continue
 		}
-		log.Printf("[daemon] starting telegram poller for %s", agentName)
-		teamName := cfg.TeamName()
-		startTelegramPoller(teamName, agentName, agentCfg, cfg.AgentChatID(agentName), func(name, text string) {
-			if err := deliverToAgent(registry, teamName, name, text); err != nil {
-				log.Printf("[daemon] agent delivery failed for %s: %v", name, err)
+		tokenTargets[ta.Config.BotToken] = append(tokenTargets[ta.Config.BotToken], pollerTarget{
+			teamName:  ta.TeamName,
+			agentName: ta.AgentName,
+			chatID:    ta.ChatID,
+			agentCfg:  ta.Config,
+		})
+	}
+
+	for botToken, targets := range tokenTargets {
+		dispatchMap := make(map[int64]pollerTarget)
+		for _, t := range targets {
+			chatID, err := telegram.ParseChatID(t.chatID)
+			if err != nil {
+				log.Printf("[daemon] invalid chat_id for %s: %v", t.agentName, err)
+				continue
+			}
+			if existing, ok := dispatchMap[chatID]; ok {
+				log.Printf("[daemon] WARNING: chat ID %d collision — agent %s/%s overwrites %s/%s (same bot token, same chat)",
+					chatID, t.teamName, t.agentName, existing.teamName, existing.agentName)
+			}
+			dispatchMap[chatID] = t
+		}
+		log.Printf("[daemon] starting multi-agent poller for %d agents on token ...%s",
+			len(targets), botToken[len(botToken)-min(4, len(botToken)):])
+		startMultiAgentPoller(botToken, dispatchMap, func(teamName, agentName, text string) {
+			if err := deliverToAgent(registry, teamName, agentName, text); err != nil {
+				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
 		}, done, qs, cas, registry, allCommands)
 	}
@@ -108,15 +144,15 @@ func Run(database *ent.Client) error {
 
 	// Start JSONL watcher for CC -> Telegram bridging (skip if all agents are OpenClaw)
 	hasNonOpenClaw := false
-	for agentName := range cfg.Agents {
-		rt := resolveAgentRuntime(ctx, database, cfg, agentName)
+	for _, ta := range allAgents {
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 		if rt != runtime.OpenClaw {
 			hasNonOpenClaw = true
 			break
 		}
 	}
 	if hasNonOpenClaw {
-		startWatcher(database, cfg, qs, done)
+		startWatcherMultiTeam(mcfg, qs, done)
 	} else {
 		log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
 	}
@@ -124,7 +160,7 @@ func Run(database *ent.Client) error {
 	// Start socket listener
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
-			return handleSend(cfg, registry, req)
+			return handleSendMultiTeam(mcfg, registry, req)
 		},
 		statusUpdate: handleStatusUpdate,
 	})
@@ -163,27 +199,13 @@ func Run(database *ent.Client) error {
 	return nil
 }
 
-// initAdapters creates and starts runtime adapters for OC/Codex agents.
-// CC agents use the existing JSONL watcher path — their adapters are only
-// registered but not started from the daemon (team start handles tmux).
-func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config, registry *adapterRegistry, qs *questionStore) {
-	for agentName := range cfg.Agents {
-		agentPath := cfg.AgentPath(agentName)
-		if agentPath == "" {
-			log.Printf("[daemon] agent %q has no path (set team_path in config), skipping", agentName)
-			continue
-		}
+// initAdaptersMultiTeam creates and starts runtime adapters for OC/Codex/OpenClaw agents.
+// Config-driven: iterates all teams from MultiTeamConfig, no DB required.
+func initAdaptersMultiTeam(ctx context.Context, mcfg *config.MultiTeamConfig, registry *adapterRegistry, qs *questionStore) {
+	for _, ta := range mcfg.AllAgents() {
+		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
-		ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx)
-		if err != nil {
-			log.Printf("[daemon] skipping adapter for %s: db lookup failed: %v", agentName, err)
-			continue
-		}
-
-		rt := cfg.AgentRuntime()
-		if ag.Runtime != nil {
-			rt = runtime.Runtime(*ag.Runtime)
-		}
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 
 		// Only register adapters for runtimes the daemon manages.
 		// CC agents use tmux directly — registering them would shadow the tmux
@@ -192,98 +214,129 @@ func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config,
 			continue
 		}
 
-		port := cfg.Agents[agentName].Port
-		env := buildAgentEnv(agentName, cfg)
+		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
+		port := ta.Config.Port
+		env := buildAgentEnvMultiTeam(ta.AgentName, ta.TeamName, mcfg)
 
-		adapter := createAdapter(agentName, rt, agentPath, port, string(ag.Model), true, env, cfg)
+		team := mcfg.Teams[ta.TeamName]
+		adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, true, env, team)
 		if err := adapter.Start(ctx); err != nil {
-			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, agentName, err)
+			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
 			continue
 		}
-		registry.set(agentName, adapter)
-		log.Printf("[daemon] started %s adapter for %s on port %d", rt, agentName, port)
+		registry.set(ta.AgentName, adapter)
+		log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
 		// OpenClaw owns messaging — skip Telegram event bridging
 		if rt != runtime.OpenClaw {
-			bridgeEvents(agentName, adapter, cfg, qs)
+			bridgeEventsMultiTeam(ta.AgentName, ta.TeamName, adapter, mcfg, qs)
 		}
 	}
 }
 
-// resolveAgentRuntime returns the effective runtime for an agent,
-// checking the per-agent DB override first, then the team agent_runtime.
-func resolveAgentRuntime(
-	ctx context.Context, database *ent.Client, cfg *config.Config, agentName string,
-) runtime.Runtime {
-	rt := cfg.AgentRuntime()
-	if ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx); err == nil && ag.Runtime != nil {
-		rt = runtime.Runtime(*ag.Runtime)
-	}
-	return rt
-}
-
-// buildAgentEnv returns env vars for an agent adapter.
-func buildAgentEnv(agentName string, cfg *config.Config) []string {
+// buildAgentEnvMultiTeam returns env vars for an agent adapter.
+func buildAgentEnvMultiTeam(agentName, teamName string, mcfg *config.MultiTeamConfig) []string {
 	env := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
-	if team := cfg.TeamName(); team != "default" || os.Getenv("TTAL_TEAM") != "" {
-		env = append(env, fmt.Sprintf("TTAL_TEAM=%s", team))
+	if teamName != "default" {
+		env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
 	}
-	if taskrc := cfg.TaskRC(); taskrc != config.DefaultTaskRC() {
-		env = append(env, fmt.Sprintf("TASKRC=%s", taskrc))
+	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
+		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
 	return env
 }
 
-// handleSend routes an incoming SendRequest based on From/To fields.
-// Special target "human" routes to Telegram instead of agent delivery.
-func handleSend(cfg *config.Config, registry *adapterRegistry, req SendRequest) error {
+// bridgeEventsMultiTeam reads events from an adapter and routes them to Telegram.
+func bridgeEventsMultiTeam(agentName, teamName string, adapter runtime.Adapter, mcfg *config.MultiTeamConfig, qs *questionStore) {
+	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
+	if !ok || ta.Config.BotToken == "" {
+		return
+	}
+	chatID := ta.ChatID
+
+	go func() {
+		for event := range adapter.Events() {
+			switch event.Type {
+			case runtime.EventText:
+				if err := telegram.SendMessage(ta.Config.BotToken, chatID, event.Text); err != nil {
+					log.Printf("[daemon] telegram send error for %s: %v", agentName, err)
+				}
+			case runtime.EventError:
+				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
+			case runtime.EventQuestion:
+				handleIncomingQuestionMultiTeam(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
+			}
+		}
+	}()
+}
+
+// handleSendMultiTeam routes an incoming SendRequest based on From/To fields.
+// Resolves team from agent name or the Team field in the request.
+func handleSendMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, req SendRequest) error {
 	switch {
 	case req.From != "" && req.To == "human":
-		return handleFrom(cfg, req)
+		return handleFromMultiTeam(mcfg, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgent(cfg, registry, req)
+		return handleAgentToAgentMultiTeam(mcfg, registry, req)
 	case req.From != "":
-		return handleFrom(cfg, req)
+		return handleFromMultiTeam(mcfg, req)
 	case req.To != "":
-		return handleTo(cfg, registry, req)
+		return handleToMultiTeam(mcfg, registry, req)
 	default:
 		return fmt.Errorf("send request missing from/to")
 	}
 }
 
-// handleFrom sends a message from an agent to the human via Telegram.
-func handleFrom(cfg *config.Config, req SendRequest) error {
-	agentCfg, ok := cfg.Agents[req.From]
-	if !ok {
+// handleFromMultiTeam sends a message from an agent to the human via Telegram.
+func handleFromMultiTeam(mcfg *config.MultiTeamConfig, req SendRequest) error {
+	ta := resolveAgent(mcfg, req.Team, req.From)
+	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	if agentCfg.BotToken == "" {
+	if ta.Config.BotToken == "" {
 		return fmt.Errorf("agent %s has no telegram configured", req.From)
 	}
-	return telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(req.From), req.Message)
+	return telegram.SendMessage(ta.Config.BotToken, ta.ChatID, req.Message)
 }
 
-// handleTo delivers a message to an agent via its runtime adapter.
-func handleTo(cfg *config.Config, registry *adapterRegistry, req SendRequest) error {
-	if _, ok := cfg.Agents[req.To]; !ok {
+// handleToMultiTeam delivers a message to an agent via its runtime adapter.
+func handleToMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, req SendRequest) error {
+	ta := resolveAgent(mcfg, req.Team, req.To)
+	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToAgent(registry, cfg.TeamName(), req.To, req.Message)
+	return deliverToAgent(registry, ta.TeamName, req.To, req.Message)
 }
 
-// handleAgentToAgent delivers a message from one agent to another,
-// wrapping the message with attribution so the recipient knows who sent it.
-func handleAgentToAgent(cfg *config.Config, registry *adapterRegistry, req SendRequest) error {
-	if _, ok := cfg.Agents[req.From]; !ok {
+// handleAgentToAgentMultiTeam delivers a message from one agent to another.
+func handleAgentToAgentMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, req SendRequest) error {
+	fromTA := resolveAgent(mcfg, req.Team, req.From)
+	if fromTA == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	if _, ok := cfg.Agents[req.To]; !ok {
+	toTA := resolveAgent(mcfg, req.Team, req.To)
+	if toTA == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, cfg.TeamName(), req.To, msg)
+	return deliverToAgent(registry, toTA.TeamName, req.To, msg)
+}
+
+// resolveAgent finds an agent by name, using team hint if provided.
+func resolveAgent(mcfg *config.MultiTeamConfig, teamHint, agentName string) *config.TeamAgent {
+	if teamHint != "" {
+		ta, ok := mcfg.FindAgentInTeam(teamHint, agentName)
+		if ok {
+			return ta
+		}
+	}
+	ta, ok := mcfg.FindAgent(agentName)
+	if ok {
+		return ta
+	}
+	return nil
 }
 
 // handleStatusUpdate writes agent context status to the status directory.
@@ -301,20 +354,30 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 	}
 }
 
-// startWatcher initializes and runs the JSONL watcher in a goroutine.
-func startWatcher(database *ent.Client, cfg *config.Config, qs *questionStore, done <-chan struct{}) {
-	w, err := watcher.New(database,
-		func(agentName, text string) {
-			agentCfg, ok := cfg.Agents[agentName]
-			if !ok || agentCfg.BotToken == "" {
+// startWatcherMultiTeam initializes the JSONL watcher from config (all teams).
+func startWatcherMultiTeam(mcfg *config.MultiTeamConfig, qs *questionStore, done <-chan struct{}) {
+	agentMap := make(map[string]watcher.AgentInfo)
+	for _, ta := range mcfg.AllAgents() {
+		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
+		encoded := watcher.EncodePath(agentPath)
+		agentMap[encoded] = watcher.AgentInfo{
+			TeamName:  ta.TeamName,
+			AgentName: ta.AgentName,
+		}
+	}
+
+	w, err := watcher.New(agentMap,
+		func(teamName, agentName, text string) {
+			ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
+			if !ok || ta.Config.BotToken == "" {
 				return
 			}
-			if err := telegram.SendMessage(agentCfg.BotToken, cfg.AgentChatID(agentName), text); err != nil {
+			if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, text); err != nil {
 				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 			}
 		},
-		func(agentName, correlationID string, questions []runtime.Question) {
-			handleIncomingQuestion(qs, agentName, runtime.ClaudeCode, correlationID, questions, cfg)
+		func(teamName, agentName, correlationID string, questions []runtime.Question) {
+			handleIncomingQuestionMultiTeam(qs, teamName, agentName, runtime.ClaudeCode, correlationID, questions, mcfg)
 		},
 	)
 	if err != nil {
@@ -328,9 +391,72 @@ func startWatcher(database *ent.Client, cfg *config.Config, qs *questionStore, d
 	}()
 }
 
+// handleIncomingQuestionMultiTeam handles questions with team context.
+func handleIncomingQuestionMultiTeam(
+	store *questionStore,
+	teamName, agentName string,
+	rt runtime.Runtime,
+	correlationID string,
+	questions []runtime.Question,
+	mcfg *config.MultiTeamConfig,
+) {
+	if len(questions) == 0 {
+		return
+	}
+
+	for _, q := range questions {
+		if q.MultiSelect {
+			log.Printf("[questions] warning: multi-select not supported in Telegram UI for %s question %q — treating as single-select", agentName, q.Header)
+		}
+	}
+
+	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
+	if !ok || ta.Config.BotToken == "" {
+		log.Printf("[questions] no bot config for agent %s, dropping question", agentName)
+		return
+	}
+	chatID, err := telegram.ParseChatID(ta.ChatID)
+	if err != nil {
+		log.Printf("[questions] invalid chat ID for %s: %v", agentName, err)
+		return
+	}
+
+	batch := &QuestionBatch{
+		ShortID:       store.nextShortID(),
+		CorrelationID: correlationID,
+		TeamName:      teamName,
+		AgentName:     agentName,
+		Runtime:       rt,
+		Questions:     questions,
+		Answers:       make(map[int]string),
+		CurrentPage:   0,
+		ChatID:        chatID,
+		BotToken:      ta.Config.BotToken,
+		CreatedAt:     time.Now(),
+	}
+
+	page := buildQuestionPage(batch)
+	text, markup := telegram.RenderQuestionPage(page)
+
+	msgID, err := telegram.SendQuestionMessage(ta.Config.BotToken, chatID, text, markup)
+	if err != nil {
+		log.Printf("[questions] failed to send question to Telegram for %s: %v", agentName, err)
+		return
+	}
+	batch.TelegramMsgID = msgID
+
+	store.store(batch)
+	log.Printf("[questions] sent question %s for %s (batch %s)", correlationID, agentName, batch.ShortID)
+}
+
 // IsRunning checks whether the daemon is running by inspecting the pid file.
+// Uses fixed path at ~/.ttal/daemon.pid.
 func IsRunning() (bool, int, error) {
-	pidPath := filepath.Join(config.ResolveDataDir(), pidFileName)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false, 0, fmt.Errorf("user home dir: %w", err)
+	}
+	pidPath := filepath.Join(home, ".ttal", pidFileName)
 	data, err := os.ReadFile(pidPath)
 	if err != nil {
 		return false, 0, nil

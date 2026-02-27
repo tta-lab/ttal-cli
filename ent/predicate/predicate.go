@@ -11,6 +11,3 @@ type Agent func(*sql.Selector)
 
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
-
-// Tag is the predicate function for tag builders.
-type Tag func(*sql.Selector)

@@ -36,29 +36,8 @@ type Project struct {
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
-	// Edges holds the relations/edges for other nodes in the graph.
-	// The values are being populated by the ProjectQuery when eager-loading is set.
-	Edges        ProjectEdges `json:"edges"`
+	UpdatedAt    time.Time `json:"updated_at,omitempty"`
 	selectValues sql.SelectValues
-}
-
-// ProjectEdges holds the relations/edges for other nodes in the graph.
-type ProjectEdges struct {
-	// Project tags (M2M relation)
-	Tags []*Tag `json:"tags,omitempty"`
-	// loadedTypes holds the information for reporting if a
-	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
-}
-
-// TagsOrErr returns the Tags value or an error if the edge
-// was not loaded in eager-loading.
-func (e ProjectEdges) TagsOrErr() ([]*Tag, error) {
-	if e.loadedTypes[0] {
-		return e.Tags, nil
-	}
-	return nil, &NotLoadedError{edge: "tags"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -165,11 +144,6 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Project) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
-}
-
-// QueryTags queries the "tags" edge of the Project entity.
-func (_m *Project) QueryTags() *TagQuery {
-	return NewProjectClient(_m.config).QueryTags(_m)
 }
 
 // Update returns a builder for updating this Project.

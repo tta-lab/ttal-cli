@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 )
@@ -57,10 +56,7 @@ func (Project) Fields() []ent.Field {
 
 // Edges of the Project.
 func (Project) Edges() []ent.Edge {
-	return []ent.Edge{
-		edge.To("tags", Tag.Type).
-			Comment("Project tags (M2M relation)"),
-	}
+	return nil
 }
 
 // Indexes of the Project.

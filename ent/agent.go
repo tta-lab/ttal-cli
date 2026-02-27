@@ -25,34 +25,9 @@ type Agent struct {
 	Emoji string `json:"emoji,omitempty"`
 	// Short role summary (e.g. 'Task orchestration and planning')
 	Description string `json:"description,omitempty"`
-	// Claude model tier (haiku, sonnet, opus)
-	Model agent.Model `json:"model,omitempty"`
-	// Coding agent runtime override. Nil = use team default.
-	Runtime *agent.Runtime `json:"runtime,omitempty"`
 	// Creation timestamp
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	// Edges holds the relations/edges for other nodes in the graph.
-	// The values are being populated by the AgentQuery when eager-loading is set.
-	Edges        AgentEdges `json:"edges"`
+	CreatedAt    time.Time `json:"created_at,omitempty"`
 	selectValues sql.SelectValues
-}
-
-// AgentEdges holds the relations/edges for other nodes in the graph.
-type AgentEdges struct {
-	// Agent tags (M2M relation)
-	Tags []*Tag `json:"tags,omitempty"`
-	// loadedTypes holds the information for reporting if a
-	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
-}
-
-// TagsOrErr returns the Tags value or an error if the edge
-// was not loaded in eager-loading.
-func (e AgentEdges) TagsOrErr() ([]*Tag, error) {
-	if e.loadedTypes[0] {
-		return e.Tags, nil
-	}
-	return nil, &NotLoadedError{edge: "tags"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -62,7 +37,7 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldID:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldVoice, agent.FieldEmoji, agent.FieldDescription, agent.FieldModel, agent.FieldRuntime:
+		case agent.FieldName, agent.FieldVoice, agent.FieldEmoji, agent.FieldDescription:
 			values[i] = new(sql.NullString)
 		case agent.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -111,19 +86,6 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Description = value.String
 			}
-		case agent.FieldModel:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field model", values[i])
-			} else if value.Valid {
-				_m.Model = agent.Model(value.String)
-			}
-		case agent.FieldRuntime:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field runtime", values[i])
-			} else if value.Valid {
-				_m.Runtime = new(agent.Runtime)
-				*_m.Runtime = agent.Runtime(value.String)
-			}
 		case agent.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -141,11 +103,6 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Agent) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
-}
-
-// QueryTags queries the "tags" edge of the Agent entity.
-func (_m *Agent) QueryTags() *TagQuery {
-	return NewAgentClient(_m.config).QueryTags(_m)
 }
 
 // Update returns a builder for updating this Agent.
@@ -182,14 +139,6 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(_m.Description)
-	builder.WriteString(", ")
-	builder.WriteString("model=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Model))
-	builder.WriteString(", ")
-	if v := _m.Runtime; v != nil {
-		builder.WriteString("runtime=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -138,67 +138,6 @@ func (s *customAnswerStore) clear(chatID int64) {
 	delete(s.state, chatID)
 }
 
-// handleIncomingQuestion creates a QuestionBatch and sends to Telegram.
-func handleIncomingQuestion(
-	store *questionStore,
-	agentName string,
-	rt runtime.Runtime,
-	correlationID string,
-	questions []runtime.Question,
-	cfg *config.Config,
-) {
-	if len(questions) == 0 {
-		return
-	}
-
-	// Log warning for multi-select questions (not yet supported in Telegram UI)
-	for _, q := range questions {
-		if q.MultiSelect {
-			log.Printf("[questions] warning: multi-select not supported in Telegram UI for %s question %q — treating as single-select", agentName, q.Header)
-		}
-	}
-
-	agentCfg, ok := cfg.Agents[agentName]
-	if !ok || agentCfg.BotToken == "" {
-		log.Printf("[questions] no bot config for agent %s, dropping question", agentName)
-		return
-	}
-	chatID, err := telegram.ParseChatID(cfg.AgentChatID(agentName))
-	if err != nil {
-		log.Printf("[questions] invalid chat ID for %s: %v", agentName, err)
-		return
-	}
-
-	batch := &QuestionBatch{
-		ShortID:       store.nextShortID(),
-		CorrelationID: correlationID,
-		TeamName:      cfg.TeamName(),
-		AgentName:     agentName,
-		Runtime:       rt,
-		Questions:     questions,
-		Answers:       make(map[int]string),
-		CurrentPage:   0,
-		ChatID:        chatID,
-		BotToken:      agentCfg.BotToken,
-		CreatedAt:     time.Now(),
-	}
-
-	page := buildQuestionPage(batch)
-	text, markup := telegram.RenderQuestionPage(page)
-
-	// Send to Telegram before registering in store so the batch is fully
-	// initialized (including TelegramMsgID) when visible to callback handlers.
-	msgID, err := telegram.SendQuestionMessage(agentCfg.BotToken, chatID, text, markup)
-	if err != nil {
-		log.Printf("[questions] failed to send question to Telegram for %s: %v", agentName, err)
-		return
-	}
-	batch.TelegramMsgID = msgID
-
-	store.store(batch)
-	log.Printf("[questions] sent question %s for %s (batch %s)", correlationID, agentName, batch.ShortID)
-}
-
 // buildQuestionPage converts a QuestionBatch into a QuestionPage for rendering.
 func buildQuestionPage(batch *QuestionBatch) telegram.QuestionPage {
 	q := batch.Questions[batch.CurrentPage]

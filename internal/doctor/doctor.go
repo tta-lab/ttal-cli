@@ -260,11 +260,7 @@ func checkConfig(fix bool) Section {
 		if ac.BotToken == "" || ac.BotToken == "TODO" {
 			section.add(LevelError, name, fmt.Sprintf("Agent %s: bot_token missing", name))
 		} else {
-			chatSource := "set"
-			if ac.ChatID == "" {
-				chatSource = "inherited"
-			}
-			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token ✓, chat_id ✓ (%s)", name, chatSource))
+			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token ✓", name))
 		}
 	}
 

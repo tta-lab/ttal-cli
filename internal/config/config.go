@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -127,19 +128,28 @@ type VoiceConfig struct {
 }
 
 // AgentConfig holds per-agent Telegram credentials and runtime settings.
-// ChatID is optional — falls back to the team/global ChatID.
 type AgentConfig struct {
 	BotToken string `toml:"bot_token" jsonschema:"description=Telegram bot token for this agent"`
-	ChatID   string `toml:"chat_id" jsonschema:"description=Per-agent chat ID override (falls back to team/global)"`
 	Port     int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
+	Runtime  string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"`
+	Model    string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`
 }
 
-// AgentChatID returns the effective chat ID for an agent (per-agent override or global).
-func (c *Config) AgentChatID(agent string) string {
-	if ac, ok := c.Agents[agent]; ok && ac.ChatID != "" {
-		return ac.ChatID
+// AgentRuntimeFor returns the effective runtime for an agent:
+// per-agent override > team agent_runtime > claude-code.
+func (c *Config) AgentRuntimeFor(agentName string) runtime.Runtime {
+	if ac, ok := c.Agents[agentName]; ok && ac.Runtime != "" {
+		return runtime.Runtime(ac.Runtime)
 	}
-	return c.ChatID
+	return c.AgentRuntime()
+}
+
+// AgentModelFor returns the effective model for an agent (default: "opus").
+func (c *Config) AgentModelFor(agentName string) string {
+	if ac, ok := c.Agents[agentName]; ok && ac.Model != "" {
+		return ac.Model
+	}
+	return "opus"
 }
 
 // DataDir returns the resolved data directory for the active team.
@@ -451,6 +461,206 @@ func (c *Config) validateMergeMode() error {
 		return fmt.Errorf("invalid merge_mode %q (must be %q or %q)", c.resolvedMergeMode, MergeModeAuto, MergeModeManual)
 	}
 	return nil
+}
+
+// MultiTeamConfig holds all teams' resolved configurations for the multi-team daemon.
+type MultiTeamConfig struct {
+	Global *Config                  // Raw config (Sync, Shell, Prompts, etc.)
+	Teams  map[string]*ResolvedTeam // team name -> resolved team config
+}
+
+// ResolvedTeam holds a single team's fully resolved config.
+type ResolvedTeam struct {
+	Name           string
+	TeamPath       string
+	DataDir        string
+	TaskRC         string
+	ChatID         string
+	LifecycleAgent string
+	AgentRuntime   string
+	WorkerRuntime  string
+	MergeMode      string
+	GatewayURL     string
+	HooksToken     string
+	Voice          VoiceConfig
+	Agents         map[string]AgentConfig
+}
+
+// TeamAgent pairs an agent with its team context.
+type TeamAgent struct {
+	TeamName  string
+	AgentName string
+	Config    AgentConfig
+	ChatID    string // team chat ID (all agents in a team share one chat)
+	TeamPath  string
+}
+
+// LoadAll loads config.toml and resolves ALL teams.
+// Used by the daemon to serve all teams from a single process.
+func LoadAll() (*MultiTeamConfig, error) {
+	path, err := Path()
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(path, &cfg); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("config not found: %s (run: ttal daemon install)", path)
+		}
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
+	if len(cfg.Teams) == 0 {
+		return nil, fmt.Errorf("config requires [teams] sections")
+	}
+
+	mcfg := &MultiTeamConfig{
+		Global: &cfg,
+		Teams:  make(map[string]*ResolvedTeam),
+	}
+
+	for teamName, team := range cfg.Teams {
+		rt, err := resolveTeam(teamName, team)
+		if err != nil {
+			return nil, fmt.Errorf("team %q: %w", teamName, err)
+		}
+		mcfg.Teams[teamName] = rt
+	}
+
+	return mcfg, nil
+}
+
+// resolveTeam resolves a single team's config fields.
+func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
+	if team.TeamPath == "" {
+		return nil, fmt.Errorf("missing required field: team_path")
+	}
+
+	rt := &ResolvedTeam{
+		Name:           teamName,
+		TeamPath:       expandHome(team.TeamPath),
+		ChatID:         team.ChatID,
+		LifecycleAgent: team.LifecycleAgent,
+		AgentRuntime:   team.AgentRuntime,
+		WorkerRuntime:  team.WorkerRuntime,
+		MergeMode:      team.MergeMode,
+		GatewayURL:     team.GatewayURL,
+		HooksToken:     team.HooksToken,
+		Voice: VoiceConfig{
+			Vocabulary: team.VoiceVocabulary,
+			Language:   team.VoiceLanguage,
+		},
+		Agents: team.Agents,
+	}
+
+	// Resolve DataDir
+	if team.DataDir != "" {
+		rt.DataDir = expandHome(team.DataDir)
+	} else if teamName == DefaultTeamName {
+		rt.DataDir = defaultDataDir()
+	} else {
+		rt.DataDir = filepath.Join(defaultDataDir(), teamName)
+	}
+
+	// Resolve TaskRC: explicit > convention (<data_dir>/taskrc) > default (~/.taskrc)
+	if team.TaskRC != "" {
+		rt.TaskRC = expandHome(team.TaskRC)
+	} else if teamName == DefaultTeamName {
+		rt.TaskRC = defaultTaskRC()
+	} else {
+		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
+	}
+
+	return rt, nil
+}
+
+// AllAgents returns all agents across all teams, sorted by team then agent name.
+func (m *MultiTeamConfig) AllAgents() []TeamAgent {
+	var agents []TeamAgent
+	for teamName, team := range m.Teams {
+		for agentName, ac := range team.Agents {
+			agents = append(agents, TeamAgent{
+				TeamName:  teamName,
+				AgentName: agentName,
+				Config:    ac,
+				ChatID:    team.ChatID,
+				TeamPath:  team.TeamPath,
+			})
+		}
+	}
+	sort.Slice(agents, func(i, j int) bool {
+		if agents[i].TeamName != agents[j].TeamName {
+			return agents[i].TeamName < agents[j].TeamName
+		}
+		return agents[i].AgentName < agents[j].AgentName
+	})
+	return agents
+}
+
+// FindAgent looks up which team an agent belongs to.
+// Returns the first match if agent names are unique across teams.
+func (m *MultiTeamConfig) FindAgent(agentName string) (*TeamAgent, bool) {
+	for teamName, team := range m.Teams {
+		if ac, ok := team.Agents[agentName]; ok {
+			ta := TeamAgent{
+				TeamName:  teamName,
+				AgentName: agentName,
+				Config:    ac,
+				ChatID:    team.ChatID,
+				TeamPath:  team.TeamPath,
+			}
+			return &ta, true
+		}
+	}
+	return nil, false
+}
+
+// FindAgentInTeam looks up an agent within a specific team.
+func (m *MultiTeamConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, bool) {
+	team, ok := m.Teams[teamName]
+	if !ok {
+		return nil, false
+	}
+	ac, ok := team.Agents[agentName]
+	if !ok {
+		return nil, false
+	}
+	ta := TeamAgent{
+		TeamName:  teamName,
+		AgentName: agentName,
+		Config:    ac,
+		ChatID:    team.ChatID,
+		TeamPath:  team.TeamPath,
+	}
+	return &ta, true
+}
+
+// AgentRuntimeForTeam resolves effective runtime for an agent in a team.
+func (m *MultiTeamConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.Runtime {
+	team, ok := m.Teams[teamName]
+	if !ok {
+		return runtime.ClaudeCode
+	}
+	if ac, ok := team.Agents[agentName]; ok && ac.Runtime != "" {
+		return runtime.Runtime(ac.Runtime)
+	}
+	if team.AgentRuntime != "" {
+		return runtime.Runtime(team.AgentRuntime)
+	}
+	return runtime.ClaudeCode
+}
+
+// AgentModelForTeam resolves effective model for an agent in a team.
+func (m *MultiTeamConfig) AgentModelForTeam(teamName, agentName string) string {
+	team, ok := m.Teams[teamName]
+	if !ok {
+		return "opus"
+	}
+	if ac, ok := team.Agents[agentName]; ok && ac.Model != "" {
+		return ac.Model
+	}
+	return "opus"
 }
 
 // resolvedPaths caches both dataDir and dbPath together from a single config load,

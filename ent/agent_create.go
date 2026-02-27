@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 )
@@ -69,34 +68,6 @@ func (_c *AgentCreate) SetNillableDescription(v *string) *AgentCreate {
 	return _c
 }
 
-// SetModel sets the "model" field.
-func (_c *AgentCreate) SetModel(v agent.Model) *AgentCreate {
-	_c.mutation.SetModel(v)
-	return _c
-}
-
-// SetNillableModel sets the "model" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableModel(v *agent.Model) *AgentCreate {
-	if v != nil {
-		_c.SetModel(*v)
-	}
-	return _c
-}
-
-// SetRuntime sets the "runtime" field.
-func (_c *AgentCreate) SetRuntime(v agent.Runtime) *AgentCreate {
-	_c.mutation.SetRuntime(v)
-	return _c
-}
-
-// SetNillableRuntime sets the "runtime" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableRuntime(v *agent.Runtime) *AgentCreate {
-	if v != nil {
-		_c.SetRuntime(*v)
-	}
-	return _c
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (_c *AgentCreate) SetCreatedAt(v time.Time) *AgentCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -109,21 +80,6 @@ func (_c *AgentCreate) SetNillableCreatedAt(v *time.Time) *AgentCreate {
 		_c.SetCreatedAt(*v)
 	}
 	return _c
-}
-
-// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
-func (_c *AgentCreate) AddTagIDs(ids ...int) *AgentCreate {
-	_c.mutation.AddTagIDs(ids...)
-	return _c
-}
-
-// AddTags adds the "tags" edges to the Tag entity.
-func (_c *AgentCreate) AddTags(v ...*Tag) *AgentCreate {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddTagIDs(ids...)
 }
 
 // Mutation returns the AgentMutation object of the builder.
@@ -161,10 +117,6 @@ func (_c *AgentCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AgentCreate) defaults() {
-	if _, ok := _c.mutation.Model(); !ok {
-		v := agent.DefaultModel
-		_c.mutation.SetModel(v)
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := agent.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -179,19 +131,6 @@ func (_c *AgentCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := agent.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.Model(); !ok {
-		return &ValidationError{Name: "model", err: errors.New(`ent: missing required field "Agent.model"`)}
-	}
-	if v, ok := _c.mutation.Model(); ok {
-		if err := agent.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
-		}
-	}
-	if v, ok := _c.mutation.Runtime(); ok {
-		if err := agent.RuntimeValidator(v); err != nil {
-			return &ValidationError{Name: "runtime", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
@@ -239,33 +178,9 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 		_spec.SetField(agent.FieldDescription, field.TypeString, value)
 		_node.Description = value
 	}
-	if value, ok := _c.mutation.Model(); ok {
-		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
-		_node.Model = value
-	}
-	if value, ok := _c.mutation.Runtime(); ok {
-		_spec.SetField(agent.FieldRuntime, field.TypeEnum, value)
-		_node.Runtime = &value
-	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agent.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
-	}
-	if nodes := _c.mutation.TagsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

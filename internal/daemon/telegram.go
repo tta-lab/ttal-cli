@@ -19,12 +19,13 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
-// startTelegramPoller starts a long-poll loop for one agent's bot.
-// It calls onMessage for each new user message, formatted for CC delivery.
+// startMultiAgentPoller starts a long-poll loop for one bot token serving multiple agents.
+// Dispatches messages by chat ID to the correct agent.
 // Runs until done is closed.
-func startTelegramPoller(
-	teamName, agentName string, cfg config.AgentConfig, chatID string,
-	onMessage func(agentName, text string), done <-chan struct{},
+func startMultiAgentPoller(
+	botToken string,
+	dispatch map[int64]pollerTarget,
+	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	allCommands []BotCommand,
 ) {
@@ -38,8 +39,8 @@ func startTelegramPoller(
 			default:
 			}
 
-			if err := runPoller(teamName, agentName, cfg, chatID, onMessage, done, qs, cas, registry, allCommands); err != nil {
-				log.Printf("[telegram] poller for %s failed: %v — retrying in %s", agentName, err, backoff)
+			if err := runMultiAgentPoller(botToken, dispatch, onMessage, done, qs, cas, registry, allCommands); err != nil {
+				log.Printf("[telegram] poller failed: %v — retrying in %s", err, backoff)
 				select {
 				case <-done:
 					return
@@ -55,17 +56,13 @@ func startTelegramPoller(
 	}()
 }
 
-func runPoller(
-	teamName, agentName string, cfg config.AgentConfig, effectiveChatID string,
-	onMessage func(agentName, text string), done <-chan struct{},
+func runMultiAgentPoller(
+	botToken string,
+	dispatch map[int64]pollerTarget,
+	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	allCommands []BotCommand,
 ) error {
-	chatID, err := telegram.ParseChatID(effectiveChatID)
-	if err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -78,14 +75,23 @@ func runPoller(
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		// Handle callback queries from inline keyboards
 		if update.CallbackQuery != nil {
-			handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
+			// Find chat ID from callback query
+			if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage && update.CallbackQuery.Message.Message != nil {
+				chatID := update.CallbackQuery.Message.Message.Chat.ID
+				if _, ok := dispatch[chatID]; ok {
+					handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
+				}
+			}
 			return
 		}
 
 		if update.Message == nil {
 			return
 		}
-		if update.Message.Chat.ID != chatID {
+		chatID := update.Message.Chat.ID
+
+		target, ok := dispatch[chatID]
+		if !ok {
 			return
 		}
 		if update.Message.From == nil {
@@ -99,19 +105,21 @@ func runPoller(
 			}
 		}
 
-		handleInboundMessage(ctx, b, update.Message, agentName, cfg.BotToken, effectiveChatID, onMessage)
+		handleInboundMessage(ctx, b, update.Message, target.agentName, botToken, target.chatID, func(agentName, text string) {
+			onMessage(target.teamName, agentName, text)
+		})
 	}
 
-	b, err := bot.New(cfg.BotToken, bot.WithDefaultHandler(defaultHandler))
+	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
 	if err != nil {
 		return fmt.Errorf("bot init: %w", err)
 	}
 
-	// Register bot commands using the library's command matching.
-	// MatchTypeCommandStartOnly uses Telegram's message entities to match
-	// /command at the start of the message, avoiding false matches on
-	// plain text like "new task..." that starts with a command word.
-	registerBotCommands(b, teamName, agentName, cfg.BotToken, effectiveChatID, chatID, allCommands)
+	// Register bot commands for ALL agents sharing this token.
+	// Each handler checks chat ID to route to the correct agent.
+	for chatID, target := range dispatch {
+		registerBotCommandsForAgent(b, target.teamName, target.agentName, botToken, target.chatID, chatID, allCommands)
+	}
 
 	b.Start(ctx)
 	return nil
@@ -186,12 +194,12 @@ func handleInboundMessage(
 	onMessage(agentName, formatInboundMessage(agentName, senderName, text))
 }
 
-// registerBotCommands registers each bot command as a handler on the bot instance.
+// registerBotCommandsForAgent registers each bot command as a handler on the bot instance.
 // Uses RegisterHandlerMatchFunc with a custom matcher that:
 //   - Checks for bot_command entity at message start (like MatchTypeCommandStartOnly)
 //   - Strips @botname suffix from the command for group chat compatibility
 //   - Validates chat ID so commands only work from the configured chat
-func registerBotCommands(b *bot.Bot, teamName, agentName, botToken, chatIDStr string, chatID int64, allCommands []BotCommand) {
+func registerBotCommandsForAgent(b *bot.Bot, teamName, agentName, botToken, chatIDStr string, chatID int64, allCommands []BotCommand) {
 	matchCommand := func(cmd string) bot.MatchFunc {
 		return func(update *models.Update) bool {
 			if update.Message == nil || update.Message.Chat.ID != chatID {
@@ -329,7 +337,7 @@ func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, agentName, fi
 		return "", fmt.Errorf("download file: HTTP %d", resp.StatusCode)
 	}
 
-	dir := filepath.Join(config.ResolveDataDir(), "files", agentName)
+	dir := filepath.Join(config.DefaultDataDir(), "files", agentName)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create file dir: %w", err)
 	}

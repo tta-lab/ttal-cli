@@ -1,20 +1,16 @@
 package team
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/daemon"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
-
-	entagent "codeberg.org/clawteam/ttal-cli/ent/agent"
 )
 
 // AgentTab holds the info needed to create a tab for one agent.
@@ -29,13 +25,12 @@ type AgentTab struct {
 // Start creates per-agent tmux sessions (one session per agent).
 // Without --force: skips already-running sessions, only starts missing ones.
 // With --force: kills and recreates all sessions.
-func Start(database *ent.Client, force bool) error {
+func Start(force bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	ctx := context.Background()
 	started := make([]AgentTab, 0, len(cfg.Agents))
 	skipped := make([]string, 0, len(cfg.Agents))
 
@@ -46,21 +41,11 @@ func Start(database *ent.Client, force bool) error {
 			continue
 		}
 
-		ag, err := database.Agent.Query().
-			Where(entagent.Name(agentName)).
-			Only(ctx)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: agent %q not found in ttal DB, skipping\n", agentName)
-			continue
-		}
-
-		// Precedence: agent DB runtime > team agent_runtime > "claude-code"
-		rt := cfg.AgentRuntime()
-		if ag.Runtime != nil {
-			rt = runtime.Runtime(*ag.Runtime)
-		}
+		// Precedence: agent config runtime > team agent_runtime > "claude-code"
+		rt := cfg.AgentRuntimeFor(agentName)
 		port := cfg.Agents[agentName].Port
-		tab := AgentTab{Name: agentName, Path: agentPath, Model: string(ag.Model), Runtime: rt, Port: port}
+		model := cfg.AgentModelFor(agentName)
+		tab := AgentTab{Name: agentName, Path: agentPath, Model: model, Runtime: rt, Port: port}
 		sessionName := config.AgentSessionName(cfg.TeamName(), agentName)
 
 		if tmux.SessionExists(sessionName) {

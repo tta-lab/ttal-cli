@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
 
@@ -37,15 +36,6 @@ func (Agent) Fields() []ent.Field {
 		field.String("description").
 			Optional().
 			Comment("Short role summary (e.g. 'Task orchestration and planning')"),
-		field.Enum("model").
-			Values("haiku", "sonnet", "opus").
-			Default("opus").
-			Comment("Claude model tier (haiku, sonnet, opus)"),
-		field.Enum("runtime").
-			Values("claude-code", "opencode", "codex", "openclaw").
-			Optional().
-			Nillable().
-			Comment("Coding agent runtime override. Nil = use team default."),
 		field.Time("created_at").
 			Default(time.Now).
 			Immutable().
@@ -55,8 +45,5 @@ func (Agent) Fields() []ent.Field {
 
 // Edges of the Agent.
 func (Agent) Edges() []ent.Edge {
-	return []ent.Edge{
-		edge.To("tags", Tag.Type).
-			Comment("Agent tags (M2M relation)"),
-	}
+	return nil
 }

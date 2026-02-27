@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"codeberg.org/clawteam/ttal-cli/internal/db"
 )
 
@@ -24,7 +23,6 @@ func TestProjectModifyAlias(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	proj, err := database.Project.Create().
 		SetAlias("old-alias").
 		SetName("Test Project").
@@ -33,7 +31,6 @@ func TestProjectModifyAlias(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Modify alias
 	_, err = proj.Update().
 		SetAlias("new-alias").
 		Save(ctx)
@@ -41,7 +38,6 @@ func TestProjectModifyAlias(t *testing.T) {
 		t.Fatalf("failed to update project alias: %v", err)
 	}
 
-	// Verify old alias no longer works
 	exists, err := database.Project.Query().
 		Where(project.Alias("old-alias")).
 		Exist(ctx)
@@ -52,7 +48,6 @@ func TestProjectModifyAlias(t *testing.T) {
 		t.Error("old alias should not exist after rename")
 	}
 
-	// Verify new alias works
 	updated, err := database.Project.Query().
 		Where(project.Alias("new-alias")).
 		Only(ctx)
@@ -68,7 +63,6 @@ func TestProjectModifyName(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	proj, err := database.Project.Create().
 		SetAlias("test-proj").
 		SetName("Old Name").
@@ -77,7 +71,6 @@ func TestProjectModifyName(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Modify name
 	_, err = proj.Update().
 		SetName(testNewName).
 		Save(ctx)
@@ -85,7 +78,6 @@ func TestProjectModifyName(t *testing.T) {
 		t.Fatalf("failed to update project name: %v", err)
 	}
 
-	// Verify
 	updated, err := database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -102,7 +94,6 @@ func TestProjectModifyDescription(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project without description
 	proj, err := database.Project.Create().
 		SetAlias("test-proj").
 		SetName("Test Project").
@@ -111,7 +102,6 @@ func TestProjectModifyDescription(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Add description
 	_, err = proj.Update().
 		SetDescription("Test description").
 		Save(ctx)
@@ -119,7 +109,6 @@ func TestProjectModifyDescription(t *testing.T) {
 		t.Fatalf("failed to update project description: %v", err)
 	}
 
-	// Verify
 	updated, err := database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -136,7 +125,6 @@ func TestProjectModifyPath(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	proj, err := database.Project.Create().
 		SetAlias("test-proj").
 		SetName("Test Project").
@@ -146,7 +134,6 @@ func TestProjectModifyPath(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Modify path
 	_, err = proj.Update().
 		SetPath(testNewPath).
 		Save(ctx)
@@ -154,7 +141,6 @@ func TestProjectModifyPath(t *testing.T) {
 		t.Fatalf("failed to update project path: %v", err)
 	}
 
-	// Verify
 	updated, err := database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -171,7 +157,6 @@ func TestProjectModifyRepo(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	proj, err := database.Project.Create().
 		SetAlias("test-proj").
 		SetName("Test Project").
@@ -180,7 +165,6 @@ func TestProjectModifyRepo(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Set repo fields
 	_, err = proj.Update().
 		SetRepo("owner/repo").
 		SetRepoType(project.RepoTypeForgejo).
@@ -190,7 +174,6 @@ func TestProjectModifyRepo(t *testing.T) {
 		t.Fatalf("failed to update project repo: %v", err)
 	}
 
-	// Verify
 	updated, err := database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -224,7 +207,6 @@ func TestProjectModifyRepoType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create project
 			proj, err := database.Project.Create().
 				SetAlias("test-" + tt.name).
 				SetName("Test Project").
@@ -233,7 +215,6 @@ func TestProjectModifyRepoType(t *testing.T) {
 				t.Fatalf("failed to create project: %v", err)
 			}
 
-			// Set repo type
 			_, err = proj.Update().
 				SetRepoType(tt.repoType).
 				Save(ctx)
@@ -241,7 +222,6 @@ func TestProjectModifyRepoType(t *testing.T) {
 				t.Fatalf("failed to update repo type: %v", err)
 			}
 
-			// Verify
 			updated, err := database.Project.Query().
 				Where(project.Alias("test-" + tt.name)).
 				Only(ctx)
@@ -256,81 +236,10 @@ func TestProjectModifyRepoType(t *testing.T) {
 	}
 }
 
-func TestProjectModifyTags(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	// Create tags
-	tag1, err := database.Tag.Create().SetName("backend").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create tag1: %v", err)
-	}
-	tag2, err := database.Tag.Create().SetName("frontend").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create tag2: %v", err)
-	}
-
-	// Create project with tag1
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Test Project").
-		AddTags(tag1).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
-
-	// Add tag2
-	_, err = proj.Update().
-		AddTags(tag2).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to add tag: %v", err)
-	}
-
-	// Verify project has both tags
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		WithTags().
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
-	}
-
-	if len(updated.Edges.Tags) != 2 {
-		t.Errorf("project has %d tags, want 2", len(updated.Edges.Tags))
-	}
-
-	// Remove tag1
-	_, err = updated.Update().
-		RemoveTags(tag1).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to remove tag: %v", err)
-	}
-
-	// Verify project only has tag2
-	updated, err = database.Project.Query().
-		Where(project.Alias("test-proj")).
-		WithTags().
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
-	}
-
-	if len(updated.Edges.Tags) != 1 {
-		t.Errorf("project has %d tags, want 1", len(updated.Edges.Tags))
-	}
-	if updated.Edges.Tags[0].Name != "frontend" {
-		t.Errorf("project tag = %v, want frontend", updated.Edges.Tags[0].Name)
-	}
-}
-
 func TestProjectModifyMultipleFields(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	proj, err := database.Project.Create().
 		SetAlias("test-proj").
 		SetName("Old Name").
@@ -340,7 +249,6 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Modify multiple fields at once
 	_, err = proj.Update().
 		SetName(testNewName).
 		SetDescription("New description").
@@ -353,7 +261,6 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 		t.Fatalf("failed to update project: %v", err)
 	}
 
-	// Verify all fields
 	updated, err := database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -381,74 +288,10 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 	}
 }
 
-func TestProjectModifyCombined(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	// Create tags
-	oldTag, err := database.Tag.Create().SetName("old").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create old tag: %v", err)
-	}
-	newTag, err := database.Tag.Create().SetName("new").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create new tag: %v", err)
-	}
-
-	// Create project
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Old Name").
-		SetPath("/old/path").
-		AddTags(oldTag).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
-
-	// Modify fields and tags in one operation
-	_, err = proj.Update().
-		SetName(testNewName).
-		SetPath(testNewPath).
-		SetDescription("New description").
-		AddTags(newTag).
-		RemoveTags(oldTag).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to update project: %v", err)
-	}
-
-	// Verify
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		WithTags().
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
-	}
-
-	if updated.Name != testNewName {
-		t.Errorf("project name = %v, want New Name", updated.Name)
-	}
-	if updated.Path != testNewPath {
-		t.Errorf("project path = %v, want /new/path", updated.Path)
-	}
-	if updated.Description != "New description" {
-		t.Errorf("project description = %v, want New description", updated.Description)
-	}
-	if len(updated.Edges.Tags) != 1 {
-		t.Errorf("project has %d tags, want 1", len(updated.Edges.Tags))
-	}
-	if updated.Edges.Tags[0].Name != "new" {
-		t.Errorf("project tag = %v, want new", updated.Edges.Tags[0].Name)
-	}
-}
-
 func TestProjectArchive(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	proj, err := database.Project.Create().
 		SetAlias("test-proj").
 		SetName("Test Project").
@@ -461,7 +304,6 @@ func TestProjectArchive(t *testing.T) {
 		t.Errorf("new project should not be archived")
 	}
 
-	// Archive project
 	_, err = database.Project.Update().
 		Where(project.Alias("test-proj")).
 		SetNillableArchivedAt(&[]time.Time{time.Now()}[0]).
@@ -470,7 +312,6 @@ func TestProjectArchive(t *testing.T) {
 		t.Fatalf("failed to archive project: %v", err)
 	}
 
-	// Verify archived
 	updated, err := database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -482,7 +323,6 @@ func TestProjectArchive(t *testing.T) {
 		t.Errorf("project should be archived")
 	}
 
-	// Unarchive
 	_, err = database.Project.Update().
 		Where(project.Alias("test-proj")).
 		ClearArchivedAt().
@@ -491,7 +331,6 @@ func TestProjectArchive(t *testing.T) {
 		t.Fatalf("failed to unarchive project: %v", err)
 	}
 
-	// Verify unarchived
 	updated, err = database.Project.Query().
 		Where(project.Alias("test-proj")).
 		Only(ctx)
@@ -508,7 +347,6 @@ func TestProjectDelete(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create project
 	_, err := database.Project.Create().
 		SetAlias("to-delete").
 		SetName("Delete Me").
@@ -517,7 +355,6 @@ func TestProjectDelete(t *testing.T) {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	// Delete project
 	count, err := database.Project.Delete().
 		Where(project.Alias("to-delete")).
 		Exec(ctx)
@@ -528,7 +365,6 @@ func TestProjectDelete(t *testing.T) {
 		t.Errorf("deleted %d projects, want 1", count)
 	}
 
-	// Verify it's gone
 	exists, err := database.Project.Query().
 		Where(project.Alias("to-delete")).
 		Exist(ctx)
@@ -537,45 +373,6 @@ func TestProjectDelete(t *testing.T) {
 	}
 	if exists {
 		t.Error("project should not exist after deletion")
-	}
-}
-
-func TestProjectDeleteWithTags(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	// Create tag and project with tag
-	testTag, err := database.Tag.Create().SetName("deletable").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create tag: %v", err)
-	}
-
-	_, err = database.Project.Create().
-		SetAlias("tagged-delete").
-		SetName("Tagged Delete").
-		AddTags(testTag).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
-
-	// Delete project
-	_, err = database.Project.Delete().
-		Where(project.Alias("tagged-delete")).
-		Exec(ctx)
-	if err != nil {
-		t.Fatalf("failed to delete project with tags: %v", err)
-	}
-
-	// Tag should still exist (only M2M relation removed)
-	tagExists, err := database.Tag.Query().
-		Where(tag.Name("deletable")).
-		Exist(ctx)
-	if err != nil {
-		t.Fatalf("failed to query tag: %v", err)
-	}
-	if !tagExists {
-		t.Error("tag should still exist after project deletion")
 	}
 }
 
@@ -598,7 +395,6 @@ func TestProjectListArchivedOnly(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
 
-	// Create active project
 	_, err := database.Project.Create().
 		SetAlias("active-proj").
 		SetName("Active").
@@ -607,7 +403,6 @@ func TestProjectListArchivedOnly(t *testing.T) {
 		t.Fatalf("failed to create active project: %v", err)
 	}
 
-	// Create archived project
 	now := time.Now()
 	_, err = database.Project.Create().
 		SetAlias("archived-proj").
@@ -618,7 +413,6 @@ func TestProjectListArchivedOnly(t *testing.T) {
 		t.Fatalf("failed to create archived project: %v", err)
 	}
 
-	// Query with archived filter (should only return archived)
 	archived, err := database.Project.Query().
 		Where(project.ArchivedAtNotNil()).
 		All(ctx)
@@ -632,7 +426,6 @@ func TestProjectListArchivedOnly(t *testing.T) {
 		t.Errorf("archived project alias = %v, want archived-proj", archived[0].Alias)
 	}
 
-	// Query without archived filter (should only return active)
 	active, err := database.Project.Query().
 		Where(project.ArchivedAtIsNil()).
 		All(ctx)
@@ -644,72 +437,5 @@ func TestProjectListArchivedOnly(t *testing.T) {
 	}
 	if len(active) > 0 && active[0].Alias != "active-proj" {
 		t.Errorf("active project alias = %v, want active-proj", active[0].Alias)
-	}
-}
-
-func TestProjectQueryWithTags(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	// Create tags
-	backendTag, err := database.Tag.Create().SetName("backend").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create backend tag: %v", err)
-	}
-	frontendTag, err := database.Tag.Create().SetName("frontend").Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create frontend tag: %v", err)
-	}
-
-	// Create projects
-	_, err = database.Project.Create().
-		SetAlias("proj1").
-		SetName("Project 1").
-		AddTags(backendTag).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create proj1: %v", err)
-	}
-
-	_, err = database.Project.Create().
-		SetAlias("proj2").
-		SetName("Project 2").
-		AddTags(frontendTag).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create proj2: %v", err)
-	}
-
-	_, err = database.Project.Create().
-		SetAlias("proj3").
-		SetName("Project 3").
-		AddTags(backendTag, frontendTag).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create proj3: %v", err)
-	}
-
-	// Query projects with backend tag
-	backendProjects, err := database.Project.Query().
-		Where(project.HasTagsWith(tag.Name("backend"))).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("failed to query backend projects: %v", err)
-	}
-
-	if len(backendProjects) != 2 {
-		t.Errorf("found %d backend projects, want 2", len(backendProjects))
-	}
-
-	// Query projects with frontend tag
-	frontendProjects, err := database.Project.Query().
-		Where(project.HasTagsWith(tag.Name("frontend"))).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("failed to query frontend projects: %v", err)
-	}
-
-	if len(frontendProjects) != 2 {
-		t.Errorf("found %d frontend projects, want 2", len(frontendProjects))
 	}
 }

@@ -26,6 +26,7 @@ const (
 type daemonSendRequest struct {
 	From    string `json:"from,omitempty"`
 	To      string `json:"to,omitempty"`
+	Team    string `json:"team,omitempty"`
 	Message string `json:"message"`
 }
 
@@ -44,7 +45,14 @@ var errDaemonNotRunning = fmt.Errorf("daemon not running")
 // Returns a descriptive error (prefixed "daemon error:") if the daemon
 // accepted the connection but rejected the request.
 func sendToDaemon(req daemonSendRequest) error {
-	sockPath := filepath.Join(config.ResolveDataDir(), "daemon.sock")
+	if req.Team == "" {
+		req.Team = os.Getenv("TTAL_TEAM")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("user home dir: %w", err)
+	}
+	sockPath := filepath.Join(home, ".ttal", "daemon.sock")
 
 	conn, err := net.DialTimeout("unix", sockPath, 5*time.Second)
 	if err != nil {
@@ -206,7 +214,7 @@ func passthroughTask(task hookTask) {
 
 // hookLog writes a structured log line to <data_dir>/hooks.log.
 func hookLog(eventType, taskUUID, description string, kvs ...string) {
-	logPath := filepath.Join(config.ResolveDataDir(), "hooks.log")
+	logPath := filepath.Join(config.DefaultDataDir(), "hooks.log")
 	timestamp := time.Now().Format("15:04:05")
 
 	shortUUID := taskUUID
@@ -260,7 +268,7 @@ func resolveLifecycleAgent() string {
 }
 
 func hookLogFile(message string) {
-	logPath := filepath.Join(config.ResolveDataDir(), "hooks.log")
+	logPath := filepath.Join(config.DefaultDataDir(), "hooks.log")
 	timestamp := time.Now().Format(time.RFC3339)
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {

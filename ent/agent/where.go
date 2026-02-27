@@ -7,7 +7,6 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent/predicate"
 	"entgo.io/ent/dialect/sql"
-	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // ID filters vertices based on their ID field.
@@ -370,56 +369,6 @@ func DescriptionContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldDescription, v))
 }
 
-// ModelEQ applies the EQ predicate on the "model" field.
-func ModelEQ(v Model) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldModel, v))
-}
-
-// ModelNEQ applies the NEQ predicate on the "model" field.
-func ModelNEQ(v Model) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldModel, v))
-}
-
-// ModelIn applies the In predicate on the "model" field.
-func ModelIn(vs ...Model) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldModel, vs...))
-}
-
-// ModelNotIn applies the NotIn predicate on the "model" field.
-func ModelNotIn(vs ...Model) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldModel, vs...))
-}
-
-// RuntimeEQ applies the EQ predicate on the "runtime" field.
-func RuntimeEQ(v Runtime) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldRuntime, v))
-}
-
-// RuntimeNEQ applies the NEQ predicate on the "runtime" field.
-func RuntimeNEQ(v Runtime) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldRuntime, v))
-}
-
-// RuntimeIn applies the In predicate on the "runtime" field.
-func RuntimeIn(vs ...Runtime) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldRuntime, vs...))
-}
-
-// RuntimeNotIn applies the NotIn predicate on the "runtime" field.
-func RuntimeNotIn(vs ...Runtime) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldRuntime, vs...))
-}
-
-// RuntimeIsNil applies the IsNil predicate on the "runtime" field.
-func RuntimeIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldRuntime))
-}
-
-// RuntimeNotNil applies the NotNil predicate on the "runtime" field.
-func RuntimeNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldRuntime))
-}
-
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldCreatedAt, v))
@@ -458,29 +407,6 @@ func CreatedAtLT(v time.Time) predicate.Agent {
 // CreatedAtLTE applies the LTE predicate on the "created_at" field.
 func CreatedAtLTE(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldLTE(FieldCreatedAt, v))
-}
-
-// HasTags applies the HasEdge predicate on the "tags" edge.
-func HasTags() predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, TagsTable, TagsPrimaryKey...),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasTagsWith applies the HasEdge predicate on the "tags" edge with a given conditions (other predicates).
-func HasTagsWith(preds ...predicate.Tag) predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := newTagsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
 }
 
 // And groups predicates with the AND operator between them.

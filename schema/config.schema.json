@@ -9,13 +9,28 @@
           "type": "string",
           "description": "Telegram bot token for this agent"
         },
-        "chat_id": {
-          "type": "string",
-          "description": "Per-agent chat ID override (falls back to team/global)"
-        },
         "port": {
           "type": "integer",
           "description": "API server port for opencode/codex runtimes"
+        },
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "claude-code",
+            "opencode",
+            "codex",
+            "openclaw"
+          ],
+          "description": "Per-agent runtime override (falls back to team agent_runtime)"
+        },
+        "model": {
+          "type": "string",
+          "enum": [
+            "haiku",
+            "sonnet",
+            "opus"
+          ],
+          "description": "Claude model tier (falls back to opus)"
         }
       },
       "additionalProperties": false,

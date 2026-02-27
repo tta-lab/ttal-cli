@@ -16,8 +16,6 @@ type Tx struct {
 	Agent *AgentClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
-	// Tag is the client for interacting with the Tag builders.
-	Tag *TagClient
 
 	// lazily loaded.
 	client     *Client
@@ -151,7 +149,6 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Agent = NewAgentClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
-	tx.Tag = NewTagClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

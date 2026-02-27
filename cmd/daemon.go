@@ -5,7 +5,6 @@ import (
 	"runtime"
 
 	"codeberg.org/clawteam/ttal-cli/internal/daemon"
-	"codeberg.org/clawteam/ttal-cli/internal/db"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +15,7 @@ var daemonCmd = &cobra.Command{
 	Short: "Bidirectional agent communication daemon",
 	Long: `Run the ttal daemon — manages Telegram polling, unix socket notifications,
 JSONL watching, and worker cleanup.`,
-	// Skip root's DB init — daemon opens its own
+	// Skip root's DB init — daemon is config-driven, no DB needed
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
@@ -24,12 +23,7 @@ JSONL watching, and worker cleanup.`,
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		database, err := db.New(db.DefaultPath())
-		if err != nil {
-			return fmt.Errorf("open database: %w", err)
-		}
-		defer database.Close()
-		return daemon.Run(database.Client)
+		return daemon.Run()
 	},
 }
 

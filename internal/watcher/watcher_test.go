@@ -18,9 +18,9 @@ func TestEncodePath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := encodePath(tt.path)
+			got := EncodePath(tt.path)
 			if got != tt.want {
-				t.Errorf("encodePath(%q) = %q, want %q", tt.path, got, tt.want)
+				t.Errorf("EncodePath(%q) = %q, want %q", tt.path, got, tt.want)
 			}
 		})
 	}

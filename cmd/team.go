@@ -34,7 +34,7 @@ Examples:
 			os.Setenv("TTAL_TEAM", args[0])
 		}
 		force, _ := cmd.Flags().GetBool("force")
-		return team.Start(database.Client, force)
+		return team.Start(force)
 	},
 }
 

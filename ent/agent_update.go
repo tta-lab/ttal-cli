@@ -9,7 +9,6 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/ent/predicate"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -102,79 +101,9 @@ func (_u *AgentUpdate) ClearDescription() *AgentUpdate {
 	return _u
 }
 
-// SetModel sets the "model" field.
-func (_u *AgentUpdate) SetModel(v agent.Model) *AgentUpdate {
-	_u.mutation.SetModel(v)
-	return _u
-}
-
-// SetNillableModel sets the "model" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableModel(v *agent.Model) *AgentUpdate {
-	if v != nil {
-		_u.SetModel(*v)
-	}
-	return _u
-}
-
-// SetRuntime sets the "runtime" field.
-func (_u *AgentUpdate) SetRuntime(v agent.Runtime) *AgentUpdate {
-	_u.mutation.SetRuntime(v)
-	return _u
-}
-
-// SetNillableRuntime sets the "runtime" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableRuntime(v *agent.Runtime) *AgentUpdate {
-	if v != nil {
-		_u.SetRuntime(*v)
-	}
-	return _u
-}
-
-// ClearRuntime clears the value of the "runtime" field.
-func (_u *AgentUpdate) ClearRuntime() *AgentUpdate {
-	_u.mutation.ClearRuntime()
-	return _u
-}
-
-// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
-func (_u *AgentUpdate) AddTagIDs(ids ...int) *AgentUpdate {
-	_u.mutation.AddTagIDs(ids...)
-	return _u
-}
-
-// AddTags adds the "tags" edges to the Tag entity.
-func (_u *AgentUpdate) AddTags(v ...*Tag) *AgentUpdate {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddTagIDs(ids...)
-}
-
 // Mutation returns the AgentMutation object of the builder.
 func (_u *AgentUpdate) Mutation() *AgentMutation {
 	return _u.mutation
-}
-
-// ClearTags clears all "tags" edges to the Tag entity.
-func (_u *AgentUpdate) ClearTags() *AgentUpdate {
-	_u.mutation.ClearTags()
-	return _u
-}
-
-// RemoveTagIDs removes the "tags" edge to Tag entities by IDs.
-func (_u *AgentUpdate) RemoveTagIDs(ids ...int) *AgentUpdate {
-	_u.mutation.RemoveTagIDs(ids...)
-	return _u
-}
-
-// RemoveTags removes "tags" edges to Tag entities.
-func (_u *AgentUpdate) RemoveTags(v ...*Tag) *AgentUpdate {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveTagIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -209,16 +138,6 @@ func (_u *AgentUpdate) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := agent.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Model(); ok {
-		if err := agent.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Runtime(); ok {
-		if err := agent.RuntimeValidator(v); err != nil {
-			return &ValidationError{Name: "runtime", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime": %w`, err)}
 		}
 	}
 	return nil
@@ -256,60 +175,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(agent.FieldDescription, field.TypeString)
-	}
-	if value, ok := _u.mutation.Model(); ok {
-		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.Runtime(); ok {
-		_spec.SetField(agent.FieldRuntime, field.TypeEnum, value)
-	}
-	if _u.mutation.RuntimeCleared() {
-		_spec.ClearField(agent.FieldRuntime, field.TypeEnum)
-	}
-	if _u.mutation.TagsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedTagsIDs(); len(nodes) > 0 && !_u.mutation.TagsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.TagsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -405,79 +270,9 @@ func (_u *AgentUpdateOne) ClearDescription() *AgentUpdateOne {
 	return _u
 }
 
-// SetModel sets the "model" field.
-func (_u *AgentUpdateOne) SetModel(v agent.Model) *AgentUpdateOne {
-	_u.mutation.SetModel(v)
-	return _u
-}
-
-// SetNillableModel sets the "model" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableModel(v *agent.Model) *AgentUpdateOne {
-	if v != nil {
-		_u.SetModel(*v)
-	}
-	return _u
-}
-
-// SetRuntime sets the "runtime" field.
-func (_u *AgentUpdateOne) SetRuntime(v agent.Runtime) *AgentUpdateOne {
-	_u.mutation.SetRuntime(v)
-	return _u
-}
-
-// SetNillableRuntime sets the "runtime" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableRuntime(v *agent.Runtime) *AgentUpdateOne {
-	if v != nil {
-		_u.SetRuntime(*v)
-	}
-	return _u
-}
-
-// ClearRuntime clears the value of the "runtime" field.
-func (_u *AgentUpdateOne) ClearRuntime() *AgentUpdateOne {
-	_u.mutation.ClearRuntime()
-	return _u
-}
-
-// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
-func (_u *AgentUpdateOne) AddTagIDs(ids ...int) *AgentUpdateOne {
-	_u.mutation.AddTagIDs(ids...)
-	return _u
-}
-
-// AddTags adds the "tags" edges to the Tag entity.
-func (_u *AgentUpdateOne) AddTags(v ...*Tag) *AgentUpdateOne {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddTagIDs(ids...)
-}
-
 // Mutation returns the AgentMutation object of the builder.
 func (_u *AgentUpdateOne) Mutation() *AgentMutation {
 	return _u.mutation
-}
-
-// ClearTags clears all "tags" edges to the Tag entity.
-func (_u *AgentUpdateOne) ClearTags() *AgentUpdateOne {
-	_u.mutation.ClearTags()
-	return _u
-}
-
-// RemoveTagIDs removes the "tags" edge to Tag entities by IDs.
-func (_u *AgentUpdateOne) RemoveTagIDs(ids ...int) *AgentUpdateOne {
-	_u.mutation.RemoveTagIDs(ids...)
-	return _u
-}
-
-// RemoveTags removes "tags" edges to Tag entities.
-func (_u *AgentUpdateOne) RemoveTags(v ...*Tag) *AgentUpdateOne {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveTagIDs(ids...)
 }
 
 // Where appends a list predicates to the AgentUpdate builder.
@@ -525,16 +320,6 @@ func (_u *AgentUpdateOne) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := agent.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Model(); ok {
-		if err := agent.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "Agent.model": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Runtime(); ok {
-		if err := agent.RuntimeValidator(v); err != nil {
-			return &ValidationError{Name: "runtime", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime": %w`, err)}
 		}
 	}
 	return nil
@@ -589,60 +374,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(agent.FieldDescription, field.TypeString)
-	}
-	if value, ok := _u.mutation.Model(); ok {
-		_spec.SetField(agent.FieldModel, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.Runtime(); ok {
-		_spec.SetField(agent.FieldRuntime, field.TypeEnum, value)
-	}
-	if _u.mutation.RuntimeCleared() {
-		_spec.ClearField(agent.FieldRuntime, field.TypeEnum)
-	}
-	if _u.mutation.TagsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedTagsIDs(); len(nodes) > 0 && !_u.mutation.TagsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.TagsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.TagsTable,
-			Columns: agent.TagsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Agent{config: _u.config}
 	_spec.Assign = _node.assignValues

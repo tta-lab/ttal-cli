@@ -8,7 +8,6 @@ import (
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"codeberg.org/clawteam/ttal-cli/ent/schema"
-	"codeberg.org/clawteam/ttal-cli/ent/tag"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -36,7 +35,7 @@ func init() {
 		}
 	}()
 	// agentDescCreatedAt is the schema descriptor for created_at field.
-	agentDescCreatedAt := agentFields[6].Descriptor()
+	agentDescCreatedAt := agentFields[4].Descriptor()
 	// agent.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agent.DefaultCreatedAt = agentDescCreatedAt.Default.(func() time.Time)
 	projectFields := schema.Project{}.Fields()
@@ -59,24 +58,4 @@ func init() {
 	project.DefaultUpdatedAt = projectDescUpdatedAt.Default.(func() time.Time)
 	// project.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	project.UpdateDefaultUpdatedAt = projectDescUpdatedAt.UpdateDefault.(func() time.Time)
-	tagFields := schema.Tag{}.Fields()
-	_ = tagFields
-	// tagDescName is the schema descriptor for name field.
-	tagDescName := tagFields[0].Descriptor()
-	// tag.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	tag.NameValidator = func() func(string) error {
-		validators := tagDescName.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(name string) error {
-			for _, fn := range fns {
-				if err := fn(name); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
 }
