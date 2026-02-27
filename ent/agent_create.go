@@ -27,20 +27,6 @@ func (_c *AgentCreate) SetName(v string) *AgentCreate {
 	return _c
 }
 
-// SetPath sets the "path" field.
-func (_c *AgentCreate) SetPath(v string) *AgentCreate {
-	_c.mutation.SetPath(v)
-	return _c
-}
-
-// SetNillablePath sets the "path" field if the given value is not nil.
-func (_c *AgentCreate) SetNillablePath(v *string) *AgentCreate {
-	if v != nil {
-		_c.SetPath(*v)
-	}
-	return _c
-}
-
 // SetVoice sets the "voice" field.
 func (_c *AgentCreate) SetVoice(v string) *AgentCreate {
 	_c.mutation.SetVoice(v)
@@ -240,10 +226,6 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
 		_node.Name = value
-	}
-	if value, ok := _c.mutation.Path(); ok {
-		_spec.SetField(agent.FieldPath, field.TypeString, value)
-		_node.Path = value
 	}
 	if value, ok := _c.mutation.Voice(); ok {
 		_spec.SetField(agent.FieldVoice, field.TypeString, value)

@@ -106,6 +106,14 @@
     },
     "TeamConfig": {
       "properties": {
+        "team_path": {
+          "type": "string",
+          "description": "Root path for agent workspaces. Agent path = team_path/agent_name."
+        },
+        "db_path": {
+          "type": "string",
+          "description": "Path to ttal.db (default: \u003cdata_dir\u003e/ttal.db). Set to share DB across teams."
+        },
         "data_dir": {
           "type": "string",
           "description": "ttal data directory (default: ~/.ttal/\u003cteam\u003e)"

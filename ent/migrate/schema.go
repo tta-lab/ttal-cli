@@ -12,7 +12,6 @@ var (
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString, Unique: true},
-		{Name: "path", Type: field.TypeString, Nullable: true},
 		{Name: "voice", Type: field.TypeString, Nullable: true},
 		{Name: "emoji", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString, Nullable: true},

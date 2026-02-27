@@ -40,15 +40,17 @@ func Start(database *ent.Client, force bool) error {
 	skipped := make([]string, 0, len(cfg.Agents))
 
 	for agentName := range cfg.Agents {
+		agentPath := cfg.AgentPath(agentName)
+		if agentPath == "" {
+			fmt.Fprintf(os.Stderr, "warning: agent %q has no path (set team_path in config), skipping\n", agentName)
+			continue
+		}
+
 		ag, err := database.Agent.Query().
 			Where(entagent.Name(agentName)).
 			Only(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: agent %q not found in ttal DB, skipping\n", agentName)
-			continue
-		}
-		if ag.Path == "" {
-			fmt.Fprintf(os.Stderr, "warning: agent %q has no path, skipping\n", agentName)
 			continue
 		}
 
@@ -58,7 +60,7 @@ func Start(database *ent.Client, force bool) error {
 			rt = runtime.Runtime(*ag.Runtime)
 		}
 		port := cfg.Agents[agentName].Port
-		tab := AgentTab{Name: agentName, Path: ag.Path, Model: string(ag.Model), Runtime: rt, Port: port}
+		tab := AgentTab{Name: agentName, Path: agentPath, Model: string(ag.Model), Runtime: rt, Port: port}
 		sessionName := config.AgentSessionName(agentName)
 
 		if tmux.SessionExists(sessionName) {
@@ -83,7 +85,7 @@ func Start(database *ent.Client, force bool) error {
 	}
 
 	if len(started) == 0 && len(skipped) == 0 {
-		return fmt.Errorf("no agent sessions started — register agents with: ttal agent add <name> --path <path>")
+		return fmt.Errorf("no agent sessions started — set team_path in config and register agents with: ttal agent add <name>")
 	}
 
 	if len(started) > 0 {

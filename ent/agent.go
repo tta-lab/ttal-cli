@@ -19,8 +19,6 @@ type Agent struct {
 	ID int `json:"id,omitempty"`
 	// Agent name (unique identifier, lowercase)
 	Name string `json:"name,omitempty"`
-	// Agent workspace path
-	Path string `json:"path,omitempty"`
 	// Kokoro TTS voice ID (e.g. af_heart, af_sky)
 	Voice string `json:"voice,omitempty"`
 	// Display emoji (e.g. 🐱, 🦅)
@@ -64,7 +62,7 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldID:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldPath, agent.FieldVoice, agent.FieldEmoji, agent.FieldDescription, agent.FieldModel, agent.FieldRuntime:
+		case agent.FieldName, agent.FieldVoice, agent.FieldEmoji, agent.FieldDescription, agent.FieldModel, agent.FieldRuntime:
 			values[i] = new(sql.NullString)
 		case agent.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -94,12 +92,6 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
-			}
-		case agent.FieldPath:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field path", values[i])
-			} else if value.Valid {
-				_m.Path = value.String
 			}
 		case agent.FieldVoice:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -181,9 +173,6 @@ func (_m *Agent) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
-	builder.WriteString(", ")
-	builder.WriteString("path=")
-	builder.WriteString(_m.Path)
 	builder.WriteString(", ")
 	builder.WriteString("voice=")
 	builder.WriteString(_m.Voice)

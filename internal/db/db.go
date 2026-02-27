@@ -15,9 +15,9 @@ type DB struct {
 	*ent.Client
 }
 
-// DefaultPath returns the default database path (<data_dir>/ttal.db).
+// DefaultPath returns the default database path for the active team.
 func DefaultPath() string {
-	return filepath.Join(config.ResolveDataDir(), "ttal.db")
+	return config.ResolveDBPath()
 }
 
 // New creates a new database connection and runs migrations

@@ -60,11 +60,6 @@ func Name(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldName, v))
 }
 
-// Path applies equality check predicate on the "path" field. It's identical to PathEQ.
-func Path(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldPath, v))
-}
-
 // Voice applies equality check predicate on the "voice" field. It's identical to VoiceEQ.
 func Voice(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldVoice, v))
@@ -148,81 +143,6 @@ func NameEqualFold(v string) predicate.Agent {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldName, v))
-}
-
-// PathEQ applies the EQ predicate on the "path" field.
-func PathEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldPath, v))
-}
-
-// PathNEQ applies the NEQ predicate on the "path" field.
-func PathNEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldPath, v))
-}
-
-// PathIn applies the In predicate on the "path" field.
-func PathIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldPath, vs...))
-}
-
-// PathNotIn applies the NotIn predicate on the "path" field.
-func PathNotIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldPath, vs...))
-}
-
-// PathGT applies the GT predicate on the "path" field.
-func PathGT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldPath, v))
-}
-
-// PathGTE applies the GTE predicate on the "path" field.
-func PathGTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldPath, v))
-}
-
-// PathLT applies the LT predicate on the "path" field.
-func PathLT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldPath, v))
-}
-
-// PathLTE applies the LTE predicate on the "path" field.
-func PathLTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldPath, v))
-}
-
-// PathContains applies the Contains predicate on the "path" field.
-func PathContains(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContains(FieldPath, v))
-}
-
-// PathHasPrefix applies the HasPrefix predicate on the "path" field.
-func PathHasPrefix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasPrefix(FieldPath, v))
-}
-
-// PathHasSuffix applies the HasSuffix predicate on the "path" field.
-func PathHasSuffix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasSuffix(FieldPath, v))
-}
-
-// PathIsNil applies the IsNil predicate on the "path" field.
-func PathIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldPath))
-}
-
-// PathNotNil applies the NotNil predicate on the "path" field.
-func PathNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldPath))
-}
-
-// PathEqualFold applies the EqualFold predicate on the "path" field.
-func PathEqualFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEqualFold(FieldPath, v))
-}
-
-// PathContainsFold applies the ContainsFold predicate on the "path" field.
-func PathContainsFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContainsFold(FieldPath, v))
 }
 
 // VoiceEQ applies the EQ predicate on the "voice" field.

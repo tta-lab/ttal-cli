@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 const (
@@ -43,7 +44,11 @@ func Install() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	hookDir := filepath.Join(cfg.TaskData(), "hooks")
+	taskDataDir, err := taskwarrior.ResolveDataLocation()
+	if err != nil {
+		return fmt.Errorf("failed to resolve task data location (is taskwarrior installed and taskrc configured?): %w", err)
+	}
+	hookDir := filepath.Join(taskDataDir, "hooks")
 	teamName := cfg.TeamName()
 
 	fmt.Printf("Using ttal binary: %s\n", ttalBin)
@@ -61,11 +66,11 @@ func Install() error {
 
 // Uninstall removes the taskwarrior hooks.
 func Uninstall() error {
-	cfg, err := config.Load()
+	taskDataDir, err := taskwarrior.ResolveDataLocation()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return fmt.Errorf("failed to resolve task data location (is taskwarrior installed and taskrc configured?): %w", err)
 	}
-	hookDir := filepath.Join(cfg.TaskData(), "hooks")
+	hookDir := filepath.Join(taskDataDir, "hooks")
 
 	for _, name := range []string{onModifyHookName, onAddHookName} {
 		hookPath := filepath.Join(hookDir, name)

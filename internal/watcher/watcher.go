@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/fsnotify/fsnotify"
 )
@@ -42,6 +43,11 @@ func New(database *ent.Client, send SendFunc, onQuestion QuestionFunc) (*Watcher
 		return nil, err
 	}
 
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
 	agents, err := database.Agent.Query().All(context.Background())
 	if err != nil {
 		return nil, err
@@ -49,10 +55,11 @@ func New(database *ent.Client, send SendFunc, onQuestion QuestionFunc) (*Watcher
 
 	agentMap := make(map[string]string)
 	for _, a := range agents {
-		if a.Path == "" {
+		agentPath := cfg.AgentPath(a.Name)
+		if agentPath == "" {
 			continue
 		}
-		encoded := encodePath(a.Path)
+		encoded := encodePath(agentPath)
 		agentMap[encoded] = a.Name
 	}
 

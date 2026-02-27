@@ -42,26 +42,6 @@ func (_u *AgentUpdate) SetNillableName(v *string) *AgentUpdate {
 	return _u
 }
 
-// SetPath sets the "path" field.
-func (_u *AgentUpdate) SetPath(v string) *AgentUpdate {
-	_u.mutation.SetPath(v)
-	return _u
-}
-
-// SetNillablePath sets the "path" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillablePath(v *string) *AgentUpdate {
-	if v != nil {
-		_u.SetPath(*v)
-	}
-	return _u
-}
-
-// ClearPath clears the value of the "path" field.
-func (_u *AgentUpdate) ClearPath() *AgentUpdate {
-	_u.mutation.ClearPath()
-	return _u
-}
-
 // SetVoice sets the "voice" field.
 func (_u *AgentUpdate) SetVoice(v string) *AgentUpdate {
 	_u.mutation.SetVoice(v)
@@ -259,12 +239,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.Path(); ok {
-		_spec.SetField(agent.FieldPath, field.TypeString, value)
-	}
-	if _u.mutation.PathCleared() {
-		_spec.ClearField(agent.FieldPath, field.TypeString)
-	}
 	if value, ok := _u.mutation.Voice(); ok {
 		_spec.SetField(agent.FieldVoice, field.TypeString, value)
 	}
@@ -368,26 +342,6 @@ func (_u *AgentUpdateOne) SetNillableName(v *string) *AgentUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
 	}
-	return _u
-}
-
-// SetPath sets the "path" field.
-func (_u *AgentUpdateOne) SetPath(v string) *AgentUpdateOne {
-	_u.mutation.SetPath(v)
-	return _u
-}
-
-// SetNillablePath sets the "path" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillablePath(v *string) *AgentUpdateOne {
-	if v != nil {
-		_u.SetPath(*v)
-	}
-	return _u
-}
-
-// ClearPath clears the value of the "path" field.
-func (_u *AgentUpdateOne) ClearPath() *AgentUpdateOne {
-	_u.mutation.ClearPath()
 	return _u
 }
 
@@ -617,12 +571,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.Path(); ok {
-		_spec.SetField(agent.FieldPath, field.TypeString, value)
-	}
-	if _u.mutation.PathCleared() {
-		_spec.ClearField(agent.FieldPath, field.TypeString)
 	}
 	if value, ok := _u.mutation.Voice(); ok {
 		_spec.SetField(agent.FieldVoice, field.TypeString, value)

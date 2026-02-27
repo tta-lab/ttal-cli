@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
@@ -22,7 +21,7 @@ import (
 //  2. If no match but only ONE project exists in DB → use it (single-project shortcut)
 //  3. Otherwise → return empty (no match)
 func ResolveProjectPath(projectName string) string {
-	dbPath := filepath.Join(config.ResolveDataDir(), "ttal.db")
+	dbPath := config.ResolveDBPath()
 	if _, err := os.Stat(dbPath); err != nil {
 		return ""
 	}

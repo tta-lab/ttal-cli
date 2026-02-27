@@ -19,7 +19,6 @@ import (
 
 var (
 	agentName        string
-	agentPath        string
 	agentVoice       string
 	agentEmoji       string
 	agentDescription string
@@ -39,7 +38,7 @@ var agentAddCmd = &cobra.Command{
 	Long: `Add a new agent to the database.
 
 Example:
-  ttal agent add yuki --path=/Users/neil/clawd/.openclaw-main +secretary +core`,
+  ttal agent add yuki +secretary +core`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -72,9 +71,6 @@ Example:
 		creator := database.Agent.Create().
 			SetName(name)
 
-		if agentPath != "" {
-			creator = creator.SetPath(agentPath)
-		}
 		if agentVoice != "" {
 			if !voice.IsValidVoice(agentVoice) {
 				return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", agentVoice)
@@ -152,7 +148,7 @@ Examples:
 
 		// Print table
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tMODEL\tRUNTIME\tTAGS\tPATH")
+		_, _ = fmt.Fprintln(w, "NAME\tMODEL\tRUNTIME\tTAGS")
 		for _, a := range agents {
 			// Extract tag names from edges
 			var tags []string
@@ -175,8 +171,8 @@ Examples:
 				rt = string(*a.Runtime)
 			}
 
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				name, model, rt, formatTags(tags), a.Path)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+				name, model, rt, formatTags(tags))
 		}
 		_ = w.Flush()
 
@@ -218,9 +214,6 @@ Example:
 		}
 		if ag.Model != "" {
 			fmt.Printf("Model:     %s\n", ag.Model)
-		}
-		if ag.Path != "" {
-			fmt.Printf("Path:      %s\n", ag.Path)
 		}
 		if ag.Voice != "" {
 			fmt.Printf("Voice:     %s\n", ag.Voice)
@@ -275,10 +268,10 @@ Examples:
   ttal agent modify yuki -old +research
 
   # Field modifications
-  ttal agent modify yuki path:/Users/neil/clawd/.openclaw-main
+  ttal agent modify yuki voice:af_heart
 
   # Combined operations
-  ttal agent modify yuki path:/new/path +backend -legacy`,
+  ttal agent modify yuki emoji:🐱 +backend -legacy`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -305,8 +298,6 @@ Examples:
 		// Apply field updates
 		for field, value := range fieldUpdates {
 			switch field {
-			case "path":
-				updater = updater.SetPath(value)
 			case "voice":
 				if !voice.IsValidVoice(value) {
 					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
@@ -327,7 +318,7 @@ Examples:
 				}
 				updater = updater.SetRuntime(agent.Runtime(value))
 			default:
-				return fmt.Errorf("unknown field '%s' (available: path, voice, emoji, description, model, runtime)", field)
+				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, model, runtime)", field)
 			}
 		}
 
@@ -449,7 +440,6 @@ func init() {
 	agentCmd.AddCommand(agentSyncTokensCmd)
 
 	// Flags for agent add
-	agentAddCmd.Flags().StringVar(&agentPath, "path", "", "Agent workspace path")
 	agentAddCmd.Flags().StringVar(&agentVoice, "voice", "", "Kokoro TTS voice ID (e.g. af_heart, af_sky)")
 	agentAddCmd.Flags().StringVar(&agentEmoji, "emoji", "", "Display emoji (e.g. 🐱, 🦅)")
 	agentAddCmd.Flags().StringVar(&agentDescription, "description", "", "Short role summary")

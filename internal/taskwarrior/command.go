@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 )
@@ -36,6 +37,24 @@ func commandContext(ctx context.Context, args ...string) *exec.Cmd {
 
 	fullArgs = append(fullArgs, args...)
 	return exec.CommandContext(ctx, "task", fullArgs...)
+}
+
+// ResolveDataLocation asks taskwarrior for the actual data.location value,
+// respecting the active team's taskrc. Returns the resolved absolute path.
+func ResolveDataLocation() (string, error) {
+	args := []string{"_get", "rc.data.location"}
+	if taskrc := resolveTaskRC(); taskrc != "" {
+		args = append([]string{"rc:" + taskrc}, args...)
+	}
+	out, err := exec.Command("task", args...).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to query task data.location: %w", err)
+	}
+	loc := strings.TrimSpace(string(out))
+	if loc == "" {
+		return "", fmt.Errorf("task data.location is empty")
+	}
+	return loc, nil
 }
 
 // resolveTaskRC returns the active team's taskrc path if it differs

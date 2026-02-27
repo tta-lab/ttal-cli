@@ -10,6 +10,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/daemon"
 	"codeberg.org/clawteam/ttal-cli/internal/db"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 // Level indicates the severity of a check result.
@@ -359,8 +360,12 @@ func checkTaskwarrior(fix bool) Section {
 		}
 	}
 
-	// Check task data directory exists
-	taskData := cfg.TaskData()
+	// Check task data directory exists (use taskwarrior's resolved location)
+	taskData, tdErr := taskwarrior.ResolveDataLocation()
+	if tdErr != nil {
+		// Fall back to config-derived path if taskwarrior isn't available yet
+		taskData = cfg.TaskData()
+	}
 	if _, err := os.Stat(taskData); os.IsNotExist(err) {
 		if fix {
 			if err := os.MkdirAll(taskData, 0o755); err != nil {

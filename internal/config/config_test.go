@@ -119,6 +119,7 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
+						TeamPath:       "/tmp/test",
 						MergeMode:      "manual",
 						ChatID:         "x",
 						LifecycleAgent: "k",
@@ -135,6 +136,7 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
+						TeamPath:       "/tmp/test",
 						ChatID:         "x",
 						LifecycleAgent: "k",
 						Agents:         map[string]AgentConfig{"k": {}},
@@ -154,6 +156,7 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
+						TeamPath:       "/tmp/test",
 						ChatID:         "x",
 						LifecycleAgent: "k",
 						Agents:         map[string]AgentConfig{"k": {}},
@@ -206,6 +209,7 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: DefaultTeamName,
 				Teams: map[string]TeamConfig{
 					DefaultTeamName: {
+						TeamPath:       "/tmp/agents",
 						ChatID:         "x",
 						LifecycleAgent: "k",
 						Agents:         map[string]AgentConfig{"k": {}},
@@ -222,6 +226,7 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
+						TeamPath:       "/tmp/agents",
 						ChatID:         "x",
 						LifecycleAgent: "k",
 						Agents:         map[string]AgentConfig{"k": {}},
@@ -238,6 +243,7 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
+						TeamPath:       "/tmp/agents",
 						DataDir:        "/tmp/custom",
 						ChatID:         "x",
 						LifecycleAgent: "k",
@@ -255,6 +261,7 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
+						TeamPath:       "/tmp/agents",
 						TaskRC:         "/tmp/my-taskrc",
 						ChatID:         "x",
 						LifecycleAgent: "k",
@@ -282,6 +289,70 @@ func TestConventionBasedPaths(t *testing.T) {
 				t.Errorf("TaskData() = %q, want %q", got, tt.wantTaskData)
 			}
 		})
+	}
+}
+
+func TestAgentPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *Config
+		agent    string
+		wantPath string
+	}{
+		{
+			"empty team_path returns empty",
+			&Config{},
+			"kestrel",
+			"",
+		},
+		{
+			"normal path joins correctly",
+			&Config{resolvedTeamPath: "/home/user/agents"},
+			"kestrel",
+			"/home/user/agents/kestrel",
+		},
+		{
+			"different agent name",
+			&Config{resolvedTeamPath: "/opt/teams/default"},
+			"athena",
+			"/opt/teams/default/athena",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.AgentPath(tt.agent); got != tt.wantPath {
+				t.Errorf("AgentPath(%q) = %q, want %q", tt.agent, got, tt.wantPath)
+			}
+		})
+	}
+}
+
+func TestAgentPathFromResolve(t *testing.T) {
+	cfg := &Config{
+		DefaultTeam: "test",
+		Teams: map[string]TeamConfig{
+			"test": {
+				TeamPath:       "~/agents",
+				ChatID:         "x",
+				LifecycleAgent: "k",
+				Agents:         map[string]AgentConfig{"k": {}},
+			},
+		},
+	}
+	if err := cfg.resolve(); err != nil {
+		t.Fatalf("resolve() error: %v", err)
+	}
+
+	// After resolve, team_path with ~ should be expanded
+	got := cfg.AgentPath("kestrel")
+	if got == "" {
+		t.Fatal("AgentPath() returned empty after resolve with team_path set")
+	}
+	if strings.Contains(got, "~") {
+		t.Errorf("AgentPath() = %q, should not contain tilde after resolve", got)
+	}
+	if !strings.HasSuffix(got, "/kestrel") {
+		t.Errorf("AgentPath() = %q, should end with /kestrel", got)
 	}
 }
 

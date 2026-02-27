@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
@@ -108,7 +107,7 @@ func resolveAgentNameByTags(taskTags []string) string {
 		return ""
 	}
 
-	dbPath := filepath.Join(config.ResolveDataDir(), "ttal.db")
+	dbPath := config.ResolveDBPath()
 	if _, err := os.Stat(dbPath); err != nil {
 		return ""
 	}

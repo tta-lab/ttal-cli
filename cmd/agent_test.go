@@ -38,17 +38,17 @@ func TestParseModifyArgs(t *testing.T) {
 		},
 		{
 			name:           "field updates only",
-			args:           []string{"path:/new/path", "name:test"},
+			args:           []string{"voice:af_heart", "emoji:🐱"},
 			wantAddTags:    []string{},
 			wantRemoveTags: []string{},
-			wantFields:     map[string]string{"path": "/new/path", "name": "test"},
+			wantFields:     map[string]string{"voice": "af_heart", "emoji": "🐱"},
 		},
 		{
 			name:           "mixed operations",
-			args:           []string{"+backend", "-legacy", "path:/new/path", "+api"},
+			args:           []string{"+backend", "-legacy", "voice:af_heart", "+api"},
 			wantAddTags:    []string{"backend", "api"},
 			wantRemoveTags: []string{"legacy"},
-			wantFields:     map[string]string{"path": "/new/path"},
+			wantFields:     map[string]string{"voice": "af_heart"},
 		},
 		{
 			name:           "field with spaces",
@@ -103,25 +103,25 @@ func TestParseModifyArgs(t *testing.T) {
 	}
 }
 
-func TestAgentModifyPath(t *testing.T) {
+func TestAgentModifyVoice(t *testing.T) {
 	setupAgentTest(t)
 	ctx := context.Background()
 
 	// Create agent
 	ag, err := database.Agent.Create().
 		SetName("test-agent").
-		SetPath("/old/path").
+		SetVoice("af_heart").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to create agent: %v", err)
 	}
 
-	// Modify path
+	// Modify voice
 	_, err = ag.Update().
-		SetPath("/new/path").
+		SetVoice("af_sky").
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("failed to update agent path: %v", err)
+		t.Fatalf("failed to update agent voice: %v", err)
 	}
 
 	// Verify
@@ -132,8 +132,8 @@ func TestAgentModifyPath(t *testing.T) {
 		t.Fatalf("failed to query agent: %v", err)
 	}
 
-	if updated.Path != "/new/path" {
-		t.Errorf("agent path = %v, want %v", updated.Path, "/new/path")
+	if updated.Voice != "af_sky" {
+		t.Errorf("agent voice = %v, want %v", updated.Voice, "af_sky")
 	}
 }
 
@@ -220,19 +220,19 @@ func TestAgentModifyCombined(t *testing.T) {
 		t.Fatalf("failed to create new tag: %v", err)
 	}
 
-	// Create agent with old tag and old path
+	// Create agent with old tag and voice
 	ag, err := database.Agent.Create().
 		SetName("test-agent").
-		SetPath("/old/path").
+		SetVoice("af_heart").
 		AddTags(oldTag).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to create agent: %v", err)
 	}
 
-	// Modify path and tags in one operation
+	// Modify voice and tags in one operation
 	_, err = ag.Update().
-		SetPath("/new/path").
+		SetVoice("af_sky").
 		AddTags(newTag).
 		RemoveTags(oldTag).
 		Save(ctx)
@@ -249,8 +249,8 @@ func TestAgentModifyCombined(t *testing.T) {
 		t.Fatalf("failed to query agent: %v", err)
 	}
 
-	if updated.Path != "/new/path" {
-		t.Errorf("agent path = %v, want /new/path", updated.Path)
+	if updated.Voice != "af_sky" {
+		t.Errorf("agent voice = %v, want af_sky", updated.Voice)
 	}
 	if len(updated.Edges.Tags) != 1 {
 		t.Errorf("agent has %d tags, want 1", len(updated.Edges.Tags))

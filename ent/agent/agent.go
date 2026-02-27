@@ -17,8 +17,6 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldPath holds the string denoting the path field in the database.
-	FieldPath = "path"
 	// FieldVoice holds the string denoting the voice field in the database.
 	FieldVoice = "voice"
 	// FieldEmoji holds the string denoting the emoji field in the database.
@@ -46,7 +44,6 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
-	FieldPath,
 	FieldVoice,
 	FieldEmoji,
 	FieldDescription,
@@ -140,11 +137,6 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
-}
-
-// ByPath orders the results by the path field.
-func ByPath(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPath, opts...).ToFunc()
 }
 
 // ByVoice orders the results by the voice field.

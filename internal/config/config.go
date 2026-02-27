@@ -49,10 +49,14 @@ type Config struct {
 	resolvedTeamName   string
 	resolvedDefRuntime string
 	resolvedMergeMode  string
+	resolvedTeamPath   string
+	resolvedDBPath     string
 }
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
+	TeamPath        string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."`
+	DBPath          string                 `toml:"db_path" jsonschema:"description=Path to ttal.db (default: <data_dir>/ttal.db). Set to share DB across teams."`
 	DataDir         string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`
 	TaskRC          string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`
 	ChatID          string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
@@ -106,6 +110,24 @@ func (c *Config) TaskRC() string {
 // TaskData returns the resolved taskwarrior data directory for the active team.
 func (c *Config) TaskData() string {
 	return c.resolvedTaskData
+}
+
+// TeamPath returns the resolved team path for the active team.
+func (c *Config) TeamPath() string {
+	return c.resolvedTeamPath
+}
+
+// AgentPath returns the workspace path for an agent, derived from team_path.
+func (c *Config) AgentPath(agentName string) string {
+	if c.resolvedTeamPath == "" {
+		return ""
+	}
+	return filepath.Join(c.resolvedTeamPath, agentName)
+}
+
+// DBPath returns the resolved database path for the active team.
+func (c *Config) DBPath() string {
+	return c.resolvedDBPath
 }
 
 // TeamName returns the resolved active team name.
@@ -220,6 +242,7 @@ func (c *Config) resolve() error {
 		c.resolvedDataDir = defaultDataDir()
 		c.resolvedTaskRC = defaultTaskRC()
 		c.resolvedTaskData = filepath.Join(c.resolvedDataDir, "tasks")
+		c.resolvedDBPath = filepath.Join(c.resolvedDataDir, "ttal.db")
 		c.resolvedMergeMode = c.MergeMode
 		return c.validateMergeMode()
 	}
@@ -271,6 +294,19 @@ func (c *Config) resolve() error {
 	// TaskData: always derived from DataDir
 	c.resolvedTaskData = filepath.Join(c.resolvedDataDir, "tasks")
 
+	// Resolve TeamPath (required — agent paths are derived from it)
+	if team.TeamPath == "" {
+		return fmt.Errorf("team %q missing required field: team_path", teamName)
+	}
+	c.resolvedTeamPath = expandHome(team.TeamPath)
+
+	// Resolve DBPath: explicit override > convention (<data_dir>/ttal.db)
+	if team.DBPath != "" {
+		c.resolvedDBPath = expandHome(team.DBPath)
+	} else {
+		c.resolvedDBPath = filepath.Join(c.resolvedDataDir, "ttal.db")
+	}
+
 	c.resolvedDefRuntime = team.DefaultRuntime
 
 	// Merge mode: team > global > default("auto")
@@ -290,25 +326,41 @@ func (c *Config) validateMergeMode() error {
 	return nil
 }
 
-var (
-	resolveOnce    sync.Once
-	resolvedDirVal string
-)
+// resolvedPaths caches both dataDir and dbPath together from a single config load,
+// preventing divergence between the two values.
+var resolvedPaths struct {
+	once   sync.Once
+	dir    string
+	dbPath string
+}
+
+func ensureResolvedPaths() {
+	resolvedPaths.once.Do(func() {
+		cfg, err := Load()
+		if err != nil {
+			resolvedPaths.dir = defaultDataDir()
+			resolvedPaths.dbPath = filepath.Join(defaultDataDir(), "ttal.db")
+			return
+		}
+		resolvedPaths.dir = cfg.resolvedDataDir
+		resolvedPaths.dbPath = cfg.resolvedDBPath
+	})
+}
 
 // ResolveDataDir returns the data directory for the active team without
 // requiring a full config load. Falls back to ~/.ttal if config is unavailable.
 // Used by path helpers that need to work before config is loaded (e.g. db.DefaultPath).
 // Result is cached after first call.
 func ResolveDataDir() string {
-	resolveOnce.Do(func() {
-		cfg, err := Load()
-		if err != nil {
-			resolvedDirVal = defaultDataDir()
-			return
-		}
-		resolvedDirVal = cfg.resolvedDataDir
-	})
-	return resolvedDirVal
+	ensureResolvedPaths()
+	return resolvedPaths.dir
+}
+
+// ResolveDBPath returns the database path for the active team without
+// requiring a full config load. Used by db.DefaultPath() and hook code.
+func ResolveDBPath() string {
+	ensureResolvedPaths()
+	return resolvedPaths.dbPath
 }
 
 // DefaultDataDir returns the default data directory (~/.ttal).
@@ -411,7 +463,7 @@ bot_token = "TODO"
 # chat_id = "TODO"
 # lifecycle_agent = "kestrel"
 # # Paths auto-derived: ~/.ttal/guion/{ttal.db, taskrc, tasks/}
-# # Override only if needed: data_dir, taskrc
+# # Override only if needed: data_dir, taskrc, db_path, team_path
 `
 
 	return os.WriteFile(path, []byte(template), 0o600)

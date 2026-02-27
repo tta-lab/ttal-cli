@@ -28,9 +28,6 @@ func (Agent) Fields() []ent.Field {
 				return nil
 			}).
 			Comment("Agent name (unique identifier, lowercase)"),
-		field.String("path").
-			Optional().
-			Comment("Agent workspace path"),
 		field.String("voice").
 			Optional().
 			Comment("Kokoro TTS voice ID (e.g. af_heart, af_sky)"),

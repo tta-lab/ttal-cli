@@ -150,12 +150,15 @@ func Run(database *ent.Client) error {
 // registered but not started from the daemon (team start handles tmux).
 func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config, registry *adapterRegistry, qs *questionStore) {
 	for agentName := range cfg.Agents {
+		agentPath := cfg.AgentPath(agentName)
+		if agentPath == "" {
+			log.Printf("[daemon] agent %q has no path (set team_path in config), skipping", agentName)
+			continue
+		}
+
 		ag, err := database.Agent.Query().Where(entagent.Name(agentName)).Only(ctx)
 		if err != nil {
 			log.Printf("[daemon] skipping adapter for %s: db lookup failed: %v", agentName, err)
-			continue
-		}
-		if ag.Path == "" {
 			continue
 		}
 
@@ -174,7 +177,7 @@ func initAdapters(ctx context.Context, database *ent.Client, cfg *config.Config,
 		port := cfg.Agents[agentName].Port
 		env := buildAgentEnv(agentName, cfg)
 
-		adapter := createAdapter(agentName, rt, ag.Path, port, string(ag.Model), true, env)
+		adapter := createAdapter(agentName, rt, agentPath, port, string(ag.Model), true, env)
 		if err := adapter.Start(ctx); err != nil {
 			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, agentName, err)
 			continue
