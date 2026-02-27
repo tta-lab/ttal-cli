@@ -74,11 +74,19 @@ func spawnWorkerForTask(taskUUID string) error {
 		workerName = task.SessionName()
 	}
 
+	if err := taskwarrior.StartTask(task.UUID); err != nil {
+		// Ignore "already active" — task may be re-executed after a failed worker
+		if !strings.Contains(err.Error(), "already active") {
+			return fmt.Errorf("task start failed before worker spawn: %w", err)
+		}
+	}
+
 	return worker.Spawn(worker.SpawnConfig{
 		Name:     workerName,
 		Project:  task.ProjectPath,
 		TaskUUID: task.UUID,
 		Worktree: true,
+		Yolo:     true,
 		Runtime:  rt,
 	})
 }

@@ -253,7 +253,11 @@ go test -v ./...   # Verbose output
 4. **Manual database migrations**
    - Not needed! ent handles migrations automatically via `Schema.Create()`
 
-5. **NEVER delete the database file directly**
+6. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
+   - Symptom: Ignores team TASKRC, no timeout, no `rc.verbose:nothing`
+   - Fix: Always use the `internal/taskwarrior` package. If a helper doesn't exist (e.g. `StartTask`), add it there first — don't inline raw exec calls in `cmd/` or other packages.
+
+7. **NEVER delete the database file directly**
    - ⚠️ **CRITICAL**: Never run `rm ~/.ttal/ttal.db` - this deletes ALL user data
    - Tests use in-memory databases (`internal/db/testutil.go`) - they never touch `~/.ttal/ttal.db`
    - To clean up test data: Use CLI commands (`ttal agent delete`, `ttal project archive`)

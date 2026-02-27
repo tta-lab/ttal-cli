@@ -384,6 +384,15 @@ func AnnotateTask(uuid, message string) error {
 	return nil
 }
 
+// StartTask marks a task as started so it appears in +ACTIVE.
+func StartTask(uuid string) error {
+	_, err := runTask(uuid, "start")
+	if err != nil {
+		return fmt.Errorf("failed to start task %s: %w", uuid, err)
+	}
+	return nil
+}
+
 // MarkDone marks a task as completed.
 func MarkDone(uuid string) error {
 	_, err := runTask(uuid, "done")

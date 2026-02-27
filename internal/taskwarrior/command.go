@@ -42,11 +42,7 @@ func commandContext(ctx context.Context, args ...string) *exec.Cmd {
 // ResolveDataLocation asks taskwarrior for the actual data.location value,
 // respecting the active team's taskrc. Returns the resolved absolute path.
 func ResolveDataLocation() (string, error) {
-	args := []string{"_get", "rc.data.location"}
-	if taskrc := resolveTaskRC(); taskrc != "" {
-		args = append([]string{"rc:" + taskrc}, args...)
-	}
-	out, err := exec.Command("task", args...).Output()
+	out, err := Command("_get", "rc.data.location").Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to query task data.location: %w", err)
 	}
