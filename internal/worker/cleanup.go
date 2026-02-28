@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
 const cleanupDir = "cleanup"
@@ -16,6 +17,7 @@ const cleanupDir = "cleanup"
 type CleanupRequest struct {
 	SessionID string    `json:"session_id"`
 	TaskUUID  string    `json:"task_uuid"`
+	Team      string    `json:"team,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -31,6 +33,7 @@ func RequestCleanup(sessionID, taskUUID string) error {
 	req := CleanupRequest{
 		SessionID: sessionID,
 		TaskUUID:  taskUUID,
+		Team:      os.Getenv("TTAL_TEAM"),
 		CreatedAt: time.Now(),
 	}
 
@@ -46,4 +49,100 @@ func RequestCleanup(sessionID, taskUUID string) error {
 // CleanupDir returns the path to ~/.ttal/cleanup/ (shared across all teams).
 func CleanupDir() (string, error) {
 	return filepath.Join(config.DefaultDataDir(), cleanupDir), nil
+}
+
+// RunCleanup processes a single cleanup request file: sets the team env,
+// closes the worker, marks the task done, and removes the request file.
+// Designed for manual invocation via `ttal worker cleanup`.
+func RunCleanup(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	var req CleanupRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return fmt.Errorf("invalid JSON in %s: %w", path, err)
+	}
+
+	// Set TTAL_TEAM so taskwarrior commands resolve the correct taskrc.
+	if req.Team != "" {
+		prev := os.Getenv("TTAL_TEAM")
+		_ = os.Setenv("TTAL_TEAM", req.Team)
+		defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
+	}
+
+	fmt.Printf("Processing cleanup: session=%s task=%s team=%s\n", req.SessionID, req.TaskUUID, req.Team)
+
+	if req.SessionID == "" {
+		if req.TaskUUID != "" {
+			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
+				return fmt.Errorf("failed to mark task done %s: %w", req.TaskUUID, err)
+			}
+		}
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("failed to remove request file: %w", err)
+		}
+		return nil
+	}
+
+	_, closeErr := Close(req.SessionID, false)
+	if closeErr != nil {
+		return fmt.Errorf("close failed for %s: %w", req.SessionID, closeErr)
+	}
+
+	if req.TaskUUID != "" {
+		if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", req.TaskUUID, err)
+		}
+	}
+
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("failed to remove request file: %w", err)
+	}
+
+	fmt.Printf("Cleanup completed: session=%s\n", req.SessionID)
+	return nil
+}
+
+// RunPendingCleanups processes all .json files in the cleanup directory.
+func RunPendingCleanups() error {
+	dir, err := CleanupDir()
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No pending cleanup requests")
+			return nil
+		}
+		return fmt.Errorf("failed to read cleanup dir: %w", err)
+	}
+
+	// Filter to only .json files
+	var jsonFiles []os.DirEntry
+	for _, e := range entries {
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
+			jsonFiles = append(jsonFiles, e)
+		}
+	}
+
+	if len(jsonFiles) == 0 {
+		fmt.Println("No pending cleanup requests")
+		return nil
+	}
+
+	var count int
+	for _, e := range jsonFiles {
+		if err := RunCleanup(filepath.Join(dir, e.Name())); err != nil {
+			fmt.Fprintf(os.Stderr, "error processing %s: %v\n", e.Name(), err)
+			continue
+		}
+		count++
+	}
+
+	fmt.Printf("Processed %d cleanup request(s)\n", count)
+	return nil
 }

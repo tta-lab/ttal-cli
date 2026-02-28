@@ -154,6 +154,27 @@ var workerGatekeeperCmd = &cobra.Command{
 	},
 }
 
+var workerCleanupCmd = &cobra.Command{
+	Use:   "cleanup [file]",
+	Short: "Process pending cleanup requests",
+	Long: `Manually trigger cleanup processing for pending requests.
+
+Without arguments, processes all pending cleanup files in ~/.ttal/cleanup/.
+With a file argument, processes that specific cleanup request.
+
+This is useful when the daemon is not running or a cleanup was missed.
+
+Example:
+  ttal worker cleanup                              # process all pending
+  ttal worker cleanup ~/.ttal/cleanup/session.json  # process one file`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			return worker.RunCleanup(args[0])
+		}
+		return worker.RunPendingCleanups()
+	},
+}
+
 var workerListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List active workers",
@@ -179,6 +200,7 @@ func init() {
 	workerCmd.AddCommand(workerSpawnCmd)
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
+	workerCmd.AddCommand(workerCleanupCmd)
 	workerCmd.AddCommand(workerHookCmd)
 	workerCmd.AddCommand(workerGatekeeperCmd)
 

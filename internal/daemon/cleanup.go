@@ -94,7 +94,14 @@ func processCleanupFile(path string) {
 		return
 	}
 
-	log.Printf("[cleanup] processing: session=%s task=%s", req.SessionID, req.TaskUUID)
+	log.Printf("[cleanup] processing: session=%s task=%s team=%s", req.SessionID, req.TaskUUID, req.Team)
+
+	// Set TTAL_TEAM so taskwarrior commands resolve the correct taskrc.
+	if req.Team != "" {
+		prev := os.Getenv("TTAL_TEAM")
+		_ = os.Setenv("TTAL_TEAM", req.Team)
+		defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
+	}
 
 	// Skip requests with empty session IDs (malformed tasks)
 	if req.SessionID == "" {
