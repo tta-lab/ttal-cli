@@ -106,7 +106,7 @@ func runMultiAgentPoller(
 			}
 		}
 
-		handleInboundMessage(ctx, b, update.Message, target.agentName, botToken, target.chatID, func(agentName, text string) {
+		handleInboundMessage(ctx, b, update.Message, target.teamName, target.agentName, botToken, target.chatID, func(agentName, text string) {
 			onMessage(target.teamName, agentName, text)
 		})
 	}
@@ -128,7 +128,7 @@ func runMultiAgentPoller(
 
 func handleInboundMessage(
 	ctx context.Context, b *bot.Bot, msg *models.Message,
-	agentName, botToken, chatIDStr string,
+	teamName, agentName, botToken, chatIDStr string,
 	onMessage func(string, string),
 ) {
 	senderName := msg.From.Username
@@ -154,7 +154,7 @@ func handleInboundMessage(
 		photo := msg.Photo[len(msg.Photo)-1]
 		filename := fmt.Sprintf("photo_%d.jpg", msg.ID)
 
-		localPath, err := downloadTelegramFile(ctx, b, photo.FileID, agentName, filename)
+		localPath, err := downloadTelegramFile(ctx, b, photo.FileID, teamName, agentName, filename)
 		if err != nil {
 			log.Printf("[telegram] photo download failed for %s: %v", agentName, err)
 			_ = telegram.SendMessage(botToken, chatIDStr, "Photo download failed — check daemon logs for details")
@@ -176,7 +176,7 @@ func handleInboundMessage(
 			filename = fmt.Sprintf("file_%d", msg.ID)
 		}
 
-		localPath, err := downloadTelegramFile(ctx, b, msg.Document.FileID, agentName, filename)
+		localPath, err := downloadTelegramFile(ctx, b, msg.Document.FileID, teamName, agentName, filename)
 		if err != nil {
 			log.Printf("[telegram] document download failed for %s: %v", agentName, err)
 			_ = telegram.SendMessage(botToken, chatIDStr, "File download failed — check daemon logs for details")
@@ -319,11 +319,17 @@ func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice) (s
 	return voice.Transcribe(audioData, "voice.ogg")
 }
 
-// downloadTelegramFile downloads a file from Telegram and saves it to the agent's file directory.
+// downloadTelegramFile downloads a file from Telegram and saves it to the team/agent file directory.
 // Returns the local file path.
-func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, agentName, filename string) (string, error) {
-	// Sanitize filename to prevent path traversal
+func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, teamName, agentName, filename string) (string, error) {
+	// Sanitize all path components to prevent path traversal
 	filename = filepath.Base(filename)
+	teamName = filepath.Base(teamName)
+	agentName = filepath.Base(agentName)
+
+	if teamName == "" || teamName == "." {
+		log.Printf("[telegram] warning: empty teamName for agent %s in file download", agentName)
+	}
 
 	file, err := b.GetFile(ctx, &bot.GetFileParams{FileID: fileID})
 	if err != nil {
@@ -341,7 +347,7 @@ func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, agentName, fi
 		return "", fmt.Errorf("download file: HTTP %d", resp.StatusCode)
 	}
 
-	dir := filepath.Join(config.DefaultDataDir(), "files", agentName)
+	dir := filepath.Join(config.DefaultDataDir(), "files", teamName, agentName)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create file dir: %w", err)
 	}
