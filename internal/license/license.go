@@ -5,7 +5,7 @@
 //   - Pro:  1 team, unlimited agents ($100 lifetime)
 //   - Team: unlimited teams, unlimited agents ($200 lifetime)
 //
-// License file: ~/.config/ttal/license.jwt
+// License file: ~/.config/ttal/license
 // JWT payload: { "sub": "<email>", "tier": "pro"|"team" }
 // No expiration claim — all licenses are lifetime.
 package license
@@ -78,7 +78,7 @@ func LicensePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "ttal", "license.jwt"), nil
+	return filepath.Join(home, ".config", "ttal", "license"), nil
 }
 
 // Load reads and validates the license file.

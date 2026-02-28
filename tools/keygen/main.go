@@ -55,7 +55,7 @@ func cmdGenerate() {
 
 	fmt.Printf("PUBLIC_KEY=%s\n", pubB64)
 	fmt.Printf("PRIVATE_KEY=%s\n", privB64)
-	fmt.Fprintf(os.Stderr, "\nCopy PUBLIC_KEY into internal/license/pubkey.pem\n")
+	fmt.Fprintf(os.Stderr, "\nCopy PUBLIC_KEY into internal/license/pubkey.b64\n")
 	fmt.Fprintf(os.Stderr, "Keep PRIVATE_KEY secret — use it with 'ttal-keygen sign'\n")
 }
 
