@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"github.com/spf13/cobra"
 )
@@ -75,6 +76,10 @@ func runStatusline(cmd *cobra.Command, args []string) error {
 
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	if agentName != "" {
+		team := os.Getenv("TTAL_TEAM")
+		if team == "" {
+			team = config.DefaultTeamName
+		}
 		s := status.AgentStatus{
 			Agent:               agentName,
 			ContextUsedPct:      input.ContextWindow.UsedPercentage,
@@ -85,7 +90,7 @@ func runStatusline(cmd *cobra.Command, args []string) error {
 			CCVersion:           input.Version,
 			UpdatedAt:           time.Now().UTC(),
 		}
-		if err := status.WriteAgent(s); err != nil {
+		if err := status.WriteAgent(team, s); err != nil {
 			// Don't fail the statusline for a write error — just skip
 			fmt.Fprintf(os.Stderr, "ttal: write agent status: %v\n", err)
 		}

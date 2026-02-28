@@ -405,6 +405,10 @@ func resolveAgent(mcfg *config.DaemonConfig, teamHint, agentName string) *config
 
 // handleStatusUpdate writes agent context status to the status directory.
 func handleStatusUpdate(req StatusUpdateRequest) {
+	team := req.Team
+	if team == "" {
+		team = config.DefaultTeamName
+	}
 	s := status.AgentStatus{
 		Agent:               req.Agent,
 		ContextUsedPct:      req.ContextUsedPct,
@@ -413,8 +417,8 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 		SessionID:           req.SessionID,
 		UpdatedAt:           time.Now(),
 	}
-	if err := status.WriteAgent(s); err != nil {
-		log.Printf("[daemon] failed to write status for %s: %v", req.Agent, err)
+	if err := status.WriteAgent(team, s); err != nil {
+		log.Printf("[daemon] failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 }
 

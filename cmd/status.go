@@ -47,8 +47,9 @@ func showAllStatus() error {
 	fmt.Printf("%-12s %-8s %-10s %s\n",
 		"AGENT", "CTX", "MODEL", "UPDATED")
 
+	team := cfg.TeamName()
 	for name := range cfg.Agents {
-		s, _ := status.ReadAgent(name)
+		s, _ := status.ReadAgent(team, name)
 		sessionUp := tmux.SessionExists(config.AgentSessionName(cfg.TeamName(), name))
 
 		if s != nil && !s.IsStale(staleThreshold) {
@@ -71,12 +72,11 @@ func showAllStatus() error {
 }
 
 func showAgentStatus(name string) error {
-	s, err := status.ReadAgent(name)
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-
-	cfg, err := config.Load()
+	s, err := status.ReadAgent(cfg.TeamName(), name)
 	if err != nil {
 		return err
 	}

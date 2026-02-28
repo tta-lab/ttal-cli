@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const testTeam = "guion"
+
 // writeJunkFiles creates non-agent files that readAllFrom should skip.
 func writeJunkFiles(t *testing.T, dir string) {
 	t.Helper()
@@ -17,13 +19,13 @@ func writeJunkFiles(t *testing.T, dir string) {
 	os.Mkdir(filepath.Join(dir, "subdir"), 0o755)
 }
 
-func writeStatusFile(t *testing.T, dir, name string, s AgentStatus) {
+func writeStatusFile(t *testing.T, dir, filename string, s AgentStatus) {
 	t.Helper()
 	data, err := json.Marshal(s)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, name+".json"), data, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, filename+".json"), data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -73,9 +75,10 @@ func TestIsStale(t *testing.T) {
 
 func TestReadAgentFrom(t *testing.T) {
 	dir := t.TempDir()
+	team := testTeam
 
 	t.Run("file not found returns nil", func(t *testing.T) {
-		s, err := readAgentFrom(dir, "nonexistent")
+		s, err := readAgentFrom(dir, team, "nonexistent")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -96,9 +99,9 @@ func TestReadAgentFrom(t *testing.T) {
 			CCVersion:           "1.0.0",
 			UpdatedAt:           now,
 		}
-		writeStatusFile(t, dir, "athena", want)
+		writeStatusFile(t, dir, "guion-athena", want)
 
-		got, err := readAgentFrom(dir, "athena")
+		got, err := readAgentFrom(dir, team, "athena")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -120,183 +123,240 @@ func TestReadAgentFrom(t *testing.T) {
 	})
 
 	t.Run("invalid JSON returns error", func(t *testing.T) {
-		if err := os.WriteFile(filepath.Join(dir, "broken.json"), []byte("{invalid"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "guion-broken.json"), []byte("{invalid"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		_, err := readAgentFrom(dir, "broken")
+		_, err := readAgentFrom(dir, team, "broken")
 		if err == nil {
 			t.Fatal("expected error for invalid JSON")
 		}
 	})
 }
 
-func TestReadAllFrom(t *testing.T) {
-	t.Run("empty directory", func(t *testing.T) {
-		dir := t.TempDir()
-		statuses, err := readAllFrom(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(statuses) != 0 {
-			t.Errorf("expected 0 statuses, got %d", len(statuses))
-		}
-	})
-
-	t.Run("nonexistent directory returns nil", func(t *testing.T) {
-		statuses, err := readAllFrom("/tmp/nonexistent-ttal-test-dir")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if statuses != nil {
-			t.Errorf("expected nil for nonexistent dir, got %v", statuses)
-		}
-	})
-
-	t.Run("reads multiple agents", func(t *testing.T) {
-		dir := t.TempDir()
-		now := time.Now().UTC().Truncate(time.Second)
-
-		writeStatusFile(t, dir, "athena", AgentStatus{Agent: "athena", ContextUsedPct: 50, UpdatedAt: now})
-		writeStatusFile(t, dir, "kestrel", AgentStatus{Agent: "kestrel", ContextUsedPct: 75, UpdatedAt: now})
-
-		statuses, err := readAllFrom(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(statuses) != 2 {
-			t.Fatalf("expected 2 statuses, got %d", len(statuses))
-		}
-
-		agents := map[string]float64{}
-		for _, s := range statuses {
-			agents[s.Agent] = s.ContextUsedPct
-		}
-		if agents["athena"] != 50 {
-			t.Errorf("athena ContextUsedPct = %v, want 50", agents["athena"])
-		}
-		if agents["kestrel"] != 75 {
-			t.Errorf("kestrel ContextUsedPct = %v, want 75", agents["kestrel"])
-		}
-	})
-
-	t.Run("skips non-agent files", func(t *testing.T) {
-		dir := t.TempDir()
-		now := time.Now().UTC().Truncate(time.Second)
-
-		writeStatusFile(t, dir, "good", AgentStatus{Agent: "good", UpdatedAt: now})
-		writeStatusFile(t, dir, ".hidden", AgentStatus{Agent: "hidden", UpdatedAt: now})
-		writeJunkFiles(t, dir)
-
-		statuses, err := readAllFrom(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(statuses) != 1 {
-			t.Fatalf("expected 1 status, got %d", len(statuses))
-		}
-		if statuses[0].Agent != "good" {
-			t.Errorf("expected agent 'good', got %q", statuses[0].Agent)
-		}
-	})
+func TestReadAllFrom_Empty(t *testing.T) {
+	dir := t.TempDir()
+	statuses, err := readAllFrom(dir, testTeam)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(statuses) != 0 {
+		t.Errorf("expected 0 statuses, got %d", len(statuses))
+	}
 }
 
-func TestWriteAgentTo(t *testing.T) {
-	t.Run("writes and reads back", func(t *testing.T) {
-		dir := t.TempDir()
-		now := time.Now().UTC().Truncate(time.Second)
-		want := AgentStatus{
-			Agent:               "kestrel",
-			ContextUsedPct:      42,
-			ContextRemainingPct: 58,
-			ModelID:             "claude-opus-4-6",
-			ModelName:           "Claude Opus 4.6",
-			SessionID:           "sess1",
-			CCVersion:           "1.0.20",
-			UpdatedAt:           now,
-		}
+func TestReadAllFrom_NonexistentDir(t *testing.T) {
+	statuses, err := readAllFrom("/tmp/nonexistent-ttal-test-dir", testTeam)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if statuses != nil {
+		t.Errorf("expected nil for nonexistent dir, got %v", statuses)
+	}
+}
 
-		if err := writeAgentTo(dir, want); err != nil {
-			t.Fatalf("writeAgentTo: %v", err)
-		}
+func TestReadAllFrom_MultipleAgents(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
 
-		got, err := readAgentFrom(dir, "kestrel")
-		if err != nil {
-			t.Fatalf("readAgentFrom: %v", err)
-		}
-		if got == nil {
-			t.Fatal("expected non-nil status")
-		}
-		if got.Agent != want.Agent {
-			t.Errorf("Agent = %q, want %q", got.Agent, want.Agent)
-		}
-		if got.ContextUsedPct != want.ContextUsedPct {
-			t.Errorf("ContextUsedPct = %v, want %v", got.ContextUsedPct, want.ContextUsedPct)
-		}
-		if got.ModelID != want.ModelID {
-			t.Errorf("ModelID = %q, want %q", got.ModelID, want.ModelID)
-		}
-		if got.SessionID != want.SessionID {
-			t.Errorf("SessionID = %q, want %q", got.SessionID, want.SessionID)
-		}
-		if got.CCVersion != want.CCVersion {
-			t.Errorf("CCVersion = %q, want %q", got.CCVersion, want.CCVersion)
-		}
+	writeStatusFile(t, dir, "guion-athena", AgentStatus{Agent: "athena", ContextUsedPct: 50, UpdatedAt: now})
+	writeStatusFile(t, dir, "guion-kestrel", AgentStatus{Agent: "kestrel", ContextUsedPct: 75, UpdatedAt: now})
 
-		// Verify tmp file is cleaned up
-		tmpPath := filepath.Join(dir, ".kestrel.tmp")
-		if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
-			t.Error("expected tmp file to be cleaned up after rename")
-		}
-	})
+	statuses, err := readAllFrom(dir, testTeam)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(statuses) != 2 {
+		t.Fatalf("expected 2 statuses, got %d", len(statuses))
+	}
 
-	t.Run("rejects path traversal in agent name", func(t *testing.T) {
-		dir := t.TempDir()
-		for _, bad := range []string{"", "../evil", "a/b", ".hidden", "..\\evil"} {
-			s := AgentStatus{Agent: bad}
-			if err := writeAgentTo(dir, s); err == nil {
-				t.Errorf("expected error for agent name %q", bad)
-			}
-		}
-	})
+	agents := map[string]float64{}
+	for _, s := range statuses {
+		agents[s.Agent] = s.ContextUsedPct
+	}
+	if agents["athena"] != 50 {
+		t.Errorf("athena ContextUsedPct = %v, want 50", agents["athena"])
+	}
+	if agents["kestrel"] != 75 {
+		t.Errorf("kestrel ContextUsedPct = %v, want 75", agents["kestrel"])
+	}
+}
 
-	t.Run("creates directory if missing", func(t *testing.T) {
-		dir := filepath.Join(t.TempDir(), "nested", "status")
-		s := AgentStatus{Agent: "bot", UpdatedAt: time.Now().UTC()}
+func TestReadAllFrom_FiltersByTeam(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
 
-		if err := writeAgentTo(dir, s); err != nil {
-			t.Fatalf("writeAgentTo: %v", err)
-		}
+	writeStatusFile(t, dir, "guion-athena", AgentStatus{Agent: "athena", ContextUsedPct: 50, UpdatedAt: now})
+	writeStatusFile(t, dir, "sven-athena", AgentStatus{Agent: "athena", ContextUsedPct: 80, UpdatedAt: now})
+	writeStatusFile(t, dir, "guion-kestrel", AgentStatus{Agent: "kestrel", ContextUsedPct: 75, UpdatedAt: now})
 
-		got, err := readAgentFrom(dir, "bot")
-		if err != nil {
-			t.Fatalf("readAgentFrom: %v", err)
+	guionStatuses, err := readAllFrom(dir, testTeam)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(guionStatuses) != 2 {
+		t.Fatalf("expected 2 guion statuses, got %d", len(guionStatuses))
+	}
+
+	svenStatuses, err := readAllFrom(dir, "sven")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(svenStatuses) != 1 {
+		t.Fatalf("expected 1 sven status, got %d", len(svenStatuses))
+	}
+	if svenStatuses[0].ContextUsedPct != 80 {
+		t.Errorf("sven athena ContextUsedPct = %v, want 80", svenStatuses[0].ContextUsedPct)
+	}
+}
+
+func TestReadAllFrom_SkipsJunk(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	writeStatusFile(t, dir, "guion-good", AgentStatus{Agent: "good", UpdatedAt: now})
+	writeJunkFiles(t, dir)
+
+	statuses, err := readAllFrom(dir, testTeam)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 status, got %d", len(statuses))
+	}
+	if statuses[0].Agent != "good" {
+		t.Errorf("expected agent 'good', got %q", statuses[0].Agent)
+	}
+}
+
+func TestWriteAgentTo_Roundtrip(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
+	want := AgentStatus{
+		Agent:               "kestrel",
+		ContextUsedPct:      42,
+		ContextRemainingPct: 58,
+		ModelID:             "claude-opus-4-6",
+		ModelName:           "Claude Opus 4.6",
+		SessionID:           "sess1",
+		CCVersion:           "1.0.20",
+		UpdatedAt:           now,
+	}
+
+	if err := writeAgentTo(dir, testTeam, want); err != nil {
+		t.Fatalf("writeAgentTo: %v", err)
+	}
+
+	got, err := readAgentFrom(dir, testTeam, "kestrel")
+	if err != nil {
+		t.Fatalf("readAgentFrom: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected non-nil status")
+	}
+	if got.Agent != want.Agent {
+		t.Errorf("Agent = %q, want %q", got.Agent, want.Agent)
+	}
+	if got.ContextUsedPct != want.ContextUsedPct {
+		t.Errorf("ContextUsedPct = %v, want %v", got.ContextUsedPct, want.ContextUsedPct)
+	}
+	if got.ModelID != want.ModelID {
+		t.Errorf("ModelID = %q, want %q", got.ModelID, want.ModelID)
+	}
+	if got.SessionID != want.SessionID {
+		t.Errorf("SessionID = %q, want %q", got.SessionID, want.SessionID)
+	}
+	if got.CCVersion != want.CCVersion {
+		t.Errorf("CCVersion = %q, want %q", got.CCVersion, want.CCVersion)
+	}
+
+	// Verify tmp file is cleaned up
+	tmpPath := filepath.Join(dir, ".guion-kestrel.tmp")
+	if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
+		t.Error("expected tmp file to be cleaned up after rename")
+	}
+
+	// Verify file is at team-prefixed path
+	target := filepath.Join(dir, "guion-kestrel.json")
+	if _, err := os.Stat(target); err != nil {
+		t.Errorf("expected file at %s, got error: %v", target, err)
+	}
+}
+
+func TestWriteAgentTo_RejectsInvalidAgent(t *testing.T) {
+	dir := t.TempDir()
+	for _, bad := range []string{"", "../evil", "a/b", ".hidden", "..\\evil"} {
+		s := AgentStatus{Agent: bad}
+		if err := writeAgentTo(dir, testTeam, s); err == nil {
+			t.Errorf("expected error for agent name %q", bad)
 		}
-		if got == nil {
-			t.Fatal("expected non-nil status")
+	}
+}
+
+func TestWriteAgentTo_RejectsInvalidTeam(t *testing.T) {
+	dir := t.TempDir()
+	s := AgentStatus{Agent: "bot"}
+	for _, bad := range []string{"", "../evil", "a/b", ".hidden"} {
+		if err := writeAgentTo(dir, bad, s); err == nil {
+			t.Errorf("expected error for team name %q", bad)
 		}
-	})
+	}
+}
+
+func TestWriteAgentTo_CreatesDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "nested", "status")
+	s := AgentStatus{Agent: "bot", UpdatedAt: time.Now().UTC()}
+
+	if err := writeAgentTo(dir, testTeam, s); err != nil {
+		t.Fatalf("writeAgentTo: %v", err)
+	}
+
+	got, err := readAgentFrom(dir, testTeam, "bot")
+	if err != nil {
+		t.Fatalf("readAgentFrom: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected non-nil status")
+	}
 }
 
 func TestRemoveFrom(t *testing.T) {
+	team := testTeam
+
 	t.Run("removes existing file", func(t *testing.T) {
 		dir := t.TempDir()
 		now := time.Now().UTC().Truncate(time.Second)
-		writeStatusFile(t, dir, "athena", AgentStatus{Agent: "athena", UpdatedAt: now})
+		writeStatusFile(t, dir, "guion-athena", AgentStatus{Agent: "athena", UpdatedAt: now})
 
-		if err := removeFrom(dir, "athena"); err != nil {
+		if err := removeFrom(dir, team, "athena"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Verify file is gone
-		if _, err := os.Stat(filepath.Join(dir, "athena.json")); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(dir, "guion-athena.json")); !os.IsNotExist(err) {
 			t.Error("expected file to be removed")
 		}
 	})
 
 	t.Run("no error for nonexistent file", func(t *testing.T) {
 		dir := t.TempDir()
-		if err := removeFrom(dir, "nonexistent"); err != nil {
+		if err := removeFrom(dir, team, "nonexistent"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+}
+
+func TestStatusFileName(t *testing.T) {
+	tests := []struct {
+		team, agent, want string
+	}{
+		{"guion", "athena", "guion-athena"},
+		{"sven", "kestrel", "sven-kestrel"},
+		{"default", "bot", "default-bot"},
+	}
+	for _, tt := range tests {
+		got := statusFileName(tt.team, tt.agent)
+		if got != tt.want {
+			t.Errorf("statusFileName(%q, %q) = %q, want %q", tt.team, tt.agent, got, tt.want)
+		}
+	}
 }

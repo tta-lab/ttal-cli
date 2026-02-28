@@ -23,30 +23,30 @@ type AgentStatus struct {
 	UpdatedAt           time.Time `json:"updated_at"`
 }
 
-// StatusDir returns the path to the status directory.
+// StatusDir returns the consolidated status directory (~/.ttal/status/).
 func StatusDir() string {
-	return filepath.Join(config.ResolveDataDir(), "status")
+	return filepath.Join(config.DefaultDataDir(), "status")
 }
 
-// ReadAgent reads the status file for a single agent.
+// ReadAgent reads the status file for a single agent in the given team.
 // Returns nil if no status file exists (agent not running or no data yet).
-func ReadAgent(name string) (*AgentStatus, error) {
-	return readAgentFrom(StatusDir(), name)
+func ReadAgent(team, name string) (*AgentStatus, error) {
+	return readAgentFrom(StatusDir(), team, name)
 }
 
-// ReadAll reads status files for all agents that have them.
-func ReadAll() ([]AgentStatus, error) {
-	return readAllFrom(StatusDir())
+// ReadAll reads status files for all agents in the given team.
+func ReadAll(team string) ([]AgentStatus, error) {
+	return readAllFrom(StatusDir(), team)
 }
 
-// WriteAgent atomically writes an agent's status file.
-func WriteAgent(s AgentStatus) error {
-	return writeAgentTo(StatusDir(), s)
+// WriteAgent atomically writes an agent's status file with team prefix.
+func WriteAgent(team string, s AgentStatus) error {
+	return writeAgentTo(StatusDir(), team, s)
 }
 
 // Remove deletes the status file for an agent (called on session teardown).
-func Remove(name string) error {
-	return removeFrom(StatusDir(), name)
+func Remove(team, name string) error {
+	return removeFrom(StatusDir(), team, name)
 }
 
 // IsStale returns true if the status hasn't been updated in the given duration.
@@ -54,26 +54,18 @@ func (s *AgentStatus) IsStale(threshold time.Duration) bool {
 	return time.Since(s.UpdatedAt) > threshold
 }
 
-// readAgentFrom reads the status file for a single agent from the given directory.
-func readAgentFrom(dir, name string) (*AgentStatus, error) {
-	path := filepath.Join(dir, name+".json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read status for %s: %w", name, err)
-	}
-
-	var s AgentStatus
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, fmt.Errorf("parse status for %s: %w", name, err)
-	}
-	return &s, nil
+// statusFileName returns the team-prefixed filename for an agent: {team}-{agent}.
+func statusFileName(team, agent string) string {
+	return team + "-" + agent
 }
 
-// readAllFrom reads status files for all agents from the given directory.
-func readAllFrom(dir string) ([]AgentStatus, error) {
+// readAgentFrom reads the status file for a single agent from the given directory.
+func readAgentFrom(dir, team, name string) (*AgentStatus, error) {
+	return readAgentFromFile(dir, statusFileName(team, name)+".json")
+}
+
+// readAllFrom reads status files for all agents matching the team prefix.
+func readAllFrom(dir, team string) ([]AgentStatus, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -82,16 +74,17 @@ func readAllFrom(dir string) ([]AgentStatus, error) {
 		return nil, fmt.Errorf("read status dir: %w", err)
 	}
 
+	prefix := team + "-"
 	statuses := make([]AgentStatus, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
 		name := entry.Name()[:len(entry.Name())-5] // strip .json
-		if len(name) == 0 || name[0] == '.' {
-			continue // skip empty names and .tmp files
+		if !strings.HasPrefix(name, prefix) {
+			continue
 		}
-		s, err := readAgentFrom(dir, name)
+		s, err := readAgentFromFile(dir, entry.Name())
 		if err != nil || s == nil {
 			continue
 		}
@@ -100,10 +93,31 @@ func readAllFrom(dir string) ([]AgentStatus, error) {
 	return statuses, nil
 }
 
+// readAgentFromFile reads a status file by its full filename (without .json extension handling).
+func readAgentFromFile(dir, filename string) (*AgentStatus, error) {
+	path := filepath.Join(dir, filename)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read status file %s: %w", filename, err)
+	}
+
+	var s AgentStatus
+	if err := json.Unmarshal(data, &s); err != nil {
+		return nil, fmt.Errorf("parse status file %s: %w", filename, err)
+	}
+	return &s, nil
+}
+
 // writeAgentTo atomically writes an agent's status to the given directory.
-func writeAgentTo(dir string, s AgentStatus) error {
+func writeAgentTo(dir, team string, s AgentStatus) error {
 	if s.Agent == "" || strings.ContainsAny(s.Agent, "/\\") || s.Agent[0] == '.' {
 		return fmt.Errorf("invalid agent name: %q", s.Agent)
+	}
+	if team == "" || strings.ContainsAny(team, "/\\") || team[0] == '.' {
+		return fmt.Errorf("invalid team name: %q", team)
 	}
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -116,12 +130,13 @@ func writeAgentTo(dir string, s AgentStatus) error {
 	}
 	data = append(data, '\n')
 
-	tmp := filepath.Join(dir, "."+s.Agent+".tmp")
+	base := statusFileName(team, s.Agent)
+	tmp := filepath.Join(dir, "."+base+".tmp")
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return fmt.Errorf("write tmp: %w", err)
 	}
 
-	target := filepath.Join(dir, s.Agent+".json")
+	target := filepath.Join(dir, base+".json")
 	if err := os.Rename(tmp, target); err != nil {
 		os.Remove(tmp)
 		return err
@@ -130,8 +145,8 @@ func writeAgentTo(dir string, s AgentStatus) error {
 }
 
 // removeFrom deletes the status file for an agent from the given directory.
-func removeFrom(dir, name string) error {
-	path := filepath.Join(dir, name+".json")
+func removeFrom(dir, team, name string) error {
+	path := filepath.Join(dir, statusFileName(team, name)+".json")
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}

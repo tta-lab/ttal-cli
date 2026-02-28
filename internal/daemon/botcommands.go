@@ -157,12 +157,12 @@ func RegisterBotCommands(botToken string, allCommands []BotCommand) error {
 	return nil
 }
 
-func handleStatusCommand(_, botToken, chatID string, args []string) {
+func handleStatusCommand(teamName, _, botToken, chatID string, args []string) {
 	var agents []status.AgentStatus
 
 	if len(args) > 0 {
 		// "status <agent>" → single agent
-		s, err := status.ReadAgent(args[0])
+		s, err := status.ReadAgent(teamName, args[0])
 		if err != nil {
 			replyTelegram(botToken, chatID, "Error: "+err.Error())
 			return
@@ -174,7 +174,7 @@ func handleStatusCommand(_, botToken, chatID string, args []string) {
 		agents = []status.AgentStatus{*s}
 	} else {
 		// "status" → all agents
-		all, err := status.ReadAll()
+		all, err := status.ReadAll(teamName)
 		if err != nil {
 			replyTelegram(botToken, chatID, "Error reading status: "+err.Error())
 			return

@@ -227,7 +227,7 @@ func registerBotCommandsForAgent(
 	b.RegisterHandlerMatchFunc(matchCommand("status"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			args := parseCommandArgs(update.Message.Text)
-			handleStatusCommand(agentName, botToken, chatIDStr, args)
+			handleStatusCommand(teamName, agentName, botToken, chatIDStr, args)
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("help"),

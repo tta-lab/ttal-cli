@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 )
 
@@ -29,6 +30,7 @@ func SocketPath() (string, error) {
 // Wire format: {"type":"getStatus","agent":"kestrel"}
 type GetStatusRequest struct {
 	Type  string `json:"type"`            // "getStatus"
+	Team  string `json:"team,omitempty"`  // team name (defaults to "default")
 	Agent string `json:"agent,omitempty"` // empty = all agents
 }
 
@@ -36,6 +38,7 @@ type GetStatusRequest struct {
 // Wire format: {"type":"statusUpdate","agent":"kestrel","context_used_pct":45.2,...}
 type StatusUpdateRequest struct {
 	Type                string  `json:"type"`                  // "statusUpdate"
+	Team                string  `json:"team,omitempty"`        // team name (defaults to "default")
 	Agent               string  `json:"agent"`                 // agent name
 	ContextUsedPct      float64 `json:"context_used_pct"`      // percentage of context used
 	ContextRemainingPct float64 `json:"context_remaining_pct"` // percentage remaining
@@ -124,7 +127,7 @@ func Send(req SendRequest) error {
 }
 
 // QueryStatus connects to the daemon socket and queries agent status.
-func QueryStatus(agent string) (*StatusResponse, error) {
+func QueryStatus(team, agent string) (*StatusResponse, error) {
 	sockPath, err := SocketPath()
 	if err != nil {
 		return nil, err
@@ -138,7 +141,7 @@ func QueryStatus(agent string) (*StatusResponse, error) {
 
 	conn.SetDeadline(time.Now().Add(socketTimeout))
 
-	req := GetStatusRequest{Type: "getStatus", Agent: agent}
+	req := GetStatusRequest{Type: "getStatus", Team: team, Agent: agent}
 	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -241,8 +244,12 @@ func handleConnGetStatus(raw []byte) StatusResponse {
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return StatusResponse{OK: false, Error: "invalid JSON: " + err.Error()}
 	}
+	team := req.Team
+	if team == "" {
+		team = config.DefaultTeamName
+	}
 	if req.Agent != "" {
-		s, err := status.ReadAgent(req.Agent)
+		s, err := status.ReadAgent(team, req.Agent)
 		if err != nil {
 			return StatusResponse{OK: false, Error: err.Error()}
 		}
@@ -252,7 +259,7 @@ func handleConnGetStatus(raw []byte) StatusResponse {
 		return StatusResponse{OK: true, Agents: []status.AgentStatus{*s}}
 	}
 
-	all, err := status.ReadAll()
+	all, err := status.ReadAll(team)
 	if err != nil {
 		return StatusResponse{OK: false, Error: err.Error()}
 	}
