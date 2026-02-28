@@ -81,12 +81,19 @@ func spawnWorkerForTask(taskUUID string) error {
 		}
 	}
 
-	return worker.Spawn(worker.SpawnConfig{
+	if err := worker.Spawn(worker.SpawnConfig{
 		Name:     workerName,
 		Project:  task.ProjectPath,
 		TaskUUID: task.UUID,
 		Worktree: true,
 		Yolo:     true,
 		Runtime:  rt,
-	})
+	}); err != nil {
+		return err
+	}
+
+	// Notify lifecycle agent — fire-and-forget
+	worker.NotifyTelegram(fmt.Sprintf("🚀 Worker spawned: %s\nTask: %s", workerName, task.Description))
+
+	return nil
 }
