@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/env"
 )
 
 // taskwarrior task status constants used across hook handlers.
@@ -114,6 +111,11 @@ func (t hookTask) Tags() []string {
 	return tags
 }
 
+func (t hookTask) Project() string {
+	v, _ := t["project"].(string)
+	return v
+}
+
 func (t hookTask) ProjectPath() string {
 	v, _ := t["project_path"].(string)
 	return v
@@ -130,31 +132,36 @@ func (t hookTask) Start() string {
 }
 
 // readHookInput reads original and modified task JSON from stdin (taskwarrior on-modify protocol).
-func readHookInput() (original, modified hookTask, err error) {
+// On failure, rawModified contains the raw modified line (if read) so the caller can echo it
+// back to stdout — taskwarrior expects the modified task on stdout even if the hook fails.
+func readHookInput() (original, modified hookTask, rawModified []byte, err error) {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			return nil, nil, fmt.Errorf("reading original task from stdin: %w", err)
+			return nil, nil, nil, fmt.Errorf("reading original task from stdin: %w", err)
 		}
-		return nil, nil, fmt.Errorf("failed to read original task from stdin")
+		return nil, nil, nil, fmt.Errorf("failed to read original task from stdin")
 	}
 	if err := json.Unmarshal(scanner.Bytes(), &original); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse original task: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to parse original task: %w", err)
 	}
 
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			return nil, nil, fmt.Errorf("reading modified task from stdin: %w", err)
+			return nil, nil, nil, fmt.Errorf("reading modified task from stdin: %w", err)
 		}
-		return nil, nil, fmt.Errorf("failed to read modified task from stdin")
-	}
-	if err := json.Unmarshal(scanner.Bytes(), &modified); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse modified task: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to read modified task from stdin")
 	}
 
-	return original, modified, nil
+	rawModified = append([]byte{}, scanner.Bytes()...)
+
+	if err := json.Unmarshal(rawModified, &modified); err != nil {
+		return nil, nil, rawModified, fmt.Errorf("failed to parse modified task: %w", err)
+	}
+
+	return original, modified, rawModified, nil
 }
 
 // readHookAddInput reads a single task JSON from stdin (taskwarrior on-add protocol).
@@ -180,34 +187,9 @@ func readHookAddInput() (task hookTask, rawLine []byte, err error) {
 	return task, rawLine, nil
 }
 
-// forkBackground launches a detached subprocess that runs independently of the hook process.
-// Used for fire-and-forget operations that must not block taskwarrior.
-func forkBackground(args ...string) error {
-	ttalBin, err := exec.LookPath("ttal")
-	if err != nil {
-		return fmt.Errorf("ttal not found in PATH: %w", err)
-	}
-
-	cmd := exec.Command(ttalBin, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Env = env.ForSpawnCC()
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	cmd.Stdin = nil
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to fork background process: %w", err)
-	}
-
-	// Child is in its own session (Setsid), so it gets reparented to PID 1
-	// on hook exit. PID 1 (launchd) reaps it — no Wait() needed.
-	return nil
-}
-
-// passthroughTask writes the task JSON back to stdout as required by the
-// taskwarrior hook protocol. We never mutate the task — this is a pure echo.
-// Marshal of a JSON-sourced map[string]any cannot fail.
-func passthroughTask(task hookTask) {
+// writeTask writes the task JSON to stdout as required by the taskwarrior
+// hook protocol. The task may have been enriched in-place before this call.
+func writeTask(task hookTask) {
 	data, _ := json.Marshal(task)
 	fmt.Println(string(data))
 }

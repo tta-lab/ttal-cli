@@ -1,15 +1,25 @@
 package worker
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
 func HookOnModify() {
-	_, modified, err := readHookInput()
+	original, modified, rawModified, err := readHookInput()
 	if err != nil {
 		hookLogFile("ERROR in on-modify: " + err.Error())
+		if len(rawModified) > 0 {
+			fmt.Println(string(rawModified))
+		}
 		os.Exit(0)
 	}
 
-	// Pass through — on-start routing removed (use ttal task execute/design/research).
-	passthroughTask(modified)
+	// Re-enrich when project changes to a non-empty value.
+	if newProject := modified.Project(); newProject != "" && newProject != original.Project() {
+		enrichInline(modified)
+	}
+
+	writeTask(modified)
 }

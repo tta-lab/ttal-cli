@@ -123,7 +123,7 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
 | `ttal send --to kestrel` | tmux send-keys | `handleTo` |
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
-| on-add hook (task created) | Background `claude -p` enrichment | `HookOnAdd` → `HookEnrich` |
+| on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
 | `ttal task execute <uuid>` | Worker spawn via CLI | `spawnWorkerForTask` → `worker.Spawn` |
 | `ttal task design <uuid>` | Daemon socket → agent tmux | `routeTaskToAgent` (design_agent) |
 | `ttal task research <uuid>` | Daemon socket → agent tmux | `routeTaskToAgent` (research_agent) |

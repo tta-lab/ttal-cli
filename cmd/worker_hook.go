@@ -31,10 +31,8 @@ var workerHookOnAddCmd = &cobra.Command{
 	Long: `Handle taskwarrior on-add event.
 
 Reads one JSON line from stdin (the new task).
+Enriches the task inline (project_path, branch) if a project is set.
 Outputs the task JSON to stdout (required by taskwarrior).
-
-If the task's tags don't match any registered agent, forks a background
-enrichment process (claude -p --model haiku) to set project_path and branch UDAs.
 
 This command always exits 0 to avoid blocking taskwarrior.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -42,19 +40,7 @@ This command always exits 0 to avoid blocking taskwarrior.`,
 	},
 }
 
-var workerHookEnrichCmd = &cobra.Command{
-	Use:    "enrich <uuid>",
-	Short:  "Background task enrichment via haiku",
-	Long:   `Internal command — called by on-add hook as a detached subprocess. Not for direct use.`,
-	Args:   cobra.ExactArgs(1),
-	Hidden: true,
-	Run: func(cmd *cobra.Command, args []string) {
-		worker.HookEnrich(args[0])
-	},
-}
-
 func init() {
 	workerHookCmd.AddCommand(workerHookOnModifyCmd)
 	workerHookCmd.AddCommand(workerHookOnAddCmd)
-	workerHookCmd.AddCommand(workerHookEnrichCmd)
 }

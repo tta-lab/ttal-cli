@@ -5,55 +5,29 @@ import (
 
 	"codeberg.org/clawteam/ttal-cli/internal/enrichment"
 	"codeberg.org/clawteam/ttal-cli/internal/project"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 )
 
-// HookEnrich runs background task enrichment: resolves project_path from DB,
-// then generates a branch name deterministically. Called as a detached subprocess by the on-add hook.
-func HookEnrich(uuid string) {
-	hookLogFile(fmt.Sprintf("enrich: starting for task %s", uuid))
-
-	task, err := taskwarrior.ExportTask(uuid)
-	if err != nil {
-		hookLogFile(fmt.Sprintf("enrich: ERROR exporting task %s: %v", uuid, err))
-		NotifyTelegram(fmt.Sprintf("⚠ Enrichment failed (export): %s\n%v", uuid, err))
-		return
-	}
-
-	// Always resolve project_path from DB — branch generation doesn't handle this
-	projectPath := project.ResolveProjectPath(task.Project)
-
+// enrichInline resolves project_path and branch directly on the hookTask map.
+// Sets fields in-place so writeTask outputs the enriched version.
+// Errors are logged but never propagated.
+func enrichInline(task hookTask) {
+	projectPath := project.ResolveProjectPath(task.Project())
 	if projectPath == "" {
-		msg := fmt.Sprintf("⚠ Enrichment: no project match for task %s\n"+
-			"  project field: %q\n"+
-			"  task: %s\n"+
-			"  Fix: set correct project with `task %s modify project:<alias>`",
-			task.SessionID(), task.Project, task.Description, task.SessionID())
-		hookLogFile(msg)
-		NotifyTelegram(msg)
+		hookLogFile(fmt.Sprintf("enrich-inline: no project match for %q (task %s)", task.Project(), task.UUID()))
 		return
 	}
 
-	hookLogFile(fmt.Sprintf("enrich: resolved project_path=%s from project=%s", projectPath, task.Project))
-	enrichBranchOnly(task, projectPath)
-}
+	task["project_path"] = projectPath
 
-// enrichBranchOnly generates a branch name deterministically, then sets both UDAs.
-func enrichBranchOnly(task *taskwarrior.Task, projectPath string) {
-	branch := enrichment.GenerateBranch(task.Description)
+	branch := enrichment.GenerateBranch(task.Description())
 	if branch == "" {
-		msg := fmt.Sprintf("⚠ Enrichment: could not generate branch for %s: %q", task.SessionID(), task.Description)
-		hookLogFile(msg)
-		NotifyTelegram(msg)
+		hookLogFile(fmt.Sprintf("enrich-inline: could not generate branch for %s: %q", task.UUID(), task.Description()))
+		hookLog("ENRICH", task.UUID(), task.Description(), "project_path", projectPath, "branch", "(none)")
 		return
 	}
 
 	branchWithPrefix := "worker/" + branch
-	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branchWithPrefix, projectPath); err != nil {
-		hookLogFile(fmt.Sprintf("enrich: ERROR setting UDAs for %s: %v", task.UUID, err))
-		NotifyTelegram(fmt.Sprintf("⚠ Enrichment failed (modify): %s\n%v", task.Description, err))
-		return
-	}
+	task["branch"] = branchWithPrefix
 
-	hookLogFile(fmt.Sprintf("enrich: set project_path=%s branch=%s for %s", projectPath, branchWithPrefix, task.UUID))
+	hookLog("ENRICH", task.UUID(), task.Description(), "project_path", projectPath, "branch", branchWithPrefix)
 }
