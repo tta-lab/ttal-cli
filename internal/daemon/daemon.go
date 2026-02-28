@@ -279,7 +279,7 @@ func initAdapters(ctx context.Context, mcfg *config.DaemonConfig, registry *adap
 			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
 			continue
 		}
-		registry.set(ta.AgentName, adapter)
+		registry.set(ta.TeamName, ta.AgentName, adapter)
 		log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
 		// Create or resume session for adapters that need one.
 		if rt == runtime.OpenCode || rt == runtime.Codex {

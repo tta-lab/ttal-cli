@@ -22,7 +22,7 @@ func formatAgentMessage(fromAgent, text string) string {
 // Falls back to direct tmux send-keys if no adapter is registered.
 func deliverToAgent(registry *adapterRegistry, teamName, agentName, text string) error {
 	if registry != nil {
-		if adapter, ok := registry.get(agentName); ok {
+		if adapter, ok := registry.get(teamName, agentName); ok {
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}

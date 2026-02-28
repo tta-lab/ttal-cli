@@ -12,27 +12,33 @@ import (
 	oc "codeberg.org/clawteam/ttal-cli/internal/runtime/opencode"
 )
 
-// adapterRegistry holds adapters for all agents, keyed by agent name.
+// adapterRegistry holds adapters for all agents, keyed by "teamName/agentName"
+// to avoid collisions when agents in different teams share the same name.
 type adapterRegistry struct {
 	adapters map[string]runtime.Adapter
 	mu       sync.RWMutex
+}
+
+// registryKey builds the composite key for an adapter registry entry.
+func registryKey(teamName, agentName string) string {
+	return teamName + "/" + agentName
 }
 
 func newAdapterRegistry() *adapterRegistry {
 	return &adapterRegistry{adapters: make(map[string]runtime.Adapter)}
 }
 
-func (r *adapterRegistry) get(agentName string) (runtime.Adapter, bool) {
+func (r *adapterRegistry) get(teamName, agentName string) (runtime.Adapter, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	a, ok := r.adapters[agentName]
+	a, ok := r.adapters[registryKey(teamName, agentName)]
 	return a, ok
 }
 
-func (r *adapterRegistry) set(agentName string, a runtime.Adapter) {
+func (r *adapterRegistry) set(teamName, agentName string, a runtime.Adapter) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.adapters[agentName] = a
+	r.adapters[registryKey(teamName, agentName)] = a
 }
 
 // stopAll gracefully stops all adapters.

@@ -240,13 +240,13 @@ func findOptionIndex(options []runtime.QuestionOption, label string) int {
 }
 
 func routeOCResponse(batch *QuestionBatch, registry *adapterRegistry) error {
-	adapter, ok := registry.get(batch.AgentName)
+	adapter, ok := registry.get(batch.TeamName, batch.AgentName)
 	if !ok {
-		return fmt.Errorf("no adapter for OC agent %s", batch.AgentName)
+		return fmt.Errorf("no adapter for OC agent %s/%s", batch.TeamName, batch.AgentName)
 	}
 	ocAdapter, ok := adapter.(*oc.Adapter)
 	if !ok {
-		return fmt.Errorf("adapter for %s is not OpenCode", batch.AgentName)
+		return fmt.Errorf("adapter for %s/%s is not OpenCode", batch.TeamName, batch.AgentName)
 	}
 
 	answers := make([]string, len(batch.Questions))
@@ -257,13 +257,13 @@ func routeOCResponse(batch *QuestionBatch, registry *adapterRegistry) error {
 }
 
 func routeCodexResponse(batch *QuestionBatch, registry *adapterRegistry) error {
-	adapter, ok := registry.get(batch.AgentName)
+	adapter, ok := registry.get(batch.TeamName, batch.AgentName)
 	if !ok {
-		return fmt.Errorf("no adapter for Codex agent %s", batch.AgentName)
+		return fmt.Errorf("no adapter for Codex agent %s/%s", batch.TeamName, batch.AgentName)
 	}
 	cxAdapter, ok := adapter.(*cx.Adapter)
 	if !ok {
-		return fmt.Errorf("adapter for %s is not Codex", batch.AgentName)
+		return fmt.Errorf("adapter for %s/%s is not Codex", batch.TeamName, batch.AgentName)
 	}
 
 	answers := make([]runtime.QuestionAnswer, 0, len(batch.Questions))
