@@ -10,6 +10,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"codeberg.org/clawteam/ttal-cli/internal/license"
 	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,19 @@ Example:
 		ctx := context.Background()
 		name := strings.ToLower(args[0])
 
+		// Enforce agent limit based on license tier.
+		lic, err := license.Load()
+		if err != nil {
+			return fmt.Errorf("license check: %w", err)
+		}
+		count, err := database.Agent.Query().Count(ctx)
+		if err != nil {
+			return fmt.Errorf("count agents: %w", err)
+		}
+		if err := lic.CheckAgentLimit(count); err != nil {
+			return err
+		}
+
 		creator := database.Agent.Create().
 			SetName(name)
 
@@ -54,8 +68,7 @@ Example:
 			creator = creator.SetDescription(agentDescription)
 		}
 
-		_, err := creator.Save(ctx)
-		if err != nil {
+		if _, err = creator.Save(ctx); err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"codeberg.org/clawteam/ttal-cli/internal/license"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/BurntSushi/toml"
 )
@@ -248,6 +249,15 @@ const (
 	MergeModeManual = "manual"
 )
 
+// checkTeamLicense loads the license and checks if the team count is within limits.
+func checkTeamLicense(teamCount int) error {
+	lic, err := license.Load()
+	if err != nil {
+		return fmt.Errorf("license check: %w", err)
+	}
+	return lic.CheckTeamLimit(teamCount)
+}
+
 // GetMergeMode returns the resolved merge mode ("auto" if unset).
 // "auto" merges immediately; "manual" sends a notification instead.
 func (c *Config) GetMergeMode() string {
@@ -371,6 +381,11 @@ func Load() (*Config, error) {
 func (c *Config) resolve() error {
 	if len(c.Teams) == 0 {
 		return fmt.Errorf("config requires [teams] sections (flat config no longer supported)")
+	}
+
+	// Enforce team count limit based on license tier.
+	if err := checkTeamLicense(len(c.Teams)); err != nil {
+		return err
 	}
 
 	// Resolve active team: TTAL_TEAM env > default_team > "default"
@@ -514,6 +529,11 @@ func LoadAll() (*DaemonConfig, error) {
 
 	if len(cfg.Teams) == 0 {
 		return nil, fmt.Errorf("config requires [teams] sections")
+	}
+
+	// Enforce team count limit based on license tier.
+	if err := checkTeamLicense(len(cfg.Teams)); err != nil {
+		return nil, err
 	}
 
 	mcfg := &DaemonConfig{
