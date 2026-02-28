@@ -17,6 +17,7 @@ type AgentFrontmatter struct {
 	Description string                 `yaml:"description"`
 	ClaudeCode  map[string]interface{} `yaml:"claude-code"`
 	OpenCode    map[string]interface{} `yaml:"opencode"`
+	Codex       map[string]interface{} `yaml:"codex"`
 }
 
 // ParsedAgent holds the parsed frontmatter and body of an agent .md file.

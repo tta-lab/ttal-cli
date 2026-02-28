@@ -26,6 +26,7 @@ then deploys them to Claude Code and OpenCode runtime directories.
 Subagents are split into runtime-specific variants:
   Claude Code → ~/.claude/agents/{name}.md
   OpenCode    → ~/.config/opencode/agents/{name}.md
+  Codex       → ~/.codex/agents/{name}.toml + ~/.codex/config.toml
 
 Skills are symlinked:
   ~/.claude/skills/{name}/ → source directory
@@ -83,6 +84,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
 				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
+				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			agentCount = len(results)
 

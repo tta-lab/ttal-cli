@@ -11,14 +11,15 @@ import (
 
 // AgentResult tracks a single agent deployment for reporting.
 type AgentResult struct {
-	Source string
-	Name   string
-	CCDest string
-	OCDest string
+	Source    string
+	Name      string
+	CCDest    string
+	OCDest    string
+	CodexDest string
 }
 
 // DeployAgents reads canonical agent .md files from the given paths and deploys
-// runtime-specific variants to Claude Code and OpenCode agent directories.
+// runtime-specific variants to Claude Code, OpenCode, and Codex agent directories.
 func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -27,6 +28,7 @@ func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 
 	ccDir := filepath.Join(home, ".claude", "agents")
 	ocDir := filepath.Join(home, ".config", "opencode", "agents")
+	codexDir := filepath.Join(home, ".codex", "agents")
 
 	if !dryRun {
 		if err := os.MkdirAll(ccDir, 0o755); err != nil {
@@ -35,95 +37,113 @@ func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 		if err := os.MkdirAll(ocDir, 0o755); err != nil {
 			return nil, fmt.Errorf("creating OC agents dir: %w", err)
 		}
+		if err := os.MkdirAll(codexDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating Codex agents dir: %w", err)
+		}
 	}
 
 	var results []AgentResult
+	var allAgents []*ParsedAgent
 
 	for _, rawPath := range subagentsPaths {
-		deployed, err := deployAgentsFromDir(rawPath, ccDir, ocDir, dryRun)
+		deployed, agents, err := deployAgentsFromDir(rawPath, ccDir, ocDir, codexDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
 		results = append(results, deployed...)
+		allAgents = append(allAgents, agents...)
+	}
+
+	// Deploy Codex config.toml registration entries
+	if len(allAgents) > 0 {
+		if err := DeployCodexAgents(allAgents, dryRun); err != nil {
+			return nil, fmt.Errorf("Codex config sync failed: %w", err)
+		}
 	}
 
 	return results, nil
 }
 
-func deployAgentsFromDir(rawPath, ccDir, ocDir string, dryRun bool) ([]AgentResult, error) {
+func deployAgentsFromDir(rawPath, ccDir, ocDir, codexDir string, dryRun bool) ([]AgentResult, []*ParsedAgent, error) {
 	dir := config.ExpandHome(rawPath)
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "warning: subagents path not found: %s\n", dir)
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, fmt.Errorf("reading subagents dir %s: %w", dir, err)
+		return nil, nil, fmt.Errorf("reading subagents dir %s: %w", dir, err)
 	}
 
 	results := make([]AgentResult, 0, len(entries))
+	agents := make([]*ParsedAgent, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
 
-		r, err := deployOneAgent(filepath.Join(dir, entry.Name()), ccDir, ocDir, dryRun)
+		r, agent, err := deployOneAgent(filepath.Join(dir, entry.Name()), ccDir, ocDir, codexDir, dryRun)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		results = append(results, r)
+		agents = append(agents, agent)
 	}
-	return results, nil
+	return results, agents, nil
 }
 
-func deployOneAgent(srcPath, ccDir, ocDir string, dryRun bool) (AgentResult, error) {
+func deployOneAgent(srcPath, ccDir, ocDir, codexDir string, dryRun bool) (AgentResult, *ParsedAgent, error) {
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
-		return AgentResult{}, fmt.Errorf("reading %s: %w", srcPath, err)
+		return AgentResult{}, nil, fmt.Errorf("reading %s: %w", srcPath, err)
 	}
 
 	agent, err := ParseAgentFile(string(content))
 	if err != nil {
-		return AgentResult{}, fmt.Errorf("parsing %s: %w", srcPath, err)
+		return AgentResult{}, nil, fmt.Errorf("parsing %s: %w", srcPath, err)
 	}
 
 	ccContent, err := GenerateCCVariant(agent)
 	if err != nil {
-		return AgentResult{}, fmt.Errorf("generating CC variant for %s: %w", agent.Frontmatter.Name, err)
+		return AgentResult{}, nil, fmt.Errorf("generating CC variant for %s: %w", agent.Frontmatter.Name, err)
 	}
 
 	ocContent, err := GenerateOCVariant(agent)
 	if err != nil {
-		return AgentResult{}, fmt.Errorf("generating OC variant for %s: %w", agent.Frontmatter.Name, err)
+		return AgentResult{}, nil, fmt.Errorf("generating OC variant for %s: %w", agent.Frontmatter.Name, err)
 	}
 
 	ccDest := filepath.Join(ccDir, agent.Frontmatter.Name+".md")
 	ocDest := filepath.Join(ocDir, agent.Frontmatter.Name+".md")
+	codexDest := filepath.Join(codexDir, agent.Frontmatter.Name+".toml")
 
 	result := AgentResult{
-		Source: srcPath,
-		Name:   agent.Frontmatter.Name,
-		CCDest: ccDest,
-		OCDest: ocDest,
+		Source:    srcPath,
+		Name:      agent.Frontmatter.Name,
+		CCDest:    ccDest,
+		OCDest:    ocDest,
+		CodexDest: codexDest,
 	}
 
 	if dryRun {
-		return result, nil
+		return result, agent, nil
 	}
 
 	if err := os.WriteFile(ccDest, []byte(ccContent), 0o644); err != nil {
-		return AgentResult{}, fmt.Errorf("writing CC agent %s: %w", ccDest, err)
+		return AgentResult{}, nil, fmt.Errorf("writing CC agent %s: %w", ccDest, err)
 	}
 	if err := os.WriteFile(ocDest, []byte(ocContent), 0o644); err != nil {
-		return AgentResult{}, fmt.Errorf("writing OC agent %s: %w", ocDest, err)
+		return AgentResult{}, nil, fmt.Errorf("writing OC agent %s: %w", ocDest, err)
 	}
+	// Codex .toml files are written by DeployCodexAgents to avoid duplicate writes
 
-	return result, nil
+	return result, agent, nil
 }
 
 // CleanAgents removes ttal-managed agent files that no longer exist in source paths.
 // Only removes files containing the ManagedMarkerField to avoid deleting user-created agents.
+// Also cleans stale Codex agent .toml files and config.toml entries.
 func CleanAgents(subagentsPaths []string, dryRun bool) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -148,6 +168,13 @@ func CleanAgents(subagentsPaths []string, dryRun bool) ([]string, error) {
 		}
 		removed = append(removed, cleaned...)
 	}
+
+	// Clean stale Codex agents
+	codexCleaned, err := CleanCodexAgents(validNames, dryRun)
+	if err != nil {
+		return nil, fmt.Errorf("Codex agent cleanup failed: %w", err)
+	}
+	removed = append(removed, codexCleaned...)
 
 	return removed, nil
 }
