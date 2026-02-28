@@ -48,7 +48,7 @@ func RenderQuestionPage(p QuestionPage) (string, *models.InlineKeyboardMarkup) {
 	fmt.Fprintf(&sb, "\n%s", p.Text)
 	text := sb.String()
 
-	var rows [][]models.InlineKeyboardButton
+	rows := make([][]models.InlineKeyboardButton, 0, len(p.Options)+2)
 	for i, opt := range p.Options {
 		label := opt.Label
 		if opt.Description != "" {
@@ -150,7 +150,10 @@ func SendQuestionMessage(botToken string, chatID int64, text string, markup *mod
 }
 
 // EditQuestionMessage edits a question message in-place (for pagination/updates).
-func EditQuestionMessage(botToken string, chatID int64, messageID int, text string, markup *models.InlineKeyboardMarkup) error {
+func EditQuestionMessage(
+	botToken string, chatID int64, messageID int,
+	text string, markup *models.InlineKeyboardMarkup,
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

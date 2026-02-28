@@ -38,25 +38,13 @@ func Run() error {
 		return err
 	}
 
-	// Refuse to start if already running
 	if running, pid, _ := IsRunning(); running {
 		return fmt.Errorf("daemon already running (pid=%d)", pid)
 	}
 
-	// Fixed data dir at ~/.ttal/
-	home, err := os.UserHomeDir()
+	pidPath, err := setupDataDir()
 	if err != nil {
 		return err
-	}
-	dataDir := filepath.Join(home, ".ttal")
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return err
-	}
-
-	// Write pid file
-	pidPath := filepath.Join(dataDir, pidFileName)
-	if err := writePID(pidPath); err != nil {
-		return fmt.Errorf("failed to write pid file: %w", err)
 	}
 	defer os.Remove(pidPath)
 
@@ -66,39 +54,102 @@ func Run() error {
 	}
 
 	allAgents := mcfg.AllAgents()
-	log.Printf("[daemon] starting — socket=%s teams=%d agents=%d", sockPath, len(mcfg.Teams), len(allAgents))
+	log.Printf("[daemon] starting — socket=%s teams=%d agents=%d",
+		sockPath, len(mcfg.Teams), len(allAgents))
 
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Create runtime adapter registry
 	registry := newAdapterRegistry()
-	// Create question state stores
 	qs := newQuestionStore()
 	cas := newCustomAnswerStore()
 	initAdapters(ctx, mcfg, registry, qs)
 
-	// Discover dynamic commands once at startup
+	allCommands := discoverAndRegisterCommands(mcfg, allAgents)
+	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands)
+	startCleanupWatcher(done)
+	startWatcherIfNeeded(mcfg, allAgents, qs, done)
+
+	cleanup, err := listenSocket(sockPath, socketHandlers{
+		send: func(req SendRequest) error {
+			return handleSend(mcfg, registry, req)
+		},
+		statusUpdate: handleStatusUpdate,
+	})
+	if err != nil {
+		close(done)
+		return err
+	}
+
+	go runQuestionCleanup(qs, done)
+
+	log.Printf("[daemon] ready")
+	awaitShutdown(done, cancel, mcfg, registry, cleanup)
+	return nil
+}
+
+// setupDataDir creates ~/.ttal/ and writes the PID file. Returns the PID file path.
+func setupDataDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dataDir := filepath.Join(home, ".ttal")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return "", err
+	}
+	pidPath := filepath.Join(dataDir, pidFileName)
+	if err := writePID(pidPath); err != nil {
+		return "", fmt.Errorf("failed to write pid file: %w", err)
+	}
+	return pidPath, nil
+}
+
+// discoverAndRegisterCommands discovers dynamic commands and registers them with Telegram bots.
+func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) []BotCommand {
 	discovered := DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
 	allCommands := AllCommands(discovered)
 	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
 
-	// Register Telegram bot commands (best-effort, non-fatal, deduplicate by token)
 	registeredBots := make(map[string]bool)
 	for _, ta := range allAgents {
 		if ta.Config.BotToken == "" || registeredBots[ta.Config.BotToken] {
 			continue
 		}
 		if err := RegisterBotCommands(ta.Config.BotToken, allCommands); err != nil {
-			log.Printf("[daemon] warning: failed to register bot commands for %s: %v", ta.AgentName, err)
+			log.Printf("[daemon] warning: failed to register bot commands for %s: %v",
+				ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] registered bot commands for %s", ta.AgentName)
 		}
 		registeredBots[ta.Config.BotToken] = true
 	}
+	return allCommands
+}
 
-	// Deduplicate Telegram pollers by bot token — one poller per unique token
+// startTelegramPollers deduplicates agents by bot token and starts one poller per token.
+func startTelegramPollers(
+	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
+	registry *adapterRegistry, done chan struct{},
+	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
+) {
+	tokenTargets := buildTokenTargets(mcfg, allAgents)
+
+	for botToken, targets := range tokenTargets {
+		dispatchMap := buildDispatchMap(targets)
+		log.Printf("[daemon] starting multi-agent poller for %d agents on token ...%s",
+			len(targets), botToken[len(botToken)-min(4, len(botToken)):])
+		startMultiAgentPoller(botToken, dispatchMap, func(teamName, agentName, text string) {
+			if err := deliverToAgent(registry, teamName, agentName, text); err != nil {
+				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
+			}
+		}, done, qs, cas, registry, allCommands)
+	}
+}
+
+// buildTokenTargets groups agents by bot token, skipping those without tokens or using OpenClaw.
+func buildTokenTargets(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) map[string][]pollerTarget {
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		if ta.Config.BotToken == "" {
@@ -117,77 +168,63 @@ func Run() error {
 			agentCfg:  ta.Config,
 		})
 	}
+	return tokenTargets
+}
 
-	for botToken, targets := range tokenTargets {
-		dispatchMap := make(map[int64]pollerTarget)
-		for _, t := range targets {
-			chatID, err := telegram.ParseChatID(t.chatID)
-			if err != nil {
-				log.Printf("[daemon] invalid chat_id for %s: %v", t.agentName, err)
-				continue
-			}
-			if existing, ok := dispatchMap[chatID]; ok {
-				log.Printf("[daemon] WARNING: chat ID %d collision — agent %s/%s overwrites %s/%s (same bot token, same chat)",
-					chatID, t.teamName, t.agentName, existing.teamName, existing.agentName)
-			}
-			dispatchMap[chatID] = t
+// buildDispatchMap converts poller targets into a chat ID → target map.
+func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
+	dispatchMap := make(map[int64]pollerTarget)
+	for _, t := range targets {
+		chatID, err := telegram.ParseChatID(t.chatID)
+		if err != nil {
+			log.Printf("[daemon] invalid chat_id for %s: %v", t.agentName, err)
+			continue
 		}
-		log.Printf("[daemon] starting multi-agent poller for %d agents on token ...%s",
-			len(targets), botToken[len(botToken)-min(4, len(botToken)):])
-		startMultiAgentPoller(botToken, dispatchMap, func(teamName, agentName, text string) {
-			if err := deliverToAgent(registry, teamName, agentName, text); err != nil {
-				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
-			}
-		}, done, qs, cas, registry, allCommands)
+		if existing, ok := dispatchMap[chatID]; ok {
+			log.Printf("[daemon] WARNING: chat ID %d collision — "+
+				"agent %s/%s overwrites %s/%s (same bot token, same chat)",
+				chatID, t.teamName, t.agentName, existing.teamName, existing.agentName)
+		}
+		dispatchMap[chatID] = t
 	}
+	return dispatchMap
+}
 
-	// Start cleanup watcher for post-merge worker lifecycle
-	startCleanupWatcher(done)
-
-	// Start JSONL watcher for CC -> Telegram bridging (skip if all agents are OpenClaw)
-	hasNonOpenClaw := false
+// startWatcherIfNeeded starts the JSONL watcher unless all agents use OpenClaw.
+func startWatcherIfNeeded(
+	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
+	qs *questionStore, done <-chan struct{},
+) {
 	for _, ta := range allAgents {
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 		if rt != runtime.OpenClaw {
-			hasNonOpenClaw = true
-			break
+			startWatcher(mcfg, qs, done)
+			return
 		}
 	}
-	if hasNonOpenClaw {
-		startWatcher(mcfg, qs, done)
-	} else {
-		log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
-	}
+	log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
+}
 
-	// Start socket listener
-	cleanup, err := listenSocket(sockPath, socketHandlers{
-		send: func(req SendRequest) error {
-			return handleSend(mcfg, registry, req)
-		},
-		statusUpdate: handleStatusUpdate,
-	})
-	if err != nil {
-		close(done)
-		return err
-	}
-
-	// Periodically clean up stale question batches
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				qs.cleanup(30 * time.Minute)
-			}
+// runQuestionCleanup periodically cleans up stale question batches.
+func runQuestionCleanup(qs *questionStore, done <-chan struct{}) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			qs.cleanup(30 * time.Minute)
 		}
-	}()
+	}
+}
 
-	log.Printf("[daemon] ready")
-
-	// Wait for signal
+// awaitShutdown waits for SIGINT/SIGTERM and performs graceful shutdown.
+func awaitShutdown(
+	done chan struct{}, cancel context.CancelFunc,
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	cleanup func(),
+) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
@@ -197,8 +234,6 @@ func Run() error {
 	cancel()
 	shutdownAgents(mcfg, registry)
 	cleanup()
-
-	return nil
 }
 
 // initAdapters starts all agent sessions: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
@@ -435,7 +470,8 @@ func handleIncomingQuestion(
 
 	for _, q := range questions {
 		if q.MultiSelect {
-			log.Printf("[questions] warning: multi-select not supported in Telegram UI for %s question %q — treating as single-select", agentName, q.Header)
+			log.Printf("[questions] warning: multi-select not supported in Telegram UI"+
+				" for %s question %q — treating as single-select", agentName, q.Header)
 		}
 	}
 

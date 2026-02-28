@@ -335,19 +335,6 @@ func init() {
 	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
 }
 
-// Helper functions
-
-func parseTagsFromArgs(args []string) []string {
-	var tags []string
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "+") {
-			tagName := strings.TrimPrefix(arg, "+")
-			tags = append(tags, strings.ToLower(tagName))
-		}
-	}
-	return tags
-}
-
 func parseModifyArgs(args []string) (fieldUpdates map[string]string, err error) {
 	fieldUpdates = make(map[string]string)
 	for _, arg := range args {

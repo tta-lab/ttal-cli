@@ -264,7 +264,10 @@ func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string,
 	return shellCfg.BuildEnvShellCommand(envParts, cxCmd)
 }
 
-func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string, shellCfg *config.Config) (string, error) {
+func writeTaskFile(
+	task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string,
+	shellCfg *config.Config,
+) (string, error) {
 	fullTask := task.FormatPrompt()
 
 	if cfg.Worktree && branch != "" {

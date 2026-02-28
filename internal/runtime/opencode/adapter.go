@@ -225,7 +225,7 @@ func (a *Adapter) handleQuestionEvent(ctx context.Context, event oc.EventListRes
 		return
 	}
 
-	var questions []runtime.Question
+	questions := make([]runtime.Question, 0, len(qEvent.Properties.Questions))
 	for _, q := range qEvent.Properties.Questions {
 		rq := runtime.Question{
 			Header:      q.Header,

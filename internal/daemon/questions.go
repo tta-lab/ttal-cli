@@ -89,7 +89,8 @@ func (s *questionStore) cleanup(maxAge time.Duration) {
 		if now.Sub(batch.CreatedAt) > maxAge {
 			// Notify user the question expired before deleting
 			if batch.TelegramMsgID != 0 {
-				expiredText := fmt.Sprintf("⏰ Question from <b>%s</b> expired (no response within %s)", batch.AgentName, maxAge.Truncate(time.Minute))
+				expiredText := fmt.Sprintf("⏰ Question from <b>%s</b> expired (no response within %s)",
+					batch.AgentName, maxAge.Truncate(time.Minute))
 				_ = telegram.EditQuestionMessage(batch.BotToken, batch.ChatID, batch.TelegramMsgID, expiredText, nil)
 			}
 			log.Printf("[questions] expired batch %s for %s", key, batch.AgentName)
@@ -143,7 +144,7 @@ func buildQuestionPage(batch *QuestionBatch) telegram.QuestionPage {
 	q := batch.Questions[batch.CurrentPage]
 	selectedAnswer := batch.Answers[batch.CurrentPage]
 
-	var options []telegram.QuestionPageOption
+	options := make([]telegram.QuestionPageOption, 0, len(q.Options))
 	for _, opt := range q.Options {
 		options = append(options, telegram.QuestionPageOption{
 			Label:       opt.Label,
@@ -265,7 +266,7 @@ func routeCodexResponse(batch *QuestionBatch, registry *adapterRegistry) error {
 		return fmt.Errorf("adapter for %s is not Codex", batch.AgentName)
 	}
 
-	var answers []runtime.QuestionAnswer
+	answers := make([]runtime.QuestionAnswer, 0, len(batch.Questions))
 	for i, q := range batch.Questions {
 		answers = append(answers, runtime.QuestionAnswer{
 			QuestionID: q.ID,

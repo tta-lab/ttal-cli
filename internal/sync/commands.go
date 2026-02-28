@@ -197,7 +197,7 @@ func cleanManagedCommandSkills(skillsDir string, validNames map[string]bool, dry
 		return nil, err
 	}
 
-	var removed []string
+	removed := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -238,7 +238,7 @@ func cleanManagedCommandFiles(cmdsDir string, validNames map[string]bool, dryRun
 		return nil, err
 	}
 
-	var removed []string
+	removed := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue

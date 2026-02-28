@@ -76,7 +76,8 @@ func runMultiAgentPoller(
 		// Handle callback queries from inline keyboards
 		if update.CallbackQuery != nil {
 			// Find chat ID from callback query
-			if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage && update.CallbackQuery.Message.Message != nil {
+			if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage &&
+				update.CallbackQuery.Message.Message != nil {
 				chatID := update.CallbackQuery.Message.Message.Chat.ID
 				if _, ok := dispatch[chatID]; ok {
 					handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
@@ -199,7 +200,10 @@ func handleInboundMessage(
 //   - Checks for bot_command entity at message start (like MatchTypeCommandStartOnly)
 //   - Strips @botname suffix from the command for group chat compatibility
 //   - Validates chat ID so commands only work from the configured chat
-func registerBotCommandsForAgent(b *bot.Bot, teamName, agentName, botToken, chatIDStr string, chatID int64, allCommands []BotCommand) {
+func registerBotCommandsForAgent(
+	b *bot.Bot, teamName, agentName, botToken, chatIDStr string,
+	chatID int64, allCommands []BotCommand,
+) {
 	matchCommand := func(cmd string) bot.MatchFunc {
 		return func(update *models.Update) bool {
 			if update.Message == nil || update.Message.Chat.ID != chatID {
@@ -563,7 +567,8 @@ func submitBatch(
 		return err
 	}
 
-	var questions, answers []string
+	questions := make([]string, 0, len(batch.Questions))
+	answers := make([]string, 0, len(batch.Questions))
 	for i, q := range batch.Questions {
 		questions = append(questions, q.Text)
 		answers = append(answers, batch.Answers[i])

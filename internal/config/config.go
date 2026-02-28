@@ -71,7 +71,7 @@ type Config struct {
 	Prompts PromptsConfig `toml:"prompts" jsonschema:"description=Prompt templates for task routing"`
 
 	// Team-aware fields.
-	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"`
+	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"` //nolint:lll
 	Teams       map[string]TeamConfig `toml:"teams" jsonschema:"description=Per-team configuration sections"`
 
 	// Resolved at load time, not from TOML.
@@ -94,24 +94,24 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
-	TeamPath        string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."`
-	DBPath          string                 `toml:"db_path" jsonschema:"description=Path to ttal.db (default: <data_dir>/ttal.db). Set to share DB across teams."`
-	DataDir         string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`
-	TaskRC          string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`
+	TeamPath        string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."`         //nolint:lll
+	DBPath          string                 `toml:"db_path" jsonschema:"description=Path to ttal.db (default: <data_dir>/ttal.db). Set to share DB across teams."` //nolint:lll
+	DataDir         string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`                               //nolint:lll
+	TaskRC          string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`                     //nolint:lll
 	ChatID          string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
-	LifecycleAgent  string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle"`
+	LifecycleAgent  string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle"`                                           //nolint:lll
 	AgentRuntime    string                 `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Runtime for agent sessions"` //nolint:lll
 	WorkerRuntime   string                 `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,description=Runtime for spawned workers"`             //nolint:lll
 	GatewayURL      string                 `toml:"gateway_url" jsonschema:"description=OpenClaw Gateway URL"`
 	HooksToken      string                 `toml:"hooks_token" jsonschema:"description=OpenClaw hooks auth token"`
-	MergeMode       string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`
-	VoiceLanguage   string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"`
+	MergeMode       string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`                  //nolint:lll
+	VoiceLanguage   string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
 	DesignAgent     string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
 	ResearchAgent   string                 `toml:"research_agent" jsonschema:"description=Research agent"`
 	TestAgent       string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
 	Agents          map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
-	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`
-	TaskSyncURL     string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`
+	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"` //nolint:lll
+	TaskSyncURL     string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`            //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, and command deployment.
@@ -131,8 +131,8 @@ type VoiceConfig struct {
 type AgentConfig struct {
 	BotToken string `toml:"bot_token" jsonschema:"description=Telegram bot token for this agent"`
 	Port     int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
-	Runtime  string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"`
-	Model    string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`
+	Runtime  string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"` //nolint:lll
+	Model    string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`                                                 //nolint:lll
 }
 
 // AgentRuntimeFor returns the effective runtime for an agent:
@@ -149,7 +149,7 @@ func (c *Config) AgentModelFor(agentName string) string {
 	if ac, ok := c.Agents[agentName]; ok && ac.Model != "" {
 		return ac.Model
 	}
-	return "opus"
+	return DefaultModel
 }
 
 // DataDir returns the resolved data directory for the active team.
@@ -243,6 +243,7 @@ func (c *Config) TaskSyncURL() string {
 
 const (
 	DefaultTeamName = "default"
+	DefaultModel    = "opus"
 	MergeModeAuto   = "auto"
 	MergeModeManual = "manual"
 )
@@ -655,12 +656,12 @@ func (m *DaemonConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.R
 func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
 	team, ok := m.Teams[teamName]
 	if !ok {
-		return "opus"
+		return DefaultModel
 	}
 	if ac, ok := team.Agents[agentName]; ok && ac.Model != "" {
 		return ac.Model
 	}
-	return "opus"
+	return DefaultModel
 }
 
 // resolvedPaths caches both dataDir and dbPath together from a single config load,

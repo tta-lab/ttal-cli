@@ -3,6 +3,8 @@ package watcher
 import (
 	"encoding/json"
 	"testing"
+
+	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 )
 
 func TestEncodePath(t *testing.T) {
@@ -64,29 +66,13 @@ func TestExtractQuestions(t *testing.T) {
 				},
 			},
 		}
-		inputJSON, _ := json.Marshal(input)
-		line := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_123","name":"AskUserQuestion","input":` + string(inputJSON) + `}]}}`
-
-		correlationID, questions := extractQuestions([]byte(line))
-		if correlationID != "toolu_123" {
-			t.Errorf("correlationID = %q, want %q", correlationID, "toolu_123")
-		}
+		correlationID, questions := extractQuestionsFromInput(t, input, "toolu_123")
+		assertCorrelationID(t, correlationID, "toolu_123")
 		if len(questions) != 1 {
 			t.Fatalf("len(questions) = %d, want 1", len(questions))
 		}
 		q := questions[0]
-		if q.Text != "Which database?" {
-			t.Errorf("Text = %q, want %q", q.Text, "Which database?")
-		}
-		if q.Header != "Database" {
-			t.Errorf("Header = %q, want %q", q.Header, "Database")
-		}
-		if len(q.Options) != 2 {
-			t.Errorf("len(Options) = %d, want 2", len(q.Options))
-		}
-		if !q.AllowCustom {
-			t.Error("AllowCustom should be true for CC questions")
-		}
+		assertQuestionFields(t, q, "Which database?", "Database", 2, true)
 	})
 
 	t.Run("multi question batch", func(t *testing.T) {
@@ -96,48 +82,84 @@ func TestExtractQuestions(t *testing.T) {
 				{"question": "Q2", "header": "H2", "options": []map[string]string{{"label": "B"}}},
 			},
 		}
-		inputJSON, _ := json.Marshal(input)
-		line := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_456","name":"AskUserQuestion","input":` + string(inputJSON) + `}]}}`
-
-		correlationID, questions := extractQuestions([]byte(line))
-		if correlationID != "toolu_456" {
-			t.Errorf("correlationID = %q, want %q", correlationID, "toolu_456")
-		}
+		correlationID, questions := extractQuestionsFromInput(t, input, "toolu_456")
+		assertCorrelationID(t, correlationID, "toolu_456")
 		if len(questions) != 2 {
 			t.Fatalf("len(questions) = %d, want 2", len(questions))
 		}
 	})
 
 	t.Run("non-assistant type returns nil", func(t *testing.T) {
-		line := `{"type":"user","message":{"content":[{"type":"tool_use","id":"x","name":"AskUserQuestion","input":{"questions":[]}}]}}`
-		correlationID, questions := extractQuestions([]byte(line))
-		if correlationID != "" || questions != nil {
-			t.Errorf("expected empty result for non-assistant, got %q %v", correlationID, questions)
-		}
+		line := `{"type":"user","message":{"content":[{"type":"tool_use",` +
+			`"id":"x","name":"AskUserQuestion","input":{"questions":[]}}]}}`
+		assertEmptyExtraction(t, line, "non-assistant")
 	})
 
 	t.Run("non-AskUserQuestion tool_use ignored", func(t *testing.T) {
-		line := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"x","name":"Read","input":{}}]}}`
-		correlationID, questions := extractQuestions([]byte(line))
-		if correlationID != "" || questions != nil {
-			t.Errorf("expected empty result for non-question tool_use, got %q %v", correlationID, questions)
-		}
+		line := `{"type":"assistant","message":{"content":[` +
+			`{"type":"tool_use","id":"x","name":"Read","input":{}}]}}`
+		assertEmptyExtraction(t, line, "non-question tool_use")
 	})
 
 	t.Run("text-only assistant returns nil", func(t *testing.T) {
-		line := `{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}`
-		correlationID, questions := extractQuestions([]byte(line))
-		if correlationID != "" || questions != nil {
-			t.Errorf("expected empty result for text-only, got %q %v", correlationID, questions)
-		}
+		line := `{"type":"assistant","message":{"content":[` +
+			`{"type":"text","text":"hello"}]}}`
+		assertEmptyExtraction(t, line, "text-only")
 	})
 
 	t.Run("invalid json returns nil", func(t *testing.T) {
-		correlationID, questions := extractQuestions([]byte("not json"))
-		if correlationID != "" || questions != nil {
-			t.Errorf("expected empty result for invalid json")
-		}
+		assertEmptyExtraction(t, "not json", "invalid json")
 	})
+}
+
+// extractQuestionsFromInput builds a JSONL line from input and toolID, then calls extractQuestions.
+func extractQuestionsFromInput(
+	t *testing.T, input map[string]interface{}, toolID string,
+) (string, []runtime.Question) {
+	t.Helper()
+	inputJSON, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("failed to marshal input: %v", err)
+	}
+	line := `{"type":"assistant","message":{"content":[{"type":"tool_use",` +
+		`"id":"` + toolID + `","name":"AskUserQuestion","input":` +
+		string(inputJSON) + `}]}}`
+	return extractQuestions([]byte(line))
+}
+
+func assertCorrelationID(t *testing.T, got, want string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("correlationID = %q, want %q", got, want)
+	}
+}
+
+func assertQuestionFields(
+	t *testing.T, q runtime.Question,
+	wantText, wantHeader string, wantOptions int, wantCustom bool,
+) {
+	t.Helper()
+	if q.Text != wantText {
+		t.Errorf("Text = %q, want %q", q.Text, wantText)
+	}
+	if q.Header != wantHeader {
+		t.Errorf("Header = %q, want %q", q.Header, wantHeader)
+	}
+	if len(q.Options) != wantOptions {
+		t.Errorf("len(Options) = %d, want %d", len(q.Options), wantOptions)
+	}
+	if q.AllowCustom != wantCustom {
+		t.Errorf("AllowCustom = %v, want %v", q.AllowCustom, wantCustom)
+	}
+}
+
+func assertEmptyExtraction(t *testing.T, line, desc string) {
+	t.Helper()
+	correlationID, questions := extractQuestions([]byte(line))
+	if correlationID != "" || questions != nil {
+		t.Errorf("expected empty result for %s, got %q %v",
+			desc, correlationID, questions)
+	}
 }
 
 func TestExtractAssistantText(t *testing.T) {
