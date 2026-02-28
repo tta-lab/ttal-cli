@@ -89,6 +89,23 @@ func TestValues(t *testing.T) {
 	}
 }
 
+func TestNeedsPort(t *testing.T) {
+	tests := []struct {
+		rt   Runtime
+		want bool
+	}{
+		{ClaudeCode, false},
+		{OpenCode, true},
+		{Codex, true},
+		{OpenClaw, false},
+	}
+	for _, tt := range tests {
+		if got := tt.rt.NeedsPort(); got != tt.want {
+			t.Errorf("%s.NeedsPort() = %v, want %v", tt.rt, got, tt.want)
+		}
+	}
+}
+
 func TestIsWorkerRuntime(t *testing.T) {
 	tests := []struct {
 		rt   Runtime

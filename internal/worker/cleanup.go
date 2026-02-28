@@ -21,8 +21,9 @@ type CleanupRequest struct {
 
 // RequestCleanup writes a cleanup request file for the daemon to process.
 // This is fire-and-forget — the file persists even if the daemon is down.
+// All teams share a single cleanup dir (~/.ttal/cleanup/) — requests are globally unique.
 func RequestCleanup(sessionID, taskUUID string) error {
-	dir := filepath.Join(config.ResolveDataDir(), cleanupDir)
+	dir := filepath.Join(config.DefaultDataDir(), cleanupDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cleanup dir: %w", err)
 	}
@@ -42,7 +43,7 @@ func RequestCleanup(sessionID, taskUUID string) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// CleanupDir returns the path to <data_dir>/cleanup/.
+// CleanupDir returns the path to ~/.ttal/cleanup/ (shared across all teams).
 func CleanupDir() (string, error) {
-	return filepath.Join(config.ResolveDataDir(), cleanupDir), nil
+	return filepath.Join(config.DefaultDataDir(), cleanupDir), nil
 }

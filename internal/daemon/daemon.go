@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/status"
 	"codeberg.org/clawteam/ttal-cli/internal/telegram"
+	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 	"codeberg.org/clawteam/ttal-cli/internal/watcher"
 )
 
@@ -75,7 +77,7 @@ func Run() error {
 	// Create question state stores
 	qs := newQuestionStore()
 	cas := newCustomAnswerStore()
-	initAdaptersMultiTeam(ctx, mcfg, registry, qs)
+	initAdapters(ctx, mcfg, registry, qs)
 
 	// Discover dynamic commands once at startup
 	discovered := DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
@@ -152,7 +154,7 @@ func Run() error {
 		}
 	}
 	if hasNonOpenClaw {
-		startWatcherMultiTeam(mcfg, qs, done)
+		startWatcher(mcfg, qs, done)
 	} else {
 		log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
 	}
@@ -160,7 +162,7 @@ func Run() error {
 	// Start socket listener
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
-			return handleSendMultiTeam(mcfg, registry, req)
+			return handleSend(mcfg, registry, req)
 		},
 		statusUpdate: handleStatusUpdate,
 	})
@@ -193,30 +195,48 @@ func Run() error {
 	log.Printf("[daemon] shutting down")
 	close(done)
 	cancel()
-	registry.stopAll(context.Background())
+	shutdownAgents(mcfg, registry)
 	cleanup()
 
 	return nil
 }
 
-// initAdaptersMultiTeam creates and starts runtime adapters for OC/Codex/OpenClaw agents.
-// Config-driven: iterates all teams from MultiTeamConfig, no DB required.
-func initAdaptersMultiTeam(ctx context.Context, mcfg *config.MultiTeamConfig, registry *adapterRegistry, qs *questionStore) {
+// initAdapters starts all agent sessions: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
+// Config-driven: iterates all teams, no DB required.
+func initAdapters(ctx context.Context, mcfg *config.DaemonConfig, registry *adapterRegistry, qs *questionStore) {
 	for _, ta := range mcfg.AllAgents() {
 		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 
-		// Only register adapters for runtimes the daemon manages.
-		// CC agents use tmux directly — registering them would shadow the tmux
-		// fallback in deliverToAgent() since SendMessage() requires Start().
-		if rt != runtime.OpenCode && rt != runtime.Codex && rt != runtime.OpenClaw {
+		// CC agents use tmux — spawn session but don't register adapter
+		// (deliverToAgent falls back to tmux send-keys for unregistered agents).
+		if rt == runtime.ClaudeCode {
+			sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
+			if tmux.SessionExists(sessionName) {
+				log.Printf("[daemon] CC agent %s already running (session: %s)", ta.AgentName, sessionName)
+				continue
+			}
+			model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
+			env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+			if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, env, mcfg.Global.GetShell()); err != nil {
+				log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
+			} else {
+				log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
+			}
 			continue
 		}
 
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 		port := ta.Config.Port
-		env := buildAgentEnvMultiTeam(ta.AgentName, ta.TeamName, mcfg)
+		if rt.NeedsPort() && port == 0 {
+			log.Printf("[daemon] skipping %s adapter for %s/%s: "+
+				"port not configured (set [teams.%s.agents.%s] port = N)",
+				rt, ta.TeamName, ta.AgentName,
+				ta.TeamName, ta.AgentName)
+			continue
+		}
+		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 
 		team := mcfg.Teams[ta.TeamName]
 		adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, true, env, team)
@@ -226,15 +246,24 @@ func initAdaptersMultiTeam(ctx context.Context, mcfg *config.MultiTeamConfig, re
 		}
 		registry.set(ta.AgentName, adapter)
 		log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
+		// Create or resume session for adapters that need one.
+		if rt == runtime.OpenCode || rt == runtime.Codex {
+			sid, err := adapter.CreateSession(ctx)
+			if err != nil {
+				log.Printf("[daemon] failed to create session for %s: %v", ta.AgentName, err)
+			} else {
+				log.Printf("[daemon] created session %s for %s", sid, ta.AgentName)
+			}
+		}
 		// OpenClaw owns messaging — skip Telegram event bridging
 		if rt != runtime.OpenClaw {
-			bridgeEventsMultiTeam(ta.AgentName, ta.TeamName, adapter, mcfg, qs)
+			bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs)
 		}
 	}
 }
 
-// buildAgentEnvMultiTeam returns env vars for an agent adapter.
-func buildAgentEnvMultiTeam(agentName, teamName string, mcfg *config.MultiTeamConfig) []string {
+// buildAgentEnv returns env vars for an agent adapter.
+func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
 	env := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
@@ -247,8 +276,8 @@ func buildAgentEnvMultiTeam(agentName, teamName string, mcfg *config.MultiTeamCo
 	return env
 }
 
-// bridgeEventsMultiTeam reads events from an adapter and routes them to Telegram.
-func bridgeEventsMultiTeam(agentName, teamName string, adapter runtime.Adapter, mcfg *config.MultiTeamConfig, qs *questionStore) {
+// bridgeEvents reads events from an adapter and routes them to Telegram.
+func bridgeEvents(agentName, teamName string, adapter runtime.Adapter, mcfg *config.DaemonConfig, qs *questionStore) {
 	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
 	if !ok || ta.Config.BotToken == "" {
 		return
@@ -265,31 +294,31 @@ func bridgeEventsMultiTeam(agentName, teamName string, adapter runtime.Adapter, 
 			case runtime.EventError:
 				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
 			case runtime.EventQuestion:
-				handleIncomingQuestionMultiTeam(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
+				handleIncomingQuestion(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
 			}
 		}
 	}()
 }
 
-// handleSendMultiTeam routes an incoming SendRequest based on From/To fields.
+// handleSend routes an incoming SendRequest based on From/To fields.
 // Resolves team from agent name or the Team field in the request.
-func handleSendMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, req SendRequest) error {
+func handleSend(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequest) error {
 	switch {
 	case req.From != "" && req.To == "human":
-		return handleFromMultiTeam(mcfg, req)
+		return handleFrom(mcfg, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgentMultiTeam(mcfg, registry, req)
+		return handleAgentToAgent(mcfg, registry, req)
 	case req.From != "":
-		return handleFromMultiTeam(mcfg, req)
+		return handleFrom(mcfg, req)
 	case req.To != "":
-		return handleToMultiTeam(mcfg, registry, req)
+		return handleTo(mcfg, registry, req)
 	default:
 		return fmt.Errorf("send request missing from/to")
 	}
 }
 
-// handleFromMultiTeam sends a message from an agent to the human via Telegram.
-func handleFromMultiTeam(mcfg *config.MultiTeamConfig, req SendRequest) error {
+// handleFrom sends a message from an agent to the human via Telegram.
+func handleFrom(mcfg *config.DaemonConfig, req SendRequest) error {
 	ta := resolveAgent(mcfg, req.Team, req.From)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
@@ -300,8 +329,8 @@ func handleFromMultiTeam(mcfg *config.MultiTeamConfig, req SendRequest) error {
 	return telegram.SendMessage(ta.Config.BotToken, ta.ChatID, req.Message)
 }
 
-// handleToMultiTeam delivers a message to an agent via its runtime adapter.
-func handleToMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, req SendRequest) error {
+// handleTo delivers a message to an agent via its runtime adapter.
+func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequest) error {
 	ta := resolveAgent(mcfg, req.Team, req.To)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
@@ -309,8 +338,8 @@ func handleToMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, 
 	return deliverToAgent(registry, ta.TeamName, req.To, req.Message)
 }
 
-// handleAgentToAgentMultiTeam delivers a message from one agent to another.
-func handleAgentToAgentMultiTeam(mcfg *config.MultiTeamConfig, registry *adapterRegistry, req SendRequest) error {
+// handleAgentToAgent delivers a message from one agent to another.
+func handleAgentToAgent(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequest) error {
 	fromTA := resolveAgent(mcfg, req.Team, req.From)
 	if fromTA == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
@@ -325,7 +354,7 @@ func handleAgentToAgentMultiTeam(mcfg *config.MultiTeamConfig, registry *adapter
 }
 
 // resolveAgent finds an agent by name, using team hint if provided.
-func resolveAgent(mcfg *config.MultiTeamConfig, teamHint, agentName string) *config.TeamAgent {
+func resolveAgent(mcfg *config.DaemonConfig, teamHint, agentName string) *config.TeamAgent {
 	if teamHint != "" {
 		ta, ok := mcfg.FindAgentInTeam(teamHint, agentName)
 		if ok {
@@ -354,8 +383,8 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 	}
 }
 
-// startWatcherMultiTeam initializes the JSONL watcher from config (all teams).
-func startWatcherMultiTeam(mcfg *config.MultiTeamConfig, qs *questionStore, done <-chan struct{}) {
+// startWatcher initializes the JSONL watcher from config (all teams).
+func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, done <-chan struct{}) {
 	agentMap := make(map[string]watcher.AgentInfo)
 	for _, ta := range mcfg.AllAgents() {
 		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
@@ -377,7 +406,7 @@ func startWatcherMultiTeam(mcfg *config.MultiTeamConfig, qs *questionStore, done
 			}
 		},
 		func(teamName, agentName, correlationID string, questions []runtime.Question) {
-			handleIncomingQuestionMultiTeam(qs, teamName, agentName, runtime.ClaudeCode, correlationID, questions, mcfg)
+			handleIncomingQuestion(qs, teamName, agentName, runtime.ClaudeCode, correlationID, questions, mcfg)
 		},
 	)
 	if err != nil {
@@ -391,14 +420,14 @@ func startWatcherMultiTeam(mcfg *config.MultiTeamConfig, qs *questionStore, done
 	}()
 }
 
-// handleIncomingQuestionMultiTeam handles questions with team context.
-func handleIncomingQuestionMultiTeam(
+// handleIncomingQuestion handles questions with team context.
+func handleIncomingQuestion(
 	store *questionStore,
 	teamName, agentName string,
 	rt runtime.Runtime,
 	correlationID string,
 	questions []runtime.Question,
-	mcfg *config.MultiTeamConfig,
+	mcfg *config.DaemonConfig,
 ) {
 	if len(questions) == 0 {
 		return
@@ -478,6 +507,77 @@ func IsRunning() (bool, int, error) {
 	}
 
 	return true, pid, nil
+}
+
+// shutdownAgents kills all agent sessions on daemon exit.
+func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
+	// Stop all adapter-managed agents (OC/Codex/OpenClaw)
+	registry.stopAll(context.Background())
+
+	// Kill CC tmux sessions
+	for _, ta := range mcfg.AllAgents() {
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+		if rt != runtime.ClaudeCode {
+			continue
+		}
+		sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
+		if !tmux.SessionExists(sessionName) {
+			continue
+		}
+		if err := tmux.KillSession(sessionName); err != nil {
+			log.Printf("[daemon] failed to kill session %s: %v", sessionName, err)
+		} else {
+			log.Printf("[daemon] killed CC session %s", sessionName)
+		}
+	}
+}
+
+// spawnCCSession creates a tmux session for a Claude Code agent.
+func spawnCCSession(sessionName, agentName, agentPath, model string, env []string, shell string) error {
+	cmd := "claude --dangerously-skip-permissions"
+	if model != "" {
+		cmd += " --model " + model
+	}
+	if hasCCConversation(agentPath) {
+		cmd += " --continue"
+	}
+
+	envStr := ""
+	if len(env) > 0 {
+		envStr = fmt.Sprintf("env %s ", strings.Join(env, " "))
+	}
+	var shellCmd string
+	switch shell {
+	case "fish":
+		shellCmd = fmt.Sprintf("%sfish -C '%s'", envStr, cmd)
+	default:
+		shellCmd = fmt.Sprintf("%szsh -c '%s'", envStr, cmd)
+	}
+
+	if err := tmux.NewSession(sessionName, agentName, agentPath, shellCmd); err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	for _, e := range env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) == 2 {
+			_ = tmux.SetEnv(sessionName, parts[0], parts[1])
+		}
+	}
+	return nil
+}
+
+// hasCCConversation checks if Claude Code has a previous conversation for the given path.
+// Claude sanitizes paths: / and . are replaced with - to form the project directory name.
+func hasCCConversation(workDir string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	sanitized := strings.ReplaceAll(workDir, string(filepath.Separator), "-")
+	sanitized = strings.ReplaceAll(sanitized, ".", "-")
+	projectDir := filepath.Join(home, ".claude", "projects", sanitized)
+	matches, _ := filepath.Glob(filepath.Join(projectDir, "*.jsonl"))
+	return len(matches) > 0
 }
 
 func writePID(path string) error {

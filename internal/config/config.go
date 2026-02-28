@@ -463,8 +463,8 @@ func (c *Config) validateMergeMode() error {
 	return nil
 }
 
-// MultiTeamConfig holds all teams' resolved configurations for the multi-team daemon.
-type MultiTeamConfig struct {
+// DaemonConfig holds all teams' resolved configurations.
+type DaemonConfig struct {
 	Global *Config                  // Raw config (Sync, Shell, Prompts, etc.)
 	Teams  map[string]*ResolvedTeam // team name -> resolved team config
 }
@@ -497,7 +497,7 @@ type TeamAgent struct {
 
 // LoadAll loads config.toml and resolves ALL teams.
 // Used by the daemon to serve all teams from a single process.
-func LoadAll() (*MultiTeamConfig, error) {
+func LoadAll() (*DaemonConfig, error) {
 	path, err := Path()
 	if err != nil {
 		return nil, err
@@ -515,7 +515,7 @@ func LoadAll() (*MultiTeamConfig, error) {
 		return nil, fmt.Errorf("config requires [teams] sections")
 	}
 
-	mcfg := &MultiTeamConfig{
+	mcfg := &DaemonConfig{
 		Global: &cfg,
 		Teams:  make(map[string]*ResolvedTeam),
 	}
@@ -576,7 +576,7 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 }
 
 // AllAgents returns all agents across all teams, sorted by team then agent name.
-func (m *MultiTeamConfig) AllAgents() []TeamAgent {
+func (m *DaemonConfig) AllAgents() []TeamAgent {
 	var agents []TeamAgent
 	for teamName, team := range m.Teams {
 		for agentName, ac := range team.Agents {
@@ -600,7 +600,7 @@ func (m *MultiTeamConfig) AllAgents() []TeamAgent {
 
 // FindAgent looks up which team an agent belongs to.
 // Returns the first match if agent names are unique across teams.
-func (m *MultiTeamConfig) FindAgent(agentName string) (*TeamAgent, bool) {
+func (m *DaemonConfig) FindAgent(agentName string) (*TeamAgent, bool) {
 	for teamName, team := range m.Teams {
 		if ac, ok := team.Agents[agentName]; ok {
 			ta := TeamAgent{
@@ -617,7 +617,7 @@ func (m *MultiTeamConfig) FindAgent(agentName string) (*TeamAgent, bool) {
 }
 
 // FindAgentInTeam looks up an agent within a specific team.
-func (m *MultiTeamConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, bool) {
+func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, bool) {
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return nil, false
@@ -637,7 +637,7 @@ func (m *MultiTeamConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgen
 }
 
 // AgentRuntimeForTeam resolves effective runtime for an agent in a team.
-func (m *MultiTeamConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.Runtime {
+func (m *DaemonConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.Runtime {
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return runtime.ClaudeCode
@@ -652,7 +652,7 @@ func (m *MultiTeamConfig) AgentRuntimeForTeam(teamName, agentName string) runtim
 }
 
 // AgentModelForTeam resolves effective model for an agent in a team.
-func (m *MultiTeamConfig) AgentModelForTeam(teamName, agentName string) string {
+func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return "opus"

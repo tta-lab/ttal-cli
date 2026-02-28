@@ -12,29 +12,23 @@ var teamCmd = &cobra.Command{
 	Short: "Manage agent sessions",
 }
 
-var teamStartCmd = &cobra.Command{
-	Use:   "start [team-name]",
-	Short: "Start per-agent tmux sessions",
-	Long: `Creates a separate tmux session for each agent configured in config.toml.
-Each session is named "ttal-<team>-<agent>" (e.g. "ttal-default-kestrel").
+var teamStatusCmd = &cobra.Command{
+	Use:   "status [team-name]",
+	Short: "Show agent session health",
+	Long: `Shows the health of all agents in the active team.
 
 Without team name: uses TTAL_TEAM env or default_team from config.
-With team name: starts that team directly.
-
-Without --force: skips already-running sessions (only starts missing ones).
-With --force: kills and recreates all sessions.
+With team name: shows that team's status.
 
 Examples:
-  ttal team start              # start active team
-  ttal team start default      # start default team
-  ttal team start guion        # start guion team`,
+  ttal team status              # active team
+  ttal team status guion        # specific team`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 1 {
-			os.Setenv("TTAL_TEAM", args[0])
+			_ = os.Setenv("TTAL_TEAM", args[0])
 		}
-		force, _ := cmd.Flags().GetBool("force")
-		return team.Start(force)
+		return team.Status()
 	},
 }
 
@@ -60,29 +54,15 @@ var teamListCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 1 {
-			os.Setenv("TTAL_TEAM", args[0])
+			_ = os.Setenv("TTAL_TEAM", args[0])
 		}
 		return team.List()
 	},
 }
 
-var teamStopCmd = &cobra.Command{
-	Use:   "stop [team-name]",
-	Short: "Stop all agent tmux sessions",
-	Args:  cobra.MaximumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 1 {
-			os.Setenv("TTAL_TEAM", args[0])
-		}
-		return team.Stop()
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(teamCmd)
-	teamStartCmd.Flags().Bool("force", false, "Kill and recreate existing sessions")
-	teamCmd.AddCommand(teamStartCmd)
+	teamCmd.AddCommand(teamStatusCmd)
 	teamCmd.AddCommand(teamAttachCmd)
 	teamCmd.AddCommand(teamListCmd)
-	teamCmd.AddCommand(teamStopCmd)
 }
