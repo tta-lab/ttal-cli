@@ -1,4 +1,4 @@
-.PHONY: help build build-dictate clean clean-db reset test generate schema check-schema install install-dictate reinstall setup run fmt vet lint
+.PHONY: help build build-dictate clean clean-db reset test generate schema check-schema install install-dictate reinstall setup run fmt vet lint doc-dev doc-build doc-deploy
 
 # Default target
 help:
@@ -23,6 +23,9 @@ help:
 	@echo "  make ci            - Run all CI checks (fmt, generate, schema, vet, lint, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
 	@echo "  make install-hooks - Install git pre-commit hook"
+	@echo "  make doc-dev       - Start docs dev server"
+	@echo "  make doc-build     - Build docs site"
+	@echo "  make doc-deploy    - Build and deploy docs to Cloudflare"
 
 
 # Build the binary
@@ -164,6 +167,18 @@ check-clean:
 	else \
 		echo "✓ Working directory is clean"; \
 	fi
+
+# Documentation site
+doc-dev:
+	@cd docs && pnpm dev
+
+doc-build:
+	@cd docs && pnpm build
+
+doc-deploy:
+	@echo "Building and deploying docs..."
+	@cd docs && pnpm build && pnpm exec wrangler deploy
+	@echo "Docs deployed to ttal.guion.io"
 
 # Install pre-commit hook
 install-hooks:

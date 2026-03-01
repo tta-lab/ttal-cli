@@ -1,0 +1,59 @@
+:root {
+  --vp-c-brand-1: #646cff;
+  --vp-c-brand-2: #747bff;
+  --vp-c-brand-3: #8b92ff;
+}
+
+/* Typer fixed-width container */
+.typer-line {
+  text-align: left;
+  font-size: 1.2em;
+  color: var(--vp-c-text-2);
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.typer-word {
+  display: inline-block;
+  min-width: 11ch; /* "Taskwarrior" width — longest word */
+  text-align: left;
+}
+
+.typer-cursor {
+  animation: blink 1s step-end infinite;
+  color: var(--vp-c-brand-1);
+  font-weight: 300;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Comparison table — centered, tighter */
+.vp-doc table {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+
+/* Architecture diagram — constrained */
+.vp-doc div[class*="language-"] {
+  max-width: 40rem;
+  margin-inline: auto;
+}
+
+/* Vision statement */
+.vision-statement {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  max-width: 36rem;
+  line-height: 1.4;
+  margin: 1.5rem 0;
+}
+
+.vision-sub {
+  font-size: 1rem;
+  color: var(--vp-c-text-2);
+  max-width: 34rem;
+  margin: 0.5rem 0 2rem;
+}
