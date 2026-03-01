@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"codeberg.org/clawteam/ttal-cli/internal/format"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
@@ -115,7 +116,7 @@ func List() error {
 		Rows(rows...)
 
 	fmt.Println(t)
-	fmt.Printf("\n%d %s\n", len(filtered), plural(len(filtered), "task", "tasks"))
+	fmt.Printf("\n%d %s\n", len(filtered), format.Plural(len(filtered), "task", "tasks"))
 	return nil
 }
 
@@ -166,7 +167,7 @@ func Completed() error {
 		Rows(rows...)
 
 	fmt.Println(t)
-	fmt.Printf("\n%d %s\n", len(tasks), plural(len(tasks), "task", "tasks"))
+	fmt.Printf("\n%d %s\n", len(tasks), format.Plural(len(tasks), "task", "tasks"))
 	return nil
 }
 
@@ -226,11 +227,4 @@ func validateIDs(ids []string) error {
 		}
 	}
 	return nil
-}
-
-func plural(n int, singular, p string) string {
-	if n == 1 {
-		return singular
-	}
-	return p
 }

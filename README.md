@@ -142,9 +142,6 @@ ttal project list
 # List projects with specific tags
 ttal project list +backend +infrastructure
 
-# Get project details
-ttal project get clawd
-
 # Modify project tags (use -- to separate from flags)
 ttal project modify clawd -- +new-tag -old-tag
 

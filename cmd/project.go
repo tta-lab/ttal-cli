@@ -3,15 +3,18 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/internal/format"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
 )
+
+const statusCol = 4 // index of the STATUS column in project list table
 
 var (
 	projectAlias       string
@@ -24,7 +27,7 @@ var (
 var projectCmd = &cobra.Command{
 	Use:   "project",
 	Short: "Manage projects",
-	Long:  `Add, list, get, archive, and modify projects.`,
+	Long:  `Add, list, archive, and modify projects.`,
 }
 
 var projectAddCmd = &cobra.Command{
@@ -93,58 +96,43 @@ Examples:
 			return nil
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "ALIAS\tNAME\tSTATUS")
+		dimColor := lipgloss.Color("241")
+		headerStyle := lipgloss.NewStyle().Bold(true).Padding(0, 1)
+		cellStyle := lipgloss.NewStyle().Padding(0, 1)
+		dimStyle := cellStyle.Foreground(dimColor)
+
+		rows := make([][]string, 0, len(projects))
 		for _, p := range projects {
 			status := "active"
 			if p.ArchivedAt != nil {
 				status = "archived"
 			}
-
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
-				p.Alias, p.Name, status)
-		}
-		_ = w.Flush()
-
-		return nil
-	},
-}
-
-var projectGetCmd = &cobra.Command{
-	Use:   "get <alias>",
-	Short: "Get project details",
-	Long: `Get detailed information about a project.
-
-Example:
-  ttal project get clawd`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
-		alias := args[0]
-
-		proj, err := database.Project.Query().
-			Where(project.Alias(alias)).
-			Only(ctx)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return fmt.Errorf("project '%s' not found", alias)
-			}
-			return fmt.Errorf("failed to get project: %w", err)
+			rows = append(rows, []string{
+				p.Alias,
+				p.Name,
+				p.Path,
+				p.Description,
+				status,
+			})
 		}
 
-		fmt.Printf("Alias:       %s\n", proj.Alias)
-		fmt.Printf("Name:        %s\n", proj.Name)
-		if proj.Description != "" {
-			fmt.Printf("Description: %s\n", proj.Description)
-		}
-		if proj.Path != "" {
-			fmt.Printf("Path:        %s\n", proj.Path)
-		}
-		fmt.Printf("Created:     %s\n", proj.CreatedAt.Format("2006-01-02 15:04:05"))
-		if proj.ArchivedAt != nil {
-			fmt.Printf("Archived:    %s\n", proj.ArchivedAt.Format("2006-01-02 15:04:05"))
-		}
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
+			StyleFunc(func(row, col int) lipgloss.Style {
+				if row == table.HeaderRow {
+					return headerStyle
+				}
+				if col == statusCol {
+					return dimStyle
+				}
+				return cellStyle
+			}).
+			Headers("ALIAS", "NAME", "PATH", "DESCRIPTION", "STATUS").
+			Rows(rows...)
 
+		fmt.Println(t)
+		fmt.Printf("\n%d %s\n", len(projects), format.Plural(len(projects), "project", "projects"))
 		return nil
 	},
 }
@@ -285,7 +273,6 @@ func init() {
 
 	projectCmd.AddCommand(projectAddCmd)
 	projectCmd.AddCommand(projectListCmd)
-	projectCmd.AddCommand(projectGetCmd)
 	projectCmd.AddCommand(projectArchiveCmd)
 	projectCmd.AddCommand(projectUnarchiveCmd)
 	projectCmd.AddCommand(projectDeleteCmd)
