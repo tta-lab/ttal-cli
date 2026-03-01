@@ -134,7 +134,7 @@ Project aliases support hierarchical matching for taskwarrior integration. When 
 
 ```bash
 # Add a project
-ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd --repo=neil/clawd --repo-type=forgejo +infrastructure +core
+ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd +infrastructure +core
 
 # List all projects
 ttal project list
@@ -152,10 +152,6 @@ ttal project modify clawd -- +new-tag -old-tag
 ttal project modify clawd -- name:'New Project Name'
 ttal project modify clawd -- path:/new/path
 ttal project modify clawd -- description:'Updated description'
-ttal project modify clawd -- repo:owner/repo-name
-ttal project modify clawd -- repo-type:forgejo
-ttal project modify clawd -- owner:username
-
 # Modify multiple fields and tags at once
 ttal project modify clawd -- name:'New Name' path:/new/path +backend -legacy
 
@@ -539,9 +535,6 @@ The `modify` command supports both tag operations and field updates using taskwa
 - `name` - Project name
 - `description` - Project description
 - `path` - Filesystem path
-- `repo` - Repository ID (e.g., owner/repo)
-- `repo-type` - Repository type (forgejo, github, or codeberg)
-- `owner` - Project owner
 
 ### Important Notes
 - Always use `--` before your modifications to prevent `-tag` from being interpreted as a command flag

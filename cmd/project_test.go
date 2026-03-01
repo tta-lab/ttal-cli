@@ -153,89 +153,6 @@ func TestProjectModifyPath(t *testing.T) {
 	}
 }
 
-func TestProjectModifyRepo(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Test Project").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
-
-	_, err = proj.Update().
-		SetRepo("owner/repo").
-		SetRepoType(project.RepoTypeForgejo).
-		SetOwner("owner").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to update project repo: %v", err)
-	}
-
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
-	}
-
-	if updated.Repo != "owner/repo" {
-		t.Errorf("project repo = %v, want %v", updated.Repo, "owner/repo")
-	}
-	if updated.RepoType != project.RepoTypeForgejo {
-		t.Errorf("project repo_type = %v, want %v", updated.RepoType, project.RepoTypeForgejo)
-	}
-	if updated.Owner != "owner" {
-		t.Errorf("project owner = %v, want %v", updated.Owner, "owner")
-	}
-}
-
-func TestProjectModifyRepoType(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	tests := []struct {
-		name     string
-		repoType project.RepoType
-	}{
-		{"forgejo", project.RepoTypeForgejo},
-		{"github", project.RepoTypeGithub},
-		{"codeberg", project.RepoTypeCodeberg},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			proj, err := database.Project.Create().
-				SetAlias("test-" + tt.name).
-				SetName("Test Project").
-				Save(ctx)
-			if err != nil {
-				t.Fatalf("failed to create project: %v", err)
-			}
-
-			_, err = proj.Update().
-				SetRepoType(tt.repoType).
-				Save(ctx)
-			if err != nil {
-				t.Fatalf("failed to update repo type: %v", err)
-			}
-
-			updated, err := database.Project.Query().
-				Where(project.Alias("test-" + tt.name)).
-				Only(ctx)
-			if err != nil {
-				t.Fatalf("failed to query project: %v", err)
-			}
-
-			if updated.RepoType != tt.repoType {
-				t.Errorf("project repo_type = %v, want %v", updated.RepoType, tt.repoType)
-			}
-		})
-	}
-}
-
 func TestProjectModifyMultipleFields(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
@@ -253,9 +170,6 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 		SetName(testNewName).
 		SetDescription("New description").
 		SetPath(testNewPath).
-		SetRepo("owner/repo").
-		SetRepoType(project.RepoTypeGithub).
-		SetOwner("newowner").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to update project: %v", err)
@@ -276,15 +190,6 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 	}
 	if updated.Path != testNewPath {
 		t.Errorf("project path = %v, want /new/path", updated.Path)
-	}
-	if updated.Repo != "owner/repo" {
-		t.Errorf("project repo = %v, want owner/repo", updated.Repo)
-	}
-	if updated.RepoType != project.RepoTypeGithub {
-		t.Errorf("project repo_type = %v, want github", updated.RepoType)
-	}
-	if updated.Owner != "newowner" {
-		t.Errorf("project owner = %v, want newowner", updated.Owner)
 	}
 }
 

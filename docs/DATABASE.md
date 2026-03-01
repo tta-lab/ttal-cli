@@ -85,9 +85,6 @@ CREATE TABLE projects (
     name TEXT NOT NULL,
     description TEXT,
     path TEXT,
-    repo TEXT,
-    repo_type TEXT CHECK(repo_type IN ('forgejo', 'github', 'codeberg')),
-    owner TEXT,
     archived_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -272,15 +269,6 @@ sqlite3 ~/.ttal/ttal.db "PRAGMA integrity_check;"
 rm ~/.ttal/ttal.db
 ttal project list  # Recreates from scratch
 ```
-
-### Invalid Enum Value
-
-**Symptoms:** `invalid enum value for repo_type field: "xyz"`
-
-**Solution:** Use valid values only:
-- `forgejo`
-- `github`
-- `codeberg`
 
 ### Lowercase Validation Errors
 

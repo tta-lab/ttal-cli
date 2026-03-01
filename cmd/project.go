@@ -18,9 +18,6 @@ var (
 	projectName        string
 	projectDescription string
 	projectPath        string
-	projectRepo        string
-	projectRepoType    string
-	projectOwner       string
 	archivedOnly       bool
 )
 
@@ -36,7 +33,7 @@ var projectAddCmd = &cobra.Command{
 	Long: `Add a new project to the database.
 
 Example:
-  ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd --repo=neil/clawd --repo-type=forgejo`,
+  ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if projectAlias == "" {
 			return fmt.Errorf("--alias is required")
@@ -57,16 +54,6 @@ Example:
 		if projectPath != "" {
 			creator = creator.SetPath(projectPath)
 		}
-		if projectRepo != "" {
-			creator = creator.SetRepo(projectRepo)
-		}
-		if projectRepoType != "" {
-			creator = creator.SetRepoType(project.RepoType(projectRepoType))
-		}
-		if projectOwner != "" {
-			creator = creator.SetOwner(projectOwner)
-		}
-
 		_, err := creator.Save(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
@@ -107,15 +94,15 @@ Examples:
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "ALIAS\tNAME\tOWNER\tREPO\tSTATUS")
+		_, _ = fmt.Fprintln(w, "ALIAS\tNAME\tSTATUS")
 		for _, p := range projects {
 			status := "active"
 			if p.ArchivedAt != nil {
 				status = "archived"
 			}
 
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				p.Alias, p.Name, p.Owner, p.Repo, status)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
+				p.Alias, p.Name, status)
 		}
 		_ = w.Flush()
 
@@ -153,16 +140,6 @@ Example:
 		if proj.Path != "" {
 			fmt.Printf("Path:        %s\n", proj.Path)
 		}
-		if proj.Repo != "" {
-			fmt.Printf("Repo:        %s\n", proj.Repo)
-		}
-		if proj.RepoType != "" {
-			fmt.Printf("Repo Type:   %s\n", proj.RepoType)
-		}
-		if proj.Owner != "" {
-			fmt.Printf("Owner:       %s\n", proj.Owner)
-		}
-
 		fmt.Printf("Created:     %s\n", proj.CreatedAt.Format("2006-01-02 15:04:05"))
 		if proj.ArchivedAt != nil {
 			fmt.Printf("Archived:    %s\n", proj.ArchivedAt.Format("2006-01-02 15:04:05"))
@@ -283,18 +260,8 @@ Examples:
 				updater = updater.SetDescription(value)
 			case "path":
 				updater = updater.SetPath(value)
-			case "repo":
-				updater = updater.SetRepo(value)
-			case "repo-type":
-				validTypes := map[string]bool{"forgejo": true, "github": true, "codeberg": true}
-				if !validTypes[value] {
-					return fmt.Errorf("invalid repo-type '%s' (must be: forgejo, github, or codeberg)", value)
-				}
-				updater = updater.SetRepoType(project.RepoType(value))
-			case "owner":
-				updater = updater.SetOwner(value)
 			default:
-				return fmt.Errorf("unknown field '%s' (available: alias, name, description, path, repo, repo-type, owner)", field)
+				return fmt.Errorf("unknown field '%s' (available: alias, name, description, path)", field)
 			}
 		}
 
@@ -328,10 +295,6 @@ func init() {
 	projectAddCmd.Flags().StringVar(&projectName, "name", "", "Project name (required)")
 	projectAddCmd.Flags().StringVar(&projectDescription, "description", "", "Project description")
 	projectAddCmd.Flags().StringVar(&projectPath, "path", "", "Filesystem path")
-	projectAddCmd.Flags().StringVar(&projectRepo, "repo", "", "Repository ID (e.g., neil/clawd)")
-	projectAddCmd.Flags().StringVar(&projectRepoType, "repo-type", "", "Repository type (forgejo, github, codeberg)")
-	projectAddCmd.Flags().StringVar(&projectOwner, "owner", "", "Project owner")
-
 	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
 }
 

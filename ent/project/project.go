@@ -3,7 +3,6 @@
 package project
 
 import (
-	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -22,12 +21,6 @@ const (
 	FieldDescription = "description"
 	// FieldPath holds the string denoting the path field in the database.
 	FieldPath = "path"
-	// FieldRepo holds the string denoting the repo field in the database.
-	FieldRepo = "repo"
-	// FieldRepoType holds the string denoting the repo_type field in the database.
-	FieldRepoType = "repo_type"
-	// FieldOwner holds the string denoting the owner field in the database.
-	FieldOwner = "owner"
 	// FieldArchivedAt holds the string denoting the archived_at field in the database.
 	FieldArchivedAt = "archived_at"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -45,9 +38,6 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldPath,
-	FieldRepo,
-	FieldRepoType,
-	FieldOwner,
 	FieldArchivedAt,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -76,30 +66,6 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 )
 
-// RepoType defines the type for the "repo_type" enum field.
-type RepoType string
-
-// RepoType values.
-const (
-	RepoTypeForgejo  RepoType = "forgejo"
-	RepoTypeGithub   RepoType = "github"
-	RepoTypeCodeberg RepoType = "codeberg"
-)
-
-func (rt RepoType) String() string {
-	return string(rt)
-}
-
-// RepoTypeValidator is a validator for the "repo_type" field enum values. It is called by the builders before save.
-func RepoTypeValidator(rt RepoType) error {
-	switch rt {
-	case RepoTypeForgejo, RepoTypeGithub, RepoTypeCodeberg:
-		return nil
-	default:
-		return fmt.Errorf("project: invalid enum value for repo_type field: %q", rt)
-	}
-}
-
 // OrderOption defines the ordering options for the Project queries.
 type OrderOption func(*sql.Selector)
 
@@ -126,21 +92,6 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByPath orders the results by the path field.
 func ByPath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPath, opts...).ToFunc()
-}
-
-// ByRepo orders the results by the repo field.
-func ByRepo(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRepo, opts...).ToFunc()
-}
-
-// ByRepoType orders the results by the repo_type field.
-func ByRepoType(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRepoType, opts...).ToFunc()
-}
-
-// ByOwner orders the results by the owner field.
-func ByOwner(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldOwner, opts...).ToFunc()
 }
 
 // ByArchivedAt orders the results by the archived_at field.

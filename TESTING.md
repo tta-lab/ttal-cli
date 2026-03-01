@@ -69,7 +69,7 @@ go tool cover -html=coverage.out
 Current test coverage focuses on:
 - ✅ Modify command argument parsing (`+tag`, `-tag`, `field:value`)
 - ✅ Agent field modifications (path)
-- ✅ Project field modifications (name, description, path, repo, repo-type, owner)
+- ✅ Project field modifications (name, description, path)
 - ✅ Tag operations (add, remove, query)
 - ✅ Combined operations (fields + tags in one command)
 - ✅ Archive/unarchive functionality

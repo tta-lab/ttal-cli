@@ -171,7 +171,7 @@ The `modify` command supports both field updates and tag operations:
 
 **Field Updates**: `field:value`
 - Agent fields: `path`
-- Project fields: `name`, `description`, `path`, `repo`, `repo-type`, `owner`
+- Project fields: `name`, `description`, `path`
 
 **Tag Operations**: `+tag` (add), `-tag` (remove)
 

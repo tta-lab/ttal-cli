@@ -49,11 +49,11 @@ func init() {
 	// project.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	project.NameValidator = projectDescName.Validators[0].(func(string) error)
 	// projectDescCreatedAt is the schema descriptor for created_at field.
-	projectDescCreatedAt := projectFields[8].Descriptor()
+	projectDescCreatedAt := projectFields[5].Descriptor()
 	// project.DefaultCreatedAt holds the default value on creation for the created_at field.
 	project.DefaultCreatedAt = projectDescCreatedAt.Default.(func() time.Time)
 	// projectDescUpdatedAt is the schema descriptor for updated_at field.
-	projectDescUpdatedAt := projectFields[9].Descriptor()
+	projectDescUpdatedAt := projectFields[6].Descriptor()
 	// project.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	project.DefaultUpdatedAt = projectDescUpdatedAt.Default.(func() time.Time)
 	// project.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

@@ -79,7 +79,7 @@ You should see your agent listed with its tags.
 ### 5. Register a project
 
 ```bash
-ttal project add myapp --path=/path/to/project --repo=owner/repo --repo-type=codeberg +backend
+ttal project add myapp --path=/path/to/project +backend
 ```
 
 Because both `kestrel` and `myapp` share the `+backend` tag, kestrel can see and work on this project.

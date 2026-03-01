@@ -641,9 +641,6 @@ type ProjectMutation struct {
 	name          *string
 	description   *string
 	_path         *string
-	repo          *string
-	repo_type     *project.RepoType
-	owner         *string
 	archived_at   *time.Time
 	created_at    *time.Time
 	updated_at    *time.Time
@@ -921,153 +918,6 @@ func (m *ProjectMutation) ResetPath() {
 	delete(m.clearedFields, project.FieldPath)
 }
 
-// SetRepo sets the "repo" field.
-func (m *ProjectMutation) SetRepo(s string) {
-	m.repo = &s
-}
-
-// Repo returns the value of the "repo" field in the mutation.
-func (m *ProjectMutation) Repo() (r string, exists bool) {
-	v := m.repo
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRepo returns the old "repo" field's value of the Project entity.
-// If the Project object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldRepo(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRepo is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRepo requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRepo: %w", err)
-	}
-	return oldValue.Repo, nil
-}
-
-// ClearRepo clears the value of the "repo" field.
-func (m *ProjectMutation) ClearRepo() {
-	m.repo = nil
-	m.clearedFields[project.FieldRepo] = struct{}{}
-}
-
-// RepoCleared returns if the "repo" field was cleared in this mutation.
-func (m *ProjectMutation) RepoCleared() bool {
-	_, ok := m.clearedFields[project.FieldRepo]
-	return ok
-}
-
-// ResetRepo resets all changes to the "repo" field.
-func (m *ProjectMutation) ResetRepo() {
-	m.repo = nil
-	delete(m.clearedFields, project.FieldRepo)
-}
-
-// SetRepoType sets the "repo_type" field.
-func (m *ProjectMutation) SetRepoType(pt project.RepoType) {
-	m.repo_type = &pt
-}
-
-// RepoType returns the value of the "repo_type" field in the mutation.
-func (m *ProjectMutation) RepoType() (r project.RepoType, exists bool) {
-	v := m.repo_type
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRepoType returns the old "repo_type" field's value of the Project entity.
-// If the Project object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldRepoType(ctx context.Context) (v project.RepoType, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRepoType is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRepoType requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRepoType: %w", err)
-	}
-	return oldValue.RepoType, nil
-}
-
-// ClearRepoType clears the value of the "repo_type" field.
-func (m *ProjectMutation) ClearRepoType() {
-	m.repo_type = nil
-	m.clearedFields[project.FieldRepoType] = struct{}{}
-}
-
-// RepoTypeCleared returns if the "repo_type" field was cleared in this mutation.
-func (m *ProjectMutation) RepoTypeCleared() bool {
-	_, ok := m.clearedFields[project.FieldRepoType]
-	return ok
-}
-
-// ResetRepoType resets all changes to the "repo_type" field.
-func (m *ProjectMutation) ResetRepoType() {
-	m.repo_type = nil
-	delete(m.clearedFields, project.FieldRepoType)
-}
-
-// SetOwner sets the "owner" field.
-func (m *ProjectMutation) SetOwner(s string) {
-	m.owner = &s
-}
-
-// Owner returns the value of the "owner" field in the mutation.
-func (m *ProjectMutation) Owner() (r string, exists bool) {
-	v := m.owner
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldOwner returns the old "owner" field's value of the Project entity.
-// If the Project object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldOwner(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldOwner is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldOwner requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldOwner: %w", err)
-	}
-	return oldValue.Owner, nil
-}
-
-// ClearOwner clears the value of the "owner" field.
-func (m *ProjectMutation) ClearOwner() {
-	m.owner = nil
-	m.clearedFields[project.FieldOwner] = struct{}{}
-}
-
-// OwnerCleared returns if the "owner" field was cleared in this mutation.
-func (m *ProjectMutation) OwnerCleared() bool {
-	_, ok := m.clearedFields[project.FieldOwner]
-	return ok
-}
-
-// ResetOwner resets all changes to the "owner" field.
-func (m *ProjectMutation) ResetOwner() {
-	m.owner = nil
-	delete(m.clearedFields, project.FieldOwner)
-}
-
 // SetArchivedAt sets the "archived_at" field.
 func (m *ProjectMutation) SetArchivedAt(t time.Time) {
 	m.archived_at = &t
@@ -1223,7 +1073,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 7)
 	if m.alias != nil {
 		fields = append(fields, project.FieldAlias)
 	}
@@ -1235,15 +1085,6 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m._path != nil {
 		fields = append(fields, project.FieldPath)
-	}
-	if m.repo != nil {
-		fields = append(fields, project.FieldRepo)
-	}
-	if m.repo_type != nil {
-		fields = append(fields, project.FieldRepoType)
-	}
-	if m.owner != nil {
-		fields = append(fields, project.FieldOwner)
 	}
 	if m.archived_at != nil {
 		fields = append(fields, project.FieldArchivedAt)
@@ -1270,12 +1111,6 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case project.FieldPath:
 		return m.Path()
-	case project.FieldRepo:
-		return m.Repo()
-	case project.FieldRepoType:
-		return m.RepoType()
-	case project.FieldOwner:
-		return m.Owner()
 	case project.FieldArchivedAt:
 		return m.ArchivedAt()
 	case project.FieldCreatedAt:
@@ -1299,12 +1134,6 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldDescription(ctx)
 	case project.FieldPath:
 		return m.OldPath(ctx)
-	case project.FieldRepo:
-		return m.OldRepo(ctx)
-	case project.FieldRepoType:
-		return m.OldRepoType(ctx)
-	case project.FieldOwner:
-		return m.OldOwner(ctx)
 	case project.FieldArchivedAt:
 		return m.OldArchivedAt(ctx)
 	case project.FieldCreatedAt:
@@ -1347,27 +1176,6 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPath(v)
-		return nil
-	case project.FieldRepo:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRepo(v)
-		return nil
-	case project.FieldRepoType:
-		v, ok := value.(project.RepoType)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRepoType(v)
-		return nil
-	case project.FieldOwner:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetOwner(v)
 		return nil
 	case project.FieldArchivedAt:
 		v, ok := value.(time.Time)
@@ -1426,15 +1234,6 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldPath) {
 		fields = append(fields, project.FieldPath)
 	}
-	if m.FieldCleared(project.FieldRepo) {
-		fields = append(fields, project.FieldRepo)
-	}
-	if m.FieldCleared(project.FieldRepoType) {
-		fields = append(fields, project.FieldRepoType)
-	}
-	if m.FieldCleared(project.FieldOwner) {
-		fields = append(fields, project.FieldOwner)
-	}
 	if m.FieldCleared(project.FieldArchivedAt) {
 		fields = append(fields, project.FieldArchivedAt)
 	}
@@ -1458,15 +1257,6 @@ func (m *ProjectMutation) ClearField(name string) error {
 	case project.FieldPath:
 		m.ClearPath()
 		return nil
-	case project.FieldRepo:
-		m.ClearRepo()
-		return nil
-	case project.FieldRepoType:
-		m.ClearRepoType()
-		return nil
-	case project.FieldOwner:
-		m.ClearOwner()
-		return nil
 	case project.FieldArchivedAt:
 		m.ClearArchivedAt()
 		return nil
@@ -1489,15 +1279,6 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldPath:
 		m.ResetPath()
-		return nil
-	case project.FieldRepo:
-		m.ResetRepo()
-		return nil
-	case project.FieldRepoType:
-		m.ResetRepoType()
-		return nil
-	case project.FieldOwner:
-		m.ResetOwner()
 		return nil
 	case project.FieldArchivedAt:
 		m.ResetArchivedAt()

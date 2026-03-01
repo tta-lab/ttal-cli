@@ -29,16 +29,6 @@ func (Project) Fields() []ent.Field {
 		field.String("path").
 			Optional().
 			Comment("Filesystem path"),
-		field.String("repo").
-			Optional().
-			Comment("Repository ID (e.g., neil/clawd)"),
-		field.Enum("repo_type").
-			Values("forgejo", "github", "codeberg").
-			Optional().
-			Comment("Repository type"),
-		field.String("owner").
-			Optional().
-			Comment("Project owner"),
 		field.Time("archived_at").
 			Optional().
 			Nillable().

@@ -96,66 +96,6 @@ func (_u *ProjectUpdate) ClearPath() *ProjectUpdate {
 	return _u
 }
 
-// SetRepo sets the "repo" field.
-func (_u *ProjectUpdate) SetRepo(v string) *ProjectUpdate {
-	_u.mutation.SetRepo(v)
-	return _u
-}
-
-// SetNillableRepo sets the "repo" field if the given value is not nil.
-func (_u *ProjectUpdate) SetNillableRepo(v *string) *ProjectUpdate {
-	if v != nil {
-		_u.SetRepo(*v)
-	}
-	return _u
-}
-
-// ClearRepo clears the value of the "repo" field.
-func (_u *ProjectUpdate) ClearRepo() *ProjectUpdate {
-	_u.mutation.ClearRepo()
-	return _u
-}
-
-// SetRepoType sets the "repo_type" field.
-func (_u *ProjectUpdate) SetRepoType(v project.RepoType) *ProjectUpdate {
-	_u.mutation.SetRepoType(v)
-	return _u
-}
-
-// SetNillableRepoType sets the "repo_type" field if the given value is not nil.
-func (_u *ProjectUpdate) SetNillableRepoType(v *project.RepoType) *ProjectUpdate {
-	if v != nil {
-		_u.SetRepoType(*v)
-	}
-	return _u
-}
-
-// ClearRepoType clears the value of the "repo_type" field.
-func (_u *ProjectUpdate) ClearRepoType() *ProjectUpdate {
-	_u.mutation.ClearRepoType()
-	return _u
-}
-
-// SetOwner sets the "owner" field.
-func (_u *ProjectUpdate) SetOwner(v string) *ProjectUpdate {
-	_u.mutation.SetOwner(v)
-	return _u
-}
-
-// SetNillableOwner sets the "owner" field if the given value is not nil.
-func (_u *ProjectUpdate) SetNillableOwner(v *string) *ProjectUpdate {
-	if v != nil {
-		_u.SetOwner(*v)
-	}
-	return _u
-}
-
-// ClearOwner clears the value of the "owner" field.
-func (_u *ProjectUpdate) ClearOwner() *ProjectUpdate {
-	_u.mutation.ClearOwner()
-	return _u
-}
-
 // SetArchivedAt sets the "archived_at" field.
 func (_u *ProjectUpdate) SetArchivedAt(v time.Time) *ProjectUpdate {
 	_u.mutation.SetArchivedAt(v)
@@ -235,11 +175,6 @@ func (_u *ProjectUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Project.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.RepoType(); ok {
-		if err := project.RepoTypeValidator(v); err != nil {
-			return &ValidationError{Name: "repo_type", err: fmt.Errorf(`ent: validator failed for field "Project.repo_type": %w`, err)}
-		}
-	}
 	return nil
 }
 
@@ -272,24 +207,6 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.PathCleared() {
 		_spec.ClearField(project.FieldPath, field.TypeString)
-	}
-	if value, ok := _u.mutation.Repo(); ok {
-		_spec.SetField(project.FieldRepo, field.TypeString, value)
-	}
-	if _u.mutation.RepoCleared() {
-		_spec.ClearField(project.FieldRepo, field.TypeString)
-	}
-	if value, ok := _u.mutation.RepoType(); ok {
-		_spec.SetField(project.FieldRepoType, field.TypeEnum, value)
-	}
-	if _u.mutation.RepoTypeCleared() {
-		_spec.ClearField(project.FieldRepoType, field.TypeEnum)
-	}
-	if value, ok := _u.mutation.Owner(); ok {
-		_spec.SetField(project.FieldOwner, field.TypeString, value)
-	}
-	if _u.mutation.OwnerCleared() {
-		_spec.ClearField(project.FieldOwner, field.TypeString)
 	}
 	if value, ok := _u.mutation.ArchivedAt(); ok {
 		_spec.SetField(project.FieldArchivedAt, field.TypeTime, value)
@@ -388,66 +305,6 @@ func (_u *ProjectUpdateOne) ClearPath() *ProjectUpdateOne {
 	return _u
 }
 
-// SetRepo sets the "repo" field.
-func (_u *ProjectUpdateOne) SetRepo(v string) *ProjectUpdateOne {
-	_u.mutation.SetRepo(v)
-	return _u
-}
-
-// SetNillableRepo sets the "repo" field if the given value is not nil.
-func (_u *ProjectUpdateOne) SetNillableRepo(v *string) *ProjectUpdateOne {
-	if v != nil {
-		_u.SetRepo(*v)
-	}
-	return _u
-}
-
-// ClearRepo clears the value of the "repo" field.
-func (_u *ProjectUpdateOne) ClearRepo() *ProjectUpdateOne {
-	_u.mutation.ClearRepo()
-	return _u
-}
-
-// SetRepoType sets the "repo_type" field.
-func (_u *ProjectUpdateOne) SetRepoType(v project.RepoType) *ProjectUpdateOne {
-	_u.mutation.SetRepoType(v)
-	return _u
-}
-
-// SetNillableRepoType sets the "repo_type" field if the given value is not nil.
-func (_u *ProjectUpdateOne) SetNillableRepoType(v *project.RepoType) *ProjectUpdateOne {
-	if v != nil {
-		_u.SetRepoType(*v)
-	}
-	return _u
-}
-
-// ClearRepoType clears the value of the "repo_type" field.
-func (_u *ProjectUpdateOne) ClearRepoType() *ProjectUpdateOne {
-	_u.mutation.ClearRepoType()
-	return _u
-}
-
-// SetOwner sets the "owner" field.
-func (_u *ProjectUpdateOne) SetOwner(v string) *ProjectUpdateOne {
-	_u.mutation.SetOwner(v)
-	return _u
-}
-
-// SetNillableOwner sets the "owner" field if the given value is not nil.
-func (_u *ProjectUpdateOne) SetNillableOwner(v *string) *ProjectUpdateOne {
-	if v != nil {
-		_u.SetOwner(*v)
-	}
-	return _u
-}
-
-// ClearOwner clears the value of the "owner" field.
-func (_u *ProjectUpdateOne) ClearOwner() *ProjectUpdateOne {
-	_u.mutation.ClearOwner()
-	return _u
-}
-
 // SetArchivedAt sets the "archived_at" field.
 func (_u *ProjectUpdateOne) SetArchivedAt(v time.Time) *ProjectUpdateOne {
 	_u.mutation.SetArchivedAt(v)
@@ -540,11 +397,6 @@ func (_u *ProjectUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Project.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.RepoType(); ok {
-		if err := project.RepoTypeValidator(v); err != nil {
-			return &ValidationError{Name: "repo_type", err: fmt.Errorf(`ent: validator failed for field "Project.repo_type": %w`, err)}
-		}
-	}
 	return nil
 }
 
@@ -594,24 +446,6 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if _u.mutation.PathCleared() {
 		_spec.ClearField(project.FieldPath, field.TypeString)
-	}
-	if value, ok := _u.mutation.Repo(); ok {
-		_spec.SetField(project.FieldRepo, field.TypeString, value)
-	}
-	if _u.mutation.RepoCleared() {
-		_spec.ClearField(project.FieldRepo, field.TypeString)
-	}
-	if value, ok := _u.mutation.RepoType(); ok {
-		_spec.SetField(project.FieldRepoType, field.TypeEnum, value)
-	}
-	if _u.mutation.RepoTypeCleared() {
-		_spec.ClearField(project.FieldRepoType, field.TypeEnum)
-	}
-	if value, ok := _u.mutation.Owner(); ok {
-		_spec.SetField(project.FieldOwner, field.TypeString, value)
-	}
-	if _u.mutation.OwnerCleared() {
-		_spec.ClearField(project.FieldOwner, field.TypeString)
 	}
 	if value, ok := _u.mutation.ArchivedAt(); ok {
 		_spec.SetField(project.FieldArchivedAt, field.TypeTime, value)

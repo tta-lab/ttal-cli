@@ -60,48 +60,6 @@ func (_c *ProjectCreate) SetNillablePath(v *string) *ProjectCreate {
 	return _c
 }
 
-// SetRepo sets the "repo" field.
-func (_c *ProjectCreate) SetRepo(v string) *ProjectCreate {
-	_c.mutation.SetRepo(v)
-	return _c
-}
-
-// SetNillableRepo sets the "repo" field if the given value is not nil.
-func (_c *ProjectCreate) SetNillableRepo(v *string) *ProjectCreate {
-	if v != nil {
-		_c.SetRepo(*v)
-	}
-	return _c
-}
-
-// SetRepoType sets the "repo_type" field.
-func (_c *ProjectCreate) SetRepoType(v project.RepoType) *ProjectCreate {
-	_c.mutation.SetRepoType(v)
-	return _c
-}
-
-// SetNillableRepoType sets the "repo_type" field if the given value is not nil.
-func (_c *ProjectCreate) SetNillableRepoType(v *project.RepoType) *ProjectCreate {
-	if v != nil {
-		_c.SetRepoType(*v)
-	}
-	return _c
-}
-
-// SetOwner sets the "owner" field.
-func (_c *ProjectCreate) SetOwner(v string) *ProjectCreate {
-	_c.mutation.SetOwner(v)
-	return _c
-}
-
-// SetNillableOwner sets the "owner" field if the given value is not nil.
-func (_c *ProjectCreate) SetNillableOwner(v *string) *ProjectCreate {
-	if v != nil {
-		_c.SetOwner(*v)
-	}
-	return _c
-}
-
 // SetArchivedAt sets the "archived_at" field.
 func (_c *ProjectCreate) SetArchivedAt(v time.Time) *ProjectCreate {
 	_c.mutation.SetArchivedAt(v)
@@ -207,11 +165,6 @@ func (_c *ProjectCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Project.name": %w`, err)}
 		}
 	}
-	if v, ok := _c.mutation.RepoType(); ok {
-		if err := project.RepoTypeValidator(v); err != nil {
-			return &ValidationError{Name: "repo_type", err: fmt.Errorf(`ent: validator failed for field "Project.repo_type": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Project.created_at"`)}
 	}
@@ -259,18 +212,6 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Path(); ok {
 		_spec.SetField(project.FieldPath, field.TypeString, value)
 		_node.Path = value
-	}
-	if value, ok := _c.mutation.Repo(); ok {
-		_spec.SetField(project.FieldRepo, field.TypeString, value)
-		_node.Repo = value
-	}
-	if value, ok := _c.mutation.RepoType(); ok {
-		_spec.SetField(project.FieldRepoType, field.TypeEnum, value)
-		_node.RepoType = value
-	}
-	if value, ok := _c.mutation.Owner(); ok {
-		_spec.SetField(project.FieldOwner, field.TypeString, value)
-		_node.Owner = value
 	}
 	if value, ok := _c.mutation.ArchivedAt(); ok {
 		_spec.SetField(project.FieldArchivedAt, field.TypeTime, value)

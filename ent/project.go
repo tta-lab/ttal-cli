@@ -25,12 +25,6 @@ type Project struct {
 	Description string `json:"description,omitempty"`
 	// Filesystem path
 	Path string `json:"path,omitempty"`
-	// Repository ID (e.g., neil/clawd)
-	Repo string `json:"repo,omitempty"`
-	// Repository type
-	RepoType project.RepoType `json:"repo_type,omitempty"`
-	// Project owner
-	Owner string `json:"owner,omitempty"`
 	// Archived timestamp (NULL = active)
 	ArchivedAt *time.Time `json:"archived_at,omitempty"`
 	// Creation timestamp
@@ -47,7 +41,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
-		case project.FieldAlias, project.FieldName, project.FieldDescription, project.FieldPath, project.FieldRepo, project.FieldRepoType, project.FieldOwner:
+		case project.FieldAlias, project.FieldName, project.FieldDescription, project.FieldPath:
 			values[i] = new(sql.NullString)
 		case project.FieldArchivedAt, project.FieldCreatedAt, project.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -95,24 +89,6 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field path", values[i])
 			} else if value.Valid {
 				_m.Path = value.String
-			}
-		case project.FieldRepo:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field repo", values[i])
-			} else if value.Valid {
-				_m.Repo = value.String
-			}
-		case project.FieldRepoType:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field repo_type", values[i])
-			} else if value.Valid {
-				_m.RepoType = project.RepoType(value.String)
-			}
-		case project.FieldOwner:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field owner", values[i])
-			} else if value.Valid {
-				_m.Owner = value.String
 			}
 		case project.FieldArchivedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -180,15 +156,6 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("path=")
 	builder.WriteString(_m.Path)
-	builder.WriteString(", ")
-	builder.WriteString("repo=")
-	builder.WriteString(_m.Repo)
-	builder.WriteString(", ")
-	builder.WriteString("repo_type=")
-	builder.WriteString(fmt.Sprintf("%v", _m.RepoType))
-	builder.WriteString(", ")
-	builder.WriteString("owner=")
-	builder.WriteString(_m.Owner)
 	builder.WriteString(", ")
 	if v := _m.ArchivedAt; v != nil {
 		builder.WriteString("archived_at=")

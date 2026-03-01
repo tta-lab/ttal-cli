@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
+	"codeberg.org/clawteam/ttal-cli/ent/migrate"
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -40,7 +41,7 @@ func New(dbPath string) (*DB, error) {
 	}
 
 	// Run auto-migrations
-	if err := client.Schema.Create(context.Background()); err != nil {
+	if err := client.Schema.Create(context.Background(), migrate.WithDropColumn(true)); err != nil {
 		_ = client.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
