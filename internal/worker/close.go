@@ -81,7 +81,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
 				Error:     true,
-				Status:    "Worker cleanup failed",
+				Status:    fmt.Sprintf("Worker cleanup failed: %v", err),
 				StateDump: dumpPath,
 			}, fmt.Errorf("cleanup failed: %w", err)
 		}
@@ -172,7 +172,7 @@ func closeWithPR(taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
 		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
-			return &CloseResult{Error: true, Status: "Worker cleanup failed"}, fmt.Errorf("cleanup failed: %w", err)
+			return &CloseResult{Error: true, Status: fmt.Sprintf("Worker cleanup failed: %v", err)}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		if taskUUID != "" {
 			if err := taskwarrior.MarkDone(taskUUID); err != nil {

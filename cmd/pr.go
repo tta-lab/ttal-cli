@@ -154,13 +154,15 @@ Examples:
 			return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
 		}
 
+		prURL := pr.BuildPRURL(ctx)
+
 		// Check mergeability before deciding mode — both modes need this.
 		if err := pr.CheckMergeable(ctx); err != nil {
+			worker.NotifyTelegram(fmt.Sprintf("⏳ PR not mergeable: %s\n%s\n%v", ctx.Task.Description, prURL, err))
 			return err
 		}
 
 		// Resolve merge mode from config (team > global > "auto").
-		prURL := pr.BuildPRURL(ctx)
 		mergeMode := config.MergeModeAuto
 		cfg, cfgErr := config.Load()
 		if cfgErr != nil {

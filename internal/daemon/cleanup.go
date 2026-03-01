@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -126,7 +127,12 @@ func processCleanupFile(path string) {
 		if result != nil {
 			status = result.Status
 		}
-		log.Printf("[cleanup] close failed for %s: %s", req.SessionID, status)
+		log.Printf("[cleanup] close failed for %s: %s (%v)", req.SessionID, status, closeErr)
+
+		// Notify lifecycle agent so human can investigate
+		worker.NotifyTelegram(fmt.Sprintf("⚠️ Worker cleanup failed\nSession: %s\nReason: %s\nTask: %s",
+			req.SessionID, status, req.TaskUUID))
+
 		// Don't delete the file — daemon will retry on next startup
 		return
 	}
@@ -136,4 +142,5 @@ func processCleanupFile(path string) {
 		log.Printf("[cleanup] failed to remove request file %s: %v", filepath.Base(path), err)
 	}
 	log.Printf("[cleanup] completed: session=%s", req.SessionID)
+	worker.NotifyTelegram(fmt.Sprintf("🧹 Worker cleaned up: %s", req.SessionID))
 }
