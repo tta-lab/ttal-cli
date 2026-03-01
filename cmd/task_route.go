@@ -37,7 +37,8 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt string) error {
 }
 
 // spawnWorkerForTask spawns a worker for a task using the standard spawn flow.
-func spawnWorkerForTask(taskUUID string) error {
+// When dryRun is true, it prints what would happen without spawning.
+func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -72,6 +73,21 @@ func spawnWorkerForTask(taskUUID string) error {
 	workerName := strings.TrimPrefix(task.Branch, "worker/")
 	if workerName == "" {
 		workerName = task.SessionName()
+	}
+
+	if dryRun {
+		fmt.Printf("Task:        %s\n", task.Description)
+		fmt.Printf("UUID:        %s\n", task.UUID)
+		fmt.Printf("Project:     %s\n", task.ProjectPath)
+		fmt.Printf("Runtime:     %s\n", rt)
+		fmt.Printf("Worker:      %s\n", workerName)
+		branch := task.Branch
+		if branch == "" {
+			branch = "(auto-generated)"
+		}
+		fmt.Printf("Branch:      %s\n", branch)
+		fmt.Printf("Session:     %s\n", task.SessionName())
+		return nil
 	}
 
 	if err := taskwarrior.StartTask(task.UUID); err != nil {

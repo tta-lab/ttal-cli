@@ -12,7 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var findCompleted bool
+var (
+	findCompleted bool
+	executeDryRun bool
+)
 
 var taskCmd = &cobra.Command{
 	Use:   "task",
@@ -205,10 +208,12 @@ var taskExecuteCmd = &cobra.Command{
 	Use:   "execute <uuid>",
 	Short: "Spawn a worker for a task",
 	Long: `Spawn a worker to execute a task. Resolves runtime from task tags
-or team's worker_runtime config. Creates a git worktree and tmux session.`,
+or team's worker_runtime config. Creates a git worktree and tmux session.
+
+Use --dry-run to preview what would happen without actually spawning.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return spawnWorkerForTask(args[0])
+		return spawnWorkerForTask(args[0], executeDryRun)
 	},
 }
 
@@ -222,4 +227,5 @@ func init() {
 	taskCmd.AddCommand(taskExecuteCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
+	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")
 }
