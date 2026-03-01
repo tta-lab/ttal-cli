@@ -164,6 +164,109 @@ func TestValidateUUID(t *testing.T) {
 	}
 }
 
+func TestShouldInlineNote(t *testing.T) {
+	tests := []struct {
+		name    string
+		project string
+		want    bool
+	}{
+		{"plan project", "Task Plans", true},
+		{"design project", "UI Design", true},
+		{"plan lowercase", "plans", true},
+		{"design lowercase", "design-docs", true},
+		{"research project", "Research Notes", false},
+		{"empty project", "", false},
+		{"unrelated project", "Backend API", false},
+		{"plan substring", "deployment-planning", true},
+		{"design substring", "redesign", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			note := &flicknoteNote{Project: tt.project}
+			got := shouldInlineNote(note)
+			if got != tt.want {
+				t.Errorf("shouldInlineNote(project=%q) = %v, want %v", tt.project, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatFlicknoteContent(t *testing.T) {
+	tests := []struct {
+		name string
+		note *flicknoteNote
+		want string
+	}{
+		{
+			"title only",
+			&flicknoteNote{Title: "My Plan"},
+			"Title: My Plan\n",
+		},
+		{
+			"title and summary",
+			&flicknoteNote{Title: "My Plan", Summary: "A brief summary"},
+			"Title: My Plan\nSummary: A brief summary\n",
+		},
+		{
+			"full note",
+			&flicknoteNote{Title: "My Plan", Summary: "Brief", Content: "Full content here"},
+			"Title: My Plan\nSummary: Brief\n\nFull content here",
+		},
+		{
+			"title and content no summary",
+			&flicknoteNote{Title: "My Plan", Content: "Content only"},
+			"Title: My Plan\n\nContent only",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatFlicknoteContent(tt.note)
+			if got != tt.want {
+				t.Errorf("formatFlicknoteContent() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPrefixedHexPattern(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		wantID string
+		wantOK bool
+	}{
+		{"plan prefix", "Plan: e8fd0fe0", "e8fd0fe0", true},
+		{"research prefix", "Research: abcd1234", "abcd1234", true},
+		{"design prefix", "Design: 12345678abcdef", "12345678abcdef", true},
+		{"no space after colon", "Plan:e8fd0fe0", "e8fd0fe0", true},
+		{"multiple spaces", "Plan:  e8fd0fe0", "e8fd0fe0", true},
+		{"bare hex no match", "e8fd0fe0", "", false},
+		{"path no match", "Plan: ~/docs/plan.md", "", false},
+		{"too short hex", "Plan: abcd", "", false},
+		{"uppercase hex no match", "Plan: E8FD0FE0", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := prefixedHexPattern.FindStringSubmatch(tt.input)
+			if tt.wantOK {
+				if len(m) < 2 {
+					t.Fatalf("prefixedHexPattern did not match %q", tt.input)
+				}
+				if m[1] != tt.wantID {
+					t.Errorf("prefixedHexPattern captured %q, want %q", m[1], tt.wantID)
+				}
+			} else {
+				if len(m) > 0 {
+					t.Errorf("prefixedHexPattern unexpectedly matched %q, captured %q", tt.input, m[1])
+				}
+			}
+		})
+	}
+}
+
 func TestExtractSessionID(t *testing.T) {
 	tests := []struct {
 		name  string

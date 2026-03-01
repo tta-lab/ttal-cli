@@ -23,12 +23,19 @@ var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 // annotation is treated as plain text.
 var hexIDPattern = regexp.MustCompile(`^[a-f0-9]{8,}$`)
 
+// prefixedHexPattern matches annotations like "Plan: e8fd0fe0" or "Research: abcd1234".
+var prefixedHexPattern = regexp.MustCompile(`^\w+:\s*([a-f0-9]{8,})$`)
+
 // IsHexID returns true if s looks like a flicknote/UUID hex prefix (8+ hex chars).
 func IsHexID(s string) bool {
 	return hexIDPattern.MatchString(s)
 }
 
 const cmdTimeout = 5 * time.Second
+
+// flicknoteTimeout is longer than cmdTimeout because flicknote may need to
+// fetch from a remote API on first access (cache miss).
+const flicknoteTimeout = 10 * time.Second
 
 // UserError is an error with a user-facing message intended for CLI display.
 // The message may contain newlines and formatting.
@@ -177,18 +184,52 @@ var referenceRefPattern = regexp.MustCompile(`(?:Research|Doc|Reference|File):\s
 // Restricted to .md files for the same reason as inlineRefPattern.
 var rawPathPattern = regexp.MustCompile(`^([~\/][\w\/\-\.]+\.md)$`)
 
-// readFlicknote fetches a note from flicknote CLI by ID prefix.
-// Returns empty string if flicknote is not installed or ID not found.
-func readFlicknote(id string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// flicknoteNote represents the JSON output of `flicknote get --json`.
+type flicknoteNote struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Project string `json:"project"`
+	Summary string `json:"summary"`
+	Content string `json:"content"`
+}
+
+// readFlicknoteJSON fetches a note's metadata from flicknote CLI.
+// Returns nil if flicknote is not installed, ID not found, or JSON parse fails.
+func readFlicknoteJSON(id string) *flicknoteNote {
+	ctx, cancel := context.WithTimeout(context.Background(), flicknoteTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "flicknote", "get", id)
+	cmd := exec.CommandContext(ctx, "flicknote", "get", "--json", id)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return ""
+		return nil
 	}
-	return strings.TrimSpace(string(out))
+
+	var note flicknoteNote
+	if err := json.Unmarshal(out, &note); err != nil {
+		return nil
+	}
+	return &note
+}
+
+// shouldInlineNote returns true if the note's project indicates it's a plan/design doc.
+// Matches both "plan" and "design" for consistency with inlineRefPattern (Plan:/Design:).
+func shouldInlineNote(note *flicknoteNote) bool {
+	name := strings.ToLower(note.Project)
+	return strings.Contains(name, "plan") || strings.Contains(name, "design")
+}
+
+// formatFlicknoteContent formats a flicknote note for prompt inlining.
+func formatFlicknoteContent(note *flicknoteNote) string {
+	var b strings.Builder
+	b.WriteString("Title: " + note.Title + "\n")
+	if note.Summary != "" {
+		b.WriteString("Summary: " + note.Summary + "\n")
+	}
+	if note.Content != "" {
+		b.WriteString("\n" + note.Content)
+	}
+	return b.String()
 }
 
 // docRef represents a reference annotation that should be inlined.
@@ -200,14 +241,15 @@ type docRef struct {
 
 // FormatPrompt formats the task for injection into a worker's Claude prompt.
 // Includes description, annotations, and selectively inlined referenced docs.
-// Only execution-critical refs (Plan:, Design:) and bare hex IDs (flicknote)
-// are inlined. Research/Doc/Reference/File refs appear as annotation text only.
+// File refs use prefix-based logic (Plan:/Design: → inline, Research:/Doc: → don't).
+// Hex IDs (bare or prefixed like "Plan: abc123") use project-based logic via flicknote:
+// inline if the note's project contains "plan" or "design".
 func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)
 
 	refDescs := make(map[string]bool)
-	flicknoteCache := make(map[string]string)
+	flicknoteCache := make(map[string]string) // keyed by full annotation text (e.g. "Plan: e8fd0fe0")
 	var refs []docRef
 
 	for _, ann := range t.Annotations {
@@ -229,13 +271,20 @@ func (t *Task) FormatPrompt() string {
 			continue
 		}
 
-		// 3. Bare hex IDs: "e8fd0fe0" → try flicknote
+		// 3. Hex IDs (bare or prefixed): check flicknote project to decide inlining
+		hexID := ""
 		if IsHexID(desc) {
-			content := readFlicknote(desc)
-			if content != "" {
+			hexID = desc
+		} else if m := prefixedHexPattern.FindStringSubmatch(desc); len(m) > 0 {
+			hexID = m[1]
+		}
+
+		if hexID != "" {
+			note := readFlicknoteJSON(hexID)
+			if note != nil && shouldInlineNote(note) {
 				refDescs[desc] = true
-				flicknoteCache[desc] = content
-				refs = append(refs, docRef{label: "FlickNote: " + desc, refType: "flicknote_cached", id: desc})
+				flicknoteCache[desc] = formatFlicknoteContent(note)
+				refs = append(refs, docRef{label: "FlickNote: " + hexID, refType: "flicknote_cached", id: desc})
 			}
 			continue
 		}
