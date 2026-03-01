@@ -440,15 +440,6 @@ func SetPRID(uuid, prID string) error {
 	return nil
 }
 
-// AnnotateTask adds an annotation to a task.
-func AnnotateTask(uuid, message string) error {
-	_, err := runTask(uuid, "annotate", message)
-	if err != nil {
-		return fmt.Errorf("failed to annotate task %s: %w", uuid, err)
-	}
-	return nil
-}
-
 // StartTask marks a task as started so it appears in +ACTIVE.
 func StartTask(uuid string) error {
 	_, err := runTask(uuid, "start")

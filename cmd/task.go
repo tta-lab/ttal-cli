@@ -1,12 +1,9 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
-	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
@@ -220,54 +217,6 @@ Use --dry-run to preview what would happen without actually spawning.`,
 	},
 }
 
-var taskLinkCmd = &cobra.Command{
-	Use:   "link <uuid> <reference>",
-	Short: "Link a file or note to a task",
-	Long: `Attach a file path or FlickNote note to a task as a reference.
-
-Supported formats:
-  <hex-id>            FlickNote note (8+ hex char prefix or full ID)
-  /absolute/path.md   Absolute file path
-  ~/relative/path.md  Home-relative file path
-
-The reference is added as a task annotation. FlickNote notes are also
-cross-linked via 'flicknote link' for bidirectional lookup.
-
-Examples:
-  ttal task link abc12345 e8fd0fe0
-  ttal task link abc12345 ~/clawd/docs/plans/2026-03-01-auth.md`,
-	Args: cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		uuid := args[0]
-		ref := args[1]
-
-		if err := taskwarrior.ValidateUUID(uuid); err != nil {
-			return err
-		}
-
-		if err := taskwarrior.AnnotateTask(uuid, ref); err != nil {
-			return fmt.Errorf("failed to annotate task: %w", err)
-		}
-		fmt.Printf("Annotated task %s with: %s\n", uuid, ref)
-
-		if taskwarrior.IsHexID(ref) {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			linkCmd := exec.CommandContext(ctx, "flicknote", "link", "--task", uuid, ref)
-			if out, err := linkCmd.CombinedOutput(); err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: flicknote link failed: %v\n", err)
-				if len(out) > 0 {
-					fmt.Fprintf(cmd.ErrOrStderr(), "  %s\n", strings.TrimSpace(string(out)))
-				}
-			} else {
-				fmt.Printf("Linked note %s to task %s in FlickNote\n", ref, uuid)
-			}
-		}
-
-		return nil
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(taskCmd)
 	taskCmd.AddCommand(taskGetCmd)
@@ -276,7 +225,6 @@ func init() {
 	taskCmd.AddCommand(taskResearchCmd)
 	taskCmd.AddCommand(taskTestCmd)
 	taskCmd.AddCommand(taskExecuteCmd)
-	taskCmd.AddCommand(taskLinkCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")
