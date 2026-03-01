@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -14,6 +15,18 @@ import (
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
+
+// hexIDPattern matches bare hex IDs (8+ hex chars) used as flicknote note prefixes.
+// This intentionally overlaps with uuidPrefixPattern (8-char hex) — in FormatPrompt,
+// hex IDs are checked after fileRefPattern, so UUID-like prefixes trigger a flicknote
+// lookup. If the ID doesn't exist in flicknote, readFlicknote returns empty and the
+// annotation is treated as plain text.
+var hexIDPattern = regexp.MustCompile(`^[a-f0-9]{8,}$`)
+
+// IsHexID returns true if s looks like a flicknote/UUID hex prefix (8+ hex chars).
+func IsHexID(s string) bool {
+	return hexIDPattern.MatchString(s)
+}
 
 const cmdTimeout = 5 * time.Second
 
@@ -152,35 +165,82 @@ func (t *Task) HasTag(tag string) bool {
 	return false
 }
 
-// fileRefPattern matches annotations like "Design: ~/path/to/file.md"
-var fileRefPattern = regexp.MustCompile(`(?:Plan|Design|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
+// fileRefPattern matches annotations like "Plan: ~/path.md", "Design: ~/path.md", etc.
+// Only .md files are matched — this is intentional since task references are markdown docs
+// (plan docs, design docs, research notes). Other file types should use flicknote.
+var fileRefPattern = regexp.MustCompile(`(?:Plan|Design|Research|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
+
+// rawPathPattern matches annotations that are just a bare file path (no prefix).
+// Restricted to .md files for the same reason as fileRefPattern.
+var rawPathPattern = regexp.MustCompile(`^([~\/][\w\/\-\.]+\.md)$`)
+
+// readFlicknote fetches a note from flicknote CLI by ID prefix.
+// Returns empty string if flicknote is not installed or ID not found.
+func readFlicknote(id string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "flicknote", "get", id)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// docRef represents a reference annotation that should be inlined.
+type docRef struct {
+	label   string
+	refType string // "file", "flicknote_cached"
+	id      string // file path or flicknote ID
+}
 
 // FormatPrompt formats the task for injection into a worker's Claude prompt.
 // Includes description, annotations, and inlined referenced markdown docs.
+// Resolves prefixed file refs (Plan:, Design:, Research:, etc.), bare hex IDs
+// (via flicknote get), and raw file paths.
 func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
-
 	lines = append(lines, t.Description)
 
-	// Separate file-reference annotations from content annotations
-	fileRefDescs := make(map[string]bool)
-	type fileRef struct {
-		label string
-		path  string
-	}
-	var fileRefs []fileRef
+	refDescs := make(map[string]bool)
+	flicknoteCache := make(map[string]string)
+	var refs []docRef
 
 	for _, ann := range t.Annotations {
-		matches := fileRefPattern.FindAllStringSubmatch(ann.Description, -1)
-		for _, m := range matches {
-			fileRefDescs[ann.Description] = true
-			fileRefs = append(fileRefs, fileRef{label: ann.Description, path: m[1]})
+		desc := ann.Description
+
+		// 1. Prefixed file refs: "Plan: ~/path.md", "Design: ~/path.md", etc.
+		if matches := fileRefPattern.FindAllStringSubmatch(desc, -1); len(matches) > 0 {
+			for _, m := range matches {
+				refDescs[desc] = true
+				refs = append(refs, docRef{label: desc, refType: "file", id: m[1]})
+			}
+			continue
+		}
+
+		// 2. Bare hex IDs: "e8fd0fe0" → try flicknote
+		if IsHexID(desc) {
+			content := readFlicknote(desc)
+			if content != "" {
+				refDescs[desc] = true
+				flicknoteCache[desc] = content
+				refs = append(refs, docRef{label: "FlickNote: " + desc, refType: "flicknote_cached", id: desc})
+			}
+			continue
+		}
+
+		// 3. Raw file paths: "~/docs/plan.md" or "/absolute/path.md"
+		if matches := rawPathPattern.FindStringSubmatch(desc); len(matches) > 0 {
+			refDescs[desc] = true
+			refs = append(refs, docRef{label: desc, refType: "file", id: matches[1]})
+			continue
 		}
 	}
 
-	// Content annotations (skip file refs, they're inlined below)
+	// Content annotations (skip refs, they're inlined below)
 	for _, ann := range t.Annotations {
-		if fileRefDescs[ann.Description] {
+		if refDescs[ann.Description] {
 			continue
 		}
 		lines = append(lines, "")
@@ -189,16 +249,21 @@ func (t *Task) FormatPrompt() string {
 
 	result := strings.Join(lines, "\n") + "\n"
 
-	// Inline referenced markdown files
-	if len(fileRefs) > 0 {
+	// Inline referenced documents
+	if len(refs) > 0 {
 		result += "\nReferenced Documentation:\n"
 		sep := strings.Repeat("═", 80)
 		subSep := strings.Repeat("─", 80)
-		for _, ref := range fileRefs {
+		for _, ref := range refs {
 			result += sep + "\n"
 			result += ref.label + "\n"
 			result += subSep + "\n"
-			result += readFileRef(ref.path) + "\n"
+			switch ref.refType {
+			case "file":
+				result += readFileRef(ref.id) + "\n"
+			case "flicknote_cached":
+				result += flicknoteCache[ref.id] + "\n"
+			}
 			result += sep + "\n"
 		}
 	}
