@@ -76,6 +76,11 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 				StateDump: dumpPath,
 			}, fmt.Errorf("cleanup failed: %w", err)
 		}
+		if task.UUID != "" {
+			if err := taskwarrior.MarkDone(task.UUID); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
+			}
+		}
 		pullMainBranch(projectPath)
 		return &CloseResult{
 			Cleaned:   true,
@@ -108,11 +113,11 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	return closeWithPR(task.PRID, projectPath, sessionName, workDir, branch, worktreeExists)
+	return closeWithPR(task.UUID, task.PRID, projectPath, sessionName, workDir, branch, worktreeExists)
 }
 
 // closeWithPR handles the smart-close path when a PR exists.
-func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string, worktreeExists bool) (*CloseResult, error) {
+func closeWithPR(taskUUID, prIDStr, projectPath, sessionName, workDir, branch string, worktreeExists bool) (*CloseResult, error) {
 	prID, err := strconv.ParseInt(prIDStr, 10, 64)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
@@ -159,6 +164,11 @@ func closeWithPR(prIDStr, projectPath, sessionName, workDir, branch string, work
 	if clean {
 		if err := cleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
 			return &CloseResult{Error: true, Status: "Worker cleanup failed"}, fmt.Errorf("cleanup failed: %w", err)
+		}
+		if taskUUID != "" {
+			if err := taskwarrior.MarkDone(taskUUID); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", taskUUID, err)
+			}
 		}
 		pullMainBranch(projectPath)
 		return &CloseResult{

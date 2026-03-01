@@ -119,7 +119,7 @@ func processCleanupFile(path string) {
 		return
 	}
 
-	// Close worker (kill session + remove worktree + delete branch + git pull)
+	// Close worker (kill session + remove worktree + delete branch + mark task done + git pull)
 	result, closeErr := worker.Close(req.SessionID, false)
 	if closeErr != nil {
 		status := "unknown"
@@ -129,14 +129,6 @@ func processCleanupFile(path string) {
 		log.Printf("[cleanup] close failed for %s: %s", req.SessionID, status)
 		// Don't delete the file — daemon will retry on next startup
 		return
-	}
-
-	// Mark task done
-	if req.TaskUUID != "" {
-		if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
-			log.Printf("[cleanup] failed to mark task done %s: %v", req.TaskUUID, err)
-			// Still delete the file — session is already cleaned up
-		}
 	}
 
 	// Success — remove the request file

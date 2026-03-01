@@ -52,9 +52,10 @@ func CleanupDir() (string, error) {
 }
 
 // RunCleanup processes a single cleanup request file: sets the team env,
-// closes the worker, marks the task done, and removes the request file.
+// closes the worker (which marks the task done), and removes the request file.
+// When SessionID is empty, MarkDone is called directly since Close is skipped.
 // Designed for manual invocation via `ttal worker cleanup`.
-func RunCleanup(path string) error {
+func RunCleanup(path string, force bool) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", path, err)
@@ -86,15 +87,9 @@ func RunCleanup(path string) error {
 		return nil
 	}
 
-	_, closeErr := Close(req.SessionID, false)
+	_, closeErr := Close(req.SessionID, force)
 	if closeErr != nil {
 		return fmt.Errorf("close failed for %s: %w", req.SessionID, closeErr)
-	}
-
-	if req.TaskUUID != "" {
-		if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", req.TaskUUID, err)
-		}
 	}
 
 	if err := os.Remove(path); err != nil {
@@ -106,7 +101,7 @@ func RunCleanup(path string) error {
 }
 
 // RunPendingCleanups processes all .json files in the cleanup directory.
-func RunPendingCleanups() error {
+func RunPendingCleanups(force bool) error {
 	dir, err := CleanupDir()
 	if err != nil {
 		return err
@@ -136,7 +131,7 @@ func RunPendingCleanups() error {
 
 	var count int
 	for _, e := range jsonFiles {
-		if err := RunCleanup(filepath.Join(dir, e.Name())); err != nil {
+		if err := RunCleanup(filepath.Join(dir, e.Name()), force); err != nil {
 			fmt.Fprintf(os.Stderr, "error processing %s: %v\n", e.Name(), err)
 			continue
 		}

@@ -17,6 +17,7 @@ var (
 	spawnForce         bool
 	spawnYolo          bool
 	closeForce         bool
+	cleanupForce       bool
 	gatekeeperTaskFile string
 )
 
@@ -169,9 +170,9 @@ Example:
   ttal worker cleanup ~/.ttal/cleanup/session.json  # process one file`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return worker.RunCleanup(args[0])
+			return worker.RunCleanup(args[0], cleanupForce)
 		}
-		return worker.RunPendingCleanups()
+		return worker.RunPendingCleanups(cleanupForce)
 	},
 }
 
@@ -219,6 +220,9 @@ func init() {
 
 	// Close flags
 	workerCloseCmd.Flags().BoolVar(&closeForce, "force", false, "Force cleanup regardless of PR status")
+
+	// Cleanup flags
+	workerCleanupCmd.Flags().BoolVar(&cleanupForce, "force", false, "Force cleanup regardless of PR status")
 
 	// Gatekeeper flags
 	workerGatekeeperCmd.Flags().StringVar(
