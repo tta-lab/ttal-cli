@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"codeberg.org/clawteam/ttal-cli/internal/daemon"
+	gitutil "codeberg.org/clawteam/ttal-cli/internal/git"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
@@ -79,6 +81,20 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		fmt.Printf("Task:        %s\n", task.Description)
 		fmt.Printf("UUID:        %s\n", task.UUID)
 		fmt.Printf("Project:     %s\n", task.ProjectPath)
+
+		// Show git root and subpath if project is inside a monorepo.
+		// Resolve symlinks before comparing — git rev-parse resolves them but the stored path may not.
+		if gitRoot, err := gitutil.FindRoot(task.ProjectPath); err == nil {
+			resolvedProject, _ := filepath.EvalSymlinks(task.ProjectPath)
+			resolvedRoot, _ := filepath.EvalSymlinks(gitRoot)
+			if resolvedProject != resolvedRoot {
+				if rel, err := filepath.Rel(gitRoot, task.ProjectPath); err == nil {
+					fmt.Printf("Git root:    %s\n", gitRoot)
+					fmt.Printf("Subpath:     %s\n", rel)
+				}
+			}
+		}
+
 		fmt.Printf("Runtime:     %s\n", rt)
 		fmt.Printf("Worker:      %s\n", workerName)
 		branch := task.Branch

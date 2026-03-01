@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/internal/config"
+	gitutil "codeberg.org/clawteam/ttal-cli/internal/git"
 	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"codeberg.org/clawteam/ttal-cli/internal/tmux"
@@ -40,6 +41,26 @@ func Spawn(cfg SpawnConfig) error {
 	}
 	if _, err := os.Stat(project); err != nil {
 		return fmt.Errorf("project directory not found: %s", project)
+	}
+
+	// Detect git root — project may be a subpath within a monorepo
+	gitRoot, err := gitutil.FindRoot(project)
+	if err != nil {
+		return fmt.Errorf("cannot find git root for %s: %w", project, err)
+	}
+
+	// Compute relative subpath from git root to project directory.
+	// Resolve symlinks before comparing — git rev-parse resolves them but filepath.Abs does not.
+	subpath := ""
+	resolvedProject, _ := filepath.EvalSymlinks(project)
+	resolvedRoot, _ := filepath.EvalSymlinks(gitRoot)
+	if resolvedProject != resolvedRoot {
+		rel, err := filepath.Rel(gitRoot, project)
+		if err != nil {
+			return fmt.Errorf("cannot compute relative subpath: %w", err)
+		}
+		subpath = rel
+		fmt.Printf("  Monorepo subpath: %s\n", subpath)
 	}
 
 	// Route by task tag: +opencode/+oc or +codex/+cx overrides default runtime
@@ -73,9 +94,25 @@ func Spawn(cfg SpawnConfig) error {
 		return err
 	}
 
-	workDir, branch, err := setupWorkDir(cfg, project)
+	workDir, branch, err := setupWorkDir(cfg, gitRoot)
 	if err != nil {
 		return err
+	}
+
+	// Adjust workDir for monorepo subpath
+	worktreeRoot := workDir
+	if subpath != "" {
+		workDir = filepath.Join(workDir, subpath)
+		if _, err := os.Stat(workDir); err != nil {
+			return fmt.Errorf("subpath %s does not exist in worktree: %w", subpath, err)
+		}
+	}
+
+	// Run .worktree-setup: subpath's script takes priority, then fall back to root.
+	// Runs on both fresh and reused worktrees — setup scripts should be idempotent
+	// (e.g. bun install, npm ci) so re-running is safe and keeps deps up to date.
+	if cfg.Worktree {
+		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
 	return launchAndTrack(cfg, task, sessionName, workDir, branch, project)
@@ -321,7 +358,6 @@ func setupWorktree(project, name string) (string, error) {
 		return "", err
 	}
 
-	runWorktreeSetup(worktreeDir)
 	return worktreeDir, nil
 }
 
@@ -350,23 +386,41 @@ func createWorktree(project, worktreeDir, workerBranch string) error {
 	return nil
 }
 
+// runWorktreeSetupWithFallback tries the target dir's .worktree-setup first,
+// then falls back to the worktree root's script if target has none.
+func runWorktreeSetupWithFallback(targetDir, worktreeRoot string) {
+	setupScript := filepath.Join(targetDir, ".worktree-setup")
+	if info, err := os.Stat(setupScript); err == nil && !info.IsDir() {
+		runSetupScript(setupScript, targetDir)
+		return
+	}
+	// Only fall back to root's script when targetDir is a subpath.
+	// When targetDir == worktreeRoot, we already checked this dir above.
+	if targetDir != worktreeRoot {
+		runWorktreeSetup(worktreeRoot)
+	}
+}
+
 func runWorktreeSetup(worktreeDir string) {
 	setupScript := filepath.Join(worktreeDir, ".worktree-setup")
 	info, err := os.Stat(setupScript)
 	if err != nil || info.IsDir() {
 		return
 	}
+	runSetupScript(setupScript, worktreeDir)
+}
 
-	fmt.Println("\nRunning .worktree-setup...")
-	if err := os.Chmod(setupScript, 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "  warning: failed to make .worktree-setup executable: %v\n", err)
+func runSetupScript(scriptPath, workDir string) {
+	fmt.Printf("\nRunning %s...\n", filepath.Base(scriptPath))
+	if err := os.Chmod(scriptPath, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: failed to make script executable: %v\n", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, setupScript)
-	cmd.Dir = worktreeDir
+	cmd := exec.CommandContext(ctx, scriptPath)
+	cmd.Dir = workDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: .worktree-setup failed (non-fatal): %v\n", err)
