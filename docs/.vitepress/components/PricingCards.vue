@@ -73,7 +73,7 @@ const plans = [
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
-  margin: 2rem 0;
+  margin: 2rem auto;
   max-width: 54rem;
 }
 

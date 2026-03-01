@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: TTAL
-  text: Build your own software company, managed by AI agents.
-  tagline: The coordination layer for Claude Code, OpenCode, and Codex CLI.
+  text: The Swiss Army Knife to build your autonomous software company.
+  tagline: Simple and powerful. Connect your AI agent team to your phone. The full coding lifecycle runs autonomously — from task to merge.
   actions:
     - theme: brand
       text: Get Started
@@ -44,35 +44,36 @@ features:
 ---
 
 <script setup>
-import Typer from './.vitepress/components/Typer.vue'
 import PricingCards from './.vitepress/components/PricingCards.vue'
 </script>
 
-<div class="typer-line">
-  <Typer :words="['Telegram', 'Teamwork', 'Taskwarrior']" />
-</div>
+## Two-Plane Architecture
 
-<p class="vision-sub">
-Whether you're a developer, a student, or anyone with a problem to solve — TTAL gives you a team of AI agents that research, plan, build, review, and ship.
-</p>
+TTAL runs your team on two planes:
 
----
+**Manager Plane** — Long-running agents with specialized roles. Your researcher, designer, orchestrator. They persist across sessions, have memory, and coordinate via agent-to-agent messaging.
 
-## Architecture
+**Worker Plane** — Short-lived coders and reviewers. Spawned on demand, one per task, isolated in git worktrees. Multiple workers run in parallel. They implement, review, triage, and merge — then they're done.
 
+```text
+┌─────────────────────────────────────────────────┐
+│  You (Telegram — from anywhere)                 │
+├────────────────────┬────────────────────────────┤
+│  Manager Plane     │  Worker Plane              │
+│  ───────────────   │  ─────────────             │
+│  🦉 Researcher     │  👷 Coder (task A)         │
+│  🐙 Designer       │  👷 Coder (task B)         │
+│  🐱 Orchestrator   │  🔍 Reviewer (PR #42)     │
+│  🦅 Lifecycle      │  👷 Coder (task C)         │
+│  (long-running)    │  (short-lived, parallel)   │
+├────────────────────┴────────────────────────────┤
+│  TTAL (coordination, messaging, task routing)   │
+├─────────────────────────────────────────────────┤
+│  Runtime (Claude Code / OpenCode / Codex)       │
+└─────────────────────────────────────────────────┘
 ```
-┌─────────────────────────────────────────────┐
-│  Human (Telegram — from anywhere)           │
-├─────────────────────────────────────────────┤
-│  ttal (coordination, messaging, routing)    │
-├─────────────────────────────────────────────┤
-│  Coding harness (optional — oh-my-opencode) │
-├─────────────────────────────────────────────┤
-│  Runtime (Claude Code / OpenCode / Codex)   │
-└─────────────────────────────────────────────┘
-```
 
-**One bot per agent.** Each agent is its own Telegram bot, its own DM chat. Talk to your researcher about research while your designer designs.
+**One bot per agent.** Each manager agent is its own Telegram bot, its own DM chat. Talk to your researcher about research while your designer designs.
 
 ---
 

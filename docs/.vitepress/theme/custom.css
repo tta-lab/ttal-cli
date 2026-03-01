@@ -6,16 +6,15 @@
 
 /* Typer fixed-width container */
 .typer-line {
-  text-align: left;
   font-size: 1.2em;
   color: var(--vp-c-text-2);
-  margin-top: 0.5rem;
+  margin-top: 1rem;
   font-weight: 500;
 }
 
 .typer-word {
   display: inline-block;
-  min-width: 11ch; /* "Taskwarrior" width — longest word */
+  min-width: 12ch; /* longest word "Taskwarrior" + cursor buffer */
   text-align: left;
 }
 
