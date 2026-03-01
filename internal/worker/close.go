@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	gitroot "codeberg.org/clawteam/ttal-cli/internal/git"
 	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
 	"codeberg.org/clawteam/ttal-cli/internal/gitutil"
 	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
@@ -62,14 +63,22 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		projectPath = "."
 	}
 
+	// Resolve git root — projectPath may be a subpath in a monorepo.
+	// Worktrees and git pull must operate at the git root level.
+	gitRoot, err := gitroot.FindRoot(projectPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
+		gitRoot = projectPath
+	}
+
 	// Derive work_dir from branch name (worker/<name> → .worktrees/<name>)
 	workerName := strings.TrimPrefix(branch, "worker/")
-	workDir := filepath.Join(projectPath, ".worktrees", workerName)
+	workDir := filepath.Join(gitRoot, ".worktrees", workerName)
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
 		dumpPath := dumpState(sessionName, workDir)
-		if err := cleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
 				Error:     true,
 				Status:    "Worker cleanup failed",
@@ -81,7 +90,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 			}
 		}
-		pullMainBranch(projectPath)
+		pullMainBranch(gitRoot)
 		return &CloseResult{
 			Cleaned:   true,
 			Forced:    true,
@@ -113,17 +122,17 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	return closeWithPR(task.UUID, task.PRID, projectPath, sessionName, workDir, branch, worktreeExists)
+	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists)
 }
 
 // closeWithPR handles the smart-close path when a PR exists.
-func closeWithPR(taskUUID, prIDStr, projectPath, sessionName, workDir, branch string, worktreeExists bool) (*CloseResult, error) {
+func closeWithPR(taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string, worktreeExists bool) (*CloseResult, error) {
 	prID, err := strconv.ParseInt(prIDStr, 10, 64)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
 	}
 
-	info, err := gitprovider.DetectProvider(projectPath)
+	info, err := gitprovider.DetectProvider(gitRoot)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not detect repo info: %v", err)}, err
 	}
@@ -162,7 +171,7 @@ func closeWithPR(taskUUID, prIDStr, projectPath, sessionName, workDir, branch st
 
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
-		if err := cleanupWorker(sessionName, workDir, branch, projectPath); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{Error: true, Status: "Worker cleanup failed"}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		if taskUUID != "" {
@@ -170,7 +179,7 @@ func closeWithPR(taskUUID, prIDStr, projectPath, sessionName, workDir, branch st
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", taskUUID, err)
 			}
 		}
-		pullMainBranch(projectPath)
+		pullMainBranch(gitRoot)
 		return &CloseResult{
 			Cleaned: true,
 			Status:  "Worker cleaned up (PR merged, worktree clean)",
@@ -197,14 +206,14 @@ func dumpState(sessionName, workDir string) string {
 }
 
 // cleanupWorker kills the tmux session and removes the git worktree + branch.
-func cleanupWorker(sessionName, workDir, branch, projectDir string) error {
+func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 	if tmux.SessionExists(sessionName) {
 		if err := tmux.KillSession(sessionName); err != nil {
 			return fmt.Errorf("failed to kill session: %w", err)
 		}
 	}
 
-	return gitutil.RemoveWorktree(projectDir, workDir, branch)
+	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.
