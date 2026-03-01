@@ -18,7 +18,7 @@ var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 
 // hexIDPattern matches bare hex IDs (8+ hex chars) used as flicknote note prefixes.
 // This intentionally overlaps with uuidPrefixPattern (8-char hex) — in FormatPrompt,
-// hex IDs are checked after fileRefPattern, so UUID-like prefixes trigger a flicknote
+// hex IDs are checked after inlineRefPattern, so UUID-like prefixes trigger a flicknote
 // lookup. If the ID doesn't exist in flicknote, readFlicknote returns empty and the
 // annotation is treated as plain text.
 var hexIDPattern = regexp.MustCompile(`^[a-f0-9]{8,}$`)
@@ -165,13 +165,16 @@ func (t *Task) HasTag(tag string) bool {
 	return false
 }
 
-// fileRefPattern matches annotations like "Plan: ~/path.md", "Design: ~/path.md", etc.
-// Only .md files are matched — this is intentional since task references are markdown docs
-// (plan docs, design docs, research notes). Other file types should use flicknote.
-var fileRefPattern = regexp.MustCompile(`(?:Plan|Design|Research|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
+// inlineRefPattern matches annotations whose content should be inlined into the prompt.
+// Only Plan and Design docs are execution-critical — workers need them to do their job.
+var inlineRefPattern = regexp.MustCompile(`(?:Plan|Design):\s*([~\/][\w\/\-\.]+\.md)`)
+
+// referenceRefPattern matches annotations that are shown as-is (path visible, not inlined).
+// Research, Doc, Reference, File are context — workers can read them if needed.
+var referenceRefPattern = regexp.MustCompile(`(?:Research|Doc|Reference|File):\s*([~\/][\w\/\-\.]+\.md)`)
 
 // rawPathPattern matches annotations that are just a bare file path (no prefix).
-// Restricted to .md files for the same reason as fileRefPattern.
+// Restricted to .md files for the same reason as inlineRefPattern.
 var rawPathPattern = regexp.MustCompile(`^([~\/][\w\/\-\.]+\.md)$`)
 
 // readFlicknote fetches a note from flicknote CLI by ID prefix.
@@ -196,9 +199,9 @@ type docRef struct {
 }
 
 // FormatPrompt formats the task for injection into a worker's Claude prompt.
-// Includes description, annotations, and inlined referenced markdown docs.
-// Resolves prefixed file refs (Plan:, Design:, Research:, etc.), bare hex IDs
-// (via flicknote get), and raw file paths.
+// Includes description, annotations, and selectively inlined referenced docs.
+// Only execution-critical refs (Plan:, Design:) and bare hex IDs (flicknote)
+// are inlined. Research/Doc/Reference/File refs appear as annotation text only.
 func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)
@@ -210,8 +213,9 @@ func (t *Task) FormatPrompt() string {
 	for _, ann := range t.Annotations {
 		desc := ann.Description
 
-		// 1. Prefixed file refs: "Plan: ~/path.md", "Design: ~/path.md", etc.
-		if matches := fileRefPattern.FindAllStringSubmatch(desc, -1); len(matches) > 0 {
+		// 1. Execution-critical prefixed refs: "Plan: ~/path.md", "Design: ~/path.md"
+		//    → inline the file content
+		if matches := inlineRefPattern.FindAllStringSubmatch(desc, -1); len(matches) > 0 {
 			for _, m := range matches {
 				refDescs[desc] = true
 				refs = append(refs, docRef{label: desc, refType: "file", id: m[1]})
@@ -219,7 +223,13 @@ func (t *Task) FormatPrompt() string {
 			continue
 		}
 
-		// 2. Bare hex IDs: "e8fd0fe0" → try flicknote
+		// 2. Reference-only prefixed refs: "Research: ~/path.md", "Doc: ~/path.md"
+		//    → keep as annotation text (path visible, not inlined)
+		if referenceRefPattern.MatchString(desc) {
+			continue
+		}
+
+		// 3. Bare hex IDs: "e8fd0fe0" → try flicknote
 		if IsHexID(desc) {
 			content := readFlicknote(desc)
 			if content != "" {
@@ -230,7 +240,7 @@ func (t *Task) FormatPrompt() string {
 			continue
 		}
 
-		// 3. Raw file paths: "~/docs/plan.md" or "/absolute/path.md"
+		// 4. Raw file paths: "~/docs/plan.md" or "/absolute/path.md"
 		if matches := rawPathPattern.FindStringSubmatch(desc); len(matches) > 0 {
 			refDescs[desc] = true
 			refs = append(refs, docRef{label: desc, refType: "file", id: matches[1]})
