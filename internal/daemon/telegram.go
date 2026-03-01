@@ -116,6 +116,40 @@ func runMultiAgentPoller(
 		return fmt.Errorf("bot init: %w", err)
 	}
 
+	// Register /restart once per bot token (global, not per-agent).
+	// Any authorized chat (present in dispatch) can trigger it.
+	b.RegisterHandlerMatchFunc(
+		func(update *models.Update) bool {
+			if update.Message == nil {
+				return false
+			}
+			if _, ok := dispatch[update.Message.Chat.ID]; !ok {
+				return false
+			}
+			for _, e := range update.Message.Entities {
+				if e.Type != models.MessageEntityTypeBotCommand || e.Offset != 0 {
+					continue
+				}
+				raw := update.Message.Text[1:e.Length]
+				name, _, _ := strings.Cut(raw, "@")
+				if name == "restart" {
+					return true
+				}
+			}
+			return false
+		},
+		func(_ context.Context, _ *bot.Bot, update *models.Update) {
+			chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
+			if err := telegram.SendMessage(botToken, chatIDStr, "🔄 Daemon restarting..."); err != nil {
+				log.Printf("[telegram] failed to send restart ack: %v", err)
+			}
+			select {
+			case restartCh <- struct{}{}:
+			default:
+			}
+		},
+	)
+
 	// Register bot commands for ALL agents sharing this token.
 	// Each handler checks chat ID to route to the correct agent.
 	for chatID, target := range dispatch {

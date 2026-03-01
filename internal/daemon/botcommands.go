@@ -38,6 +38,7 @@ var registeredCommands = []BotCommand{
 	{Command: "new", Description: "Start a new conversation (reset context)"},
 	{Command: "compact", Description: "Compact the current conversation context"},
 	{Command: "wait", Description: "Interrupt the agent (send Escape)"},
+	{Command: "restart", Description: "Restart the daemon"},
 	{Command: "help", Description: "List available commands"},
 }
 

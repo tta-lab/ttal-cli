@@ -22,6 +22,9 @@ import (
 
 const pidFileName = "daemon.pid"
 
+// restartCh is signaled when a /restart command is received.
+var restartCh = make(chan struct{})
+
 // pollerTarget groups agent info for Telegram poller dispatch by chat ID.
 type pollerTarget struct {
 	teamName  string
@@ -85,6 +88,7 @@ func Run() error {
 	go runQuestionCleanup(qs, done)
 
 	log.Printf("[daemon] ready")
+	notifyDaemonReady(mcfg)
 	awaitShutdown(done, cancel, mcfg, registry, cleanup)
 	return nil
 }
@@ -219,6 +223,24 @@ func runQuestionCleanup(qs *questionStore, done <-chan struct{}) {
 	}
 }
 
+// notifyDaemonReady sends a startup notification to each team's lifecycle agent.
+func notifyDaemonReady(mcfg *config.DaemonConfig) {
+	for teamName, team := range mcfg.Teams {
+		agent := team.LifecycleAgent
+		if agent == "" {
+			continue
+		}
+		ta, ok := mcfg.FindAgentInTeam(teamName, agent)
+		if !ok || ta.Config.BotToken == "" || ta.ChatID == "" {
+			continue
+		}
+		if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, "✅ Daemon ready"); err != nil {
+			log.Printf("[daemon] warning: failed to send ready notification to %s/%s: %v",
+				teamName, agent, err)
+		}
+	}
+}
+
 // awaitShutdown waits for SIGINT/SIGTERM and performs graceful shutdown.
 func awaitShutdown(
 	done chan struct{}, cancel context.CancelFunc,
@@ -227,9 +249,13 @@ func awaitShutdown(
 ) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
 
-	log.Printf("[daemon] shutting down")
+	select {
+	case s := <-sig:
+		log.Printf("[daemon] received signal %v — shutting down", s)
+	case <-restartCh:
+		log.Printf("[daemon] restart requested via Telegram — shutting down")
+	}
 	close(done)
 	cancel()
 	shutdownAgents(mcfg, registry)
