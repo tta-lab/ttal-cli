@@ -3,25 +3,27 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"codeberg.org/clawteam/ttal-cli/ent"
 	"codeberg.org/clawteam/ttal-cli/ent/project"
+	"codeberg.org/clawteam/ttal-cli/internal/config"
+	dbpkg "codeberg.org/clawteam/ttal-cli/internal/db"
 	"codeberg.org/clawteam/ttal-cli/internal/format"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
 )
 
-const statusCol = 4 // index of the STATUS column in project list table
+const statusCol = 3 // index of the STATUS column in project list table
 
 var (
-	projectAlias       string
-	projectName        string
-	projectDescription string
-	projectPath        string
-	archivedOnly       bool
+	projectAlias string
+	projectName  string
+	projectPath  string
+	archivedOnly bool
 )
 
 var projectCmd = &cobra.Command{
@@ -51,9 +53,6 @@ Example:
 			SetAlias(projectAlias).
 			SetName(projectName)
 
-		if projectDescription != "" {
-			creator = creator.SetDescription(projectDescription)
-		}
 		if projectPath != "" {
 			creator = creator.SetPath(projectPath)
 		}
@@ -68,17 +67,37 @@ Example:
 }
 
 var projectListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [team]",
 	Short: "List projects",
-	Long: `List all projects.
+	Long: `List all projects. Optionally specify a team name to list that team's projects
+instead of the current team.
 
 Examples:
-  ttal project list                    # List all active projects
+  ttal project list                    # List current team's projects
+  ttal project list guion              # List guion team's projects
   ttal project list --archived         # List only archived projects`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		query := database.Project.Query()
+		db := database
+		if len(args) == 1 {
+			teamDBPath, err := config.ResolveDBPathForTeam(args[0])
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(teamDBPath); os.IsNotExist(err) {
+				return fmt.Errorf("database for team %q not found at %s", args[0], teamDBPath)
+			}
+			teamDB, err := dbpkg.New(teamDBPath)
+			if err != nil {
+				return fmt.Errorf("failed to open %s database: %w", args[0], err)
+			}
+			defer teamDB.Close()
+			db = teamDB
+		}
+
+		query := db.Project.Query()
 
 		if archivedOnly {
 			query = query.Where(project.ArchivedAtNotNil())
@@ -111,7 +130,6 @@ Examples:
 				p.Alias,
 				p.Name,
 				p.Path,
-				p.Description,
 				status,
 			})
 		}
@@ -128,7 +146,7 @@ Examples:
 				}
 				return cellStyle
 			}).
-			Headers("ALIAS", "NAME", "PATH", "DESCRIPTION", "STATUS").
+			Headers("ALIAS", "NAME", "PATH", "STATUS").
 			Rows(rows...)
 
 		fmt.Println(t)
@@ -244,12 +262,10 @@ Examples:
 				updater = updater.SetAlias(strings.ToLower(value))
 			case "name":
 				updater = updater.SetName(value)
-			case "description":
-				updater = updater.SetDescription(value)
 			case "path":
 				updater = updater.SetPath(value)
 			default:
-				return fmt.Errorf("unknown field '%s' (available: alias, name, description, path)", field)
+				return fmt.Errorf("unknown field '%s' (available: alias, name, path)", field)
 			}
 		}
 
@@ -280,7 +296,6 @@ func init() {
 
 	projectAddCmd.Flags().StringVar(&projectAlias, "alias", "", "Project alias (required, unique identifier)")
 	projectAddCmd.Flags().StringVar(&projectName, "name", "", "Project name (required)")
-	projectAddCmd.Flags().StringVar(&projectDescription, "description", "", "Project description")
 	projectAddCmd.Flags().StringVar(&projectPath, "path", "", "Filesystem path")
 	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
 }

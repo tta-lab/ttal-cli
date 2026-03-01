@@ -32,20 +32,6 @@ func (_c *ProjectCreate) SetName(v string) *ProjectCreate {
 	return _c
 }
 
-// SetDescription sets the "description" field.
-func (_c *ProjectCreate) SetDescription(v string) *ProjectCreate {
-	_c.mutation.SetDescription(v)
-	return _c
-}
-
-// SetNillableDescription sets the "description" field if the given value is not nil.
-func (_c *ProjectCreate) SetNillableDescription(v *string) *ProjectCreate {
-	if v != nil {
-		_c.SetDescription(*v)
-	}
-	return _c
-}
-
 // SetPath sets the "path" field.
 func (_c *ProjectCreate) SetPath(v string) *ProjectCreate {
 	_c.mutation.SetPath(v)
@@ -204,10 +190,6 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(project.FieldName, field.TypeString, value)
 		_node.Name = value
-	}
-	if value, ok := _c.mutation.Description(); ok {
-		_spec.SetField(project.FieldDescription, field.TypeString, value)
-		_node.Description = value
 	}
 	if value, ok := _c.mutation.Path(); ok {
 		_spec.SetField(project.FieldPath, field.TypeString, value)

@@ -17,8 +17,6 @@ const (
 	FieldAlias = "alias"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldDescription holds the string denoting the description field in the database.
-	FieldDescription = "description"
 	// FieldPath holds the string denoting the path field in the database.
 	FieldPath = "path"
 	// FieldArchivedAt holds the string denoting the archived_at field in the database.
@@ -36,7 +34,6 @@ var Columns = []string{
 	FieldID,
 	FieldAlias,
 	FieldName,
-	FieldDescription,
 	FieldPath,
 	FieldArchivedAt,
 	FieldCreatedAt,
@@ -82,11 +79,6 @@ func ByAlias(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
-}
-
-// ByDescription orders the results by the description field.
-func ByDescription(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldDescription, opts...).ToFunc()
 }
 
 // ByPath orders the results by the path field.

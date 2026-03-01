@@ -23,9 +23,6 @@ func (Project) Fields() []ent.Field {
 		field.String("name").
 			NotEmpty().
 			Comment("Project name"),
-		field.String("description").
-			Optional().
-			Comment("Project description"),
 		field.String("path").
 			Optional().
 			Comment("Filesystem path"),

@@ -56,26 +56,6 @@ func (_u *ProjectUpdate) SetNillableName(v *string) *ProjectUpdate {
 	return _u
 }
 
-// SetDescription sets the "description" field.
-func (_u *ProjectUpdate) SetDescription(v string) *ProjectUpdate {
-	_u.mutation.SetDescription(v)
-	return _u
-}
-
-// SetNillableDescription sets the "description" field if the given value is not nil.
-func (_u *ProjectUpdate) SetNillableDescription(v *string) *ProjectUpdate {
-	if v != nil {
-		_u.SetDescription(*v)
-	}
-	return _u
-}
-
-// ClearDescription clears the value of the "description" field.
-func (_u *ProjectUpdate) ClearDescription() *ProjectUpdate {
-	_u.mutation.ClearDescription()
-	return _u
-}
-
 // SetPath sets the "path" field.
 func (_u *ProjectUpdate) SetPath(v string) *ProjectUpdate {
 	_u.mutation.SetPath(v)
@@ -196,12 +176,6 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(project.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.Description(); ok {
-		_spec.SetField(project.FieldDescription, field.TypeString, value)
-	}
-	if _u.mutation.DescriptionCleared() {
-		_spec.ClearField(project.FieldDescription, field.TypeString)
-	}
 	if value, ok := _u.mutation.Path(); ok {
 		_spec.SetField(project.FieldPath, field.TypeString, value)
 	}
@@ -262,26 +236,6 @@ func (_u *ProjectUpdateOne) SetNillableName(v *string) *ProjectUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
 	}
-	return _u
-}
-
-// SetDescription sets the "description" field.
-func (_u *ProjectUpdateOne) SetDescription(v string) *ProjectUpdateOne {
-	_u.mutation.SetDescription(v)
-	return _u
-}
-
-// SetNillableDescription sets the "description" field if the given value is not nil.
-func (_u *ProjectUpdateOne) SetNillableDescription(v *string) *ProjectUpdateOne {
-	if v != nil {
-		_u.SetDescription(*v)
-	}
-	return _u
-}
-
-// ClearDescription clears the value of the "description" field.
-func (_u *ProjectUpdateOne) ClearDescription() *ProjectUpdateOne {
-	_u.mutation.ClearDescription()
 	return _u
 }
 
@@ -434,12 +388,6 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(project.FieldName, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.Description(); ok {
-		_spec.SetField(project.FieldDescription, field.TypeString, value)
-	}
-	if _u.mutation.DescriptionCleared() {
-		_spec.ClearField(project.FieldDescription, field.TypeString)
 	}
 	if value, ok := _u.mutation.Path(); ok {
 		_spec.SetField(project.FieldPath, field.TypeString, value)

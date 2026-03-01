@@ -21,8 +21,6 @@ type Project struct {
 	Alias string `json:"alias,omitempty"`
 	// Project name
 	Name string `json:"name,omitempty"`
-	// Project description
-	Description string `json:"description,omitempty"`
 	// Filesystem path
 	Path string `json:"path,omitempty"`
 	// Archived timestamp (NULL = active)
@@ -41,7 +39,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
-		case project.FieldAlias, project.FieldName, project.FieldDescription, project.FieldPath:
+		case project.FieldAlias, project.FieldName, project.FieldPath:
 			values[i] = new(sql.NullString)
 		case project.FieldArchivedAt, project.FieldCreatedAt, project.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -77,12 +75,6 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
-			}
-		case project.FieldDescription:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field description", values[i])
-			} else if value.Valid {
-				_m.Description = value.String
 			}
 		case project.FieldPath:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -150,9 +142,6 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
-	builder.WriteString(", ")
-	builder.WriteString("description=")
-	builder.WriteString(_m.Description)
 	builder.WriteString(", ")
 	builder.WriteString("path=")
 	builder.WriteString(_m.Path)

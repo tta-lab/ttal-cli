@@ -90,37 +90,6 @@ func TestProjectModifyName(t *testing.T) {
 	}
 }
 
-func TestProjectModifyDescription(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Test Project").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
-
-	_, err = proj.Update().
-		SetDescription("Test description").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to update project description: %v", err)
-	}
-
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
-	}
-
-	if updated.Description != "Test description" {
-		t.Errorf("project description = %v, want %v", updated.Description, "Test description")
-	}
-}
-
 func TestProjectModifyPath(t *testing.T) {
 	setupProjectTest(t)
 	ctx := context.Background()
@@ -168,7 +137,6 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 
 	_, err = proj.Update().
 		SetName(testNewName).
-		SetDescription("New description").
 		SetPath(testNewPath).
 		Save(ctx)
 	if err != nil {
@@ -184,9 +152,6 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 
 	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want New Name", updated.Name)
-	}
-	if updated.Description != "New description" {
-		t.Errorf("project description = %v, want New description", updated.Description)
 	}
 	if updated.Path != testNewPath {
 		t.Errorf("project path = %v, want /new/path", updated.Path)

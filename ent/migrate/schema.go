@@ -28,7 +28,6 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "alias", Type: field.TypeString, Unique: true},
 		{Name: "name", Type: field.TypeString},
-		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "path", Type: field.TypeString, Nullable: true},
 		{Name: "archived_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -43,7 +42,7 @@ var (
 			{
 				Name:    "project_archived_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectsColumns[5]},
+				Columns: []*schema.Column{ProjectsColumns[4]},
 			},
 		},
 	}

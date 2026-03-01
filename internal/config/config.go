@@ -714,6 +714,33 @@ func ResolveDataDir() string {
 	return resolvedPaths.dir
 }
 
+// ResolveDBPathForTeam returns the database path for a specific team name.
+// Unlike ResolveDBPath (which caches), this loads fresh config for the given team.
+func ResolveDBPathForTeam(teamName string) (string, error) {
+	cfg, err := Load()
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+	return cfg.dbPathForTeam(teamName)
+}
+
+// dbPathForTeam resolves the database path for a given team name from config.
+func (c *Config) dbPathForTeam(teamName string) (string, error) {
+	team, ok := c.Teams[teamName]
+	if !ok {
+		return "", fmt.Errorf("team %q not found in config", teamName)
+	}
+
+	if team.DBPath != "" {
+		return expandHome(team.DBPath), nil
+	}
+
+	if teamName == DefaultTeamName {
+		return filepath.Join(defaultDataDir(), "ttal.db"), nil
+	}
+	return filepath.Join(defaultDataDir(), teamName, "ttal.db"), nil
+}
+
 // ResolveDBPath returns the database path for the active team without
 // requiring a full config load. Used by db.DefaultPath() and hook code.
 func ResolveDBPath() string {
