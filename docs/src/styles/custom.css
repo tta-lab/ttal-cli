@@ -1,0 +1,48 @@
+/* Landing page hero enhancements */
+.hero {
+  text-align: center;
+  padding-block: 2rem;
+}
+
+/* Make the hero tagline more prominent */
+[data-hero] .tagline {
+  font-size: var(--sl-text-xl) !important;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+/* Feature cards — uniform height, subtle hover */
+.card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Architecture diagram — centered, constrained */
+.sl-markdown-content pre:has(code) {
+  max-width: 36rem;
+  margin-inline: auto;
+}
+
+/* Comparison table — tighter, centered */
+.sl-markdown-content table {
+  max-width: 48rem;
+  margin-inline: auto;
+  font-size: 0.9rem;
+}
+
+/* Section dividers — more breathing room */
+.sl-markdown-content hr {
+  margin-block: 3rem;
+}
+
+.vision-sub {
+  text-align: center;
+  font-size: var(--sl-text-base, 1rem);
+  color: var(--sl-color-gray-3);
+  max-width: 32rem;
+  margin: 0.5rem auto 2rem;
+}

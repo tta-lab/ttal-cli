@@ -8,6 +8,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'ttal',
+			customCss: ['./src/styles/custom.css'],
 			description: 'Manage your coding agents from your phone. Multi-agent orchestration for Claude Code, OpenCode, and Codex CLI.',
 			social: [
 				{ icon: 'codeberg', label: 'Codeberg', href: 'https://codeberg.org/clawteam/ttal-cli' },

@@ -3,7 +3,7 @@ title: Manage your coding agents from your phone.
 description: The coordination layer for Claude Code, OpenCode, and Codex CLI. Multi-agent orchestration with Telegram, Taskwarrior, and voice — from anywhere.
 template: splash
 hero:
-  tagline: Multi-agent orchestration with Telegram, Taskwarrior, and voice — from anywhere.
+  tagline: Build your own software company, managed by AI agents. ttal is the coordination layer that turns Claude Code into an autonomous team.
   actions:
     - text: Get Started
       link: /docs/getting-started/
@@ -14,9 +14,14 @@ hero:
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
+import Typer from '../../components/Typer.astro';
 
-<p style="text-align: center; font-size: 1.2em; color: var(--sl-color-gray-3); margin-top: -1rem;">
-  The <strong>T</strong>elegram <strong>T</strong>eamwork <strong>T</strong>askwarrior <strong>A</strong>gentic <strong>L</strong>ab
+<p style="text-align: center; font-size: 1.3em; color: var(--sl-color-gray-3); margin-top: -1rem; font-weight: 500;">
+  <Typer words={["Telegram", "Teamwork", "Taskwarrior"]} />
+</p>
+
+<p class="vision-sub">
+  Whether you're a developer, a student, or anyone with a problem to solve — ttal gives you a team of AI agents that research, plan, build, review, and ship.
 </p>
 
 ---

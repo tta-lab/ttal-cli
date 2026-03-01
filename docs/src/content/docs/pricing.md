@@ -7,8 +7,8 @@ description: ttal pricing — open source with optional support tiers
 
 ttal is and always will be open source.
 
-- MIT license
-- Full CLI features — every capability, no gates
+- MIT license — full CLI, every capability, no gates
+- **1 team** · **2 agents** · **unlimited coders/workers**
 - Community support via Codeberg issues
 - Self-hosted on your own machine
 
@@ -20,6 +20,7 @@ ttal is and always will be open source.
 
 Everything in Open Source, plus:
 
+- **1 team** · **unlimited agents** · **unlimited coders/workers**
 - Lifetime support — direct access to the maintainer
 - Priority bug fixes
 - Your issues get attention first
@@ -30,8 +31,9 @@ Everything in Open Source, plus:
 
 Everything in Pro, plus:
 
+- **Unlimited teams** · **unlimited agents** · **unlimited coders/workers**
 - Multi-team configuration support
-- Lifetime support for your whole team
+- Lifetime support for your whole organization
 - Priority feature requests
 
 ---
