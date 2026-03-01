@@ -2,9 +2,8 @@
 layout: home
 
 hero:
-  name: TTAL
-  text: The Swiss Army Knife to build your autonomous software company.
-  tagline: Simple and powerful. Connect your AI agent team to your phone. The full coding lifecycle runs autonomously — from task to merge.
+  text: One binary to run your autonomous software company.
+  tagline: Built on the coding agents you love. Managed from your phone. The full cycle runs itself.
   actions:
     - theme: brand
       text: Get Started
@@ -79,17 +78,21 @@ TTAL runs your team on two planes:
 
 ## How TTAL compares
 
-TTAL doesn't replace Claude Code — it makes it a team player.
+TTAL doesn't replace your coding agent — it makes it a team player.
 
-| Capability | TTAL | claude-flow / claude-squad | Praktor | Claudegram |
+| Capability | TTAL | claude-flow / claude-squad | OpenClaw | Claudegram |
 |---|:---:|:---:|:---:|:---:|
 | Multi-agent coordination | ✓ | ✓ | ✓ | - |
-| Bidirectional Telegram | ✓ | - | ✓ | ✓ |
+| Multi-runtime (Claude Code + OpenCode + Codex) | ✓ | - | - | - |
+| OpenClaw as manager runtime | ✓ | - | n/a | - |
+| Bidirectional Telegram | ✓ | - | - | ✓ |
 | Multimodal input | ✓ | - | - | ✓ |
 | TTS / STT | ✓ | - | - | ✓ |
 | Task management | ✓ | - | - | - |
 | Interactive questions | ✓ | - | - | ✓ |
 | Autonomous PR workflow | ✓ | - | - | - |
+
+TTAL is the only orchestrator that supports **three agent runtimes** — Claude Code (stable), OpenCode, and Codex CLI — and even runs **OpenClaw as the manager plane runtime**, giving you the flexibility to mix runtimes across your team.
 
 Competitors build chat assistants. TTAL builds autonomous team members who own the full delivery pipeline.
 
@@ -113,7 +116,5 @@ ttal agent add kestrel +core +backend
 **[Read the docs →](/docs/getting-started)** | **[View source on Codeberg →](https://codeberg.org/clawteam/ttal-cli)**
 
 ---
-
-## Plans
 
 <PricingCards />

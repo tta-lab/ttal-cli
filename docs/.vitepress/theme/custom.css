@@ -4,55 +4,53 @@
   --vp-c-brand-3: #8b92ff;
 }
 
-/* Typer fixed-width container */
-.typer-line {
-  font-size: 1.2em;
-  color: var(--vp-c-text-2);
-  margin-top: 1rem;
-  font-weight: 500;
+/* Typer replaces the hero name */
+.hero-typer {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
-.typer-word {
+.hero-typer .typer-line {
+  font-size: inherit;
+  font-weight: inherit;
+  color: var(--vp-c-text-1);
+}
+
+.hero-typer .typer-word {
   display: inline-block;
-  min-width: 12ch; /* longest word "Taskwarrior" + cursor buffer */
+  min-width: 11ch;
   text-align: left;
+  background: var(--vp-home-hero-name-background, -webkit-linear-gradient(120deg, #bd34fe, #41d1ff));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.typer-cursor {
+.hero-typer .typer-cursor {
+  background: var(--vp-home-hero-name-background, -webkit-linear-gradient(120deg, #bd34fe, #41d1ff));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   animation: blink 1s step-end infinite;
-  color: var(--vp-c-brand-1);
-  font-weight: 300;
 }
 
 @keyframes blink {
   50% { opacity: 0; }
 }
 
+/* Pronunciation hint */
+.pronunciation {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-3);
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-style: italic;
+}
+
 /* Comparison table — centered, tighter */
 .vp-doc table {
   max-width: 48rem;
   margin-inline: auto;
-}
-
-/* Architecture diagram — constrained */
-.vp-doc div[class*="language-"] {
-  max-width: 40rem;
-  margin-inline: auto;
-}
-
-/* Vision statement */
-.vision-statement {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--vp-c-text-1);
-  max-width: 36rem;
-  line-height: 1.4;
-  margin: 1.5rem 0;
-}
-
-.vision-sub {
-  font-size: 1rem;
-  color: var(--vp-c-text-2);
-  max-width: 34rem;
-  margin: 0.5rem 0 2rem;
 }

@@ -7,11 +7,11 @@ const { Layout } = DefaultTheme
 
 <template>
   <Layout>
-    <template #home-hero-info-after>
-      <Typer :words="['Telegram', 'Teamwork', 'Taskwarrior']" />
-      <p class="vision-sub">
-        One bot per agent. Coordinate your AI team from Telegram — voice, vision, and text.
-      </p>
+    <template #home-hero-info-before>
+      <div class="hero-typer">
+        <Typer :words="['Telegram', 'Teamwork', 'Taskwarrior']" />
+      </div>
+      <p class="pronunciation">/tiː tɔːl/</p>
     </template>
   </Layout>
 </template>
