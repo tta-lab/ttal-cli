@@ -1,17 +1,27 @@
 ---
 title: About
-description: Neil builds infrastructure for knowledge workers to delegate to AI
+description: The story behind ttal — manage your coding agents from your phone
 ---
 
-I'm Neil, co-founder at [GuionAI](https://guion.ai). I handle the backend, infrastructure, and DevOps across all our products—Kubernetes, serverless, databases, the plumbing that makes things work.
-
-This lab is where I share what I'm building.
+I'm Neil, co-founder at [GuionAI](https://guion.ai). I handle the backend, infrastructure, and DevOps across all our products — Kubernetes, serverless, databases, the plumbing that makes things work.
 
 ## The Problem I'm Solving
 
-Knowledge work is broken. We're drowning in context-switching, tab-hopping, and manual coordination. Every tool promises to help, but most just add another surface to check.
+Knowledge work is broken. We're drowning in context-switching, tab-hopping, and manual coordination. Coding agents are powerful but terminal-bound — you have to be at your desk to use them.
 
-I wanted something different: capture everything, think clearly, delegate to agents. Not as separate apps, but as a connected system.
+I wanted something different: manage a team of coding agents from anywhere, with task-driven workflows, voice communication, and mobile access. Not another chat assistant, but autonomous team members who own the full delivery pipeline.
+
+## ttal /tiːtæl/
+
+**Manage your coding agents from your phone.**
+
+ttal is the coordination layer for Claude Code, OpenCode, and Codex CLI. It adds multi-agent orchestration, Telegram messaging, Taskwarrior integration, and voice I/O on top of whatever coding runtime you use.
+
+- **Open source** — MIT license, [hosted on Codeberg](https://codeberg.org/clawteam/ttal-cli)
+- **Mobile-first** — each agent is its own Telegram bot, manage everything from your phone
+- **Task-driven** — research → design → execute pipeline with automatic context flow
+- **Local voice** — TTS/STT via Kokoro + Whisper on Apple Silicon, no cloud API keys
+- **Runtime-agnostic** — Claude Code today, any terminal-based coding CLI tomorrow
 
 ## The GuionAI Ecosystem
 
@@ -25,44 +35,25 @@ I wanted something different: capture everything, think clearly, delegate to age
 
 Think of it as the input layer. Everything important goes here.
 
-### TTAL /tiːtæl/ (The Taskwarrior Agents Lab)
+### The Connection
 
-This site. An open lab exploring agent-driven task orchestration.
-
-- **The stack**: Taskwarrior + Zellij + Claude Code
-- **Daily guides** on patterns that actually work
-- **Upcoming iOS app** with full Taskwarrior support, Taskchampion sync, and OpenClaw agents
-
-This is the execution layer. Agents read tasks, do work, report back.
-
-## The Connection
-
-Here's what makes this interesting: **FlickNote and TTAL are designed to work together**.
+FlickNote and ttal are designed to work together:
 
 ```
 FlickNote captures insights
        ↓
-TTAL agents read & act (via MCP)
+ttal agents read & act (via MCP)
        ↓
 Back to your tasks & annotations
 ```
 
-- Agents can read your FlickNote knowledge base and meeting records
-- The TTAL iOS app (coming soon) links FlickNote items to task annotations
-- Your captured knowledge becomes agent context
-
-The goal: you capture once, agents use it forever. No re-explaining. No copying context between tools.
-
-## Why I'm Sharing This
-
-I've spent months building and refining this system. Most of it happens in private repos and internal tools. But the patterns are useful beyond my own work.
-
-This lab is where I document what works, what doesn't, and how the pieces fit together. If you're building similar systems—or just curious about agent orchestration—maybe something here saves you time.
+You capture once, agents use it forever. No re-explaining. No copying context between tools.
 
 ## Get Started
 
-- **[Day 1: The Dream Setup](/guides/day-1-the-dream-setup/)** — why Taskwarrior is the secret sauce
-- **[AIOps Project](/projects/aiops/)** — the real working system
+- **[Getting Started](/docs/getting-started/)** — install ttal and set up your first agent
+- **[Documentation](/docs/configuration/)** — configuration, commands, and workflows
+- **[Blog](/blog/day-1-the-dream-setup/)** — the journey from manual to autonomous
 - **[FlickNote](https://flicknote.app/)** — the capture layer
 
 ---

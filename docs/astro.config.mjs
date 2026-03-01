@@ -7,22 +7,25 @@ export default defineConfig({
 	site: 'https://ttal.guion.io',
 	integrations: [
 		starlight({
-			title: 'The Taskwarrior Agents Lab',
-			description: 'AIOps workflows with Taskwarrior, Zellij, and Claude Code',
+			title: 'ttal',
+			description: 'Manage your coding agents from your phone. Multi-agent orchestration for Claude Code, OpenCode, and Codex CLI.',
 			social: [
-				{ icon: 'github', label: 'GitHub', href: 'https://github.com/neilguion' },
+				{ icon: 'codeberg', label: 'Codeberg', href: 'https://codeberg.org/clawteam/ttal-cli' },
 			],
 			sidebar: [
 				{ label: 'About', slug: 'about' },
+				{ label: 'Pricing', slug: 'pricing' },
+				{
+					label: 'Documentation',
+					autogenerate: { directory: 'docs' },
+				},
 				{
 					label: 'Guides',
 					autogenerate: { directory: 'guides' },
 				},
 				{
-					label: 'Projects',
-					items: [
-						{ label: 'AIOps System', slug: 'projects/aiops' },
-					],
+					label: 'Blog',
+					autogenerate: { directory: 'blog' },
 				},
 			],
 			head: [

@@ -196,7 +196,7 @@ The details will come in future posts. The key insight is: [Taskwarrior](https:/
 
 ## What's Next
 
-In [Day 2: OpenClaw Overview](/guides/day-2-openclaw-overview/), we'll look at the orchestration layer—webhooks, Lobster workflows, and how external events trigger agent sessions.
+In [Day 2: OpenClaw Overview](/blog/day-2-openclaw-overview/), we'll look at the orchestration layer—webhooks, Lobster workflows, and how external events trigger agent sessions.
 
 For now, the takeaway: if you want autonomous workflows, you need structured task data with an event system. Taskwarrior has been quietly doing this for years.
 
@@ -204,7 +204,7 @@ For now, the takeaway: if you want autonomous workflows, you need structured tas
 
 **Guide series:**
 1. Day 1: The Dream Setup (you are here)
-2. [Day 2: OpenClaw Overview](/guides/day-2-openclaw-overview/)
-3. [Day 3: Zellij + Coding Agents](/guides/day-3-zellij-coding-agents/)
-4. [Day 4: Taskwarrior Deep Dive](/guides/day-4-taskwarrior-deep-dive/)
-5. [Day 5+: Topics TBD](/guides/day-5-tbd/)
+2. [Day 2: OpenClaw Overview](/blog/day-2-openclaw-overview/)
+3. [Day 3: Zellij + Coding Agents](/blog/day-3-zellij-coding-agents/)
+4. [Day 4: Taskwarrior Deep Dive](/blog/day-4-taskwarrior-deep-dive/)
+5. [Day 5+: Topics TBD](/blog/day-5-tbd/)

@@ -1,52 +1,128 @@
 ---
-title: From Manual to Autonomous
-description: Building AIOps workflows with Taskwarrior, Zellij, and Claude Code
+title: Manage your coding agents from your phone.
+description: The coordination layer for Claude Code, OpenCode, and Codex CLI. Multi-agent orchestration with Telegram, Taskwarrior, and voice — from anywhere.
 template: splash
 hero:
-  tagline: Stop context-switching. Start orchestrating. Build workflows that do the driving while you set the destination.
+  tagline: Multi-agent orchestration with Telegram, Taskwarrior, and voice — from anywhere.
   actions:
-    - text: Read the Guide
-      link: /guides/day-1-the-dream-setup/
+    - text: Get Started
+      link: /docs/getting-started/
       icon: right-arrow
-    - text: About
-      link: /about/
+    - text: View on Codeberg
+      link: https://codeberg.org/clawteam/ttal-cli
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## The Problem
+<p style="text-align: center; font-size: 1.2em; color: var(--sl-color-gray-3); margin-top: -1rem;">
+  The <strong>T</strong>elegram <strong>T</strong>eamwork <strong>T</strong>askwarrior <strong>A</strong>gentic <strong>L</strong>ab
+</p>
 
-Every task switch costs you 20 minutes of mental reload. You're the manual transmission in a world that needs autonomous systems.
+---
 
-What if your workflow could:
-- **React** to task changes automatically
-- **Spawn** workers when you start something
-- **Clean up** when you're done
-- **Learn** your patterns over time
+## The problem
 
-## Featured Guide
+Every task switch costs you 20 minutes of mental reload. And right now, your coding agents are trapped in the terminal.
 
-<Card title="Day 1: The Dream Setup" icon="rocket">
-  From manual transmission to self-driving car. Learn why Taskwarrior is the secret sauce that connects human intent to autonomous agents.
+- **Terminal-bound** — you have to be at your desk to interact with agents
+- **No orchestration** — agents run in isolation, no coordination between them
+- **No identity** — agents are anonymous processes that forget everything between sessions
+- **Manual tracking** — you're the task manager, the message router, and the status dashboard
 
-  [Start reading →](/guides/day-1-the-dream-setup/)
-</Card>
+## What ttal does
 
-## Project
+<CardGrid>
+  <Card title="Telegram Bridge" icon="phone">
+    Mobile-first agent management. Send messages, check status, approve PRs — from your phone. Each agent is its own Telegram bot, its own DM chat.
+  </Card>
+  <Card title="Multimodal Input" icon="document">
+    Send anything to your agent: text, voice messages, photos, screenshots, files, links. The bot transcribes voice, downloads images, and delivers everything in context.
+  </Card>
+  <Card title="Persistent Agent Identity" icon="star">
+    Names, roles, voices, routing. Your agents aren't anonymous processes — they're persistent team members with memory and personality.
+  </Card>
+  <Card title="Multi-Runtime Support" icon="setting">
+    Claude Code (stable), with experimental support for OpenCode, Codex CLI, and OpenClaw. ttal doesn't care what's in the tmux session.
+  </Card>
+  <Card title="Taskwarrior Integration" icon="list-format">
+    Task-driven workflows. Agents pick up tasks, enrichment hooks auto-populate metadata. Research → design → execute pipeline.
+  </Card>
+  <Card title="Voice I/O" icon="microphone">
+    Talk to your agents. Local TTS/STT via Kokoro + Whisper on Apple Silicon. Agents speak back with per-agent voices. No cloud API keys.
+  </Card>
+  <Card title="Interactive Questions" icon="comment">
+    When an agent needs your input, it sends the question to Telegram with inline buttons. Tap a choice or type a custom answer — right from your phone.
+  </Card>
+  <Card title="Agent-to-Agent Messaging" icon="forward-slash">
+    Horizontal peer-to-peer communication. Agents consult each other, delegate work, and share context — not just you commanding them.
+  </Card>
+  <Card title="Autonomous PR Workflow" icon="approve-check-circle">
+    Implement → PR → 6 specialized reviewers → triage → merge. Full delivery pipeline, fully auditable on the PR page.
+  </Card>
+</CardGrid>
 
-<Card title="AIOps System" icon="laptop">
-  The real working system behind these guides. [Taskwarrior](https://taskwarrior.org/) + [Zellij](https://zellij.dev/) + [Claude Code](https://claude.com/product/claude-code), orchestrated with hooks and agents. Supports any coding CLI; desktop apps plug in via webhooks.
+---
 
-  [View project →](/projects/aiops/)
-</Card>
+## See it in action
 
-## Archive
+*Your whole team's status — from your phone.*
 
-All guides in the series:
+---
 
-1. [Day 1: The Dream Setup](/guides/day-1-the-dream-setup/) - Why Taskwarrior is the secret sauce
-2. [Day 2: OpenClaw Overview](/guides/day-2-openclaw-overview/) - Webhooks, workflows, orchestration
-3. [Day 3: Zellij + Coding Agents](/guides/day-3-zellij-coding-agents/) - Session management, agent coordination
-4. [Day 4: Taskwarrior Deep Dive](/guides/day-4-taskwarrior-deep-dive/) - UDAs, hooks, queries, advanced patterns
-5. [Day 5+: Topics TBD](/guides/day-5-tbd/) - Driven by reader interest
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│  Human (Telegram — from anywhere)           │
+├─────────────────────────────────────────────┤
+│  ttal (coordination, messaging, routing)    │
+├─────────────────────────────────────────────┤
+│  Coding harness (optional — oh-my-opencode) │
+├─────────────────────────────────────────────┤
+│  Runtime (Claude Code / OpenCode / Codex)   │
+└─────────────────────────────────────────────┘
+```
+
+**One bot per agent.** Each agent is its own Telegram bot, its own DM chat. Talk to your researcher about research while your designer designs. Like messaging actual team members, not @-routing in a single chat.
+
+---
+
+## How ttal compares
+
+ttal doesn't replace Claude Code — it makes it a team player.
+
+Local-only tools like claude-flow and claude-squad provide multi-agent orchestration, but they're **terminal-bound**. You have to be at your desk. They have no mobile access, no voice, no persistent identity, and no horizontal agent communication.
+
+ttal is the **only project that combines all seven capabilities**:
+
+| Capability | ttal | claude-flow / claude-squad | Praktor | Claudegram |
+|---|:---:|:---:|:---:|:---:|
+| Multi-agent coordination | ✅ | ✅ | ✅ | - |
+| Bidirectional Telegram | ✅ | - | ✅ | ✅ |
+| Multimodal input | ✅ | - | - | ✅ |
+| TTS / STT | ✅ | - | - | ✅ |
+| Task management | ✅ | - | - | - |
+| Interactive questions | ✅ | - | - | ✅ |
+| Autonomous PR workflow | ✅ | - | - | - |
+
+Competitors build chat assistants. ttal builds autonomous team members who own the full delivery pipeline.
+
+---
+
+## Get started
+
+```bash
+# Install
+git clone https://codeberg.org/clawteam/ttal-cli.git
+cd ttal-cli && make install
+
+# Set up hooks and daemon
+ttal worker install
+ttal daemon install
+
+# Add your first agent
+ttal agent add kestrel +core +backend
+```
+
+**[Read the docs →](/docs/getting-started/)** | **[View source on Codeberg →](https://codeberg.org/clawteam/ttal-cli)**

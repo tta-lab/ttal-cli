@@ -3,7 +3,7 @@ title: "Day 2: The Glue Layer"
 description: Multi-channel messaging, webhooks, and workflow orchestration
 ---
 
-[Day 1](/guides/day-1-the-dream-setup/) ended with a promise: Taskwarrior hooks fire events, and those events can trigger agent workflows.
+[Day 1](/blog/day-1-the-dream-setup/) ended with a promise: Taskwarrior hooks fire events, and those events can trigger agent workflows.
 
 But here's what I glossed over: events alone are just noise.
 
@@ -362,7 +362,7 @@ We've covered:
 
 Next question: What actually happens inside that Zellij session? How does the execution team work together?
 
-[Day 3: Zellij + Coding Agents](/guides/day-3-zellij-coding-agents/) answers that. We'll look at:
+[Day 3: Zellij + Coding Agents](/blog/day-3-zellij-coding-agents/) answers that. We'll look at:
 - Zellij sessions as isolated workspaces
 - How the execution team coordinates (Planner → Coder → Reviewer → Tester)
 - Claude Code integration
@@ -373,8 +373,8 @@ The glue layer makes autonomous workflows possible. The execution layer makes th
 ---
 
 **Guide series:**
-1. [Day 1: The Dream Setup](/guides/day-1-the-dream-setup/)
+1. [Day 1: The Dream Setup](/blog/day-1-the-dream-setup/)
 2. Day 2: The Glue Layer (you are here)
-3. [Day 3: Zellij + Coding Agents](/guides/day-3-zellij-coding-agents/)
-4. [Day 4: Taskwarrior Deep Dive](/guides/day-4-taskwarrior-deep-dive/)
-5. [Day 5+: Topics TBD](/guides/day-5-tbd/)
+3. [Day 3: Zellij + Coding Agents](/blog/day-3-zellij-coding-agents/)
+4. [Day 4: Taskwarrior Deep Dive](/blog/day-4-taskwarrior-deep-dive/)
+5. [Day 5+: Topics TBD](/blog/day-5-tbd/)
