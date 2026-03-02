@@ -51,9 +51,33 @@ func CleanupDir() (string, error) {
 	return filepath.Join(config.DefaultDataDir(), cleanupDir), nil
 }
 
-// RunCleanup processes a single cleanup request file: sets the team env,
-// closes the worker (which marks the task done), and removes the request file.
-// When SessionID is empty, MarkDone is called directly since Close is skipped.
+// ExecuteCleanup processes a parsed cleanup request: sets team env, closes the worker,
+// and removes the request file. Returns error for callers that need it (CLI).
+// The force parameter controls whether worker.Close uses force mode.
+func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
+	if req.Team != "" {
+		prev := os.Getenv("TTAL_TEAM")
+		_ = os.Setenv("TTAL_TEAM", req.Team)
+		defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
+	}
+
+	if req.SessionID == "" {
+		if req.TaskUUID != "" {
+			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
+				return fmt.Errorf("failed to mark task done %s: %w", req.TaskUUID, err)
+			}
+		}
+		return os.Remove(path)
+	}
+
+	if _, err := Close(req.SessionID, force); err != nil {
+		return fmt.Errorf("close failed for %s: %w", req.SessionID, err)
+	}
+
+	return os.Remove(path)
+}
+
+// RunCleanup processes a single cleanup request file.
 // Designed for manual invocation via `ttal worker cleanup`.
 func RunCleanup(path string, force bool) error {
 	data, err := os.ReadFile(path)
@@ -66,34 +90,10 @@ func RunCleanup(path string, force bool) error {
 		return fmt.Errorf("invalid JSON in %s: %w", path, err)
 	}
 
-	// Set TTAL_TEAM so taskwarrior commands resolve the correct taskrc.
-	if req.Team != "" {
-		prev := os.Getenv("TTAL_TEAM")
-		_ = os.Setenv("TTAL_TEAM", req.Team)
-		defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
-	}
-
 	fmt.Printf("Processing cleanup: session=%s task=%s team=%s\n", req.SessionID, req.TaskUUID, req.Team)
 
-	if req.SessionID == "" {
-		if req.TaskUUID != "" {
-			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
-				return fmt.Errorf("failed to mark task done %s: %w", req.TaskUUID, err)
-			}
-		}
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("failed to remove request file: %w", err)
-		}
-		return nil
-	}
-
-	_, closeErr := Close(req.SessionID, force)
-	if closeErr != nil {
-		return fmt.Errorf("close failed for %s: %w", req.SessionID, closeErr)
-	}
-
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("failed to remove request file: %w", err)
+	if err := ExecuteCleanup(req, path, force); err != nil {
+		return err
 	}
 
 	fmt.Printf("Cleanup completed: session=%s\n", req.SessionID)

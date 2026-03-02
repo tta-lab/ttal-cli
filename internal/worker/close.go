@@ -91,6 +91,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 			}
 		}
 		pullMainBranch(gitRoot)
+		archiveTaskPlans(task.UUID)
 		return &CloseResult{
 			Cleaned:   true,
 			Forced:    true,
@@ -186,6 +187,7 @@ func closeWithPR(
 			}
 		}
 		pullMainBranch(gitRoot)
+		archiveTaskPlans(taskUUID)
 		return &CloseResult{
 			Cleaned: true,
 			Status:  "Worker cleaned up (PR merged, worktree clean)",
@@ -220,6 +222,45 @@ func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 	}
 
 	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
+}
+
+// archiveTaskPlans archives flicknote plan/design notes referenced in a task's
+// annotations. Best-effort: failures are logged to stderr but never returned.
+// Called after successful cleanup so plan notes don't linger after PR merges.
+func archiveTaskPlans(taskUUID string) {
+	if taskUUID == "" {
+		return
+	}
+
+	task, err := taskwarrior.ExportTask(taskUUID)
+	if err != nil {
+		return
+	}
+
+	for _, ann := range task.Annotations {
+		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
+		if len(m) == 0 {
+			continue
+		}
+		hexID := m[1]
+
+		note := taskwarrior.ReadFlicknoteJSON(hexID)
+		if note == nil {
+			continue
+		}
+		if !taskwarrior.ShouldInlineNote(note) {
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cmd := exec.CommandContext(ctx, "flicknote", "archive", hexID)
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to archive flicknote %s: %v\n", hexID, err)
+		} else {
+			fmt.Printf("Archived plan note: %s\n", hexID)
+		}
+		cancel()
+	}
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.

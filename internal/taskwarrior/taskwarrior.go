@@ -16,11 +16,11 @@ import (
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 
-// hexIDPattern finds a flicknote hex ID (8+ lowercase hex chars) anywhere in an annotation.
+// HexIDPattern finds a flicknote hex ID (8+ lowercase hex chars) anywhere in an annotation.
 // Matches bare IDs ("e8fd0fe0"), prefixed ("Plan: e8fd0fe0"), or multi-word
-// ("Plan: flicknote b7b61e89"). If the ID doesn't exist in flicknote, readFlicknoteJSON
+// ("Plan: flicknote b7b61e89"). If the ID doesn't exist in flicknote, ReadFlicknoteJSON
 // returns nil and the annotation is suppressed from the prompt.
-var hexIDPattern = regexp.MustCompile(`\b([a-f0-9]{8,})\b`)
+var HexIDPattern = regexp.MustCompile(`\b([a-f0-9]{8,})\b`)
 
 // IsHexID returns true if s looks like a bare flicknote/UUID hex prefix (8+ hex chars).
 func IsHexID(s string) bool {
@@ -180,8 +180,8 @@ var referenceRefPattern = regexp.MustCompile(`(?:Research|Doc|Reference|File):\s
 // Restricted to .md files for the same reason as inlineRefPattern.
 var rawPathPattern = regexp.MustCompile(`^([~\/][\w\/\-\.]+\.md)$`)
 
-// flicknoteNote represents the JSON output of `flicknote get --json`.
-type flicknoteNote struct {
+// FlicknoteNote represents the JSON output of `flicknote get --json`.
+type FlicknoteNote struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Project string `json:"project"`
@@ -189,9 +189,9 @@ type flicknoteNote struct {
 	Content string `json:"content"`
 }
 
-// readFlicknoteJSON fetches a note's metadata from flicknote CLI.
+// ReadFlicknoteJSON fetches a note's metadata from flicknote CLI.
 // Returns nil if flicknote is not installed, ID not found, or JSON parse fails.
-func readFlicknoteJSON(id string) *flicknoteNote {
+func ReadFlicknoteJSON(id string) *FlicknoteNote {
 	ctx, cancel := context.WithTimeout(context.Background(), flicknoteTimeout)
 	defer cancel()
 
@@ -201,22 +201,22 @@ func readFlicknoteJSON(id string) *flicknoteNote {
 		return nil
 	}
 
-	var note flicknoteNote
+	var note FlicknoteNote
 	if err := json.Unmarshal(out, &note); err != nil {
 		return nil
 	}
 	return &note
 }
 
-// shouldInlineNote returns true if the note's project indicates it's a plan/design doc.
+// ShouldInlineNote returns true if the note's project indicates it's a plan/design doc.
 // Matches both "plan" and "design" for consistency with inlineRefPattern (Plan:/Design:).
-func shouldInlineNote(note *flicknoteNote) bool {
+func ShouldInlineNote(note *FlicknoteNote) bool {
 	name := strings.ToLower(note.Project)
 	return strings.Contains(name, "plan") || strings.Contains(name, "design")
 }
 
 // formatFlicknoteContent formats a flicknote note for prompt inlining.
-func formatFlicknoteContent(note *flicknoteNote) string {
+func formatFlicknoteContent(note *FlicknoteNote) string {
 	var b strings.Builder
 	b.WriteString("Title: " + note.Title + "\n")
 	if note.Summary != "" {
@@ -268,14 +268,14 @@ func (t *Task) FormatPrompt() string {
 		}
 
 		// 3. Hex IDs anywhere in annotation: check flicknote project to decide inlining
-		if m := hexIDPattern.FindStringSubmatch(desc); len(m) > 0 {
+		if m := HexIDPattern.FindStringSubmatch(desc); len(m) > 0 {
 			hexID := m[1]
 			// Always suppress hex IDs from plain-text output — they're
 			// meaningless to the worker if the note can't be resolved.
 			refDescs[desc] = true
 
-			note := readFlicknoteJSON(hexID)
-			if note != nil && shouldInlineNote(note) {
+			note := ReadFlicknoteJSON(hexID)
+			if note != nil && ShouldInlineNote(note) {
 				flicknoteCache[desc] = formatFlicknoteContent(note)
 				refs = append(refs, docRef{label: "FlickNote: " + hexID, refType: "flicknote_cached", id: desc})
 			}

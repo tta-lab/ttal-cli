@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/fsnotify/fsnotify"
 )
@@ -97,50 +96,13 @@ func processCleanupFile(path string) {
 
 	log.Printf("[cleanup] processing: session=%s task=%s team=%s", req.SessionID, req.TaskUUID, req.Team)
 
-	// Set TTAL_TEAM so taskwarrior commands resolve the correct taskrc.
-	if req.Team != "" {
-		prev := os.Getenv("TTAL_TEAM")
-		_ = os.Setenv("TTAL_TEAM", req.Team)
-		defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
-	}
-
-	// Skip requests with empty session IDs (malformed tasks)
-	if req.SessionID == "" {
-		log.Printf("[cleanup] skipping %s: empty session ID", filepath.Base(path))
-		if req.TaskUUID != "" {
-			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
-				log.Printf("[cleanup] failed to mark task done %s: %v", req.TaskUUID, err)
-			}
-		} else {
-			log.Printf("[cleanup] %s: both session ID and task UUID empty — removing orphaned request", filepath.Base(path))
-		}
-		if err := os.Remove(path); err != nil {
-			log.Printf("[cleanup] failed to remove request file %s: %v", filepath.Base(path), err)
-		}
+	if err := worker.ExecuteCleanup(req, path, false); err != nil {
+		log.Printf("[cleanup] failed for %s: %v", req.SessionID, err)
+		worker.NotifyTelegram(fmt.Sprintf("⚠️ Worker cleanup failed\nSession: %s\nReason: %v\nTask: %s",
+			req.SessionID, err, req.TaskUUID))
 		return
 	}
 
-	// Close worker (kill session + remove worktree + delete branch + mark task done + git pull)
-	result, closeErr := worker.Close(req.SessionID, false)
-	if closeErr != nil {
-		status := "unknown"
-		if result != nil {
-			status = result.Status
-		}
-		log.Printf("[cleanup] close failed for %s: %s (%v)", req.SessionID, status, closeErr)
-
-		// Notify lifecycle agent so human can investigate
-		worker.NotifyTelegram(fmt.Sprintf("⚠️ Worker cleanup failed\nSession: %s\nReason: %s\nTask: %s",
-			req.SessionID, status, req.TaskUUID))
-
-		// Don't delete the file — daemon will retry on next startup
-		return
-	}
-
-	// Success — remove the request file
-	if err := os.Remove(path); err != nil {
-		log.Printf("[cleanup] failed to remove request file %s: %v", filepath.Base(path), err)
-	}
 	log.Printf("[cleanup] completed: session=%s", req.SessionID)
 	worker.NotifyTelegram(fmt.Sprintf("🧹 Worker cleaned up: %s", req.SessionID))
 }

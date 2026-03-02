@@ -183,10 +183,10 @@ func TestShouldInlineNote(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			note := &flicknoteNote{Project: tt.project}
-			got := shouldInlineNote(note)
+			note := &FlicknoteNote{Project: tt.project}
+			got := ShouldInlineNote(note)
 			if got != tt.want {
-				t.Errorf("shouldInlineNote(project=%q) = %v, want %v", tt.project, got, tt.want)
+				t.Errorf("ShouldInlineNote(project=%q) = %v, want %v", tt.project, got, tt.want)
 			}
 		})
 	}
@@ -195,27 +195,27 @@ func TestShouldInlineNote(t *testing.T) {
 func TestFormatFlicknoteContent(t *testing.T) {
 	tests := []struct {
 		name string
-		note *flicknoteNote
+		note *FlicknoteNote
 		want string
 	}{
 		{
 			"title only",
-			&flicknoteNote{Title: "My Plan"},
+			&FlicknoteNote{Title: "My Plan"},
 			"Title: My Plan\n",
 		},
 		{
 			"title and summary",
-			&flicknoteNote{Title: "My Plan", Summary: "A brief summary"},
+			&FlicknoteNote{Title: "My Plan", Summary: "A brief summary"},
 			"Title: My Plan\nSummary: A brief summary\n",
 		},
 		{
 			"full note",
-			&flicknoteNote{Title: "My Plan", Summary: "Brief", Content: "Full content here"},
+			&FlicknoteNote{Title: "My Plan", Summary: "Brief", Content: "Full content here"},
 			"Title: My Plan\nSummary: Brief\n\nFull content here",
 		},
 		{
 			"title and content no summary",
-			&flicknoteNote{Title: "My Plan", Content: "Content only"},
+			&FlicknoteNote{Title: "My Plan", Content: "Content only"},
 			"Title: My Plan\n\nContent only",
 		},
 	}
@@ -253,17 +253,17 @@ func TestHexIDPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := hexIDPattern.FindStringSubmatch(tt.input)
+			m := HexIDPattern.FindStringSubmatch(tt.input)
 			if tt.wantOK {
 				if len(m) < 2 {
-					t.Fatalf("hexIDPattern did not match %q", tt.input)
+					t.Fatalf("HexIDPattern did not match %q", tt.input)
 				}
 				if m[1] != tt.wantID {
-					t.Errorf("hexIDPattern captured %q, want %q", m[1], tt.wantID)
+					t.Errorf("HexIDPattern captured %q, want %q", m[1], tt.wantID)
 				}
 			} else {
 				if len(m) > 0 {
-					t.Errorf("hexIDPattern unexpectedly matched %q, captured %q", tt.input, m[1])
+					t.Errorf("HexIDPattern unexpectedly matched %q, captured %q", tt.input, m[1])
 				}
 			}
 		})
