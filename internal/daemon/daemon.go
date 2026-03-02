@@ -72,6 +72,7 @@ func Run() error {
 	allCommands := discoverAndRegisterCommands(mcfg, allAgents)
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands)
 	startCleanupWatcher(done)
+	startPRWatcher(mcfg, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{

@@ -493,6 +493,25 @@ func UpdateWorkerMetadata(uuid, branch, projectPath string) error {
 	return nil
 }
 
+// ListTasksWithPR exports active tasks that have a pr_id UDA set.
+func ListTasksWithPR() ([]Task, error) {
+	out, err := runTask("+ACTIVE", "pr_id.isnt:", "export")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tasks with PR: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" || trimmed == "[]" {
+		return nil, nil
+	}
+
+	var tasks []Task
+	if err := json.Unmarshal([]byte(trimmed), &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse task JSON: %w", err)
+	}
+	return tasks, nil
+}
+
 // SetPRID sets the pr_id UDA on a task.
 func SetPRID(uuid, prID string) error {
 	_, err := runTask(uuid, "modify", fmt.Sprintf("pr_id:%s", prID))

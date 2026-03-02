@@ -14,6 +14,7 @@ type mockProvider struct {
 	combinedErr    error
 }
 
+func (m *mockProvider) Name() string { return "mock" }
 func (m *mockProvider) CreatePR(_, _, _, _, _, _ string) (*gitprovider.PullRequest, error) {
 	return nil, nil
 }
@@ -32,6 +33,9 @@ func (m *mockProvider) ListComments(_, _ string, _ int64) ([]*gitprovider.Commen
 }
 func (m *mockProvider) GetCombinedStatus(_, _, _ string) (*gitprovider.CombinedStatus, error) {
 	return m.combinedStatus, m.combinedErr
+}
+func (m *mockProvider) GetCIFailureDetails(_, _, _ string) ([]*gitprovider.JobFailure, error) {
+	return nil, nil
 }
 
 func TestDiagnoseMergeFailure(t *testing.T) {

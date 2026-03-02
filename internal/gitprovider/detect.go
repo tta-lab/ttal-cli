@@ -148,6 +148,17 @@ func detectProviderFromHost(host string) ProviderType {
 	return ProviderForgejo
 }
 
+func NewProviderByName(name string) (Provider, error) {
+	switch ProviderType(name) {
+	case ProviderForgejo:
+		return NewForgejoProvider()
+	case ProviderGitHub:
+		return NewGitHubProvider()
+	default:
+		return nil, fmt.Errorf("unknown provider: %s", name)
+	}
+}
+
 func NewProvider(info *RepoInfo) (Provider, error) {
 	switch info.Provider {
 	case ProviderGitHub:

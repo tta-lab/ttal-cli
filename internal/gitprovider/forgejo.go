@@ -1,14 +1,20 @@
 package gitprovider
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 
 	forgejo_sdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
 )
 
 type ForgejoProvider struct {
-	client *forgejo_sdk.Client
+	client  *forgejo_sdk.Client
+	baseURL string
+	token   string
 }
 
 func NewForgejoProvider() (Provider, error) {
@@ -30,8 +36,10 @@ func NewForgejoProvider() (Provider, error) {
 		return nil, fmt.Errorf("failed to create Forgejo client: %w", err)
 	}
 
-	return &ForgejoProvider{client: client}, nil
+	return &ForgejoProvider{client: client, baseURL: url, token: token}, nil
 }
+
+func (p *ForgejoProvider) Name() string { return "forgejo" }
 
 func (p *ForgejoProvider) CreatePR(owner, repo, head, base, title, body string) (*PullRequest, error) {
 	pr, _, err := p.client.CreatePullRequest(owner, repo, forgejo_sdk.CreatePullRequestOption{
@@ -135,6 +143,121 @@ func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedS
 		State:    string(cs.State),
 		Statuses: statuses,
 	}, nil
+}
+
+// forgejoActionRun mirrors the Forgejo Actions API response for workflow runs.
+type forgejoActionRun struct {
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	Status  string `json:"status"`
+	HTMLURL string `json:"html_url"`
+	HeadSHA string `json:"head_sha"`
+}
+
+type forgejoActionRunList struct {
+	WorkflowRuns []forgejoActionRun `json:"workflow_runs"`
+}
+
+type forgejoActionJob struct {
+	ID     int64  `json:"id"`
+	RunID  int64  `json:"run_id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+type forgejoActionJobList struct {
+	Entries []forgejoActionJob `json:"workflow_jobs"`
+}
+
+func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
+	runs, err := p.listActionRuns(owner, repo, sha)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list action runs: %w", err)
+	}
+
+	var failures []*JobFailure
+	for _, run := range runs {
+		if !isFailedStatus(run.Status) {
+			continue
+		}
+
+		jobs, err := p.listActionJobs(owner, repo, run.ID)
+		if err != nil {
+			continue
+		}
+
+		for _, job := range jobs {
+			if !isFailedStatus(job.Status) {
+				continue
+			}
+
+			jf := &JobFailure{
+				WorkflowName: run.Title,
+				JobName:      job.Name,
+				HTMLURL:      run.HTMLURL,
+				LogTail:      p.fetchJobLog(owner, repo, run.ID, job.ID),
+			}
+			failures = append(failures, jf)
+		}
+	}
+	return failures, nil
+}
+
+func (p *ForgejoProvider) forgejoGet(url string, target interface{}) error {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "token "+p.token)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+func (p *ForgejoProvider) listActionRuns(owner, repo, sha string) ([]forgejoActionRun, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs?head_sha=%s",
+		strings.TrimRight(p.baseURL, "/"), owner, repo, sha)
+	var result forgejoActionRunList
+	if err := p.forgejoGet(url, &result); err != nil {
+		return nil, err
+	}
+	return result.WorkflowRuns, nil
+}
+
+func (p *ForgejoProvider) listActionJobs(owner, repo string, runID int64) ([]forgejoActionJob, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs/%d/jobs",
+		strings.TrimRight(p.baseURL, "/"), owner, repo, runID)
+	var result forgejoActionJobList
+	if err := p.forgejoGet(url, &result); err != nil {
+		return nil, err
+	}
+	return result.Entries, nil
+}
+
+func (p *ForgejoProvider) fetchJobLog(owner, repo string, runID, jobID int64) string {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs/%d/jobs/%d/logs",
+		strings.TrimRight(p.baseURL, "/"), owner, repo, runID, jobID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("Authorization", "token "+p.token)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	return tailString(string(data), 50)
 }
 
 func toPullRequest(pr *forgejo_sdk.PullRequest) *PullRequest {

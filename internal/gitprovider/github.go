@@ -22,6 +22,8 @@ func NewGitHubProvider() (Provider, error) {
 	return &GitHubProvider{client: client}, nil
 }
 
+func (p *GitHubProvider) Name() string { return "github" }
+
 func (p *GitHubProvider) CreatePR(owner, repo, head, base, title, body string) (*PullRequest, error) {
 	pr, _, err := p.client.PullRequests.Create(context.Background(), owner, repo, &github.NewPullRequest{
 		Title: &title,
@@ -138,6 +140,49 @@ func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedSt
 		State:    cs.GetState(),
 		Statuses: statuses,
 	}, nil
+}
+
+func (p *GitHubProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
+	ctx := context.Background()
+
+	runs, _, err := p.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repo,
+		&github.ListWorkflowRunsOptions{HeadSHA: sha})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workflow runs: %w", err)
+	}
+
+	var failures []*JobFailure
+	for _, run := range runs.WorkflowRuns {
+		if !isFailedStatus(run.GetConclusion()) {
+			continue
+		}
+
+		jobs, _, err := p.client.Actions.ListWorkflowJobs(ctx, owner, repo,
+			run.GetID(), &github.ListWorkflowJobsOptions{Filter: "latest"})
+		if err != nil {
+			continue
+		}
+
+		for _, job := range jobs.Jobs {
+			if !isFailedStatus(job.GetConclusion()) {
+				continue
+			}
+
+			jf := &JobFailure{
+				WorkflowName: run.GetName(),
+				JobName:      job.GetName(),
+				HTMLURL:      job.GetHTMLURL(),
+			}
+
+			logURL, _, logErr := p.client.Actions.GetWorkflowJobLogs(ctx, owner, repo, job.GetID(), 3)
+			if logErr == nil && logURL != nil {
+				jf.LogTail = fetchLogTail(logURL.String(), 50)
+			}
+
+			failures = append(failures, jf)
+		}
+	}
+	return failures, nil
 }
 
 func toGitHubPullRequest(pr *github.PullRequest) *PullRequest {
