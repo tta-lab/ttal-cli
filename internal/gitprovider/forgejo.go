@@ -3,9 +3,9 @@ package gitprovider
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	forgejo_sdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
@@ -147,26 +147,30 @@ func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedS
 
 // forgejoActionRun mirrors the Forgejo Actions API response for workflow runs.
 type forgejoActionRun struct {
-	ID      int64  `json:"id"`
-	Title   string `json:"title"`
-	Status  string `json:"status"`
-	HTMLURL string `json:"html_url"`
-	HeadSHA string `json:"head_sha"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Status    string `json:"status"`
+	HTMLURL   string `json:"html_url"`
+	CommitSHA string `json:"commit_sha"`
 }
 
 type forgejoActionRunList struct {
 	WorkflowRuns []forgejoActionRun `json:"workflow_runs"`
 }
 
-type forgejoActionJob struct {
-	ID     int64  `json:"id"`
-	RunID  int64  `json:"run_id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+// forgejoActionTask mirrors the Forgejo /actions/tasks API response.
+// Each task corresponds to a single job within a workflow run.
+type forgejoActionTask struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	HeadSHA    string `json:"head_sha"`
+	RunNumber  int64  `json:"run_number"`
+	Status     string `json:"status"`
+	WorkflowID string `json:"workflow_id"`
 }
 
-type forgejoActionJobList struct {
-	Entries []forgejoActionJob `json:"workflow_jobs"`
+type forgejoActionTaskList struct {
+	WorkflowRuns []forgejoActionTask `json:"workflow_runs"`
 }
 
 func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
@@ -175,31 +179,65 @@ func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFa
 		return nil, fmt.Errorf("failed to list action runs: %w", err)
 	}
 
-	var failures []*JobFailure
+	var failedRuns []forgejoActionRun
 	for _, run := range runs {
-		if !isFailedStatus(run.Status) {
-			continue
-		}
-
-		jobs, err := p.listActionJobs(owner, repo, run.ID)
-		if err != nil {
-			continue
-		}
-
-		for _, job := range jobs {
-			if !isFailedStatus(job.Status) {
-				continue
-			}
-
-			jf := &JobFailure{
-				WorkflowName: run.Title,
-				JobName:      job.Name,
-				HTMLURL:      run.HTMLURL,
-				LogTail:      p.fetchJobLog(owner, repo, run.ID, job.ID),
-			}
-			failures = append(failures, jf)
+		if isFailedStatus(run.Status) {
+			failedRuns = append(failedRuns, run)
 		}
 	}
+	if len(failedRuns) == 0 {
+		return nil, nil
+	}
+
+	// Sort by ID for deterministic ordering when multiple runs fail.
+	sort.Slice(failedRuns, func(i, j int) bool {
+		return failedRuns[i].ID < failedRuns[j].ID
+	})
+
+	// Fetch tasks (jobs) for individual job names.
+	// Note: Forgejo's public API does not expose per-job log retrieval,
+	// so LogTail is always empty for Forgejo tasks.
+	tasks, err := p.listActionTasks(owner, repo, sha)
+	if err != nil {
+		// Fall back to run-level reporting
+		failures := make([]*JobFailure, 0, len(failedRuns))
+		for _, run := range failedRuns {
+			failures = append(failures, &JobFailure{
+				WorkflowName: run.Title,
+				JobName:      "(could not fetch job details)",
+				HTMLURL:      run.HTMLURL,
+			})
+		}
+		return failures, nil
+	}
+
+	// Use the first failed run (by ID) as the default URL/workflow name
+	// for tasks that don't have a direct run association.
+	defaultRun := failedRuns[0]
+
+	failures := make([]*JobFailure, 0, len(tasks))
+	for _, task := range tasks {
+		if !isFailedStatus(task.Status) {
+			continue
+		}
+		failures = append(failures, &JobFailure{
+			WorkflowName: defaultRun.Title,
+			JobName:      task.Name,
+			HTMLURL:      defaultRun.HTMLURL,
+		})
+	}
+
+	// If no failed tasks but runs failed, report at run level
+	if len(failures) == 0 {
+		for _, run := range failedRuns {
+			failures = append(failures, &JobFailure{
+				WorkflowName: run.Title,
+				JobName:      "(check run page for details)",
+				HTMLURL:      run.HTMLURL,
+			})
+		}
+	}
+
 	return failures, nil
 }
 
@@ -230,34 +268,22 @@ func (p *ForgejoProvider) listActionRuns(owner, repo, sha string) ([]forgejoActi
 	return result.WorkflowRuns, nil
 }
 
-func (p *ForgejoProvider) listActionJobs(owner, repo string, runID int64) ([]forgejoActionJob, error) {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs/%d/jobs",
-		strings.TrimRight(p.baseURL, "/"), owner, repo, runID)
-	var result forgejoActionJobList
+// listActionTasks fetches action tasks for a repo and filters by SHA.
+// The /actions/tasks endpoint has no SHA filter, so we filter client-side.
+func (p *ForgejoProvider) listActionTasks(owner, repo, sha string) ([]forgejoActionTask, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/tasks?limit=50",
+		strings.TrimRight(p.baseURL, "/"), owner, repo)
+	var result forgejoActionTaskList
 	if err := p.forgejoGet(url, &result); err != nil {
 		return nil, err
 	}
-	return result.Entries, nil
-}
-
-func (p *ForgejoProvider) fetchJobLog(owner, repo string, runID, jobID int64) string {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs/%d/jobs/%d/logs",
-		strings.TrimRight(p.baseURL, "/"), owner, repo, runID, jobID)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return ""
+	var matched []forgejoActionTask
+	for _, t := range result.WorkflowRuns {
+		if t.HeadSHA == sha {
+			matched = append(matched, t)
+		}
 	}
-	req.Header.Set("Authorization", "token "+p.token)
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return ""
-	}
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-	return tailString(string(data), 50)
+	return matched, nil
 }
 
 func toPullRequest(pr *forgejo_sdk.PullRequest) *PullRequest {

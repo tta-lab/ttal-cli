@@ -221,15 +221,15 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{
 			msg := fmt.Sprintf("PR #%d checks passed — ready to merge. Run: ttal pr merge",
 				target.PRIndex)
 			deliverToWorkerSession(target.SessionName, msg)
-			notifyPRStatus(mcfg, target, "✅ CI passed — ready to merge")
+			notifyPRStatus(mcfg, target, "✅ CI passed — ready to merge", "")
 			log.Printf("[prwatch] PR #%d checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 			return
 
 		case "failure", "error":
 			lastDeliveredSHA = headSHA
-			msg := formatCIFailure(provider, target, headSHA)
+			msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
 			deliverToWorkerSession(target.SessionName, msg)
-			notifyPRStatus(mcfg, target, "❌ CI failed — see worker session for details")
+			notifyPRStatus(mcfg, target, "❌ CI failed", runURL)
 			log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 			// Keep watching for new pushes
 			interval = prPollInitial
@@ -243,8 +243,9 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{
 	}
 }
 
-// formatCIFailure builds a detailed failure message for the worker.
-func formatCIFailure(provider gitprovider.Provider, target prWatchTarget, sha string) string {
+// formatCIFailureWithURL builds a detailed failure message for the worker
+// and returns the first run URL for Telegram notifications.
+func formatCIFailureWithURL(provider gitprovider.Provider, target prWatchTarget, sha string) (string, string) {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("PR #%d CI checks failed.\n", target.PRIndex))
 
@@ -252,19 +253,23 @@ func formatCIFailure(provider gitprovider.Provider, target prWatchTarget, sha st
 	if err != nil {
 		sb.WriteString(fmt.Sprintf("Could not fetch failure details: %v\n", err))
 		sb.WriteString("Fix the issues and push again.")
-		return sb.String()
+		return sb.String(), ""
 	}
 
 	if len(failures) == 0 {
 		sb.WriteString("No detailed failure info available. Check CI directly.\n")
 		sb.WriteString("Fix the issues and push again.")
-		return sb.String()
+		return sb.String(), ""
 	}
 
+	runURL := ""
 	for _, f := range failures {
 		sb.WriteString(fmt.Sprintf("\nWorkflow: %s\n  Job: %s\n", f.WorkflowName, f.JobName))
 		if f.HTMLURL != "" {
 			sb.WriteString(fmt.Sprintf("  URL: %s\n", f.HTMLURL))
+			if runURL == "" {
+				runURL = f.HTMLURL
+			}
 		}
 		if f.LogTail != "" {
 			sb.WriteString("  Log tail:\n")
@@ -274,7 +279,7 @@ func formatCIFailure(provider gitprovider.Provider, target prWatchTarget, sha st
 		}
 	}
 	sb.WriteString("\nFix the issues and push again.")
-	return sb.String()
+	return sb.String(), runURL
 }
 
 // deliverToWorkerSession sends a message to the coder window of a worker tmux session.
@@ -295,7 +300,7 @@ func deliverToWorkerSession(sessionName, msg string) {
 }
 
 // notifyPRStatus sends PR status to the team's lifecycle agent via Telegram.
-func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status string) {
+func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status string, runURL string) {
 	team := target.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -316,6 +321,9 @@ func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status stri
 	}
 
 	msg := fmt.Sprintf("%s\nPR #%d: %s", status, target.PRIndex, target.Description)
+	if runURL != "" {
+		msg += "\n" + runURL
+	}
 	if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, msg); err != nil {
 		log.Printf("[prwatch] telegram notify failed: %v", err)
 	}
