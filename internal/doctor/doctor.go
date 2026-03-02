@@ -273,9 +273,14 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 			}
 			sort.Strings(names)
 			var lines []string
-			lines = append(lines, "# ttal bot tokens — one per agent")
-			lines = append(lines, "# Convention: {UPPER_AGENT}_BOT_TOKEN")
+			lines = append(lines, "# ttal secrets — ~/.config/ttal/.env")
+			lines = append(lines, "# All entries are injected into worker and agent sessions.")
 			lines = append(lines, "")
+			lines = append(lines, "# API tokens")
+			lines = append(lines, "GITHUB_TOKEN=TODO")
+			lines = append(lines, "FORGEJO_TOKEN=TODO")
+			lines = append(lines, "")
+			lines = append(lines, "# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN")
 			for _, name := range names {
 				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
 				lines = append(lines, envKey+"=TODO")
@@ -310,6 +315,19 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 		} else {
 			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token set", name))
 		}
+	}
+
+	// Check common API tokens (warn, not error — not all setups need both)
+	env, _ := config.LoadDotEnv()
+	if env["GITHUB_TOKEN"] == "" || env["GITHUB_TOKEN"] == "TODO" {
+		section.add(LevelWarn, "github_token", "GITHUB_TOKEN not set in .env")
+	} else {
+		section.add(LevelOK, "github_token", "GITHUB_TOKEN set in .env")
+	}
+	if env["FORGEJO_TOKEN"] == "" || env["FORGEJO_TOKEN"] == "TODO" {
+		section.add(LevelWarn, "forgejo_token", "FORGEJO_TOKEN not set in .env")
+	} else {
+		section.add(LevelOK, "forgejo_token", "FORGEJO_TOKEN set in .env")
 	}
 }
 
