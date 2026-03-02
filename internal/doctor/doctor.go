@@ -362,6 +362,10 @@ func ensureCompanionFile(section *Section, path, name, okMsg, createdMsg, conten
 		section.add(LevelError, name, "not found (run: ttal doctor --fix)")
 		return
 	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		section.add(LevelError, name, fmt.Sprintf("failed to create parent dir: %v", err))
+		return
+	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		section.add(LevelError, name, fmt.Sprintf("failed to create: %v", err))
 	} else {
@@ -482,9 +486,9 @@ uda.taskwarrior-tui.shortcuts.6=%sttal task execute
 uda.taskwarrior-tui.keyconfig.shortcut1=z
 uda.taskwarrior-tui.keyconfig.shortcut2=p
 uda.taskwarrior-tui.keyconfig.shortcut3=o
-uda.taskwarrior-tui.keyconfig.shortcut4=d
-uda.taskwarrior-tui.keyconfig.shortcut5=r
-uda.taskwarrior-tui.keyconfig.shortcut6=e
+uda.taskwarrior-tui.keyconfig.shortcut4=D
+uda.taskwarrior-tui.keyconfig.shortcut5=R
+uda.taskwarrior-tui.keyconfig.shortcut6=E
 `, prefix, prefix, prefix, prefix, prefix, prefix)
 }
 
