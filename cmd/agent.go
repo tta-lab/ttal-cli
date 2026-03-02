@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/ent"
 	"github.com/tta-lab/ttal-cli/ent/agent"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/license"
 	"github.com/tta-lab/ttal-cli/internal/voice"
 )
@@ -235,31 +234,6 @@ func runAgentDelete(cmd *cobra.Command, args []string) error {
 	)
 }
 
-var agentSyncTokensCmd = &cobra.Command{
-	Use:   "sync-tokens",
-	Short: "Fill bot tokens from env vars into config.toml",
-	Long: `Read {AGENT}_BOT_TOKEN env vars for all agents in the database
-and write the tokens into config.toml. New agents are added automatically.
-
-Example:
-  export KESTREL_BOT_TOKEN="123:ABC..."
-  export YUKI_BOT_TOKEN="456:DEF..."
-  ttal agent sync-tokens`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		agents, err := database.Agent.Query().All(cmd.Context())
-		if err != nil {
-			return fmt.Errorf("query agents: %w", err)
-		}
-
-		names := make([]string, len(agents))
-		for i, a := range agents {
-			names[i] = a.Name
-		}
-
-		return config.SyncTokens(names)
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(agentCmd)
 
@@ -268,7 +242,6 @@ func init() {
 	agentCmd.AddCommand(agentInfoCmd)
 	agentCmd.AddCommand(agentModifyCmd)
 	agentCmd.AddCommand(agentDeleteCmd)
-	agentCmd.AddCommand(agentSyncTokensCmd)
 
 	agentAddCmd.Flags().StringVar(&agentVoice, "voice", "", "Kokoro TTS voice ID (e.g. af_heart, af_sky)")
 	agentAddCmd.Flags().StringVar(&agentEmoji, "emoji", "", "Display emoji (e.g. 🐱, 🦅)")

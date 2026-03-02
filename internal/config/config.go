@@ -157,10 +157,12 @@ func (c *Config) AgentModelFor(agentName string) string {
 // resolveBotTokens loads .env and populates BotToken for all agents.
 // Convention: {UPPER_AGENT}_BOT_TOKEN.
 // Override: agent's bot_token_env field takes priority.
-func resolveBotTokens(agents map[string]AgentConfig) error {
+// Non-fatal: if .env can't be loaded, tokens remain empty (doctor checks this).
+func resolveBotTokens(agents map[string]AgentConfig) {
 	env, err := LoadDotEnv()
 	if err != nil {
-		return err
+		fmt.Fprintf(os.Stderr, "warning: could not load .env for bot tokens: %v\n", err)
+		return
 	}
 
 	for name, ac := range agents {
@@ -171,7 +173,6 @@ func resolveBotTokens(agents map[string]AgentConfig) error {
 		ac.BotToken = env[envKey]
 		agents[name] = ac
 	}
-	return nil
 }
 
 // DataDir returns the resolved data directory for the active team.
@@ -429,9 +430,7 @@ func (c *Config) resolve() error {
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
 	c.Agents = team.Agents
-	if err := resolveBotTokens(c.Agents); err != nil {
-		return fmt.Errorf("failed to load bot tokens: %w", err)
-	}
+	resolveBotTokens(c.Agents)
 	c.Voice = VoiceConfig{
 		Vocabulary: team.VoiceVocabulary,
 		Language:   team.VoiceLanguage,
@@ -599,9 +598,7 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 		Agents: team.Agents,
 	}
 
-	if err := resolveBotTokens(rt.Agents); err != nil {
-		return nil, fmt.Errorf("failed to load bot tokens: %w", err)
-	}
+	resolveBotTokens(rt.Agents)
 
 	// Resolve DataDir
 	if team.DataDir != "" {
@@ -800,15 +797,6 @@ func defaultTaskRC() string {
 		home = "."
 	}
 	return filepath.Join(home, ".taskrc")
-}
-
-// clearResolvedFields zeroes out the flat fields that were promoted from a team config.
-// Call this before serializing a team-aware config to avoid duplication in TOML output.
-func (c *Config) clearResolvedFields() {
-	c.ChatID = ""
-	c.LifecycleAgent = ""
-	c.Agents = nil
-	c.Voice = VoiceConfig{}
 }
 
 // ExpandHome replaces a leading ~ or ~/ with the user's home directory.
