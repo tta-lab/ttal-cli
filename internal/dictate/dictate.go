@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/gordonklaus/portaudio"
+	"github.com/tta-lab/ttal-cli/internal/voice"
 )
 
 // Run starts the dictation daemon. Blocks until Ctrl+C.

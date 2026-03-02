@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 var workerHookCmd = &cobra.Command{

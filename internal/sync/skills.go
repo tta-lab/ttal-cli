@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 // SkillResult tracks a single skill deployment for reporting.

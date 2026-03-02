@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/status"
-	"codeberg.org/clawteam/ttal-cli/internal/telegram"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
-	"codeberg.org/clawteam/ttal-cli/internal/watcher"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/telegram"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 const pidFileName = "daemon.pid"

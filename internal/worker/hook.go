@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 // taskwarrior task status constants used across hook handlers.

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func TestBuildEnvParts(t *testing.T) {

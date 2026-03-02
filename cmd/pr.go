@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/pr"
-	"codeberg.org/clawteam/ttal-cli/internal/review"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/pr"
+	"github.com/tta-lab/ttal-cli/internal/review"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 var prCmd = &cobra.Command{

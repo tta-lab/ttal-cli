@@ -5,11 +5,11 @@ import (
 	"sort"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 var (

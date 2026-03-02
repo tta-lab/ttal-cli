@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/ent/predicate"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/tta-lab/ttal-cli/ent/agent"
+	"github.com/tta-lab/ttal-cli/ent/predicate"
+	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
 const (

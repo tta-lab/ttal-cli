@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	oc "github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode-sdk-go/option"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // Adapter communicates with OpenCode via its HTTP API server.

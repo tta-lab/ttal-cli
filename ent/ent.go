@@ -9,11 +9,11 @@ import (
 	"reflect"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/tta-lab/ttal-cli/ent/agent"
+	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
 // ent aliases to avoid import conflicts in user's code.

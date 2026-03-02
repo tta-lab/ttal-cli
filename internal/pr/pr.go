@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) {

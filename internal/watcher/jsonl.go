@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // jsonlEntry represents a single line in the CC session JSONL transcript.

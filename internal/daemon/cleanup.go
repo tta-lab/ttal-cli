@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/fsnotify/fsnotify"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // startCleanupWatcher watches ~/.ttal/cleanup/ for worker cleanup requests.

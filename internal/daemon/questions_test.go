@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 func TestQuestionStoreAddGetRemove(t *testing.T) {

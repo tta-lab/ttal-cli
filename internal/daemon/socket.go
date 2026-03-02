@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/status"
 )
 
 const socketTimeout = 5 * time.Second

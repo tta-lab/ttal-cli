@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 // Command builds an exec.Cmd for `task` with the active team's TASKRC

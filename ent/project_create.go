@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
 // ProjectCreate is the builder for creating a Project entity.

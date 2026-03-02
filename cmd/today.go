@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"codeberg.org/clawteam/ttal-cli/internal/today"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/today"
 )
 
 var todayCmd = &cobra.Command{

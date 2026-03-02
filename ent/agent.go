@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/tta-lab/ttal-cli/ent/agent"
 )
 
 // Agent is the model entity for the Agent schema.

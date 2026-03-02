@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 const cmdTimeout = 10 * time.Second

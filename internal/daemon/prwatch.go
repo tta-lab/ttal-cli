@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/telegram"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/telegram"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 const (

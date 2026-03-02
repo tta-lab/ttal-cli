@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
-	"codeberg.org/clawteam/ttal-cli/internal/db"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"github.com/google/uuid"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // Level indicates the severity of a check result.

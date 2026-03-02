@@ -3,8 +3,8 @@ package worker
 import (
 	"fmt"
 
-	"codeberg.org/clawteam/ttal-cli/internal/enrichment"
-	"codeberg.org/clawteam/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/enrichment"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 // enrichInline resolves project_path and branch directly on the hookTask map.

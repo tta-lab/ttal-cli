@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"codeberg.org/clawteam/ttal-cli/internal/onboard"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/onboard"
 )
 
 var onboardWorkspace string

@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent"
 )
 
 // The AgentFunc type is an adapter to allow the use of ordinary

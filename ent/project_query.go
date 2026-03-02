@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"math"
 
-	"codeberg.org/clawteam/ttal-cli/ent/predicate"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/tta-lab/ttal-cli/ent/predicate"
+	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
 // ProjectQuery is the builder for querying Project entities.

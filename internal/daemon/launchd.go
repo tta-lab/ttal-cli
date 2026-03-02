@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/fsnotify/fsnotify"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 const jsonlExt = ".jsonl"

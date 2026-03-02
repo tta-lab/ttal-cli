@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // stubAdapter is a minimal Adapter implementation for registry tests.

@@ -5,8 +5,8 @@ package project
 import (
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent/predicate"
 	"entgo.io/ent/dialect/sql"
+	"github.com/tta-lab/ttal-cli/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.

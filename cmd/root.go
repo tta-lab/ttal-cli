@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/db"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/db"
 )
 
 var (

@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	dbpkg "codeberg.org/clawteam/ttal-cli/internal/db"
-	"codeberg.org/clawteam/ttal-cli/internal/format"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent/project"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	dbpkg "github.com/tta-lab/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/internal/format"
 )
 
 const statusCol = 3 // index of the STATUS column in project list table

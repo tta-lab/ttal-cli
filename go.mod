@@ -1,4 +1,4 @@
-module codeberg.org/clawteam/ttal-cli
+module github.com/tta-lab/ttal-cli
 
 go 1.23.0
 

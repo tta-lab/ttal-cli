@@ -5,7 +5,7 @@ import (
 	"os"
 	"syscall"
 
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // Session attaches to the tmux session associated with a task.

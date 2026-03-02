@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 func TestAgentSessionName(t *testing.T) {

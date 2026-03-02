@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
-	gitutil "codeberg.org/clawteam/ttal-cli/internal/git"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
+	gitutil "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.

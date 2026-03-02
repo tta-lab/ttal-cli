@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/license"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
 	"github.com/BurntSushi/toml"
+	"github.com/tta-lab/ttal-cli/internal/license"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // PromptsConfig holds configurable prompt templates for task routing and worker spawn.

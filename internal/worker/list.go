@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // WorkerStatus represents the categorized status of a worker.

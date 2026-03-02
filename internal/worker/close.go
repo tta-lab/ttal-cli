@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	gitroot "codeberg.org/clawteam/ttal-cli/internal/git"
-	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
-	"codeberg.org/clawteam/ttal-cli/internal/gitutil"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	gitroot "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // CloseResult holds the outcome of a close operation.

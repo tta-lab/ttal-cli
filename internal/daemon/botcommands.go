@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/status"
-	"codeberg.org/clawteam/ttal-cli/internal/telegram"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/telegram"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"gopkg.in/yaml.v3"
 )
 

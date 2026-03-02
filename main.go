@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"codeberg.org/clawteam/ttal-cli/cmd"
+	"github.com/tta-lab/ttal-cli/cmd"
 )
 
 func main() {

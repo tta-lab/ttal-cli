@@ -7,7 +7,7 @@ import (
 	"strings"
 	"syscall"
 
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // Editor opens the task's project directory (or worktree) in an editor.

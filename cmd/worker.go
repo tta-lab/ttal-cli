@@ -4,9 +4,9 @@ import (
 	"errors"
 	"os"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 var (

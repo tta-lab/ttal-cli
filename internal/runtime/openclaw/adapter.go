@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // Adapter delivers messages to OpenClaw agents via Gateway HTTP hooks.

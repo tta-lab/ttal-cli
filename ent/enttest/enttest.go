@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent"
 	// required by schema hooks.
-	_ "codeberg.org/clawteam/ttal-cli/ent/runtime"
+	_ "github.com/tta-lab/ttal-cli/ent/runtime"
 
-	"codeberg.org/clawteam/ttal-cli/ent/migrate"
 	"entgo.io/ent/dialect/sql/schema"
+	"github.com/tta-lab/ttal-cli/ent/migrate"
 )
 
 type (

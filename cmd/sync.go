@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/doctor"
-	"codeberg.org/clawteam/ttal-cli/internal/sync"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/doctor"
+	"github.com/tta-lab/ttal-cli/internal/sync"
 )
 
 var (

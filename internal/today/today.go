@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/format"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // task represents a taskwarrior task from JSON export.

@@ -3,8 +3,8 @@
 package cmd
 
 import (
-	"codeberg.org/clawteam/ttal-cli/internal/dictate"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/dictate"
 )
 
 var voiceDictateCmd = &cobra.Command{

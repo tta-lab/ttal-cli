@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
 var (

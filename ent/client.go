@@ -9,13 +9,13 @@ import (
 	"log"
 	"reflect"
 
-	"codeberg.org/clawteam/ttal-cli/ent/migrate"
+	"github.com/tta-lab/ttal-cli/ent/migrate"
 
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"github.com/tta-lab/ttal-cli/ent/agent"
+	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
 // Client is the client that holds all ent builders.

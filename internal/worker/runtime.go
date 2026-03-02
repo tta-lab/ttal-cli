@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // validateRuntime checks that the runtime is valid for workers and its binary is available.

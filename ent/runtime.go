@@ -5,9 +5,9 @@ package ent
 import (
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/ent/schema"
+	"github.com/tta-lab/ttal-cli/ent/agent"
+	"github.com/tta-lab/ttal-cli/ent/project"
+	"github.com/tta-lab/ttal-cli/ent/schema"
 )
 
 // The init function reads all schema descriptors with runtime code

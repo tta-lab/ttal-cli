@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // Attach attaches the current terminal to an agent's tmux session.

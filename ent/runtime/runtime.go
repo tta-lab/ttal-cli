@@ -2,7 +2,7 @@
 
 package runtime
 
-// The schema-stitching logic is generated in codeberg.org/clawteam/ttal-cli/ent/runtime.go
+// The schema-stitching logic is generated in github.com/tta-lab/ttal-cli/ent/runtime.go
 
 const (
 	Version = "v0.14.5"                                         // Version of ent codegen.

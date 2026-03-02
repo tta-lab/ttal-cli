@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/telegram"
-	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/telegram"
+	"github.com/tta-lab/ttal-cli/internal/voice"
 )
 
 // startMultiAgentPoller starts a long-poll loop for one bot token serving multiple agents.

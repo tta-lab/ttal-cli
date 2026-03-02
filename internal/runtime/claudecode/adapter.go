@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
-	"codeberg.org/clawteam/ttal-cli/internal/watcher"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 // Adapter communicates with Claude Code via tmux sessions and JSONL file watching.

@@ -53,10 +53,10 @@ linters:
         - (net.Listener).Close
         - (*github.com/fsnotify/fsnotify.Watcher).Close
         - (*os.File).Close
-        - (*codeberg.org/clawteam/ttal-cli/internal/db.DB).Close
-        - (*codeberg.org/clawteam/ttal-cli/ent.Client).Close
+        - (*github.com/tta-lab/ttal-cli/internal/db.DB).Close
+        - (*github.com/tta-lab/ttal-cli/ent.Client).Close
         - os.Remove
-        - codeberg.org/clawteam/ttal-cli/internal/status.Remove
+        - github.com/tta-lab/ttal-cli/internal/status.Remove
         # best-effort writes / commands (see rationale above)
         - (net.Conn).SetDeadline
         - (net.Conn).Write

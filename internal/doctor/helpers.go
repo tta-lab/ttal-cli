@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/tta-lab/ttal-cli/ent"
 )
 
 func countAgents(dbPath string) (int, error) {

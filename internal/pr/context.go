@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 type Context struct {

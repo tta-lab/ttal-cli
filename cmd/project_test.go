@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/ent/project"
+	"github.com/tta-lab/ttal-cli/internal/db"
 )
 
 const (

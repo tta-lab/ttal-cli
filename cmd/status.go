@@ -6,12 +6,12 @@ import (
 	"sort"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/status"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 const staleThreshold = 5 * time.Minute

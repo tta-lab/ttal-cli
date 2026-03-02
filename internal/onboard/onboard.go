@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
-	"codeberg.org/clawteam/ttal-cli/internal/doctor"
-	"codeberg.org/clawteam/ttal-cli/internal/worker"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/doctor"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 const starterRepo = "https://github.com/clawteam/ttal-starter.git"

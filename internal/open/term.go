@@ -5,7 +5,7 @@ import (
 	"os"
 	"syscall"
 
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // Term opens a terminal (shell) in the task's working directory (worktree or project root).

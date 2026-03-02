@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"codeberg.org/clawteam/ttal-cli/internal/daemon"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
 const osDarwin = "darwin"

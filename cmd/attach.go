@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"codeberg.org/clawteam/ttal-cli/internal/team"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/team"
 )
 
 var attachCmd = &cobra.Command{

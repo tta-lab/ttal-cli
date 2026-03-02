@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
 	"github.com/invopop/jsonschema"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 func main() {

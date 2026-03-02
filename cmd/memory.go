@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/memory"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/memory"
 )
 
 var (

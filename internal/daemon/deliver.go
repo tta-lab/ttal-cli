@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // formatInboundMessage formats a Telegram message for delivery to CC.

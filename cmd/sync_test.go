@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/internal/sync"
+	"github.com/tta-lab/ttal-cli/internal/sync"
 )
 
 func TestCountUniqueSkills(t *testing.T) {

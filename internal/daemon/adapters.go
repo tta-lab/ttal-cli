@@ -5,11 +5,11 @@ import (
 	"log"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	cx "codeberg.org/clawteam/ttal-cli/internal/runtime/codex"
-	oclw "codeberg.org/clawteam/ttal-cli/internal/runtime/openclaw"
-	oc "codeberg.org/clawteam/ttal-cli/internal/runtime/opencode"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	cx "github.com/tta-lab/ttal-cli/internal/runtime/codex"
+	oclw "github.com/tta-lab/ttal-cli/internal/runtime/openclaw"
+	oc "github.com/tta-lab/ttal-cli/internal/runtime/opencode"
 )
 
 // adapterRegistry holds adapters for all agents, keyed by "teamName/agentName"

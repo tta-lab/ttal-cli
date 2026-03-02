@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 )
 
 // mockProvider implements gitprovider.Provider for testing.

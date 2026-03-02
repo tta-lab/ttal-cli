@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	gitutil "codeberg.org/clawteam/ttal-cli/internal/git"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	"codeberg.org/clawteam/ttal-cli/internal/taskwarrior"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	gitutil "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // SpawnConfig holds configuration for spawning a worker.

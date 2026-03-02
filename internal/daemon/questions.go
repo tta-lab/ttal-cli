@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
-	cx "codeberg.org/clawteam/ttal-cli/internal/runtime/codex"
-	oc "codeberg.org/clawteam/ttal-cli/internal/runtime/opencode"
-	"codeberg.org/clawteam/ttal-cli/internal/telegram"
-	"codeberg.org/clawteam/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
+	cx "github.com/tta-lab/ttal-cli/internal/runtime/codex"
+	oc "github.com/tta-lab/ttal-cli/internal/runtime/opencode"
+	"github.com/tta-lab/ttal-cli/internal/telegram"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // Timing constants for CC TUI interaction.

@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
-	"codeberg.org/clawteam/ttal-cli/ent/migrate"
-	"codeberg.org/clawteam/ttal-cli/internal/config"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/tta-lab/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent/migrate"
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 type DB struct {

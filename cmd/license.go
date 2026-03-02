@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"codeberg.org/clawteam/ttal-cli/internal/license"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/license"
 )
 
 var licenseCmd = &cobra.Command{

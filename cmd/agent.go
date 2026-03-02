@@ -7,12 +7,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
-	"codeberg.org/clawteam/ttal-cli/ent/agent"
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/license"
-	"codeberg.org/clawteam/ttal-cli/internal/voice"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent/agent"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/license"
+	"github.com/tta-lab/ttal-cli/internal/voice"
 )
 
 var (

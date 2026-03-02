@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"codeberg.org/clawteam/ttal-cli/internal/doctor"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/doctor"
 )
 
 var fixFlag bool

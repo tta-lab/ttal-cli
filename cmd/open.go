@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"codeberg.org/clawteam/ttal-cli/internal/open"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/open"
 )
 
 var openCmd = &cobra.Command{

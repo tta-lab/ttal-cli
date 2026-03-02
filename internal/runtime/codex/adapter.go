@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 
-	"codeberg.org/clawteam/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // Adapter communicates with Codex via its WebSocket JSON-RPC API server.

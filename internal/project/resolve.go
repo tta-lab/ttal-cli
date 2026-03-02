@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
-	"codeberg.org/clawteam/ttal-cli/ent/project"
-	"codeberg.org/clawteam/ttal-cli/internal/config"
-	"codeberg.org/clawteam/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent/project"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/db"
 )
 
 // ResolveProjectPath looks up a project path by matching the taskwarrior

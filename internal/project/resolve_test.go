@@ -3,7 +3,7 @@ package project
 import (
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/ent"
 )
 
 func TestMatchByContains(t *testing.T) {

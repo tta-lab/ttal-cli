@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"codeberg.org/clawteam/ttal-cli/ent"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/tta-lab/ttal-cli/ent"
 )
 
 // NewTestDB creates an in-memory SQLite database for testing
