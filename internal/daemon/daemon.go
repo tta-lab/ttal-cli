@@ -337,12 +337,7 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	}
 
 	// Inject all secrets from .env
-	dotEnv, err := config.LoadDotEnv()
-	if err == nil {
-		for k, v := range dotEnv {
-			env = append(env, fmt.Sprintf("%s=%s", k, v))
-		}
-	}
+	env = append(env, config.DotEnvParts()...)
 
 	return env
 }

@@ -248,12 +248,7 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	}
 
 	// Inject all secrets from .env
-	env, err := config.LoadDotEnv()
-	if err == nil {
-		for k, v := range env {
-			parts = append(parts, fmt.Sprintf("%s=%s", k, v))
-		}
-	}
+	parts = append(parts, config.DotEnvParts()...)
 
 	return parts
 }

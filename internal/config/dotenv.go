@@ -35,3 +35,18 @@ func LoadDotEnv() (map[string]string, error) {
 	}
 	return env, nil
 }
+
+// DotEnvParts loads .env and returns "KEY=VALUE" strings suitable for
+// appending to an environment variable slice. Errors are silently ignored
+// because .env is optional.
+func DotEnvParts() []string {
+	env, err := LoadDotEnv()
+	if err != nil {
+		return nil
+	}
+	parts := make([]string, 0, len(env))
+	for k, v := range env {
+		parts = append(parts, fmt.Sprintf("%s=%s", k, v))
+	}
+	return parts
+}
