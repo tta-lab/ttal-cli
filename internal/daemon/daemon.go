@@ -335,6 +335,15 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
+
+	// Inject all secrets from .env
+	dotEnv, err := config.LoadDotEnv()
+	if err == nil {
+		for k, v := range dotEnv {
+			env = append(env, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+
 	return env
 }
 
