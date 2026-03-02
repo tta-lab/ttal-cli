@@ -21,13 +21,16 @@ var sendCmd = &cobra.Command{
 	Short: "Send a message between agents or to a human",
 	Long: `Send a message with explicit direction:
 
-  --to <agent>         delivers to agent via tmux
+  --to <agent>         delivers to agent via tmux (uses TTAL_TEAM for team context)
+  --to <team>:<agent>  delivers to agent in a specific team
   --to human           sends to human via Telegram
 
 Agent identity comes from TTAL_AGENT_NAME env var (set automatically in team tmux sessions).
+Team context comes from TTAL_TEAM env var, or can be specified with team:agent syntax.
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
+  ttal send --to guion:astra "design review needed"
   ttal send --to human "compact complete"
   echo "done" | ttal send --to kestrel --stdin`,
 	// Skip database initialization
@@ -67,9 +70,18 @@ Examples:
 			return fmt.Errorf("TTAL_AGENT_NAME env var required to send to human")
 		}
 
+		// Resolve team:agent syntax or fall back to TTAL_TEAM env var
+		team := os.Getenv("TTAL_TEAM")
+		to := sendTo
+		if parts := strings.SplitN(sendTo, ":", 2); len(parts) == 2 {
+			team = parts[0]
+			to = parts[1]
+		}
+
 		return daemon.Send(daemon.SendRequest{
 			From:    from,
-			To:      sendTo,
+			To:      to,
+			Team:    team,
 			Message: message,
 		})
 	},
