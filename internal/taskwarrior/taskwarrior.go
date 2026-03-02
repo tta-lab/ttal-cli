@@ -280,9 +280,12 @@ func (t *Task) FormatPrompt() string {
 		}
 
 		if hexID != "" {
+			// Always suppress hex IDs from plain-text output — they're
+			// meaningless to the worker if the note can't be resolved.
+			refDescs[desc] = true
+
 			note := readFlicknoteJSON(hexID)
 			if note != nil && shouldInlineNote(note) {
-				refDescs[desc] = true
 				flicknoteCache[desc] = formatFlicknoteContent(note)
 				refs = append(refs, docRef{label: "FlickNote: " + hexID, refType: "flicknote_cached", id: desc})
 			}
