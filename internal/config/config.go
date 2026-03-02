@@ -130,10 +130,12 @@ type VoiceConfig struct {
 
 // AgentConfig holds per-agent Telegram credentials and runtime settings.
 type AgentConfig struct {
-	BotToken string `toml:"bot_token" jsonschema:"description=Telegram bot token for this agent"`
-	Port     int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
-	Runtime  string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"` //nolint:lll
-	Model    string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`                                                 //nolint:lll
+	// BotToken is resolved from ~/.config/ttal/.env at load time (not stored in TOML).
+	BotToken    string `toml:"-" jsonschema:"-"`                                                                                             //nolint:lll
+	BotTokenEnv string `toml:"bot_token_env" jsonschema:"description=Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"` //nolint:lll
+	Port        int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
+	Runtime     string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"` //nolint:lll
+	Model       string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`                                                 //nolint:lll
 }
 
 // AgentRuntimeFor returns the effective runtime for an agent:
@@ -151,6 +153,27 @@ func (c *Config) AgentModelFor(agentName string) string {
 		return ac.Model
 	}
 	return DefaultModel
+}
+
+// resolveBotTokens loads .env and populates BotToken for all agents.
+// Convention: {UPPER_AGENT}_BOT_TOKEN.
+// Override: agent's bot_token_env field takes priority.
+// Non-fatal: if .env can't be loaded, tokens remain empty (doctor checks this).
+func resolveBotTokens(agents map[string]AgentConfig) {
+	env, err := LoadDotEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load .env for bot tokens: %v\n", err)
+		return
+	}
+
+	for name, ac := range agents {
+		envKey := ac.BotTokenEnv
+		if envKey == "" {
+			envKey = strings.ToUpper(name) + "_BOT_TOKEN"
+		}
+		ac.BotToken = env[envKey]
+		agents[name] = ac
+	}
 }
 
 // DataDir returns the resolved data directory for the active team.
@@ -408,6 +431,9 @@ func (c *Config) resolve() error {
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
 	c.Agents = team.Agents
+	// Note: resolveBotTokens is also called in resolveTeam() for LoadAll().
+	// Each path resolves independently — Load() uses resolve(), LoadAll() uses resolveTeam().
+	resolveBotTokens(c.Agents)
 	c.Voice = VoiceConfig{
 		Vocabulary: team.VoiceVocabulary,
 		Language:   team.VoiceLanguage,
@@ -574,6 +600,8 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 		},
 		Agents: team.Agents,
 	}
+
+	resolveBotTokens(rt.Agents)
 
 	// Resolve DataDir
 	if team.DataDir != "" {
@@ -774,15 +802,6 @@ func defaultTaskRC() string {
 	return filepath.Join(home, ".taskrc")
 }
 
-// clearResolvedFields zeroes out the flat fields that were promoted from a team config.
-// Call this before serializing a team-aware config to avoid duplication in TOML output.
-func (c *Config) clearResolvedFields() {
-	c.ChatID = ""
-	c.LifecycleAgent = ""
-	c.Agents = nil
-	c.Voice = VoiceConfig{}
-}
-
 // ExpandHome replaces a leading ~ or ~/ with the user's home directory.
 // Does NOT expand ~username syntax (that would require OS-specific user lookup).
 func ExpandHome(path string) string {
@@ -866,8 +885,10 @@ research_agent = "athena"    # Agent for ttal task research
 # agent_runtime = "claude-code"
 # merge_mode = "auto"
 
+# Bot tokens are stored in ~/.config/ttal/.env (not in this file)
+# Convention: {UPPER_AGENT}_BOT_TOKEN=<token>
+# Run 'ttal doctor --fix' to generate a template .env file
 [teams.default.agents.kestrel]
-bot_token = "TODO"
 
 # Voice settings go under teams:
 # [teams.default.voice]

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -256,15 +257,60 @@ func checkConfig(fix bool) Section {
 		section.add(LevelOK, "lifecycle_agent", "lifecycle_agent: "+cfg.LifecycleAgent)
 	}
 
-	for name, ac := range cfg.Agents {
-		if ac.BotToken == "" || ac.BotToken == "TODO" {
-			section.add(LevelError, name, fmt.Sprintf("Agent %s: bot_token missing", name))
-		} else {
-			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token ✓", name))
-		}
-	}
+	checkDotEnv(&section, cfg, fix)
 
 	return section
+}
+
+// checkDotEnv verifies ~/.config/ttal/.env exists and agents have bot tokens.
+func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
+	envPath, _ := config.DotEnvPath()
+	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
+		if fix {
+			var names []string
+			for name := range cfg.Agents {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			var lines []string
+			lines = append(lines, "# ttal bot tokens — one per agent")
+			lines = append(lines, "# Convention: {UPPER_AGENT}_BOT_TOKEN")
+			lines = append(lines, "")
+			for _, name := range names {
+				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
+				lines = append(lines, envKey+"=TODO")
+			}
+			content := strings.Join(lines, "\n") + "\n"
+			if writeErr := os.MkdirAll(filepath.Dir(envPath), 0o755); writeErr != nil {
+				section.add(LevelError, "dotenv", fmt.Sprintf("failed to create dir: %v", writeErr))
+			} else if writeErr := os.WriteFile(envPath, []byte(content), 0o600); writeErr != nil {
+				section.add(LevelError, "dotenv", fmt.Sprintf("failed to create .env: %v", writeErr))
+			} else {
+				section.add(LevelWarn, "dotenv", fmt.Sprintf("created template .env: %s", envPath))
+			}
+		} else {
+			section.add(LevelError, "dotenv",
+				fmt.Sprintf(".env file missing: %s (run: ttal doctor --fix)", envPath))
+		}
+	} else {
+		section.add(LevelOK, "dotenv", fmt.Sprintf(".env file: %s", envPath))
+	}
+
+	// Sort agent names for deterministic output order.
+	agentNames := make([]string, 0, len(cfg.Agents))
+	for name := range cfg.Agents {
+		agentNames = append(agentNames, name)
+	}
+	sort.Strings(agentNames)
+	for _, name := range agentNames {
+		ac := cfg.Agents[name]
+		if ac.BotToken == "" {
+			section.add(LevelError, name,
+				fmt.Sprintf("Agent %s: bot token not found in .env", name))
+		} else {
+			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token set", name))
+		}
+	}
 }
 
 // --- Taskwarrior UDAs ---

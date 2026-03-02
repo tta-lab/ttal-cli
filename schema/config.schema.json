@@ -5,9 +5,9 @@
   "$defs": {
     "AgentConfig": {
       "properties": {
-        "bot_token": {
+        "bot_token_env": {
           "type": "string",
-          "description": "Telegram bot token for this agent"
+          "description": "Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"
         },
         "port": {
           "type": "integer",

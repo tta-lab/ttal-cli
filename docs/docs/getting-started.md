@@ -58,7 +58,7 @@ The guided onboarding walks you through initial configuration:
 ttal onboard
 ```
 
-This helps you set up your config file, Telegram bot tokens, and team settings.
+This helps you set up your config file and team settings. Bot tokens are stored separately in `~/.config/ttal/.env`.
 
 ### 4. Register your first agent
 

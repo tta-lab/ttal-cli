@@ -62,12 +62,6 @@ Direction is inferred from which fields are set:
 
 Agent status information is written to `~/.ttal/status/`. The daemon updates these files as it tracks agent sessions.
 
-## Syncing bot tokens
+## Bot tokens
 
-If you store bot tokens in environment variables, sync them to the daemon config:
-
-```bash
-ttal daemon sync-tokens
-```
-
-This reads tokens from your environment and updates the daemon configuration.
+Bot tokens are stored in `~/.config/ttal/.env` and loaded automatically at startup. See the [setup guide](getting-started.md) for details.
