@@ -62,8 +62,8 @@ setup: install
 	@echo "✓ Setup complete"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Edit ~/.config/ttal/config.toml with bot tokens"
-	@echo "  2. Run: ttal agent sync-tokens"
+	@echo "  1. Run: ttal doctor --fix (generates template .env for bot tokens)"
+	@echo "  2. Edit ~/.config/ttal/.env with your bot tokens"
 
 # Install and restart all running daemons
 reinstall: install

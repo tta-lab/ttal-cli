@@ -882,8 +882,10 @@ research_agent = "athena"    # Agent for ttal task research
 # agent_runtime = "claude-code"
 # merge_mode = "auto"
 
+# Bot tokens are stored in ~/.config/ttal/.env (not in this file)
+# Convention: {UPPER_AGENT}_BOT_TOKEN=<token>
+# Run 'ttal doctor --fix' to generate a template .env file
 [teams.default.agents.kestrel]
-bot_token = "TODO"
 
 # Voice settings go under teams:
 # [teams.default.voice]
