@@ -201,11 +201,14 @@ func routeCCResponse(batch *QuestionBatch) error {
 				return fmt.Errorf("select option for Q%d: %w", i, err)
 			}
 		} else {
-			// Custom answer: "Other" is the digit after the last option
+			// Custom answer: "Other" is the digit after the last option.
+			// Send digit WITHOUT Enter (switches CC to text input mode),
+			// wait for the input field to render, then send the text WITH Enter.
 			if len(q.Options) == 0 {
 				return fmt.Errorf("select Other for Q%d: no options to derive Other position", i)
 			}
-			if err := selectCCOption(session, window, len(q.Options)+1); err != nil {
+			otherDigit := fmt.Sprintf("%d", len(q.Options)+1)
+			if err := tmux.SendRawKey(session, window, otherDigit); err != nil {
 				return fmt.Errorf("select Other for Q%d: %w", i, err)
 			}
 			time.Sleep(ccOtherInputDelay)
