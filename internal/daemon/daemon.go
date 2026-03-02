@@ -47,7 +47,9 @@ func Run() error {
 		log.Printf("[daemon] warning: failed to load .env: %v", envErr)
 	} else {
 		for k, v := range dotEnv {
-			os.Setenv(k, v)
+			if err := os.Setenv(k, v); err != nil {
+				log.Printf("[daemon] warning: failed to set env %s: %v", k, err)
+			}
 		}
 		log.Printf("[daemon] loaded %d env vars from .env", len(dotEnv))
 	}
