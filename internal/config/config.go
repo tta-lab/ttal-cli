@@ -130,10 +130,11 @@ type VoiceConfig struct {
 
 // AgentConfig holds per-agent Telegram credentials and runtime settings.
 type AgentConfig struct {
-	BotToken string `toml:"bot_token" jsonschema:"description=Telegram bot token for this agent"`
-	Port     int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
-	Runtime  string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"` //nolint:lll
-	Model    string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`                                                 //nolint:lll
+	BotToken    string `toml:"-" jsonschema:"-"`                                                                                             //nolint:lll
+	BotTokenEnv string `toml:"bot_token_env" jsonschema:"description=Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"` //nolint:lll
+	Port        int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
+	Runtime     string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Per-agent runtime override (falls back to team agent_runtime)"` //nolint:lll
+	Model       string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus,description=Claude model tier (falls back to opus)"`                                                 //nolint:lll
 }
 
 // AgentRuntimeFor returns the effective runtime for an agent:
@@ -151,6 +152,26 @@ func (c *Config) AgentModelFor(agentName string) string {
 		return ac.Model
 	}
 	return DefaultModel
+}
+
+// resolveBotTokens loads .env and populates BotToken for all agents.
+// Convention: {UPPER_AGENT}_BOT_TOKEN.
+// Override: agent's bot_token_env field takes priority.
+func resolveBotTokens(agents map[string]AgentConfig) error {
+	env, err := LoadDotEnv()
+	if err != nil {
+		return err
+	}
+
+	for name, ac := range agents {
+		envKey := ac.BotTokenEnv
+		if envKey == "" {
+			envKey = strings.ToUpper(name) + "_BOT_TOKEN"
+		}
+		ac.BotToken = env[envKey]
+		agents[name] = ac
+	}
+	return nil
 }
 
 // DataDir returns the resolved data directory for the active team.
@@ -408,6 +429,9 @@ func (c *Config) resolve() error {
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
 	c.Agents = team.Agents
+	if err := resolveBotTokens(c.Agents); err != nil {
+		return fmt.Errorf("failed to load bot tokens: %w", err)
+	}
 	c.Voice = VoiceConfig{
 		Vocabulary: team.VoiceVocabulary,
 		Language:   team.VoiceLanguage,
@@ -573,6 +597,10 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 			Language:   team.VoiceLanguage,
 		},
 		Agents: team.Agents,
+	}
+
+	if err := resolveBotTokens(rt.Agents); err != nil {
+		return nil, fmt.Errorf("failed to load bot tokens: %w", err)
 	}
 
 	// Resolve DataDir
