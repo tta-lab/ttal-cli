@@ -230,13 +230,14 @@ func TestFormatFlicknoteContent(t *testing.T) {
 	}
 }
 
-func TestPrefixedHexPattern(t *testing.T) {
+func TestHexIDPattern(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
 		wantID string
 		wantOK bool
 	}{
+		{"bare hex", "e8fd0fe0", "e8fd0fe0", true},
 		{"plan prefix", "Plan: e8fd0fe0", "e8fd0fe0", true},
 		{"research prefix", "Research: abcd1234", "abcd1234", true},
 		{"design prefix", "Design: 12345678abcdef", "12345678abcdef", true},
@@ -244,25 +245,25 @@ func TestPrefixedHexPattern(t *testing.T) {
 		{"multiple spaces", "Plan:  e8fd0fe0", "e8fd0fe0", true},
 		{"flicknote prefix", "Plan: flicknote b7b61e89", "b7b61e89", true},
 		{"multi word prefix", "Design: flicknote draft a1b2c3d4e5", "a1b2c3d4e5", true},
-		{"bare hex no match", "e8fd0fe0", "", false},
 		{"path no match", "Plan: ~/docs/plan.md", "", false},
 		{"too short hex", "Plan: abcd", "", false},
 		{"uppercase hex no match", "Plan: E8FD0FE0", "", false},
+		{"plain text no match", "This is a regular annotation", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := prefixedHexPattern.FindStringSubmatch(tt.input)
+			m := hexIDPattern.FindStringSubmatch(tt.input)
 			if tt.wantOK {
 				if len(m) < 2 {
-					t.Fatalf("prefixedHexPattern did not match %q", tt.input)
+					t.Fatalf("hexIDPattern did not match %q", tt.input)
 				}
 				if m[1] != tt.wantID {
-					t.Errorf("prefixedHexPattern captured %q, want %q", m[1], tt.wantID)
+					t.Errorf("hexIDPattern captured %q, want %q", m[1], tt.wantID)
 				}
 			} else {
 				if len(m) > 0 {
-					t.Errorf("prefixedHexPattern unexpectedly matched %q, captured %q", tt.input, m[1])
+					t.Errorf("hexIDPattern unexpectedly matched %q, captured %q", tt.input, m[1])
 				}
 			}
 		})

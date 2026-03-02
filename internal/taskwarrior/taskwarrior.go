@@ -16,20 +16,15 @@ import (
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 
-// hexIDPattern matches bare hex IDs (8+ hex chars) used as flicknote note prefixes.
-// This intentionally overlaps with uuidPrefixPattern (8-char hex) — in FormatPrompt,
-// hex IDs are checked after inlineRefPattern, so UUID-like prefixes trigger a flicknote
-// lookup. If the ID doesn't exist in flicknote, readFlicknote returns empty and the
-// annotation is treated as plain text.
-var hexIDPattern = regexp.MustCompile(`^[a-f0-9]{8,}$`)
+// hexIDPattern finds a flicknote hex ID (8+ lowercase hex chars) anywhere in an annotation.
+// Matches bare IDs ("e8fd0fe0"), prefixed ("Plan: e8fd0fe0"), or multi-word
+// ("Plan: flicknote b7b61e89"). If the ID doesn't exist in flicknote, readFlicknoteJSON
+// returns nil and the annotation is suppressed from the prompt.
+var hexIDPattern = regexp.MustCompile(`\b([a-f0-9]{8,})\b`)
 
-// prefixedHexPattern matches annotations with a trailing hex ID after non-hex text, e.g.:
-// "Plan: e8fd0fe0", "Plan: flicknote b7b61e89", "Research: abcd1234"
-var prefixedHexPattern = regexp.MustCompile(`^.+\b([a-f0-9]{8,})$`)
-
-// IsHexID returns true if s looks like a flicknote/UUID hex prefix (8+ hex chars).
+// IsHexID returns true if s looks like a bare flicknote/UUID hex prefix (8+ hex chars).
 func IsHexID(s string) bool {
-	return hexIDPattern.MatchString(s)
+	return regexp.MustCompile(`^[a-f0-9]{8,}$`).MatchString(s)
 }
 
 const cmdTimeout = 5 * time.Second
@@ -272,15 +267,9 @@ func (t *Task) FormatPrompt() string {
 			continue
 		}
 
-		// 3. Hex IDs (bare or prefixed): check flicknote project to decide inlining
-		hexID := ""
-		if IsHexID(desc) {
-			hexID = desc
-		} else if m := prefixedHexPattern.FindStringSubmatch(desc); len(m) > 0 {
-			hexID = m[1]
-		}
-
-		if hexID != "" {
+		// 3. Hex IDs anywhere in annotation: check flicknote project to decide inlining
+		if m := hexIDPattern.FindStringSubmatch(desc); len(m) > 0 {
+			hexID := m[1]
 			// Always suppress hex IDs from plain-text output — they're
 			// meaningless to the worker if the note can't be resolved.
 			refDescs[desc] = true
