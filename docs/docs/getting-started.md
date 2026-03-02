@@ -8,7 +8,7 @@ description: Install ttal and set up your first agent team
 ### From source
 
 ```bash
-git clone https://codeberg.org/clawteam/ttal-cli.git
+git clone https://github.com/tta-lab/ttal-cli.git
 cd ttal-cli
 make install
 ```
@@ -16,7 +16,7 @@ make install
 ### Via `go install`
 
 ```bash
-go install codeberg.org/clawteam/ttal-cli@latest
+go install github.com/tta-lab/ttal-cli@latest
 ```
 
 ### Prerequisites

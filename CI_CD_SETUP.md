@@ -6,7 +6,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 ## Workflows
 
-### 1. PR Workflow (`.forgejo/workflows/pr.yaml`)
+### 1. PR Workflow (`.github/workflows/pr.yaml`)
 
 **Trigger:** Pull requests to `main` branch
 
@@ -26,7 +26,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 **Purpose:** Ensure all PRs meet quality standards before merge
 
-### 2. CI Workflow (`.forgejo/workflows/ci.yaml`)
+### 2. CI Workflow (`.github/workflows/ci.yaml`)
 
 **Trigger:** Push to `main` branch
 
@@ -43,7 +43,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 **Purpose:** Keep main branch healthy and catch issues immediately after merge
 
-### 3. Release Workflow (`.forgejo/workflows/release.yaml`)
+### 3. Release Workflow (`.github/workflows/release.yaml`)
 
 **Trigger:** Version tags (e.g., `v1.0.0`)
 

@@ -199,7 +199,7 @@ ttal: fix - handle nil archived_at
 
 ## CI/CD
 
-### Workflows (.forgejo/workflows/)
+### Workflows (.github/workflows/)
 
 **pr.yaml** - Runs on PRs:
 - Checks formatting, vet, linting

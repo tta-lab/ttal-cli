@@ -10,7 +10,7 @@ hero:
       link: /docs/getting-started
     - theme: alt
       text: View on Codeberg
-      link: https://codeberg.org/clawteam/ttal-cli
+      link: https://github.com/tta-lab/ttal-cli
 
 features:
   - icon: "\U0001F4F1"
@@ -102,7 +102,7 @@ Competitors build chat assistants. TTAL builds autonomous team members who own t
 
 ```bash
 # Install
-git clone https://codeberg.org/clawteam/ttal-cli.git
+git clone https://github.com/tta-lab/ttal-cli.git
 cd ttal-cli && make install
 
 # Set up hooks and daemon
@@ -113,7 +113,7 @@ ttal daemon install
 ttal agent add kestrel +core +backend
 ```
 
-**[Read the docs →](/docs/getting-started)** | **[View source on Codeberg →](https://codeberg.org/clawteam/ttal-cli)**
+**[Read the docs →](/docs/getting-started)** | **[View source on GitHub →](https://github.com/tta-lab/ttal-cli)**
 
 ---
 

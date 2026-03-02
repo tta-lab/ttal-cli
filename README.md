@@ -88,18 +88,18 @@ make lint
 
 ### Workflows
 
-**PR Workflow** (`.forgejo/workflows/pr.yaml`)
+**PR Workflow** (`.github/workflows/pr.yaml`)
 - Runs on all pull requests
 - Checks formatting, vet, linting
 - Verifies ent generated code is up-to-date
 - Runs tests and builds binary
 
-**CI Workflow** (`.forgejo/workflows/ci.yaml`)
+**CI Workflow** (`.github/workflows/ci.yaml`)
 - Runs on push to main
 - Full build and lint checks
 - Ensures main branch stays healthy
 
-**Release Workflow** (`.forgejo/workflows/release.yaml`)
+**Release Workflow** (`.github/workflows/release.yaml`)
 - Triggers on version tags (e.g., `v1.0.0`)
 - Builds binaries for multiple platforms:
   - Linux (amd64, arm64)

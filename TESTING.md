@@ -78,8 +78,8 @@ Current test coverage focuses on:
 ## CI/CD Integration
 
 Tests run automatically in CI via:
-- `.forgejo/workflows/pr.yaml` - Runs on all pull requests
-- `.forgejo/workflows/ci.yaml` - Runs on push to main
+- `.github/workflows/pr.yaml` - Runs on all pull requests
+- `.github/workflows/ci.yaml` - Runs on push to main
 - `make ci` - Local CI check (includes fmt, generate, vet, lint, test, build)
 
 ## Writing New Tests

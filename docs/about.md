@@ -17,7 +17,7 @@ I wanted something different: manage a team of coding agents from anywhere, with
 
 ttal is the coordination layer for Claude Code, OpenCode, and Codex CLI. It adds multi-agent orchestration, Telegram messaging, Taskwarrior integration, and voice I/O on top of whatever coding runtime you use.
 
-- **Open source** — MIT license, [hosted on Codeberg](https://codeberg.org/clawteam/ttal-cli)
+- **Open source** — MIT license, [hosted on GitHub](https://github.com/tta-lab/ttal-cli)
 - **Mobile-first** — each agent is its own Telegram bot, manage everything from your phone
 - **Task-driven** — research → design → execute pipeline with automatic context flow
 - **Local voice** — TTS/STT via Kokoro + Whisper on Apple Silicon, no cloud API keys

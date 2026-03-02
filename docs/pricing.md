@@ -20,7 +20,7 @@ TTAL is and always will be open source.
 - Community support via Codeberg issues
 - Self-hosted on your own machine
 
-**[Get started](/docs/getting-started) | [View source on Codeberg](https://codeberg.org/clawteam/ttal-cli)**
+**[Get started](/docs/getting-started) | [View source on GitHub](https://github.com/tta-lab/ttal-cli)**
 
 ---
 
