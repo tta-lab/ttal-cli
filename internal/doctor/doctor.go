@@ -318,7 +318,11 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 	}
 
 	// Check common API tokens (warn, not error — not all setups need both)
-	env, _ := config.LoadDotEnv()
+	env, loadErr := config.LoadDotEnv()
+	if loadErr != nil {
+		section.add(LevelWarn, "dotenv", fmt.Sprintf(".env read error: %v", loadErr))
+		return
+	}
 	if env["GITHUB_TOKEN"] == "" {
 		section.add(LevelWarn, "github_token", "GITHUB_TOKEN not set in .env")
 	} else {
