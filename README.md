@@ -391,9 +391,6 @@ ttal daemon uninstall
 # Check if daemon is running
 ttal daemon status
 
-# Fill bot tokens from environment variables
-ttal daemon sync-tokens
-
 # Run daemon in foreground (for debugging)
 ttal daemon
 ```

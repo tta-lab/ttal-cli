@@ -130,6 +130,7 @@ type VoiceConfig struct {
 
 // AgentConfig holds per-agent Telegram credentials and runtime settings.
 type AgentConfig struct {
+	// BotToken is resolved from ~/.config/ttal/.env at load time (not stored in TOML).
 	BotToken    string `toml:"-" jsonschema:"-"`                                                                                             //nolint:lll
 	BotTokenEnv string `toml:"bot_token_env" jsonschema:"description=Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"` //nolint:lll
 	Port        int    `toml:"port" jsonschema:"description=API server port for opencode/codex runtimes"`
@@ -430,6 +431,8 @@ func (c *Config) resolve() error {
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
 	c.Agents = team.Agents
+	// Note: resolveBotTokens is also called in resolveTeam() for LoadAll().
+	// Each path resolves independently — Load() uses resolve(), LoadAll() uses resolveTeam().
 	resolveBotTokens(c.Agents)
 	c.Voice = VoiceConfig{
 		Vocabulary: team.VoiceVocabulary,

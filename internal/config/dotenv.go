@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func LoadDotEnv() (map[string]string, error) {
 
 	env, err := godotenv.Read(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return make(map[string]string), nil
 		}
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
