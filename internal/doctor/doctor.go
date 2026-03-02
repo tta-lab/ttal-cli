@@ -245,7 +245,7 @@ func checkConfig(fix bool) Section {
 
 	section.add(LevelOK, "config", cfgPath+" exists")
 
-	if cfg.ChatID == "" || cfg.ChatID == "TODO" {
+	if cfg.ChatID == "" {
 		section.add(LevelError, "chat_id", "chat_id not set")
 	} else {
 		section.add(LevelOK, "chat_id", "chat_id set")
@@ -277,13 +277,13 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 			lines = append(lines, "# All entries are injected into worker and agent sessions.")
 			lines = append(lines, "")
 			lines = append(lines, "# API tokens")
-			lines = append(lines, "GITHUB_TOKEN=TODO")
-			lines = append(lines, "FORGEJO_TOKEN=TODO")
+			lines = append(lines, "GITHUB_TOKEN=")
+			lines = append(lines, "FORGEJO_TOKEN=")
 			lines = append(lines, "")
 			lines = append(lines, "# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN")
 			for _, name := range names {
 				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
-				lines = append(lines, envKey+"=TODO")
+				lines = append(lines, envKey+"=")
 			}
 			content := strings.Join(lines, "\n") + "\n"
 			if writeErr := os.MkdirAll(filepath.Dir(envPath), 0o755); writeErr != nil {
@@ -319,12 +319,12 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 
 	// Check common API tokens (warn, not error — not all setups need both)
 	env, _ := config.LoadDotEnv()
-	if env["GITHUB_TOKEN"] == "" || env["GITHUB_TOKEN"] == "TODO" {
+	if env["GITHUB_TOKEN"] == "" {
 		section.add(LevelWarn, "github_token", "GITHUB_TOKEN not set in .env")
 	} else {
 		section.add(LevelOK, "github_token", "GITHUB_TOKEN set in .env")
 	}
-	if env["FORGEJO_TOKEN"] == "" || env["FORGEJO_TOKEN"] == "TODO" {
+	if env["FORGEJO_TOKEN"] == "" {
 		section.add(LevelWarn, "forgejo_token", "FORGEJO_TOKEN not set in .env")
 	} else {
 		section.add(LevelOK, "forgejo_token", "FORGEJO_TOKEN set in .env")
