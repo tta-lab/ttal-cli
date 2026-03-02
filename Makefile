@@ -22,7 +22,7 @@ help:
 	@echo "  make all           - Format, generate, schema, vet, and build"
 	@echo "  make ci            - Run all CI checks (fmt, generate, schema, vet, lint, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
-	@echo "  make install-hooks - Install git pre-commit hook"
+	@echo "  make install-hooks - Install lefthook pre-commit hooks"
 	@echo "  make doc-dev       - Start docs dev server"
 	@echo "  make doc-build     - Build docs site"
 	@echo "  make doc-deploy    - Build and deploy docs to Cloudflare"
@@ -180,10 +180,7 @@ doc-deploy:
 	@cd docs && pnpm build && pnpm exec wrangler deploy
 	@echo "Docs deployed to ttal.guion.io"
 
-# Install pre-commit hook
+# Install lefthook pre-commit hooks
 install-hooks:
-	@echo "Installing pre-commit hook..."
-	@mkdir -p $$(git rev-parse --git-path hooks)
-	@cp -f scripts/pre-commit.sh $$(git rev-parse --git-path hooks)/pre-commit
-	@chmod +x $$(git rev-parse --git-path hooks)/pre-commit
-	@echo "✓ Pre-commit hook installed at $$(git rev-parse --git-path hooks)/pre-commit"
+	@lefthook install
+	@echo "✓ Lefthook hooks installed"

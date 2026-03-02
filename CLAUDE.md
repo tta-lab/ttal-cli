@@ -214,14 +214,18 @@ ttal: fix - handle nil archived_at
 - Builds binaries for Linux/macOS/Windows (amd64, arm64)
 - Creates Forgejo/GitHub release with binaries
 
-### Pre-commit Hooks
+### Pre-commit Hooks (lefthook)
 
-Install hooks to run checks automatically:
+This repo uses [lefthook](https://github.com/evilmartians/lefthook) for pre-commit hooks. Install once in the main repo:
 ```bash
-make install-hooks
+lefthook install
 ```
 
-The hook runs: fmt → generate → vet → test
+The pre-commit hook runs **fmt, vet, lint** in parallel. Tests and generate are CI-only.
+
+Workers in git worktrees inherit hooks from the main repo automatically.
+
+**Important:** If a commit fails due to pre-commit hook, fix the issue (usually `make fmt`) and commit again. Do NOT use `--no-verify` to skip hooks.
 
 ## Testing
 
