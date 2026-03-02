@@ -242,6 +242,8 @@ func TestPrefixedHexPattern(t *testing.T) {
 		{"design prefix", "Design: 12345678abcdef", "12345678abcdef", true},
 		{"no space after colon", "Plan:e8fd0fe0", "e8fd0fe0", true},
 		{"multiple spaces", "Plan:  e8fd0fe0", "e8fd0fe0", true},
+		{"flicknote prefix", "Plan: flicknote b7b61e89", "b7b61e89", true},
+		{"multi word prefix", "Design: flicknote draft a1b2c3d4e5", "a1b2c3d4e5", true},
 		{"bare hex no match", "e8fd0fe0", "", false},
 		{"path no match", "Plan: ~/docs/plan.md", "", false},
 		{"too short hex", "Plan: abcd", "", false},

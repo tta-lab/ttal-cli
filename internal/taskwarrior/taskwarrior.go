@@ -23,8 +23,9 @@ var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 // annotation is treated as plain text.
 var hexIDPattern = regexp.MustCompile(`^[a-f0-9]{8,}$`)
 
-// prefixedHexPattern matches annotations like "Plan: e8fd0fe0" or "Research: abcd1234".
-var prefixedHexPattern = regexp.MustCompile(`^\w+:\s*([a-f0-9]{8,})$`)
+// prefixedHexPattern matches annotations with a trailing hex ID after non-hex text, e.g.:
+// "Plan: e8fd0fe0", "Plan: flicknote b7b61e89", "Research: abcd1234"
+var prefixedHexPattern = regexp.MustCompile(`^.+\b([a-f0-9]{8,})$`)
 
 // IsHexID returns true if s looks like a flicknote/UUID hex prefix (8+ hex chars).
 func IsHexID(s string) bool {
