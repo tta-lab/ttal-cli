@@ -12,7 +12,7 @@ import (
 
 const (
 	cmdTimeout    = 10 * time.Second
-	sendKeysDelay = 200 * time.Millisecond
+	sendKeysDelay = 500 * time.Millisecond
 )
 
 // SendKeys sends text to a tmux pane, then sends Enter.
