@@ -185,8 +185,11 @@ func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) erro
 // routeCCResponse sends number keystrokes to CC's TUI select prompt.
 // CC's AskUserQuestion accepts digit keys (1-N) for direct option selection;
 // the digit after the last option selects "Other" (e.g., if 3 options exist,
-// pressing 4 selects "Other"). CC requires Enter after the digit to confirm,
-// which SendKeys provides automatically.
+// pressing 4 selects "Other").
+//
+// CC auto-advances to the next question on digit press alone, so we use
+// sendDigit (no Enter) for all selections. A final Enter is sent after all
+// questions to submit the form.
 func routeCCResponse(batch *QuestionBatch) error {
 	session := config.AgentSessionName(batch.TeamName, batch.AgentName)
 	window := batch.AgentName
@@ -196,40 +199,51 @@ func routeCCResponse(batch *QuestionBatch) error {
 		optIdx := findOptionIndex(q.Options, answer)
 
 		if optIdx >= 0 {
-			// Standard option: send 1-indexed digit key
-			if err := selectCCOption(session, window, optIdx+1); err != nil {
+			// Standard option: digit only (CC auto-advances for multi-question)
+			if err := sendDigit(session, window, optIdx+1); err != nil {
 				return fmt.Errorf("select option for Q%d: %w", i, err)
 			}
 		} else {
-			// Custom answer: "Other" is the digit after the last option.
-			// Send digit WITHOUT Enter (switches CC to text input mode),
-			// wait for the input field to render, then send the text WITH Enter.
+			// Custom answer: select "Other" then type the text
 			if len(q.Options) == 0 {
-				return fmt.Errorf("select Other for Q%d: no options to derive Other position", i)
+				return fmt.Errorf("select Other for Q%d: no options", i)
 			}
-			otherDigit := fmt.Sprintf("%d", len(q.Options)+1)
-			if err := tmux.SendRawKey(session, window, otherDigit); err != nil {
+			if err := sendDigit(session, window, len(q.Options)+1); err != nil {
 				return fmt.Errorf("select Other for Q%d: %w", i, err)
 			}
 			time.Sleep(ccOtherInputDelay)
-			if err := tmux.SendKeys(session, window, answer); err != nil {
+			if err := sendText(session, window, answer); err != nil {
 				return fmt.Errorf("type custom answer for Q%d: %w", i, err)
 			}
 		}
 
-		// Wait between questions for the next prompt to render
 		if i < len(batch.Questions)-1 {
 			time.Sleep(ccInterQuestionDelay)
 		}
 	}
+
+	// Final Enter to submit — needed when last question was a standard
+	// option (sendDigit doesn't press Enter). Harmless if last was Other
+	// (sendText already pressed Enter).
+	if err := tmux.SendRawKey(session, window, "Enter"); err != nil {
+		return fmt.Errorf("submit final Enter: %w", err)
+	}
 	return nil
 }
 
-// selectCCOption sends a digit keystroke followed by Enter to select an option
-// in CC's TUI prompt. digit is 1-indexed (1 for first option, 2 for second, etc.).
-// CC's select prompt requires Enter after the digit to confirm the selection.
-func selectCCOption(session, window string, digit int) error {
-	return tmux.SendKeys(session, window, fmt.Sprintf("%d", digit))
+// sendDigit sends a digit keystroke without Enter.
+// Used for selecting options — CC processes the digit and auto-advances.
+func sendDigit(session, window string, digit int) error {
+	if digit < 1 || digit > 9 {
+		return fmt.Errorf("digit out of range 1-9: %d", digit)
+	}
+	return tmux.SendRawKey(session, window, fmt.Sprintf("%d", digit))
+}
+
+// sendText types text and presses Enter.
+// Used for custom "Other" answers.
+func sendText(session, window, text string) error {
+	return tmux.SendKeys(session, window, text)
 }
 
 // findOptionIndex returns the index of the option with the given label, or -1 for custom answers.

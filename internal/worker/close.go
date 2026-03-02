@@ -126,7 +126,10 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 }
 
 // closeWithPR handles the smart-close path when a PR exists.
-func closeWithPR(taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string, worktreeExists bool) (*CloseResult, error) {
+func closeWithPR(
+	taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string,
+	worktreeExists bool,
+) (*CloseResult, error) {
 	prID, err := strconv.ParseInt(prIDStr, 10, 64)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
@@ -172,7 +175,10 @@ func closeWithPR(taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
 		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
-			return &CloseResult{Error: true, Status: fmt.Sprintf("Worker cleanup failed: %v", err)}, fmt.Errorf("cleanup failed: %w", err)
+			return &CloseResult{
+				Error:  true,
+				Status: fmt.Sprintf("Worker cleanup failed: %v", err),
+			}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		if taskUUID != "" {
 			if err := taskwarrior.MarkDone(taskUUID); err != nil {

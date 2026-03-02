@@ -73,42 +73,7 @@ func runMultiAgentPoller(
 	}()
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		// Handle callback queries from inline keyboards
-		if update.CallbackQuery != nil {
-			// Find chat ID from callback query
-			if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage &&
-				update.CallbackQuery.Message.Message != nil {
-				chatID := update.CallbackQuery.Message.Message.Chat.ID
-				if _, ok := dispatch[chatID]; ok {
-					handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
-				}
-			}
-			return
-		}
-
-		if update.Message == nil {
-			return
-		}
-		chatID := update.Message.Chat.ID
-
-		target, ok := dispatch[chatID]
-		if !ok {
-			return
-		}
-		if update.Message.From == nil {
-			return
-		}
-
-		// Check for pending custom answer before forwarding to agent
-		if update.Message.Text != "" {
-			if interceptedAsCustomAnswer(ctx, b, update.Message, qs, cas, registry) {
-				return
-			}
-		}
-
-		handleInboundMessage(ctx, b, update.Message, target.teamName, target.agentName, botToken, target.chatID, func(agentName, text string) {
-			onMessage(target.teamName, agentName, text)
-		})
+		handleDefaultUpdate(ctx, b, update, dispatch, botToken, onMessage, qs, cas, registry)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
@@ -158,6 +123,50 @@ func runMultiAgentPoller(
 
 	b.Start(ctx)
 	return nil
+}
+
+func handleDefaultUpdate(
+	ctx context.Context, b *bot.Bot, update *models.Update,
+	dispatch map[int64]pollerTarget, botToken string,
+	onMessage func(teamName, agentName, text string),
+	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+) {
+	if update.CallbackQuery != nil {
+		if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage &&
+			update.CallbackQuery.Message.Message != nil {
+			chatID := update.CallbackQuery.Message.Message.Chat.ID
+			if _, ok := dispatch[chatID]; ok {
+				handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
+			}
+		}
+		return
+	}
+
+	if update.Message == nil {
+		return
+	}
+
+	target, ok := dispatch[update.Message.Chat.ID]
+	if !ok {
+		return
+	}
+	if update.Message.From == nil {
+		return
+	}
+
+	if update.Message.Text != "" {
+		if interceptedAsCustomAnswer(ctx, b, update.Message, qs, cas, registry) {
+			return
+		}
+	}
+
+	handleInboundMessage(
+		ctx, b, update.Message,
+		target.teamName, target.agentName, botToken, target.chatID,
+		func(agentName, text string) {
+			onMessage(target.teamName, agentName, text)
+		},
+	)
 }
 
 func handleInboundMessage(
@@ -355,7 +364,10 @@ func transcribeVoiceMessage(ctx context.Context, b *bot.Bot, v *models.Voice) (s
 
 // downloadTelegramFile downloads a file from Telegram and saves it to the team/agent file directory.
 // Returns the local file path.
-func downloadTelegramFile(ctx context.Context, b *bot.Bot, fileID, teamName, agentName, filename string) (string, error) {
+func downloadTelegramFile(
+	ctx context.Context, b *bot.Bot,
+	fileID, teamName, agentName, filename string,
+) (string, error) {
 	// Sanitize all path components to prevent path traversal
 	filename = filepath.Base(filename)
 	teamName = filepath.Base(teamName)

@@ -78,31 +78,7 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	}
 
 	if dryRun {
-		fmt.Printf("Task:        %s\n", task.Description)
-		fmt.Printf("UUID:        %s\n", task.UUID)
-		fmt.Printf("Project:     %s\n", task.ProjectPath)
-
-		// Show git root and subpath if project is inside a monorepo.
-		// Resolve symlinks before comparing — git rev-parse resolves them but the stored path may not.
-		if gitRoot, err := gitutil.FindRoot(task.ProjectPath); err == nil {
-			resolvedProject, _ := filepath.EvalSymlinks(task.ProjectPath)
-			resolvedRoot, _ := filepath.EvalSymlinks(gitRoot)
-			if resolvedProject != resolvedRoot {
-				if rel, err := filepath.Rel(gitRoot, task.ProjectPath); err == nil {
-					fmt.Printf("Git root:    %s\n", gitRoot)
-					fmt.Printf("Subpath:     %s\n", rel)
-				}
-			}
-		}
-
-		fmt.Printf("Runtime:     %s\n", rt)
-		fmt.Printf("Worker:      %s\n", workerName)
-		branch := task.Branch
-		if branch == "" {
-			branch = "(auto-generated)"
-		}
-		fmt.Printf("Branch:      %s\n", branch)
-		fmt.Printf("Session:     %s\n", task.SessionName())
+		printDryRun(task, rt, workerName)
 		return nil
 	}
 
@@ -128,4 +104,30 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	worker.NotifyTelegram(fmt.Sprintf("🚀 Worker spawned: %s\nTask: %s", workerName, task.Description))
 
 	return nil
+}
+
+func printDryRun(task *taskwarrior.Task, rt runtime.Runtime, workerName string) {
+	fmt.Printf("Task:        %s\n", task.Description)
+	fmt.Printf("UUID:        %s\n", task.UUID)
+	fmt.Printf("Project:     %s\n", task.ProjectPath)
+
+	if gitRoot, err := gitutil.FindRoot(task.ProjectPath); err == nil {
+		resolvedProject, _ := filepath.EvalSymlinks(task.ProjectPath)
+		resolvedRoot, _ := filepath.EvalSymlinks(gitRoot)
+		if resolvedProject != resolvedRoot {
+			if rel, err := filepath.Rel(gitRoot, task.ProjectPath); err == nil {
+				fmt.Printf("Git root:    %s\n", gitRoot)
+				fmt.Printf("Subpath:     %s\n", rel)
+			}
+		}
+	}
+
+	fmt.Printf("Runtime:     %s\n", rt)
+	fmt.Printf("Worker:      %s\n", workerName)
+	branch := task.Branch
+	if branch == "" {
+		branch = "(auto-generated)"
+	}
+	fmt.Printf("Branch:      %s\n", branch)
+	fmt.Printf("Session:     %s\n", task.SessionName())
 }

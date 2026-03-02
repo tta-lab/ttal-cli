@@ -63,24 +63,7 @@ func Spawn(cfg SpawnConfig) error {
 		fmt.Printf("  Monorepo subpath: %s\n", subpath)
 	}
 
-	// Route by task tag: +opencode/+oc or +codex/+cx overrides default runtime
-	if cfg.Runtime == "" || cfg.Runtime == runtime.ClaudeCode {
-		if task.HasTag("opencode") || task.HasTag("oc") {
-			cfg.Runtime = runtime.OpenCode
-		} else if task.HasTag("codex") || task.HasTag("cx") {
-			cfg.Runtime = runtime.Codex
-		}
-	}
-	if cfg.Runtime == "" {
-		// Fall back to team worker_runtime config (defaults to claude-code)
-		shellCfg, _ := config.Load()
-		if shellCfg != nil {
-			cfg.Runtime = shellCfg.WorkerRuntime()
-		} else {
-			cfg.Runtime = runtime.ClaudeCode
-		}
-	}
-
+	cfg.Runtime = resolveRuntime(cfg.Runtime, task)
 	if err := validateRuntime(cfg.Runtime); err != nil {
 		return err
 	}
@@ -134,6 +117,26 @@ func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
 	}
 
 	return task, nil
+}
+
+// resolveRuntime determines the worker runtime from task tags, falling back to config default.
+func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime {
+	if rt == "" || rt == runtime.ClaudeCode {
+		if task.HasTag("opencode") || task.HasTag("oc") {
+			return runtime.OpenCode
+		}
+		if task.HasTag("codex") || task.HasTag("cx") {
+			return runtime.Codex
+		}
+	}
+	if rt != "" {
+		return rt
+	}
+	shellCfg, _ := config.Load()
+	if shellCfg != nil {
+		return shellCfg.WorkerRuntime()
+	}
+	return runtime.ClaudeCode
 }
 
 func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error {

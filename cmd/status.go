@@ -73,78 +73,10 @@ func showStatus() error {
 
 	rows := make([]agentRow, 0, len(names))
 	for _, name := range names {
-		rt := cfg.AgentRuntimeFor(name)
-		sessionName := config.AgentSessionName(teamName, name)
-		s, _ := status.ReadAgent(teamName, name)
-
-		row := agentRow{
-			name:    name,
-			runtime: string(rt),
-			ctxPct:  -1,
-		}
-
-		switch rt {
-		case runtime.ClaudeCode:
-			sessionUp := tmux.SessionExists(sessionName)
-			if s != nil && !s.IsStale(staleThreshold) {
-				row.health = "✓"
-				row.active = true
-				row.ctxPct = s.ContextUsedPct
-				row.model = shortModel(s.ModelName)
-				age := time.Since(s.UpdatedAt).Truncate(time.Second)
-				row.updated = fmt.Sprintf("%s ago", age)
-			} else if sessionUp {
-				row.health = "✓"
-				row.active = true
-				row.updated = "no data"
-			} else {
-				row.health = "✗"
-				row.updated = "stopped"
-			}
-		case runtime.OpenCode, runtime.Codex:
-			port := cfg.Agents[name].Port
-			if port == 0 {
-				row.health = "✗"
-				row.updated = "no port"
-			} else {
-				row.health = "~"
-				row.active = true
-				row.updated = fmt.Sprintf("port %d", port)
-			}
-		case runtime.OpenClaw:
-			row.health = "●"
-			row.active = true
-			row.updated = "self-managed"
-		default:
-			row.health = "?"
-			row.updated = "unknown runtime"
-		}
-
-		rows = append(rows, row)
+		rows = append(rows, buildAgentRow(cfg, teamName, name))
 	}
 
-	// Sort: by context usage descending, agents without data at bottom, stable by name
-	sort.SliceStable(rows, func(i, j int) bool {
-		// Active with context data first
-		if rows[i].ctxPct >= 0 && rows[j].ctxPct < 0 {
-			return true
-		}
-		if rows[i].ctxPct < 0 && rows[j].ctxPct >= 0 {
-			return false
-		}
-		// Both have data: higher usage first, tiebreak by name
-		if rows[i].ctxPct >= 0 && rows[j].ctxPct >= 0 {
-			if rows[i].ctxPct != rows[j].ctxPct {
-				return rows[i].ctxPct > rows[j].ctxPct
-			}
-			return rows[i].name < rows[j].name
-		}
-		// Both no data: running before stopped
-		if rows[i].active != rows[j].active {
-			return rows[i].active
-		}
-		return rows[i].name < rows[j].name
-	})
+	sortAgentRows(rows)
 
 	fmt.Printf("Team: %s\n", teamName)
 	fmt.Printf("  %-12s %-14s %-6s %-10s %s\n",
@@ -171,6 +103,83 @@ func showStatus() error {
 
 	fmt.Printf("\n%d agents | %d active\n", len(rows), active)
 	return nil
+}
+
+func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
+	rt := cfg.AgentRuntimeFor(name)
+	sessionName := config.AgentSessionName(teamName, name)
+	s, _ := status.ReadAgent(teamName, name)
+
+	row := agentRow{
+		name:    name,
+		runtime: string(rt),
+		ctxPct:  -1,
+	}
+
+	switch rt {
+	case runtime.ClaudeCode:
+		populateCCRow(&row, sessionName, s)
+	case runtime.OpenCode, runtime.Codex:
+		port := cfg.Agents[name].Port
+		if port == 0 {
+			row.health = "✗"
+			row.updated = "no port"
+		} else {
+			row.health = "~"
+			row.active = true
+			row.updated = fmt.Sprintf("port %d", port)
+		}
+	case runtime.OpenClaw:
+		row.health = "●"
+		row.active = true
+		row.updated = "self-managed"
+	default:
+		row.health = "?"
+		row.updated = "unknown runtime"
+	}
+
+	return row
+}
+
+func populateCCRow(row *agentRow, sessionName string, s *status.AgentStatus) {
+	sessionUp := tmux.SessionExists(sessionName)
+	if s != nil && !s.IsStale(staleThreshold) {
+		row.health = "✓"
+		row.active = true
+		row.ctxPct = s.ContextUsedPct
+		row.model = shortModel(s.ModelName)
+		age := time.Since(s.UpdatedAt).Truncate(time.Second)
+		row.updated = fmt.Sprintf("%s ago", age)
+	} else if sessionUp {
+		row.health = "✓"
+		row.active = true
+		row.updated = "no data"
+	} else {
+		row.health = "✗"
+		row.updated = "stopped"
+	}
+}
+
+// sortAgentRows sorts by context usage descending, agents without data at bottom, stable by name.
+func sortAgentRows(rows []agentRow) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].ctxPct >= 0 && rows[j].ctxPct < 0 {
+			return true
+		}
+		if rows[i].ctxPct < 0 && rows[j].ctxPct >= 0 {
+			return false
+		}
+		if rows[i].ctxPct >= 0 && rows[j].ctxPct >= 0 {
+			if rows[i].ctxPct != rows[j].ctxPct {
+				return rows[i].ctxPct > rows[j].ctxPct
+			}
+			return rows[i].name < rows[j].name
+		}
+		if rows[i].active != rows[j].active {
+			return rows[i].active
+		}
+		return rows[i].name < rows[j].name
+	})
 }
 
 // shortModel returns a short display name for the model.
