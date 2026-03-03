@@ -21,11 +21,6 @@ func Run(workspace, scaffoldName string) error {
 		return err
 	}
 
-	self, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("cannot determine executable path: %w", err)
-	}
-
 	fmt.Println("Welcome to ttal — let's get you set up.")
 	fmt.Println()
 
@@ -36,7 +31,18 @@ func Run(workspace, scaffoldName string) error {
 		{"Prerequisites", installPrerequisites},
 		{"Scaffold setup", func() error { return setupScaffold(workspace, scaffoldName) }},
 		{"Taskwarrior & config", setupTaskwarriorAndConfig},
-		{"Registering agents", func() error { return registerAgents(self, workspace) }},
+		{"Discovering agents", func() error {
+			dirs, err := findAgentDirs(workspace)
+			if err != nil {
+				return err
+			}
+			if len(dirs) == 0 {
+				fmt.Println("  No agent directories found (expected dirs with CLAUDE.md)")
+			} else {
+				printAgentDirs(dirs)
+			}
+			return nil
+		}},
 		{"Daemon & worker hooks", installDaemonAndWorker},
 		{"Verify", verify},
 	}
@@ -179,41 +185,6 @@ func setupTaskwarriorAndConfig() error {
 	}
 	if errs > 0 {
 		return fmt.Errorf("%d config/taskwarrior check(s) failed", errs)
-	}
-	return nil
-}
-
-// --- Step 4: Register agents ---
-
-func registerAgents(self, workspace string) error {
-	dirs, err := findAgentDirs(workspace)
-	if err != nil {
-		return err
-	}
-	if len(dirs) == 0 {
-		fmt.Println("  No agent directories found (expected dirs with CLAUDE.md)")
-		return nil
-	}
-
-	var failed []string
-	for _, dir := range dirs {
-		name := filepath.Base(dir)
-		cmd := exec.Command(self, "agent", "add", name, "--path", dir)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			outStr := strings.TrimSpace(string(out))
-			if strings.Contains(outStr, "UNIQUE") {
-				fmt.Printf("  %s already registered\n", name)
-			} else {
-				fmt.Printf("  ! Failed to register %s: %s\n", name, outStr)
-				failed = append(failed, name)
-			}
-			continue
-		}
-		fmt.Printf("  Registered: %s (%s)\n", name, dir)
-	}
-	if len(failed) > 0 {
-		return fmt.Errorf("failed to register: %s", strings.Join(failed, ", "))
 	}
 	return nil
 }
