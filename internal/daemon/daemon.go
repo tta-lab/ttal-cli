@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
@@ -224,20 +225,12 @@ func runQuestionCleanup(qs *questionStore, done <-chan struct{}) {
 	}
 }
 
-// notifyDaemonReady sends a startup notification to each team's lifecycle agent.
+// notifyDaemonReady sends a startup notification to each team via its notification bot token.
 func notifyDaemonReady(mcfg *config.DaemonConfig) {
 	for teamName, team := range mcfg.Teams {
-		agent := team.LifecycleAgent
-		if agent == "" {
-			continue
-		}
-		ta, ok := mcfg.FindAgentInTeam(teamName, agent)
-		if !ok || ta.Config.BotToken == "" || ta.ChatID == "" {
-			continue
-		}
-		if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, "✅ Daemon ready"); err != nil {
-			log.Printf("[daemon] warning: failed to send ready notification to %s/%s: %v",
-				teamName, agent, err)
+		if err := notify.SendWithConfig(team.NotificationToken, team.ChatID, "✅ Daemon ready"); err != nil {
+			log.Printf("[daemon] warning: failed to send ready notification to team %s: %v",
+				teamName, err)
 		}
 	}
 }

@@ -154,7 +154,11 @@
         },
         "lifecycle_agent": {
           "type": "string",
-          "description": "Agent responsible for worker lifecycle"
+          "description": "Deprecated: use notification_token_env instead"
+        },
+        "notification_token_env": {
+          "type": "string",
+          "description": "Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)"
         },
         "agent_runtime": {
           "type": "string",

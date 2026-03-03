@@ -15,7 +15,6 @@ default_team = "default"
 data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
 chat_id = "123456789"           # Global Telegram chat ID
-lifecycle_agent = "kestrel"     # Agent that handles task lifecycle events
 agent_runtime = "claude-code"   # Default runtime for agents
 worker_runtime = "claude-code"  # Default runtime for workers
 
@@ -40,7 +39,7 @@ Each team lives under `[teams.<name>]`:
 | `data_dir` | string | Data directory (default: `~/.ttal`) |
 | `taskrc` | string | Path to taskwarrior config |
 | `chat_id` | string | Default Telegram chat ID for this team |
-| `lifecycle_agent` | string | Agent that receives lifecycle events |
+| `notification_token_env` | string | Override env var for notification bot token (default: `{UPPER_TEAM}_NOTIFICATION_BOT_TOKEN`) |
 | `agent_runtime` | string | Default runtime: `claude-code`, `opencode`, `codex`, `openclaw` |
 | `worker_runtime` | string | Default runtime for spawned workers |
 | `design_agent` | string | Agent name for `ttal task design` |
@@ -62,6 +61,27 @@ Each agent lives under `[teams.<team>.agents.<name>]`:
 | `model` | string | Preferred model: `haiku`, `sonnet`, `opus` |
 | `port` | integer | Port for gateway-based runtimes |
 
+## Notification bot token
+
+System notifications (daemon ready, CI status, worker lifecycle) use a dedicated notification bot token per team, separate from agent bot tokens.
+
+**Convention:** `{UPPER_TEAM}_NOTIFICATION_BOT_TOKEN` in `~/.config/ttal/.env`
+
+```env
+# Default team
+DEFAULT_NOTIFICATION_BOT_TOKEN=123456:ABC-xyz
+
+# Work team
+WORK_NOTIFICATION_BOT_TOKEN=789012:DEF-uvw
+```
+
+Override the env var name per team with `notification_token_env`:
+
+```toml
+[teams.default]
+notification_token_env = "MY_CUSTOM_BOT_TOKEN"
+```
+
 ## Multi-team configuration
 
 Run separate teams with different taskwarrior instances and runtimes:
@@ -73,7 +93,6 @@ default_team = "personal"
 data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
 chat_id = "123456"
-lifecycle_agent = "kestrel"
 
 [teams.personal.agents.kestrel]
 bot_token = "bot123:ABC"
@@ -82,7 +101,6 @@ bot_token = "bot123:ABC"
 data_dir = "~/.ttal-work"
 taskrc = "~/.task-work/taskrc"
 chat_id = "789012"
-lifecycle_agent = "atlas"
 
 [teams.work.agents.atlas]
 bot_token = "bot456:DEF"

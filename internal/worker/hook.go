@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/notify"
 )
 
 // taskwarrior task status constants used across hook handlers.
@@ -18,65 +18,6 @@ const (
 	taskStatusPending   = "pending"
 	taskStatusCompleted = "completed"
 )
-
-// daemonSendRequest mirrors daemon.SendRequest to avoid import cycle.
-type daemonSendRequest struct {
-	From    string `json:"from,omitempty"`
-	To      string `json:"to,omitempty"`
-	Team    string `json:"team,omitempty"`
-	Message string `json:"message"`
-}
-
-type daemonSendResponse struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
-}
-
-// errDaemonNotRunning is returned when the daemon socket cannot be reached.
-// Callers use this to distinguish "daemon down, fall back" from
-// "daemon up but rejected the request".
-var errDaemonNotRunning = fmt.Errorf("daemon not running")
-
-// sendToDaemon sends a request to the daemon socket.
-// Returns errDaemonNotRunning if the socket is unreachable.
-// Returns a descriptive error (prefixed "daemon error:") if the daemon
-// accepted the connection but rejected the request.
-func sendToDaemon(req daemonSendRequest) error {
-	if req.Team == "" {
-		req.Team = os.Getenv("TTAL_TEAM")
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("user home dir: %w", err)
-	}
-	sockPath := filepath.Join(home, ".ttal", "daemon.sock")
-
-	conn, err := net.DialTimeout("unix", sockPath, 5*time.Second)
-	if err != nil {
-		return errDaemonNotRunning
-	}
-	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(5 * time.Second))
-
-	data, _ := json.Marshal(req)
-	if _, err := conn.Write(append(data, '\n')); err != nil {
-		return fmt.Errorf("failed to send to daemon: %w", err)
-	}
-
-	scanner := bufio.NewScanner(conn)
-	if !scanner.Scan() {
-		return fmt.Errorf("no response from daemon")
-	}
-
-	var resp daemonSendResponse
-	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
-		return err
-	}
-	if !resp.OK {
-		return fmt.Errorf("daemon error: %s", resp.Error)
-	}
-	return nil
-}
 
 // hookTask represents a taskwarrior task as received via on-modify hook stdin.
 // Uses map for flexibility — we only inspect specific fields.
@@ -219,34 +160,14 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	f.WriteString(line)
 }
 
-// NotifyTelegram sends a message to an agent's Telegram chat via the daemon.
-// Uses From-only routing (daemon's handleFrom → Telegram Bot API).
+// NotifyTelegram sends a notification to the team's Telegram chat using the
+// dedicated notification bot token. Sends directly via Telegram API without
+// going through the daemon socket.
 // Fire-and-forget: errors are logged but not propagated.
-// No-ops if config cannot be loaded (no guessing).
 func NotifyTelegram(message string) {
-	agent := resolveLifecycleAgent()
-	if agent == "" {
-		return
+	if err := notify.Send(message); err != nil {
+		hookLogFile(fmt.Sprintf("ERROR: telegram notify failed: %v", err))
 	}
-	req := daemonSendRequest{From: agent, Message: message}
-	if err := sendToDaemon(req); err != nil {
-		hookLogFile(fmt.Sprintf("ERROR: telegram notify failed for %s: %v", agent, err))
-	}
-}
-
-// resolveLifecycleAgent reads the lifecycle agent from config.toml.
-// Returns empty string (and logs) if config is missing or has no lifecycle_agent.
-func resolveLifecycleAgent() string {
-	cfg, err := config.Load()
-	if err != nil {
-		hookLogFile("WARNING: cannot resolve lifecycle agent: " + err.Error())
-		return ""
-	}
-	if cfg.LifecycleAgent == "" {
-		hookLogFile("WARNING: config has no lifecycle_agent configured")
-		return ""
-	}
-	return cfg.LifecycleAgent
 }
 
 func hookLogFile(message string) {
