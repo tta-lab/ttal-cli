@@ -69,8 +69,9 @@ The project uses [ent](https://entgo.io/) as a type-safe, schema-first ORM (simi
 
 **Schema Location**: `ent/schema/`
 - `project.go` - Project entity with fields and edges
-- `agent.go` - Agent entity with fields and edges
-- `tag.go` - Tag entity (shared by projects and agents via M2M)
+- `tag.go` - Tag entity (shared by projects via M2M)
+
+**Agent metadata** is stored in CLAUDE.md frontmatter files (see `internal/agentfs/`), not in the database.
 
 **Critical Workflow**:
 1. Modify schema files in `ent/schema/`
@@ -114,6 +115,7 @@ ent/             - ent ORM (mostly auto-generated)
   └── schema/    - Schema definitions (source of truth)
 
 internal/
+  ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
   ├── db/        - Database connection wrapper
   ├── memory/    - Memory capture logic (git commit extraction)
   ├── watcher/   - JSONL file watcher (CC → Telegram via daemon)

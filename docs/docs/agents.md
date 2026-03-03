@@ -3,35 +3,63 @@ title: Agents
 description: Agent management and identity in ttal
 ---
 
-Agents in ttal are persistent identities — not anonymous processes. Each agent has a name, tags, and optionally an emoji, creature type, and voice.
+Agents in ttal are persistent identities defined by their workspace directories. Each agent has a directory containing a `CLAUDE.md` file with optional frontmatter for metadata like voice, emoji, and description.
+
+## How agents are discovered
+
+Agents are discovered from the filesystem — any subdirectory of `team_path` (configured in `config.toml`) that contains a `CLAUDE.md` file is treated as an agent. The directory name is the agent name.
+
+```
+~/ttal-workspace/
+  kestrel/CLAUDE.md    → agent "kestrel"
+  athena/CLAUDE.md     → agent "athena"
+  docs/                → not an agent (no CLAUDE.md)
+```
+
+## CLAUDE.md frontmatter
+
+Agent metadata lives in YAML frontmatter at the top of `CLAUDE.md`:
+
+```markdown
+---
+voice: af_heart
+emoji: 🦅
+description: Worker lifecycle management
+---
+# Kestrel
+
+Your agent instructions here.
+```
+
+All frontmatter fields are optional:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `voice` | Kokoro TTS voice ID | `af_heart`, `af_sky` |
+| `emoji` | Display emoji | `🦅`, `🐱` |
+| `description` | Short role summary | `Task orchestration and planning` |
 
 ## Adding agents
 
 ```bash
-ttal agent add kestrel +core +backend
+# Create an agent directory with CLAUDE.md
+ttal agent add kestrel --emoji 🦅 --description "Worker lifecycle"
+
+# Or manually:
+mkdir -p ~/ttal-workspace/kestrel
+cat > ~/ttal-workspace/kestrel/CLAUDE.md << 'EOF'
+---
+emoji: 🦅
+description: Worker lifecycle management
+---
+# Kestrel
+EOF
 ```
-
-This creates an agent named `kestrel` with the tags `core` and `backend`.
-
-## Agent identity
-
-Agents can have rich identity attributes:
-
-```bash
-ttal agent add athena +research +design
-ttal agent modify athena -- path:/home/neil/clawd/.athena
-```
-
-The agent's `path` is the working directory for its tmux session.
 
 ## Listing agents
 
 ```bash
-# List all agents
 ttal agent list
-
-# Filter by tag
-ttal agent list +research
 ```
 
 ## Agent info
@@ -40,48 +68,16 @@ ttal agent list +research
 ttal agent info kestrel
 ```
 
-Shows the agent's tags, status, path, and matching projects. Projects match when they share at least one tag with the agent.
+Shows the agent's path, description, voice, and emoji.
 
 ## Modifying agents
 
-Use `--` before modifications to prevent `-tag` from being interpreted as a flag:
+Update frontmatter fields with `field:value` syntax:
 
 ```bash
-# Add and remove tags
-ttal agent modify kestrel -- +infrastructure -legacy
-
-# Change path
-ttal agent modify kestrel -- path:/new/workspace/path
-
-# Combine operations
-ttal agent modify kestrel -- path:/new/path +research -demo
+ttal agent modify kestrel voice:af_heart
+ttal agent modify kestrel emoji:🦅 description:'Worker lifecycle'
 ```
-
-## Agent status
-
-Agents have three status values:
-
-- `idle` — available for task assignment
-- `busy` — currently working
-- `paused` — temporarily disabled
-
-```bash
-ttal agent status kestrel busy
-```
-
-## Tag-based routing
-
-Tags drive how tasks get routed to agents. When a task is created with tags, ttal matches them against registered agents:
-
-```bash
-# Agent with research tag
-ttal agent add athena +research
-
-# Task tagged +research routes to athena
-task add "Investigate auth options" +research
-```
-
-Tags are case-insensitive and stored as lowercase.
 
 ## One bot per agent
 
@@ -91,7 +87,7 @@ Configure bot tokens in `config.toml`:
 
 ```toml
 [teams.default.agents.kestrel]
-bot_token = "123456:ABC..."
+bot_token_env = "KESTREL_BOT_TOKEN"
 ```
 
 Create a bot via [@BotFather](https://t.me/BotFather) on Telegram for each agent.
