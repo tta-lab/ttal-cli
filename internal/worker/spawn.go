@@ -213,7 +213,9 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	}
 	// Inject all .env secrets at session level (inherited by all windows)
 	dotEnv, err := config.LoadDotEnv()
-	if err == nil {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load .env secrets: %v\n", err)
+	} else {
 		for k, v := range dotEnv {
 			setEnv(k, v)
 		}
