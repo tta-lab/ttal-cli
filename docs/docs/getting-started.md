@@ -37,59 +37,58 @@ ttal requires these tools in your `$PATH`:
 
 ## Initial setup
 
-### 1. Install taskwarrior hooks
+### Quick setup with ttal init
 
-ttal uses taskwarrior hooks to enrich tasks and route them to agents automatically.
+The fastest way to get started — pick a scaffold and go:
 
 ```bash
-ttal worker install
+# See available scaffolds interactively
+ttal init
+
+# Or specify directly
+ttal init --scaffold basic              # 2 agents: manager, designer
+ttal init --scaffold full-markdown      # 4 agents: manager, researcher, designer, lifecycle
+ttal init --scaffold full-flicknote     # 4 agents with FlickNote integration
 ```
 
-This installs two hooks: `on-add-ttal` and `on-modify-ttal` in your taskwarrior hooks directory.
+This clones a starter template, copies it to `~/ttal-workspace`, and installs a config file.
 
-### 2. Install the daemon
+### Full onboarding
 
-The daemon is a long-running process that handles Telegram messaging, worker cleanup, and agent communication.
-
-```bash
-ttal daemon install
-```
-
-On macOS, this creates a launchd plist and a config template at `~/.config/ttal/config.toml`.
-
-### 3. Run onboarding
-
-The guided onboarding walks you through initial configuration:
+For a guided setup that also installs prerequisites and the daemon:
 
 ```bash
+# Default: basic scaffold
 ttal onboard
+
+# With a specific scaffold
+ttal onboard --scaffold full-markdown --workspace ~/my-agents
 ```
 
-This helps you set up your config file and team settings. Bot tokens are stored separately in `~/.config/ttal/.env`.
+Onboarding walks through:
+1. Install prerequisites via brew (tmux, taskwarrior, zellij, ffmpeg)
+2. Set up workspace from a scaffold template
+3. Set up taskwarrior UDAs and config template
+4. Register discovered agents in the database
+5. Install daemon launchd plist and taskwarrior hooks
 
-### 4. Register your first agent
+### After init or onboard
 
-```bash
-ttal agent add kestrel +core +backend
-```
+1. **Edit config** — `~/.config/ttal/config.toml`: set `chat_id` and `team_path`
+2. **Create Telegram bots** via @BotFather (one per agent)
+3. **Add bot tokens** to `~/.config/ttal/.env`
+4. **Verify**: `ttal doctor`
+5. **Start daemon**: `ttal daemon start`
 
-Verify it's registered:
-
-```bash
-ttal agent list
-```
-
-You should see your agent listed with its tags.
-
-### 5. Register a project
+### Register a project
 
 ```bash
 ttal project add myapp --path=/path/to/project +backend
 ```
 
-Because both `kestrel` and `myapp` share the `+backend` tag, kestrel can see and work on this project.
+Agents with matching tags can see and work on this project.
 
-### 6. Start the daemon
+### Start the daemon
 
 ```bash
 ttal daemon status   # Check if it's running
