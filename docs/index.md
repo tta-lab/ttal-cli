@@ -9,7 +9,7 @@ hero:
       text: Get Started
       link: /docs/getting-started
     - theme: alt
-      text: View on Codeberg
+      text: View on GitHub
       link: https://github.com/tta-lab/ttal-cli
 
 features:

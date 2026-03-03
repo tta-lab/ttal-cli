@@ -17,7 +17,7 @@ TTAL is and always will be open source.
 
 - MIT license — full CLI, every capability, no gates
 - **1 team** · **2 agents** · **unlimited coders/workers**
-- Community support via Codeberg issues
+- Community support via GitHub issues
 - Self-hosted on your own machine
 
 **[Get started](/docs/getting-started) | [View source on GitHub](https://github.com/tta-lab/ttal-cli)**
@@ -53,7 +53,7 @@ Everything in Pro, plus:
 **Ethereum:** `0x5e146d63d55fcc7fc788b7ee5872da2c70f74259`
 Works on Arbitrum, Optimism, Polygon, and other L2 networks.
 
-After payment, reach out on [Telegram](https://t.me/neilbbN) or [email](mailto:bn0010100@gmail.com) with your Codeberg username to activate support.
+After payment, reach out on [Telegram](https://t.me/neilbbN) or [email](mailto:bn0010100@gmail.com) with your GitHub username to activate support.
 
 ---
 
