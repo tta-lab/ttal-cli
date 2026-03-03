@@ -16,13 +16,6 @@ These commands are designed to be called from taskwarrior-tui shortcuts:
   ttal open session <uuid>   Attach to the tmux worker session
   ttal open editor <uuid>    Open the project/worktree in your editor
   ttal open term <uuid>      Open a shell in the worker directory`,
-	// Skip database initialization — open commands use taskwarrior, not ttal's DB
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 var openPRCmd = &cobra.Command{

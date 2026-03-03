@@ -37,9 +37,6 @@ var agentCmd = &cobra.Command{
 	Use:   "agent",
 	Short: "Manage agents",
 	Long:  `Add, list, get, and modify agents.`,
-	// Agent commands don't need DB — skip root's PersistentPreRunE/PostRunE.
-	PersistentPreRunE:  func(cmd *cobra.Command, args []string) error { return nil },
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error { return nil },
 }
 
 var agentAddCmd = &cobra.Command{

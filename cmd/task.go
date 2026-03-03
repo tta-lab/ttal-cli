@@ -20,13 +20,6 @@ var (
 var taskCmd = &cobra.Command{
 	Use:   "task",
 	Short: "Taskwarrior task utilities",
-	// Skip database initialization — task commands use taskwarrior directly
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 var taskGetCmd = &cobra.Command{

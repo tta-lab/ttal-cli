@@ -26,13 +26,6 @@ Safe to re-run — skips steps that are already done.
 Example:
   ttal onboard
   ttal onboard --scaffold full-markdown --workspace ~/my-agents`,
-	// Skip DB init — onboard creates it implicitly via agent registration
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return onboard.Run(onboardWorkspace, onboardScaffold)
 	},

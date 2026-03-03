@@ -15,13 +15,6 @@ Supports "team:agent" syntax for explicit team, or bare "agent" for active team.
 Examples:
   ttal attach kestrel         # active team
   ttal attach guion:mira      # explicit team`,
-	// Skip root's DB init — attach doesn't need database
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return team.Attach(args[0])

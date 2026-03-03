@@ -28,13 +28,6 @@ Environment:
   GITHUB_TOKEN    GitHub API token (required for GitHub repos)
   FORGEJO_URL     Forgejo instance URL (required for Forgejo repos)
   FORGEJO_TOKEN   Forgejo API token (required for Forgejo repos)`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		loadDotEnvFallback()
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 var prCreateCmd = &cobra.Command{

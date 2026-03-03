@@ -25,13 +25,6 @@ var workerCmd = &cobra.Command{
 	Use:   "worker",
 	Short: "Manage coding agent workers",
 	Long:  `Spawn, list, and close coding agent workers running in isolated tmux sessions.`,
-	// Skip database initialization — worker commands don't need ttal's DB
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 var workerInstallCmd = &cobra.Command{

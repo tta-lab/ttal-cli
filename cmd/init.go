@@ -29,9 +29,6 @@ Examples:
   ttal init
   ttal init --scaffold basic
   ttal init --scaffold full-markdown --workspace ~/my-agents`,
-	// Skip DB init — init doesn't need the database
-	PersistentPreRunE:  func(cmd *cobra.Command, args []string) error { return nil },
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error { return nil },
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runInit()
 	},

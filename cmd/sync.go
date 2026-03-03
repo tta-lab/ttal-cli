@@ -40,13 +40,6 @@ Configure source paths in ~/.config/ttal/config.toml:
   subagents_paths = ["~/clawd/docs/agents"]
   skills_paths = ["~/clawd/docs/skills"]
   commands_paths = ["~/clawd/docs/commands"]`,
-	// No database needed
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {

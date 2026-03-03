@@ -27,13 +27,6 @@ With team name: shows that team's status.
 Examples:
   ttal status              # active team
   ttal status guion        # specific team`,
-	// Skip root's DB init — status reads files directly
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 1 {

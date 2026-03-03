@@ -9,13 +9,6 @@ var todayCmd = &cobra.Command{
 	Use:   "today",
 	Short: "Manage today's task focus list",
 	Long:  `View, add, and remove tasks from today's focus list using taskwarrior scheduling.`,
-	// Skip database initialization — today commands use taskwarrior directly
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 var todayListCmd = &cobra.Command{

@@ -48,13 +48,7 @@ var statuslineCmd = &cobra.Command{
 	Use:    "statusline",
 	Short:  "CC statusline hook — prints status line and exports agent state",
 	Hidden: true,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil // Skip root's DB init
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	RunE: runStatusline,
+	RunE:   runStatusline,
 }
 
 func init() {
