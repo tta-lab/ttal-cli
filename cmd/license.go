@@ -11,9 +11,6 @@ import (
 var licenseCmd = &cobra.Command{
 	Use:   "license",
 	Short: "Show license tier and status",
-	// No database needed for license operations.
-	PersistentPreRunE:  func(cmd *cobra.Command, args []string) error { return nil },
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error { return nil },
 	Long: `Show the current license tier and limits.
 
 Tiers:

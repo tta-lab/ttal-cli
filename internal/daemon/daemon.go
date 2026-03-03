@@ -41,19 +41,6 @@ func Run() error {
 		return err
 	}
 
-	// Load .env into process environment so os.Getenv() works for git providers
-	dotEnv, envErr := config.LoadDotEnv()
-	if envErr != nil {
-		log.Printf("[daemon] warning: failed to load .env: %v", envErr)
-	} else {
-		for k, v := range dotEnv {
-			if err := os.Setenv(k, v); err != nil {
-				log.Printf("[daemon] warning: failed to set env %s: %v", k, err)
-			}
-		}
-		log.Printf("[daemon] loaded %d env vars from .env", len(dotEnv))
-	}
-
 	if running, pid, _ := IsRunning(); running {
 		return fmt.Errorf("daemon already running (pid=%d)", pid)
 	}

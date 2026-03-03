@@ -33,13 +33,6 @@ Examples:
   ttal send --to guion:astra "design review needed"
   ttal send --to human "compact complete"
   echo "done" | ttal send --to kestrel --stdin`,
-	// Skip database initialization
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {

@@ -22,7 +22,14 @@ var rootCmd = &cobra.Command{
 	Long: `TTAL is a CLI tool for managing projects, agents, and automated memory capture.
 It provides taskwarrior-like syntax for tag management and agent routing.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		loadDotEnvFallback()
+		// Load .env as fallback for tokens not already in the environment
+		if dotEnv, err := config.LoadDotEnv(); err == nil {
+			for k, v := range dotEnv {
+				if os.Getenv(k) == "" {
+					_ = os.Setenv(k, v)
+				}
+			}
+		}
 
 		// Initialize database connection
 		var err error
@@ -46,18 +53,6 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", db.DefaultPath(), "Path to SQLite database")
-}
-
-// loadDotEnvFallback loads ~/.config/ttal/.env, setting only vars not already
-// in the environment. Call from any PersistentPreRunE that overrides root's.
-func loadDotEnvFallback() {
-	if dotEnv, err := config.LoadDotEnv(); err == nil {
-		for k, v := range dotEnv {
-			if os.Getenv(k) == "" {
-				_ = os.Setenv(k, v)
-			}
-		}
-	}
 }
 
 // confirmPrompt asks the user a yes/no question and returns true if they answer "y".

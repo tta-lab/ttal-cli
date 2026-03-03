@@ -15,13 +15,6 @@ var daemonCmd = &cobra.Command{
 	Short: "Bidirectional agent communication daemon",
 	Long: `Run the ttal daemon — manages Telegram polling, unix socket notifications,
 JSONL watching, and worker cleanup.`,
-	// Skip root's DB init — daemon is config-driven, no DB needed
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return daemon.Run()
 	},

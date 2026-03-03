@@ -17,13 +17,6 @@ var yoloCmd = &cobra.Command{
 
 Supported runtimes: cc (Claude Code), oc (OpenCode), codex.
 For human use only - starts the agent with full permissions enabled.`,
-	// Skip database initialization — yolo commands don't need ttal's DB.
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 var yoloCcCmd = &cobra.Command{
