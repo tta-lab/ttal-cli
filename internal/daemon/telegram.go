@@ -27,7 +27,7 @@ func startMultiAgentPoller(
 	dispatch map[int64]pollerTarget,
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
-	allCommands []BotCommand,
+	allCommands []BotCommand, mt *messageTracker,
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -39,7 +39,7 @@ func startMultiAgentPoller(
 			default:
 			}
 
-			if err := runMultiAgentPoller(botToken, dispatch, onMessage, done, qs, cas, registry, allCommands); err != nil {
+			if err := runMultiAgentPoller(botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt); err != nil {
 				log.Printf("[telegram] poller failed: %v — retrying in %s", err, backoff)
 				select {
 				case <-done:
@@ -61,7 +61,7 @@ func runMultiAgentPoller(
 	dispatch map[int64]pollerTarget,
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
-	allCommands []BotCommand,
+	allCommands []BotCommand, mt *messageTracker,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,7 +73,7 @@ func runMultiAgentPoller(
 	}()
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		handleDefaultUpdate(ctx, b, update, dispatch, botToken, onMessage, qs, cas, registry)
+		handleDefaultUpdate(ctx, b, update, dispatch, botToken, onMessage, qs, cas, registry, mt)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
@@ -130,6 +130,7 @@ func handleDefaultUpdate(
 	dispatch map[int64]pollerTarget, botToken string,
 	onMessage func(teamName, agentName, text string),
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	mt *messageTracker,
 ) {
 	if update.CallbackQuery != nil {
 		if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage &&
@@ -166,6 +167,7 @@ func handleDefaultUpdate(
 		func(agentName, text string) {
 			onMessage(target.teamName, agentName, text)
 		},
+		mt,
 	)
 }
 
@@ -173,7 +175,21 @@ func handleInboundMessage(
 	ctx context.Context, b *bot.Bot, msg *models.Message,
 	teamName, agentName, botToken, chatIDStr string,
 	onMessage func(string, string),
+	mt *messageTracker,
 ) {
+	// Track this message for reactions and set 👀 immediately
+	if mt != nil {
+		chatID, err := telegram.ParseChatID(chatIDStr)
+		if err == nil {
+			mt.set(teamName, agentName, trackedMessage{
+				ChatID:    chatID,
+				MessageID: msg.ID,
+				BotToken:  botToken,
+			})
+			_ = telegram.SetReaction(botToken, chatID, msg.ID, "👀")
+		}
+	}
+
 	senderName := msg.From.Username
 	if senderName == "" {
 		senderName = msg.From.FirstName

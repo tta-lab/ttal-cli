@@ -54,6 +54,10 @@
           "$ref": "#/$defs/PromptsConfig",
           "description": "Prompt templates for task routing"
         },
+        "flicknote": {
+          "$ref": "#/$defs/FlicknoteConfig",
+          "description": "Flicknote integration settings"
+        },
         "default_team": {
           "type": "string",
           "description": "Active team when TTAL_TEAM env is not set"
@@ -64,6 +68,19 @@
           },
           "type": "object",
           "description": "Per-team configuration sections"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "FlicknoteConfig": {
+      "properties": {
+        "inline_projects": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Project substrings to inline (default: plan)"
         }
       },
       "additionalProperties": false,

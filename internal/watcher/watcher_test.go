@@ -162,6 +162,53 @@ func assertEmptyExtraction(t *testing.T, line, desc string) {
 	}
 }
 
+func TestExtractToolUse(t *testing.T) {
+	tests := []struct {
+		name     string
+		line     string
+		wantTool string
+	}{
+		{
+			name: "Read tool",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Read","id":"tu_1","input":{}}]}}`,
+			wantTool: "Read",
+		},
+		{
+			name: "Bash tool",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_2","input":{}}]}}`,
+			wantTool: "Bash",
+		},
+		{
+			name: "text block returns empty",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"text","text":"hello"}]}}`,
+			wantTool: "",
+		},
+		{
+			name: "AskUserQuestion skipped",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"AskUserQuestion","id":"tu_3","input":{}}]}}`,
+			wantTool: "",
+		},
+		{
+			name:     "non-assistant type",
+			line:     `{"type":"human","message":{"content":[{"type":"text","text":"hi"}]}}`,
+			wantTool: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractToolUse([]byte(tt.line))
+			if got != tt.wantTool {
+				t.Errorf("extractToolUse() = %q, want %q", got, tt.wantTool)
+			}
+		})
+	}
+}
+
 func TestExtractAssistantText(t *testing.T) {
 	tests := []struct {
 		name string

@@ -68,13 +68,14 @@ func Run() error {
 	registry := newAdapterRegistry()
 	qs := newQuestionStore()
 	cas := newCustomAnswerStore()
+	mt := newMessageTracker()
 	initAdapters(ctx, mcfg, registry, qs)
 
 	allCommands := discoverAndRegisterCommands(mcfg, allAgents)
-	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands)
+	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
-	startWatcherIfNeeded(mcfg, allAgents, qs, done)
+	startWatcherIfNeeded(mcfg, allAgents, qs, mt, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
@@ -139,6 +140,7 @@ func startTelegramPollers(
 	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
 	registry *adapterRegistry, done chan struct{},
 	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
+	mt *messageTracker,
 ) {
 	tokenTargets := buildTokenTargets(mcfg, allAgents)
 
@@ -150,7 +152,7 @@ func startTelegramPollers(
 			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
-		}, done, qs, cas, registry, allCommands)
+		}, done, qs, cas, registry, allCommands, mt)
 	}
 }
 
@@ -199,12 +201,12 @@ func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
 // startWatcherIfNeeded starts the JSONL watcher unless all agents use OpenClaw.
 func startWatcherIfNeeded(
 	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
-	qs *questionStore, done <-chan struct{},
+	qs *questionStore, mt *messageTracker, done <-chan struct{},
 ) {
 	for _, ta := range allAgents {
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 		if rt != runtime.OpenClaw {
-			startWatcher(mcfg, qs, done)
+			startWatcher(mcfg, qs, mt, done)
 			return
 		}
 	}
@@ -450,7 +452,7 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 }
 
 // startWatcher initializes the JSONL watcher from config (all teams).
-func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, done <-chan struct{}) {
+func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, done <-chan struct{}) {
 	agentMap := make(map[string]watcher.AgentInfo)
 	for _, ta := range mcfg.AllAgents() {
 		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
@@ -467,12 +469,27 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, done <-chan stru
 			if !ok || ta.Config.BotToken == "" {
 				return
 			}
+			if tracked, ok := mt.get(teamName, agentName); ok {
+				if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, "👍"); err != nil {
+					log.Printf("[reactions] done reaction error for %s: %v", agentName, err)
+				}
+			}
 			if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, text); err != nil {
 				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 			}
 		},
 		func(teamName, agentName, correlationID string, questions []runtime.Question) {
 			handleIncomingQuestion(qs, teamName, agentName, runtime.ClaudeCode, correlationID, questions, mcfg)
+		},
+		func(teamName, agentName, toolName string) {
+			tracked, ok := mt.get(teamName, agentName)
+			if !ok {
+				return
+			}
+			emoji := telegram.ToolEmoji(toolName)
+			if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
+				log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, toolName, err)
+			}
 		},
 	)
 	if err != nil {
