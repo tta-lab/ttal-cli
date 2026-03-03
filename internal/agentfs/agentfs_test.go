@@ -1,0 +1,154 @@
+package agentfs
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestDiscover(t *testing.T) {
+	dir := t.TempDir()
+
+	// Agent with frontmatter
+	yuki := filepath.Join(dir, "yuki")
+	os.MkdirAll(yuki, 0o755)
+	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\n---\n# Yuki"), 0o644)
+
+	// Agent without frontmatter
+	kestrel := filepath.Join(dir, "kestrel")
+	os.MkdirAll(kestrel, 0o755)
+	os.WriteFile(filepath.Join(kestrel, "CLAUDE.md"), []byte("# Kestrel\n\nA hawk agent."), 0o644)
+
+	// Non-agent directory (no CLAUDE.md)
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
+
+	// Dot directory (should be skipped)
+	os.MkdirAll(filepath.Join(dir, ".git"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".git", "CLAUDE.md"), []byte("# fake"), 0o644)
+
+	agents, err := Discover(dir)
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+
+	if len(agents) != 2 {
+		t.Fatalf("expected 2 agents, got %d", len(agents))
+	}
+
+	// Find yuki
+	var yAgent *AgentInfo
+	for i := range agents {
+		if agents[i].Name == "yuki" {
+			yAgent = &agents[i]
+		}
+	}
+	if yAgent == nil {
+		t.Fatal("yuki not found")
+	}
+	if yAgent.Voice != "af_heart" {
+		t.Errorf("voice: got %q, want af_heart", yAgent.Voice)
+	}
+	if yAgent.Emoji != "\U0001F431" {
+		t.Errorf("emoji: got %q, want cat emoji", yAgent.Emoji)
+	}
+	if yAgent.Description != "Task orchestration" {
+		t.Errorf("description: got %q", yAgent.Description)
+	}
+
+	// Find kestrel (no frontmatter — fields should be empty)
+	var kAgent *AgentInfo
+	for i := range agents {
+		if agents[i].Name == "kestrel" {
+			kAgent = &agents[i]
+		}
+	}
+	if kAgent == nil {
+		t.Fatal("kestrel not found")
+	}
+	if kAgent.Voice != "" || kAgent.Emoji != "" {
+		t.Errorf("kestrel should have empty metadata, got voice=%q emoji=%q", kAgent.Voice, kAgent.Emoji)
+	}
+}
+
+func TestGet(t *testing.T) {
+	dir := t.TempDir()
+	yuki := filepath.Join(dir, "yuki")
+	os.MkdirAll(yuki, 0o755)
+	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_sky\n---\n# Yuki"), 0o644)
+
+	ag, err := Get(dir, "yuki")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if ag.Voice != "af_sky" {
+		t.Errorf("voice: got %q, want af_sky", ag.Voice)
+	}
+}
+
+func TestGetNotFound(t *testing.T) {
+	dir := t.TempDir()
+	_, err := Get(dir, "nonexistent")
+	if err == nil {
+		t.Error("expected error for nonexistent agent")
+	}
+}
+
+func TestCount(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a", "b", "c"} {
+		d := filepath.Join(dir, name)
+		os.MkdirAll(d, 0o755)
+		os.WriteFile(filepath.Join(d, "CLAUDE.md"), []byte("# "+name), 0o644)
+	}
+	// Non-agent
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
+
+	n, err := Count(dir)
+	if err != nil {
+		t.Fatalf("Count: %v", err)
+	}
+	if n != 3 {
+		t.Errorf("expected 3, got %d", n)
+	}
+}
+
+func TestSetField(t *testing.T) {
+	dir := t.TempDir()
+	yuki := filepath.Join(dir, "yuki")
+	os.MkdirAll(yuki, 0o755)
+	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_heart\nemoji: \U0001F431\n---\n# Yuki\n\nSome content."), 0o644)
+
+	if err := SetField(dir, "yuki", "voice", "af_sky"); err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+
+	ag, _ := Get(dir, "yuki")
+	if ag.Voice != "af_sky" {
+		t.Errorf("voice after update: got %q, want af_sky", ag.Voice)
+	}
+	if ag.Emoji != "\U0001F431" {
+		t.Errorf("emoji should be preserved, got %q", ag.Emoji)
+	}
+}
+
+func TestSetFieldNoFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	yuki := filepath.Join(dir, "yuki")
+	os.MkdirAll(yuki, 0o755)
+	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("# Yuki\n\nNo frontmatter here."), 0o644)
+
+	if err := SetField(dir, "yuki", "voice", "af_heart"); err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+
+	ag, _ := Get(dir, "yuki")
+	if ag.Voice != "af_heart" {
+		t.Errorf("voice: got %q, want af_heart", ag.Voice)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(yuki, "CLAUDE.md"))
+	if !strings.Contains(string(data), "# Yuki") {
+		t.Error("original content should be preserved")
+	}
+}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-TTAL uses SQLite with ent (Entity Framework for Go) for type-safe, schema-first database management. The database handles projects, agents, and their tag-based relationships.
+TTAL uses SQLite with ent (Entity Framework for Go) for type-safe, schema-first database management. The database handles projects and their tag-based relationships. Agent metadata is stored in CLAUDE.md frontmatter files (see `internal/agentfs/`).
 
 ## Database Location
 
@@ -84,7 +84,7 @@ Pragmas are applied via a connection hook (registered in `init()`) on every new 
 
 ## Schema
 
-The database uses three main tables with many-to-many tag relationships:
+The database uses projects and tags with many-to-many relationships:
 
 ```sql
 -- Core entities
@@ -96,12 +96,6 @@ CREATE TABLE projects (
     archived_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE agents (
-    name TEXT PRIMARY KEY,
-    path TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE tags (
@@ -117,24 +111,16 @@ CREATE TABLE project_tags (
     FOREIGN KEY (project_alias) REFERENCES projects(alias) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
-
-CREATE TABLE agent_tags (
-    agent_name TEXT NOT NULL,
-    tag_id TEXT NOT NULL,
-    PRIMARY KEY (agent_name, tag_id),
-    FOREIGN KEY (agent_name) REFERENCES agents(name) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-);
 ```
+
+Note: The agents table has been removed. Agent metadata now lives in CLAUDE.md frontmatter files within the team_path directory structure.
 
 ### Key Constraints
 
-- **Agent names**: Lowercase only (validated at schema level)
 - **Tag names**: Lowercase only (validated at schema level)
 - **Project alias**: Unique identifier (primary key)
-- **Repo type**: Enum validation (forgejo, github, codeberg)
-- **Tags**: Shared across projects and agents via M2M relations
-- **Cascading deletes**: Removing a project/agent removes its tag associations
+- **Tags**: Shared across projects via M2M relations
+- **Cascading deletes**: Removing a project removes its tag associations
 
 ## Migration System
 
@@ -334,7 +320,6 @@ for _, p := range projects {
 These are the only files you should edit:
 
 - `ent/schema/project.go` - Project entity definition
-- `ent/schema/agent.go` - Agent entity definition
 - `ent/schema/tag.go` - Tag entity definition
 - `ent/generate.go` - Generation directive
 
@@ -344,7 +329,6 @@ These are the only files you should edit:
 
 - `ent/*.go` - CRUD builders and client
 - `ent/project/*.go` - Project types and predicates
-- `ent/agent/*.go` - Agent types and predicates
 - `ent/tag/*.go` - Tag types and predicates
 - `ent/migrate/schema.go` - Migration definitions
 

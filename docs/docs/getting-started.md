@@ -69,7 +69,7 @@ Onboarding walks through:
 1. Install prerequisites via brew (tmux, taskwarrior, zellij, ffmpeg)
 2. Set up workspace from a scaffold template
 3. Set up taskwarrior UDAs and config template
-4. Register discovered agents in the database
+4. Discover agents (directories with CLAUDE.md in workspace)
 5. Install daemon launchd plist and taskwarrior hooks
 
 ### After init or onboard

@@ -5,7 +5,6 @@ package ent
 import (
 	"time"
 
-	"github.com/tta-lab/ttal-cli/ent/agent"
 	"github.com/tta-lab/ttal-cli/ent/project"
 	"github.com/tta-lab/ttal-cli/ent/schema"
 )
@@ -14,30 +13,6 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	agentFields := schema.Agent{}.Fields()
-	_ = agentFields
-	// agentDescName is the schema descriptor for name field.
-	agentDescName := agentFields[0].Descriptor()
-	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	agent.NameValidator = func() func(string) error {
-		validators := agentDescName.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(name string) error {
-			for _, fn := range fns {
-				if err := fn(name); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
-	// agentDescCreatedAt is the schema descriptor for created_at field.
-	agentDescCreatedAt := agentFields[4].Descriptor()
-	// agent.DefaultCreatedAt holds the default value on creation for the created_at field.
-	agent.DefaultCreatedAt = agentDescCreatedAt.Default.(func() time.Time)
 	projectFields := schema.Project{}.Fields()
 	_ = projectFields
 	// projectDescAlias is the schema descriptor for alias field.
