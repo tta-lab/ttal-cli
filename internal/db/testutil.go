@@ -2,9 +2,13 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	_ "modernc.org/sqlite"
+
 	"github.com/tta-lab/ttal-cli/ent"
 )
 
@@ -12,12 +16,14 @@ import (
 func NewTestDB(t *testing.T) *DB {
 	t.Helper()
 
-	// Use in-memory SQLite database
-	// Each connection gets its own isolated in-memory database
-	client, err := ent.Open("sqlite3", "file::memory:?cache=shared&_fk=1")
+	// Use in-memory SQLite database via modernc driver
+	sqlDB, err := sql.Open("sqlite", "file::memory:")
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
+
+	drv := entsql.OpenDB(dialect.SQLite, sqlDB)
+	client := ent.NewClient(ent.Driver(drv))
 
 	// Run auto-migrations
 	if err := client.Schema.Create(context.Background()); err != nil {
@@ -25,12 +31,12 @@ func NewTestDB(t *testing.T) *DB {
 		t.Fatalf("failed to run migrations: %v", err)
 	}
 
-	db := &DB{client}
+	d := &DB{client}
 
 	// Register cleanup
 	t.Cleanup(func() {
-		_ = db.Close()
+		_ = d.Close()
 	})
 
-	return db
+	return d
 }

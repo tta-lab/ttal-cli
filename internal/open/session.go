@@ -21,9 +21,9 @@ func Session(uuid string) error {
 
 	sessionID := task.SessionName()
 	if task.Branch == "" {
-		return fmt.Errorf("no worker session assigned to this task\n\n" +
-			"  To spawn a worker for this task:\n" +
-			"  ttal worker spawn --task " + uuid + " --project <path> --name <worker-name>")
+		return fmt.Errorf("no worker session assigned to this task\n\n"+
+			"  To spawn a worker for this task:\n"+
+			"  ttal worker spawn --task %s --project <path> --name <worker-name>", uuid)
 	}
 
 	tmuxBin, err := lookPath("tmux")

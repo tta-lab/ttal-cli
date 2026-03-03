@@ -2,20 +2,26 @@ package doctor
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	_ "modernc.org/sqlite"
+
 	"github.com/tta-lab/ttal-cli/ent"
 )
 
 func countAgents(dbPath string) (int, error) {
-	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1&_journal_mode=WAL&_busy_timeout=5000&mode=ro", dbPath)
-	client, err := ent.Open("sqlite3", dsn)
+	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?mode=ro", dbPath))
 	if err != nil {
 		return 0, err
 	}
+	defer func() { _ = db.Close() }()
+	drv := entsql.OpenDB(dialect.SQLite, db)
+	client := ent.NewClient(ent.Driver(drv))
 	defer client.Close()
 
 	return client.Agent.Query().Count(context.Background())

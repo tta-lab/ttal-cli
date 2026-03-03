@@ -47,6 +47,20 @@ make clean-db
 make reset
 ```
 
+## Releasing
+
+Tag a version to trigger the release workflow:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+GoReleaser builds binaries, creates a GitHub release, and pushes the
+Homebrew formula to `tta-lab/homebrew-ttal`. Users upgrade via `brew upgrade ttal`.
+
+Requires `HOMEBREW_TAP_TOKEN` secret in GitHub repo settings (a PAT with repo scope on the tap repo).
+
 ## Architecture
 
 ### Database Layer - ent (Schema-First ORM)
