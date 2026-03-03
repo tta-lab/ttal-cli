@@ -398,6 +398,9 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 		}
 		end += start + 2
 		skillName := result[start+len("{{skill:") : end-2]
+		if skillName == "" {
+			break
+		}
 		invocation := runtime.FormatSkillInvocation(rt, skillName)
 		result = result[:start] + invocation + result[end:]
 	}

@@ -76,7 +76,7 @@ Examples:
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		} else if sessionName != "" {
-			cfg, rt := loadReviewConfig()
+			cfg, rt := loadConfigAndCoderRuntime()
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Reviewer already running, sending review request...")
 				if err := review.RequestReReview(sessionName, false, "", cfg, rt); err != nil {
@@ -257,7 +257,7 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: failed to write review file: %v\n", fileErr)
 				}
 
-				cfg, rt := loadReviewConfig()
+				cfg, rt := loadConfigAndCoderRuntime()
 				reviewRef := ""
 				if reviewFile != "" {
 					reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
@@ -275,7 +275,7 @@ Examples:
 		// Auto-trigger re-review when coder posts a comment (triage done).
 		noReview, _ := cmd.Flags().GetBool("no-review")
 		if sessionName != "" && role == "coder" && !noReview {
-			cfg, rt := loadReviewConfig()
+			cfg, rt := loadConfigAndCoderRuntime()
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Triggering re-review...")
 				if err := review.RequestReReview(sessionName, false, body, cfg, rt); err != nil {
@@ -338,7 +338,7 @@ Examples:
 			fmt.Println("Killed existing reviewer window")
 		}
 
-		cfg, rt := loadReviewConfig()
+		cfg, rt := loadConfigAndCoderRuntime()
 		if tmux.WindowExists(sessionName, "review") {
 			return review.RequestReReview(sessionName, reviewFull, "", cfg, rt)
 		}
@@ -398,9 +398,9 @@ func resolveCoderRuntime() runtime.Runtime {
 	return runtime.ClaudeCode
 }
 
-// loadReviewConfig loads config and resolves the coder runtime.
+// loadConfigAndCoderRuntime loads config and resolves the coder runtime.
 // Falls back to empty config + ClaudeCode on error.
-func loadReviewConfig() (*config.Config, runtime.Runtime) {
+func loadConfigAndCoderRuntime() (*config.Config, runtime.Runtime) {
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not load config: %v\n", err)
