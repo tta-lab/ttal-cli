@@ -319,10 +319,30 @@ func (c *Config) Prompt(key string) string {
 	}
 }
 
-// RenderPrompt returns a prompt with {{task-id}} replaced by the actual task ID.
-func (c *Config) RenderPrompt(key, taskID string) string {
+// RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.
+func (c *Config) RenderPrompt(key, taskID string, rt runtime.Runtime) string {
 	tmpl := c.Prompt(key)
-	return strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
+	return RenderTemplate(tmpl, taskID, rt)
+}
+
+// RenderTemplate resolves {{skill:name}} and {{task-id}} in an arbitrary template string.
+func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
+	result := strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
+	for {
+		start := strings.Index(result, "{{skill:")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(result[start:], "}}")
+		if end == -1 {
+			break
+		}
+		end += start + 2
+		skillName := result[start+len("{{skill:") : end-2]
+		invocation := runtime.FormatSkillInvocation(rt, skillName)
+		result = result[:start] + invocation + result[end:]
+	}
+	return result
 }
 
 const DefaultShell = "zsh"
