@@ -366,23 +366,20 @@ The daemon is a long-running process (managed by launchd on macOS) that acts as 
 
 #### Config
 
-Create `~/.ttal/daemon.json` (a template is created by `ttal daemon install`):
+Config lives in `~/.config/ttal/config.toml` (created by `ttal daemon install`):
 
-```json
-{
-  "chat_id": "845849177",
-  "lifecycle_agent": "kestrel",
-  "agents": {
-    "kestrel": {
-      "bot_token": "123:ABC..."
-    }
-  }
-}
+```toml
+[teams.default]
+chat_id = "845849177"
+team_path = "/path/to/agents"
+
+[teams.default.agents.kestrel]
+# Bot token resolved from .env: KESTREL_BOT_TOKEN
 ```
 
-- `chat_id` — global Telegram chat ID (per-agent override via `chat_id` field)
-- `lifecycle_agent` — which agent handles task start/complete events
-- `agents` — per-agent Telegram bot tokens
+- `chat_id` — Telegram chat ID for the team
+- `agents` — per-agent config (bot tokens stored in `~/.config/ttal/.env`)
+- Notification bot token: `{TEAM}_NOTIFICATION_BOT_TOKEN` in `.env`
 
 #### Commands
 
