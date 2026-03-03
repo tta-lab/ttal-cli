@@ -12,10 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
-const (
-	cmdTimeout            = 10 * time.Second
-	worktreeRemoveTimeout = 120 * time.Second
-)
+const cmdTimeout = 10 * time.Second
 
 // DumpWorkerState captures git state for debugging.
 // Returns the path to the dump file.
@@ -67,15 +64,17 @@ func IsWorktreeClean(workDir string) (bool, error) {
 }
 
 // RemoveWorktree removes a git worktree and its branch.
+// Uses os.RemoveAll + git worktree prune instead of git worktree remove
+// for faster cleanup without subprocess timeout risks.
 func RemoveWorktree(projectDir, workDir, branch string) error {
-	// Remove git worktree (must happen before branch deletion)
-	if _, err := os.Stat(workDir); err == nil {
-		_, err := runGitWithTimeout(worktreeRemoveTimeout, projectDir, "worktree", "remove", workDir, "--force")
-		if err != nil {
-			return fmt.Errorf("failed to remove worktree: %w", err)
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check worktree directory %s: %w", workDir, err)
+	// Remove worktree directory directly (faster than git worktree remove)
+	if err := os.RemoveAll(workDir); err != nil {
+		return fmt.Errorf("failed to remove worktree directory %s: %w", workDir, err)
+	}
+
+	// Prune stale worktree metadata so git knows it's gone
+	if _, err := runGit(projectDir, "worktree", "prune"); err != nil {
+		return fmt.Errorf("failed to prune worktrees: %w", err)
 	}
 
 	// Delete the worker branch
