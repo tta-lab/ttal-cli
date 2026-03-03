@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	cmdTimeout            = 10 * time.Second
-	worktreeRemoveTimeout = 120 * time.Second
+	cmdTimeout = 10 * time.Second
 )
 
 // DumpWorkerState captures git state for debugging.
@@ -68,11 +67,13 @@ func IsWorktreeClean(workDir string) (bool, error) {
 
 // RemoveWorktree removes a git worktree and its branch.
 func RemoveWorktree(projectDir, workDir, branch string) error {
-	// Remove git worktree (must happen before branch deletion)
+	// Remove worktree directory directly (faster than git worktree remove for large dirs like node_modules)
 	if _, err := os.Stat(workDir); err == nil {
-		_, err := runGitWithTimeout(worktreeRemoveTimeout, projectDir, "worktree", "remove", workDir, "--force")
-		if err != nil {
-			return fmt.Errorf("failed to remove worktree: %w", err)
+		if err := os.RemoveAll(workDir); err != nil {
+			return fmt.Errorf("failed to remove worktree directory: %w", err)
+		}
+		if _, err := runGit(projectDir, "worktree", "prune"); err != nil {
+			return fmt.Errorf("failed to prune worktree references: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to check worktree directory %s: %w", workDir, err)
