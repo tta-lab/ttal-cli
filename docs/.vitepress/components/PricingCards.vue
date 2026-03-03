@@ -7,7 +7,7 @@ const plans = [
     features: [
       'MIT license — full CLI, no gates',
       '1 team · 2 agents · unlimited coders',
-      'Community support via Codeberg',
+      'Community support via GitHub',
       'Self-hosted on your machine',
     ],
     cta: 'Get Started',
