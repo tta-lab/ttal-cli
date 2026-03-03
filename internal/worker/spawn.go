@@ -211,6 +211,13 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	if taskrc != "" {
 		setEnv("TASKRC", taskrc)
 	}
+	// Inject all .env secrets at session level (inherited by all windows)
+	dotEnv, err := config.LoadDotEnv()
+	if err == nil {
+		for k, v := range dotEnv {
+			setEnv(k, v)
+		}
+	}
 	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON
 	if cfg.Runtime == runtime.OpenCode && cfg.Yolo {
 		setEnv("OPENCODE_PERMISSION",
@@ -246,9 +253,6 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	if taskrc != "" {
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
-
-	// Inject all secrets from .env
-	parts = append(parts, config.DotEnvParts()...)
 
 	return parts
 }
