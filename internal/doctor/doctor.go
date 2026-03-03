@@ -251,10 +251,10 @@ func checkConfig(fix bool) Section {
 		section.add(LevelOK, "chat_id", "chat_id set")
 	}
 
-	if cfg.LifecycleAgent == "" {
-		section.add(LevelWarn, "lifecycle_agent", "lifecycle_agent not set")
+	if cfg.NotificationToken == "" {
+		section.add(LevelWarn, "notification_token", "notification bot token not configured (set {TEAM}_NOTIFICATION_BOT_TOKEN in .env)")
 	} else {
-		section.add(LevelOK, "lifecycle_agent", "lifecycle_agent: "+cfg.LifecycleAgent)
+		section.add(LevelOK, "notification_token", "notification bot token configured")
 	}
 
 	checkDotEnv(&section, cfg, fix)

@@ -108,11 +108,10 @@ func TestWorkerRuntimeRejectsOpenClaw(t *testing.T) {
 		DefaultTeam: "test",
 		Teams: map[string]TeamConfig{
 			"test": {
-				TeamPath:       "/tmp/test",
-				WorkerRuntime:  "openclaw",
-				ChatID:         "x",
-				LifecycleAgent: "k",
-				Agents:         map[string]AgentConfig{"k": {}},
+				TeamPath:      "/tmp/test",
+				WorkerRuntime: "openclaw",
+				ChatID:        "x",
+				Agents:        map[string]AgentConfig{"k": {}},
 			},
 		},
 	}
@@ -154,11 +153,10 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
-						TeamPath:       "/tmp/test",
-						MergeMode:      "manual",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath:  "/tmp/test",
+						MergeMode: "manual",
+						ChatID:    "x",
+						Agents:    map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -170,10 +168,9 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
-						TeamPath:       "/tmp/test",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath: "/tmp/test",
+						ChatID:   "x",
+						Agents:   map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -185,11 +182,10 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
-						TeamPath:       "/tmp/test",
-						MergeMode:      "manaul",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath:  "/tmp/test",
+						MergeMode: "manaul",
+						ChatID:    "x",
+						Agents:    map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -201,10 +197,9 @@ func TestMergeModeResolution(t *testing.T) {
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
-						TeamPath:       "/tmp/test",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath: "/tmp/test",
+						ChatID:   "x",
+						Agents:   map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -259,10 +254,9 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: DefaultTeamName,
 				Teams: map[string]TeamConfig{
 					DefaultTeamName: {
-						TeamPath:       "/tmp/agents",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath: "/tmp/agents",
+						ChatID:   "x",
+						Agents:   map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -276,10 +270,9 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
-						TeamPath:       "/tmp/agents",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath: "/tmp/agents",
+						ChatID:   "x",
+						Agents:   map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -293,11 +286,10 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
-						TeamPath:       "/tmp/agents",
-						DataDir:        "/tmp/custom",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath: "/tmp/agents",
+						DataDir:  "/tmp/custom",
+						ChatID:   "x",
+						Agents:   map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -311,11 +303,10 @@ func TestConventionBasedPaths(t *testing.T) {
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
-						TeamPath:       "/tmp/agents",
-						TaskRC:         "/tmp/my-taskrc",
-						ChatID:         "x",
-						LifecycleAgent: "k",
-						Agents:         map[string]AgentConfig{"k": {}},
+						TeamPath: "/tmp/agents",
+						TaskRC:   "/tmp/my-taskrc",
+						ChatID:   "x",
+						Agents:   map[string]AgentConfig{"k": {}},
 					},
 				},
 			},
@@ -383,10 +374,9 @@ func TestAgentPathFromResolve(t *testing.T) {
 		DefaultTeam: "test",
 		Teams: map[string]TeamConfig{
 			"test": {
-				TeamPath:       "~/agents",
-				ChatID:         "x",
-				LifecycleAgent: "k",
-				Agents:         map[string]AgentConfig{"k": {}},
+				TeamPath: "~/agents",
+				ChatID:   "x",
+				Agents:   map[string]AgentConfig{"k": {}},
 			},
 		},
 	}

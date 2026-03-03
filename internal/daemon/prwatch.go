@@ -11,8 +11,8 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -299,7 +299,7 @@ func deliverToWorkerSession(sessionName, msg string) {
 	}
 }
 
-// notifyPRStatus sends PR status to the team's lifecycle agent via Telegram.
+// notifyPRStatus sends PR status to the team's Telegram chat via the notification bot.
 func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status string, runURL string) {
 	team := target.Team
 	if team == "" {
@@ -310,21 +310,12 @@ func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status stri
 	if !ok {
 		return
 	}
-	agent := teamCfg.LifecycleAgent
-	if agent == "" {
-		return
-	}
-
-	ta, ok := mcfg.FindAgentInTeam(team, agent)
-	if !ok || ta.Config.BotToken == "" || ta.ChatID == "" {
-		return
-	}
 
 	msg := fmt.Sprintf("%s\nPR #%d: %s", status, target.PRIndex, target.Description)
 	if runURL != "" {
 		msg += "\n" + runURL
 	}
-	if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, msg); err != nil {
+	if err := notify.SendWithConfig(teamCfg.NotificationToken, teamCfg.ChatID, msg); err != nil {
 		log.Printf("[prwatch] telegram notify failed: %v", err)
 	}
 }

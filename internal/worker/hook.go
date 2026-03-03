@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/notify"
 )
 
 // taskwarrior task status constants used across hook handlers.
@@ -219,34 +220,14 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 	f.WriteString(line)
 }
 
-// NotifyTelegram sends a message to an agent's Telegram chat via the daemon.
-// Uses From-only routing (daemon's handleFrom → Telegram Bot API).
+// NotifyTelegram sends a notification to the team's Telegram chat using the
+// dedicated notification bot token. Sends directly via Telegram API without
+// going through the daemon socket.
 // Fire-and-forget: errors are logged but not propagated.
-// No-ops if config cannot be loaded (no guessing).
 func NotifyTelegram(message string) {
-	agent := resolveLifecycleAgent()
-	if agent == "" {
-		return
+	if err := notify.Send(message); err != nil {
+		hookLogFile(fmt.Sprintf("ERROR: telegram notify failed: %v", err))
 	}
-	req := daemonSendRequest{From: agent, Message: message}
-	if err := sendToDaemon(req); err != nil {
-		hookLogFile(fmt.Sprintf("ERROR: telegram notify failed for %s: %v", agent, err))
-	}
-}
-
-// resolveLifecycleAgent reads the lifecycle agent from config.toml.
-// Returns empty string (and logs) if config is missing or has no lifecycle_agent.
-func resolveLifecycleAgent() string {
-	cfg, err := config.Load()
-	if err != nil {
-		hookLogFile("WARNING: cannot resolve lifecycle agent: " + err.Error())
-		return ""
-	}
-	if cfg.LifecycleAgent == "" {
-		hookLogFile("WARNING: config has no lifecycle_agent configured")
-		return ""
-	}
-	return cfg.LifecycleAgent
 }
 
 func hookLogFile(message string) {

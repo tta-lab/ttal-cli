@@ -105,10 +105,11 @@ func AgentSessionName(team, agent string) string {
 // Callers access ChatID, Agents, etc. without caring about which team is active.
 type Config struct {
 	// Resolved fields — populated from active team after Load(). Not directly settable in TOML.
-	ChatID         string                 `toml:"-" json:"-"`
-	LifecycleAgent string                 `toml:"-" json:"-"`
-	Agents         map[string]AgentConfig `toml:"-" json:"-"`
-	Voice          VoiceConfig            `toml:"-" json:"-"`
+	ChatID            string                 `toml:"-" json:"-"`
+	LifecycleAgent    string                 `toml:"-" json:"-"` // Deprecated: use NotificationToken instead
+	NotificationToken string                 `toml:"-" json:"-"`
+	Agents            map[string]AgentConfig `toml:"-" json:"-"`
+	Voice             VoiceConfig            `toml:"-" json:"-"`
 
 	// Global fields — not per-team.
 	Shell   string        `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
@@ -139,24 +140,25 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
-	TeamPath        string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."`         //nolint:lll
-	DBPath          string                 `toml:"db_path" jsonschema:"description=Path to ttal.db (default: <data_dir>/ttal.db). Set to share DB across teams."` //nolint:lll
-	DataDir         string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`                               //nolint:lll
-	TaskRC          string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`                     //nolint:lll
-	ChatID          string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
-	LifecycleAgent  string                 `toml:"lifecycle_agent" jsonschema:"description=Agent responsible for worker lifecycle"`                                           //nolint:lll
-	AgentRuntime    string                 `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Runtime for agent sessions"` //nolint:lll
-	WorkerRuntime   string                 `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,description=Runtime for spawned workers"`             //nolint:lll
-	GatewayURL      string                 `toml:"gateway_url" jsonschema:"description=OpenClaw Gateway URL"`
-	HooksToken      string                 `toml:"hooks_token" jsonschema:"description=OpenClaw hooks auth token"`
-	MergeMode       string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`                  //nolint:lll
-	VoiceLanguage   string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
-	DesignAgent     string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
-	ResearchAgent   string                 `toml:"research_agent" jsonschema:"description=Research agent"`
-	TestAgent       string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
-	Agents          map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
-	VoiceVocabulary []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"` //nolint:lll
-	TaskSyncURL     string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`            //nolint:lll
+	TeamPath             string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."`         //nolint:lll
+	DBPath               string                 `toml:"db_path" jsonschema:"description=Path to ttal.db (default: <data_dir>/ttal.db). Set to share DB across teams."` //nolint:lll
+	DataDir              string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`                               //nolint:lll
+	TaskRC               string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`                     //nolint:lll
+	ChatID               string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
+	LifecycleAgent       string                 `toml:"lifecycle_agent" jsonschema:"description=Deprecated: use notification_token_env instead"`                                                    //nolint:lll
+	NotificationTokenEnv string                 `toml:"notification_token_env" jsonschema:"description=Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)"` //nolint:lll
+	AgentRuntime         string                 `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw,description=Runtime for agent sessions"`                  //nolint:lll
+	WorkerRuntime        string                 `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,description=Runtime for spawned workers"`                              //nolint:lll
+	GatewayURL           string                 `toml:"gateway_url" jsonschema:"description=OpenClaw Gateway URL"`
+	HooksToken           string                 `toml:"hooks_token" jsonschema:"description=OpenClaw hooks auth token"`
+	MergeMode            string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`                  //nolint:lll
+	VoiceLanguage        string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
+	DesignAgent          string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
+	ResearchAgent        string                 `toml:"research_agent" jsonschema:"description=Research agent"`
+	TestAgent            string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
+	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
+	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"` //nolint:lll
+	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`            //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, and command deployment.
@@ -197,6 +199,21 @@ func (c *Config) AgentModelFor(agentName string) string {
 		return ac.Model
 	}
 	return DefaultModel
+}
+
+// resolveNotificationToken reads the notification bot token from .env.
+// Convention: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN (e.g. DEFAULT_NOTIFICATION_BOT_TOKEN).
+// Override: team's notification_token_env field takes priority.
+func resolveNotificationToken(teamName, envOverride string) string {
+	envKey := envOverride
+	if envKey == "" {
+		envKey = strings.ToUpper(teamName) + "_NOTIFICATION_BOT_TOKEN"
+	}
+	env, err := LoadDotEnv()
+	if err != nil {
+		return ""
+	}
+	return env[envKey]
 }
 
 // resolveBotTokens loads .env and populates BotToken for all agents.
@@ -516,6 +533,9 @@ func (c *Config) resolve() error {
 	// Note: resolveBotTokens is also called in resolveTeam() for LoadAll().
 	// Each path resolves independently — Load() uses resolve(), LoadAll() uses resolveTeam().
 	resolveBotTokens(c.Agents)
+
+	// Resolve notification bot token from .env
+	c.NotificationToken = resolveNotificationToken(teamName, team.NotificationTokenEnv)
 	c.Voice = VoiceConfig{
 		Vocabulary: team.VoiceVocabulary,
 		Language:   team.VoiceLanguage,
@@ -595,19 +615,20 @@ type DaemonConfig struct {
 
 // ResolvedTeam holds a single team's fully resolved config.
 type ResolvedTeam struct {
-	Name           string
-	TeamPath       string
-	DataDir        string
-	TaskRC         string
-	ChatID         string
-	LifecycleAgent string
-	AgentRuntime   string
-	WorkerRuntime  string
-	MergeMode      string
-	GatewayURL     string
-	HooksToken     string
-	Voice          VoiceConfig
-	Agents         map[string]AgentConfig
+	Name              string
+	TeamPath          string
+	DataDir           string
+	TaskRC            string
+	ChatID            string
+	LifecycleAgent    string // Deprecated: use NotificationToken instead
+	NotificationToken string
+	AgentRuntime      string
+	WorkerRuntime     string
+	MergeMode         string
+	GatewayURL        string
+	HooksToken        string
+	Voice             VoiceConfig
+	Agents            map[string]AgentConfig
 }
 
 // TeamAgent pairs an agent with its team context.
@@ -667,15 +688,16 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 	}
 
 	rt := &ResolvedTeam{
-		Name:           teamName,
-		TeamPath:       expandHome(team.TeamPath),
-		ChatID:         team.ChatID,
-		LifecycleAgent: team.LifecycleAgent,
-		AgentRuntime:   team.AgentRuntime,
-		WorkerRuntime:  team.WorkerRuntime,
-		MergeMode:      team.MergeMode,
-		GatewayURL:     team.GatewayURL,
-		HooksToken:     team.HooksToken,
+		Name:              teamName,
+		TeamPath:          expandHome(team.TeamPath),
+		ChatID:            team.ChatID,
+		LifecycleAgent:    team.LifecycleAgent,
+		NotificationToken: resolveNotificationToken(teamName, team.NotificationTokenEnv),
+		AgentRuntime:      team.AgentRuntime,
+		WorkerRuntime:     team.WorkerRuntime,
+		MergeMode:         team.MergeMode,
+		GatewayURL:        team.GatewayURL,
+		HooksToken:        team.HooksToken,
 		Voice: VoiceConfig{
 			Vocabulary: team.VoiceVocabulary,
 			Language:   team.VoiceLanguage,
@@ -958,17 +980,17 @@ Follow each task in order: read the plan, make changes, verify, commit."""
 
 [teams.default]
 chat_id = ""                 # Telegram chat ID for this team
-lifecycle_agent = "kestrel"
 team_path = ""               # Root path for agent workspaces
 design_agent = "inke"        # Agent for ttal task design
 research_agent = "athena"    # Agent for ttal task research
+# notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"  # optional override
 # test_agent = ""            # Agent for ttal task test
 # worker_runtime = "claude-code"
 # agent_runtime = "claude-code"
 # merge_mode = "auto"
 
 # Bot tokens are stored in ~/.config/ttal/.env (not in this file)
-# Convention: {UPPER_AGENT}_BOT_TOKEN=<token>
+# Convention: {UPPER_AGENT}_BOT_TOKEN for agents, {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN for notifications
 # Run 'ttal doctor --fix' to generate a template .env file
 [teams.default.agents.kestrel]
 

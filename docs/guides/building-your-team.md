@@ -35,7 +35,6 @@ Configure routing in `config.toml`:
 [teams.default]
 design_agent = "inke"
 research_agent = "athena"
-lifecycle_agent = "kestrel"
 ```
 
 Now `ttal task research <uuid>` goes to Athena, `ttal task design <uuid>` goes to Inke, and `ttal task execute <uuid>` spawns a worker.
@@ -91,11 +90,9 @@ For completely separate contexts (different projects, different taskwarrior inst
 ```toml
 [teams.personal]
 taskrc = "~/.taskrc"
-lifecycle_agent = "kestrel"
 
 [teams.work]
 taskrc = "~/.task-work/taskrc"
-lifecycle_agent = "atlas"
 ```
 
 Each team has its own:
