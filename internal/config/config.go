@@ -101,7 +101,7 @@ func AgentSessionName(team, agent string) string {
 
 // FlicknoteConfig holds flicknote-related settings.
 type FlicknoteConfig struct {
-	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Flicknote project name substrings to inline into worker prompts (default: [plan])"`
+	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
 }
 
 // Config is the top-level structure for ~/.config/ttal/config.toml.
