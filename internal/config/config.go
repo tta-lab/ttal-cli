@@ -99,6 +99,14 @@ func AgentSessionName(team, agent string) string {
 	return fmt.Sprintf("ttal-%s-%s", team, agent)
 }
 
+// DefaultInlineProjects is the default set of flicknote project keywords to inline.
+var DefaultInlineProjects = []string{"plan"}
+
+// FlicknoteConfig holds flicknote-related settings.
+type FlicknoteConfig struct {
+	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
+}
+
 // Config is the top-level structure for ~/.config/ttal/config.toml.
 //
 // Requires [teams] sections. After Load(), resolved fields are populated from the active team.
@@ -112,9 +120,10 @@ type Config struct {
 	Voice             VoiceConfig            `toml:"-" json:"-"`
 
 	// Global fields — not per-team.
-	Shell   string        `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
-	Sync    SyncConfig    `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
-	Prompts PromptsConfig `toml:"prompts" jsonschema:"description=Prompt templates for task routing"`
+	Shell     string          `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
+	Sync      SyncConfig      `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
+	Prompts   PromptsConfig   `toml:"prompts" jsonschema:"description=Prompt templates for task routing"`
+	Flicknote FlicknoteConfig `toml:"flicknote" jsonschema:"description=Flicknote integration settings"`
 
 	// Team-aware fields.
 	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"` //nolint:lll
@@ -597,6 +606,11 @@ func (c *Config) resolve() error {
 	// Merge mode: from team config (defaults to empty = "auto" behavior).
 	c.resolvedMergeMode = team.MergeMode
 
+	// Default flicknote inline projects to ["plan"] if not configured.
+	if len(c.Flicknote.InlineProjects) == 0 {
+		c.Flicknote.InlineProjects = DefaultInlineProjects
+	}
+
 	return c.validateMergeMode()
 }
 
@@ -977,6 +991,9 @@ execute = """
 {{skill:sp-executing-plans}}
 Use the executing-plans skill to implement this plan task-by-task.
 Follow each task in order: read the plan, make changes, verify, commit."""
+
+[flicknote]
+# inline_projects = ["plan", "fix"]  # project name substrings to inline into worker prompts
 
 [teams.default]
 chat_id = ""                 # Telegram chat ID for this team

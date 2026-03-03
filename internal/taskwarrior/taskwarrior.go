@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -208,11 +210,25 @@ func ReadFlicknoteJSON(id string) *FlicknoteNote {
 	return &note
 }
 
-// ShouldInlineNote returns true if the note's project indicates it's a plan/design doc.
-// Matches both "plan" and "design" for consistency with inlineRefPattern (Plan:/Design:).
-func ShouldInlineNote(note *FlicknoteNote) bool {
+// ShouldInlineNote returns true if the note's project matches any of the given keywords.
+// Keywords are matched case-insensitively as substrings of the project name.
+func ShouldInlineNote(note *FlicknoteNote, inlineProjects []string) bool {
 	name := strings.ToLower(note.Project)
-	return strings.Contains(name, "plan") || strings.Contains(name, "design")
+	for _, keyword := range inlineProjects {
+		if strings.Contains(name, strings.ToLower(keyword)) {
+			return true
+		}
+	}
+	return false
+}
+
+// loadInlineProjects returns the configured inline project keywords, defaulting to ["plan"].
+func loadInlineProjects() []string {
+	cfg, err := config.Load()
+	if err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
+		return cfg.Flicknote.InlineProjects
+	}
+	return config.DefaultInlineProjects
 }
 
 // formatFlicknoteContent formats a flicknote note for prompt inlining.
@@ -239,10 +255,12 @@ type docRef struct {
 // Includes description, annotations, and selectively inlined referenced docs.
 // File refs use prefix-based logic (Plan:/Design: → inline, Research:/Doc: → don't).
 // Hex IDs (bare or prefixed like "Plan: abc123") use project-based logic via flicknote:
-// inline if the note's project contains "plan" or "design".
+// inline if the note's project matches any keyword in [flicknote] inline_projects config.
 func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)
+
+	inlineProjects := loadInlineProjects()
 
 	refDescs := make(map[string]bool)
 	flicknoteCache := make(map[string]string) // keyed by full annotation text (e.g. "Plan: e8fd0fe0")
@@ -275,7 +293,7 @@ func (t *Task) FormatPrompt() string {
 			refDescs[desc] = true
 
 			note := ReadFlicknoteJSON(hexID)
-			if note != nil && ShouldInlineNote(note) {
+			if note != nil && ShouldInlineNote(note, inlineProjects) {
 				flicknoteCache[desc] = formatFlicknoteContent(note)
 				refs = append(refs, docRef{label: "FlickNote: " + hexID, refType: "flicknote_cached", id: desc})
 			}

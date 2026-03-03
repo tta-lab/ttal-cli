@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	gitroot "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -237,6 +238,11 @@ func archiveTaskPlans(taskUUID string) {
 		return
 	}
 
+	inlineProjects := config.DefaultInlineProjects
+	if cfg, err := config.Load(); err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
+		inlineProjects = cfg.Flicknote.InlineProjects
+	}
+
 	for _, ann := range task.Annotations {
 		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
 		if len(m) == 0 {
@@ -248,7 +254,7 @@ func archiveTaskPlans(taskUUID string) {
 		if note == nil {
 			continue
 		}
-		if !taskwarrior.ShouldInlineNote(note) {
+		if !taskwarrior.ShouldInlineNote(note, inlineProjects) {
 			continue
 		}
 
