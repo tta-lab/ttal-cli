@@ -10,9 +10,9 @@ func TestCopyDir(t *testing.T) {
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "out")
 
-	os.MkdirAll(filepath.Join(src, "agent"), 0o755)
-	os.WriteFile(filepath.Join(src, "config.toml"), []byte("test"), 0o644)
-	os.WriteFile(filepath.Join(src, "agent", "CLAUDE.md"), []byte("# Agent"), 0o644)
+	_ = os.MkdirAll(filepath.Join(src, "agent"), 0o755)
+	_ = os.WriteFile(filepath.Join(src, "config.toml"), []byte("test"), 0o644)
+	_ = os.WriteFile(filepath.Join(src, "agent", "CLAUDE.md"), []byte("# Agent"), 0o644)
 
 	if err := copyDir(src, dst); err != nil {
 		t.Fatalf("copyDir: %v", err)
@@ -29,9 +29,9 @@ func TestCopyDirSkipsDotDirs(t *testing.T) {
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "out")
 
-	os.MkdirAll(filepath.Join(src, ".git", "objects"), 0o755)
-	os.WriteFile(filepath.Join(src, ".git", "HEAD"), []byte("ref"), 0o644)
-	os.WriteFile(filepath.Join(src, "README.md"), []byte("hi"), 0o644)
+	_ = os.MkdirAll(filepath.Join(src, ".git", "objects"), 0o755)
+	_ = os.WriteFile(filepath.Join(src, ".git", "HEAD"), []byte("ref"), 0o644)
+	_ = os.WriteFile(filepath.Join(src, "README.md"), []byte("hi"), 0o644)
 
 	if err := copyDir(src, dst); err != nil {
 		t.Fatalf("copyDir: %v", err)
@@ -51,15 +51,15 @@ func TestApplyScaffold(t *testing.T) {
 
 	// Create scaffold
 	scaffoldDir := filepath.Join(repoDir, "basic")
-	os.MkdirAll(filepath.Join(scaffoldDir, "manager"), 0o755)
-	os.WriteFile(filepath.Join(scaffoldDir, "config.toml"), []byte("default_team = \"default\""), 0o644)
-	os.WriteFile(filepath.Join(scaffoldDir, "README.md"), []byte("# Basic — Two agents\n\nA minimal setup."), 0o644)
-	os.WriteFile(filepath.Join(scaffoldDir, "manager", "CLAUDE.md"), []byte("# Manager"), 0o644)
+	_ = os.MkdirAll(filepath.Join(scaffoldDir, "manager"), 0o755)
+	_ = os.WriteFile(filepath.Join(scaffoldDir, "config.toml"), []byte(`default_team = "default"`), 0o644)
+	_ = os.WriteFile(filepath.Join(scaffoldDir, "README.md"), []byte("# Basic — Two agents\n\nA minimal setup."), 0o644)
+	_ = os.WriteFile(filepath.Join(scaffoldDir, "manager", "CLAUDE.md"), []byte("# Manager"), 0o644)
 
 	// Create shared docs
 	docsDir := filepath.Join(repoDir, "docs", "skills", "git-omz")
-	os.MkdirAll(docsDir, 0o755)
-	os.WriteFile(filepath.Join(docsDir, "SKILL.md"), []byte("# Git"), 0o644)
+	_ = os.MkdirAll(docsDir, 0o755)
+	_ = os.WriteFile(filepath.Join(docsDir, "SKILL.md"), []byte("# Git"), 0o644)
 
 	err := Apply(repoDir, "basic", workspace)
 	if err != nil {
@@ -89,13 +89,13 @@ func TestListScaffoldsFromHeadings(t *testing.T) {
 
 	// basic scaffold with heading-style README
 	basic := filepath.Join(repoDir, "basic")
-	os.MkdirAll(filepath.Join(basic, "manager"), 0o755)
-	os.WriteFile(filepath.Join(basic, "config.toml"), []byte(""), 0o644)
-	os.WriteFile(filepath.Join(basic, "README.md"), []byte("# Basic — Two agents\n\nA minimal setup."), 0o644)
-	os.WriteFile(filepath.Join(basic, "manager", "CLAUDE.md"), []byte(""), 0o644)
+	_ = os.MkdirAll(filepath.Join(basic, "manager"), 0o755)
+	_ = os.WriteFile(filepath.Join(basic, "config.toml"), []byte(""), 0o644)
+	_ = os.WriteFile(filepath.Join(basic, "README.md"), []byte("# Basic — Two agents\n\nA minimal setup."), 0o644)
+	_ = os.WriteFile(filepath.Join(basic, "manager", "CLAUDE.md"), []byte(""), 0o644)
 
 	// Non-scaffold dir (no config.toml)
-	os.MkdirAll(filepath.Join(repoDir, "docs"), 0o755)
+	_ = os.MkdirAll(filepath.Join(repoDir, "docs"), 0o755)
 
 	scaffolds, err := List(repoDir)
 	if err != nil {
@@ -123,10 +123,13 @@ func TestListScaffoldsWithFrontmatter(t *testing.T) {
 	repoDir := t.TempDir()
 
 	ff := filepath.Join(repoDir, "full-flicknote")
-	os.MkdirAll(filepath.Join(ff, "hawk"), 0o755)
-	os.WriteFile(filepath.Join(ff, "config.toml"), []byte(""), 0o644)
-	os.WriteFile(filepath.Join(ff, "README.md"), []byte("---\nname: Full (FlickNote)\ndescription: With personalities\ninstall_hint: Requires FlickNote CLI\n---\n# Full"), 0o644)
-	os.WriteFile(filepath.Join(ff, "hawk", "CLAUDE.md"), []byte(""), 0o644)
+	_ = os.MkdirAll(filepath.Join(ff, "hawk"), 0o755)
+	_ = os.WriteFile(filepath.Join(ff, "config.toml"), []byte(""), 0o644)
+	fmContent := "---\nname: Full (FlickNote)\n" +
+		"description: With personalities\n" +
+		"install_hint: Requires FlickNote CLI\n---\n# Full"
+	_ = os.WriteFile(filepath.Join(ff, "README.md"), []byte(fmContent), 0o644)
+	_ = os.WriteFile(filepath.Join(ff, "hawk", "CLAUDE.md"), []byte(""), 0o644)
 
 	scaffolds, err := List(repoDir)
 	if err != nil {
@@ -149,14 +152,14 @@ func TestListMultipleScaffolds(t *testing.T) {
 
 	for _, name := range []string{"basic", "full-markdown"} {
 		dir := filepath.Join(repoDir, name)
-		os.MkdirAll(dir, 0o755)
-		os.WriteFile(filepath.Join(dir, "config.toml"), []byte(""), 0o644)
-		os.WriteFile(filepath.Join(dir, "README.md"), []byte("# "+name), 0o644)
+		_ = os.MkdirAll(dir, 0o755)
+		_ = os.WriteFile(filepath.Join(dir, "config.toml"), []byte(""), 0o644)
+		_ = os.WriteFile(filepath.Join(dir, "README.md"), []byte("# "+name), 0o644)
 	}
 
 	// Non-scaffold dirs
-	os.MkdirAll(filepath.Join(repoDir, "docs"), 0o755)
-	os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755)
+	_ = os.MkdirAll(filepath.Join(repoDir, "docs"), 0o755)
+	_ = os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755)
 
 	scaffolds, err := List(repoDir)
 	if err != nil {

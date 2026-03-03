@@ -56,7 +56,7 @@ func List(repoDir string) ([]ScaffoldInfo, error) {
 		return nil, err
 	}
 
-	var scaffolds []ScaffoldInfo
+	scaffolds := make([]ScaffoldInfo, 0, len(entries))
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
