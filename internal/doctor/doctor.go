@@ -655,11 +655,17 @@ func checkDatabase() Section {
 
 	section.add(LevelOK, "database", dbPath+" exists")
 
-	count, err := countAgents(dbPath)
+	// Count agents from filesystem (team_path) instead of DB
+	cfg, err := config.Load()
 	if err != nil {
-		section.add(LevelWarn, "agents", fmt.Sprintf("could not count agents: %v", err))
+		section.add(LevelWarn, "agents", fmt.Sprintf("could not load config for agent count: %v", err))
 	} else {
-		section.add(LevelOK, "agents", fmt.Sprintf("%d agents registered", count))
+		count, err := countAgents(cfg.TeamPath())
+		if err != nil {
+			section.add(LevelWarn, "agents", fmt.Sprintf("could not count agents: %v", err))
+		} else {
+			section.add(LevelOK, "agents", fmt.Sprintf("%d agents discovered", count))
+		}
 	}
 
 	return section

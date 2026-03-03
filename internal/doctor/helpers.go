@@ -1,30 +1,17 @@
 package doctor
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
 	"net/http"
 	"time"
 
-	"entgo.io/ent/dialect"
-	entsql "entgo.io/ent/dialect/sql"
-	_ "modernc.org/sqlite"
-
-	"github.com/tta-lab/ttal-cli/ent"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 )
 
-func countAgents(dbPath string) (int, error) {
-	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?mode=ro", dbPath))
-	if err != nil {
-		return 0, err
+func countAgents(teamPath string) (int, error) {
+	if teamPath == "" {
+		return 0, nil
 	}
-	defer func() { _ = db.Close() }()
-	drv := entsql.OpenDB(dialect.SQLite, db)
-	client := ent.NewClient(ent.Driver(drv))
-	defer client.Close()
-
-	return client.Agent.Query().Count(context.Background())
+	return agentfs.Count(teamPath)
 }
 
 func isVoiceServerRunning() bool {
