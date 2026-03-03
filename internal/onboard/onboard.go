@@ -10,13 +10,12 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/doctor"
+	"github.com/tta-lab/ttal-cli/internal/scaffold"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
-const starterRepo = "https://github.com/clawteam/ttal-starter.git"
-
 // Run executes the full onboard flow.
-func Run(workspace string) error {
+func Run(workspace, scaffoldName string) error {
 	workspace, err := expandPath(workspace)
 	if err != nil {
 		return err
@@ -35,7 +34,7 @@ func Run(workspace string) error {
 		fn   func() error
 	}{
 		{"Prerequisites", installPrerequisites},
-		{"Template repo", func() error { return cloneStarter(workspace) }},
+		{"Scaffold setup", func() error { return setupScaffold(workspace, scaffoldName) }},
 		{"Taskwarrior & config", setupTaskwarriorAndConfig},
 		{"Registering agents", func() error { return registerAgents(self, workspace) }},
 		{"Daemon & worker hooks", installDaemonAndWorker},
@@ -104,9 +103,9 @@ func installPrerequisites() error {
 	return nil
 }
 
-// --- Step 2: Clone starter repo ---
+// --- Step 2: Scaffold setup ---
 
-func cloneStarter(workspace string) error {
+func setupScaffold(workspace, scaffoldName string) error {
 	info, err := os.Stat(workspace)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("cannot access %s: %w", workspace, err)
@@ -115,15 +114,26 @@ func cloneStarter(workspace string) error {
 		if !info.IsDir() {
 			return fmt.Errorf("%s exists but is not a directory", workspace)
 		}
-		fmt.Printf("  %s already exists, skipping clone\n", workspace)
-		scanAndPrintAgents(workspace)
-		return nil
+		entries, _ := os.ReadDir(workspace)
+		if len(entries) > 0 {
+			fmt.Printf("  %s already exists, skipping scaffold\n", workspace)
+			scanAndPrintAgents(workspace)
+			return nil
+		}
 	}
 
-	fmt.Printf("  Cloning ttal-starter to %s...", workspace)
-	if err := exec.Command("git", "clone", starterRepo, workspace).Run(); err != nil {
+	fmt.Print("  Fetching templates...")
+	cacheDir, err := scaffold.EnsureCache()
+	if err != nil {
 		fmt.Println(" failed")
-		return fmt.Errorf("git clone failed: %w", err)
+		return fmt.Errorf("fetch templates: %w", err)
+	}
+	fmt.Println(" done")
+
+	fmt.Printf("  Applying %s scaffold to %s...", scaffoldName, workspace)
+	if err := scaffold.Apply(cacheDir, scaffoldName, workspace); err != nil {
+		fmt.Println(" failed")
+		return err
 	}
 	fmt.Println(" done")
 
