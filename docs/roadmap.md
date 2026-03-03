@@ -19,8 +19,12 @@ The foundation: multi-agent orchestration over Telegram with Claude Code, OpenCo
 - **Multi-runtime** — Claude Code, OpenCode, Codex CLI
 - **Starter templates** — `ttal init` scaffolds for new teams
 
-### v1.x improvements in progress
+### v1.x target: multi-runtime GA
 
+The v1.x goal is making **OpenCode and Codex CLI support production-ready** alongside Claude Code — so all three runtimes are fully supported for spawning, messaging, PR workflows, and review.
+
+**In progress:**
+- OpenCode and Codex CLI runtime parity (spawn, review, yolo modes)
 - Filesystem-based agent discovery (replacing DB-stored agents)
 - `ttal init` interactive scaffold picker
 - Configurable prompts for all task routing
