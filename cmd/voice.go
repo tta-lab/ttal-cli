@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/ent/agent"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/voice"
@@ -76,26 +75,26 @@ Examples:
 			return fmt.Errorf("TTAL_AGENT_NAME is required to send voice via Telegram")
 		}
 
-		// Look up agent voice from DB if --voice is not set
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+
+		// Look up agent voice from CLAUDE.md frontmatter if --voice is not set
 		if voiceID == "" {
-			ctx := context.Background()
-			ag, err := database.Agent.Query().
-				Where(agent.Name(strings.ToLower(agentName))).
-				Only(ctx)
-			if err != nil {
-				return fmt.Errorf("agent '%s' not found", agentName)
+			tp := cfg.TeamPath()
+			if tp != "" {
+				ag, err := agentfs.Get(tp, strings.ToLower(agentName))
+				if err == nil {
+					voiceID = ag.Voice
+				}
 			}
-			voiceID = ag.Voice
 		}
 
 		if voiceID != "" && !voice.IsValidVoice(voiceID) {
 			return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", voiceID)
 		}
 
-		cfg, err := config.Load()
-		if err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
 		agentCfg, ok := cfg.Agents[agentName]
 		if !ok {
 			return fmt.Errorf("agent %s not found in config", agentName)
