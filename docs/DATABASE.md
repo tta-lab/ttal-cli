@@ -41,14 +41,23 @@ When you run any `ttal` command, the system:
 From `internal/db/db.go`:
 
 ```go
+// Connection hook runs on every new SQLite connection (registered in init())
+sqlite.RegisterConnectionHook(func(conn sqlite.ExecQuerierContext, dsn string) error {
+    conn.ExecContext(ctx, "PRAGMA foreign_keys = ON", nil)
+    conn.ExecContext(ctx, "PRAGMA journal_mode = WAL", nil)
+    conn.ExecContext(ctx, "PRAGMA busy_timeout = 5000", nil)
+    return nil
+})
+
 func New(dbPath string) (*DB, error) {
     // 1. Ensure directory exists
     dir := filepath.Dir(dbPath)
     os.MkdirAll(dir, 0755)
 
-    // 2. Open SQLite with recommended settings
-    dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1&_journal_mode=WAL&_busy_timeout=5000", dbPath)
-    client, err := ent.Open("sqlite3", dsn)
+    // 2. Open SQLite with modernc.org/sqlite (pure Go, no CGO)
+    db, err := sql.Open("sqlite", fmt.Sprintf("file:%s", dbPath))
+    drv := entsql.OpenDB(dialect.SQLite, db)
+    client := ent.NewClient(ent.Driver(drv))
 
     // 3. Run auto-migrations
     client.Schema.Create(context.Background())
@@ -59,14 +68,13 @@ func New(dbPath string) (*DB, error) {
 
 ### Connection Settings
 
-The DSN (Data Source Name) includes these optimizations:
+Pragmas are applied via a connection hook (registered in `init()`) on every new SQLite connection:
 
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `cache=shared` | Enabled | Better concurrency for multiple connections |
-| `_fk=1` | Enabled | Enforces foreign key constraints (critical for M2M relations) |
-| `_journal_mode=WAL` | Enabled | Write-Ahead Logging for better performance + concurrent reads |
-| `_busy_timeout=5000` | 5 seconds | Wait up to 5s on lock conflicts before failing |
+| Pragma | Value | Purpose |
+|--------|-------|---------|
+| `foreign_keys` | ON | Enforces foreign key constraints (critical for M2M relations) |
+| `journal_mode` | WAL | Write-Ahead Logging for better performance + concurrent reads |
+| `busy_timeout` | 5000 | Wait up to 5s on lock conflicts before failing |
 
 **Why WAL mode?**
 - ✅ **Concurrent reads** while writes are in progress

@@ -19,6 +19,7 @@ func countAgents(dbPath string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer db.Close()
 	drv := entsql.OpenDB(dialect.SQLite, db)
 	client := ent.NewClient(ent.Driver(drv))
 	defer client.Close()
