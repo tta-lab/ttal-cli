@@ -63,12 +63,3 @@ Containerize worker execution for security and reproducibility.
 - Volume mounts for git worktrees
 - Network policy controls
 
-## Ideas & Future
-
-These are under consideration but not yet planned:
-
-- **Web dashboard** — real-time view of agents, workers, and task pipeline
-- **Agent memory sharing** — cross-agent knowledge base beyond flicknote
-- **Cost tracking** — token usage and API cost per task/agent
-- **Multi-machine** — distribute workers across multiple dev machines
-- **Plugin system** — community-contributed task routers and adapters
