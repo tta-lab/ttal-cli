@@ -252,7 +252,8 @@ func checkConfig(fix bool) Section {
 	}
 
 	if cfg.NotificationToken == "" {
-		section.add(LevelWarn, "notification_token", "notification bot token not configured (set {TEAM}_NOTIFICATION_BOT_TOKEN in .env)")
+		section.add(LevelWarn, "notification_token",
+			"notification bot token not configured (set {TEAM}_NOTIFICATION_BOT_TOKEN in .env)")
 	} else {
 		section.add(LevelOK, "notification_token", "notification bot token configured")
 	}

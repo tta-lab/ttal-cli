@@ -156,7 +156,7 @@ type TeamConfig struct {
 	DesignAgent          string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
 	ResearchAgent        string                 `toml:"research_agent" jsonschema:"description=Research agent"`
 	TestAgent            string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
-	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`
+	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                  //nolint:lll
 	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"` //nolint:lll
 	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`            //nolint:lll
 }

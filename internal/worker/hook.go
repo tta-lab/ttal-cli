@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,65 +18,6 @@ const (
 	taskStatusPending   = "pending"
 	taskStatusCompleted = "completed"
 )
-
-// daemonSendRequest mirrors daemon.SendRequest to avoid import cycle.
-type daemonSendRequest struct {
-	From    string `json:"from,omitempty"`
-	To      string `json:"to,omitempty"`
-	Team    string `json:"team,omitempty"`
-	Message string `json:"message"`
-}
-
-type daemonSendResponse struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
-}
-
-// errDaemonNotRunning is returned when the daemon socket cannot be reached.
-// Callers use this to distinguish "daemon down, fall back" from
-// "daemon up but rejected the request".
-var errDaemonNotRunning = fmt.Errorf("daemon not running")
-
-// sendToDaemon sends a request to the daemon socket.
-// Returns errDaemonNotRunning if the socket is unreachable.
-// Returns a descriptive error (prefixed "daemon error:") if the daemon
-// accepted the connection but rejected the request.
-func sendToDaemon(req daemonSendRequest) error {
-	if req.Team == "" {
-		req.Team = os.Getenv("TTAL_TEAM")
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("user home dir: %w", err)
-	}
-	sockPath := filepath.Join(home, ".ttal", "daemon.sock")
-
-	conn, err := net.DialTimeout("unix", sockPath, 5*time.Second)
-	if err != nil {
-		return errDaemonNotRunning
-	}
-	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(5 * time.Second))
-
-	data, _ := json.Marshal(req)
-	if _, err := conn.Write(append(data, '\n')); err != nil {
-		return fmt.Errorf("failed to send to daemon: %w", err)
-	}
-
-	scanner := bufio.NewScanner(conn)
-	if !scanner.Scan() {
-		return fmt.Errorf("no response from daemon")
-	}
-
-	var resp daemonSendResponse
-	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
-		return err
-	}
-	if !resp.OK {
-		return fmt.Errorf("daemon error: %s", resp.Error)
-	}
-	return nil
-}
 
 // hookTask represents a taskwarrior task as received via on-modify hook stdin.
 // Uses map for flexibility — we only inspect specific fields.
