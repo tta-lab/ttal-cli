@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/db"
 )
 
@@ -21,6 +22,17 @@ var rootCmd = &cobra.Command{
 	Long: `TTAL is a CLI tool for managing projects, agents, and automated memory capture.
 It provides taskwarrior-like syntax for tag management and agent routing.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Load .env as fallback for tokens not already in the environment.
+		// The daemon loads .env into worker tmux sessions, but standalone
+		// CLI usage (e.g. ttal pr create from a regular terminal) needs this.
+		if dotEnv, err := config.LoadDotEnv(); err == nil {
+			for k, v := range dotEnv {
+				if os.Getenv(k) == "" {
+					os.Setenv(k, v)
+				}
+			}
+		}
+
 		// Initialize database connection
 		var err error
 		database, err = db.New(dbPath)
