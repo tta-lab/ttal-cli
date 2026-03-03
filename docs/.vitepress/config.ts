@@ -21,6 +21,7 @@ export default defineConfig({
       { text: 'Guides', link: '/guides/research-design-execute' },
       { text: 'Blog', link: '/blog/day-1-the-dream-setup' },
       { text: 'Pricing', link: '/pricing' },
+      { text: 'Roadmap', link: '/roadmap' },
     ],
 
     sidebar: {
