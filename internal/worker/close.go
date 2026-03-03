@@ -238,8 +238,7 @@ func archiveTaskPlans(taskUUID string) {
 		return
 	}
 
-	// Load inline projects from config (default: ["plan"]).
-	inlineProjects := []string{"plan"}
+	inlineProjects := config.DefaultInlineProjects
 	if cfg, err := config.Load(); err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
 		inlineProjects = cfg.Flicknote.InlineProjects
 	}

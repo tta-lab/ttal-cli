@@ -228,7 +228,7 @@ func loadInlineProjects() []string {
 	if err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
 		return cfg.Flicknote.InlineProjects
 	}
-	return []string{"plan"}
+	return config.DefaultInlineProjects
 }
 
 // formatFlicknoteContent formats a flicknote note for prompt inlining.
@@ -255,7 +255,7 @@ type docRef struct {
 // Includes description, annotations, and selectively inlined referenced docs.
 // File refs use prefix-based logic (Plan:/Design: → inline, Research:/Doc: → don't).
 // Hex IDs (bare or prefixed like "Plan: abc123") use project-based logic via flicknote:
-// inline if the note's project contains "plan" or "design".
+// inline if the note's project matches any keyword in [flicknote] inline_projects config.
 func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)

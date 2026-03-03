@@ -99,6 +99,9 @@ func AgentSessionName(team, agent string) string {
 	return fmt.Sprintf("ttal-%s-%s", team, agent)
 }
 
+// DefaultInlineProjects is the default set of flicknote project keywords to inline.
+var DefaultInlineProjects = []string{"plan"}
+
 // FlicknoteConfig holds flicknote-related settings.
 type FlicknoteConfig struct {
 	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
@@ -585,7 +588,7 @@ func (c *Config) resolve() error {
 
 	// Default flicknote inline projects to ["plan"] if not configured.
 	if len(c.Flicknote.InlineProjects) == 0 {
-		c.Flicknote.InlineProjects = []string{"plan"}
+		c.Flicknote.InlineProjects = DefaultInlineProjects
 	}
 
 	return c.validateMergeMode()
