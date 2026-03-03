@@ -76,14 +76,15 @@ Examples:
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		} else if sessionName != "" {
+			cfg, rt := loadReviewConfig()
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Reviewer already running, sending review request...")
-				if err := review.RequestReReview(sessionName, false, ""); err != nil {
+				if err := review.RequestReReview(sessionName, false, "", cfg, rt); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
 				fmt.Println("  Spawning reviewer...")
-				if err := review.SpawnReviewer(sessionName, ctx); err != nil {
+				if err := review.SpawnReviewer(sessionName, ctx, cfg, rt); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
@@ -256,22 +257,15 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: failed to write review file: %v\n", fileErr)
 				}
 
-				rt := resolveCoderRuntime()
-				mergeHint := " If verdict is LGTM and no remaining issues, merge with: ttal pr merge"
-				var notification string
+				cfg, rt := loadReviewConfig()
+				reviewRef := ""
 				if reviewFile != "" {
-					notification = runtime.FormatSkillMessage(rt, "triage",
-						fmt.Sprintf("PR review posted. Full review at %s"+
-							" — read it, assess and fix issues."+
-							" Post your triage update with ttal pr comment create when done."+
-							mergeHint,
-							reviewFile))
-				} else {
-					notification = runtime.FormatSkillMessage(rt, "triage",
-						"PR reviewed — see PR comments. "+
-							"Assess and fix issues, then post your triage update with ttal pr comment create."+
-							mergeHint)
+					reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
 				}
+				tmpl := cfg.Prompt("triage")
+				replacer := strings.NewReplacer("{{review-file}}", reviewRef)
+				notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
+
 				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
 				}
@@ -281,15 +275,16 @@ Examples:
 		// Auto-trigger re-review when coder posts a comment (triage done).
 		noReview, _ := cmd.Flags().GetBool("no-review")
 		if sessionName != "" && role == "coder" && !noReview {
+			cfg, rt := loadReviewConfig()
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Triggering re-review...")
-				if err := review.RequestReReview(sessionName, false, body); err != nil {
+				if err := review.RequestReReview(sessionName, false, body, cfg, rt); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
 				// Reviewer window gone (crashed or closed) — respawn it
 				fmt.Println("  Reviewer not running, spawning...")
-				if err := review.SpawnReviewer(sessionName, ctx); err != nil {
+				if err := review.SpawnReviewer(sessionName, ctx, cfg, rt); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
@@ -343,11 +338,12 @@ Examples:
 			fmt.Println("Killed existing reviewer window")
 		}
 
+		cfg, rt := loadReviewConfig()
 		if tmux.WindowExists(sessionName, "review") {
-			return review.RequestReReview(sessionName, reviewFull, "")
+			return review.RequestReReview(sessionName, reviewFull, "", cfg, rt)
 		}
 
-		return review.SpawnReviewer(sessionName, ctx)
+		return review.SpawnReviewer(sessionName, ctx, cfg, rt)
 	},
 }
 
@@ -400,6 +396,17 @@ func resolveCoderRuntime() runtime.Runtime {
 		}
 	}
 	return runtime.ClaudeCode
+}
+
+// loadReviewConfig loads config and resolves the coder runtime.
+// Falls back to empty config + ClaudeCode on error.
+func loadReviewConfig() (*config.Config, runtime.Runtime) {
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load config: %v\n", err)
+		cfg = &config.Config{}
+	}
+	return cfg, resolveCoderRuntime()
 }
 
 func init() {
