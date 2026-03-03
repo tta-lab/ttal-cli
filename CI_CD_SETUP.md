@@ -168,7 +168,6 @@ Standardized template for all pull requests:
 Added exclusions for:
 - Release binaries (`ttal-*`)
 - Build directory (`bin/`)
-- Memory output directories (`memory/`)
 - CI artifacts (`checksums.txt`, `dist/`)
 
 ## Development Workflow
@@ -226,9 +225,7 @@ The following lint issues were identified and can be addressed in follow-up PRs:
 
 3. **prealloc (1 issue)** - Slice preallocation in cmd/project.go:289
 
-4. **revive (1 issue)** - Import shadowing in internal/memory/capture.go:180
-
-5. **unused (1 issue)** - Unused variable in cmd/project.go:22
+4. **unused (1 issue)** - Unused variable in cmd/project.go:22
 
 ## References
 
