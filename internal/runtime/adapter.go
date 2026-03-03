@@ -17,6 +17,9 @@ type Event struct {
 	// Question fields (for EventQuestion).
 	CorrelationID string     // tool_use_id / requestID / call_id
 	Questions     []Question // 1-4 questions per event
+
+	// Tool fields (for EventTool).
+	ToolName string
 }
 
 // Question represents a single question from any runtime, normalized to a common format.
@@ -51,6 +54,7 @@ const (
 	EventError    EventType = "error"    // Runtime error
 	EventIdle     EventType = "idle"     // Agent finished processing, waiting for input
 	EventQuestion EventType = "question" // Agent needs human input
+	EventTool     EventType = "tool"     // Tool invocation detected
 )
 
 // Adapter abstracts the transport for communicating with a coding agent runtime.

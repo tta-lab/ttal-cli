@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 )
 
 // ParseChatID converts a string chat ID to int64.
@@ -76,6 +77,51 @@ func SendVoice(botToken string, chatID int64, oggData []byte) error {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("sendVoice returned %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// ToolEmoji maps a CC tool name to a Telegram-compatible emoji.
+func ToolEmoji(toolName string) string {
+	switch toolName {
+	case "Read", "Glob", "Grep":
+		return "🔍"
+	case "Edit", "Write", "Bash":
+		return "🖥"
+	case "WebSearch", "WebFetch":
+		return "🌐"
+	case "Agent":
+		return "🤖"
+	case "AskUserQuestion":
+		return "❓"
+	default:
+		return "🔥"
+	}
+}
+
+// SetReaction sets an emoji reaction on a Telegram message.
+// Setting a new reaction replaces the previous one (Telegram API behavior).
+func SetReaction(botToken string, chatID int64, messageID int, emoji string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	b, err := bot.New(botToken)
+	if err != nil {
+		return fmt.Errorf("telegram bot init: %w", err)
+	}
+
+	_, err = b.SetMessageReaction(ctx, &bot.SetMessageReactionParams{
+		ChatID:    chatID,
+		MessageID: messageID,
+		Reaction: []models.ReactionType{
+			{
+				Type:              models.ReactionTypeTypeEmoji,
+				ReactionTypeEmoji: &models.ReactionTypeEmoji{Emoji: emoji},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("set reaction: %w", err)
 	}
 	return nil
 }

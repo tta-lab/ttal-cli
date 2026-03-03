@@ -8,6 +8,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
+const jsonlTypeAssistant = "assistant"
+
 // jsonlEntry represents a single line in the CC session JSONL transcript.
 type jsonlEntry struct {
 	Type    string          `json:"type"`
@@ -50,7 +52,7 @@ type askUserOption struct {
 // Returns empty correlationID and nil if no questions found.
 func extractQuestions(line []byte) (correlationID string, questions []runtime.Question) {
 	var entry jsonlEntry
-	if err := json.Unmarshal(line, &entry); err != nil || entry.Type != "assistant" {
+	if err := json.Unmarshal(line, &entry); err != nil || entry.Type != jsonlTypeAssistant {
 		return "", nil
 	}
 
@@ -92,6 +94,28 @@ func extractQuestions(line []byte) (correlationID string, questions []runtime.Qu
 	return "", nil
 }
 
+// extractToolUse detects tool_use blocks in an assistant JSONL entry.
+// Returns the tool name of the first non-AskUserQuestion tool_use block, or "" if none found.
+func extractToolUse(line []byte) string {
+	var entry jsonlEntry
+	if err := json.Unmarshal(line, &entry); err != nil || entry.Type != jsonlTypeAssistant {
+		return ""
+	}
+
+	var msg assistantMessage
+	if err := json.Unmarshal(entry.Message, &msg); err != nil {
+		return ""
+	}
+
+	for _, block := range msg.Content {
+		if block.Type == "tool_use" && block.Name != "AskUserQuestion" {
+			return block.Name
+		}
+	}
+
+	return ""
+}
+
 // extractAssistantText parses a JSONL line and returns the assistant text
 // if it's a type=assistant entry with text content blocks. Returns "" otherwise.
 func extractAssistantText(line []byte) string {
@@ -100,7 +124,7 @@ func extractAssistantText(line []byte) string {
 		return ""
 	}
 
-	if entry.Type != "assistant" {
+	if entry.Type != jsonlTypeAssistant {
 		return ""
 	}
 

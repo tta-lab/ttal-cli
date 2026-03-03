@@ -28,6 +28,9 @@ type SendFunc func(teamName, agentName, text string)
 // QuestionFunc is called when an AskUserQuestion is detected in CC JSONL.
 type QuestionFunc func(teamName, agentName, correlationID string, questions []runtime.Question)
 
+// ToolFunc is called when a tool invocation is detected in CC JSONL.
+type ToolFunc func(teamName, agentName, toolName string)
+
 // Watcher tails active CC JSONL files and sends assistant text to Telegram.
 type Watcher struct {
 	projectsDir string               // ~/.claude/projects/
@@ -36,6 +39,7 @@ type Watcher struct {
 	mu          sync.Mutex
 	send        SendFunc
 	onQuestion  QuestionFunc
+	onTool      ToolFunc
 }
 
 // EncodePath converts an absolute path to CC's encoded project directory name.
@@ -48,7 +52,7 @@ func EncodePath(path string) string {
 
 // New creates a Watcher from a pre-built agent path mapping.
 // Config-driven: no DB or config.Load() required.
-func New(agents map[string]AgentInfo, send SendFunc, onQuestion QuestionFunc) (*Watcher, error) {
+func New(agents map[string]AgentInfo, send SendFunc, onQuestion QuestionFunc, onTool ToolFunc) (*Watcher, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -62,6 +66,7 @@ func New(agents map[string]AgentInfo, send SendFunc, onQuestion QuestionFunc) (*
 		offsets:     make(map[string]int64),
 		send:        send,
 		onQuestion:  onQuestion,
+		onTool:      onTool,
 	}, nil
 }
 
@@ -190,27 +195,38 @@ func (w *Watcher) handleFileWrite(path string) {
 		return
 	}
 
-	// Process complete lines only (keep partial trailing line for next read)
-	consumed := 0
-	for _, line := range splitCompleteLines(newBytes) {
-		consumed += len(line) + 1 // +1 for newline
-
-		if correlationID, questions := extractQuestions(line); len(questions) > 0 {
-			if w.onQuestion != nil {
-				w.onQuestion(agentInfo.TeamName, agentInfo.AgentName, correlationID, questions)
-			}
-			continue
-		}
-
-		text := extractAssistantText(line)
-		if text != "" {
-			w.send(agentInfo.TeamName, agentInfo.AgentName, text)
-		}
-	}
+	consumed := w.processLines(newBytes, agentInfo)
 
 	w.mu.Lock()
 	w.offsets[path] = offset + int64(consumed)
 	w.mu.Unlock()
+}
+
+// processLines processes complete JSONL lines, dispatching questions, tools, and text events.
+// Returns the number of bytes consumed (including newlines).
+func (w *Watcher) processLines(data []byte, agent AgentInfo) int {
+	consumed := 0
+	for _, line := range splitCompleteLines(data) {
+		consumed += len(line) + 1
+
+		if correlationID, questions := extractQuestions(line); len(questions) > 0 {
+			if w.onQuestion != nil {
+				w.onQuestion(agent.TeamName, agent.AgentName, correlationID, questions)
+			}
+			continue
+		}
+
+		if toolName := extractToolUse(line); toolName != "" {
+			if w.onTool != nil {
+				w.onTool(agent.TeamName, agent.AgentName, toolName)
+			}
+		}
+
+		if text := extractAssistantText(line); text != "" {
+			w.send(agent.TeamName, agent.AgentName, text)
+		}
+	}
+	return consumed
 }
 
 // splitCompleteLines returns only complete lines (ending with \n).
