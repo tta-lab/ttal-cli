@@ -3,6 +3,8 @@ title: Prompts
 description: Customize what gets sent to agents and workers
 ---
 
+<div v-pre>
+
 ttal lets you customize the prompts sent to agents when routing tasks. This controls what instructions your design, research, test, execute, triage, review, and re-review agents receive.
 
 ## Configuration
@@ -138,3 +140,5 @@ You are reviewing PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}}.
 2. Post findings with ttal pr comment create
 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK"""
 ```
+
+</div>
