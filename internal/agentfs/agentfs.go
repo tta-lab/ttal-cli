@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const frontmatterDelimiter = "---"
+
 // AgentInfo holds agent metadata parsed from CLAUDE.md frontmatter.
 type AgentInfo struct {
 	Name        string // directory name (lowercase)
@@ -131,13 +133,13 @@ func parseFrontmatter(path string) (map[string]string, error) {
 	scanner := bufio.NewScanner(f)
 	fm := make(map[string]string)
 
-	if !scanner.Scan() || strings.TrimSpace(scanner.Text()) != "---" {
+	if !scanner.Scan() || strings.TrimSpace(scanner.Text()) != frontmatterDelimiter {
 		return nil, fmt.Errorf("no frontmatter")
 	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.TrimSpace(line) == "---" {
+		if strings.TrimSpace(line) == frontmatterDelimiter {
 			return fm, nil
 		}
 		if idx := strings.Index(line, ":"); idx > 0 {
@@ -156,12 +158,12 @@ func splitFrontmatter(content string) (map[string]string, string) {
 	fm := make(map[string]string)
 
 	lines := strings.Split(content, "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != frontmatterDelimiter {
 		return fm, content
 	}
 
 	for i := 1; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) == "---" {
+		if strings.TrimSpace(lines[i]) == frontmatterDelimiter {
 			for _, line := range lines[1:i] {
 				if idx := strings.Index(line, ":"); idx > 0 {
 					key := strings.TrimSpace(line[:idx])
