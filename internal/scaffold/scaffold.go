@@ -24,8 +24,18 @@ type ScaffoldInfo struct {
 // Apply copies a scaffold and the shared docs/ directory into the workspace.
 func Apply(repoDir, scaffoldName, workspace string) error {
 	scaffoldDir := filepath.Join(repoDir, scaffoldName)
+
+	// Validate resolved path stays under repoDir (prevent path traversal).
+	if rel, err := filepath.Rel(repoDir, scaffoldDir); err != nil || strings.HasPrefix(rel, "..") {
+		return fmt.Errorf("invalid scaffold name: %q", scaffoldName)
+	}
+
 	if info, err := os.Stat(scaffoldDir); err != nil || !info.IsDir() {
-		scaffolds, _ := List(repoDir)
+		scaffolds, listErr := List(repoDir)
+		if listErr != nil {
+			return fmt.Errorf("scaffold %q not found and cannot list available scaffolds: %w",
+				scaffoldName, listErr)
+		}
 		names := make([]string, len(scaffolds))
 		for i, s := range scaffolds {
 			names[i] = s.Dir
@@ -155,11 +165,14 @@ func parseFrontmatter(scanner *bufio.Scanner) map[string]string {
 		if strings.TrimSpace(line) == "---" {
 			return fm
 		}
-		if idx := strings.Index(line, ":"); idx > 0 {
-			key := strings.TrimSpace(line[:idx])
-			val := strings.TrimSpace(line[idx+1:])
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
 			val = strings.Trim(val, "\"'")
-			fm[key] = val
+			if key != "" {
+				fm[key] = val
+			}
 		}
 	}
 	return fm
@@ -195,7 +208,10 @@ func EnsureCache() (string, error) {
 
 	if _, err := os.Stat(filepath.Join(cacheDir, ".git")); err == nil {
 		cmd := exec.Command("git", "-C", cacheDir, "pull", "--ff-only", "-q")
-		cmd.Run() // best-effort
+		if out, pullErr := cmd.CombinedOutput(); pullErr != nil {
+			fmt.Fprintf(os.Stderr, "  ! Could not update templates cache (using cached): %s\n",
+				strings.TrimSpace(string(out)))
+		}
 		return cacheDir, nil
 	}
 
@@ -235,11 +251,15 @@ func copyDir(src, dst string) error {
 			continue
 		}
 
+		fi, err := entry.Info()
+		if err != nil {
+			return err
+		}
 		data, err := os.ReadFile(srcPath)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(dstPath, data, 0o644); err != nil {
+		if err := os.WriteFile(dstPath, data, fi.Mode()); err != nil {
 			return err
 		}
 	}

@@ -29,6 +29,7 @@ Examples:
   ttal init
   ttal init --scaffold basic
   ttal init --scaffold full-markdown --workspace ~/my-agents`,
+	// Skip DB init — init doesn't need the database
 	PersistentPreRunE:  func(cmd *cobra.Command, args []string) error { return nil },
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error { return nil },
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,7 +50,10 @@ func runInit() error {
 
 	// Check workspace
 	if info, err := os.Stat(workspace); err == nil && info.IsDir() {
-		entries, _ := os.ReadDir(workspace)
+		entries, readErr := os.ReadDir(workspace)
+		if readErr != nil {
+			return fmt.Errorf("cannot read workspace %s: %w", workspace, readErr)
+		}
 		if len(entries) > 0 {
 			return fmt.Errorf("workspace %s already exists and is not empty", workspace)
 		}

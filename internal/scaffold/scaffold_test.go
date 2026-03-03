@@ -23,6 +23,15 @@ func TestCopyDir(t *testing.T) {
 			t.Errorf("expected %s to exist", rel)
 		}
 	}
+
+	// Verify content is preserved
+	data, err := os.ReadFile(filepath.Join(dst, "config.toml"))
+	if err != nil {
+		t.Fatalf("read config.toml: %v", err)
+	}
+	if string(data) != "test" {
+		t.Errorf("expected content 'test', got %q", string(data))
+	}
 }
 
 func TestCopyDirSkipsDotDirs(t *testing.T) {

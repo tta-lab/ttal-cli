@@ -114,7 +114,10 @@ func setupScaffold(workspace, scaffoldName string) error {
 		if !info.IsDir() {
 			return fmt.Errorf("%s exists but is not a directory", workspace)
 		}
-		entries, _ := os.ReadDir(workspace)
+		entries, readErr := os.ReadDir(workspace)
+		if readErr != nil {
+			return fmt.Errorf("cannot read workspace %s: %w", workspace, readErr)
+		}
 		if len(entries) > 0 {
 			fmt.Printf("  %s already exists, skipping scaffold\n", workspace)
 			scanAndPrintAgents(workspace)
