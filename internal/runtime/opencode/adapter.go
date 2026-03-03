@@ -167,12 +167,29 @@ func (a *Adapter) processSSEEvent(ctx context.Context, event oc.EventListRespons
 	switch event.Type {
 	case oc.EventListResponseTypeMessagePartUpdated:
 		typed, ok := event.AsUnion().(oc.EventListResponseEventMessagePartUpdated)
-		if ok && typed.Properties.Delta != "" {
+		if !ok {
+			break
+		}
+
+		// Handle text deltas (existing behavior)
+		if typed.Properties.Delta != "" {
 			return a.sendEvent(ctx, runtime.Event{
 				Type:  runtime.EventText,
 				Agent: a.cfg.AgentName,
 				Text:  typed.Properties.Delta,
 			})
+		}
+
+		// Handle tool part updates — emit EventTool when a tool starts running
+		if typed.Properties.Part.Type == oc.PartTypeTool {
+			toolPart, ok := typed.Properties.Part.AsUnion().(oc.ToolPart)
+			if ok && toolPart.State.Status == oc.ToolPartStateStatusRunning {
+				return a.sendEvent(ctx, runtime.Event{
+					Type:     runtime.EventTool,
+					Agent:    a.cfg.AgentName,
+					ToolName: ocToolToToolName(toolPart.Tool),
+				})
+			}
 		}
 
 	case oc.EventListResponseTypeSessionIdle:
@@ -283,4 +300,31 @@ func (a *Adapter) ReplyToQuestion(ctx context.Context, requestID string, answers
 		return fmt.Errorf("OC question reply %s: status %d: %s", requestID, resp.StatusCode, string(respBody))
 	}
 	return nil
+}
+
+// ocToolToToolName maps OpenCode lowercase tool names to CC-compatible
+// tool names so telegram.ToolEmoji() works uniformly across runtimes.
+func ocToolToToolName(ocTool string) string {
+	switch ocTool {
+	case "read":
+		return "Read"
+	case "glob":
+		return "Glob"
+	case "grep":
+		return "Grep"
+	case "edit":
+		return "Edit"
+	case "write":
+		return "Write"
+	case "bash":
+		return "Bash"
+	case "webSearch":
+		return "WebSearch"
+	case "webFetch":
+		return "WebFetch"
+	case "agent":
+		return "Agent"
+	default:
+		return ocTool
+	}
 }
