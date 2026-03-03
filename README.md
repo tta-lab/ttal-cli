@@ -13,7 +13,6 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 - **Today Focus**: Manage daily task focus list via taskwarrior's `scheduled` date
 - **Task Routing**: Route tasks to design/research/test agents or spawn workers with `ttal task design|research|test|execute`
 - **Task Utilities**: Search tasks and export rich prompts with inlined markdown context
-- **Memory Capture**: Extract git commits and generate agent-filtered memory logs
 - **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
 - **Daemon**: Communication hub — Telegram polling, message delivery, worker cleanup (launchd)
 
@@ -207,19 +206,6 @@ ttal agent status yuki busy
 
 # Update heartbeat period
 ttal agent heartbeat yuki 120
-```
-
-### Memory Capture
-
-```bash
-# Capture memory for today
-ttal memory capture
-
-# Capture memory for a specific date
-ttal memory capture --date=2026-02-08
-
-# Specify output directory
-ttal memory capture --date=2026-02-08 --output=/path/to/memory
 ```
 
 ### Worker Commands
@@ -586,28 +572,6 @@ ttal agent info athena  # Shows matching projects
 
 # Tasks tagged +research are automatically routed to athena
 # Tasks with no matching agent go to worker-lifecycle (default)
-```
-
-## Memory File Format
-
-Memory files are generated in markdown format:
-
-```markdown
-# Memory Log: yuki - 2026-02-08
-
-Generated: 2026-02-08 14:30:00
-Total commits: 15
-
-## Project: clawd
-
-### Category: impl
-
-- `a1b2c3d` Add project manager schema (14:30)
-- `e4f5g6h` Implement CLI commands (15:45)
-
-### Category: refactor
-
-- `i7j8k9l` Optimize query performance (16:20)
 ```
 
 ## Database Location
