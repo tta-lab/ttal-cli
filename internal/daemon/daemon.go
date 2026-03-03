@@ -225,13 +225,16 @@ func runQuestionCleanup(qs *questionStore, done <-chan struct{}) {
 	}
 }
 
-// notifyDaemonReady sends a startup notification to each team via its notification bot token.
+// notifyDaemonReady sends a startup notification to the default team via its notification bot token.
 func notifyDaemonReady(mcfg *config.DaemonConfig) {
-	for teamName, team := range mcfg.Teams {
-		if err := notify.SendWithConfig(team.NotificationToken, team.ChatID, "✅ Daemon ready"); err != nil {
-			log.Printf("[daemon] warning: failed to send ready notification to team %s: %v",
-				teamName, err)
-		}
+	defaultTeam := mcfg.Global.DefaultTeam
+	team, ok := mcfg.Teams[defaultTeam]
+	if !ok {
+		log.Printf("[daemon] warning: default team %q not found in config", defaultTeam)
+		return
+	}
+	if err := notify.SendWithConfig(team.NotificationToken, team.ChatID, "✅ Daemon ready"); err != nil {
+		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
 	}
 }
 
