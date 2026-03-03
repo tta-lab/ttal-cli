@@ -275,7 +275,34 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 			})
 		}
 
+	case "item/started":
+		var params struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(notif.Params, &params) == nil && params.Type != "" {
+			a.sendEvent(runtime.Event{
+				Type:     runtime.EventTool,
+				Agent:    a.cfg.AgentName,
+				ToolName: codexItemToToolName(params.Type),
+			})
+		}
+
 	default:
 		log.Printf("[codex] unhandled notification: %s", notif.Method)
+	}
+}
+
+// codexItemToToolName maps Codex ThreadItem types to CC-compatible tool names
+// so telegram.ToolEmoji() can handle both runtimes uniformly.
+func codexItemToToolName(itemType string) string {
+	switch itemType {
+	case "command_execution":
+		return "Bash"
+	case "file_change":
+		return "Edit"
+	case "web_search":
+		return "WebSearch"
+	default:
+		return itemType
 	}
 }

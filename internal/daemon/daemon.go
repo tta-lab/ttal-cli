@@ -69,7 +69,7 @@ func Run() error {
 	qs := newQuestionStore()
 	cas := newCustomAnswerStore()
 	mt := newMessageTracker()
-	initAdapters(ctx, mcfg, registry, qs)
+	initAdapters(ctx, mcfg, registry, qs, mt)
 
 	allCommands := discoverAndRegisterCommands(mcfg, allAgents)
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
@@ -263,7 +263,10 @@ func awaitShutdown(
 
 // initAdapters starts all agent sessions: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
 // Config-driven: iterates all teams, no DB required.
-func initAdapters(ctx context.Context, mcfg *config.DaemonConfig, registry *adapterRegistry, qs *questionStore) {
+func initAdapters(
+	ctx context.Context, mcfg *config.DaemonConfig,
+	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
+) {
 	for _, ta := range mcfg.AllAgents() {
 		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -317,7 +320,7 @@ func initAdapters(ctx context.Context, mcfg *config.DaemonConfig, registry *adap
 		}
 		// OpenClaw owns messaging — skip Telegram event bridging
 		if rt != runtime.OpenClaw {
-			bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs)
+			bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt)
 		}
 	}
 }
@@ -341,7 +344,10 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 }
 
 // bridgeEvents reads events from an adapter and routes them to Telegram.
-func bridgeEvents(agentName, teamName string, adapter runtime.Adapter, mcfg *config.DaemonConfig, qs *questionStore) {
+func bridgeEvents(
+	agentName, teamName string, adapter runtime.Adapter,
+	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker,
+) {
 	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
 	if !ok || ta.Config.BotToken == "" {
 		return
@@ -359,6 +365,18 @@ func bridgeEvents(agentName, teamName string, adapter runtime.Adapter, mcfg *con
 				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
 			case runtime.EventQuestion:
 				handleIncomingQuestion(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
+			case runtime.EventTool:
+				if mt == nil {
+					break
+				}
+				tracked, ok := mt.get(teamName, agentName)
+				if !ok {
+					break
+				}
+				emoji := telegram.ToolEmoji(event.ToolName)
+				if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
+					log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, event.ToolName, err)
+				}
 			}
 		}
 	}()
