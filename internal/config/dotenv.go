@@ -37,8 +37,8 @@ func LoadDotEnv() (map[string]string, error) {
 }
 
 // DotEnvParts loads .env and returns "KEY=VALUE" strings suitable for
-// appending to an environment variable slice. Errors are silently ignored
-// because .env is optional.
+// appending to an environment variable slice. All errors (missing file,
+// parse failures, unreadable path) are silently ignored — returns nil.
 func DotEnvParts() []string {
 	env, err := LoadDotEnv()
 	if err != nil {
