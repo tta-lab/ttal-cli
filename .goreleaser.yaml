@@ -8,6 +8,7 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    # Windows excluded: ttal requires tmux, launchd, and unix signals
     goos:
       - linux
       - darwin
@@ -30,9 +31,9 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+      - "^docs"
+      - "^test"
+      - "^chore"
 
 brews:
   - name: ttal
