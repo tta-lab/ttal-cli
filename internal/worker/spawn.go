@@ -337,7 +337,7 @@ func writeTaskFile(
 	if len(shortID) > 8 {
 		shortID = shortID[:8]
 	}
-	executePrompt := shellCfg.RenderPrompt("execute", shortID)
+	executePrompt := shellCfg.RenderPrompt("execute", shortID, cfg.Runtime)
 	if executePrompt != "" {
 		fullTask = executePrompt + "\n\n" + fullTask
 	}

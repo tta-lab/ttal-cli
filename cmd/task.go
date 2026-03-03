@@ -159,7 +159,8 @@ var taskDesignCmd = &cobra.Command{
 			return agentNotConfigured("design_agent", cfg.TeamName())
 		}
 		uuid := args[0]
-		prompt := cfg.RenderPrompt("design", uuid)
+		rt := cfg.AgentRuntimeFor(agent)
+		prompt := cfg.RenderPrompt("design", uuid, rt)
 		return routeTaskToAgent(agent, uuid, "task design", prompt)
 	},
 }
@@ -179,7 +180,8 @@ var taskResearchCmd = &cobra.Command{
 			return agentNotConfigured("research_agent", cfg.TeamName())
 		}
 		uuid := args[0]
-		prompt := cfg.RenderPrompt("research", uuid)
+		rt := cfg.AgentRuntimeFor(agent)
+		prompt := cfg.RenderPrompt("research", uuid, rt)
 		return routeTaskToAgent(agent, uuid, "task research", prompt)
 	},
 }
@@ -199,7 +201,8 @@ var taskTestCmd = &cobra.Command{
 			return agentNotConfigured("test_agent", cfg.TeamName())
 		}
 		uuid := args[0]
-		prompt := cfg.RenderPrompt("test", uuid)
+		rt := cfg.AgentRuntimeFor(agent)
+		prompt := cfg.RenderPrompt("test", uuid, rt)
 		return routeTaskToAgent(agent, uuid, "task test", prompt)
 	},
 }

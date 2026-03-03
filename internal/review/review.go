@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/pr"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -14,7 +16,7 @@ const windowName = "review"
 
 // SpawnReviewer creates a new tmux window with a Claude Code instance
 // configured as a PR reviewer.
-func SpawnReviewer(sessionName string, ctx *pr.Context) error {
+func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt runtime.Runtime) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
@@ -24,7 +26,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 		return fmt.Errorf("invalid pr_id %q: %w", ctx.Task.PRID, err)
 	}
 
-	prompt := buildReviewerPrompt(ctx, prIndex)
+	prompt := buildReviewerPrompt(cfg, ctx, prIndex, rt)
 
 	promptFile, err := writePromptFile(prompt)
 	if err != nil {
@@ -40,15 +42,11 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 		"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
 		ttalBin, promptFile)
 
-	shellCfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
 	envParts := []string{"TTAL_ROLE=reviewer"}
-	if rt := os.Getenv("TTAL_RUNTIME"); rt != "" {
-		envParts = append(envParts, "TTAL_RUNTIME="+rt)
+	if rtEnv := os.Getenv("TTAL_RUNTIME"); rtEnv != "" {
+		envParts = append(envParts, "TTAL_RUNTIME="+rtEnv)
 	}
-	shellCmd := shellCfg.BuildEnvShellCommand(envParts, claudeCmd)
+	shellCmd := cfg.BuildEnvShellCommand(envParts, claudeCmd)
 
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -69,7 +67,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context) error {
 // If full is false, requests a delta re-review of only new changes.
 // coderComment, if non-empty, is written to a temp file and its path included
 // in the message so the reviewer can read the coder's triage update.
-func RequestReReview(sessionName string, full bool, coderComment string) error {
+func RequestReReview(sessionName string, full bool, coderComment string, cfg *config.Config, rt runtime.Runtime) error {
 	var commentRef string
 	if coderComment != "" {
 		f, err := os.CreateTemp("", "ttal-coder-comment-*.md")
@@ -86,50 +84,28 @@ func RequestReReview(sessionName string, full bool, coderComment string) error {
 	if full {
 		scope = "on all changes"
 	}
-	msg := fmt.Sprintf(
-		"Worker has pushed fixes addressing your review.%s Please re-review:"+
-			" 1. Run /pr-review %s"+
-			" 2. Post updated review via: ttal pr comment create \"your review\" (NEVER use --no-review)"+
-			" 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not",
-		commentRef, scope)
+
+	tmpl := cfg.Prompt("re_review")
+	replacer := strings.NewReplacer(
+		"{{coder-comment}}", commentRef,
+		"{{review-scope}}", scope,
+	)
+	msg := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
 	return tmux.SendKeys(sessionName, windowName, msg)
 }
 
-func buildReviewerPrompt(ctx *pr.Context, prIndex int64) string {
-	return fmt.Sprintf(`You are a code reviewer for PR #%d — "%s" in %s/%s.
-Branch: %s
-
-## Your Task
-
-1. Run /pr-review to perform a comprehensive code review
-   - Review scope: ONLY changes in this PR (the diff), not the entire codebase
-   - Focus on: correctness, security, architecture, tests
-
-2. Structure your findings as a PR comment with clear sections:
-   - Critical Issues (must fix before merge)
-   - Important Issues (should fix)
-   - Suggestions (nice to have)
-   - Strengths (what's well done)
-
-3. Post your review using:
-   ttal pr comment create "your structured review"
-
-4. End your comment with one of:
-   - VERDICT: NEEDS_WORK (if any critical issues)
-   - VERDICT: LGTM (if no critical issues)
-
-Do NOT merge the PR. The coder handles merging after triage.
-
-## Important
-- Only review what changed in the PR, not pre-existing code
-- Be specific: reference file:line for each finding
-- Be constructive: suggest fixes, not just problems
-- If you're unsure about something, say so rather than raising a false alarm
-- NEVER use --no-review flag when posting comments — your review must trigger the coder to triage
-`,
-		prIndex, ctx.Task.Description, ctx.Owner, ctx.Repo, ctx.Task.Branch)
+func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt runtime.Runtime) string {
+	tmpl := cfg.Prompt("review")
+	replacer := strings.NewReplacer(
+		"{{pr-number}}", fmt.Sprintf("%d", prIndex),
+		"{{pr-title}}", ctx.Task.Description,
+		"{{owner}}", ctx.Owner,
+		"{{repo}}", ctx.Repo,
+		"{{branch}}", ctx.Task.Branch,
+	)
+	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 }
 
 func writePromptFile(prompt string) (string, error) {

@@ -14,35 +14,79 @@ import (
 )
 
 // PromptsConfig holds configurable prompt templates for task routing and worker spawn.
-// Supports {{task-id}} template variable (replaced with the task's short UUID at runtime).
+// Supports {{task-id}} and {{skill:name}} template variables.
 type PromptsConfig struct {
 	Design   string `toml:"design" jsonschema:"description=Prompt for design agent"`
 	Research string `toml:"research" jsonschema:"description=Prompt for research agent"`
 	Test     string `toml:"test" jsonschema:"description=Prompt for test agent"`
 	Execute  string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
+	Triage   string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`
+	Review   string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
+	ReReview string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
 }
 
 // DefaultPrompts returns sensible defaults for all prompt templates.
 func DefaultPrompts() PromptsConfig {
 	return PromptsConfig{
-		Design: `/sp-writing-plans
+		Design: `{{skill:sp-writing-plans}}
 Write an implementation plan for this task.
 
 When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'`,
 
-		Research: `/tell-me-more
+		Research: `{{skill:tell-me-more}}
 Research this topic thoroughly.
 
 When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'`,
 
-		Test: `/sp-tdd
+		Test: `{{skill:sp-tdd}}
 Integration test this end-to-end.
 
 When done: task {{task-id}} annotate 'Tested: <pass/fail summary>'`,
 
-		Execute: `/sp-executing-plans
+		Execute: `{{skill:sp-executing-plans}}
 Use the executing-plans skill to implement this plan task-by-task.
 Follow each task in order: read the plan, make changes, verify, commit.`,
+
+		Triage: `{{skill:triage}}
+PR review posted.{{review-file}} Read it, assess and fix issues.
+Post your triage update with ttal pr comment create when done.
+If verdict is LGTM and no remaining issues, merge with: ttal pr merge`,
+
+		Review: `You are a code reviewer for PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}}.
+Branch: {{branch}}
+
+## Your Task
+
+1. Run {{skill:pr-review}} to perform a comprehensive code review
+   - Review scope: ONLY changes in this PR (the diff), not the entire codebase
+   - Focus on: correctness, security, architecture, tests
+
+2. Structure your findings as a PR comment with clear sections:
+   - Critical Issues (must fix before merge)
+   - Important Issues (should fix)
+   - Suggestions (nice to have)
+   - Strengths (what's well done)
+
+3. Post your review using:
+   ttal pr comment create "your structured review"
+
+4. End your comment with one of:
+   - VERDICT: NEEDS_WORK (if any critical issues)
+   - VERDICT: LGTM (if no critical issues)
+
+Do NOT merge the PR. The coder handles merging after triage.
+
+## Important
+- Only review what changed in the PR, not pre-existing code
+- Be specific: reference file:line for each finding
+- Be constructive: suggest fixes, not just problems
+- If you're unsure about something, say so rather than raising a false alarm
+- NEVER use --no-review flag when posting comments — your review must trigger the coder to triage`,
+
+		ReReview: `Worker has pushed fixes addressing your review.{{coder-comment}} Please re-review:
+1. Run {{skill:pr-review}} {{review-scope}}
+2. Post updated review via: ttal pr comment create "your review" (NEVER use --no-review)
+3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not`,
 	}
 }
 
@@ -314,15 +358,53 @@ func (c *Config) Prompt(key string) string {
 			return c.Prompts.Execute
 		}
 		return defaults.Execute
+	case "triage":
+		if c.Prompts.Triage != "" {
+			return c.Prompts.Triage
+		}
+		return defaults.Triage
+	case "review":
+		if c.Prompts.Review != "" {
+			return c.Prompts.Review
+		}
+		return defaults.Review
+	case "re_review":
+		if c.Prompts.ReReview != "" {
+			return c.Prompts.ReReview
+		}
+		return defaults.ReReview
 	default:
 		return ""
 	}
 }
 
-// RenderPrompt returns a prompt with {{task-id}} replaced by the actual task ID.
-func (c *Config) RenderPrompt(key, taskID string) string {
+// RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.
+func (c *Config) RenderPrompt(key, taskID string, rt runtime.Runtime) string {
 	tmpl := c.Prompt(key)
-	return strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
+	return RenderTemplate(tmpl, taskID, rt)
+}
+
+// RenderTemplate resolves {{skill:name}} and {{task-id}} in an arbitrary template string.
+func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
+	result := strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
+	for {
+		start := strings.Index(result, "{{skill:")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(result[start:], "}}")
+		if end == -1 {
+			break
+		}
+		end += start + 2
+		skillName := result[start+len("{{skill:") : end-2]
+		if skillName == "" {
+			break
+		}
+		invocation := runtime.FormatSkillInvocation(rt, skillName)
+		result = result[:start] + invocation + result[end:]
+	}
+	return result
 }
 
 const DefaultShell = "zsh"
@@ -848,29 +930,29 @@ func WriteTemplate() error {
 default_team = "default"
 
 # Configurable prompts for task routing and worker spawn.
-# Supports {{task-id}} template variable.
-# Skill invocations (/skill-name) should be at the top for OpenCode compatibility.
+# Supports {{task-id}} and {{skill:name}} template variables.
+# {{skill:name}} resolves to /name (CC/OC) or $name (Codex) based on agent runtime.
 [prompts]
 design = """
-/sp-writing-plans
+{{skill:sp-writing-plans}}
 Write an implementation plan for this task.
 
 When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'"""
 
 research = """
-/tell-me-more
+{{skill:tell-me-more}}
 Research this topic thoroughly.
 
 When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'"""
 
 test = """
-/sp-tdd
+{{skill:sp-tdd}}
 Integration test this end-to-end.
 
 When done: task {{task-id}} annotate 'Tested: <pass/fail summary>'"""
 
 execute = """
-/sp-executing-plans
+{{skill:sp-executing-plans}}
 Use the executing-plans skill to implement this plan task-by-task.
 Follow each task in order: read the plan, make changes, verify, commit."""
 
