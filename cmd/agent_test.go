@@ -1,17 +1,12 @@
 package cmd
 
 import (
-	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/tta-lab/ttal-cli/ent/agent"
-	"github.com/tta-lab/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 )
-
-func setupAgentTest(t *testing.T) {
-	t.Helper()
-	database = db.NewTestDB(t)
-}
 
 func TestParseModifyArgs(t *testing.T) {
 	tests := []struct {
@@ -79,33 +74,27 @@ func TestParseModifyArgs(t *testing.T) {
 	}
 }
 
-func TestAgentModifyVoice(t *testing.T) {
-	setupAgentTest(t)
-	ctx := context.Background()
-
-	ag, err := database.Agent.Create().
-		SetName("test-agent").
-		SetVoice("af_heart").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create agent: %v", err)
+func TestAgentfsSetField(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "test-agent")
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("---\nvoice: af_heart\n---\n# test-agent\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
-	_, err = ag.Update().
-		SetVoice("af_sky").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to update agent voice: %v", err)
+	// Update voice
+	if err := agentfs.SetField(dir, "test-agent", "voice", "af_sky"); err != nil {
+		t.Fatalf("SetField: %v", err)
 	}
 
-	updated, err := database.Agent.Query().
-		Where(agent.Name("test-agent")).
-		Only(ctx)
+	// Verify
+	ag, err := agentfs.Get(dir, "test-agent")
 	if err != nil {
-		t.Fatalf("failed to query agent: %v", err)
+		t.Fatalf("Get: %v", err)
 	}
-
-	if updated.Voice != "af_sky" {
-		t.Errorf("agent voice = %v, want %v", updated.Voice, "af_sky")
+	if ag.Voice != "af_sky" {
+		t.Errorf("agent voice = %v, want af_sky", ag.Voice)
 	}
 }
