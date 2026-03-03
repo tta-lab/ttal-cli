@@ -166,27 +166,30 @@ func TestValidateUUID(t *testing.T) {
 
 func TestShouldInlineNote(t *testing.T) {
 	tests := []struct {
-		name    string
-		project string
-		want    bool
+		name           string
+		project        string
+		inlineProjects []string
+		want           bool
 	}{
-		{"plan project", "Task Plans", true},
-		{"design project", "UI Design", true},
-		{"plan lowercase", "plans", true},
-		{"design lowercase", "design-docs", true},
-		{"research project", "Research Notes", false},
-		{"empty project", "", false},
-		{"unrelated project", "Backend API", false},
-		{"plan substring", "deployment-planning", true},
-		{"design substring", "redesign", true},
+		{"plan project", "Task Plans", []string{"plan"}, true},
+		{"plan lowercase", "plans", []string{"plan"}, true},
+		{"research project", "Research Notes", []string{"plan"}, false},
+		{"empty project", "", []string{"plan"}, false},
+		{"unrelated project", "Backend API", []string{"plan"}, false},
+		{"plan substring", "deployment-planning", []string{"plan"}, true},
+		{"multi-keyword match fix", "ttal.fixes", []string{"plan", "fix"}, true},
+		{"multi-keyword match plan", "ttal.plans", []string{"plan", "fix"}, true},
+		{"multi-keyword no match", "ttal.research", []string{"plan", "fix"}, false},
+		{"empty filter list", "Task Plans", nil, false},
+		{"case insensitive keyword", "Task Plans", []string{"Plan"}, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			note := &FlicknoteNote{Project: tt.project}
-			got := ShouldInlineNote(note)
+			got := ShouldInlineNote(note, tt.inlineProjects)
 			if got != tt.want {
-				t.Errorf("ShouldInlineNote(project=%q) = %v, want %v", tt.project, got, tt.want)
+				t.Errorf("ShouldInlineNote(project=%q, filter=%v) = %v, want %v", tt.project, tt.inlineProjects, got, tt.want)
 			}
 		})
 	}

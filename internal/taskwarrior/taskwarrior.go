@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -208,11 +210,16 @@ func ReadFlicknoteJSON(id string) *FlicknoteNote {
 	return &note
 }
 
-// ShouldInlineNote returns true if the note's project indicates it's a plan/design doc.
-// Matches both "plan" and "design" for consistency with inlineRefPattern (Plan:/Design:).
-func ShouldInlineNote(note *FlicknoteNote) bool {
+// ShouldInlineNote returns true if the note's project matches any of the given keywords.
+// Keywords are matched case-insensitively as substrings of the project name.
+func ShouldInlineNote(note *FlicknoteNote, inlineProjects []string) bool {
 	name := strings.ToLower(note.Project)
-	return strings.Contains(name, "plan") || strings.Contains(name, "design")
+	for _, keyword := range inlineProjects {
+		if strings.Contains(name, strings.ToLower(keyword)) {
+			return true
+		}
+	}
+	return false
 }
 
 // formatFlicknoteContent formats a flicknote note for prompt inlining.
@@ -243,6 +250,12 @@ type docRef struct {
 func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)
+
+	// Load inline projects from config (default: ["plan"]).
+	inlineProjects := []string{"plan"}
+	if cfg, err := config.Load(); err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
+		inlineProjects = cfg.Flicknote.InlineProjects
+	}
 
 	refDescs := make(map[string]bool)
 	flicknoteCache := make(map[string]string) // keyed by full annotation text (e.g. "Plan: e8fd0fe0")
@@ -275,7 +288,7 @@ func (t *Task) FormatPrompt() string {
 			refDescs[desc] = true
 
 			note := ReadFlicknoteJSON(hexID)
-			if note != nil && ShouldInlineNote(note) {
+			if note != nil && ShouldInlineNote(note, inlineProjects) {
 				flicknoteCache[desc] = formatFlicknoteContent(note)
 				refs = append(refs, docRef{label: "FlickNote: " + hexID, refType: "flicknote_cached", id: desc})
 			}
