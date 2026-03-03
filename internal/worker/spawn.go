@@ -246,6 +246,10 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	if taskrc != "" {
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
+
+	// Inject all secrets from .env
+	parts = append(parts, config.DotEnvParts()...)
+
 	return parts
 }
 

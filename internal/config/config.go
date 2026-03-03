@@ -875,9 +875,9 @@ Use the executing-plans skill to implement this plan task-by-task.
 Follow each task in order: read the plan, make changes, verify, commit."""
 
 [teams.default]
-chat_id = "TODO"
+chat_id = ""                 # Telegram chat ID for this team
 lifecycle_agent = "kestrel"
-team_path = "TODO"           # Root path for agent workspaces
+team_path = ""               # Root path for agent workspaces
 design_agent = "inke"        # Agent for ttal task design
 research_agent = "athena"    # Agent for ttal task research
 # test_agent = ""            # Agent for ttal task test

@@ -268,6 +268,23 @@ go test -v ./...   # Verbose output
    - Only use `make clean-db` when explicitly instructed by the user
    - The database contains real user data and has no backup mechanism
 
+## Secrets (.env)
+
+All secrets live in `~/.config/ttal/.env` — bot tokens, API tokens, credentials.
+They are injected into worker and agent sessions at spawn time.
+
+```
+# API tokens
+GITHUB_TOKEN=ghp_...
+FORGEJO_TOKEN=abc123...
+
+# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN
+KESTREL_BOT_TOKEN=7123456:AAF...
+ATHENA_BOT_TOKEN=7234567:AAG...
+```
+
+Generate a template: `ttal doctor --fix`
+
 ## Database Location
 
 Default: `~/.ttal/ttal.db` (SQLite with WAL mode)
