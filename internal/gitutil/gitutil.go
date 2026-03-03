@@ -70,7 +70,8 @@ func IsWorktreeClean(workDir string) (bool, error) {
 func RemoveWorktree(projectDir, workDir, branch string) error {
 	// Remove git worktree (must happen before branch deletion)
 	if _, err := os.Stat(workDir); err == nil {
-		if _, err := runGitWithTimeout(worktreeRemoveTimeout, projectDir, "worktree", "remove", workDir, "--force"); err != nil {
+		_, err := runGitWithTimeout(worktreeRemoveTimeout, projectDir, "worktree", "remove", workDir, "--force")
+		if err != nil {
 			return fmt.Errorf("failed to remove worktree: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
