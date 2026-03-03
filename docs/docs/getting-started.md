@@ -5,18 +5,25 @@ description: Install ttal and set up your first agent team
 
 ## Installation
 
-### From source
+### Homebrew (macOS/Linux)
 
 ```bash
-git clone https://github.com/tta-lab/ttal-cli.git
-cd ttal-cli
-make install
+brew tap tta-lab/ttal
+brew install ttal
 ```
 
 ### Via `go install`
 
 ```bash
 go install github.com/tta-lab/ttal-cli@latest
+```
+
+### From source
+
+```bash
+git clone https://github.com/tta-lab/ttal-cli.git
+cd ttal-cli
+make install
 ```
 
 ### Prerequisites

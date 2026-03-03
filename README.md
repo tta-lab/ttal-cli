@@ -19,10 +19,30 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 
 ## Installation
 
-```bash
-# Build and install binary
-make install
+### Homebrew (macOS/Linux)
 
+```bash
+brew tap tta-lab/ttal
+brew install ttal
+```
+
+### From source
+
+```bash
+go install github.com/tta-lab/ttal-cli@latest
+```
+
+### With voice dictation (macOS only)
+
+```bash
+git clone https://github.com/tta-lab/ttal-cli.git
+cd ttal-cli
+make install-dictate
+```
+
+### Post-install setup
+
+```bash
 # Set up taskwarrior hook (routes task events to agents)
 ttal worker install
 
@@ -101,11 +121,9 @@ make lint
 
 **Release Workflow** (`.github/workflows/release.yaml`)
 - Triggers on version tags (e.g., `v1.0.0`)
-- Builds binaries for multiple platforms:
-  - Linux (amd64, arm64)
-  - macOS (amd64, arm64)
-  - Windows (amd64)
-- Creates GitHub/Forgejo release with binaries
+- Uses GoReleaser to build binaries for Linux/macOS (amd64, arm64)
+- Creates GitHub release with archives and checksums
+- Auto-pushes Homebrew formula to `tta-lab/homebrew-ttal` tap
 
 ### Creating a Release
 
@@ -114,7 +132,8 @@ make lint
 git tag v1.0.0
 git push origin v1.0.0
 
-# Release workflow automatically builds and publishes
+# GoReleaser builds binaries, creates release, and updates Homebrew formula
+# Users upgrade via: brew upgrade ttal
 ```
 
 ## Database Schema
