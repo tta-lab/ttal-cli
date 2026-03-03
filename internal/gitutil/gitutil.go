@@ -12,7 +12,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
-const cmdTimeout = 10 * time.Second
+const (
+	cmdTimeout            = 10 * time.Second
+	worktreeRemoveTimeout = 120 * time.Second
+)
 
 // DumpWorkerState captures git state for debugging.
 // Returns the path to the dump file.
@@ -67,7 +70,8 @@ func IsWorktreeClean(workDir string) (bool, error) {
 func RemoveWorktree(projectDir, workDir, branch string) error {
 	// Remove git worktree (must happen before branch deletion)
 	if _, err := os.Stat(workDir); err == nil {
-		if _, err := runGit(projectDir, "worktree", "remove", workDir, "--force"); err != nil {
+		_, err := runGitWithTimeout(worktreeRemoveTimeout, projectDir, "worktree", "remove", workDir, "--force")
+		if err != nil {
 			return fmt.Errorf("failed to remove worktree: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
@@ -86,7 +90,11 @@ func RemoveWorktree(projectDir, workDir, branch string) error {
 }
 
 func runGit(dir string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	return runGitWithTimeout(cmdTimeout, dir, args...)
+}
+
+func runGitWithTimeout(timeout time.Duration, dir string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	fullArgs := append([]string{"-C", dir}, args...)
