@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/notify"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -19,14 +21,24 @@ func formatAgentMessage(fromAgent, text string) string {
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.
-// Falls back to direct tmux send-keys if no adapter is registered.
-func deliverToAgent(registry *adapterRegistry, teamName, agentName, text string) error {
+// Falls back to tmux for CC agents, notification bot for others.
+func deliverToAgent(registry *adapterRegistry, mcfg *config.DaemonConfig, teamName, agentName, text string) error {
 	if registry != nil {
 		if adapter, ok := registry.get(teamName, agentName); ok {
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}
-	// Fallback: direct tmux for agents not yet using adapters
-	session := config.AgentSessionName(teamName, agentName)
-	return tmux.SendKeys(session, agentName, text)
+	// Fallback: tmux for CC agents, notification bot for others
+	rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
+	if rt == runtime.ClaudeCode {
+		session := config.AgentSessionName(teamName, agentName)
+		return tmux.SendKeys(session, agentName, text)
+	}
+	// Non-CC agent with no adapter — send via notification bot
+	team, ok := mcfg.Teams[teamName]
+	if !ok {
+		return fmt.Errorf("no team config for %s", teamName)
+	}
+	msg := fmt.Sprintf("[undelivered → %s] %s", agentName, text)
+	return notify.SendWithConfig(team.NotificationToken, team.ChatID, msg)
 }
