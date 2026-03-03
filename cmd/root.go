@@ -28,7 +28,7 @@ It provides taskwarrior-like syntax for tag management and agent routing.`,
 		if dotEnv, err := config.LoadDotEnv(); err == nil {
 			for k, v := range dotEnv {
 				if os.Getenv(k) == "" {
-					os.Setenv(k, v)
+					_ = os.Setenv(k, v)
 				}
 			}
 		}
