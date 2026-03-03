@@ -19,7 +19,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "ttal",
 	Short: "TTAL - Task & Team Agent Lifecycle Manager",
-	Long: `TTAL is a CLI tool for managing projects, agents, and automated memory capture.
+	Long: `TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus.
 It provides taskwarrior-like syntax for tag management and agent routing.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Load .env as fallback for tokens not already in the environment

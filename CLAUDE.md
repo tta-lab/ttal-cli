@@ -102,7 +102,6 @@ cmd/             - CLI commands (cobra)
   ├── root.go    - Root command and database initialization
   ├── project.go - Project CRUD commands
   ├── agent.go   - Agent CRUD commands
-  ├── memory.go  - Memory capture command
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
   ├── pr.go      - ttal pr create/modify/merge/comment
@@ -117,7 +116,6 @@ ent/             - ent ORM (mostly auto-generated)
 internal/
   ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
   ├── db/        - Database connection wrapper
-  ├── memory/    - Memory capture logic (git commit extraction)
   ├── watcher/   - JSONL file watcher (CC → Telegram via daemon)
   ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/   - Forgejo SDK client and repo helpers
@@ -208,7 +206,7 @@ Use this format for commits:
 ttal: [category] description
 
 Examples:
-ttal: impl - add memory capture
+ttal: impl - add worker spawn
 ttal: refactor - optimize tag queries
 ttal: fix - handle nil archived_at
 ```
