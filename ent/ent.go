@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/tta-lab/ttal-cli/ent/agent"
 	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
@@ -74,7 +73,6 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			agent.Table:   agent.ValidColumn,
 			project.Table: project.ValidColumn,
 		})
 	})

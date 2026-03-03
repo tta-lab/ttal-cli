@@ -8,21 +8,6 @@ import (
 )
 
 var (
-	// AgentsColumns holds the columns for the "agents" table.
-	AgentsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "name", Type: field.TypeString, Unique: true},
-		{Name: "voice", Type: field.TypeString, Nullable: true},
-		{Name: "emoji", Type: field.TypeString, Nullable: true},
-		{Name: "description", Type: field.TypeString, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-	}
-	// AgentsTable holds the schema information for the "agents" table.
-	AgentsTable = &schema.Table{
-		Name:       "agents",
-		Columns:    AgentsColumns,
-		PrimaryKey: []*schema.Column{AgentsColumns[0]},
-	}
 	// ProjectsColumns holds the columns for the "projects" table.
 	ProjectsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -48,7 +33,6 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		AgentsTable,
 		ProjectsTable,
 	}
 )

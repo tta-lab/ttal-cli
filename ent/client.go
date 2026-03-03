@@ -14,7 +14,6 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"github.com/tta-lab/ttal-cli/ent/agent"
 	"github.com/tta-lab/ttal-cli/ent/project"
 )
 
@@ -23,8 +22,6 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// Agent is the client for interacting with the Agent builders.
-	Agent *AgentClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 }
@@ -38,7 +35,6 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.Agent = NewAgentClient(c.config)
 	c.Project = NewProjectClient(c.config)
 }
 
@@ -132,7 +128,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:     ctx,
 		config:  cfg,
-		Agent:   NewAgentClient(cfg),
 		Project: NewProjectClient(cfg),
 	}, nil
 }
@@ -153,7 +148,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:     ctx,
 		config:  cfg,
-		Agent:   NewAgentClient(cfg),
 		Project: NewProjectClient(cfg),
 	}, nil
 }
@@ -161,7 +155,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Agent.
+//		Project.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -183,159 +177,22 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Agent.Use(hooks...)
 	c.Project.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Agent.Intercept(interceptors...)
 	c.Project.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *AgentMutation:
-		return c.Agent.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
-	}
-}
-
-// AgentClient is a client for the Agent schema.
-type AgentClient struct {
-	config
-}
-
-// NewAgentClient returns a client for the Agent from the given config.
-func NewAgentClient(c config) *AgentClient {
-	return &AgentClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `agent.Hooks(f(g(h())))`.
-func (c *AgentClient) Use(hooks ...Hook) {
-	c.hooks.Agent = append(c.hooks.Agent, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `agent.Intercept(f(g(h())))`.
-func (c *AgentClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Agent = append(c.inters.Agent, interceptors...)
-}
-
-// Create returns a builder for creating a Agent entity.
-func (c *AgentClient) Create() *AgentCreate {
-	mutation := newAgentMutation(c.config, OpCreate)
-	return &AgentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of Agent entities.
-func (c *AgentClient) CreateBulk(builders ...*AgentCreate) *AgentCreateBulk {
-	return &AgentCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *AgentClient) MapCreateBulk(slice any, setFunc func(*AgentCreate, int)) *AgentCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &AgentCreateBulk{err: fmt.Errorf("calling to AgentClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*AgentCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &AgentCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for Agent.
-func (c *AgentClient) Update() *AgentUpdate {
-	mutation := newAgentMutation(c.config, OpUpdate)
-	return &AgentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *AgentClient) UpdateOne(_m *Agent) *AgentUpdateOne {
-	mutation := newAgentMutation(c.config, OpUpdateOne, withAgent(_m))
-	return &AgentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *AgentClient) UpdateOneID(id int) *AgentUpdateOne {
-	mutation := newAgentMutation(c.config, OpUpdateOne, withAgentID(id))
-	return &AgentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for Agent.
-func (c *AgentClient) Delete() *AgentDelete {
-	mutation := newAgentMutation(c.config, OpDelete)
-	return &AgentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *AgentClient) DeleteOne(_m *Agent) *AgentDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *AgentClient) DeleteOneID(id int) *AgentDeleteOne {
-	builder := c.Delete().Where(agent.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &AgentDeleteOne{builder}
-}
-
-// Query returns a query builder for Agent.
-func (c *AgentClient) Query() *AgentQuery {
-	return &AgentQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeAgent},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a Agent entity by its id.
-func (c *AgentClient) Get(ctx context.Context, id int) (*Agent, error) {
-	return c.Query().Where(agent.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *AgentClient) GetX(ctx context.Context, id int) *Agent {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// Hooks returns the client hooks.
-func (c *AgentClient) Hooks() []Hook {
-	return c.hooks.Agent
-}
-
-// Interceptors returns the client interceptors.
-func (c *AgentClient) Interceptors() []Interceptor {
-	return c.inters.Agent
-}
-
-func (c *AgentClient) mutate(ctx context.Context, m *AgentMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&AgentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&AgentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&AgentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&AgentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown Agent mutation op: %q", m.Op())
 	}
 }
 
@@ -475,9 +332,9 @@ func (c *ProjectClient) mutate(ctx context.Context, m *ProjectMutation) (Value, 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Agent, Project []ent.Hook
+		Project []ent.Hook
 	}
 	inters struct {
-		Agent, Project []ent.Interceptor
+		Project []ent.Interceptor
 	}
 )
