@@ -147,7 +147,7 @@ func startTelegramPollers(
 		log.Printf("[daemon] starting multi-agent poller for %d agents on token ...%s",
 			len(targets), botToken[len(botToken)-min(4, len(botToken)):])
 		startMultiAgentPoller(botToken, dispatchMap, func(teamName, agentName, text string) {
-			if err := deliverToAgent(registry, teamName, agentName, text); err != nil {
+			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
 		}, done, qs, cas, registry, allCommands)
@@ -394,7 +394,7 @@ func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequ
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	return deliverToAgent(registry, ta.TeamName, req.To, req.Message)
+	return deliverToAgent(registry, mcfg, ta.TeamName, req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
@@ -409,7 +409,7 @@ func handleAgentToAgent(mcfg *config.DaemonConfig, registry *adapterRegistry, re
 	}
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, toTA.TeamName, req.To, msg)
+	return deliverToAgent(registry, mcfg, toTA.TeamName, req.To, msg)
 }
 
 // resolveAgent finds an agent by name, using team hint if provided.

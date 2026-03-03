@@ -51,7 +51,11 @@ func (a *Adapter) Start(ctx context.Context) error {
 	a.client = client
 
 	initParams := map[string]interface{}{
-		"protocol_version": "1.0",
+		"clientInfo": map[string]string{
+			"name":    "ttal",
+			"title":   "TTAL CLI",
+			"version": "1.0.0",
+		},
 	}
 	if a.cfg.Yolo {
 		initParams["approval_policy"] = "full-auto"
