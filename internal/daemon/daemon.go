@@ -263,7 +263,10 @@ func awaitShutdown(
 
 // initAdapters starts all agent sessions: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
 // Config-driven: iterates all teams, no DB required.
-func initAdapters(ctx context.Context, mcfg *config.DaemonConfig, registry *adapterRegistry, qs *questionStore, mt *messageTracker) {
+func initAdapters(
+	ctx context.Context, mcfg *config.DaemonConfig,
+	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
+) {
 	for _, ta := range mcfg.AllAgents() {
 		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -341,7 +344,10 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 }
 
 // bridgeEvents reads events from an adapter and routes them to Telegram.
-func bridgeEvents(agentName, teamName string, adapter runtime.Adapter, mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker) {
+func bridgeEvents(
+	agentName, teamName string, adapter runtime.Adapter,
+	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker,
+) {
 	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
 	if !ok || ta.Config.BotToken == "" {
 		return
