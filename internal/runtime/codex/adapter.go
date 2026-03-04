@@ -120,6 +120,7 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 	}
 	if a.cfg.Yolo {
 		params["approvalPolicy"] = "never"
+		params["sandbox"] = "danger-full-access"
 	}
 	if len(a.cfg.WritableRoots) > 0 {
 		params["config"] = map[string]interface{}{
