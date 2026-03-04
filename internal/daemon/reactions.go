@@ -37,3 +37,9 @@ func (mt *messageTracker) get(teamName, agentName string) (trackedMessage, bool)
 	mt.mu.RUnlock()
 	return msg, ok
 }
+
+func (mt *messageTracker) delete(teamName, agentName string) {
+	mt.mu.Lock()
+	delete(mt.store, trackerKey(teamName, agentName))
+	mt.mu.Unlock()
+}
