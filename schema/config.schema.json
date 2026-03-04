@@ -245,6 +245,13 @@
         "task_sync_url": {
           "type": "string",
           "description": "TaskChampion sync server URL for ttal doctor --fix"
+        },
+        "writable_roots": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Additional writable paths for sandboxed runtimes (codex). Defaults: ~/.ttal/ ~/.task/ ~/.diary/"
         }
       },
       "additionalProperties": false,
