@@ -146,7 +146,7 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:%s/.local/bin:%s/go/bin</string>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:%s/.local/bin:%s/go/bin:%s/.cargo/bin</string>
         <key>FORGEJO_URL</key>
         <string>%s</string>
         <key>FORGEJO_TOKEN</key>
@@ -154,7 +154,7 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
     </dict>
 </dict>
 </plist>
-`, label, ttalBin, dataDir, dataDir, home, home,
+`, label, ttalBin, dataDir, dataDir, home, home, home,
 		xmlEscape(forgejoURL), xmlEscape(forgejoToken))
 
 	if err := os.WriteFile(plistPath, []byte(plist), 0o600); err != nil {
