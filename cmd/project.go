@@ -1,20 +1,15 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/ent"
-	"github.com/tta-lab/ttal-cli/ent/project"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	dbpkg "github.com/tta-lab/ttal-cli/internal/db"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 const statusCol = 3 // index of the STATUS column in project list table
@@ -26,6 +21,10 @@ var (
 	archivedOnly bool
 )
 
+func getProjectStore() *project.Store {
+	return project.NewStore(config.ResolveProjectsPath())
+}
+
 var projectCmd = &cobra.Command{
 	Use:   "project",
 	Short: "Manage projects",
@@ -35,7 +34,7 @@ var projectCmd = &cobra.Command{
 var projectAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new project",
-	Long: `Add a new project to the database.
+	Long: `Add a new project.
 
 Example:
   ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd`,
@@ -47,17 +46,8 @@ Example:
 			return fmt.Errorf("--name is required")
 		}
 
-		ctx := context.Background()
-
-		creator := database.Project.Create().
-			SetAlias(projectAlias).
-			SetName(projectName)
-
-		if projectPath != "" {
-			creator = creator.SetPath(projectPath)
-		}
-		_, err := creator.Save(ctx)
-		if err != nil {
+		store := getProjectStore()
+		if err := store.Add(projectAlias, projectName, projectPath); err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
 
@@ -78,34 +68,15 @@ Examples:
   ttal project list --archived         # List only archived projects`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
-
-		db := database
+		var store *project.Store
 		if len(args) == 1 {
-			teamDBPath, err := config.ResolveDBPathForTeam(args[0])
-			if err != nil {
-				return err
-			}
-			if _, err := os.Stat(teamDBPath); os.IsNotExist(err) {
-				return fmt.Errorf("database for team %q not found at %s", args[0], teamDBPath)
-			}
-			teamDB, err := dbpkg.New(teamDBPath)
-			if err != nil {
-				return fmt.Errorf("failed to open %s database: %w", args[0], err)
-			}
-			defer teamDB.Close()
-			db = teamDB
-		}
-
-		query := db.Project.Query()
-
-		if archivedOnly {
-			query = query.Where(project.ArchivedAtNotNil())
+			teamPath := config.ResolveProjectsPathForTeam(args[0])
+			store = project.NewStore(teamPath)
 		} else {
-			query = query.Where(project.ArchivedAtIsNil())
+			store = getProjectStore()
 		}
 
-		projects, err := query.All(ctx)
+		projects, err := store.List(archivedOnly)
 		if err != nil {
 			return fmt.Errorf("failed to list projects: %w", err)
 		}
@@ -123,7 +94,7 @@ Examples:
 		rows := make([][]string, 0, len(projects))
 		for _, p := range projects {
 			status := "active"
-			if p.ArchivedAt != nil {
+			if p.Archived {
 				status = "archived"
 			}
 			rows = append(rows, []string{
@@ -164,19 +135,12 @@ Example:
   ttal project archive old-project`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
-		alias := args[0]
-
-		now := time.Now()
-		_, err := database.Project.Update().
-			Where(project.Alias(alias)).
-			SetArchivedAt(now).
-			Save(ctx)
-		if err != nil {
+		store := getProjectStore()
+		if err := store.Archive(args[0]); err != nil {
 			return fmt.Errorf("failed to archive project: %w", err)
 		}
 
-		fmt.Printf("Project '%s' archived successfully\n", alias)
+		fmt.Printf("Project '%s' archived successfully\n", args[0])
 		return nil
 	},
 }
@@ -190,18 +154,12 @@ Example:
   ttal project unarchive old-project`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
-		alias := args[0]
-
-		_, err := database.Project.Update().
-			Where(project.Alias(alias)).
-			ClearArchivedAt().
-			Save(ctx)
-		if err != nil {
+		store := getProjectStore()
+		if err := store.Unarchive(args[0]); err != nil {
 			return fmt.Errorf("failed to unarchive project: %w", err)
 		}
 
-		fmt.Printf("Project '%s' unarchived successfully\n", alias)
+		fmt.Printf("Project '%s' unarchived successfully\n", args[0])
 		return nil
 	},
 }
@@ -214,11 +172,11 @@ var projectDeleteCmd = &cobra.Command{
 }
 
 func runProjectDelete(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
 	alias := strings.ToLower(args[0])
+	store := getProjectStore()
 	return deleteEntity("project", alias,
-		func() (bool, error) { return database.Project.Query().Where(project.Alias(alias)).Exist(ctx) },
-		func() (int, error) { return database.Project.Delete().Where(project.Alias(alias)).Exec(ctx) },
+		func() (bool, error) { return store.Exists(alias) },
+		func() error { return store.Delete(alias) },
 	)
 }
 
@@ -233,7 +191,6 @@ Examples:
   ttal project modify clawd path:/new/path`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := context.Background()
 		alias := args[0]
 		fieldUpdates, err := parseModifyArgs(args[1:])
 		if err != nil {
@@ -244,33 +201,8 @@ Examples:
 			return fmt.Errorf("no modifications specified (use field:value to update)")
 		}
 
-		proj, err := database.Project.Query().
-			Where(project.Alias(alias)).
-			Only(ctx)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return fmt.Errorf("project '%s' not found", alias)
-			}
-			return fmt.Errorf("failed to get project: %w", err)
-		}
-
-		updater := proj.Update()
-
-		for field, value := range fieldUpdates {
-			switch field {
-			case "alias":
-				updater = updater.SetAlias(strings.ToLower(value))
-			case "name":
-				updater = updater.SetName(value)
-			case "path":
-				updater = updater.SetPath(value)
-			default:
-				return fmt.Errorf("unknown field '%s' (available: alias, name, path)", field)
-			}
-		}
-
-		_, err = updater.Save(ctx)
-		if err != nil {
+		store := getProjectStore()
+		if err := store.Modify(alias, fieldUpdates); err != nil {
 			return fmt.Errorf("failed to modify project: %w", err)
 		}
 

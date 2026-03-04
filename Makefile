@@ -1,4 +1,4 @@
-.PHONY: help build build-dictate clean clean-db reset test generate schema check-schema install install-dictate reinstall setup run fmt vet lint doc-dev doc-build doc-deploy
+.PHONY: help build build-dictate clean clean-projects reset test schema check-schema install install-dictate reinstall setup run fmt vet lint doc-dev doc-build doc-deploy
 
 # Default target
 help:
@@ -11,16 +11,14 @@ help:
 	@echo "  make setup         - First-time setup (install + hook + daemon)"
 	@echo "  make run           - Run ttal (usage: make run ARGS='project list')"
 	@echo "  make clean         - Remove built binaries"
-	@echo "  make clean-db      - Remove database (destructive!)"
-	@echo "  make reset         - Remove binaries and database (destructive!)"
+	@echo "  make reset         - Remove binaries"
 	@echo "  make test          - Run tests"
-	@echo "  make generate      - Regenerate ent code from schemas"
 	@echo "  make fmt           - Format code with gofmt"
 	@echo "  make vet           - Run go vet"
 	@echo "  make lint          - Run golangci-lint (if installed)"
 	@echo "  make schema        - Generate JSON Schema from config structs"
-	@echo "  make all           - Format, generate, schema, vet, and build"
-	@echo "  make ci            - Run all CI checks (fmt, generate, schema, vet, lint, test, build)"
+	@echo "  make all           - Format, tidy, schema, vet, and build"
+	@echo "  make ci            - Run all CI checks (fmt, schema, vet, lint, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
 	@echo "  make install-hooks - Install lefthook pre-commit hooks"
 	@echo "  make doc-dev       - Start docs dev server"
@@ -84,27 +82,20 @@ clean:
 	@rm -f ttal
 	@echo "✓ Cleaned build artifacts"
 
-# Clean database (destructive!)
-clean-db:
-	@echo "⚠️  WARNING: This will delete your database!"
-	@rm -rf ~/.ttal/ttal.db
-	@echo "✓ Database removed"
-
-# Reset everything (destructive!)
-reset: clean clean-db
-	@echo "✓ Full reset complete"
+# Reset (clean build artifacts)
+reset: clean
+	@echo "✓ Reset complete"
 
 # Run tests
 test:
 	@echo "Running tests..."
 	@go test -v ./...
 
-# Generate ent code from schemas
-generate:
-	@echo "Regenerating ent code..."
+# Tidy go modules
+tidy:
+	@echo "Tidying go modules..."
 	@go mod tidy
-	@(cd ent && go generate .)
-	@echo "✓ ent code regenerated"
+	@echo "✓ go mod tidy complete"
 
 # Generate JSON Schema from config structs
 schema:
@@ -147,7 +138,7 @@ lint:
 	fi
 
 # Run all checks and build
-all: fmt generate schema vet build
+all: fmt tidy schema vet build
 	@echo "✓ All checks passed and binary built"
 
 # Development workflow
@@ -155,7 +146,7 @@ dev: all
 	@echo "✓ Development build complete"
 
 # CI target - runs all checks (same as all but exits on failure)
-ci: fmt generate check-schema vet lint test build
+ci: fmt check-schema vet lint test build
 	@echo "✓ CI checks complete"
 
 # Check if working directory is clean (for CI)

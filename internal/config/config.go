@@ -139,6 +139,7 @@ type Config struct {
 	resolvedMergeMode     string
 	resolvedTeamPath      string
 	resolvedDBPath        string
+	resolvedProjectsPath  string
 	resolvedGatewayURL    string
 	resolvedHooksToken    string
 	resolvedDesignAgent   string
@@ -597,6 +598,9 @@ func (c *Config) resolve() error {
 		c.resolvedDBPath = filepath.Join(c.resolvedDataDir, "ttal.db")
 	}
 
+	// Resolve ProjectsPath: colocated with config.toml in ~/.config/ttal/
+	c.resolvedProjectsPath = projectsPathForTeam(teamName)
+
 	c.resolvedAgentRuntime = team.AgentRuntime
 	c.resolvedWorkerRuntime = team.WorkerRuntime
 	c.resolvedGatewayURL = team.GatewayURL
@@ -861,12 +865,13 @@ func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
 	return DefaultModel
 }
 
-// resolvedPaths caches both dataDir and dbPath together from a single config load,
-// preventing divergence between the two values.
+// resolvedPaths caches dataDir, dbPath, and projectsPath together from a single config load,
+// preventing divergence between the values.
 var resolvedPaths struct {
-	once   sync.Once
-	dir    string
-	dbPath string
+	once         sync.Once
+	dir          string
+	dbPath       string
+	projectsPath string
 }
 
 func ensureResolvedPaths() {
@@ -875,10 +880,12 @@ func ensureResolvedPaths() {
 		if err != nil {
 			resolvedPaths.dir = defaultDataDir()
 			resolvedPaths.dbPath = filepath.Join(defaultDataDir(), "ttal.db")
+			resolvedPaths.projectsPath = filepath.Join(defaultConfigDir(), "projects.toml")
 			return
 		}
 		resolvedPaths.dir = cfg.resolvedDataDir
 		resolvedPaths.dbPath = cfg.resolvedDBPath
+		resolvedPaths.projectsPath = cfg.resolvedProjectsPath
 	})
 }
 
@@ -925,6 +932,28 @@ func ResolveDBPath() string {
 	return resolvedPaths.dbPath
 }
 
+// ResolveProjectsPath returns the projects.toml path for the active team.
+// Used by project.Store for default path resolution.
+func ResolveProjectsPath() string {
+	ensureResolvedPaths()
+	return resolvedPaths.projectsPath
+}
+
+// ResolveProjectsPathForTeam returns the projects.toml path for a specific team.
+func ResolveProjectsPathForTeam(teamName string) string {
+	return projectsPathForTeam(teamName)
+}
+
+// projectsPathForTeam returns the projects.toml path for a given team name.
+// All project files are colocated with config.toml in ~/.config/ttal/.
+func projectsPathForTeam(teamName string) string {
+	cfgDir := defaultConfigDir()
+	if teamName == DefaultTeamName {
+		return filepath.Join(cfgDir, "projects.toml")
+	}
+	return filepath.Join(cfgDir, teamName+"-projects.toml")
+}
+
 // DefaultDataDir returns the default data directory (~/.ttal).
 func DefaultDataDir() string {
 	return defaultDataDir()
@@ -941,6 +970,14 @@ func defaultDataDir() string {
 		home = "."
 	}
 	return filepath.Join(home, ".ttal")
+}
+
+func defaultConfigDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	return filepath.Join(home, ".config", "ttal")
 }
 
 func defaultTaskRC() string {

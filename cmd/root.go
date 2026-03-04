@@ -8,12 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/db"
-)
-
-var (
-	dbPath   string
-	database *db.DB
 )
 
 var rootCmd = &cobra.Command{
@@ -30,29 +24,12 @@ It provides taskwarrior-like syntax for tag management and agent routing.`,
 				}
 			}
 		}
-
-		// Initialize database connection
-		var err error
-		database, err = db.New(dbPath)
-		if err != nil {
-			return fmt.Errorf("failed to initialize database: %w", err)
-		}
-		return nil
-	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		if database != nil {
-			return database.Close()
-		}
 		return nil
 	},
 }
 
 func Execute() error {
 	return rootCmd.Execute()
-}
-
-func init() {
-	rootCmd.PersistentFlags().StringVar(&dbPath, "db", db.DefaultPath(), "Path to SQLite database")
 }
 
 // confirmPrompt asks the user a yes/no question and returns true if they answer "y".
@@ -68,7 +45,7 @@ func confirmPrompt(message string) bool {
 
 // deleteEntity checks existence, confirms with user, then deletes.
 // existFn checks if the entity exists, deleteFn performs the deletion.
-func deleteEntity(kind, name string, existFn func() (bool, error), deleteFn func() (int, error)) error {
+func deleteEntity(kind, name string, existFn func() (bool, error), deleteFn func() error) error {
 	exists, err := existFn()
 	if err != nil {
 		return fmt.Errorf("failed to query %s: %w", kind, err)
@@ -82,12 +59,8 @@ func deleteEntity(kind, name string, existFn func() (bool, error), deleteFn func
 		return nil
 	}
 
-	count, err := deleteFn()
-	if err != nil {
+	if err := deleteFn(); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", kind, err)
-	}
-	if count == 0 {
-		return fmt.Errorf("%s '%s' not found", kind, name)
 	}
 
 	fmt.Printf("%s '%s' deleted permanently\n", strings.ToUpper(kind[:1])+kind[1:], name)
