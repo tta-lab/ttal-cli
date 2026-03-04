@@ -359,7 +359,11 @@ func initSingleAdapter(
 		// For Codex, try to resume the last thread (like CC's --continue).
 		if rt == runtime.Codex {
 			if ca, ok := adapter.(*codex.Adapter); ok {
-				if lastID, listErr := ca.ListThreads(ctx); listErr == nil && lastID != "" {
+				lastID, listErr := ca.ListThreads(ctx)
+				if listErr != nil {
+					log.Printf("[daemon] failed to list threads for %s: %v", ta.AgentName, listErr)
+				}
+				if listErr == nil && lastID != "" {
 					if resumeErr := adapter.ResumeSession(ctx, lastID); resumeErr == nil {
 						sid = lastID
 						log.Printf("[daemon] resumed session %s for %s", sid, ta.AgentName)
