@@ -72,6 +72,11 @@ func RenderQuestionPage(p QuestionPage) (string, *models.InlineKeyboardMarkup) {
 		})
 	}
 
+	// Skip button — always present
+	rows = append(rows, []models.InlineKeyboardButton{
+		{Text: "❌ Skip", CallbackData: fmt.Sprintf("qskip:%s", p.CallbackPrefix)},
+	})
+
 	var navRow []models.InlineKeyboardButton
 	if p.PageNum > 1 {
 		navRow = append(navRow, models.InlineKeyboardButton{
