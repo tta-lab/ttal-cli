@@ -224,8 +224,8 @@ func ShouldInlineNote(note *FlicknoteNote, inlineProjects []string) bool {
 	return false
 }
 
-// loadInlineProjects returns the configured inline project keywords, defaulting to ["plan"].
-func loadInlineProjects() []string {
+// LoadInlineProjects returns the configured inline project keywords, defaulting to ["plan"].
+func LoadInlineProjects() []string {
 	cfg, err := config.Load()
 	if err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
 		return cfg.Flicknote.InlineProjects
@@ -262,7 +262,7 @@ func (t *Task) FormatPrompt() string {
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)
 
-	inlineProjects := loadInlineProjects()
+	inlineProjects := LoadInlineProjects()
 
 	refDescs := make(map[string]bool)
 	flicknoteCache := make(map[string]string) // keyed by full annotation text (e.g. "Plan: e8fd0fe0")
