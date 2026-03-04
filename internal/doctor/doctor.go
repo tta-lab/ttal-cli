@@ -473,7 +473,7 @@ func checkUDAs(section *Section, taskrcTtalPath string) {
 		section.add(LevelError, ".taskrc.ttal", fmt.Sprintf("cannot read: %v", err))
 		return
 	}
-	for _, uda := range []string{"branch", "project_path", "pr_id"} {
+	for _, uda := range []string{"branch", "project_path", "pr_id", "spawner"} {
 		if strings.Contains(string(ttalContent), "uda."+uda+".type") {
 			section.add(LevelOK, uda, "UDA "+uda+" defined")
 		} else {
@@ -570,6 +570,9 @@ uda.project_path.label=Project
 
 uda.pr_id.type=string
 uda.pr_id.label=PR ID
+
+uda.spawner.type=string
+uda.spawner.label=Spawner
 `
 
 // --- TaskChampion Sync ---

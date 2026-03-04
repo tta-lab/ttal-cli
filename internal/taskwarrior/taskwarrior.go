@@ -68,6 +68,7 @@ type Task struct {
 	Branch      string       `json:"branch"`
 	ProjectPath string       `json:"project_path"`
 	PRID        string       `json:"pr_id,omitempty"`
+	Spawner     string       `json:"spawner,omitempty"`
 }
 
 // SessionID returns a deterministic session identifier derived from the task UUID.
@@ -415,7 +416,7 @@ func VerifyRequiredUDAs() error {
 			"  This prevents creating orphaned sessions that aren't tracked.", err)}
 	}
 
-	required := []string{"branch", "project_path"}
+	required := []string{"branch", "project_path", "spawner"}
 	var missing []string
 	for _, uda := range required {
 		if !strings.Contains(out, fmt.Sprintf("uda.%s.", uda)) {
@@ -519,6 +520,15 @@ func ListTasksWithPR() ([]Task, error) {
 		return nil, fmt.Errorf("failed to parse task JSON: %w", err)
 	}
 	return tasks, nil
+}
+
+// SetSpawner sets the spawner UDA on a task (format: team:agent).
+func SetSpawner(uuid, spawner string) error {
+	_, err := runTask(uuid, "modify", fmt.Sprintf("spawner:%s", spawner))
+	if err != nil {
+		return fmt.Errorf("failed to set spawner on task %s: %w", uuid, err)
+	}
+	return nil
 }
 
 // SetPRID sets the pr_id UDA on a task.
