@@ -214,39 +214,48 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 			continue
 		}
 
-		// Check CI status
-		cs, err := provider.GetCombinedStatus(target.Owner, target.Repo, headSHA)
-		if err != nil {
-			log.Printf("[prwatch] GetCombinedStatus error for %s: %v", shortSHA(headSHA), err)
-			interval = backoff(interval)
-			poll.Reset(interval)
-			continue
-		}
-
-		switch cs.State {
-		case "success":
-			msg := fmt.Sprintf("PR #%d checks passed — ready to merge. Run: ttal pr merge",
-				target.PRIndex)
-			deliverToWorkerSession(target.SessionName, msg)
-			notifyPRStatus(mcfg, target, "✅ CI passed — ready to merge", "")
-			log.Printf("[prwatch] PR #%d checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
+		resolved, newInterval := handleCIStatus(provider, target, mcfg, headSHA, interval)
+		if resolved {
 			return
-
-		case "failure", "error":
-			lastDeliveredSHA = headSHA
-			msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
-			deliverToWorkerSession(target.SessionName, msg)
-			notifyPRStatus(mcfg, target, "❌ CI failed", runURL)
-			log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
-			// Keep watching for new pushes
-			interval = prPollInitial
-
-		default:
-			// "pending" or unknown — keep polling
-			interval = backoff(interval)
 		}
-
+		if newInterval == prPollInitial {
+			lastDeliveredSHA = headSHA
+		}
+		interval = newInterval
 		poll.Reset(interval)
+	}
+}
+
+// handleCIStatus checks CI for a given SHA and delivers results.
+// Returns (true, _) if polling should stop, (false, newInterval) to continue.
+func handleCIStatus(
+	provider gitprovider.Provider, target prWatchTarget,
+	mcfg *config.DaemonConfig, headSHA string, interval time.Duration,
+) (bool, time.Duration) {
+	cs, err := provider.GetCombinedStatus(target.Owner, target.Repo, headSHA)
+	if err != nil {
+		log.Printf("[prwatch] GetCombinedStatus error for %s: %v", shortSHA(headSHA), err)
+		return false, backoff(interval)
+	}
+
+	switch cs.State {
+	case "success":
+		msg := fmt.Sprintf("PR #%d checks passed — ready to merge. Run: ttal pr merge",
+			target.PRIndex)
+		deliverToWorkerSession(target.SessionName, msg)
+		notifyPRStatus(mcfg, target, "✅ CI passed — ready to merge", "")
+		log.Printf("[prwatch] PR #%d checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
+		return true, 0
+
+	case "failure", "error":
+		msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
+		deliverToWorkerSession(target.SessionName, msg)
+		notifyPRStatus(mcfg, target, "❌ CI failed", runURL)
+		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
+		return false, prPollInitial
+
+	default:
+		return false, backoff(interval)
 	}
 }
 
