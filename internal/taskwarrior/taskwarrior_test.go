@@ -273,6 +273,54 @@ func TestHexIDPattern(t *testing.T) {
 	}
 }
 
+func TestParseCreatedUUID(t *testing.T) {
+	tests := []struct {
+		name    string
+		output  string
+		wantID  string
+		wantErr bool
+	}{
+		{
+			name:   "standard output",
+			output: "Created task e9d4b7c1-1234-5678-9abc-def012345678.\n",
+			wantID: "e9d4b7c1-1234-5678-9abc-def012345678",
+		},
+		{
+			name:    "empty output",
+			output:  "",
+			wantErr: true,
+		},
+		{
+			name:   "uuid in verbose output",
+			output: "Created task e9d4b7c1-1234-5678-9abc-def012345678 (waiting for hook).\n",
+			wantID: "e9d4b7c1-1234-5678-9abc-def012345678",
+		},
+		{
+			name:    "no uuid in output",
+			output:  "Some other output without a uuid.\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseCreatedUUID(tt.output)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.wantID {
+				t.Errorf("got %q, want %q", got, tt.wantID)
+			}
+		})
+	}
+}
+
 func TestExtractSessionID(t *testing.T) {
 	tests := []struct {
 		name  string

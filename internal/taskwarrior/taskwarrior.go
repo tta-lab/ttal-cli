@@ -17,6 +17,7 @@ import (
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
+var uuidFindPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 // HexIDPattern finds a flicknote hex ID (8+ lowercase hex chars) anywhere in an annotation.
 // Matches bare IDs ("e8fd0fe0"), prefixed ("Plan: e8fd0fe0"), or multi-word
@@ -573,6 +574,68 @@ func GetActiveWorkerTasks() ([]Task, error) {
 		return nil, fmt.Errorf("failed to parse task JSON: %w", err)
 	}
 	return tasks, nil
+}
+
+// AddTask creates a new task via `task add` and returns the created UUID.
+// description is the task text. modifiers are passed directly to taskwarrior
+// (e.g. "+tag", "priority:H", "project:ttal").
+func AddTask(description string, modifiers ...string) (string, error) {
+	args := []string{"add", description}
+	args = append(args, modifiers...)
+
+	out, err := runTaskWithVerbose("new-uuid", args...)
+	if err != nil {
+		return "", fmt.Errorf("failed to create task: %w", err)
+	}
+
+	uuid, err := parseCreatedUUID(out)
+	if err != nil {
+		return "", err
+	}
+	return uuid, nil
+}
+
+// AnnotateTask adds an annotation to a task.
+func AnnotateTask(uuid, text string) error {
+	_, err := runTask(uuid, "annotate", text)
+	if err != nil {
+		return fmt.Errorf("failed to annotate task %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// parseCreatedUUID extracts the UUID from `task add` output.
+// Expected format: "Created task <uuid>."
+func parseCreatedUUID(output string) (string, error) {
+	if m := uuidFindPattern.FindString(output); m != "" {
+		return m, nil
+	}
+	return "", fmt.Errorf("could not find UUID in task output: %q", output)
+}
+
+// runTaskWithVerbose runs a task command with a specific verbose setting
+// instead of the default "nothing".
+func runTaskWithVerbose(verbose string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := commandContextWithVerbose(ctx, verbose, args...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("taskwarrior timeout after %s", cmdTimeout)
+	}
+	if err != nil {
+		errMsg := strings.TrimSpace(stderr.String())
+		if errMsg == "" {
+			errMsg = strings.TrimSpace(stdout.String())
+		}
+		return "", fmt.Errorf("%w: %s", err, errMsg)
+	}
+	return stdout.String(), nil
 }
 
 func runTask(args ...string) (string, error) {

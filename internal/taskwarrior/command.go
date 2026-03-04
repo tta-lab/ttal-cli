@@ -28,8 +28,12 @@ func CommandContext(ctx context.Context, args ...string) *exec.Cmd {
 }
 
 func commandContext(ctx context.Context, args ...string) *exec.Cmd {
+	return commandContextWithVerbose(ctx, "nothing", args...)
+}
+
+func commandContextWithVerbose(ctx context.Context, verbose string, args ...string) *exec.Cmd {
 	fullArgs := make([]string, 0, len(args)+2)
-	fullArgs = append(fullArgs, "rc.verbose:nothing")
+	fullArgs = append(fullArgs, "rc.verbose:"+verbose)
 
 	if taskrc := resolveTaskRC(); taskrc != "" {
 		fullArgs = append(fullArgs, "rc:"+taskrc)
