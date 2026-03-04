@@ -18,6 +18,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/sst/opencode-sdk-go v0.19.2
 	github.com/stretchr/testify v1.10.0
+	github.com/tta-lab/codex-server-go v0.1.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.46.1
 )

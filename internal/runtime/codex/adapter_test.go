@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/tta-lab/codex-server-go/protocol"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
@@ -49,7 +50,7 @@ func TestProcessNotificationItemStarted(t *testing.T) {
 			}
 
 			a.processNotification(rpcResponse{
-				Method: "item/started",
+				Method: protocol.NotifItemStarted,
 				Params: json.RawMessage(tt.params),
 			})
 
@@ -99,7 +100,7 @@ func TestProcessServerRequestUserInput(t *testing.T) {
 
 	a.processServerRequest(rpcResponse{
 		ID:     json.RawMessage(`42`),
-		Method: "item/tool/requestUserInput",
+		Method: protocol.ReqItemToolRequestUserInput,
 		Params: json.RawMessage(`{
 			"threadId": "t1",
 			"turnId": "r1",
