@@ -22,14 +22,15 @@
   display: inline-block;
   min-width: 11ch;
   text-align: left;
-  background: var(--vp-home-hero-name-background, -webkit-linear-gradient(120deg, #bd34fe, #41d1ff));
+  background: linear-gradient(120deg, #bd34fe 30%, #41d1ff);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .hero-typer .typer-cursor {
-  background: var(--vp-home-hero-name-background, -webkit-linear-gradient(120deg, #bd34fe, #41d1ff));
+  display: inline-block;
+  background: linear-gradient(120deg, #bd34fe 30%, #41d1ff);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
