@@ -58,7 +58,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 		},
 	}
 	if a.cfg.Yolo {
-		initParams["approval_policy"] = "full-auto"
+		initParams["approvalPolicy"] = "full-auto"
 	}
 	if _, err := a.client.Call("initialize", initParams); err != nil {
 		_ = a.client.Close()
@@ -99,9 +99,14 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 		return fmt.Errorf("no active conversation — call CreateSession first")
 	}
 
-	_, err := a.client.Call("sendUserTurn", map[string]interface{}{
-		"conversation_id": cid,
-		"content":         text,
+	_, err := a.client.Call("sendUserMessage", map[string]interface{}{
+		"conversationId": cid,
+		"items": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": text,
+			},
+		},
 	})
 	return err
 }
@@ -110,14 +115,14 @@ func (a *Adapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 	result, err := a.client.Call("newConversation", map[string]interface{}{
-		"working_directory": a.cfg.WorkDir,
+		"cwd": a.cfg.WorkDir,
 	})
 	if err != nil {
 		return "", fmt.Errorf("create codex conversation: %w", err)
 	}
 
 	var conv struct {
-		ConversationID string `json:"conversation_id"`
+		ConversationID string `json:"conversationId"`
 	}
 	if err := json.Unmarshal(result, &conv); err != nil {
 		return "", err
@@ -132,7 +137,7 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 
 func (a *Adapter) ResumeSession(_ context.Context, sessionID string) error {
 	_, err := a.client.Call("resumeConversation", map[string]interface{}{
-		"conversation_id": sessionID,
+		"conversationId": sessionID,
 	})
 	if err != nil {
 		return err
@@ -156,7 +161,7 @@ func (a *Adapter) IsHealthy(_ context.Context) bool {
 		return true // server up, no conversation yet
 	}
 	_, err := a.client.Call("getConversationSummary", map[string]interface{}{
-		"conversation_id": cid,
+		"conversationId": cid,
 	})
 	return err == nil
 }
@@ -230,13 +235,13 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 
 	case "RequestUserInput":
 		var params struct {
-			CallID    string `json:"call_id"`
+			CallID    string `json:"callId"`
 			Questions []struct {
 				ID       string `json:"id"`
 				Header   string `json:"header"`
 				Question string `json:"question"`
-				IsOther  bool   `json:"is_other"`
-				IsSecret bool   `json:"is_secret"`
+				IsOther  bool   `json:"isOther"`
+				IsSecret bool   `json:"isSecret"`
 				Options  []struct {
 					Label       string `json:"label"`
 					Description string `json:"description"`
