@@ -137,15 +137,25 @@ ttal today add <uuid>          # set scheduled:today on a task
 ttal today remove <uuid>       # clear scheduled date from a task
 ```
 
-## Task Utilities
+## Task Management
 
-Search tasks and export rich prompts for piping to agents:
+Create tasks and export rich prompts for piping to agents:
 
 ```bash
+# Create a task (project is required, validated against ttal project DB)
+ttal task add --project <alias> "description" --tag <tag> --priority M --annotate "note"
+
+# Tags and annotations are repeatable
+ttal task add --project ttal "Fix auth bug" --tag bugfix --tag urgent --priority H \
+  --annotate "Stack trace in #general" --annotate "Repo: /Users/neil/Code/..."
+
+# Search and export tasks
 ttal task get <uuid>           # export task as rich prompt (inlines referenced docs)
 ttal task find <keyword>       # search pending tasks by keyword (OR, case-insensitive)
 ttal task find <keyword> --completed  # search completed tasks
 ```
+
+`ttal task add` validates the project against the ttal project database — use `ttal project list` to see valid aliases. The on-add hook handles `project_path` and `branch` UDAs automatically.
 
 `ttal task get` inlines markdown files from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns — useful for feeding full context to agents.
 
