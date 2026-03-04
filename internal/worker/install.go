@@ -16,12 +16,11 @@ const (
 )
 
 // hookShim generates a bash hook script that delegates to ttal.
-// For non-default teams, it bakes in "export TTAL_TEAM=<team>" so hooks
-// work correctly even when triggered from tools without TTAL_TEAM in env
-// (e.g. taskwarrior-tui).
+// It bakes in "export TTAL_TEAM=<team>" so hooks work correctly even when
+// triggered from tools without TTAL_TEAM in env (e.g. taskwarrior-tui).
 func hookShim(hookCmd, teamName string) string {
 	var envLine string
-	if teamName != "" && teamName != config.DefaultTeamName {
+	if teamName != "" {
 		envLine = fmt.Sprintf("\nexport TTAL_TEAM=%q", teamName)
 	}
 	return fmt.Sprintf(`#!/bin/bash
