@@ -293,6 +293,37 @@ func routeCodexResponse(batch *QuestionBatch, registry *adapterRegistry) error {
 	return cxAdapter.RespondToUserInput(batch.CorrelationID, answers)
 }
 
+// cancelQuestion dismisses a pending question without answering.
+func cancelQuestion(batch *QuestionBatch, registry *adapterRegistry) error {
+	switch batch.Runtime {
+	case runtime.ClaudeCode:
+		session := config.AgentSessionName(batch.TeamName, batch.AgentName)
+		return tmux.SendRawKey(session, batch.AgentName, "Escape")
+	case runtime.OpenCode:
+		adapter, ok := registry.get(batch.TeamName, batch.AgentName)
+		if !ok {
+			return fmt.Errorf("no adapter for OC agent %s/%s", batch.TeamName, batch.AgentName)
+		}
+		ocAdapter, ok := adapter.(*oc.Adapter)
+		if !ok {
+			return fmt.Errorf("adapter for %s/%s is not OpenCode", batch.TeamName, batch.AgentName)
+		}
+		return ocAdapter.ReplyToQuestion(context.Background(), batch.CorrelationID, []string{})
+	case runtime.Codex:
+		adapter, ok := registry.get(batch.TeamName, batch.AgentName)
+		if !ok {
+			return fmt.Errorf("no adapter for Codex agent %s/%s", batch.TeamName, batch.AgentName)
+		}
+		cxAdapter, ok := adapter.(*cx.Adapter)
+		if !ok {
+			return fmt.Errorf("adapter for %s/%s is not Codex", batch.TeamName, batch.AgentName)
+		}
+		return cxAdapter.RespondToUserInput(batch.CorrelationID, nil)
+	default:
+		return fmt.Errorf("unknown runtime %s for cancel", batch.Runtime)
+	}
+}
+
 // advanceToNextUnanswered moves CurrentPage to the next unanswered question.
 func advanceToNextUnanswered(batch *QuestionBatch) {
 	for i := batch.CurrentPage + 1; i < len(batch.Questions); i++ {
