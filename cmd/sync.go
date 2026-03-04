@@ -29,11 +29,13 @@ Subagents are split into runtime-specific variants:
   Codex       → ~/.codex/agents/{name}.toml + ~/.codex/config.toml
 
 Skills are symlinked:
-  ~/.claude/skills/{name}/ → source directory
+  ~/.claude/skills/{name}/ → source directory (CC + OpenCode)
+  ~/.codex/skills/{name}/  → source directory (Codex)
 
 Commands are deployed as written files (variant generation):
   Claude Code → ~/.claude/skills/{name}/SKILL.md
   OpenCode    → ~/.config/opencode/commands/{name}.md
+  Codex       → ~/.codex/skills/{name}/SKILL.md
 
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
@@ -106,7 +108,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 
 			for _, r := range results {
-				fmt.Printf("  %s → %s (symlink)\n", shortenHome(r.Source), shortenHome(r.Dest))
+				fmt.Printf("  %s\n", shortenHome(r.Source))
+				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.Dest))
+				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			skillCount = countUniqueSkills(results)
 
@@ -138,6 +142,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
 				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
+				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			commandCount = len(results)
 

@@ -10,24 +10,27 @@ import (
 
 // SkillResult tracks a single skill deployment for reporting.
 type SkillResult struct {
-	Source string
-	Name   string
-	Dest   string
+	Source    string
+	Name      string
+	Dest      string // CC destination (~/.claude/skills/)
+	CodexDest string // Codex destination (~/.codex/skills/)
 }
 
-// DeploySkills symlinks skill directories (those containing SKILL.md) to ~/.claude/skills/.
+// DeploySkills symlinks skill directories (those containing SKILL.md) to
+// ~/.claude/skills/ (CC + OpenCode) and ~/.codex/skills/ (Codex).
 func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	destDir := filepath.Join(home, ".claude", "skills")
+	ccDir := filepath.Join(home, ".claude", "skills")
+	codexDir := filepath.Join(home, ".codex", "skills")
 
 	var results []SkillResult
 
 	for _, rawPath := range skillsPaths {
-		deployed, err := deploySkillsFromDir(rawPath, destDir, dryRun)
+		deployed, err := deploySkillsFromDir(rawPath, ccDir, codexDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +40,7 @@ func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	return results, nil
 }
 
-func deploySkillsFromDir(rawPath, destDir string, dryRun bool) ([]SkillResult, error) {
+func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillResult, error) {
 	dir := config.ExpandHome(rawPath)
 
 	entries, err := os.ReadDir(dir)
@@ -50,8 +53,10 @@ func deploySkillsFromDir(rawPath, destDir string, dryRun bool) ([]SkillResult, e
 	}
 
 	if !dryRun {
-		if err := os.MkdirAll(destDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating skills dir: %w", err)
+		for _, d := range []string{ccDir, codexDir} {
+			if err := os.MkdirAll(d, 0o755); err != nil {
+				return nil, fmt.Errorf("creating skills dir %s: %w", d, err)
+			}
 		}
 	}
 
@@ -67,14 +72,23 @@ func deploySkillsFromDir(rawPath, destDir string, dryRun bool) ([]SkillResult, e
 			continue
 		}
 
-		dest := filepath.Join(destDir, entry.Name())
-		results = append(results, SkillResult{Source: skillDir, Name: entry.Name(), Dest: dest})
+		ccDest := filepath.Join(ccDir, entry.Name())
+		codexDest := filepath.Join(codexDir, entry.Name())
+		results = append(results, SkillResult{
+			Source:    skillDir,
+			Name:      entry.Name(),
+			Dest:      ccDest,
+			CodexDest: codexDest,
+		})
 
 		if dryRun {
 			continue
 		}
 
-		if err := symlinkSkill(skillDir, dest); err != nil {
+		if err := symlinkSkill(skillDir, ccDest); err != nil {
+			return nil, err
+		}
+		if err := symlinkSkill(skillDir, codexDest); err != nil {
 			return nil, err
 		}
 	}
@@ -100,38 +114,44 @@ func symlinkSkill(src, dest string) error {
 	return nil
 }
 
-// CleanSkills removes symlinks in ~/.claude/skills/ that point to directories
-// no longer present in any skills_paths source.
+// CleanSkills removes symlinks in ~/.claude/skills/ and ~/.codex/skills/ that
+// point to directories no longer present in any skills_paths source.
 func CleanSkills(skillsPaths []string, dryRun bool) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	destDir := filepath.Join(home, ".claude", "skills")
 	validSources, err := collectValidSkillSources(skillsPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	entries, err := os.ReadDir(destDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
+	destDirs := []string{
+		filepath.Join(home, ".claude", "skills"),
+		filepath.Join(home, ".codex", "skills"),
 	}
 
-	removed := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		path, shouldRemove := checkStaleSkillSymlink(destDir, entry, validSources)
-		if !shouldRemove {
-			continue
+	var removed []string
+	for _, destDir := range destDirs {
+		entries, err := os.ReadDir(destDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
 		}
-		removed = append(removed, path)
-		if !dryRun {
-			if err := os.Remove(path); err != nil {
-				return nil, fmt.Errorf("removing stale skill symlink %s: %w", path, err)
+
+		for _, entry := range entries {
+			path, shouldRemove := checkStaleSkillSymlink(destDir, entry, validSources)
+			if !shouldRemove {
+				continue
+			}
+			removed = append(removed, path)
+			if !dryRun {
+				if err := os.Remove(path); err != nil {
+					return nil, fmt.Errorf("removing stale skill symlink %s: %w", path, err)
+				}
 			}
 		}
 	}

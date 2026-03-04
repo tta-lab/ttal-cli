@@ -11,10 +11,11 @@ import (
 
 // CommandResult tracks a single command deployment for reporting.
 type CommandResult struct {
-	Source string
-	Name   string
-	CCDest string
-	OCDest string
+	Source    string
+	Name      string
+	CCDest    string
+	OCDest    string
+	CodexDest string
 }
 
 // DeployCommands reads canonical command .md files from the given paths and deploys
@@ -27,19 +28,19 @@ func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error
 
 	ccSkillsDir := filepath.Join(home, ".claude", "skills")
 	ocCmdsDir := filepath.Join(home, ".config", "opencode", "commands")
+	codexSkillsDir := filepath.Join(home, ".codex", "skills")
 
 	if !dryRun {
-		if err := os.MkdirAll(ccSkillsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating CC skills dir: %w", err)
-		}
-		if err := os.MkdirAll(ocCmdsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating OC commands dir: %w", err)
+		for _, d := range []string{ccSkillsDir, ocCmdsDir, codexSkillsDir} {
+			if err := os.MkdirAll(d, 0o755); err != nil {
+				return nil, fmt.Errorf("creating dir %s: %w", d, err)
+			}
 		}
 	}
 
 	var results []CommandResult
 	for _, rawPath := range commandsPaths {
-		deployed, err := deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir, dryRun)
+		deployed, err := deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir, codexSkillsDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +49,9 @@ func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error
 	return results, nil
 }
 
-func deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir string, dryRun bool) ([]CommandResult, error) {
+func deployCommandsFromDir(
+	rawPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dryRun bool,
+) ([]CommandResult, error) {
 	dir := config.ExpandHome(rawPath)
 
 	entries, err := os.ReadDir(dir)
@@ -65,7 +68,7 @@ func deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir string, dryRun bool) 
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
-		r, err := deployOneCommand(filepath.Join(dir, entry.Name()), ccSkillsDir, ocCmdsDir, dryRun)
+		r, err := deployOneCommand(filepath.Join(dir, entry.Name()), ccSkillsDir, ocCmdsDir, codexSkillsDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +77,7 @@ func deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir string, dryRun bool) 
 	return results, nil
 }
 
-func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir string, dryRun bool) (CommandResult, error) {
+func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dryRun bool) (CommandResult, error) {
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("reading %s: %w", srcPath, err)
@@ -102,25 +105,41 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir string, dryRun bool) (Comm
 	// OC: flat file in commands dir
 	ocDest := filepath.Join(ocCmdsDir, cmd.Frontmatter.Name+".md")
 
+	// Codex: same layout as CC (skill directory with SKILL.md)
+	codexSkillDir := filepath.Join(codexSkillsDir, cmd.Frontmatter.Name)
+	codexDest := filepath.Join(codexSkillDir, "SKILL.md")
+
 	result := CommandResult{
-		Source: srcPath,
-		Name:   cmd.Frontmatter.Name,
-		CCDest: ccDest,
-		OCDest: ocDest,
+		Source:    srcPath,
+		Name:      cmd.Frontmatter.Name,
+		CCDest:    ccDest,
+		OCDest:    ocDest,
+		CodexDest: codexDest,
 	}
 
 	if dryRun {
 		return result, nil
 	}
 
+	// CC
 	if err := os.MkdirAll(ccSkillDir, 0o755); err != nil {
 		return CommandResult{}, fmt.Errorf("creating CC skill dir %s: %w", ccSkillDir, err)
 	}
 	if err := os.WriteFile(ccDest, []byte(ccContent), 0o644); err != nil {
 		return CommandResult{}, fmt.Errorf("writing CC command %s: %w", ccDest, err)
 	}
+
+	// OC
 	if err := os.WriteFile(ocDest, []byte(ocContent), 0o644); err != nil {
 		return CommandResult{}, fmt.Errorf("writing OC command %s: %w", ocDest, err)
+	}
+
+	// Codex (reuse CC variant)
+	if err := os.MkdirAll(codexSkillDir, 0o755); err != nil {
+		return CommandResult{}, fmt.Errorf("creating Codex skill dir %s: %w", codexSkillDir, err)
+	}
+	if err := os.WriteFile(codexDest, []byte(ccContent), 0o644); err != nil {
+		return CommandResult{}, fmt.Errorf("writing Codex command %s: %w", codexDest, err)
 	}
 
 	return result, nil
@@ -153,6 +172,13 @@ func CleanCommands(commandsPaths []string, dryRun bool) ([]string, error) {
 		return nil, err
 	}
 	removed = append(removed, ocRemoved...)
+
+	codexSkillsDir := filepath.Join(home, ".codex", "skills")
+	codexRemoved, err := cleanManagedCommandSkills(codexSkillsDir, validNames, dryRun)
+	if err != nil {
+		return nil, err
+	}
+	removed = append(removed, codexRemoved...)
 
 	return removed, nil
 }
