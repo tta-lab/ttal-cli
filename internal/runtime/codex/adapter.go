@@ -274,7 +274,7 @@ func (a *Adapter) handleRequestUserInput(notif rpcResponse) {
 		return
 	}
 
-	var questions []runtime.Question
+	questions := make([]runtime.Question, 0, len(params.Questions))
 	for _, q := range params.Questions {
 		rq := runtime.Question{
 			ID:          q.ID,
