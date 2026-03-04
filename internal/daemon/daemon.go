@@ -366,14 +366,14 @@ func bridgeEvents(
 			case runtime.EventQuestion:
 				handleIncomingQuestion(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
 			case runtime.EventTool:
-				if mt == nil {
+				emoji := telegram.ToolEmoji(event.ToolName)
+				if emoji == "" || mt == nil {
 					break
 				}
 				tracked, ok := mt.get(teamName, agentName)
 				if !ok {
 					break
 				}
-				emoji := telegram.ToolEmoji(event.ToolName)
 				if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
 					log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, event.ToolName, err)
 				}
@@ -487,11 +487,8 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTrack
 			if !ok || ta.Config.BotToken == "" {
 				return
 			}
-			if tracked, ok := mt.get(teamName, agentName); ok {
-				if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, "👍"); err != nil {
-					log.Printf("[reactions] done reaction error for %s: %v", agentName, err)
-				}
-			}
+			// Clear tracking — response text arriving is the done signal
+			mt.delete(teamName, agentName)
 			if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, text); err != nil {
 				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 			}
@@ -500,11 +497,14 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTrack
 			handleIncomingQuestion(qs, teamName, agentName, runtime.ClaudeCode, correlationID, questions, mcfg)
 		},
 		func(teamName, agentName, toolName string) {
+			emoji := telegram.ToolEmoji(toolName)
+			if emoji == "" {
+				return
+			}
 			tracked, ok := mt.get(teamName, agentName)
 			if !ok {
 				return
 			}
-			emoji := telegram.ToolEmoji(toolName)
 			if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
 				log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, toolName, err)
 			}

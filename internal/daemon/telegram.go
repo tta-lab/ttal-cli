@@ -177,7 +177,7 @@ func handleInboundMessage(
 	onMessage func(string, string),
 	mt *messageTracker,
 ) {
-	// Track this message for reactions and set 👀 immediately
+	// Track this message for tool reactions
 	if mt != nil {
 		chatID, err := telegram.ParseChatID(chatIDStr)
 		if err == nil {
@@ -186,7 +186,6 @@ func handleInboundMessage(
 				MessageID: msg.ID,
 				BotToken:  botToken,
 			})
-			_ = telegram.SetReaction(botToken, chatID, msg.ID, "👀")
 		}
 	}
 
