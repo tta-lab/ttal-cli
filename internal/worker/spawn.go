@@ -25,6 +25,7 @@ type SpawnConfig struct {
 	Force    bool
 	Yolo     bool
 	Runtime  runtime.Runtime
+	Spawner  string // team:agent format, set by ttal task execute
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
@@ -224,6 +225,12 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	if cfg.Runtime == runtime.OpenCode && cfg.Yolo {
 		setEnv("OPENCODE_PERMISSION",
 			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
+	}
+
+	if cfg.Spawner != "" {
+		if err := taskwarrior.SetSpawner(task.UUID, cfg.Spawner); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to set spawner: %v\n", err)
+		}
 	}
 
 	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
