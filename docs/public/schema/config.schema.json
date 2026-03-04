@@ -142,6 +142,13 @@
           },
           "type": "array",
           "description": "Directories to scan for command definitions"
+        },
+        "rules_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Directories to scan for RULE.md files"
         }
       },
       "additionalProperties": false,

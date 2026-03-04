@@ -25,18 +25,7 @@ func DeployRules(rulesPaths []string, dryRun bool) ([]RuleResult, error) {
 		return nil, err
 	}
 	rulesDir := filepath.Join(home, ".claude", "rules")
-
-	var results []RuleResult
-	for _, raw := range rulesPaths {
-		dir := config.ExpandHome(raw)
-		rs, err := deployRulesFromDir(dir, rulesDir, dryRun)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: rules path %s: %v\n", raw, err)
-			continue
-		}
-		results = append(results, rs...)
-	}
-	return results, nil
+	return DeployRulesTo(rulesPaths, rulesDir, dryRun)
 }
 
 // DeployRulesTo is like DeployRules but writes to a custom destination directory.
@@ -62,6 +51,8 @@ func deployRulesFromDir(sourceDir, rulesDir string, dryRun bool) ([]RuleResult, 
 	}
 
 	results := make([]RuleResult, 0, len(entries))
+
+	// Collect all rule sources: subdirectories with RULE.md + direct RULE.md at root.
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -72,21 +63,6 @@ func deployRulesFromDir(sourceDir, rulesDir string, dryRun bool) ([]RuleResult, 
 		}
 		dest := filepath.Join(rulesDir, e.Name()+".md")
 		results = append(results, RuleResult{Source: rulePath, Name: e.Name(), Dest: dest})
-
-		if dryRun {
-			continue
-		}
-		if err := os.MkdirAll(rulesDir, 0o755); err != nil {
-			return results, err
-		}
-		content, err := os.ReadFile(rulePath)
-		if err != nil {
-			log.Printf("[sync] warning: failed to read %s: %v", rulePath, err)
-			continue
-		}
-		if err := os.WriteFile(dest, content, 0o644); err != nil {
-			log.Printf("[sync] warning: failed to write rule %s: %v", dest, err)
-		}
 	}
 
 	// Check if sourceDir itself contains RULE.md (e.g. rules_paths entry is a project dir directly).
@@ -95,15 +71,25 @@ func deployRulesFromDir(sourceDir, rulesDir string, dryRun bool) ([]RuleResult, 
 		name := filepath.Base(sourceDir)
 		dest := filepath.Join(rulesDir, name+".md")
 		results = append(results, RuleResult{Source: directRule, Name: name, Dest: dest})
+	}
 
-		if !dryRun {
-			if err := os.MkdirAll(rulesDir, 0o755); err != nil {
-				return results, err
-			}
-			content, err := os.ReadFile(directRule)
-			if err == nil {
-				_ = os.WriteFile(dest, content, 0o644)
-			}
+	if dryRun || len(results) == 0 {
+		return results, nil
+	}
+
+	// Create destination directory once before writing.
+	if err := os.MkdirAll(rulesDir, 0o755); err != nil {
+		return results, err
+	}
+
+	for _, r := range results {
+		content, err := os.ReadFile(r.Source)
+		if err != nil {
+			log.Printf("[sync] warning: failed to read %s: %v", r.Source, err)
+			continue
+		}
+		if err := os.WriteFile(r.Dest, content, 0o644); err != nil {
+			log.Printf("[sync] warning: failed to write rule %s: %v", r.Dest, err)
 		}
 	}
 
