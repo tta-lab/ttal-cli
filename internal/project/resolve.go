@@ -82,6 +82,48 @@ func ResolveProjectPath(projectName string) string {
 	return ""
 }
 
+// ValidateProjectAlias checks that a project alias exists in the ttal DB (exact match).
+// Returns a user-friendly error listing available projects if not found.
+func ValidateProjectAlias(alias string) error {
+	dbPath := config.ResolveDBPath()
+	if _, err := os.Stat(dbPath); err != nil {
+		return fmt.Errorf("project database not found — run `ttal project add` first")
+	}
+
+	database, err := db.New(dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open project database: %w", err)
+	}
+	defer database.Close()
+
+	ctx := context.Background()
+	_, err = database.Project.Query().
+		Where(project.Alias(alias), project.ArchivedAtIsNil()).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return formatProjectNotFoundError(alias, database.Client, ctx)
+		}
+		return fmt.Errorf("project lookup failed: %w", err)
+	}
+	return nil
+}
+
+func formatProjectNotFoundError(alias string, database *ent.Client, ctx context.Context) error {
+	projects, _ := database.Project.Query().
+		Where(project.ArchivedAtIsNil()).
+		All(ctx)
+
+	var aliases []string
+	for _, p := range projects {
+		aliases = append(aliases, p.Alias)
+	}
+
+	msg := fmt.Sprintf("project %q not found\n\nAvailable projects:\n  %s\n\nUse `ttal project list` to see all projects.",
+		alias, strings.Join(aliases, ", "))
+	return fmt.Errorf("%s", msg)
+}
+
 // matchByContains finds a project whose alias is contained within the input name.
 // Returns the project path only if exactly one project matches (no ambiguity).
 // Empty aliases are skipped to avoid false matches (strings.Contains(s, "") is always true).
