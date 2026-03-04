@@ -85,20 +85,20 @@ Example:
 		if hasFm {
 			sb.WriteString("---\n")
 			if agentDescription != "" {
-				sb.WriteString(fmt.Sprintf("description: %s\n", agentDescription))
+				fmt.Fprintf(&sb, "description: %s\n", agentDescription)
 			}
 			if agentEmoji != "" {
-				sb.WriteString(fmt.Sprintf("emoji: %s\n", agentEmoji))
+				fmt.Fprintf(&sb, "emoji: %s\n", agentEmoji)
 			}
 			if agentVoice != "" {
 				if !voice.IsValidVoice(agentVoice) {
 					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", agentVoice)
 				}
-				sb.WriteString(fmt.Sprintf("voice: %s\n", agentVoice))
+				fmt.Fprintf(&sb, "voice: %s\n", agentVoice)
 			}
 			sb.WriteString("---\n")
 		}
-		sb.WriteString(fmt.Sprintf("# %s\n", name))
+		fmt.Fprintf(&sb, "# %s\n", name)
 
 		if err := os.WriteFile(claudeMd, []byte(sb.String()), 0o644); err != nil {
 			return fmt.Errorf("write CLAUDE.md: %w", err)
