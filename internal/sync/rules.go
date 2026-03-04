@@ -180,7 +180,7 @@ func DeployCodexRulesTo(rules []RuleResult, agentsPath string, dryRun bool) erro
 		if err != nil {
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("### %s\n\n", r.Name))
+		fmt.Fprintf(&sb, "### %s\n\n", r.Name)
 		sb.WriteString(strings.TrimSpace(string(ruleContent)))
 		sb.WriteString("\n\n")
 	}

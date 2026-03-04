@@ -268,12 +268,12 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 	envPath, _ := config.DotEnvPath()
 	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
 		if fix {
-			var names []string
+			names := make([]string, 0, len(cfg.Agents))
 			for name := range cfg.Agents {
 				names = append(names, name)
 			}
 			sort.Strings(names)
-			var lines []string
+			lines := make([]string, 0, 8+len(names))
 			lines = append(lines, "# ttal secrets — ~/.config/ttal/.env")
 			lines = append(lines, "# All entries are injected into worker and agent sessions.")
 			lines = append(lines, "")

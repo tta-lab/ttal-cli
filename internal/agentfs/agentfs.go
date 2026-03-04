@@ -113,7 +113,7 @@ func SetField(teamPath, name, field, value string) error {
 	sort.Strings(keys)
 	for _, k := range keys {
 		if fm[k] != "" {
-			sb.WriteString(fmt.Sprintf("%s: %s\n", k, fm[k]))
+			fmt.Fprintf(&sb, "%s: %s\n", k, fm[k])
 		}
 	}
 	sb.WriteString("---\n")

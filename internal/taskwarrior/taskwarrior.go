@@ -590,7 +590,8 @@ func GetActiveWorkerTasks() ([]Task, error) {
 // description is the task text. modifiers are passed directly to taskwarrior
 // (e.g. "+tag", "priority:H", "project:ttal").
 func AddTask(description string, modifiers ...string) (string, error) {
-	args := []string{"add", description}
+	args := make([]string, 0, 2+len(modifiers))
+	args = append(args, "add", description)
 	args = append(args, modifiers...)
 
 	out, err := runTaskWithVerbose("new-uuid", args...)
