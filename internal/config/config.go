@@ -336,19 +336,6 @@ func (c *Config) TaskSyncURL() string {
 	return c.resolvedTaskSyncURL
 }
 
-// ResolvedWritableRoots returns writable roots for the active team, with defaults applied.
-func (c *Config) ResolvedWritableRoots() []string {
-	team := c.Teams[c.resolvedTeamName]
-	if len(team.WritableRoots) > 0 {
-		roots := make([]string, len(team.WritableRoots))
-		for i, r := range team.WritableRoots {
-			roots[i] = expandHome(r)
-		}
-		return roots
-	}
-	return defaultWritableRoots()
-}
-
 // defaultWritableRoots returns the default writable paths for sandboxed runtimes.
 func defaultWritableRoots() []string {
 	home, _ := os.UserHomeDir()
