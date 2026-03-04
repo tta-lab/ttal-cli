@@ -57,9 +57,6 @@ func (a *Adapter) Start(ctx context.Context) error {
 			"version": "1.0.0",
 		},
 	}
-	if a.cfg.Yolo {
-		initParams["approvalPolicy"] = "full-auto"
-	}
 	if _, err := a.client.Call("initialize", initParams); err != nil {
 		_ = a.client.Close()
 		a.proc.stop()
@@ -104,7 +101,7 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 		"items": []map[string]interface{}{
 			{
 				"type": "text",
-				"text": text,
+				"data": map[string]interface{}{"text": text},
 			},
 		},
 	})
@@ -114,9 +111,13 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 func (a *Adapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *Adapter) CreateSession(_ context.Context) (string, error) {
-	result, err := a.client.Call("newConversation", map[string]interface{}{
+	convParams := map[string]interface{}{
 		"cwd": a.cfg.WorkDir,
-	})
+	}
+	if a.cfg.Yolo {
+		convParams["approvalPolicy"] = "never"
+	}
+	result, err := a.client.Call("newConversation", convParams)
 	if err != nil {
 		return "", fmt.Errorf("create codex conversation: %w", err)
 	}
