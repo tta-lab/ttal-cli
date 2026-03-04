@@ -15,7 +15,8 @@ func TestDiscover(t *testing.T) {
 	// Agent with frontmatter
 	yuki := filepath.Join(dir, "yuki")
 	require.NoError(t, os.MkdirAll(yuki, 0o755))
-	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\n---\n# Yuki"), 0o644)
+	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\n---\n# Yuki")
+	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), yukiContent, 0o644) //nolint:errcheck
 
 	// Agent without frontmatter
 	kestrel := filepath.Join(dir, "kestrel")
@@ -119,7 +120,8 @@ func TestSetField(t *testing.T) {
 	dir := t.TempDir()
 	yuki := filepath.Join(dir, "yuki")
 	require.NoError(t, os.MkdirAll(yuki, 0o755))
-	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_heart\nemoji: \U0001F431\n---\n# Yuki\n\nSome content."), 0o644)
+	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n---\n# Yuki\n\nSome content.")
+	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), yukiContent, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "voice", "af_sky"); err != nil {
 		t.Fatalf("SetField: %v", err)

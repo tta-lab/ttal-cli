@@ -57,7 +57,7 @@ func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 	// Deploy Codex config.toml registration entries
 	if len(allAgents) > 0 {
 		if err := DeployCodexAgents(allAgents, dryRun); err != nil {
-			return nil, fmt.Errorf("Codex config sync failed: %w", err)
+			return nil, fmt.Errorf("codex config sync failed: %w", err)
 		}
 	}
 
@@ -172,7 +172,7 @@ func CleanAgents(subagentsPaths []string, dryRun bool) ([]string, error) {
 	// Clean stale Codex agents
 	codexCleaned, err := CleanCodexAgents(validNames, dryRun)
 	if err != nil {
-		return nil, fmt.Errorf("Codex agent cleanup failed: %w", err)
+		return nil, fmt.Errorf("codex agent cleanup failed: %w", err)
 	}
 	removed = append(removed, codexCleaned...)
 

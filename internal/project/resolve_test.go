@@ -2,21 +2,19 @@ package project
 
 import (
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/ent"
 )
 
 func TestMatchByContains(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		projects []*ent.Project
+		projects []Project
 		want     string
 	}{
 		{
 			name:  "input contains one alias",
 			input: "ttal-cli",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "ttal", Path: "/path/ttal"},
 				{Alias: "flicknote", Path: "/path/flicknote"},
 			},
@@ -25,7 +23,7 @@ func TestMatchByContains(t *testing.T) {
 		{
 			name:  "input contains multiple aliases - ambiguous",
 			input: "ttal-flicknote-app",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "ttal", Path: "/path/ttal"},
 				{Alias: "flicknote", Path: "/path/flicknote"},
 			},
@@ -34,7 +32,7 @@ func TestMatchByContains(t *testing.T) {
 		{
 			name:  "alias contains input but not vice versa - no match",
 			input: "tt",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "ttal", Path: "/path/ttal"},
 			},
 			want: "",
@@ -42,7 +40,7 @@ func TestMatchByContains(t *testing.T) {
 		{
 			name:  "case insensitive match",
 			input: "TTAL-CLI",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "ttal", Path: "/path/ttal"},
 			},
 			want: "/path/ttal",
@@ -50,7 +48,7 @@ func TestMatchByContains(t *testing.T) {
 		{
 			name:  "empty alias skipped",
 			input: "anything",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "", Path: "/path/empty"},
 			},
 			want: "",
@@ -58,7 +56,7 @@ func TestMatchByContains(t *testing.T) {
 		{
 			name:  "project with no path skipped",
 			input: "ttal-cli",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "ttal", Path: ""},
 			},
 			want: "",
@@ -72,7 +70,7 @@ func TestMatchByContains(t *testing.T) {
 		{
 			name:  "exact alias match via contains",
 			input: "ttal",
-			projects: []*ent.Project{
+			projects: []Project{
 				{Alias: "ttal", Path: "/path/ttal"},
 			},
 			want: "/path/ttal",

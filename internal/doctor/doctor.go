@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -646,20 +646,26 @@ func GenerateSyncCredentials(dataDir, syncURL string) error {
 	return os.WriteFile(syncFilePath, []byte(content), 0o600)
 }
 
-// --- Database ---
+// --- Projects ---
 
 func checkDatabase() Section {
-	section := Section{Name: "Database"}
-	dbPath := db.DefaultPath()
+	section := Section{Name: "Projects"}
+	projectsPath := config.ResolveProjectsPath()
 
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		section.add(LevelError, "database", fmt.Sprintf("%s not found", dbPath))
+	store := project.NewStore(projectsPath)
+	projects, err := store.List(false)
+	if err != nil {
+		section.add(LevelWarn, "projects", fmt.Sprintf("could not read projects: %v", err))
 		return section
 	}
 
-	section.add(LevelOK, "database", dbPath+" exists")
+	if len(projects) == 0 {
+		section.add(LevelWarn, "projects", "no projects found (run: ttal project add)")
+	} else {
+		section.add(LevelOK, "projects", fmt.Sprintf("%d active projects in %s", len(projects), projectsPath))
+	}
 
-	// Count agents from filesystem (team_path) instead of DB
+	// Count agents from filesystem (team_path)
 	cfg, err := config.Load()
 	if err != nil {
 		section.add(LevelWarn, "agents", fmt.Sprintf("could not load config for agent count: %v", err))

@@ -30,15 +30,13 @@ jobs:
             exit 1
           fi
 
-      - name: Generate ent code and schema
-        run: |
-          make generate
-          make schema
+      - name: Generate schema
+        run: make schema
 
       - name: Check for uncommitted changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            echo "Generated files are out of date. Run 'make generate' and 'make schema', then commit."
+            echo "Generated files are out of date. Run 'make schema', then commit."
             git status --porcelain
             exit 1
           fi

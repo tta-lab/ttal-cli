@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
+	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/tta-lab/ttal-cli/ent/project"
-	"github.com/tta-lab/ttal-cli/internal/db"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 const (
@@ -14,45 +12,35 @@ const (
 	testNewPath = "/new/path"
 )
 
-func setupProjectTest(t *testing.T) {
+func newTestStore(t *testing.T) *project.Store {
 	t.Helper()
-	database = db.NewTestDB(t)
+	return project.NewStore(filepath.Join(t.TempDir(), "projects.toml"))
 }
 
 func TestProjectModifyAlias(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("old-alias").
-		SetName("Test Project").
-		Save(ctx)
-	if err != nil {
+	store := newTestStore(t)
+	if err := store.Add("old-alias", "Test Project", ""); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	_, err = proj.Update().
-		SetAlias("new-alias").
-		Save(ctx)
-	if err != nil {
+	if err := store.Modify("old-alias", map[string]string{"alias": "new-alias"}); err != nil {
 		t.Fatalf("failed to update project alias: %v", err)
 	}
 
-	exists, err := database.Project.Query().
-		Where(project.Alias("old-alias")).
-		Exist(ctx)
+	p, err := store.Get("old-alias")
 	if err != nil {
 		t.Fatalf("failed to query project: %v", err)
 	}
-	if exists {
+	if p != nil {
 		t.Error("old alias should not exist after rename")
 	}
 
-	updated, err := database.Project.Query().
-		Where(project.Alias("new-alias")).
-		Only(ctx)
+	updated, err := store.Get("new-alias")
 	if err != nil {
 		t.Fatalf("failed to query project by new alias: %v", err)
+	}
+	if updated == nil {
+		t.Fatal("project with new alias not found")
 	}
 	if updated.Alias != "new-alias" {
 		t.Errorf("project alias = %v, want new-alias", updated.Alias)
@@ -60,96 +48,66 @@ func TestProjectModifyAlias(t *testing.T) {
 }
 
 func TestProjectModifyName(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Old Name").
-		Save(ctx)
-	if err != nil {
+	store := newTestStore(t)
+	if err := store.Add("test-proj", "Old Name", ""); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	_, err = proj.Update().
-		SetName(testNewName).
-		Save(ctx)
-	if err != nil {
+	if err := store.Modify("test-proj", map[string]string{"name": testNewName}); err != nil {
 		t.Fatalf("failed to update project name: %v", err)
 	}
 
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
+	updated, err := store.Get("test-proj")
 	if err != nil {
 		t.Fatalf("failed to query project: %v", err)
 	}
-
+	if updated == nil {
+		t.Fatal("project not found")
+	}
 	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want %v", updated.Name, testNewName)
 	}
 }
 
 func TestProjectModifyPath(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Test Project").
-		SetPath("/old/path").
-		Save(ctx)
-	if err != nil {
+	store := newTestStore(t)
+	if err := store.Add("test-proj", "Test Project", "/old/path"); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	_, err = proj.Update().
-		SetPath(testNewPath).
-		Save(ctx)
-	if err != nil {
+	if err := store.Modify("test-proj", map[string]string{"path": testNewPath}); err != nil {
 		t.Fatalf("failed to update project path: %v", err)
 	}
 
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
+	updated, err := store.Get("test-proj")
 	if err != nil {
 		t.Fatalf("failed to query project: %v", err)
 	}
-
+	if updated == nil {
+		t.Fatal("project not found")
+	}
 	if updated.Path != testNewPath {
 		t.Errorf("project path = %v, want %v", updated.Path, testNewPath)
 	}
 }
 
 func TestProjectModifyMultipleFields(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Old Name").
-		SetPath("/old/path").
-		Save(ctx)
-	if err != nil {
+	store := newTestStore(t)
+	if err := store.Add("test-proj", "Old Name", "/old/path"); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	_, err = proj.Update().
-		SetName(testNewName).
-		SetPath(testNewPath).
-		Save(ctx)
-	if err != nil {
+	if err := store.Modify("test-proj", map[string]string{"name": testNewName, "path": testNewPath}); err != nil {
 		t.Fatalf("failed to update project: %v", err)
 	}
 
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
+	updated, err := store.Get("test-proj")
 	if err != nil {
 		t.Fatalf("failed to query project: %v", err)
 	}
-
+	if updated == nil {
+		t.Fatal("project not found")
+	}
 	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want New Name", updated.Name)
 	}
@@ -159,135 +117,89 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 }
 
 func TestProjectArchive(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	proj, err := database.Project.Create().
-		SetAlias("test-proj").
-		SetName("Test Project").
-		Save(ctx)
-	if err != nil {
+	store := newTestStore(t)
+	if err := store.Add("test-proj", "Test Project", ""); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	if proj.ArchivedAt != nil {
-		t.Errorf("new project should not be archived")
+	// Verify it's active
+	p, _ := store.Get("test-proj")
+	if p == nil {
+		t.Fatal("project should be active after creation")
 	}
 
-	_, err = database.Project.Update().
-		Where(project.Alias("test-proj")).
-		SetNillableArchivedAt(&[]time.Time{time.Now()}[0]).
-		Save(ctx)
-	if err != nil {
+	// Archive it
+	if err := store.Archive("test-proj"); err != nil {
 		t.Fatalf("failed to archive project: %v", err)
 	}
 
-	updated, err := database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
+	// Should no longer appear in active
+	p, _ = store.Get("test-proj")
+	if p != nil {
+		t.Error("project should not be active after archiving")
 	}
 
-	if updated.ArchivedAt == nil {
-		t.Errorf("project should be archived")
+	// Should appear in archived
+	archived, _ := store.List(true)
+	if len(archived) != 1 || archived[0].Alias != "test-proj" {
+		t.Error("project should appear in archived list")
 	}
 
-	_, err = database.Project.Update().
-		Where(project.Alias("test-proj")).
-		ClearArchivedAt().
-		Save(ctx)
-	if err != nil {
+	// Unarchive it
+	if err := store.Unarchive("test-proj"); err != nil {
 		t.Fatalf("failed to unarchive project: %v", err)
 	}
 
-	updated, err = database.Project.Query().
-		Where(project.Alias("test-proj")).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("failed to query project: %v", err)
-	}
-
-	if updated.ArchivedAt != nil {
-		t.Errorf("project should not be archived")
+	// Should be active again
+	p, _ = store.Get("test-proj")
+	if p == nil {
+		t.Error("project should be active after unarchiving")
 	}
 }
 
 func TestProjectDelete(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	_, err := database.Project.Create().
-		SetAlias("to-delete").
-		SetName("Delete Me").
-		Save(ctx)
-	if err != nil {
+	store := newTestStore(t)
+	if err := store.Add("to-delete", "Delete Me", ""); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
-	count, err := database.Project.Delete().
-		Where(project.Alias("to-delete")).
-		Exec(ctx)
-	if err != nil {
+	if err := store.Delete("to-delete"); err != nil {
 		t.Fatalf("failed to delete project: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("deleted %d projects, want 1", count)
-	}
 
-	exists, err := database.Project.Query().
-		Where(project.Alias("to-delete")).
-		Exist(ctx)
+	p, err := store.Get("to-delete")
 	if err != nil {
 		t.Fatalf("failed to query project: %v", err)
 	}
-	if exists {
+	if p != nil {
 		t.Error("project should not exist after deletion")
 	}
 }
 
 func TestProjectDeleteNotFound(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
-
-	count, err := database.Project.Delete().
-		Where(project.Alias("nonexistent")).
-		Exec(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("deleted %d projects, want 0", count)
+	store := newTestStore(t)
+	err := store.Delete("nonexistent")
+	if err == nil {
+		t.Error("deleting nonexistent project should return error")
 	}
 }
 
 func TestProjectListArchivedOnly(t *testing.T) {
-	setupProjectTest(t)
-	ctx := context.Background()
+	store := newTestStore(t)
 
-	_, err := database.Project.Create().
-		SetAlias("active-proj").
-		SetName("Active").
-		Save(ctx)
-	if err != nil {
+	if err := store.Add("active-proj", "Active", ""); err != nil {
 		t.Fatalf("failed to create active project: %v", err)
 	}
-
-	now := time.Now()
-	_, err = database.Project.Create().
-		SetAlias("archived-proj").
-		SetName("Archived").
-		SetArchivedAt(now).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create archived project: %v", err)
+	if err := store.Add("archived-proj", "Archived", ""); err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+	if err := store.Archive("archived-proj"); err != nil {
+		t.Fatalf("failed to archive project: %v", err)
 	}
 
-	archived, err := database.Project.Query().
-		Where(project.ArchivedAtNotNil()).
-		All(ctx)
+	archived, err := store.List(true)
 	if err != nil {
-		t.Fatalf("failed to query archived projects: %v", err)
+		t.Fatalf("failed to list archived projects: %v", err)
 	}
 	if len(archived) != 1 {
 		t.Errorf("found %d archived projects, want 1", len(archived))
@@ -296,11 +208,9 @@ func TestProjectListArchivedOnly(t *testing.T) {
 		t.Errorf("archived project alias = %v, want archived-proj", archived[0].Alias)
 	}
 
-	active, err := database.Project.Query().
-		Where(project.ArchivedAtIsNil()).
-		All(ctx)
+	active, err := store.List(false)
 	if err != nil {
-		t.Fatalf("failed to query active projects: %v", err)
+		t.Fatalf("failed to list active projects: %v", err)
 	}
 	if len(active) != 1 {
 		t.Errorf("found %d active projects, want 1", len(active))
