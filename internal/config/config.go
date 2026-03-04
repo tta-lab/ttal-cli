@@ -171,11 +171,12 @@ type TeamConfig struct {
 	WritableRoots        []string               `toml:"writable_roots" jsonschema:"description=Additional writable paths for sandboxed runtimes (codex). Defaults: ~/.ttal/ ~/.task/ ~/.diary/"` //nolint:lll
 }
 
-// SyncConfig holds paths for subagent, skill, and command deployment.
+// SyncConfig holds paths for subagent, skill, command, and rule deployment.
 type SyncConfig struct {
 	SubagentsPaths []string `toml:"subagents_paths" jsonschema:"description=Directories to scan for subagent definitions"`
 	SkillsPaths    []string `toml:"skills_paths" jsonschema:"description=Directories to scan for skill definitions"`
 	CommandsPaths  []string `toml:"commands_paths" jsonschema:"description=Directories to scan for command definitions"`
+	RulesPaths     []string `toml:"rules_paths" jsonschema:"description=Directories to scan for RULE.md files"`
 }
 
 // VoiceConfig holds voice-related settings resolved from the active team.

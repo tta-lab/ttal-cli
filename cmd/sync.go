@@ -20,8 +20,8 @@ var (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Deploy subagents and skills to runtime directories",
-	Long: `Reads canonical subagent .md files, skill directories, and command .md files,
-then deploys them to Claude Code and OpenCode runtime directories.
+	Long: `Reads canonical subagent .md files, skill directories, command .md files,
+and RULE.md cheat sheets, then deploys them to runtime directories.
 
 Subagents are split into runtime-specific variants:
   Claude Code → ~/.claude/agents/{name}.md
@@ -37,11 +37,16 @@ Commands are deployed as written files (variant generation):
   OpenCode    → ~/.config/opencode/commands/{name}.md
   Codex       → ~/.codex/skills/{name}/SKILL.md
 
+Rules (RULE.md cheat sheets) are deployed as:
+  Claude Code → ~/.claude/rules/{name}.md
+  Codex       → inlined into ~/.codex/AGENTS.md
+
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
   subagents_paths = ["~/clawd/docs/agents"]
   skills_paths = ["~/clawd/docs/skills"]
-  commands_paths = ["~/clawd/docs/commands"]`,
+  commands_paths = ["~/clawd/docs/commands"]
+  rules_paths = ["~/clawd/docs/skills", "~/Code/my-project"]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
@@ -50,18 +55,22 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 		syncCfg := cfg.Sync
 
-		if len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 && len(syncCfg.CommandsPaths) == 0 {
+		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
+			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0
+		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
 				"  [sync]\n" +
 				"  subagents_paths = [\"~/path/to/agents\"]\n" +
 				"  skills_paths = [\"~/path/to/skills\"]\n" +
-				"  commands_paths = [\"~/path/to/commands\"]")
+				"  commands_paths = [\"~/path/to/commands\"]\n" +
+				"  rules_paths = [\"~/path/to/rules\"]")
 		}
 
 		agentCount := 0
 		skillCount := 0
 		commandCount := 0
+		ruleCount := 0
 
 		if len(syncCfg.SubagentsPaths) > 0 {
 			if syncDryRun {
@@ -157,11 +166,44 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
+		if len(syncCfg.RulesPaths) > 0 {
+			fmt.Println()
+			if syncDryRun {
+				fmt.Println("Syncing rules (dry run)...")
+			} else {
+				fmt.Println("Syncing rules...")
+			}
+
+			rules, err := sync.DeployRules(syncCfg.RulesPaths, syncDryRun)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: rule deployment: %v\n", err)
+			}
+			for _, r := range rules {
+				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+			}
+			ruleCount = len(rules)
+
+			if err := sync.DeployCodexRules(rules, syncDryRun); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: codex rules: %v\n", err)
+			}
+
+			if syncClean {
+				removed, err := sync.CleanRules(syncCfg.RulesPaths, syncDryRun)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: rule cleanup: %v\n", err)
+				}
+				for _, path := range removed {
+					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
+				}
+			}
+		}
+
 		suffix := ""
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d subagents, %d skills, %d commands.%s\n", agentCount, skillCount, commandCount, suffix)
+		fmt.Printf("\nSynced %d subagents, %d skills, %d commands, %d rules.%s\n",
+			agentCount, skillCount, commandCount, ruleCount, suffix)
 		return nil
 	},
 }
