@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -353,17 +354,52 @@ func initSingleAdapter(
 	log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
 	// Create or resume session for adapters that need one.
 	if rt == runtime.OpenCode || rt == runtime.Codex {
-		sid, err := adapter.CreateSession(ctx)
-		if err != nil {
-			log.Printf("[daemon] failed to create session for %s: %v", ta.AgentName, err)
-		} else {
-			log.Printf("[daemon] created session %s for %s", sid, ta.AgentName)
-		}
+		initSession(ctx, rt, ta.AgentName, adapter)
 	}
 	// OpenClaw owns messaging — skip Telegram event bridging
 	if rt != runtime.OpenClaw {
 		bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt)
 	}
+}
+
+// initSession creates or resumes a session for the adapter.
+// For Codex, it tries to resume the most recent thread (like CC's --continue)
+// before falling back to creating a new one.
+func initSession(ctx context.Context, rt runtime.Runtime, agentName string, adapter runtime.Adapter) {
+	var sid string
+	if rt == runtime.Codex {
+		if ca, ok := adapter.(*codex.Adapter); ok {
+			sid = tryResumeCodexThread(ctx, ca, agentName, adapter)
+		}
+	}
+	if sid != "" {
+		return
+	}
+	sid, err := adapter.CreateSession(ctx)
+	if err != nil {
+		log.Printf("[daemon] failed to create session for %s: %v", agentName, err)
+	} else {
+		log.Printf("[daemon] created session %s for %s", sid, agentName)
+	}
+}
+
+// tryResumeCodexThread finds and resumes the most recent Codex thread.
+// Returns the thread ID on success, empty string otherwise.
+func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName string, adapter runtime.Adapter) string {
+	lastID, err := ca.ListThreads(ctx)
+	if err != nil {
+		log.Printf("[daemon] failed to list threads for %s: %v", agentName, err)
+		return ""
+	}
+	if lastID == "" {
+		return ""
+	}
+	if err := adapter.ResumeSession(ctx, lastID); err != nil {
+		log.Printf("[daemon] failed to resume session %s for %s: %v — creating new", lastID, agentName, err)
+		return ""
+	}
+	log.Printf("[daemon] resumed session %s for %s", lastID, agentName)
+	return lastID
 }
 
 // buildAgentEnv returns env vars for an agent adapter.
