@@ -7,6 +7,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/tta-lab/codex-server-go/protocol"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
@@ -51,17 +52,19 @@ func (a *Adapter) Start(ctx context.Context) error {
 	}
 	a.client = client
 
-	initParams := map[string]interface{}{
-		"clientInfo": map[string]string{
-			"name":    "ttal",
-			"title":   "TTAL CLI",
-			"version": "1.0.0",
+	title := "TTAL CLI"
+	expAPI := true
+	initParams := protocol.InitializeParams{
+		ClientInfo: protocol.ClientInfo{
+			Name:    "ttal",
+			Title:   &title,
+			Version: "1.0.0",
 		},
-		"capabilities": map[string]interface{}{
-			"experimentalApi": true,
+		Capabilities: &protocol.InitializeCapabilities{
+			ExperimentalAPI: &expAPI,
 		},
 	}
-	if _, err := a.client.Call("initialize", initParams); err != nil {
+	if _, err := a.client.Call(protocol.MethodInitialize, initParams); err != nil {
 		_ = a.client.Close()
 		a.proc.stop()
 		return fmt.Errorf("codex initialize: %w", err)
@@ -100,45 +103,45 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 		return fmt.Errorf("no active thread — call CreateSession first")
 	}
 
-	_, err := a.client.Call("turn/start", map[string]interface{}{
-		"threadId": cid,
-		"input": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": text,
-			},
-		},
-	})
+	textInput := protocol.TextUserInput{Text: text, Type: "text"}
+	inputData, err := json.Marshal(textInput)
+	if err != nil {
+		return fmt.Errorf("marshal text input: %w", err)
+	}
+
+	params := protocol.TurnStartParams{
+		ThreadID: cid,
+		Input:    []protocol.UserInput{{Type: "text", Data: inputData}},
+	}
+	_, err = a.client.Call(protocol.MethodTurnStart, params)
 	return err
 }
 
 func (a *Adapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *Adapter) CreateSession(_ context.Context) (string, error) {
-	params := map[string]interface{}{
-		"cwd": a.cfg.WorkDir,
+	params := protocol.ThreadStartParams{
+		Cwd: &a.cfg.WorkDir,
 	}
 	if a.cfg.Yolo {
-		params["approvalPolicy"] = "never"
-		params["sandbox"] = "danger-full-access"
+		never := json.RawMessage(`"never"`)
+		params.ApprovalPolicy = &never
+		sandbox := protocol.SandboxModeDangerFullAccess
+		params.Sandbox = &sandbox
 	}
 	if len(a.cfg.WritableRoots) > 0 {
-		params["config"] = map[string]interface{}{
-			"sandbox_workspace_write": map[string]interface{}{
-				"writable_roots": a.cfg.WritableRoots,
+		params.Config = map[string]interface{}{
+			"sandbox_workspace_write": protocol.SandboxWorkspaceWrite{
+				WritableRoots: a.cfg.WritableRoots,
 			},
 		}
 	}
-	result, err := a.client.Call("thread/start", params)
+	result, err := a.client.Call(protocol.MethodThreadStart, params)
 	if err != nil {
 		return "", fmt.Errorf("start codex thread: %w", err)
 	}
 
-	var resp struct {
-		Thread struct {
-			ID string `json:"id"`
-		} `json:"thread"`
-	}
+	var resp protocol.ThreadStartResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
 		return "", err
 	}
@@ -151,19 +154,14 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 }
 
 func (a *Adapter) ResumeSession(_ context.Context, sessionID string) (string, error) {
-	result, err := a.client.Call("thread/resume", map[string]interface{}{
-		"threadId": sessionID,
+	result, err := a.client.Call(protocol.MethodThreadResume, protocol.ThreadResumeParams{
+		ThreadID: sessionID,
 	})
 	if err != nil {
 		return "", err
 	}
 
-	var resp struct {
-		Thread struct {
-			ID string `json:"id"`
-		} `json:"thread"`
-		ApprovalPolicy string `json:"approvalPolicy"`
-	}
+	var resp protocol.ThreadResumeResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
 		return "", err
 	}
@@ -171,25 +169,28 @@ func (a *Adapter) ResumeSession(_ context.Context, sessionID string) (string, er
 	a.mu.Lock()
 	a.conversationID = resp.Thread.ID
 	a.mu.Unlock()
-	return resp.ApprovalPolicy, nil
+	// ApprovalPolicy is json.RawMessage — extract as string.
+	approvalPolicy := string(resp.ApprovalPolicy)
+	if len(approvalPolicy) >= 2 && approvalPolicy[0] == '"' {
+		_ = json.Unmarshal(resp.ApprovalPolicy, &approvalPolicy)
+	}
+	return approvalPolicy, nil
 }
 
 // ListThreads returns the most recent thread ID for this agent's workdir, if any exist.
 func (a *Adapter) ListThreads(_ context.Context) (string, error) {
-	result, err := a.client.Call("thread/list", map[string]interface{}{
-		"sortKey": "updated_at",
-		"limit":   1,
-		"cwd":     a.cfg.WorkDir,
+	sortKey := protocol.ThreadSortKeyUpdatedAt
+	limit := int64(1)
+	result, err := a.client.Call(protocol.MethodThreadList, protocol.ThreadListParams{
+		SortKey: &sortKey,
+		Limit:   &limit,
+		Cwd:     &a.cfg.WorkDir,
 	})
 	if err != nil {
 		return "", err
 	}
 
-	var resp struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
+	var resp protocol.ThreadListResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
 		return "", err
 	}
@@ -210,23 +211,23 @@ func (a *Adapter) IsHealthy(_ context.Context) bool {
 	if cid == "" {
 		return true // server up, no conversation yet
 	}
-	_, err := a.client.Call("thread/read", map[string]interface{}{
-		"threadId": cid,
+	_, err := a.client.Call(protocol.MethodThreadRead, protocol.ThreadReadParams{
+		ThreadID: cid,
 	})
 	return err == nil
 }
 
 // RespondToUserInput sends a JSON-RPC response to the original server request.
 func (a *Adapter) RespondToUserInput(callID string, answers []runtime.QuestionAnswer) error {
-	answerMap := make(map[string]interface{})
+	answerMap := make(map[string]protocol.ToolRequestUserInputAnswer, len(answers))
 	for _, ans := range answers {
-		answerMap[ans.QuestionID] = map[string]interface{}{
-			"answers": []string{ans.Answer},
+		answerMap[ans.QuestionID] = protocol.ToolRequestUserInputAnswer{
+			Answers: []string{ans.Answer},
 		}
 	}
 
-	return a.client.Respond(json.RawMessage(callID), map[string]interface{}{
-		"answers": answerMap,
+	return a.client.Respond(json.RawMessage(callID), protocol.ToolRequestUserInputResponse{
+		Answers: answerMap,
 	})
 }
 
@@ -259,35 +260,30 @@ func (a *Adapter) sendEvent(evt runtime.Event) {
 
 func (a *Adapter) processNotification(notif rpcResponse) {
 	switch notif.Method {
-	case "item/agentMessage/delta":
+	case protocol.NotifItemAgentMessageDelta:
 		// Streamed tokens — ignored in favor of item/completed for CC-like per-item delivery.
 
-	case "item/completed":
-		var params struct {
-			Item struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-			} `json:"item"`
-		}
-		if json.Unmarshal(notif.Params, &params) == nil && params.Item.Type == "agentMessage" && params.Item.Text != "" {
-			a.sendEvent(runtime.Event{
-				Type:  runtime.EventText,
-				Agent: a.cfg.AgentName,
-				Text:  params.Item.Text,
-			})
+	case protocol.NotifItemCompleted:
+		var params protocol.ItemCompletedNotification
+		if json.Unmarshal(notif.Params, &params) == nil && params.Item.Type == "agentMessage" {
+			if msg, err := params.Item.AsAgentMessage(); err == nil && msg.Text != "" {
+				a.sendEvent(runtime.Event{
+					Type:  runtime.EventText,
+					Agent: a.cfg.AgentName,
+					Text:  msg.Text,
+				})
+			}
 		}
 
-	case "turn/completed":
+	case protocol.NotifTurnCompleted:
 		a.sendEvent(runtime.Event{
 			Type:  runtime.EventIdle,
 			Agent: a.cfg.AgentName,
 		})
 
-	case "thread/status/changed":
-		var params struct {
-			Status string `json:"status"`
-		}
-		if json.Unmarshal(notif.Params, &params) == nil && params.Status == "error" {
+	case protocol.NotifThreadStatusChanged:
+		var params protocol.ThreadStatusChangedNotification
+		if json.Unmarshal(notif.Params, &params) == nil && params.Status.Type == "error" {
 			a.sendEvent(runtime.Event{
 				Type:  runtime.EventError,
 				Agent: a.cfg.AgentName,
@@ -295,15 +291,11 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 			})
 		}
 
-	case "turn/started":
+	case protocol.NotifTurnStarted:
 		// Server acknowledgement — no action needed
 
-	case "item/started":
-		var params struct {
-			Item struct {
-				Type string `json:"type"`
-			} `json:"item"`
-		}
+	case protocol.NotifItemStarted:
+		var params protocol.ItemStartedNotification
 		if json.Unmarshal(notif.Params, &params) == nil && params.Item.Type != "" {
 			a.sendEvent(runtime.Event{
 				Type:     runtime.EventTool,
@@ -319,23 +311,8 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 
 func (a *Adapter) processServerRequest(req rpcResponse) {
 	switch req.Method {
-	case "item/tool/requestUserInput":
-		var params struct {
-			ThreadID  string `json:"threadId"`
-			TurnID    string `json:"turnId"`
-			ItemID    string `json:"itemId"`
-			Questions []struct {
-				ID       string `json:"id"`
-				Header   string `json:"header"`
-				Question string `json:"question"`
-				IsOther  bool   `json:"isOther"`
-				IsSecret bool   `json:"isSecret"`
-				Options  []struct {
-					Label       string `json:"label"`
-					Description string `json:"description"`
-				} `json:"options"`
-			} `json:"questions"`
-		}
+	case protocol.ReqItemToolRequestUserInput:
+		var params protocol.ToolRequestUserInputParams
 		if err := json.Unmarshal(req.Params, &params); err != nil {
 			log.Printf("[codex] failed to parse requestUserInput for %s: %v", a.cfg.AgentName, err)
 			return
@@ -347,8 +324,8 @@ func (a *Adapter) processServerRequest(req rpcResponse) {
 				ID:          q.ID,
 				Header:      q.Header,
 				Text:        q.Question,
-				AllowCustom: q.IsOther,
-				IsSecret:    q.IsSecret,
+				AllowCustom: q.IsOther != nil && *q.IsOther,
+				IsSecret:    q.IsSecret != nil && *q.IsSecret,
 			}
 			for _, opt := range q.Options {
 				rq.Options = append(rq.Options, runtime.QuestionOption{
@@ -368,12 +345,20 @@ func (a *Adapter) processServerRequest(req rpcResponse) {
 			})
 		}
 
-	case "item/commandExecution/requestApproval",
-		"item/fileChange/requestApproval":
+	case protocol.ReqItemCommandExecutionRequestApproval:
 		// Auto-approve in yolo mode; all daemon agents use approvalPolicy: "never"
 		// but resumed sessions may have a stale policy.
-		if err := a.client.Respond(req.ID, map[string]interface{}{
-			"decision": "acceptForSession",
+		if err := a.client.Respond(req.ID, protocol.CommandExecutionRequestApprovalResponse{
+			Decision: json.RawMessage(`"acceptForSession"`),
+		}); err != nil {
+			log.Printf("[codex] failed to auto-approve %s for %s: %v", req.Method, a.cfg.AgentName, err)
+		} else {
+			log.Printf("[codex] auto-approved %s for %s", req.Method, a.cfg.AgentName)
+		}
+
+	case protocol.ReqItemFileChangeRequestApproval:
+		if err := a.client.Respond(req.ID, protocol.FileChangeRequestApprovalResponse{
+			Decision: json.RawMessage(`"acceptForSession"`),
 		}); err != nil {
 			log.Printf("[codex] failed to auto-approve %s for %s: %v", req.Method, a.cfg.AgentName, err)
 		} else {
