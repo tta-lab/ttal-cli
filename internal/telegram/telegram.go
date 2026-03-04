@@ -81,19 +81,23 @@ func SendVoice(botToken string, chatID int64, oggData []byte) error {
 	return nil
 }
 
-// ToolEmoji maps a CC tool name to a Telegram-compatible emoji.
+// ToolEmoji maps a tool name to a Telegram-allowed reaction emoji.
+// Returns empty string for tools that should not trigger a reaction.
+// Allowed list: https://gist.github.com/Soulter/3f22c8e5f9c7e152e967e8bc28c97fc9
 func ToolEmoji(toolName string) string {
 	switch toolName {
 	case "Read", "Glob", "Grep":
-		return "🔍"
-	case "Edit", "Write", "Bash":
-		return "🖥"
+		return "🤔"
+	case "Edit", "Write":
+		return "✍"
+	case "Bash":
+		return "👨‍💻"
 	case "WebSearch", "WebFetch":
-		return "🌐"
+		return "👀"
 	case "Agent":
-		return "🤖"
+		return "🔥"
 	case "AskUserQuestion":
-		return "❓"
+		return ""
 	default:
 		return "🔥"
 	}

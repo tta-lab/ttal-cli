@@ -7,16 +7,16 @@ func TestToolEmoji(t *testing.T) {
 		tool  string
 		emoji string
 	}{
-		{"Read", "🔍"},
-		{"Glob", "🔍"},
-		{"Grep", "🔍"},
-		{"Edit", "🖥"},
-		{"Write", "🖥"},
-		{"Bash", "🖥"},
-		{"WebSearch", "🌐"},
-		{"WebFetch", "🌐"},
-		{"Agent", "🤖"},
-		{"AskUserQuestion", "❓"},
+		{"Read", "🤔"},
+		{"Glob", "🤔"},
+		{"Grep", "🤔"},
+		{"Edit", "✍"},
+		{"Write", "✍"},
+		{"Bash", "👨‍💻"},
+		{"WebSearch", "👀"},
+		{"WebFetch", "👀"},
+		{"Agent", "🔥"},
+		{"AskUserQuestion", ""},
 		{"SomeUnknownTool", "🔥"},
 	}
 
