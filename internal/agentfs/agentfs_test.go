@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDiscover(t *testing.T) {
@@ -12,16 +14,16 @@ func TestDiscover(t *testing.T) {
 
 	// Agent with frontmatter
 	yuki := filepath.Join(dir, "yuki")
-	os.MkdirAll(yuki, 0o755)
+	require.NoError(t, os.MkdirAll(yuki, 0o755))
 	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\n---\n# Yuki"), 0o644)
 
 	// Agent without frontmatter
 	kestrel := filepath.Join(dir, "kestrel")
-	os.MkdirAll(kestrel, 0o755)
+	require.NoError(t, os.MkdirAll(kestrel, 0o755))
 	os.WriteFile(filepath.Join(kestrel, "CLAUDE.md"), []byte("# Kestrel\n\nA hawk agent."), 0o644)
 
 	// Non-agent directory (no CLAUDE.md)
-	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "docs"), 0o755))
 
 	// Dot directory (should be skipped)
 	os.MkdirAll(filepath.Join(dir, ".git"), 0o755)

@@ -114,7 +114,7 @@ func formatProjectNotFoundError(alias string, database *ent.Client, ctx context.
 		Where(project.ArchivedAtIsNil()).
 		All(ctx)
 
-	var aliases []string
+	aliases := make([]string, 0, len(projects))
 	for _, p := range projects {
 		aliases = append(aliases, p.Alias)
 	}
