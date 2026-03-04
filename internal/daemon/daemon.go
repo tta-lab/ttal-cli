@@ -148,7 +148,6 @@ func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.T
 
 	var wg sync.WaitGroup
 	for token, agentName := range tokenAgent {
-		token, agentName := token, agentName
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -298,7 +297,6 @@ func initAdapters(
 ) {
 	var wg sync.WaitGroup
 	for _, ta := range mcfg.AllAgents() {
-		ta := ta // capture loop variable
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
