@@ -619,15 +619,7 @@ func runTaskWithVerbose(verbose string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	fullArgs := make([]string, 0, len(args)+2)
-	fullArgs = append(fullArgs, fmt.Sprintf("rc.verbose:%s", verbose))
-
-	if taskrc := resolveTaskRC(); taskrc != "" {
-		fullArgs = append(fullArgs, "rc:"+taskrc)
-	}
-
-	fullArgs = append(fullArgs, args...)
-	cmd := exec.CommandContext(ctx, "task", fullArgs...)
+	cmd := commandContextWithVerbose(ctx, verbose, args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
