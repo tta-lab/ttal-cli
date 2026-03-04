@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
 	gitroot "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -92,7 +92,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 			}
 		}
 		pullMainBranch(gitRoot)
-		archiveTaskPlans(task.UUID)
+		archiveTaskPlans(task.Annotations)
 		return &CloseResult{
 			Cleaned:   true,
 			Forced:    true,
@@ -124,13 +124,13 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists)
+	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
 }
 
 // closeWithPR handles the smart-close path when a PR exists.
 func closeWithPR(
 	taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string,
-	worktreeExists bool,
+	worktreeExists bool, annotations []taskwarrior.Annotation,
 ) (*CloseResult, error) {
 	prID, err := strconv.ParseInt(prIDStr, 10, 64)
 	if err != nil {
@@ -188,7 +188,7 @@ func closeWithPR(
 			}
 		}
 		pullMainBranch(gitRoot)
-		archiveTaskPlans(taskUUID)
+		archiveTaskPlans(annotations)
 		return &CloseResult{
 			Cleaned: true,
 			Status:  "Worker cleaned up (PR merged, worktree clean)",
@@ -226,24 +226,16 @@ func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 }
 
 // archiveTaskPlans archives flicknote plan/design notes referenced in a task's
-// annotations. Best-effort: failures are logged to stderr but never returned.
+// annotations. Best-effort: failures are logged but never returned.
 // Called after successful cleanup so plan notes don't linger after PR merges.
-func archiveTaskPlans(taskUUID string) {
-	if taskUUID == "" {
+func archiveTaskPlans(annotations []taskwarrior.Annotation) {
+	if len(annotations) == 0 {
 		return
 	}
 
-	task, err := taskwarrior.ExportTask(taskUUID)
-	if err != nil {
-		return
-	}
+	inlineProjects := taskwarrior.LoadInlineProjects()
 
-	inlineProjects := config.DefaultInlineProjects
-	if cfg, err := config.Load(); err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
-		inlineProjects = cfg.Flicknote.InlineProjects
-	}
-
-	for _, ann := range task.Annotations {
+	for _, ann := range annotations {
 		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
 		if len(m) == 0 {
 			continue
@@ -252,6 +244,7 @@ func archiveTaskPlans(taskUUID string) {
 
 		note := taskwarrior.ReadFlicknoteJSON(hexID)
 		if note == nil {
+			log.Printf("[archive] flicknote %s not found or not readable — skipping", hexID)
 			continue
 		}
 		if !taskwarrior.ShouldInlineNote(note, inlineProjects) {
@@ -261,9 +254,9 @@ func archiveTaskPlans(taskUUID string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd := exec.CommandContext(ctx, "flicknote", "archive", hexID)
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to archive flicknote %s: %v\n", hexID, err)
+			log.Printf("[archive] warning: failed to archive flicknote %s: %v", hexID, err)
 		} else {
-			fmt.Printf("Archived plan note: %s\n", hexID)
+			log.Printf("[archive] archived plan note: %s", hexID)
 		}
 		cancel()
 	}
