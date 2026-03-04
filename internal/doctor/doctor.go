@@ -660,7 +660,7 @@ func checkDatabase() Section {
 	}
 
 	if len(projects) == 0 {
-		section.add(LevelWarn, "projects", fmt.Sprintf("no projects found (run: ttal project add)"))
+		section.add(LevelWarn, "projects", "no projects found (run: ttal project add)")
 	} else {
 		section.add(LevelOK, "projects", fmt.Sprintf("%d active projects in %s", len(projects), projectsPath))
 	}

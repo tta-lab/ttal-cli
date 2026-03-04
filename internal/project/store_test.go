@@ -10,6 +10,13 @@ func newTestStore(t *testing.T) *Store {
 	return NewStore(filepath.Join(t.TempDir(), "projects.toml"))
 }
 
+func mustAdd(t *testing.T, s *Store, alias, name, path string) {
+	t.Helper()
+	if err := s.Add(alias, name, path); err != nil {
+		t.Fatalf("Add(%q) error: %v", alias, err)
+	}
+}
+
 func TestStoreAddAndGet(t *testing.T) {
 	s := newTestStore(t)
 
@@ -62,8 +69,8 @@ func TestStoreGetNotFound(t *testing.T) {
 func TestStoreList(t *testing.T) {
 	s := newTestStore(t)
 
-	s.Add("aaa", "AAA", "/a")
-	s.Add("bbb", "BBB", "/b")
+	mustAdd(t, s, "aaa", "AAA", "/a")
+	mustAdd(t, s, "bbb", "BBB", "/b")
 
 	projects, err := s.List(false)
 	if err != nil {
@@ -80,7 +87,7 @@ func TestStoreList(t *testing.T) {
 
 func TestStoreArchiveUnarchive(t *testing.T) {
 	s := newTestStore(t)
-	s.Add("proj", "Project", "/path")
+	mustAdd(t, s, "proj", "Project", "/path")
 
 	if err := s.Archive("proj"); err != nil {
 		t.Fatalf("Archive() error: %v", err)
@@ -114,7 +121,7 @@ func TestStoreArchiveUnarchive(t *testing.T) {
 
 func TestStoreDelete(t *testing.T) {
 	s := newTestStore(t)
-	s.Add("proj", "Project", "/path")
+	mustAdd(t, s, "proj", "Project", "/path")
 
 	if err := s.Delete("proj"); err != nil {
 		t.Fatalf("Delete() error: %v", err)
@@ -135,7 +142,7 @@ func TestStoreDeleteNotFound(t *testing.T) {
 
 func TestStoreModify(t *testing.T) {
 	s := newTestStore(t)
-	s.Add("proj", "Old Name", "/old/path")
+	mustAdd(t, s, "proj", "Old Name", "/old/path")
 
 	if err := s.Modify("proj", map[string]string{"name": "New Name", "path": "/new/path"}); err != nil {
 		t.Fatalf("Modify() error: %v", err)
@@ -152,7 +159,7 @@ func TestStoreModify(t *testing.T) {
 
 func TestStoreModifyAlias(t *testing.T) {
 	s := newTestStore(t)
-	s.Add("old", "Project", "/path")
+	mustAdd(t, s, "old", "Project", "/path")
 
 	if err := s.Modify("old", map[string]string{"alias": "new"}); err != nil {
 		t.Fatalf("Modify() error: %v", err)
@@ -196,9 +203,11 @@ func TestStoreFileCreatedOnFirstWrite(t *testing.T) {
 
 func TestStoreExists(t *testing.T) {
 	s := newTestStore(t)
-	s.Add("active", "Active", "")
-	s.Add("will-archive", "Will Archive", "")
-	s.Archive("will-archive")
+	mustAdd(t, s, "active", "Active", "")
+	mustAdd(t, s, "will-archive", "Will Archive", "")
+	if err := s.Archive("will-archive"); err != nil {
+		t.Fatalf("Archive() error: %v", err)
+	}
 
 	exists, _ := s.Exists("active")
 	if !exists {
