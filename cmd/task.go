@@ -9,12 +9,17 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 var (
-	findCompleted bool
-	executeDryRun bool
+	findCompleted      bool
+	executeDryRun      bool
+	taskAddProject     string
+	taskAddTags        []string
+	taskAddPriority    string
+	taskAddAnnotations []string
 )
 
 var taskCmd = &cobra.Command{
@@ -213,10 +218,72 @@ Use --dry-run to preview what would happen without actually spawning.`,
 	},
 }
 
+var taskAddCmd = &cobra.Command{
+	Use:   "add <description>",
+	Short: "Create a task with project validation",
+	Long: `Create a taskwarrior task with validated project assignment.
+
+The --project flag is required and must match an existing ttal project alias.
+
+Examples:
+  ttal task add --project ttal "Implement new feature"
+  ttal task add --project ttal "Fix bug" --tag bug --priority H
+  ttal task add --project fb "Add endpoint" --tag feature --annotate "Plan: flicknote abc12345"`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := projectPkg.ValidateProjectAlias(taskAddProject); err != nil {
+			return err
+		}
+
+		if taskAddPriority != "" {
+			switch strings.ToUpper(taskAddPriority) {
+			case "H", "M", "L":
+				taskAddPriority = strings.ToUpper(taskAddPriority)
+			default:
+				return fmt.Errorf("invalid priority %q — use H, M, or L", taskAddPriority)
+			}
+		}
+
+		description := args[0]
+
+		var modifiers []string
+		modifiers = append(modifiers, fmt.Sprintf("project:%s", taskAddProject))
+		for _, tag := range taskAddTags {
+			modifiers = append(modifiers, "+"+strings.TrimPrefix(tag, "+"))
+		}
+		if taskAddPriority != "" {
+			modifiers = append(modifiers, fmt.Sprintf("priority:%s", taskAddPriority))
+		}
+
+		uuid, err := taskwarrior.AddTask(description, modifiers...)
+		if err != nil {
+			return err
+		}
+
+		for _, ann := range taskAddAnnotations {
+			if err := taskwarrior.AnnotateTask(uuid, ann); err != nil {
+				return fmt.Errorf("task created (%s) but annotation failed: %w", uuid[:8], err)
+			}
+		}
+
+		short := uuid
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		fmt.Printf("Created task %s\n", short)
+		if len(taskAddAnnotations) > 0 {
+			fmt.Printf("  %d annotation(s) added\n", len(taskAddAnnotations))
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(taskCmd)
 	taskCmd.AddCommand(taskGetCmd)
 	taskCmd.AddCommand(taskFindCmd)
+	taskCmd.AddCommand(taskAddCmd)
 	taskCmd.AddCommand(taskDesignCmd)
 	taskCmd.AddCommand(taskResearchCmd)
 	taskCmd.AddCommand(taskTestCmd)
@@ -224,4 +291,10 @@ func init() {
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")
+
+	taskAddCmd.Flags().StringVar(&taskAddProject, "project", "", "Project alias (required, must exist in ttal)")
+	_ = taskAddCmd.MarkFlagRequired("project")
+	taskAddCmd.Flags().StringArrayVar(&taskAddTags, "tag", nil, "Add tag (repeatable, e.g. --tag bug --tag urgent)")
+	taskAddCmd.Flags().StringVar(&taskAddPriority, "priority", "", "Task priority (H, M, or L)")
+	taskAddCmd.Flags().StringArrayVar(&taskAddAnnotations, "annotate", nil, "Add annotation (repeatable)")
 }
