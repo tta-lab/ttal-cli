@@ -263,11 +263,11 @@ func handleCIStatus(
 // and returns the first run URL for Telegram notifications.
 func formatCIFailureWithURL(provider gitprovider.Provider, target prWatchTarget, sha string) (string, string) {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("PR #%d CI checks failed.\n", target.PRIndex))
+	fmt.Fprintf(&sb, "PR #%d CI checks failed.\n", target.PRIndex)
 
 	failures, err := provider.GetCIFailureDetails(target.Owner, target.Repo, sha)
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("Could not fetch failure details: %v\n", err))
+		fmt.Fprintf(&sb, "Could not fetch failure details: %v\n", err)
 		sb.WriteString("Fix the issues and push again.")
 		return sb.String(), ""
 	}
@@ -280,9 +280,9 @@ func formatCIFailureWithURL(provider gitprovider.Provider, target prWatchTarget,
 
 	runURL := ""
 	for _, f := range failures {
-		sb.WriteString(fmt.Sprintf("\nWorkflow: %s\n  Job: %s\n", f.WorkflowName, f.JobName))
+		fmt.Fprintf(&sb, "\nWorkflow: %s\n  Job: %s\n", f.WorkflowName, f.JobName)
 		if f.HTMLURL != "" {
-			sb.WriteString(fmt.Sprintf("  URL: %s\n", f.HTMLURL))
+			fmt.Fprintf(&sb, "  URL: %s\n", f.HTMLURL)
 			if runURL == "" {
 				runURL = f.HTMLURL
 			}

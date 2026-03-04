@@ -194,10 +194,10 @@ func handleStatusCommand(teamName, _, botToken, chatID string, args []string) {
 		if a.IsStale(5 * time.Minute) {
 			staleMarker = " (stale)"
 		}
-		sb.WriteString(fmt.Sprintf(
+		fmt.Fprintf(&sb,
 			"%s: %.0f%% ctx | %s%s\n",
 			a.Agent, a.ContextUsedPct, a.ModelName, staleMarker,
-		))
+		)
 	}
 
 	replyTelegram(botToken, chatID, sb.String())
@@ -207,7 +207,7 @@ func handleHelpCommand(botToken, chatID string, allCommands []BotCommand) {
 	var sb strings.Builder
 	sb.WriteString("Available commands:\n")
 	for _, cmd := range allCommands {
-		sb.WriteString(fmt.Sprintf("/%s — %s\n", cmd.Command, cmd.Description))
+		fmt.Fprintf(&sb, "/%s — %s\n", cmd.Command, cmd.Description)
 	}
 	sb.WriteString("\nAnything else is sent as a message to the agent.")
 	replyTelegram(botToken, chatID, sb.String())
