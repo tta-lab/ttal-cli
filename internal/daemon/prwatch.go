@@ -346,7 +346,7 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 		return
 	}
 	teamName, agentName := parts[0], parts[1]
-	msg := fmt.Sprintf("[pr merged] PR #%d merged — task complete: %s", target.PRIndex, target.Description)
+	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s", target.TaskUUID[:8], target.PRIndex, target.Description)
 	if err := deliverToAgent(registry, mcfg, teamName, agentName, msg); err != nil {
 		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
 	}
