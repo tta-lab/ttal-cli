@@ -229,7 +229,7 @@ func runQuestionCleanup(qs *questionStore, done <-chan struct{}) {
 
 // notifyDaemonReady sends a startup notification to the default team via its notification bot token.
 func notifyDaemonReady(mcfg *config.DaemonConfig) {
-	defaultTeam := mcfg.Global.DefaultTeam
+	defaultTeam := mcfg.DefaultTeamName()
 	team, ok := mcfg.Teams[defaultTeam]
 	if !ok {
 		log.Printf("[daemon] warning: default team %q not found in config", defaultTeam)
