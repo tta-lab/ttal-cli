@@ -46,16 +46,35 @@ func RenderQuestionPage(p QuestionPage) (string, *models.InlineKeyboardMarkup) {
 	}
 
 	fmt.Fprintf(&sb, "\n%s", p.Text)
+
+	// If any option has a description, render numbered list in body
+	hasDescriptions := false
+	for _, opt := range p.Options {
+		if opt.Description != "" {
+			hasDescriptions = true
+			break
+		}
+	}
+
+	if hasDescriptions {
+		sb.WriteString("\n")
+		for i, opt := range p.Options {
+			if opt.Description != "" {
+				fmt.Fprintf(&sb, "\n%s <b>%s</b> — %s", numberEmoji(i+1), escapeHTML(opt.Label), escapeHTML(opt.Description))
+			} else {
+				fmt.Fprintf(&sb, "\n%s <b>%s</b>", numberEmoji(i+1), escapeHTML(opt.Label))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
 	text := sb.String()
 
 	rows := make([][]models.InlineKeyboardButton, 0, len(p.Options)+2)
 	for i, opt := range p.Options {
 		label := opt.Label
-		if opt.Description != "" {
-			label = fmt.Sprintf("%s — %s", opt.Label, opt.Description)
-		}
-		if len(label) > 200 {
-			label = label[:197] + "..."
+		if hasDescriptions {
+			label = fmt.Sprintf("%s %s", numberEmoji(i+1), opt.Label)
 		}
 		if opt.Selected {
 			label = "✅ " + label
@@ -170,6 +189,22 @@ func EditQuestionMessage(
 		ReplyMarkup: markup,
 	})
 	return err
+}
+
+// numberEmoji returns a number emoji for 1-9, falls back to "N." for 10+.
+func numberEmoji(n int) string {
+	emojis := []string{"1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"}
+	if n >= 1 && n <= len(emojis) {
+		return emojis[n-1]
+	}
+	return fmt.Sprintf("%d.", n)
+}
+
+func escapeHTML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
 }
 
 func truncate(s string, n int) string {
