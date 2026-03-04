@@ -3,6 +3,7 @@ package codex
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -32,12 +33,13 @@ type rpcError struct {
 
 // Client is a JSON-RPC 2.0 client over WebSocket.
 type Client struct {
-	conn    *websocket.Conn
-	nextID  atomic.Int64
-	pending map[int64]chan rpcResponse
-	notify  chan rpcResponse
-	mu      sync.Mutex
-	done    chan struct{}
+	conn       *websocket.Conn
+	nextID     atomic.Int64
+	pending    map[int64]chan rpcResponse
+	notify     chan rpcResponse
+	serverReqs chan rpcResponse // server-initiated requests (have both id and method)
+	mu         sync.Mutex
+	done       chan struct{}
 }
 
 // NewClient dials a WebSocket and starts reading.
@@ -48,10 +50,11 @@ func NewClient(url string) (*Client, error) {
 	}
 
 	c := &Client{
-		conn:    conn,
-		pending: make(map[int64]chan rpcResponse),
-		notify:  make(chan rpcResponse, 64),
-		done:    make(chan struct{}),
+		conn:       conn,
+		pending:    make(map[int64]chan rpcResponse),
+		notify:     make(chan rpcResponse, 64),
+		serverReqs: make(chan rpcResponse, 16),
+		done:       make(chan struct{}),
 	}
 	go c.readLoop()
 	return c, nil
@@ -95,6 +98,22 @@ func (c *Client) Call(method string, params interface{}) (json.RawMessage, error
 // Notifications returns the channel for server-push notifications.
 func (c *Client) Notifications() <-chan rpcResponse { return c.notify }
 
+// ServerRequests returns the channel for server-initiated requests (have both id and method).
+func (c *Client) ServerRequests() <-chan rpcResponse { return c.serverReqs }
+
+// Respond sends a JSON-RPC response to a server-initiated request.
+func (c *Client) Respond(id int64, result interface{}) error {
+	data, err := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"result":  result,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal response: %w", err)
+	}
+	return c.conn.WriteMessage(websocket.TextMessage, data)
+}
+
 // Close shuts down the WebSocket connection.
 func (c *Client) Close() error {
 	select {
@@ -120,6 +139,7 @@ func (c *Client) readLoop() {
 		}
 		c.mu.Unlock()
 		close(c.notify)
+		close(c.serverReqs)
 	}()
 
 	for {
@@ -133,7 +153,15 @@ func (c *Client) readLoop() {
 			continue
 		}
 
-		if resp.ID != 0 {
+		if resp.ID != 0 && resp.Method != "" {
+			// Server-initiated request (has both id and method)
+			select {
+			case c.serverReqs <- resp:
+			default:
+				log.Printf("[codex] dropped server request id=%d method=%s (buffer full)", resp.ID, resp.Method)
+			}
+		} else if resp.ID != 0 {
+			// Response to our call
 			c.mu.Lock()
 			ch, ok := c.pending[resp.ID]
 			if ok {
@@ -144,10 +172,10 @@ func (c *Client) readLoop() {
 				ch <- resp
 			}
 		} else if resp.Method != "" {
+			// Notification (no id)
 			select {
 			case c.notify <- resp:
 			default:
-				// drop if buffer full
 			}
 		}
 	}

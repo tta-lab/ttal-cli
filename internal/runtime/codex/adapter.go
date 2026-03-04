@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -56,6 +57,9 @@ func (a *Adapter) Start(ctx context.Context) error {
 			"title":   "TTAL CLI",
 			"version": "1.0.0",
 		},
+		"capabilities": map[string]interface{}{
+			"experimentalApi": true,
+		},
 	}
 	if _, err := a.client.Call("initialize", initParams); err != nil {
 		_ = a.client.Close()
@@ -93,15 +97,15 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 	a.mu.Unlock()
 
 	if cid == "" {
-		return fmt.Errorf("no active conversation — call CreateSession first")
+		return fmt.Errorf("no active thread — call CreateSession first")
 	}
 
-	_, err := a.client.Call("sendUserMessage", map[string]interface{}{
-		"conversationId": cid,
-		"items": []map[string]interface{}{
+	_, err := a.client.Call("turn/start", map[string]interface{}{
+		"threadId": cid,
+		"input": []map[string]interface{}{
 			{
 				"type": "text",
-				"data": map[string]interface{}{"text": text},
+				"text": text,
 			},
 		},
 	})
@@ -111,34 +115,36 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 func (a *Adapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *Adapter) CreateSession(_ context.Context) (string, error) {
-	convParams := map[string]interface{}{
+	params := map[string]interface{}{
 		"cwd": a.cfg.WorkDir,
 	}
 	if a.cfg.Yolo {
-		convParams["approvalPolicy"] = "never"
+		params["approvalPolicy"] = "never"
 	}
-	result, err := a.client.Call("newConversation", convParams)
+	result, err := a.client.Call("thread/start", params)
 	if err != nil {
-		return "", fmt.Errorf("create codex conversation: %w", err)
+		return "", fmt.Errorf("start codex thread: %w", err)
 	}
 
-	var conv struct {
-		ConversationID string `json:"conversationId"`
+	var resp struct {
+		Thread struct {
+			ID string `json:"id"`
+		} `json:"thread"`
 	}
-	if err := json.Unmarshal(result, &conv); err != nil {
+	if err := json.Unmarshal(result, &resp); err != nil {
 		return "", err
 	}
 
 	a.mu.Lock()
-	a.conversationID = conv.ConversationID
+	a.conversationID = resp.Thread.ID
 	a.mu.Unlock()
 
-	return conv.ConversationID, nil
+	return resp.Thread.ID, nil
 }
 
 func (a *Adapter) ResumeSession(_ context.Context, sessionID string) error {
-	_, err := a.client.Call("resumeConversation", map[string]interface{}{
-		"conversationId": sessionID,
+	_, err := a.client.Call("thread/resume", map[string]interface{}{
+		"threadId": sessionID,
 	})
 	if err != nil {
 		return err
@@ -161,23 +167,29 @@ func (a *Adapter) IsHealthy(_ context.Context) bool {
 	if cid == "" {
 		return true // server up, no conversation yet
 	}
-	_, err := a.client.Call("getConversationSummary", map[string]interface{}{
-		"conversationId": cid,
+	_, err := a.client.Call("thread/read", map[string]interface{}{
+		"threadId": cid,
 	})
 	return err == nil
 }
 
-// RespondToUserInput sends answers back to Codex via JSON-RPC.
+// RespondToUserInput sends a JSON-RPC response to the original server request.
 func (a *Adapter) RespondToUserInput(callID string, answers []runtime.QuestionAnswer) error {
+	id, err := strconv.ParseInt(callID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid request ID %q: %w", callID, err)
+	}
+
 	answerMap := make(map[string]interface{})
 	for _, ans := range answers {
-		answerMap[ans.QuestionID] = map[string]string{"answer": ans.Answer}
+		answerMap[ans.QuestionID] = map[string]interface{}{
+			"answers": []string{ans.Answer},
+		}
 	}
-	_, err := a.client.Call("UserInputResponse", map[string]interface{}{
-		"id":       callID,
-		"response": map[string]interface{}{"answers": answerMap},
+
+	return a.client.Respond(id, map[string]interface{}{
+		"answers": answerMap,
 	})
-	return err
 }
 
 func (a *Adapter) handleNotifications(ctx context.Context) {
@@ -190,6 +202,11 @@ func (a *Adapter) handleNotifications(ctx context.Context) {
 				return
 			}
 			a.processNotification(notif)
+		case req, ok := <-a.client.ServerRequests():
+			if !ok {
+				return
+			}
+			a.processServerRequest(req)
 		}
 	}
 }
@@ -234,18 +251,17 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 			})
 		}
 
-	case "RequestUserInput":
-		a.handleRequestUserInput(notif)
-
 	case "item/started":
 		var params struct {
-			Type string `json:"type"`
+			Item struct {
+				Type string `json:"type"`
+			} `json:"item"`
 		}
-		if json.Unmarshal(notif.Params, &params) == nil && params.Type != "" {
+		if json.Unmarshal(notif.Params, &params) == nil && params.Item.Type != "" {
 			a.sendEvent(runtime.Event{
 				Type:     runtime.EventTool,
 				Agent:    a.cfg.AgentName,
-				ToolName: codexItemToToolName(params.Type),
+				ToolName: codexItemToToolName(params.Item.Type),
 			})
 		}
 
@@ -254,51 +270,59 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 	}
 }
 
-func (a *Adapter) handleRequestUserInput(notif rpcResponse) {
-	var params struct {
-		CallID    string `json:"callId"`
-		Questions []struct {
-			ID       string `json:"id"`
-			Header   string `json:"header"`
-			Question string `json:"question"`
-			IsOther  bool   `json:"isOther"`
-			IsSecret bool   `json:"isSecret"`
-			Options  []struct {
-				Label       string `json:"label"`
-				Description string `json:"description"`
-			} `json:"options"`
-		} `json:"questions"`
-	}
-	if err := json.Unmarshal(notif.Params, &params); err != nil {
-		log.Printf("[codex] failed to parse RequestUserInput for %s: %v", a.cfg.AgentName, err)
-		return
-	}
-
-	questions := make([]runtime.Question, 0, len(params.Questions))
-	for _, q := range params.Questions {
-		rq := runtime.Question{
-			ID:          q.ID,
-			Header:      q.Header,
-			Text:        q.Question,
-			AllowCustom: q.IsOther,
-			IsSecret:    q.IsSecret,
+func (a *Adapter) processServerRequest(req rpcResponse) {
+	switch req.Method {
+	case "item/tool/requestUserInput":
+		var params struct {
+			ThreadID  string `json:"threadId"`
+			TurnID    string `json:"turnId"`
+			ItemID    string `json:"itemId"`
+			Questions []struct {
+				ID       string `json:"id"`
+				Header   string `json:"header"`
+				Question string `json:"question"`
+				IsOther  bool   `json:"isOther"`
+				IsSecret bool   `json:"isSecret"`
+				Options  []struct {
+					Label       string `json:"label"`
+					Description string `json:"description"`
+				} `json:"options"`
+			} `json:"questions"`
 		}
-		for _, opt := range q.Options {
-			rq.Options = append(rq.Options, runtime.QuestionOption{
-				Label:       opt.Label,
-				Description: opt.Description,
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			log.Printf("[codex] failed to parse requestUserInput for %s: %v", a.cfg.AgentName, err)
+			return
+		}
+
+		questions := make([]runtime.Question, 0, len(params.Questions))
+		for _, q := range params.Questions {
+			rq := runtime.Question{
+				ID:          q.ID,
+				Header:      q.Header,
+				Text:        q.Question,
+				AllowCustom: q.IsOther,
+				IsSecret:    q.IsSecret,
+			}
+			for _, opt := range q.Options {
+				rq.Options = append(rq.Options, runtime.QuestionOption{
+					Label:       opt.Label,
+					Description: opt.Description,
+				})
+			}
+			questions = append(questions, rq)
+		}
+
+		if len(questions) > 0 {
+			a.sendEvent(runtime.Event{
+				Type:          runtime.EventQuestion,
+				Agent:         a.cfg.AgentName,
+				CorrelationID: fmt.Sprintf("%d", req.ID),
+				Questions:     questions,
 			})
 		}
-		questions = append(questions, rq)
-	}
 
-	if len(questions) > 0 {
-		a.sendEvent(runtime.Event{
-			Type:          runtime.EventQuestion,
-			Agent:         a.cfg.AgentName,
-			CorrelationID: params.CallID,
-			Questions:     questions,
-		})
+	default:
+		log.Printf("[codex] unhandled server request: %s", req.Method)
 	}
 }
 
@@ -306,12 +330,14 @@ func (a *Adapter) handleRequestUserInput(notif rpcResponse) {
 // so telegram.ToolEmoji() can handle both runtimes uniformly.
 func codexItemToToolName(itemType string) string {
 	switch itemType {
-	case "command_execution":
+	case "commandExecution":
 		return "Bash"
-	case "file_change":
+	case "fileChange":
 		return "Edit"
-	case "web_search":
+	case "webSearch":
 		return "WebSearch"
+	case "mcpToolCall":
+		return "MCP"
 	default:
 		return itemType
 	}
