@@ -1,6 +1,6 @@
 module github.com/tta-lab/ttal-cli
 
-go 1.24.0
+go 1.26.0
 
 require (
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
