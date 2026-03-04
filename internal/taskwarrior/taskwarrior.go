@@ -416,7 +416,7 @@ func VerifyRequiredUDAs() error {
 			"  This prevents creating orphaned sessions that aren't tracked.", err)}
 	}
 
-	required := []string{"branch", "project_path", "spawner"}
+	required := []string{"branch", "project_path"}
 	var missing []string
 	for _, uda := range required {
 		if !strings.Contains(out, fmt.Sprintf("uda.%s.", uda)) {
