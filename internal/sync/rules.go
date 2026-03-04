@@ -61,7 +61,7 @@ func deployRulesFromDir(sourceDir, rulesDir string, dryRun bool) ([]RuleResult, 
 		return nil, err
 	}
 
-	var results []RuleResult
+	results := make([]RuleResult, 0, len(entries))
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -139,7 +139,7 @@ func CleanRulesIn(rulesPaths []string, rulesDir string, dryRun bool) ([]string, 
 		valid[r.Name] = true
 	}
 
-	var removed []string
+	removed := make([]string, 0, len(entries))
 	for _, e := range entries {
 		name := strings.TrimSuffix(e.Name(), ".md")
 		if name == e.Name() {

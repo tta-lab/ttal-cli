@@ -55,7 +55,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 		syncCfg := cfg.Sync
 
-		if len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 && len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 {
+		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
+			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0
+		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
 				"  [sync]\n" +
@@ -200,7 +202,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d subagents, %d skills, %d commands, %d rules.%s\n", agentCount, skillCount, commandCount, ruleCount, suffix)
+		fmt.Printf("\nSynced %d subagents, %d skills, %d commands, %d rules.%s\n",
+			agentCount, skillCount, commandCount, ruleCount, suffix)
 		return nil
 	},
 }
