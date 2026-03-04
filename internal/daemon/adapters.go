@@ -73,6 +73,7 @@ func createAdapterFromTeam(
 			cfg.GatewayURL = config.DefaultGatewayURL
 		}
 		cfg.HooksToken = team.HooksToken
+		cfg.WritableRoots = team.WritableRoots
 	}
 
 	switch rt {

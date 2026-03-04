@@ -35,9 +35,10 @@ func (a *Adapter) Runtime() runtime.Runtime { return runtime.Codex }
 
 func (a *Adapter) Start(ctx context.Context) error {
 	a.proc = &process{
-		port:    a.cfg.Port,
-		workDir: a.cfg.WorkDir,
-		env:     a.cfg.Env,
+		port:          a.cfg.Port,
+		workDir:       a.cfg.WorkDir,
+		env:           a.cfg.Env,
+		writableRoots: a.cfg.WritableRoots,
 	}
 	if err := a.proc.start(ctx); err != nil {
 		return err
