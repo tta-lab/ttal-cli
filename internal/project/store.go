@@ -108,6 +108,7 @@ func (s *Store) save(pf *projectsFile) error {
 	if err != nil {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
+	defer os.Remove(tmp) // clean up on any failure; no-op after successful rename
 
 	enc := toml.NewEncoder(f)
 
@@ -115,13 +116,11 @@ func (s *Store) save(pf *projectsFile) error {
 	aliases := sortedKeys(pf.Active)
 	for _, alias := range aliases {
 		entry := pf.Active[alias]
-		// Write as [alias] section.
 		m := map[string]map[string]string{
 			alias: entryToMap(entry),
 		}
 		if err := enc.Encode(m); err != nil {
 			f.Close()
-			os.Remove(tmp)
 			return fmt.Errorf("encoding active project %s: %w", alias, err)
 		}
 	}
@@ -136,13 +135,15 @@ func (s *Store) save(pf *projectsFile) error {
 		}
 		if err := enc.Encode(archived); err != nil {
 			f.Close()
-			os.Remove(tmp)
 			return fmt.Errorf("encoding archived projects: %w", err)
 		}
 	}
 
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return fmt.Errorf("syncing temp file: %w", err)
+	}
 	if err := f.Close(); err != nil {
-		os.Remove(tmp)
 		return fmt.Errorf("closing temp file: %w", err)
 	}
 

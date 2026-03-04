@@ -4,19 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus with tag-based filtering and routing. It uses a schema-first database approach with type-safe queries, plus taskwarrior integration for task and today commands.
+TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus with tag-based filtering and routing. It uses TOML-based project storage and taskwarrior integration for task and today commands.
 
 ## Essential Commands
 
 ### Development Workflow
 ```bash
-# After modifying ent schemas (CRITICAL - must run after any schema change)
-make generate
-
-# Format, generate, vet, and build
+# Format, tidy, schema, vet, and build
 make all
 
-# Run all CI checks (format, generate, vet, lint, test, build)
+# Run all CI checks (format, schema, vet, lint, test, build)
 make ci
 
 # Run tests
@@ -38,15 +35,6 @@ make run ARGS='project list'
 ./ttal project list
 ```
 
-### Database Management
-```bash
-# Remove database (destructive!)
-make clean-db
-
-# Full reset (binary + database)
-make reset
-```
-
 ## Releasing
 
 Tag a version to trigger the release workflow:
@@ -63,44 +51,48 @@ Requires `HOMEBREW_TAP_TOKEN` secret in GitHub repo settings (a PAT with repo sc
 
 ## Architecture
 
-### Database Layer - ent (Schema-First ORM)
+### Project Storage — TOML File
 
-The project uses [ent](https://entgo.io/) as a type-safe, schema-first ORM (similar to Drizzle for Go). This is the **single source of truth** for the database.
+Projects are stored in a plain TOML file at `~/.config/ttal/projects.toml` (or `~/.config/ttal/{team}-projects.toml` for non-default teams). No database dependencies.
 
-**Schema Location**: `ent/schema/`
-- `project.go` - Project entity with fields and edges
-- `tag.go` - Tag entity (shared by projects via M2M)
+**Store Location**: `internal/project/store.go`
 
-**Agent metadata** is stored in CLAUDE.md frontmatter files (see `internal/agentfs/`), not in the database.
+**TOML Format**:
+```toml
+# Active projects are top-level sections
+[ttal]
+name = "TTAL Core"
+path = "/Users/neil/Code/guion-opensource/ttal-cli"
 
-**Critical Workflow**:
-1. Modify schema files in `ent/schema/`
-2. Run `make generate` to regenerate type-safe query code
-3. ent auto-generates ~3000 lines of code in `ent/` directory
-4. **Never manually edit** generated files (they're regenerated on every `make generate`)
+[clawd]
+name = "Clawd Workspace"
+path = "/Users/neil/clawd"
 
-**Benefits over raw SQL**:
-- Type-safe queries with compile-time checking
-- Automatic migrations (no manual SQL)
-- M2M relations handled automatically
-- No manual row scanning
-- Reduced codebase by 73% (see ENT_REFACTOR.md)
-
-**Example Query Pattern**:
-```go
-// Fetch projects with eager-loaded tags
-projects, err := database.Project.Query().
-    WithTags().
-    Where(project.ArchivedAtIsNil()).
-    All(ctx)
+# Archived projects go under [archived]
+[archived.old-project]
+name = "Legacy Thing"
+path = "/old/path"
 ```
+
+The table key IS the alias. Active projects are top-level `[alias]`, archived under `[archived.alias]`.
+
+**Project Resolution** (`internal/project/resolve.go`):
+```go
+// Resolution order for taskwarrior project matching:
+// 1. Exact alias match (with "." hierarchical fallback)
+// 2. Contains fallback ("ttal-cli" matches alias "ttal")
+// 3. Single-project shortcut (if only one project exists)
+path := project.ResolveProjectPath("ttal.pr")
+```
+
+**Agent metadata** is stored in CLAUDE.md frontmatter files (see `internal/agentfs/`), not in the project store.
 
 ### Project Structure
 
 ```
 cmd/             - CLI commands (cobra)
-  ├── root.go    - Root command and database initialization
-  ├── project.go - Project CRUD commands
+  ├── root.go    - Root command and .env loading
+  ├── project.go - Project CRUD commands (TOML-backed)
   ├── agent.go   - Agent CRUD commands
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
@@ -110,12 +102,9 @@ cmd/             - CLI commands (cobra)
   ├── task.go    - ttal task get/find (taskwarrior queries)
   └── task_route.go - ttal task design/research/test/execute (routing + spawn)
 
-ent/             - ent ORM (mostly auto-generated)
-  └── schema/    - Schema definitions (source of truth)
-
 internal/
   ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
-  ├── db/        - Database connection wrapper
+  ├── project/   - Project store (TOML) and resolution logic
   ├── watcher/   - JSONL file watcher (CC → Telegram via daemon)
   ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/   - Forgejo SDK client and repo helpers
@@ -159,44 +148,15 @@ The daemon picks it up via fsnotify and handles the full lifecycle: close sessio
 worktree, mark task done.
 `ttal worker install` installs both `on-add-ttal` and `on-modify-ttal` taskwarrior hooks.
 
-### Tag-Based Routing
-
-Projects and agents use tags for automatic matching:
-- Tags use taskwarrior-like syntax: `+tag` (add), `-tag` (remove)
-- Agents can see projects that share **at least one tag**
-- Tags are stored in separate M2M tables managed by ent
-- Tag names are case-insensitive (auto-lowercased)
-
-**Example**:
-```bash
-# Agent with +secretary +core tags
-ttal agent add yuki +secretary +core
-
-# Project with +core +infrastructure tags
-ttal project add clawd +core +infrastructure
-
-# yuki can see clawd (both have +core)
-ttal agent info yuki  # Shows clawd in matching projects
-```
-
 ### Modify Command Syntax
 
-The `modify` command supports both field updates and tag operations:
+The `modify` command supports field updates:
 
 **Field Updates**: `field:value`
-- Agent fields: `path`
-- Project fields: `name`, `description`, `path`
-
-**Tag Operations**: `+tag` (add), `-tag` (remove)
-
-**Important**: Always use `--` separator before modifications to prevent `-tag` being interpreted as a flag.
+- Project fields: `alias`, `name`, `path`
 
 ```bash
-# Correct
-ttal project modify clawd -- +backend -legacy name:'New Name'
-
-# Wrong (will fail)
-ttal project modify clawd +backend -legacy  # -legacy treated as flag
+ttal project modify clawd name:'New Name' path:/new/path
 ```
 
 ## Commit Convention
@@ -217,7 +177,7 @@ ttal: fix - handle nil archived_at
 
 **pr.yaml** - Runs on PRs:
 - Checks formatting, vet, linting
-- Verifies ent generated code is up-to-date (checks for uncommitted changes after `make generate`)
+- Verifies generated schema is up-to-date
 - Runs tests and builds binary
 
 **ci.yaml** - Runs on push to main:
@@ -235,7 +195,7 @@ This repo uses [lefthook](https://github.com/evilmartians/lefthook) for pre-comm
 lefthook install
 ```
 
-The pre-commit hook runs **fmt, vet, lint** in parallel. Tests and generate are CI-only.
+The pre-commit hook runs **fmt, vet, lint** in parallel. Tests are CI-only.
 
 Workers in git worktrees inherit hooks from the main repo automatically.
 
@@ -243,9 +203,9 @@ Workers in git worktrees inherit hooks from the main repo automatically.
 
 ## Testing
 
-Tests use ent's test utilities:
-- `ent/enttest` - In-memory SQLite test database
-- `internal/db/testutil.go` - Shared test helpers
+Tests use temp-file TOML stores for project operations:
+- `internal/project/store_test.go` - Store unit tests
+- `cmd/project_test.go` - Project command integration tests
 
 **Run tests**:
 ```bash
@@ -256,31 +216,9 @@ go test -v ./...   # Verbose output
 
 ## Common Pitfalls
 
-1. **Forgot to run `make generate`** after schema changes
-   - Symptom: Type errors, missing methods, CI failure
-   - Fix: Always run `make generate` after editing `ent/schema/`
-
-2. **Using `-tag` without `--` separator**
-   - Symptom: "unknown flag: -tag"
-   - Fix: Use `ttal modify alias -- -tag`
-
-3. **Editing generated ent files**
-   - Symptom: Changes disappear after `make generate`
-   - Fix: Only edit `ent/schema/`, never generated files
-
-4. **Manual database migrations**
-   - Not needed! ent handles migrations automatically via `Schema.Create()`
-
-6. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
+1. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
    - Symptom: Ignores team TASKRC, no timeout, no `rc.verbose:nothing`
    - Fix: Always use the `internal/taskwarrior` package. If a helper doesn't exist (e.g. `StartTask`), add it there first — don't inline raw exec calls in `cmd/` or other packages.
-
-7. **NEVER delete the database file directly**
-   - ⚠️ **CRITICAL**: Never run `rm ~/.ttal/ttal.db` - this deletes ALL user data
-   - Tests use in-memory databases (`internal/db/testutil.go`) - they never touch `~/.ttal/ttal.db`
-   - To clean up test data: Use CLI commands (`ttal agent delete`, `ttal project archive`)
-   - Only use `make clean-db` when explicitly instructed by the user
-   - The database contains real user data and has no backup mechanism
 
 ## Secrets (.env)
 
@@ -299,20 +237,15 @@ ATHENA_BOT_TOKEN=7234567:AAG...
 
 Generate a template: `ttal doctor --fix`
 
-## Database Location
+## Project Storage Location
 
-Default: `~/.ttal/ttal.db` (SQLite with WAL mode)
+Default: `~/.config/ttal/projects.toml`
 
-Override with global flag:
-```bash
-ttal --db=/custom/path/ttal.db project list
-```
+Per-team: `~/.config/ttal/{team}-projects.toml`
 
 ## Additional Documentation
 
 - `README.md` - User-facing documentation and usage
-- `ENT_REFACTOR.md` - Detailed comparison of ent vs raw SQL
-- `docs/DATABASE.md` - Database schema details
 - `CI_CD_SETUP.md` - CI/CD pipeline documentation
 - `TESTING.md` - Testing guidelines
 - `docs/plans/2026-02-17-daemon-design.md` - Daemon design doc (see implementation note at top for API changes)
