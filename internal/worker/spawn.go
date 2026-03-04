@@ -206,9 +206,11 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		}
 	}
 	setEnv("TTAL_JOB_ID", task.SessionID())
-	if team := os.Getenv("TTAL_TEAM"); team != "" {
-		setEnv("TTAL_TEAM", team)
+	team := os.Getenv("TTAL_TEAM")
+	if team == "" {
+		team = "default"
 	}
+	setEnv("TTAL_TEAM", team)
 	if taskrc != "" {
 		setEnv("TASKRC", taskrc)
 	}

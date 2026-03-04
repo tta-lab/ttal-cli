@@ -407,9 +407,7 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	env := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
-	if teamName != "default" {
-		env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
-	}
+	env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
