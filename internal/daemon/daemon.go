@@ -402,7 +402,8 @@ func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName stri
 		return ""
 	}
 	if policy != "" && policy != "never" {
-		log.Printf("[daemon] resumed thread %s has approvalPolicy=%q (want never), creating fresh session", lastID, agentName)
+		log.Printf("[daemon] resumed thread %s for %s has approvalPolicy=%q (want never), creating fresh session",
+			lastID, agentName, policy)
 		return "" // caller will create new session with approvalPolicy: "never"
 	}
 	log.Printf("[daemon] resumed session %s for %s", lastID, agentName)
