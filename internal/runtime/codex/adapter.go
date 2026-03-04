@@ -222,14 +222,20 @@ func (a *Adapter) sendEvent(evt runtime.Event) {
 func (a *Adapter) processNotification(notif rpcResponse) {
 	switch notif.Method {
 	case "item/agentMessage/delta":
+		// Streamed tokens — ignored in favor of item/completed for CC-like per-item delivery.
+
+	case "item/completed":
 		var params struct {
-			Delta string `json:"delta"`
+			Item struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"item"`
 		}
-		if json.Unmarshal(notif.Params, &params) == nil && params.Delta != "" {
+		if json.Unmarshal(notif.Params, &params) == nil && params.Item.Type == "agentMessage" && params.Item.Text != "" {
 			a.sendEvent(runtime.Event{
 				Type:  runtime.EventText,
 				Agent: a.cfg.AgentName,
-				Text:  params.Delta,
+				Text:  params.Item.Text,
 			})
 		}
 
