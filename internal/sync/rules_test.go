@@ -7,17 +7,33 @@ import (
 	"testing"
 )
 
+// mustMkdirAll is a test helper that creates directories or fails the test.
+func mustMkdirAll(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%s): %v", path, err)
+	}
+}
+
+// mustWriteFile is a test helper that writes a file or fails the test.
+func mustWriteFile(t *testing.T, path string, content []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("WriteFile(%s): %v", path, err)
+	}
+}
+
 func TestDeployRules_SubdirScan(t *testing.T) {
 	src := t.TempDir()
 	dest := t.TempDir()
 
 	// Create skill dir with RULE.md
 	skillDir := filepath.Join(src, "ttal-cli")
-	os.MkdirAll(skillDir, 0o755)
-	os.WriteFile(filepath.Join(skillDir, "RULE.md"), []byte("# ttal cheat sheet\n"), 0o644)
+	mustMkdirAll(t, skillDir)
+	mustWriteFile(t, filepath.Join(skillDir, "RULE.md"), []byte("# ttal cheat sheet\n"))
 
 	// Create skill dir without RULE.md (should be skipped)
-	os.MkdirAll(filepath.Join(src, "no-rule"), 0o755)
+	mustMkdirAll(t, filepath.Join(src, "no-rule"))
 
 	results, err := DeployRulesTo([]string{src}, dest, false)
 	if err != nil {
@@ -45,7 +61,7 @@ func TestDeployRules_DirectRuleMD(t *testing.T) {
 	dest := t.TempDir()
 
 	// Place RULE.md directly in the path root (simulates ~/Code/ttal-cli with RULE.md at root)
-	os.WriteFile(filepath.Join(src, "RULE.md"), []byte("# direct rule\n"), 0o644)
+	mustWriteFile(t, filepath.Join(src, "RULE.md"), []byte("# direct rule\n"))
 
 	results, err := DeployRulesTo([]string{src}, dest, false)
 	if err != nil {
@@ -73,8 +89,8 @@ func TestDeployRules_DryRun(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "rules")
 
 	skillDir := filepath.Join(src, "my-skill")
-	os.MkdirAll(skillDir, 0o755)
-	os.WriteFile(filepath.Join(skillDir, "RULE.md"), []byte("content"), 0o644)
+	mustMkdirAll(t, skillDir)
+	mustWriteFile(t, filepath.Join(skillDir, "RULE.md"), []byte("content"))
 
 	results, err := DeployRulesTo([]string{src}, dest, true)
 	if err != nil {
@@ -96,14 +112,16 @@ func TestCleanRules(t *testing.T) {
 
 	// Create a valid rule
 	skillDir := filepath.Join(src, "valid-rule")
-	os.MkdirAll(skillDir, 0o755)
-	os.WriteFile(filepath.Join(skillDir, "RULE.md"), []byte("valid"), 0o644)
+	mustMkdirAll(t, skillDir)
+	mustWriteFile(t, filepath.Join(skillDir, "RULE.md"), []byte("valid"))
 
 	// Deploy the valid rule
-	DeployRulesTo([]string{src}, dest, false)
+	if _, err := DeployRulesTo([]string{src}, dest, false); err != nil {
+		t.Fatalf("DeployRulesTo: %v", err)
+	}
 
 	// Add a stale rule file manually
-	os.WriteFile(filepath.Join(dest, "stale-rule.md"), []byte("stale"), 0o644)
+	mustWriteFile(t, filepath.Join(dest, "stale-rule.md"), []byte("stale"))
 
 	removed, err := CleanRulesIn([]string{src}, dest, false)
 	if err != nil {
@@ -135,11 +153,14 @@ func TestDeployCodexRules(t *testing.T) {
 	// Create two rule sources
 	for _, name := range []string{"proj-a", "proj-b"} {
 		dir := filepath.Join(src, name)
-		os.MkdirAll(dir, 0o755)
-		os.WriteFile(filepath.Join(dir, "RULE.md"), []byte("## "+name+" commands"), 0o644)
+		mustMkdirAll(t, dir)
+		mustWriteFile(t, filepath.Join(dir, "RULE.md"), []byte("## "+name+" commands"))
 	}
 
-	rules, _ := DeployRulesTo([]string{src}, t.TempDir(), true)
+	rules, err := DeployRulesTo([]string{src}, t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("DeployRulesTo: %v", err)
+	}
 
 	if err := DeployCodexRulesTo(rules, agentsPath, false); err != nil {
 		t.Fatalf("DeployCodexRulesTo: %v", err)
@@ -170,19 +191,29 @@ func TestDeployCodexRules_Idempotent(t *testing.T) {
 	agentsPath := filepath.Join(t.TempDir(), "AGENTS.md")
 
 	// Pre-existing content
-	os.WriteFile(agentsPath, []byte("# My Agents\n\nSome existing content.\n"), 0o644)
+	mustWriteFile(t, agentsPath, []byte("# My Agents\n\nSome existing content.\n"))
 
 	dir := filepath.Join(src, "my-proj")
-	os.MkdirAll(dir, 0o755)
-	os.WriteFile(filepath.Join(dir, "RULE.md"), []byte("hot commands"), 0o644)
+	mustMkdirAll(t, dir)
+	mustWriteFile(t, filepath.Join(dir, "RULE.md"), []byte("hot commands"))
 
-	rules, _ := DeployRulesTo([]string{src}, t.TempDir(), true)
+	rules, err := DeployRulesTo([]string{src}, t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("DeployRulesTo: %v", err)
+	}
 
 	// Deploy twice
-	DeployCodexRulesTo(rules, agentsPath, false)
-	DeployCodexRulesTo(rules, agentsPath, false)
+	if err := DeployCodexRulesTo(rules, agentsPath, false); err != nil {
+		t.Fatalf("first deploy: %v", err)
+	}
+	if err := DeployCodexRulesTo(rules, agentsPath, false); err != nil {
+		t.Fatalf("second deploy: %v", err)
+	}
 
-	content, _ := os.ReadFile(agentsPath)
+	content, err := os.ReadFile(agentsPath)
+	if err != nil {
+		t.Fatalf("reading AGENTS.md: %v", err)
+	}
 	s := string(content)
 
 	// Should have exactly one managed section
