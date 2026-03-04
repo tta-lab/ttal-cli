@@ -34,9 +34,9 @@ func TestRenderQuestionPage_SingleQuestion(t *testing.T) {
 		t.Error("should not show page indicator for single question")
 	}
 
-	// 2 options + 1 custom = 3 rows
-	if len(markup.InlineKeyboard) != 3 {
-		t.Errorf("expected 3 keyboard rows, got %d", len(markup.InlineKeyboard))
+	// 2 options + 1 custom + 1 skip = 4 rows
+	if len(markup.InlineKeyboard) != 4 {
+		t.Errorf("expected 4 keyboard rows, got %d", len(markup.InlineKeyboard))
 	}
 
 	// Verify callback data format
@@ -71,13 +71,13 @@ func TestRenderQuestionPage_MultiQuestion(t *testing.T) {
 		t.Error("expected page indicator for multi-question")
 	}
 
-	// 2 options + 1 nav row (Next only, page 1)
-	if len(markup.InlineKeyboard) != 3 {
-		t.Errorf("expected 3 rows, got %d", len(markup.InlineKeyboard))
+	// 2 options + 1 skip + 1 nav row (Next only, page 1)
+	if len(markup.InlineKeyboard) != 4 {
+		t.Errorf("expected 4 rows, got %d", len(markup.InlineKeyboard))
 	}
 
 	// Nav row should have Next button only
-	navRow := markup.InlineKeyboard[2]
+	navRow := markup.InlineKeyboard[3]
 	if len(navRow) != 1 || navRow[0].Text != "Next →" {
 		t.Errorf("expected single Next button, got %v", navRow)
 	}
@@ -190,6 +190,62 @@ func TestTruncate(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.n, got, tt.want)
 		}
+	}
+}
+
+func TestRenderQuestionPage_HasSkipButton(t *testing.T) {
+	page := QuestionPage{
+		AgentName:      "test",
+		PageNum:        1,
+		TotalPages:     1,
+		Header:         "H",
+		Text:           "Q",
+		Options:        []QuestionPageOption{{Label: "A"}, {Label: "B"}},
+		CallbackPrefix: "000008",
+	}
+
+	_, markup := RenderQuestionPage(page)
+
+	found := false
+	for _, row := range markup.InlineKeyboard {
+		for _, btn := range row {
+			if strings.Contains(btn.Text, "Skip") {
+				found = true
+				if btn.CallbackData != "qskip:000008" {
+					t.Errorf("skip callback = %q, want %q", btn.CallbackData, "qskip:000008")
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("expected Skip button in keyboard")
+	}
+}
+
+func TestRenderQuestionPage_SkipButtonOrder(t *testing.T) {
+	page := QuestionPage{
+		AgentName:      "test",
+		PageNum:        1,
+		TotalPages:     2,
+		Header:         "H",
+		Text:           "Q",
+		Options:        []QuestionPageOption{{Label: "A"}},
+		AllowCustom:    true,
+		CallbackPrefix: "000009",
+	}
+
+	_, markup := RenderQuestionPage(page)
+
+	// Expected order: option, custom, skip, nav
+	rows := markup.InlineKeyboard
+	if len(rows) != 4 {
+		t.Fatalf("expected 4 rows, got %d", len(rows))
+	}
+	if !strings.Contains(rows[2][0].CallbackData, "qskip") {
+		t.Errorf("row 2 should be skip, got callback %q", rows[2][0].CallbackData)
+	}
+	if !strings.Contains(rows[3][0].CallbackData, "qnav") {
+		t.Errorf("row 3 should be nav, got callback %q", rows[3][0].CallbackData)
 	}
 }
 
