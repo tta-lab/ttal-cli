@@ -471,6 +471,8 @@ func handleCallbackQuery(
 		handleNavigation(ctx, b, cq, data, qs, cas)
 	case strings.HasPrefix(data, "qsubmit:"):
 		handleSubmit(ctx, b, cq, data, qs, registry)
+	case strings.HasPrefix(data, "qskip:"):
+		handleSkip(ctx, b, cq, data, qs, cas, registry)
 	}
 }
 
@@ -621,6 +623,40 @@ func handleSubmit(
 			ShowAlert:       true,
 		})
 	}
+}
+
+func handleSkip(
+	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
+	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+) {
+	parts := strings.Split(data, ":")
+	if len(parts) != 2 {
+		return
+	}
+	shortID := parts[1]
+
+	batch, ok := qs.get(shortID)
+	if !ok {
+		answerExpiredCallback(ctx, b, cq)
+		return
+	}
+
+	cas.clear(cq.Message.Message.Chat.ID)
+
+	if err := cancelQuestion(batch, registry); err != nil {
+		log.Printf("[questions] cancel error for %s: %v", batch.AgentName, err)
+	}
+
+	skippedText := fmt.Sprintf("⏭ <b>%s</b> — question skipped", batch.AgentName)
+	_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    batch.ChatID,
+		MessageID: batch.TelegramMsgID,
+		Text:      skippedText,
+		ParseMode: models.ParseModeHTML,
+	})
+
+	qs.remove(shortID)
+	log.Printf("[questions] skipped question for %s batch %s", batch.AgentName, shortID)
 }
 
 // submitBatch routes answers to the runtime and updates the Telegram message.
