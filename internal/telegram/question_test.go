@@ -195,19 +195,74 @@ func TestTruncate(t *testing.T) {
 
 func TestRenderQuestionPage_OptionWithDescription(t *testing.T) {
 	page := QuestionPage{
-		AgentName:      "test",
-		PageNum:        1,
-		TotalPages:     1,
-		Header:         "H",
-		Text:           "Q",
-		Options:        []QuestionPageOption{{Label: "A", Description: "desc A"}},
+		AgentName:  "test",
+		PageNum:    1,
+		TotalPages: 1,
+		Header:     "H",
+		Text:       "Q",
+		Options: []QuestionPageOption{
+			{Label: "PostgreSQL", Description: "Battle-tested relational DB"},
+			{Label: "SQLite", Description: "Lightweight, zero-config"},
+		},
 		CallbackPrefix: "000006",
 	}
 
-	_, markup := RenderQuestionPage(page)
+	text, markup := RenderQuestionPage(page)
 
-	btnText := markup.InlineKeyboard[0][0].Text
-	if !strings.Contains(btnText, "A — desc A") {
-		t.Errorf("expected label with description, got %q", btnText)
+	// Descriptions should be in message body
+	if !strings.Contains(text, "PostgreSQL") || !strings.Contains(text, "Battle-tested") {
+		t.Error("expected description in message body")
+	}
+	if !strings.Contains(text, "SQLite") || !strings.Contains(text, "Lightweight") {
+		t.Error("expected second description in message body")
+	}
+
+	// Buttons should have short numbered labels
+	btn1 := markup.InlineKeyboard[0][0].Text
+	if !strings.Contains(btn1, "PostgreSQL") {
+		t.Errorf("expected PostgreSQL in button, got %q", btn1)
+	}
+	if strings.Contains(btn1, "Battle-tested") {
+		t.Errorf("description should NOT be in button, got %q", btn1)
+	}
+}
+
+func TestRenderQuestionPage_NoDescriptions(t *testing.T) {
+	page := QuestionPage{
+		AgentName:  "test",
+		PageNum:    1,
+		TotalPages: 1,
+		Header:     "H",
+		Text:       "Q",
+		Options: []QuestionPageOption{
+			{Label: "Option A"},
+			{Label: "Option B"},
+		},
+		CallbackPrefix: "000007",
+	}
+
+	text, markup := RenderQuestionPage(page)
+
+	// No numbered list in body (no descriptions)
+	if strings.Contains(text, "1️⃣") {
+		t.Error("should not have numbered list when no descriptions")
+	}
+
+	// Buttons should have plain labels (no number prefix)
+	btn1 := markup.InlineKeyboard[0][0].Text
+	if btn1 != "Option A" {
+		t.Errorf("expected plain label, got %q", btn1)
+	}
+}
+
+func TestNumberEmoji(t *testing.T) {
+	if got := numberEmoji(1); got != "1️⃣" {
+		t.Errorf("numberEmoji(1) = %q", got)
+	}
+	if got := numberEmoji(9); got != "9️⃣" {
+		t.Errorf("numberEmoji(9) = %q", got)
+	}
+	if got := numberEmoji(10); got != "10." {
+		t.Errorf("numberEmoji(10) = %q, want %q", got, "10.")
 	}
 }
