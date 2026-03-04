@@ -34,11 +34,12 @@ type prWatchTarget struct {
 	PRIndex     int64
 	Description string
 	Provider    string
+	Spawner     string
 }
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
 // and active tmux sessions, then spawns per-PR polling goroutines.
-func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
+func startPRWatcher(mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) {
 	var mu sync.Mutex
 	active := make(map[string]bool) // task UUID → polling
 
@@ -54,7 +55,7 @@ func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
 			case <-timer.C:
 			}
 
-			scanForPRTasks(mcfg, &mu, active, done)
+			scanForPRTasks(mcfg, registry, &mu, active, done)
 			timer.Reset(prScanInterval)
 		}
 	}()
@@ -66,6 +67,7 @@ func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
 // and spawns polling goroutines for new PRs.
 func scanForPRTasks(
 	mcfg *config.DaemonConfig,
+	registry *adapterRegistry,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
@@ -74,16 +76,17 @@ func scanForPRTasks(
 		if teamName != config.DefaultTeamName {
 			prev := os.Getenv("TTAL_TEAM")
 			_ = os.Setenv("TTAL_TEAM", teamName)
-			scanTeam(mcfg, teamName, mu, active, done)
+			scanTeam(mcfg, registry, teamName, mu, active, done)
 			_ = os.Setenv("TTAL_TEAM", prev)
 		} else {
-			scanTeam(mcfg, teamName, mu, active, done)
+			scanTeam(mcfg, registry, teamName, mu, active, done)
 		}
 	}
 }
 
 func scanTeam(
 	mcfg *config.DaemonConfig,
+	registry *adapterRegistry,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
@@ -132,6 +135,7 @@ func scanTeam(
 			PRIndex:     prIndex,
 			Description: task.Description,
 			Provider:    string(info.Provider),
+			Spawner:     task.Spawner,
 		}
 
 		mu.Lock()
@@ -142,7 +146,7 @@ func scanTeam(
 			prIndex, info.Owner, info.Repo, sessionName)
 
 		go func() {
-			pollPR(target, mcfg, done)
+			pollPR(target, mcfg, registry, done)
 			mu.Lock()
 			delete(active, target.TaskUUID)
 			mu.Unlock()
@@ -152,7 +156,7 @@ func scanTeam(
 
 // pollPR polls a PR's CI status until checks resolve, PR is merged/closed, or timeout.
 // Delivers status exactly once per HEAD SHA.
-func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{}) {
+func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) {
 	provider, err := gitprovider.NewProviderByName(target.Provider)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
@@ -197,6 +201,9 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{
 
 		if fetchedPR.Merged || fetchedPR.State == "closed" {
 			log.Printf("[prwatch] PR #%d is %s — stopping", target.PRIndex, fetchedPR.State)
+			if fetchedPR.Merged {
+				notifySpawnerMerged(mcfg, registry, target)
+			}
 			return
 		}
 
@@ -317,6 +324,22 @@ func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status stri
 	}
 	if err := notify.SendWithConfig(teamCfg.NotificationToken, teamCfg.ChatID, msg); err != nil {
 		log.Printf("[prwatch] telegram notify failed: %v", err)
+	}
+}
+
+// notifySpawnerMerged delivers a PR-merged message to the spawning agent.
+func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, target prWatchTarget) {
+	if target.Spawner == "" {
+		return
+	}
+	parts := strings.SplitN(target.Spawner, ":", 2)
+	if len(parts) != 2 {
+		return
+	}
+	teamName, agentName := parts[0], parts[1]
+	msg := fmt.Sprintf("[pr merged] PR #%d merged — task complete: %s", target.PRIndex, target.Description)
+	if err := deliverToAgent(registry, mcfg, teamName, agentName, msg); err != nil {
+		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
 	}
 }
 

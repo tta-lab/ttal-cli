@@ -90,7 +90,7 @@ func Run() error {
 	startupWg.Wait()
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
 	startCleanupWatcher(done)
-	startPRWatcher(mcfg, done)
+	startPRWatcher(mcfg, registry, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, mt, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
