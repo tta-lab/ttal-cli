@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -69,9 +70,24 @@ func Run() error {
 	qs := newQuestionStore()
 	cas := newCustomAnswerStore()
 	mt := newMessageTracker()
-	initAdapters(ctx, mcfg, registry, qs, mt)
 
-	allCommands := discoverAndRegisterCommands(mcfg, allAgents)
+	// Run adapter init and bot command registration concurrently — they're independent.
+	var startupWg sync.WaitGroup
+	var allCommands []BotCommand
+
+	startupWg.Add(1)
+	go func() {
+		defer startupWg.Done()
+		initAdapters(ctx, mcfg, registry, qs, mt)
+	}()
+
+	startupWg.Add(1)
+	go func() {
+		defer startupWg.Done()
+		allCommands = discoverAndRegisterCommands(mcfg, allAgents)
+	}()
+
+	startupWg.Wait()
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
@@ -119,19 +135,32 @@ func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.T
 	allCommands := AllCommands(discovered)
 	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
 
-	registeredBots := make(map[string]bool)
+	// Deduplicate tokens first
+	tokenAgent := make(map[string]string) // token -> first agent name (for logging)
 	for _, ta := range allAgents {
-		if ta.Config.BotToken == "" || registeredBots[ta.Config.BotToken] {
+		if ta.Config.BotToken == "" {
 			continue
 		}
-		if err := RegisterBotCommands(ta.Config.BotToken, allCommands); err != nil {
-			log.Printf("[daemon] warning: failed to register bot commands for %s: %v",
-				ta.AgentName, err)
-		} else {
-			log.Printf("[daemon] registered bot commands for %s", ta.AgentName)
+		if _, ok := tokenAgent[ta.Config.BotToken]; !ok {
+			tokenAgent[ta.Config.BotToken] = ta.AgentName
 		}
-		registeredBots[ta.Config.BotToken] = true
 	}
+
+	var wg sync.WaitGroup
+	for token, agentName := range tokenAgent {
+		token, agentName := token, agentName
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := RegisterBotCommands(token, allCommands); err != nil {
+				log.Printf("[daemon] warning: failed to register bot commands for %s: %v",
+					agentName, err)
+			} else {
+				log.Printf("[daemon] registered bot commands for %s", agentName)
+			}
+		}()
+	}
+	wg.Wait()
 	return allCommands
 }
 
@@ -261,67 +290,81 @@ func awaitShutdown(
 	cleanup()
 }
 
-// initAdapters starts all agent sessions: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
+// initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
 // Config-driven: iterates all teams, no DB required.
 func initAdapters(
 	ctx context.Context, mcfg *config.DaemonConfig,
 	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
 ) {
+	var wg sync.WaitGroup
 	for _, ta := range mcfg.AllAgents() {
-		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
+		ta := ta // capture loop variable
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			initSingleAdapter(ctx, ta, mcfg, registry, qs, mt)
+		}()
+	}
+	wg.Wait()
+}
 
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+// initSingleAdapter initializes a single agent: tmux session for CC, HTTP adapter for others.
+func initSingleAdapter(
+	ctx context.Context, ta config.TeamAgent, mcfg *config.DaemonConfig,
+	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
+) {
+	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 
-		// CC agents use tmux — spawn session but don't register adapter
-		// (deliverToAgent falls back to tmux send-keys for unregistered agents).
-		if rt == runtime.ClaudeCode {
-			sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
-			if tmux.SessionExists(sessionName) {
-				log.Printf("[daemon] CC agent %s already running (session: %s)", ta.AgentName, sessionName)
-				continue
-			}
-			model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-			env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-			if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, env, mcfg.Global.GetShell()); err != nil {
-				log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
-			} else {
-				log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
-			}
-			continue
+	// CC agents use tmux — spawn session but don't register adapter
+	// (deliverToAgent falls back to tmux send-keys for unregistered agents).
+	if rt == runtime.ClaudeCode {
+		sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
+		if tmux.SessionExists(sessionName) {
+			log.Printf("[daemon] CC agent %s already running (session: %s)", ta.AgentName, sessionName)
+			return
 		}
-
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-		port := ta.Config.Port
-		if rt.NeedsPort() && port == 0 {
-			log.Printf("[daemon] skipping %s adapter for %s/%s: "+
-				"port not configured (set [teams.%s.agents.%s] port = N)",
-				rt, ta.TeamName, ta.AgentName,
-				ta.TeamName, ta.AgentName)
-			continue
-		}
 		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, env, mcfg.Global.GetShell()); err != nil {
+			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
+		} else {
+			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
+		}
+		return
+	}
 
-		team := mcfg.Teams[ta.TeamName]
-		adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, true, env, team)
-		if err := adapter.Start(ctx); err != nil {
-			log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
-			continue
+	model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
+	port := ta.Config.Port
+	if rt.NeedsPort() && port == 0 {
+		log.Printf("[daemon] skipping %s adapter for %s/%s: "+
+			"port not configured (set [teams.%s.agents.%s] port = N)",
+			rt, ta.TeamName, ta.AgentName,
+			ta.TeamName, ta.AgentName)
+		return
+	}
+	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+
+	team := mcfg.Teams[ta.TeamName]
+	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, true, env, team)
+	if err := adapter.Start(ctx); err != nil {
+		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
+		return
+	}
+	registry.set(ta.TeamName, ta.AgentName, adapter)
+	log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
+	// Create or resume session for adapters that need one.
+	if rt == runtime.OpenCode || rt == runtime.Codex {
+		sid, err := adapter.CreateSession(ctx)
+		if err != nil {
+			log.Printf("[daemon] failed to create session for %s: %v", ta.AgentName, err)
+		} else {
+			log.Printf("[daemon] created session %s for %s", sid, ta.AgentName)
 		}
-		registry.set(ta.TeamName, ta.AgentName, adapter)
-		log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
-		// Create or resume session for adapters that need one.
-		if rt == runtime.OpenCode || rt == runtime.Codex {
-			sid, err := adapter.CreateSession(ctx)
-			if err != nil {
-				log.Printf("[daemon] failed to create session for %s: %v", ta.AgentName, err)
-			} else {
-				log.Printf("[daemon] created session %s for %s", sid, ta.AgentName)
-			}
-		}
-		// OpenClaw owns messaging — skip Telegram event bridging
-		if rt != runtime.OpenClaw {
-			bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt)
-		}
+	}
+	// OpenClaw owns messaging — skip Telegram event bridging
+	if rt != runtime.OpenClaw {
+		bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt)
 	}
 }
 
