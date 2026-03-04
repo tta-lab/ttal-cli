@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"sync"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -122,6 +121,13 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 	if a.cfg.Yolo {
 		params["approvalPolicy"] = "never"
 	}
+	if len(a.cfg.WritableRoots) > 0 {
+		params["config"] = map[string]interface{}{
+			"sandbox_workspace_write": map[string]interface{}{
+				"writable_roots": a.cfg.WritableRoots,
+			},
+		}
+	}
 	result, err := a.client.Call("thread/start", params)
 	if err != nil {
 		return "", fmt.Errorf("start codex thread: %w", err)
@@ -143,18 +149,28 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 	return resp.Thread.ID, nil
 }
 
-func (a *Adapter) ResumeSession(_ context.Context, sessionID string) error {
-	_, err := a.client.Call("thread/resume", map[string]interface{}{
+func (a *Adapter) ResumeSession(_ context.Context, sessionID string) (string, error) {
+	result, err := a.client.Call("thread/resume", map[string]interface{}{
 		"threadId": sessionID,
 	})
 	if err != nil {
-		return err
+		return "", err
+	}
+
+	var resp struct {
+		Thread struct {
+			ID string `json:"id"`
+		} `json:"thread"`
+		ApprovalPolicy string `json:"approvalPolicy"`
+	}
+	if err := json.Unmarshal(result, &resp); err != nil {
+		return "", err
 	}
 
 	a.mu.Lock()
-	a.conversationID = sessionID
+	a.conversationID = resp.Thread.ID
 	a.mu.Unlock()
-	return nil
+	return resp.ApprovalPolicy, nil
 }
 
 // ListThreads returns the most recent thread ID for this agent's workdir, if any exist.
@@ -201,11 +217,6 @@ func (a *Adapter) IsHealthy(_ context.Context) bool {
 
 // RespondToUserInput sends a JSON-RPC response to the original server request.
 func (a *Adapter) RespondToUserInput(callID string, answers []runtime.QuestionAnswer) error {
-	id, err := strconv.ParseInt(callID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid request ID %q: %w", callID, err)
-	}
-
 	answerMap := make(map[string]interface{})
 	for _, ans := range answers {
 		answerMap[ans.QuestionID] = map[string]interface{}{
@@ -213,7 +224,7 @@ func (a *Adapter) RespondToUserInput(callID string, answers []runtime.QuestionAn
 		}
 	}
 
-	return a.client.Respond(id, map[string]interface{}{
+	return a.client.Respond(json.RawMessage(callID), map[string]interface{}{
 		"answers": answerMap,
 	})
 }
@@ -283,6 +294,9 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 			})
 		}
 
+	case "turn/started":
+		// Server acknowledgement — no action needed
+
 	case "item/started":
 		var params struct {
 			Item struct {
@@ -348,9 +362,21 @@ func (a *Adapter) processServerRequest(req rpcResponse) {
 			a.sendEvent(runtime.Event{
 				Type:          runtime.EventQuestion,
 				Agent:         a.cfg.AgentName,
-				CorrelationID: fmt.Sprintf("%d", req.ID),
+				CorrelationID: string(req.ID),
 				Questions:     questions,
 			})
+		}
+
+	case "item/commandExecution/requestApproval",
+		"item/fileChange/requestApproval":
+		// Auto-approve in yolo mode; all daemon agents use approvalPolicy: "never"
+		// but resumed sessions may have a stale policy.
+		if err := a.client.Respond(req.ID, map[string]interface{}{
+			"decision": "acceptForSession",
+		}); err != nil {
+			log.Printf("[codex] failed to auto-approve %s for %s: %v", req.Method, a.cfg.AgentName, err)
+		} else {
+			log.Printf("[codex] auto-approved %s for %s", req.Method, a.cfg.AgentName)
 		}
 
 	default:

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -19,11 +20,15 @@ type rpcRequest struct {
 
 type rpcResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      int64           `json:"id,omitempty"`
+	ID      json.RawMessage `json:"id,omitempty"`     // string or int — codex uses both
 	Method  string          `json:"method,omitempty"` // for notifications
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *rpcError       `json:"error,omitempty"`
 	Params  json.RawMessage `json:"params,omitempty"` // for notifications
+}
+
+func (r rpcResponse) hasID() bool {
+	return len(r.ID) > 0 && string(r.ID) != "null"
 }
 
 type rpcError struct {
@@ -35,7 +40,7 @@ type rpcError struct {
 type Client struct {
 	conn       *websocket.Conn
 	nextID     atomic.Int64
-	pending    map[int64]chan rpcResponse
+	pending    map[string]chan rpcResponse // keyed by stringified ID
 	notify     chan rpcResponse
 	serverReqs chan rpcResponse // server-initiated requests (have both id and method)
 	mu         sync.Mutex
@@ -51,7 +56,7 @@ func NewClient(url string) (*Client, error) {
 
 	c := &Client{
 		conn:       conn,
-		pending:    make(map[int64]chan rpcResponse),
+		pending:    make(map[string]chan rpcResponse),
 		notify:     make(chan rpcResponse, 64),
 		serverReqs: make(chan rpcResponse, 16),
 		done:       make(chan struct{}),
@@ -65,15 +70,16 @@ func (c *Client) Call(method string, params interface{}) (json.RawMessage, error
 	id := c.nextID.Add(1)
 	req := rpcRequest{JSONRPC: "2.0", ID: id, Method: method, Params: params}
 
+	key := strconv.FormatInt(id, 10)
 	ch := make(chan rpcResponse, 1)
 	c.mu.Lock()
-	c.pending[id] = ch
+	c.pending[key] = ch
 	c.mu.Unlock()
 
 	data, _ := json.Marshal(req)
 	if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
 		c.mu.Lock()
-		delete(c.pending, id)
+		delete(c.pending, key)
 		c.mu.Unlock()
 		return nil, err
 	}
@@ -89,7 +95,7 @@ func (c *Client) Call(method string, params interface{}) (json.RawMessage, error
 		return resp.Result, nil
 	case <-c.done:
 		c.mu.Lock()
-		delete(c.pending, id)
+		delete(c.pending, key)
 		c.mu.Unlock()
 		return nil, fmt.Errorf("client closed")
 	}
@@ -102,16 +108,15 @@ func (c *Client) Notifications() <-chan rpcResponse { return c.notify }
 func (c *Client) ServerRequests() <-chan rpcResponse { return c.serverReqs }
 
 // Respond sends a JSON-RPC response to a server-initiated request.
-func (c *Client) Respond(id int64, result interface{}) error {
-	data, err := json.Marshal(map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      id,
-		"result":  result,
-	})
+// The id is echoed back as raw JSON to preserve its original type (string or int).
+func (c *Client) Respond(id json.RawMessage, result interface{}) error {
+	resultBytes, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("marshal response: %w", err)
+		return fmt.Errorf("marshal result: %w", err)
 	}
-	return c.conn.WriteMessage(websocket.TextMessage, data)
+	// Build response manually to embed raw ID without re-encoding.
+	data := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, string(id), string(resultBytes))
+	return c.conn.WriteMessage(websocket.TextMessage, []byte(data))
 }
 
 // Close shuts down the WebSocket connection.
@@ -153,19 +158,20 @@ func (c *Client) readLoop() {
 			continue
 		}
 
-		if resp.ID != 0 && resp.Method != "" {
+		if resp.hasID() && resp.Method != "" {
 			// Server-initiated request (has both id and method)
 			select {
 			case c.serverReqs <- resp:
 			default:
-				log.Printf("[codex] dropped server request id=%d method=%s (buffer full)", resp.ID, resp.Method)
+				log.Printf("[codex] dropped server request id=%s method=%s (buffer full)", string(resp.ID), resp.Method)
 			}
-		} else if resp.ID != 0 {
+		} else if resp.hasID() {
 			// Response to our call
+			key := string(resp.ID)
 			c.mu.Lock()
-			ch, ok := c.pending[resp.ID]
+			ch, ok := c.pending[key]
 			if ok {
-				delete(c.pending, resp.ID)
+				delete(c.pending, key)
 			}
 			c.mu.Unlock()
 			if ok {

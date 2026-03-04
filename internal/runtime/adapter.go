@@ -77,7 +77,8 @@ type Adapter interface {
 	CreateSession(ctx context.Context) (string, error)
 
 	// ResumeSession resumes an existing conversation by ID.
-	ResumeSession(ctx context.Context, sessionID string) error
+	// Returns the approval policy of the resumed session (codex) or empty string.
+	ResumeSession(ctx context.Context, sessionID string) (string, error)
 
 	// IsHealthy returns true if the runtime is responsive.
 	IsHealthy(ctx context.Context) bool

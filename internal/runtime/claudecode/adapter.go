@@ -113,8 +113,8 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 	return "", nil
 }
 
-func (a *Adapter) ResumeSession(_ context.Context, _ string) error {
-	return nil
+func (a *Adapter) ResumeSession(_ context.Context, _ string) (string, error) {
+	return "", nil
 }
 
 func (a *Adapter) IsHealthy(_ context.Context) bool {
