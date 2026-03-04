@@ -159,6 +159,7 @@ func ParseCommandFile(content string) (*ParsedCommand, error) {
 // Includes shared fields (description, argument-hint) plus claude-code specific fields.
 func GenerateCCCommandVariant(cmd *ParsedCommand) (string, error) {
 	fm := make(map[string]interface{})
+	fm["name"] = cmd.Frontmatter.Name
 	if cmd.Frontmatter.Description != "" {
 		fm["description"] = cmd.Frontmatter.Description
 	}
