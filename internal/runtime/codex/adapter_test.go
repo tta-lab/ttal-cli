@@ -98,7 +98,7 @@ func TestProcessServerRequestUserInput(t *testing.T) {
 	}
 
 	a.processServerRequest(rpcResponse{
-		ID:     42,
+		ID:     json.RawMessage(`42`),
 		Method: "item/tool/requestUserInput",
 		Params: json.RawMessage(`{
 			"threadId": "t1",

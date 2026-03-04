@@ -12,14 +12,14 @@ type stubAdapter struct {
 	name string
 }
 
-func (s *stubAdapter) Start(context.Context) error                   { return nil }
-func (s *stubAdapter) Stop(context.Context) error                    { return nil }
-func (s *stubAdapter) SendMessage(context.Context, string) error     { return nil }
-func (s *stubAdapter) Events() <-chan runtime.Event                  { return nil }
-func (s *stubAdapter) CreateSession(context.Context) (string, error) { return "", nil }
-func (s *stubAdapter) ResumeSession(context.Context, string) error   { return nil }
-func (s *stubAdapter) IsHealthy(context.Context) bool                { return true }
-func (s *stubAdapter) Runtime() runtime.Runtime                      { return runtime.ClaudeCode }
+func (s *stubAdapter) Start(context.Context) error                           { return nil }
+func (s *stubAdapter) Stop(context.Context) error                            { return nil }
+func (s *stubAdapter) SendMessage(context.Context, string) error             { return nil }
+func (s *stubAdapter) Events() <-chan runtime.Event                          { return nil }
+func (s *stubAdapter) CreateSession(context.Context) (string, error)         { return "", nil }
+func (s *stubAdapter) ResumeSession(context.Context, string) (string, error) { return "", nil }
+func (s *stubAdapter) IsHealthy(context.Context) bool                        { return true }
+func (s *stubAdapter) Runtime() runtime.Runtime                              { return runtime.ClaudeCode }
 
 func TestRegistryKey(t *testing.T) {
 	if got := registryKey("team1", "agent"); got != "team1/agent" {

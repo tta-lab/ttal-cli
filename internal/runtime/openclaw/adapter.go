@@ -84,7 +84,7 @@ func (a *Adapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *Adapter) CreateSession(_ context.Context) (string, error) { return a.sessionKey, nil }
 
-func (a *Adapter) ResumeSession(_ context.Context, _ string) error { return nil }
+func (a *Adapter) ResumeSession(_ context.Context, _ string) (string, error) { return "", nil }
 
 func (a *Adapter) IsHealthy(ctx context.Context) bool {
 	req, err := http.NewRequestWithContext(ctx, "GET", a.cfg.GatewayURL+"/health", nil)

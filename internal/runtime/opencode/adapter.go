@@ -118,11 +118,11 @@ func (a *Adapter) CreateSession(ctx context.Context) (string, error) {
 	return session.ID, nil
 }
 
-func (a *Adapter) ResumeSession(_ context.Context, sessionID string) error {
+func (a *Adapter) ResumeSession(_ context.Context, sessionID string) (string, error) {
 	a.mu.Lock()
 	a.sessionID = sessionID
 	a.mu.Unlock()
-	return nil
+	return "", nil
 }
 
 func (a *Adapter) IsHealthy(ctx context.Context) bool {
