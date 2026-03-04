@@ -645,6 +645,14 @@ type ResolvedTeam struct {
 	Agents            map[string]AgentConfig
 }
 
+// DefaultTeamName returns the default team name with fallback to "default".
+func (m *DaemonConfig) DefaultTeamName() string {
+	if m.Global.DefaultTeam != "" {
+		return m.Global.DefaultTeam
+	}
+	return DefaultTeamName
+}
+
 // TeamAgent pairs an agent with its team context.
 type TeamAgent struct {
 	TeamName  string
