@@ -46,16 +46,35 @@ func RenderQuestionPage(p QuestionPage) (string, *models.InlineKeyboardMarkup) {
 	}
 
 	fmt.Fprintf(&sb, "\n%s", p.Text)
+
+	// If any option has a description, render numbered list in body
+	hasDescriptions := false
+	for _, opt := range p.Options {
+		if opt.Description != "" {
+			hasDescriptions = true
+			break
+		}
+	}
+
+	if hasDescriptions {
+		sb.WriteString("\n")
+		for i, opt := range p.Options {
+			if opt.Description != "" {
+				fmt.Fprintf(&sb, "\n%s <b>%s</b> — %s", numberEmoji(i+1), escapeHTML(opt.Label), escapeHTML(opt.Description))
+			} else {
+				fmt.Fprintf(&sb, "\n%s <b>%s</b>", numberEmoji(i+1), escapeHTML(opt.Label))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
 	text := sb.String()
 
 	rows := make([][]models.InlineKeyboardButton, 0, len(p.Options)+2)
 	for i, opt := range p.Options {
 		label := opt.Label
-		if opt.Description != "" {
-			label = fmt.Sprintf("%s — %s", opt.Label, opt.Description)
-		}
-		if len(label) > 200 {
-			label = label[:197] + "..."
+		if hasDescriptions {
+			label = fmt.Sprintf("%s %s", numberEmoji(i+1), opt.Label)
 		}
 		if opt.Selected {
 			label = "✅ " + label
