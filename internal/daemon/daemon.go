@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -353,11 +354,29 @@ func initSingleAdapter(
 	log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
 	// Create or resume session for adapters that need one.
 	if rt == runtime.OpenCode || rt == runtime.Codex {
-		sid, err := adapter.CreateSession(ctx)
-		if err != nil {
-			log.Printf("[daemon] failed to create session for %s: %v", ta.AgentName, err)
-		} else {
-			log.Printf("[daemon] created session %s for %s", sid, ta.AgentName)
+		var sid string
+		var err error
+		// For Codex, try to resume the last thread (like CC's --continue).
+		if rt == runtime.Codex {
+			if ca, ok := adapter.(*codex.Adapter); ok {
+				if lastID, listErr := ca.ListThreads(ctx); listErr == nil && lastID != "" {
+					if resumeErr := adapter.ResumeSession(ctx, lastID); resumeErr == nil {
+						sid = lastID
+						log.Printf("[daemon] resumed session %s for %s", sid, ta.AgentName)
+					} else {
+						log.Printf("[daemon] failed to resume session %s for %s: %v — creating new", lastID, ta.AgentName, resumeErr)
+					}
+				}
+			}
+		}
+		// Fall back to creating a new session if resume didn't happen.
+		if sid == "" {
+			sid, err = adapter.CreateSession(ctx)
+			if err != nil {
+				log.Printf("[daemon] failed to create session for %s: %v", ta.AgentName, err)
+			} else {
+				log.Printf("[daemon] created session %s for %s", sid, ta.AgentName)
+			}
 		}
 	}
 	// OpenClaw owns messaging — skip Telegram event bridging

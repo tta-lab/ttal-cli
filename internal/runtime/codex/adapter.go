@@ -156,6 +156,31 @@ func (a *Adapter) ResumeSession(_ context.Context, sessionID string) error {
 	return nil
 }
 
+// ListThreads returns the most recent thread ID for this agent's workdir, if any exist.
+func (a *Adapter) ListThreads(_ context.Context) (string, error) {
+	result, err := a.client.Call("thread/list", map[string]interface{}{
+		"sortKey": "updated_at",
+		"limit":   1,
+		"cwd":     a.cfg.WorkDir,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var resp struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(result, &resp); err != nil {
+		return "", err
+	}
+	if len(resp.Data) == 0 {
+		return "", nil
+	}
+	return resp.Data[0].ID, nil
+}
+
 func (a *Adapter) IsHealthy(_ context.Context) bool {
 	if a.client == nil || a.proc == nil || !a.proc.isRunning() {
 		return false
