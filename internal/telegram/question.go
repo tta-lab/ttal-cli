@@ -70,6 +70,11 @@ func RenderQuestionPage(p QuestionPage) (string, *models.InlineKeyboardMarkup) {
 
 	text := sb.String()
 
+	markup := buildQuestionKeyboard(p, hasDescriptions)
+	return text, markup
+}
+
+func buildQuestionKeyboard(p QuestionPage, hasDescriptions bool) *models.InlineKeyboardMarkup {
 	rows := make([][]models.InlineKeyboardButton, 0, len(p.Options)+2)
 	for i, opt := range p.Options {
 		label := opt.Label
@@ -116,8 +121,7 @@ func RenderQuestionPage(p QuestionPage) (string, *models.InlineKeyboardMarkup) {
 		rows = append(rows, navRow)
 	}
 
-	markup := &models.InlineKeyboardMarkup{InlineKeyboard: rows}
-	return text, markup
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 // RenderCustomInputPrompt renders the "waiting for typed answer" page.

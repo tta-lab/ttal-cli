@@ -235,51 +235,7 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 		}
 
 	case "RequestUserInput":
-		var params struct {
-			CallID    string `json:"callId"`
-			Questions []struct {
-				ID       string `json:"id"`
-				Header   string `json:"header"`
-				Question string `json:"question"`
-				IsOther  bool   `json:"isOther"`
-				IsSecret bool   `json:"isSecret"`
-				Options  []struct {
-					Label       string `json:"label"`
-					Description string `json:"description"`
-				} `json:"options"`
-			} `json:"questions"`
-		}
-		if err := json.Unmarshal(notif.Params, &params); err != nil {
-			log.Printf("[codex] failed to parse RequestUserInput for %s: %v", a.cfg.AgentName, err)
-			return
-		}
-
-		var questions []runtime.Question
-		for _, q := range params.Questions {
-			rq := runtime.Question{
-				ID:          q.ID,
-				Header:      q.Header,
-				Text:        q.Question,
-				AllowCustom: q.IsOther,
-				IsSecret:    q.IsSecret,
-			}
-			for _, opt := range q.Options {
-				rq.Options = append(rq.Options, runtime.QuestionOption{
-					Label:       opt.Label,
-					Description: opt.Description,
-				})
-			}
-			questions = append(questions, rq)
-		}
-
-		if len(questions) > 0 {
-			a.sendEvent(runtime.Event{
-				Type:          runtime.EventQuestion,
-				Agent:         a.cfg.AgentName,
-				CorrelationID: params.CallID,
-				Questions:     questions,
-			})
-		}
+		a.handleRequestUserInput(notif)
 
 	case "item/started":
 		var params struct {
@@ -295,6 +251,54 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 
 	default:
 		log.Printf("[codex] unhandled notification: %s", notif.Method)
+	}
+}
+
+func (a *Adapter) handleRequestUserInput(notif rpcResponse) {
+	var params struct {
+		CallID    string `json:"callId"`
+		Questions []struct {
+			ID       string `json:"id"`
+			Header   string `json:"header"`
+			Question string `json:"question"`
+			IsOther  bool   `json:"isOther"`
+			IsSecret bool   `json:"isSecret"`
+			Options  []struct {
+				Label       string `json:"label"`
+				Description string `json:"description"`
+			} `json:"options"`
+		} `json:"questions"`
+	}
+	if err := json.Unmarshal(notif.Params, &params); err != nil {
+		log.Printf("[codex] failed to parse RequestUserInput for %s: %v", a.cfg.AgentName, err)
+		return
+	}
+
+	questions := make([]runtime.Question, 0, len(params.Questions))
+	for _, q := range params.Questions {
+		rq := runtime.Question{
+			ID:          q.ID,
+			Header:      q.Header,
+			Text:        q.Question,
+			AllowCustom: q.IsOther,
+			IsSecret:    q.IsSecret,
+		}
+		for _, opt := range q.Options {
+			rq.Options = append(rq.Options, runtime.QuestionOption{
+				Label:       opt.Label,
+				Description: opt.Description,
+			})
+		}
+		questions = append(questions, rq)
+	}
+
+	if len(questions) > 0 {
+		a.sendEvent(runtime.Event{
+			Type:          runtime.EventQuestion,
+			Agent:         a.cfg.AgentName,
+			CorrelationID: params.CallID,
+			Questions:     questions,
+		})
 	}
 }
 

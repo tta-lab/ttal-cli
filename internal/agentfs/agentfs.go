@@ -28,7 +28,7 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 		return nil, fmt.Errorf("read team path %s: %w", teamPath, err)
 	}
 
-	var agents []AgentInfo
+	agents := make([]AgentInfo, 0, len(entries))
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue

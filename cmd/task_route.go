@@ -100,9 +100,6 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return err
 	}
 
-	// Notify lifecycle agent — fire-and-forget
-	worker.NotifyTelegram(fmt.Sprintf("🚀 Worker spawned: %s\nTask: %s", workerName, task.Description))
-
 	return nil
 }
 
