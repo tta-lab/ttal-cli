@@ -369,7 +369,7 @@ func initSession(ctx context.Context, rt runtime.Runtime, agentName string, adap
 	var sid string
 	if rt == runtime.Codex {
 		if ca, ok := adapter.(*codex.Adapter); ok {
-			sid = tryResumeCodexThread(ctx, ca, agentName, adapter)
+			sid = tryResumeCodexThread(ctx, ca, agentName)
 		}
 	}
 	if sid != "" {
@@ -387,7 +387,7 @@ func initSession(ctx context.Context, rt runtime.Runtime, agentName string, adap
 // Returns the thread ID on success, empty string otherwise.
 // If the resumed session has a stale approval policy (!= "never"), it falls back
 // to creating a new session so the agent doesn't hang on approval requests.
-func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName string, _ runtime.Adapter) string {
+func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName string) string {
 	lastID, err := ca.ListThreads(ctx)
 	if err != nil {
 		log.Printf("[daemon] failed to list threads for %s: %v", agentName, err)
