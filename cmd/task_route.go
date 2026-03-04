@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -96,11 +97,27 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		Worktree: true,
 		Yolo:     true,
 		Runtime:  rt,
+		Spawner:  detectSpawner(),
 	}); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// detectSpawner returns the team:agent identity from env vars.
+// The daemon sets TTAL_AGENT_NAME and TTAL_TEAM for every agent session.
+// Returns empty string if not running inside an agent session.
+func detectSpawner() string {
+	agent := os.Getenv("TTAL_AGENT_NAME")
+	if agent == "" {
+		return ""
+	}
+	team := os.Getenv("TTAL_TEAM")
+	if team == "" {
+		team = "default"
+	}
+	return team + ":" + agent
 }
 
 func printDryRun(task *taskwarrior.Task, rt runtime.Runtime, workerName string) {
