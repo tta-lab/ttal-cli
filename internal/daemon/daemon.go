@@ -25,9 +25,6 @@ import (
 
 const pidFileName = "daemon.pid"
 
-// restartCh is signaled when a /restart command is received.
-var restartCh = make(chan struct{})
-
 // pollerTarget groups agent info for Telegram poller dispatch by chat ID.
 type pollerTarget struct {
 	teamName  string
@@ -278,12 +275,8 @@ func awaitShutdown(
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	select {
-	case s := <-sig:
-		log.Printf("[daemon] received signal %v — shutting down", s)
-	case <-restartCh:
-		log.Printf("[daemon] restart requested via Telegram — shutting down")
-	}
+	s := <-sig
+	log.Printf("[daemon] received signal %v — shutting down", s)
 	close(done)
 	cancel()
 	shutdownAgents(mcfg, registry)

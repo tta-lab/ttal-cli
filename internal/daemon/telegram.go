@@ -108,9 +108,8 @@ func runMultiAgentPoller(
 			if err := telegram.SendMessage(botToken, chatIDStr, "🔄 Daemon restarting..."); err != nil {
 				log.Printf("[telegram] failed to send restart ack: %v", err)
 			}
-			select {
-			case restartCh <- struct{}{}:
-			default:
+			if err := Restart(); err != nil {
+				log.Printf("[telegram] restart failed: %v", err)
 			}
 		},
 	)
