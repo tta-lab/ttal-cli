@@ -231,12 +231,18 @@ func Stop() error {
 	return nil
 }
 
-// Restart stops then starts the daemon.
+// Restart performs an atomic daemon restart using launchctl kickstart -k.
+// This kills the running process and lets launchd relaunch it immediately,
+// avoiding the race condition in a Stop+Start (bootout+bootstrap) sequence.
 func Restart() error {
-	if err := Stop(); err != nil {
-		return err
+	label := daemonPlistName()
+	uid := os.Getuid()
+	target := fmt.Sprintf("gui/%d/%s", uid, label)
+	cmd := exec.Command("launchctl", "kickstart", "-k", target)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("launchctl kickstart -k failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
-	return Start()
+	return nil
 }
 
 func removeOldPollPlist(home string) {
