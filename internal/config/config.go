@@ -125,18 +125,19 @@ type Config struct {
 	Teams       map[string]TeamConfig `toml:"teams" jsonschema:"description=Per-team configuration sections"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir       string
-	resolvedTaskRC        string
-	resolvedTaskData      string
-	resolvedTeamName      string
-	resolvedAgentRuntime  string
-	resolvedWorkerRuntime string
-	resolvedMergeMode     string
-	resolvedTeamPath      string
-	resolvedProjectsPath  string
-	resolvedGatewayURL    string
-	resolvedHooksToken    string
-	resolvedTaskSyncURL   string
+	resolvedDataDir        string
+	resolvedTaskRC         string
+	resolvedTaskData       string
+	resolvedTeamName       string
+	resolvedAgentRuntime   string
+	resolvedWorkerRuntime  string
+	resolvedMergeMode      string
+	resolvedTeamPath       string
+	resolvedProjectsPath   string
+	resolvedGatewayURL     string
+	resolvedHooksToken     string
+	resolvedTaskSyncURL    string
+	resolvedEmojiReactions bool
 }
 
 // TeamConfig holds per-team configuration.
@@ -155,7 +156,8 @@ type TeamConfig struct {
 	VoiceLanguage        string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
 	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                             //nolint:lll
 	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`            //nolint:lll
-	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`                       //nolint:lll
+	EmojiReactions       *bool                  `toml:"emoji_reactions" jsonschema:"description=Enable emoji reactions"`
+	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"` //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -327,6 +329,11 @@ func (c *Config) GetMergeMode() string {
 		return c.resolvedMergeMode
 	}
 	return MergeModeAuto
+}
+
+// EmojiReactions returns whether emoji reactions on Telegram tool messages are enabled (default: true).
+func (c *Config) EmojiReactions() bool {
+	return c.resolvedEmojiReactions
 }
 
 // Prompt returns the prompt template for a given key, falling back to defaults.
@@ -563,6 +570,9 @@ func (c *Config) resolve() error {
 	// Merge mode: from team config (defaults to empty = "auto" behavior).
 	c.resolvedMergeMode = team.MergeMode
 
+	// Emoji reactions: from team config (defaults to true).
+	c.resolvedEmojiReactions = team.EmojiReactions == nil || *team.EmojiReactions
+
 	// Default flicknote inline projects to ["plan"] if not configured.
 	if len(c.Flicknote.InlineProjects) == 0 {
 		c.Flicknote.InlineProjects = DefaultInlineProjects
@@ -600,6 +610,7 @@ type ResolvedTeam struct {
 	HooksToken        string
 	Voice             VoiceConfig
 	Agents            map[string]AgentConfig
+	EmojiReactions    bool
 }
 
 // DefaultTeamName returns the default team name with fallback to "default".
@@ -681,7 +692,8 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 			Vocabulary: team.VoiceVocabulary,
 			Language:   team.VoiceLanguage,
 		},
-		Agents: team.Agents,
+		Agents:         team.Agents,
+		EmojiReactions: team.EmojiReactions == nil || *team.EmojiReactions,
 	}
 
 	resolveBotTokens(rt.Agents)
@@ -958,6 +970,7 @@ team_path = ""               # Root path for agent workspaces
 # worker_runtime = "claude-code"
 # agent_runtime = "claude-code"
 # merge_mode = "auto"
+# emoji_reactions = true  # enable emoji reactions on tool messages (default: true)
 
 # Bot tokens are stored in ~/.config/ttal/.env (not in this file)
 # Convention: {UPPER_AGENT}_BOT_TOKEN for agents, {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN for notifications

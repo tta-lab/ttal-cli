@@ -448,6 +448,10 @@ func bridgeEvents(
 				if emoji == "" || mt == nil {
 					break
 				}
+				// Check if emoji reactions are enabled for this team
+				if team, ok := mcfg.Teams[teamName]; !ok || !team.EmojiReactions {
+					break
+				}
 				tracked, ok := mt.get(teamName, agentName)
 				if !ok {
 					break
@@ -577,6 +581,10 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTrack
 		func(teamName, agentName, toolName string) {
 			emoji := telegram.ToolEmoji(toolName)
 			if emoji == "" {
+				return
+			}
+			// Check if emoji reactions are enabled for this team
+			if team, ok := mcfg.Teams[teamName]; !ok || !team.EmojiReactions {
 				return
 			}
 			tracked, ok := mt.get(teamName, agentName)
