@@ -35,10 +35,9 @@ func (a *Adapter) Runtime() runtime.Runtime { return runtime.Codex }
 
 func (a *Adapter) Start(ctx context.Context) error {
 	a.proc = &process{
-		port:          a.cfg.Port,
-		workDir:       a.cfg.WorkDir,
-		env:           a.cfg.Env,
-		writableRoots: a.cfg.WritableRoots,
+		port:    a.cfg.Port,
+		workDir: a.cfg.WorkDir,
+		env:     a.cfg.Env,
 	}
 	if err := a.proc.start(ctx); err != nil {
 		return err
@@ -123,19 +122,6 @@ func (a *Adapter) CreateSession(_ context.Context) (string, error) {
 	params := protocol.ThreadStartParams{
 		Cwd: &a.cfg.WorkDir,
 	}
-	if a.cfg.Yolo {
-		never := json.RawMessage(`"never"`)
-		params.ApprovalPolicy = &never
-		sandbox := protocol.SandboxModeDangerFullAccess
-		params.Sandbox = &sandbox
-	}
-	if len(a.cfg.WritableRoots) > 0 {
-		params.Config = map[string]interface{}{
-			"sandbox_workspace_write": protocol.SandboxWorkspaceWrite{
-				WritableRoots: a.cfg.WritableRoots,
-			},
-		}
-	}
 	result, err := a.client.Call(protocol.MethodThreadStart, params)
 	if err != nil {
 		return "", fmt.Errorf("start codex thread: %w", err)
@@ -169,12 +155,7 @@ func (a *Adapter) ResumeSession(_ context.Context, sessionID string) (string, er
 	a.mu.Lock()
 	a.conversationID = resp.Thread.ID
 	a.mu.Unlock()
-	// ApprovalPolicy is json.RawMessage — extract as string.
-	approvalPolicy := string(resp.ApprovalPolicy)
-	if len(approvalPolicy) >= 2 && approvalPolicy[0] == '"' {
-		_ = json.Unmarshal(resp.ApprovalPolicy, &approvalPolicy)
-	}
-	return approvalPolicy, nil
+	return resp.Thread.ID, nil
 }
 
 // ListThreads returns the most recent thread ID for this agent's workdir, if any exist.

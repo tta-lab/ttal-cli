@@ -345,7 +345,7 @@ func initSingleAdapter(
 	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 
 	team := mcfg.Teams[ta.TeamName]
-	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, true, env, team)
+	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, env, team)
 	if err := adapter.Start(ctx); err != nil {
 		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
 		return
@@ -385,8 +385,6 @@ func initSession(ctx context.Context, rt runtime.Runtime, agentName string, adap
 
 // tryResumeCodexThread finds and resumes the most recent Codex thread.
 // Returns the thread ID on success, empty string otherwise.
-// If the resumed session has a stale approval policy (!= "never"), it falls back
-// to creating a new session so the agent doesn't hang on approval requests.
 func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName string) string {
 	lastID, err := ca.ListThreads(ctx)
 	if err != nil {
@@ -396,15 +394,9 @@ func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName stri
 	if lastID == "" {
 		return ""
 	}
-	policy, err := ca.ResumeSession(ctx, lastID)
-	if err != nil {
+	if _, err := ca.ResumeSession(ctx, lastID); err != nil {
 		log.Printf("[daemon] failed to resume %s for %s: %v — creating new", lastID, agentName, err)
 		return ""
-	}
-	if policy != "" && policy != "never" {
-		log.Printf("[daemon] resumed thread %s for %s has approvalPolicy=%q (want never), creating fresh session",
-			lastID, agentName, policy)
-		return "" // caller will create new session with approvalPolicy: "never"
 	}
 	log.Printf("[daemon] resumed session %s for %s", lastID, agentName)
 	return lastID

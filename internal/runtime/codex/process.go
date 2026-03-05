@@ -7,18 +7,16 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 )
 
 // process manages the `codex app-server` child process.
 type process struct {
-	cmd           *exec.Cmd
-	port          int
-	workDir       string
-	env           []string
-	writableRoots []string
-	exited        chan struct{} // closed when cmd.Wait() returns
+	cmd     *exec.Cmd
+	port    int
+	workDir string
+	env     []string
+	exited  chan struct{} // closed when cmd.Wait() returns
 }
 
 // start spawns `codex app-server --listen ws://127.0.0.1:<port>`.
@@ -26,14 +24,6 @@ func (p *process) start(ctx context.Context) error {
 	listenAddr := fmt.Sprintf("ws://127.0.0.1:%d", p.port)
 
 	args := []string{"app-server", "--listen", listenAddr}
-	if len(p.writableRoots) > 0 {
-		quoted := make([]string, len(p.writableRoots))
-		for i, r := range p.writableRoots {
-			quoted[i] = fmt.Sprintf("%q", r)
-		}
-		roots := fmt.Sprintf("sandbox_workspace_write.writable_roots=[%s]", strings.Join(quoted, ", "))
-		args = append(args, "-c", roots)
-	}
 
 	p.cmd = exec.Command("codex", args...)
 	p.cmd.Dir = p.workDir
