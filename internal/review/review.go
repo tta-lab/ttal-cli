@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -14,8 +15,7 @@ import (
 
 const windowName = "review"
 
-// SpawnReviewer creates a new tmux window with a Claude Code instance
-// configured as a PR reviewer.
+// SpawnReviewer creates a new tmux window configured as a PR reviewer.
 func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt runtime.Runtime) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
@@ -109,20 +109,11 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 // buildReviewerRuntimeCmd returns the runtime-specific reviewer launch command.
 // Reviewers always run in permissive mode to avoid interactive permission stalls.
 func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) string {
-	switch rt {
-	case runtime.OpenCode:
-		return fmt.Sprintf(
-			"%s worker gatekeeper --task-file %s -- opencode --prompt",
-			ttalBin, promptFile)
-	case runtime.Codex:
-		return fmt.Sprintf(
-			"%s worker gatekeeper --task-file %s -- codex --yolo --prompt",
-			ttalBin, promptFile)
-	default:
-		return fmt.Sprintf(
-			"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
-			ttalBin, promptFile)
-	}
+	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, launchcmd.Options{
+		ClaudeModel: "opus",
+		ClaudeYolo:  true,
+		CodexYolo:   true,
+	})
 }
 
 func writePromptFile(prompt string) (string, error) {

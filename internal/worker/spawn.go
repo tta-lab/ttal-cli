@@ -11,6 +11,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -290,35 +291,24 @@ func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwar
 	}
 	fmt.Printf("  Model: %s\n", model)
 
-	yoloFlag := ""
-	if cfg.Yolo {
-		yoloFlag = "--dangerously-skip-permissions "
-	}
-
-	claudeCmd := fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- claude --model %s %s--",
-		ttalBin, taskFile, model, yoloFlag)
+	claudeCmd := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.ClaudeCode, launchcmd.Options{
+		ClaudeModel: model,
+		ClaudeYolo:  cfg.Yolo,
+	})
 
 	return shellCfg.BuildEnvShellCommand(envParts, claudeCmd)
 }
 
 func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *config.Config) string {
-	ocCmd := fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- opencode --prompt",
-		ttalBin, taskFile)
+	ocCmd := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.OpenCode, launchcmd.Options{})
 
 	return shellCfg.BuildEnvShellCommand(envParts, ocCmd)
 }
 
 func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string, shellCfg *config.Config) string {
-	yoloFlag := ""
-	if cfg.Yolo {
-		yoloFlag = "--yolo "
-	}
-
-	cxCmd := fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- codex %s--prompt",
-		ttalBin, taskFile, yoloFlag)
+	cxCmd := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.Codex, launchcmd.Options{
+		CodexYolo: cfg.Yolo,
+	})
 
 	return shellCfg.BuildEnvShellCommand(envParts, cxCmd)
 }
