@@ -14,15 +14,13 @@ import (
 func executeTask(uuid string) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("ttal", "task", "execute", uuid)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
+		out, err := cmd.CombinedOutput()
 		short := uuid
 		if len(short) > 8 {
 			short = short[:8]
 		}
 		if err != nil {
-			return actionResultMsg{err: fmt.Errorf("execute %s: %w", short, err)}
+			return actionResultMsg{err: fmt.Errorf("execute %s: %s", short, strings.TrimSpace(string(out)))}
 		}
 		return actionResultMsg{message: fmt.Sprintf("Worker spawned for %s", short), refresh: true}
 	}

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -62,7 +63,7 @@ func parseTaskDate(s string) (time.Time, error) {
 			return t.Truncate(24 * time.Hour), nil
 		}
 	}
-	return time.Time{}, nil
+	return time.Time{}, fmt.Errorf("unparseable date: %s", s)
 }
 
 type filterMode int
@@ -144,13 +145,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case configLoadedMsg:
+		if msg.err != nil {
+			m.statusMsg = "Config error: " + msg.err.Error()
+		}
 		m.cfg = msg.cfg
 		m.agents = msg.agents
 		return m, nil
 
 	case tasksLoadedMsg:
-		m.tasks = msg.tasks
 		m.loading = false
+		if msg.err != nil {
+			m.statusMsg = "Task load error: " + msg.err.Error()
+		}
+		m.tasks = msg.tasks
 		m.applyFilter()
 		return m, nil
 
@@ -469,10 +476,12 @@ func (m *Model) applyFilter() {
 type configLoadedMsg struct {
 	cfg    *config.Config
 	agents []agentfs.AgentInfo
+	err    error
 }
 
 type tasksLoadedMsg struct {
 	tasks []Task
+	err   error
 }
 
 type actionResultMsg struct {
@@ -491,7 +500,7 @@ func loadConfig() tea.Cmd {
 	return func() tea.Msg {
 		cfg, err := config.Load()
 		if err != nil {
-			return configLoadedMsg{}
+			return configLoadedMsg{err: fmt.Errorf("load config: %w", err)}
 		}
 		agents, _ := agentfs.Discover(cfg.TeamPath())
 		return configLoadedMsg{cfg: cfg, agents: agents}
@@ -517,12 +526,12 @@ func loadTasks(filter filterMode, search string) tea.Cmd {
 		cmd := taskwarrior.Command(args...)
 		out, err := cmd.Output()
 		if err != nil {
-			return tasksLoadedMsg{}
+			return tasksLoadedMsg{err: fmt.Errorf("taskwarrior: %w", err)}
 		}
 
 		var tasks []Task
 		if err := json.Unmarshal(out, &tasks); err != nil {
-			return tasksLoadedMsg{}
+			return tasksLoadedMsg{err: fmt.Errorf("parse tasks: %w", err)}
 		}
 
 		return tasksLoadedMsg{tasks: tasks}

@@ -77,10 +77,3 @@ func (m Model) viewRouteOverlay(background string) string {
 
 	return strings.Join(bgLines, "\n")
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
