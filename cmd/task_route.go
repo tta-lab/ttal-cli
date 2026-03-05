@@ -137,7 +137,6 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		Project:  task.ProjectPath,
 		TaskUUID: task.UUID,
 		Worktree: true,
-		Yolo:     true,
 		Runtime:  rt,
 		Spawner:  detectSpawner(),
 	}); err != nil {

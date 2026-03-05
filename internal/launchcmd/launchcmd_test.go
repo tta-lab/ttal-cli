@@ -10,51 +10,34 @@ func TestBuildGatekeeperCommand(t *testing.T) {
 	tests := []struct {
 		name string
 		rt   runtime.Runtime
-		opts Options
 		want string
 		err  bool
 	}{
 		{
-			name: "claude-code with defaults",
+			name: "claude-code",
 			rt:   runtime.ClaudeCode,
-			opts: Options{},
-			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model opus --",
-		},
-		{
-			name: "claude-code with yolo and sonnet",
-			rt:   runtime.ClaudeCode,
-			opts: Options{ClaudeModel: "sonnet", ClaudeYolo: true},
-			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model sonnet --dangerously-skip-permissions --",
+			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model opus --dangerously-skip-permissions --",
 		},
 		{
 			name: "opencode",
 			rt:   runtime.OpenCode,
-			opts: Options{},
 			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- opencode --prompt",
 		},
 		{
-			name: "codex no yolo",
+			name: "codex",
 			rt:   runtime.Codex,
-			opts: Options{},
-			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- codex --prompt",
-		},
-		{
-			name: "codex with yolo",
-			rt:   runtime.Codex,
-			opts: Options{CodexYolo: true},
 			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- codex --yolo --prompt",
 		},
 		{
 			name: "non-worker runtime returns error",
 			rt:   runtime.OpenClaw,
-			opts: Options{ClaudeYolo: true},
 			err:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := BuildGatekeeperCommand("ttal", "/tmp/task.txt", tt.rt, tt.opts)
+			got, err := BuildGatekeeperCommand("ttal", "/tmp/task.txt", tt.rt)
 			if tt.err {
 				if err == nil {
 					t.Fatalf("expected error, got command: %s", got)

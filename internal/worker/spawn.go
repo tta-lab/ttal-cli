@@ -24,7 +24,6 @@ type SpawnConfig struct {
 	TaskUUID string
 	Worktree bool
 	Force    bool
-	Yolo     bool
 	Runtime  runtime.Runtime
 	Spawner  string // team:agent format, set by ttal task execute
 }
@@ -193,7 +192,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
-	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
+	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, envParts, shellCfg)
 	if err != nil {
 		return err
 	}
@@ -245,64 +244,17 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	return parts
 }
 
-func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task,
-	envParts []string, shellCfg *config.Config,
-) (string, error) {
-	switch cfg.Runtime {
-	case runtime.ClaudeCode:
-		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
-	case runtime.OpenCode:
-		return buildOpenCodeCmd(ttalBin, taskFile, envParts, shellCfg)
-	case runtime.Codex:
-		return buildCodexCmd(cfg, ttalBin, taskFile, envParts, shellCfg)
-	default:
-		return "", fmt.Errorf("unsupported worker runtime: %q", cfg.Runtime)
-	}
-}
-
-func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task,
-	envParts []string, shellCfg *config.Config,
-) (string, error) {
-	model := "opus"
-	if task.HasTag("sonnet") {
-		model = "sonnet"
-	}
-	fmt.Printf("  Model: %s\n", model)
-
-	claudeCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.ClaudeCode, launchcmd.Options{
-		ClaudeModel: model,
-		ClaudeYolo:  cfg.Yolo,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return shellCfg.BuildEnvShellCommand(envParts, claudeCmd), nil
-}
-
-func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *config.Config) (string, error) {
-	ocCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.OpenCode, launchcmd.Options{})
-	if err != nil {
-		return "", err
-	}
-
-	return shellCfg.BuildEnvShellCommand(envParts, ocCmd), nil
-}
-
-func buildCodexCmd(
+func buildLaunchCmd(
 	cfg SpawnConfig,
 	ttalBin, taskFile string,
 	envParts []string,
 	shellCfg *config.Config,
 ) (string, error) {
-	cxCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.Codex, launchcmd.Options{
-		CodexYolo: cfg.Yolo,
-	})
+	cmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime)
 	if err != nil {
 		return "", err
 	}
-
-	return shellCfg.BuildEnvShellCommand(envParts, cxCmd), nil
+	return shellCfg.BuildEnvShellCommand(envParts, cmd), nil
 }
 
 func injectSessionEnv(sessionName string, task *taskwarrior.Task, cfg SpawnConfig, taskrc string) {
@@ -335,7 +287,7 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, cfg SpawnConfi
 	}
 
 	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON.
-	if cfg.Runtime == runtime.OpenCode && cfg.Yolo {
+	if cfg.Runtime == runtime.OpenCode {
 		setEnv("OPENCODE_PERMISSION",
 			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
 	}

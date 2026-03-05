@@ -65,69 +65,48 @@ func TestBuildEnvParts_NoTaskRC(t *testing.T) {
 	}
 }
 
-func TestBuildClaudeCodeCmd(t *testing.T) {
-	task := &taskwarrior.Task{
-		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-		Description: "test task",
-		Tags:        []string{},
-	}
-
-	cfg := SpawnConfig{Name: "test", Yolo: true, Runtime: runtime.ClaudeCode}
+func TestBuildLaunchCmd(t *testing.T) {
+	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
 	envParts := []string{"TTAL_JOB_ID=test-id"}
 	shellCfg := &config.Config{}
 
-	cmd, err := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, envParts, shellCfg)
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg)
 	if err != nil {
-		t.Fatalf("buildClaudeCodeCmd returned error: %v", err)
+		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
 
 	if !strings.Contains(cmd, "claude") {
 		t.Error("CC command should contain 'claude'")
 	}
 	if !strings.Contains(cmd, "--model opus") {
-		t.Error("CC command should default to opus model")
+		t.Error("CC command should use opus model")
 	}
 	if !strings.Contains(cmd, "--dangerously-skip-permissions") {
-		t.Error("CC command should include yolo flag when Yolo=true")
+		t.Error("CC command should include yolo flag")
 	}
 	if !strings.Contains(cmd, "gatekeeper") {
 		t.Error("CC command should use gatekeeper wrapper")
 	}
 }
 
-func TestBuildClaudeCodeCmd_Sonnet(t *testing.T) {
-	task := &taskwarrior.Task{
-		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-		Description: "test task",
-		Tags:        []string{"sonnet"},
-	}
-
-	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
+func TestBuildLaunchCmd_OpenCode(t *testing.T) {
+	cfg := SpawnConfig{Runtime: runtime.OpenCode}
 	shellCfg := &config.Config{}
-	cmd, err := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, nil, shellCfg)
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg)
 	if err != nil {
-		t.Fatalf("buildClaudeCodeCmd returned error: %v", err)
-	}
-
-	if !strings.Contains(cmd, "--model sonnet") {
-		t.Error("CC command should use sonnet model when task has +sonnet tag")
-	}
-}
-
-func TestBuildOpenCodeCmd(t *testing.T) {
-	cmd, err := buildOpenCodeCmd("/usr/bin/ttal", "/tmp/task.txt", nil, &config.Config{})
-	if err != nil {
-		t.Fatalf("buildOpenCodeCmd returned error: %v", err)
+		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
 	if !strings.Contains(cmd, "opencode --prompt") {
 		t.Errorf("OpenCode command should contain 'opencode --prompt', got: %s", cmd)
 	}
 }
 
-func TestBuildCodexCmd(t *testing.T) {
-	cmd, err := buildCodexCmd(SpawnConfig{Yolo: true}, "/usr/bin/ttal", "/tmp/task.txt", nil, &config.Config{})
+func TestBuildLaunchCmd_Codex(t *testing.T) {
+	cfg := SpawnConfig{Runtime: runtime.Codex}
+	shellCfg := &config.Config{}
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg)
 	if err != nil {
-		t.Fatalf("buildCodexCmd returned error: %v", err)
+		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
 	if !strings.Contains(cmd, "codex --yolo --prompt") {
 		t.Errorf("Codex command should contain 'codex --yolo --prompt', got: %s", cmd)
@@ -135,23 +114,17 @@ func TestBuildCodexCmd(t *testing.T) {
 }
 
 func TestBuildLaunchCmd_RejectsUnsupportedRuntime(t *testing.T) {
-	task := &taskwarrior.Task{
-		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-		Description: "test task",
-	}
-
 	_, err := buildLaunchCmd(
 		SpawnConfig{Runtime: runtime.OpenClaw},
 		"/usr/bin/ttal",
 		"/tmp/task.txt",
-		task,
 		nil,
 		&config.Config{},
 	)
 	if err == nil {
 		t.Fatal("expected error for unsupported worker runtime")
 	}
-	if !strings.Contains(err.Error(), "unsupported worker runtime") {
+	if !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("expected unsupported runtime error, got: %v", err)
 	}
 }

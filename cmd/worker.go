@@ -15,7 +15,6 @@ var (
 	spawnTask          string
 	spawnWorktree      bool
 	spawnForce         bool
-	spawnYolo          bool
 	closeForce         bool
 	cleanupForce       bool
 	gatekeeperTaskFile string
@@ -89,7 +88,6 @@ Example:
 			TaskUUID: spawnTask,
 			Worktree: spawnWorktree,
 			Force:    spawnForce,
-			Yolo:     spawnYolo,
 			Runtime:  rt,
 		})
 	},
@@ -204,7 +202,6 @@ func init() {
 	workerSpawnCmd.Flags().StringVar(&spawnTask, "task", "", "Task UUID (required)")
 	workerSpawnCmd.Flags().BoolVar(&spawnWorktree, "worktree", true, "Create git worktree")
 	workerSpawnCmd.Flags().BoolVar(&spawnForce, "force", false, "Force respawn (close existing session)")
-	workerSpawnCmd.Flags().BoolVar(&spawnYolo, "yolo", true, "Skip permissions prompts")
 	workerSpawnCmd.Flags().String("runtime", "claude-code", "Coding agent runtime (claude-code, opencode, codex)")
 
 	_ = workerSpawnCmd.MarkFlagRequired("name")
@@ -225,7 +222,5 @@ func init() {
 }
 
 func init() {
-	// Register --no-worktree and --no-yolo as inverse flags
 	workerSpawnCmd.Flags().Lookup("worktree").NoOptDefVal = "true"
-	workerSpawnCmd.Flags().Lookup("yolo").NoOptDefVal = "true"
 }

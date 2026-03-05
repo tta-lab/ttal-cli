@@ -114,15 +114,8 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 }
 
-// buildReviewerRuntimeCmd returns the runtime-specific reviewer launch command.
-// Claude/Codex reviewer launches are permissive to avoid interactive permission stalls.
-// OpenCode follows its default permission behavior unless configured elsewhere.
 func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) (string, error) {
-	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, launchcmd.Options{
-		ClaudeModel: "opus",
-		ClaudeYolo:  true,
-		CodexYolo:   true,
-	})
+	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt)
 }
 
 func writePromptFile(prompt string) (string, error) {
