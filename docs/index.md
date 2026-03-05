@@ -44,6 +44,7 @@ features:
 
 <script setup>
 import PricingCards from './.vitepress/components/PricingCards.vue'
+import FaqSection from './.vitepress/components/FaqSection.vue'
 </script>
 
 ## Two-Plane Architecture
@@ -95,6 +96,12 @@ TTAL doesn't replace your coding agent — it makes it a team player.
 TTAL is the only orchestrator that supports **three agent runtimes** — Claude Code (stable), OpenCode, and Codex CLI — and even runs **OpenClaw as the manager plane runtime**, giving you the flexibility to mix runtimes across your team.
 
 Competitors build chat assistants. TTAL builds autonomous team members who own the full delivery pipeline.
+
+---
+
+## Questions & Answers
+
+<FaqSection />
 
 ---
 
