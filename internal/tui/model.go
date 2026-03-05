@@ -351,6 +351,8 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		return addToToday(t.UUID)
 	case keyRemoveToday:
 		return removeFromToday(t.UUID)
+	case keyToggleNext:
+		return toggleNext(t)
 	case keyDone:
 		return doneTask(t.UUID)
 	case keyModify:
