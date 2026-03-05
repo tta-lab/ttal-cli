@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
