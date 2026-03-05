@@ -274,40 +274,18 @@ func (m *Model) handleNavigation(action keyAction) bool {
 }
 
 func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
+	// Task-scoped actions that require a selected task
+	if cmd := m.handleTaskAction(action); cmd != nil {
+		return m, cmd
+	}
+
+	// Global actions
 	switch action {
-	case keyExecute:
-		if t := m.selectedTask(); t != nil {
-			return m, executeTask(t.UUID)
-		}
 	case keyRoute:
 		if len(m.filtered) > 0 {
 			m.state = stateRouteInput
 			m.routeInput = ""
 			m.updateRouteMatches()
-		}
-	case keyOpenPR:
-		if t := m.selectedTask(); t != nil {
-			return m, openPR(t.UUID)
-		}
-	case keyOpenSession:
-		if t := m.selectedTask(); t != nil {
-			return m, openSession(t)
-		}
-	case keyOpenTerm:
-		if t := m.selectedTask(); t != nil {
-			return m, openTerm(t)
-		}
-	case keyOpenEditor:
-		if t := m.selectedTask(); t != nil {
-			return m, openEditor(t)
-		}
-	case keyAddToday:
-		if t := m.selectedTask(); t != nil {
-			return m, addToToday(t.UUID)
-		}
-	case keyRemoveToday:
-		if t := m.selectedTask(); t != nil {
-			return m, removeFromToday(t.UUID)
 		}
 	case keyFilter:
 		m.filter = m.filter.Next()
@@ -329,6 +307,30 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 		return m, loadTasks(m.filter, m.searchStr)
 	}
 	return m, nil
+}
+
+func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
+	t := m.selectedTask()
+	if t == nil {
+		return nil
+	}
+	switch action {
+	case keyExecute:
+		return executeTask(t.UUID)
+	case keyOpenPR:
+		return openPR(t.UUID)
+	case keyOpenSession:
+		return openSession(t)
+	case keyOpenTerm:
+		return openTerm(t)
+	case keyOpenEditor:
+		return openEditor(t)
+	case keyAddToday:
+		return addToToday(t.UUID)
+	case keyRemoveToday:
+		return removeFromToday(t.UUID)
+	}
+	return nil
 }
 
 func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
