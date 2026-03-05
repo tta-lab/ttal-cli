@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -135,73 +136,69 @@ Examples:
 	},
 }
 
-func agentNotConfigured(field, team string) error {
-	return fmt.Errorf(
-		"%s not configured for team %s\n\n"+
-			"Add to config.toml:\n  [teams.%s]\n  %s = \"<agent-name>\"",
-		field, team, team, field)
+// resolveAgentByRole finds the single agent with a given role in the team.
+func resolveAgentByRole(cfg *config.Config, role string) (string, error) {
+	matches, err := agentfs.FindByRole(cfg.TeamPath(), role)
+	if err != nil {
+		return "", err
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no agent with role %q found\n\n"+
+			"Add 'role: %s' to an agent's CLAUDE.md frontmatter, or use:\n"+
+			"  ttal task route <uuid> --to <agent-name>", role, role)
+	}
+	if len(matches) > 1 {
+		names := make([]string, len(matches))
+		for i, a := range matches {
+			names[i] = fmt.Sprintf("  %s %s", a.Emoji, a.Name)
+		}
+		return "", fmt.Errorf("multiple agents with role %q:\n%s\n\n"+
+			"Use explicit routing:\n"+
+			"  ttal task route <uuid> --to <agent-name>",
+			role, strings.Join(names, "\n"))
+	}
+	return matches[0].Name, nil
 }
 
 var taskDesignCmd = &cobra.Command{
 	Use:   "design <uuid>",
-	Short: "Route task to design agent",
-	Long:  `Send a task to the team's design agent (design_agent in config).`,
+	Short: "Route task to designer agent",
+	Long:  `Send a task to the agent with role "designer" (from CLAUDE.md frontmatter).`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
-		agent := cfg.DesignAgent()
-		if agent == "" {
-			return agentNotConfigured("design_agent", cfg.TeamName())
+		agent, err := resolveAgentByRole(cfg, "designer")
+		if err != nil {
+			return err
 		}
 		uuid := args[0]
 		rt := cfg.AgentRuntimeFor(agent)
-		prompt := cfg.RenderPrompt("design", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task design", prompt)
+		prompt := cfg.RenderPrompt("designer", uuid, rt)
+		return routeTaskToAgent(agent, uuid, "task designer", prompt)
 	},
 }
 
 var taskResearchCmd = &cobra.Command{
 	Use:   "research <uuid>",
-	Short: "Route task to research agent",
-	Long:  `Send a task to the team's research agent (research_agent in config).`,
+	Short: "Route task to researcher agent",
+	Long:  `Send a task to the agent with role "researcher" (from CLAUDE.md frontmatter).`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
-		agent := cfg.ResearchAgent()
-		if agent == "" {
-			return agentNotConfigured("research_agent", cfg.TeamName())
-		}
-		uuid := args[0]
-		rt := cfg.AgentRuntimeFor(agent)
-		prompt := cfg.RenderPrompt("research", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task research", prompt)
-	},
-}
-
-var taskTestCmd = &cobra.Command{
-	Use:   "test <uuid>",
-	Short: "Route task to test agent",
-	Long:  `Send a task to the team's test agent (test_agent in config).`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
+		agent, err := resolveAgentByRole(cfg, "researcher")
 		if err != nil {
 			return err
 		}
-		agent := cfg.TestAgent()
-		if agent == "" {
-			return agentNotConfigured("test_agent", cfg.TeamName())
-		}
 		uuid := args[0]
 		rt := cfg.AgentRuntimeFor(agent)
-		prompt := cfg.RenderPrompt("test", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task test", prompt)
+		prompt := cfg.RenderPrompt("researcher", uuid, rt)
+		return routeTaskToAgent(agent, uuid, "task researcher", prompt)
 	},
 }
 
@@ -286,7 +283,7 @@ func init() {
 	taskCmd.AddCommand(taskAddCmd)
 	taskCmd.AddCommand(taskDesignCmd)
 	taskCmd.AddCommand(taskResearchCmd)
-	taskCmd.AddCommand(taskTestCmd)
+	taskCmd.AddCommand(taskRouteCmd)
 	taskCmd.AddCommand(taskExecuteCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")

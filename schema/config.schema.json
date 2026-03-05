@@ -50,17 +50,13 @@
     },
     "PromptsConfig": {
       "properties": {
-        "design": {
+        "designer": {
           "type": "string",
-          "description": "Prompt for design agent"
+          "description": "Prompt for designer role (was: design)"
         },
-        "research": {
+        "researcher": {
           "type": "string",
-          "description": "Prompt for research agent"
-        },
-        "test": {
-          "type": "string",
-          "description": "Prompt for test agent"
+          "description": "Prompt for researcher role (was: research)"
         },
         "execute": {
           "type": "string",
@@ -180,18 +176,6 @@
         "voice_language": {
           "type": "string",
           "description": "ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"
-        },
-        "design_agent": {
-          "type": "string",
-          "description": "Design/brainstorm agent"
-        },
-        "research_agent": {
-          "type": "string",
-          "description": "Research agent"
-        },
-        "test_agent": {
-          "type": "string",
-          "description": "Test writing agent"
         },
         "agents": {
           "additionalProperties": {

@@ -74,9 +74,8 @@ func TestPromptFallbackDefaults(t *testing.T) {
 		key  string
 		want string
 	}{
-		{"design", defaults.Design},
-		{"research", defaults.Research},
-		{"test", defaults.Test},
+		{"designer", defaults.Designer},
+		{"researcher", defaults.Researcher},
 		{"execute", defaults.Execute},
 		{"triage", defaults.Triage},
 		{"review", defaults.Review},
