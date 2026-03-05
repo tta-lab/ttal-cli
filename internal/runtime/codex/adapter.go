@@ -259,8 +259,9 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 		protocol.NotifConfigWarning,
 		protocol.NotifServerRequestResolved,
 		protocol.NotifAccountUpdated,
-		protocol.NotifAccountRateLimitsUpdated:
-		// Streaming deltas and informational — no action needed
+		protocol.NotifAccountRateLimitsUpdated,
+		protocol.NotifTurnStarted:
+		// Streaming deltas, acknowledgements, and informational — no action needed
 
 	case protocol.NotifItemCompleted:
 		var params protocol.ItemCompletedNotification
@@ -289,9 +290,6 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 				Text:  "codex thread error",
 			})
 		}
-
-	case protocol.NotifTurnStarted:
-		// Server acknowledgement — no action needed
 
 	case protocol.NotifItemStarted:
 		var params protocol.ItemStartedNotification
