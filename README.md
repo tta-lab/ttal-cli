@@ -135,15 +135,6 @@ git push origin v1.0.0
 # Users upgrade via: brew upgrade ttal
 ```
 
-## Database Schema
-
-The CLI uses SQLite with four tables:
-
-1. **projects**: Project information and metadata
-2. **agents**: Agent configuration and status
-3. **project_tags**: Many-to-many relationship for project tags
-4. **agent_tags**: Many-to-many relationship for agent tags
-
 ## Usage
 
 ### Project Commands
@@ -569,14 +560,6 @@ ttal agent info athena  # Shows matching projects
 
 # Tasks tagged +research are automatically routed to athena
 # Tasks with no matching agent go to worker-lifecycle (default)
-```
-
-## Database Location
-
-By default, the database is stored at `~/.ttal/ttal.db`. You can specify a custom location:
-
-```bash
-ttal --db=/custom/path/ttal.db project list
 ```
 
 ## Commit Convention

@@ -112,16 +112,6 @@ Switch teams with the `TTAL_TEAM` environment variable:
 TTAL_TEAM=work ttal today list
 ```
 
-## Database
-
-The SQLite database stores agent and project records. Default location: `~/.ttal/ttal.db` (inside `data_dir`).
-
-Override with a flag:
-
-```bash
-ttal --db=/custom/path/ttal.db project list
-```
-
 ## Environment variables
 
 | Variable | Description |
