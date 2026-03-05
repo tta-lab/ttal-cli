@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -14,8 +15,7 @@ import (
 
 const windowName = "review"
 
-// SpawnReviewer creates a new tmux window with a Claude Code instance
-// configured as a PR reviewer.
+// SpawnReviewer creates a new tmux window configured as a PR reviewer.
 func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt runtime.Runtime) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
@@ -38,15 +38,16 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	claudeCmd := fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
-		ttalBin, promptFile)
+	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, rt)
+	if err != nil {
+		return err
+	}
 
 	envParts := []string{"TTAL_ROLE=reviewer"}
 	if rtEnv := os.Getenv("TTAL_RUNTIME"); rtEnv != "" {
 		envParts = append(envParts, "TTAL_RUNTIME="+rtEnv)
 	}
-	shellCmd := cfg.BuildEnvShellCommand(envParts, claudeCmd)
+	shellCmd := cfg.BuildEnvShellCommand(envParts, reviewerCmd)
 
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -65,16 +66,21 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 // RequestReReview sends a re-review message to the existing reviewer window.
 // If full is true, requests a full re-review of all PR changes.
 // If full is false, requests a delta re-review of only new changes.
-// coderComment, if non-empty, is written to a temp file and its path included
-// in the message so the reviewer can read the coder's triage update.
+// coderComment, if non-empty, is best-effort written to a temp file.
+// If write succeeds, its path is included in the message so the reviewer
+// can read the coder's triage update.
 func RequestReReview(sessionName string, full bool, coderComment string, cfg *config.Config, rt runtime.Runtime) error {
 	var commentRef string
 	if coderComment != "" {
 		f, err := os.CreateTemp("", "ttal-coder-comment-*.md")
-		if err == nil {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to create coder comment temp file: %v\n", err)
+		} else {
 			_, writeErr := f.WriteString(coderComment)
 			_ = f.Close()
-			if writeErr == nil {
+			if writeErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to write coder comment temp file: %v\n", writeErr)
+			} else {
 				commentRef = fmt.Sprintf(" Coder's comment at %s —", f.Name())
 			}
 		}
@@ -108,8 +114,12 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 }
 
+func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) (string, error) {
+	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt)
+}
+
 func writePromptFile(prompt string) (string, error) {
-	f, err := os.CreateTemp("", "claude-review-*.txt")
+	f, err := os.CreateTemp("", "review-prompt-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create review prompt file: %w", err)
 	}
