@@ -3,6 +3,7 @@ package gitprovider
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/google/go-github/v69/github"
@@ -117,29 +118,71 @@ func (p *GitHubProvider) ListComments(owner, repo string, index int64) ([]*Comme
 	return result, nil
 }
 
+// GetCombinedStatus queries GitHub Check Runs API (not the legacy Commit Status API).
+// This only sees checks created via the Checks API (GitHub Actions, Apps) — external CI
+// tools that push commit statuses (Jenkins, CircleCI) are not captured.
 func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error) {
-	cs, _, err := p.client.Repositories.GetCombinedStatus(context.Background(), owner, repo, ref, nil)
+	ctx := context.Background()
+	result, _, err := p.client.Checks.ListCheckRunsForRef(ctx, owner, repo, ref,
+		&github.ListCheckRunsOptions{ListOptions: github.ListOptions{PerPage: 100}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get commit status: %w", err)
-	}
-	if cs == nil {
-		return &CombinedStatus{State: "unknown"}, nil
+		return nil, fmt.Errorf("failed to list check runs: %w", err)
 	}
 
-	statuses := make([]*CommitStatus, len(cs.Statuses))
-	for i, s := range cs.Statuses {
-		statuses[i] = &CommitStatus{
-			Context:     s.GetContext(),
-			State:       s.GetState(),
-			Description: s.GetDescription(),
-			TargetURL:   s.GetTargetURL(),
+	if result.GetTotal() == 0 {
+		return &CombinedStatus{State: StatePending}, nil
+	}
+
+	total := result.GetTotal()
+	if total > len(result.CheckRuns) {
+		log.Printf("[github] warning: %d check runs for %s but only fetched %d (first page)",
+			total, ref[:8], len(result.CheckRuns))
+	}
+
+	statuses := make([]*CommitStatus, 0, total)
+	hasFailure := false
+	hasPending := false
+
+	for _, cr := range result.CheckRuns {
+		state := checkRunToState(cr.GetStatus(), cr.GetConclusion())
+		statuses = append(statuses, &CommitStatus{
+			Context:     cr.GetName(),
+			State:       state,
+			Description: cr.GetConclusion(),
+			TargetURL:   cr.GetHTMLURL(),
+		})
+		switch state {
+		case StateFailure, StateError:
+			hasFailure = true
+		case StatePending:
+			hasPending = true
 		}
 	}
 
-	return &CombinedStatus{
-		State:    cs.GetState(),
-		Statuses: statuses,
-	}, nil
+	overall := StateSuccess
+	if hasFailure {
+		overall = StateFailure
+	} else if hasPending {
+		overall = StatePending
+	}
+
+	return &CombinedStatus{State: overall, Statuses: statuses}, nil
+}
+
+func checkRunToState(status, conclusion string) string {
+	if status != "completed" {
+		return StatePending
+	}
+	switch conclusion {
+	case "success", "skipped", "neutral":
+		return StateSuccess
+	case "failure", "timed_out", "cancelled":
+		return StateFailure
+	case "action_required", "stale":
+		return StateError
+	default:
+		return StatePending
+	}
 }
 
 func (p *GitHubProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
