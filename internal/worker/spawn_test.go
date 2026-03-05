@@ -133,3 +133,25 @@ func TestBuildCodexCmd(t *testing.T) {
 		t.Errorf("Codex command should contain 'codex --yolo --prompt', got: %s", cmd)
 	}
 }
+
+func TestBuildLaunchCmd_RejectsUnsupportedRuntime(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
+		Description: "test task",
+	}
+
+	_, err := buildLaunchCmd(
+		SpawnConfig{Runtime: runtime.OpenClaw},
+		"/usr/bin/ttal",
+		"/tmp/task.txt",
+		task,
+		nil,
+		&config.Config{},
+	)
+	if err == nil {
+		t.Fatal("expected error for unsupported worker runtime")
+	}
+	if !strings.Contains(err.Error(), "unsupported worker runtime") {
+		t.Fatalf("expected unsupported runtime error, got: %v", err)
+	}
+}

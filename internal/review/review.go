@@ -115,7 +115,8 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 }
 
 // buildReviewerRuntimeCmd returns the runtime-specific reviewer launch command.
-// Reviewers always run in permissive mode to avoid interactive permission stalls.
+// Claude/Codex reviewer launches are permissive to avoid interactive permission stalls.
+// OpenCode follows its default permission behavior unless configured elsewhere.
 func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) (string, error) {
 	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, launchcmd.Options{
 		ClaudeModel: "opus",
