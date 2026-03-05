@@ -118,28 +118,60 @@ func (p *GitHubProvider) ListComments(owner, repo string, index int64) ([]*Comme
 }
 
 func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error) {
-	cs, _, err := p.client.Repositories.GetCombinedStatus(context.Background(), owner, repo, ref, nil)
+	ctx := context.Background()
+	result, _, err := p.client.Checks.ListCheckRunsForRef(ctx, owner, repo, ref, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get commit status: %w", err)
-	}
-	if cs == nil {
-		return &CombinedStatus{State: "unknown"}, nil
+		return nil, fmt.Errorf("failed to list check runs: %w", err)
 	}
 
-	statuses := make([]*CommitStatus, len(cs.Statuses))
-	for i, s := range cs.Statuses {
-		statuses[i] = &CommitStatus{
-			Context:     s.GetContext(),
-			State:       s.GetState(),
-			Description: s.GetDescription(),
-			TargetURL:   s.GetTargetURL(),
+	if result.GetTotal() == 0 {
+		return &CombinedStatus{State: "pending"}, nil
+	}
+
+	statuses := make([]*CommitStatus, 0, result.GetTotal())
+	hasFailure := false
+	hasPending := false
+
+	for _, cr := range result.CheckRuns {
+		state := checkRunToState(cr.GetStatus(), cr.GetConclusion())
+		statuses = append(statuses, &CommitStatus{
+			Context:     cr.GetName(),
+			State:       state,
+			Description: cr.GetConclusion(),
+			TargetURL:   cr.GetHTMLURL(),
+		})
+		switch state {
+		case "failure", "error":
+			hasFailure = true
+		case "pending":
+			hasPending = true
 		}
 	}
 
-	return &CombinedStatus{
-		State:    cs.GetState(),
-		Statuses: statuses,
-	}, nil
+	overall := "success"
+	if hasFailure {
+		overall = "failure"
+	} else if hasPending {
+		overall = "pending"
+	}
+
+	return &CombinedStatus{State: overall, Statuses: statuses}, nil
+}
+
+func checkRunToState(status, conclusion string) string {
+	if status != "completed" {
+		return "pending"
+	}
+	switch conclusion {
+	case "success", "skipped", "neutral":
+		return "success"
+	case "failure", "timed_out", "cancelled":
+		return "failure"
+	case "action_required", "stale":
+		return "error"
+	default:
+		return "pending"
+	}
 }
 
 func (p *GitHubProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {

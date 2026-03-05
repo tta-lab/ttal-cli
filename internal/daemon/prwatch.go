@@ -207,6 +207,14 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 			return
 		}
 
+		if !fetchedPR.Mergeable {
+			msg := fmt.Sprintf("PR #%d has merge conflicts — rebase or merge base branch to resolve.",
+				target.PRIndex)
+			deliverToWorkerSession(target.SessionName, msg)
+			notifyPRStatus(mcfg, target, "⚠️ Merge conflict detected", "")
+			log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(fetchedPR.HeadSHA))
+		}
+
 		headSHA := fetchedPR.HeadSHA
 		if headSHA == "" || headSHA == lastDeliveredSHA {
 			interval = backoff(interval)
