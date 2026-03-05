@@ -119,7 +119,8 @@ func (p *GitHubProvider) ListComments(owner, repo string, index int64) ([]*Comme
 
 func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error) {
 	ctx := context.Background()
-	result, _, err := p.client.Checks.ListCheckRunsForRef(ctx, owner, repo, ref, nil)
+	result, _, err := p.client.Checks.ListCheckRunsForRef(ctx, owner, repo, ref,
+		&github.ListCheckRunsOptions{ListOptions: github.ListOptions{PerPage: 100}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list check runs: %w", err)
 	}
