@@ -14,6 +14,14 @@ const (
 	ProviderGitHub  ProviderType = "github"
 )
 
+// CI status state constants.
+const (
+	StatePending = "pending"
+	StateSuccess = "success"
+	StateFailure = "failure"
+	StateError   = "error"
+)
+
 type PullRequest struct {
 	Index     int64
 	Title     string
@@ -72,7 +80,7 @@ type Provider interface {
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 func isFailedStatus(s string) bool {
-	return s == "failure" || s == "error"
+	return s == StateFailure || s == StateError
 }
 
 func tailString(s string, n int) string {

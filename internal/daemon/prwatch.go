@@ -208,16 +208,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 			return
 		}
 
-		if !fetchedPR.Mergeable && !conflictNotified {
-			msg := fmt.Sprintf("PR #%d has merge conflicts — rebase or merge base branch to resolve.",
-				target.PRIndex)
-			deliverToWorkerSession(target.SessionName, msg)
-			notifyPRStatus(mcfg, target, "⚠️ Merge conflict detected", "")
-			log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(fetchedPR.HeadSHA))
-			conflictNotified = true
-		} else if fetchedPR.Mergeable {
-			conflictNotified = false
-		}
+		conflictNotified = checkMergeConflict(fetchedPR, target, mcfg, conflictNotified)
 
 		headSHA := fetchedPR.HeadSHA
 		if headSHA == "" || headSHA == lastDeliveredSHA {
@@ -251,7 +242,7 @@ func handleCIStatus(
 	}
 
 	switch cs.State {
-	case "success":
+	case gitprovider.StateSuccess:
 		msg := fmt.Sprintf("PR #%d checks passed — ready to merge. Run: ttal pr merge",
 			target.PRIndex)
 		deliverToWorkerSession(target.SessionName, msg)
@@ -259,7 +250,7 @@ func handleCIStatus(
 		log.Printf("[prwatch] PR #%d checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		return true, 0
 
-	case "failure", "error":
+	case gitprovider.StateFailure, gitprovider.StateError:
 		msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
 		deliverToWorkerSession(target.SessionName, msg)
 		notifyPRStatus(mcfg, target, "❌ CI failed", runURL)
@@ -269,6 +260,23 @@ func handleCIStatus(
 	default:
 		return false, backoff(interval)
 	}
+}
+
+// checkMergeConflict notifies the worker once per conflict episode.
+// Returns the updated conflictNotified flag.
+func checkMergeConflict(pr *gitprovider.PullRequest, target prWatchTarget, mcfg *config.DaemonConfig, alreadyNotified bool) bool {
+	if pr.Mergeable {
+		return false
+	}
+	if alreadyNotified {
+		return true
+	}
+	msg := fmt.Sprintf("PR #%d has merge conflicts — rebase or merge base branch to resolve.",
+		target.PRIndex)
+	deliverToWorkerSession(target.SessionName, msg)
+	notifyPRStatus(mcfg, target, "⚠️ Merge conflict detected", "")
+	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))
+	return true
 }
 
 // formatCIFailureWithURL builds a detailed failure message for the worker

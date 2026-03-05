@@ -126,7 +126,7 @@ func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedSt
 	}
 
 	if result.GetTotal() == 0 {
-		return &CombinedStatus{State: "pending"}, nil
+		return &CombinedStatus{State: StatePending}, nil
 	}
 
 	statuses := make([]*CommitStatus, 0, result.GetTotal())
@@ -142,18 +142,18 @@ func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedSt
 			TargetURL:   cr.GetHTMLURL(),
 		})
 		switch state {
-		case "failure", "error":
+		case StateFailure, StateError:
 			hasFailure = true
-		case "pending":
+		case StatePending:
 			hasPending = true
 		}
 	}
 
-	overall := "success"
+	overall := StateSuccess
 	if hasFailure {
-		overall = "failure"
+		overall = StateFailure
 	} else if hasPending {
-		overall = "pending"
+		overall = StatePending
 	}
 
 	return &CombinedStatus{State: overall, Statuses: statuses}, nil
@@ -161,17 +161,17 @@ func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedSt
 
 func checkRunToState(status, conclusion string) string {
 	if status != "completed" {
-		return "pending"
+		return StatePending
 	}
 	switch conclusion {
 	case "success", "skipped", "neutral":
-		return "success"
+		return StateSuccess
 	case "failure", "timed_out", "cancelled":
-		return "failure"
+		return StateFailure
 	case "action_required", "stale":
-		return "error"
+		return StateError
 	default:
-		return "pending"
+		return StatePending
 	}
 }
 
