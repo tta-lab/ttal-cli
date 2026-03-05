@@ -193,6 +193,9 @@ func handleInboundMessage(
 		senderName = msg.From.FirstName
 	}
 
+	// Extract reply context if this message is a reply
+	replyCtx := extractReplyContext(msg)
+
 	// Handle voice messages
 	if msg.Voice != nil {
 		transcription, err := transcribeVoiceMessage(ctx, b, msg.Voice)
@@ -201,7 +204,8 @@ func handleInboundMessage(
 			_ = telegram.SendMessage(botToken, chatIDStr, "Voice transcription failed — check daemon logs for details")
 			return
 		}
-		formatted := formatInboundMessage(agentName, senderName, "[🎤 voice] "+transcription)
+		text := "[🎤 voice] " + transcription
+		formatted := formatInboundMessage(agentName, senderName, replyCtx+text)
 		onMessage(agentName, formatted)
 		return
 	}
@@ -222,7 +226,7 @@ func handleInboundMessage(
 		if caption := msg.Caption; caption != "" {
 			text += " " + caption
 		}
-		onMessage(agentName, formatInboundMessage(agentName, senderName, text))
+		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
 		return
 	}
 
@@ -244,12 +248,12 @@ func handleInboundMessage(
 		if caption := msg.Caption; caption != "" {
 			text += " " + caption
 		}
-		onMessage(agentName, formatInboundMessage(agentName, senderName, text))
+		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
 		return
 	}
 
 	text := strings.TrimSpace(msg.Text)
-	onMessage(agentName, formatInboundMessage(agentName, senderName, text))
+	onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
 }
 
 // registerBotCommandsForAgent registers each bot command as a handler on the bot instance.
