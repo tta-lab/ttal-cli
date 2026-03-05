@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -147,35 +145,12 @@ func runNotifBotPoller(botToken, teamName string, chatID int64, done <-chan stru
 
 // handleNotifRestart sends an ack and triggers launchctl kickstart -k to force-restart the daemon.
 func handleNotifRestart(botToken, chatID string) {
-	if err := telegram.SendMessage(botToken, chatID, "🔄 Daemon restarting (kickstart -k)..."); err != nil {
+	if err := telegram.SendMessage(botToken, chatID, "🔄 Daemon restarting..."); err != nil {
 		log.Printf("[notifbot] failed to send restart ack: %v", err)
 	}
-
-	label := daemonPlistName()
-	uid := os.Getuid()
-	target := fmt.Sprintf("gui/%d/%s", uid, label)
-
-	go func() {
-		// Small delay so the ack message is delivered before the process dies.
-		time.Sleep(500 * time.Millisecond)
-		select {
-		case restartCh <- struct{}{}:
-		default:
-		}
-		// Also kickstart so launchd restarts the daemon immediately.
-		_ = execKickstart(target)
-	}()
-}
-
-// execKickstart runs launchctl kickstart -k to force-restart the service.
-func execKickstart(target string) error {
-	//nolint:gosec
-	cmd := exec.Command("launchctl", "kickstart", "-k", target)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("[notifbot] kickstart failed: %v: %s", err, strings.TrimSpace(string(out)))
-		return err
+	if err := Restart(); err != nil {
+		log.Printf("[notifbot] restart failed: %v", err)
 	}
-	return nil
 }
 
 func handleNotifHelp(botToken, chatID string) {
