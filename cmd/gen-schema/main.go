@@ -17,6 +17,7 @@ func main() {
 	r := &jsonschema.Reflector{
 		FieldNameTag:               "toml",
 		RequiredFromJSONSchemaTags: true,
+		ExpandedStruct:             true,
 	}
 
 	schema := r.Reflect(&config.Config{})
