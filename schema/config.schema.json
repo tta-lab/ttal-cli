@@ -1,7 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://ttal.guion.io/schema/config.schema.json",
-  "$ref": "#/definitions/Config",
   "definitions": {
     "AgentConfig": {
       "properties": {
@@ -31,43 +30,6 @@
             "opus"
           ],
           "description": "Claude model tier (falls back to opus)"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Config": {
-      "properties": {
-        "shell": {
-          "type": "string",
-          "enum": [
-            "zsh",
-            "fish"
-          ],
-          "description": "Shell for spawning workers"
-        },
-        "sync": {
-          "$ref": "#/definitions/SyncConfig",
-          "description": "Paths for subagent and skill deployment"
-        },
-        "prompts": {
-          "$ref": "#/definitions/PromptsConfig",
-          "description": "Prompt templates for task routing"
-        },
-        "flicknote": {
-          "$ref": "#/definitions/FlicknoteConfig",
-          "description": "Flicknote integration settings"
-        },
-        "default_team": {
-          "type": "string",
-          "description": "Active team when TTAL_TEAM env is not set"
-        },
-        "teams": {
-          "additionalProperties": {
-            "$ref": "#/definitions/TeamConfig"
-          },
-          "type": "object",
-          "description": "Per-team configuration sections"
         }
       },
       "additionalProperties": false,
@@ -254,6 +216,41 @@
       "type": "object"
     }
   },
+  "properties": {
+    "shell": {
+      "type": "string",
+      "enum": [
+        "zsh",
+        "fish"
+      ],
+      "description": "Shell for spawning workers"
+    },
+    "sync": {
+      "$ref": "#/definitions/SyncConfig",
+      "description": "Paths for subagent and skill deployment"
+    },
+    "prompts": {
+      "$ref": "#/definitions/PromptsConfig",
+      "description": "Prompt templates for task routing"
+    },
+    "flicknote": {
+      "$ref": "#/definitions/FlicknoteConfig",
+      "description": "Flicknote integration settings"
+    },
+    "default_team": {
+      "type": "string",
+      "description": "Active team when TTAL_TEAM env is not set"
+    },
+    "teams": {
+      "additionalProperties": {
+        "$ref": "#/definitions/TeamConfig"
+      },
+      "type": "object",
+      "description": "Per-team configuration sections"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
   "title": "ttal CLI configuration",
   "description": "Configuration file for ttal CLI (~/.config/ttal/config.toml)"
 }
