@@ -569,8 +569,8 @@ When building ttal-cli, use the following commit format:
 ```
 ttal: [category] description
 
-Example: ttal: impl - project schema + sqlite
-         ttal: refactor - query optimization
+Example: ttal: impl - add worker spawn
+         ttal: refactor - optimize tag queries
 ```
 
 ## Status Values
