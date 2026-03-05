@@ -56,7 +56,7 @@ func (r *adapterRegistry) stopAll(ctx context.Context) {
 // using team-resolved config values for GatewayURL and HooksToken.
 func createAdapterFromTeam(
 	agentName string, rt runtime.Runtime, agentPath string,
-	port int, model string, yolo bool, env []string,
+	port int, model string, env []string,
 	team *config.ResolvedTeam,
 ) runtime.Adapter {
 	cfg := runtime.AdapterConfig{
@@ -64,7 +64,6 @@ func createAdapterFromTeam(
 		WorkDir:   agentPath,
 		Port:      port,
 		Model:     model,
-		Yolo:      yolo,
 		Env:       env,
 	}
 	if team != nil {
@@ -73,7 +72,6 @@ func createAdapterFromTeam(
 			cfg.GatewayURL = config.DefaultGatewayURL
 		}
 		cfg.HooksToken = team.HooksToken
-		cfg.WritableRoots = team.WritableRoots
 	}
 
 	switch rt {

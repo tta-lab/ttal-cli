@@ -43,10 +43,7 @@ func (a *Adapter) Start(_ context.Context) error {
 
 	sessionName := config.AgentSessionName(shellCfg.TeamName(), a.cfg.AgentName)
 
-	cmd := "claude"
-	if a.cfg.Yolo {
-		cmd += " --dangerously-skip-permissions"
-	}
+	cmd := "claude --dangerously-skip-permissions"
 	if a.cfg.Model != "" {
 		cmd += " --model " + a.cfg.Model
 	}

@@ -164,10 +164,9 @@ type TeamConfig struct {
 	DesignAgent          string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
 	ResearchAgent        string                 `toml:"research_agent" jsonschema:"description=Research agent"`
 	TestAgent            string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
-	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                                                     //nolint:lll
-	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`                                    //nolint:lll
-	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`                                               //nolint:lll
-	WritableRoots        []string               `toml:"writable_roots" jsonschema:"description=Additional writable paths for sandboxed runtimes (codex). Defaults: ~/.ttal/ ~/.task/ ~/.diary/"` //nolint:lll
+	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                  //nolint:lll
+	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"` //nolint:lll
+	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`            //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -329,16 +328,6 @@ func (c *Config) TestAgent() string {
 // TaskSyncURL returns the TaskChampion sync server URL for the active team.
 func (c *Config) TaskSyncURL() string {
 	return c.resolvedTaskSyncURL
-}
-
-// defaultWritableRoots returns the default writable paths for sandboxed runtimes.
-func defaultWritableRoots() []string {
-	home, _ := os.UserHomeDir()
-	return []string{
-		filepath.Join(home, ".ttal"),
-		filepath.Join(home, ".task"),
-		filepath.Join(home, ".diary"),
-	}
 }
 
 const (
@@ -645,7 +634,6 @@ type ResolvedTeam struct {
 	HooksToken        string
 	Voice             VoiceConfig
 	Agents            map[string]AgentConfig
-	WritableRoots     []string
 }
 
 // DefaultTeamName returns the default team name with fallback to "default".
@@ -728,16 +716,6 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 			Language:   team.VoiceLanguage,
 		},
 		Agents: team.Agents,
-	}
-
-	// Resolve WritableRoots
-	if len(team.WritableRoots) > 0 {
-		rt.WritableRoots = make([]string, len(team.WritableRoots))
-		for i, r := range team.WritableRoots {
-			rt.WritableRoots[i] = expandHome(r)
-		}
-	} else {
-		rt.WritableRoots = defaultWritableRoots()
 	}
 
 	resolveBotTokens(rt.Agents)
