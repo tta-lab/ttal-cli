@@ -3,6 +3,7 @@ package gitprovider
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/google/go-github/v69/github"
@@ -117,6 +118,9 @@ func (p *GitHubProvider) ListComments(owner, repo string, index int64) ([]*Comme
 	return result, nil
 }
 
+// GetCombinedStatus queries GitHub Check Runs API (not the legacy Commit Status API).
+// This only sees checks created via the Checks API (GitHub Actions, Apps) — external CI
+// tools that push commit statuses (Jenkins, CircleCI) are not captured.
 func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error) {
 	ctx := context.Background()
 	result, _, err := p.client.Checks.ListCheckRunsForRef(ctx, owner, repo, ref,
@@ -129,7 +133,13 @@ func (p *GitHubProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedSt
 		return &CombinedStatus{State: StatePending}, nil
 	}
 
-	statuses := make([]*CommitStatus, 0, result.GetTotal())
+	total := result.GetTotal()
+	if total > len(result.CheckRuns) {
+		log.Printf("[github] warning: %d check runs for %s but only fetched %d (first page)",
+			total, ref[:8], len(result.CheckRuns))
+	}
+
+	statuses := make([]*CommitStatus, 0, total)
 	hasFailure := false
 	hasPending := false
 
