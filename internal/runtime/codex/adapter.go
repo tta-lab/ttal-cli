@@ -241,8 +241,26 @@ func (a *Adapter) sendEvent(evt runtime.Event) {
 
 func (a *Adapter) processNotification(notif rpcResponse) {
 	switch notif.Method {
-	case protocol.NotifItemAgentMessageDelta:
-		// Streamed tokens — ignored in favor of item/completed for CC-like per-item delivery.
+	case protocol.NotifItemAgentMessageDelta,
+		protocol.NotifItemCommandExecutionOutputDelta,
+		protocol.NotifItemFileChangeOutputDelta,
+		protocol.NotifItemPlanDelta,
+		protocol.NotifItemReasoningSummaryTextDelta,
+		protocol.NotifItemReasoningTextDelta,
+		protocol.NotifItemReasoningSummaryPartAdded,
+		protocol.NotifItemMcpToolCallProgress,
+		protocol.NotifThreadCompacted,
+		protocol.NotifThreadNameUpdated,
+		protocol.NotifThreadTokenUsageUpdated,
+		protocol.NotifTurnDiffUpdated,
+		protocol.NotifTurnPlanUpdated,
+		protocol.NotifModelRerouted,
+		protocol.NotifDeprecationNotice,
+		protocol.NotifConfigWarning,
+		protocol.NotifServerRequestResolved,
+		protocol.NotifAccountUpdated,
+		protocol.NotifAccountRateLimitsUpdated:
+		// Streaming deltas and informational — no action needed
 
 	case protocol.NotifItemCompleted:
 		var params protocol.ItemCompletedNotification
@@ -278,11 +296,13 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 	case protocol.NotifItemStarted:
 		var params protocol.ItemStartedNotification
 		if json.Unmarshal(notif.Params, &params) == nil && params.Item.Type != "" {
-			a.sendEvent(runtime.Event{
-				Type:     runtime.EventTool,
-				Agent:    a.cfg.AgentName,
-				ToolName: codexItemToToolName(params.Item.Type),
-			})
+			if toolName := codexItemToToolName(params.Item.Type); toolName != "" {
+				a.sendEvent(runtime.Event{
+					Type:     runtime.EventTool,
+					Agent:    a.cfg.AgentName,
+					ToolName: toolName,
+				})
+			}
 		}
 
 	default:
@@ -359,10 +379,14 @@ func codexItemToToolName(itemType string) string {
 		return "Bash"
 	case "fileChange":
 		return "Edit"
-	case "webSearch":
+	case "webSearch", "imageView", "openPage", "mcpToolCall":
 		return "WebSearch"
-	case "mcpToolCall":
-		return "MCP"
+	case "reasoning", "plan", "search", "findInPage":
+		return "Read"
+	case "collabAgentToolCall":
+		return "Agent"
+	case "contextCompaction":
+		return ""
 	default:
 		return itemType
 	}
