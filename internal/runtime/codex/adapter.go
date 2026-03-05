@@ -327,8 +327,8 @@ func (a *Adapter) processServerRequest(req rpcResponse) {
 		}
 
 	case protocol.ReqItemCommandExecutionRequestApproval:
-		// Auto-approve in yolo mode; all daemon agents use approvalPolicy: "never"
-		// but resumed sessions may have a stale policy.
+		// Auto-approve as fallback; config.toml handles policy globally
+		// but resumed sessions may not reflect current config.
 		if err := a.client.Respond(req.ID, protocol.CommandExecutionRequestApprovalResponse{
 			Decision: json.RawMessage(`"acceptForSession"`),
 		}); err != nil {

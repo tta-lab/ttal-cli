@@ -24,7 +24,6 @@ func (p *process) start(ctx context.Context) error {
 	listenAddr := fmt.Sprintf("ws://127.0.0.1:%d", p.port)
 
 	args := []string{"app-server", "--listen", listenAddr}
-
 	p.cmd = exec.Command("codex", args...)
 	p.cmd.Dir = p.workDir
 	p.cmd.Env = append(os.Environ(), p.env...)
