@@ -6,16 +6,31 @@ import (
 	"os"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/tui"
 )
+
+var teamFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "ttal",
 	Short: "TTAL - Task & Team Agent Lifecycle Manager",
 	Long: `TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus.
-It provides taskwarrior-like syntax for tag management and agent routing.`,
+It provides taskwarrior-like syntax for tag management and agent routing.
+
+Running ttal with no subcommand launches the interactive TUI.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		m := tui.NewModel()
+		p := tea.NewProgram(m)
+		_, err := p.Run()
+		return err
+	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if teamFlag != "" {
+			_ = os.Setenv("TTAL_TEAM", teamFlag)
+		}
 		// Load .env as fallback for tokens not already in the environment
 		if dotEnv, err := config.LoadDotEnv(); err == nil {
 			for k, v := range dotEnv {
@@ -26,6 +41,10 @@ It provides taskwarrior-like syntax for tag management and agent routing.`,
 		}
 		return nil
 	},
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringVar(&teamFlag, "team", "", "Team to use (overrides TTAL_TEAM env)")
 }
 
 func Execute() error {

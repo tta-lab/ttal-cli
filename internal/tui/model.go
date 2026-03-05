@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +13,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+// Key name constants for input handlers.
+const (
+	keyNameEnter     = "enter"
+	keyNameEsc       = "esc"
+	keyNameBackspace = "backspace"
+	keyNameTab       = "tab"
+)
+
 type viewState int
 
 const (
@@ -19,6 +28,8 @@ const (
 	stateTaskDetail
 	stateRouteInput
 	stateSearch
+	stateModify
+	stateAnnotate
 	stateHelp
 )
 
@@ -109,6 +120,10 @@ type Model struct {
 	offset    int // viewport scroll offset
 	searchStr string
 
+	// Text input for overlays
+	modifyInput   string
+	annotateInput string
+
 	// Route input
 	routeInput   string
 	routeMatches []agentfs.AgentInfo
@@ -165,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "Error: " + msg.err.Error()
 		}
 		if msg.refresh {
-			return m, loadTasks(m.filter, m.searchStr)
+			return m, m.reloadTasks()
 		}
 		return m, nil
 
@@ -194,15 +209,20 @@ func (m Model) View() tea.View {
 		content = m.viewTaskList()
 	case stateTaskDetail:
 		content = m.viewTaskDetail()
-	case stateRouteInput:
+	case stateRouteInput, stateModify, stateAnnotate:
 		content = m.viewTaskList() // show list behind overlay
 	case stateHelp:
 		content = m.viewHelp()
 	}
 
-	// Overlay for route input
-	if m.state == stateRouteInput {
+	// Overlays
+	switch m.state {
+	case stateRouteInput:
 		content = m.viewRouteOverlay(content)
+	case stateModify:
+		content = m.viewTextInputOverlay(content, "Modify Task", "Modifiers (e.g. project:x +tag priority:H):", m.modifyInput)
+	case stateAnnotate:
+		content = m.viewTextInputOverlay(content, "Annotate Task", "Annotation:", m.annotateInput)
 	}
 
 	v := tea.NewView(content)
@@ -211,11 +231,15 @@ func (m Model) View() tea.View {
 }
 
 func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if m.state == stateRouteInput {
+	switch m.state {
+	case stateRouteInput:
 		return m.handleRouteKey(msg)
-	}
-	if m.state == stateSearch {
+	case stateSearch:
 		return m.handleSearchKey(msg)
+	case stateModify:
+		return m.handleModifyKey(msg)
+	case stateAnnotate:
+		return m.handleAnnotateKey(msg)
 	}
 
 	action := resolveKey(msg)
@@ -291,8 +315,7 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 		m.filter = m.filter.Next()
 		m.cursor = 0
 		m.offset = 0
-		m.loading = true
-		return m, loadTasks(m.filter, m.searchStr)
+		return m, m.reloadTasks()
 	case keySearch:
 		m.state = stateSearch
 		m.searchStr = ""
@@ -303,8 +326,7 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 			m.state = stateHelp
 		}
 	case keyRefresh:
-		m.loading = true
-		return m, loadTasks(m.filter, m.searchStr)
+		return m, m.reloadTasks()
 	}
 	return m, nil
 }
@@ -329,6 +351,16 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		return addToToday(t.UUID)
 	case keyRemoveToday:
 		return removeFromToday(t.UUID)
+	case keyDone:
+		return doneTask(t.UUID)
+	case keyModify:
+		m.state = stateModify
+		m.modifyInput = ""
+		return nil
+	case keyAnnotate:
+		m.state = stateAnnotate
+		m.annotateInput = ""
+		return nil
 	}
 	return nil
 }
@@ -336,20 +368,18 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := msg.String()
 	switch s {
-	case "enter":
+	case keyNameEnter:
 		m.state = stateTaskList
 		m.cursor = 0
 		m.offset = 0
-		m.loading = true
-		return m, loadTasks(m.filter, m.searchStr)
-	case "esc":
+		return m, m.reloadTasks()
+	case keyNameEsc:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
 		m.offset = 0
-		m.loading = true
-		return m, loadTasks(m.filter, "")
-	case "backspace":
+		return m, m.reloadTasks()
+	case keyNameBackspace:
 		if len(m.searchStr) > 0 {
 			m.searchStr = m.searchStr[:len(m.searchStr)-1]
 		}
@@ -361,10 +391,58 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	s := msg.String()
+	switch s {
+	case keyNameEnter:
+		t := m.selectedTask()
+		if t != nil && m.modifyInput != "" {
+			m.state = stateTaskList
+			return m, modifyTask(t.UUID, m.modifyInput)
+		}
+		m.state = stateTaskList
+	case keyNameEsc:
+		m.state = stateTaskList
+	case keyNameBackspace:
+		if len(m.modifyInput) > 0 {
+			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
+		}
+	default:
+		if len(msg.Text) > 0 {
+			m.modifyInput += msg.Text
+		}
+	}
+	return m, nil
+}
+
+func (m *Model) handleAnnotateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	s := msg.String()
+	switch s {
+	case keyNameEnter:
+		t := m.selectedTask()
+		if t != nil && m.annotateInput != "" {
+			m.state = stateTaskList
+			return m, annotateTask(t.UUID, m.annotateInput)
+		}
+		m.state = stateTaskList
+	case keyNameEsc:
+		m.state = stateTaskList
+	case keyNameBackspace:
+		if len(m.annotateInput) > 0 {
+			m.annotateInput = m.annotateInput[:len(m.annotateInput)-1]
+		}
+	default:
+		if len(msg.Text) > 0 {
+			m.annotateInput += msg.Text
+		}
+	}
+	return m, nil
+}
+
 func (m *Model) handleRouteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := msg.String()
 	switch s {
-	case "enter":
+	case keyNameEnter:
 		if len(m.routeMatches) > 0 {
 			agent := m.routeMatches[0]
 			t := m.selectedTask()
@@ -377,14 +455,14 @@ func (m *Model) handleRouteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.state = stateTaskList
-	case "esc":
+	case keyNameEsc:
 		m.state = stateTaskList
-	case "tab":
+	case keyNameTab:
 		if len(m.routeMatches) > 0 {
 			m.routeInput = m.routeMatches[0].Name
 			m.updateRouteMatches()
 		}
-	case "backspace":
+	case keyNameBackspace:
 		if len(m.routeInput) > 0 {
 			m.routeInput = m.routeInput[:len(m.routeInput)-1]
 			m.updateRouteMatches()
@@ -399,20 +477,10 @@ func (m *Model) handleRouteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) updateRouteMatches() {
-	if m.routeInput == "" {
-		// Show all agents with a role
-		m.routeMatches = nil
-		for _, a := range m.agents {
-			if a.Role != "" {
-				m.routeMatches = append(m.routeMatches, a)
-			}
-		}
-		return
-	}
 	q := strings.ToLower(m.routeInput)
 	m.routeMatches = nil
 	for _, a := range m.agents {
-		if a.Role != "" && strings.Contains(strings.ToLower(a.Name), q) {
+		if q == "" || strings.Contains(strings.ToLower(a.Name), q) {
 			m.routeMatches = append(m.routeMatches, a)
 		}
 	}
@@ -476,6 +544,9 @@ func (m *Model) applyFilter() {
 		}
 		m.filtered = append(m.filtered, t)
 	}
+	sort.Slice(m.filtered, func(i, j int) bool {
+		return m.filtered[i].Urgency > m.filtered[j].Urgency
+	})
 	if m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
@@ -520,6 +591,11 @@ func loadConfig() tea.Cmd {
 	}
 }
 
+func (m *Model) reloadTasks() tea.Cmd {
+	m.loading = true
+	return loadTasks(m.filter, m.searchStr)
+}
+
 func loadTasks(filter filterMode, search string) tea.Cmd {
 	return func() tea.Msg {
 		var args []string
@@ -530,8 +606,9 @@ func loadTasks(filter filterMode, search string) tea.Cmd {
 			args = append(args, "status:completed")
 		}
 
+		// Pass search as raw taskwarrior filter args
 		if search != "" {
-			args = append(args, "description.contains:"+search)
+			args = append(args, strings.Fields(search)...)
 		}
 
 		args = append(args, "export")

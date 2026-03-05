@@ -124,6 +124,39 @@ func removeFromToday(uuid string) tea.Cmd {
 	}
 }
 
+func doneTask(uuid string) tea.Cmd {
+	return func() tea.Msg {
+		cmd := taskwarrior.Command(uuid, "done")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return actionResultMsg{err: fmt.Errorf("done: %s", strings.TrimSpace(string(out)))}
+		}
+		return actionResultMsg{message: "Task marked done", refresh: true}
+	}
+}
+
+func modifyTask(uuid, modifiers string) tea.Cmd {
+	return func() tea.Msg {
+		fields := strings.Fields(modifiers)
+		args := make([]string, 0, 2+len(fields))
+		args = append(args, uuid, "modify")
+		args = append(args, fields...)
+		cmd := taskwarrior.Command(args...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return actionResultMsg{err: fmt.Errorf("modify: %s", strings.TrimSpace(string(out)))}
+		}
+		return actionResultMsg{message: "Task modified", refresh: true}
+	}
+}
+
+func annotateTask(uuid, text string) tea.Cmd {
+	return func() tea.Msg {
+		if err := taskwarrior.AnnotateTask(uuid, text); err != nil {
+			return actionResultMsg{err: fmt.Errorf("annotate: %w", err)}
+		}
+		return actionResultMsg{message: "Annotation added", refresh: true}
+	}
+}
+
 // resolveWorkDir finds the working directory for a task (worktree or project root).
 func resolveWorkDir(t *Task) string {
 	if t.Branch != "" {

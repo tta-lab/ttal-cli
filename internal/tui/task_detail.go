@@ -26,7 +26,8 @@ func (m Model) viewTaskDetail() string {
 	writeAnnotations(&b, t)
 
 	b.WriteString("\n")
-	b.WriteString(styleDim.Render("  x:execute  r:route  o:PR  s:session  t:term  e:editor  a:today  Esc:back"))
+	b.WriteString(styleDim.Render(
+		"  x:execute  r:route  d:done  m:modify  A:annotate  o:PR  s:session  a:today  Esc:back"))
 
 	return m.padToHeight(b.String()) + m.viewStatusBar()
 }
