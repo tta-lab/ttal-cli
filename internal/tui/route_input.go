@@ -5,6 +5,22 @@ import (
 	"strings"
 )
 
+func (m Model) viewTextInputOverlay(background, title, prompt, input string) string {
+	var b strings.Builder
+
+	b.WriteString(styleTitle.Render(title))
+	b.WriteString("\n\n")
+	b.WriteString("  " + styleDim.Render(prompt) + "\n")
+	fmt.Fprintf(&b, "  > %s_\n\n", input)
+	b.WriteString(styleDim.Render("  Enter:confirm  Esc:cancel"))
+
+	overlay := styleOverlay.
+		Width(50).
+		Render(b.String())
+
+	return m.placeOverlay(background, overlay, 54)
+}
+
 func (m Model) viewRouteOverlay(background string) string {
 	var b strings.Builder
 
@@ -24,10 +40,17 @@ func (m Model) viewRouteOverlay(background string) string {
 			if emoji == "" {
 				emoji = " "
 			}
-			role := styleDim.Render("(" + a.Role + ")")
-			line := fmt.Sprintf("%s%s %s %s", prefix, emoji, a.Name, role)
+			var line string
+			if a.Role != "" {
+				role := styleDim.Render("(" + a.Role + ")")
+				line = fmt.Sprintf("%s%s %s %s", prefix, emoji, a.Name, role)
+			} else {
+				line = fmt.Sprintf("%s%s %s %s", prefix, emoji, a.Name, styleDim.Render("(no role)"))
+			}
 			if i == 0 {
 				line = styleSelected.Render(line)
+			} else if a.Role == "" {
+				line = styleDim.Render(line)
 			}
 			b.WriteString(line + "\n")
 			if i >= 9 {
@@ -44,7 +67,10 @@ func (m Model) viewRouteOverlay(background string) string {
 		Width(40).
 		Render(b.String())
 
-	// Center the overlay on the background
+	return m.placeOverlay(background, overlay, 44)
+}
+
+func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 	bgLines := strings.Split(background, "\n")
 	overlayLines := strings.Split(overlay, "\n")
 
@@ -52,12 +78,11 @@ func (m Model) viewRouteOverlay(background string) string {
 	if startRow < 0 {
 		startRow = 0
 	}
-	startCol := (m.width - 44) / 2 // 40 + padding
+	startCol := (m.width - totalWidth) / 2
 	if startCol < 0 {
 		startCol = 0
 	}
 
-	// Place overlay on top of background
 	for len(bgLines) < m.height {
 		bgLines = append(bgLines, "")
 	}
@@ -68,7 +93,6 @@ func (m Model) viewRouteOverlay(background string) string {
 			break
 		}
 		bg := bgLines[row]
-		// Pad background line to overlay start
 		for len(bg) < startCol {
 			bg += " "
 		}

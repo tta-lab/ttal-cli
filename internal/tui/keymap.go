@@ -29,6 +29,9 @@ const (
 	keyHalfPageDown
 	keyTop
 	keyBottom
+	keyDone
+	keyModify
+	keyAnnotate
 )
 
 var keyMap = map[string]keyAction{
@@ -47,7 +50,10 @@ var keyMap = map[string]keyAction{
 	"t":      keyOpenTerm,
 	"e":      keyOpenEditor,
 	"a":      keyAddToday,
-	"A":      keyRemoveToday,
+	"ctrl+a": keyRemoveToday,
+	"d":      keyDone,
+	"m":      keyModify,
+	"A":      keyAnnotate,
 	"f":      keyFilter,
 	"/":      keySearch,
 	"?":      keyHelp,
@@ -79,15 +85,18 @@ const helpText = `Key Bindings:
 
   x               Execute (spawn worker)
   r               Route to agent
+  d               Mark task done
+  m               Modify task
+  A               Annotate task
   o               Open PR in browser
   s               Attach tmux session
   t               Open terminal
   e               Open editor
 
   a               Add to today
-  A               Remove from today
-  f               Cycle filter
-  /               Search
+  Ctrl+A          Remove from today
+  f               Cycle filter (pending/today/active/completed)
+  /               Search (taskwarrior syntax: project:x +tag etc)
   Ctrl+R          Refresh tasks
 
   ?               Toggle help

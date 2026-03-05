@@ -73,15 +73,14 @@ func (m Model) viewTaskList() string {
 		if selected {
 			line = styleSelected.Render(line)
 		} else {
-			// Style priority column
-			styledPri := priorityStyle(t.Priority).Render(fmt.Sprintf("%-*s", colPri, pri))
-			line = fmt.Sprintf(" %s %s %s %-*s %-*s %s",
-				styleDim.Render(fmt.Sprintf("%-*s", colID, id)),
-				styleDim.Render(fmt.Sprintf("%-*s", colUUID, uuid)),
-				styledPri,
-				colProject, proj,
-				colTags, styleTag.Render(tags),
-				desc)
+			// Use lipgloss Width for ANSI-aware fixed-width columns
+			styledID := lipgloss.NewStyle().Width(colID).Render(styleDim.Render(id))
+			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
+			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
+			styledProj := lipgloss.NewStyle().Width(colProject).Render(proj)
+			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleTag.Render(tags))
+
+			line = " " + styledID + " " + styledUUID + " " + styledPri + " " + styledProj + " " + styledTags + " " + desc
 
 			if t.Start != "" {
 				line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
@@ -107,6 +106,10 @@ func (m Model) viewStatusBar() string {
 		parts = append(parts, fmt.Sprintf("Search: %s_", m.searchStr))
 	} else if m.statusMsg != "" {
 		parts = append(parts, m.statusMsg)
+	}
+
+	if m.searchStr != "" && m.state != stateSearch {
+		parts = append(parts, styleDim.Render("[/"+m.searchStr+"]"))
 	}
 
 	if t := m.selectedTask(); t != nil {
