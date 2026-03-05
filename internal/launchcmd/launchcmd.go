@@ -14,22 +14,10 @@ type Options struct {
 }
 
 // BuildGatekeeperCommand builds the runtime command wrapped by `ttal worker gatekeeper`.
-// Non-worker runtimes fall back to Claude command shape for safe default behavior.
-func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, opts Options) string {
+// Returns an error for unsupported runtimes so callers fail fast instead of silently drifting.
+func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, opts Options) (string, error) {
 	switch rt {
-	case runtime.OpenCode:
-		return fmt.Sprintf(
-			"%s worker gatekeeper --task-file %s -- opencode --prompt",
-			ttalBin, taskFile)
-	case runtime.Codex:
-		yoloFlag := ""
-		if opts.CodexYolo {
-			yoloFlag = "--yolo "
-		}
-		return fmt.Sprintf(
-			"%s worker gatekeeper --task-file %s -- codex %s--prompt",
-			ttalBin, taskFile, yoloFlag)
-	default:
+	case runtime.ClaudeCode:
 		model := opts.ClaudeModel
 		if model == "" {
 			model = "opus"
@@ -40,6 +28,20 @@ func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, opts O
 		}
 		return fmt.Sprintf(
 			"%s worker gatekeeper --task-file %s -- claude --model %s %s--",
-			ttalBin, taskFile, model, yoloFlag)
+			ttalBin, taskFile, model, yoloFlag), nil
+	case runtime.OpenCode:
+		return fmt.Sprintf(
+			"%s worker gatekeeper --task-file %s -- opencode --prompt",
+			ttalBin, taskFile), nil
+	case runtime.Codex:
+		yoloFlag := ""
+		if opts.CodexYolo {
+			yoloFlag = "--yolo "
+		}
+		return fmt.Sprintf(
+			"%s worker gatekeeper --task-file %s -- codex %s--prompt",
+			ttalBin, taskFile, yoloFlag), nil
+	default:
+		return "", fmt.Errorf("unsupported worker runtime for gatekeeper command: %q", rt)
 	}
 }

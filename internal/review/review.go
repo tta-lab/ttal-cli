@@ -38,7 +38,10 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	reviewerCmd := buildReviewerRuntimeCmd(ttalBin, promptFile, rt)
+	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, rt)
+	if err != nil {
+		return err
+	}
 
 	envParts := []string{"TTAL_ROLE=reviewer"}
 	if rtEnv := os.Getenv("TTAL_RUNTIME"); rtEnv != "" {
@@ -108,7 +111,7 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 
 // buildReviewerRuntimeCmd returns the runtime-specific reviewer launch command.
 // Reviewers always run in permissive mode to avoid interactive permission stalls.
-func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) string {
+func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) (string, error) {
 	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, launchcmd.Options{
 		ClaudeModel: "opus",
 		ClaudeYolo:  true,
@@ -117,7 +120,7 @@ func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) str
 }
 
 func writePromptFile(prompt string) (string, error) {
-	f, err := os.CreateTemp("", "claude-review-*.txt")
+	f, err := os.CreateTemp("", "review-prompt-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create review prompt file: %w", err)
 	}

@@ -76,7 +76,10 @@ func TestBuildClaudeCodeCmd(t *testing.T) {
 	envParts := []string{"TTAL_JOB_ID=test-id"}
 	shellCfg := &config.Config{}
 
-	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, envParts, shellCfg)
+	cmd, err := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, envParts, shellCfg)
+	if err != nil {
+		t.Fatalf("buildClaudeCodeCmd returned error: %v", err)
+	}
 
 	if !strings.Contains(cmd, "claude") {
 		t.Error("CC command should contain 'claude'")
@@ -101,9 +104,32 @@ func TestBuildClaudeCodeCmd_Sonnet(t *testing.T) {
 
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
 	shellCfg := &config.Config{}
-	cmd := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, nil, shellCfg)
+	cmd, err := buildClaudeCodeCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", task, nil, shellCfg)
+	if err != nil {
+		t.Fatalf("buildClaudeCodeCmd returned error: %v", err)
+	}
 
 	if !strings.Contains(cmd, "--model sonnet") {
 		t.Error("CC command should use sonnet model when task has +sonnet tag")
+	}
+}
+
+func TestBuildOpenCodeCmd(t *testing.T) {
+	cmd, err := buildOpenCodeCmd("/usr/bin/ttal", "/tmp/task.txt", nil, &config.Config{})
+	if err != nil {
+		t.Fatalf("buildOpenCodeCmd returned error: %v", err)
+	}
+	if !strings.Contains(cmd, "opencode --prompt") {
+		t.Errorf("OpenCode command should contain 'opencode --prompt', got: %s", cmd)
+	}
+}
+
+func TestBuildCodexCmd(t *testing.T) {
+	cmd, err := buildCodexCmd(SpawnConfig{Yolo: true}, "/usr/bin/ttal", "/tmp/task.txt", nil, &config.Config{})
+	if err != nil {
+		t.Fatalf("buildCodexCmd returned error: %v", err)
+	}
+	if !strings.Contains(cmd, "codex --yolo --prompt") {
+		t.Errorf("Codex command should contain 'codex --yolo --prompt', got: %s", cmd)
 	}
 }

@@ -193,7 +193,10 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
-	shellCmd := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
+	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
@@ -271,7 +274,7 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 
 func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task,
 	envParts []string, shellCfg *config.Config,
-) string {
+) (string, error) {
 	switch cfg.Runtime {
 	case runtime.OpenCode:
 		return buildOpenCodeCmd(ttalBin, taskFile, envParts, shellCfg)
@@ -284,33 +287,42 @@ func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior
 
 func buildClaudeCodeCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior.Task,
 	envParts []string, shellCfg *config.Config,
-) string {
+) (string, error) {
 	model := "opus"
 	if task.HasTag("sonnet") {
 		model = "sonnet"
 	}
 	fmt.Printf("  Model: %s\n", model)
 
-	claudeCmd := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.ClaudeCode, launchcmd.Options{
+	claudeCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.ClaudeCode, launchcmd.Options{
 		ClaudeModel: model,
 		ClaudeYolo:  cfg.Yolo,
 	})
+	if err != nil {
+		return "", err
+	}
 
-	return shellCfg.BuildEnvShellCommand(envParts, claudeCmd)
+	return shellCfg.BuildEnvShellCommand(envParts, claudeCmd), nil
 }
 
-func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *config.Config) string {
-	ocCmd := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.OpenCode, launchcmd.Options{})
+func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *config.Config) (string, error) {
+	ocCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.OpenCode, launchcmd.Options{})
+	if err != nil {
+		return "", err
+	}
 
-	return shellCfg.BuildEnvShellCommand(envParts, ocCmd)
+	return shellCfg.BuildEnvShellCommand(envParts, ocCmd), nil
 }
 
-func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string, shellCfg *config.Config) string {
-	cxCmd := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.Codex, launchcmd.Options{
+func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string, shellCfg *config.Config) (string, error) {
+	cxCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.Codex, launchcmd.Options{
 		CodexYolo: cfg.Yolo,
 	})
+	if err != nil {
+		return "", err
+	}
 
-	return shellCfg.BuildEnvShellCommand(envParts, cxCmd)
+	return shellCfg.BuildEnvShellCommand(envParts, cxCmd), nil
 }
 
 func writeTaskFile(

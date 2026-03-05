@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -12,32 +13,37 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 		name string
 		rt   runtime.Runtime
 		want string
+		err  bool
 	}{
 		{
-			name: "claude-code uses claude with model and yolo",
+			name: "claude-code uses reviewer claude options",
 			rt:   runtime.ClaudeCode,
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model opus --dangerously-skip-permissions --",
 		},
 		{
-			name: "opencode uses opencode prompt mode",
-			rt:   runtime.OpenCode,
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt",
-		},
-		{
-			name: "codex uses codex yolo prompt mode",
+			name: "codex uses reviewer yolo mode",
 			rt:   runtime.Codex,
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex --yolo --prompt",
 		},
 		{
-			name: "non-worker runtime falls back to claude",
+			name: "non-worker runtime errors",
 			rt:   runtime.OpenClaw,
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model opus --dangerously-skip-permissions --",
+			err:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildReviewerRuntimeCmd("ttal", "/tmp/prompt.txt", tt.rt)
+			got, err := buildReviewerRuntimeCmd("ttal", "/tmp/prompt.txt", tt.rt)
+			if tt.err {
+				if err == nil {
+					t.Fatalf("expected error, got command: %s", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if got != tt.want {
 				t.Fatalf("unexpected command\nwant: %s\n got: %s", tt.want, got)
 			}
@@ -48,9 +54,12 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 func TestBuildReviewerRuntimeCmd_InterpolatesPaths(t *testing.T) {
 	ttalBin := "/usr/local/bin/ttal"
 	promptFile := "/tmp/review-123.txt"
-	got := buildReviewerRuntimeCmd(ttalBin, promptFile, runtime.ClaudeCode)
+	got, err := buildReviewerRuntimeCmd(ttalBin, promptFile, runtime.ClaudeCode)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	wantPrefix := fmt.Sprintf("%s worker gatekeeper --task-file %s", ttalBin, promptFile)
-	if got[:len(wantPrefix)] != wantPrefix {
+	if !strings.HasPrefix(got, wantPrefix) {
 		t.Fatalf("command should start with %q, got %q", wantPrefix, got)
 	}
 }
