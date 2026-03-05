@@ -28,7 +28,7 @@ func TestProcessNotificationItemStarted(t *testing.T) {
 		{
 			name:     "mcpToolCall",
 			params:   `{"item":{"type":"mcpToolCall","id":"i3"},"threadId":"t1","turnId":"r1"}`,
-			wantTool: "MCP",
+			wantTool: "WebSearch",
 		},
 		{
 			name:     "webSearch",
@@ -38,7 +38,7 @@ func TestProcessNotificationItemStarted(t *testing.T) {
 		{
 			name:     "reasoning",
 			params:   `{"item":{"type":"reasoning","id":"i5","summary":[]},"threadId":"t1","turnId":"r1"}`,
-			wantTool: "reasoning",
+			wantTool: "Read",
 		},
 	}
 
@@ -69,6 +69,25 @@ func TestProcessNotificationItemStarted(t *testing.T) {
 	}
 }
 
+func TestProcessNotificationItemStartedNoEvent(t *testing.T) {
+	a := &Adapter{
+		cfg:    runtime.AdapterConfig{AgentName: "test"},
+		events: make(chan runtime.Event, 16),
+	}
+
+	a.processNotification(rpcResponse{
+		Method: protocol.NotifItemStarted,
+		Params: json.RawMessage(`{"item":{"type":"contextCompaction","id":"i6"},"threadId":"t1","turnId":"r1"}`),
+	})
+
+	select {
+	case evt := <-a.events:
+		t.Errorf("expected no event for contextCompaction, got %+v", evt)
+	default:
+		// expected — no event emitted
+	}
+}
+
 func TestCodexItemToToolName(t *testing.T) {
 	tests := []struct {
 		itemType string
@@ -77,8 +96,15 @@ func TestCodexItemToToolName(t *testing.T) {
 		{"commandExecution", "Bash"},
 		{"fileChange", "Edit"},
 		{"webSearch", "WebSearch"},
-		{"mcpToolCall", "MCP"},
-		{"reasoning", "reasoning"},
+		{"imageView", "WebSearch"},
+		{"openPage", "WebSearch"},
+		{"mcpToolCall", "WebSearch"},
+		{"reasoning", "Read"},
+		{"plan", "Read"},
+		{"search", "Read"},
+		{"findInPage", "Read"},
+		{"collabAgentToolCall", "Agent"},
+		{"contextCompaction", ""},
 		{"unknownType", "unknownType"},
 	}
 
