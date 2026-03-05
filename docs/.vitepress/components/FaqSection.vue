@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
 const faqs = [
@@ -58,9 +58,9 @@ function toggle(i) {
       class="faq-item"
       :class="{ open: openIndex === i }"
     >
-      <button class="faq-question" @click="toggle(i)">
+      <button class="faq-question" :aria-expanded="openIndex === i" @click="toggle(i)">
         <span>{{ faq.q }}</span>
-        <span class="faq-icon">{{ openIndex === i ? '\u2212' : '+' }}</span>
+        <span class="faq-icon">{{ openIndex === i ? '−' : '+' }}</span>
       </button>
       <div class="faq-answer" v-show="openIndex === i">
         <p>{{ faq.a }}</p>
