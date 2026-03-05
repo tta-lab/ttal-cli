@@ -6,7 +6,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
-// Options configures runtime-specific launch flags.
+// Options configures runtime-specific launch options.
 type Options struct {
 	ClaudeModel string
 	ClaudeYolo  bool

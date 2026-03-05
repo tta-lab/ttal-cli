@@ -66,16 +66,21 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 // RequestReReview sends a re-review message to the existing reviewer window.
 // If full is true, requests a full re-review of all PR changes.
 // If full is false, requests a delta re-review of only new changes.
-// coderComment, if non-empty, is written to a temp file and its path included
-// in the message so the reviewer can read the coder's triage update.
+// coderComment, if non-empty, is best-effort written to a temp file.
+// If write succeeds, its path is included in the message so the reviewer
+// can read the coder's triage update.
 func RequestReReview(sessionName string, full bool, coderComment string, cfg *config.Config, rt runtime.Runtime) error {
 	var commentRef string
 	if coderComment != "" {
 		f, err := os.CreateTemp("", "ttal-coder-comment-*.md")
-		if err == nil {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to create coder comment temp file: %v\n", err)
+		} else {
 			_, writeErr := f.WriteString(coderComment)
 			_ = f.Close()
-			if writeErr == nil {
+			if writeErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to write coder comment temp file: %v\n", writeErr)
+			} else {
 				commentRef = fmt.Sprintf(" Coder's comment at %s —", f.Name())
 			}
 		}
