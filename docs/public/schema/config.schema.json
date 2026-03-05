@@ -191,6 +191,10 @@
           "type": "array",
           "description": "Custom vocabulary words for Whisper transcription accuracy"
         },
+        "emoji_reactions": {
+          "type": "boolean",
+          "description": "Enable emoji reactions"
+        },
         "task_sync_url": {
           "type": "string",
           "description": "TaskChampion sync server URL for ttal doctor --fix"
