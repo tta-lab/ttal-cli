@@ -204,34 +204,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	setEnv := func(key, val string) {
-		if err := tmux.SetEnv(sessionName, key, val); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
-		}
-	}
-	setEnv("TTAL_JOB_ID", task.SessionID())
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = "default"
-	}
-	setEnv("TTAL_TEAM", team)
-	if taskrc != "" {
-		setEnv("TASKRC", taskrc)
-	}
-	// Inject all .env secrets at session level (inherited by all windows)
-	dotEnv, err := config.LoadDotEnv()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to load .env secrets: %v\n", err)
-	} else {
-		for k, v := range dotEnv {
-			setEnv(k, v)
-		}
-	}
-	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON
-	if cfg.Runtime == runtime.OpenCode && cfg.Yolo {
-		setEnv("OPENCODE_PERMISSION",
-			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
-	}
+	injectSessionEnv(sessionName, task, cfg, taskrc)
 
 	if cfg.Spawner != "" {
 		if err := taskwarrior.SetSpawner(task.UUID, cfg.Spawner); err != nil {
@@ -276,12 +249,14 @@ func buildLaunchCmd(cfg SpawnConfig, ttalBin, taskFile string, task *taskwarrior
 	envParts []string, shellCfg *config.Config,
 ) (string, error) {
 	switch cfg.Runtime {
+	case runtime.ClaudeCode:
+		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
 	case runtime.OpenCode:
 		return buildOpenCodeCmd(ttalBin, taskFile, envParts, shellCfg)
 	case runtime.Codex:
 		return buildCodexCmd(cfg, ttalBin, taskFile, envParts, shellCfg)
 	default:
-		return buildClaudeCodeCmd(cfg, ttalBin, taskFile, task, envParts, shellCfg)
+		return "", fmt.Errorf("unsupported worker runtime: %q", cfg.Runtime)
 	}
 }
 
@@ -314,7 +289,12 @@ func buildOpenCodeCmd(ttalBin, taskFile string, envParts []string, shellCfg *con
 	return shellCfg.BuildEnvShellCommand(envParts, ocCmd), nil
 }
 
-func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string, shellCfg *config.Config) (string, error) {
+func buildCodexCmd(
+	cfg SpawnConfig,
+	ttalBin, taskFile string,
+	envParts []string,
+	shellCfg *config.Config,
+) (string, error) {
 	cxCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, runtime.Codex, launchcmd.Options{
 		CodexYolo: cfg.Yolo,
 	})
@@ -323,6 +303,42 @@ func buildCodexCmd(cfg SpawnConfig, ttalBin, taskFile string, envParts []string,
 	}
 
 	return shellCfg.BuildEnvShellCommand(envParts, cxCmd), nil
+}
+
+func injectSessionEnv(sessionName string, task *taskwarrior.Task, cfg SpawnConfig, taskrc string) {
+	setEnv := func(key, val string) {
+		if err := tmux.SetEnv(sessionName, key, val); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
+		}
+	}
+
+	setEnv("TTAL_JOB_ID", task.SessionID())
+
+	team := os.Getenv("TTAL_TEAM")
+	if team == "" {
+		team = "default"
+	}
+	setEnv("TTAL_TEAM", team)
+
+	if taskrc != "" {
+		setEnv("TASKRC", taskrc)
+	}
+
+	// Inject all .env secrets at session level (inherited by all windows).
+	dotEnv, err := config.LoadDotEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load .env secrets: %v\n", err)
+	} else {
+		for k, v := range dotEnv {
+			setEnv(k, v)
+		}
+	}
+
+	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON.
+	if cfg.Runtime == runtime.OpenCode && cfg.Yolo {
+		setEnv("OPENCODE_PERMISSION",
+			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
+	}
 }
 
 func writeTaskFile(
