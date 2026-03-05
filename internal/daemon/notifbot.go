@@ -136,8 +136,8 @@ func runNotifBotPoller(botToken, teamName string, chatID int64, done <-chan stru
 
 	// /help
 	b.RegisterHandlerMatchFunc(matchCommand("help"),
-		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
-			chatIDStr := fmt.Sprintf("%d", chatID)
+		func(_ context.Context, _ *bot.Bot, update *models.Update) {
+			chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
 			handleNotifHelp(botToken, chatIDStr)
 		})
 
