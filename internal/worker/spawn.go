@@ -327,35 +327,40 @@ func writeTaskFile(
 	task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string,
 	shellCfg *config.Config,
 ) (string, error) {
-	fullTask := task.FormatPrompt()
+	var b strings.Builder
 
+	// Worktree context (worker needs this immediately)
 	if cfg.Worktree && branch != "" {
-		worktreePrefix := fmt.Sprintf("IMPORTANT - You are in a git worktree:\n"+
+		fmt.Fprintf(&b, "IMPORTANT - You are in a git worktree:\n"+
 			"- Working directory: %s\n"+
 			"- Branch: %s\n"+
 			"- This is an isolated workspace for your task\n"+
 			"- STAY in this directory - do NOT cd to parent/main workspace\n"+
 			"- All your work should happen here\n"+
-			"- When done: commit, push, and create PR with `ttal pr create \"title\" --body \"description\"`\n"+
-			"\nYour task:\n\n", workDir, branch)
-		fullTask = worktreePrefix + fullTask
+			"- When done: commit, push, and create PR with `ttal pr create \"title\" --body \"description\"`\n\n",
+			workDir, branch)
 	}
 
-	// Prepend execute prompt from config (skill invocation at top for OpenCode compat)
+	// Execute prompt from config (skill invocation)
 	shortID := task.UUID
 	if len(shortID) > 8 {
 		shortID = shortID[:8]
 	}
 	executePrompt := shellCfg.RenderPrompt("execute", shortID, cfg.Runtime)
 	if executePrompt != "" {
-		fullTask = executePrompt + "\n\n" + fullTask
+		b.WriteString(executePrompt)
+		b.WriteString("\n\n")
 	}
+
+	// Task summary + instruction to get full context on demand
+	fmt.Fprintf(&b, "Task: %s\n\n", task.Description)
+	b.WriteString("Run `ttal task get` to see full task details, annotations, and referenced documentation.\n")
 
 	taskFile, err := os.CreateTemp("", "claude-task-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create task file: %w", err)
 	}
-	if _, err := taskFile.WriteString(fullTask); err != nil {
+	if _, err := taskFile.WriteString(b.String()); err != nil {
 		_ = taskFile.Close()
 		return "", fmt.Errorf("failed to write task file: %w", err)
 	}

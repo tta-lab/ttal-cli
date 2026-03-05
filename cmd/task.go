@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -29,9 +30,12 @@ var taskCmd = &cobra.Command{
 }
 
 var taskGetCmd = &cobra.Command{
-	Use:   "get <uuid>",
+	Use:   "get [uuid]",
 	Short: "Get formatted task prompt",
 	Long: `Export a taskwarrior task and format it as a rich prompt.
+
+When no UUID is given, reads from TTAL_JOB_ID environment variable
+(automatically set in worker sessions).
 
 Includes description, annotations, and inlined referenced documentation.
 Useful for piping to agents or debugging task content.
@@ -39,14 +43,25 @@ Useful for piping to agents or debugging task content.
 Accepts 8-char UUID prefixes or full UUIDs.
 
 Examples:
+  ttal task get              # uses $TTAL_JOB_ID
   ttal task get abc12345
   ttal task get abc12345 | ttal send --to eve --stdin`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := taskwarrior.ValidateUUID(args[0]); err != nil {
+		var uuid string
+		if len(args) > 0 {
+			uuid = args[0]
+		} else {
+			uuid = os.Getenv("TTAL_JOB_ID")
+			if uuid == "" {
+				return fmt.Errorf("no UUID given and TTAL_JOB_ID not set\n\n" +
+					"Either provide a UUID or run from a worker session")
+			}
+		}
+		if err := taskwarrior.ValidateUUID(uuid); err != nil {
 			return err
 		}
-		task, err := taskwarrior.ExportTask(args[0])
+		task, err := taskwarrior.ExportTask(uuid)
 		if err != nil {
 			return err
 		}
