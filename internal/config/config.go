@@ -138,7 +138,6 @@ type Config struct {
 	resolvedWorkerRuntime string
 	resolvedMergeMode     string
 	resolvedTeamPath      string
-	resolvedDBPath        string
 	resolvedProjectsPath  string
 	resolvedGatewayURL    string
 	resolvedHooksToken    string
@@ -150,10 +149,9 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
-	TeamPath             string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."`         //nolint:lll
-	DBPath               string                 `toml:"db_path" jsonschema:"description=Path to ttal.db (default: <data_dir>/ttal.db). Set to share DB across teams."` //nolint:lll
-	DataDir              string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`                               //nolint:lll
-	TaskRC               string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`                     //nolint:lll
+	TeamPath             string                 `toml:"team_path" jsonschema:"description=Root path for agent workspaces. Agent path = team_path/agent_name."` //nolint:lll
+	DataDir              string                 `toml:"data_dir" jsonschema:"description=ttal data directory (default: ~/.ttal/<team>)"`                       //nolint:lll
+	TaskRC               string                 `toml:"taskrc" jsonschema:"description=Taskwarrior config file path (default: <data_dir>/taskrc)"`             //nolint:lll
 	ChatID               string                 `toml:"chat_id" jsonschema:"description=Telegram chat ID for this team"`
 	LifecycleAgent       string                 `toml:"lifecycle_agent" jsonschema:"description=Deprecated: use notification_token_env instead"`                                                    //nolint:lll
 	NotificationTokenEnv string                 `toml:"notification_token_env" jsonschema:"description=Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)"` //nolint:lll
@@ -275,11 +273,6 @@ func (c *Config) AgentPath(agentName string) string {
 		return ""
 	}
 	return filepath.Join(c.resolvedTeamPath, agentName)
-}
-
-// DBPath returns the resolved database path for the active team.
-func (c *Config) DBPath() string {
-	return c.resolvedDBPath
 }
 
 // TeamName returns the resolved active team name.
@@ -591,13 +584,6 @@ func (c *Config) resolve() error {
 	}
 	c.resolvedTeamPath = expandHome(team.TeamPath)
 
-	// Resolve DBPath: explicit override > convention (<data_dir>/ttal.db)
-	if team.DBPath != "" {
-		c.resolvedDBPath = expandHome(team.DBPath)
-	} else {
-		c.resolvedDBPath = filepath.Join(c.resolvedDataDir, "ttal.db")
-	}
-
 	// Resolve ProjectsPath: colocated with config.toml in ~/.config/ttal/
 	c.resolvedProjectsPath = projectsPathForTeam(teamName)
 
@@ -870,7 +856,6 @@ func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
 var resolvedPaths struct {
 	once         sync.Once
 	dir          string
-	dbPath       string
 	projectsPath string
 }
 
@@ -879,12 +864,10 @@ func ensureResolvedPaths() {
 		cfg, err := Load()
 		if err != nil {
 			resolvedPaths.dir = defaultDataDir()
-			resolvedPaths.dbPath = filepath.Join(defaultDataDir(), "ttal.db")
 			resolvedPaths.projectsPath = filepath.Join(defaultConfigDir(), "projects.toml")
 			return
 		}
 		resolvedPaths.dir = cfg.resolvedDataDir
-		resolvedPaths.dbPath = cfg.resolvedDBPath
 		resolvedPaths.projectsPath = cfg.resolvedProjectsPath
 	})
 }
@@ -896,40 +879,6 @@ func ensureResolvedPaths() {
 func ResolveDataDir() string {
 	ensureResolvedPaths()
 	return resolvedPaths.dir
-}
-
-// ResolveDBPathForTeam returns the database path for a specific team name.
-// Unlike ResolveDBPath (which caches), this loads fresh config for the given team.
-func ResolveDBPathForTeam(teamName string) (string, error) {
-	cfg, err := Load()
-	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
-	}
-	return cfg.dbPathForTeam(teamName)
-}
-
-// dbPathForTeam resolves the database path for a given team name from config.
-func (c *Config) dbPathForTeam(teamName string) (string, error) {
-	team, ok := c.Teams[teamName]
-	if !ok {
-		return "", fmt.Errorf("team %q not found in config", teamName)
-	}
-
-	if team.DBPath != "" {
-		return expandHome(team.DBPath), nil
-	}
-
-	if teamName == DefaultTeamName {
-		return filepath.Join(defaultDataDir(), "ttal.db"), nil
-	}
-	return filepath.Join(defaultDataDir(), teamName, "ttal.db"), nil
-}
-
-// ResolveDBPath returns the database path for the active team without
-// requiring a full config load. Used by db.DefaultPath() and hook code.
-func ResolveDBPath() string {
-	ensureResolvedPaths()
-	return resolvedPaths.dbPath
 }
 
 // ResolveProjectsPath returns the projects.toml path for the active team.
