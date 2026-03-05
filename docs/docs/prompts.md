@@ -42,9 +42,8 @@ as all runtimes require skill invocations at the start of the message.
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `design` | `ttal task design` | `{{task-id}}`, `{{skill:name}}` |
-| `research` | `ttal task research` | `{{task-id}}`, `{{skill:name}}` |
-| `test` | `ttal task test` | `{{task-id}}`, `{{skill:name}}` |
+| `designer` | `ttal task design` / `ttal task route --to <agent>` | `{{task-id}}`, `{{skill:name}}` |
+| `researcher` | `ttal task research` / `ttal task route --to <agent>` | `{{task-id}}`, `{{skill:name}}` |
 | `execute` | `ttal task execute` | `{{task-id}}`, `{{skill:name}}` |
 | `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
@@ -58,21 +57,17 @@ The execute prompt is prepended to the worker's spawn prompt. When you run `ttal
 
 Default: invokes the executing-plans skill to implement the task step by step.
 
-### `design`
+### `designer`
 
-Controls what gets sent when you run `ttal task design <uuid>`. The design agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
+Controls what gets sent when you run `ttal task design <uuid>` or `ttal task route <uuid> --to <agent>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
 
 Default: asks the agent to write a plan document and annotate the task with its path.
 
-### `research`
+### `researcher`
 
-Controls what gets sent when you run `ttal task research <uuid>`. The research agent receives this prompt, investigates the topic, and writes findings.
+Controls what gets sent when you run `ttal task research <uuid>` or `ttal task route <uuid> --to <agent>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
 
 Default: asks the agent to research the topic and annotate the task with the findings path.
-
-### `test`
-
-Controls what gets sent when you run `ttal task test <uuid>`. The test agent receives this prompt and runs tests for the task.
 
 ### `triage`
 

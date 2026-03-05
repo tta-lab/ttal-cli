@@ -52,11 +52,11 @@
       "properties": {
         "designer": {
           "type": "string",
-          "description": "Prompt for designer role (was: design)"
+          "description": "Prompt for designer role"
         },
         "researcher": {
           "type": "string",
-          "description": "Prompt for researcher role (was: research)"
+          "description": "Prompt for researcher role"
         },
         "execute": {
           "type": "string",

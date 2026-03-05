@@ -32,14 +32,14 @@ Accepts 8-character UUID prefixes or full UUIDs.
 Route tasks to specialized agents based on what needs to happen:
 
 ```bash
-# Send to design agent — writes an implementation plan
+# Send to designer agent — writes an implementation plan
 ttal task design <uuid>
 
-# Send to research agent — investigates and writes findings
+# Send to researcher agent — investigates and writes findings
 ttal task research <uuid>
 
-# Send to test agent
-ttal task test <uuid>
+# Route to a specific agent by name
+ttal task route <uuid> --to <agent-name>
 
 # Spawn a worker to implement
 ttal task execute <uuid>
@@ -47,14 +47,22 @@ ttal task execute <uuid>
 
 ### Configuring route targets
 
-Set which agent handles each role in `config.toml`:
+Agents declare their role in CLAUDE.md frontmatter. The role maps to a `[prompts]` key:
 
-```toml
-[teams.default]
-design_agent = "inke"       # ttal task design → inke
-research_agent = "athena"   # ttal task research → athena
-test_agent = "sage"         # ttal task test → sage
+```yaml
+# In agent's CLAUDE.md frontmatter:
+---
+role: designer    # resolves via ttal task design
+---
 ```
+
+```yaml
+---
+role: researcher  # resolves via ttal task research
+---
+```
+
+Use `ttal task route <uuid> --to <agent>` to route to any agent by name (role determines which prompt is used).
 
 ## Today's focus
 

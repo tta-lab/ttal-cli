@@ -316,14 +316,14 @@ ttal task find <keyword> [keyword...]
 # Search completed tasks
 ttal task find <keyword> --completed
 
-# Route task to team's design agent (writes implementation plan)
+# Route task to designer agent (writes implementation plan)
 ttal task design <uuid>
 
-# Route task to team's research agent (researches and writes findings)
+# Route task to researcher agent (researches and writes findings)
 ttal task research <uuid>
 
-# Route task to team's test agent (integration test end-to-end)
-ttal task test <uuid>
+# Route task to a specific agent by name
+ttal task route <uuid> --to <agent-name>
 
 # Spawn a worker to execute a task (replaces hook-based spawning)
 ttal task execute <uuid>
@@ -333,16 +333,16 @@ ttal task execute <uuid>
 
 #### Task Routing
 
-The `design`, `research`, and `test` subcommands route tasks to named agents configured per team in `config.toml`:
+The `design` and `research` subcommands resolve agents by their `role` field in CLAUDE.md frontmatter. Use `ttal task route` for explicit routing to any agent:
 
-```toml
-[teams.default]
-design_agent = "inke"       # ttal task design → inke
-research_agent = "athena"   # ttal task research → athena
-test_agent = "sage"         # ttal task test → sage
+```yaml
+# In an agent's CLAUDE.md frontmatter:
+---
+role: designer
+---
 ```
 
-Each command sends a role-tagged message (e.g., `[task design]`) with the UUID, description, and completion instructions. The agent gets full context via `ttal task get`. If the agent isn't configured, the command shows an actionable error with the exact TOML snippet to add.
+The agent's role determines which `[prompts]` key is used. Each command sends a role-tagged message with the UUID, description, and completion instructions. If no agent has the required role, the error suggests using `ttal task route` instead.
 
 ### Daemon Setup
 

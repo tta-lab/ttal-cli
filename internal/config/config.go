@@ -17,8 +17,8 @@ import (
 // Supports {{task-id}} and {{skill:name}} template variables.
 // Role-based keys (designer, researcher) match agent frontmatter role values.
 type PromptsConfig struct {
-	Designer   string `toml:"designer" jsonschema:"description=Prompt for designer role (was: design)"`
-	Researcher string `toml:"researcher" jsonschema:"description=Prompt for researcher role (was: research)"`
+	Designer   string `toml:"designer" jsonschema:"description=Prompt for designer role"`
+	Researcher string `toml:"researcher" jsonschema:"description=Prompt for researcher role"`
 	Execute    string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
 	Triage     string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`
 	Review     string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
