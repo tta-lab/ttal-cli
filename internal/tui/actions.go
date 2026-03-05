@@ -157,6 +157,32 @@ func annotateTask(uuid, text string) tea.Cmd {
 	}
 }
 
+func toggleNext(t *Task) tea.Cmd {
+	return func() tea.Msg {
+		hasNext := false
+		for _, tag := range t.Tags {
+			if tag == "next" {
+				hasNext = true
+				break
+			}
+		}
+		var modifier string
+		var message string
+		if hasNext {
+			modifier = "-next"
+			message = "Removed +next tag"
+		} else {
+			modifier = "+next"
+			message = "Added +next tag"
+		}
+		cmd := taskwarrior.Command(t.UUID, "modify", modifier)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return actionResultMsg{err: fmt.Errorf("toggle next: %s", strings.TrimSpace(string(out)))}
+		}
+		return actionResultMsg{message: message, refresh: true}
+	}
+}
+
 // resolveWorkDir finds the working directory for a task (worktree or project root).
 func resolveWorkDir(t *Task) string {
 	if t.Branch != "" {

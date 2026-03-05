@@ -32,6 +32,7 @@ const (
 	keyDone
 	keyModify
 	keyAnnotate
+	keyToggleNext
 )
 
 var keyMap = map[string]keyAction{
@@ -45,9 +46,10 @@ var keyMap = map[string]keyAction{
 	"esc":    keyEsc,
 	"x":      keyExecute,
 	"r":      keyRoute,
-	"o":      keyOpenPR,
+	"p":      keyOpenPR,
 	"s":      keyOpenSession,
-	"t":      keyOpenTerm,
+	"o":      keyOpenTerm,
+	"t":      keyToggleNext,
 	"e":      keyOpenEditor,
 	"a":      keyAddToday,
 	"ctrl+a": keyRemoveToday,
@@ -88,9 +90,10 @@ const helpText = `Key Bindings:
   d               Mark task done
   m               Modify task
   A               Annotate task
-  o               Open PR in browser
+  p               Open PR in browser
   s               Attach tmux session
-  t               Open terminal
+  o               Open terminal
+  t               Toggle +next tag
   e               Open editor
 
   a               Add to today
