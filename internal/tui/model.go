@@ -135,6 +135,7 @@ type Model struct {
 	// Status
 	statusMsg string
 	loading   bool
+	teamName  string
 }
 
 // NewModel creates the initial TUI model.
@@ -163,6 +164,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.cfg = msg.cfg
 		m.agents = msg.agents
+		if msg.cfg != nil {
+			m.teamName = msg.cfg.TeamName()
+		}
 		return m, nil
 
 	case tasksLoadedMsg:

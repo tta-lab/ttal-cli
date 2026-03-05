@@ -95,7 +95,11 @@ func formatDate(s string) string {
 
 func (m Model) viewHelp() string {
 	var b strings.Builder
-	b.WriteString(styleTitle.Render(" ttal tui — Help"))
+	teamLabel := m.teamName
+	if teamLabel == "" {
+		teamLabel = "default"
+	}
+	b.WriteString(styleTitle.Render(fmt.Sprintf(" TTal [%s] — Help", teamLabel)))
 	b.WriteString("\n\n")
 	b.WriteString(helpText)
 	b.WriteString("\n\n")
