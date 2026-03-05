@@ -87,6 +87,7 @@ func Run() error {
 
 	startupWg.Wait()
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
+	startNotificationPollers(mcfg, done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, registry, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, mt, done)
@@ -141,6 +142,15 @@ func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.T
 		}
 		if _, ok := tokenAgent[ta.Config.BotToken]; !ok {
 			tokenAgent[ta.Config.BotToken] = ta.AgentName
+		}
+	}
+	// Include notification bot tokens so they also get command menus.
+	for teamName, team := range mcfg.Teams {
+		if team.NotificationToken == "" {
+			continue
+		}
+		if _, ok := tokenAgent[team.NotificationToken]; !ok {
+			tokenAgent[team.NotificationToken] = teamName + "-notify"
 		}
 	}
 
