@@ -38,15 +38,13 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	claudeCmd := fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
-		ttalBin, promptFile)
+	reviewerCmd := buildReviewerRuntimeCmd(ttalBin, promptFile, rt)
 
 	envParts := []string{"TTAL_ROLE=reviewer"}
 	if rtEnv := os.Getenv("TTAL_RUNTIME"); rtEnv != "" {
 		envParts = append(envParts, "TTAL_RUNTIME="+rtEnv)
 	}
-	shellCmd := cfg.BuildEnvShellCommand(envParts, claudeCmd)
+	shellCmd := cfg.BuildEnvShellCommand(envParts, reviewerCmd)
 
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -106,6 +104,25 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 		"{{branch}}", ctx.Task.Branch,
 	)
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
+}
+
+// buildReviewerRuntimeCmd returns the runtime-specific reviewer launch command.
+// Reviewers always run in permissive mode to avoid interactive permission stalls.
+func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) string {
+	switch rt {
+	case runtime.OpenCode:
+		return fmt.Sprintf(
+			"%s worker gatekeeper --task-file %s -- opencode --prompt",
+			ttalBin, promptFile)
+	case runtime.Codex:
+		return fmt.Sprintf(
+			"%s worker gatekeeper --task-file %s -- codex --yolo --prompt",
+			ttalBin, promptFile)
+	default:
+		return fmt.Sprintf(
+			"%s worker gatekeeper --task-file %s -- claude --model opus --dangerously-skip-permissions --",
+			ttalBin, promptFile)
+	}
 }
 
 func writePromptFile(prompt string) (string, error) {
