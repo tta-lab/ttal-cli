@@ -264,7 +264,10 @@ func handleCIStatus(
 
 // checkMergeConflict notifies the worker once per conflict episode.
 // Returns the updated conflictNotified flag.
-func checkMergeConflict(pr *gitprovider.PullRequest, target prWatchTarget, mcfg *config.DaemonConfig, alreadyNotified bool) bool {
+func checkMergeConflict(
+	pr *gitprovider.PullRequest, target prWatchTarget,
+	mcfg *config.DaemonConfig, alreadyNotified bool,
+) bool {
 	if pr.Mergeable {
 		return false
 	}
