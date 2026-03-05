@@ -1,8 +1,8 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://ttal.guion.io/schema/config.schema.json",
-  "$ref": "#/$defs/Config",
-  "$defs": {
+  "$ref": "#/definitions/Config",
+  "definitions": {
     "AgentConfig": {
       "properties": {
         "bot_token_env": {
@@ -47,15 +47,15 @@
           "description": "Shell for spawning workers"
         },
         "sync": {
-          "$ref": "#/$defs/SyncConfig",
+          "$ref": "#/definitions/SyncConfig",
           "description": "Paths for subagent and skill deployment"
         },
         "prompts": {
-          "$ref": "#/$defs/PromptsConfig",
+          "$ref": "#/definitions/PromptsConfig",
           "description": "Prompt templates for task routing"
         },
         "flicknote": {
-          "$ref": "#/$defs/FlicknoteConfig",
+          "$ref": "#/definitions/FlicknoteConfig",
           "description": "Flicknote integration settings"
         },
         "default_team": {
@@ -64,7 +64,7 @@
         },
         "teams": {
           "additionalProperties": {
-            "$ref": "#/$defs/TeamConfig"
+            "$ref": "#/definitions/TeamConfig"
           },
           "type": "object",
           "description": "Per-team configuration sections"
@@ -233,7 +233,7 @@
         },
         "agents": {
           "additionalProperties": {
-            "$ref": "#/$defs/AgentConfig"
+            "$ref": "#/definitions/AgentConfig"
           },
           "type": "object",
           "description": "Per-agent credentials for this team"
