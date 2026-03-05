@@ -16,68 +16,73 @@ func (m Model) viewTaskDetail() string {
 	b.WriteString(styleTitle.Render(" Task Detail"))
 	b.WriteString("\n\n")
 
-	// Metadata
-	b.WriteString(fmt.Sprintf("  %s  %s\n", styleDim.Render("UUID:"), t.UUID))
-	b.WriteString(fmt.Sprintf("  %s    %s\n", styleDim.Render("ID:"), fmt.Sprintf("%d", t.ID)))
-	b.WriteString(fmt.Sprintf("  %s  %s\n", styleDim.Render("Desc:"), t.Description))
-	b.WriteString(fmt.Sprintf("  %s %s\n", styleDim.Render("Status:"), t.Status))
+	// Core fields
+	field(&b, "UUID:", "  ", t.UUID)
+	field(&b, "ID:", "    ", fmt.Sprintf("%d", t.ID))
+	field(&b, "Desc:", "  ", t.Description)
+	field(&b, "Status:", " ", t.Status)
 
-	if t.Project != "" {
-		b.WriteString(fmt.Sprintf("  %s   %s\n", styleDim.Render("Proj:"), t.Project))
-	}
-	if t.Priority != "" {
-		b.WriteString(fmt.Sprintf("  %s  %s\n", styleDim.Render("Prior:"), priorityStyle(t.Priority).Render(t.Priority)))
-	}
-	if len(t.Tags) > 0 {
-		b.WriteString(fmt.Sprintf("  %s  %s\n", styleDim.Render("Tags:"), styleTag.Render(strings.Join(t.Tags, ", "))))
-	}
-	if t.Urgency != 0 {
-		b.WriteString(fmt.Sprintf("  %s   %s\n", styleDim.Render("Urg:"), fmt.Sprintf("%.1f", t.Urgency)))
-	}
+	writeOptionalFields(&b, t)
+	writeAnnotations(&b, t)
 
-	// Worker UDAs
-	if t.Branch != "" {
-		b.WriteString(fmt.Sprintf("  %s %s\n", styleDim.Render("Branch:"), t.Branch))
-	}
-	if t.ProjectPath != "" {
-		b.WriteString(fmt.Sprintf("  %s   %s\n", styleDim.Render("Path:"), t.ProjectPath))
-	}
-	if t.PRID != "" {
-		b.WriteString(fmt.Sprintf("  %s    %s\n", styleDim.Render("PR:"), "#"+t.PRID))
-	}
-	if t.Spawner != "" {
-		b.WriteString(fmt.Sprintf("  %s %s\n", styleDim.Render("Spawner:"), t.Spawner))
-	}
-
-	// Dates
-	if t.Scheduled != "" {
-		b.WriteString(fmt.Sprintf("  %s %s\n", styleDim.Render("Sched:"), formatDate(t.Scheduled)))
-	}
-	if t.Due != "" {
-		b.WriteString(fmt.Sprintf("  %s   %s\n", styleDim.Render("Due:"), formatDate(t.Due)))
-	}
-	if t.Start != "" {
-		b.WriteString(fmt.Sprintf("  %s %s\n", styleDim.Render("Started:"), formatDate(t.Start)))
-	}
-
-	// Annotations
-	if len(t.Annotations) > 0 {
-		b.WriteString("\n  " + styleTitle.Render("Annotations") + "\n")
-		for _, ann := range t.Annotations {
-			date := ""
-			if ann.Entry != "" {
-				date = styleDim.Render(formatDate(ann.Entry) + " ")
-			}
-			b.WriteString(fmt.Sprintf("  %s%s\n", date, ann.Description))
-		}
-	}
-
-	// Available actions
 	b.WriteString("\n")
-	actions := styleDim.Render("  x:execute  r:route  o:PR  s:session  t:term  e:editor  a:today  Esc:back")
-	b.WriteString(actions)
+	b.WriteString(styleDim.Render("  x:execute  r:route  o:PR  s:session  t:term  e:editor  a:today  Esc:back"))
 
 	return m.padToHeight(b.String()) + m.viewStatusBar()
+}
+
+func writeOptionalFields(b *strings.Builder, t *Task) {
+	if t.Project != "" {
+		field(b, "Proj:", "   ", t.Project)
+	}
+	if t.Priority != "" {
+		field(b, "Prior:", "  ", priorityStyle(t.Priority).Render(t.Priority))
+	}
+	if len(t.Tags) > 0 {
+		field(b, "Tags:", "  ", styleTag.Render(strings.Join(t.Tags, ", ")))
+	}
+	if t.Urgency != 0 {
+		field(b, "Urg:", "   ", fmt.Sprintf("%.1f", t.Urgency))
+	}
+	if t.Branch != "" {
+		field(b, "Branch:", " ", t.Branch)
+	}
+	if t.ProjectPath != "" {
+		field(b, "Path:", "   ", t.ProjectPath)
+	}
+	if t.PRID != "" {
+		field(b, "PR:", "    ", "#"+t.PRID)
+	}
+	if t.Spawner != "" {
+		field(b, "Spawner:", " ", t.Spawner)
+	}
+	if t.Scheduled != "" {
+		field(b, "Sched:", " ", formatDate(t.Scheduled))
+	}
+	if t.Due != "" {
+		field(b, "Due:", "   ", formatDate(t.Due))
+	}
+	if t.Start != "" {
+		field(b, "Started:", " ", formatDate(t.Start))
+	}
+}
+
+func writeAnnotations(b *strings.Builder, t *Task) {
+	if len(t.Annotations) == 0 {
+		return
+	}
+	b.WriteString("\n  " + styleTitle.Render("Annotations") + "\n")
+	for _, ann := range t.Annotations {
+		date := ""
+		if ann.Entry != "" {
+			date = styleDim.Render(formatDate(ann.Entry) + " ")
+		}
+		fmt.Fprintf(b, "  %s%s\n", date, ann.Description)
+	}
+}
+
+func field(b *strings.Builder, label, pad, value string) {
+	fmt.Fprintf(b, "  %s%s%s\n", styleDim.Render(label), pad, value)
 }
 
 func formatDate(s string) string {

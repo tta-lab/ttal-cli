@@ -119,9 +119,7 @@ type Model struct {
 
 	// Status
 	statusMsg string
-	err       error
 	loading   bool
-	showHelp  bool
 }
 
 // NewModel creates the initial TUI model.
@@ -213,12 +211,9 @@ func (m Model) View() tea.View {
 }
 
 func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	// Route input mode handles keys differently
 	if m.state == stateRouteInput {
 		return m.handleRouteKey(msg)
 	}
-
-	// Search mode handles keys differently
 	if m.state == stateSearch {
 		return m.handleSearchKey(msg)
 	}
@@ -232,7 +227,22 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, tea.Quit
+	case keyEsc:
+		if m.state != stateTaskList {
+			m.state = stateTaskList
+		}
+		return m, nil
+	}
 
+	if m.handleNavigation(action) {
+		return m, nil
+	}
+
+	return m.handleAction(action)
+}
+
+func (m *Model) handleNavigation(action keyAction) bool {
+	switch action {
 	case keyUp:
 		m.moveCursor(-1)
 	case keyDown:
@@ -253,16 +263,18 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.cursor = len(m.filtered) - 1
 			m.ensureCursorVisible()
 		}
-
 	case keyEnter:
 		if len(m.filtered) > 0 {
 			m.state = stateTaskDetail
 		}
-	case keyEsc:
-		if m.state != stateTaskList {
-			m.state = stateTaskList
-		}
+	default:
+		return false
+	}
+	return true
+}
 
+func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
+	switch action {
 	case keyExecute:
 		if t := m.selectedTask(); t != nil {
 			return m, executeTask(t.UUID)
@@ -316,7 +328,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.loading = true
 		return m, loadTasks(m.filter, m.searchStr)
 	}
-
 	return m, nil
 }
 

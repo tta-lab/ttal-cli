@@ -31,55 +31,40 @@ const (
 	keyBottom
 )
 
+var keyMap = map[string]keyAction{
+	"q":      keyQuit,
+	"ctrl+c": keyQuit,
+	"k":      keyUp,
+	"up":     keyUp,
+	"j":      keyDown,
+	"down":   keyDown,
+	"enter":  keyEnter,
+	"esc":    keyEsc,
+	"x":      keyExecute,
+	"r":      keyRoute,
+	"o":      keyOpenPR,
+	"s":      keyOpenSession,
+	"t":      keyOpenTerm,
+	"e":      keyOpenEditor,
+	"a":      keyAddToday,
+	"A":      keyRemoveToday,
+	"f":      keyFilter,
+	"/":      keySearch,
+	"?":      keyHelp,
+	"ctrl+r": keyRefresh,
+	"ctrl+f": keyPageDown,
+	"pgdown": keyPageDown,
+	"ctrl+b": keyPageUp,
+	"pgup":   keyPageUp,
+	"ctrl+d": keyHalfPageDown,
+	"ctrl+u": keyHalfPageUp,
+	"g":      keyTop,
+	"G":      keyBottom,
+}
+
 func resolveKey(msg tea.KeyPressMsg) keyAction {
-	s := msg.String()
-	switch s {
-	case "q", "ctrl+c":
-		return keyQuit
-	case "k", "up":
-		return keyUp
-	case "j", "down":
-		return keyDown
-	case "enter":
-		return keyEnter
-	case "esc":
-		return keyEsc
-	case "x":
-		return keyExecute
-	case "r":
-		return keyRoute
-	case "o":
-		return keyOpenPR
-	case "s":
-		return keyOpenSession
-	case "t":
-		return keyOpenTerm
-	case "e":
-		return keyOpenEditor
-	case "a":
-		return keyAddToday
-	case "A":
-		return keyRemoveToday
-	case "f":
-		return keyFilter
-	case "/":
-		return keySearch
-	case "?":
-		return keyHelp
-	case "ctrl+r":
-		return keyRefresh
-	case "ctrl+f", "pgdown":
-		return keyPageDown
-	case "ctrl+b", "pgup":
-		return keyPageUp
-	case "ctrl+d":
-		return keyHalfPageDown
-	case "ctrl+u":
-		return keyHalfPageUp
-	case "g":
-		return keyTop
-	case "G":
-		return keyBottom
+	if action, ok := keyMap[msg.String()]; ok {
+		return action
 	}
 	return keyNone
 }

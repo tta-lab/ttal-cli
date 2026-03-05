@@ -10,7 +10,7 @@ func (m Model) viewRouteOverlay(background string) string {
 
 	b.WriteString(styleTitle.Render("Route to Agent"))
 	b.WriteString("\n\n")
-	b.WriteString(fmt.Sprintf("  > %s_\n\n", m.routeInput))
+	fmt.Fprintf(&b, "  > %s_\n\n", m.routeInput)
 
 	if len(m.routeMatches) == 0 {
 		b.WriteString(styleDim.Render("  No matching agents"))

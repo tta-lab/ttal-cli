@@ -3,14 +3,13 @@ package tui
 import "charm.land/lipgloss/v2"
 
 var (
-	colorDim     = lipgloss.Color("241")
-	colorAccent  = lipgloss.Color("99")
-	colorRed     = lipgloss.Color("196")
-	colorYellow  = lipgloss.Color("220")
-	colorGreen   = lipgloss.Color("78")
-	colorCyan    = lipgloss.Color("86")
-	colorSubtle  = lipgloss.Color("245")
-	colorOverlay = lipgloss.Color("236")
+	colorDim    = lipgloss.Color("241")
+	colorAccent = lipgloss.Color("99")
+	colorRed    = lipgloss.Color("196")
+	colorYellow = lipgloss.Color("220")
+	colorGreen  = lipgloss.Color("78")
+	colorCyan   = lipgloss.Color("86")
+	colorSubtle = lipgloss.Color("245")
 
 	styleTitle = lipgloss.NewStyle().
 			Bold(true).
