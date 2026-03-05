@@ -128,3 +128,69 @@ func TestBuildLaunchCmd_RejectsUnsupportedRuntime(t *testing.T) {
 		t.Fatalf("expected unsupported runtime error, got: %v", err)
 	}
 }
+
+func TestResolveRuntime(t *testing.T) {
+	tests := []struct {
+		name     string
+		configRT runtime.Runtime
+		taskTags []string
+		want     runtime.Runtime
+	}{
+		{
+			name:     "explicit opencode config wins over codex tag",
+			configRT: runtime.OpenCode,
+			taskTags: []string{"codex"},
+			want:     runtime.OpenCode,
+		},
+		{
+			name:     "opencode tag switches runtime when config empty",
+			configRT: "",
+			taskTags: []string{"opencode"},
+			want:     runtime.OpenCode,
+		},
+		{
+			name:     "oc alias switches runtime",
+			configRT: "",
+			taskTags: []string{"oc"},
+			want:     runtime.OpenCode,
+		},
+		{
+			name:     "codex tag switches runtime when config empty",
+			configRT: "",
+			taskTags: []string{"codex"},
+			want:     runtime.Codex,
+		},
+		{
+			name:     "cx alias switches runtime",
+			configRT: "",
+			taskTags: []string{"cx"},
+			want:     runtime.Codex,
+		},
+		{
+			name:     "claude-code with opencode tag switches to opencode",
+			configRT: runtime.ClaudeCode,
+			taskTags: []string{"opencode"},
+			want:     runtime.OpenCode,
+		},
+		{
+			name:     "claude-code with codex tag switches to codex",
+			configRT: runtime.ClaudeCode,
+			taskTags: []string{"codex"},
+			want:     runtime.Codex,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &taskwarrior.Task{
+				UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
+				Description: "test task",
+				Tags:        tt.taskTags,
+			}
+			got := resolveRuntime(tt.configRT, task)
+			if got != tt.want {
+				t.Errorf("resolveRuntime(%q, %v) = %q, want %q", tt.configRT, tt.taskTags, got, tt.want)
+			}
+		})
+	}
+}

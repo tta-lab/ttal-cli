@@ -21,6 +21,11 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model opus --dangerously-skip-permissions --",
 		},
 		{
+			name: "opencode uses reviewer prompt flag",
+			rt:   runtime.OpenCode,
+			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt",
+		},
+		{
 			name: "codex uses reviewer yolo mode",
 			rt:   runtime.Codex,
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex --yolo --prompt",

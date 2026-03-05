@@ -15,6 +15,7 @@ func TestValidateRuntime(t *testing.T) {
 	}{
 		{"claude-code maps to claude binary", runtime.ClaudeCode, "claude"},
 		{"opencode maps to opencode binary", runtime.OpenCode, "opencode"},
+		{"codex maps to codex binary", runtime.Codex, "codex"},
 	}
 
 	for _, tt := range tests {
