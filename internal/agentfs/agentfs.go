@@ -18,6 +18,7 @@ type AgentInfo struct {
 	Voice       string // Kokoro TTS voice ID
 	Emoji       string // display emoji
 	Description string // short role summary
+	Role        string // e.g. designer, researcher — matches [prompts] key
 }
 
 // Discover scans teamPath for agent directories (subdirs with CLAUDE.md).
@@ -47,6 +48,7 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 			info.Voice = fm["voice"]
 			info.Emoji = fm["emoji"]
 			info.Description = fm["description"]
+			info.Role = fm["role"]
 		}
 
 		agents = append(agents, info)
@@ -76,9 +78,25 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 		info.Voice = fm["voice"]
 		info.Emoji = fm["emoji"]
 		info.Description = fm["description"]
+		info.Role = fm["role"]
 	}
 
 	return info, nil
+}
+
+// FindByRole returns all agents with a matching role field.
+func FindByRole(teamPath, role string) ([]AgentInfo, error) {
+	agents, err := Discover(teamPath)
+	if err != nil {
+		return nil, err
+	}
+	var matches []AgentInfo
+	for _, a := range agents {
+		if a.Role == role {
+			matches = append(matches, a)
+		}
+	}
+	return matches, nil
 }
 
 // Count returns the number of agent directories in teamPath.

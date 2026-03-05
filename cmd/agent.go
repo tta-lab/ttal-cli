@@ -18,6 +18,7 @@ var (
 	agentVoice       string
 	agentEmoji       string
 	agentDescription string
+	agentRole        string
 )
 
 // resolveTeamPath loads config and returns the active team's team_path.
@@ -81,7 +82,7 @@ Example:
 
 		// Build CLAUDE.md with optional frontmatter
 		var sb strings.Builder
-		hasFm := agentVoice != "" || agentEmoji != "" || agentDescription != ""
+		hasFm := agentVoice != "" || agentEmoji != "" || agentDescription != "" || agentRole != ""
 		if hasFm {
 			sb.WriteString("---\n")
 			if agentDescription != "" {
@@ -89,6 +90,9 @@ Example:
 			}
 			if agentEmoji != "" {
 				fmt.Fprintf(&sb, "emoji: %s\n", agentEmoji)
+			}
+			if agentRole != "" {
+				fmt.Fprintf(&sb, "role: %s\n", agentRole)
 			}
 			if agentVoice != "" {
 				if !voice.IsValidVoice(agentVoice) {
@@ -129,13 +133,13 @@ var agentListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tDESCRIPTION")
+		_, _ = fmt.Fprintln(w, "NAME\tROLE\tDESCRIPTION")
 		for _, a := range agents {
 			name := a.Name
 			if a.Emoji != "" {
 				name = a.Emoji + " " + a.Name
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\n", name, a.Description)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", name, a.Role, a.Description)
 		}
 		_ = w.Flush()
 
@@ -170,8 +174,11 @@ Example:
 		}
 		fmt.Printf("Name:      %s\n", displayName)
 		fmt.Printf("Path:      %s\n", ag.Path)
+		if ag.Role != "" {
+			fmt.Printf("Role:      %s\n", ag.Role)
+		}
 		if ag.Description != "" {
-			fmt.Printf("Role:      %s\n", ag.Description)
+			fmt.Printf("About:     %s\n", ag.Description)
 		}
 		if ag.Voice != "" {
 			fmt.Printf("Voice:     %s\n", ag.Voice)
@@ -215,10 +222,10 @@ Examples:
 				if !voice.IsValidVoice(value) {
 					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
 				}
-			case "emoji", "description":
+			case "emoji", "description", "role":
 				// valid fields
 			default:
-				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description)", field)
+				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, role)", field)
 			}
 
 			if err := agentfs.SetField(teamPath, name, field, value); err != nil {
@@ -277,4 +284,5 @@ func init() {
 	agentAddCmd.Flags().StringVar(&agentVoice, "voice", "", "Kokoro TTS voice ID (e.g. af_heart, af_sky)")
 	agentAddCmd.Flags().StringVar(&agentEmoji, "emoji", "", "Display emoji (e.g. 🐱, 🦅)")
 	agentAddCmd.Flags().StringVar(&agentDescription, "description", "", "Short role summary")
+	agentAddCmd.Flags().StringVar(&agentRole, "role", "", "Agent role (matches [prompts] key, e.g. designer, researcher)")
 }

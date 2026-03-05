@@ -29,15 +29,14 @@ ttal agent add inke +design
 ttal agent add kestrel +core +backend
 ```
 
-Configure routing in `config.toml`:
+Set roles in agent frontmatter so routing resolves automatically:
 
-```toml
-[teams.default]
-design_agent = "inke"
-research_agent = "athena"
+```bash
+ttal agent modify inke role:designer
+ttal agent modify athena role:researcher
 ```
 
-Now `ttal task research <uuid>` goes to Athena, `ttal task design <uuid>` goes to Inke, and `ttal task execute <uuid>` spawns a worker.
+Now `ttal task design <uuid>` goes to Inke (role: designer), `ttal task research <uuid>` goes to Athena (role: researcher), and `ttal task execute <uuid>` spawns a worker.
 
 **Best for:** Complex projects where tasks benefit from investigation and planning before implementation.
 

@@ -15,33 +15,28 @@ import (
 
 // PromptsConfig holds configurable prompt templates for task routing and worker spawn.
 // Supports {{task-id}} and {{skill:name}} template variables.
+// Role-based keys (designer, researcher) match agent frontmatter role values.
 type PromptsConfig struct {
-	Design   string `toml:"design" jsonschema:"description=Prompt for design agent"`
-	Research string `toml:"research" jsonschema:"description=Prompt for research agent"`
-	Test     string `toml:"test" jsonschema:"description=Prompt for test agent"`
-	Execute  string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
-	Triage   string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`
-	Review   string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
-	ReReview string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
+	Designer   string `toml:"designer" jsonschema:"description=Prompt for designer role"`
+	Researcher string `toml:"researcher" jsonschema:"description=Prompt for researcher role"`
+	Execute    string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
+	Triage     string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                             //nolint:lll
+	Review     string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
+	ReReview   string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
 }
 
 // DefaultPrompts returns sensible defaults for all prompt templates.
 func DefaultPrompts() PromptsConfig {
 	return PromptsConfig{
-		Design: `{{skill:sp-writing-plans}}
+		Designer: `{{skill:sp-writing-plans}}
 Write an implementation plan for this task.
 
 When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'`,
 
-		Research: `{{skill:tell-me-more}}
+		Researcher: `{{skill:tell-me-more}}
 Research this topic thoroughly.
 
 When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'`,
-
-		Test: `{{skill:sp-tdd}}
-Integration test this end-to-end.
-
-When done: task {{task-id}} annotate 'Tested: <pass/fail summary>'`,
 
 		Execute: `{{skill:sp-executing-plans}}
 Use the executing-plans skill to implement this plan task-by-task.
@@ -141,9 +136,6 @@ type Config struct {
 	resolvedProjectsPath  string
 	resolvedGatewayURL    string
 	resolvedHooksToken    string
-	resolvedDesignAgent   string
-	resolvedResearchAgent string
-	resolvedTestAgent     string
 	resolvedTaskSyncURL   string
 }
 
@@ -161,12 +153,9 @@ type TeamConfig struct {
 	HooksToken           string                 `toml:"hooks_token" jsonschema:"description=OpenClaw hooks auth token"`
 	MergeMode            string                 `toml:"merge_mode" jsonschema:"enum=auto,enum=manual,description=PR merge mode override for this team"`                  //nolint:lll
 	VoiceLanguage        string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
-	DesignAgent          string                 `toml:"design_agent" jsonschema:"description=Design/brainstorm agent"`
-	ResearchAgent        string                 `toml:"research_agent" jsonschema:"description=Research agent"`
-	TestAgent            string                 `toml:"test_agent" jsonschema:"description=Test writing agent"`
-	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                  //nolint:lll
-	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"` //nolint:lll
-	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`            //nolint:lll
+	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                             //nolint:lll
+	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`            //nolint:lll
+	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"`                       //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -310,21 +299,6 @@ func (c *Config) HooksToken() string {
 	return c.resolvedHooksToken
 }
 
-// DesignAgent returns the team's design agent name.
-func (c *Config) DesignAgent() string {
-	return c.resolvedDesignAgent
-}
-
-// ResearchAgent returns the team's research agent name.
-func (c *Config) ResearchAgent() string {
-	return c.resolvedResearchAgent
-}
-
-// TestAgent returns the team's test agent name.
-func (c *Config) TestAgent() string {
-	return c.resolvedTestAgent
-}
-
 // TaskSyncURL returns the TaskChampion sync server URL for the active team.
 func (c *Config) TaskSyncURL() string {
 	return c.resolvedTaskSyncURL
@@ -359,21 +333,16 @@ func (c *Config) GetMergeMode() string {
 func (c *Config) Prompt(key string) string {
 	defaults := DefaultPrompts()
 	switch key {
-	case "design":
-		if c.Prompts.Design != "" {
-			return c.Prompts.Design
+	case "designer":
+		if c.Prompts.Designer != "" {
+			return c.Prompts.Designer
 		}
-		return defaults.Design
-	case "research":
-		if c.Prompts.Research != "" {
-			return c.Prompts.Research
+		return defaults.Designer
+	case "researcher":
+		if c.Prompts.Researcher != "" {
+			return c.Prompts.Researcher
 		}
-		return defaults.Research
-	case "test":
-		if c.Prompts.Test != "" {
-			return c.Prompts.Test
-		}
-		return defaults.Test
+		return defaults.Researcher
 	case "execute":
 		if c.Prompts.Execute != "" {
 			return c.Prompts.Execute
@@ -580,9 +549,6 @@ func (c *Config) resolve() error {
 	c.resolvedWorkerRuntime = team.WorkerRuntime
 	c.resolvedGatewayURL = team.GatewayURL
 	c.resolvedHooksToken = team.HooksToken
-	c.resolvedDesignAgent = team.DesignAgent
-	c.resolvedResearchAgent = team.ResearchAgent
-	c.resolvedTestAgent = team.TestAgent
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
 	// Validate worker_runtime is not openclaw (agent-only)
@@ -963,24 +929,19 @@ default_team = "default"
 # Configurable prompts for task routing and worker spawn.
 # Supports {{task-id}} and {{skill:name}} template variables.
 # {{skill:name}} resolves to /name (CC/OC) or $name (Codex) based on agent runtime.
+# Role keys match agent frontmatter role values (e.g. role: designer → [prompts] designer).
 [prompts]
-design = """
+designer = """
 {{skill:sp-writing-plans}}
 Write an implementation plan for this task.
 
 When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'"""
 
-research = """
+researcher = """
 {{skill:tell-me-more}}
 Research this topic thoroughly.
 
 When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'"""
-
-test = """
-{{skill:sp-tdd}}
-Integration test this end-to-end.
-
-When done: task {{task-id}} annotate 'Tested: <pass/fail summary>'"""
 
 execute = """
 {{skill:sp-executing-plans}}
@@ -993,10 +954,7 @@ Follow each task in order: read the plan, make changes, verify, commit."""
 [teams.default]
 chat_id = ""                 # Telegram chat ID for this team
 team_path = ""               # Root path for agent workspaces
-design_agent = "inke"        # Agent for ttal task design
-research_agent = "athena"    # Agent for ttal task research
 # notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"  # optional override
-# test_agent = ""            # Agent for ttal task test
 # worker_runtime = "claude-code"
 # agent_runtime = "claude-code"
 # merge_mode = "auto"

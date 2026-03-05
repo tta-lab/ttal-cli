@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
@@ -13,6 +15,46 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
+
+var routeToAgent string
+
+var taskRouteCmd = &cobra.Command{
+	Use:   "route <uuid>",
+	Short: "Route task to a specific agent",
+	Long: `Route a task to a named agent. The agent's role (from CLAUDE.md frontmatter)
+determines which prompt template is used.
+
+Examples:
+  ttal task route abc12345 --to inke
+  ttal task route abc12345 --to athena`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		agent, err := agentfs.Get(cfg.TeamPath(), routeToAgent)
+		if err != nil {
+			return err
+		}
+		if agent.Role == "" {
+			return fmt.Errorf("agent %q has no role — add 'role: <role>' to CLAUDE.md frontmatter", routeToAgent)
+		}
+		uuid := args[0]
+		rt := cfg.AgentRuntimeFor(routeToAgent)
+		prompt := cfg.RenderPrompt(agent.Role, uuid, rt)
+		if prompt == "" {
+			return fmt.Errorf("no prompt for role %q — add [prompts] %s = \"...\" to config.toml",
+				agent.Role, agent.Role)
+		}
+		return routeTaskToAgent(routeToAgent, uuid, "task "+agent.Role, prompt)
+	},
+}
+
+func init() {
+	taskRouteCmd.Flags().StringVar(&routeToAgent, "to", "", "Agent name to route to (required)")
+	_ = taskRouteCmd.MarkFlagRequired("to")
+}
 
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.
 func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt string) error {

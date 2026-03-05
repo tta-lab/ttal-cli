@@ -42,9 +42,6 @@ Each team lives under `[teams.<name>]`:
 | `notification_token_env` | string | Override env var for notification bot token (default: `{UPPER_TEAM}_NOTIFICATION_BOT_TOKEN`) |
 | `agent_runtime` | string | Default runtime: `claude-code`, `opencode`, `codex`, `openclaw` |
 | `worker_runtime` | string | Default runtime for spawned workers |
-| `design_agent` | string | Agent name for `ttal task design` |
-| `research_agent` | string | Agent name for `ttal task research` |
-| `test_agent` | string | Agent name for `ttal task test` |
 | `voice_language` | string | ISO 639-1 language code for STT, or `auto` |
 | `voice_vocabulary` | list | Custom vocabulary words to improve Whisper accuracy |
 | `gateway_url` | string | Gateway URL for webhook-based runtimes |
