@@ -29,7 +29,7 @@ Running ttal with no subcommand launches the interactive TUI.`,
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if teamFlag != "" {
-			os.Setenv("TTAL_TEAM", teamFlag)
+			_ = os.Setenv("TTAL_TEAM", teamFlag)
 		}
 		// Load .env as fallback for tokens not already in the environment
 		if dotEnv, err := config.LoadDotEnv(); err == nil {

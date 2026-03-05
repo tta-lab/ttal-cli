@@ -13,6 +13,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+// Key name constants for input handlers.
+const (
+	keyNameEnter     = "enter"
+	keyNameEsc       = "esc"
+	keyNameBackspace = "backspace"
+	keyNameTab       = "tab"
+)
+
 type viewState int
 
 const (
@@ -360,18 +368,18 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := msg.String()
 	switch s {
-	case "enter":
+	case keyNameEnter:
 		m.state = stateTaskList
 		m.cursor = 0
 		m.offset = 0
 		return m, m.reloadTasks()
-	case "esc":
+	case keyNameEsc:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
 		m.offset = 0
 		return m, m.reloadTasks()
-	case "backspace":
+	case keyNameBackspace:
 		if len(m.searchStr) > 0 {
 			m.searchStr = m.searchStr[:len(m.searchStr)-1]
 		}
@@ -386,16 +394,16 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := msg.String()
 	switch s {
-	case "enter":
+	case keyNameEnter:
 		t := m.selectedTask()
 		if t != nil && m.modifyInput != "" {
 			m.state = stateTaskList
 			return m, modifyTask(t.UUID, m.modifyInput)
 		}
 		m.state = stateTaskList
-	case "esc":
+	case keyNameEsc:
 		m.state = stateTaskList
-	case "backspace":
+	case keyNameBackspace:
 		if len(m.modifyInput) > 0 {
 			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
 		}
@@ -410,16 +418,16 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleAnnotateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := msg.String()
 	switch s {
-	case "enter":
+	case keyNameEnter:
 		t := m.selectedTask()
 		if t != nil && m.annotateInput != "" {
 			m.state = stateTaskList
 			return m, annotateTask(t.UUID, m.annotateInput)
 		}
 		m.state = stateTaskList
-	case "esc":
+	case keyNameEsc:
 		m.state = stateTaskList
-	case "backspace":
+	case keyNameBackspace:
 		if len(m.annotateInput) > 0 {
 			m.annotateInput = m.annotateInput[:len(m.annotateInput)-1]
 		}
@@ -434,7 +442,7 @@ func (m *Model) handleAnnotateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleRouteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := msg.String()
 	switch s {
-	case "enter":
+	case keyNameEnter:
 		if len(m.routeMatches) > 0 {
 			agent := m.routeMatches[0]
 			t := m.selectedTask()
@@ -447,14 +455,14 @@ func (m *Model) handleRouteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.state = stateTaskList
-	case "esc":
+	case keyNameEsc:
 		m.state = stateTaskList
-	case "tab":
+	case keyNameTab:
 		if len(m.routeMatches) > 0 {
 			m.routeInput = m.routeMatches[0].Name
 			m.updateRouteMatches()
 		}
-	case "backspace":
+	case keyNameBackspace:
 		if len(m.routeInput) > 0 {
 			m.routeInput = m.routeInput[:len(m.routeInput)-1]
 			m.updateRouteMatches()

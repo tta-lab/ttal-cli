@@ -136,8 +136,10 @@ func doneTask(uuid string) tea.Cmd {
 
 func modifyTask(uuid, modifiers string) tea.Cmd {
 	return func() tea.Msg {
-		args := []string{uuid, "modify"}
-		args = append(args, strings.Fields(modifiers)...)
+		fields := strings.Fields(modifiers)
+		args := make([]string, 0, 2+len(fields))
+		args = append(args, uuid, "modify")
+		args = append(args, fields...)
 		cmd := taskwarrior.Command(args...)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return actionResultMsg{err: fmt.Errorf("modify: %s", strings.TrimSpace(string(out)))}
