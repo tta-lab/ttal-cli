@@ -20,7 +20,7 @@ type PromptsConfig struct {
 	Designer   string `toml:"designer" jsonschema:"description=Prompt for designer role"`
 	Researcher string `toml:"researcher" jsonschema:"description=Prompt for researcher role"`
 	Execute    string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
-	Triage     string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`
+	Triage     string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                             //nolint:lll
 	Review     string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
 	ReReview   string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
 }
