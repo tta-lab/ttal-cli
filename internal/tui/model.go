@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -40,6 +41,7 @@ type Task struct {
 	Urgency   float64 `json:"urgency"`
 	Scheduled string  `json:"scheduled,omitempty"`
 	Due       string  `json:"due,omitempty"`
+	Entry     string  `json:"entry,omitempty"`
 }
 
 func (t *Task) ShortUUID() string {
@@ -47,6 +49,30 @@ func (t *Task) ShortUUID() string {
 		return t.UUID[:8]
 	}
 	return t.UUID
+}
+
+func (t *Task) Age() string {
+	if t.Entry == "" {
+		return ""
+	}
+	parsed, err := time.Parse("20060102T150405Z", t.Entry)
+	if err != nil {
+		return "?"
+	}
+	return formatAge(time.Since(parsed))
+}
+
+func formatAge(d time.Duration) string {
+	if d < time.Hour {
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh ago", int(math.Round(d.Hours())))
+	}
+	if d < 30*24*time.Hour {
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	}
+	return fmt.Sprintf("%dmo ago", int(d.Hours()/24/30))
 }
 
 // IsToday returns true if the task is scheduled for today or earlier.

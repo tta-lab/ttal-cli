@@ -34,18 +34,19 @@ func (m Model) viewTaskList() string {
 	colID := 4
 	colUUID := 10
 	colPri := 3
-	colProject := 14
-	colTags := 14
-	colDesc := m.width - colID - colUUID - colPri - colProject - colTags - 8
+	colAge := 6
+	colProject := 12
+	colTags := 12
+	colDesc := m.width - colID - colUUID - colPri - colAge - colProject - colTags - 10
 	if colDesc < 20 {
 		colDesc = 20
 	}
 
 	// Header
 	header := styleDim.Render(
-		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
 			colID, "ID", colUUID, "UUID", colPri, "P",
-			colProject, "Project", colTags, "Tags", "Description"))
+			colAge, "Age", colProject, "Project", colTags, "Tags", "Description"))
 	b.WriteString(header)
 	b.WriteString("\n")
 
@@ -66,25 +67,30 @@ func (m Model) viewTaskList() string {
 		if pri == "" {
 			pri = "-"
 		}
+		age := t.Age()
+		if age == "" {
+			age = "-"
+		}
 		proj := truncate(t.Project, colProject)
 		tags := truncate(strings.Join(t.Tags, " "), colTags)
 		desc := truncate(t.Description, colDesc)
 
-		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
 			colID, id, colUUID, uuid, colPri, pri,
-			colProject, proj, colTags, tags, desc)
+			colAge, age, colProject, proj, colTags, tags, desc)
 
 		if selected {
 			line = styleSelected.Render(line)
 		} else {
-			// Use lipgloss Width for ANSI-aware fixed-width columns
 			styledID := lipgloss.NewStyle().Width(colID).Render(styleDim.Render(id))
 			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
 			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
+			styledAge := lipgloss.NewStyle().Width(colAge).Render(styleDim.Render(age))
 			styledProj := lipgloss.NewStyle().Width(colProject).Render(proj)
 			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleTag.Render(tags))
 
-			line = " " + styledID + " " + styledUUID + " " + styledPri + " " + styledProj + " " + styledTags + " " + desc
+			line = " " + styledID + " " + styledUUID + " " + styledPri + " " +
+				styledAge + " " + styledProj + " " + styledTags + " " + desc
 
 			if t.Start != "" {
 				line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
