@@ -78,5 +78,5 @@ func validateTaskCompletion(modified hookTask) error {
 		return nil
 	}
 
-	return fmt.Errorf("cannot complete task with unmerged PR #%s. Merge the PR first.", prID)
+	return fmt.Errorf("cannot complete task with unmerged PR #%s. Merge the PR first", prID)
 }
