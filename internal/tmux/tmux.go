@@ -262,17 +262,63 @@ func Role() string {
 	return os.Getenv("TTAL_ROLE")
 }
 
-// sanitizeForTerminal replaces newlines/CR with spaces and strips control chars.
+// sanitizeForTerminal escapes special shell characters to prevent interpretation
+// when sent via tmux send-keys.
 func sanitizeForTerminal(s string) string {
+	// Characters that need escaping: $ ` \ " ' * ? [ ] ( ) { } < > # ~ & ; | !
 	var b strings.Builder
 	for _, r := range s {
-		switch {
-		case r == '\n' || r == '\r':
+		switch r {
+		case '$':
+			b.WriteString("\\$")
+		case '`':
+			b.WriteString("\\`")
+		case '\\':
+			b.WriteString("\\\\")
+		case '"':
+			b.WriteString("\\\"")
+		case '\'':
+			b.WriteString("\\'")
+		case '*':
+			b.WriteString("\\*")
+		case '?':
+			b.WriteString("\\?")
+		case '[':
+			b.WriteString("\\[")
+		case ']':
+			b.WriteString("\\]")
+		case '(':
+			b.WriteString("\\(")
+		case ')':
+			b.WriteString("\\)")
+		case '{':
+			b.WriteString("\\{")
+		case '}':
+			b.WriteString("\\}")
+		case '<':
+			b.WriteString("\\<")
+		case '>':
+			b.WriteString("\\>")
+		case '#':
+			b.WriteString("\\#")
+		case '~':
+			b.WriteString("\\~")
+		case '&':
+			b.WriteString("\\&")
+		case ';':
+			b.WriteString("\\;")
+		case '|':
+			b.WriteString("\\|")
+		case '!':
+			b.WriteString("\\!")
+		case '\n', '\r':
 			b.WriteRune(' ')
-		case unicode.IsControl(r):
-			// strip DEL, ESC, and other control chars
 		default:
-			b.WriteRune(r)
+			if unicode.IsControl(r) {
+				// strip DEL, ESC, and other control chars
+			} else {
+				b.WriteRune(r)
+			}
 		}
 	}
 	return b.String()
