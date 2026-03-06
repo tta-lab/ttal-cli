@@ -17,13 +17,13 @@ import (
 // Supports {{task-id}} and {{skill:name}} template variables.
 // Role-based keys (designer, researcher) come from roles.toml, not config.toml.
 type PromptsConfig struct {
-	// Prompt prefix for worker spawn.
+	// Prompt prefix for worker spawn
 	Execute string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
-	// Prompt sent to coder after PR review. Supports {{review-file}}.
+	// Prompt sent to coder after PR review. Supports {{review-file}}
 	Triage string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"` //nolint:lll
-	// Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}.
+	// Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}
 	Review string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
-	// Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}.
+	// Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}
 	ReReview string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"` //nolint:lll
 }
 
@@ -41,7 +41,7 @@ var DefaultInlineProjects = []string{"plan"}
 
 // FlicknoteConfig holds flicknote-related settings.
 type FlicknoteConfig struct {
-	// Project substrings to inline (default: plan).
+	// Project substrings to inline (default: plan)
 	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
 }
 
@@ -57,21 +57,20 @@ type Config struct {
 	Agents            map[string]AgentConfig `toml:"-" json:"-"`
 	VoiceResolved     VoiceConfig            `toml:"-" json:"-"`
 
-	// Shell for spawning workers.
+	// Shell for spawning workers
 	Shell string `toml:"shell" jsonschema:"enum=zsh,enum=fish"`
-	// Paths for subagent and skill deployment.
+	// Paths for subagent and skill deployment
 	Sync SyncConfig `toml:"sync"`
-	// Prompt templates for task routing.
+	// Prompt templates for task routing
 	Prompts PromptsConfig `toml:"prompts"`
-	// Flicknote integration settings.
+	// Flicknote integration settings
 	Flicknote FlicknoteConfig `toml:"flicknote"`
-	// Global voice settings (vocabulary, language).
+	// Global voice settings (vocabulary, language)
 	Voice VoiceConfig `toml:"voice"`
 
-	// Team-aware fields.
-	// Active team when TTAL_TEAM env is not set.
+	// Active team when TTAL_TEAM env is not set
 	DefaultTeam string `toml:"default_team"` //nolint:lll
-	// Per-team configuration sections.
+	// Per-team configuration sections
 	Teams map[string]TeamConfig `toml:"teams"`
 
 	// Resolved at load time, not from TOML.
@@ -92,59 +91,59 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
-	// Root path for agent workspaces. Agent path = team_path/agent_name.
+	// Root path for agent workspaces. Agent path = team_path/agent_name
 	TeamPath string `toml:"team_path"` //nolint:lll
-	// ttal data directory (default: ~/.ttal/<team>).
+	// ttal data directory (default: ~/.ttal/<team>)
 	DataDir string `toml:"data_dir"` //nolint:lll
-	// Taskwarrior config file path (default: <data_dir>/taskrc).
+	// Taskwarrior config file path (default: <data_dir>/taskrc)
 	TaskRC string `toml:"taskrc"` //nolint:lll
-	// Telegram chat ID for this team.
+	// Telegram chat ID for this team
 	ChatID string `toml:"chat_id"`
-	// Deprecated: use notification_token_env instead.
+	// Deprecated: use notification_token_env instead
 	LifecycleAgent string `toml:"lifecycle_agent"` //nolint:lll
-	// Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN).
+	// Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)
 	NotificationTokenEnv string `toml:"notification_token_env"` //nolint:lll
-	// Runtime for agent sessions.
+	// Runtime for agent sessions
 	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
-	// Runtime for spawned workers.
+	// Runtime for spawned workers
 	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex"` //nolint:lll
-	// OpenClaw Gateway URL.
+	// OpenClaw Gateway URL
 	GatewayURL string `toml:"gateway_url"`
-	// OpenClaw hooks auth token.
+	// OpenClaw hooks auth token
 	HooksToken string `toml:"hooks_token"`
-	// PR merge mode override for this team.
+	// PR merge mode override for this team
 	MergeMode string `toml:"merge_mode" jsonschema:"enum=auto,enum=manual"` //nolint:lll
-	// ISO 639-1 language code for Whisper (default: en; auto for auto-detect).
+	// ISO 639-1 language code for Whisper (default: en; auto for auto-detect)
 	VoiceLanguage string `toml:"voice_language"` //nolint:lll
-	// Per-agent credentials for this team.
+	// Per-agent credentials for this team
 	Agents map[string]AgentConfig `toml:"agents"` //nolint:lll
-	// Custom vocabulary words for Whisper transcription accuracy.
+	// Custom vocabulary words for Whisper transcription accuracy
 	VoiceVocabulary []string `toml:"voice_vocabulary"` //nolint:lll
-	// Enable emoji reactions on Telegram tool messages.
+	// Enable emoji reactions on Telegram tool messages
 	EmojiReactions *bool `toml:"emoji_reactions" jsonschema:"default=false"`
-	// TaskChampion sync server URL for ttal doctor --fix.
+	// TaskChampion sync server URL for ttal doctor --fix
 	TaskSyncURL string `toml:"task_sync_url"` //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
 type SyncConfig struct {
-	// Directories for subagent definitions.
+	// Directories for subagent definitions
 	SubagentsPaths []string `toml:"subagents_paths"`
-	// Directories for skill definitions.
+	// Directories for skill definitions
 	SkillsPaths []string `toml:"skills_paths"`
-	// Directories for command definitions.
+	// Directories for command definitions
 	CommandsPaths []string `toml:"commands_paths"`
-	// Directories for RULE.md files.
+	// Directories for RULE.md files
 	RulesPaths []string `toml:"rules_paths"`
-	// Path to global CLAUDE.md prompt.
+	// Path to global CLAUDE.md prompt
 	GlobalPromptPath string `toml:"global_prompt_path"`
 }
 
 // VoiceConfig holds voice-related settings resolved from the active team.
 type VoiceConfig struct {
-	// Custom vocabulary words for Whisper.
+	// Custom vocabulary words for Whisper
 	Vocabulary []string `toml:"vocabulary"`
-	// ISO 639-1 language code (default: en).
+	// ISO 639-1 language code (default: en)
 	Language string `toml:"language"`
 }
 
@@ -166,13 +165,13 @@ func (c *VoiceConfig) EffectiveVocabulary(teamVocabulary []string, allTeamNames,
 type AgentConfig struct {
 	// BotToken is resolved from ~/.config/ttal/.env at load time (not stored in TOML).
 	BotToken string `toml:"-" jsonschema:"-"`
-	// Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN).
+	// Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)
 	BotTokenEnv string `toml:"bot_token_env"` //nolint:lll
-	// API server port for opencode/codex runtimes.
+	// API server port for opencode/codex runtimes
 	Port int `toml:"port"`
-	// Per-agent runtime override (falls back to team agent_runtime).
+	// Per-agent runtime override (falls back to team agent_runtime)
 	Runtime string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
-	// Claude model tier (falls back to opus).
+	// Claude model tier (falls back to opus)
 	Model string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 }
 
