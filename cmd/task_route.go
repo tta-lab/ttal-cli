@@ -45,7 +45,7 @@ Examples:
 		}
 		prompt := cfg.RenderPrompt(role, uuid, rt)
 		if prompt == "" {
-			return fmt.Errorf("no prompt for role %q and no [default] in roles.toml", role)
+			return fmt.Errorf("no prompt for role %q, no [default] in roles.toml, and no fallback in config.toml", role)
 		}
 		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt)
 	},

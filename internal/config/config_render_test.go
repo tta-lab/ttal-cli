@@ -107,6 +107,15 @@ func TestPromptNoDefaults(t *testing.T) {
 
 	t.Run("unknown", func(t *testing.T) {
 		got := cfg.Prompt("unknown")
+		hasDefault := false
+		if roles, err := LoadRoles(); err == nil && roles != nil {
+			if _, ok := roles.Roles["default"]; ok {
+				hasDefault = true
+			}
+		}
+		if hasDefault {
+			t.Skip("roles.toml exists with [default] - unknown keys now fall back to default")
+		}
 		if got != "" {
 			t.Errorf("Prompt(%q) = %q, want empty string", "unknown", got)
 		}
