@@ -102,7 +102,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Global voice settings (vocabulary"
+      "description": "Global voice settings (vocabulary, language)"
     },
     "default_team": {
       "type": "string",
@@ -113,7 +113,7 @@
         "properties": {
           "team_path": {
             "type": "string",
-            "description": "Root path for agent workspaces. Agent path = team_path/agent_name."
+            "description": "Root path for agent workspaces. Agent path = team_path/agent_name"
           },
           "data_dir": {
             "type": "string",
