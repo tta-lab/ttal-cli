@@ -46,32 +46,27 @@ func validateTaskCompletion(modified hookTask) error {
 
 	projectPath := modified.ProjectPath()
 	if projectPath == "" {
-		hookLogFile("WARNING: Task has pr_id but no project_path - allowing completion")
-		return nil
+		return fmt.Errorf("cannot verify PR: task has pr_id but no project_path. Add project_path or remove pr_id to complete")
 	}
 
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		hookLogFile("WARNING: Cannot determine repo from project_path: " + err.Error())
-		return nil
+		return fmt.Errorf("cannot verify PR #%s: %w", prID, err)
 	}
 
 	provider, err := gitprovider.NewProvider(info)
 	if err != nil {
-		hookLogFile("WARNING: Failed to create provider client: " + err.Error())
-		return nil
+		return fmt.Errorf("cannot verify PR #%s: %w", prID, err)
 	}
 
 	prIndex, err := strconv.ParseInt(prID, 10, 64)
 	if err != nil {
-		hookLogFile("WARNING: Invalid pr_id: " + prID)
-		return nil
+		return fmt.Errorf("cannot verify PR #%s: invalid pr_id", prID)
 	}
 
 	pr, err := provider.GetPR(info.Owner, info.Repo, prIndex)
 	if err != nil {
-		hookLogFile("WARNING: Failed to get PR #" + prID + ": " + err.Error())
-		return nil
+		return fmt.Errorf("cannot verify PR #%s: %w", prID, err)
 	}
 
 	if pr.Merged {
