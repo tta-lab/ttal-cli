@@ -17,6 +17,9 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+const openCodePermission = `OPENCODE_PERMISSION={"bash":"allow","edit":"allow",` +
+	`"read":"allow","write":"allow","question":"deny"}`
+
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
 	Name     string
@@ -203,7 +206,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	injectSessionEnv(sessionName, task, cfg, taskrc)
+	injectSessionEnv(sessionName, task, taskrc)
 
 	if cfg.Spawner != "" {
 		if err := taskwarrior.SetSpawner(task.UUID, cfg.Spawner); err != nil {
@@ -241,6 +244,12 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 
+	// OPENCODE_PERMISSION must be in envParts (passed via gatekeeper launch command),
+	// not tmux session env — it's read by the spawned process, not the tmux session.
+	if rt == runtime.OpenCode {
+		parts = append(parts, openCodePermission)
+	}
+
 	return parts
 }
 
@@ -257,7 +266,7 @@ func buildLaunchCmd(
 	return shellCfg.BuildEnvShellCommand(envParts, cmd), nil
 }
 
-func injectSessionEnv(sessionName string, task *taskwarrior.Task, cfg SpawnConfig, taskrc string) {
+func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) {
 	setEnv := func(key, val string) {
 		if err := tmux.SetEnv(sessionName, key, val); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
@@ -286,11 +295,6 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, cfg SpawnConfi
 		}
 	}
 
-	// Set OPENCODE_PERMISSION via tmux env to avoid shell quoting issues with JSON.
-	if cfg.Runtime == runtime.OpenCode {
-		setEnv("OPENCODE_PERMISSION",
-			`{"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
-	}
 }
 
 func writeTaskFile(
