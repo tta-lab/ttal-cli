@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -206,7 +207,7 @@ var prCommentCmd = &cobra.Command{
 }
 
 var prCommentCreateCmd = &cobra.Command{
-	Use:   "create <body>",
+	Use:   "create [body]",
 	Short: "Add a comment to the PR",
 	Long: `Adds a comment to the PR associated with the current task.
 
@@ -215,15 +216,23 @@ when posting a final triage update before merging).
 
 Examples:
   ttal pr comment create "LGTM, ready to merge"
-  ttal pr comment create --no-review "Triage complete, merging"`,
-	Args: cobra.MinimumNArgs(1),
+  ttal pr comment create --no-review "Triage complete, merging"
+  echo "comment" | ttal pr comment create`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContext()
 		if err != nil {
 			return err
 		}
 
+		// Read body from stdin if no args provided
 		body := strings.Join(args, " ")
+		if body == "" {
+			bodyBytes, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("failed to read stdin: %w", err)
+			}
+			body = strings.TrimSpace(string(bodyBytes))
+		}
 		comment, err := pr.CommentCreate(ctx, body)
 		if err != nil {
 			return err
