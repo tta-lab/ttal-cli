@@ -12,8 +12,8 @@ type RolesConfig struct {
 }
 
 func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
+	r.Roles = make(map[string]string)
 	if m, ok := data.(map[string]interface{}); ok {
-		r.Roles = make(map[string]string)
 		for role, v := range m {
 			if section, ok := v.(map[string]interface{}); ok {
 				if p, ok := section["prompt"].(string); ok {

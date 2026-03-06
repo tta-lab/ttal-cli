@@ -345,8 +345,11 @@ func (c *Config) Prompt(key string) string {
 	if prompt := c.promptFromDefaults(key); prompt != "" {
 		return prompt
 	}
-	roles, _ := LoadRoles()
-	if roles != nil {
+	roles, err := LoadRoles()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load roles.toml: %v\n", err)
+	}
+	if roles != nil && roles.Roles != nil {
 		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
 			return prompt
 		}
