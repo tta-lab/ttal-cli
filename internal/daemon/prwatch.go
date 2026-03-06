@@ -243,6 +243,10 @@ func handleCIStatus(
 
 	switch cs.State {
 	case gitprovider.StateSuccess:
+		if !hasLGTMComment(provider, target.Owner, target.Repo, target.PRIndex) {
+			log.Printf("[prwatch] PR #%d CI passed but no LGTM — waiting for review", target.PRIndex)
+			return true, 0
+		}
 		msg := fmt.Sprintf("PR #%d checks passed — ready to merge. Run: ttal pr merge",
 			target.PRIndex)
 		deliverToWorkerSession(target.SessionName, msg)
@@ -388,4 +392,19 @@ func backoff(current time.Duration) time.Duration {
 		return prPollMax
 	}
 	return next
+}
+
+// hasLGTMComment checks if PR has at least one LGTM comment.
+func hasLGTMComment(provider gitprovider.Provider, owner, repo string, prIndex int64) bool {
+	comments, err := provider.ListComments(owner, repo, prIndex)
+	if err != nil {
+		log.Printf("[prwatch] failed to list comments: %v", err)
+		return false
+	}
+	for _, c := range comments {
+		if strings.Contains(strings.ToLower(c.Body), "lgtm") {
+			return true
+		}
+	}
+	return false
 }
