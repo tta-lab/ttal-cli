@@ -328,7 +328,7 @@ func (c *Config) EmojiReactions() bool {
 }
 
 // Prompt returns the prompt template for a given key.
-// Priority: roles.toml > config.toml [prompts]
+// Priority: roles.toml[key] > roles.toml[default] > config.toml[prompts]
 func (c *Config) Prompt(key string) string {
 	roles, err := LoadRoles()
 	if err != nil {
@@ -337,6 +337,12 @@ func (c *Config) Prompt(key string) string {
 	if roles != nil && roles.Roles != nil {
 		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
 			return prompt
+		}
+		// Fall back to default prompt if key not found
+		if key != "default" {
+			if prompt, ok := roles.Roles["default"]; ok && prompt != "" {
+				return prompt
+			}
 		}
 	}
 
