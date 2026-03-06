@@ -200,6 +200,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
+
+	case tea.PasteMsg:
+		return m.handlePaste(msg)
+	}
+	return m, nil
+}
+
+func (m *Model) handlePaste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+	text := msg.Content
+	switch m.state {
+	case stateSearch:
+		m.searchStr += text
+	case stateModify:
+		m.modifyInput += text
+	case stateAnnotate:
+		m.annotateInput += text
+	case stateRouteInput:
+		m.routeInput += text
+		m.updateRouteMatches()
 	}
 	return m, nil
 }
