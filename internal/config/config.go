@@ -533,33 +533,8 @@ func (c *Config) resolve() error {
 	// Resolve notification bot token from .env
 	c.NotificationToken = resolveNotificationToken(teamName, team.NotificationTokenEnv)
 
-	// Build all team names and agent names for vocabulary
-	allTeamNames := make([]string, 0, len(c.Teams))
-	allAgentNames := make([]string, 0)
-	seenAgents := make(map[string]bool)
-	for tn := range c.Teams {
-		allTeamNames = append(allTeamNames, tn)
-		for agent := range c.Teams[tn].Agents {
-			if !seenAgents[agent] {
-				seenAgents[agent] = true
-				allAgentNames = append(allAgentNames, agent)
-			}
-		}
-	}
-
-	// Merge global + team vocabulary with all team/agent names
-	mergedVocab := c.Voice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
-
-	// Use global language, fallback to team language
-	lang := c.Voice.Language
-	if lang == "" {
-		lang = team.VoiceLanguage
-	}
-
-	c.VoiceResolved = VoiceConfig{
-		Vocabulary: mergedVocab,
-		Language:   lang,
-	}
+	// Resolve voice config with merged vocabulary
+	c.VoiceResolved = resolveVoiceConfig(c.Voice, team)
 
 	// Resolve DataDir: explicit override > convention
 	if team.DataDir != "" {
@@ -602,8 +577,11 @@ func (c *Config) resolve() error {
 	if c.resolvedWorkerRuntime != "" {
 		rt := runtime.Runtime(c.resolvedWorkerRuntime)
 		if !rt.IsWorkerRuntime() {
-			return fmt.Errorf("worker_runtime %q is not valid for workers"+
-				" (use claude-code, opencode, or codex)", c.resolvedWorkerRuntime)
+			return fmt.Errorf(
+				"worker_runtime %q is not valid for workers"+
+					" (use claude-code, opencode, or codex)",
+				c.resolvedWorkerRuntime,
+			)
 		}
 	}
 
@@ -619,6 +597,27 @@ func (c *Config) resolve() error {
 	}
 
 	return c.validateMergeMode()
+}
+
+func resolveVoiceConfig(globalVoice VoiceConfig, team TeamConfig) VoiceConfig {
+	allTeamNames := make([]string, 0, len(globalVoice.Vocabulary))
+	allAgentNames := make([]string, 0, len(allTeamNames))
+
+	mergedVocab := globalVoice.EffectiveVocabulary(
+		team.VoiceVocabulary,
+		allTeamNames,
+		allAgentNames,
+	)
+
+	lang := globalVoice.Language
+	if lang == "" {
+		lang = team.VoiceLanguage
+	}
+
+	return VoiceConfig{
+		Vocabulary: mergedVocab,
+		Language:   lang,
+	}
 }
 
 func (c *Config) validateMergeMode() error {
@@ -712,7 +711,12 @@ func LoadAll() (*DaemonConfig, error) {
 }
 
 // resolveTeam resolves a single team's config fields.
-func resolveTeam(teamName string, team TeamConfig, globalVoice *VoiceConfig, allTeams map[string]TeamConfig) (*ResolvedTeam, error) {
+func resolveTeam(
+	teamName string,
+	team TeamConfig,
+	globalVoice *VoiceConfig,
+	allTeams map[string]TeamConfig,
+) (*ResolvedTeam, error) {
 	if team.TeamPath == "" {
 		return nil, fmt.Errorf("missing required field: team_path")
 	}
