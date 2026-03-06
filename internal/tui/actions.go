@@ -183,6 +183,42 @@ func toggleNext(t *Task) tea.Cmd {
 	}
 }
 
+func copyTask(t *Task) tea.Cmd {
+	return func() tea.Msg {
+		var b strings.Builder
+		fmt.Fprintf(&b, "Task: %s\n", t.Description)
+		fmt.Fprintf(&b, "ID: %s\n", t.UUID)
+		if t.Project != "" {
+			fmt.Fprintf(&b, "Project: %s\n", t.Project)
+		}
+		if len(t.Tags) > 0 {
+			fmt.Fprintf(&b, "Tags: %s\n", strings.Join(t.Tags, ", "))
+		}
+		if t.Priority != "" {
+			fmt.Fprintf(&b, "Priority: %s\n", t.Priority)
+		}
+
+		if len(t.Annotations) > 0 {
+			b.WriteString("\nAnnotations:\n")
+			for _, ann := range t.Annotations {
+				date := ""
+				if ann.Entry != "" {
+					date = ann.Entry[:8] + " "
+				}
+				fmt.Fprintf(&b, "- %s%s\n", date, ann.Description)
+			}
+		}
+
+		// Copy to clipboard via pbcopy (macOS)
+		cmd := exec.Command("pbcopy")
+		cmd.Stdin = strings.NewReader(b.String())
+		if err := cmd.Run(); err != nil {
+			return actionResultMsg{err: fmt.Errorf("copy to clipboard: %w", err)}
+		}
+		return actionResultMsg{message: "Copied to clipboard"}
+	}
+}
+
 // resolveWorkDir finds the working directory for a task (worktree or project root).
 func resolveWorkDir(t *Task) string {
 	if t.Branch != "" {

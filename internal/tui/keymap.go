@@ -33,6 +33,7 @@ const (
 	keyModify
 	keyAnnotate
 	keyToggleNext
+	keyCopy
 )
 
 var keyMap = map[string]keyAction{
@@ -50,6 +51,7 @@ var keyMap = map[string]keyAction{
 	"s":      keyOpenSession,
 	"o":      keyOpenTerm,
 	"t":      keyToggleNext,
+	"y":      keyCopy,
 	"e":      keyOpenEditor,
 	"a":      keyAddToday,
 	"ctrl+a": keyRemoveToday,
@@ -94,6 +96,7 @@ const helpText = `Key Bindings:
   s               Attach tmux session
   o               Open terminal
   t               Toggle +next tag
+  y               Copy task to clipboard
   e               Open editor
 
   a               Add to today
