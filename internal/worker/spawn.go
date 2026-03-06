@@ -17,9 +17,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
-const openCodePermission = `OPENCODE_PERMISSION={"bash":"allow","edit":"allow",` +
-	`"read":"allow","write":"allow","question":"deny"}`
-
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
 	Name     string
@@ -100,6 +97,14 @@ func Spawn(cfg SpawnConfig) error {
 	// (e.g. bun install, npm ci) so re-running is safe and keeps deps up to date.
 	if cfg.Worktree {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
+	}
+
+	// Write OpenCode permission config to worktree for OpenCode workers.
+	// This replaces the old OPENCODE_PERMISSION env var hack.
+	if cfg.Runtime == runtime.OpenCode {
+		if err := writeOpenCodeConfig(workDir); err != nil {
+			return fmt.Errorf("failed to write opencode.json: %w", err)
+		}
 	}
 
 	return launchAndTrack(cfg, task, sessionName, workDir, branch, project)
@@ -242,12 +247,6 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	}
 	if taskrc != "" {
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
-	}
-
-	// OPENCODE_PERMISSION must be in envParts (passed via gatekeeper launch command),
-	// not tmux session env — it's read by the spawned process, not the tmux session.
-	if rt == runtime.OpenCode {
-		parts = append(parts, openCodePermission)
 	}
 
 	return parts
@@ -474,4 +473,25 @@ func detectBranch(workDir string) string {
 		return b
 	}
 	return "unknown"
+}
+
+// writeOpenCodeConfig writes the OpenCode permission config to the worktree.
+func writeOpenCodeConfig(workDir string) error {
+	ocConfig := `{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "external_directory": {
+      "*": "allow"
+    },
+    "bash": {
+      "*": "allow",
+      "gh *": "deny",
+      "bun run lint:fix": "deny",
+      "xcodebuild *": "deny"
+    }
+  }
+}`
+
+	path := filepath.Join(workDir, "opencode.json")
+	return os.WriteFile(path, []byte(ocConfig), 0644)
 }

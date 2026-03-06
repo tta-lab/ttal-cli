@@ -39,8 +39,6 @@ func (a *Adapter) Runtime() runtime.Runtime { return runtime.OpenCode }
 
 func (a *Adapter) Start(ctx context.Context) error {
 	env := append([]string{}, a.cfg.Env...)
-	env = append(env, //nolint:lll // JSON env var — all adapter-managed agents run without prompts
-		`OPENCODE_PERMISSION={"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
 
 	a.proc = &process{
 		port:    a.cfg.Port,
