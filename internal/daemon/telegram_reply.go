@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/go-telegram/bot/models"
 )
@@ -9,10 +10,11 @@ import (
 // extractReplyContext extracts the text from a replied-to message,
 // returning a formatted prefix like "[replying to: 'original message'] "
 // or an empty string if this message is not a reply.
-// Safe to call — recovers from any panic and returns empty string on error.
+// Safe to call — recovers from any panic and logs before returning empty string.
 func extractReplyContext(msg *models.Message) (ctx string) {
 	defer func() {
 		if r := recover(); r != nil {
+			log.Printf("[telegram] extractReplyContext panicked: %v", r)
 			ctx = ""
 		}
 	}()
