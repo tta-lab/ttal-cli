@@ -339,47 +339,56 @@ func (c *Config) EmojiReactions() bool {
 
 // Prompt returns the prompt template for a given key, falling back to defaults.
 func (c *Config) Prompt(key string) string {
+	if prompt := c.promptFromConfig(key); prompt != "" {
+		return prompt
+	}
+	if prompt := c.promptFromDefaults(key); prompt != "" {
+		return prompt
+	}
+	roles, _ := LoadRoles()
+	if roles != nil {
+		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
+			return prompt
+		}
+	}
+	return ""
+}
+
+func (c *Config) promptFromConfig(key string) string {
+	switch key {
+	case "designer":
+		return c.Prompts.Designer
+	case "researcher":
+		return c.Prompts.Researcher
+	case "execute":
+		return c.Prompts.Execute
+	case "triage":
+		return c.Prompts.Triage
+	case "review":
+		return c.Prompts.Review
+	case "re_review":
+		return c.Prompts.ReReview
+	}
+	return ""
+}
+
+func (c *Config) promptFromDefaults(key string) string {
 	defaults := DefaultPrompts()
 	switch key {
 	case "designer":
-		if c.Prompts.Designer != "" {
-			return c.Prompts.Designer
-		}
 		return defaults.Designer
 	case "researcher":
-		if c.Prompts.Researcher != "" {
-			return c.Prompts.Researcher
-		}
 		return defaults.Researcher
 	case "execute":
-		if c.Prompts.Execute != "" {
-			return c.Prompts.Execute
-		}
 		return defaults.Execute
 	case "triage":
-		if c.Prompts.Triage != "" {
-			return c.Prompts.Triage
-		}
 		return defaults.Triage
 	case "review":
-		if c.Prompts.Review != "" {
-			return c.Prompts.Review
-		}
 		return defaults.Review
 	case "re_review":
-		if c.Prompts.ReReview != "" {
-			return c.Prompts.ReReview
-		}
 		return defaults.ReReview
-	default:
-		roles, _ := LoadRoles()
-		if roles != nil {
-			if prompt, ok := roles.Roles[key]; ok && prompt != "" {
-				return prompt
-			}
-		}
-		return ""
 	}
+	return ""
 }
 
 // RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.
