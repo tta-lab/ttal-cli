@@ -313,7 +313,7 @@ func registerBotCommandsForAgent(
 			sendEscToAgent(teamName, agentName, botToken, chatIDStr)
 		})
 
-	// Register discovered commands — forward as /command to agent's tmux pane.
+	// Register discovered commands — forward as "Use command skill. args" to agent's tmux pane.
 	// Use OriginalName (with hyphens) for dispatch since Claude Code skills
 	// use hyphenated names, but match on Command (sanitized with underscores).
 	for _, cmd := range allCommands {
@@ -327,7 +327,7 @@ func registerBotCommandsForAgent(
 		}
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
-				fullCmd := buildFullCommand(origName, update.Message.Text)
+				fullCmd := buildSkillCommand(origName, update.Message.Text)
 				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd,
 					fmt.Sprintf("Sent /%s to %s", origName, agentName))
 			})
@@ -344,14 +344,26 @@ func parseCommandArgs(text string) []string {
 	return parts[1:]
 }
 
+// joinArgs joins parsed arguments with the given separator.
+func joinArgs(args []string, separator string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return separator + strings.Join(args, " ")
+}
+
 // buildFullCommand constructs a slash command string from a command name and
 // the raw message text, forwarding any arguments that follow the command.
 func buildFullCommand(cmdName, messageText string) string {
-	fullCmd := "/" + cmdName
-	if args := parseCommandArgs(messageText); len(args) > 0 {
-		fullCmd += " " + strings.Join(args, " ")
-	}
-	return fullCmd
+	args := parseCommandArgs(messageText)
+	return "/" + cmdName + joinArgs(args, " ")
+}
+
+// buildSkillCommand constructs a skill invocation string from a command name and
+// the raw message text, converting /skill args to "Use skill skill. args".
+func buildSkillCommand(cmdName, messageText string) string {
+	args := parseCommandArgs(messageText)
+	return "Use " + cmdName + " skill" + joinArgs(args, ". ")
 }
 
 // transcribeVoiceMessage downloads a Telegram voice message and transcribes it via the voice package.
