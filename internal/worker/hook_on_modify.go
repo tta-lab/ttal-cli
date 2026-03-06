@@ -46,7 +46,8 @@ func validateTaskCompletion(modified hookTask) error {
 
 	projectPath := modified.ProjectPath()
 	if projectPath == "" {
-		return fmt.Errorf("cannot verify PR: task has pr_id but no project_path. Add project_path or remove pr_id to complete")
+		return fmt.Errorf("cannot verify PR: task has pr_id but no project_path. " +
+			"Add project_path or remove pr_id to complete")
 	}
 
 	info, err := gitprovider.DetectProvider(projectPath)
