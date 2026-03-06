@@ -37,17 +37,17 @@ Examples:
 		if err != nil {
 			return err
 		}
-		if agent.Role == "" {
-			return fmt.Errorf("agent %q has no role — add 'role: <role>' to CLAUDE.md frontmatter", routeToAgent)
-		}
 		uuid := args[0]
 		rt := cfg.AgentRuntimeFor(routeToAgent)
-		prompt := cfg.RenderPrompt(agent.Role, uuid, rt)
-		if prompt == "" {
-			return fmt.Errorf("no prompt for role %q — add [role.%s] prompt = \"...\" to roles.toml",
-				agent.Role, agent.Role)
+		role := agent.Role
+		if role == "" {
+			role = "default"
 		}
-		return routeTaskToAgent(routeToAgent, uuid, "task "+agent.Role, prompt)
+		prompt := cfg.RenderPrompt(role, uuid, rt)
+		if prompt == "" {
+			return fmt.Errorf("no prompt for role %q and no [default] in roles.toml", role)
+		}
+		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt)
 	},
 }
 
