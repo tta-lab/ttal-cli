@@ -15,7 +15,7 @@ var yoloCmd = &cobra.Command{
 	Short: "Launch coding agent in yolo mode",
 	Long: `Launch a coding agent in yolo mode (skip all permission prompts).
 
-Supported runtimes: cc (Claude Code), oc (OpenCode), codex.
+Supported runtimes: cc (Claude Code), codex.
 For human use only - starts the agent with full permissions enabled.`,
 }
 
@@ -42,32 +42,6 @@ Example:
 
 		ccCmd := exec.Command("claude", "--dangerously-skip-permissions", "--model", yoloModel)
 		return runYolo(ccCmd, "claude")
-	},
-}
-
-var yoloOcCmd = &cobra.Command{
-	Use:   "oc",
-	Short: "Launch OpenCode in yolo mode",
-	Long: `Launch OpenCode with OPENCODE_PERMISSION set to allow all operations.
-
-Example:
-  ttal yolo oc              # Start in current directory`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if _, err := exec.LookPath("opencode"); err != nil {
-			return fmt.Errorf("opencode not found in PATH — install OpenCode first")
-		}
-		workDir, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get working directory: %w", err)
-		}
-		fmt.Printf("Starting OpenCode in yolo mode...\n")
-		fmt.Printf("  Directory: %s\n", workDir)
-		fmt.Println()
-
-		ocCmd := exec.Command("opencode")
-		ocCmd.Env = append(os.Environ(),
-			`OPENCODE_PERMISSION={"bash":"allow","edit":"allow","read":"allow","write":"allow","question":"allow"}`)
-		return runYolo(ocCmd, "opencode")
 	},
 }
 
@@ -114,7 +88,6 @@ func runYolo(cmd *exec.Cmd, name string) error {
 func init() {
 	yoloCcCmd.Flags().StringVarP(&yoloModel, "model", "m", "opus", "Model to use (opus, sonnet)")
 	yoloCmd.AddCommand(yoloCcCmd)
-	yoloCmd.AddCommand(yoloOcCmd)
 	yoloCmd.AddCommand(yoloCxCmd)
 	rootCmd.AddCommand(yoloCmd)
 }
