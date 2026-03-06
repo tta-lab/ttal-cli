@@ -575,7 +575,7 @@ func (c *Config) resolve() error {
 	c.resolvedMergeMode = team.MergeMode
 
 	// Emoji reactions: from team config (defaults to false).
-	c.resolvedEmojiReactions = team.EmojiReactions != nil && *team.EmojiReactions
+	c.resolvedEmojiReactions = resolveEmojiReactions(team)
 
 	// Default flicknote inline projects to ["plan"] if not configured.
 	if len(c.Flicknote.InlineProjects) == 0 {
@@ -608,6 +608,11 @@ func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
 		Vocabulary: mergedVocab,
 		Language:   lang,
 	}
+}
+
+// resolveEmojiReactions resolves whether emoji reactions are enabled for a team.
+func resolveEmojiReactions(team TeamConfig) bool {
+	return team.EmojiReactions != nil && *team.EmojiReactions
 }
 
 func (c *Config) validateMergeMode() error {
@@ -758,7 +763,7 @@ func resolveTeam(
 			Language:   lang,
 		},
 		Agents:         team.Agents,
-		EmojiReactions: team.EmojiReactions != nil && *team.EmojiReactions,
+		EmojiReactions: resolveEmojiReactions(team),
 	}
 
 	resolveBotTokens(rt.Agents)
