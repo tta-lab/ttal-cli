@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/go-telegram/bot/models"
 )
@@ -45,9 +44,6 @@ func extractReplyContext(msg *models.Message) string {
 	if len(text) > 200 {
 		text = text[:197] + "..."
 	}
-
-	// Escape any single quotes in the text to avoid breaking the prefix format
-	text = strings.ReplaceAll(text, "'", "'")
 
 	return fmt.Sprintf("[replying to: '%s'] ", text)
 }
