@@ -67,6 +67,11 @@ func (t hookTask) Branch() string {
 	return v
 }
 
+func (t hookTask) PRID() string {
+	v, _ := t["pr_id"].(string)
+	return v
+}
+
 func (t hookTask) Start() string {
 	v, _ := t["start"].(string)
 	return v
