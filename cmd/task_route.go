@@ -75,10 +75,15 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt string) error {
 	msg := fmt.Sprintf("[%s] %s — %s\n%s",
 		roleTag, uuid, task.Description, rolePrompt)
 
-	return daemon.Send(daemon.SendRequest{
+	if err := daemon.Send(daemon.SendRequest{
 		To:      agentName,
 		Message: msg,
-	})
+	}); err != nil {
+		return err
+	}
+
+	fmt.Printf("Routed task %s to %s\n", uuid, agentName)
+	return nil
 }
 
 // spawnWorkerForTask spawns a worker for a task using the standard spawn flow.
