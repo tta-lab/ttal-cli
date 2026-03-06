@@ -344,24 +344,26 @@ func parseCommandArgs(text string) []string {
 	return parts[1:]
 }
 
+// joinArgs joins parsed arguments with the given separator.
+func joinArgs(args []string, separator string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return separator + strings.Join(args, " ")
+}
+
 // buildFullCommand constructs a slash command string from a command name and
 // the raw message text, forwarding any arguments that follow the command.
 func buildFullCommand(cmdName, messageText string) string {
-	fullCmd := "/" + cmdName
-	if args := parseCommandArgs(messageText); len(args) > 0 {
-		fullCmd += " " + strings.Join(args, " ")
-	}
-	return fullCmd
+	args := parseCommandArgs(messageText)
+	return "/" + cmdName + joinArgs(args, " ")
 }
 
 // buildSkillCommand constructs a skill invocation string from a command name and
 // the raw message text, converting /skill args to "Use skill skill. args".
 func buildSkillCommand(cmdName, messageText string) string {
-	fullCmd := "Use " + cmdName + " skill"
-	if args := parseCommandArgs(messageText); len(args) > 0 {
-		fullCmd += ". " + strings.Join(args, " ")
-	}
-	return fullCmd
+	args := parseCommandArgs(messageText)
+	return "Use " + cmdName + " skill" + joinArgs(args, ". ")
 }
 
 // transcribeVoiceMessage downloads a Telegram voice message and transcribes it via the voice package.

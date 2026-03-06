@@ -61,6 +61,18 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			rt:    runtime.ClaudeCode,
 			want:  "{{skill:broken\nSome text",
 		},
+		{
+			name:  "skill placeholder in middle of text",
+			input: "Start {{skill:triage}} middle end",
+			rt:    runtime.ClaudeCode,
+			want:  "Use triage skill\n\nStart  middle end",
+		},
+		{
+			name:  "skill placeholder at end of text",
+			input: "Some text {{skill:sp-executing-plans}}",
+			rt:    runtime.Codex,
+			want:  "$sp-executing-plans\n\nSome text ",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
