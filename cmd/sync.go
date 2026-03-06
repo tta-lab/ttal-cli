@@ -56,7 +56,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		syncCfg := cfg.Sync
 
 		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
-			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0
+			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 && syncCfg.GlobalPromptPath == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
@@ -195,6 +195,25 @@ Configure source paths in ~/.config/ttal/config.toml:
 				for _, path := range removed {
 					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
 				}
+			}
+		}
+
+		if syncCfg.GlobalPromptPath != "" {
+			fmt.Println()
+			if syncDryRun {
+				fmt.Println("Syncing global prompt (dry run)...")
+			} else {
+				fmt.Println("Syncing global prompt...")
+			}
+
+			results, err := sync.DeployGlobalPrompt(syncCfg.GlobalPromptPath, syncDryRun)
+			if err != nil {
+				return fmt.Errorf("global prompt sync failed: %w", err)
+			}
+
+			for _, r := range results {
+				fmt.Printf("  %s\n", shortenHome(r.Source))
+				fmt.Printf("    → %s (%s)\n", shortenHome(r.Dest), r.Runtime)
 			}
 		}
 

@@ -160,10 +160,11 @@ type TeamConfig struct {
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
 type SyncConfig struct {
-	SubagentsPaths []string `toml:"subagents_paths" jsonschema:"description=Directories to scan for subagent definitions"`
-	SkillsPaths    []string `toml:"skills_paths" jsonschema:"description=Directories to scan for skill definitions"`
-	CommandsPaths  []string `toml:"commands_paths" jsonschema:"description=Directories to scan for command definitions"`
-	RulesPaths     []string `toml:"rules_paths" jsonschema:"description=Directories to scan for RULE.md files"`
+	SubagentsPaths   []string `toml:"subagents_paths" jsonschema:"description=Directories for subagent definitions"`
+	SkillsPaths      []string `toml:"skills_paths" jsonschema:"description=Directories for skill definitions"`
+	CommandsPaths    []string `toml:"commands_paths" jsonschema:"description=Directories for command definitions"`
+	RulesPaths       []string `toml:"rules_paths" jsonschema:"description=Directories for RULE.md files"`
+	GlobalPromptPath string   `toml:"global_prompt_path" jsonschema:"description=Path to global CLAUDE.md prompt"`
 }
 
 // VoiceConfig holds voice-related settings resolved from the active team.
