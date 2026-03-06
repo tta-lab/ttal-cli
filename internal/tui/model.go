@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -56,7 +57,7 @@ func (t *Task) Age() string {
 	}
 	parsed, err := time.Parse("20060102T150405Z", t.Entry)
 	if err != nil {
-		return ""
+		return "?"
 	}
 	return formatAge(time.Since(parsed))
 }
@@ -66,7 +67,7 @@ func formatAge(d time.Duration) string {
 		return fmt.Sprintf("%dm ago", int(d.Minutes()))
 	}
 	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
+		return fmt.Sprintf("%dh ago", int(math.Round(d.Hours())))
 	}
 	if d < 30*24*time.Hour {
 		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
