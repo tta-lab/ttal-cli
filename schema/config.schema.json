@@ -90,6 +90,24 @@
       "type": "object",
       "description": "Flicknote integration settings"
     },
+    "voice": {
+      "properties": {
+        "vocabulary": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Custom vocabulary words for Whisper"
+        },
+        "language": {
+          "type": "string",
+          "description": "ISO 639-1 language code (default: en)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Global voice settings (vocabulary"
+    },
     "default_team": {
       "type": "string",
       "description": "Active team when TTAL_TEAM env is not set"
