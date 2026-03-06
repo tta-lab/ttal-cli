@@ -8,35 +8,19 @@ func TestFormatSkillInvocation(t *testing.T) {
 		skill string
 		want  string
 	}{
-		{ClaudeCode, "triage", "/triage"},
-		{OpenCode, "triage", "/triage"},
+		{ClaudeCode, "triage", "Use triage skill"},
+		{OpenCode, "triage", "Use triage skill"},
 		{Codex, "triage", "$triage"},
-		{ClaudeCode, "review-pr", "/review-pr"},
+		{ClaudeCode, "review-pr", "Use review-pr skill"},
 		{Codex, "review-pr", "$review-pr"},
+		// sp- skills should also work
+		{ClaudeCode, "sp-executing-plans", "Use sp-executing-plans skill"},
+		{Codex, "sp-executing-plans", "$sp-executing-plans"},
 	}
 	for _, tt := range tests {
 		got := FormatSkillInvocation(tt.rt, tt.skill)
 		if got != tt.want {
 			t.Errorf("FormatSkillInvocation(%q, %q) = %q, want %q", tt.rt, tt.skill, got, tt.want)
-		}
-	}
-}
-
-func TestFormatSkillMessage(t *testing.T) {
-	tests := []struct {
-		rt    Runtime
-		skill string
-		msg   string
-		want  string
-	}{
-		{ClaudeCode, "triage", "PR review posted.", "/triage PR review posted."},
-		{OpenCode, "triage", "PR review posted.", "/triage PR review posted."},
-		{Codex, "triage", "PR review posted.", "$triage PR review posted."},
-	}
-	for _, tt := range tests {
-		got := FormatSkillMessage(tt.rt, tt.skill, tt.msg)
-		if got != tt.want {
-			t.Errorf("FormatSkillMessage(%q, %q, %q) = %q, want %q", tt.rt, tt.skill, tt.msg, got, tt.want)
 		}
 	}
 }

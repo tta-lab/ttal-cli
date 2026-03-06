@@ -313,7 +313,7 @@ func registerBotCommandsForAgent(
 			sendEscToAgent(teamName, agentName, botToken, chatIDStr)
 		})
 
-	// Register discovered commands — forward as /command to agent's tmux pane.
+	// Register discovered commands — forward as "Use command skill. args" to agent's tmux pane.
 	// Use OriginalName (with hyphens) for dispatch since Claude Code skills
 	// use hyphenated names, but match on Command (sanitized with underscores).
 	for _, cmd := range allCommands {
@@ -327,7 +327,7 @@ func registerBotCommandsForAgent(
 		}
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
-				fullCmd := buildFullCommand(origName, update.Message.Text)
+				fullCmd := buildSkillCommand(origName, update.Message.Text)
 				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd,
 					fmt.Sprintf("Sent /%s to %s", origName, agentName))
 			})
@@ -350,6 +350,16 @@ func buildFullCommand(cmdName, messageText string) string {
 	fullCmd := "/" + cmdName
 	if args := parseCommandArgs(messageText); len(args) > 0 {
 		fullCmd += " " + strings.Join(args, " ")
+	}
+	return fullCmd
+}
+
+// buildSkillCommand constructs a skill invocation string from a command name and
+// the raw message text, converting /skill args to "Use skill skill. args".
+func buildSkillCommand(cmdName, messageText string) string {
+	fullCmd := "Use " + cmdName + " skill"
+	if args := parseCommandArgs(messageText); len(args) > 0 {
+		fullCmd += ". " + strings.Join(args, " ")
 	}
 	return fullCmd
 }

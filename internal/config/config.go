@@ -28,22 +28,18 @@ type PromptsConfig struct {
 // DefaultPrompts returns sensible defaults for all prompt templates.
 func DefaultPrompts() PromptsConfig {
 	return PromptsConfig{
-		Designer: `{{skill:sp-writing-plans}}
-Write an implementation plan for this task.
+		Designer: `Write an implementation plan for this task.
 
 When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'`,
 
-		Researcher: `{{skill:tell-me-more}}
-Research this topic thoroughly.
+		Researcher: `Research this topic thoroughly.
 
 When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'`,
 
-		Execute: `{{skill:sp-executing-plans}}
-Use the executing-plans skill to implement this plan task-by-task.
+		Execute: `Use the executing-plans skill to implement this plan task-by-task.
 Follow each task in order: read the plan, make changes, verify, commit.`,
 
-		Triage: `{{skill:triage}}
-PR review posted.{{review-file}} Read it, assess and fix issues.
+		Triage: `PR review posted.{{review-file}} Read it, assess and fix issues.
 Post your triage update with ttal pr comment create when done.
 If verdict is LGTM and no remaining issues, merge with: ttal pr merge`,
 
@@ -52,7 +48,7 @@ Branch: {{branch}}
 
 ## Your Task
 
-1. Run {{skill:pr-review}} to perform a comprehensive code review
+1. Run pr-review skill to perform a comprehensive code review
    - Review scope: ONLY changes in this PR (the diff), not the entire codebase
    - Focus on: correctness, security, architecture, tests
 
@@ -79,7 +75,7 @@ Do NOT merge the PR. The coder handles merging after triage.
 - NEVER use --no-review flag when posting comments — your review must trigger the coder to triage`,
 
 		ReReview: `Worker has pushed fixes addressing your review.{{coder-comment}} Please re-review:
-1. Run {{skill:pr-review}} {{review-scope}}
+1. Run pr-review skill {{review-scope}}
 2. Post updated review via: ttal pr comment create "your review" (NEVER use --no-review)
 3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not`,
 	}
@@ -400,8 +396,12 @@ func (c *Config) RenderPrompt(key, taskID string, rt runtime.Runtime) string {
 }
 
 // RenderTemplate resolves {{skill:name}} and {{task-id}} in an arbitrary template string.
+// All {{skill:xxx}} placeholders are collected and prepended at the start of the result.
 func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 	result := strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
+
+	// Collect all {{skill:xxx}} and replace with invocation
+	var skills []string
 	for {
 		start := strings.Index(result, "{{skill:")
 		if start == -1 {
@@ -412,13 +412,26 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 			break
 		}
 		end += start + 2
+
+		// Extract skill name
 		skillName := result[start+len("{{skill:") : end-2]
-		if skillName == "" {
-			break
+		if skillName != "" {
+			skills = append(skills, runtime.FormatSkillInvocation(rt, skillName))
 		}
-		invocation := runtime.FormatSkillInvocation(rt, skillName)
-		result = result[:start] + invocation + result[end:]
+
+		// Remove the placeholder (including any trailing newline that follows {{skill:xxx}}\n)
+		remainder := result[end:]
+		// Skip leading whitespace/newlines after placeholder removal
+		trimmed := strings.TrimPrefix(remainder, "\n")
+		result = result[:start] + trimmed
 	}
+
+	// Prepend skills at start if any found
+	if len(skills) > 0 {
+		skillLine := strings.Join(skills, "\n")
+		result = skillLine + "\n\n" + result
+	}
+
 	return result
 }
 
