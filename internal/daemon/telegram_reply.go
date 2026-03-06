@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/go-telegram/bot/models"
 )
@@ -10,8 +9,15 @@ import (
 // extractReplyContext extracts the text from a replied-to message,
 // returning a formatted prefix like "[replying to: 'original message'] "
 // or an empty string if this message is not a reply.
-func extractReplyContext(msg *models.Message) string {
-	if msg.ReplyToMessage == nil {
+// Safe to call — recovers from any panic and returns empty string on error.
+func extractReplyContext(msg *models.Message) (ctx string) {
+	defer func() {
+		if r := recover(); r != nil {
+			ctx = ""
+		}
+	}()
+
+	if msg == nil || msg.ReplyToMessage == nil {
 		return ""
 	}
 
@@ -45,9 +51,6 @@ func extractReplyContext(msg *models.Message) string {
 	if len(text) > 200 {
 		text = text[:197] + "..."
 	}
-
-	// Escape any single quotes in the text to avoid breaking the prefix format
-	text = strings.ReplaceAll(text, "'", "'")
 
 	return fmt.Sprintf("[replying to: '%s'] ", text)
 }
