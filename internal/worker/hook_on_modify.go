@@ -37,15 +37,10 @@ func HookOnModify() {
 }
 
 // validateTaskCompletion checks if a task can be completed.
-// It blocks completion if the task has an unmerged PR (unless force is used).
+// It blocks completion if the task has an unmerged PR.
 func validateTaskCompletion(modified hookTask) error {
 	prID := modified.PRID()
 	if prID == "" {
-		return nil
-	}
-
-	force := os.Getenv("TASK_FORCE") == "1" || hasForceTag(modified)
-	if force {
 		return nil
 	}
 
@@ -83,14 +78,5 @@ func validateTaskCompletion(modified hookTask) error {
 		return nil
 	}
 
-	return fmt.Errorf("cannot complete task with unmerged PR #%s. Set TASK_FORCE=1 or add 'force' tag to override", prID)
-}
-
-func hasForceTag(task hookTask) bool {
-	for _, tag := range task.Tags() {
-		if tag == "force" {
-			return true
-		}
-	}
-	return false
+	return fmt.Errorf("cannot complete task with unmerged PR #%s. Merge the PR first.", prID)
 }
