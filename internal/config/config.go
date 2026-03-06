@@ -353,13 +353,9 @@ func (c *Config) EmojiReactions() bool {
 }
 
 // Prompt returns the prompt template for a given key, falling back to defaults.
+// Priority: roles.toml > defaults
 func (c *Config) Prompt(key string) string {
-	if prompt := c.promptFromConfig(key); prompt != "" {
-		return prompt
-	}
-	if prompt := c.promptFromDefaults(key); prompt != "" {
-		return prompt
-	}
+	// 1. Check roles.toml first (custom role prompts)
 	roles, err := LoadRoles()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to load roles.toml: %v\n", err)
@@ -369,24 +365,12 @@ func (c *Config) Prompt(key string) string {
 			return prompt
 		}
 	}
-	return ""
-}
 
-func (c *Config) promptFromConfig(key string) string {
-	switch key {
-	case "designer":
-		return c.Prompts.Designer
-	case "researcher":
-		return c.Prompts.Researcher
-	case "execute":
-		return c.Prompts.Execute
-	case "triage":
-		return c.Prompts.Triage
-	case "review":
-		return c.Prompts.Review
-	case "re_review":
-		return c.Prompts.ReReview
+	// 2. Fall back to defaults
+	if prompt := c.promptFromDefaults(key); prompt != "" {
+		return prompt
 	}
+
 	return ""
 }
 
