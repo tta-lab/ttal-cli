@@ -19,7 +19,8 @@ const (
 	keyOpenEditor
 	keyAddToday
 	keyRemoveToday
-	keyFilter
+	keyFilterNext
+	keyFilterPrev
 	keySearch
 	keyHelp
 	keyRefresh
@@ -58,7 +59,8 @@ var keyMap = map[string]keyAction{
 	"d":      keyDone,
 	"m":      keyModify,
 	"A":      keyAnnotate,
-	"f":      keyFilter,
+	"[":      keyFilterPrev,
+	"]":      keyFilterNext,
 	"/":      keySearch,
 	"?":      keyHelp,
 	"ctrl+r": keyRefresh,
@@ -101,7 +103,8 @@ const helpText = `Key Bindings:
 
   a               Add to today
   Ctrl+A          Remove from today
-  f               Cycle filter (pending/today/active/completed)
+  [               Previous filter
+  ]               Next filter
   /               Search (taskwarrior syntax: project:x +tag etc)
   Ctrl+R          Refresh tasks
 

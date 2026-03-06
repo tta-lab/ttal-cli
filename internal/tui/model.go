@@ -105,6 +105,10 @@ func (f filterMode) Next() filterMode {
 	return (f + 1) % 4
 }
 
+func (f filterMode) Prev() filterMode {
+	return (f - 1 + 4) % 4
+}
+
 type Model struct {
 	state  viewState
 	filter filterMode
@@ -315,8 +319,13 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 			m.routeInput = ""
 			m.updateRouteMatches()
 		}
-	case keyFilter:
+	case keyFilterNext:
 		m.filter = m.filter.Next()
+		m.cursor = 0
+		m.offset = 0
+		return m, m.reloadTasks()
+	case keyFilterPrev:
+		m.filter = m.filter.Prev()
 		m.cursor = 0
 		m.offset = 0
 		return m, m.reloadTasks()
