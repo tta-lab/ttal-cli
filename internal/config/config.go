@@ -15,70 +15,12 @@ import (
 
 // PromptsConfig holds configurable prompt templates for task routing and worker spawn.
 // Supports {{task-id}} and {{skill:name}} template variables.
-// Role-based keys (designer, researcher) match agent frontmatter role values.
+// Role-based keys (designer, researcher) come from roles.toml, not config.toml.
 type PromptsConfig struct {
-	Designer   string `toml:"designer" jsonschema:"description=Prompt for designer role"`
-	Researcher string `toml:"researcher" jsonschema:"description=Prompt for researcher role"`
-	Execute    string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
-	Triage     string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                             //nolint:lll
-	Review     string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
-	ReReview   string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
-}
-
-// DefaultPrompts returns sensible defaults for all prompt templates.
-func DefaultPrompts() PromptsConfig {
-	return PromptsConfig{
-		Designer: `Write an implementation plan for this task.
-
-When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'`,
-
-		Researcher: `Research this topic thoroughly.
-
-When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'`,
-
-		Execute: `Use the executing-plans skill to implement this plan task-by-task.
-Follow each task in order: read the plan, make changes, verify, commit.`,
-
-		Triage: `PR review posted.{{review-file}} Read it, assess and fix issues.
-Post your triage update with ttal pr comment create when done.
-If verdict is LGTM and no remaining issues, merge with: ttal pr merge`,
-
-		Review: `You are a code reviewer for PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}}.
-Branch: {{branch}}
-
-## Your Task
-
-1. Run pr-review skill to perform a comprehensive code review
-   - Review scope: ONLY changes in this PR (the diff), not the entire codebase
-   - Focus on: correctness, security, architecture, tests
-
-2. Structure your findings as a PR comment with clear sections:
-   - Critical Issues (must fix before merge)
-   - Important Issues (should fix)
-   - Suggestions (nice to have)
-   - Strengths (what's well done)
-
-3. Post your review using:
-   ttal pr comment create "your structured review"
-
-4. End your comment with one of:
-   - VERDICT: NEEDS_WORK (if any critical issues)
-   - VERDICT: LGTM (if no critical issues)
-
-Do NOT merge the PR. The coder handles merging after triage.
-
-## Important
-- Only review what changed in the PR, not pre-existing code
-- Be specific: reference file:line for each finding
-- Be constructive: suggest fixes, not just problems
-- If you're unsure about something, say so rather than raising a false alarm
-- NEVER use --no-review flag when posting comments — your review must trigger the coder to triage`,
-
-		ReReview: `Worker has pushed fixes addressing your review.{{coder-comment}} Please re-review:
-1. Run pr-review skill {{review-scope}}
-2. Post updated review via: ttal pr comment create "your review" (NEVER use --no-review)
-3. End with VERDICT: LGTM if all issues addressed, or VERDICT: NEEDS_WORK if not`,
-	}
+	Execute  string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
+	Triage   string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                             //nolint:lll
+	Review   string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
+	ReReview string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
 }
 
 // AgentSessionName returns the tmux session name for an agent.
@@ -349,10 +291,9 @@ func (c *Config) EmojiReactions() bool {
 	return c.resolvedEmojiReactions
 }
 
-// Prompt returns the prompt template for a given key, falling back to defaults.
-// Priority: roles.toml > defaults
+// Prompt returns the prompt template for a given key.
+// Priority: roles.toml > config.toml [prompts]
 func (c *Config) Prompt(key string) string {
-	// 1. Check roles.toml first (custom role prompts)
 	roles, err := LoadRoles()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to load roles.toml: %v\n", err)
@@ -363,31 +304,24 @@ func (c *Config) Prompt(key string) string {
 		}
 	}
 
-	// 2. Fall back to defaults
-	if prompt := c.promptFromDefaults(key); prompt != "" {
-		return prompt
+	if c.hasAnyPromptConfigured() {
+		promptsMap := map[string]string{
+			"execute":   c.Prompts.Execute,
+			"triage":    c.Prompts.Triage,
+			"review":    c.Prompts.Review,
+			"re_review": c.Prompts.ReReview,
+		}
+		if prompt, ok := promptsMap[key]; ok {
+			return prompt
+		}
 	}
 
 	return ""
 }
 
-func (c *Config) promptFromDefaults(key string) string {
-	defaults := DefaultPrompts()
-	switch key {
-	case "designer":
-		return defaults.Designer
-	case "researcher":
-		return defaults.Researcher
-	case "execute":
-		return defaults.Execute
-	case "triage":
-		return defaults.Triage
-	case "review":
-		return defaults.Review
-	case "re_review":
-		return defaults.ReReview
-	}
-	return ""
+func (c *Config) hasAnyPromptConfigured() bool {
+	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
+		c.Prompts.Review != "" || c.Prompts.ReReview != ""
 }
 
 // RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.
@@ -1032,20 +966,8 @@ default_team = "default"
 # Configurable prompts for task routing and worker spawn.
 # Supports {{task-id}} and {{skill:name}} template variables.
 # {{skill:name}} resolves to /name (CC/OC) or $name (Codex) based on agent runtime.
-# Role keys match agent frontmatter role values (e.g. role: designer → [prompts] designer).
+# Role-based prompts (designer, researcher) come from roles.toml, not config.toml.
 [prompts]
-designer = """
-{{skill:sp-writing-plans}}
-Write an implementation plan for this task.
-
-When done: task {{task-id}} annotate 'Plan: docs/plans/YYYY-MM-DD-topic.md'"""
-
-researcher = """
-{{skill:tell-me-more}}
-Research this topic thoroughly.
-
-When done: task {{task-id}} annotate 'Research: docs/research/YYYY-MM-DD-topic.md'"""
-
 execute = """
 {{skill:sp-executing-plans}}
 Use the executing-plans skill to implement this plan task-by-task.

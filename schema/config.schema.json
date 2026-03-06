@@ -51,14 +51,6 @@
     },
     "prompts": {
       "properties": {
-        "designer": {
-          "type": "string",
-          "description": "Prompt for designer role"
-        },
-        "researcher": {
-          "type": "string",
-          "description": "Prompt for researcher role"
-        },
         "execute": {
           "type": "string",
           "description": "Prompt prefix for worker spawn"

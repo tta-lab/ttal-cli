@@ -266,11 +266,15 @@ Examples:
 					reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
 				}
 				tmpl := cfg.Prompt("triage")
-				replacer := strings.NewReplacer("{{review-file}}", reviewRef)
-				notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
+				if tmpl == "" {
+					fmt.Println("triage prompt not configured, skipping notification")
+				} else {
+					replacer := strings.NewReplacer("{{review-file}}", reviewRef)
+					notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 
-				if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
+					if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
+					}
 				}
 			}
 		}
