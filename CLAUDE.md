@@ -159,18 +159,6 @@ The `modify` command supports field updates:
 ttal project modify clawd name:'New Name' path:/new/path
 ```
 
-## Commit Convention
-
-Use this format for commits:
-```
-ttal: [category] description
-
-Examples:
-ttal: impl - add worker spawn
-ttal: refactor - optimize tag queries
-ttal: fix - handle nil archived_at
-```
-
 ## CI/CD
 
 ### Workflows (.github/workflows/)
