@@ -27,6 +27,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 	}
 
 	prompt := buildReviewerPrompt(cfg, ctx, prIndex, rt)
+	if prompt == "" {
+		return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
+	}
 
 	promptFile, err := writePromptFile(prompt)
 	if err != nil {
@@ -92,6 +95,9 @@ func RequestReReview(sessionName string, full bool, coderComment string, cfg *co
 	}
 
 	tmpl := cfg.Prompt("re_review")
+	if tmpl == "" {
+		return fmt.Errorf("re_review prompt not configured: add [prompts] re_review = \"...\" to config.toml")
+	}
 	replacer := strings.NewReplacer(
 		"{{coder-comment}}", commentRef,
 		"{{review-scope}}", scope,

@@ -302,6 +302,18 @@ func writeTaskFile(
 ) (string, error) {
 	var b strings.Builder
 
+	// Execute prompt from config (skill invocation)
+	shortID := task.UUID
+	if len(shortID) > 8 {
+		shortID = shortID[:8]
+	}
+	executePrompt := shellCfg.RenderPrompt("execute", shortID, cfg.Runtime)
+	if executePrompt == "" {
+		return "", fmt.Errorf("execute prompt not configured: add [prompts] execute = \"...\" to config.toml")
+	}
+	b.WriteString(executePrompt)
+	b.WriteString("\n\n")
+
 	// Worktree context (worker needs this immediately)
 	if cfg.Worktree && branch != "" {
 		fmt.Fprintf(&b, "IMPORTANT - You are in a git worktree:\n"+
@@ -313,21 +325,6 @@ func writeTaskFile(
 			"- When done: commit, push, and create PR with `ttal pr create \"title\" --body \"description\"`\n\n",
 			workDir, branch)
 	}
-
-	// Execute prompt from config (skill invocation)
-	shortID := task.UUID
-	if len(shortID) > 8 {
-		shortID = shortID[:8]
-	}
-	executePrompt := shellCfg.RenderPrompt("execute", shortID, cfg.Runtime)
-	if executePrompt != "" {
-		b.WriteString(executePrompt)
-		b.WriteString("\n\n")
-	}
-
-	// Task summary + instruction to get full context on demand
-	fmt.Fprintf(&b, "Task: %s\n\n", task.Description)
-	b.WriteString("Run `ttal task get` to see full task details, annotations, and referenced documentation.\n")
 
 	taskFile, err := os.CreateTemp("", "claude-task-*.txt")
 	if err != nil {

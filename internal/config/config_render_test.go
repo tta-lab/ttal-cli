@@ -84,22 +84,27 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 	}
 }
 
-func TestPromptFallbackDefaults(t *testing.T) {
-	cfg := &Config{} // empty prompts — should fall back to defaults (or roles.toml if exists)
+func TestPromptNoDefaults(t *testing.T) {
+	cfg := &Config{} // empty prompts — no fallback to defaults
 
-	// Test that prompts are returned for known keys
-	// Note: Prompt() returns raw templates - rendering happens in RenderPrompt()
 	keys := []string{"designer", "researcher", "execute", "triage", "review", "re_review"}
+	hasRolesToml := false
+	if roles, err := LoadRoles(); err == nil && roles != nil && len(roles.Roles) > 0 {
+		hasRolesToml = true
+	}
+
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
 			got := cfg.Prompt(key)
-			if got == "" {
-				t.Errorf("Prompt(%q) = empty string, want non-empty", key)
+			if hasRolesToml && got == "" {
+				t.Skip("roles.toml exists but prompt not defined for key")
+			}
+			if !hasRolesToml && got != "" {
+				t.Errorf("Prompt(%q) = %q, want empty string (no defaults without roles.toml)", key, got)
 			}
 		})
 	}
 
-	// Unknown key should return empty
 	t.Run("unknown", func(t *testing.T) {
 		got := cfg.Prompt("unknown")
 		if got != "" {

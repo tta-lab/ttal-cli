@@ -44,7 +44,7 @@ Examples:
 		rt := cfg.AgentRuntimeFor(routeToAgent)
 		prompt := cfg.RenderPrompt(agent.Role, uuid, rt)
 		if prompt == "" {
-			return fmt.Errorf("no prompt for role %q — add [prompts] %s = \"...\" to config.toml",
+			return fmt.Errorf("no prompt for role %q — add [role.%s] prompt = \"...\" to roles.toml",
 				agent.Role, agent.Role)
 		}
 		return routeTaskToAgent(routeToAgent, uuid, "task "+agent.Role, prompt)
