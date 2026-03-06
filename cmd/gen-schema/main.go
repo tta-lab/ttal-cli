@@ -18,6 +18,10 @@ func main() {
 		FieldNameTag:               "toml",
 		RequiredFromJSONSchemaTags: true,
 		ExpandedStruct:             true,
+		DoNotReference:             true,
+	}
+	if err := r.AddGoComments("github.com/tta-lab/ttal-cli", "./internal/config"); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to add Go comments: %v\n", err)
 	}
 
 	schema := r.Reflect(&config.Config{})
