@@ -372,6 +372,12 @@ func (c *Config) Prompt(key string) string {
 		}
 		return defaults.ReReview
 	default:
+		roles, _ := LoadRoles()
+		if roles != nil {
+			if prompt, ok := roles.Roles[key]; ok && prompt != "" {
+				return prompt
+			}
+		}
 		return ""
 	}
 }
