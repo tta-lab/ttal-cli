@@ -219,11 +219,7 @@ func checkConfig(fix bool) Section {
 
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		if fix {
-			if err := config.WriteTemplate(); err != nil {
-				section.add(LevelError, "config", fmt.Sprintf("failed to create template: %v", err))
-			} else {
-				section.add(LevelWarn, "config", fmt.Sprintf("created template at %s — edit before continuing", cfgPath))
-			}
+			section.add(LevelError, "config", fmt.Sprintf("%s not found (run: ttal init)", cfgPath))
 		} else {
 			section.add(LevelError, "config", fmt.Sprintf("%s not found (run: ttal doctor --fix)", cfgPath))
 		}

@@ -39,14 +39,11 @@ func Install() error {
 		return err
 	}
 
-	// Create config template if not present
+	// Warn if config not present
 	if cfgPath, err := config.Path(); err == nil {
 		if _, statErr := os.Stat(cfgPath); os.IsNotExist(statErr) {
-			if err := config.WriteTemplate(); err != nil {
-				return fmt.Errorf("failed to write config template: %w", err)
-			}
-			fmt.Printf("Created config template: %s\n", cfgPath)
-			fmt.Println("  Edit it to configure your agents before starting the daemon.")
+			fmt.Printf("No config found at: %s\n", cfgPath)
+			fmt.Println("  Run 'ttal init' to set up your configuration before starting the daemon.")
 		}
 	}
 
