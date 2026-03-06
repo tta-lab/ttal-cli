@@ -520,28 +520,8 @@ func (c *Config) resolve() error {
 	// Resolve notification bot token from .env
 	c.NotificationToken = resolveNotificationToken(teamName, team.NotificationTokenEnv)
 
-	// Resolve voice config with merged vocabulary (build all team/agent names from c.Teams)
-	allTeamNames := make([]string, 0, len(c.Teams))
-	allAgentNames := make([]string, 0)
-	seenAgents := make(map[string]bool)
-	for tn, t := range c.Teams {
-		allTeamNames = append(allTeamNames, tn)
-		for agent := range t.Agents {
-			if !seenAgents[agent] {
-				seenAgents[agent] = true
-				allAgentNames = append(allAgentNames, agent)
-			}
-		}
-	}
-	mergedVocab := c.Voice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
-	lang := c.Voice.Language
-	if lang == "" {
-		lang = team.VoiceLanguage
-	}
-	c.VoiceResolved = VoiceConfig{
-		Vocabulary: mergedVocab,
-		Language:   lang,
-	}
+	// Resolve voice config with merged vocabulary
+	c.VoiceResolved = c.resolveVoiceConfig(team)
 
 	// Resolve DataDir: explicit override > convention
 	if team.DataDir != "" {
@@ -604,6 +584,31 @@ func (c *Config) resolve() error {
 	}
 
 	return c.validateMergeMode()
+}
+
+// resolveVoiceConfig resolves the voice config with merged vocabulary for a team.
+func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
+	allTeamNames := make([]string, 0, len(c.Teams))
+	allAgentNames := make([]string, 0)
+	seenAgents := make(map[string]bool)
+	for tn, t := range c.Teams {
+		allTeamNames = append(allTeamNames, tn)
+		for agent := range t.Agents {
+			if !seenAgents[agent] {
+				seenAgents[agent] = true
+				allAgentNames = append(allAgentNames, agent)
+			}
+		}
+	}
+	mergedVocab := c.Voice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
+	lang := c.Voice.Language
+	if lang == "" {
+		lang = team.VoiceLanguage
+	}
+	return VoiceConfig{
+		Vocabulary: mergedVocab,
+		Language:   lang,
+	}
 }
 
 func (c *Config) validateMergeMode() error {
