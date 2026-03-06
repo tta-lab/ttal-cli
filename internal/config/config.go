@@ -112,13 +112,14 @@ type Config struct {
 	LifecycleAgent    string                 `toml:"-" json:"-"` // Deprecated: use NotificationToken instead
 	NotificationToken string                 `toml:"-" json:"-"`
 	Agents            map[string]AgentConfig `toml:"-" json:"-"`
-	Voice             VoiceConfig            `toml:"-" json:"-"`
+	VoiceResolved     VoiceConfig            `toml:"-" json:"-"`
 
 	// Global fields — not per-team.
 	Shell     string          `toml:"shell" jsonschema:"enum=zsh,enum=fish,description=Shell for spawning workers"`
 	Sync      SyncConfig      `toml:"sync" jsonschema:"description=Paths for subagent and skill deployment"`
 	Prompts   PromptsConfig   `toml:"prompts" jsonschema:"description=Prompt templates for task routing"`
 	Flicknote FlicknoteConfig `toml:"flicknote" jsonschema:"description=Flicknote integration settings"`
+	Voice     VoiceConfig     `toml:"voice" jsonschema:"description=Global voice settings (vocabulary, language)"`
 
 	// Team-aware fields.
 	DefaultTeam string                `toml:"default_team" jsonschema:"description=Active team when TTAL_TEAM env is not set"` //nolint:lll
@@ -173,6 +174,20 @@ type SyncConfig struct {
 type VoiceConfig struct {
 	Vocabulary []string `toml:"vocabulary" jsonschema:"description=Custom vocabulary words for Whisper"`
 	Language   string   `toml:"language" jsonschema:"description=ISO 639-1 language code (default: en)"`
+}
+
+// EffectiveVocabulary returns effective vocabulary for a team:
+// global vocabulary + team-specific vocabulary + ALL team names + ALL agent names
+// (team names and agent names are global - included for all teams)
+func (c *VoiceConfig) EffectiveVocabulary(teamVocabulary []string, allTeamNames, allAgentNames []string) []string {
+	v := make([]string, 0, len(c.Vocabulary)+len(teamVocabulary)+len(allTeamNames)+len(allAgentNames))
+
+	v = append(v, c.Vocabulary...)
+	v = append(v, teamVocabulary...)
+	v = append(v, allTeamNames...)
+	v = append(v, allAgentNames...)
+
+	return v
 }
 
 // AgentConfig holds per-agent Telegram credentials and runtime settings.
@@ -517,9 +532,33 @@ func (c *Config) resolve() error {
 
 	// Resolve notification bot token from .env
 	c.NotificationToken = resolveNotificationToken(teamName, team.NotificationTokenEnv)
-	c.Voice = VoiceConfig{
-		Vocabulary: team.VoiceVocabulary,
-		Language:   team.VoiceLanguage,
+
+	// Build all team names and agent names for vocabulary
+	allTeamNames := make([]string, 0, len(c.Teams))
+	allAgentNames := make([]string, 0)
+	seenAgents := make(map[string]bool)
+	for tn := range c.Teams {
+		allTeamNames = append(allTeamNames, tn)
+		for agent := range c.Teams[tn].Agents {
+			if !seenAgents[agent] {
+				seenAgents[agent] = true
+				allAgentNames = append(allAgentNames, agent)
+			}
+		}
+	}
+
+	// Merge global + team vocabulary with all team/agent names
+	mergedVocab := c.Voice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
+
+	// Use global language, fallback to team language
+	lang := c.Voice.Language
+	if lang == "" {
+		lang = team.VoiceLanguage
+	}
+
+	c.VoiceResolved = VoiceConfig{
+		Vocabulary: mergedVocab,
+		Language:   lang,
 	}
 
 	// Resolve DataDir: explicit override > convention
@@ -662,7 +701,7 @@ func LoadAll() (*DaemonConfig, error) {
 	}
 
 	for teamName, team := range cfg.Teams {
-		rt, err := resolveTeam(teamName, team)
+		rt, err := resolveTeam(teamName, team, &cfg.Voice, cfg.Teams)
 		if err != nil {
 			return nil, fmt.Errorf("team %q: %w", teamName, err)
 		}
@@ -673,9 +712,40 @@ func LoadAll() (*DaemonConfig, error) {
 }
 
 // resolveTeam resolves a single team's config fields.
-func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
+func resolveTeam(teamName string, team TeamConfig, globalVoice *VoiceConfig, allTeams map[string]TeamConfig) (*ResolvedTeam, error) {
 	if team.TeamPath == "" {
 		return nil, fmt.Errorf("missing required field: team_path")
+	}
+
+	// Build all team names and agent names for vocabulary
+	allTeamNames := make([]string, 0, len(allTeams))
+	allAgentNames := make([]string, 0)
+	seenAgents := make(map[string]bool)
+	for tn := range allTeams {
+		allTeamNames = append(allTeamNames, tn)
+		for agent := range allTeams[tn].Agents {
+			if !seenAgents[agent] {
+				seenAgents[agent] = true
+				allAgentNames = append(allAgentNames, agent)
+			}
+		}
+	}
+
+	// Merge global + team vocabulary with all team/agent names
+	var mergedVocab []string
+	if globalVoice != nil {
+		mergedVocab = globalVoice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
+	} else {
+		mergedVocab = team.VoiceVocabulary
+	}
+
+	// Use global language, fallback to team language
+	lang := ""
+	if globalVoice != nil {
+		lang = globalVoice.Language
+	}
+	if lang == "" {
+		lang = team.VoiceLanguage
 	}
 
 	rt := &ResolvedTeam{
@@ -690,8 +760,8 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 		GatewayURL:        team.GatewayURL,
 		HooksToken:        team.HooksToken,
 		Voice: VoiceConfig{
-			Vocabulary: team.VoiceVocabulary,
-			Language:   team.VoiceLanguage,
+			Vocabulary: mergedVocab,
+			Language:   lang,
 		},
 		Agents:         team.Agents,
 		EmojiReactions: team.EmojiReactions != nil && *team.EmojiReactions,
