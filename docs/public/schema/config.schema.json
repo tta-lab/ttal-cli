@@ -193,7 +193,8 @@
         },
         "emoji_reactions": {
           "type": "boolean",
-          "description": "Enable emoji reactions"
+          "description": "Enable emoji reactions",
+          "default": false
         },
         "task_sync_url": {
           "type": "string",

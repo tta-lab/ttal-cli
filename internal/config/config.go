@@ -156,7 +156,7 @@ type TeamConfig struct {
 	VoiceLanguage        string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
 	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                             //nolint:lll
 	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`            //nolint:lll
-	EmojiReactions       *bool                  `toml:"emoji_reactions" jsonschema:"description=Enable emoji reactions"`
+	EmojiReactions       *bool                  `toml:"emoji_reactions" jsonschema:"description=Enable emoji reactions,default=false"`
 	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"` //nolint:lll
 }
 
@@ -331,7 +331,7 @@ func (c *Config) GetMergeMode() string {
 	return MergeModeAuto
 }
 
-// EmojiReactions returns whether emoji reactions on Telegram tool messages are enabled (default: true).
+// EmojiReactions returns whether emoji reactions on Telegram tool messages are enabled (default: false).
 func (c *Config) EmojiReactions() bool {
 	return c.resolvedEmojiReactions
 }
@@ -570,8 +570,8 @@ func (c *Config) resolve() error {
 	// Merge mode: from team config (defaults to empty = "auto" behavior).
 	c.resolvedMergeMode = team.MergeMode
 
-	// Emoji reactions: from team config (defaults to true).
-	c.resolvedEmojiReactions = team.EmojiReactions == nil || *team.EmojiReactions
+	// Emoji reactions: from team config (defaults to false).
+	c.resolvedEmojiReactions = team.EmojiReactions != nil && *team.EmojiReactions
 
 	// Default flicknote inline projects to ["plan"] if not configured.
 	if len(c.Flicknote.InlineProjects) == 0 {
@@ -693,7 +693,7 @@ func resolveTeam(teamName string, team TeamConfig) (*ResolvedTeam, error) {
 			Language:   team.VoiceLanguage,
 		},
 		Agents:         team.Agents,
-		EmojiReactions: team.EmojiReactions == nil || *team.EmojiReactions,
+		EmojiReactions: team.EmojiReactions != nil && *team.EmojiReactions,
 	}
 
 	resolveBotTokens(rt.Agents)
@@ -970,7 +970,7 @@ team_path = ""               # Root path for agent workspaces
 # worker_runtime = "claude-code"
 # agent_runtime = "claude-code"
 # merge_mode = "auto"
-# emoji_reactions = true  # enable emoji reactions on tool messages (default: true)
+# emoji_reactions = false  # enable emoji reactions on tool messages (default: false)
 
 # Bot tokens are stored in ~/.config/ttal/.env (not in this file)
 # Convention: {UPPER_AGENT}_BOT_TOKEN for agents, {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN for notifications
