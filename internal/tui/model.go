@@ -359,6 +359,8 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		return toggleNext(t)
 	case keyDone:
 		return doneTask(t.UUID)
+	case keyCopy:
+		return copyTask(t)
 	case keyModify:
 		m.state = stateModify
 		m.modifyInput = ""
