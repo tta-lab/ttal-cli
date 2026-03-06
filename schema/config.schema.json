@@ -1,84 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://ttal.guion.io/schema/config.schema.json",
-  "definitions": {
-    "AgentConfig": {
-      "properties": {
-        "bot_token_env": {
-          "type": "string",
-          "description": "Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"
-        },
-        "port": {
-          "type": "integer",
-          "description": "API server port for opencode/codex runtimes"
-        },
-        "runtime": {
-          "type": "string",
-          "enum": [
-            "claude-code",
-            "opencode",
-            "codex",
-            "openclaw"
-          ],
-          "description": "Per-agent runtime override (falls back to team agent_runtime)"
-        },
-        "model": {
-          "type": "string",
-          "enum": [
-            "haiku",
-            "sonnet",
-            "opus"
-          ],
-          "description": "Claude model tier (falls back to opus)"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
+  "properties": {
+    "shell": {
+      "type": "string",
+      "enum": [
+        "zsh",
+        "fish"
+      ],
+      "description": "Shell for spawning workers"
     },
-    "FlicknoteConfig": {
-      "properties": {
-        "inline_projects": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Project substrings to inline (default: plan)"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "PromptsConfig": {
-      "properties": {
-        "designer": {
-          "type": "string",
-          "description": "Prompt for designer role"
-        },
-        "researcher": {
-          "type": "string",
-          "description": "Prompt for researcher role"
-        },
-        "execute": {
-          "type": "string",
-          "description": "Prompt prefix for worker spawn"
-        },
-        "triage": {
-          "type": "string",
-          "description": "Prompt sent to coder after PR review. Supports {{review-file}}"
-        },
-        "review": {
-          "type": "string",
-          "description": "Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"
-        },
-        "re_review": {
-          "type": "string",
-          "description": "Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "SyncConfig": {
+    "sync": {
       "properties": {
         "subagents_paths": {
           "items": {
@@ -110,120 +42,52 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "description": "Paths for subagent and skill deployment"
     },
-    "TeamConfig": {
+    "prompts": {
       "properties": {
-        "team_path": {
+        "designer": {
           "type": "string",
-          "description": "Root path for agent workspaces. Agent path = team_path/agent_name."
+          "description": "Prompt for designer role"
         },
-        "data_dir": {
+        "researcher": {
           "type": "string",
-          "description": "ttal data directory (default: ~/.ttal/\u003cteam\u003e)"
+          "description": "Prompt for researcher role"
         },
-        "taskrc": {
+        "execute": {
           "type": "string",
-          "description": "Taskwarrior config file path (default: \u003cdata_dir\u003e/taskrc)"
+          "description": "Prompt prefix for worker spawn"
         },
-        "chat_id": {
+        "triage": {
           "type": "string",
-          "description": "Telegram chat ID for this team"
+          "description": "Prompt sent to coder after PR review. Supports {{review-file}}"
         },
-        "lifecycle_agent": {
+        "review": {
           "type": "string",
-          "description": "Deprecated: use notification_token_env instead"
+          "description": "Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"
         },
-        "notification_token_env": {
+        "re_review": {
           "type": "string",
-          "description": "Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)"
-        },
-        "agent_runtime": {
-          "type": "string",
-          "enum": [
-            "claude-code",
-            "opencode",
-            "codex",
-            "openclaw"
-          ],
-          "description": "Runtime for agent sessions"
-        },
-        "worker_runtime": {
-          "type": "string",
-          "enum": [
-            "claude-code",
-            "opencode",
-            "codex"
-          ],
-          "description": "Runtime for spawned workers"
-        },
-        "gateway_url": {
-          "type": "string",
-          "description": "OpenClaw Gateway URL"
-        },
-        "hooks_token": {
-          "type": "string",
-          "description": "OpenClaw hooks auth token"
-        },
-        "merge_mode": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "manual"
-          ],
-          "description": "PR merge mode override for this team"
-        },
-        "voice_language": {
-          "type": "string",
-          "description": "ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"
-        },
-        "agents": {
-          "additionalProperties": {
-            "$ref": "#/definitions/AgentConfig"
-          },
-          "type": "object",
-          "description": "Per-agent credentials for this team"
-        },
-        "voice_vocabulary": {
+          "description": "Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Prompt templates for task routing"
+    },
+    "flicknote": {
+      "properties": {
+        "inline_projects": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Custom vocabulary words for Whisper transcription accuracy"
-        },
-        "emoji_reactions": {
-          "type": "boolean",
-          "description": "Enable emoji reactions",
-          "default": false
-        },
-        "task_sync_url": {
-          "type": "string",
-          "description": "TaskChampion sync server URL for ttal doctor --fix"
+          "description": "Project substrings to inline (default: plan)"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    }
-  },
-  "properties": {
-    "shell": {
-      "type": "string",
-      "enum": [
-        "zsh",
-        "fish"
-      ],
-      "description": "Shell for spawning workers"
-    },
-    "sync": {
-      "$ref": "#/definitions/SyncConfig",
-      "description": "Paths for subagent and skill deployment"
-    },
-    "prompts": {
-      "$ref": "#/definitions/PromptsConfig",
-      "description": "Prompt templates for task routing"
-    },
-    "flicknote": {
-      "$ref": "#/definitions/FlicknoteConfig",
+      "type": "object",
       "description": "Flicknote integration settings"
     },
     "default_team": {
@@ -232,7 +96,128 @@
     },
     "teams": {
       "additionalProperties": {
-        "$ref": "#/definitions/TeamConfig"
+        "properties": {
+          "team_path": {
+            "type": "string",
+            "description": "Root path for agent workspaces. Agent path = team_path/agent_name."
+          },
+          "data_dir": {
+            "type": "string",
+            "description": "ttal data directory (default: ~/.ttal/\u003cteam\u003e)"
+          },
+          "taskrc": {
+            "type": "string",
+            "description": "Taskwarrior config file path (default: \u003cdata_dir\u003e/taskrc)"
+          },
+          "chat_id": {
+            "type": "string",
+            "description": "Telegram chat ID for this team"
+          },
+          "lifecycle_agent": {
+            "type": "string",
+            "description": "Deprecated: use notification_token_env instead"
+          },
+          "notification_token_env": {
+            "type": "string",
+            "description": "Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)"
+          },
+          "agent_runtime": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "opencode",
+              "codex",
+              "openclaw"
+            ],
+            "description": "Runtime for agent sessions"
+          },
+          "worker_runtime": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "opencode",
+              "codex"
+            ],
+            "description": "Runtime for spawned workers"
+          },
+          "gateway_url": {
+            "type": "string",
+            "description": "OpenClaw Gateway URL"
+          },
+          "hooks_token": {
+            "type": "string",
+            "description": "OpenClaw hooks auth token"
+          },
+          "merge_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ],
+            "description": "PR merge mode override for this team"
+          },
+          "voice_language": {
+            "type": "string",
+            "description": "ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"
+          },
+          "agents": {
+            "additionalProperties": {
+              "properties": {
+                "bot_token_env": {
+                  "type": "string",
+                  "description": "Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "API server port for opencode/codex runtimes"
+                },
+                "runtime": {
+                  "type": "string",
+                  "enum": [
+                    "claude-code",
+                    "opencode",
+                    "codex",
+                    "openclaw"
+                  ],
+                  "description": "Per-agent runtime override (falls back to team agent_runtime)"
+                },
+                "model": {
+                  "type": "string",
+                  "enum": [
+                    "haiku",
+                    "sonnet",
+                    "opus"
+                  ],
+                  "description": "Claude model tier (falls back to opus)"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "description": "AgentConfig holds per-agent Telegram credentials and runtime settings."
+            },
+            "type": "object",
+            "description": "Per-agent credentials for this team"
+          },
+          "voice_vocabulary": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "Custom vocabulary words for Whisper transcription accuracy"
+          },
+          "emoji_reactions": {
+            "type": "boolean",
+            "description": "Enable emoji reactions on Telegram tool messages",
+            "default": false
+          },
+          "task_sync_url": {
+            "type": "string",
+            "description": "TaskChampion sync server URL for ttal doctor --fix"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "description": "TeamConfig holds per-team configuration."
       },
       "type": "object",
       "description": "Per-team configuration sections"

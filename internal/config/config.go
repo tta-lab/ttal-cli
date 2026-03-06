@@ -156,8 +156,9 @@ type TeamConfig struct {
 	VoiceLanguage        string                 `toml:"voice_language" jsonschema:"description=ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"` //nolint:lll
 	Agents               map[string]AgentConfig `toml:"agents" jsonschema:"description=Per-agent credentials for this team"`                                             //nolint:lll
 	VoiceVocabulary      []string               `toml:"voice_vocabulary" jsonschema:"description=Custom vocabulary words for Whisper transcription accuracy"`            //nolint:lll
-	EmojiReactions       *bool                  `toml:"emoji_reactions" jsonschema:"description=Enable emoji reactions,default=false"`
-	TaskSyncURL          string                 `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"` //nolint:lll
+	// Enable emoji reactions on Telegram tool messages
+	EmojiReactions *bool  `toml:"emoji_reactions" jsonschema:"default=false"`
+	TaskSyncURL    string `toml:"task_sync_url" jsonschema:"description=TaskChampion sync server URL for ttal doctor --fix"` //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
