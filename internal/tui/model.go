@@ -688,11 +688,18 @@ func (m *Model) ensureCursorVisible() {
 	if visible <= 0 {
 		return
 	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
 	if m.cursor < m.offset {
 		m.offset = m.cursor
 	}
 	if m.cursor >= m.offset+visible {
-		m.offset = m.cursor - visible + 1
+		newOffset := m.cursor - visible + 1
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		m.offset = newOffset
 	}
 }
 

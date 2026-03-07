@@ -141,7 +141,7 @@ func (m Model) getCellStyle(row, col int) lipgloss.Style {
 		return styleSelected
 	}
 	idx := m.offset + row - 1
-	if idx >= len(m.filtered) {
+	if idx < 0 || idx >= len(m.filtered) {
 		return lipgloss.Style{}
 	}
 	t := m.filtered[idx]
