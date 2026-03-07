@@ -541,47 +541,72 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.state = stateTaskList
 		m.modifyIndex = 0
 	case keyNameTab:
-		if len(m.modifyMatches) > 0 {
-			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
-			match := m.modifyMatches[m.modifyIndex]
-			switch match.Type {
-			case matchTypeProject:
-				m.modifyInput = modifierProject + match.Value + " "
-			case matchTypeTag:
-				m.modifyInput = modifierTag + match.Value + " "
-			case matchTypePriority:
-				m.modifyInput = modifierPriority + match.Value + " "
-			case matchTypeStatus:
-				m.modifyInput = modifierStatus + match.Value + " "
-			}
-			m.updateModifyMatches(m.projects, m.tags)
-		}
+		m.handleModifyTab()
 	case keyNameBackspace:
-		if len(m.modifyInput) > 0 {
-			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
-		}
-		m.updateModifyMatches(m.projects, m.tags)
+		m.handleModifyBackspace()
 	case keyNameCtrlN:
-		if len(m.modifyMatches) > 0 {
-			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
-		}
+		m.handleModifyCtrlN()
 	case keyNameCtrlP:
-		if len(m.modifyMatches) > 0 {
-			m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
-		}
+		m.handleModifyCtrlP()
 	case keyNameCtrlW:
-		if len(m.modifyInput) > 0 {
-			m.modifyInput = deleteLastWord(m.modifyInput)
-			m.updateModifyMatches(m.projects, m.tags)
-		}
+		m.handleModifyCtrlW()
 	default:
-		if len(msg.Text) > 0 {
-			m.modifyInput += msg.Text
-			m.modifyIndex = 0
-			m.updateModifyMatches(m.projects, m.tags)
-		}
+		m.handleModifyInput(msg)
 	}
 	return m, nil
+}
+
+func (m *Model) handleModifyTab() {
+	if len(m.modifyMatches) == 0 {
+		return
+	}
+	m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	match := m.modifyMatches[m.modifyIndex]
+	switch match.Type {
+	case matchTypeProject:
+		m.modifyInput = modifierProject + match.Value + " "
+	case matchTypeTag:
+		m.modifyInput = modifierTag + match.Value + " "
+	case matchTypePriority:
+		m.modifyInput = modifierPriority + match.Value + " "
+	case matchTypeStatus:
+		m.modifyInput = modifierStatus + match.Value + " "
+	}
+	m.updateModifyMatches(m.projects, m.tags)
+}
+
+func (m *Model) handleModifyBackspace() {
+	if len(m.modifyInput) > 0 {
+		m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
+	}
+	m.updateModifyMatches(m.projects, m.tags)
+}
+
+func (m *Model) handleModifyCtrlN() {
+	if len(m.modifyMatches) > 0 {
+		m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	}
+}
+
+func (m *Model) handleModifyCtrlP() {
+	if len(m.modifyMatches) > 0 {
+		m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
+	}
+}
+
+func (m *Model) handleModifyCtrlW() {
+	if len(m.modifyInput) > 0 {
+		m.modifyInput = deleteLastWord(m.modifyInput)
+		m.updateModifyMatches(m.projects, m.tags)
+	}
+}
+
+func (m *Model) handleModifyInput(msg tea.KeyPressMsg) {
+	if len(msg.Text) > 0 {
+		m.modifyInput += msg.Text
+		m.modifyIndex = 0
+		m.updateModifyMatches(m.projects, m.tags)
+	}
 }
 
 func (m *Model) handleAnnotateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {

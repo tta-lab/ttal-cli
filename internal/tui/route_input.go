@@ -71,7 +71,11 @@ func (m Model) viewRouteOverlay(background string) string {
 }
 
 func (m Model) viewSearchOverlay(background string) string {
-	return m.viewModifyMatchesOverlay(background, "Search Tasks", "Filter (e.g. project:x +tag priority:H):", m.searchStr, "Enter:search")
+	return m.viewModifyMatchesOverlay(
+		background, "Search Tasks",
+		"Filter (e.g. project:x +tag priority:H):",
+		m.searchStr, "Enter:search",
+	)
 }
 
 func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
@@ -160,5 +164,9 @@ func (m Model) viewModifyMatchesOverlay(background, title, prompt, input, helpTe
 }
 
 func (m Model) viewModifyOverlay(background string) string {
-	return m.viewModifyMatchesOverlay(background, "Modify Task", "Modifiers (e.g. project:x +tag priority:H):", m.modifyInput, "Enter:confirm")
+	return m.viewModifyMatchesOverlay(
+		background, "Modify Task",
+		"Modifiers (e.g. project:x +tag priority:H):",
+		m.modifyInput, "Enter:confirm",
+	)
 }
