@@ -589,44 +589,65 @@ func (m *Model) updateModifyMatches(projects, tags []string) {
 	m.modifyMatches = nil
 	input := m.modifyInput
 
-	if strings.HasPrefix(input, modifierProject) {
-		q := strings.ToLower(strings.TrimPrefix(input, modifierProject))
-		for _, p := range projects {
-			if q == "" || strings.Contains(strings.ToLower(p), q) {
-				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
-			}
-		}
-	} else if strings.HasPrefix(input, modifierTag) {
-		q := strings.ToLower(strings.TrimPrefix(input, modifierTag))
-		for _, t := range tags {
-			if q == "" || strings.Contains(strings.ToLower(t), q) {
-				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
-			}
-		}
-	} else if strings.HasPrefix(input, modifierPriority) {
-		q := strings.ToLower(strings.TrimPrefix(input, modifierPriority))
-		for _, p := range []string{"H", "M", "L"} {
-			if q == "" || strings.Contains(p, q) {
-				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
-			}
-		}
-	} else if strings.HasPrefix(input, modifierStatus) {
-		q := strings.ToLower(strings.TrimPrefix(input, modifierStatus))
-		for _, s := range []string{"pending", "completed", "waiting", "deleted"} {
-			if q == "" || strings.Contains(s, q) {
-				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "status", Value: s})
-			}
-		}
-	} else if input == "" {
-		for _, p := range projects {
+	switch {
+	case strings.HasPrefix(input, modifierProject):
+		m.updateProjectMatches(projects, strings.TrimPrefix(input, modifierProject))
+	case strings.HasPrefix(input, modifierTag):
+		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
+	case strings.HasPrefix(input, modifierPriority):
+		m.updatePriorityMatches(strings.TrimPrefix(input, modifierPriority))
+	case strings.HasPrefix(input, modifierStatus):
+		m.updateStatusMatches(strings.TrimPrefix(input, modifierStatus))
+	case input == "":
+		m.updateAllMatches(projects, tags)
+	}
+}
+
+func (m *Model) updateProjectMatches(projects []string, query string) {
+	q := strings.ToLower(query)
+	for _, p := range projects {
+		if q == "" || strings.Contains(strings.ToLower(p), q) {
 			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
 		}
-		for _, t := range tags {
+	}
+}
+
+func (m *Model) updateTagMatches(tags []string, query string) {
+	q := strings.ToLower(query)
+	for _, t := range tags {
+		if q == "" || strings.Contains(strings.ToLower(t), q) {
 			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
 		}
-		for _, p := range []string{"H", "M", "L"} {
+	}
+}
+
+func (m *Model) updatePriorityMatches(query string) {
+	q := strings.ToLower(query)
+	for _, p := range []string{"H", "M", "L"} {
+		if q == "" || strings.Contains(p, q) {
 			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
 		}
+	}
+}
+
+func (m *Model) updateStatusMatches(query string) {
+	q := strings.ToLower(query)
+	for _, s := range []string{"pending", "completed", "waiting", "deleted"} {
+		if q == "" || strings.Contains(s, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "status", Value: s})
+		}
+	}
+}
+
+func (m *Model) updateAllMatches(projects, tags []string) {
+	for _, p := range projects {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
+	}
+	for _, t := range tags {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
+	}
+	for _, p := range []string{"H", "M", "L"} {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
 	}
 }
 
