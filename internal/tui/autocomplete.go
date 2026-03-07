@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"log"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -50,13 +51,20 @@ func (m *Model) updateAllMatches(projects, tags []string) {
 
 func (m *Model) updateModifyMatches(projects, tags []string) {
 	if len(projects) == 0 || len(tags) == 0 {
-		projects, _ = taskwarrior.GetProjects()
-		tags, _ = taskwarrior.GetTags()
+		var err error
+		projects, err = taskwarrior.GetProjects()
+		if err != nil {
+			log.Printf("failed to get projects: %v", err)
+		}
+		tags, err = taskwarrior.GetTags()
+		if err != nil {
+			log.Printf("failed to get tags: %v", err)
+		}
 	}
-	m.updateModifyMatchesWithInput(m.modifyInput, projects, tags)
+	m.updateMatchesWithInput(m.modifyInput, projects, tags)
 }
 
-func (m *Model) updateModifyMatchesWithInput(input string, projects, tags []string) {
+func (m *Model) updateMatchesWithInput(input string, projects, tags []string) {
 	m.modifyMatches = nil
 
 	switch {
@@ -82,32 +90,19 @@ func (m *Model) updateModifyMatchesWithInput(input string, projects, tags []stri
 
 func (m *Model) updateSearchMatches(projects, tags []string) {
 	if len(projects) == 0 || len(tags) == 0 {
-		projects, _ = taskwarrior.GetProjects()
-		tags, _ = taskwarrior.GetTags()
+		var err error
+		projects, err = taskwarrior.GetProjects()
+		if err != nil {
+			log.Printf("failed to get projects: %v", err)
+		}
+		tags, err = taskwarrior.GetTags()
+		if err != nil {
+			log.Printf("failed to get tags: %v", err)
+		}
 	}
 	m.updateSearchMatchesWithInput(m.searchStr, projects, tags)
 }
 
 func (m *Model) updateSearchMatchesWithInput(input string, projects, tags []string) {
-	m.modifyMatches = nil
-
-	switch {
-	case strings.Contains(input, ":"):
-		parts := strings.SplitN(input, ":", 2)
-		prefix := parts[0]
-		value := ""
-		if len(parts) > 1 {
-			value = strings.TrimSpace(parts[1])
-		}
-		if prefix == "project" {
-			m.updateProjectMatches(projects, value)
-		}
-	case strings.HasPrefix(input, modifierTag):
-		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
-	case input == "":
-		m.updateAllMatches(projects, tags)
-	default:
-		m.updateProjectMatches(projects, input)
-		m.updateTagMatches(tags, input)
-	}
+	m.updateMatchesWithInput(input, projects, tags)
 }
