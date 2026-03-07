@@ -95,7 +95,7 @@ func TestNeedsPort(t *testing.T) {
 		want bool
 	}{
 		{ClaudeCode, false},
-		{OpenCode, true},
+		{OpenCode, false}, // ACP uses stdio, no port needed
 		{Codex, true},
 		{OpenClaw, false},
 	}
