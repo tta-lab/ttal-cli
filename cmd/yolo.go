@@ -25,7 +25,7 @@ var yoloCcCmd = &cobra.Command{
 	Long: `Launch Claude Code with --dangerously-skip-permissions.
 
 Example:
-  ttal yolo cc              # Start in current directory with opus model
+  ttal yolo cc              # Start in current directory with sonnet model
   ttal yolo cc --model sonnet`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if _, err := exec.LookPath("claude"); err != nil {
@@ -86,7 +86,7 @@ func runYolo(cmd *exec.Cmd, name string) error {
 	return nil
 }
 func init() {
-	yoloCcCmd.Flags().StringVarP(&yoloModel, "model", "m", "opus", "Model to use (opus, sonnet)")
+	yoloCcCmd.Flags().StringVarP(&yoloModel, "model", "m", "sonnet", "Model to use (haiku, sonnet, opus)")
 	yoloCmd.AddCommand(yoloCcCmd)
 	yoloCmd.AddCommand(yoloCxCmd)
 	rootCmd.AddCommand(yoloCmd)

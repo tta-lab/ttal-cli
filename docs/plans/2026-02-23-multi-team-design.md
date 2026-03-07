@@ -12,11 +12,9 @@ guion team with Sven) on the same Mac.
 
 ### Config Schema
 
-`~/.config/ttal/config.toml` becomes team-aware. The `[teams]` section is **optional** —
-existing flat configs work unchanged as an implicit `"default"` team.
+`~/.config/ttal/config.toml` is team-aware. The `[teams]` section is **required** (enforced in code).
 
 ```toml
-# Optional — omit for single-team setups
 default_team = "personal"
 
 [teams.personal]

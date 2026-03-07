@@ -8,25 +8,41 @@ import (
 
 func TestBuildGatekeeperCommand(t *testing.T) {
 	tests := []struct {
-		name string
-		rt   runtime.Runtime
-		want string
-		err  bool
+		name  string
+		rt    runtime.Runtime
+		model string
+		want  string
+		err   bool
 	}{
 		{
-			name: "claude-code",
-			rt:   runtime.ClaudeCode,
-			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model opus --dangerously-skip-permissions --",
+			name:  "claude-code with sonnet",
+			rt:    runtime.ClaudeCode,
+			model: "sonnet",
+			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model sonnet --dangerously-skip-permissions --",
 		},
 		{
-			name: "opencode",
-			rt:   runtime.OpenCode,
-			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- opencode --prompt",
+			name:  "claude-code with opus",
+			rt:    runtime.ClaudeCode,
+			model: "opus",
+			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model opus --dangerously-skip-permissions --",
 		},
 		{
-			name: "codex",
-			rt:   runtime.Codex,
-			want: "ttal worker gatekeeper --task-file /tmp/task.txt -- codex --yolo --prompt",
+			name:  "claude-code empty model defaults to sonnet",
+			rt:    runtime.ClaudeCode,
+			model: "",
+			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model sonnet --dangerously-skip-permissions --",
+		},
+		{
+			name:  "opencode ignores model",
+			rt:    runtime.OpenCode,
+			model: "opus",
+			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- opencode --prompt",
+		},
+		{
+			name:  "codex ignores model",
+			rt:    runtime.Codex,
+			model: "opus",
+			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- codex --yolo --prompt",
 		},
 		{
 			name: "non-worker runtime returns error",
@@ -37,7 +53,7 @@ func TestBuildGatekeeperCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := BuildGatekeeperCommand("ttal", "/tmp/task.txt", tt.rt)
+			got, err := BuildGatekeeperCommand("ttal", "/tmp/task.txt", tt.rt, tt.model)
 			if tt.err {
 				if err == nil {
 					t.Fatalf("expected error, got command: %s", got)

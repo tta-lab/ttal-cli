@@ -10,25 +10,35 @@ import (
 
 func TestBuildReviewerRuntimeCmd(t *testing.T) {
 	tests := []struct {
-		name string
-		rt   runtime.Runtime
-		want string
-		err  bool
+		name  string
+		rt    runtime.Runtime
+		model string
+		want  string
+		err   bool
 	}{
 		{
-			name: "claude-code uses reviewer claude options",
-			rt:   runtime.ClaudeCode,
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model opus --dangerously-skip-permissions --",
+			name:  "claude-code uses sonnet by default",
+			rt:    runtime.ClaudeCode,
+			model: "sonnet",
+			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model sonnet --dangerously-skip-permissions --",
 		},
 		{
-			name: "opencode uses reviewer prompt flag",
-			rt:   runtime.OpenCode,
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt",
+			name:  "claude-code with opus model",
+			rt:    runtime.ClaudeCode,
+			model: "opus",
+			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model opus --dangerously-skip-permissions --",
 		},
 		{
-			name: "codex uses reviewer yolo mode",
-			rt:   runtime.Codex,
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex --yolo --prompt",
+			name:  "opencode ignores model",
+			rt:    runtime.OpenCode,
+			model: "sonnet",
+			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt",
+		},
+		{
+			name:  "codex ignores model",
+			rt:    runtime.Codex,
+			model: "sonnet",
+			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex --yolo --prompt",
 		},
 		{
 			name: "non-worker runtime errors",
@@ -39,7 +49,7 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildReviewerRuntimeCmd("ttal", "/tmp/prompt.txt", tt.rt)
+			got, err := buildReviewerRuntimeCmd("ttal", "/tmp/prompt.txt", tt.rt, tt.model)
 			if tt.err {
 				if err == nil {
 					t.Fatalf("expected error, got command: %s", got)
@@ -59,7 +69,7 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 func TestBuildReviewerRuntimeCmd_InterpolatesPaths(t *testing.T) {
 	ttalBin := "/usr/local/bin/ttal"
 	promptFile := "/tmp/review-123.txt"
-	got, err := buildReviewerRuntimeCmd(ttalBin, promptFile, runtime.ClaudeCode)
+	got, err := buildReviewerRuntimeCmd(ttalBin, promptFile, runtime.ClaudeCode, "sonnet")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
