@@ -21,6 +21,10 @@ const (
 	keyNameEsc       = "esc"
 	keyNameBackspace = "backspace"
 	keyNameTab       = "tab"
+	keyNameCtrlC     = "ctrl+c"
+	keyNameCtrlN     = "ctrl+n"
+	keyNameCtrlP     = "ctrl+p"
+	keyNameCtrlW     = "ctrl+w"
 )
 
 type viewState int
@@ -74,6 +78,18 @@ func formatAge(d time.Duration) string {
 		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
 	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
+}
+
+func deleteLastWord(s string) string {
+	s = strings.TrimRight(s, " ")
+	if s == "" {
+		return ""
+	}
+	lastSpace := strings.LastIndex(s, " ")
+	if lastSpace == -1 {
+		return ""
+	}
+	return s[:lastSpace]
 }
 
 // IsToday returns true if the task is scheduled for today or earlier.
@@ -185,6 +201,7 @@ type Model struct {
 
 	// Modify input autocomplete
 	modifyMatches []modifyMatch
+	modifyIndex   int
 
 	// Layout
 	width  int
@@ -307,6 +324,8 @@ func (m Model) View() tea.View {
 		content = m.viewModifyOverlay(content)
 	case stateAnnotate:
 		content = m.viewTextInputOverlay(content, "Annotate Task", "Annotation:", m.annotateInput)
+	case stateSearch:
+		content = m.viewSearchOverlay(content)
 	}
 
 	v := tea.NewView(content)
@@ -463,19 +482,44 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyNameEnter:
 		m.state = stateTaskList
 		m.cursor = 0
+		m.modifyIndex = 0
 		return m, m.reloadTasks()
 	case keyNameEsc:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
+		m.modifyIndex = 0
 		return m, m.reloadTasks()
 	case keyNameBackspace:
 		if len(m.searchStr) > 0 {
 			m.searchStr = m.searchStr[:len(m.searchStr)-1]
 		}
+		m.updateModifyMatches(m.projects, m.tags)
+	case keyNameTab:
+		if len(m.modifyMatches) > 0 {
+			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+			match := m.modifyMatches[m.modifyIndex]
+			m.searchStr += match.Value + " "
+			m.updateModifyMatches(m.projects, m.tags)
+		}
+	case keyNameCtrlN:
+		if len(m.modifyMatches) > 0 {
+			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+		}
+	case keyNameCtrlP:
+		if len(m.modifyMatches) > 0 {
+			m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
+		}
+	case keyNameCtrlW:
+		if len(m.searchStr) > 0 {
+			m.searchStr = deleteLastWord(m.searchStr)
+			m.updateModifyMatches(m.projects, m.tags)
+		}
 	default:
 		if len(msg.Text) > 0 {
 			m.searchStr += msg.Text
+			m.modifyIndex = 0
+			m.updateModifyMatches(m.projects, m.tags)
 		}
 	}
 	return m, nil
@@ -488,14 +532,18 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		t := m.selectedTask()
 		if t != nil && m.modifyInput != "" {
 			m.state = stateTaskList
+			m.modifyIndex = 0
 			return m, modifyTask(t.UUID, m.modifyInput)
 		}
 		m.state = stateTaskList
+		m.modifyIndex = 0
 	case keyNameEsc:
 		m.state = stateTaskList
+		m.modifyIndex = 0
 	case keyNameTab:
 		if len(m.modifyMatches) > 0 {
-			match := m.modifyMatches[0]
+			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+			match := m.modifyMatches[m.modifyIndex]
 			switch match.Type {
 			case matchTypeProject:
 				m.modifyInput = modifierProject + match.Value + " "
@@ -513,9 +561,23 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
 		}
 		m.updateModifyMatches(m.projects, m.tags)
+	case keyNameCtrlN:
+		if len(m.modifyMatches) > 0 {
+			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+		}
+	case keyNameCtrlP:
+		if len(m.modifyMatches) > 0 {
+			m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
+		}
+	case keyNameCtrlW:
+		if len(m.modifyInput) > 0 {
+			m.modifyInput = deleteLastWord(m.modifyInput)
+			m.updateModifyMatches(m.projects, m.tags)
+		}
 	default:
 		if len(msg.Text) > 0 {
 			m.modifyInput += msg.Text
+			m.modifyIndex = 0
 			m.updateModifyMatches(m.projects, m.tags)
 		}
 	}
