@@ -484,7 +484,7 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.modifyIndex = 0
 		return m, m.reloadTasks()
-	case keyNameEsc:
+	case keyNameEsc, keyNameCtrlC:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
