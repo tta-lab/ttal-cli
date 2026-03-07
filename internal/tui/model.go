@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -171,11 +170,9 @@ type Model struct {
 	projects []string
 	tags     []string
 
-	// Task list
-	taskTable table.Model
-
-	// Task list cursor (synced with taskTable)
+	// Task list cursor
 	cursor    int
+	offset    int
 	searchStr string
 
 	// Route input
@@ -204,23 +201,8 @@ func NewModel() Model {
 		state:   stateTaskList,
 		filter:  filterPending,
 		loading: true,
+		offset:  0,
 	}
-
-	cols := []table.Column{
-		{Title: "ID", Width: 5},
-		{Title: "UUID", Width: 8},
-		{Title: "P", Width: 2},
-		{Title: "Age", Width: 5},
-		{Title: "Project", Width: 12},
-		{Title: "Tags", Width: 12},
-		{Title: "Description", Width: 0},
-	}
-	m.taskTable = table.New(
-		table.WithColumns(cols),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-
 	return m
 }
 
@@ -370,30 +352,24 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleNavigation(action keyAction) bool {
 	switch action {
 	case keyUp:
-		m.taskTable.MoveUp(1)
-		m.syncCursorFromTable()
+		m.moveCursor(-1)
 	case keyDown:
-		m.taskTable.MoveDown(1)
-		m.syncCursorFromTable()
+		m.moveCursor(1)
 	case keyPageDown:
-		m.taskTable.MoveDown(m.visibleRows())
-		m.syncCursorFromTable()
+		m.moveCursor(m.visibleRows())
 	case keyPageUp:
-		m.taskTable.MoveUp(m.visibleRows())
-		m.syncCursorFromTable()
+		m.moveCursor(-m.visibleRows())
 	case keyHalfPageDown:
-		m.taskTable.MoveDown(m.visibleRows() / 2)
-		m.syncCursorFromTable()
+		m.moveCursor(m.visibleRows() / 2)
 	case keyHalfPageUp:
-		m.taskTable.MoveUp(m.visibleRows() / 2)
-		m.syncCursorFromTable()
+		m.moveCursor(-m.visibleRows() / 2)
 	case keyTop:
-		m.taskTable.SetCursor(0)
 		m.cursor = 0
+		m.ensureCursorVisible()
 	case keyBottom:
 		if len(m.filtered) > 0 {
-			m.taskTable.SetCursor(len(m.filtered) - 1)
 			m.cursor = len(m.filtered) - 1
+			m.ensureCursorVisible()
 		}
 	case keyEnter:
 		if len(m.filtered) > 0 {
@@ -690,8 +666,31 @@ func (m *Model) selectedTask() *Task {
 	return nil
 }
 
-func (m *Model) syncCursorFromTable() {
-	m.cursor = m.taskTable.Cursor()
+func (m *Model) moveCursor(delta int) {
+	m.cursor += delta
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+	if len(m.filtered) > 0 && m.cursor >= len(m.filtered) {
+		m.cursor = len(m.filtered) - 1
+	}
+	m.ensureCursorVisible()
+}
+
+func (m *Model) ensureCursorVisible() {
+	if m.offset > m.cursor {
+		m.offset = m.cursor
+	}
+	visible := m.visibleRows()
+	if m.offset+m.visibleRows() > len(m.filtered) {
+		m.offset = len(m.filtered) - visible
+	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
+	if m.cursor >= m.offset+visible {
+		m.offset = m.cursor - visible + 1
+	}
 }
 
 func (m *Model) visibleRows() int {
@@ -727,7 +726,7 @@ func (m *Model) applyFilter() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
-	m.taskTable.SetCursor(m.cursor)
+	m.offset = 0
 }
 
 // Messages

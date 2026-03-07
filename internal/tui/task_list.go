@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
 )
 
@@ -31,9 +30,22 @@ func (m Model) viewTaskList() string {
 		return m.padToHeight(b.String())
 	}
 
-	// Build rows for table
-	rows := make([]table.Row, 0, len(m.filtered))
-	for i := range m.filtered {
+	// Column widths
+	idWidth := 5
+	uuidWidth := 8
+	priWidth := 2
+	ageWidth := 5
+	projWidth := 12
+	tagWidth := 12
+
+	// Render visible rows
+	visible := m.visibleRows()
+	end := m.offset + visible
+	if end > len(m.filtered) {
+		end = len(m.filtered)
+	}
+
+	for i := m.offset; i < end; i++ {
 		t := &m.filtered[i]
 		pri := t.Priority
 		if pri == "" {
@@ -43,27 +55,24 @@ func (m Model) viewTaskList() string {
 		if age == "" {
 			age = "-"
 		}
-		rows = append(rows, table.Row{
-			fmt.Sprintf("%d", t.ID),
-			t.ShortUUID(),
-			pri,
-			age,
-			truncate(t.Project, 12),
-			truncate(strings.Join(t.Tags, " "), 12),
+
+		rowStyle := styleRow
+		if i == m.cursor {
+			rowStyle = styleSelected
+		}
+
+		row := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
+			idWidth, fmt.Sprintf("%d", t.ID),
+			uuidWidth, t.ShortUUID(),
+			priWidth, pri,
+			ageWidth, age,
+			projWidth, truncate(t.Project, projWidth),
+			tagWidth, truncate(strings.Join(t.Tags, " "), tagWidth),
 			t.Description,
-		})
+		)
+		b.WriteString(rowStyle.Render(row))
+		b.WriteString("\n")
 	}
-
-	// Update table model
-	m.taskTable.SetRows(rows)
-	m.taskTable.SetWidth(m.width)
-	m.taskTable.SetHeight(m.visibleRows())
-
-	// Set cursor to match our model's cursor
-	m.taskTable.SetCursor(m.cursor)
-
-	b.WriteString(m.taskTable.View())
-	b.WriteString("\n")
 
 	result := m.padToHeight(b.String())
 

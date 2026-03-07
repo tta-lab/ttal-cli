@@ -23,6 +23,9 @@ var (
 			Bold(true).
 			Foreground(colorCyan)
 
+	styleRow = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252"))
+
 	styleDim = lipgloss.NewStyle().
 			Foreground(colorDim)
 

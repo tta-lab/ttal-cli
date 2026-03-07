@@ -3,53 +3,10 @@ package tui
 import (
 	"testing"
 
-	"charm.land/bubbles/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-func TestTableModel_Integration(t *testing.T) {
-	task := Task{
-		Task: taskwarrior.Task{
-			ID:          1,
-			Description: "test task",
-		},
-		Priority: "H",
-	}
-	m := Model{
-		filtered: []Task{task},
-		cursor:   0,
-	}
-
-	cols := []table.Column{
-		{Title: "ID", Width: 5},
-		{Title: "P", Width: 2},
-		{Title: "Description", Width: 0},
-	}
-	m.taskTable = table.New(
-		table.WithColumns(cols),
-		table.WithRows([]table.Row{
-			{"1", "H", "test task"},
-			{"2", "M", "another task"},
-		}),
-		table.WithFocused(true),
-	)
-
-	if m.taskTable.Cursor() != 0 {
-		t.Error("expected cursor to start at 0")
-	}
-
-	m.taskTable.MoveDown(1)
-	if m.taskTable.Cursor() != 1 {
-		t.Error("expected cursor to move to 1")
-	}
-
-	m.taskTable.SetCursor(0)
-	if m.taskTable.Cursor() != 0 {
-		t.Error("expected cursor to be set to 0")
-	}
-}
-
-func TestTableModel_SyncCursorFromTable(t *testing.T) {
+func TestMoveCursor(t *testing.T) {
 	m := Model{
 		filtered: []Task{
 			{Task: taskwarrior.Task{ID: 1}},
@@ -57,18 +14,32 @@ func TestTableModel_SyncCursorFromTable(t *testing.T) {
 			{Task: taskwarrior.Task{ID: 3}},
 		},
 		cursor: 0,
+		offset: 0,
 	}
 
-	cols := []table.Column{{Title: "ID", Width: 5}}
-	m.taskTable = table.New(
-		table.WithColumns(cols),
-		table.WithRows([]table.Row{{"1"}, {"2"}, {"3"}}),
-	)
+	m.moveCursor(1)
+	if m.cursor != 1 {
+		t.Errorf("expected cursor 1, got %d", m.cursor)
+	}
 
-	m.taskTable.SetCursor(2)
-	m.syncCursorFromTable()
-
+	m.moveCursor(1)
 	if m.cursor != 2 {
 		t.Errorf("expected cursor 2, got %d", m.cursor)
+	}
+
+	m.moveCursor(1)
+	if m.cursor != 2 {
+		t.Errorf("expected cursor 2 (clamped), got %d", m.cursor)
+	}
+
+	m.cursor = 2
+	m.moveCursor(-1)
+	if m.cursor != 1 {
+		t.Errorf("expected cursor 1, got %d", m.cursor)
+	}
+
+	m.moveCursor(-5)
+	if m.cursor != 0 {
+		t.Errorf("expected cursor 0 (clamped), got %d", m.cursor)
 	}
 }
