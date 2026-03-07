@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,11 +35,13 @@ func ReadFlicknoteJSON(id string) *FlicknoteNote {
 	cmd := exec.CommandContext(ctx, "flicknote", "get", "--json", id)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		log.Printf("flicknote get %s failed: %v", id, err)
 		return nil
 	}
 
 	var note FlicknoteNote
 	if err := json.Unmarshal(out, &note); err != nil {
+		log.Printf("flicknote get %s: failed to parse JSON: %v", id, err)
 		return nil
 	}
 	return &note
