@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/table"
 )
 
 func (m Model) viewTaskList() string {
@@ -31,19 +31,9 @@ func (m Model) viewTaskList() string {
 		return m.padToHeight(b.String())
 	}
 
-	// Visible rows
-	visible := m.visibleRows()
-	if m.offset < 0 {
-		m.offset = 0
-	}
-	end := m.offset + visible
-	if end > len(m.filtered) {
-		end = len(m.filtered)
-	}
-
-	// Build rows
-	rows := make([][]string, 0, end-m.offset)
-	for i := m.offset; i < end; i++ {
+	// Build rows for table
+	rows := make([]table.Row, 0, len(m.filtered))
+	for i := range m.filtered {
 		t := &m.filtered[i]
 		pri := t.Priority
 		if pri == "" {
@@ -53,7 +43,7 @@ func (m Model) viewTaskList() string {
 		if age == "" {
 			age = "-"
 		}
-		rows = append(rows, []string{
+		rows = append(rows, table.Row{
 			fmt.Sprintf("%d", t.ID),
 			t.ShortUUID(),
 			pri,
@@ -64,18 +54,15 @@ func (m Model) viewTaskList() string {
 		})
 	}
 
-	// Build table
-	width := m.width
-	if width < 60 {
-		width = 60
-	}
-	tbl := table.New().
-		Headers("ID", "UUID", "P", "Age", "Project", "Tags", "Description").
-		Rows(rows...).
-		Width(width).
-		StyleFunc(m.getCellStyle)
+	// Update table model
+	m.taskTable.SetRows(rows)
+	m.taskTable.SetWidth(m.width)
+	m.taskTable.SetHeight(m.visibleRows())
 
-	b.WriteString(tbl.String())
+	// Set cursor to match our model's cursor
+	m.taskTable.SetCursor(m.cursor)
+
+	b.WriteString(m.taskTable.View())
 	b.WriteString("\n")
 
 	result := m.padToHeight(b.String())
@@ -134,29 +121,4 @@ func truncate(s string, maxLen int) string {
 		return string(runes[:maxLen])
 	}
 	return string(runes[:maxLen-1]) + "~"
-}
-
-func (m Model) getCellStyle(row, col int) lipgloss.Style {
-	if row == 0 {
-		return styleDim.Bold(true)
-	}
-	if row-1 == m.cursor {
-		return styleSelected
-	}
-	idx := m.offset + row - 1
-	if idx < 0 || idx >= len(m.filtered) {
-		return lipgloss.Style{}
-	}
-	t := m.filtered[idx]
-	switch col {
-	case 2:
-		return priorityStyle(t.Priority)
-	case 4:
-		if t.Start != "" {
-			return lipgloss.NewStyle().Foreground(colorCyan)
-		}
-	case 5:
-		return styleTag
-	}
-	return lipgloss.Style{}
 }
