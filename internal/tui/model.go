@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strings"
@@ -123,6 +124,16 @@ const (
 	modifierPriority = "priority:"
 	modifierStatus   = "status:"
 )
+
+const (
+	matchTypeProject  = "project"
+	matchTypeTag      = "tag"
+	matchTypePriority = "priority"
+	matchTypeStatus   = "status"
+)
+
+var priorityValues = []string{"H", "M", "L"}
+var statusValues = []string{"pending", "completed", "waiting", "deleted"}
 
 func (f filterMode) String() string {
 	switch f {
@@ -489,13 +500,13 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if len(m.modifyMatches) > 0 {
 			match := m.modifyMatches[0]
 			switch match.Type {
-			case "project":
+			case matchTypeProject:
 				m.modifyInput = modifierProject + match.Value + " "
-			case "tag":
+			case matchTypeTag:
 				m.modifyInput = modifierTag + match.Value + " "
-			case "priority":
+			case matchTypePriority:
 				m.modifyInput = modifierPriority + match.Value + " "
-			case "status":
+			case matchTypeStatus:
 				m.modifyInput = modifierStatus + match.Value + " "
 			}
 			m.updateModifyMatches(m.projects, m.tags)
@@ -607,7 +618,7 @@ func (m *Model) updateProjectMatches(projects []string, query string) {
 	q := strings.ToLower(query)
 	for _, p := range projects {
 		if q == "" || strings.Contains(strings.ToLower(p), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
 		}
 	}
 }
@@ -616,38 +627,38 @@ func (m *Model) updateTagMatches(tags []string, query string) {
 	q := strings.ToLower(query)
 	for _, t := range tags {
 		if q == "" || strings.Contains(strings.ToLower(t), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
 		}
 	}
 }
 
 func (m *Model) updatePriorityMatches(query string) {
 	q := strings.ToLower(query)
-	for _, p := range []string{"H", "M", "L"} {
+	for _, p := range priorityValues {
 		if q == "" || strings.Contains(p, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
 		}
 	}
 }
 
 func (m *Model) updateStatusMatches(query string) {
 	q := strings.ToLower(query)
-	for _, s := range []string{"pending", "completed", "waiting", "deleted"} {
+	for _, s := range statusValues {
 		if q == "" || strings.Contains(s, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "status", Value: s})
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeStatus, Value: s})
 		}
 	}
 }
 
 func (m *Model) updateAllMatches(projects, tags []string) {
 	for _, p := range projects {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
 	}
 	for _, t := range tags {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
 	}
-	for _, p := range []string{"H", "M", "L"} {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
+	for _, p := range priorityValues {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
 	}
 }
 
@@ -755,8 +766,14 @@ func loadConfig() tea.Cmd {
 		}
 		agents, _ := agentfs.Discover(cfg.TeamPath())
 
-		projects, _ := taskwarrior.GetProjects()
-		tags, _ := taskwarrior.GetTags()
+		projects, err := taskwarrior.GetProjects()
+		if err != nil {
+			log.Printf("failed to load projects for autocomplete: %v", err)
+		}
+		tags, err := taskwarrior.GetTags()
+		if err != nil {
+			log.Printf("failed to load tags for autocomplete: %v", err)
+		}
 
 		return configLoadedMsg{cfg: cfg, agents: agents, projects: projects, tags: tags}
 	}

@@ -120,13 +120,13 @@ func (m Model) viewModifyOverlay(background string) string {
 			}
 			var value string
 			switch match.Type {
-			case "project":
+			case matchTypeProject:
 				value = modifierProject + match.Value
-			case "tag":
+			case matchTypeTag:
 				value = modifierTag + match.Value
-			case "priority":
+			case matchTypePriority:
 				value = modifierPriority + match.Value
-			case "status":
+			case matchTypeStatus:
 				value = modifierStatus + match.Value
 			default:
 				value = match.Value

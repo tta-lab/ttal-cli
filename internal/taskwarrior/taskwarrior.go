@@ -722,22 +722,7 @@ func GetProjects() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
-
-	var projects []string
-	lines := strings.Split(out, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "---") {
-			continue
-		}
-		if strings.HasPrefix(line, "Project") {
-			continue
-		}
-		if line != "" {
-			projects = append(projects, line)
-		}
-	}
-	return projects, nil
+	return parseListOutput(out, "Project"), nil
 }
 
 func GetTags() ([]string, error) {
@@ -745,20 +730,18 @@ func GetTags() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
+	return parseListOutput(out, "Tag"), nil
+}
 
-	var tags []string
+func parseListOutput(out, prefix string) []string {
+	var result []string
 	lines := strings.Split(out, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "---") {
+		if line == "" || strings.HasPrefix(line, "---") || strings.HasPrefix(line, prefix) {
 			continue
 		}
-		if strings.HasPrefix(line, "Tag") {
-			continue
-		}
-		if line != "" {
-			tags = append(tags, line)
-		}
+		result = append(result, line)
 	}
-	return tags, nil
+	return result
 }
