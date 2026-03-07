@@ -5,6 +5,17 @@ import (
 )
 
 func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
+	// Pre-populate the package-level cache so ensureProjectsAndTags skips the
+	// taskwarrior exec call (not available in CI).
+	cachedProjects = []string{"ttal", "ttal.cli", "projectX", "other"}
+	cachedTags = []string{"bug", "feature"}
+	autocompleteLoaded = true
+	t.Cleanup(func() {
+		cachedProjects = nil
+		cachedTags = nil
+		autocompleteLoaded = false
+	})
+
 	m := Model{
 		state:       stateSearch,
 		searchStr:   "ttal",
