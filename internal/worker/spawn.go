@@ -211,7 +211,9 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	injectSessionEnv(sessionName, task, taskrc)
+	if err := injectSessionEnv(sessionName, task, taskrc); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+	}
 
 	if cfg.Spawner != "" {
 		if err := taskwarrior.SetSpawner(task.UUID, cfg.Spawner); err != nil {
@@ -265,7 +267,7 @@ func buildLaunchCmd(
 	return shellCfg.BuildEnvShellCommand(envParts, cmd), nil
 }
 
-func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) {
+func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) error {
 	setEnv := func(key, val string) {
 		if err := tmux.SetEnv(sessionName, key, val); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
@@ -287,13 +289,13 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 	// Inject all .env secrets at session level (inherited by all windows).
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to load .env secrets: %v\n", err)
-	} else {
-		for k, v := range dotEnv {
-			setEnv(k, v)
-		}
+		return fmt.Errorf("worker will launch without API secrets: %w", err)
+	}
+	for k, v := range dotEnv {
+		setEnv(k, v)
 	}
 
+	return nil
 }
 
 func writeTaskFile(
@@ -399,13 +401,20 @@ func pushBranchToUpstream(project, branch string) error {
 		return fmt.Errorf("failed to get origin remote: %w", err)
 	}
 
+	// Check whether the remote branch already exists before pushing, so we can
+	// skip the push without relying on locale-dependent git error messages.
+	// (The old approach matched "branch is already" in stderr output, which
+	// varies by git version and locale and is therefore fragile.)
+	checkCmd := exec.CommandContext(ctx, "git", "-C", project, "ls-remote", "--exit-code", "--heads", "origin", branch)
+	if checkCmd.Run() == nil {
+		// Remote branch already exists; nothing to push.
+		return nil
+	}
+
 	cmd = exec.CommandContext(ctx, "git", "-C", project, "push", "-u", "origin", branch)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		if strings.Contains(strings.ToLower(string(out)), "branch is already") {
-			return nil
-		}
-		return fmt.Errorf("failed to push branch %s: %w", branch, err)
+		return fmt.Errorf("failed to push branch %s: %w\n%s", branch, err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
