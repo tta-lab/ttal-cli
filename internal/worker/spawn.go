@@ -355,6 +355,13 @@ func setupWorktree(project, name string) (string, error) {
 		return "", err
 	}
 
+	if err := pushBranchToUpstream(project, workerBranch); err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: failed to push branch (non-fatal): %v\n", err)
+		fmt.Fprintf(os.Stderr, "  Worker can still function locally; push manually if needed.\n")
+	} else {
+		fmt.Printf("  Pushed branch to origin/%s\n", workerBranch)
+	}
+
 	return worktreeDir, nil
 }
 
@@ -380,6 +387,26 @@ func createWorktree(project, worktreeDir, workerBranch string) error {
 		return fmt.Errorf("failed to create worktree: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 
+	return nil
+}
+
+func pushBranchToUpstream(project, branch string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", project, "remote", "get-url", "origin")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to get origin remote: %w", err)
+	}
+
+	cmd = exec.CommandContext(ctx, "git", "-C", project, "push", "-u", "origin", branch)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(strings.ToLower(string(out)), "branch is already") {
+			return nil
+		}
+		return fmt.Errorf("failed to push branch %s: %w", branch, err)
+	}
 	return nil
 }
 
