@@ -112,6 +112,18 @@ const (
 	filterCompleted
 )
 
+type modifyMatch struct {
+	Type  string
+	Value string
+}
+
+const (
+	modifierProject  = "project:"
+	modifierTag      = "+"
+	modifierPriority = "priority:"
+	modifierStatus   = "status:"
+)
+
 func (f filterMode) String() string {
 	switch f {
 	case filterPending:
@@ -144,19 +156,24 @@ type Model struct {
 	filtered []Task
 	agents   []agentfs.AgentInfo
 	cfg      *config.Config
+	projects []string
+	tags     []string
 
 	// Task list
 	cursor    int
 	offset    int // viewport scroll offset
 	searchStr string
 
+	// Route input
+	routeInput   string
+	routeMatches []agentfs.AgentInfo
+
 	// Text input for overlays
 	modifyInput   string
 	annotateInput string
 
-	// Route input
-	routeInput   string
-	routeMatches []agentfs.AgentInfo
+	// Modify input autocomplete
+	modifyMatches []modifyMatch
 
 	// Layout
 	width  int
@@ -194,6 +211,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.cfg = msg.cfg
 		m.agents = msg.agents
+		m.projects = msg.projects
+		m.tags = msg.tags
 		if msg.cfg != nil {
 			m.teamName = msg.cfg.TeamName()
 		}
@@ -273,7 +292,7 @@ func (m Model) View() tea.View {
 	case stateRouteInput:
 		content = m.viewRouteOverlay(content)
 	case stateModify:
-		content = m.viewTextInputOverlay(content, "Modify Task", "Modifiers (e.g. project:x +tag priority:H):", m.modifyInput)
+		content = m.viewModifyOverlay(content)
 	case stateAnnotate:
 		content = m.viewTextInputOverlay(content, "Annotate Task", "Annotation:", m.annotateInput)
 	}
@@ -418,6 +437,7 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 	case keyModify:
 		m.state = stateModify
 		m.modifyInput = ""
+		m.updateModifyMatches(m.projects, m.tags)
 		return nil
 	case keyAnnotate:
 		m.state = stateAnnotate
@@ -465,13 +485,30 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.state = stateTaskList
 	case keyNameEsc:
 		m.state = stateTaskList
+	case keyNameTab:
+		if len(m.modifyMatches) > 0 {
+			match := m.modifyMatches[0]
+			switch match.Type {
+			case "project":
+				m.modifyInput = modifierProject + match.Value + " "
+			case "tag":
+				m.modifyInput = modifierTag + match.Value + " "
+			case "priority":
+				m.modifyInput = modifierPriority + match.Value + " "
+			case "status":
+				m.modifyInput = modifierStatus + match.Value + " "
+			}
+			m.updateModifyMatches(m.projects, m.tags)
+		}
 	case keyNameBackspace:
 		if len(m.modifyInput) > 0 {
 			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
 		}
+		m.updateModifyMatches(m.projects, m.tags)
 	default:
 		if len(msg.Text) > 0 {
 			m.modifyInput += msg.Text
+			m.updateModifyMatches(m.projects, m.tags)
 		}
 	}
 	return m, nil
@@ -548,6 +585,51 @@ func (m *Model) updateRouteMatches() {
 	}
 }
 
+func (m *Model) updateModifyMatches(projects, tags []string) {
+	m.modifyMatches = nil
+	input := m.modifyInput
+
+	if strings.HasPrefix(input, modifierProject) {
+		q := strings.ToLower(strings.TrimPrefix(input, modifierProject))
+		for _, p := range projects {
+			if q == "" || strings.Contains(strings.ToLower(p), q) {
+				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
+			}
+		}
+	} else if strings.HasPrefix(input, modifierTag) {
+		q := strings.ToLower(strings.TrimPrefix(input, modifierTag))
+		for _, t := range tags {
+			if q == "" || strings.Contains(strings.ToLower(t), q) {
+				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
+			}
+		}
+	} else if strings.HasPrefix(input, modifierPriority) {
+		q := strings.ToLower(strings.TrimPrefix(input, modifierPriority))
+		for _, p := range []string{"H", "M", "L"} {
+			if q == "" || strings.Contains(p, q) {
+				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
+			}
+		}
+	} else if strings.HasPrefix(input, modifierStatus) {
+		q := strings.ToLower(strings.TrimPrefix(input, modifierStatus))
+		for _, s := range []string{"pending", "completed", "waiting", "deleted"} {
+			if q == "" || strings.Contains(s, q) {
+				m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "status", Value: s})
+			}
+		}
+	} else if input == "" {
+		for _, p := range projects {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "project", Value: p})
+		}
+		for _, t := range tags {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "tag", Value: t})
+		}
+		for _, p := range []string{"H", "M", "L"} {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: "priority", Value: p})
+		}
+	}
+}
+
 func (m *Model) selectedTask() *Task {
 	if m.cursor >= 0 && m.cursor < len(m.filtered) {
 		return &m.filtered[m.cursor]
@@ -620,9 +702,11 @@ func (m *Model) applyFilter() {
 // Messages
 
 type configLoadedMsg struct {
-	cfg    *config.Config
-	agents []agentfs.AgentInfo
-	err    error
+	cfg      *config.Config
+	agents   []agentfs.AgentInfo
+	projects []string
+	tags     []string
+	err      error
 }
 
 type tasksLoadedMsg struct {
@@ -649,7 +733,11 @@ func loadConfig() tea.Cmd {
 			return configLoadedMsg{err: fmt.Errorf("load config: %w", err)}
 		}
 		agents, _ := agentfs.Discover(cfg.TeamPath())
-		return configLoadedMsg{cfg: cfg, agents: agents}
+
+		projects, _ := taskwarrior.GetProjects()
+		tags, _ := taskwarrior.GetTags()
+
+		return configLoadedMsg{cfg: cfg, agents: agents, projects: projects, tags: tags}
 	}
 }
 
