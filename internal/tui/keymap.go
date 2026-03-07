@@ -106,6 +106,8 @@ const helpText = `Key Bindings:
   [               Previous filter
   ]               Next filter
   /               Search (taskwarrior syntax: project:x +tag etc)
+  Ctrl+W          Delete word (in search)
+  Ctrl+C          Cancel search
   Ctrl+R          Refresh tasks
 
   ?               Toggle help
