@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -47,18 +46,6 @@ func formatAge(d time.Duration) string {
 		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
 	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
-}
-
-func deleteLastWord(s string) string {
-	s = strings.TrimRight(s, " ")
-	if s == "" {
-		return ""
-	}
-	lastSpace := strings.LastIndex(s, " ")
-	if lastSpace == -1 {
-		return ""
-	}
-	return s[:lastSpace]
 }
 
 func (t *Task) IsToday() bool {

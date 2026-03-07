@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -209,14 +210,31 @@ func copyTask(t *Task) tea.Cmd {
 			}
 		}
 
-		// Copy to clipboard via pbcopy (macOS)
-		cmd := exec.Command("pbcopy")
-		cmd.Stdin = strings.NewReader(b.String())
-		if err := cmd.Run(); err != nil {
+		if err := clipboardWrite(b.String()); err != nil {
 			return actionResultMsg{err: fmt.Errorf("copy to clipboard: %w", err)}
 		}
 		return actionResultMsg{message: "Copied to clipboard"}
 	}
+}
+
+func clipboardWrite(text string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("pbcopy")
+	case "linux":
+		if _, err := exec.LookPath("xclip"); err == nil {
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		} else if _, err := exec.LookPath("xsel"); err == nil {
+			cmd = exec.Command("xsel", "--clipboard", "--input")
+		} else {
+			return fmt.Errorf("no clipboard tool found (install xclip or xsel)")
+		}
+	default:
+		return fmt.Errorf("clipboard not supported on %s", runtime.GOOS)
+	}
+	cmd.Stdin = strings.NewReader(text)
+	return cmd.Run()
 }
 
 // resolveWorkDir finds the working directory for a task (worktree or project root).
