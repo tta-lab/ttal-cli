@@ -673,12 +673,13 @@ func loadConfig() tea.Cmd {
 			return configLoadedMsg{err: fmt.Errorf("load config: %w", err)}
 		}
 		agents, _ := agentfs.Discover(cfg.TeamPath())
+		taskrc := cfg.TaskRC()
 
-		projects, err := taskwarrior.GetProjects()
+		projects, err := taskwarrior.GetProjects(taskrc)
 		if err != nil {
 			log.Printf("failed to load projects for autocomplete: %v", err)
 		}
-		tags, err := taskwarrior.GetTags()
+		tags, err := taskwarrior.GetTags(taskrc)
 		if err != nil {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}
@@ -689,11 +690,17 @@ func loadConfig() tea.Cmd {
 
 func loadConfigForAutocomplete() tea.Cmd {
 	return func() tea.Msg {
-		projects, err := taskwarrior.GetProjects()
+		cfg, _ := config.Load()
+		taskrc := ""
+		if cfg != nil {
+			taskrc = cfg.TaskRC()
+		}
+
+		projects, err := taskwarrior.GetProjects(taskrc)
 		if err != nil {
 			log.Printf("failed to load projects for autocomplete: %v", err)
 		}
-		tags, err := taskwarrior.GetTags()
+		tags, err := taskwarrior.GetTags(taskrc)
 		if err != nil {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}

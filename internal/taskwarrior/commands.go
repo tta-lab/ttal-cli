@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -97,6 +98,35 @@ func runTaskWithVerbose(verbose string, args ...string) (string, error) {
 
 func runTask(args ...string) (string, error) {
 	return runTaskWithInput("", args...)
+}
+
+func runTaskWithTaskRC(taskrc string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	fullArgs := make([]string, 0, len(args)+2)
+	fullArgs = append(fullArgs, "rc.verbose:nothing")
+	if taskrc != "" {
+		fullArgs = append(fullArgs, "rc:"+taskrc)
+	}
+	fullArgs = append(fullArgs, args...)
+
+	cmd := exec.CommandContext(ctx, "task", fullArgs...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("taskwarrior timeout after %s", cmdTimeout)
+	}
+	if err != nil {
+		errMsg := strings.TrimSpace(stderr.String())
+		if errMsg == "" {
+			errMsg = strings.TrimSpace(stdout.String())
+		}
+		return "", fmt.Errorf("%w: %s", err, errMsg)
+	}
+	return stdout.String(), nil
 }
 
 func runTaskWithInput(input string, args ...string) (string, error) {

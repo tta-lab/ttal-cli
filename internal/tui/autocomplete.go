@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -23,12 +24,18 @@ func ensureProjectsAndTags(projects, tags []string) ([]string, []string) {
 		}
 		return cachedProjects, cachedTags
 	}
+	cfg, _ := config.Load()
+	taskrc := ""
+	if cfg != nil {
+		taskrc = cfg.TaskRC()
+	}
+
 	var err error
-	cachedProjects, err = taskwarrior.GetProjects()
+	cachedProjects, err = taskwarrior.GetProjects(taskrc)
 	if err != nil {
 		log.Printf("failed to get projects: %v", err)
 	}
-	cachedTags, err = taskwarrior.GetTags()
+	cachedTags, err = taskwarrior.GetTags(taskrc)
 	if err != nil {
 		log.Printf("failed to get tags: %v", err)
 	}
