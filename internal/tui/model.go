@@ -142,10 +142,11 @@ const (
 )
 
 const (
-	matchTypeProject  = "project"
-	matchTypeTag      = "tag"
-	matchTypePriority = "priority"
-	matchTypeStatus   = "status"
+	matchTypeProject   = "project"
+	matchTypeTag       = "tag"
+	matchTypePriority  = "priority"
+	matchTypeStatus    = "status"
+	matchTypeAttribute = "attr"
 )
 
 var priorityValues = []string{"H", "M", "L"}
@@ -685,16 +686,87 @@ func (m *Model) updateModifyMatches(projects, tags []string) {
 	input := m.modifyInput
 
 	switch {
-	case strings.HasPrefix(input, modifierProject):
-		m.updateProjectMatches(projects, strings.TrimPrefix(input, modifierProject))
+	case strings.Contains(input, ".") && strings.Contains(input, ":"):
+		parts := strings.SplitN(input, ":", 2)
+		prefix := parts[0]
+		value := ""
+		if len(parts) > 1 {
+			value = parts[1]
+		}
+		if strings.HasPrefix(prefix, modifierProject) {
+			subProjects := extractSubProjects(projects, strings.TrimPrefix(prefix, modifierProject))
+			m.updateProjectMatches(subProjects, value)
+		}
+	case strings.Contains(input, "."):
+		m.updateModifierMatches(input)
+	case strings.Contains(input, ":"):
+		parts := strings.SplitN(input, ":", 2)
+		prefix := parts[0]
+		value := ""
+		if len(parts) > 1 {
+			value = parts[1]
+		}
+		switch prefix {
+		case modifierProject:
+			m.updateProjectMatches(projects, value)
+		case modifierPriority:
+			m.updatePriorityMatches(value)
+		case modifierStatus:
+			m.updateStatusMatches(value)
+		default:
+			m.updateAllMatches(projects, tags)
+		}
 	case strings.HasPrefix(input, modifierTag):
 		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
-	case strings.HasPrefix(input, modifierPriority):
-		m.updatePriorityMatches(strings.TrimPrefix(input, modifierPriority))
-	case strings.HasPrefix(input, modifierStatus):
-		m.updateStatusMatches(strings.TrimPrefix(input, modifierStatus))
 	case input == "":
 		m.updateAllMatches(projects, tags)
+	default:
+		m.updateModifierMatches(input)
+	}
+}
+
+func extractSubProjects(projects []string, prefix string) []string {
+	var result []string
+	prefix = strings.ToLower(prefix)
+	for _, p := range projects {
+		if strings.HasPrefix(strings.ToLower(p), prefix) {
+			parts := strings.SplitN(p, ".", 2)
+			if len(parts) > 1 {
+				result = append(result, parts[1])
+			}
+		}
+	}
+	return result
+}
+
+func (m *Model) updateModifierMatches(input string) {
+	q := strings.ToLower(input)
+	if q == "" || strings.Contains("project", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: modifierProject})
+	}
+	if q == "" || strings.Contains("priority", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: modifierPriority})
+	}
+	if q == "" || strings.Contains("status", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeStatus, Value: modifierStatus})
+	}
+	if q == "" || strings.Contains("due", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "due:"})
+	}
+	if q == "" || strings.Contains("wait", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "wait:"})
+	}
+	if q == "" || strings.Contains("scheduled", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "scheduled:"})
+	}
+	if q == "" || strings.Contains("until", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "until:"})
+	}
+	if q == "" || strings.Contains("recur", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "recur:"})
+	}
+	if q == "" || strings.Contains("tag", q) {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: modifierTag})
 	}
 }
 
