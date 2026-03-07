@@ -80,6 +80,6 @@ func createAdapterFromTeam(
 	case runtime.OpenClaw:
 		return oclw.New(cfg)
 	default:
-		return oc.New(cfg)
+		return oc.NewACPAdapter(cfg)
 	}
 }
