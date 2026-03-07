@@ -21,6 +21,8 @@ const (
 	keyNameEsc       = "esc"
 	keyNameBackspace = "backspace"
 	keyNameTab       = "tab"
+	keyNameCtrlW     = "ctrl+w"
+	keyNameCtrlC     = "ctrl+c"
 )
 
 type viewState int
@@ -473,6 +475,16 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if len(m.searchStr) > 0 {
 			m.searchStr = m.searchStr[:len(m.searchStr)-1]
 		}
+	case keyNameCtrlW:
+		parts := strings.Fields(m.searchStr)
+		if len(parts) > 0 {
+			m.searchStr = strings.Join(parts[:len(parts)-1], " ")
+		}
+	case keyNameCtrlC:
+		m.state = stateTaskList
+		m.searchStr = ""
+		m.cursor = 0
+		return m, m.reloadTasks()
 	default:
 		if len(msg.Text) > 0 {
 			m.searchStr += msg.Text
