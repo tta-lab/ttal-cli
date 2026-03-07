@@ -90,16 +90,16 @@ func GetActiveWorkerTasks() ([]Task, error) {
 	return tasks, nil
 }
 
-func GetProjects(taskrc string) ([]string, error) {
-	out, err := runTaskWithTaskRC(taskrc, "_projects")
+func GetProjects() ([]string, error) {
+	out, err := runTask("_projects")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
 	return parseSimpleListOutput(out), nil
 }
 
-func GetTags(taskrc string) ([]string, error) {
-	out, err := runTaskWithTaskRC(taskrc, "_tags")
+func GetTags() ([]string, error) {
+	out, err := runTask("_tags")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
