@@ -85,21 +85,18 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 }
 
 func TestPromptNoDefaults(t *testing.T) {
-	cfg := &Config{} // empty prompts — no fallback to defaults
+	// Use a temp HOME dir so LoadRoles finds no roles.toml, making the test hermetic
+	// regardless of whether the developer has a real roles.toml installed.
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfg := &Config{} // empty prompts, no resolvedRoles — no fallback to defaults
 
 	keys := []string{"designer", "researcher", "execute", "triage", "review", "re_review"}
-	hasRolesToml := false
-	if roles, err := LoadRoles(); err == nil && roles != nil && len(roles.Roles) > 0 {
-		hasRolesToml = true
-	}
-
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
 			got := cfg.Prompt(key)
-			if hasRolesToml && got == "" {
-				t.Skip("roles.toml exists but prompt not defined for key")
-			}
-			if !hasRolesToml && got != "" {
+			if got != "" {
 				t.Errorf("Prompt(%q) = %q, want empty string (no defaults without roles.toml)", key, got)
 			}
 		})
@@ -107,15 +104,6 @@ func TestPromptNoDefaults(t *testing.T) {
 
 	t.Run("unknown", func(t *testing.T) {
 		got := cfg.Prompt("unknown")
-		hasDefault := false
-		if roles, err := LoadRoles(); err == nil && roles != nil {
-			if _, ok := roles.Roles["default"]; ok {
-				hasDefault = true
-			}
-		}
-		if hasDefault {
-			t.Skip("roles.toml exists with [default] - unknown keys now fall back to default")
-		}
 		if got != "" {
 			t.Errorf("Prompt(%q) = %q, want empty string", "unknown", got)
 		}
