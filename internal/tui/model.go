@@ -492,51 +492,73 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.modifyIndex = 0
 		return m, m.reloadTasks()
 	case keyNameBackspace:
-		if len(m.searchStr) > 0 {
-			m.searchStr = m.searchStr[:len(m.searchStr)-1]
-		}
-		m.updateSearchMatches(m.projects, m.tags)
+		m.handleSearchBackspace()
 	case keyNameTab:
-		if len(m.modifyMatches) > 0 {
-			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
-			match := m.modifyMatches[m.modifyIndex]
-			switch match.Type {
-			case matchTypeProject:
-				m.searchStr = modifierProject + match.Value + " "
-			case matchTypeTag:
-				m.searchStr = modifierTag + match.Value + " "
-			case matchTypePriority:
-				m.searchStr = modifierPriority + match.Value + " "
-			case matchTypeStatus:
-				m.searchStr = modifierStatus + match.Value + " "
-			case matchTypeAttribute:
-				m.searchStr = match.Value + " "
-			default:
-				m.searchStr += match.Value + " "
-			}
-			m.updateSearchMatches(m.projects, m.tags)
-		}
-	case keyNameCtrlN:
-		if len(m.modifyMatches) > 0 {
-			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
-		}
-	case keyNameCtrlP:
-		if len(m.modifyMatches) > 0 {
-			m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
-		}
+		m.handleSearchTab()
+	case keyNameCtrlN, keyNameCtrlP:
+		m.navigateSearchMatches(s == keyNameCtrlN)
 	case keyNameCtrlW:
-		if len(m.searchStr) > 0 {
-			m.searchStr = deleteLastWord(m.searchStr)
-			m.updateSearchMatches(m.projects, m.tags)
-		}
+		m.handleSearchCtrlW()
 	default:
-		if len(msg.Text) > 0 {
-			m.searchStr += msg.Text
-			m.modifyIndex = 0
-			m.updateSearchMatches(m.projects, m.tags)
-		}
+		m.handleSearchInput(msg)
 	}
 	return m, nil
+}
+
+func (m *Model) handleSearchBackspace() {
+	if len(m.searchStr) > 0 {
+		m.searchStr = m.searchStr[:len(m.searchStr)-1]
+	}
+	m.updateSearchMatches(m.projects, m.tags)
+}
+
+func (m *Model) handleSearchTab() {
+	if len(m.modifyMatches) == 0 {
+		return
+	}
+	m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	match := m.modifyMatches[m.modifyIndex]
+	switch match.Type {
+	case matchTypeProject:
+		m.searchStr = modifierProject + match.Value + " "
+	case matchTypeTag:
+		m.searchStr = modifierTag + match.Value + " "
+	case matchTypePriority:
+		m.searchStr = modifierPriority + match.Value + " "
+	case matchTypeStatus:
+		m.searchStr = modifierStatus + match.Value + " "
+	case matchTypeAttribute:
+		m.searchStr = match.Value + " "
+	default:
+		m.searchStr += match.Value + " "
+	}
+	m.updateSearchMatches(m.projects, m.tags)
+}
+
+func (m *Model) navigateSearchMatches(next bool) {
+	if len(m.modifyMatches) == 0 {
+		return
+	}
+	if next {
+		m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	} else {
+		m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
+	}
+}
+
+func (m *Model) handleSearchCtrlW() {
+	if len(m.searchStr) > 0 {
+		m.searchStr = deleteLastWord(m.searchStr)
+		m.updateSearchMatches(m.projects, m.tags)
+	}
+}
+
+func (m *Model) handleSearchInput(msg tea.KeyPressMsg) {
+	if len(msg.Text) > 0 {
+		m.searchStr += msg.Text
+		m.modifyIndex = 0
+		m.updateSearchMatches(m.projects, m.tags)
+	}
 }
 
 func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
