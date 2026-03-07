@@ -238,6 +238,12 @@ func TestResolveRuntime(t *testing.T) {
 			taskTags: []string{"codex"},
 			want:     runtime.Codex,
 		},
+		{
+			name:     "empty config no tags defaults to claude-code",
+			configRT: "",
+			taskTags: nil,
+			want:     runtime.ClaudeCode,
+		},
 	}
 
 	for _, tt := range tests {
