@@ -682,7 +682,7 @@ func (m *Model) ensureCursorVisible() {
 		m.offset = m.cursor
 	}
 	visible := m.visibleRows()
-	if m.offset+m.visibleRows() > len(m.filtered) {
+	if m.offset+visible > len(m.filtered) {
 		m.offset = len(m.filtered) - visible
 	}
 	if m.offset < 0 {
