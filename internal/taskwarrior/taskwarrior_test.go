@@ -337,7 +337,7 @@ func TestExtractSessionID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractSessionID(tt.input)
 			if got != tt.want {
-				t.Errorf("ExtractSessionID(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("ExtractSessionID(%q) = %q, want %q", tt.input, tt.want, got)
 			}
 		})
 	}

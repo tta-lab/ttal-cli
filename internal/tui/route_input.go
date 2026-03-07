@@ -64,10 +64,18 @@ func (m Model) viewRouteOverlay(background string) string {
 	b.WriteString(styleDim.Render("  Enter:select  Tab:complete  Esc:cancel"))
 
 	overlay := styleOverlay.
-		Width(40).
+		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 44)
+	return m.placeOverlay(background, overlay, 54)
+}
+
+func (m Model) viewSearchOverlay(background string) string {
+	return m.viewModifyMatchesOverlay(
+		background, "Search Tasks",
+		"Filter (e.g. project:x +tag priority:H):",
+		m.searchStr, "Enter:search",
+	)
 }
 
 func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
@@ -102,37 +110,33 @@ func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 	return strings.Join(bgLines, "\n")
 }
 
-func (m Model) viewModifyOverlay(background string) string {
+func (m Model) viewModifyMatchesOverlay(background, title, prompt, input, helpText string) string {
 	var b strings.Builder
 
-	b.WriteString(styleTitle.Render("Modify Task"))
+	b.WriteString(styleTitle.Render(title))
 	b.WriteString("\n\n")
-	b.WriteString(styleDim.Render("  Modifiers (e.g. project:x +tag priority:H):\n"))
-	fmt.Fprintf(&b, "  > %s_\n\n", m.modifyInput)
+	b.WriteString(styleDim.Render("  " + prompt + "\n"))
+	fmt.Fprintf(&b, "  > %s_\n\n", input)
 
 	if len(m.modifyMatches) == 0 {
 		b.WriteString(styleDim.Render("  No matching suggestions"))
 	} else {
 		for i, match := range m.modifyMatches {
 			prefix := "  "
-			if i == 0 {
+			if i == m.modifyIndex {
 				prefix = "> "
 			}
 			var value string
 			switch match.Type {
 			case matchTypeProject:
-				value = modifierProject + match.Value
+				value = match.Value
 			case matchTypeTag:
-				value = modifierTag + match.Value
-			case matchTypePriority:
-				value = modifierPriority + match.Value
-			case matchTypeStatus:
-				value = modifierStatus + match.Value
+				value = match.Value
 			default:
 				value = match.Value
 			}
 			line := fmt.Sprintf("%s[%s] %s", prefix, match.Type, value)
-			if i == 0 {
+			if i == m.modifyIndex {
 				line = styleSelected.Render(line)
 			} else {
 				line = styleDim.Render(line)
@@ -146,11 +150,19 @@ func (m Model) viewModifyOverlay(background string) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(styleDim.Render("  Enter:confirm  Tab:complete  Esc:cancel"))
+	b.WriteString(styleDim.Render("  " + helpText + "  Tab/Ctrl+N:next  Ctrl+P:prev  Ctrl+W:word  Esc:cancel"))
 
 	overlay := styleOverlay.
 		Width(50).
 		Render(b.String())
 
 	return m.placeOverlay(background, overlay, 54)
+}
+
+func (m Model) viewModifyOverlay(background string) string {
+	return m.viewModifyMatchesOverlay(
+		background, "Modify Task",
+		"Modifiers (e.g. project:x +tag priority:H):",
+		m.modifyInput, "Enter:confirm",
+	)
 }

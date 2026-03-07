@@ -21,8 +21,10 @@ const (
 	keyNameEsc       = "esc"
 	keyNameBackspace = "backspace"
 	keyNameTab       = "tab"
-	keyNameCtrlW     = "ctrl+w"
 	keyNameCtrlC     = "ctrl+c"
+	keyNameCtrlN     = "ctrl+n"
+	keyNameCtrlP     = "ctrl+p"
+	keyNameCtrlW     = "ctrl+w"
 )
 
 type viewState int
@@ -78,6 +80,18 @@ func formatAge(d time.Duration) string {
 	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
 }
 
+func deleteLastWord(s string) string {
+	s = strings.TrimRight(s, " ")
+	if s == "" {
+		return ""
+	}
+	lastSpace := strings.LastIndex(s, " ")
+	if lastSpace == -1 {
+		return ""
+	}
+	return s[:lastSpace]
+}
+
 // IsToday returns true if the task is scheduled for today or earlier.
 func (t *Task) IsToday() bool {
 	if t.Scheduled == "" {
@@ -114,28 +128,6 @@ const (
 	filterActive
 	filterCompleted
 )
-
-type modifyMatch struct {
-	Type  string
-	Value string
-}
-
-const (
-	modifierProject  = "project:"
-	modifierTag      = "+"
-	modifierPriority = "priority:"
-	modifierStatus   = "status:"
-)
-
-const (
-	matchTypeProject  = "project"
-	matchTypeTag      = "tag"
-	matchTypePriority = "priority"
-	matchTypeStatus   = "status"
-)
-
-var priorityValues = []string{"H", "M", "L"}
-var statusValues = []string{"pending", "completed", "waiting", "deleted"}
 
 func (f filterMode) String() string {
 	switch f {
@@ -187,6 +179,7 @@ type Model struct {
 
 	// Modify input autocomplete
 	modifyMatches []modifyMatch
+	modifyIndex   int
 
 	// Layout
 	width  int
@@ -309,6 +302,8 @@ func (m Model) View() tea.View {
 		content = m.viewModifyOverlay(content)
 	case stateAnnotate:
 		content = m.viewTextInputOverlay(content, "Annotate Task", "Annotation:", m.annotateInput)
+	case stateSearch:
+		content = m.viewSearchOverlay(content)
 	}
 
 	v := tea.NewView(content)
@@ -408,6 +403,9 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	case keySearch:
 		m.state = stateSearch
 		m.searchStr = ""
+		if len(m.projects) == 0 || len(m.tags) == 0 {
+			return m, loadConfigForAutocomplete()
+		}
 	case keyHelp:
 		if m.state == stateHelp {
 			m.state = stateTaskList
@@ -465,32 +463,76 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyNameEnter:
 		m.state = stateTaskList
 		m.cursor = 0
+		m.modifyIndex = 0
 		return m, m.reloadTasks()
-	case keyNameEsc:
+	case keyNameEsc, keyNameCtrlC:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
+		m.modifyIndex = 0
 		return m, m.reloadTasks()
 	case keyNameBackspace:
-		if len(m.searchStr) > 0 {
-			m.searchStr = m.searchStr[:len(m.searchStr)-1]
-		}
+		m.handleSearchBackspace()
+	case keyNameTab:
+		m.handleSearchTab()
+	case keyNameCtrlN, keyNameCtrlP:
+		m.navigateSearchMatches(s == keyNameCtrlN)
 	case keyNameCtrlW:
-		parts := strings.Fields(m.searchStr)
-		if len(parts) > 0 {
-			m.searchStr = strings.Join(parts[:len(parts)-1], " ")
-		}
-	case keyNameCtrlC:
-		m.state = stateTaskList
-		m.searchStr = ""
-		m.cursor = 0
-		return m, m.reloadTasks()
+		m.handleSearchCtrlW()
 	default:
-		if len(msg.Text) > 0 {
-			m.searchStr += msg.Text
-		}
+		m.handleSearchInput(msg)
 	}
 	return m, nil
+}
+
+func (m *Model) handleSearchBackspace() {
+	if len(m.searchStr) > 0 {
+		m.searchStr = m.searchStr[:len(m.searchStr)-1]
+	}
+	m.updateSearchMatches(m.projects, m.tags)
+}
+
+func (m *Model) handleSearchTab() {
+	if len(m.modifyMatches) == 0 {
+		return
+	}
+	m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	match := m.modifyMatches[m.modifyIndex]
+	switch match.Type {
+	case matchTypeProject:
+		m.searchStr = "project:" + match.Value + " "
+	case matchTypeTag:
+		m.searchStr = "+" + match.Value + " "
+	default:
+		m.searchStr += match.Value + " "
+	}
+	m.updateSearchMatches(m.projects, m.tags)
+}
+
+func (m *Model) navigateSearchMatches(next bool) {
+	if len(m.modifyMatches) == 0 {
+		return
+	}
+	if next {
+		m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	} else {
+		m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
+	}
+}
+
+func (m *Model) handleSearchCtrlW() {
+	if len(m.searchStr) > 0 {
+		m.searchStr = deleteLastWord(m.searchStr)
+		m.updateSearchMatches(m.projects, m.tags)
+	}
+}
+
+func (m *Model) handleSearchInput(msg tea.KeyPressMsg) {
+	if len(msg.Text) > 0 {
+		m.searchStr += msg.Text
+		m.modifyIndex = 0
+		m.updateSearchMatches(m.projects, m.tags)
+	}
 }
 
 func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -500,38 +542,77 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		t := m.selectedTask()
 		if t != nil && m.modifyInput != "" {
 			m.state = stateTaskList
+			m.modifyIndex = 0
 			return m, modifyTask(t.UUID, m.modifyInput)
 		}
 		m.state = stateTaskList
+		m.modifyIndex = 0
 	case keyNameEsc:
 		m.state = stateTaskList
+		m.modifyIndex = 0
 	case keyNameTab:
-		if len(m.modifyMatches) > 0 {
-			match := m.modifyMatches[0]
-			switch match.Type {
-			case matchTypeProject:
-				m.modifyInput = modifierProject + match.Value + " "
-			case matchTypeTag:
-				m.modifyInput = modifierTag + match.Value + " "
-			case matchTypePriority:
-				m.modifyInput = modifierPriority + match.Value + " "
-			case matchTypeStatus:
-				m.modifyInput = modifierStatus + match.Value + " "
-			}
-			m.updateModifyMatches(m.projects, m.tags)
-		}
+		m.handleModifyTab()
 	case keyNameBackspace:
-		if len(m.modifyInput) > 0 {
-			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
-		}
-		m.updateModifyMatches(m.projects, m.tags)
+		m.handleModifyBackspace()
+	case keyNameCtrlN:
+		m.handleModifyCtrlN()
+	case keyNameCtrlP:
+		m.handleModifyCtrlP()
+	case keyNameCtrlW:
+		m.handleModifyCtrlW()
 	default:
-		if len(msg.Text) > 0 {
-			m.modifyInput += msg.Text
-			m.updateModifyMatches(m.projects, m.tags)
-		}
+		m.handleModifyInput(msg)
 	}
 	return m, nil
+}
+
+func (m *Model) handleModifyTab() {
+	if len(m.modifyMatches) == 0 {
+		return
+	}
+	m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	match := m.modifyMatches[m.modifyIndex]
+	switch match.Type {
+	case matchTypeProject:
+		m.modifyInput = match.Value + ": "
+	case matchTypeTag:
+		m.modifyInput = match.Value + " "
+	}
+	m.updateModifyMatches(m.projects, m.tags)
+}
+
+func (m *Model) handleModifyBackspace() {
+	if len(m.modifyInput) > 0 {
+		m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
+	}
+	m.updateModifyMatches(m.projects, m.tags)
+}
+
+func (m *Model) handleModifyCtrlN() {
+	if len(m.modifyMatches) > 0 {
+		m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
+	}
+}
+
+func (m *Model) handleModifyCtrlP() {
+	if len(m.modifyMatches) > 0 {
+		m.modifyIndex = (m.modifyIndex - 1 + len(m.modifyMatches)) % len(m.modifyMatches)
+	}
+}
+
+func (m *Model) handleModifyCtrlW() {
+	if len(m.modifyInput) > 0 {
+		m.modifyInput = deleteLastWord(m.modifyInput)
+		m.updateModifyMatches(m.projects, m.tags)
+	}
+}
+
+func (m *Model) handleModifyInput(msg tea.KeyPressMsg) {
+	if len(msg.Text) > 0 {
+		m.modifyInput += msg.Text
+		m.modifyIndex = 0
+		m.updateModifyMatches(m.projects, m.tags)
+	}
 }
 
 func (m *Model) handleAnnotateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -602,72 +683,6 @@ func (m *Model) updateRouteMatches() {
 		if q == "" || strings.Contains(strings.ToLower(a.Name), q) {
 			m.routeMatches = append(m.routeMatches, a)
 		}
-	}
-}
-
-func (m *Model) updateModifyMatches(projects, tags []string) {
-	m.modifyMatches = nil
-	input := m.modifyInput
-
-	switch {
-	case strings.HasPrefix(input, modifierProject):
-		m.updateProjectMatches(projects, strings.TrimPrefix(input, modifierProject))
-	case strings.HasPrefix(input, modifierTag):
-		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
-	case strings.HasPrefix(input, modifierPriority):
-		m.updatePriorityMatches(strings.TrimPrefix(input, modifierPriority))
-	case strings.HasPrefix(input, modifierStatus):
-		m.updateStatusMatches(strings.TrimPrefix(input, modifierStatus))
-	case input == "":
-		m.updateAllMatches(projects, tags)
-	}
-}
-
-func (m *Model) updateProjectMatches(projects []string, query string) {
-	q := strings.ToLower(query)
-	for _, p := range projects {
-		if q == "" || strings.Contains(strings.ToLower(p), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
-		}
-	}
-}
-
-func (m *Model) updateTagMatches(tags []string, query string) {
-	q := strings.ToLower(query)
-	for _, t := range tags {
-		if q == "" || strings.Contains(strings.ToLower(t), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
-		}
-	}
-}
-
-func (m *Model) updatePriorityMatches(query string) {
-	q := strings.ToLower(query)
-	for _, p := range priorityValues {
-		if q == "" || strings.Contains(p, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
-		}
-	}
-}
-
-func (m *Model) updateStatusMatches(query string) {
-	q := strings.ToLower(query)
-	for _, s := range statusValues {
-		if q == "" || strings.Contains(s, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeStatus, Value: s})
-		}
-	}
-}
-
-func (m *Model) updateAllMatches(projects, tags []string) {
-	for _, p := range projects {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
-	}
-	for _, t := range tags {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
-	}
-	for _, p := range priorityValues {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
 	}
 }
 
@@ -786,6 +801,21 @@ func loadConfig() tea.Cmd {
 		}
 
 		return configLoadedMsg{cfg: cfg, agents: agents, projects: projects, tags: tags}
+	}
+}
+
+func loadConfigForAutocomplete() tea.Cmd {
+	return func() tea.Msg {
+		projects, err := taskwarrior.GetProjects()
+		if err != nil {
+			log.Printf("failed to load projects for autocomplete: %v", err)
+		}
+		tags, err := taskwarrior.GetTags()
+		if err != nil {
+			log.Printf("failed to load tags for autocomplete: %v", err)
+		}
+
+		return configLoadedMsg{projects: projects, tags: tags}
 	}
 }
 
