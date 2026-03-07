@@ -495,13 +495,26 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if len(m.searchStr) > 0 {
 			m.searchStr = m.searchStr[:len(m.searchStr)-1]
 		}
-		m.updateModifyMatches(m.projects, m.tags)
+		m.updateSearchMatches(m.projects, m.tags)
 	case keyNameTab:
 		if len(m.modifyMatches) > 0 {
 			m.modifyIndex = (m.modifyIndex + 1) % len(m.modifyMatches)
 			match := m.modifyMatches[m.modifyIndex]
-			m.searchStr += match.Value + " "
-			m.updateModifyMatches(m.projects, m.tags)
+			switch match.Type {
+			case matchTypeProject:
+				m.searchStr = modifierProject + match.Value + " "
+			case matchTypeTag:
+				m.searchStr = modifierTag + match.Value + " "
+			case matchTypePriority:
+				m.searchStr = modifierPriority + match.Value + " "
+			case matchTypeStatus:
+				m.searchStr = modifierStatus + match.Value + " "
+			case matchTypeAttribute:
+				m.searchStr = match.Value + " "
+			default:
+				m.searchStr += match.Value + " "
+			}
+			m.updateSearchMatches(m.projects, m.tags)
 		}
 	case keyNameCtrlN:
 		if len(m.modifyMatches) > 0 {
@@ -514,13 +527,13 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyNameCtrlW:
 		if len(m.searchStr) > 0 {
 			m.searchStr = deleteLastWord(m.searchStr)
-			m.updateModifyMatches(m.projects, m.tags)
+			m.updateSearchMatches(m.projects, m.tags)
 		}
 	default:
 		if len(msg.Text) > 0 {
 			m.searchStr += msg.Text
 			m.modifyIndex = 0
-			m.updateModifyMatches(m.projects, m.tags)
+			m.updateSearchMatches(m.projects, m.tags)
 		}
 	}
 	return m, nil
@@ -682,8 +695,19 @@ func (m *Model) updateRouteMatches() {
 }
 
 func (m *Model) updateModifyMatches(projects, tags []string) {
+	m.updateModifyMatchesWithInput(m.modifyInput, projects, tags)
+}
+
+func (m *Model) updateModifyMatchesWithInput(input string, projects, tags []string) {
+	m.updateModifyMatchesWithInputAndMode(input, projects, tags, false)
+}
+
+func (m *Model) updateSearchMatches(projects, tags []string) {
+	m.updateModifyMatchesWithInputAndMode(m.searchStr, projects, tags, true)
+}
+
+func (m *Model) updateModifyMatchesWithInputAndMode(input string, projects, tags []string, isSearch bool) {
 	m.modifyMatches = nil
-	input := m.modifyInput
 
 	switch {
 	case strings.Contains(input, ".") && strings.Contains(input, ":"):
@@ -720,6 +744,8 @@ func (m *Model) updateModifyMatches(projects, tags []string) {
 		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
 	case input == "":
 		m.updateAllMatches(projects, tags)
+	case isSearch:
+		m.updateSearchSuggestions(input, projects, tags)
 	default:
 		m.updateModifierMatches(input)
 	}
@@ -809,6 +835,30 @@ func (m *Model) updateAllMatches(projects, tags []string) {
 	}
 	for _, p := range priorityValues {
 		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
+	}
+}
+
+func (m *Model) updateSearchSuggestions(query string, projects, tags []string) {
+	q := strings.ToLower(query)
+	for _, p := range projects {
+		if q == "" || strings.Contains(strings.ToLower(p), q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
+		}
+	}
+	for _, t := range tags {
+		if q == "" || strings.Contains(strings.ToLower(t), q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
+		}
+	}
+	for _, p := range priorityValues {
+		if q == "" || strings.Contains(p, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
+		}
+	}
+	for _, sug := range modifierSuggestions {
+		if q == "" || strings.Contains(sug.keyword, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: sug.matchType, Value: sug.value})
+		}
 	}
 }
 

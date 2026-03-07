@@ -3,7 +3,6 @@ module github.com/tta-lab/ttal-cli
 go 1.26.0
 
 require (
-	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.0
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
