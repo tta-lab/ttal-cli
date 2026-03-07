@@ -3,7 +3,6 @@ package taskwarrior
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -92,21 +91,19 @@ func GetActiveWorkerTasks() ([]Task, error) {
 }
 
 func GetProjects() ([]string, error) {
-	cmd := exec.Command("task", "_projects")
-	out, err := cmd.Output()
+	out, err := runTask("_projects")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
-	return parseSimpleListOutput(string(out)), nil
+	return parseSimpleListOutput(out), nil
 }
 
 func GetTags() ([]string, error) {
-	cmd := exec.Command("task", "_tags")
-	out, err := cmd.Output()
+	out, err := runTask("_tags")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
-	return parseSimpleListOutput(string(out)), nil
+	return parseSimpleListOutput(out), nil
 }
 
 func parseSimpleListOutput(out string) []string {
