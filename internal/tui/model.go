@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strings"
@@ -112,6 +113,28 @@ const (
 	filterCompleted
 )
 
+type modifyMatch struct {
+	Type  string
+	Value string
+}
+
+const (
+	modifierProject  = "project:"
+	modifierTag      = "+"
+	modifierPriority = "priority:"
+	modifierStatus   = "status:"
+)
+
+const (
+	matchTypeProject  = "project"
+	matchTypeTag      = "tag"
+	matchTypePriority = "priority"
+	matchTypeStatus   = "status"
+)
+
+var priorityValues = []string{"H", "M", "L"}
+var statusValues = []string{"pending", "completed", "waiting", "deleted"}
+
 func (f filterMode) String() string {
 	switch f {
 	case filterPending:
@@ -144,19 +167,24 @@ type Model struct {
 	filtered []Task
 	agents   []agentfs.AgentInfo
 	cfg      *config.Config
+	projects []string
+	tags     []string
 
 	// Task list
 	cursor    int
 	offset    int // viewport scroll offset
 	searchStr string
 
+	// Route input
+	routeInput   string
+	routeMatches []agentfs.AgentInfo
+
 	// Text input for overlays
 	modifyInput   string
 	annotateInput string
 
-	// Route input
-	routeInput   string
-	routeMatches []agentfs.AgentInfo
+	// Modify input autocomplete
+	modifyMatches []modifyMatch
 
 	// Layout
 	width  int
@@ -194,6 +222,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.cfg = msg.cfg
 		m.agents = msg.agents
+		m.projects = msg.projects
+		m.tags = msg.tags
 		if msg.cfg != nil {
 			m.teamName = msg.cfg.TeamName()
 		}
@@ -273,7 +303,7 @@ func (m Model) View() tea.View {
 	case stateRouteInput:
 		content = m.viewRouteOverlay(content)
 	case stateModify:
-		content = m.viewTextInputOverlay(content, "Modify Task", "Modifiers (e.g. project:x +tag priority:H):", m.modifyInput)
+		content = m.viewModifyOverlay(content)
 	case stateAnnotate:
 		content = m.viewTextInputOverlay(content, "Annotate Task", "Annotation:", m.annotateInput)
 	}
@@ -418,6 +448,7 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 	case keyModify:
 		m.state = stateModify
 		m.modifyInput = ""
+		m.updateModifyMatches(m.projects, m.tags)
 		return nil
 	case keyAnnotate:
 		m.state = stateAnnotate
@@ -465,13 +496,30 @@ func (m *Model) handleModifyKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.state = stateTaskList
 	case keyNameEsc:
 		m.state = stateTaskList
+	case keyNameTab:
+		if len(m.modifyMatches) > 0 {
+			match := m.modifyMatches[0]
+			switch match.Type {
+			case matchTypeProject:
+				m.modifyInput = modifierProject + match.Value + " "
+			case matchTypeTag:
+				m.modifyInput = modifierTag + match.Value + " "
+			case matchTypePriority:
+				m.modifyInput = modifierPriority + match.Value + " "
+			case matchTypeStatus:
+				m.modifyInput = modifierStatus + match.Value + " "
+			}
+			m.updateModifyMatches(m.projects, m.tags)
+		}
 	case keyNameBackspace:
 		if len(m.modifyInput) > 0 {
 			m.modifyInput = m.modifyInput[:len(m.modifyInput)-1]
 		}
+		m.updateModifyMatches(m.projects, m.tags)
 	default:
 		if len(msg.Text) > 0 {
 			m.modifyInput += msg.Text
+			m.updateModifyMatches(m.projects, m.tags)
 		}
 	}
 	return m, nil
@@ -548,6 +596,72 @@ func (m *Model) updateRouteMatches() {
 	}
 }
 
+func (m *Model) updateModifyMatches(projects, tags []string) {
+	m.modifyMatches = nil
+	input := m.modifyInput
+
+	switch {
+	case strings.HasPrefix(input, modifierProject):
+		m.updateProjectMatches(projects, strings.TrimPrefix(input, modifierProject))
+	case strings.HasPrefix(input, modifierTag):
+		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
+	case strings.HasPrefix(input, modifierPriority):
+		m.updatePriorityMatches(strings.TrimPrefix(input, modifierPriority))
+	case strings.HasPrefix(input, modifierStatus):
+		m.updateStatusMatches(strings.TrimPrefix(input, modifierStatus))
+	case input == "":
+		m.updateAllMatches(projects, tags)
+	}
+}
+
+func (m *Model) updateProjectMatches(projects []string, query string) {
+	q := strings.ToLower(query)
+	for _, p := range projects {
+		if q == "" || strings.Contains(strings.ToLower(p), q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
+		}
+	}
+}
+
+func (m *Model) updateTagMatches(tags []string, query string) {
+	q := strings.ToLower(query)
+	for _, t := range tags {
+		if q == "" || strings.Contains(strings.ToLower(t), q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
+		}
+	}
+}
+
+func (m *Model) updatePriorityMatches(query string) {
+	q := strings.ToLower(query)
+	for _, p := range priorityValues {
+		if q == "" || strings.Contains(p, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
+		}
+	}
+}
+
+func (m *Model) updateStatusMatches(query string) {
+	q := strings.ToLower(query)
+	for _, s := range statusValues {
+		if q == "" || strings.Contains(s, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeStatus, Value: s})
+		}
+	}
+}
+
+func (m *Model) updateAllMatches(projects, tags []string) {
+	for _, p := range projects {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
+	}
+	for _, t := range tags {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
+	}
+	for _, p := range priorityValues {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
+	}
+}
+
 func (m *Model) selectedTask() *Task {
 	if m.cursor >= 0 && m.cursor < len(m.filtered) {
 		return &m.filtered[m.cursor]
@@ -620,9 +734,11 @@ func (m *Model) applyFilter() {
 // Messages
 
 type configLoadedMsg struct {
-	cfg    *config.Config
-	agents []agentfs.AgentInfo
-	err    error
+	cfg      *config.Config
+	agents   []agentfs.AgentInfo
+	projects []string
+	tags     []string
+	err      error
 }
 
 type tasksLoadedMsg struct {
@@ -649,7 +765,17 @@ func loadConfig() tea.Cmd {
 			return configLoadedMsg{err: fmt.Errorf("load config: %w", err)}
 		}
 		agents, _ := agentfs.Discover(cfg.TeamPath())
-		return configLoadedMsg{cfg: cfg, agents: agents}
+
+		projects, err := taskwarrior.GetProjects()
+		if err != nil {
+			log.Printf("failed to load projects for autocomplete: %v", err)
+		}
+		tags, err := taskwarrior.GetTags()
+		if err != nil {
+			log.Printf("failed to load tags for autocomplete: %v", err)
+		}
+
+		return configLoadedMsg{cfg: cfg, agents: agents, projects: projects, tags: tags}
 	}
 }
 

@@ -101,3 +101,56 @@ func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 
 	return strings.Join(bgLines, "\n")
 }
+
+func (m Model) viewModifyOverlay(background string) string {
+	var b strings.Builder
+
+	b.WriteString(styleTitle.Render("Modify Task"))
+	b.WriteString("\n\n")
+	b.WriteString(styleDim.Render("  Modifiers (e.g. project:x +tag priority:H):\n"))
+	fmt.Fprintf(&b, "  > %s_\n\n", m.modifyInput)
+
+	if len(m.modifyMatches) == 0 {
+		b.WriteString(styleDim.Render("  No matching suggestions"))
+	} else {
+		for i, match := range m.modifyMatches {
+			prefix := "  "
+			if i == 0 {
+				prefix = "> "
+			}
+			var value string
+			switch match.Type {
+			case matchTypeProject:
+				value = modifierProject + match.Value
+			case matchTypeTag:
+				value = modifierTag + match.Value
+			case matchTypePriority:
+				value = modifierPriority + match.Value
+			case matchTypeStatus:
+				value = modifierStatus + match.Value
+			default:
+				value = match.Value
+			}
+			line := fmt.Sprintf("%s[%s] %s", prefix, match.Type, value)
+			if i == 0 {
+				line = styleSelected.Render(line)
+			} else {
+				line = styleDim.Render(line)
+			}
+			b.WriteString(line + "\n")
+			if i >= 9 {
+				b.WriteString(styleDim.Render(fmt.Sprintf("  ... and %d more", len(m.modifyMatches)-10)))
+				break
+			}
+		}
+	}
+
+	b.WriteString("\n")
+	b.WriteString(styleDim.Render("  Enter:confirm  Tab:complete  Esc:cancel"))
+
+	overlay := styleOverlay.
+		Width(50).
+		Render(b.String())
+
+	return m.placeOverlay(background, overlay, 54)
+}

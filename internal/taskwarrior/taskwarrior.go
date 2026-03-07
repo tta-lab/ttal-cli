@@ -716,3 +716,32 @@ func capitalizeWords(s string) string {
 	}
 	return strings.Join(words, " ")
 }
+
+func GetProjects() ([]string, error) {
+	out, err := runTaskWithVerbose("list", "projects")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get projects: %w", err)
+	}
+	return parseListOutput(out, "Project"), nil
+}
+
+func GetTags() ([]string, error) {
+	out, err := runTaskWithVerbose("list", "tags")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tags: %w", err)
+	}
+	return parseListOutput(out, "Tag"), nil
+}
+
+func parseListOutput(out, prefix string) []string {
+	var result []string
+	lines := strings.Split(out, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "---") || strings.HasPrefix(line, prefix) {
+			continue
+		}
+		result = append(result, line)
+	}
+	return result
+}
