@@ -66,10 +66,10 @@ func (r Runtime) IsWorkerRuntime() bool {
 }
 
 // NeedsPort returns true if the runtime requires an explicit port for its HTTP server.
-// OpenCode and Codex run HTTP serve processes; CC and OpenClaw do not.
+// Codex runs HTTP serve process; CC, OpenCode (ACP), and OpenClaw do not.
 func (r Runtime) NeedsPort() bool {
 	switch r {
-	case OpenCode, Codex:
+	case Codex:
 		return true
 	default:
 		return false
