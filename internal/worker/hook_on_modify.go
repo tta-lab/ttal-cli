@@ -21,7 +21,7 @@ func HookOnModify() {
 
 	// Check if task is being completed
 	if modified.Status() == taskStatusCompleted && original.Status() != taskStatusCompleted {
-		if err := validateTaskCompletion(modified); err != nil {
+		if err := validateTaskCompletion(modified, nil); err != nil {
 			hookLogFile("ERROR: " + err.Error())
 			fmt.Println(err.Error())
 			os.Exit(1)
@@ -36,9 +36,40 @@ func HookOnModify() {
 	writeTask(modified)
 }
 
+// prMergedChecker is a function that checks whether a PR is merged.
+// It receives the project path and PR ID string and returns (merged bool, err error).
+// Injected for testability; production code uses defaultPRMergedChecker.
+type prMergedChecker func(projectPath, prID string) (merged bool, err error)
+
+// defaultPRMergedChecker is the real implementation used in production.
+func defaultPRMergedChecker(projectPath, prID string) (bool, error) {
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return false, fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+	}
+
+	provider, err := gitprovider.NewProvider(info)
+	if err != nil {
+		return false, fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+	}
+
+	prIndex, err := strconv.ParseInt(prID, 10, 64)
+	if err != nil {
+		return false, fmt.Errorf("cannot verify PR #%s: invalid pr_id", prID)
+	}
+
+	pr, err := provider.GetPR(info.Owner, info.Repo, prIndex)
+	if err != nil {
+		return false, fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+	}
+
+	return pr.Merged, nil
+}
+
 // validateTaskCompletion checks if a task can be completed.
 // It blocks completion if the task has an unmerged PR.
-func validateTaskCompletion(modified hookTask) error {
+// checker may be nil, in which case defaultPRMergedChecker is used.
+func validateTaskCompletion(modified hookTask, checker prMergedChecker) error {
 	prID := modified.PRID()
 	if prID == "" {
 		return nil
@@ -50,27 +81,16 @@ func validateTaskCompletion(modified hookTask) error {
 			"Add project_path or remove pr_id to complete")
 	}
 
-	info, err := gitprovider.DetectProvider(projectPath)
-	if err != nil {
-		return fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+	if checker == nil {
+		checker = defaultPRMergedChecker
 	}
 
-	provider, err := gitprovider.NewProvider(info)
+	merged, err := checker(projectPath, prID)
 	if err != nil {
-		return fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+		return err
 	}
 
-	prIndex, err := strconv.ParseInt(prID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("cannot verify PR #%s: invalid pr_id", prID)
-	}
-
-	pr, err := provider.GetPR(info.Owner, info.Repo, prIndex)
-	if err != nil {
-		return fmt.Errorf("cannot verify PR #%s: %w", prID, err)
-	}
-
-	if pr.Merged {
+	if merged {
 		return nil
 	}
 
