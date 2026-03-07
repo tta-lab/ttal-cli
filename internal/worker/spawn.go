@@ -128,6 +128,14 @@ func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
 	return task, nil
 }
 
+// resolveModel determines the worker model: +hard tag uses opus, otherwise team worker_model config.
+func resolveModel(task *taskwarrior.Task, shellCfg *config.Config) string {
+	if task.HasTag("hard") {
+		return "opus"
+	}
+	return shellCfg.WorkerModel()
+}
+
 // resolveRuntime determines the worker runtime from task tags, falling back to config default.
 func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime {
 	if rt == "" || rt == runtime.ClaudeCode {
@@ -200,7 +208,8 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
-	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, envParts, shellCfg)
+	model := resolveModel(task, shellCfg)
+	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, envParts, shellCfg, model)
 	if err != nil {
 		return err
 	}
@@ -259,8 +268,9 @@ func buildLaunchCmd(
 	ttalBin, taskFile string,
 	envParts []string,
 	shellCfg *config.Config,
+	model string,
 ) (string, error) {
-	cmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime)
+	cmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model)
 	if err != nil {
 		return "", err
 	}

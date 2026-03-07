@@ -70,7 +70,7 @@ func TestBuildLaunchCmd(t *testing.T) {
 	envParts := []string{"TTAL_JOB_ID=test-id"}
 	shellCfg := &config.Config{}
 
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg)
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg, "sonnet")
 	if err != nil {
 		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
@@ -78,8 +78,8 @@ func TestBuildLaunchCmd(t *testing.T) {
 	if !strings.Contains(cmd, "claude") {
 		t.Error("CC command should contain 'claude'")
 	}
-	if !strings.Contains(cmd, "--model opus") {
-		t.Error("CC command should use opus model")
+	if !strings.Contains(cmd, "--model sonnet") {
+		t.Error("CC command should use sonnet model by default")
 	}
 	if !strings.Contains(cmd, "--dangerously-skip-permissions") {
 		t.Error("CC command should include yolo flag")
@@ -89,10 +89,23 @@ func TestBuildLaunchCmd(t *testing.T) {
 	}
 }
 
+func TestBuildLaunchCmd_OpusModel(t *testing.T) {
+	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
+	shellCfg := &config.Config{}
+
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "opus")
+	if err != nil {
+		t.Fatalf("buildLaunchCmd returned error: %v", err)
+	}
+	if !strings.Contains(cmd, "--model opus") {
+		t.Errorf("CC command should use opus model, got: %s", cmd)
+	}
+}
+
 func TestBuildLaunchCmd_OpenCode(t *testing.T) {
 	cfg := SpawnConfig{Runtime: runtime.OpenCode}
 	shellCfg := &config.Config{}
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg)
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "sonnet")
 	if err != nil {
 		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
@@ -104,7 +117,7 @@ func TestBuildLaunchCmd_OpenCode(t *testing.T) {
 func TestBuildLaunchCmd_Codex(t *testing.T) {
 	cfg := SpawnConfig{Runtime: runtime.Codex}
 	shellCfg := &config.Config{}
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg)
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "sonnet")
 	if err != nil {
 		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
@@ -120,12 +133,59 @@ func TestBuildLaunchCmd_RejectsUnsupportedRuntime(t *testing.T) {
 		"/tmp/task.txt",
 		nil,
 		&config.Config{},
+		"sonnet",
 	)
 	if err == nil {
 		t.Fatal("expected error for unsupported worker runtime")
 	}
 	if !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("expected unsupported runtime error, got: %v", err)
+	}
+}
+
+func TestResolveModel(t *testing.T) {
+	tests := []struct {
+		name string
+		tags []string
+		want string
+	}{
+		{
+			name: "default returns sonnet",
+			tags: nil,
+			want: "sonnet",
+		},
+		{
+			name: "hard tag returns opus",
+			tags: []string{"hard"},
+			want: "opus",
+		},
+		{
+			name: "other tags return sonnet",
+			tags: []string{"urgent", "frontend"},
+			want: "sonnet",
+		},
+		{
+			name: "hard with other tags still returns opus",
+			tags: []string{"urgent", "hard", "frontend"},
+			want: "opus",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &taskwarrior.Task{
+				UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
+				Description: "test task",
+				Tags:        tt.tags,
+			}
+			// WorkerModel() accessor with configured values is tested in config_test.go.
+			// Here we test the +hard override logic with default config.
+			shellCfg := &config.Config{}
+			got := resolveModel(task, shellCfg)
+			if got != tt.want {
+				t.Errorf("resolveModel(%v) = %q, want %q", tt.tags, got, tt.want)
+			}
+		})
 	}
 }
 

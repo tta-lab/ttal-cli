@@ -41,7 +41,8 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, rt)
+	// Reviewers are worker-plane, so they share the team's worker_model.
+	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, rt, cfg.WorkerModel())
 	if err != nil {
 		return err
 	}
@@ -120,8 +121,8 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 }
 
-func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime) (string, error) {
-	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt)
+func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime, model string) (string, error) {
+	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, model)
 }
 
 func writePromptFile(prompt string) (string, error) {

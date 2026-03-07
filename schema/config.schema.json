@@ -154,6 +154,24 @@
             ],
             "description": "Runtime for spawned workers"
           },
+          "agent_model": {
+            "type": "string",
+            "enum": [
+              "haiku",
+              "sonnet",
+              "opus"
+            ],
+            "description": "Model for agent sessions (default: sonnet)"
+          },
+          "worker_model": {
+            "type": "string",
+            "enum": [
+              "haiku",
+              "sonnet",
+              "opus"
+            ],
+            "description": "Model for spawned workers (default: sonnet; +hard tag overrides to opus)"
+          },
           "gateway_url": {
             "type": "string",
             "description": "OpenClaw Gateway URL"
@@ -202,7 +220,7 @@
                     "sonnet",
                     "opus"
                   ],
-                  "description": "Claude model tier (falls back to opus)"
+                  "description": "Claude model tier (falls back to team agent_model, then sonnet)"
                 }
               },
               "additionalProperties": false,

@@ -80,6 +80,8 @@ type Config struct {
 	resolvedTeamName       string
 	resolvedAgentRuntime   string
 	resolvedWorkerRuntime  string
+	resolvedAgentModel     string
+	resolvedWorkerModel    string
 	resolvedMergeMode      string
 	resolvedTeamPath       string
 	resolvedProjectsPath   string
@@ -108,6 +110,10 @@ type TeamConfig struct {
 	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
 	// Runtime for spawned workers
 	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex"` //nolint:lll
+	// Model for agent sessions (default: sonnet)
+	AgentModel string `toml:"agent_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
+	// Model for spawned workers (default: sonnet; +hard tag overrides to opus)
+	WorkerModel string `toml:"worker_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// OpenClaw Gateway URL
 	GatewayURL string `toml:"gateway_url"`
 	// OpenClaw hooks auth token
@@ -172,7 +178,7 @@ type AgentConfig struct {
 	Port int `toml:"port"`
 	// Per-agent runtime override (falls back to team agent_runtime)
 	Runtime string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
-	// Claude model tier (falls back to opus)
+	// Claude model tier (falls back to team agent_model, then sonnet)
 	Model string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 }
 
@@ -185,12 +191,29 @@ func (c *Config) AgentRuntimeFor(agentName string) runtime.Runtime {
 	return c.AgentRuntime()
 }
 
-// AgentModelFor returns the effective model for an agent (default: "opus").
+// AgentModel returns the team's agent model ("sonnet" if unset).
+func (c *Config) AgentModel() string {
+	if c.resolvedAgentModel != "" {
+		return c.resolvedAgentModel
+	}
+	return DefaultModel
+}
+
+// WorkerModel returns the team's worker model ("sonnet" if unset).
+func (c *Config) WorkerModel() string {
+	if c.resolvedWorkerModel != "" {
+		return c.resolvedWorkerModel
+	}
+	return DefaultModel
+}
+
+// AgentModelFor returns the effective model for an agent:
+// per-agent model > team agent_model > "sonnet".
 func (c *Config) AgentModelFor(agentName string) string {
 	if ac, ok := c.Agents[agentName]; ok && ac.Model != "" {
 		return ac.Model
 	}
-	return DefaultModel
+	return c.AgentModel()
 }
 
 // resolveNotificationToken reads the notification bot token from .env.
@@ -300,7 +323,7 @@ func (c *Config) TaskSyncURL() string {
 
 const (
 	DefaultTeamName = "default"
-	DefaultModel    = "opus"
+	DefaultModel    = "sonnet"
 	MergeModeAuto   = "auto"
 	MergeModeManual = "manual"
 )
@@ -566,6 +589,8 @@ func (c *Config) resolve() error {
 
 	c.resolvedAgentRuntime = team.AgentRuntime
 	c.resolvedWorkerRuntime = team.WorkerRuntime
+	c.resolvedAgentModel = team.AgentModel
+	c.resolvedWorkerModel = team.WorkerModel
 	c.resolvedGatewayURL = team.GatewayURL
 	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
@@ -639,7 +664,7 @@ type DaemonConfig struct {
 	Teams  map[string]*ResolvedTeam // team name -> resolved team config
 }
 
-// ResolvedTeam holds a single team's fully resolved config.
+// ResolvedTeam holds one team's fully resolved configuration.
 type ResolvedTeam struct {
 	Name              string
 	TeamPath          string
@@ -650,6 +675,8 @@ type ResolvedTeam struct {
 	NotificationToken string
 	AgentRuntime      string
 	WorkerRuntime     string
+	AgentModel        string
+	WorkerModel       string
 	MergeMode         string
 	GatewayURL        string
 	HooksToken        string
@@ -766,6 +793,8 @@ func resolveTeam(
 		NotificationToken: resolveNotificationToken(teamName, team.NotificationTokenEnv),
 		AgentRuntime:      team.AgentRuntime,
 		WorkerRuntime:     team.WorkerRuntime,
+		AgentModel:        team.AgentModel,
+		WorkerModel:       team.WorkerModel,
 		MergeMode:         team.MergeMode,
 		GatewayURL:        team.GatewayURL,
 		HooksToken:        team.HooksToken,
@@ -876,7 +905,8 @@ func (m *DaemonConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.R
 	return runtime.ClaudeCode
 }
 
-// AgentModelForTeam resolves effective model for an agent in a team.
+// AgentModelForTeam resolves effective model for an agent in a team:
+// per-agent model > team agent_model > "sonnet".
 func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
 	team, ok := m.Teams[teamName]
 	if !ok {
@@ -884,6 +914,22 @@ func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
 	}
 	if ac, ok := team.Agents[agentName]; ok && ac.Model != "" {
 		return ac.Model
+	}
+	if team.AgentModel != "" {
+		return team.AgentModel
+	}
+	return DefaultModel
+}
+
+// WorkerModelForTeam resolves effective model for workers in a team:
+// team worker_model > "sonnet".
+func (m *DaemonConfig) WorkerModelForTeam(teamName string) string {
+	team, ok := m.Teams[teamName]
+	if !ok {
+		return DefaultModel
+	}
+	if team.WorkerModel != "" {
+		return team.WorkerModel
 	}
 	return DefaultModel
 }
