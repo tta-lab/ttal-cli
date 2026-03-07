@@ -48,3 +48,27 @@ func TestTableModel_Integration(t *testing.T) {
 		t.Error("expected cursor to be set to 0")
 	}
 }
+
+func TestTableModel_SyncCursorFromTable(t *testing.T) {
+	m := Model{
+		filtered: []Task{
+			{Task: taskwarrior.Task{ID: 1}},
+			{Task: taskwarrior.Task{ID: 2}},
+			{Task: taskwarrior.Task{ID: 3}},
+		},
+		cursor: 0,
+	}
+
+	cols := []table.Column{{Title: "ID", Width: 5}}
+	m.taskTable = table.New(
+		table.WithColumns(cols),
+		table.WithRows([]table.Row{{"1"}, {"2"}, {"3"}}),
+	)
+
+	m.taskTable.SetCursor(2)
+	m.syncCursorFromTable()
+
+	if m.cursor != 2 {
+		t.Errorf("expected cursor 2, got %d", m.cursor)
+	}
+}

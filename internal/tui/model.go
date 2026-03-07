@@ -174,9 +174,8 @@ type Model struct {
 	// Task list
 	taskTable table.Model
 
-	// Task list (legacy - used for non-table views)
+	// Task list cursor (synced with taskTable)
 	cursor    int
-	offset    int // viewport scroll offset
 	searchStr string
 
 	// Route input
@@ -372,26 +371,25 @@ func (m *Model) handleNavigation(action keyAction) bool {
 	switch action {
 	case keyUp:
 		m.taskTable.MoveUp(1)
-		m.cursor = m.taskTable.Cursor()
+		m.syncCursorFromTable()
 	case keyDown:
 		m.taskTable.MoveDown(1)
-		m.cursor = m.taskTable.Cursor()
+		m.syncCursorFromTable()
 	case keyPageDown:
 		m.taskTable.MoveDown(m.visibleRows())
-		m.cursor = m.taskTable.Cursor()
+		m.syncCursorFromTable()
 	case keyPageUp:
 		m.taskTable.MoveUp(m.visibleRows())
-		m.cursor = m.taskTable.Cursor()
+		m.syncCursorFromTable()
 	case keyHalfPageDown:
 		m.taskTable.MoveDown(m.visibleRows() / 2)
-		m.cursor = m.taskTable.Cursor()
+		m.syncCursorFromTable()
 	case keyHalfPageUp:
 		m.taskTable.MoveUp(m.visibleRows() / 2)
-		m.cursor = m.taskTable.Cursor()
+		m.syncCursorFromTable()
 	case keyTop:
 		m.taskTable.SetCursor(0)
 		m.cursor = 0
-		m.offset = 0
 	case keyBottom:
 		if len(m.filtered) > 0 {
 			m.taskTable.SetCursor(len(m.filtered) - 1)
@@ -424,12 +422,10 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	case keyFilterNext:
 		m.filter = m.filter.Next()
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keyFilterPrev:
 		m.filter = m.filter.Prev()
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keySearch:
 		m.state = stateSearch
@@ -491,13 +487,11 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyNameEnter:
 		m.state = stateTaskList
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keyNameEsc:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keyNameBackspace:
 		if len(m.searchStr) > 0 {
@@ -696,24 +690,8 @@ func (m *Model) selectedTask() *Task {
 	return nil
 }
 
-func (m *Model) ensureCursorVisible() {
-	visible := m.visibleRows()
-	if visible <= 0 {
-		return
-	}
-	if m.offset < 0 {
-		m.offset = 0
-	}
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+visible {
-		newOffset := m.cursor - visible + 1
-		if newOffset < 0 {
-			newOffset = 0
-		}
-		m.offset = newOffset
-	}
+func (m *Model) syncCursorFromTable() {
+	m.cursor = m.taskTable.Cursor()
 }
 
 func (m *Model) visibleRows() int {
@@ -749,6 +727,7 @@ func (m *Model) applyFilter() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+	m.taskTable.SetCursor(m.cursor)
 }
 
 // Messages
