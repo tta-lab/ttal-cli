@@ -21,14 +21,6 @@ type modifyMatch struct {
 	Value string
 }
 
-var modifierSuggestions = []struct {
-	keyword string
-	value   string
-}{
-	{"project", "project:"},
-	{"tag", "+"},
-}
-
 func (m *Model) updateProjectMatches(projects []string, query string) {
 	q := strings.ToLower(query)
 	for _, p := range projects {
@@ -85,16 +77,6 @@ func (m *Model) updateModifyMatchesWithInput(input string, projects, tags []stri
 	default:
 		m.updateProjectMatches(projects, input)
 		m.updateTagMatches(tags, input)
-	}
-}
-
-func (m *Model) updateModifierSuggestions(input string, _, _ []string) {
-	m.modifyMatches = nil
-	q := strings.ToLower(input)
-	for _, sug := range modifierSuggestions {
-		if q == "" || strings.Contains(sug.keyword, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Value: sug.value})
-		}
 	}
 }
 
