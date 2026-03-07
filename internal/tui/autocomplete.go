@@ -7,6 +7,35 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+var (
+	cachedProjects     []string
+	cachedTags         []string
+	autocompleteLoaded bool
+)
+
+// ensureProjectsAndTags fetches projects and tags from taskwarrior on first
+// call and caches the result. Subsequent calls return cached values even if
+// the slices are empty (genuinely-empty is not the same as not-yet-loaded).
+func ensureProjectsAndTags(projects, tags []string) ([]string, []string) {
+	if autocompleteLoaded {
+		if len(projects) > 0 {
+			return projects, tags
+		}
+		return cachedProjects, cachedTags
+	}
+	var err error
+	cachedProjects, err = taskwarrior.GetProjects()
+	if err != nil {
+		log.Printf("failed to get projects: %v", err)
+	}
+	cachedTags, err = taskwarrior.GetTags()
+	if err != nil {
+		log.Printf("failed to get tags: %v", err)
+	}
+	autocompleteLoaded = true
+	return cachedProjects, cachedTags
+}
+
 const (
 	modifierProject = "project:"
 	modifierTag     = "+"
@@ -50,17 +79,7 @@ func (m *Model) updateAllMatches(projects, tags []string) {
 }
 
 func (m *Model) updateModifyMatches(projects, tags []string) {
-	if len(projects) == 0 || len(tags) == 0 {
-		var err error
-		projects, err = taskwarrior.GetProjects()
-		if err != nil {
-			log.Printf("failed to get projects: %v", err)
-		}
-		tags, err = taskwarrior.GetTags()
-		if err != nil {
-			log.Printf("failed to get tags: %v", err)
-		}
-	}
+	projects, tags = ensureProjectsAndTags(projects, tags)
 	m.updateMatchesWithInput(m.modifyInput, projects, tags)
 }
 
@@ -89,17 +108,7 @@ func (m *Model) updateMatchesWithInput(input string, projects, tags []string) {
 }
 
 func (m *Model) updateSearchMatches(projects, tags []string) {
-	if len(projects) == 0 || len(tags) == 0 {
-		var err error
-		projects, err = taskwarrior.GetProjects()
-		if err != nil {
-			log.Printf("failed to get projects: %v", err)
-		}
-		tags, err = taskwarrior.GetTags()
-		if err != nil {
-			log.Printf("failed to get tags: %v", err)
-		}
-	}
+	projects, tags = ensureProjectsAndTags(projects, tags)
 	m.updateSearchMatchesWithInput(m.searchStr, projects, tags)
 }
 

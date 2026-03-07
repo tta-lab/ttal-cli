@@ -98,6 +98,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case autocompleteLoadedMsg:
+		m.projects = msg.projects
+		m.tags = msg.tags
+		return m, nil
+
 	case tasksLoadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -447,9 +452,9 @@ func (m *Model) handleModifyTab() {
 	match := m.modifyMatches[m.modifyIndex]
 	switch match.Type {
 	case matchTypeProject:
-		m.modifyInput = match.Value + ": "
+		m.modifyInput = "project:" + match.Value + " "
 	case matchTypeTag:
-		m.modifyInput = match.Value + " "
+		m.modifyInput = "+" + match.Value + " "
 	}
 	m.updateModifyMatches(m.projects, m.tags)
 }
@@ -631,6 +636,11 @@ func (m *Model) applyFilter() {
 
 // Messages
 
+type autocompleteLoadedMsg struct {
+	projects []string
+	tags     []string
+}
+
 type configLoadedMsg struct {
 	cfg      *config.Config
 	agents   []agentfs.AgentInfo
@@ -688,7 +698,7 @@ func loadConfigForAutocomplete() tea.Cmd {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}
 
-		return configLoadedMsg{projects: projects, tags: tags}
+		return autocompleteLoadedMsg{projects: projects, tags: tags}
 	}
 }
 
