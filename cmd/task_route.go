@@ -13,6 +13,7 @@ import (
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
@@ -98,6 +99,15 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return err
 	}
 
+	if task.Status == "completed" {
+		return fmt.Errorf("task %s is already completed — cannot execute", taskUUID[:8])
+	}
+
+	sessionName := task.SessionName()
+	if tmux.SessionExists(sessionName) {
+		return fmt.Errorf("session %s already exists — cannot spawn duplicate", sessionName)
+	}
+
 	if task.ProjectPath == "" {
 		return fmt.Errorf(
 			"task %s has no project_path — run enrichment first "+
@@ -131,8 +141,9 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	}
 
 	if err := taskwarrior.StartTask(task.UUID); err != nil {
-		// Ignore "already active" — task may be re-executed after a failed worker
-		if !strings.Contains(err.Error(), "already active") {
+		if strings.Contains(err.Error(), "already active") {
+			fmt.Fprintf(os.Stderr, "Warning: task is already active\n")
+		} else {
 			return fmt.Errorf("task start failed before worker spawn: %w", err)
 		}
 	}
