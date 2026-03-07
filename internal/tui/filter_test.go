@@ -52,6 +52,7 @@ func TestFilterModeString(t *testing.T) {
 		{filterActive, "active"},
 		{filterCompleted, "completed"},
 		{filterMode(99), "pending"},
+		{filterMode(-1), "pending"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
