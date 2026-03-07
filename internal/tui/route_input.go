@@ -129,7 +129,7 @@ func (m Model) viewModifyMatchesOverlay(background, title, prompt, input, helpTe
 			var value string
 			switch match.Type {
 			case matchTypeProject:
-				value = match.Value + ":"
+				value = match.Value
 			case matchTypeTag:
 				value = match.Value
 			default:
