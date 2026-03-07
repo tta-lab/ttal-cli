@@ -718,19 +718,19 @@ func capitalizeWords(s string) string {
 }
 
 func GetProjects() ([]string, error) {
-	out, err := runTaskWithVerbose("list", "projects")
+	out, err := runTaskWithVerbose("_projects")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
-	return parseListOutput(out, "Project"), nil
+	return parseListOutput(out, ""), nil
 }
 
 func GetTags() ([]string, error) {
-	out, err := runTaskWithVerbose("list", "tags")
+	out, err := runTaskWithVerbose("_tags")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
-	return parseListOutput(out, "Tag"), nil
+	return parseListOutput(out, ""), nil
 }
 
 func parseListOutput(out, prefix string) []string {
