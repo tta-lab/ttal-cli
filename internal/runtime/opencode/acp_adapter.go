@@ -3,6 +3,7 @@ package opencode
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os/exec"
 	"sync"
@@ -21,6 +22,7 @@ type ACPAdapter struct {
 	events    chan runtime.Event
 	sessionID string
 	mu        sync.Mutex
+	stopOnce  sync.Once
 }
 
 type acpClient struct {
@@ -32,7 +34,13 @@ func (c *acpClient) RequestPermission(
 	ctx context.Context,
 	params acp.RequestPermissionRequest,
 ) (acp.RequestPermissionResponse, error) {
-	log.Printf("[acp] permission request from %s: %s", c.agent, params.Options[0].Kind)
+	// This should never be called — OpenCode is configured with full permissions.
+	// If it is, something is misconfigured. Log prominently and auto-approve defensively.
+	log.Printf("[acp] WARN: unexpected permission request from %s (options: %d) — check opencode.json permissions config",
+		c.agent, len(params.Options))
+	if len(params.Options) == 0 {
+		return acp.RequestPermissionResponse{}, nil
+	}
 	return acp.RequestPermissionResponse{
 		Outcome: acp.RequestPermissionOutcome{
 			Selected: &acp.RequestPermissionOutcomeSelected{
@@ -42,32 +50,37 @@ func (c *acpClient) RequestPermission(
 	}, nil
 }
 
+func safeSend(ch chan runtime.Event, e runtime.Event) {
+	defer func() { _ = recover() }()
+	ch <- e
+}
+
 func (c *acpClient) SessionUpdate(ctx context.Context, params acp.SessionNotification) error {
 	u := params.Update
 	switch {
 	case u.AgentMessageChunk != nil:
 		if u.AgentMessageChunk.Content.Text != nil {
-			c.events <- runtime.Event{
+			safeSend(c.events, runtime.Event{
 				Type:  runtime.EventText,
 				Agent: c.agent,
 				Text:  u.AgentMessageChunk.Content.Text.Text,
-			}
+			})
 		}
 	case u.ToolCall != nil:
 		toolName := mapACPToolKind(string(u.ToolCall.Kind))
-		c.events <- runtime.Event{
+		safeSend(c.events, runtime.Event{
 			Type:     runtime.EventTool,
 			Agent:    c.agent,
 			ToolName: toolName,
-		}
+		})
 	case u.AgentThoughtChunk != nil:
 		// Agent thoughts are internal reasoning — not exposed to user
 	case u.ToolCallUpdate != nil:
 		if u.ToolCallUpdate.Status != nil && *u.ToolCallUpdate.Status == acp.ToolCallStatusCompleted {
-			c.events <- runtime.Event{
+			safeSend(c.events, runtime.Event{
 				Type:  runtime.EventIdle,
 				Agent: c.agent,
-			}
+			})
 		}
 	}
 	return nil
@@ -146,7 +159,10 @@ func (a *ACPAdapter) Start(ctx context.Context) error {
 	}
 
 	a.client = &acpClient{events: a.events, agent: a.cfg.AgentName}
-	a.conn = acp.NewClientSideConnection(a.client, stdin, stdout)
+	conn := acp.NewClientSideConnection(a.client, stdin, stdout)
+	a.mu.Lock()
+	a.conn = conn
+	a.mu.Unlock()
 
 	_, err = a.conn.Initialize(ctx, acp.InitializeRequest{
 		ProtocolVersion: acp.ProtocolVersionNumber,
@@ -168,16 +184,21 @@ func (a *ACPAdapter) Stop(ctx context.Context) error {
 		_ = a.cmd.Process.Kill()
 		_ = a.cmd.Wait()
 	}
-	close(a.events)
+	a.stopOnce.Do(func() { close(a.events) })
 	return nil
 }
 
 func (a *ACPAdapter) SendMessage(ctx context.Context, text string) error {
 	a.mu.Lock()
+	if a.conn == nil {
+		a.mu.Unlock()
+		return fmt.Errorf("acp adapter not started")
+	}
 	sid := a.sessionID
+	conn := a.conn
 	a.mu.Unlock()
 
-	_, err := a.conn.Prompt(ctx, acp.PromptRequest{
+	_, err := conn.Prompt(ctx, acp.PromptRequest{
 		SessionId: acp.SessionId(sid),
 		Prompt:    []acp.ContentBlock{acp.TextBlock(text)},
 	})
@@ -187,7 +208,15 @@ func (a *ACPAdapter) SendMessage(ctx context.Context, text string) error {
 func (a *ACPAdapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *ACPAdapter) CreateSession(ctx context.Context) (string, error) {
-	resp, err := a.conn.NewSession(ctx, acp.NewSessionRequest{
+	a.mu.Lock()
+	if a.conn == nil {
+		a.mu.Unlock()
+		return "", fmt.Errorf("acp adapter not started")
+	}
+	conn := a.conn
+	a.mu.Unlock()
+
+	resp, err := conn.NewSession(ctx, acp.NewSessionRequest{
 		Cwd: a.cfg.WorkDir,
 	})
 	if err != nil {
@@ -195,12 +224,21 @@ func (a *ACPAdapter) CreateSession(ctx context.Context) (string, error) {
 	}
 	a.mu.Lock()
 	a.sessionID = string(resp.SessionId)
+	sid := a.sessionID
 	a.mu.Unlock()
-	return a.sessionID, nil
+	return sid, nil
 }
 
 func (a *ACPAdapter) ResumeSession(ctx context.Context, sessionID string) (string, error) {
-	_, err := a.conn.LoadSession(ctx, acp.LoadSessionRequest{
+	a.mu.Lock()
+	if a.conn == nil {
+		a.mu.Unlock()
+		return "", fmt.Errorf("acp adapter not started")
+	}
+	conn := a.conn
+	a.mu.Unlock()
+
+	_, err := conn.LoadSession(ctx, acp.LoadSessionRequest{
 		SessionId: acp.SessionId(sessionID),
 		Cwd:       a.cfg.WorkDir,
 	})
