@@ -1,0 +1,131 @@
+package tui
+
+import (
+	"strings"
+
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+)
+
+const (
+	modifierProject = "project:"
+	modifierTag     = "+"
+)
+
+const (
+	matchTypeProject = "project"
+	matchTypeTag     = "tag"
+)
+
+type modifyMatch struct {
+	Type  string
+	Value string
+}
+
+var modifierSuggestions = []struct {
+	keyword string
+	value   string
+}{
+	{"project", "project:"},
+	{"tag", "+"},
+}
+
+func (m *Model) updateProjectMatches(projects []string, query string) {
+	q := strings.ToLower(query)
+	for _, p := range projects {
+		if q == "" || strings.Contains(strings.ToLower(p), q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
+		}
+	}
+}
+
+func (m *Model) updateTagMatches(tags []string, query string) {
+	q := strings.ToLower(query)
+	for _, t := range tags {
+		if q == "" || strings.Contains(strings.ToLower(t), q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
+		}
+	}
+}
+
+func (m *Model) updateAllMatches(projects, tags []string) {
+	for _, p := range projects {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
+	}
+	for _, t := range tags {
+		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
+	}
+}
+
+func (m *Model) updateModifyMatches(projects, tags []string) {
+	if len(projects) == 0 || len(tags) == 0 {
+		projects, _ = taskwarrior.GetProjects()
+		tags, _ = taskwarrior.GetTags()
+	}
+	m.updateModifyMatchesWithInput(m.modifyInput, projects, tags)
+}
+
+func (m *Model) updateModifyMatchesWithInput(input string, projects, tags []string) {
+	m.modifyMatches = nil
+
+	switch {
+	case strings.Contains(input, ":"):
+		parts := strings.SplitN(input, ":", 2)
+		prefix := parts[0]
+		value := ""
+		if len(parts) > 1 {
+			value = strings.TrimSpace(parts[1])
+		}
+		if prefix == "project" {
+			m.updateProjectMatches(projects, value)
+		}
+	case strings.HasPrefix(input, modifierTag):
+		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
+	case input == "":
+		m.updateAllMatches(projects, tags)
+	default:
+		m.updateProjectMatches(projects, input)
+		m.updateTagMatches(tags, input)
+	}
+}
+
+func (m *Model) updateModifierSuggestions(input string, _, _ []string) {
+	m.modifyMatches = nil
+	q := strings.ToLower(input)
+	for _, sug := range modifierSuggestions {
+		if q == "" || strings.Contains(sug.keyword, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Value: sug.value})
+		}
+	}
+}
+
+func (m *Model) updateSearchMatches(projects, tags []string) {
+	if len(projects) == 0 || len(tags) == 0 {
+		projects, _ = taskwarrior.GetProjects()
+		tags, _ = taskwarrior.GetTags()
+	}
+	m.updateSearchMatchesWithInput(m.searchStr, projects, tags)
+}
+
+func (m *Model) updateSearchMatchesWithInput(input string, projects, tags []string) {
+	m.modifyMatches = nil
+
+	switch {
+	case strings.Contains(input, ":"):
+		parts := strings.SplitN(input, ":", 2)
+		prefix := parts[0]
+		value := ""
+		if len(parts) > 1 {
+			value = strings.TrimSpace(parts[1])
+		}
+		if prefix == "project" {
+			m.updateProjectMatches(projects, value)
+		}
+	case strings.HasPrefix(input, modifierTag):
+		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
+	case input == "":
+		m.updateAllMatches(projects, tags)
+	default:
+		m.updateProjectMatches(projects, input)
+		m.updateTagMatches(tags, input)
+	}
+}

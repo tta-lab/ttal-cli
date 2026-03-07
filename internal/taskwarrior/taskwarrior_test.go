@@ -337,8 +337,48 @@ func TestExtractSessionID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractSessionID(tt.input)
 			if got != tt.want {
-				t.Errorf("ExtractSessionID(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("ExtractSessionID(%q) = %q, want %q", tt.input, tt.want, got)
 			}
 		})
+	}
+}
+
+func TestGetProjects(t *testing.T) {
+	projects, err := GetProjects()
+	if err != nil {
+		t.Fatalf("GetProjects() error = %v", err)
+	}
+	if len(projects) == 0 {
+		t.Error("GetProjects() returned empty slice, expected non-empty")
+	}
+	found := false
+	for _, p := range projects {
+		if p == "ttal" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("GetProjects() does not contain expected project 'ttal'. Got: %v", projects)
+	}
+}
+
+func TestGetTags(t *testing.T) {
+	tags, err := GetTags()
+	if err != nil {
+		t.Fatalf("GetTags() error = %v", err)
+	}
+	if len(tags) == 0 {
+		t.Error("GetTags() returned empty slice, expected non-empty")
+	}
+	found := false
+	for _, tag := range tags {
+		if tag == "feature" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("GetTags() does not contain expected tag 'feature'. Got: %v", tags)
 	}
 }

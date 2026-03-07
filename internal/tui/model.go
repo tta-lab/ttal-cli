@@ -129,29 +129,6 @@ const (
 	filterCompleted
 )
 
-type modifyMatch struct {
-	Type  string
-	Value string
-}
-
-const (
-	modifierProject  = "project:"
-	modifierTag      = "+"
-	modifierPriority = "priority:"
-	modifierStatus   = "status:"
-)
-
-const (
-	matchTypeProject   = "project"
-	matchTypeTag       = "tag"
-	matchTypePriority  = "priority"
-	matchTypeStatus    = "status"
-	matchTypeAttribute = "attr"
-)
-
-var priorityValues = []string{"H", "M", "L"}
-var statusValues = []string{"pending", "completed", "waiting", "deleted"}
-
 func (f filterMode) String() string {
 	switch f {
 	case filterPending:
@@ -426,6 +403,9 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	case keySearch:
 		m.state = stateSearch
 		m.searchStr = ""
+		if len(m.projects) == 0 || len(m.tags) == 0 {
+			return m, loadConfigForAutocomplete()
+		}
 	case keyHelp:
 		if m.state == stateHelp {
 			m.state = stateTaskList
@@ -520,15 +500,9 @@ func (m *Model) handleSearchTab() {
 	match := m.modifyMatches[m.modifyIndex]
 	switch match.Type {
 	case matchTypeProject:
-		m.searchStr = modifierProject + match.Value + " "
+		m.searchStr = "project:" + match.Value + " "
 	case matchTypeTag:
-		m.searchStr = modifierTag + match.Value + " "
-	case matchTypePriority:
-		m.searchStr = modifierPriority + match.Value + " "
-	case matchTypeStatus:
-		m.searchStr = modifierStatus + match.Value + " "
-	case matchTypeAttribute:
-		m.searchStr = match.Value + " "
+		m.searchStr = "+" + match.Value + " "
 	default:
 		m.searchStr += match.Value + " "
 	}
@@ -600,13 +574,9 @@ func (m *Model) handleModifyTab() {
 	match := m.modifyMatches[m.modifyIndex]
 	switch match.Type {
 	case matchTypeProject:
-		m.modifyInput = modifierProject + match.Value + " "
+		m.modifyInput = match.Value + ": "
 	case matchTypeTag:
-		m.modifyInput = modifierTag + match.Value + " "
-	case matchTypePriority:
-		m.modifyInput = modifierPriority + match.Value + " "
-	case matchTypeStatus:
-		m.modifyInput = modifierStatus + match.Value + " "
+		m.modifyInput = match.Value + " "
 	}
 	m.updateModifyMatches(m.projects, m.tags)
 }
@@ -712,174 +682,6 @@ func (m *Model) updateRouteMatches() {
 	for _, a := range m.agents {
 		if q == "" || strings.Contains(strings.ToLower(a.Name), q) {
 			m.routeMatches = append(m.routeMatches, a)
-		}
-	}
-}
-
-func (m *Model) updateModifyMatches(projects, tags []string) {
-	m.updateModifyMatchesWithInput(m.modifyInput, projects, tags)
-}
-
-func (m *Model) updateModifyMatchesWithInput(input string, projects, tags []string) {
-	m.updateModifyMatchesWithInputAndMode(input, projects, tags, false)
-}
-
-func (m *Model) updateSearchMatches(projects, tags []string) {
-	m.updateModifyMatchesWithInputAndMode(m.searchStr, projects, tags, true)
-}
-
-func (m *Model) updateModifyMatchesWithInputAndMode(input string, projects, tags []string, isSearch bool) {
-	m.modifyMatches = nil
-
-	switch {
-	case strings.Contains(input, ".") && strings.Contains(input, ":"):
-		parts := strings.SplitN(input, ":", 2)
-		prefix := parts[0]
-		value := ""
-		if len(parts) > 1 {
-			value = parts[1]
-		}
-		if strings.HasPrefix(prefix, modifierProject) {
-			subProjects := extractSubProjects(projects, strings.TrimPrefix(prefix, modifierProject))
-			m.updateProjectMatches(subProjects, value)
-		}
-	case strings.Contains(input, "."):
-		m.updateModifierMatches(input)
-	case strings.Contains(input, ":"):
-		parts := strings.SplitN(input, ":", 2)
-		prefix := parts[0]
-		value := ""
-		if len(parts) > 1 {
-			value = parts[1]
-		}
-		switch prefix {
-		case modifierProject:
-			m.updateProjectMatches(projects, value)
-		case modifierPriority:
-			m.updatePriorityMatches(value)
-		case modifierStatus:
-			m.updateStatusMatches(value)
-		default:
-			m.updateAllMatches(projects, tags)
-		}
-	case strings.HasPrefix(input, modifierTag):
-		m.updateTagMatches(tags, strings.TrimPrefix(input, modifierTag))
-	case input == "":
-		m.updateAllMatches(projects, tags)
-	case isSearch:
-		m.updateSearchSuggestions(input, projects, tags)
-	default:
-		m.updateModifierMatches(input)
-	}
-}
-
-func extractSubProjects(projects []string, prefix string) []string {
-	var result []string
-	prefix = strings.ToLower(prefix)
-	for _, p := range projects {
-		if strings.HasPrefix(strings.ToLower(p), prefix) {
-			parts := strings.SplitN(p, ".", 2)
-			if len(parts) > 1 {
-				result = append(result, parts[1])
-			}
-		}
-	}
-	return result
-}
-
-var modifierSuggestions = []struct {
-	keyword   string
-	matchType string
-	value     string
-}{
-	{"project", matchTypeProject, modifierProject},
-	{"priority", matchTypePriority, modifierPriority},
-	{"status", matchTypeStatus, modifierStatus},
-	{"due", matchTypeAttribute, "due:"},
-	{"wait", matchTypeAttribute, "wait:"},
-	{"scheduled", matchTypeAttribute, "scheduled:"},
-	{"until", matchTypeAttribute, "until:"},
-	{"recur", matchTypeAttribute, "recur:"},
-	{"tag", matchTypeTag, modifierTag},
-}
-
-func (m *Model) updateModifierMatches(input string) {
-	q := strings.ToLower(input)
-	for _, sug := range modifierSuggestions {
-		if q == "" || strings.Contains(sug.keyword, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: sug.matchType, Value: sug.value})
-		}
-	}
-}
-
-func (m *Model) updateProjectMatches(projects []string, query string) {
-	q := strings.ToLower(query)
-	for _, p := range projects {
-		if q == "" || strings.Contains(strings.ToLower(p), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
-		}
-	}
-}
-
-func (m *Model) updateTagMatches(tags []string, query string) {
-	q := strings.ToLower(query)
-	for _, t := range tags {
-		if q == "" || strings.Contains(strings.ToLower(t), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
-		}
-	}
-}
-
-func (m *Model) updatePriorityMatches(query string) {
-	q := strings.ToLower(query)
-	for _, p := range priorityValues {
-		if q == "" || strings.Contains(p, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
-		}
-	}
-}
-
-func (m *Model) updateStatusMatches(query string) {
-	q := strings.ToLower(query)
-	for _, s := range statusValues {
-		if q == "" || strings.Contains(s, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeStatus, Value: s})
-		}
-	}
-}
-
-func (m *Model) updateAllMatches(projects, tags []string) {
-	for _, p := range projects {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
-	}
-	for _, t := range tags {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
-	}
-	for _, p := range priorityValues {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
-	}
-}
-
-func (m *Model) updateSearchSuggestions(query string, projects, tags []string) {
-	q := strings.ToLower(query)
-	for _, p := range projects {
-		if q == "" || strings.Contains(strings.ToLower(p), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: p})
-		}
-	}
-	for _, t := range tags {
-		if q == "" || strings.Contains(strings.ToLower(t), q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: t})
-		}
-	}
-	for _, p := range priorityValues {
-		if q == "" || strings.Contains(p, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: p})
-		}
-	}
-	for _, sug := range modifierSuggestions {
-		if q == "" || strings.Contains(sug.keyword, q) {
-			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: sug.matchType, Value: sug.value})
 		}
 	}
 }
@@ -999,6 +801,21 @@ func loadConfig() tea.Cmd {
 		}
 
 		return configLoadedMsg{cfg: cfg, agents: agents, projects: projects, tags: tags}
+	}
+}
+
+func loadConfigForAutocomplete() tea.Cmd {
+	return func() tea.Msg {
+		projects, err := taskwarrior.GetProjects()
+		if err != nil {
+			log.Printf("failed to load projects for autocomplete: %v", err)
+		}
+		tags, err := taskwarrior.GetTags()
+		if err != nil {
+			log.Printf("failed to load tags for autocomplete: %v", err)
+		}
+
+		return configLoadedMsg{projects: projects, tags: tags}
 	}
 }
 

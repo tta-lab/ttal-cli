@@ -718,30 +718,31 @@ func capitalizeWords(s string) string {
 }
 
 func GetProjects() ([]string, error) {
-	out, err := runTaskWithVerbose("_projects")
+	cmd := exec.Command("task", "_projects")
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
-	return parseListOutput(out, ""), nil
+	return parseSimpleListOutput(string(out)), nil
 }
 
 func GetTags() ([]string, error) {
-	out, err := runTaskWithVerbose("_tags")
+	cmd := exec.Command("task", "_tags")
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
-	return parseListOutput(out, ""), nil
+	return parseSimpleListOutput(string(out)), nil
 }
 
-func parseListOutput(out, prefix string) []string {
+func parseSimpleListOutput(out string) []string {
 	var result []string
 	lines := strings.Split(out, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "---") || strings.HasPrefix(line, prefix) {
-			continue
+		if line != "" {
+			result = append(result, line)
 		}
-		result = append(result, line)
 	}
 	return result
 }
