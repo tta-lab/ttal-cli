@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -18,6 +20,8 @@ func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 			if section, ok := v.(map[string]interface{}); ok {
 				if p, ok := section["prompt"].(string); ok {
 					r.Roles[role] = p
+				} else {
+					log.Printf("warning: roles.toml: role [%s] has no valid 'prompt' key, skipping", role)
 				}
 			}
 		}
@@ -26,7 +30,11 @@ func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 }
 
 func LoadRoles() (*RolesConfig, error) {
-	path := filepath.Join(os.Getenv("HOME"), ".config", "ttal", "roles.toml")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("could not determine home directory: %w", err)
+	}
+	path := filepath.Join(home, ".config", "ttal", "roles.toml")
 	var cfg RolesConfig
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		if os.IsNotExist(err) {

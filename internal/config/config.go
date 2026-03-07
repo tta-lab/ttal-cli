@@ -87,6 +87,7 @@ type Config struct {
 	resolvedHooksToken     string
 	resolvedTaskSyncURL    string
 	resolvedEmojiReactions bool
+	resolvedRoles          *RolesConfig
 }
 
 // TeamConfig holds per-team configuration.
@@ -330,10 +331,7 @@ func (c *Config) EmojiReactions() bool {
 // Prompt returns the prompt template for a given key.
 // Priority: roles.toml[key] > roles.toml[default] > config.toml[prompts]
 func (c *Config) Prompt(key string) string {
-	roles, err := LoadRoles()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to load roles.toml: %v\n", err)
-	}
+	roles := c.resolvedRoles
 	if roles != nil && roles.Roles != nil {
 		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
 			return prompt
@@ -483,6 +481,13 @@ func Load() (*Config, error) {
 	if len(cfg.Agents) == 0 {
 		return nil, fmt.Errorf("config has no agents defined")
 	}
+
+	// Cache roles at load time so Prompt() doesn't re-read roles.toml on every call.
+	roles, err := LoadRoles()
+	if err != nil {
+		return nil, fmt.Errorf("roles.toml: %w", err)
+	}
+	cfg.resolvedRoles = roles
 
 	return &cfg, nil
 }
