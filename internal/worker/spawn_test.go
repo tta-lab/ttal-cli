@@ -89,7 +89,7 @@ func TestBuildLaunchCmd(t *testing.T) {
 	}
 }
 
-func TestBuildLaunchCmd_HardTagUsesOpus(t *testing.T) {
+func TestBuildLaunchCmd_OpusModel(t *testing.T) {
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
 	shellCfg := &config.Config{}
 
@@ -98,7 +98,7 @@ func TestBuildLaunchCmd_HardTagUsesOpus(t *testing.T) {
 		t.Fatalf("buildLaunchCmd returned error: %v", err)
 	}
 	if !strings.Contains(cmd, "--model opus") {
-		t.Errorf("CC command should use opus model for +hard tasks, got: %s", cmd)
+		t.Errorf("CC command should use opus model, got: %s", cmd)
 	}
 }
 
@@ -164,6 +164,11 @@ func TestResolveModel(t *testing.T) {
 			tags: []string{"urgent", "frontend"},
 			want: "sonnet",
 		},
+		{
+			name: "hard with other tags still returns opus",
+			tags: []string{"urgent", "hard", "frontend"},
+			want: "opus",
+		},
 	}
 
 	for _, tt := range tests {
@@ -173,6 +178,8 @@ func TestResolveModel(t *testing.T) {
 				Description: "test task",
 				Tags:        tt.tags,
 			}
+			// WorkerModel() accessor with configured values is tested in config_test.go.
+			// Here we test the +hard override logic with default config.
 			shellCfg := &config.Config{}
 			got := resolveModel(task, shellCfg)
 			if got != tt.want {

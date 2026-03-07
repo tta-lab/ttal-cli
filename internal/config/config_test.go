@@ -120,6 +120,160 @@ func TestWorkerRuntimeRejectsOpenClaw(t *testing.T) {
 	}
 }
 
+func TestAgentModel(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{"unset defaults to sonnet", &Config{}, DefaultModel},
+		{"explicit opus", &Config{resolvedAgentModel: "opus"}, "opus"},
+		{"explicit haiku", &Config{resolvedAgentModel: "haiku"}, "haiku"},
+		{"explicit sonnet", &Config{resolvedAgentModel: "sonnet"}, "sonnet"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.AgentModel(); got != tt.want {
+				t.Errorf("AgentModel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkerModel(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{"unset defaults to sonnet", &Config{}, DefaultModel},
+		{"explicit opus", &Config{resolvedWorkerModel: "opus"}, "opus"},
+		{"explicit haiku", &Config{resolvedWorkerModel: "haiku"}, "haiku"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.WorkerModel(); got != tt.want {
+				t.Errorf("WorkerModel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgentModelFor(t *testing.T) {
+	tests := []struct {
+		name  string
+		cfg   *Config
+		agent string
+		want  string
+	}{
+		{
+			"no agents defaults to sonnet",
+			&Config{},
+			"kestrel",
+			DefaultModel,
+		},
+		{
+			"per-agent model wins",
+			&Config{
+				Agents:             map[string]AgentConfig{"kestrel": {Model: "opus"}},
+				resolvedAgentModel: "haiku",
+			},
+			"kestrel",
+			"opus",
+		},
+		{
+			"team agent_model used when no per-agent",
+			&Config{
+				Agents:             map[string]AgentConfig{"kestrel": {}},
+				resolvedAgentModel: "haiku",
+			},
+			"kestrel",
+			"haiku",
+		},
+		{
+			"unknown agent falls back to team model",
+			&Config{
+				Agents:             map[string]AgentConfig{},
+				resolvedAgentModel: "opus",
+			},
+			"unknown",
+			"opus",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.AgentModelFor(tt.agent); got != tt.want {
+				t.Errorf("AgentModelFor(%q) = %q, want %q", tt.agent, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDaemonConfigAgentModelForTeam(t *testing.T) {
+	mcfg := &DaemonConfig{
+		Teams: map[string]*ResolvedTeam{
+			"teamA": {
+				AgentModel: "haiku",
+				Agents: map[string]AgentConfig{
+					"kestrel": {Model: "opus"},
+					"athena":  {},
+				},
+			},
+			"teamB": {
+				Agents: map[string]AgentConfig{
+					"mira": {},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name  string
+		team  string
+		agent string
+		want  string
+	}{
+		{"per-agent wins", "teamA", "kestrel", "opus"},
+		{"team agent_model used", "teamA", "athena", "haiku"},
+		{"no team model defaults to sonnet", "teamB", "mira", DefaultModel},
+		{"unknown team defaults to sonnet", "unknown", "x", DefaultModel},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mcfg.AgentModelForTeam(tt.team, tt.agent); got != tt.want {
+				t.Errorf("AgentModelForTeam(%q, %q) = %q, want %q",
+					tt.team, tt.agent, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDaemonConfigWorkerModelForTeam(t *testing.T) {
+	mcfg := &DaemonConfig{
+		Teams: map[string]*ResolvedTeam{
+			"teamA": {WorkerModel: "opus"},
+			"teamB": {},
+		},
+	}
+
+	tests := []struct {
+		name string
+		team string
+		want string
+	}{
+		{"team worker_model used", "teamA", "opus"},
+		{"empty defaults to sonnet", "teamB", DefaultModel},
+		{"unknown team defaults to sonnet", "unknown", DefaultModel},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mcfg.WorkerModelForTeam(tt.team); got != tt.want {
+				t.Errorf("WorkerModelForTeam(%q) = %q, want %q", tt.team, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetMergeMode(t *testing.T) {
 	tests := []struct {
 		name string

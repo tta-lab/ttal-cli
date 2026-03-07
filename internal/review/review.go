@@ -41,6 +41,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
+	// Reviewers are worker-plane, so they share the team's worker_model.
 	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, rt, cfg.WorkerModel())
 	if err != nil {
 		return err
