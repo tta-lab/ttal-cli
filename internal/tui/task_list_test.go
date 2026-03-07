@@ -3,35 +3,11 @@ package tui
 import (
 	"testing"
 
+	"charm.land/bubbles/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-func TestGetCellStyle_NegativeIndex(t *testing.T) {
-	task := Task{
-		Task: taskwarrior.Task{
-			ID:          1,
-			Description: "test task",
-		},
-	}
-	m := Model{
-		filtered: []Task{task},
-		offset:   -2,
-		cursor:   1,
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("getCellStyle should not panic with negative index: %v", r)
-		}
-	}()
-
-	style := m.getCellStyle(1, 0)
-	if style.GetBold() {
-		t.Error("expected empty style for negative index, got bold style")
-	}
-}
-
-func TestGetCellStyle_ValidIndex(t *testing.T) {
+func TestTableModel_Integration(t *testing.T) {
 	task := Task{
 		Task: taskwarrior.Task{
 			ID:          1,
@@ -41,47 +17,58 @@ func TestGetCellStyle_ValidIndex(t *testing.T) {
 	}
 	m := Model{
 		filtered: []Task{task},
-		offset:   0,
 		cursor:   0,
 	}
 
-	style := m.getCellStyle(1, 0)
-	if !style.GetBold() {
-		t.Error("expected bold style for header row (row=0)")
+	cols := []table.Column{
+		{Title: "ID", Width: 5},
+		{Title: "P", Width: 2},
+		{Title: "Description", Width: 0},
+	}
+	m.taskTable = table.New(
+		table.WithColumns(cols),
+		table.WithRows([]table.Row{
+			{"1", "H", "test task"},
+			{"2", "M", "another task"},
+		}),
+		table.WithFocused(true),
+	)
+
+	if m.taskTable.Cursor() != 0 {
+		t.Error("expected cursor to start at 0")
+	}
+
+	m.taskTable.MoveDown(1)
+	if m.taskTable.Cursor() != 1 {
+		t.Error("expected cursor to move to 1")
+	}
+
+	m.taskTable.SetCursor(0)
+	if m.taskTable.Cursor() != 0 {
+		t.Error("expected cursor to be set to 0")
 	}
 }
 
-func TestGetCellStyle_OutOfBounds(t *testing.T) {
-	task := Task{
-		Task: taskwarrior.Task{
-			ID:          1,
-			Description: "test task",
+func TestTableModel_SyncCursorFromTable(t *testing.T) {
+	m := Model{
+		filtered: []Task{
+			{Task: taskwarrior.Task{ID: 1}},
+			{Task: taskwarrior.Task{ID: 2}},
+			{Task: taskwarrior.Task{ID: 3}},
 		},
-	}
-	m := Model{
-		filtered: []Task{task},
-		offset:   0,
-		cursor:   0,
+		cursor: 0,
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("getCellStyle panicked with out of bounds index: %v", r)
-		}
-	}()
+	cols := []table.Column{{Title: "ID", Width: 5}}
+	m.taskTable = table.New(
+		table.WithColumns(cols),
+		table.WithRows([]table.Row{{"1"}, {"2"}, {"3"}}),
+	)
 
-	_ = m.getCellStyle(10, 0)
-}
+	m.taskTable.SetCursor(2)
+	m.syncCursorFromTable()
 
-func TestGetCellStyle_HeaderRow(t *testing.T) {
-	m := Model{
-		filtered: []Task{},
-		offset:   0,
-		cursor:   0,
-	}
-
-	style := m.getCellStyle(0, 0)
-	if !style.GetBold() {
-		t.Error("expected bold style for header row")
+	if m.cursor != 2 {
+		t.Errorf("expected cursor 2, got %d", m.cursor)
 	}
 }

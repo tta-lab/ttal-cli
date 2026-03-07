@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -65,15 +66,15 @@ func (t *Task) Age() string {
 
 func formatAge(d time.Duration) string {
 	if d < time.Hour {
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+		return fmt.Sprintf("%dm", int(d.Minutes()))
 	}
 	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh ago", int(math.Round(d.Hours())))
+		return fmt.Sprintf("%dh", int(math.Round(d.Hours())))
 	}
 	if d < 30*24*time.Hour {
-		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
-	return fmt.Sprintf("%dmo ago", int(d.Hours()/24/30))
+	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
 }
 
 // IsToday returns true if the task is scheduled for today or earlier.
@@ -171,8 +172,10 @@ type Model struct {
 	tags     []string
 
 	// Task list
+	taskTable table.Model
+
+	// Task list cursor (synced with taskTable)
 	cursor    int
-	offset    int // viewport scroll offset
 	searchStr string
 
 	// Route input
@@ -196,13 +199,29 @@ type Model struct {
 	teamName  string
 }
 
-// NewModel creates the initial TUI model.
 func NewModel() Model {
-	return Model{
+	m := Model{
 		state:   stateTaskList,
 		filter:  filterPending,
 		loading: true,
 	}
+
+	cols := []table.Column{
+		{Title: "ID", Width: 5},
+		{Title: "UUID", Width: 8},
+		{Title: "P", Width: 2},
+		{Title: "Age", Width: 5},
+		{Title: "Project", Width: 12},
+		{Title: "Tags", Width: 12},
+		{Title: "Description", Width: 0},
+	}
+	m.taskTable = table.New(
+		table.WithColumns(cols),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -351,24 +370,30 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleNavigation(action keyAction) bool {
 	switch action {
 	case keyUp:
-		m.moveCursor(-1)
+		m.taskTable.MoveUp(1)
+		m.syncCursorFromTable()
 	case keyDown:
-		m.moveCursor(1)
+		m.taskTable.MoveDown(1)
+		m.syncCursorFromTable()
 	case keyPageDown:
-		m.moveCursor(m.visibleRows())
+		m.taskTable.MoveDown(m.visibleRows())
+		m.syncCursorFromTable()
 	case keyPageUp:
-		m.moveCursor(-m.visibleRows())
+		m.taskTable.MoveUp(m.visibleRows())
+		m.syncCursorFromTable()
 	case keyHalfPageDown:
-		m.moveCursor(m.visibleRows() / 2)
+		m.taskTable.MoveDown(m.visibleRows() / 2)
+		m.syncCursorFromTable()
 	case keyHalfPageUp:
-		m.moveCursor(-m.visibleRows() / 2)
+		m.taskTable.MoveUp(m.visibleRows() / 2)
+		m.syncCursorFromTable()
 	case keyTop:
+		m.taskTable.SetCursor(0)
 		m.cursor = 0
-		m.offset = 0
 	case keyBottom:
 		if len(m.filtered) > 0 {
+			m.taskTable.SetCursor(len(m.filtered) - 1)
 			m.cursor = len(m.filtered) - 1
-			m.ensureCursorVisible()
 		}
 	case keyEnter:
 		if len(m.filtered) > 0 {
@@ -397,12 +422,10 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	case keyFilterNext:
 		m.filter = m.filter.Next()
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keyFilterPrev:
 		m.filter = m.filter.Prev()
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keySearch:
 		m.state = stateSearch
@@ -464,13 +487,11 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyNameEnter:
 		m.state = stateTaskList
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keyNameEsc:
 		m.state = stateTaskList
 		m.searchStr = ""
 		m.cursor = 0
-		m.offset = 0
 		return m, m.reloadTasks()
 	case keyNameBackspace:
 		if len(m.searchStr) > 0 {
@@ -669,35 +690,8 @@ func (m *Model) selectedTask() *Task {
 	return nil
 }
 
-func (m *Model) moveCursor(delta int) {
-	m.cursor += delta
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
-	if m.cursor >= len(m.filtered) {
-		m.cursor = len(m.filtered) - 1
-	}
-	m.ensureCursorVisible()
-}
-
-func (m *Model) ensureCursorVisible() {
-	visible := m.visibleRows()
-	if visible <= 0 {
-		return
-	}
-	if m.offset < 0 {
-		m.offset = 0
-	}
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+visible {
-		newOffset := m.cursor - visible + 1
-		if newOffset < 0 {
-			newOffset = 0
-		}
-		m.offset = newOffset
-	}
+func (m *Model) syncCursorFromTable() {
+	m.cursor = m.taskTable.Cursor()
 }
 
 func (m *Model) visibleRows() int {
@@ -733,6 +727,7 @@ func (m *Model) applyFilter() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+	m.taskTable.SetCursor(m.cursor)
 }
 
 // Messages
