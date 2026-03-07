@@ -33,6 +33,9 @@ func (m Model) viewTaskList() string {
 
 	// Visible rows
 	visible := m.visibleRows()
+	if m.offset < 0 {
+		m.offset = 0
+	}
 	end := m.offset + visible
 	if end > len(m.filtered) {
 		end = len(m.filtered)

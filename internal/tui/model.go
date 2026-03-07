@@ -677,9 +677,6 @@ func (m *Model) moveCursor(delta int) {
 	if m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
 	m.ensureCursorVisible()
 }
 

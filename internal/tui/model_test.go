@@ -54,6 +54,30 @@ func TestEnsureCursorVisible_ScrollDown(t *testing.T) {
 	}
 }
 
+func TestEnsureCursorVisible_CursorAboveOffset(t *testing.T) {
+	tasks := make([]Task, 5)
+	for i := range tasks {
+		tasks[i] = Task{
+			Task: taskwarrior.Task{
+				ID:          i + 1,
+				Description: "task",
+			},
+		}
+	}
+	m := Model{
+		filtered: tasks,
+		cursor:   2,
+		offset:   5,
+		height:   10,
+	}
+
+	m.ensureCursorVisible()
+
+	if m.offset != 2 {
+		t.Errorf("expected offset 2, got %d", m.offset)
+	}
+}
+
 func TestEnsureCursorVisible_NoPanicOnEmpty(t *testing.T) {
 	m := Model{
 		filtered: []Task{},

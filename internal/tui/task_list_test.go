@@ -45,7 +45,10 @@ func TestGetCellStyle_ValidIndex(t *testing.T) {
 		cursor:   0,
 	}
 
-	_ = m.getCellStyle(1, 0)
+	style := m.getCellStyle(1, 0)
+	if !style.GetBold() {
+		t.Error("expected bold style for header row (row=0)")
+	}
 }
 
 func TestGetCellStyle_OutOfBounds(t *testing.T) {
@@ -68,4 +71,17 @@ func TestGetCellStyle_OutOfBounds(t *testing.T) {
 	}()
 
 	_ = m.getCellStyle(10, 0)
+}
+
+func TestGetCellStyle_HeaderRow(t *testing.T) {
+	m := Model{
+		filtered: []Task{},
+		offset:   0,
+		cursor:   0,
+	}
+
+	style := m.getCellStyle(0, 0)
+	if !style.GetBold() {
+		t.Error("expected bold style for header row")
+	}
 }
