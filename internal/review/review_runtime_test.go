@@ -20,13 +20,15 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 			name:  "claude-code uses sonnet by default",
 			rt:    runtime.ClaudeCode,
 			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model sonnet --dangerously-skip-permissions --",
+			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
+				" -- claude --model sonnet --dangerously-skip-permissions --",
 		},
 		{
 			name:  "claude-code with opus model",
 			rt:    runtime.ClaudeCode,
 			model: "opus",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude --model opus --dangerously-skip-permissions --",
+			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
+				" -- claude --model opus --dangerously-skip-permissions --",
 		},
 		{
 			name:  "opencode ignores model",
