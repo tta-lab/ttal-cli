@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 )
 
 func (m Model) viewTaskList() string {
@@ -30,26 +31,6 @@ func (m Model) viewTaskList() string {
 		return m.padToHeight(b.String())
 	}
 
-	// Column widths
-	colID := 4
-	colUUID := 10
-	colPri := 3
-	colAge := 6
-	colProject := 12
-	colTags := 12
-	colDesc := m.width - colID - colUUID - colPri - colAge - colProject - colTags - 10
-	if colDesc < 20 {
-		colDesc = 20
-	}
-
-	// Header
-	header := styleDim.Render(
-		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			colID, "ID", colUUID, "UUID", colPri, "P",
-			colAge, "Age", colProject, "Project", colTags, "Tags", "Description"))
-	b.WriteString(header)
-	b.WriteString("\n")
-
 	// Visible rows
 	visible := m.visibleRows()
 	end := m.offset + visible
@@ -57,12 +38,10 @@ func (m Model) viewTaskList() string {
 		end = len(m.filtered)
 	}
 
+	// Build rows
+	rows := make([][]string, 0, end-m.offset)
 	for i := m.offset; i < end; i++ {
 		t := &m.filtered[i]
-		selected := i == m.cursor
-
-		id := fmt.Sprintf("%d", t.ID)
-		uuid := t.ShortUUID()
 		pri := t.Priority
 		if pri == "" {
 			pri = "-"
@@ -71,35 +50,30 @@ func (m Model) viewTaskList() string {
 		if age == "" {
 			age = "-"
 		}
-		proj := truncate(t.Project, colProject)
-		tags := truncate(strings.Join(t.Tags, " "), colTags)
-		desc := truncate(t.Description, colDesc)
-
-		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			colID, id, colUUID, uuid, colPri, pri,
-			colAge, age, colProject, proj, colTags, tags, desc)
-
-		if selected {
-			line = styleSelected.Render(line)
-		} else {
-			styledID := lipgloss.NewStyle().Width(colID).Render(styleDim.Render(id))
-			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
-			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
-			styledAge := lipgloss.NewStyle().Width(colAge).Render(styleDim.Render(age))
-			styledProj := lipgloss.NewStyle().Width(colProject).Render(proj)
-			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleTag.Render(tags))
-
-			line = " " + styledID + " " + styledUUID + " " + styledPri + " " +
-				styledAge + " " + styledProj + " " + styledTags + " " + desc
-
-			if t.Start != "" {
-				line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
-			}
-		}
-
-		b.WriteString(line)
-		b.WriteString("\n")
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", t.ID),
+			t.ShortUUID(),
+			pri,
+			age,
+			truncate(t.Project, 12),
+			truncate(strings.Join(t.Tags, " "), 12),
+			t.Description,
+		})
 	}
+
+	// Build table
+	width := m.width
+	if width < 60 {
+		width = 60
+	}
+	tbl := table.New().
+		Headers("ID", "UUID", "P", "Age", "Project", "Tags", "Description").
+		Rows(rows...).
+		Width(width).
+		StyleFunc(m.getCellStyle)
+
+	b.WriteString(tbl.String())
+	b.WriteString("\n")
 
 	result := m.padToHeight(b.String())
 
@@ -157,4 +131,29 @@ func truncate(s string, maxLen int) string {
 		return string(runes[:maxLen])
 	}
 	return string(runes[:maxLen-1]) + "~"
+}
+
+func (m Model) getCellStyle(row, col int) lipgloss.Style {
+	if row == 0 {
+		return styleDim.Bold(true)
+	}
+	if row-1 == m.cursor {
+		return styleSelected
+	}
+	idx := m.offset + row - 1
+	if idx >= len(m.filtered) {
+		return lipgloss.Style{}
+	}
+	t := m.filtered[idx]
+	switch col {
+	case 2:
+		return priorityStyle(t.Priority)
+	case 4:
+		if t.Start != "" {
+			return lipgloss.NewStyle().Foreground(colorCyan)
+		}
+	case 5:
+		return styleTag
+	}
+	return lipgloss.Style{}
 }
