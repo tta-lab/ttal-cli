@@ -33,6 +33,9 @@ func (m Model) viewTaskList() string {
 
 	// Visible rows
 	visible := m.visibleRows()
+	if m.offset < 0 {
+		m.offset = 0
+	}
 	end := m.offset + visible
 	if end > len(m.filtered) {
 		end = len(m.filtered)
@@ -141,7 +144,7 @@ func (m Model) getCellStyle(row, col int) lipgloss.Style {
 		return styleSelected
 	}
 	idx := m.offset + row - 1
-	if idx >= len(m.filtered) {
+	if idx < 0 || idx >= len(m.filtered) {
 		return lipgloss.Style{}
 	}
 	t := m.filtered[idx]

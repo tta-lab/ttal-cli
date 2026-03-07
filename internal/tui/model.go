@@ -677,9 +677,6 @@ func (m *Model) moveCursor(delta int) {
 	if m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
 	m.ensureCursorVisible()
 }
 
@@ -688,11 +685,18 @@ func (m *Model) ensureCursorVisible() {
 	if visible <= 0 {
 		return
 	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
 	if m.cursor < m.offset {
 		m.offset = m.cursor
 	}
 	if m.cursor >= m.offset+visible {
-		m.offset = m.cursor - visible + 1
+		newOffset := m.cursor - visible + 1
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		m.offset = newOffset
 	}
 }
 
