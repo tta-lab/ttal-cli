@@ -7,6 +7,7 @@ const (
 	filterToday
 	filterActive
 	filterCompleted
+	filterModeCount // sentinel — keep last
 )
 
 func (f filterMode) String() string {
@@ -25,9 +26,9 @@ func (f filterMode) String() string {
 }
 
 func (f filterMode) Next() filterMode {
-	return (f + 1) % 4
+	return (f + 1) % filterModeCount
 }
 
 func (f filterMode) Prev() filterMode {
-	return (f - 1 + 4) % 4
+	return (f - 1 + filterModeCount) % filterModeCount
 }

@@ -106,3 +106,15 @@ func (m *Model) updateSearchMatches(projects, tags []string) {
 func (m *Model) updateSearchMatchesWithInput(input string, projects, tags []string) {
 	m.updateMatchesWithInput(input, projects, tags)
 }
+
+func deleteLastWord(s string) string {
+	s = strings.TrimRight(s, " ")
+	if s == "" {
+		return ""
+	}
+	lastSpace := strings.LastIndex(s, " ")
+	if lastSpace == -1 {
+		return ""
+	}
+	return s[:lastSpace]
+}
