@@ -31,14 +31,26 @@ func (m Model) viewTaskList() string {
 	}
 
 	// Column widths
-	idWidth := 5
-	uuidWidth := 8
-	priWidth := 2
-	ageWidth := 5
-	projWidth := 12
-	tagWidth := 12
+	colID := 4
+	colUUID := 10
+	colPri := 3
+	colAge := 6
+	colProject := 12
+	colTags := 12
+	colDesc := m.width - colID - colUUID - colPri - colAge - colProject - colTags - 10
+	if colDesc < 20 {
+		colDesc = 20
+	}
 
-	// Render visible rows
+	// Header
+	header := styleDim.Render(
+		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
+			colID, "ID", colUUID, "UUID", colPri, "P",
+			colAge, "Age", colProject, "Project", colTags, "Tags", "Description"))
+	b.WriteString(header)
+	b.WriteString("\n")
+
+	// Visible rows
 	visible := m.visibleRows()
 	end := m.offset + visible
 	if end > len(m.filtered) {
@@ -47,6 +59,10 @@ func (m Model) viewTaskList() string {
 
 	for i := m.offset; i < end; i++ {
 		t := &m.filtered[i]
+		selected := i == m.cursor
+
+		id := fmt.Sprintf("%d", t.ID)
+		uuid := t.ShortUUID()
 		pri := t.Priority
 		if pri == "" {
 			pri = "-"
@@ -55,22 +71,33 @@ func (m Model) viewTaskList() string {
 		if age == "" {
 			age = "-"
 		}
+		proj := truncate(t.Project, colProject)
+		tags := truncate(strings.Join(t.Tags, " "), colTags)
+		desc := truncate(t.Description, colDesc)
 
-		rowStyle := styleRow
-		if i == m.cursor {
-			rowStyle = styleSelected
+		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
+			colID, id, colUUID, uuid, colPri, pri,
+			colAge, age, colProject, proj, colTags, tags, desc)
+
+		if selected {
+			line = styleSelected.Render(line)
+		} else {
+			styledID := lipgloss.NewStyle().Width(colID).Render(styleDim.Render(id))
+			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
+			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
+			styledAge := lipgloss.NewStyle().Width(colAge).Render(styleDim.Render(age))
+			styledProj := lipgloss.NewStyle().Width(colProject).Render(proj)
+			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleTag.Render(tags))
+
+			line = " " + styledID + " " + styledUUID + " " + styledPri + " " +
+				styledAge + " " + styledProj + " " + styledTags + " " + desc
+
+			if t.Start != "" {
+				line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
+			}
 		}
 
-		row := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			idWidth, fmt.Sprintf("%d", t.ID),
-			uuidWidth, t.ShortUUID(),
-			priWidth, pri,
-			ageWidth, age,
-			projWidth, truncate(t.Project, projWidth),
-			tagWidth, truncate(strings.Join(t.Tags, " "), tagWidth),
-			t.Description,
-		)
-		b.WriteString(rowStyle.Render(row))
+		b.WriteString(line)
 		b.WriteString("\n")
 	}
 
