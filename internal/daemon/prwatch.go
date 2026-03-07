@@ -243,7 +243,11 @@ func handleCIStatus(
 
 	switch cs.State {
 	case gitprovider.StateSuccess:
-		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
+		msg := fmt.Sprintf("PR #%d checks passed — ready to merge. Run: ttal pr merge",
+			target.PRIndex)
+		deliverToWorkerSession(target.SessionName, msg)
+		notifyPRStatus(mcfg, target, "✅ CI passed — ready to merge", "")
+		log.Printf("[prwatch] PR #%d checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		return true, 0
 
 	case gitprovider.StateFailure, gitprovider.StateError:
