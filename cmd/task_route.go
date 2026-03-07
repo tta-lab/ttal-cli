@@ -100,7 +100,7 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	}
 
 	if task.Status == "completed" {
-		return fmt.Errorf("task %s is already completed — cannot execute", taskUUID[:8])
+		return fmt.Errorf("task %s is already completed — cannot execute", taskUUID)
 	}
 
 	sessionName := task.SessionName()
@@ -142,7 +142,7 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 
 	if err := taskwarrior.StartTask(task.UUID); err != nil {
 		if strings.Contains(err.Error(), "already active") {
-			fmt.Fprintf(os.Stderr, "Warning: task is already active\n")
+			fmt.Fprintf(os.Stderr, "Warning: task is already active in taskwarrior\n")
 		} else {
 			return fmt.Errorf("task start failed before worker spawn: %w", err)
 		}
