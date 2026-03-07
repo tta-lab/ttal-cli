@@ -2,11 +2,16 @@ package opencode
 
 import (
 	"context"
+	"errors"
+	"log"
 	"os/exec"
+	"sync"
 
 	acp "github.com/coder/acp-go-sdk"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
+
+var errNotImplemented = errors.New("not implemented: handled by agent directly")
 
 type ACPAdapter struct {
 	cfg       runtime.AdapterConfig
@@ -15,6 +20,7 @@ type ACPAdapter struct {
 	client    *acpClient
 	events    chan runtime.Event
 	sessionID string
+	mu        sync.Mutex
 }
 
 type acpClient struct {
@@ -22,7 +28,11 @@ type acpClient struct {
 	agent  string
 }
 
-func (c *acpClient) RequestPermission(ctx context.Context, params acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
+func (c *acpClient) RequestPermission(
+	ctx context.Context,
+	params acp.RequestPermissionRequest,
+) (acp.RequestPermissionResponse, error) {
+	log.Printf("[acp] permission request from %s: %s", c.agent, params.Options[0].Kind)
 	return acp.RequestPermissionResponse{
 		Outcome: acp.RequestPermissionOutcome{
 			Selected: &acp.RequestPermissionOutcomeSelected{
@@ -51,6 +61,7 @@ func (c *acpClient) SessionUpdate(ctx context.Context, params acp.SessionNotific
 			ToolName: toolName,
 		}
 	case u.AgentThoughtChunk != nil:
+		// Agent thoughts are internal reasoning — not exposed to user
 	case u.ToolCallUpdate != nil:
 		if u.ToolCallUpdate.Status != nil && *u.ToolCallUpdate.Status == acp.ToolCallStatusCompleted {
 			c.events <- runtime.Event{
@@ -62,31 +73,52 @@ func (c *acpClient) SessionUpdate(ctx context.Context, params acp.SessionNotific
 	return nil
 }
 
-func (c *acpClient) ReadTextFile(ctx context.Context, params acp.ReadTextFileRequest) (acp.ReadTextFileResponse, error) {
-	return acp.ReadTextFileResponse{}, nil
+func (c *acpClient) ReadTextFile(
+	ctx context.Context,
+	params acp.ReadTextFileRequest,
+) (acp.ReadTextFileResponse, error) {
+	return acp.ReadTextFileResponse{}, errNotImplemented
 }
 
-func (c *acpClient) WriteTextFile(ctx context.Context, params acp.WriteTextFileRequest) (acp.WriteTextFileResponse, error) {
-	return acp.WriteTextFileResponse{}, nil
+func (c *acpClient) WriteTextFile(
+	ctx context.Context,
+	params acp.WriteTextFileRequest,
+) (acp.WriteTextFileResponse, error) {
+	return acp.WriteTextFileResponse{}, errNotImplemented
 }
 
-func (c *acpClient) CreateTerminal(ctx context.Context, params acp.CreateTerminalRequest) (acp.CreateTerminalResponse, error) {
+func (c *acpClient) CreateTerminal(
+	ctx context.Context,
+	params acp.CreateTerminalRequest,
+) (acp.CreateTerminalResponse, error) {
 	return acp.CreateTerminalResponse{TerminalId: "terminal-1"}, nil
 }
 
-func (c *acpClient) TerminalOutput(ctx context.Context, params acp.TerminalOutputRequest) (acp.TerminalOutputResponse, error) {
+func (c *acpClient) TerminalOutput(
+	ctx context.Context,
+	params acp.TerminalOutputRequest,
+) (acp.TerminalOutputResponse, error) {
 	return acp.TerminalOutputResponse{}, nil
 }
 
-func (c *acpClient) ReleaseTerminal(ctx context.Context, params acp.ReleaseTerminalRequest) (acp.ReleaseTerminalResponse, error) {
+func (c *acpClient) ReleaseTerminal(
+	ctx context.Context,
+	params acp.ReleaseTerminalRequest,
+) (acp.ReleaseTerminalResponse, error) {
 	return acp.ReleaseTerminalResponse{}, nil
 }
 
-func (c *acpClient) WaitForTerminalExit(ctx context.Context, params acp.WaitForTerminalExitRequest) (acp.WaitForTerminalExitResponse, error) {
+func (c *acpClient) WaitForTerminalExit(
+	ctx context.Context,
+	params acp.WaitForTerminalExitRequest,
+) (acp.WaitForTerminalExitResponse, error) {
 	return acp.WaitForTerminalExitResponse{}, nil
 }
 
-func (c *acpClient) KillTerminalCommand(ctx context.Context, params acp.KillTerminalCommandRequest) (acp.KillTerminalCommandResponse, error) {
+func (c *acpClient) KillTerminalCommand(
+	ctx context.Context,
+	params acp.KillTerminalCommandRequest,
+) (acp.KillTerminalCommandResponse, error) {
 	return acp.KillTerminalCommandResponse{}, nil
 }
 
@@ -134,14 +166,19 @@ func (a *ACPAdapter) Start(ctx context.Context) error {
 func (a *ACPAdapter) Stop(ctx context.Context) error {
 	if a.cmd != nil && a.cmd.Process != nil {
 		_ = a.cmd.Process.Kill()
+		_ = a.cmd.Wait()
 	}
 	close(a.events)
 	return nil
 }
 
 func (a *ACPAdapter) SendMessage(ctx context.Context, text string) error {
+	a.mu.Lock()
+	sid := a.sessionID
+	a.mu.Unlock()
+
 	_, err := a.conn.Prompt(ctx, acp.PromptRequest{
-		SessionId: acp.SessionId(a.sessionID),
+		SessionId: acp.SessionId(sid),
 		Prompt:    []acp.ContentBlock{acp.TextBlock(text)},
 	})
 	return err
@@ -156,7 +193,9 @@ func (a *ACPAdapter) CreateSession(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	a.mu.Lock()
 	a.sessionID = string(resp.SessionId)
+	a.mu.Unlock()
 	return a.sessionID, nil
 }
 
@@ -168,12 +207,25 @@ func (a *ACPAdapter) ResumeSession(ctx context.Context, sessionID string) (strin
 	if err != nil {
 		return "", err
 	}
+	a.mu.Lock()
 	a.sessionID = sessionID
+	a.mu.Unlock()
 	return sessionID, nil
 }
 
 func (a *ACPAdapter) IsHealthy(ctx context.Context) bool {
-	return a.cmd != nil && a.cmd.Process != nil
+	if a.cmd == nil || a.cmd.Process == nil {
+		return false
+	}
+	if a.conn == nil {
+		return false
+	}
+	select {
+	case <-a.conn.Done():
+		return false
+	default:
+		return true
+	}
 }
 
 func mapACPToolKind(k string) string {

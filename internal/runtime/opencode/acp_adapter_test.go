@@ -24,5 +24,13 @@ func TestACPAdapter_Config(t *testing.T) {
 		Port:      8080,
 	}
 	adapter := NewACPAdapter(cfg)
-	_ = adapter
+	if adapter == nil {
+		t.Fatal("expected non-nil adapter")
+	}
+	if adapter.cfg.AgentName != "my-agent" {
+		t.Errorf("expected agent name 'my-agent', got %s", adapter.cfg.AgentName)
+	}
+	if adapter.cfg.WorkDir != "/Users/test/project" {
+		t.Errorf("expected workdir '/Users/test/project', got %s", adapter.cfg.WorkDir)
+	}
 }
