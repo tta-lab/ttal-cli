@@ -739,34 +739,28 @@ func extractSubProjects(projects []string, prefix string) []string {
 	return result
 }
 
+var modifierSuggestions = []struct {
+	keyword   string
+	matchType string
+	value     string
+}{
+	{"project", matchTypeProject, modifierProject},
+	{"priority", matchTypePriority, modifierPriority},
+	{"status", matchTypeStatus, modifierStatus},
+	{"due", matchTypeAttribute, "due:"},
+	{"wait", matchTypeAttribute, "wait:"},
+	{"scheduled", matchTypeAttribute, "scheduled:"},
+	{"until", matchTypeAttribute, "until:"},
+	{"recur", matchTypeAttribute, "recur:"},
+	{"tag", matchTypeTag, modifierTag},
+}
+
 func (m *Model) updateModifierMatches(input string) {
 	q := strings.ToLower(input)
-	if q == "" || strings.Contains("project", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeProject, Value: modifierProject})
-	}
-	if q == "" || strings.Contains("priority", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypePriority, Value: modifierPriority})
-	}
-	if q == "" || strings.Contains("status", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeStatus, Value: modifierStatus})
-	}
-	if q == "" || strings.Contains("due", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "due:"})
-	}
-	if q == "" || strings.Contains("wait", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "wait:"})
-	}
-	if q == "" || strings.Contains("scheduled", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "scheduled:"})
-	}
-	if q == "" || strings.Contains("until", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "until:"})
-	}
-	if q == "" || strings.Contains("recur", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeAttribute, Value: "recur:"})
-	}
-	if q == "" || strings.Contains("tag", q) {
-		m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: matchTypeTag, Value: modifierTag})
+	for _, sug := range modifierSuggestions {
+		if q == "" || strings.Contains(sug.keyword, q) {
+			m.modifyMatches = append(m.modifyMatches, modifyMatch{Type: sug.matchType, Value: sug.value})
+		}
 	}
 }
 
