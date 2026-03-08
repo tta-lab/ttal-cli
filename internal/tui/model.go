@@ -622,6 +622,10 @@ func (m *Model) applyFilter() {
 	m.filtered = nil
 	for _, t := range m.tasks {
 		switch m.filter {
+		case filterPending:
+			if t.Start != "" {
+				continue
+			}
 		case filterToday:
 			if !t.IsToday() {
 				continue
