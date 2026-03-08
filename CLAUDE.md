@@ -100,7 +100,7 @@ cmd/             - CLI commands (cobra)
   ├── worker.go  - ttal worker spawn/close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
   ├── task.go    - ttal task get/find (taskwarrior queries)
-  └── task_route.go - ttal task design/research/test/execute (routing + spawn)
+  └── task_route.go - ttal task route/execute (routing + spawn)
 
 internal/
   ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
@@ -128,8 +128,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
 | `ttal task execute <uuid>` | Worker spawn via CLI | `spawnWorkerForTask` → `worker.Spawn` |
-| `ttal task design <uuid>` | Daemon socket → agent tmux | `resolveAgentByRole("designer")` → `routeTaskToAgent` |
-| `ttal task research <uuid>` | Daemon socket → agent tmux | `resolveAgentByRole("researcher")` → `routeTaskToAgent` |
 | `ttal task route <uuid> --to X` | Daemon socket → agent tmux | `agentfs.Get` → `routeTaskToAgent` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 

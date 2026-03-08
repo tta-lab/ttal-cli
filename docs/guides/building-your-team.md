@@ -36,7 +36,7 @@ ttal agent modify inke role:designer
 ttal agent modify athena role:researcher
 ```
 
-Now `ttal task design <uuid>` goes to Inke (role: designer), `ttal task research <uuid>` goes to Athena (role: researcher), and `ttal task execute <uuid>` spawns a worker.
+Now `ttal task route <uuid> --to inke` goes to Inke (role: designer), `ttal task route <uuid> --to athena` goes to Athena (role: researcher), and `ttal task execute <uuid>` spawns a worker.
 
 **Best for:** Complex projects where tasks benefit from investigation and planning before implementation.
 

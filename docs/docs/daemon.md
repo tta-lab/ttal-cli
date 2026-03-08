@@ -11,7 +11,7 @@ The daemon is a long-running process that acts as the communication hub for your
 - **Message delivery** — delivers messages to agent tmux sessions via `send-keys`
 - **JSONL bridge** — tails active Claude Code session files and sends assistant output to Telegram
 - **Cleanup watcher** — processes post-merge cleanup requests (close session, remove worktree, mark task done)
-- **Task routing** — handles `ttal task design/research/test` by delivering prompts to agent sessions
+- **Task routing** — handles `ttal task route --to <agent>` by delivering prompts to agent sessions
 
 ## Installation
 
