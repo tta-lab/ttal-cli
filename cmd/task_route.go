@@ -61,6 +61,8 @@ func init() {
 
 // buildRoutingRecord constructs the routing annotation for the task audit trail.
 // Format: "routed: <from> → <to> [message: <text>]" (message section optional).
+// `to` is guaranteed non-empty at all call sites: it is either the required --to flag
+// or a role-resolved agent name, both validated before reaching this function.
 func buildRoutingRecord(from, to, message string) string {
 	sender := from
 	if sender == "" {
@@ -105,7 +107,7 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 
 	record := buildRoutingRecord(sender, agentName, message)
 	if err := taskwarrior.AnnotateTask(task.UUID, record); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to write routing record: %v\n", err)
+		fmt.Fprintf(os.Stderr, "warning: failed to write routing record (check taskwarrior config and task UUID): %v\n", err)
 	}
 	fmt.Printf("Routed task %s to %s\n", uuid, agentName)
 	return nil
