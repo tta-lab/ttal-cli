@@ -100,7 +100,7 @@ cmd/             - CLI commands (cobra)
   ├── worker.go  - ttal worker spawn/close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
   ├── task.go    - ttal task get/find (taskwarrior queries)
-  └── task_route.go - ttal task design/research/test/execute (routing + spawn)
+  └── task_route.go - ttal task route/execute (routing + spawn)
 
 internal/
   ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
