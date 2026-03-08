@@ -208,11 +208,7 @@ func pctOrZero(p *float64) float64 {
 	return *p
 }
 
-// pctPtr converts a 0.0–1.0 utilization fraction to a 0–100 percentage pointer.
+// pctPtr returns the utilization pointer as-is — API already returns 0–100 percentage.
 func pctPtr(p *float64) *float64 {
-	if p == nil {
-		return nil
-	}
-	v := *p * 100
-	return &v
+	return p
 }
