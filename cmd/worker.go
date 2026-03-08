@@ -174,8 +174,7 @@ var workerListCmd = &cobra.Command{
 
 Shows a table of active workers categorized by PR status:
   RUNNING  - Worker is active, no PR created yet
-  WITH_PR  - Worker has created a PR (not yet merged)
-  CLEANUP  - PR is merged, worker needs cleanup
+  WITH_PR  - Worker has an open PR
 
 Example:
   ttal worker list`,
