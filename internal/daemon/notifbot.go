@@ -16,6 +16,7 @@ import (
 // notifBotCommands is the subset of commands registered on notification bots.
 var notifBotCommands = []BotCommand{
 	{Command: "status", Description: "Show all agents' context usage and stats"},
+	{Command: "usage", Description: "Show Claude API 5hr/weekly rate limit consumption"},
 	{Command: "restart", Description: "Restart the daemon (launchctl kickstart -k)"},
 	{Command: "help", Description: "List available commands"},
 }
@@ -123,6 +124,13 @@ func runNotifBotPoller(botToken, teamName string, chatID int64, done <-chan stru
 			chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
 			args := parseCommandArgs(update.Message.Text)
 			handleStatusCommand(teamName, "", botToken, chatIDStr, args)
+		})
+
+	// /usage — show Claude API rate limit consumption
+	b.RegisterHandlerMatchFunc(matchCommand("usage"),
+		func(_ context.Context, _ *bot.Bot, update *models.Update) {
+			chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
+			handleUsageCommand(botToken, chatIDStr)
 		})
 
 	// /restart — launchctl kickstart -k
