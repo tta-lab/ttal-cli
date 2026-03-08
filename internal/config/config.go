@@ -384,6 +384,16 @@ func (c *Config) Prompt(key string) string {
 	return ""
 }
 
+// HeartbeatPrompt returns the heartbeat_prompt for an agent's role from roles.toml.
+// agentName is used directly as the role key (e.g. "yuki" → [yuki] in roles.toml).
+// Returns empty string if not configured.
+func (c *Config) HeartbeatPrompt(agentName string) string {
+	if c.resolvedRoles == nil || c.resolvedRoles.HeartbeatPrompts == nil {
+		return ""
+	}
+	return c.resolvedRoles.HeartbeatPrompts[agentName]
+}
+
 func (c *Config) hasAnyPromptConfigured() bool {
 	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != ""

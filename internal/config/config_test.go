@@ -599,3 +599,25 @@ func TestBuildEnvShellCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestRolesConfigHeartbeatPrompt(t *testing.T) {
+	data := map[string]interface{}{
+		"yuki": map[string]interface{}{
+			"prompt":           "You are Yuki.",
+			"heartbeat_prompt": "Check in: what are you working on?",
+		},
+		"inke": map[string]interface{}{
+			"prompt": "You are Inke.",
+		},
+	}
+	var r RolesConfig
+	if err := r.UnmarshalTOML(data); err != nil {
+		t.Fatalf("UnmarshalTOML error: %v", err)
+	}
+	if got := r.HeartbeatPrompts["yuki"]; got != "Check in: what are you working on?" {
+		t.Errorf("HeartbeatPrompts[yuki] = %q, want %q", got, "Check in: what are you working on?")
+	}
+	if got := r.HeartbeatPrompts["inke"]; got != "" {
+		t.Errorf("HeartbeatPrompts[inke] = %q, want empty", got)
+	}
+}
