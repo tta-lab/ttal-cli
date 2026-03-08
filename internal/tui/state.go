@@ -10,4 +10,5 @@ const (
 	stateModify
 	stateAnnotate
 	stateHelp
+	stateConfirmDelete
 )

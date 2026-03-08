@@ -126,6 +126,19 @@ func doneTask(uuid string) tea.Cmd {
 	}
 }
 
+func deleteTask(uuid string) tea.Cmd {
+	return func() tea.Msg {
+		if uuid == "" {
+			return actionResultMsg{err: fmt.Errorf("delete: task has no UUID")}
+		}
+		cmd := taskwarrior.Command("rc.confirmation:off", uuid, "delete")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return actionResultMsg{err: fmt.Errorf("delete: %s", strings.TrimSpace(string(out)))}
+		}
+		return actionResultMsg{message: "Task deleted", refresh: true}
+	}
+}
+
 func modifyTask(uuid, modifiers string) tea.Cmd {
 	return func() tea.Msg {
 		fields := strings.Fields(modifiers)

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/lipgloss/v2"
 )
 
 func (m Model) viewTextInputOverlay(background, title, prompt string, input textinput.Model) string {
@@ -22,7 +23,7 @@ func (m Model) viewTextInputOverlay(background, title, prompt string, input text
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
 func (m Model) viewRouteOverlay(background string) string {
@@ -73,7 +74,7 @@ func (m Model) viewRouteOverlay(background string) string {
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
 func (m Model) viewSearchOverlay(background string) string {
@@ -84,7 +85,29 @@ func (m Model) viewSearchOverlay(background string) string {
 	)
 }
 
-func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
+func (m Model) viewConfirmDeleteOverlay(background string) string {
+	t := m.selectedTask()
+	desc := "(no task selected)"
+	if t != nil {
+		desc = truncate(t.Description, 40)
+	}
+
+	var b strings.Builder
+	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(colorRed).Render("Delete Task"))
+	b.WriteString("\n\n")
+	b.WriteString(styleDim.Render("  " + desc + "\n\n"))
+	b.WriteString("  Delete task? [y/N]\n\n")
+	b.WriteString(styleDim.Render("  y:confirm  any other key:cancel"))
+
+	overlay := styleOverlay.
+		Width(50).
+		Render(b.String())
+
+	return m.placeOverlay(background, overlay)
+}
+
+func (m Model) placeOverlay(background, overlay string) string {
+	const overlayWidth = 54
 	bgLines := strings.Split(background, "\n")
 	overlayLines := strings.Split(overlay, "\n")
 
@@ -92,7 +115,7 @@ func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 	if startRow < 0 {
 		startRow = 0
 	}
-	startCol := (m.width - totalWidth) / 2
+	startCol := (m.width - overlayWidth) / 2
 	if startCol < 0 {
 		startCol = 0
 	}
@@ -166,7 +189,7 @@ func (m Model) viewModifyMatchesOverlay(
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
 func (m Model) viewModifyOverlay(background string) string {
