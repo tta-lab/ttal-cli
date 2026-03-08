@@ -18,6 +18,7 @@ import (
 )
 
 var routeToAgent string
+var routeMessage string
 
 var taskRouteCmd = &cobra.Command{
 	Use:   "route <uuid>",
@@ -48,17 +49,33 @@ Examples:
 		if prompt == "" {
 			return fmt.Errorf("no prompt for role %q, no [default] in roles.toml, and no fallback in config.toml", role)
 		}
-		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt)
+		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt, routeMessage)
 	},
 }
 
 func init() {
 	taskRouteCmd.Flags().StringVar(&routeToAgent, "to", "", "Agent name to route to (required)")
 	_ = taskRouteCmd.MarkFlagRequired("to")
+	taskRouteCmd.Flags().StringVar(&routeMessage, "message", "", "Optional context appended to the routing prompt")
+}
+
+// buildRoutingRecord constructs the routing annotation for the task audit trail.
+// Format: "routed: <from> → <to> [message: <text>]" (message section optional).
+// `to` is guaranteed non-empty at all call sites: it is either the required --to flag
+// or a role-resolved agent name, both validated before reaching this function.
+func buildRoutingRecord(from, to, message string) string {
+	sender := from
+	if sender == "" {
+		sender = "unknown"
+	}
+	if message != "" {
+		return fmt.Sprintf("routed: %s → %s [message: %s]", sender, to, message)
+	}
+	return fmt.Sprintf("routed: %s → %s", sender, to)
 }
 
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.
-func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt string) error {
+func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -75,14 +92,23 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt string) error {
 
 	msg := fmt.Sprintf("[%s] %s — %s\n%s",
 		roleTag, uuid, task.Description, rolePrompt)
+	if message != "" {
+		msg += "\n\nAdditional context: " + message
+	}
 
+	sender := os.Getenv("TTAL_AGENT_NAME")
 	if err := daemon.Send(daemon.SendRequest{
+		From:    sender,
 		To:      agentName,
 		Message: msg,
 	}); err != nil {
 		return err
 	}
 
+	record := buildRoutingRecord(sender, agentName, message)
+	if err := taskwarrior.AnnotateTask(task.UUID, record); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to write routing record (check taskwarrior config and task UUID): %v\n", err)
+	}
 	fmt.Printf("Routed task %s to %s\n", uuid, agentName)
 	return nil
 }
