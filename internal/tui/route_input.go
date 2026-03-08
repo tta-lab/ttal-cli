@@ -89,10 +89,7 @@ func (m Model) viewConfirmDeleteOverlay(background string) string {
 	t := m.selectedTask()
 	desc := "(no task selected)"
 	if t != nil {
-		desc = t.Description
-		if len([]rune(desc)) > 40 {
-			desc = string([]rune(desc)[:39]) + "~"
-		}
+		desc = truncate(t.Description, 40)
 	}
 
 	var b strings.Builder

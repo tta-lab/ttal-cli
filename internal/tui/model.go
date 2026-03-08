@@ -373,9 +373,11 @@ func (m *Model) handleConfirmDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 	case "y", "Y":
 		t := m.selectedTask()
 		m.state = stateTaskList
-		if t != nil {
-			return m, deleteTask(t.UUID)
+		if t == nil {
+			m.statusMsg = "Error: no task selected to delete"
+			return m, nil
 		}
+		return m, deleteTask(t.UUID)
 	default:
 		m.state = stateTaskList
 	}
