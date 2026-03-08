@@ -3,6 +3,7 @@ package doctor
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -86,7 +87,7 @@ func Run(fix bool) *Report {
 	r.Sections = append(r.Sections, checkDaemon())
 	r.Sections = append(r.Sections, checkEnvironment())
 	r.Sections = append(r.Sections, checkVoice())
-	r.Sections = append(r.Sections, checkCCIntegration())
+	r.Sections = append(r.Sections, checkCCIntegration(fix))
 	return r
 }
 
@@ -735,7 +736,7 @@ func checkVoice() Section {
 
 // --- CC Integration (optional) ---
 
-func checkCCIntegration() Section {
+func checkCCIntegration(fix bool) Section {
 	section := Section{Name: "CC Integration (optional)"}
 
 	home, err := os.UserHomeDir()
@@ -747,15 +748,78 @@ func checkCCIntegration() Section {
 	settingsPath := home + "/.claude/settings.json"
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
-		section.add(LevelWarn, "statusline", "~/.claude/settings.json not found")
+		if !os.IsNotExist(err) {
+			section.add(LevelWarn, "statusline",
+				fmt.Sprintf("cannot read settings.json: %v", err))
+			return section
+		}
+		// File does not exist
+		if !fix {
+			section.add(LevelWarn, "statusline",
+				"~/.claude/settings.json not found — run: ttal doctor --fix")
+			return section
+		}
+		initial := map[string]interface{}{
+			"statusLine": map[string]interface{}{
+				"command": "ttal statusline",
+			},
+		}
+		if err := writeSettingsJSON(settingsPath, initial); err != nil {
+			section.add(LevelWarn, "statusline",
+				fmt.Sprintf("could not create settings.json: %v", err))
+		} else {
+			section.add(LevelOK, "statusline",
+				"created ~/.claude/settings.json with statusLine.command = ttal statusline")
+		}
 		return section
 	}
 
 	if strings.Contains(string(data), "ttal statusline") {
-		section.add(LevelOK, "statusline", "statusline_command configured: ttal statusline")
+		section.add(LevelOK, "statusline", "statusline configured: ttal statusline")
+		return section
+	}
+
+	if !fix {
+		section.add(LevelWarn, "statusline",
+			"statusLine.command not set — run: ttal doctor --fix")
+		return section
+	}
+
+	// Merge statusLine key into existing settings
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		section.add(LevelWarn, "statusline",
+			fmt.Sprintf("could not parse settings.json: %v", err))
+		return section
+	}
+
+	statusLine, ok := settings["statusLine"].(map[string]interface{})
+	if !ok {
+		statusLine = map[string]interface{}{}
+	}
+	statusLine["command"] = "ttal statusline"
+	settings["statusLine"] = statusLine
+
+	if err := writeSettingsJSON(settingsPath, settings); err != nil {
+		section.add(LevelWarn, "statusline",
+			fmt.Sprintf("could not update settings.json: %v", err))
 	} else {
-		section.add(LevelWarn, "statusline", "statusline_command not set (add to ~/.claude/settings.json)")
+		section.add(LevelOK, "statusline",
+			"set statusLine.command = ttal statusline in ~/.claude/settings.json")
 	}
 
 	return section
+}
+
+// writeSettingsJSON marshals v to indented JSON and writes to path (0o644).
+// Creates parent directory if needed.
+func writeSettingsJSON(path string, v interface{}) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0o644)
 }

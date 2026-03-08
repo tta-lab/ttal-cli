@@ -88,6 +88,7 @@ func Run() error {
 	startupWg.Wait()
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
 	startNotificationPollers(mcfg, done)
+	startUsagePoller(done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, registry, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, mt, done)

@@ -236,3 +236,61 @@ func replyTelegram(botToken, chatID, text string) {
 		log.Printf("[telegram] reply failed: %v", err)
 	}
 }
+
+func handleUsageCommand(botToken, chatID string) {
+	d := getUsageCache()
+	if d == nil {
+		replyTelegram(botToken, chatID, "Usage data not yet available — daemon is still fetching")
+		return
+	}
+	replyTelegram(botToken, chatID, formatUsageMessage(d))
+}
+
+func formatUsageMessage(d *UsageData) string {
+	var sb strings.Builder
+	sb.WriteString("Claude API Usage\n")
+	sb.WriteString("────────────────\n")
+	if d.SessionUsage != nil {
+		fmt.Fprintf(&sb, "5-hour:  %.0f%% used%s\n", *d.SessionUsage, formatResetAt(d.SessionResetAt))
+	}
+	if d.WeeklyUsage != nil {
+		fmt.Fprintf(&sb, "Weekly:  %.0f%% used%s\n", *d.WeeklyUsage, formatResetAt(d.WeeklyResetAt))
+	}
+	if !d.FetchedAt.IsZero() {
+		age := time.Since(d.FetchedAt)
+		fmt.Fprintf(&sb, "(as of %s", d.FetchedAt.Format("15:04"))
+		if age > 5*time.Minute {
+			fmt.Fprintf(&sb, ", %s ago", formatDuration(age))
+		}
+		sb.WriteString(")")
+	}
+	return strings.TrimRight(sb.String(), "\n")
+}
+
+func formatResetAt(s string) string {
+	if s == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return ""
+	}
+	d := time.Until(t)
+	if d <= 0 {
+		return " (resetting)"
+	}
+	return fmt.Sprintf(" (resets in %s)", formatDuration(d))
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%.0fh", d.Hours())
+	}
+	return fmt.Sprintf("%.0fd", d.Hours()/24)
+}
