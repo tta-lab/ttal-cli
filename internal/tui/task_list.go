@@ -21,7 +21,7 @@ func (m Model) viewTaskList() string {
 	b.WriteString("\n")
 
 	if m.loading {
-		b.WriteString(styleDim.Render("  Loading tasks..."))
+		b.WriteString(styleDim.Render("  " + m.loadingSpinner.View() + " Loading tasks..."))
 		return m.padToHeight(b.String())
 	}
 

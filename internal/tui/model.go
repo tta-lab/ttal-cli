@@ -6,7 +6,9 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -60,9 +62,10 @@ type Model struct {
 	height int
 
 	// Status
-	statusMsg string
-	loading   bool
-	teamName  string
+	statusMsg      string
+	loading        bool
+	teamName       string
+	loadingSpinner spinner.Model
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -74,20 +77,27 @@ func newTextInput(placeholder string) textinput.Model {
 
 func NewModel() Model {
 	m := Model{
-		state:         stateTaskList,
-		filter:        filterPending,
-		loading:       true,
-		offset:        0,
-		searchInput:   newTextInput("project:x +tag priority:H"),
-		routeInput:    newTextInput("agent name..."),
-		modifyInput:   newTextInput("+tag project:x priority:H"),
-		annotateInput: newTextInput("annotation text"),
+		state:          stateTaskList,
+		filter:         filterPending,
+		loading:        true,
+		offset:         0,
+		searchInput:    newTextInput("project:x +tag priority:H"),
+		routeInput:     newTextInput("agent name..."),
+		modifyInput:    newTextInput("+tag project:x priority:H"),
+		annotateInput:  newTextInput("annotation text"),
+		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 	}
 	return m
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(loadConfig(), loadTasks(filterPending, ""))
+	return tea.Batch(loadConfig(), loadTasks(filterPending, ""), m.startSpinner())
+}
+
+func (m Model) startSpinner() tea.Cmd {
+	return tea.Tick(m.loadingSpinner.Spinner.FPS, func(_ time.Time) tea.Msg {
+		return m.loadingSpinner.Tick()
+	})
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -96,7 +106,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
+	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg:
+		return m.handleDataMsg(msg)
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
+		return m, cmd
+	case tea.KeyPressMsg:
+		return m.handleKey(msg)
+	case tea.PasteMsg:
+		return m.handlePaste(msg)
+	}
+	return m, nil
+}
 
+func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
 	case configLoadedMsg:
 		if msg.err != nil {
 			m.statusMsg = "Config error: " + msg.err.Error()
@@ -108,13 +133,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.cfg != nil {
 			m.teamName = msg.cfg.TeamName()
 		}
-		return m, nil
-
 	case autocompleteLoadedMsg:
 		m.projects = msg.projects
 		m.tags = msg.tags
-		return m, nil
-
 	case tasksLoadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -122,8 +143,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tasks = msg.tasks
 		m.applyFilter()
-		return m, nil
-
 	case actionResultMsg:
 		m.statusMsg = msg.message
 		if msg.err != nil {
@@ -132,19 +151,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.refresh {
 			return m, m.reloadTasks()
 		}
-		return m, nil
-
 	case execFinishedMsg:
 		if msg.err != nil {
 			m.statusMsg = "Error: " + msg.err.Error()
 		}
-		return m, nil
-
-	case tea.KeyPressMsg:
-		return m.handleKey(msg)
-
-	case tea.PasteMsg:
-		return m.handlePaste(msg)
 	}
 	return m, nil
 }
