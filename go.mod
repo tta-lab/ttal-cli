@@ -3,6 +3,7 @@ module github.com/tta-lab/ttal-cli
 go 1.26.0
 
 require (
+	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.0
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
@@ -24,7 +25,6 @@ require (
 )
 
 require (
-	charm.land/bubbles/v2 v2.0.0 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect

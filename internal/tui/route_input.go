@@ -80,7 +80,7 @@ func (m Model) viewSearchOverlay(background string) string {
 	return m.viewModifyMatchesOverlay(
 		background, "Search Tasks",
 		"Filter (e.g. project:x +tag priority:H):",
-		m.searchInput.Value(), "Enter:search",
+		m.searchInput, "Enter:search",
 	)
 }
 
@@ -116,13 +116,15 @@ func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 	return strings.Join(bgLines, "\n")
 }
 
-func (m Model) viewModifyMatchesOverlay(background, title, prompt, input, helpText string) string {
+func (m Model) viewModifyMatchesOverlay(background, title, prompt string, input textinput.Model, helpText string) string {
 	var b strings.Builder
 
 	b.WriteString(styleTitle.Render(title))
 	b.WriteString("\n\n")
 	b.WriteString(styleDim.Render("  " + prompt + "\n"))
-	fmt.Fprintf(&b, "  > %s_\n\n", input)
+	b.WriteString("  ")
+	b.WriteString(input.View())
+	b.WriteString("\n\n")
 
 	if len(m.modifyMatches) == 0 {
 		b.WriteString(styleDim.Render("  No matching suggestions"))
@@ -169,6 +171,6 @@ func (m Model) viewModifyOverlay(background string) string {
 	return m.viewModifyMatchesOverlay(
 		background, "Modify Task",
 		"Modifiers (e.g. project:x +tag priority:H):",
-		m.modifyInput.Value(), "Enter:confirm",
+		m.modifyInput, "Enter:confirm",
 	)
 }

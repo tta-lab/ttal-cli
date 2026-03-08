@@ -113,7 +113,7 @@ func (m Model) viewStatusBar() string {
 	var parts []string
 
 	if m.state == stateSearch {
-		parts = append(parts, fmt.Sprintf("Search: %s_", m.searchInput.Value()))
+		parts = append(parts, fmt.Sprintf("Search: %s", m.searchInput.Value()))
 	} else if m.statusMsg != "" {
 		parts = append(parts, m.statusMsg)
 	}

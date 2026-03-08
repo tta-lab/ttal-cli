@@ -6,7 +6,6 @@ import (
 	"log"
 	"sort"
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
@@ -91,13 +90,7 @@ func NewModel() Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(loadConfig(), loadTasks(filterPending, ""), m.startSpinner())
-}
-
-func (m Model) startSpinner() tea.Cmd {
-	return tea.Tick(m.loadingSpinner.Spinner.FPS, func(_ time.Time) tea.Msg {
-		return m.loadingSpinner.Tick()
-	})
+	return tea.Batch(loadConfig(), loadTasks(filterPending, ""), m.loadingSpinner.Tick)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -109,6 +102,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg:
 		return m.handleDataMsg(msg)
 	case spinner.TickMsg:
+		if !m.loading {
+			return m, nil
+		}
 		var cmd tea.Cmd
 		m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
 		return m, cmd
@@ -133,9 +129,11 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.cfg != nil {
 			m.teamName = msg.cfg.TeamName()
 		}
+		return m, nil
 	case autocompleteLoadedMsg:
 		m.projects = msg.projects
 		m.tags = msg.tags
+		return m, nil
 	case tasksLoadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -143,6 +141,7 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tasks = msg.tasks
 		m.applyFilter()
+		return m, nil
 	case actionResultMsg:
 		m.statusMsg = msg.message
 		if msg.err != nil {
@@ -151,10 +150,12 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.refresh {
 			return m, m.reloadTasks()
 		}
+		return m, nil
 	case execFinishedMsg:
 		if msg.err != nil {
 			m.statusMsg = "Error: " + msg.err.Error()
 		}
+		return m, nil
 	}
 	return m, nil
 }
