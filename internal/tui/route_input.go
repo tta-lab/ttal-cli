@@ -3,15 +3,19 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"charm.land/bubbles/v2/textinput"
 )
 
-func (m Model) viewTextInputOverlay(background, title, prompt, input string) string {
+func (m Model) viewTextInputOverlay(background, title, prompt string, input textinput.Model) string {
 	var b strings.Builder
 
 	b.WriteString(styleTitle.Render(title))
 	b.WriteString("\n\n")
 	b.WriteString("  " + styleDim.Render(prompt) + "\n")
-	fmt.Fprintf(&b, "  > %s_\n\n", input)
+	b.WriteString("  ")
+	b.WriteString(input.View())
+	b.WriteString("\n\n")
 	b.WriteString(styleDim.Render("  Enter:confirm  Esc:cancel"))
 
 	overlay := styleOverlay.
@@ -26,7 +30,9 @@ func (m Model) viewRouteOverlay(background string) string {
 
 	b.WriteString(styleTitle.Render("Route to Agent"))
 	b.WriteString("\n\n")
-	fmt.Fprintf(&b, "  > %s_\n\n", m.routeInput)
+	b.WriteString("  ")
+	b.WriteString(m.routeInput.View())
+	b.WriteString("\n\n")
 
 	if len(m.routeMatches) == 0 {
 		b.WriteString(styleDim.Render("  No matching agents"))
@@ -74,7 +80,7 @@ func (m Model) viewSearchOverlay(background string) string {
 	return m.viewModifyMatchesOverlay(
 		background, "Search Tasks",
 		"Filter (e.g. project:x +tag priority:H):",
-		m.searchStr, "Enter:search",
+		m.searchInput.Value(), "Enter:search",
 	)
 }
 
@@ -163,6 +169,6 @@ func (m Model) viewModifyOverlay(background string) string {
 	return m.viewModifyMatchesOverlay(
 		background, "Modify Task",
 		"Modifiers (e.g. project:x +tag priority:H):",
-		m.modifyInput, "Enter:confirm",
+		m.modifyInput.Value(), "Enter:confirm",
 	)
 }

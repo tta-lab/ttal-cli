@@ -113,13 +113,13 @@ func (m Model) viewStatusBar() string {
 	var parts []string
 
 	if m.state == stateSearch {
-		parts = append(parts, fmt.Sprintf("Search: %s_", m.searchStr))
+		parts = append(parts, fmt.Sprintf("Search: %s_", m.searchInput.Value()))
 	} else if m.statusMsg != "" {
 		parts = append(parts, m.statusMsg)
 	}
 
-	if m.searchStr != "" && m.state != stateSearch {
-		parts = append(parts, styleDim.Render("[/"+m.searchStr+"]"))
+	if m.searchInput.Value() != "" && m.state != stateSearch {
+		parts = append(parts, styleDim.Render("[/"+m.searchInput.Value()+"]"))
 	}
 
 	if t := m.selectedTask(); t != nil {

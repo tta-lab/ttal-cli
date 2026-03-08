@@ -80,7 +80,7 @@ func (m *Model) updateAllMatches(projects, tags []string) {
 
 func (m *Model) updateModifyMatches(projects, tags []string) {
 	projects, tags = ensureProjectsAndTags(projects, tags)
-	m.updateMatchesWithInput(m.modifyInput, projects, tags)
+	m.updateMatchesWithInput(m.modifyInput.Value(), projects, tags)
 }
 
 func (m *Model) updateMatchesWithInput(input string, projects, tags []string) {
@@ -109,21 +109,9 @@ func (m *Model) updateMatchesWithInput(input string, projects, tags []string) {
 
 func (m *Model) updateSearchMatches(projects, tags []string) {
 	projects, tags = ensureProjectsAndTags(projects, tags)
-	m.updateSearchMatchesWithInput(m.searchStr, projects, tags)
+	m.updateSearchMatchesWithInput(m.searchInput.Value(), projects, tags)
 }
 
 func (m *Model) updateSearchMatchesWithInput(input string, projects, tags []string) {
 	m.updateMatchesWithInput(input, projects, tags)
-}
-
-func deleteLastWord(s string) string {
-	s = strings.TrimRight(s, " ")
-	if s == "" {
-		return ""
-	}
-	lastSpace := strings.LastIndex(s, " ")
-	if lastSpace == -1 {
-		return ""
-	}
-	return s[:lastSpace]
 }

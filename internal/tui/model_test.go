@@ -4,6 +4,21 @@ import (
 	"testing"
 )
 
+func TestSearchInputStartsEmpty(t *testing.T) {
+	m := NewModel()
+	if m.searchInput.Value() != "" {
+		t.Errorf("searchInput should start empty, got %q", m.searchInput.Value())
+	}
+}
+
+func TestAnnotateInputAcceptsText(t *testing.T) {
+	m := NewModel()
+	m.annotateInput.SetValue("test annotation")
+	if m.annotateInput.Value() != "test annotation" {
+		t.Errorf("expected %q, got %q", "test annotation", m.annotateInput.Value())
+	}
+}
+
 func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
 	// Pre-populate the package-level cache so ensureProjectsAndTags skips the
 	// taskwarrior exec call (not available in CI).
@@ -16,18 +31,22 @@ func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
 		autocompleteLoaded = false
 	})
 
+	searchInput := newTextInput("placeholder")
+	searchInput.SetValue("ttal")
+	modifyInput := newTextInput("placeholder")
+
 	m := Model{
 		state:       stateSearch,
-		searchStr:   "ttal",
+		searchInput: searchInput,
 		modifyIndex: 0,
 		projects:    []string{"ttal", "ttal.cli", "projectX", "other"},
 		tags:        []string{"bug", "feature"},
-		modifyInput: "",
+		modifyInput: modifyInput,
 	}
 
 	m.updateSearchMatches(m.projects, m.tags)
 
-	t.Logf("searchStr: %q, matches: %v", m.searchStr, m.modifyMatches)
+	t.Logf("searchStr: %q, matches: %v", m.searchInput.Value(), m.modifyMatches)
 
 	if len(m.modifyMatches) == 0 {
 		t.Fatalf("expected matches but got none")
