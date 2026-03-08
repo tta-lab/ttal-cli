@@ -5,16 +5,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 var (
-	spawnName          string
-	spawnProject       string
-	spawnTask          string
-	spawnWorktree      bool
-	spawnForce         bool
 	closeForce         bool
 	cleanupForce       bool
 	gatekeeperTaskFile string
@@ -52,44 +46,6 @@ var workerUninstallCmd = &cobra.Command{
 Log files are preserved. To also remove the daemon: ttal daemon uninstall`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return worker.Uninstall()
-	},
-}
-
-var workerSpawnCmd = &cobra.Command{
-	Use:   "spawn",
-	Short: "Spawn a new worker",
-	Long: `Spawn a coding agent worker in an isolated tmux session.
-
-Creates a git worktree, launches a tmux session with the selected runtime,
-and tracks the worker in taskwarrior.
-
-Task tags control behavior:
-  +sonnet      Use sonnet model instead of opus (Claude Code only)
-  +opencode    Use OpenCode runtime instead of Claude Code
-  +codex       Use Codex runtime instead of Claude Code
-
-Runtime selection:
-  --runtime claude-code  (default) Use Claude Code
-  --runtime opencode     Use OpenCode
-  --runtime codex        Use Codex
-
-Example:
-  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
-  ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid> --runtime opencode`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		runtimeStr, _ := cmd.Flags().GetString("runtime")
-		rt, err := runtime.Parse(runtimeStr)
-		if err != nil {
-			return err
-		}
-		return worker.Spawn(worker.SpawnConfig{
-			Name:     spawnName,
-			Project:  spawnProject,
-			TaskUUID: spawnTask,
-			Worktree: spawnWorktree,
-			Force:    spawnForce,
-			Runtime:  rt,
-		})
 	},
 }
 
@@ -188,24 +144,11 @@ func init() {
 
 	workerCmd.AddCommand(workerInstallCmd)
 	workerCmd.AddCommand(workerUninstallCmd)
-	workerCmd.AddCommand(workerSpawnCmd)
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
 	workerCmd.AddCommand(workerCleanupCmd)
 	workerCmd.AddCommand(workerHookCmd)
 	workerCmd.AddCommand(workerGatekeeperCmd)
-
-	// Spawn flags
-	workerSpawnCmd.Flags().StringVar(&spawnName, "name", "", "Worker name (required)")
-	workerSpawnCmd.Flags().StringVar(&spawnProject, "project", "", "Project directory (required)")
-	workerSpawnCmd.Flags().StringVar(&spawnTask, "task", "", "Task UUID (required)")
-	workerSpawnCmd.Flags().BoolVar(&spawnWorktree, "worktree", true, "Create git worktree")
-	workerSpawnCmd.Flags().BoolVar(&spawnForce, "force", false, "Force respawn (close existing session)")
-	workerSpawnCmd.Flags().String("runtime", "claude-code", "Coding agent runtime (claude-code, opencode, codex)")
-
-	_ = workerSpawnCmd.MarkFlagRequired("name")
-	_ = workerSpawnCmd.MarkFlagRequired("project")
-	_ = workerSpawnCmd.MarkFlagRequired("task")
 
 	// Close flags
 	workerCloseCmd.Flags().BoolVar(&closeForce, "force", false, "Force cleanup regardless of PR status")
@@ -218,8 +161,4 @@ func init() {
 		&gatekeeperTaskFile, "task-file", "", "Task file to read and append to command",
 	)
 
-}
-
-func init() {
-	workerSpawnCmd.Flags().Lookup("worktree").NoOptDefVal = "true"
 }
