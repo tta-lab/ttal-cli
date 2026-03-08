@@ -104,5 +104,4 @@ func processCleanupFile(path string) {
 	}
 
 	log.Printf("[cleanup] completed: session=%s", req.SessionID)
-	worker.NotifyTelegram(fmt.Sprintf("🧹 Worker cleaned up: %s", req.SessionID))
 }
