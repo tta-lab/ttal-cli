@@ -23,7 +23,7 @@ func (m Model) viewTextInputOverlay(background, title, prompt string, input text
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
 func (m Model) viewRouteOverlay(background string) string {
@@ -74,7 +74,7 @@ func (m Model) viewRouteOverlay(background string) string {
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
 func (m Model) viewSearchOverlay(background string) string {
@@ -106,10 +106,11 @@ func (m Model) viewConfirmDeleteOverlay(background string) string {
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
-func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
+func (m Model) placeOverlay(background, overlay string) string {
+	const overlayWidth = 54
 	bgLines := strings.Split(background, "\n")
 	overlayLines := strings.Split(overlay, "\n")
 
@@ -117,7 +118,7 @@ func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 	if startRow < 0 {
 		startRow = 0
 	}
-	startCol := (m.width - totalWidth) / 2
+	startCol := (m.width - overlayWidth) / 2
 	if startCol < 0 {
 		startCol = 0
 	}
@@ -191,7 +192,7 @@ func (m Model) viewModifyMatchesOverlay(
 		Width(50).
 		Render(b.String())
 
-	return m.placeOverlay(background, overlay, 54)
+	return m.placeOverlay(background, overlay)
 }
 
 func (m Model) viewModifyOverlay(background string) string {
