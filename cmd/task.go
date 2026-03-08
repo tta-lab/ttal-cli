@@ -9,8 +9,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -151,72 +149,6 @@ Examples:
 	},
 }
 
-// resolveAgentByRole finds the single agent with a given role in the team.
-func resolveAgentByRole(cfg *config.Config, role string) (string, error) {
-	matches, err := agentfs.FindByRole(cfg.TeamPath(), role)
-	if err != nil {
-		return "", err
-	}
-	if len(matches) == 0 {
-		return "", fmt.Errorf("no agent with role %q found\n\n"+
-			"Add 'role: %s' to an agent's CLAUDE.md frontmatter, or use:\n"+
-			"  ttal task route <uuid> --to <agent-name>", role, role)
-	}
-	if len(matches) > 1 {
-		names := make([]string, len(matches))
-		for i, a := range matches {
-			names[i] = fmt.Sprintf("  %s %s", a.Emoji, a.Name)
-		}
-		return "", fmt.Errorf("multiple agents with role %q:\n%s\n\n"+
-			"Use explicit routing:\n"+
-			"  ttal task route <uuid> --to <agent-name>",
-			role, strings.Join(names, "\n"))
-	}
-	return matches[0].Name, nil
-}
-
-var taskDesignCmd = &cobra.Command{
-	Use:   "design <uuid>",
-	Short: "Route task to designer agent",
-	Long:  `Send a task to the agent with role "designer" (from CLAUDE.md frontmatter).`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
-		if err != nil {
-			return err
-		}
-		agent, err := resolveAgentByRole(cfg, "designer")
-		if err != nil {
-			return err
-		}
-		uuid := args[0]
-		rt := cfg.AgentRuntimeFor(agent)
-		prompt := cfg.RenderPrompt("designer", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task designer", prompt, routeMessage)
-	},
-}
-
-var taskResearchCmd = &cobra.Command{
-	Use:   "research <uuid>",
-	Short: "Route task to researcher agent",
-	Long:  `Send a task to the agent with role "researcher" (from CLAUDE.md frontmatter).`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
-		if err != nil {
-			return err
-		}
-		agent, err := resolveAgentByRole(cfg, "researcher")
-		if err != nil {
-			return err
-		}
-		uuid := args[0]
-		rt := cfg.AgentRuntimeFor(agent)
-		prompt := cfg.RenderPrompt("researcher", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task researcher", prompt, routeMessage)
-	},
-}
-
 var taskExecuteCmd = &cobra.Command{
 	Use:   "execute <uuid>",
 	Short: "Spawn a worker for a task",
@@ -296,8 +228,6 @@ func init() {
 	taskCmd.AddCommand(taskGetCmd)
 	taskCmd.AddCommand(taskFindCmd)
 	taskCmd.AddCommand(taskAddCmd)
-	taskCmd.AddCommand(taskDesignCmd)
-	taskCmd.AddCommand(taskResearchCmd)
 	taskCmd.AddCommand(taskRouteCmd)
 	taskCmd.AddCommand(taskExecuteCmd)
 
@@ -310,6 +240,4 @@ func init() {
 	taskAddCmd.Flags().StringVar(&taskAddPriority, "priority", "", "Task priority (H, M, or L)")
 	taskAddCmd.Flags().StringArrayVar(&taskAddAnnotations, "annotate", nil, "Add annotation (repeatable)")
 
-	taskDesignCmd.Flags().StringVar(&routeMessage, "message", "", "Optional context appended to the routing prompt")
-	taskResearchCmd.Flags().StringVar(&routeMessage, "message", "", "Optional context appended to the routing prompt")
 }

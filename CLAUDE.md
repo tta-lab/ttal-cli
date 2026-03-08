@@ -128,8 +128,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
 | `ttal task execute <uuid>` | Worker spawn via CLI | `spawnWorkerForTask` → `worker.Spawn` |
-| `ttal task design <uuid>` | Daemon socket → agent tmux | `resolveAgentByRole("designer")` → `routeTaskToAgent` |
-| `ttal task research <uuid>` | Daemon socket → agent tmux | `resolveAgentByRole("researcher")` → `routeTaskToAgent` |
 | `ttal task route <uuid> --to X` | Daemon socket → agent tmux | `agentfs.Get` → `routeTaskToAgent` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
