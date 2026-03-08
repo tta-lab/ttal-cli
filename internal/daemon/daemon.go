@@ -89,6 +89,7 @@ func Run() error {
 	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
 	startNotificationPollers(mcfg, done)
 	startUsagePoller(done)
+	startHeartbeatScheduler(mcfg, registry, done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, registry, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, mt, done)

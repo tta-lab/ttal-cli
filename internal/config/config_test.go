@@ -599,3 +599,52 @@ func TestBuildEnvShellCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestRolesConfigHeartbeatPrompt(t *testing.T) {
+	data := map[string]interface{}{
+		"yuki": map[string]interface{}{
+			"prompt":           "You are Yuki.",
+			"heartbeat_prompt": "Check in: what are you working on?",
+		},
+		"inke": map[string]interface{}{
+			"prompt": "You are Inke.",
+		},
+	}
+	var r RolesConfig
+	if err := r.UnmarshalTOML(data); err != nil {
+		t.Fatalf("UnmarshalTOML error: %v", err)
+	}
+	if got := r.HeartbeatPrompts["yuki"]; got != "Check in: what are you working on?" {
+		t.Errorf("HeartbeatPrompts[yuki] = %q, want %q", got, "Check in: what are you working on?")
+	}
+	if got := r.HeartbeatPrompts["inke"]; got != "" {
+		t.Errorf("HeartbeatPrompts[inke] = %q, want empty", got)
+	}
+}
+
+func TestConfigHeartbeatPromptNilGuard(t *testing.T) {
+	// resolvedRoles == nil (e.g. no roles.toml)
+	cfg := &Config{}
+	if got := cfg.HeartbeatPrompt("yuki"); got != "" {
+		t.Errorf("HeartbeatPrompt with nil resolvedRoles = %q, want empty", got)
+	}
+
+	// resolvedRoles set but HeartbeatPrompts is nil (should not panic)
+	cfg.resolvedRoles = &RolesConfig{Roles: map[string]string{"yuki": "prompt"}}
+	if got := cfg.HeartbeatPrompt("yuki"); got != "" {
+		t.Errorf("HeartbeatPrompt with nil HeartbeatPrompts = %q, want empty", got)
+	}
+
+	// resolvedRoles and HeartbeatPrompts set, agent present
+	cfg.resolvedRoles = &RolesConfig{
+		HeartbeatPrompts: map[string]string{"yuki": "heartbeat msg"},
+	}
+	if got := cfg.HeartbeatPrompt("yuki"); got != "heartbeat msg" {
+		t.Errorf("HeartbeatPrompt = %q, want %q", got, "heartbeat msg")
+	}
+
+	// agent not present
+	if got := cfg.HeartbeatPrompt("inke"); got != "" {
+		t.Errorf("HeartbeatPrompt for unknown agent = %q, want empty", got)
+	}
+}

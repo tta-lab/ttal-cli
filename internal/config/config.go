@@ -180,6 +180,8 @@ type AgentConfig struct {
 	Runtime string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
 	// Claude model tier (falls back to team agent_model, then sonnet)
 	Model string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
+	// Heartbeat interval for this agent (e.g. "30m"). Empty means no heartbeat.
+	HeartbeatInterval string `toml:"heartbeat_interval"`
 }
 
 // AgentRuntimeFor returns the effective runtime for an agent:
@@ -380,6 +382,16 @@ func (c *Config) Prompt(key string) string {
 	}
 
 	return ""
+}
+
+// HeartbeatPrompt returns the heartbeat_prompt for an agent's role from roles.toml.
+// agentName is used directly as the role key (e.g. "yuki" → [yuki] in roles.toml).
+// Returns empty string if not configured.
+func (c *Config) HeartbeatPrompt(agentName string) string {
+	if c.resolvedRoles == nil || c.resolvedRoles.HeartbeatPrompts == nil {
+		return ""
+	}
+	return c.resolvedRoles.HeartbeatPrompts[agentName]
 }
 
 func (c *Config) hasAnyPromptConfigured() bool {
@@ -731,6 +743,13 @@ func LoadAll() (*DaemonConfig, error) {
 		Global: &cfg,
 		Teams:  make(map[string]*ResolvedTeam),
 	}
+
+	// Cache roles at load time so HeartbeatPrompt() doesn't re-read roles.toml on every call.
+	roles, err := LoadRoles()
+	if err != nil {
+		return nil, fmt.Errorf("roles.toml: %w", err)
+	}
+	cfg.resolvedRoles = roles
 
 	for teamName, team := range cfg.Teams {
 		rt, err := resolveTeam(teamName, team, &cfg.Voice, cfg.Teams)

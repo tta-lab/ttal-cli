@@ -221,6 +221,10 @@
                     "opus"
                   ],
                   "description": "Claude model tier (falls back to team agent_model, then sonnet)"
+                },
+                "heartbeat_interval": {
+                  "type": "string",
+                  "description": "Heartbeat interval for this agent (e.g. \"30m\"). Empty means no heartbeat."
                 }
               },
               "additionalProperties": false,
