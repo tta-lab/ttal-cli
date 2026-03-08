@@ -35,6 +35,7 @@ const (
 	keyAnnotate
 	keyToggleNext
 	keyCopy
+	keyDelete
 )
 
 var keyMap = map[string]keyAction{
@@ -57,6 +58,7 @@ var keyMap = map[string]keyAction{
 	"a":      keyAddToday,
 	"ctrl+a": keyRemoveToday,
 	"d":      keyDone,
+	"D":      keyDelete,
 	"m":      keyModify,
 	"A":      keyAnnotate,
 	"[":      keyFilterPrev,
@@ -100,6 +102,7 @@ const helpText = `Key Bindings:
   t               Toggle +next tag
   y               Copy task to clipboard
   e               Edit task (task edit)
+  D               Delete task (with confirmation)
 
   a               Add to today
   Ctrl+A          Remove from today

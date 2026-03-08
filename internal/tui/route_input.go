@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/lipgloss/v2"
 )
 
 func (m Model) viewTextInputOverlay(background, title, prompt string, input textinput.Model) string {
@@ -82,6 +83,30 @@ func (m Model) viewSearchOverlay(background string) string {
 		"Filter (e.g. project:x +tag priority:H):",
 		m.searchInput, "Enter:search",
 	)
+}
+
+func (m Model) viewConfirmDeleteOverlay(background string) string {
+	t := m.selectedTask()
+	desc := "(no task selected)"
+	if t != nil {
+		desc = t.Description
+		if len([]rune(desc)) > 40 {
+			desc = string([]rune(desc)[:39]) + "~"
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(colorRed).Render("Delete Task"))
+	b.WriteString("\n\n")
+	b.WriteString(styleDim.Render("  " + desc + "\n\n"))
+	b.WriteString("  Delete task? [y/N]\n\n")
+	b.WriteString(styleDim.Render("  y:confirm  any other key:cancel"))
+
+	overlay := styleOverlay.
+		Width(50).
+		Render(b.String())
+
+	return m.placeOverlay(background, overlay, 54)
 }
 
 func (m Model) placeOverlay(background, overlay string, totalWidth int) string {

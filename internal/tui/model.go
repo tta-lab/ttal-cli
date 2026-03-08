@@ -191,7 +191,7 @@ func (m Model) View() tea.View {
 		content = m.viewTaskList()
 	case stateTaskDetail:
 		content = m.viewTaskDetail()
-	case stateRouteInput, stateModify, stateAnnotate:
+	case stateRouteInput, stateModify, stateAnnotate, stateConfirmDelete:
 		content = m.viewTaskList() // show list behind overlay
 	case stateHelp:
 		content = m.viewHelp()
@@ -205,6 +205,8 @@ func (m Model) View() tea.View {
 		content = m.viewModifyOverlay(content)
 	case stateAnnotate:
 		content = m.viewTextInputOverlay(content, "Annotate Task", "Annotation:", m.annotateInput)
+	case stateConfirmDelete:
+		content = m.viewConfirmDeleteOverlay(content)
 	case stateSearch:
 		content = m.viewSearchOverlay(content)
 	}
@@ -224,6 +226,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleModifyKey(msg)
 	case stateAnnotate:
 		return m.handleAnnotateKey(msg)
+	case stateConfirmDelete:
+		return m.handleConfirmDeleteKey(msg)
 	}
 
 	action := resolveKey(msg)
@@ -358,8 +362,24 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		m.state = stateAnnotate
 		m.annotateInput.SetValue("")
 		return m.annotateInput.Focus()
+	case keyDelete:
+		m.state = stateConfirmDelete
 	}
 	return nil
+}
+
+func (m *Model) handleConfirmDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		t := m.selectedTask()
+		m.state = stateTaskList
+		if t != nil {
+			return m, deleteTask(t.UUID)
+		}
+	default:
+		m.state = stateTaskList
+	}
+	return m, nil
 }
 
 func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
