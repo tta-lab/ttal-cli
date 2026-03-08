@@ -116,7 +116,9 @@ func (m Model) placeOverlay(background, overlay string, totalWidth int) string {
 	return strings.Join(bgLines, "\n")
 }
 
-func (m Model) viewModifyMatchesOverlay(background, title, prompt string, input textinput.Model, helpText string) string {
+func (m Model) viewModifyMatchesOverlay(
+	background, title, prompt string, input textinput.Model, helpText string,
+) string {
 	var b strings.Builder
 
 	b.WriteString(styleTitle.Render(title))
