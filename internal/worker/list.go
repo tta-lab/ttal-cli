@@ -2,15 +2,12 @@ package worker
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/format"
-	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -18,9 +15,8 @@ import (
 type WorkerStatus int
 
 const (
-	StatusRunning       WorkerStatus = iota // No PR yet
-	StatusWithPR                            // PR created, not merged
-	StatusCleanupNeeded                     // PR merged, needs cleanup
+	StatusRunning WorkerStatus = iota // No PR yet
+	StatusWithPR                      // PR created
 )
 
 func (s WorkerStatus) String() string {
@@ -29,8 +25,6 @@ func (s WorkerStatus) String() string {
 		return "RUNNING"
 	case StatusWithPR:
 		return "WITH_PR"
-	case StatusCleanupNeeded:
-		return "CLEANUP"
 	default:
 		return "UNKNOWN"
 	}
@@ -71,7 +65,7 @@ func List() error {
 	// Categorize and build worker info
 	workers := categorizeWorkers(unique)
 
-	// Sort: group by status (RUNNING → WITH_PR → CLEANUP),
+	// Sort: group by status (RUNNING → WITH_PR),
 	// within each group sort by start time descending (most recent first).
 	sort.Slice(workers, func(i, j int) bool {
 		if workers[i].Status != workers[j].Status {
@@ -90,51 +84,14 @@ func categorizeWorkers(tasks []taskwarrior.Task) []WorkerInfo {
 	workers := make([]WorkerInfo, 0, len(tasks))
 	for _, t := range tasks {
 		info := WorkerInfo{Task: t}
-
 		if t.PRID == "" {
 			info.Status = StatusRunning
 		} else {
-			if checkPRMerged(t) {
-				info.Status = StatusCleanupNeeded
-			} else {
-				info.Status = StatusWithPR
-			}
+			info.Status = StatusWithPR
 		}
-
 		workers = append(workers, info)
 	}
 	return workers
-}
-
-func checkPRMerged(t taskwarrior.Task) bool {
-	if t.ProjectPath == "" {
-		return false
-	}
-
-	prID, err := strconv.ParseInt(t.PRID, 10, 64)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: invalid PR ID %q: %v\n", t.PRID, err)
-		return false
-	}
-
-	info, err := gitprovider.DetectProvider(t.ProjectPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not detect provider for %s: %v\n", t.ProjectPath, err)
-		return false
-	}
-
-	provider, err := gitprovider.NewProvider(info)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not create %s provider: %v\n", info.Provider, err)
-		return false
-	}
-
-	pr, err := provider.GetPR(info.Owner, info.Repo, prID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not check PR #%d for %s/%s: %v\n", prID, info.Owner, info.Repo, err)
-		return false
-	}
-	return pr.Merged
 }
 
 func printWorkerTable(workers []WorkerInfo) {
@@ -151,9 +108,6 @@ func printWorkerTable(workers []WorkerInfo) {
 	}
 	if n := counts[StatusWithPR]; n > 0 {
 		parts = append(parts, fmt.Sprintf("%d with PR", n))
-	}
-	if n := counts[StatusCleanupNeeded]; n > 0 {
-		parts = append(parts, fmt.Sprintf("%d need cleanup", n))
 	}
 	if len(parts) > 0 {
 		fmt.Printf(" (")
