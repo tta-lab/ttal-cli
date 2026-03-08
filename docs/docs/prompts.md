@@ -42,8 +42,8 @@ as all runtimes require skill invocations at the start of the message.
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `designer` | `ttal task design` / `ttal task route --to <agent>` | `{{task-id}}`, `{{skill:name}}` |
-| `researcher` | `ttal task research` / `ttal task route --to <agent>` | `{{task-id}}`, `{{skill:name}}` |
+| `designer` | `ttal task route --to <agent>` (agent with `role: designer`) | `{{task-id}}`, `{{skill:name}}` |
+| `researcher` | `ttal task route --to <agent>` (agent with `role: researcher`) | `{{task-id}}`, `{{skill:name}}` |
 | `execute` | `ttal task execute` | `{{task-id}}`, `{{skill:name}}` |
 | `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
@@ -59,13 +59,13 @@ Default: invokes the executing-plans skill to implement the task step by step.
 
 ### `designer`
 
-Controls what gets sent when you run `ttal task design <uuid>` or `ttal task route <uuid> --to <agent>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
+Controls what gets sent when you run `ttal task route <uuid> --to <agent>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
 
 Default: asks the agent to write a plan document and annotate the task with its path.
 
 ### `researcher`
 
-Controls what gets sent when you run `ttal task research <uuid>` or `ttal task route <uuid> --to <agent>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
+Controls what gets sent when you run `ttal task route <uuid> --to <agent>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
 
 Default: asks the agent to research the topic and annotate the task with the findings path.
 

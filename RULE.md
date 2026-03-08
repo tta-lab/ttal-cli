@@ -13,8 +13,7 @@ ttal task add --project <alias> "description" --tag <tag> --priority M --annotat
 ttal task get <uuid>                    # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
 ttal task find <keyword> --completed    # search completed tasks
-ttal task design <uuid>                 # route to design agent
-ttal task research <uuid>              # route to research agent
+ttal task route <uuid> --to <agent>    # route to a specific agent
 ttal task execute <uuid>               # spawn worker
 ```
 

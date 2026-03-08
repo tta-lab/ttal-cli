@@ -11,7 +11,7 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 - **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (tmux) communication via `ttal send`
 - **Tag-Based Routing**: Tag-based task routing to matching agents on task start
 - **Today Focus**: Manage daily task focus list via taskwarrior's `scheduled` date
-- **Task Routing**: Route tasks to design/research/test agents or spawn workers with `ttal task design|research|test|execute`
+- **Task Routing**: Route tasks to agents by name or role with `ttal task route --to <agent>`, or spawn workers with `ttal task execute`
 - **Task Utilities**: Search tasks and export rich prompts with inlined markdown context
 - **Voice**: Text-to-speech using per-agent Kokoro voices on Apple Silicon
 - **Daemon**: Communication hub — Telegram polling, message delivery, worker cleanup (launchd)
@@ -315,12 +315,6 @@ ttal task find <keyword> [keyword...]
 
 # Search completed tasks
 ttal task find <keyword> --completed
-
-# Route task to designer agent (writes implementation plan)
-ttal task design <uuid>
-
-# Route task to researcher agent (researches and writes findings)
-ttal task research <uuid>
 
 # Route task to a specific agent by name
 ttal task route <uuid> --to <agent-name>

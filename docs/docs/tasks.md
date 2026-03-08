@@ -32,12 +32,6 @@ Accepts 8-character UUID prefixes or full UUIDs.
 Route tasks to specialized agents based on what needs to happen:
 
 ```bash
-# Send to designer agent — writes an implementation plan
-ttal task design <uuid>
-
-# Send to researcher agent — investigates and writes findings
-ttal task research <uuid>
-
 # Route to a specific agent by name
 ttal task route <uuid> --to <agent-name>
 
@@ -52,13 +46,13 @@ Agents declare their role in CLAUDE.md frontmatter. The role maps to a `[prompts
 ```yaml
 # In agent's CLAUDE.md frontmatter:
 ---
-role: designer    # resolves via ttal task design
+role: designer
 ---
 ```
 
 ```yaml
 ---
-role: researcher  # resolves via ttal task research
+role: researcher
 ---
 ```
 
