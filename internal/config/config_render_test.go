@@ -84,6 +84,26 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 	}
 }
 
+func TestPromptWorkerKeysSkipRolesDefault(t *testing.T) {
+	cfg := &Config{
+		resolvedRoles: &RolesConfig{
+			Roles: map[string]string{
+				"default": "manager system prompt",
+			},
+		},
+	}
+	// Worker-plane keys must NOT inherit [default]
+	for _, key := range []string{"execute", "review", "re_review", "triage"} {
+		if got := cfg.Prompt(key); got != "" {
+			t.Errorf("Prompt(%q) = %q, want empty (must not inherit [default])", key, got)
+		}
+	}
+	// Manager-plane key MUST inherit [default]
+	if got := cfg.Prompt("designer"); got != "manager system prompt" {
+		t.Errorf("Prompt(\"designer\") = %q, want \"manager system prompt\"", got)
+	}
+}
+
 func TestPromptNoDefaults(t *testing.T) {
 	// Use a temp HOME dir so LoadRoles finds no roles.toml, making the test hermetic
 	// regardless of whether the developer has a real roles.toml installed.

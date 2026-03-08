@@ -355,6 +355,7 @@ func (c *Config) EmojiReactions() bool {
 
 // workerPromptKeys are worker-plane keys that must not inherit roles.toml[default].
 // The default manager-plane prompt must not bleed into worker prompts.
+// Keep in sync with PromptsConfig fields and the promptsMap in Prompt() below.
 var workerPromptKeys = map[string]bool{
 	"execute":   true,
 	"review":    true,
