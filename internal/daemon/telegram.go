@@ -296,6 +296,11 @@ func registerBotCommandsForAgent(
 			handleHelpCommand(botToken, chatIDStr, allCommands)
 		})
 
+	b.RegisterHandlerMatchFunc(matchCommand("usage"),
+		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
+			handleUsageCommand(botToken, chatIDStr)
+		})
+
 	b.RegisterHandlerMatchFunc(matchCommand("new"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			fullCmd := buildFullCommand("new", update.Message.Text)

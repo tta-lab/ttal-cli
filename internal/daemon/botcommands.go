@@ -35,6 +35,7 @@ type BotCommand struct {
 // registeredCommands is the canonical list of commands the bot understands.
 var registeredCommands = []BotCommand{
 	{Command: "status", Description: "Show agent context usage and stats"},
+	{Command: "usage", Description: "Show Claude API usage (5-hour and weekly limits)"},
 	{Command: "new", Description: "Start a new conversation (reset context)"},
 	{Command: "compact", Description: "Compact the current conversation context"},
 	{Command: "wait", Description: "Interrupt the agent (send Escape)"},

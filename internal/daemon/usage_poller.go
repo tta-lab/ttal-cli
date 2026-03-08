@@ -158,9 +158,9 @@ func fetchUsageFromAPI(token string) (*UsageData, error) {
 	}
 
 	return &UsageData{
-		SessionUsage:   pctPtr(raw.FiveHour.Utilization),
+		SessionUsage:   raw.FiveHour.Utilization,
 		SessionResetAt: raw.FiveHour.ResetsAt,
-		WeeklyUsage:    pctPtr(raw.SevenDay.Utilization),
+		WeeklyUsage:    raw.SevenDay.Utilization,
 		WeeklyResetAt:  raw.SevenDay.ResetsAt,
 	}, nil
 }
@@ -206,13 +206,4 @@ func pctOrZero(p *float64) float64 {
 		return 0
 	}
 	return *p
-}
-
-// pctPtr converts a 0.0–1.0 utilization fraction to a 0–100 percentage pointer.
-func pctPtr(p *float64) *float64 {
-	if p == nil {
-		return nil
-	}
-	v := *p * 100
-	return &v
 }
