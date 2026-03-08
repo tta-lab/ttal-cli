@@ -99,7 +99,7 @@ const helpText = `Key Bindings:
   o               Open terminal
   t               Toggle +next tag
   y               Copy task to clipboard
-  e               Open editor
+  e               Edit task (task edit)
 
   a               Add to today
   Ctrl+A          Remove from today

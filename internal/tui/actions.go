@@ -85,21 +85,12 @@ func openTerm(t *Task) tea.Cmd {
 }
 
 func openEditor(t *Task) tea.Cmd {
-	if t.ProjectPath == "" {
+	if t.UUID == "" {
 		return func() tea.Msg {
-			return actionResultMsg{err: fmt.Errorf("no project path for this task")}
+			return actionResultMsg{err: fmt.Errorf("task has no UUID")}
 		}
 	}
-	workDir := resolveWorkDir(t)
-	editor := os.Getenv("TT_EDITOR")
-	if editor == "" {
-		editor = os.Getenv("EDITOR")
-	}
-	if editor == "" {
-		editor = "vi"
-	}
-	c := exec.Command(editor, ".")
-	c.Dir = workDir
+	c := taskwarrior.Command(t.UUID, "edit")
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return execFinishedMsg{err: err}
 	})
