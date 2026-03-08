@@ -192,7 +192,7 @@ var taskDesignCmd = &cobra.Command{
 		uuid := args[0]
 		rt := cfg.AgentRuntimeFor(agent)
 		prompt := cfg.RenderPrompt("designer", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task designer", prompt)
+		return routeTaskToAgent(agent, uuid, "task designer", prompt, routeMessage)
 	},
 }
 
@@ -213,7 +213,7 @@ var taskResearchCmd = &cobra.Command{
 		uuid := args[0]
 		rt := cfg.AgentRuntimeFor(agent)
 		prompt := cfg.RenderPrompt("researcher", uuid, rt)
-		return routeTaskToAgent(agent, uuid, "task researcher", prompt)
+		return routeTaskToAgent(agent, uuid, "task researcher", prompt, routeMessage)
 	},
 }
 
@@ -309,4 +309,7 @@ func init() {
 	taskAddCmd.Flags().StringArrayVar(&taskAddTags, "tag", nil, "Add tag (repeatable, e.g. --tag bug --tag urgent)")
 	taskAddCmd.Flags().StringVar(&taskAddPriority, "priority", "", "Task priority (H, M, or L)")
 	taskAddCmd.Flags().StringArrayVar(&taskAddAnnotations, "annotate", nil, "Add annotation (repeatable)")
+
+	taskDesignCmd.Flags().StringVar(&routeMessage, "message", "", "Optional context appended to the routing prompt")
+	taskResearchCmd.Flags().StringVar(&routeMessage, "message", "", "Optional context appended to the routing prompt")
 }
