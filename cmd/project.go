@@ -86,10 +86,7 @@ Examples:
 			return nil
 		}
 
-		dimColor := lipgloss.Color("241")
-		headerStyle := lipgloss.NewStyle().Bold(true).Padding(0, 1)
-		cellStyle := lipgloss.NewStyle().Padding(0, 1)
-		dimStyle := cellStyle.Foreground(dimColor)
+		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
 		rows := make([][]string, 0, len(projects))
 		for _, p := range projects {

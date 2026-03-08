@@ -34,14 +34,6 @@ func (t task) ShortUUID() string {
 	return t.UUID
 }
 
-// Table styles
-var (
-	dimColor    = lipgloss.Color("241")
-	headerStyle = lipgloss.NewStyle().Bold(true).Padding(0, 1)
-	cellStyle   = lipgloss.NewStyle().Padding(0, 1)
-	dimStyle    = cellStyle.Foreground(dimColor)
-)
-
 // List shows pending tasks scheduled for today or earlier, sorted by urgency.
 func List() error {
 	out, err := taskwarrior.Command("status:pending", "export").Output()
@@ -77,6 +69,8 @@ func List() error {
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].Urgency > filtered[j].Urgency
 	})
+
+	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
 	rows := make([][]string, 0, len(filtered))
 	for _, t := range filtered {
@@ -140,6 +134,8 @@ func Completed() error {
 	sort.Slice(tasks, func(i, j int) bool {
 		return tasks[i].End > tasks[j].End
 	})
+
+	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
 	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {

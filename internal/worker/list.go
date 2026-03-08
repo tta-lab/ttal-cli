@@ -9,6 +9,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -167,10 +168,7 @@ func printWorkerTable(workers []WorkerInfo) {
 	fmt.Println()
 	fmt.Println()
 
-	dimColor := lipgloss.Color("241")
-	headerStyle := lipgloss.NewStyle().Bold(true).Padding(0, 1)
-	cellStyle := lipgloss.NewStyle().Padding(0, 1)
-	dimStyle := cellStyle.Foreground(dimColor)
+	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
 	rows := make([][]string, 0, len(workers))
 	for _, info := range workers {
