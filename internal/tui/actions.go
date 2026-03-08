@@ -85,6 +85,11 @@ func openTerm(t *Task) tea.Cmd {
 }
 
 func openEditor(t *Task) tea.Cmd {
+	if t.UUID == "" {
+		return func() tea.Msg {
+			return actionResultMsg{err: fmt.Errorf("task has no UUID")}
+		}
+	}
 	c := taskwarrior.Command(t.UUID, "edit")
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return execFinishedMsg{err: err}
