@@ -182,6 +182,8 @@ type AgentConfig struct {
 	Model string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// Heartbeat interval for this agent (e.g. "30m"). Empty means no heartbeat.
 	HeartbeatInterval string `toml:"heartbeat_interval"`
+	// Default flicknote project for this agent. Injected as $FLICKNOTE_PROJECT at session startup.
+	FlicknoteProject string `toml:"flicknote_project"`
 }
 
 // AgentRuntimeFor returns the effective runtime for an agent:

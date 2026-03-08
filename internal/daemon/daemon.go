@@ -416,6 +416,9 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
+	if ta, ok := mcfg.FindAgentInTeam(teamName, agentName); ok && ta.Config.FlicknoteProject != "" {
+		env = append(env, fmt.Sprintf("FLICKNOTE_PROJECT=%s", ta.Config.FlicknoteProject))
+	}
 
 	// Inject all secrets from .env
 	env = append(env, config.DotEnvParts()...)
