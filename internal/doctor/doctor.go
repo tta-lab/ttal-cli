@@ -761,7 +761,9 @@ func checkCCIntegration(fix bool) Section {
 		}
 		initial := map[string]interface{}{
 			"statusLine": map[string]interface{}{
+				"type":    "command",
 				"command": "ttal statusline",
+				"padding": 0,
 			},
 		}
 		if err := writeSettingsJSON(settingsPath, initial); err != nil {
@@ -769,7 +771,7 @@ func checkCCIntegration(fix bool) Section {
 				fmt.Sprintf("could not create settings.json: %v", err))
 		} else {
 			section.add(LevelOK, "statusline",
-				"created ~/.claude/settings.json with statusLine.command = ttal statusline")
+				"created ~/.claude/settings.json with statusLine (type: command, command: ttal statusline)")
 		}
 		return section
 	}
@@ -781,7 +783,7 @@ func checkCCIntegration(fix bool) Section {
 
 	if !fix {
 		section.add(LevelWarn, "statusline",
-			"statusLine.command not set — run: ttal doctor --fix")
+			"statusLine not properly configured — run: ttal doctor --fix")
 		return section
 	}
 
@@ -797,7 +799,9 @@ func checkCCIntegration(fix bool) Section {
 	if !ok {
 		statusLine = map[string]interface{}{}
 	}
+	statusLine["type"] = "command"
 	statusLine["command"] = "ttal statusline"
+	statusLine["padding"] = 0
 	settings["statusLine"] = statusLine
 
 	if err := writeSettingsJSON(settingsPath, settings); err != nil {
@@ -805,7 +809,7 @@ func checkCCIntegration(fix bool) Section {
 			fmt.Sprintf("could not update settings.json: %v", err))
 	} else {
 		section.add(LevelOK, "statusline",
-			"set statusLine.command = ttal statusline in ~/.claude/settings.json")
+			"set statusLine in ~/.claude/settings.json (type: command, command: ttal statusline, padding: 0)")
 	}
 
 	return section
