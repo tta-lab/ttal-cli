@@ -53,6 +53,8 @@ func startUsagePoller(done <-chan struct{}) {
 	// Try to warm cache from disk on startup
 	if d, err := readUsageDiskCache(); err == nil {
 		setUsageCache(d)
+	} else if !os.IsNotExist(err) {
+		log.Printf("[usage] ignoring bad disk cache: %v", err)
 	}
 
 	go func() {
@@ -129,7 +131,10 @@ func fetchUsageFromAPI(token string) (*UsageData, error) {
 		return nil, fmt.Errorf("api: %w", err)
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
 
 	if resp.StatusCode == 429 {
 		return nil, fmt.Errorf("rate limited (429)")
@@ -153,9 +158,9 @@ func fetchUsageFromAPI(token string) (*UsageData, error) {
 	}
 
 	return &UsageData{
-		SessionUsage:   raw.FiveHour.Utilization,
+		SessionUsage:   pctPtr(raw.FiveHour.Utilization),
 		SessionResetAt: raw.FiveHour.ResetsAt,
-		WeeklyUsage:    raw.SevenDay.Utilization,
+		WeeklyUsage:    pctPtr(raw.SevenDay.Utilization),
 		WeeklyResetAt:  raw.SevenDay.ResetsAt,
 	}, nil
 }
@@ -201,4 +206,13 @@ func pctOrZero(p *float64) float64 {
 		return 0
 	}
 	return *p
+}
+
+// pctPtr converts a 0.0–1.0 utilization fraction to a 0–100 percentage pointer.
+func pctPtr(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	v := *p * 100
+	return &v
 }
