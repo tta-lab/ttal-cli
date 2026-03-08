@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/format"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -101,10 +102,7 @@ Examples:
 			return tasks[i].ID < tasks[j].ID
 		})
 
-		dimColor := lipgloss.Color("241")
-		headerStyle := lipgloss.NewStyle().Bold(true).Padding(0, 1)
-		cellStyle := lipgloss.NewStyle().Padding(0, 1)
-		dimStyle := cellStyle.Foreground(dimColor)
+		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
 		var rows [][]string
 		for _, t := range tasks {
