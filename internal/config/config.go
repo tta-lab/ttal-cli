@@ -353,16 +353,27 @@ func (c *Config) EmojiReactions() bool {
 	return c.resolvedEmojiReactions
 }
 
+// workerPromptKeys are worker-plane keys that must not inherit roles.toml[default].
+// The default manager-plane prompt must not bleed into worker prompts.
+var workerPromptKeys = map[string]bool{
+	"execute":   true,
+	"review":    true,
+	"re_review": true,
+	"triage":    true,
+}
+
 // Prompt returns the prompt template for a given key.
 // Priority: roles.toml[key] > roles.toml[default] > config.toml[prompts]
+// Worker-plane keys (execute, review, re_review, triage) skip roles.toml[default]
+// to prevent manager-plane prompts bleeding into worker sessions.
 func (c *Config) Prompt(key string) string {
 	roles := c.resolvedRoles
 	if roles != nil && roles.Roles != nil {
 		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
 			return prompt
 		}
-		// Fall back to default prompt if key not found
-		if key != "default" {
+		// Fall back to default prompt if key not found, but skip for worker-plane keys
+		if key != "default" && !workerPromptKeys[key] {
 			if prompt, ok := roles.Roles["default"]; ok && prompt != "" {
 				return prompt
 			}
