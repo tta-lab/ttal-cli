@@ -10,21 +10,42 @@ func TestApplyFilterPendingExcludesActiveTasks(t *testing.T) {
 	m := Model{
 		filter: filterPending,
 		tasks: []Task{
-			{Task: taskwarrior.Task{ID: 1, UUID: "aaa"}},
-			{Task: taskwarrior.Task{ID: 2, UUID: "bbb", Start: "20260101T100000Z"}},
-			{Task: taskwarrior.Task{ID: 3, UUID: "ccc"}},
+			{Task: taskwarrior.Task{ID: 1, UUID: "aa000001"}},
+			{Task: taskwarrior.Task{ID: 2, UUID: "bb000002", Start: "20260101T100000Z"}},
+			{Task: taskwarrior.Task{ID: 3, UUID: "cc000003"}},
+			// scheduled in the past but not active — should remain in pending
+			{Task: taskwarrior.Task{ID: 4, UUID: "dd000004"}, Scheduled: "20200101T000000Z"},
 		},
 		height: 20,
 	}
 	m.applyFilter()
 
-	if len(m.filtered) != 2 {
-		t.Fatalf("expected 2 tasks (active excluded), got %d", len(m.filtered))
+	if len(m.filtered) != 3 {
+		t.Fatalf("expected 3 tasks (active excluded, today-scheduled included), got %d", len(m.filtered))
 	}
 	for _, task := range m.filtered {
 		if task.Start != "" {
 			t.Errorf("active task (Start=%q) should be excluded from pending filter", task.Start)
 		}
+	}
+}
+
+func TestApplyFilterPendingAllActive(t *testing.T) {
+	m := Model{
+		filter: filterPending,
+		tasks: []Task{
+			{Task: taskwarrior.Task{ID: 1, UUID: "aa000001", Start: "20260101T100000Z"}},
+			{Task: taskwarrior.Task{ID: 2, UUID: "bb000002", Start: "20260101T110000Z"}},
+		},
+		height: 20,
+	}
+	m.applyFilter()
+
+	if len(m.filtered) != 0 {
+		t.Fatalf("expected 0 tasks (all active), got %d", len(m.filtered))
+	}
+	if m.cursor != 0 {
+		t.Errorf("cursor should clamp to 0 on empty list, got %d", m.cursor)
 	}
 }
 
