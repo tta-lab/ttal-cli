@@ -207,17 +207,8 @@ Worker commands manage Claude Code instances running in isolated tmux sessions, 
 # List active workers
 ttal worker list
 
-# Spawn a new worker
-ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
-
-# Spawn with brainstorming mode (explores design before implementing)
-ttal worker spawn --name design-api --project ~/code/myapp --task <uuid> --brainstorm
-
-# Spawn without worktree (work directly in project directory)
-ttal worker spawn --name hotfix --project ~/code/myapp --task <uuid> --worktree=false
-
-# Force respawn (close existing session)
-ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid> --force
+# Spawn a worker for a task
+ttal task execute <uuid>
 
 # Close a worker (smart mode - auto-cleanup if PR merged + clean worktree)
 ttal worker close <session-name>
@@ -225,19 +216,6 @@ ttal worker close <session-name>
 # Force close (dump state and cleanup regardless of PR status)
 ttal worker close <session-name> --force
 ```
-
-#### Spawn Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | (required) | Worker name, used for branch and worktree naming |
-| `--project` | (required) | Project directory path |
-| `--task` | (required) | Taskwarrior task UUID |
-| `--session` | from task UUID | tmux session name (auto-derived) |
-| `--worktree` | `true` | Create git worktree for isolation |
-| `--force` | `false` | Force respawn (close existing session) |
-| `--yolo` | `true` | Skip Claude Code permission prompts |
-| `--brainstorm` | `false` | Use brainstorming skill before implementation |
 
 #### Close Exit Codes
 
@@ -269,7 +247,7 @@ Tasks go through three hook-driven stages:
 
 **1. on-add: Auto-enrichment** — When a task is created, the on-add hook checks if its tags already match a registered agent. If not, it forks a background `claude -p --model haiku` process to enrich the task with `project_path` and `branch` UDAs.
 
-**2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal worker spawn` to create a tmux session with a git worktree.
+**2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal task execute` to create a tmux session with a git worktree.
 
 **3. on-modify (complete): Auto-cleanup** — When a task is completed, the hook closes the worker session, auto-cleans if the PR is merged and the worktree is clean, or notifies the lifecycle agent if manual cleanup is needed.
 
@@ -563,7 +541,7 @@ When building ttal-cli, use the following commit format:
 ```
 ttal: [category] description
 
-Example: ttal: impl - add worker spawn
+Example: ttal: impl - add worker execute
          ttal: refactor - optimize tag queries
 ```
 

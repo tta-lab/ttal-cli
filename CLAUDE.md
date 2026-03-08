@@ -97,7 +97,7 @@ cmd/             - CLI commands (cobra)
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
   ├── pr.go      - ttal pr create/modify/merge/comment
-  ├── worker.go  - ttal worker spawn/close/list
+  ├── worker.go  - ttal worker close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
   ├── task.go    - ttal task get/find (taskwarrior queries)
   └── task_route.go - ttal task route/execute (routing + spawn)
