@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	usagePollInterval = 3 * time.Minute
+	usagePollInterval = 30 * time.Minute
 	usageAPIURL       = "https://api.anthropic.com/api/oauth/usage"
 	usageAPITimeout   = 5 * time.Second
 )
@@ -48,7 +48,7 @@ func setUsageCache(d *UsageData) {
 	usageMu.Unlock()
 }
 
-// startUsagePoller fetches usage immediately then polls every 3 minutes.
+// startUsagePoller fetches usage immediately then polls every 30 minutes.
 func startUsagePoller(done <-chan struct{}) {
 	// Try to warm cache from disk on startup
 	if d, err := readUsageDiskCache(); err == nil {
