@@ -2,7 +2,31 @@ package tui
 
 import (
 	"testing"
+
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
+
+func TestApplyFilterPendingExcludesActiveTasks(t *testing.T) {
+	m := Model{
+		filter: filterPending,
+		tasks: []Task{
+			{Task: taskwarrior.Task{ID: 1, UUID: "aaa"}},
+			{Task: taskwarrior.Task{ID: 2, UUID: "bbb", Start: "20260101T100000Z"}},
+			{Task: taskwarrior.Task{ID: 3, UUID: "ccc"}},
+		},
+		height: 20,
+	}
+	m.applyFilter()
+
+	if len(m.filtered) != 2 {
+		t.Fatalf("expected 2 tasks (active excluded), got %d", len(m.filtered))
+	}
+	for _, task := range m.filtered {
+		if task.Start != "" {
+			t.Errorf("active task (Start=%q) should be excluded from pending filter", task.Start)
+		}
+	}
+}
 
 func TestSearchInputStartsEmpty(t *testing.T) {
 	m := NewModel()

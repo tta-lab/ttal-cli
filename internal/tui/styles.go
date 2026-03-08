@@ -3,13 +3,14 @@ package tui
 import "charm.land/lipgloss/v2"
 
 var (
-	colorDim    = lipgloss.Color("241")
-	colorAccent = lipgloss.Color("99")
-	colorRed    = lipgloss.Color("196")
-	colorYellow = lipgloss.Color("220")
-	colorGreen  = lipgloss.Color("78")
-	colorCyan   = lipgloss.Color("86")
-	colorSubtle = lipgloss.Color("245")
+	colorDim     = lipgloss.Color("241")
+	colorAccent  = lipgloss.Color("99")
+	colorRed     = lipgloss.Color("196")
+	colorYellow  = lipgloss.Color("220")
+	colorGreen   = lipgloss.Color("78")
+	colorCyan    = lipgloss.Color("86")
+	colorSubtle  = lipgloss.Color("245")
+	colorTodayBg = lipgloss.Color("22")
 
 	styleTitle = lipgloss.NewStyle().
 			Bold(true).
@@ -40,6 +41,9 @@ var (
 
 	styleHelp = lipgloss.NewStyle().
 			Foreground(colorDim)
+
+	styleToday = lipgloss.NewStyle().
+			Background(colorTodayBg)
 )
 
 func priorityStyle(p string) lipgloss.Style {

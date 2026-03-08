@@ -94,6 +94,8 @@ func (m Model) viewTaskList() string {
 
 			if t.Start != "" {
 				line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
+			} else if t.IsToday() {
+				line = styleToday.Render(line)
 			}
 		}
 
