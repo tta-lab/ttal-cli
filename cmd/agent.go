@@ -5,11 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/license"
 	"github.com/tta-lab/ttal-cli/internal/voice"
 )
@@ -132,17 +134,37 @@ var agentListCmd = &cobra.Command{
 			return nil
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tROLE\tDESCRIPTION")
+		dimColor := lipgloss.Color("241")
+		headerStyle := lipgloss.NewStyle().Bold(true).Padding(0, 1)
+		cellStyle := lipgloss.NewStyle().Padding(0, 1)
+		dimStyle := cellStyle.Foreground(dimColor)
+
+		rows := make([][]string, 0, len(agents))
 		for _, a := range agents {
 			name := a.Name
 			if a.Emoji != "" {
 				name = a.Emoji + " " + a.Name
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", name, a.Role, a.Description)
+			rows = append(rows, []string{name, a.Role, a.Description})
 		}
-		_ = w.Flush()
 
+		tbl := table.New().
+			Border(lipgloss.RoundedBorder()).
+			BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
+			StyleFunc(func(row, col int) lipgloss.Style {
+				if row == table.HeaderRow {
+					return headerStyle
+				}
+				if col == 0 {
+					return dimStyle
+				}
+				return cellStyle
+			}).
+			Headers("NAME", "ROLE", "DESCRIPTION").
+			Rows(rows...)
+
+		fmt.Println(tbl)
+		fmt.Printf("\n%d %s\n", len(agents), format.Plural(len(agents), "agent", "agents"))
 		return nil
 	},
 }

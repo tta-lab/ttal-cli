@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"text/tabwriter"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -166,9 +167,12 @@ func printWorkerTable(workers []WorkerInfo) {
 	fmt.Println()
 	fmt.Println()
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "SESSION\tSTATUS\tPR\tBRANCH\tPROJECT\tTASK")
+	dimColor := lipgloss.Color("241")
+	headerStyle := lipgloss.NewStyle().Bold(true).Padding(0, 1)
+	cellStyle := lipgloss.NewStyle().Padding(0, 1)
+	dimStyle := cellStyle.Foreground(dimColor)
 
+	rows := make([][]string, 0, len(workers))
 	for _, info := range workers {
 		t := info.Task
 
@@ -192,9 +196,25 @@ func printWorkerTable(workers []WorkerInfo) {
 			desc = desc[:57] + "..."
 		}
 
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			t.SessionName(), info.Status, pr, branch, project, desc)
+		rows = append(rows, []string{t.SessionName(), info.Status.String(), pr, branch, project, desc})
 	}
 
-	_ = w.Flush()
+	tbl := table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return headerStyle
+			}
+			switch col {
+			case 0, 1, 2:
+				return dimStyle
+			default:
+				return cellStyle
+			}
+		}).
+		Headers("SESSION", "STATUS", "PR", "BRANCH", "PROJECT", "TASK").
+		Rows(rows...)
+
+	fmt.Println(tbl)
 }
