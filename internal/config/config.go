@@ -744,6 +744,13 @@ func LoadAll() (*DaemonConfig, error) {
 		Teams:  make(map[string]*ResolvedTeam),
 	}
 
+	// Cache roles at load time so HeartbeatPrompt() doesn't re-read roles.toml on every call.
+	roles, err := LoadRoles()
+	if err != nil {
+		return nil, fmt.Errorf("roles.toml: %w", err)
+	}
+	cfg.resolvedRoles = roles
+
 	for teamName, team := range cfg.Teams {
 		rt, err := resolveTeam(teamName, team, &cfg.Voice, cfg.Teams)
 		if err != nil {

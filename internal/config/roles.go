@@ -19,15 +19,18 @@ func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 	r.HeartbeatPrompts = make(map[string]string)
 	if m, ok := data.(map[string]interface{}); ok {
 		for role, v := range m {
-			if section, ok := v.(map[string]interface{}); ok {
-				if p, ok := section["prompt"].(string); ok {
-					r.Roles[role] = p
-				} else {
-					log.Printf("warning: roles.toml: role [%s] has no valid 'prompt' key, skipping", role)
-				}
-				if hp, ok := section["heartbeat_prompt"].(string); ok && hp != "" {
-					r.HeartbeatPrompts[role] = hp
-				}
+			section, ok := v.(map[string]interface{})
+			if !ok {
+				log.Printf("warning: roles.toml: role [%s] has unexpected type %T, skipping", role, v)
+				continue
+			}
+			if p, ok := section["prompt"].(string); ok {
+				r.Roles[role] = p
+			} else {
+				log.Printf("warning: roles.toml: role [%s] has no valid 'prompt' key, skipping", role)
+			}
+			if hp, ok := section["heartbeat_prompt"].(string); ok && hp != "" {
+				r.HeartbeatPrompts[role] = hp
 			}
 		}
 	}
