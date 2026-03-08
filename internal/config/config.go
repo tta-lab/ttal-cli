@@ -180,6 +180,8 @@ type AgentConfig struct {
 	Runtime string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
 	// Claude model tier (falls back to team agent_model, then sonnet)
 	Model string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
+	// Heartbeat interval for this agent (e.g. "30m"). Empty means no heartbeat.
+	HeartbeatInterval string `toml:"heartbeat_interval"`
 }
 
 // AgentRuntimeFor returns the effective runtime for an agent:
