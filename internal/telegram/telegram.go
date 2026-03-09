@@ -98,6 +98,15 @@ func ToolEmoji(toolName string) string {
 		return "🔥"
 	case "AskUserQuestion":
 		return ""
+
+	// CLI-specific refinements (from Bash input parsing)
+	case "ttal:send", "ttal:route":
+		return "🕊"
+	case "flicknote:write":
+		return "✍"
+	case "flicknote:read":
+		return "👀"
+
 	default:
 		return "🔥"
 	}
