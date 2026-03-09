@@ -1,9 +1,9 @@
-// Package scaffold applies workspace templates from the ttal-templates repository.
+// Package scaffold applies workspace templates to bootstrap new agent workspaces.
 //
-// It clones or updates a local cache of the templates repo, lists available
-// scaffolds by inspecting their README metadata, and copies a chosen scaffold
-// (plus the shared docs/ directory) into a target workspace directory. Used by
-// the CLI's init/scaffold commands to bootstrap new agent workspaces.
+// Templates live in the templates/ directory of the ttal-cli repo. When running
+// from a cloned repo, FindTemplatesDir resolves templates locally — no network
+// needed. For brew-installed users, it falls back to a cached clone of the remote
+// templates repo. Used by the CLI's init/onboard commands.
 //
 // Plane: shared
 package scaffold

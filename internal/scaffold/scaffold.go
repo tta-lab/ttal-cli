@@ -10,7 +10,9 @@ import (
 	"strings"
 )
 
-const TemplatesRepo = "https://github.com/tta-lab/ttal-templates.git"
+// TemplatesRepo is the remote fallback for brew-installed users who don't have
+// a local templates/ directory. FindTemplatesDir prefers local templates/ first.
+const TemplatesRepo = "https://github.com/tta-lab/ttal-cli.git"
 
 // ScaffoldInfo holds metadata parsed from a scaffold's README.md.
 type ScaffoldInfo struct {
@@ -231,14 +233,15 @@ func gitRoot() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// EnsureCache clones or updates the templates repo cache.
-// Returns the cache directory path.
+// EnsureCache clones or updates the ttal-cli repo cache and returns the
+// path to its templates/ subdirectory.
 func EnsureCache() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	cacheDir := filepath.Join(home, ".cache", "ttal", "templates")
+	// Clone the full repo; templates live in templates/ subdir.
+	cacheDir := filepath.Join(home, ".cache", "ttal", "repo")
 
 	if _, err := os.Stat(filepath.Join(cacheDir, ".git")); err == nil {
 		cmd := exec.Command("git", "-C", cacheDir, "pull", "--ff-only", "-q")
@@ -246,7 +249,7 @@ func EnsureCache() (string, error) {
 			fmt.Fprintf(os.Stderr, "  ! Could not update templates cache (using cached): %s\n",
 				strings.TrimSpace(string(out)))
 		}
-		return cacheDir, nil
+		return filepath.Join(cacheDir, "templates"), nil
 	}
 
 	if err := os.MkdirAll(filepath.Dir(cacheDir), 0o755); err != nil {
@@ -256,7 +259,7 @@ func EnsureCache() (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("git clone %s: %w", TemplatesRepo, err)
 	}
-	return cacheDir, nil
+	return filepath.Join(cacheDir, "templates"), nil
 }
 
 // copyDir recursively copies a directory tree, skipping dot-directories.
