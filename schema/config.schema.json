@@ -49,29 +49,6 @@
       "type": "object",
       "description": "Paths for subagent and skill deployment"
     },
-    "prompts": {
-      "properties": {
-        "execute": {
-          "type": "string",
-          "description": "Prompt prefix for worker spawn"
-        },
-        "triage": {
-          "type": "string",
-          "description": "Prompt sent to coder after PR review. Supports {{review-file}}"
-        },
-        "review": {
-          "type": "string",
-          "description": "Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"
-        },
-        "re_review": {
-          "type": "string",
-          "description": "Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "Prompt templates for task routing"
-    },
     "flicknote": {
       "properties": {
         "inline_projects": {
