@@ -1,5 +1,5 @@
 ---
-title: "Day 1: The Dream Setup"
+title: "The Dream Setup"
 description: Why Taskwarrior is the secret sauce that connects human intent to autonomous agents
 ---
 
@@ -174,34 +174,23 @@ This changes how you work. When context is complete in the annotations:
 
 The task becomes the **single source of truth**. Agents read it, humans read it, everyone stays aligned without chat threads scattered across Slack, email, and docs.
 
-## The Glue: OpenClaw
+## The Glue: ttal
 
-This is where [OpenClaw](https://github.com/openclaw/openclaw) comes in. It's a multi-channel AI assistant platform that connects messaging apps (WhatsApp, Telegram, Slack, Discord) to AI agents—but more importantly for us, it has the automation primitives we need:
+This is where [ttal](https://github.com/tta-lab/ttal-cli) comes in.
 
-- **Webhooks** that Taskwarrior hooks can call
-- **Lobster workflows** for multi-step orchestration with approval gates
-- **Cron jobs** for scheduled task reviews
-- **Session management** for maintaining context across conversations
+ttal is the orchestration layer between Taskwarrior and agent execution. When a hook fires, ttal's daemon decides what to do: enrich the task with project context, spawn a worker in an isolated tmux session and git worktree, or route a message to the right agent via Telegram.
 
-The pattern becomes:
+The pattern:
 
-1. [Taskwarrior](https://taskwarrior.org/) hook fires → calls OpenClaw webhook
-2. OpenClaw spawns an agent session with task context
-3. Agent works in [Zellij](https://zellij.dev/) with [Claude Code](https://claude.com/product/claude-code)
-4. On completion, webhook fires again → cleanup
+```
+task start → on-modify hook → ttal daemon → spawn worker in tmux
+task done  → ttal daemon → close session, remove worktree, mark done
+```
 
-The architecture isn't locked to any specific tool. Swap Claude Code for opencode, aider, or crush—[Zellij](https://zellij.dev/) sessions don't care what CLI runs inside them. Desktop apps—browser automation, Excel, PowerPoint—can plug into the same webhook system alongside terminal-based agents.
-
-The details will come in future posts. The key insight is: [Taskwarrior](https://taskwarrior.org/)'s hook system provides the events, OpenClaw provides the orchestration layer.
+Any coding agent runtime works inside the tmux session — Claude Code, OpenCode, or Codex CLI. The orchestration layer doesn't care what's running inside; it just handles the lifecycle.
 
 ## What's Next
 
-In [Day 2: OpenClaw Overview](/blog/day-2-openclaw-overview), we'll look at the orchestration layer—webhooks, Lobster workflows, and how external events trigger agent sessions.
+[The Glue Layer](/blog/the-glue-layer) covers how ttal evolved from a collection of scripts into a local-first daemon — and why you don't need a cloud platform to run an autonomous agent team.
 
 For now, the takeaway: if you want autonomous workflows, you need structured task data with an event system. Taskwarrior has been quietly doing this for years.
-
----
-
-**Guide series:**
-1. Day 1: The Dream Setup (you are here)
-2. [Day 2: OpenClaw Overview](/blog/day-2-openclaw-overview)
