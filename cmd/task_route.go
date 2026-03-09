@@ -85,6 +85,10 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 		return err
 	}
 
+	if task.Status == "completed" {
+		return fmt.Errorf("cannot route completed task %s", taskUUID)
+	}
+
 	uuid := task.UUID
 	if len(uuid) > 8 {
 		uuid = uuid[:8]
