@@ -242,19 +242,24 @@ Examples:
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
 
 		// Determine if this comment signals LGTM (reviewer only)
-		lgtmFlag, _ := cmd.Flags().GetBool("lgtm")
+		lgtmFlag, err := cmd.Flags().GetBool("lgtm")
+		if err != nil {
+			return fmt.Errorf("internal: --lgtm flag: %w", err)
+		}
 		role := tmux.Role()
 		isReviewer := role == "reviewer"
 
 		if isReviewer {
-			bodyLGTM := strings.Contains(strings.ToUpper(body), "LGTM") ||
-				strings.Contains(strings.ToUpper(body), "LOOKS GOOD")
+			bodyLGTM := isLGTMBody(body)
 			if lgtmFlag || bodyLGTM {
 				if err := taskwarrior.SetPRLGTM(ctx.Task.UUID); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: failed to set LGTM on task: %v\n", err)
-				} else {
-					fmt.Println("  ✓ PR approved (pr_id updated with :lgtm)")
+					return fmt.Errorf(
+						"comment posted but LGTM gate not set: %w\n"+
+							"  Retry: ttal pr comment create --lgtm \"approved\"",
+						err,
+					)
 				}
+				fmt.Println("  ✓ PR approved (pr_id updated with :lgtm)")
 			}
 		}
 		if lgtmFlag && !isReviewer {
@@ -436,6 +441,13 @@ func loadConfigAndCoderRuntime() (*config.Config, runtime.Runtime) {
 		cfg = &config.Config{}
 	}
 	return cfg, resolveCoderRuntime()
+}
+
+// isLGTMBody returns true if the comment body signals reviewer approval.
+// Matches "LGTM" or "LOOKS GOOD" case-insensitively anywhere in the body.
+func isLGTMBody(body string) bool {
+	upper := strings.ToUpper(body)
+	return strings.Contains(upper, "LGTM") || strings.Contains(upper, "LOOKS GOOD")
 }
 
 func init() {
