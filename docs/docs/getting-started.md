@@ -83,10 +83,8 @@ Onboarding walks through:
 ### Register a project
 
 ```bash
-ttal project add myapp --path=/path/to/project +backend
+ttal project add myapp --path=/path/to/project
 ```
-
-Agents with matching tags can see and work on this project.
 
 ### Start the daemon
 

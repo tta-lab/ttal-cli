@@ -115,7 +115,7 @@ Look up your own or another agent's details:
 ttal agent info <name>
 ```
 
-Returns: name, path, voice, tags, creation date, and matching projects.
+Returns: name, path, voice, role, and description.
 
 ## Project Info
 
@@ -123,7 +123,7 @@ Look up project details:
 
 ```bash
 ttal project list              # list all active projects
-ttal project info <alias>      # project details (path, repo, tags)
+ttal project info <alias>      # project details (path, repo)
 ```
 
 ## Today Focus
@@ -159,15 +159,6 @@ ttal task find <keyword> --completed  # search completed tasks
 
 `ttal task get` inlines markdown files from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns — useful for feeding full context to agents.
 
-## Tag-Based Routing
-
-Agents and projects share tags. An agent can see projects that share at least one tag:
-
-```bash
-ttal agent info yuki           # shows matching projects based on shared tags
-ttal agent list +research      # list agents with the research tag
-ttal project list +core        # list projects with the core tag
-```
 
 ## Available Voices
 
