@@ -16,7 +16,7 @@ type SkillResult struct {
 	CodexDest string // Codex destination (~/.codex/skills/)
 }
 
-// DeploySkills symlinks skill directories (those containing SKILL.md) to
+// DeploySkills copies skill directories (those containing SKILL.md) to
 // ~/.claude/skills/ (CC + OpenCode) and ~/.codex/skills/ (Codex).
 func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	home, err := os.UserHomeDir()
@@ -85,10 +85,10 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 			continue
 		}
 
-		if err := symlinkSkill(skillDir, ccDest); err != nil {
+		if err := copySkillDir(skillDir, ccDest); err != nil {
 			return nil, err
 		}
-		if err := symlinkSkill(skillDir, codexDest); err != nil {
+		if err := copySkillDir(skillDir, codexDest); err != nil {
 			return nil, err
 		}
 	}
@@ -96,33 +96,62 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 	return results, nil
 }
 
-func symlinkSkill(src, dest string) error {
+// copySkillDir recursively copies a skill directory to dest.
+// If dest exists, it is removed first to ensure a clean copy.
+func copySkillDir(src, dest string) error {
+	// Remove existing (symlink or directory)
 	if info, err := os.Lstat(dest); err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			if err := os.Remove(dest); err != nil {
 				return fmt.Errorf("removing existing symlink %s: %w", dest, err)
 			}
 		} else if info.IsDir() {
-			fmt.Fprintf(os.Stderr, "warning: %s is a real directory, skipping\n", dest)
-			return nil
+			if err := os.RemoveAll(dest); err != nil {
+				return fmt.Errorf("removing existing dir %s: %w", dest, err)
+			}
 		}
 	}
+	return copyDir(src, dest)
+}
 
-	if err := os.Symlink(src, dest); err != nil {
-		return fmt.Errorf("creating symlink %s → %s: %w", dest, src, err)
+// copyDir recursively copies src directory to dest.
+func copyDir(src, dest string) error {
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		destPath := filepath.Join(dest, entry.Name())
+		if entry.IsDir() {
+			if err := copyDir(srcPath, destPath); err != nil {
+				return err
+			}
+		} else {
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(destPath, data, 0o644); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
-// CleanSkills removes symlinks in ~/.claude/skills/ and ~/.codex/skills/ that
-// point to directories no longer present in any skills_paths source.
+// CleanSkills removes directories in ~/.claude/skills/ and ~/.codex/skills/ that
+// no longer correspond to any skill in any skills_paths source.
 func CleanSkills(skillsPaths []string, dryRun bool) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	validSources, err := collectValidSkillSources(skillsPaths)
+	validNames, err := collectValidSkillNames(skillsPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -143,14 +172,14 @@ func CleanSkills(skillsPaths []string, dryRun bool) ([]string, error) {
 		}
 
 		for _, entry := range entries {
-			path, shouldRemove := checkStaleSkillSymlink(destDir, entry, validSources)
+			path, shouldRemove := checkStaleSkill(destDir, entry, validNames)
 			if !shouldRemove {
 				continue
 			}
 			removed = append(removed, path)
 			if !dryRun {
-				if err := os.Remove(path); err != nil {
-					return nil, fmt.Errorf("removing stale skill symlink %s: %w", path, err)
+				if err := os.RemoveAll(path); err != nil {
+					return nil, fmt.Errorf("removing stale skill %s: %w", path, err)
 				}
 			}
 		}
@@ -159,8 +188,8 @@ func CleanSkills(skillsPaths []string, dryRun bool) ([]string, error) {
 	return removed, nil
 }
 
-func collectValidSkillSources(skillsPaths []string) (map[string]bool, error) {
-	validSources := make(map[string]bool)
+func collectValidSkillNames(skillsPaths []string) (map[string]bool, error) {
+	validNames := make(map[string]bool)
 	for _, rawPath := range skillsPaths {
 		dir := config.ExpandHome(rawPath)
 		entries, err := os.ReadDir(dir)
@@ -174,28 +203,19 @@ func collectValidSkillSources(skillsPaths []string) (map[string]bool, error) {
 			if !entry.IsDir() {
 				continue
 			}
-			skillDir := filepath.Join(dir, entry.Name())
-			skillMD := filepath.Join(skillDir, "SKILL.md")
+			skillMD := filepath.Join(dir, entry.Name(), "SKILL.md")
 			if _, err := os.Stat(skillMD); err == nil {
-				validSources[skillDir] = true
+				validNames[entry.Name()] = true
 			}
 		}
 	}
-	return validSources, nil
+	return validNames, nil
 }
 
-func checkStaleSkillSymlink(destDir string, entry os.DirEntry, validSources map[string]bool) (string, bool) {
+func checkStaleSkill(destDir string, entry os.DirEntry, validNames map[string]bool) (string, bool) {
+	if !entry.IsDir() {
+		return "", false
+	}
 	dest := filepath.Join(destDir, entry.Name())
-	info, err := os.Lstat(dest)
-	if err != nil {
-		return "", false
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return "", false
-	}
-	target, err := os.Readlink(dest)
-	if err != nil {
-		return "", false
-	}
-	return dest, !validSources[target]
+	return dest, !validNames[entry.Name()]
 }

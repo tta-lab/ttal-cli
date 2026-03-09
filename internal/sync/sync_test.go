@@ -122,38 +122,30 @@ func TestDeploySkills(t *testing.T) {
 		t.Errorf("Name = %q, want %q", results[0].Name, "my-skill")
 	}
 
-	// Verify CC symlink exists
+	// Verify CC directory was copied
 	ccDest := filepath.Join(tmpHome, ".claude", "skills", "my-skill")
 	info, err := os.Lstat(ccDest)
 	if err != nil {
-		t.Fatalf("CC symlink not created: %v", err)
+		t.Fatalf("CC skill dir not created: %v", err)
 	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		t.Error("expected CC symlink, got regular file/dir")
+	if !info.IsDir() {
+		t.Error("expected CC skill to be a directory")
 	}
-	target, err := os.Readlink(ccDest)
-	if err != nil {
-		t.Fatalf("reading CC symlink: %v", err)
-	}
-	if target != skillDir {
-		t.Errorf("CC symlink target = %q, want %q", target, skillDir)
+	if _, err := os.ReadFile(filepath.Join(ccDest, "SKILL.md")); err != nil {
+		t.Errorf("CC SKILL.md not copied: %v", err)
 	}
 
-	// Verify Codex symlink exists
+	// Verify Codex directory was copied
 	codexDest := filepath.Join(tmpHome, ".codex", "skills", "my-skill")
 	info, err = os.Lstat(codexDest)
 	if err != nil {
-		t.Fatalf("Codex symlink not created: %v", err)
+		t.Fatalf("Codex skill dir not created: %v", err)
 	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		t.Error("expected Codex symlink, got regular file/dir")
+	if !info.IsDir() {
+		t.Error("expected Codex skill to be a directory")
 	}
-	codexTarget, err := os.Readlink(codexDest)
-	if err != nil {
-		t.Fatalf("reading Codex symlink: %v", err)
-	}
-	if codexTarget != skillDir {
-		t.Errorf("Codex symlink target = %q, want %q", codexTarget, skillDir)
+	if _, err := os.ReadFile(filepath.Join(codexDest, "SKILL.md")); err != nil {
+		t.Errorf("Codex SKILL.md not copied: %v", err)
 	}
 }
 
@@ -189,23 +181,27 @@ func TestDeploySkillsReplacesExistingSymlink(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 
-	// Verify CC symlink was replaced
-	target, err := os.Readlink(filepath.Join(destDir, "my-skill"))
+	// Verify CC directory was created (replacing old symlink)
+	ccDest := filepath.Join(destDir, "my-skill")
+	info, err := os.Lstat(ccDest)
 	if err != nil {
-		t.Fatalf("reading CC symlink: %v", err)
+		t.Fatalf("CC skill dir not created: %v", err)
 	}
-	if target != skillDir {
-		t.Errorf("CC symlink target = %q, want %q", target, skillDir)
+	if !info.IsDir() {
+		t.Error("expected CC skill to be a real directory, not a symlink")
+	}
+	if _, err := os.ReadFile(filepath.Join(ccDest, "SKILL.md")); err != nil {
+		t.Errorf("CC SKILL.md not copied: %v", err)
 	}
 
-	// Verify Codex symlink was also created
+	// Verify Codex directory was also created
 	codexDest := filepath.Join(tmpHome, ".codex", "skills", "my-skill")
-	codexTarget, err := os.Readlink(codexDest)
+	codexInfo, err := os.Lstat(codexDest)
 	if err != nil {
-		t.Fatalf("reading Codex symlink: %v", err)
+		t.Fatalf("Codex skill dir not created: %v", err)
 	}
-	if codexTarget != skillDir {
-		t.Errorf("Codex symlink target = %q, want %q", codexTarget, skillDir)
+	if !codexInfo.IsDir() {
+		t.Error("expected Codex skill to be a real directory")
 	}
 }
 
@@ -231,20 +227,18 @@ func TestCleanSkills(t *testing.T) {
 		}
 	}
 
-	// Deploy current skill to both
-	if err := os.Symlink(skillDir, filepath.Join(ccDir, "keep-skill")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(skillDir, filepath.Join(codexDir, "keep-skill")); err != nil {
-		t.Fatal(err)
+	// Deploy current skill to both (as real directories)
+	for _, dir := range []string{filepath.Join(ccDir, "keep-skill"), filepath.Join(codexDir, "keep-skill")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	// Create stale symlinks in both
-	if err := os.Symlink("/gone/path", filepath.Join(ccDir, "old-skill")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("/gone/path", filepath.Join(codexDir, "old-skill")); err != nil {
-		t.Fatal(err)
+	// Create stale directories in both
+	for _, dir := range []string{filepath.Join(ccDir, "old-skill"), filepath.Join(codexDir, "old-skill")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	removed, err := CleanSkills([]string{srcDir}, false)
@@ -256,20 +250,20 @@ func TestCleanSkills(t *testing.T) {
 		t.Fatalf("expected 2 removed (CC + Codex), got %d: %v", len(removed), removed)
 	}
 
-	// Verify stale symlinks were removed from both
+	// Verify stale directories were removed from both
 	if _, err := os.Lstat(filepath.Join(ccDir, "old-skill")); !os.IsNotExist(err) {
-		t.Error("CC stale symlink should have been removed")
+		t.Error("CC stale skill dir should have been removed")
 	}
 	if _, err := os.Lstat(filepath.Join(codexDir, "old-skill")); !os.IsNotExist(err) {
-		t.Error("Codex stale symlink should have been removed")
+		t.Error("Codex stale skill dir should have been removed")
 	}
 
-	// Verify good symlinks still exist in both
+	// Verify valid skill dirs still exist in both
 	if _, err := os.Lstat(filepath.Join(ccDir, "keep-skill")); err != nil {
-		t.Error("CC valid symlink should still exist")
+		t.Error("CC valid skill dir should still exist")
 	}
 	if _, err := os.Lstat(filepath.Join(codexDir, "keep-skill")); err != nil {
-		t.Error("Codex valid symlink should still exist")
+		t.Error("Codex valid skill dir should still exist")
 	}
 }
 

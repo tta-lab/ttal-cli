@@ -15,7 +15,7 @@ type GlobalPromptResult struct {
 	Runtime string
 }
 
-// DeployGlobalPrompt symlinks one canonical global prompt markdown file into runtime paths.
+// DeployGlobalPrompt copies one canonical global prompt markdown file into runtime paths.
 // Always targets Claude Code (~/.claude/CLAUDE.md), and additionally targets Codex
 // (~/.codex/AGENTS.md) when ~/.codex exists and is a directory.
 func DeployGlobalPrompt(rawPath string, dryRun bool) ([]GlobalPromptResult, error) {
@@ -52,7 +52,7 @@ func DeployGlobalPrompt(rawPath string, dryRun bool) ([]GlobalPromptResult, erro
 		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 			return nil, fmt.Errorf("creating destination dir for %s: %w", dest, err)
 		}
-		if err := symlinkPrompt(source, dest); err != nil {
+		if err := copyPrompt(source, dest); err != nil {
 			return nil, err
 		}
 	}
@@ -88,20 +88,21 @@ func promptDestinations(home string) ([]promptDestination, error) {
 	return destinations, nil
 }
 
-func symlinkPrompt(src, dest string) error {
+func copyPrompt(src, dest string) error {
+	// Remove existing (symlink or file)
 	if info, err := os.Lstat(dest); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 			if err := os.Remove(dest); err != nil {
-				return fmt.Errorf("removing existing symlink %s: %w", dest, err)
+				return fmt.Errorf("removing existing %s: %w", dest, err)
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "warning: %s is not a symlink, skipping\\n", dest)
-			return nil
 		}
 	}
-
-	if err := os.Symlink(src, dest); err != nil {
-		return fmt.Errorf("creating symlink %s → %s: %w", dest, src, err)
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", src, err)
+	}
+	if err := os.WriteFile(dest, data, 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", dest, err)
 	}
 	return nil
 }
