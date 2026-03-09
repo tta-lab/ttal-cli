@@ -66,7 +66,7 @@ ttal onboard --scaffold full-markdown --workspace ~/my-agents
 ```
 
 Onboarding walks through:
-1. Install prerequisites via brew (tmux, taskwarrior, zellij, ffmpeg)
+1. Install prerequisites via brew (tmux, taskwarrior, ffmpeg)
 2. Set up workspace from a scaffold template
 3. Set up taskwarrior UDAs and config template
 4. Discover agents (directories with CLAUDE.md in workspace)
