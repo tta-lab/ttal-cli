@@ -106,7 +106,11 @@ const toolBash = "Bash"
 // Keep the command list in sync with flicknote and ttal subcommands.
 func refineBashTool(input json.RawMessage) string {
 	var bi bashInput
-	if err := json.Unmarshal(input, &bi); err != nil || bi.Command == "" {
+	if err := json.Unmarshal(input, &bi); err != nil {
+		log.Printf("[watcher] failed to parse Bash tool input: %v", err)
+		return toolBash
+	}
+	if bi.Command == "" {
 		return toolBash
 	}
 
@@ -125,6 +129,8 @@ func refineBashTool(input json.RawMessage) string {
 	case strings.HasPrefix(cmd, "ttal task route "),
 		strings.HasPrefix(cmd, "ttal task design "),
 		strings.HasPrefix(cmd, "ttal task research "):
+		// ttal task execute is intentionally excluded: it spawns a worker
+		// via the daemon and produces no direct Telegram output of its own.
 		return "ttal:route"
 	case strings.HasPrefix(cmd, "flicknote add "),
 		strings.HasPrefix(cmd, "flicknote replace "),
@@ -135,7 +141,8 @@ func refineBashTool(input json.RawMessage) string {
 		strings.HasPrefix(cmd, "flicknote archive "):
 		return "flicknote:write"
 	case strings.HasPrefix(cmd, "flicknote get "),
-		strings.HasPrefix(cmd, "flicknote list"):
+		cmd == "flicknote list",
+		strings.HasPrefix(cmd, "flicknote list "):
 		return "flicknote:read"
 	default:
 		return toolBash

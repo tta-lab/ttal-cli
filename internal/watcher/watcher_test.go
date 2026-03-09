@@ -242,6 +242,37 @@ func TestExtractToolUse(t *testing.T) {
 				`[{"type":"tool_use","name":"Bash","id":"tu_10","input":{"command":"git status"}}]}}`,
 			wantTool: "Bash",
 		},
+		{
+			name: "Bash with ttal task design",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_11","input":{"command":"ttal task design abc123"}}]}}`,
+			wantTool: "ttal:route",
+		},
+		{
+			name: "Bash with ttal task research",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_12","input":{"command":"ttal task research abc123"}}]}}`,
+			wantTool: "ttal:route",
+		},
+		{
+			name: "Bash with bare flicknote list",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_13","input":{"command":"flicknote list"}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
+			name: "Bash with flicknote list --project",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_14","input":{"command":"flicknote list --project ttal"}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
+			name: "Bash with multi-pipe command",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_15",` +
+				`"input":{"command":"cat x | grep y | flicknote add --project foo"}}]}}`,
+			wantTool: "flicknote:write",
+		},
 	}
 
 	for _, tt := range tests {
