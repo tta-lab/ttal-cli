@@ -70,7 +70,7 @@ The key components:
 | **Cleanup watcher** | Watches for worker completion; closes session, removes worktree, marks task done |
 | **ttal send** | Agent-to-agent messaging via daemon socket |
 
-The architecture the same manager/worker split that worked in OpenClaw — but now it runs entirely locally, without any cloud dependency.
+The architecture is the same manager/worker split that worked in OpenClaw — but now it runs entirely locally, without any cloud dependency.
 
 ## Two Types of Agents (Still)
 
