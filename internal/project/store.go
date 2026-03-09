@@ -72,7 +72,7 @@ func (s *Store) load() (*projectsFile, error) {
 				continue
 			}
 			for alias, v := range archivedMap {
-				pf.Archived[alias] = parseEntry(v)
+				flattenProjects(pf.Archived, alias, v)
 			}
 			continue
 		}

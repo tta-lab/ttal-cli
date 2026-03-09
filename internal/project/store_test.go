@@ -251,6 +251,15 @@ path = "/path/ttal"
 	if p == nil {
 		t.Fatal("Get(fb.tk) returned nil")
 	}
+	if p.Name != "Toolkit" {
+		t.Errorf("fb.tk Name = %q, want %q", p.Name, "Toolkit")
+	}
+	if p.Path != "/path/fb/tk" {
+		t.Errorf("fb.tk Path = %q, want %q", p.Path, "/path/fb/tk")
+	}
+	if p.Alias != "fb.tk" {
+		t.Errorf("fb.tk Alias = %q, want %q", p.Alias, "fb.tk")
+	}
 
 	// List should include all three projects
 	projects, err := s.List(false)
@@ -274,6 +283,102 @@ path = "/path/ttal"
 	}
 	if projects[2].Alias != "ttal" {
 		t.Errorf("projects[2].Alias = %q, want %q", projects[2].Alias, "ttal")
+	}
+}
+
+func TestStoreSubPathRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	// Add a dot-notation alias via the store API
+	if err := s.Add("fb.ap", "Attachment Processor", "/path/fb/ap"); err != nil {
+		t.Fatalf("Add(fb.ap) error: %v", err)
+	}
+
+	// Reload from disk and verify the alias survives the round-trip
+	p, err := s.Get("fb.ap")
+	if err != nil {
+		t.Fatalf("Get(fb.ap) after reload error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("Get(fb.ap) returned nil after reload")
+	}
+	if p.Name != "Attachment Processor" {
+		t.Errorf("Name = %q, want %q", p.Name, "Attachment Processor")
+	}
+	if p.Path != "/path/fb/ap" {
+		t.Errorf("Path = %q, want %q", p.Path, "/path/fb/ap")
+	}
+	if p.Alias != "fb.ap" {
+		t.Errorf("Alias = %q, want %q", p.Alias, "fb.ap")
+	}
+}
+
+func TestStoreArchivedSubPathProjects(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+
+	// Write TOML with archived dot-notation entries
+	tomlContent := `
+[ttal]
+name = "TTAL Core"
+path = "/path/ttal"
+
+[archived.fb.ap]
+name = "Attachment Processor"
+path = "/path/fb/ap"
+
+[archived.fb.tk]
+name = "Toolkit"
+path = "/path/fb/tk"
+`
+	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
+		t.Fatalf("writing test TOML: %v", err)
+	}
+
+	s := NewStore(path)
+
+	// Archived dot-notation projects should be present
+	p, err := s.Get("fb.ap") // Get only checks active
+	if err != nil {
+		t.Fatalf("Get(fb.ap) error: %v", err)
+	}
+	if p != nil {
+		t.Error("archived fb.ap should not appear in active Get()")
+	}
+
+	archived, err := s.List(true)
+	if err != nil {
+		t.Fatalf("List(archived) error: %v", err)
+	}
+	if len(archived) != 2 {
+		aliases := make([]string, len(archived))
+		for i, p := range archived {
+			aliases[i] = p.Alias
+		}
+		t.Fatalf("List(archived) returned %d projects, want 2: %v", len(archived), aliases)
+	}
+
+	// Verify aliases
+	if archived[0].Alias != "fb.ap" {
+		t.Errorf("archived[0].Alias = %q, want %q", archived[0].Alias, "fb.ap")
+	}
+	if archived[0].Name != "Attachment Processor" {
+		t.Errorf("archived[0].Name = %q, want %q", archived[0].Name, "Attachment Processor")
+	}
+	if archived[1].Alias != "fb.tk" {
+		t.Errorf("archived[1].Alias = %q, want %q", archived[1].Alias, "fb.tk")
+	}
+
+	// Unarchive should work
+	if err := s.Unarchive("fb.ap"); err != nil {
+		t.Fatalf("Unarchive(fb.ap) error: %v", err)
+	}
+	p, err = s.Get("fb.ap")
+	if err != nil {
+		t.Fatalf("Get(fb.ap) after unarchive error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("fb.ap should be active after unarchive")
 	}
 }
 
