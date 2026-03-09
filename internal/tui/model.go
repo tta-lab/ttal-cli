@@ -681,15 +681,8 @@ func (m *Model) applyFilter() {
 		return m.filtered[i].Urgency > m.filtered[j].Urgency
 	})
 
-	// Restore cursor to previously selected task by UUID
-	if prevUUID != "" {
-		for i, t := range m.filtered {
-			if t.UUID == prevUUID {
-				m.cursor = i
-				m.ensureCursorVisible()
-				return
-			}
-		}
+	if m.restoreCursorByUUID(prevUUID) {
+		return
 	}
 
 	// Fallback: clamp cursor (task was filtered out or deleted)
@@ -703,6 +696,22 @@ func (m *Model) applyFilter() {
 		m.selectedUUID = m.filtered[m.cursor].UUID
 	}
 	m.offset = 0
+}
+
+// restoreCursorByUUID repositions the cursor to the task with the given UUID.
+// Returns true if found; caller should return early to skip fallback clamping.
+func (m *Model) restoreCursorByUUID(uuid string) bool {
+	if uuid == "" {
+		return false
+	}
+	for i, t := range m.filtered {
+		if t.UUID == uuid {
+			m.cursor = i
+			m.ensureCursorVisible()
+			return true
+		}
+	}
+	return false
 }
 
 // Messages
