@@ -276,6 +276,8 @@ func (m *Model) handleNavigation(action keyAction) bool {
 		m.cursor = 0
 		if len(m.filtered) > 0 {
 			m.selectedUUID = m.filtered[0].UUID
+		} else {
+			m.selectedUUID = ""
 		}
 		m.ensureCursorVisible()
 	case keyBottom:
@@ -625,10 +627,15 @@ func (m *Model) moveCursor(delta int) {
 	if len(m.filtered) > 0 && m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
+	m.syncSelectedUUID()
+	m.ensureCursorVisible()
+}
+
+// syncSelectedUUID keeps selectedUUID in sync with the current cursor position.
+func (m *Model) syncSelectedUUID() {
 	if m.cursor >= 0 && m.cursor < len(m.filtered) {
 		m.selectedUUID = m.filtered[m.cursor].UUID
 	}
-	m.ensureCursorVisible()
 }
 
 func (m *Model) ensureCursorVisible() {
@@ -692,9 +699,7 @@ func (m *Model) applyFilter() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
-	if m.cursor >= 0 && m.cursor < len(m.filtered) {
-		m.selectedUUID = m.filtered[m.cursor].UUID
-	}
+	m.syncSelectedUUID()
 	m.offset = 0
 }
 
@@ -707,6 +712,7 @@ func (m *Model) restoreCursorByUUID(uuid string) bool {
 	for i, t := range m.filtered {
 		if t.UUID == uuid {
 			m.cursor = i
+			m.offset = 0
 			m.ensureCursorVisible()
 			return true
 		}
