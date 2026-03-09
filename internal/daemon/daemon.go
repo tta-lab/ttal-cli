@@ -697,7 +697,9 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 
 	// Send /exit to all CC sessions so they save conversation state
 	for _, s := range sessions {
-		_ = tmux.SendKeys(s, "", "/exit")
+		if err := tmux.SendKeys(s, "", "/exit"); err != nil {
+			log.Printf("[daemon] /exit to session %s failed (will force-kill): %v", s, err)
+		}
 	}
 
 	// Poll until all sessions are gone, up to 5s

@@ -139,8 +139,12 @@ func gracefulStopChild(pid int) {
 	// Wait up to 5s for exit
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(-pgid, 0); err == syscall.ESRCH {
+		err := syscall.Kill(-pgid, 0)
+		if err == syscall.ESRCH {
 			return // process gone
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gatekeeper: unexpected error polling pgid %d: %v\n", pgid, err)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
