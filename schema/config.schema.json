@@ -194,46 +194,10 @@
           },
           "agents": {
             "additionalProperties": {
-              "properties": {
-                "bot_token_env": {
-                  "type": "string",
-                  "description": "Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)"
-                },
-                "port": {
-                  "type": "integer",
-                  "description": "API server port for opencode/codex runtimes"
-                },
-                "runtime": {
-                  "type": "string",
-                  "enum": [
-                    "claude-code",
-                    "opencode",
-                    "codex",
-                    "openclaw"
-                  ],
-                  "description": "Per-agent runtime override (falls back to team agent_runtime)"
-                },
-                "model": {
-                  "type": "string",
-                  "enum": [
-                    "haiku",
-                    "sonnet",
-                    "opus"
-                  ],
-                  "description": "Claude model tier (falls back to team agent_model, then sonnet)"
-                },
-                "heartbeat_interval": {
-                  "type": "string",
-                  "description": "Heartbeat interval for this agent (e.g. \"30m\"). Empty means no heartbeat."
-                },
-                "flicknote_project": {
-                  "type": "string",
-                  "description": "Default flicknote project for this agent. Injected as $FLICKNOTE_PROJECT at session startup."
-                }
-              },
+              "properties": {},
               "additionalProperties": false,
               "type": "object",
-              "description": "AgentConfig holds per-agent Telegram credentials and runtime settings."
+              "description": "AgentConfig is deprecated."
             },
             "type": "object",
             "description": "Per-agent credentials for this team"

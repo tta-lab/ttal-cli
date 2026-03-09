@@ -38,6 +38,11 @@ All frontmatter fields are optional:
 | `voice` | Kokoro TTS voice ID | `af_heart`, `af_sky` |
 | `emoji` | Display emoji | `🦅`, `🐱` |
 | `description` | Short role summary | `Task orchestration and planning` |
+| `role` | Role key matching `[role]` in `roles.toml` | `manager`, `designer` |
+| `flicknote_project` | Default flicknote project (injected as `$FLICKNOTE_PROJECT`) | `ttal.plans` |
+
+CLAUDE.md frontmatter is the single source of truth for agent identity and per-agent config.
+Operational config (prompts, heartbeat) lives in `~/.config/ttal/roles.toml` per role.
 
 ## Adding agents
 
@@ -77,17 +82,20 @@ Update frontmatter fields with `field:value` syntax:
 ```bash
 ttal agent modify kestrel voice:af_heart
 ttal agent modify kestrel emoji:🦅 description:'Worker lifecycle'
+ttal agent modify kestrel flicknote_project:ttal.fixes
 ```
 
 ## One bot per agent
 
 Each agent gets its own Telegram bot and its own DM chat. This means you can talk to your researcher about research while your designer designs — like messaging actual team members, not @-routing in a single chat.
 
-Configure bot tokens in `config.toml`:
+Bot tokens use the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/ttal/.env`:
 
-```toml
-[teams.default.agents.kestrel]
-bot_token_env = "KESTREL_BOT_TOKEN"
+```env
+KESTREL_BOT_TOKEN=123456:ABC-xyz
+ATHENA_BOT_TOKEN=789012:DEF-uvw
 ```
+
+No configuration in `config.toml` is needed — the convention is the only way.
 
 Create a bot via [@BotFather](https://t.me/BotFather) on Telegram for each agent.

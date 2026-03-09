@@ -15,13 +15,29 @@ default_team = "default"
 data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
 chat_id = "123456789"           # Global Telegram chat ID
+team_path = "~/clawd"           # Root path for agent workspaces
 agent_runtime = "claude-code"   # Default runtime for agents
 worker_runtime = "claude-code"  # Default runtime for workers
-
-# Agent-specific config
-[teams.default.agents.kestrel]
-bot_token = "123456:ABC..."     # Telegram bot token
 ```
+
+### Agent discovery
+
+Agents are discovered automatically from the filesystem. Any subdirectory of `team_path`
+that contains a `CLAUDE.md` file is treated as an agent.
+
+```
+~/clawd/
+├── yuki/CLAUDE.md     → agent "yuki"
+├── inke/CLAUDE.md     → agent "inke"
+├── athena/CLAUDE.md   → agent "athena"
+└── docs/              → NOT an agent (no CLAUDE.md)
+```
+
+Agent configuration lives in two places:
+- **CLAUDE.md frontmatter** — identity (role, emoji, voice, description, flicknote_project)
+- **roles.toml** — operational config per role (prompts, heartbeat_interval)
+
+Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/ttal/.env`.
 
 ## Global fields
 
@@ -46,17 +62,47 @@ Each team lives under `[teams.<name>]`:
 | `voice_vocabulary` | list | Custom vocabulary words to improve Whisper accuracy |
 | `gateway_url` | string | Gateway URL for webhook-based runtimes |
 
-## Agent fields
+## CLAUDE.md frontmatter fields
 
-Each agent lives under `[teams.<team>.agents.<name>]`:
+Agent identity is configured in CLAUDE.md frontmatter (in the agent's workspace directory):
+
+```yaml
+---
+description: Task orchestrator — creates and routes work
+emoji: 🐱
+role: manager
+voice: af_heart
+flicknote_project: ttal.plans
+---
+```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `bot_token` | string | Telegram bot token for this agent |
-| `chat_id` | string | Override team-level chat ID |
-| `runtime` | string | Override team-level runtime |
-| `model` | string | Preferred model: `haiku`, `sonnet`, `opus` |
-| `port` | integer | Port for gateway-based runtimes |
+| `description` | string | Short role summary |
+| `emoji` | string | Display emoji |
+| `role` | string | Role key that maps to `[role]` in roles.toml |
+| `voice` | string | Kokoro TTS voice ID (e.g. `af_heart`) |
+| `flicknote_project` | string | Default flicknote project (injected as `$FLICKNOTE_PROJECT`) |
+
+## roles.toml fields
+
+Per-role operational config lives in `~/.config/ttal/roles.toml`:
+
+```toml
+[manager]
+prompt = "..."
+heartbeat_interval = "1h"
+heartbeat_prompt = "..."
+
+[designer]
+prompt = "..."
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prompt` | string | Routing prompt template for this role |
+| `heartbeat_interval` | string | How often to send the heartbeat prompt (e.g. `"1h"`, `"30m"`) |
+| `heartbeat_prompt` | string | Prompt delivered on each heartbeat tick |
 
 ## Notification bot token
 
@@ -81,7 +127,8 @@ notification_token_env = "MY_CUSTOM_BOT_TOKEN"
 
 ## Multi-team configuration
 
-Run separate teams with different taskwarrior instances and runtimes:
+Run separate teams with different taskwarrior instances and runtimes.
+Agents are discovered from the filesystem — no per-agent config blocks needed:
 
 ```toml
 default_team = "personal"
@@ -90,17 +137,20 @@ default_team = "personal"
 data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
 chat_id = "123456"
-
-[teams.personal.agents.kestrel]
-bot_token = "bot123:ABC"
+team_path = "~/personal-agents"
 
 [teams.work]
 data_dir = "~/.ttal-work"
 taskrc = "~/.task-work/taskrc"
 chat_id = "789012"
+team_path = "~/work-agents"
+```
 
-[teams.work.agents.atlas]
-bot_token = "bot456:DEF"
+Bot tokens in `~/.config/ttal/.env`:
+
+```env
+KESTREL_BOT_TOKEN=bot123:ABC
+ATLAS_BOT_TOKEN=bot456:DEF
 ```
 
 Switch teams with the `TTAL_TEAM` environment variable:
