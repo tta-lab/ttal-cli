@@ -200,6 +200,25 @@ go test ./cmd/     # Command tests only
 go test -v ./...   # Verbose output
 ```
 
+### Package Documentation
+
+Every `internal/` package has a `doc.go` with a plane annotation:
+
+```go
+// Package <name> <description>.
+//
+// Plane: manager|worker|shared
+package <name>
+```
+
+- **manager** — daemon, long-running agent infrastructure
+- **worker** — spawned worker/reviewer sessions
+- **shared** — used by both planes or CLI commands
+
+When creating new packages, add a `doc.go` with the appropriate plane tag.
+
+Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
+
 ## Common Pitfalls
 
 1. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
