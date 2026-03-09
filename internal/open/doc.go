@@ -1,8 +1,9 @@
-// Package open provides commands to open a task's working directory in an editor or shell.
+// Package open provides commands to open a task's context in various ways.
 //
-// Given a task UUID it resolves the active worktree (or project root as fallback),
-// then exec-replaces the current process with the configured editor or shell.
-// Editor resolution honours TT_EDITOR, then EDITOR, then vi; shell resolution honours SHELL.
+// Four operations are supported: Editor (exec into $TT_EDITOR/$EDITOR/vi at the
+// worktree root), Term (exec into $SHELL), Session (tmux attach to the worker's
+// tmux session), and PR (open the task's pull request in the system browser).
+// All operations resolve the task by UUID via taskwarrior.
 //
 // Plane: shared
 package open

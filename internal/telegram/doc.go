@@ -5,5 +5,5 @@
 // pages with inline keyboards, used by the daemon to surface AskUserQuestion prompts
 // from agent sessions to the human operator over Telegram.
 //
-// Plane: manager
+// Plane: shared
 package telegram
