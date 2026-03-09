@@ -248,10 +248,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 			continue
 		}
 
-		resolved, newInterval := handleCIStatus(provider, target, mcfg, headSHA, interval)
-		if resolved {
-			return false
-		}
+		newInterval := handleCIStatus(provider, target, mcfg, headSHA, interval)
 		if newInterval == prPollInitial {
 			lastDeliveredSHA = headSHA
 		}
@@ -261,15 +258,16 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 }
 
 // handleCIStatus checks CI for a given SHA and delivers results.
-// Returns (true, _) if polling should stop, (false, newInterval) to continue.
+// Returns prPollInitial to reset the backoff (CI resolved), or a backed-off interval to keep waiting.
+// Callers use prPollInitial as a sentinel to update lastDeliveredSHA.
 func handleCIStatus(
 	provider gitprovider.Provider, target prWatchTarget,
 	mcfg *config.DaemonConfig, headSHA string, interval time.Duration,
-) (bool, time.Duration) {
+) time.Duration {
 	cs, err := provider.GetCombinedStatus(target.Owner, target.Repo, headSHA)
 	if err != nil {
 		log.Printf("[prwatch] GetCombinedStatus error for %s: %v", shortSHA(headSHA), err)
-		return false, backoff(interval)
+		return backoff(interval)
 	}
 
 	switch cs.State {
@@ -277,21 +275,20 @@ func handleCIStatus(
 		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		deliverToWorkerSession(target.SessionName,
 			fmt.Sprintf("✅ PR #%d CI checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA)))
-		// Return (false, prPollInitial) to continue polling with SHA tracking,
-		// so the goroutine can detect future pushes and the eventual PR merge.
-		// Using prPollInitial triggers lastDeliveredSHA update, preventing re-notification
-		// for the same SHA within this goroutine's lifetime.
-		return false, prPollInitial
+		// Return prPollInitial so the caller updates lastDeliveredSHA, preventing
+		// re-notification for the same SHA. Goroutine stays alive to detect future
+		// pushes and the eventual PR merge.
+		return prPollInitial
 
 	case gitprovider.StateFailure, gitprovider.StateError:
 		msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
 		deliverToWorkerSession(target.SessionName, msg)
 		notifyPRStatus(mcfg, target, "❌ CI failed", runURL)
 		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
-		return false, prPollInitial
+		return prPollInitial
 
 	default:
-		return false, backoff(interval)
+		return backoff(interval)
 	}
 }
 
