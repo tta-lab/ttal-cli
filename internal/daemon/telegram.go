@@ -137,7 +137,7 @@ func runMultiAgentPoller(
 	// Each handler checks chat ID to route to the correct agent.
 	for chatID, target := range dispatch {
 		registerBotCommandsForAgent(b, target.teamName, target.agentName,
-			botToken, target.chatID, chatID, botUsername, allCommands)
+			botToken, target.chatID, chatID, botUsername, dispatch, allCommands)
 	}
 
 	b.Start(ctx)
@@ -411,7 +411,7 @@ func handleInboundMessage(
 //   - Validates chat ID so commands only work from the configured chat
 func registerBotCommandsForAgent(
 	b *bot.Bot, teamName, agentName, botToken, chatIDStr string,
-	chatID int64, botUsername string, allCommands []BotCommand,
+	chatID int64, botUsername string, dispatch map[int64]pollerTarget, allCommands []BotCommand,
 ) {
 	matchCommand := func(cmd string) bot.MatchFunc {
 		return func(update *models.Update) bool {
@@ -435,10 +435,14 @@ func registerBotCommandsForAgent(
 				if name != cmd {
 					continue
 				}
-				// In groups, the @botname suffix MUST be present and match this bot.
-				// This prevents bare /cmd from being accepted by arbitrary groups.
+				// In groups: @botname suffix MUST be present and match, AND the
+				// group chatID must be a registered dispatch target. This ensures
+				// commands only execute from explicitly authorized group chats.
 				if isGroup {
 					if !hasAt || !strings.EqualFold(atBot, botUsername) {
+						return false
+					}
+					if _, ok := dispatch[msg.Chat.ID]; !ok {
 						return false
 					}
 				}
