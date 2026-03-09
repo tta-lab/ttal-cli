@@ -24,7 +24,9 @@ Examples:
 		message := strings.Join(args, " ")
 
 		sessionName, err := tmux.CurrentSession()
-		if err == nil && sessionName != "" {
+		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not get tmux session name: %v\n", err)
+		} else if sessionName != "" {
 			message = fmt.Sprintf("[%s] %s", sessionName, message)
 		}
 
