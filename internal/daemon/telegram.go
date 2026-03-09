@@ -287,15 +287,14 @@ func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[in
 		return nil
 	}
 
-	if len(dispatch) > 1 {
-		log.Printf("[telegram] WARNING: group message for @%s — multiple agents share token; routing to first match",
-			botUsername)
+	// Route by chat ID — same as DM path.
+	target, ok := dispatch[msg.Chat.ID]
+	if !ok {
+		log.Printf("[telegram] WARNING: group message for @%s from chat %d — no matching agent",
+			botUsername, msg.Chat.ID)
+		return nil
 	}
-	for _, t := range dispatch {
-		target := t
-		return &target
-	}
-	return nil
+	return &target
 }
 
 // stripFirstBotMention removes the first @botUsername mention from msg.Text and
