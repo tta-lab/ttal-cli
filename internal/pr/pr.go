@@ -88,7 +88,11 @@ func Merge(ctx *Context, deleteAfterMerge bool) error {
 		return err
 	}
 	if !info.LGTM {
-		return fmt.Errorf("PR #%d has not been approved by reviewer — merge blocked\n  Reviewer must post LGTM comment or use: ttal pr comment create --lgtm \"approved\"", info.Index)
+		return fmt.Errorf(
+			"PR #%d has not been approved by reviewer — merge blocked\n"+
+				"  Reviewer must post LGTM comment or use: ttal pr comment create --lgtm \"approved\"",
+			info.Index,
+		)
 	}
 
 	if err := CheckMergeable(ctx); err != nil {

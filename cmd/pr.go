@@ -13,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -240,13 +241,34 @@ Examples:
 
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
 
+		// Determine if this comment signals LGTM (reviewer only)
+		lgtmFlag, _ := cmd.Flags().GetBool("lgtm")
+		role := tmux.Role()
+		isReviewer := role == "reviewer"
+
+		if isReviewer {
+			bodyLGTM := strings.Contains(strings.ToUpper(body), "LGTM") ||
+				strings.Contains(strings.ToUpper(body), "LOOKS GOOD")
+			if lgtmFlag || bodyLGTM {
+				if err := taskwarrior.SetPRLGTM(ctx.Task.UUID); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to set LGTM on task: %v\n", err)
+				} else {
+					fmt.Println("  ✓ PR approved (pr_id updated with :lgtm)")
+				}
+			}
+		}
+		if lgtmFlag && !isReviewer {
+			fmt.Fprintf(os.Stderr,
+				"warning: --lgtm flag ignored — only reviewers can approve PRs (current role: %s)\n",
+				role)
+		}
+
 		// Route based on TTAL_ROLE (set by worker/reviewer spawn).
 		// Reviewer → notify coder window. Coder → trigger re-review.
 		sessionName, sessionErr := review.ResolveSessionName()
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		}
-		role := tmux.Role()
 		if sessionName != "" && role == "reviewer" {
 			// Reviewer posting → notify the coder window
 			coderWindow, cwErr := tmux.FirstWindowExcept(sessionName, "review")
@@ -429,6 +451,7 @@ func init() {
 	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
 
 	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
+	prCommentCreateCmd.Flags().Bool("lgtm", false, "Mark PR as approved (reviewer only)")
 
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)
