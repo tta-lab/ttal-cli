@@ -137,8 +137,11 @@ func diagnoseMergeFailure(ctx *Context, pr *gitprovider.PullRequest) string {
 	if failing > 0 {
 		lines = append([]string{fmt.Sprintf("  %d CI check(s) failed:", failing)}, lines...)
 	}
+	if failing > 0 && pending > 0 {
+		lines = append(lines, fmt.Sprintf("  ⏳ %d check(s) still pending", pending))
+	}
 
-	if failing == 0 {
+	if failing == 0 && pending == 0 {
 		if len(cs.Statuses) == 0 {
 			lines = append(lines, "  No CI checks found. Likely cause: merge conflicts or branch protection rules.")
 		} else {
