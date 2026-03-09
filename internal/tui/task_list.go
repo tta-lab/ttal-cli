@@ -82,11 +82,12 @@ func (m Model) viewTaskList() string {
 		if selected {
 			line = styleSelected.Render(line)
 		} else if t.Start != "" {
-			// Active task: cyan foreground on the whole row (plain line, no per-cell styling)
+			// Active task: cyan foreground on the whole row.
 			line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
 		} else if t.IsToday() && m.filter == filterPending {
-			// Today-scheduled task: blue background — only in pending view
-			// Uses plain line to avoid ANSI nesting bug where inner cell resets strip the background
+			// Today-or-overdue scheduled task: blue background — only in pending view.
+			// Uses plain line because lipgloss Width() padding emits ANSI reset sequences
+			// that clear the outer background when cells are styled individually.
 			line = styleToday.Render(line)
 		} else {
 			styledID := lipgloss.NewStyle().Width(colID).Render(styleDim.Render(id))
