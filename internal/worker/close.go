@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -132,22 +131,23 @@ func closeWithPR(
 	taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string,
 	worktreeExists bool, annotations []taskwarrior.Annotation,
 ) (*CloseResult, error) {
-	prID, err := strconv.ParseInt(prIDStr, 10, 64)
+	pridInfo, err := taskwarrior.ParsePRID(prIDStr)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
 	}
+	prID := pridInfo.Index
 
-	info, err := gitprovider.DetectProvider(gitRoot)
+	repoInfo, err := gitprovider.DetectProvider(gitRoot)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not detect repo info: %v", err)}, err
 	}
 
-	provider, err := gitprovider.NewProvider(info)
+	provider, err := gitprovider.NewProvider(repoInfo)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not create provider: %v", err)}, err
 	}
 
-	fetchedPR, err := provider.GetPR(info.Owner, info.Repo, prID)
+	fetchedPR, err := provider.GetPR(repoInfo.Owner, repoInfo.Repo, prID)
 	if err != nil {
 		return &CloseResult{
 			Error:  true,

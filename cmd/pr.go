@@ -13,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -240,13 +241,39 @@ Examples:
 
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
 
+		// Determine if this comment signals LGTM (reviewer only)
+		lgtmFlag, err := cmd.Flags().GetBool("lgtm")
+		if err != nil {
+			return fmt.Errorf("internal: --lgtm flag: %w", err)
+		}
+		role := tmux.Role()
+		isReviewer := role == "reviewer"
+
+		if isReviewer {
+			bodyLGTM := isLGTMBody(body)
+			if lgtmFlag || bodyLGTM {
+				if err := taskwarrior.SetPRLGTM(ctx.Task.UUID); err != nil {
+					return fmt.Errorf(
+						"comment posted but LGTM gate not set: %w\n"+
+							"  Retry: ttal pr comment create --lgtm \"approved\"",
+						err,
+					)
+				}
+				fmt.Println("  ✓ PR approved (pr_id updated with :lgtm)")
+			}
+		}
+		if lgtmFlag && !isReviewer {
+			fmt.Fprintf(os.Stderr,
+				"warning: --lgtm flag ignored — only reviewers can approve PRs (current role: %s)\n",
+				role)
+		}
+
 		// Route based on TTAL_ROLE (set by worker/reviewer spawn).
 		// Reviewer → notify coder window. Coder → trigger re-review.
 		sessionName, sessionErr := review.ResolveSessionName()
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		}
-		role := tmux.Role()
 		if sessionName != "" && role == "reviewer" {
 			// Reviewer posting → notify the coder window
 			coderWindow, cwErr := tmux.FirstWindowExcept(sessionName, "review")
@@ -416,6 +443,13 @@ func loadConfigAndCoderRuntime() (*config.Config, runtime.Runtime) {
 	return cfg, resolveCoderRuntime()
 }
 
+// isLGTMBody returns true if the comment body signals reviewer approval.
+// Matches "LGTM" or "LOOKS GOOD" case-insensitively anywhere in the body.
+func isLGTMBody(body string) bool {
+	upper := strings.ToUpper(body)
+	return strings.Contains(upper, "LGTM") || strings.Contains(upper, "LOOKS GOOD")
+}
+
 func init() {
 	rootCmd.AddCommand(prCmd)
 
@@ -429,6 +463,7 @@ func init() {
 	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
 
 	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
+	prCommentCreateCmd.Flags().Bool("lgtm", false, "Mark PR as approved (reviewer only)")
 
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)

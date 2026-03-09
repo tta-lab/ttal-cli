@@ -3,6 +3,7 @@ package taskwarrior
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -261,6 +262,48 @@ func SetSpawner(uuid, spawner string) error {
 		return fmt.Errorf("failed to set spawner on task %s: %w", uuid, err)
 	}
 	return nil
+}
+
+// PRIDInfo holds parsed pr_id UDA data.
+type PRIDInfo struct {
+	Index int64
+	LGTM  bool
+	Raw   string
+}
+
+// ParsePRID parses a pr_id UDA value. Accepts "123" or "123:lgtm".
+func ParsePRID(raw string) (PRIDInfo, error) {
+	if raw == "" {
+		return PRIDInfo{}, fmt.Errorf("empty pr_id")
+	}
+	info := PRIDInfo{Raw: raw}
+	numStr := raw
+	if strings.HasSuffix(raw, ":lgtm") {
+		info.LGTM = true
+		numStr = strings.TrimSuffix(raw, ":lgtm")
+	}
+	index, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return PRIDInfo{}, fmt.Errorf("invalid pr_id %q: %w", raw, err)
+	}
+	info.Index = index
+	return info, nil
+}
+
+// SetPRLGTM appends :lgtm to the task's pr_id UDA.
+// If already has :lgtm, this is a no-op.
+func SetPRLGTM(uuid string) error {
+	task, err := ExportTask(uuid)
+	if err != nil {
+		return fmt.Errorf("failed to read task %s: %w", uuid, err)
+	}
+	if task.PRID == "" {
+		return fmt.Errorf("task %s has no pr_id", uuid)
+	}
+	if strings.HasSuffix(task.PRID, ":lgtm") {
+		return nil // already approved
+	}
+	return SetPRID(uuid, task.PRID+":lgtm")
 }
 
 // SetPRID sets the pr_id UDA on a task.

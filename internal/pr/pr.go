@@ -82,16 +82,24 @@ func CheckMergeable(ctx *Context) error {
 }
 
 func Merge(ctx *Context, deleteAfterMerge bool) error {
+	// Gate: reviewer must have approved (pr_id must end with :lgtm)
+	info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
+	if err != nil {
+		return err
+	}
+	if !info.LGTM {
+		return fmt.Errorf(
+			"PR #%d has not been approved by reviewer — merge blocked\n"+
+				"  Reviewer must post LGTM comment or use: ttal pr comment create --lgtm \"approved\"",
+			info.Index,
+		)
+	}
+
 	if err := CheckMergeable(ctx); err != nil {
 		return err
 	}
 
-	index, err := prIndex(ctx)
-	if err != nil {
-		return err
-	}
-
-	return ctx.Provider.MergePR(ctx.Owner, ctx.Repo, index, deleteAfterMerge)
+	return ctx.Provider.MergePR(ctx.Owner, ctx.Repo, info.Index, deleteAfterMerge)
 }
 
 // diagnoseMergeFailure queries CI status and returns a human-readable explanation.
@@ -165,9 +173,9 @@ func prIndex(ctx *Context) (int64, error) {
 	if ctx.Task.PRID == "" {
 		return 0, fmt.Errorf("no PR associated with this task (create one first with: ttal pr create)")
 	}
-	index, err := strconv.ParseInt(ctx.Task.PRID, 10, 64)
+	info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
 	if err != nil {
-		return 0, fmt.Errorf("invalid pr_id %q: %w", ctx.Task.PRID, err)
+		return 0, err
 	}
-	return index, nil
+	return info.Index, nil
 }

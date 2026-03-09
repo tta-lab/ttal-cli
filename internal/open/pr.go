@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strconv"
 
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -33,14 +34,19 @@ func PR(uuid string) error {
 		return fmt.Errorf("task has PR #%s but no project_path UDA", task.PRID)
 	}
 
-	info, err := gitprovider.DetectProvider(task.ProjectPath)
+	prInfo, err := taskwarrior.ParsePRID(task.PRID)
+	if err != nil {
+		return fmt.Errorf("invalid pr_id: %w", err)
+	}
+
+	repoInfo, err := gitprovider.DetectProvider(task.ProjectPath)
 	if err != nil {
 		return fmt.Errorf("cannot determine repo: %w", err)
 	}
 
-	prURL := info.PRURL(task.PRID)
-	fmt.Printf("Opening PR #%s: %s\n", task.PRID, prURL)
-	fmt.Printf("Repository: %s/%s (%s)\n", info.Owner, info.Repo, info.Provider)
+	prURL := repoInfo.PRURL(strconv.FormatInt(prInfo.Index, 10))
+	fmt.Printf("Opening PR #%d: %s\n", prInfo.Index, prURL)
+	fmt.Printf("Repository: %s/%s (%s)\n", repoInfo.Owner, repoInfo.Repo, repoInfo.Provider)
 
 	return openBrowser(prURL)
 }

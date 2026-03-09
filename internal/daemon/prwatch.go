@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -110,10 +109,11 @@ func scanTeam(
 			continue
 		}
 
-		prIndex, err := strconv.ParseInt(task.PRID, 10, 64)
+		prInfo, err := taskwarrior.ParsePRID(task.PRID)
 		if err != nil {
 			continue
 		}
+		prIndex := prInfo.Index
 
 		// Detect provider from project path
 		if task.ProjectPath == "" {

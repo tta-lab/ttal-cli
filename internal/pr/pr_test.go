@@ -6,10 +6,13 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // mockProvider implements gitprovider.Provider for testing.
 type mockProvider struct {
+	pr             *gitprovider.PullRequest
+	prErr          error
 	combinedStatus *gitprovider.CombinedStatus
 	combinedErr    error
 }
@@ -22,7 +25,7 @@ func (m *mockProvider) EditPR(_, _ string, _ int64, _, _ string) (*gitprovider.P
 	return nil, nil
 }
 func (m *mockProvider) GetPR(_, _ string, _ int64) (*gitprovider.PullRequest, error) {
-	return nil, nil
+	return m.pr, m.prErr
 }
 func (m *mockProvider) MergePR(_, _ string, _ int64, _ bool) error { return nil }
 func (m *mockProvider) CreateComment(_, _ string, _ int64, _ string) (*gitprovider.Comment, error) {
@@ -157,6 +160,111 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 				if !strings.Contains(result, want) {
 					t.Errorf("expected result to contain %q, got:\n%s", want, result)
 				}
+			}
+		})
+	}
+}
+
+func TestMergeLGTMGate(t *testing.T) {
+	mergeableProvider := &mockProvider{
+		pr: &gitprovider.PullRequest{Merged: false, Mergeable: true},
+	}
+
+	tests := []struct {
+		name        string
+		prid        string
+		errContains string
+	}{
+		{
+			name:        "blocked without lgtm",
+			prid:        "123",
+			errContains: "has not been approved by reviewer",
+		},
+		{
+			name:        "empty pr_id returns error",
+			prid:        "",
+			errContains: "empty pr_id",
+		},
+		{
+			name:        "passes gate with lgtm suffix",
+			prid:        "123:lgtm",
+			errContains: "", // no error from gate; CheckMergeable succeeds with mergeable PR
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{
+				Task:     &taskwarrior.Task{PRID: tt.prid},
+				Owner:    "owner",
+				Repo:     "repo",
+				Provider: mergeableProvider,
+			}
+			err := Merge(ctx, false)
+			if tt.errContains == "" {
+				if err != nil {
+					t.Errorf("expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Errorf("expected error containing %q, got nil", tt.errContains)
+				return
+			}
+			if !strings.Contains(err.Error(), tt.errContains) {
+				t.Errorf("expected error to contain %q, got: %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestBuildPRURLWithLGTM(t *testing.T) {
+	tests := []struct {
+		name        string
+		prid        string
+		wantContain string
+		wantEmpty   bool
+	}{
+		{
+			name:        "plain pr_id builds URL",
+			prid:        "42",
+			wantContain: "42",
+		},
+		{
+			name:        "lgtm pr_id builds correct URL",
+			prid:        "42:lgtm",
+			wantContain: "42",
+		},
+		{
+			name:      "empty pr_id returns empty",
+			prid:      "",
+			wantEmpty: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{
+				Task: &taskwarrior.Task{PRID: tt.prid},
+				Info: &gitprovider.RepoInfo{
+					Owner:    "owner",
+					Repo:     "repo",
+					Provider: "github",
+				},
+			}
+			url := BuildPRURL(ctx)
+			if tt.wantEmpty {
+				if url != "" {
+					t.Errorf("expected empty URL, got %q", url)
+				}
+				return
+			}
+			if !strings.Contains(url, tt.wantContain) {
+				t.Errorf("expected URL to contain %q, got %q", tt.wantContain, url)
+			}
+			// Must not contain raw ":lgtm" in URL
+			if strings.Contains(url, ":lgtm") {
+				t.Errorf("URL must not contain raw :lgtm suffix, got %q", url)
 			}
 		})
 	}
