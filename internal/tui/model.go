@@ -632,11 +632,11 @@ func (m *Model) applyFilter() {
 	for _, t := range m.tasks {
 		switch m.filter {
 		case filterPending:
-			if t.Start != "" {
+			if t.IsActive() {
 				continue
 			}
 		case filterToday:
-			if !t.IsToday() || t.Start != "" {
+			if !t.IsToday() || t.IsActive() {
 				continue
 			}
 		case filterActive:
