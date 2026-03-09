@@ -39,6 +39,7 @@ export default defineConfig({
             { text: 'Daemon', link: '/docs/daemon' },
             { text: 'Runtimes', link: '/docs/runtimes' },
             { text: 'Voice', link: '/docs/voice' },
+            { text: 'Philosophy', link: '/docs/philosophy' },
           ]
         }
       ],
