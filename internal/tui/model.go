@@ -295,6 +295,16 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	switch action {
 	case keyRoute:
 		if len(m.filtered) > 0 {
+			// Auto-route to manager if one is configured
+			for _, a := range m.agents {
+				if a.Role == "manager" {
+					t := m.selectedTask()
+					if t != nil {
+						return m, routeTask(t.UUID, a.Name)
+					}
+				}
+			}
+			// Fallback: manual agent picker when no manager is configured
 			m.state = stateRouteInput
 			m.routeInput.SetValue("")
 			m.updateRouteMatches()
