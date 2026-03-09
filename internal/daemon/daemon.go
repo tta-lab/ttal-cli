@@ -295,7 +295,7 @@ func awaitShutdown(
 	cleanup()
 }
 
-// initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for OC/OpenClaw.
+// initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for all others.
 // Config-driven: iterates all teams, no DB required.
 func initAdapters(
 	ctx context.Context, mcfg *config.DaemonConfig,
