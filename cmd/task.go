@@ -14,6 +14,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+const taskStatusCompleted = "completed"
+
 var (
 	findCompleted      bool
 	executeDryRun      bool
@@ -87,7 +89,7 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		status := "pending"
 		if findCompleted {
-			status = "completed"
+			status = taskStatusCompleted
 		}
 		tasks, err := taskwarrior.FindTasks(args, status)
 		if err != nil {
