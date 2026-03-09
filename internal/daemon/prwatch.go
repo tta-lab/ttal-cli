@@ -426,7 +426,7 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 		return
 	}
 	teamName, agentName := parts[0], parts[1]
-	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s", target.TaskUUID[:8], target.PRIndex, target.Description)
+	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s", shortSHA(target.TaskUUID), target.PRIndex, target.Description)
 	if err := deliverToAgent(registry, mcfg, teamName, agentName, msg); err != nil {
 		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
 	}
@@ -435,7 +435,7 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 // notifyManagerAgents delivers a task-done notification to all agents with role "manager"
 // across all teams. Skips any agent that is the same as the spawner (already notified).
 func notifyManagerAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, target prWatchTarget) {
-	msg := fmt.Sprintf("[task %s done, PR #%d merged] %s", target.TaskUUID[:8], target.PRIndex, target.Description)
+	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s", shortSHA(target.TaskUUID), target.PRIndex, target.Description)
 
 	for teamName, team := range mcfg.Teams {
 		if team.TeamPath == "" {
@@ -444,6 +444,10 @@ func notifyManagerAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 		managers, err := agentfs.FindByRole(team.TeamPath, "manager")
 		if err != nil {
 			log.Printf("[prwatch] notifyManagerAgents: failed to find managers in team %s: %v", teamName, err)
+			continue
+		}
+		if len(managers) == 0 {
+			log.Printf("[prwatch] notifyManagerAgents: no manager agents found in team %s", teamName)
 			continue
 		}
 		for _, agent := range managers {
