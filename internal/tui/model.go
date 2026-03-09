@@ -377,10 +377,6 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		return openEditor(t)
 	case keyCopy:
 		return copyTask(t)
-	case keyCloseWorker:
-		return closeWorker(t, false)
-	case keyForceCloseWorker:
-		return closeWorker(t, true)
 	}
 	return nil
 }

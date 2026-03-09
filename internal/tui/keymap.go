@@ -36,8 +36,6 @@ const (
 	keyToggleNext
 	keyCopy
 	keyDelete
-	keyCloseWorker
-	keyForceCloseWorker
 )
 
 var keyMap = map[string]keyAction{
@@ -68,8 +66,6 @@ var keyMap = map[string]keyAction{
 	"/":      keySearch,
 	"?":      keyHelp,
 	"ctrl+r": keyRefresh,
-	"ctrl+x": keyCloseWorker,
-	"X":      keyForceCloseWorker,
 	"ctrl+f": keyPageDown,
 	"pgdown": keyPageDown,
 	"ctrl+b": keyPageUp,
@@ -107,8 +103,6 @@ const helpText = `Key Bindings:
   y               Copy task to clipboard
   e               Edit task (task edit)
   D               Delete task (with confirmation)
-  Ctrl+X          Close worker (graceful)
-  X               Force close worker
 
   a               Add to today
   Ctrl+A          Remove from today
