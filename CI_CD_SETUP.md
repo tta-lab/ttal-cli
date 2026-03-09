@@ -14,8 +14,8 @@ This document describes the CI/CD workflows and development tooling implemented 
 - **build**
   - Setup Go (version from go.mod)
   - Download dependencies
-  - Generate ent code
-  - Check for uncommitted changes (fails if generated code is stale)
+  - Generate JSON Schema
+  - Check for uncommitted changes (fails if generated schema is stale)
   - Run tests
   - Build binary
 
@@ -32,7 +32,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 **Jobs:**
 - **build**
-  - Generate ent code
+  - Generate JSON Schema
   - Run tests
   - Build binary
 
@@ -49,12 +49,11 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 **Steps:**
 1. Run tests
-2. Build binaries for multiple platforms:
+2. Build binaries for supported platforms:
    - `ttal-linux-amd64`
    - `ttal-linux-arm64`
    - `ttal-darwin-amd64`
    - `ttal-darwin-arm64`
-   - `ttal-windows-amd64.exe`
 3. Generate SHA256 checksums
 4. Create GitHub/Forgejo release with binaries
 
@@ -92,25 +91,18 @@ git push origin v1.0.0
 - `goimports` - Import organization
 
 **Exclusions:**
-- Generated ent code is excluded from most linters
-- Line length checks relaxed for ent directory
+- Line length checks relaxed for generated code
 
-### Pre-commit Hook (`scripts/pre-commit.sh`)
+### Pre-commit Hook (lefthook)
 
-**Installed via:** `make install-hooks`
+**Installed via:** `lefthook install`
 
-**Checks performed:**
-1. Stash unstaged changes (to only check what's being committed)
-2. Run `make fmt` (auto-apply formatting)
-3. Run `make generate` (regenerate ent code)
-4. Run `make vet` (static analysis)
-5. Run `make test` (all tests)
-6. Restore stashed changes
+**Checks performed (parallel):**
+- `make fmt` — auto-apply formatting
+- `make vet` — static analysis
+- `make lint` — golangci-lint
 
-**Behavior:**
-- Auto-formats code and stages changes
-- Fails commit if vet or tests fail
-- Keeps working directory clean
+Tests are CI-only and do not run in the pre-commit hook.
 
 ## Makefile Enhancements
 
@@ -135,11 +127,11 @@ make install       # Install ttal to GOPATH/bin
 make run           # Run ttal (usage: make run ARGS='project list')
 make clean         # Remove built binaries
 make test          # Run tests
-make generate      # Regenerate ent code from schemas
+make schema        # Regenerate JSON Schema from config structs
 make fmt           # Format code with gofmt
 make vet           # Run go vet
 make lint          # Run golangci-lint (if installed)
-make all           # Format, generate, vet, and build
+make all           # Format, tidy, schema, vet, and build
 make ci            # Run all CI checks
 make check-clean   # Check if working directory is clean
 make install-hooks # Install git pre-commit hook
@@ -159,7 +151,7 @@ Standardized template for all pull requests:
 - [ ] Code formatted (`make fmt`)
 - [ ] Tests pass (`make test`)
 - [ ] Vet passes (`make vet`)
-- [ ] Generated code updated (`make generate`)
+- [ ] JSON Schema updated (`make schema`)
 - [ ] Conventional commit format used
 - [ ] No sensitive data committed
 
@@ -175,8 +167,8 @@ Added exclusions for:
 ### Standard Flow
 
 ```bash
-# 1. Install pre-commit hook (one-time)
-make install-hooks
+# 1. Install lefthook (one-time)
+lefthook install
 
 # 2. Make changes to code
 
@@ -194,7 +186,7 @@ git push origin feature-branch
 
 1. All CI checks must pass
 2. Code must be formatted
-3. Generated ent code must be up-to-date
+3. Generated JSON Schema must be up-to-date
 4. Tests must pass
 5. golangci-lint must not report errors
 6. Conventional commit format required
@@ -208,24 +200,10 @@ Types: feat, fix, chore, refactor, docs, test, ci
 Examples:
   feat(cli): add project list command
   fix(db): resolve connection leak
-  chore(deps): update ent to v0.14.5
+  chore(deps): update golangci-lint to v1.60
   ci(lint): add golangci-lint configuration
 ```
 
-## Current Lint Issues
-
-The following lint issues were identified and can be addressed in follow-up PRs:
-
-1. **errcheck (14 issues)** - Unchecked error returns
-   - fmt.Fprintln/Fprintf in cmd/agent.go and cmd/project.go
-   - w.Flush() calls
-   - defer cleanup (tx.Rollback, rows.Close, sqlDB.Close)
-
-2. **lll (1 issue)** - Line too long in internal/models/project.go:119
-
-3. **prealloc (1 issue)** - Slice preallocation in cmd/project.go:289
-
-4. **unused (1 issue)** - Unused variable in cmd/project.go:22
 
 ## References
 

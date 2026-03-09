@@ -74,8 +74,8 @@ ttal daemon uninstall
 # Format code
 make fmt
 
-# Generate ent code from schemas
-make generate
+# Generate JSON Schema from config structs
+make schema
 
 # Run tests
 make test
@@ -89,17 +89,13 @@ make ci
 
 ### Pre-commit Hooks
 
-Install git hooks to automatically run checks before each commit:
+Install lefthook to automatically run checks before each commit:
 
 ```bash
-make install-hooks
+lefthook install
 ```
 
-The pre-commit hook runs:
-- Code formatting (`make fmt`)
-- Ent code generation (`make generate`)
-- Vet checks (`make vet`)
-- Tests (`make test`)
+The pre-commit hook runs `fmt`, `vet`, and `lint` in parallel. Tests are CI-only.
 
 ### Code Quality
 
@@ -107,7 +103,6 @@ This project uses:
 - **gofmt** - Code formatting
 - **golangci-lint** - Comprehensive linting
 - **go vet** - Static analysis
-- **ent** - Schema-first database with auto-generated type-safe queries
 
 Run linting:
 ```bash
@@ -121,7 +116,7 @@ make lint
 **PR Workflow** (`.github/workflows/pr.yaml`)
 - Runs on all pull requests
 - Checks formatting, vet, linting
-- Verifies ent generated code is up-to-date
+- Verifies generated JSON Schema is up-to-date
 - Runs tests and builds binary
 
 **CI Workflow** (`.github/workflows/ci.yaml`)
@@ -234,21 +229,19 @@ tail -f ~/.task/hooks.log
 
 #### Task Lifecycle
 
-Tasks go through three hook-driven stages:
+Tasks go through hook-driven stages:
 
-**1. on-add: Auto-enrichment** — When a task is created, the on-add hook forks a background `claude -p --model haiku` process to enrich the task with `project_path` and `branch` UDAs.
+**1. on-add: Auto-enrichment** — When a task is created, the on-add hook resolves `project_path` and generates a `branch` name inline using `project.ResolveProjectPath()` and `enrichment.GenerateBranch()`. No subprocess is forked.
 
-**2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal task execute` to create a tmux session with a git worktree.
+**2. on-modify (complete): Auto-cleanup** — When a task is completed, the hook validates the completion (PR merge check). Workers are spawned explicitly via `ttal task execute`, not by `task start`.
 
-**3. on-modify (complete): Auto-cleanup** — When a task is completed, the hook closes the worker session, auto-cleans if the PR is merged and the worktree is clean, or notifies the lifecycle agent if manual cleanup is needed.
-
-All lifecycle events are reported to the lifecycle agent's Telegram chat via the daemon socket.
+**3. Daemon cleanup** — After a PR is merged, `ttal pr merge` drops a cleanup request file. The daemon picks it up and handles: close tmux session → remove worktree → mark task done. If the PR is not merged or the worktree is dirty, `ErrNeedsDecision` is returned, causing the CLI to exit with code 1 for manual handling.
 
 ```bash
 # Example flow:
-task add "Fix auth timeout in login API"  # on-add: haiku enriches with project_path/branch
-task <id> start                           # on-modify: spawns worker/fix-auth-timeout
-task <id> done                            # on-modify: auto-cleanup if PR merged
+task add "Fix auth timeout in login API"  # on-add: resolves project_path/branch inline
+ttal task execute <uuid>                  # spawns worker/fix-auth-timeout
+ttal pr merge                             # from worker: merges PR + triggers daemon cleanup
 ```
 
 ### Today Commands
@@ -294,7 +287,7 @@ ttal task execute <uuid>
 
 #### Task Routing
 
-The `design` and `research` subcommands resolve agents by their `role` field in CLAUDE.md frontmatter. Use `ttal task route` for explicit routing to any agent:
+`ttal task route --to <agent>` resolves agents by their `role` field in CLAUDE.md frontmatter:
 
 ```yaml
 # In an agent's CLAUDE.md frontmatter:
@@ -303,7 +296,7 @@ role: designer
 ---
 ```
 
-The agent's role determines which prompt key is used (from `~/.config/ttal/prompts.toml` or `roles.toml`). Each command sends a role-tagged message with the UUID, description, and completion instructions. If no agent has the required role, the error suggests using `ttal task route` instead.
+The agent's role determines which prompt key is used (from `~/.config/ttal/roles.toml`). The command sends a role-tagged message with the UUID, description, and completion instructions. If no agent has the required role, the error suggests checking `ttal agent list`.
 
 ### Daemon Setup
 

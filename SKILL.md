@@ -123,7 +123,6 @@ Look up project details:
 
 ```bash
 ttal project list              # list all active projects
-ttal project info <alias>      # project details (path, repo)
 ```
 
 ## Today Focus

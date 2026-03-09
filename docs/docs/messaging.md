@@ -12,12 +12,13 @@ The daemon polls each agent's Telegram bot for incoming messages and delivers th
 ### Setup
 
 1. Create a Telegram bot via [@BotFather](https://t.me/BotFather)
-2. Add the bot token to your config:
+2. Add the bot token to `~/.config/ttal/.env`:
 
-```toml
-[teams.default.agents.kestrel]
-bot_token = "123456:ABC..."
+```bash
+KESTREL_BOT_TOKEN=123456:ABC...
 ```
+
+Convention: `{UPPER_AGENT_NAME}_BOT_TOKEN`. The daemon reads this at startup — no config.toml entry needed.
 
 3. Start a chat with your bot on Telegram
 4. The daemon will begin polling automatically

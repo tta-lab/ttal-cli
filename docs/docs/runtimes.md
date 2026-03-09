@@ -12,7 +12,6 @@ ttal is runtime-agnostic. It manages agent sessions via tmux and doesn't care wh
 | **Claude Code** | Stable | Anthropic's CLI. Fully supported, battle-tested. |
 | **OpenCode** | Experimental | Open-source coding agent. Adapter exists but not battle-tested. |
 | **Codex CLI** | Experimental | OpenAI's coding CLI. Adapter exists but not battle-tested. |
-| **OpenClaw** | Experimental | Multi-platform AI gateway. Adapter exists but not battle-tested. |
 
 ## Configuration
 
@@ -24,15 +23,6 @@ Set the default runtime for all agents and workers in a team:
 [teams.default]
 agent_runtime = "claude-code"
 worker_runtime = "claude-code"
-```
-
-### Per-agent override
-
-Override the runtime for a specific agent:
-
-```toml
-[teams.default.agents.atlas]
-runtime = "opencode"
 ```
 
 ### Per-task override via tags

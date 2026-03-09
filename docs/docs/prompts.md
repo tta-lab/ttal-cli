@@ -12,13 +12,13 @@ ttal lets you customize the prompts sent to agents when routing tasks. This cont
 Create `~/.config/ttal/prompts.toml` with your prompt templates:
 
 ```toml
-design = "{{skill:sp-writing-plans}}\nDesign an implementation plan for this task: {{task-id}}"
-research = "{{skill:tell-me-more}}\nResearch this topic and write findings: {{task-id}}"
-test = "{{skill:sp-tdd}}\nWrite and run tests for this task: {{task-id}}"
 execute = "{{skill:sp-executing-plans}}"
+triage = "{{skill:triage}}\nPR review posted. Read {{review-file}}, assess and fix issues."
+review = "You are reviewing PR #{{pr-number}} in {{owner}}/{{repo}}."
+re_review = "Re-review scope: {{review-scope}}"
 ```
 
-> **Note:** Prompts live in a dedicated `prompts.toml` file rather than `config.toml`, keeping your main config file focused on settings and team configuration.
+> **Note:** Prompts live in a dedicated `prompts.toml` file rather than `config.toml`, keeping your main config file focused on settings and team configuration. Role-based prompts (for agents with `role: designer` or `role: researcher`) live in `roles.toml`, not `prompts.toml`.
 
 ## Template variables
 
@@ -103,11 +103,11 @@ Always run `make ci` before committing.
 Use conventional commit messages."""
 ```
 
-### Verbose research prompt
+### Custom researcher role prompt
 
 ```toml
-# ~/.config/ttal/prompts.toml
-research = """\
+# ~/.config/ttal/roles.toml
+researcher = """\
 {{skill:tell-me-more}}
 Research task {{task-id}} thoroughly:
 1. Search for existing solutions

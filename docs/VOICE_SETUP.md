@@ -70,7 +70,7 @@ ttal voice speak "Hello" --output speech.wav   # save to file
 
 ```bash
 ttal agent add yuki --voice af_sky +secretary
-ttal agent modify yuki -- voice:af_nova
+ttal agent modify yuki voice:af_nova
 ```
 
 ## Architecture
