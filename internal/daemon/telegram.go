@@ -92,13 +92,13 @@ func runMultiAgentPoller(
 	}
 
 	// Discover this bot's username for group chat @mention routing.
-	if me, err := b.GetMe(ctx); err != nil {
-		log.Printf("[telegram] getMe failed for token ...%s: %v — group chat routing disabled",
-			botToken[len(botToken)-min(4, len(botToken)):], err)
-	} else {
-		botUsername = strings.ToLower(me.Username)
-		log.Printf("[telegram] bot identity: @%s", me.Username)
+	// Return on failure — the caller's retry loop will restart the poller.
+	me, err := b.GetMe(ctx)
+	if err != nil {
+		return fmt.Errorf("getMe for token ...%s: %w", botToken[len(botToken)-min(4, len(botToken)):], err)
 	}
+	botUsername = strings.ToLower(me.Username)
+	log.Printf("[telegram] bot identity: @%s", me.Username)
 
 	// Register /restart once per bot token (global, not per-agent).
 	// Any authorized chat (present in dispatch) can trigger it.
@@ -176,15 +176,22 @@ func handleDefaultUpdate(
 		if target == nil {
 			return
 		}
+		if msg.Text != "" {
+			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas, registry) {
+				return
+			}
+		}
 		// Strip the @mention from the delivered text so the agent sees a clean message.
-		text := stripFirstBotMention(msg, botUsername)
+		// Use *string so handleInboundMessage can distinguish an empty post-strip result
+		// (e.g. message was purely "@botname") from "no override provided".
+		stripped := stripFirstBotMention(msg, botUsername)
 		handleInboundMessage(
 			ctx, b, msg,
 			target.teamName, target.agentName, botToken, target.chatID,
 			func(agentName, text string) {
 				onMessage(target.teamName, agentName, text)
 			},
-			mt, text,
+			mt, &stripped,
 		)
 	default:
 		// DM / private: route by chat ID (existing behaviour, unchanged).
@@ -203,9 +210,55 @@ func handleDefaultUpdate(
 			func(agentName, text string) {
 				onMessage(target.teamName, agentName, text)
 			},
-			mt, "",
+			mt, nil,
 		)
 	}
+}
+
+// utf16OffsetToRuneIdx converts a UTF-16 code unit offset to a rune index in s.
+// Telegram entity offsets are UTF-16 code units; non-BMP characters (e.g. emoji)
+// occupy 2 code units but count as 1 rune, so naive byte/rune indexing is incorrect.
+func utf16OffsetToRuneIdx(s string, utf16Off int) int {
+	u16 := 0
+	ri := 0
+	for _, r := range s {
+		if u16 >= utf16Off {
+			return ri
+		}
+		if r >= 0x10000 {
+			u16 += 2 // surrogate pair
+		} else {
+			u16++
+		}
+		ri++
+	}
+	return ri
+}
+
+// findFirstBotMention returns the rune-index range [start, end) of the first
+// @botUsername mention entity in msg. Returns (-1, -1) if none found.
+// Uses UTF-16–aware offset conversion so emoji before the mention are handled correctly.
+func findFirstBotMention(msg *models.Message, botUsername string) (start, end int) {
+	if msg.Text == "" || botUsername == "" {
+		return -1, -1
+	}
+	runes := []rune(msg.Text)
+	for _, entity := range msg.Entities {
+		if entity.Type != models.MessageEntityTypeMention {
+			continue
+		}
+		s := utf16OffsetToRuneIdx(msg.Text, entity.Offset)
+		e := utf16OffsetToRuneIdx(msg.Text, entity.Offset+entity.Length)
+		if s < 0 || e > len(runes) || s+1 >= e {
+			continue
+		}
+		// Entity covers "@username"; skip the leading '@'.
+		mentioned := strings.ToLower(string(runes[s+1 : e]))
+		if mentioned == botUsername {
+			return s, e
+		}
+	}
+	return -1, -1
 }
 
 // resolveGroupTarget determines which agent should handle a group chat message.
@@ -218,62 +271,48 @@ func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[in
 		return nil
 	}
 
+	addressed := false
+
 	// Priority 1: reply to this bot's own message.
 	if msg.ReplyToMessage != nil &&
 		msg.ReplyToMessage.From != nil &&
 		msg.ReplyToMessage.From.IsBot &&
 		strings.EqualFold(msg.ReplyToMessage.From.Username, botUsername) {
-		for _, t := range dispatch {
-			target := t
-			return &target
-		}
+		addressed = true
 	}
 
 	// Priority 2: first @mention of this bot.
-	runes := []rune(msg.Text)
-	for _, entity := range msg.Entities {
-		if entity.Type != models.MessageEntityTypeMention {
-			continue
-		}
-		end := entity.Offset + entity.Length
-		if entity.Offset < 0 || end > len(runes) {
-			continue
-		}
-		// Entity covers "@username"; skip the leading '@'.
-		mentioned := strings.ToLower(string(runes[entity.Offset+1 : end]))
-		if mentioned == botUsername {
-			for _, t := range dispatch {
-				target := t
-				return &target
-			}
-		}
+	if !addressed {
+		s, _ := findFirstBotMention(msg, botUsername)
+		addressed = s >= 0
 	}
 
+	if !addressed {
+		return nil
+	}
+
+	if len(dispatch) > 1 {
+		log.Printf("[telegram] WARNING: group message for @%s — multiple agents share this token; routing to first match", botUsername)
+	}
+	for _, t := range dispatch {
+		target := t
+		return &target
+	}
 	return nil
 }
 
-// stripFirstBotMention removes the first @botUsername mention from msg.Text using
-// entity offsets (Unicode-safe) and trims surrounding whitespace.
+// stripFirstBotMention removes the first @botUsername mention from msg.Text and
+// trims surrounding whitespace. Returns msg.Text unchanged if no mention is found.
 func stripFirstBotMention(msg *models.Message, botUsername string) string {
 	if botUsername == "" {
 		return msg.Text
 	}
-	runes := []rune(msg.Text)
-	for _, entity := range msg.Entities {
-		if entity.Type != models.MessageEntityTypeMention {
-			continue
-		}
-		end := entity.Offset + entity.Length
-		if entity.Offset < 0 || end > len(runes) {
-			continue
-		}
-		mentioned := strings.ToLower(string(runes[entity.Offset+1 : end]))
-		if mentioned == botUsername {
-			result := string(runes[:entity.Offset]) + string(runes[end:])
-			return strings.TrimSpace(result)
-		}
+	s, e := findFirstBotMention(msg, botUsername)
+	if s < 0 {
+		return msg.Text
 	}
-	return msg.Text
+	runes := []rune(msg.Text)
+	return strings.TrimSpace(string(runes[:s]) + string(runes[e:]))
 }
 
 func handleInboundMessage(
@@ -281,7 +320,7 @@ func handleInboundMessage(
 	teamName, agentName, botToken, chatIDStr string,
 	onMessage func(string, string),
 	mt *messageTracker,
-	overrideText string,
+	overrideText *string,
 ) {
 	// Track this message for tool reactions
 	if mt != nil {
@@ -359,8 +398,10 @@ func handleInboundMessage(
 		return
 	}
 
-	text := overrideText
-	if text == "" {
+	var text string
+	if overrideText != nil {
+		text = *overrideText
+	} else {
 		text = strings.TrimSpace(msg.Text)
 	}
 	onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
@@ -381,29 +422,26 @@ func registerBotCommandsForAgent(
 				return false
 			}
 			msg := update.Message
-			// In group/supergroup: accept command if it targets this bot (or has no @suffix).
+			isGroup := msg.Chat.Type == chatTypeGroup || msg.Chat.Type == chatTypeSupergroup
+			// In groups: no chatID-based authorization (group ID ≠ DM chatID).
 			// In private/other: require matching DM chat ID.
-			switch msg.Chat.Type {
-			case chatTypeGroup, chatTypeSupergroup:
-				// Only handle if addressed to this bot or no @suffix given.
-			default:
-				if msg.Chat.ID != chatID {
-					return false
-				}
+			if !isGroup && msg.Chat.ID != chatID {
+				return false
 			}
 			for _, e := range msg.Entities {
 				if e.Type != models.MessageEntityTypeBotCommand || e.Offset != 0 {
 					continue
 				}
-				// Extract command name: skip leading "/", strip @botname suffix
+				// Extract command name: skip leading "/", strip @botname suffix.
 				raw := msg.Text[1:e.Length]
 				name, atBot, hasAt := strings.Cut(raw, "@")
 				if name != cmd {
 					continue
 				}
-				// In a group, ensure the @suffix matches this bot (or is absent).
-				if (msg.Chat.Type == chatTypeGroup || msg.Chat.Type == chatTypeSupergroup) && hasAt {
-					if !strings.EqualFold(atBot, botUsername) {
+				// In groups, the @botname suffix MUST be present and match this bot.
+				// This prevents bare /cmd from being accepted by arbitrary groups.
+				if isGroup {
+					if !hasAt || !strings.EqualFold(atBot, botUsername) {
 						return false
 					}
 				}
