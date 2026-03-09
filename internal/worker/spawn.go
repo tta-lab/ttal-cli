@@ -201,7 +201,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	taskFile, err := writeTaskFile(task, cfg, workDir, branch, shellCfg)
+	taskFile, err := writeTaskFile(task, cfg, shellCfg)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 }
 
 func writeTaskFile(
-	task *taskwarrior.Task, cfg SpawnConfig, workDir, branch string,
+	task *taskwarrior.Task, cfg SpawnConfig,
 	shellCfg *config.Config,
 ) (string, error) {
 	var b strings.Builder
@@ -325,18 +325,6 @@ func writeTaskFile(
 	}
 	b.WriteString(executePrompt)
 	b.WriteString("\n\n")
-
-	// Worktree context (worker needs this immediately)
-	if cfg.Worktree && branch != "" {
-		fmt.Fprintf(&b, "IMPORTANT - You are in a git worktree:\n"+
-			"- Working directory: %s\n"+
-			"- Branch: %s\n"+
-			"- This is an isolated workspace for your task\n"+
-			"- STAY in this directory - do NOT cd to parent/main workspace\n"+
-			"- All your work should happen here\n"+
-			"- When done: commit, push, and create PR with `ttal pr create \"title\" --body \"description\"`\n\n",
-			workDir, branch)
-	}
 
 	taskFile, err := os.CreateTemp("", "claude-task-*.txt")
 	if err != nil {
