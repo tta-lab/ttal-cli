@@ -42,8 +42,14 @@ func build(ctx context.Context, push bool, tag string) error {
 			"git", "tmux", "curl", "jq",
 			"openssh-client", "ca-certificates",
 			"build-essential", "python3",
-			"taskwarrior", "ripgrep", "fd-find", "gh",
+			"taskwarrior", "ripgrep", "fd-find",
 		}).
+
+		// GitHub CLI (not in standard Debian repos — add official apt source)
+		WithExec([]string{"sh", "-c", "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg"}).
+		WithExec([]string{"sh", "-c", `echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list`}).
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "install", "-y", "--no-install-recommends", "gh"}).
 		WithExec([]string{"apt-get", "clean"}).
 		WithExec([]string{"sh", "-c", "rm -rf /var/lib/apt/lists/*"}).
 
