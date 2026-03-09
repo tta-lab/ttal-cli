@@ -61,7 +61,7 @@ ttal voice speak "Test message" --output speech.wav
 Assign voices when adding agents:
 
 ```bash
-ttal agent add athena --voice af_heart +research
+ttal agent add athena --voice af_heart
 ```
 
 List available voices:

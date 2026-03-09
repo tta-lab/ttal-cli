@@ -119,7 +119,7 @@ ttal worker install
 ttal daemon install
 
 # Add your first agent
-ttal agent add kestrel +core +backend
+ttal agent add kestrel --role orchestrator
 ```
 
 **[Read the docs →](/docs/getting-started)** | **[View source on GitHub →](https://github.com/tta-lab/ttal-cli)**

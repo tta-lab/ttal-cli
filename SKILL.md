@@ -159,7 +159,6 @@ ttal task find <keyword> --completed  # search completed tasks
 
 `ttal task get` inlines markdown files from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns — useful for feeding full context to agents.
 
-
 ## Available Voices
 
 Use `ttal voice list` to see all voices. Common choices:

@@ -12,7 +12,7 @@ ttal supports different team shapes depending on your workflow. Start simple and
 The simplest setup. One persistent agent handles orchestration, and workers are spawned for individual tasks.
 
 ```bash
-ttal agent add kestrel +core +backend +frontend
+ttal agent add kestrel --role orchestrator
 ```
 
 Kestrel manages your tasks, responds to Telegram messages, and spawns workers when you run `ttal task execute`. Each worker is isolated in its own tmux session and git worktree.
@@ -24,9 +24,9 @@ Kestrel manages your tasks, responds to Telegram messages, and spawns workers wh
 Add specialized agents for research and design phases before execution.
 
 ```bash
-ttal agent add athena +research
-ttal agent add inke +design
-ttal agent add kestrel +core +backend
+ttal agent add athena --role researcher
+ttal agent add inke --role designer
+ttal agent add kestrel --role orchestrator
 ```
 
 Set roles in agent frontmatter so routing resolves automatically:
@@ -45,10 +45,10 @@ Now `ttal task route <uuid> --to inke` goes to Inke (role: designer), `ttal task
 The full setup with dedicated review agents.
 
 ```bash
-ttal agent add kestrel +core +lifecycle
-ttal agent add athena +research
-ttal agent add inke +design
-ttal agent add sage +testing +review
+ttal agent add kestrel --role orchestrator
+ttal agent add athena --role researcher
+ttal agent add inke --role designer
+ttal agent add sage --role reviewer
 ```
 
 Workers implement features, create PRs, and specialized review agents analyze the code. The reviewer posts verdicts, the worker triages, and you merge from Telegram.
@@ -68,7 +68,7 @@ Talk to [@BotFather](https://t.me/BotFather) on Telegram:
 ### 2. Register the agent
 
 ```bash
-ttal agent add athena +research --path=/path/to/workspace
+ttal agent add athena --role researcher
 ```
 
 ### 3. Add the bot token to config
