@@ -60,7 +60,7 @@ ttal worker close <session-name>
 
 Smart close checks the PR status:
 - If the PR is merged and the worktree is clean → auto-cleanup
-- Otherwise → notifies the lifecycle agent for manual decision
+- Otherwise → returns exit code 1 (`ErrNeedsDecision`) for manual handling
 
 ### Force close
 

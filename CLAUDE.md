@@ -171,7 +171,7 @@ ttal project modify clawd name:'New Name' path:/new/path
 - Keeps main branch healthy
 
 **release.yaml** - Triggers on version tags (e.g., `v1.0.0`):
-- Builds binaries for Linux/macOS/Windows (amd64, arm64)
+- Builds binaries for Linux/macOS (amd64, arm64)
 - Creates Forgejo/GitHub release with binaries
 
 ### Pre-commit Hooks (lefthook)

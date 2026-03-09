@@ -1,6 +1,6 @@
 # AIOps System
 
-> Taskwarrior + Zellij + Claude Code, orchestrated with hooks and agents
+> Taskwarrior + terminal sessions + Claude Code, orchestrated with hooks and agents
 
 ## The Idea
 
@@ -11,8 +11,8 @@ Like GitHub Codespaces, but local. Under your control. And extensible to any wor
 ## The Stack
 
 - **[Taskwarrior](https://taskwarrior.org/)** — Your tasks as structured data. Hooks that fire when things change.
-- **[OpenClaw](https://github.com/openclaw/openclaw)** — Talk to your agents from WhatsApp, Telegram, Slack. Webhooks and workflows.
-- **[Zellij](https://zellij.dev/)** — Terminal sessions that spawn, manage context, and clean up automatically.
+- **Telegram** — Talk to your agents from your phone. Messages delivered to agent terminal sessions.
+- **tmux** — Terminal sessions that spawn, manage context, and clean up automatically.
 - **[Claude Code](https://claude.com/product/claude-code)** — AI that actually writes code. (Or swap for opencode, aider, crush—your choice.)
 
 Desktop apps (browser automation, Excel, PowerPoint) plug into the same webhook system alongside terminal agents.
@@ -29,5 +29,5 @@ The key insight: **annotations become a shared communication channel**. Humans, 
 
 ## Further Reading
 
-- [Day 1: The Dream Setup](guides/day-1-the-dream-setup.md) — Why Taskwarrior is the secret sauce
-- [Day 2: The Glue Layer](guides/day-2-orchestration-layer.md) — Webhooks, workflows, orchestration
+- [Building Your Team](guides/building-your-team.md) — Setting up agents and roles
+- [PR Review Workflow](guides/pr-review-workflow.md) — Automated review with specialized agents

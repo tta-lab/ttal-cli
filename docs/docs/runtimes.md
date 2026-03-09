@@ -26,15 +26,6 @@ agent_runtime = "claude-code"
 worker_runtime = "claude-code"
 ```
 
-### Per-agent override
-
-Override the runtime for a specific agent:
-
-```toml
-[teams.default.agents.atlas]
-runtime = "opencode"
-```
-
 ### Per-task override via tags
 
 Task tags can trigger runtime overrides:

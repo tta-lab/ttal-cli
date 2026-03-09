@@ -22,9 +22,8 @@ Think of it as the input layer. Everything important goes here.
 
 An open lab exploring agent-driven task orchestration.
 
-- **The stack**: Taskwarrior + Zellij + Claude Code
+- **The stack**: Taskwarrior + terminal sessions + Claude Code
 - **Architecture guides** on patterns that actually work
-- **Upcoming iOS app** with full Taskwarrior support, Taskchampion sync, and OpenClaw agents
 
 This is the execution layer. Agents read tasks, do work, report back.
 
