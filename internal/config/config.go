@@ -99,12 +99,25 @@ type KubernetesConfig struct {
 	Context string `toml:"context" jsonschema:"description=Kubernetes context name (e.g. orbstack)"`
 	// Agent container image (default: ghcr.io/tta-lab/ttal-manager-cc:latest)
 	AgentImage string `toml:"agent_image" jsonschema:"description=Agent container image"` //nolint:lll
-	// Worker container image (future use — not implemented yet)
-	WorkerImage string `toml:"worker_image" jsonschema:"description=Worker container image (future use)"` //nolint:lll
 }
 
 // DefaultAgentImage is the default container image for k8s agent pods.
 const DefaultAgentImage = "ghcr.io/tta-lab/ttal-manager-cc:latest"
+
+// isSet reports whether this config enables k8s deployment.
+// Safe to call on a nil pointer.
+func (k *KubernetesConfig) isSet() bool {
+	return k != nil && k.Context != ""
+}
+
+// agentImage returns the container image, falling back to DefaultAgentImage.
+// Safe to call on a nil pointer.
+func (k *KubernetesConfig) agentImage() string {
+	if k != nil && k.AgentImage != "" {
+		return k.AgentImage
+	}
+	return DefaultAgentImage
+}
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
@@ -149,17 +162,10 @@ type TeamConfig struct {
 }
 
 // IsK8s reports whether this team deploys agents to Kubernetes.
-func (t TeamConfig) IsK8s() bool {
-	return t.Kubernetes != nil && t.Kubernetes.Context != ""
-}
+func (t TeamConfig) IsK8s() bool { return t.Kubernetes.isSet() }
 
 // K8sAgentImage returns the container image for agent pods, with a sensible default.
-func (t TeamConfig) K8sAgentImage() string {
-	if t.Kubernetes != nil && t.Kubernetes.AgentImage != "" {
-		return t.Kubernetes.AgentImage
-	}
-	return DefaultAgentImage
-}
+func (t TeamConfig) K8sAgentImage() string { return t.Kubernetes.agentImage() }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
 type SyncConfig struct {
@@ -743,17 +749,10 @@ type ResolvedTeam struct {
 }
 
 // IsK8s reports whether this team deploys agents to Kubernetes.
-func (t *ResolvedTeam) IsK8s() bool {
-	return t.Kubernetes != nil && t.Kubernetes.Context != ""
-}
+func (t *ResolvedTeam) IsK8s() bool { return t.Kubernetes.isSet() }
 
 // K8sAgentImage returns the container image for agent pods, with a sensible default.
-func (t *ResolvedTeam) K8sAgentImage() string {
-	if t.Kubernetes != nil && t.Kubernetes.AgentImage != "" {
-		return t.Kubernetes.AgentImage
-	}
-	return DefaultAgentImage
-}
+func (t *ResolvedTeam) K8sAgentImage() string { return t.Kubernetes.agentImage() }
 
 // DefaultTeamName returns the default team name with fallback to "default".
 func (m *DaemonConfig) DefaultTeamName() string {

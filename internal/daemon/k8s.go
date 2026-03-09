@@ -37,10 +37,14 @@ func (k *k8sTeamPod) podName() string {
 }
 
 // EnsureNamespace creates the ttal namespace if it doesn't exist.
+// Logs the get failure reason before attempting create, since the failure could indicate
+// an RBAC or context misconfiguration rather than a missing namespace.
 func (k *k8sTeamPod) EnsureNamespace() error {
-	if err := k.kubectl("get", "namespace", k.namespace); err == nil {
+	out, err := k.kubectlOutput("get", "namespace", k.namespace)
+	if err == nil {
 		return nil
 	}
+	log.Printf("[k8s] namespace %s get failed (%s) — attempting create", k.namespace, strings.TrimSpace(out))
 	return k.kubectl("create", "namespace", k.namespace)
 }
 
@@ -71,6 +75,7 @@ func (k *k8sTeamPod) EnsurePod(sharedEnv []string, volumes []k8sVolume) error {
 }
 
 // WaitForReady polls until the pod reaches Running phase (timeout 120s).
+// Returns immediately if the pod enters a terminal failure state.
 func (k *k8sTeamPod) WaitForReady() error {
 	deadline := time.Now().Add(120 * time.Second)
 	for time.Now().Before(deadline) {
@@ -79,22 +84,31 @@ func (k *k8sTeamPod) WaitForReady() error {
 			log.Printf("[k8s] pod %s is Running", k.podName())
 			return nil
 		}
+		if phase == "Failed" || phase == "Succeeded" {
+			reason := k.getPodField("status.reason")
+			msg := k.getPodField("status.message")
+			return fmt.Errorf("pod %s entered terminal state %s: %s %s", k.podName(), phase, reason, msg)
+		}
 		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("pod %s not ready after 120s", k.podName())
 }
 
 // SpawnAgent creates a tmux session inside the pod for an agent.
-// Per-agent env vars are set via `env KEY=VAL` prefix so the claude process sees them immediately.
+// Per-agent env vars are shell-quoted and passed via `env KEY=VAL` prefix.
 func (k *k8sTeamPod) SpawnAgent(agentName, model string, perAgentEnv []string) error {
 	ccCmd := "claude --dangerously-skip-permissions"
 	if model != "" {
-		ccCmd += " --model " + model
+		ccCmd += " --model " + shellQuote(model)
 	}
 
 	envPrefix := ""
 	if len(perAgentEnv) > 0 {
-		envPrefix = "env " + strings.Join(perAgentEnv, " ") + " "
+		quoted := make([]string, len(perAgentEnv))
+		for i, e := range perAgentEnv {
+			quoted[i] = shellQuoteEnvPair(e)
+		}
+		envPrefix = "env " + strings.Join(quoted, " ") + " "
 	}
 	fullCmd := envPrefix + ccCmd
 
@@ -140,6 +154,13 @@ func (k *k8sTeamPod) kubectl(args ...string) error {
 	return cmd.Run()
 }
 
+// kubectlOutput runs a kubectl command and returns combined stdout+stderr output.
+func (k *k8sTeamPod) kubectlOutput(args ...string) (string, error) {
+	allArgs := append([]string{"--context", k.kubectx, "-n", k.namespace}, args...)
+	out, err := exec.Command("kubectl", allArgs...).CombinedOutput()
+	return string(out), err
+}
+
 // kubectlApply applies a YAML manifest via stdin.
 func (k *k8sTeamPod) kubectlApply(yamlContent string) error {
 	allArgs := []string{"--context", k.kubectx, "-n", k.namespace, "apply", "-f", "-"}
@@ -165,10 +186,16 @@ func (k *k8sTeamPod) getPodField(jsonpath string) string {
 
 // getSpecHash retrieves the ttal.io/spec-hash label from the running pod.
 // Returns "" if the pod doesn't exist or the label is unset.
+// Logs a warning if the failure is not a simple "not found" (e.g., RBAC or wrong context).
 func (k *k8sTeamPod) getSpecHash() string {
-	// Check if pod exists first
 	checkArgs := []string{"--context", k.kubectx, "-n", k.namespace, "get", "pod", k.podName()}
-	if err := exec.Command("kubectl", checkArgs...).Run(); err != nil {
+	out, err := exec.Command("kubectl", checkArgs...).CombinedOutput()
+	if err != nil {
+		output := strings.TrimSpace(string(out))
+		// Log unexpected errors — plain "not found" is expected and not worth logging
+		if output != "" && !strings.Contains(output, "NotFound") && !strings.Contains(output, "not found") {
+			log.Printf("[k8s] warning: pod %s existence check failed: %s", k.podName(), output)
+		}
 		return ""
 	}
 	allArgs := []string{
@@ -176,11 +203,11 @@ func (k *k8sTeamPod) getSpecHash() string {
 		"get", "pod", k.podName(),
 		"-o", `go-template={{index .metadata.labels "ttal.io/spec-hash"}}`,
 	}
-	out, err := exec.Command("kubectl", allArgs...).Output()
+	labelOut, err := exec.Command("kubectl", allArgs...).Output()
 	if err != nil {
 		return ""
 	}
-	result := strings.TrimSpace(string(out))
+	result := strings.TrimSpace(string(labelOut))
 	if result == "<no value>" {
 		return ""
 	}
@@ -189,11 +216,15 @@ func (k *k8sTeamPod) getSpecHash() string {
 
 // injectSpecHash inserts the ttal.io/spec-hash label into the pod YAML.
 // The YAML is generated WITHOUT this label first (to compute the hash), then the label is injected.
+// Logs a warning if the injection marker is not found (indicates YAML format changed).
 func (k *k8sTeamPod) injectSpecHash(yaml, hash string) string {
-	return strings.Replace(yaml,
-		"    app: ttal-team",
-		fmt.Sprintf("    app: ttal-team\n    ttal.io/spec-hash: %s", hash),
-		1)
+	const marker = "    app: ttal-team\n"
+	replacement := marker + "    ttal.io/spec-hash: " + hash + "\n"
+	result := strings.Replace(yaml, marker, replacement, 1)
+	if result == yaml {
+		log.Printf("[k8s] warning: could not inject spec-hash into pod YAML for %s — hash won't be stored", k.podName())
+	}
+	return result
 }
 
 // specHash computes a 12-char hex SHA-256 of the YAML content.
@@ -248,11 +279,28 @@ func (k *k8sTeamPod) generatePodYAML(sharedEnv []string, volumes []k8sVolume) st
 	return sb.String()
 }
 
-// yamlQuote wraps a string in double quotes with minimal YAML escaping.
+// yamlQuote wraps a string in double quotes with YAML double-quoted scalar escaping.
 func yamlQuote(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\t", `\t`)
 	return `"` + s + `"`
+}
+
+// shellQuote wraps a string in single quotes for POSIX shell, escaping any embedded single quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// shellQuoteEnvPair quotes the value half of a KEY=VALUE env pair for shell interpolation.
+func shellQuoteEnvPair(kv string) string {
+	parts := strings.SplitN(kv, "=", 2)
+	if len(parts) != 2 {
+		return kv
+	}
+	return parts[0] + "=" + shellQuote(parts[1])
 }
 
 // buildVolumes constructs the hostPath volume slice for a team pod.

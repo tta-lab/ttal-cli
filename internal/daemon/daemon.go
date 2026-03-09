@@ -311,29 +311,37 @@ func initAdapters(
 	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
 ) {
 	// Phase 1: ensure k8s team pods exist with correct spec
-	home, _ := os.UserHomeDir()
 	k8sPods = make(map[string]*k8sTeamPod)
-	for teamName, team := range mcfg.Teams {
-		if !team.IsK8s() {
-			continue
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("[k8s] cannot get home directory — skipping all k8s teams: %v", err)
+	} else {
+		for teamName, team := range mcfg.Teams {
+			if !team.IsK8s() {
+				continue
+			}
+			pod := &k8sTeamPod{
+				kubectx:   team.Kubernetes.Context,
+				namespace: "ttal",
+				image:     team.K8sAgentImage(),
+				teamName:  teamName,
+			}
+			if err := pod.EnsureNamespace(); err != nil {
+				log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
+				continue
+			}
+			sharedEnv, err := buildSharedEnv(teamName)
+			if err != nil {
+				log.Printf("[k8s] failed to build shared env for team %s: %v", teamName, err)
+				continue
+			}
+			volumes := buildVolumes(team, home)
+			if err := pod.EnsurePod(sharedEnv, volumes); err != nil {
+				log.Printf("[k8s] failed to ensure pod for team %s: %v", teamName, err)
+				continue
+			}
+			k8sPods[teamName] = pod
 		}
-		pod := &k8sTeamPod{
-			kubectx:   team.Kubernetes.Context,
-			namespace: "ttal",
-			image:     team.K8sAgentImage(),
-			teamName:  teamName,
-		}
-		if err := pod.EnsureNamespace(); err != nil {
-			log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
-			continue
-		}
-		sharedEnv := buildSharedEnv(teamName, mcfg)
-		volumes := buildVolumes(team, home)
-		if err := pod.EnsurePod(sharedEnv, volumes); err != nil {
-			log.Printf("[k8s] failed to ensure pod for team %s: %v", teamName, err)
-			continue
-		}
-		k8sPods[teamName] = pod
 	}
 
 	// Phase 2: spawn per-agent sessions in parallel
@@ -452,12 +460,19 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 
 // buildSharedEnv returns container-level env vars for a k8s team pod.
 // Includes TTAL_TEAM and all .env secrets. Does NOT include per-agent vars.
-func buildSharedEnv(teamName string, _ *config.DaemonConfig) []string {
-	dotenvParts := config.DotEnvParts()
-	env := make([]string, 0, 1+len(dotenvParts))
+// Returns an error if .env exists but cannot be loaded — a pod created with
+// stripped secrets would be reused indefinitely due to spec-hash matching.
+func buildSharedEnv(teamName string) ([]string, error) {
+	dotenvMap, err := config.LoadDotEnv()
+	if err != nil {
+		return nil, fmt.Errorf("loading .env for k8s pod: %w", err)
+	}
+	env := make([]string, 0, 1+len(dotenvMap))
 	env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
-	env = append(env, dotenvParts...)
-	return env
+	for k, v := range dotenvMap {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+	return env, nil
 }
 
 // buildPerAgentEnv returns tmux-session-level env vars for a k8s agent.

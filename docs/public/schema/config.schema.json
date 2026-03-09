@@ -203,10 +203,6 @@
               "agent_image": {
                 "type": "string",
                 "description": "Agent container image"
-              },
-              "worker_image": {
-                "type": "string",
-                "description": "Worker container image (future use)"
               }
             },
             "additionalProperties": false,
