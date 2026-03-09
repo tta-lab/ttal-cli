@@ -76,10 +76,30 @@ func (s *Store) load() (*projectsFile, error) {
 			}
 			continue
 		}
-		pf.Active[key] = parseEntry(val)
+		flattenProjects(pf.Active, key, val)
 	}
 
 	return pf, nil
+}
+
+// flattenProjects recursively extracts project entries from nested TOML tables.
+// [fb.ap] in TOML becomes key "ap" inside fb's map — this flattens it to "fb.ap".
+func flattenProjects(out map[string]projectEntry, prefix string, val any) {
+	m, ok := val.(map[string]any)
+	if !ok {
+		return
+	}
+	if _, hasName := m["name"]; hasName {
+		out[prefix] = parseEntry(val)
+	}
+	for k, v := range m {
+		if k == "name" || k == "path" {
+			continue
+		}
+		if _, ok := v.(map[string]any); ok {
+			flattenProjects(out, prefix+"."+k, v)
+		}
+	}
 }
 
 func parseEntry(val any) projectEntry {

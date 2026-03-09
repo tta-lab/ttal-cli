@@ -1,6 +1,7 @@
 package project
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -198,6 +199,81 @@ func TestStoreFileCreatedOnFirstWrite(t *testing.T) {
 	p, _ = s.Get("proj")
 	if p == nil {
 		t.Fatal("project should exist after Add()")
+	}
+}
+
+func TestStoreSubPathProjects(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+
+	// Write TOML with dot-notation nested tables like [fb.ap] and [fb.tk]
+	tomlContent := `
+[fb.ap]
+name = "Attachment Processor"
+path = "/path/fb/ap"
+
+[fb.tk]
+name = "Toolkit"
+path = "/path/fb/tk"
+
+[ttal]
+name = "TTAL Core"
+path = "/path/ttal"
+`
+	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
+		t.Fatalf("writing test TOML: %v", err)
+	}
+
+	s := NewStore(path)
+
+	// Get sub-path projects
+	p, err := s.Get("fb.ap")
+	if err != nil {
+		t.Fatalf("Get(fb.ap) error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("Get(fb.ap) returned nil")
+	}
+	if p.Name != "Attachment Processor" {
+		t.Errorf("Name = %q, want %q", p.Name, "Attachment Processor")
+	}
+	if p.Path != "/path/fb/ap" {
+		t.Errorf("Path = %q, want %q", p.Path, "/path/fb/ap")
+	}
+	if p.Alias != "fb.ap" {
+		t.Errorf("Alias = %q, want %q", p.Alias, "fb.ap")
+	}
+
+	p, err = s.Get("fb.tk")
+	if err != nil {
+		t.Fatalf("Get(fb.tk) error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("Get(fb.tk) returned nil")
+	}
+
+	// List should include all three projects
+	projects, err := s.List(false)
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	if len(projects) != 3 {
+		aliases := make([]string, len(projects))
+		for i, p := range projects {
+			aliases[i] = p.Alias
+		}
+		t.Fatalf("List() returned %d projects, want 3: %v", len(projects), aliases)
+	}
+
+	// Verify sorted order: fb.ap, fb.tk, ttal
+	if projects[0].Alias != "fb.ap" {
+		t.Errorf("projects[0].Alias = %q, want %q", projects[0].Alias, "fb.ap")
+	}
+	if projects[1].Alias != "fb.tk" {
+		t.Errorf("projects[1].Alias = %q, want %q", projects[1].Alias, "fb.tk")
+	}
+	if projects[2].Alias != "ttal" {
+		t.Errorf("projects[2].Alias = %q, want %q", projects[2].Alias, "ttal")
 	}
 }
 
