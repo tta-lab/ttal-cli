@@ -122,38 +122,30 @@ func TestDeploySkills(t *testing.T) {
 		t.Errorf("Name = %q, want %q", results[0].Name, "my-skill")
 	}
 
-	// Verify CC symlink exists
+	// Verify CC directory was copied
 	ccDest := filepath.Join(tmpHome, ".claude", "skills", "my-skill")
 	info, err := os.Lstat(ccDest)
 	if err != nil {
-		t.Fatalf("CC symlink not created: %v", err)
+		t.Fatalf("CC skill dir not created: %v", err)
 	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		t.Error("expected CC symlink, got regular file/dir")
+	if !info.IsDir() {
+		t.Error("expected CC skill to be a directory")
 	}
-	target, err := os.Readlink(ccDest)
-	if err != nil {
-		t.Fatalf("reading CC symlink: %v", err)
-	}
-	if target != skillDir {
-		t.Errorf("CC symlink target = %q, want %q", target, skillDir)
+	if _, err := os.ReadFile(filepath.Join(ccDest, "SKILL.md")); err != nil {
+		t.Errorf("CC SKILL.md not copied: %v", err)
 	}
 
-	// Verify Codex symlink exists
+	// Verify Codex directory was copied
 	codexDest := filepath.Join(tmpHome, ".codex", "skills", "my-skill")
 	info, err = os.Lstat(codexDest)
 	if err != nil {
-		t.Fatalf("Codex symlink not created: %v", err)
+		t.Fatalf("Codex skill dir not created: %v", err)
 	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		t.Error("expected Codex symlink, got regular file/dir")
+	if !info.IsDir() {
+		t.Error("expected Codex skill to be a directory")
 	}
-	codexTarget, err := os.Readlink(codexDest)
-	if err != nil {
-		t.Fatalf("reading Codex symlink: %v", err)
-	}
-	if codexTarget != skillDir {
-		t.Errorf("Codex symlink target = %q, want %q", codexTarget, skillDir)
+	if _, err := os.ReadFile(filepath.Join(codexDest, "SKILL.md")); err != nil {
+		t.Errorf("Codex SKILL.md not copied: %v", err)
 	}
 }
 
@@ -189,23 +181,27 @@ func TestDeploySkillsReplacesExistingSymlink(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 
-	// Verify CC symlink was replaced
-	target, err := os.Readlink(filepath.Join(destDir, "my-skill"))
+	// Verify CC directory was created (replacing old symlink)
+	ccDest := filepath.Join(destDir, "my-skill")
+	info, err := os.Lstat(ccDest)
 	if err != nil {
-		t.Fatalf("reading CC symlink: %v", err)
+		t.Fatalf("CC skill dir not created: %v", err)
 	}
-	if target != skillDir {
-		t.Errorf("CC symlink target = %q, want %q", target, skillDir)
+	if !info.IsDir() {
+		t.Error("expected CC skill to be a real directory, not a symlink")
+	}
+	if _, err := os.ReadFile(filepath.Join(ccDest, "SKILL.md")); err != nil {
+		t.Errorf("CC SKILL.md not copied: %v", err)
 	}
 
-	// Verify Codex symlink was also created
+	// Verify Codex directory was also created
 	codexDest := filepath.Join(tmpHome, ".codex", "skills", "my-skill")
-	codexTarget, err := os.Readlink(codexDest)
+	codexInfo, err := os.Lstat(codexDest)
 	if err != nil {
-		t.Fatalf("reading Codex symlink: %v", err)
+		t.Fatalf("Codex skill dir not created: %v", err)
 	}
-	if codexTarget != skillDir {
-		t.Errorf("Codex symlink target = %q, want %q", codexTarget, skillDir)
+	if !codexInfo.IsDir() {
+		t.Error("expected Codex skill to be a real directory")
 	}
 }
 
@@ -231,20 +227,18 @@ func TestCleanSkills(t *testing.T) {
 		}
 	}
 
-	// Deploy current skill to both
-	if err := os.Symlink(skillDir, filepath.Join(ccDir, "keep-skill")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(skillDir, filepath.Join(codexDir, "keep-skill")); err != nil {
-		t.Fatal(err)
+	// Deploy current skill to both (as real directories)
+	for _, dir := range []string{filepath.Join(ccDir, "keep-skill"), filepath.Join(codexDir, "keep-skill")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	// Create stale symlinks in both
-	if err := os.Symlink("/gone/path", filepath.Join(ccDir, "old-skill")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("/gone/path", filepath.Join(codexDir, "old-skill")); err != nil {
-		t.Fatal(err)
+	// Create stale directories in both
+	for _, dir := range []string{filepath.Join(ccDir, "old-skill"), filepath.Join(codexDir, "old-skill")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	removed, err := CleanSkills([]string{srcDir}, false)
@@ -256,20 +250,20 @@ func TestCleanSkills(t *testing.T) {
 		t.Fatalf("expected 2 removed (CC + Codex), got %d: %v", len(removed), removed)
 	}
 
-	// Verify stale symlinks were removed from both
+	// Verify stale directories were removed from both
 	if _, err := os.Lstat(filepath.Join(ccDir, "old-skill")); !os.IsNotExist(err) {
-		t.Error("CC stale symlink should have been removed")
+		t.Error("CC stale skill dir should have been removed")
 	}
 	if _, err := os.Lstat(filepath.Join(codexDir, "old-skill")); !os.IsNotExist(err) {
-		t.Error("Codex stale symlink should have been removed")
+		t.Error("Codex stale skill dir should have been removed")
 	}
 
-	// Verify good symlinks still exist in both
+	// Verify valid skill dirs still exist in both
 	if _, err := os.Lstat(filepath.Join(ccDir, "keep-skill")); err != nil {
-		t.Error("CC valid symlink should still exist")
+		t.Error("CC valid skill dir should still exist")
 	}
 	if _, err := os.Lstat(filepath.Join(codexDir, "keep-skill")); err != nil {
-		t.Error("Codex valid symlink should still exist")
+		t.Error("Codex valid skill dir should still exist")
 	}
 }
 
@@ -340,5 +334,175 @@ func TestCleanAgentsOnlyRemovesManaged(t *testing.T) {
 	// Active managed-bot should still exist
 	if _, err := os.Stat(filepath.Join(ccDir, "managed-bot.md")); err != nil {
 		t.Error("active managed-bot should still exist")
+	}
+}
+
+func TestDeploySkillsRecursive(t *testing.T) {
+	srcDir := t.TempDir()
+
+	// Create a skill with nested subdirectory structure
+	skillDir := filepath.Join(srcDir, "my-skill")
+	if err := os.MkdirAll(filepath.Join(skillDir, "templates"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# My Skill"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "templates", "example.md"), []byte("# Example"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	if _, err := DeploySkills([]string{srcDir}, false); err != nil {
+		t.Fatalf("DeploySkills: %v", err)
+	}
+
+	ccDest := filepath.Join(tmpHome, ".claude", "skills", "my-skill")
+	// Verify nested file was copied
+	nestedPath := filepath.Join(ccDest, "templates", "example.md")
+	data, err := os.ReadFile(nestedPath)
+	if err != nil {
+		t.Fatalf("nested file not copied: %v", err)
+	}
+	if string(data) != "# Example" {
+		t.Errorf("nested file content = %q, want %q", string(data), "# Example")
+	}
+}
+
+func TestDeploySkillsReplacesExistingDirectory(t *testing.T) {
+	srcDir := t.TempDir()
+	skillDir := filepath.Join(srcDir, "my-skill")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# New"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	// Pre-populate dest with a stale real directory (simulates a previous sync)
+	ccDest := filepath.Join(tmpHome, ".claude", "skills", "my-skill")
+	if err := os.MkdirAll(ccDest, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ccDest, "OLD.md"), []byte("old content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := DeploySkills([]string{srcDir}, false); err != nil {
+		t.Fatalf("DeploySkills: %v", err)
+	}
+
+	// Verify stale file was replaced
+	if _, err := os.Stat(filepath.Join(ccDest, "OLD.md")); !os.IsNotExist(err) {
+		t.Error("stale OLD.md should have been replaced by fresh copy")
+	}
+	if _, err := os.ReadFile(filepath.Join(ccDest, "SKILL.md")); err != nil {
+		t.Errorf("SKILL.md not present after re-sync: %v", err)
+	}
+}
+
+func TestDeployGlobalPrompt(t *testing.T) {
+	srcFile := filepath.Join(t.TempDir(), "CLAUDE.md")
+	if err := os.WriteFile(srcFile, []byte("# Global Prompt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	results, err := DeployGlobalPrompt(srcFile, false)
+	if err != nil {
+		t.Fatalf("DeployGlobalPrompt: %v", err)
+	}
+
+	if len(results) < 1 {
+		t.Fatal("expected at least 1 result")
+	}
+
+	// Verify CC file was written as a real file
+	ccDest := filepath.Join(tmpHome, ".claude", "CLAUDE.md")
+	data, err := os.ReadFile(ccDest)
+	if err != nil {
+		t.Fatalf("CC CLAUDE.md not created: %v", err)
+	}
+	if string(data) != "# Global Prompt" {
+		t.Errorf("CC content = %q, want %q", string(data), "# Global Prompt")
+	}
+	info, _ := os.Lstat(ccDest)
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("CC CLAUDE.md should be a real file, not a symlink")
+	}
+}
+
+func TestDeployGlobalPromptReplacesExistingSymlink(t *testing.T) {
+	srcFile := filepath.Join(t.TempDir(), "CLAUDE.md")
+	if err := os.WriteFile(srcFile, []byte("# Updated"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	// Pre-create CC dir with an existing symlink at dest
+	ccDir := filepath.Join(tmpHome, ".claude")
+	if err := os.MkdirAll(ccDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ccDest := filepath.Join(ccDir, "CLAUDE.md")
+	if err := os.Symlink("/old/path", ccDest); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := DeployGlobalPrompt(srcFile, false); err != nil {
+		t.Fatalf("DeployGlobalPrompt: %v", err)
+	}
+
+	data, err := os.ReadFile(ccDest)
+	if err != nil {
+		t.Fatalf("CC CLAUDE.md not readable after replacing symlink: %v", err)
+	}
+	if string(data) != "# Updated" {
+		t.Errorf("content = %q, want %q", string(data), "# Updated")
+	}
+	info, _ := os.Lstat(ccDest)
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("CC CLAUDE.md should be a real file, not a symlink")
+	}
+}
+
+func TestDeployGlobalPromptReplacesExistingFile(t *testing.T) {
+	srcFile := filepath.Join(t.TempDir(), "CLAUDE.md")
+	if err := os.WriteFile(srcFile, []byte("# New Content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	// Pre-create an existing regular file at dest
+	ccDir := filepath.Join(tmpHome, ".claude")
+	if err := os.MkdirAll(ccDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ccDest := filepath.Join(ccDir, "CLAUDE.md")
+	if err := os.WriteFile(ccDest, []byte("# Old Content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := DeployGlobalPrompt(srcFile, false); err != nil {
+		t.Fatalf("DeployGlobalPrompt: %v", err)
+	}
+
+	data, err := os.ReadFile(ccDest)
+	if err != nil {
+		t.Fatalf("CC CLAUDE.md not readable: %v", err)
+	}
+	if string(data) != "# New Content" {
+		t.Errorf("content = %q, want %q", string(data), "# New Content")
 	}
 }
