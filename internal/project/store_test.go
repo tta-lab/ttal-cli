@@ -1,8 +1,18 @@
 package project
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
+)
+
+const (
+	aliasFbAp = "fb.ap"
+	aliasFbTk = "fb.tk"
+	nameFbAp  = "Attachment Processor"
+	nameFbTk  = "Toolkit"
+	pathFbAp  = "/path/fb/ap"
+	pathFbTk  = "/path/fb/tk"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -198,6 +208,190 @@ func TestStoreFileCreatedOnFirstWrite(t *testing.T) {
 	p, _ = s.Get("proj")
 	if p == nil {
 		t.Fatal("project should exist after Add()")
+	}
+}
+
+const subPathTOML = `
+[fb.ap]
+name = "Attachment Processor"
+path = "/path/fb/ap"
+
+[fb.tk]
+name = "Toolkit"
+path = "/path/fb/tk"
+
+[ttal]
+name = "TTAL Core"
+path = "/path/ttal"
+`
+
+func newSubPathStore(t *testing.T) *Store {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "projects.toml")
+	if err := os.WriteFile(path, []byte(subPathTOML), 0o644); err != nil {
+		t.Fatalf("writing test TOML: %v", err)
+	}
+	return NewStore(path)
+}
+
+func TestStoreSubPathGet(t *testing.T) {
+	s := newSubPathStore(t)
+
+	p, err := s.Get(aliasFbAp)
+	if err != nil {
+		t.Fatalf("Get(%s) error: %v", aliasFbAp, err)
+	}
+	if p == nil {
+		t.Fatalf("Get(%s) returned nil", aliasFbAp)
+	}
+	if p.Name != nameFbAp {
+		t.Errorf("Name = %q, want %q", p.Name, nameFbAp)
+	}
+	if p.Path != pathFbAp {
+		t.Errorf("Path = %q, want %q", p.Path, pathFbAp)
+	}
+	if p.Alias != aliasFbAp {
+		t.Errorf("Alias = %q, want %q", p.Alias, aliasFbAp)
+	}
+
+	p, err = s.Get(aliasFbTk)
+	if err != nil {
+		t.Fatalf("Get(%s) error: %v", aliasFbTk, err)
+	}
+	if p == nil {
+		t.Fatalf("Get(%s) returned nil", aliasFbTk)
+	}
+	if p.Name != nameFbTk {
+		t.Errorf("Name = %q, want %q", p.Name, nameFbTk)
+	}
+	if p.Path != pathFbTk {
+		t.Errorf("Path = %q, want %q", p.Path, pathFbTk)
+	}
+	if p.Alias != aliasFbTk {
+		t.Errorf("Alias = %q, want %q", p.Alias, aliasFbTk)
+	}
+}
+
+func TestStoreSubPathList(t *testing.T) {
+	s := newSubPathStore(t)
+
+	projects, err := s.List(false)
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	if len(projects) != 3 {
+		aliases := make([]string, len(projects))
+		for i, p := range projects {
+			aliases[i] = p.Alias
+		}
+		t.Fatalf("List() returned %d projects, want 3: %v", len(projects), aliases)
+	}
+
+	// Verify sorted order: fb.ap, fb.tk, ttal
+	if projects[0].Alias != aliasFbAp {
+		t.Errorf("projects[0].Alias = %q, want %q", projects[0].Alias, aliasFbAp)
+	}
+	if projects[1].Alias != aliasFbTk {
+		t.Errorf("projects[1].Alias = %q, want %q", projects[1].Alias, aliasFbTk)
+	}
+	if projects[2].Alias != "ttal" {
+		t.Errorf("projects[2].Alias = %q, want %q", projects[2].Alias, "ttal")
+	}
+}
+
+func TestStoreSubPathRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	// Add a dot-notation alias via the store API
+	if err := s.Add(aliasFbAp, nameFbAp, pathFbAp); err != nil {
+		t.Fatalf("Add(%s) error: %v", aliasFbAp, err)
+	}
+
+	// Reload from disk and verify the alias survives the round-trip
+	p, err := s.Get(aliasFbAp)
+	if err != nil {
+		t.Fatalf("Get(%s) after reload error: %v", aliasFbAp, err)
+	}
+	if p == nil {
+		t.Fatalf("Get(%s) returned nil after reload", aliasFbAp)
+	}
+	if p.Name != nameFbAp {
+		t.Errorf("Name = %q, want %q", p.Name, nameFbAp)
+	}
+	if p.Path != pathFbAp {
+		t.Errorf("Path = %q, want %q", p.Path, pathFbAp)
+	}
+	if p.Alias != aliasFbAp {
+		t.Errorf("Alias = %q, want %q", p.Alias, aliasFbAp)
+	}
+}
+
+func TestStoreArchivedSubPathProjects(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+
+	// Write TOML with archived dot-notation entries
+	tomlContent := `
+[ttal]
+name = "TTAL Core"
+path = "/path/ttal"
+
+[archived.fb.ap]
+name = "Attachment Processor"
+path = "/path/fb/ap"
+
+[archived.fb.tk]
+name = "Toolkit"
+path = "/path/fb/tk"
+`
+	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
+		t.Fatalf("writing test TOML: %v", err)
+	}
+
+	s := NewStore(path)
+
+	// Archived dot-notation projects should be present
+	p, err := s.Get(aliasFbAp) // Get only checks active
+	if err != nil {
+		t.Fatalf("Get(%s) error: %v", aliasFbAp, err)
+	}
+	if p != nil {
+		t.Errorf("archived %s should not appear in active Get()", aliasFbAp)
+	}
+
+	archived, err := s.List(true)
+	if err != nil {
+		t.Fatalf("List(archived) error: %v", err)
+	}
+	if len(archived) != 2 {
+		aliases := make([]string, len(archived))
+		for i, p := range archived {
+			aliases[i] = p.Alias
+		}
+		t.Fatalf("List(archived) returned %d projects, want 2: %v", len(archived), aliases)
+	}
+
+	// Verify aliases
+	if archived[0].Alias != aliasFbAp {
+		t.Errorf("archived[0].Alias = %q, want %q", archived[0].Alias, aliasFbAp)
+	}
+	if archived[0].Name != nameFbAp {
+		t.Errorf("archived[0].Name = %q, want %q", archived[0].Name, nameFbAp)
+	}
+	if archived[1].Alias != aliasFbTk {
+		t.Errorf("archived[1].Alias = %q, want %q", archived[1].Alias, aliasFbTk)
+	}
+
+	// Unarchive should work
+	if err := s.Unarchive(aliasFbAp); err != nil {
+		t.Fatalf("Unarchive(%s) error: %v", aliasFbAp, err)
+	}
+	p, err = s.Get(aliasFbAp)
+	if err != nil {
+		t.Fatalf("Get(%s) after unarchive error: %v", aliasFbAp, err)
+	}
+	if p == nil {
+		t.Fatalf("%s should be active after unarchive", aliasFbAp)
 	}
 }
 
