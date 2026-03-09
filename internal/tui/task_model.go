@@ -48,6 +48,10 @@ func formatAge(d time.Duration) string {
 	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
 }
 
+func (t *Task) IsActive() bool {
+	return t.Start != ""
+}
+
 func (t *Task) IsToday() bool {
 	if t.Scheduled == "" {
 		return false
