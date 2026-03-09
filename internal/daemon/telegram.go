@@ -287,15 +287,14 @@ func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[in
 		return nil
 	}
 
-	if len(dispatch) > 1 {
-		log.Printf("[telegram] WARNING: group message for @%s — multiple agents share token; routing to first match",
-			botUsername)
+	// Route by chat ID — same as DM path.
+	target, ok := dispatch[msg.Chat.ID]
+	if !ok {
+		log.Printf("[telegram] WARNING: group message for @%s from chat %d — no matching agent (%d registered)",
+			botUsername, msg.Chat.ID, len(dispatch))
+		return nil
 	}
-	for _, t := range dispatch {
-		target := t
-		return &target
-	}
-	return nil
+	return &target
 }
 
 // stripFirstBotMention removes the first @botUsername mention from msg.Text and
@@ -322,7 +321,9 @@ func handleInboundMessage(
 	// Track this message for tool reactions
 	if mt != nil {
 		chatID, err := telegram.ParseChatID(chatIDStr)
-		if err == nil {
+		if err != nil {
+			log.Printf("[telegram] BUG: failed to parse chatIDStr %q for agent %s: %v", chatIDStr, agentName, err)
+		} else {
 			mt.set(teamName, agentName, trackedMessage{
 				ChatID:    chatID,
 				MessageID: msg.ID,
