@@ -11,6 +11,12 @@ Run setup steps automatically. Only pause when user action is required (Telegram
 
 **UX Note:** Use `AskUserQuestion` for all user-facing questions.
 
+## Context
+
+This skill runs inside the ttal-cli repository. All documentation is available
+in `docs/` (VitePress site) and templates are in `templates/`. When the user asks
+questions about ttal, read from `docs/` directly — no network requests needed.
+
 ## 1. Install ttal
 
 Check if ttal is installed:
@@ -28,7 +34,7 @@ Verify: `ttal version`
 
 ## 2. Run ttal onboard
 
-`ttal onboard` handles everything: prerequisites (tmux, taskwarrior, ffmpeg), workspace scaffold, taskwarrior UDAs, daemon install, worker hooks. Just run it:
+`ttal onboard` handles everything: prerequisites (tmux, taskwarrior, ffmpeg), workspace scaffold, taskwarrior UDAs, daemon install, worker hooks. When it runs `ttal init`, templates are found locally in this repo — no network clone needed. Just run it:
 
 ```bash
 ttal onboard
