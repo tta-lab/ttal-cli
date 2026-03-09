@@ -1,0 +1,53 @@
+#:schema https://ttal.guion.io/schema/config.schema.json
+default_team = "default"
+
+[sync]
+  skills_paths = ["./docs/skills"]
+  subagents_paths = ["./docs/agents"]
+  commands_paths = ["./docs/commands"]
+
+[prompts]
+design = """\
+Write an implementation plan for this task.
+Read the task first: ttal task get {{task-id}}
+
+Save plan to: docs/plans/YYYY-MM-DD-<topic>.md in the project repo.
+When done: task {{task-id}} annotate 'Plan: docs/plans/<filename>.md'
+Then tag-swap: task {{task-id}} modify -brainstorm -design +planned"""
+
+research = """\
+Research this topic thoroughly.
+Read the task first: ttal task get {{task-id}}
+
+Save findings to: docs/research/YYYY-MM-DD-<topic>.md in the project repo.
+When done: task {{task-id}} annotate 'Research: docs/research/<filename>.md'"""
+
+execute = """\
+Implement this task following the referenced plan.
+Read the task first: ttal task get {{task-id}}
+Follow the plan step by step: read, make changes, verify, commit.
+Use ttal pr create for pull requests."""
+
+triage = """\
+PR review posted. Read it, assess and fix what's actionable.
+Post your triage update with ttal pr comment create when done.
+If verdict is LGTM and no remaining issues, merge with: ttal pr merge"""
+
+review = """\
+Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
+Scope: ONLY changes in this PR diff, not the entire codebase.
+Post your review with: ttal pr comment create "<markdown>"
+End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
+
+[teams.default]
+chat_id = ""                   # Your Telegram chat ID
+team_path = ""                 # Path to your workspace directory
+design_agent = "designer"
+research_agent = "researcher"
+# notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
+# merge_mode = "auto"         # Uncomment for auto-merge on LGTM
+
+[teams.default.agents.manager]
+[teams.default.agents.designer]
+[teams.default.agents.researcher]
+[teams.default.agents.debugger]
