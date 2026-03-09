@@ -337,7 +337,7 @@ func TestCleanAgentsOnlyRemovesManaged(t *testing.T) {
 	}
 }
 
-func TestDeploySkillsRecursive(t *testing.T) {
+func TestDeploySkillsCopiesOnlySKILLMD(t *testing.T) {
 	srcDir := t.TempDir()
 
 	// Create a skill with nested subdirectory structure
@@ -360,14 +360,17 @@ func TestDeploySkillsRecursive(t *testing.T) {
 	}
 
 	ccDest := filepath.Join(tmpHome, ".claude", "skills", "my-skill")
-	// Verify nested file was copied
-	nestedPath := filepath.Join(ccDest, "templates", "example.md")
-	data, err := os.ReadFile(nestedPath)
+	// Verify SKILL.md was copied
+	data, err := os.ReadFile(filepath.Join(ccDest, "SKILL.md"))
 	if err != nil {
-		t.Fatalf("nested file not copied: %v", err)
+		t.Fatalf("SKILL.md not copied: %v", err)
 	}
-	if string(data) != "# Example" {
-		t.Errorf("nested file content = %q, want %q", string(data), "# Example")
+	if string(data) != "# My Skill" {
+		t.Errorf("SKILL.md content = %q, want %q", string(data), "# My Skill")
+	}
+	// Verify nested files were NOT copied
+	if _, err := os.Stat(filepath.Join(ccDest, "templates", "example.md")); err == nil {
+		t.Error("nested file should not be copied, only SKILL.md")
 	}
 }
 
