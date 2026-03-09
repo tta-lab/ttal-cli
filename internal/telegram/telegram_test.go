@@ -18,6 +18,10 @@ func TestToolEmoji(t *testing.T) {
 		{"Agent", "🔥"},
 		{"AskUserQuestion", ""},
 		{"SomeUnknownTool", "🔥"},
+		{"ttal:send", "🕊"},
+		{"ttal:route", "🕊"},
+		{"flicknote:write", "✍"},
+		{"flicknote:read", "👀"},
 	}
 
 	for _, tt := range tests {

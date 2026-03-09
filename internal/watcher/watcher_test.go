@@ -197,6 +197,48 @@ func TestExtractToolUse(t *testing.T) {
 			line:     `{"type":"human","message":{"content":[{"type":"text","text":"hi"}]}}`,
 			wantTool: "",
 		},
+		{
+			name: "Bash with flicknote add",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_4","input":{"command":"flicknote add \"content\" --project ttal.plans"}}]}}`,
+			wantTool: "flicknote:write",
+		},
+		{
+			name: "Bash with ttal send",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_5","input":{"command":"ttal send --to yuki \"hello\""}}]}}`,
+			wantTool: "ttal:send",
+		},
+		{
+			name: "Bash with flicknote get",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_6","input":{"command":"flicknote get abc123"}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
+			name: "Bash with heredoc pipe to flicknote",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_7","input":{"command":"cat <<'EOF' | flicknote add --project ttal.plans\ncontent\nEOF"}}]}}`,
+			wantTool: "flicknote:write",
+		},
+		{
+			name: "Bash with echo pipe to flicknote replace",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_8","input":{"command":"echo \"new content\" | flicknote replace abc123"}}]}}`,
+			wantTool: "flicknote:write",
+		},
+		{
+			name: "Bash with ttal task route",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_9","input":{"command":"ttal task route abc123 --to inke"}}]}}`,
+			wantTool: "ttal:route",
+		},
+		{
+			name: "Bash with unknown command",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_10","input":{"command":"git status"}}]}}`,
+			wantTool: "Bash",
+		},
 	}
 
 	for _, tt := range tests {
