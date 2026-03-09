@@ -70,17 +70,33 @@ func scanForPRTasks(
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
+	seenUUIDs := make(map[string]bool)
+
 	// Iterate all teams to check their taskwarrior instances.
 	for teamName := range mcfg.Teams {
+		var seen map[string]bool
 		if teamName != config.DefaultTeamName {
 			prev := os.Getenv("TTAL_TEAM")
 			_ = os.Setenv("TTAL_TEAM", teamName)
-			scanTeam(mcfg, registry, teamName, mu, active, done)
+			seen = scanTeam(mcfg, registry, teamName, mu, active, done)
 			_ = os.Setenv("TTAL_TEAM", prev)
 		} else {
-			scanTeam(mcfg, registry, teamName, mu, active, done)
+			seen = scanTeam(mcfg, registry, teamName, mu, active, done)
+		}
+		for uuid := range seen {
+			seenUUIDs[uuid] = true
 		}
 	}
+
+	// Prune UUIDs from active that no longer appear in any team's task list.
+	// These are tasks that were merged/closed and have since been marked done.
+	mu.Lock()
+	for uuid := range active {
+		if !seenUUIDs[uuid] {
+			delete(active, uuid)
+		}
+	}
+	mu.Unlock()
 }
 
 func scanTeam(
@@ -89,14 +105,18 @@ func scanTeam(
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
-) {
+) map[string]bool {
+	seenUUIDs := make(map[string]bool)
+
 	tasks, err := taskwarrior.ListTasksWithPR()
 	if err != nil {
 		log.Printf("[prwatch] failed to list PR tasks for team %s: %v", teamName, err)
-		return
+		return seenUUIDs
 	}
 
 	for _, task := range tasks {
+		seenUUIDs[task.UUID] = true
+
 		mu.Lock()
 		alreadyPolling := active[task.UUID]
 		mu.Unlock()
@@ -146,21 +166,29 @@ func scanTeam(
 			prIndex, info.Owner, info.Repo, sessionName)
 
 		go func() {
-			pollPR(target, mcfg, registry, done)
-			mu.Lock()
-			delete(active, target.TaskUUID)
-			mu.Unlock()
+			keep := pollPR(target, mcfg, registry, done)
+			if !keep {
+				mu.Lock()
+				delete(active, target.TaskUUID)
+				mu.Unlock()
+			}
+			// If keep=true, UUID stays in active until task is no longer
+			// returned by ListTasksWithPR (i.e. marked done), preventing re-spawn.
 		}()
 	}
+
+	return seenUUIDs
 }
 
 // pollPR polls a PR's CI status until checks resolve, PR is merged/closed, or timeout.
 // Delivers status exactly once per HEAD SHA.
-func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) {
+// Returns true if the UUID should remain in the active map (PR merged/closed — wait for cleanup).
+// Returns false for all other exits (timeout, session gone, shutdown) — allows re-spawn.
+func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) bool {
 	provider, err := gitprovider.NewProviderByName(target.Provider)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
-		return
+		return false
 	}
 
 	interval := prPollInitial
@@ -176,11 +204,11 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 	for {
 		select {
 		case <-done:
-			return
+			return false
 		case <-deadline.C:
 			log.Printf("[prwatch] timeout for PR #%d %s/%s — stopping",
 				target.PRIndex, target.Owner, target.Repo)
-			return
+			return false
 		case <-poll.C:
 		}
 
@@ -188,7 +216,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 		if !tmux.SessionExists(target.SessionName) {
 			log.Printf("[prwatch] session %s gone — stopping PR #%d poll",
 				target.SessionName, target.PRIndex)
-			return
+			return false
 		}
 
 		// Check PR state
@@ -205,7 +233,10 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 			if fetchedPR.Merged {
 				notifySpawnerMerged(mcfg, registry, target)
 			}
-			return
+			// Return true to keep UUID in active map until the async cleanup
+			// (task done) removes the task from ListTasksWithPR, preventing
+			// a new goroutine from re-detecting the merge and double-notifying.
+			return true
 		}
 
 		conflictNotified = checkMergeConflict(fetchedPR, target, mcfg, conflictNotified)
@@ -219,7 +250,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 
 		resolved, newInterval := handleCIStatus(provider, target, mcfg, headSHA, interval)
 		if resolved {
-			return
+			return false
 		}
 		if newInterval == prPollInitial {
 			lastDeliveredSHA = headSHA
@@ -244,7 +275,13 @@ func handleCIStatus(
 	switch cs.State {
 	case gitprovider.StateSuccess:
 		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
-		return true, 0
+		deliverToWorkerSession(target.SessionName,
+			fmt.Sprintf("✅ PR #%d CI checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA)))
+		// Return (false, prPollInitial) to continue polling with SHA tracking,
+		// so the goroutine can detect future pushes and the eventual PR merge.
+		// Using prPollInitial triggers lastDeliveredSHA update, preventing re-notification
+		// for the same SHA within this goroutine's lifetime.
+		return false, prPollInitial
 
 	case gitprovider.StateFailure, gitprovider.StateError:
 		msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
