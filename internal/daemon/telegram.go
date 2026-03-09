@@ -19,6 +19,12 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/voice"
 )
 
+// chatTypeGroup and chatTypeSupergroup are the Telegram chat type strings for group chats.
+const (
+	chatTypeGroup      = "group"
+	chatTypeSupergroup = "supergroup"
+)
+
 // startMultiAgentPoller starts a long-poll loop for one bot token serving multiple agents.
 // Dispatches messages by chat ID to the correct agent.
 // Runs until done is closed.
@@ -72,14 +78,27 @@ func runMultiAgentPoller(
 		cancel()
 	}()
 
+	// botUsername is populated after getMe; the handler closure captures it by reference.
+	// Messages only arrive after b.Start(ctx), so the value is set before any dispatch.
+	var botUsername string
+
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		handleDefaultUpdate(ctx, b, update, dispatch, botToken, onMessage, qs, cas, registry, mt)
+		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername, onMessage, qs, cas, registry, mt)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
 	if err != nil {
 		return fmt.Errorf("bot init: %w", err)
 	}
+
+	// Discover this bot's username for group chat @mention routing.
+	// Return on failure — the caller's retry loop will restart the poller.
+	me, err := b.GetMe(ctx)
+	if err != nil {
+		return fmt.Errorf("getMe for token ...%s: %w", botToken[len(botToken)-min(4, len(botToken)):], err)
+	}
+	botUsername = strings.ToLower(me.Username)
+	log.Printf("[telegram] bot identity: @%s", me.Username)
 
 	// Register /restart once per bot token (global, not per-agent).
 	// Any authorized chat (present in dispatch) can trigger it.
@@ -117,7 +136,8 @@ func runMultiAgentPoller(
 	// Register bot commands for ALL agents sharing this token.
 	// Each handler checks chat ID to route to the correct agent.
 	for chatID, target := range dispatch {
-		registerBotCommandsForAgent(b, target.teamName, target.agentName, botToken, target.chatID, chatID, allCommands)
+		registerBotCommandsForAgent(b, target.teamName, target.agentName,
+			botToken, target.chatID, chatID, botUsername, dispatch, allCommands)
 	}
 
 	b.Start(ctx)
@@ -126,7 +146,7 @@ func runMultiAgentPoller(
 
 func handleDefaultUpdate(
 	ctx context.Context, b *bot.Bot, update *models.Update,
-	dispatch map[int64]pollerTarget, botToken string,
+	dispatch map[int64]pollerTarget, botToken, botUsername string,
 	onMessage func(teamName, agentName, text string),
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	mt *messageTracker,
@@ -145,29 +165,151 @@ func handleDefaultUpdate(
 	if update.Message == nil {
 		return
 	}
-
-	target, ok := dispatch[update.Message.Chat.ID]
-	if !ok {
-		return
-	}
 	if update.Message.From == nil {
 		return
 	}
 
-	if update.Message.Text != "" {
-		if interceptedAsCustomAnswer(ctx, b, update.Message, qs, cas, registry) {
+	msg := update.Message
+	switch msg.Chat.Type {
+	case chatTypeGroup, chatTypeSupergroup:
+		target := resolveGroupTarget(msg, botUsername, dispatch)
+		if target == nil {
 			return
 		}
+		if msg.Text != "" {
+			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas, registry) {
+				return
+			}
+		}
+		// Strip the @mention from the delivered text so the agent sees a clean message.
+		// Use *string so handleInboundMessage can distinguish an empty post-strip result
+		// (e.g. message was purely "@botname") from "no override provided".
+		stripped := stripFirstBotMention(msg, botUsername)
+		handleInboundMessage(
+			ctx, b, msg,
+			target.teamName, target.agentName, botToken, target.chatID,
+			func(agentName, text string) {
+				onMessage(target.teamName, agentName, text)
+			},
+			mt, &stripped,
+		)
+	default:
+		// DM / private: route by chat ID (existing behaviour, unchanged).
+		target, ok := dispatch[msg.Chat.ID]
+		if !ok {
+			return
+		}
+		if msg.Text != "" {
+			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas, registry) {
+				return
+			}
+		}
+		handleInboundMessage(
+			ctx, b, msg,
+			target.teamName, target.agentName, botToken, target.chatID,
+			func(agentName, text string) {
+				onMessage(target.teamName, agentName, text)
+			},
+			mt, nil,
+		)
+	}
+}
+
+// utf16OffsetToRuneIdx converts a UTF-16 code unit offset to a rune index in s.
+// Telegram entity offsets are UTF-16 code units; non-BMP characters (e.g. emoji)
+// occupy 2 code units but count as 1 rune, so naive byte/rune indexing is incorrect.
+func utf16OffsetToRuneIdx(s string, utf16Off int) int {
+	u16 := 0
+	ri := 0
+	for _, r := range s {
+		if u16 >= utf16Off {
+			return ri
+		}
+		if r >= 0x10000 {
+			u16 += 2 // surrogate pair
+		} else {
+			u16++
+		}
+		ri++
+	}
+	return ri
+}
+
+// findFirstBotMention returns the rune-index range [start, end) of the first
+// @botUsername mention entity in msg. Returns (-1, -1) if none found.
+// Uses UTF-16–aware offset conversion so emoji before the mention are handled correctly.
+func findFirstBotMention(msg *models.Message, botUsername string) (start, end int) {
+	if msg.Text == "" || botUsername == "" {
+		return -1, -1
+	}
+	runes := []rune(msg.Text)
+	for _, entity := range msg.Entities {
+		if entity.Type != models.MessageEntityTypeMention {
+			continue
+		}
+		s := utf16OffsetToRuneIdx(msg.Text, entity.Offset)
+		e := utf16OffsetToRuneIdx(msg.Text, entity.Offset+entity.Length)
+		if s < 0 || e > len(runes) || s+1 >= e {
+			continue
+		}
+		// Entity covers "@username"; skip the leading '@'.
+		mentioned := strings.ToLower(string(runes[s+1 : e]))
+		if mentioned == botUsername {
+			return s, e
+		}
+	}
+	return -1, -1
+}
+
+// resolveGroupTarget determines which agent should handle a group chat message.
+// Returns nil if the message doesn't address any known bot in the dispatch map.
+//
+// Priority 1: Reply to a message from this bot.
+// Priority 2: First @mention of this bot's username in the message entities.
+func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[int64]pollerTarget) *pollerTarget {
+	if botUsername == "" {
+		return nil
 	}
 
-	handleInboundMessage(
-		ctx, b, update.Message,
-		target.teamName, target.agentName, botToken, target.chatID,
-		func(agentName, text string) {
-			onMessage(target.teamName, agentName, text)
-		},
-		mt,
-	)
+	// Priority 1: reply to this bot's own message.
+	addressed := msg.ReplyToMessage != nil &&
+		msg.ReplyToMessage.From != nil &&
+		msg.ReplyToMessage.From.IsBot &&
+		strings.EqualFold(msg.ReplyToMessage.From.Username, botUsername)
+
+	// Priority 2: first @mention of this bot.
+	if !addressed {
+		s, _ := findFirstBotMention(msg, botUsername)
+		addressed = s >= 0
+	}
+
+	if !addressed {
+		return nil
+	}
+
+	if len(dispatch) > 1 {
+		log.Printf("[telegram] WARNING: group message for @%s — multiple agents share token; routing to first match",
+			botUsername)
+	}
+	for _, t := range dispatch {
+		target := t
+		return &target
+	}
+	return nil
+}
+
+// stripFirstBotMention removes the first @botUsername mention from msg.Text and
+// trims surrounding whitespace. Returns msg.Text unchanged if no mention is found.
+func stripFirstBotMention(msg *models.Message, botUsername string) string {
+	if botUsername == "" {
+		return msg.Text
+	}
+	s, e := findFirstBotMention(msg, botUsername)
+	if s < 0 {
+		return msg.Text
+	}
+	runes := []rune(msg.Text)
+	return strings.TrimSpace(string(runes[:s]) + string(runes[e:]))
 }
 
 func handleInboundMessage(
@@ -175,6 +317,7 @@ func handleInboundMessage(
 	teamName, agentName, botToken, chatIDStr string,
 	onMessage func(string, string),
 	mt *messageTracker,
+	overrideText *string,
 ) {
 	// Track this message for tool reactions
 	if mt != nil {
@@ -252,8 +395,50 @@ func handleInboundMessage(
 		return
 	}
 
-	text := strings.TrimSpace(msg.Text)
+	var text string
+	if overrideText != nil {
+		text = *overrideText
+	} else {
+		text = strings.TrimSpace(msg.Text)
+	}
 	onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
+}
+
+// isBotCommandForAgent reports whether msg contains the given bot command addressed to
+// this agent. For DMs, it validates by chatID. For groups, it requires the @botname
+// suffix and that the group chatID is a registered dispatch target.
+func isBotCommandForAgent(
+	msg *models.Message, cmd string, chatID int64, botUsername string, dispatch map[int64]pollerTarget,
+) bool {
+	isGroup := msg.Chat.Type == chatTypeGroup || msg.Chat.Type == chatTypeSupergroup
+	// In private/other: require matching DM chat ID.
+	if !isGroup && msg.Chat.ID != chatID {
+		return false
+	}
+	for _, e := range msg.Entities {
+		if e.Type != models.MessageEntityTypeBotCommand || e.Offset != 0 {
+			continue
+		}
+		// Extract command name: skip leading "/", strip @botname suffix.
+		raw := msg.Text[1:e.Length]
+		name, atBot, hasAt := strings.Cut(raw, "@")
+		if name != cmd {
+			continue
+		}
+		// In groups: @botname suffix MUST be present and match, AND the
+		// group chatID must be a registered dispatch target. This ensures
+		// commands only execute from explicitly authorized group chats.
+		if isGroup {
+			if !hasAt || !strings.EqualFold(atBot, botUsername) {
+				return false
+			}
+			if _, ok := dispatch[msg.Chat.ID]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // registerBotCommandsForAgent registers each bot command as a handler on the bot instance.
@@ -263,25 +448,14 @@ func handleInboundMessage(
 //   - Validates chat ID so commands only work from the configured chat
 func registerBotCommandsForAgent(
 	b *bot.Bot, teamName, agentName, botToken, chatIDStr string,
-	chatID int64, allCommands []BotCommand,
+	chatID int64, botUsername string, dispatch map[int64]pollerTarget, allCommands []BotCommand,
 ) {
 	matchCommand := func(cmd string) bot.MatchFunc {
 		return func(update *models.Update) bool {
-			if update.Message == nil || update.Message.Chat.ID != chatID {
+			if update.Message == nil {
 				return false
 			}
-			for _, e := range update.Message.Entities {
-				if e.Type != models.MessageEntityTypeBotCommand || e.Offset != 0 {
-					continue
-				}
-				// Extract command name: skip leading "/", strip @botname suffix
-				raw := update.Message.Text[1:e.Length]
-				name, _, _ := strings.Cut(raw, "@")
-				if name == cmd {
-					return true
-				}
-			}
-			return false
+			return isBotCommandForAgent(update.Message, cmd, chatID, botUsername, dispatch)
 		}
 	}
 
