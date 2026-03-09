@@ -362,12 +362,6 @@ We've covered:
 
 Next question: What actually happens inside that Zellij session? How does the execution team work together?
 
-[Day 3: Zellij + Coding Agents](/blog/day-3-zellij-coding-agents) answers that. We'll look at:
-- Zellij sessions as isolated workspaces
-- How the execution team coordinates (Planner → Coder → Reviewer → Tester)
-- Claude Code integration
-- The full lifecycle from spawn to cleanup
-
 The glue layer makes autonomous workflows possible. The execution layer makes them real.
 
 ---
@@ -375,6 +369,3 @@ The glue layer makes autonomous workflows possible. The execution layer makes th
 **Guide series:**
 1. [Day 1: The Dream Setup](/blog/day-1-the-dream-setup)
 2. Day 2: The Glue Layer (you are here)
-3. [Day 3: Zellij + Coding Agents](/blog/day-3-zellij-coding-agents)
-4. [Day 4: Taskwarrior Deep Dive](/blog/day-4-taskwarrior-deep-dive)
-5. [Day 5+: Topics TBD](/blog/day-5-tbd)

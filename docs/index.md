@@ -13,39 +13,48 @@ hero:
       link: https://github.com/tta-lab/ttal-cli
 
 features:
-  - icon: "\U0001F4F1"
-    title: Telegram Bridge
-    details: Mobile-first agent management. Each agent is its own bot, its own DM chat. Send messages, check status, approve PRs — from your phone.
-  - icon: "\U0001F4CE"
-    title: Multimodal Input
-    details: Send text, voice, photos, screenshots, files, links. The bot transcribes voice, downloads images, and delivers everything in context.
-  - icon: "\u2B50"
-    title: Persistent Agent Identity
-    details: Names, roles, voices, routing. Your agents aren't anonymous processes — they're persistent team members with memory.
-  - icon: "\u2699\uFE0F"
-    title: Multi-Runtime Support
-    details: Claude Code (stable), OpenCode and Codex CLI (experimental — shipping soon). TTAL doesn't care what's in the tmux session.
-  - icon: "\U0001F4CB"
-    title: Taskwarrior Integration
-    details: Task-driven workflows. Enrichment hooks auto-populate metadata. Research → design → execute pipeline.
-  - icon: "\U0001F399\uFE0F"
-    title: Voice I/O
-    details: Local TTS/STT via Kokoro + Whisper on Apple Silicon. Per-agent voices. No cloud API keys.
-  - icon: "\U0001F4AC"
-    title: Interactive Questions
-    details: Agent needs input? It sends the question to Telegram with inline buttons. Tap a choice or type a custom answer.
-  - icon: "\U0001F500"
-    title: Agent-to-Agent Messaging
-    details: Horizontal peer-to-peer communication. Agents consult each other, delegate work, and share context.
-  - icon: "\u2705"
-    title: Autonomous PR Workflow
-    details: Implement → PR → 6 specialized reviewers → triage → merge. Full delivery pipeline, fully auditable.
+  - icon: "📱"
+    title: Mobile Command Center
+    details: Each agent is its own Telegram bot, its own DM chat. Send text, voice, photos, files. Approve PRs from your phone. Interactive question buttons when agents need input.
+  - icon: "🐱"
+    title: Persistent Agent Team
+    details: Named agents with roles, voices, and memory. Your orchestrator routes tasks. Your researcher investigates. Your designer plans. They talk to each other.
+  - icon: "📋"
+    title: Task-Driven Pipeline
+    details: Research → Design → Execute → Review → Merge. Each phase produces artifacts. Taskwarrior integration with enrichment hooks. Quality from structure, not babysitting.
+  - icon: "⚡"
+    title: Multi-Runtime Flexibility
+    details: Claude Code, OpenCode, Codex CLI — mix runtimes across your team. Workers spawn in isolated git worktrees. 6 specialized reviewers on every PR.
 ---
 
 <script setup>
+import TerminalDemo from './.vitepress/components/TerminalDemo.vue'
+import AgentRoster from './.vitepress/components/AgentRoster.vue'
+import HowItWorks from './.vitepress/components/HowItWorks.vue'
+import InstallTabs from './.vitepress/components/InstallTabs.vue'
 import PricingCards from './.vitepress/components/PricingCards.vue'
 import FaqSection from './.vitepress/components/FaqSection.vue'
 </script>
+
+## See it in action
+
+<TerminalDemo />
+
+---
+
+## Meet Your Team
+
+Your agents aren't anonymous processes — they're persistent team members with names, personalities, voices, and Telegram chats.
+
+<AgentRoster />
+
+---
+
+## How it works
+
+<HowItWorks />
+
+---
 
 ## Two-Plane Architecture
 
@@ -101,28 +110,15 @@ Competitors build chat assistants. TTAL builds autonomous team members who own t
 
 ---
 
-## Questions & Answers
+## Install
 
-<FaqSection />
+<InstallTabs />
 
 ---
 
-## Get started
+## Questions & Answers
 
-```bash
-# Install
-git clone https://github.com/tta-lab/ttal-cli.git
-cd ttal-cli && make install
-
-# Set up hooks and daemon
-ttal worker install
-ttal daemon install
-
-# Add your first agent
-ttal agent add kestrel --role orchestrator
-```
-
-**[Read the docs →](/docs/getting-started)** | **[View source on GitHub →](https://github.com/tta-lab/ttal-cli)**
+<FaqSection />
 
 ---
 

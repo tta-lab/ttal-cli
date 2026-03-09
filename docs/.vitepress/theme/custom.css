@@ -55,3 +55,14 @@
   max-width: 48rem;
   margin-inline: auto;
 }
+
+/* Section headings rhythm */
+.vp-doc h2 {
+  margin-top: 3rem;
+}
+
+/* Force dark browser chrome (scrollbars, selection, form controls) inside terminal components */
+.terminal-demo,
+.install-tabs {
+  color-scheme: dark;
+}
