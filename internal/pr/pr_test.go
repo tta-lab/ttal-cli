@@ -92,7 +92,10 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 					{Context: "lint", State: "pending", Description: "waiting"},
 				},
 			},
-			contains: []string{"2 check(s) still pending"},
+			contains: []string{
+				"CI checks still running (2 pending)",
+				"sleep 30 && ttal pr merge",
+			},
 		},
 		{
 			name: "no statuses at all",
@@ -128,7 +131,6 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			contains: []string{
 				"1 CI check(s) failed",
 				"ci/build",
-				"1 check(s) still pending",
 			},
 		},
 	}
