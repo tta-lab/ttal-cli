@@ -124,7 +124,8 @@ func (k *k8sTeamPod) DeleteTeamPod() error {
 
 // kubectlExec runs a command inside the pod via kubectl exec.
 func (k *k8sTeamPod) kubectlExec(pod string, args ...string) error {
-	allArgs := []string{"--context", k.kubectx, "-n", k.namespace, "exec", pod, "--"}
+	allArgs := make([]string, 0, 7+len(args))
+	allArgs = append(allArgs, "--context", k.kubectx, "-n", k.namespace, "exec", pod, "--")
 	allArgs = append(allArgs, args...)
 	cmd := exec.Command("kubectl", allArgs...)
 	cmd.Stderr = os.Stderr
@@ -205,21 +206,10 @@ func specHash(yaml string) string {
 func (k *k8sTeamPod) generatePodYAML(sharedEnv []string, volumes []k8sVolume) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %s
-  namespace: %s
-  labels:
-    ttal.io/team: %s
-    app: ttal-team
-spec:
-  restartPolicy: Always
-  containers:
-  - name: agent
-    image: %s
-    command: ["sleep", "infinity"]
-`, k.podName(), k.namespace, k.teamName, k.image))
+	fmt.Fprintf(&sb, "apiVersion: v1\nkind: Pod\nmetadata:\n  name: %s\n  namespace: %s\n"+
+		"  labels:\n    ttal.io/team: %s\n    app: ttal-team\nspec:\n  restartPolicy: Always\n"+
+		"  containers:\n  - name: agent\n    image: %s\n    command: [\"sleep\", \"infinity\"]\n",
+		k.podName(), k.namespace, k.teamName, k.image)
 
 	// Env vars
 	if len(sharedEnv) > 0 {
@@ -229,7 +219,7 @@ spec:
 			if len(parts) != 2 {
 				continue
 			}
-			sb.WriteString(fmt.Sprintf("    - name: %s\n      value: %s\n", parts[0], yamlQuote(parts[1])))
+			fmt.Fprintf(&sb, "    - name: %s\n      value: %s\n", parts[0], yamlQuote(parts[1]))
 		}
 	}
 
@@ -241,8 +231,8 @@ spec:
 			if v.ReadOnly {
 				readonly = "true"
 			}
-			sb.WriteString(fmt.Sprintf("    - name: %s\n      mountPath: %s\n      readOnly: %s\n",
-				v.Name, v.ContainerPath, readonly))
+			fmt.Fprintf(&sb, "    - name: %s\n      mountPath: %s\n      readOnly: %s\n",
+				v.Name, v.ContainerPath, readonly)
 		}
 	}
 
@@ -250,8 +240,8 @@ spec:
 	if len(volumes) > 0 {
 		sb.WriteString("  volumes:\n")
 		for _, v := range volumes {
-			sb.WriteString(fmt.Sprintf("  - name: %s\n    hostPath:\n      path: %s\n      type: %s\n",
-				v.Name, v.HostPath, v.Type))
+			fmt.Fprintf(&sb, "  - name: %s\n    hostPath:\n      path: %s\n      type: %s\n",
+				v.Name, v.HostPath, v.Type)
 		}
 	}
 
@@ -274,10 +264,22 @@ func buildVolumes(team *config.ResolvedTeam, home string) []k8sVolume {
 	teamPath := team.TeamPath // already expanded
 
 	vols := []k8sVolume{
-		{Name: "claude-config", HostPath: filepath.Join(home, ".claude"), ContainerPath: "/home/node/.claude", Type: "Directory"},
-		{Name: "ttal-config", HostPath: filepath.Join(home, ".config", "ttal"), ContainerPath: "/home/node/.config/ttal", ReadOnly: true, Type: "Directory"},
-		{Name: "daemon-sock", HostPath: filepath.Join(home, ".ttal", "daemon.sock"), ContainerPath: "/home/node/.ttal/daemon.sock", Type: "Socket"},
-		{Name: "ssh", HostPath: filepath.Join(home, ".ssh"), ContainerPath: "/home/node/.ssh", ReadOnly: true, Type: "Directory"},
+		{
+			Name: "claude-config", HostPath: filepath.Join(home, ".claude"),
+			ContainerPath: "/home/node/.claude", Type: "Directory",
+		},
+		{
+			Name: "ttal-config", HostPath: filepath.Join(home, ".config", "ttal"),
+			ContainerPath: "/home/node/.config/ttal", ReadOnly: true, Type: "Directory",
+		},
+		{
+			Name: "daemon-sock", HostPath: filepath.Join(home, ".ttal", "daemon.sock"),
+			ContainerPath: "/home/node/.ttal/daemon.sock", Type: "Socket",
+		},
+		{
+			Name: "ssh", HostPath: filepath.Join(home, ".ssh"),
+			ContainerPath: "/home/node/.ssh", ReadOnly: true, Type: "Directory",
+		},
 		{Name: "taskrc", HostPath: taskrc, ContainerPath: "/home/node/.taskrc", ReadOnly: true, Type: "File"},
 		{Name: "taskdata", HostPath: filepath.Join(home, ".task"), ContainerPath: "/home/node/.task", Type: "Directory"},
 		{Name: "team-workspace", HostPath: teamPath, ContainerPath: "/workspace", Type: "Directory"},

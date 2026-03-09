@@ -453,10 +453,10 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 // buildSharedEnv returns container-level env vars for a k8s team pod.
 // Includes TTAL_TEAM and all .env secrets. Does NOT include per-agent vars.
 func buildSharedEnv(teamName string, _ *config.DaemonConfig) []string {
-	env := []string{
-		fmt.Sprintf("TTAL_TEAM=%s", teamName),
-	}
-	env = append(env, config.DotEnvParts()...)
+	dotenvParts := config.DotEnvParts()
+	env := make([]string, 0, 1+len(dotenvParts))
+	env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
+	env = append(env, dotenvParts...)
 	return env
 }
 
@@ -760,8 +760,15 @@ func IsRunning() (bool, int, error) {
 // Local CC sessions are polled for exit up to 5s, then force-killed.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
+	stopK8sAgents(mcfg)
+	sessions := collectCCSessions(mcfg)
+	if len(sessions) > 0 {
+		shutdownCCSessions(sessions)
+	}
+}
 
-	// Stop k8s agent sessions (keep pods running — reused on next daemon start)
+// stopK8sAgents sends /exit to all k8s agent tmux sessions. Pods are kept running.
+func stopK8sAgents(mcfg *config.DaemonConfig) {
 	for teamName, pod := range k8sPods {
 		for _, ta := range mcfg.AllAgents() {
 			if ta.TeamName != teamName {
@@ -772,8 +779,10 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 			}
 		}
 	}
+}
 
-	// Collect local CC sessions to shut down
+// collectCCSessions returns running CC tmux session names across all teams.
+func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
@@ -786,42 +795,48 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 		}
 		sessions = append(sessions, sessionName)
 	}
+	return sessions
+}
 
-	if len(sessions) == 0 {
-		return
-	}
-
-	// Send /exit to all CC sessions so they save conversation state
+// shutdownCCSessions sends /exit to CC sessions, polls up to 5s, then force-kills stragglers.
+func shutdownCCSessions(sessions []string) {
 	for _, s := range sessions {
 		if err := tmux.SendKeys(s, "", "/exit"); err != nil {
 			log.Printf("[daemon] /exit to session %s failed (will force-kill): %v", s, err)
 		}
 	}
 
-	// Poll until all sessions are gone, up to 5s
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		allGone := true
-		for _, s := range sessions {
-			if tmux.SessionExists(s) {
-				allGone = false
-				break
-			}
-		}
-		if allGone {
+		if allSessionsGone(sessions) {
 			return
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	// Force kill any remaining sessions that didn't exit in time
+	forceKillSessions(sessions)
+}
+
+// allSessionsGone reports whether all given tmux sessions have exited.
+func allSessionsGone(sessions []string) bool {
 	for _, s := range sessions {
 		if tmux.SessionExists(s) {
-			if err := tmux.KillSession(s); err != nil {
-				log.Printf("[daemon] failed to kill session %s: %v", s, err)
-			} else {
-				log.Printf("[daemon] force-killed CC session %s", s)
-			}
+			return false
+		}
+	}
+	return true
+}
+
+// forceKillSessions kills any remaining tmux sessions.
+func forceKillSessions(sessions []string) {
+	for _, s := range sessions {
+		if !tmux.SessionExists(s) {
+			continue
+		}
+		if err := tmux.KillSession(s); err != nil {
+			log.Printf("[daemon] failed to kill session %s: %v", s, err)
+		} else {
+			log.Printf("[daemon] force-killed CC session %s", s)
 		}
 	}
 }
