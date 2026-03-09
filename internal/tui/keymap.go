@@ -92,7 +92,7 @@ const helpText = `Key Bindings:
   Ctrl+D/U        Half page down/up
 
   x               Execute (spawn worker)
-  r               Route to agent
+  r               Route to manager (or pick agent if no manager configured)
   d               Mark task done
   m               Modify task
   A               Annotate task

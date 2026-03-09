@@ -295,6 +295,15 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	switch action {
 	case keyRoute:
 		if len(m.filtered) > 0 {
+			t := m.selectedTask()
+			if t == nil {
+				break
+			}
+			// Auto-route to manager if one is configured
+			if manager := findAgentByRole(m.agents, "manager"); manager != nil {
+				return m, routeTask(t.UUID, manager.Name)
+			}
+			// Fallback: manual agent picker when no manager is configured
 			m.state = stateRouteInput
 			m.routeInput.SetValue("")
 			m.updateRouteMatches()
@@ -687,7 +696,10 @@ func loadConfig() tea.Cmd {
 		if err != nil {
 			return configLoadedMsg{err: fmt.Errorf("load config: %w", err)}
 		}
-		agents, _ := agentfs.Discover(cfg.TeamPath())
+		agents, err := agentfs.Discover(cfg.TeamPath())
+		if err != nil {
+			log.Printf("failed to discover agents: %v", err)
+		}
 
 		projects, err := taskwarrior.GetProjects()
 		if err != nil {
@@ -752,4 +764,14 @@ func loadTasks(filter filterMode, search string) tea.Cmd {
 
 		return tasksLoadedMsg{tasks: tasks}
 	}
+}
+
+// findAgentByRole returns the first agent with the given role, or nil.
+func findAgentByRole(agents []agentfs.AgentInfo, role string) *agentfs.AgentInfo {
+	for i := range agents {
+		if agents[i].Role == role {
+			return &agents[i]
+		}
+	}
+	return nil
 }
