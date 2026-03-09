@@ -9,7 +9,7 @@ import (
 	"dagger.io/dagger/dag"
 )
 
-const imageRef = "ghcr.io/tta-lab/ttal-manager"
+const imageRef = "ghcr.io/tta-lab/ttal-manager-cc"
 
 func main() {
 	push := flag.Bool("push", false, "push image to GHCR")
@@ -54,12 +54,12 @@ func build(ctx context.Context, push bool, tag string) error {
 		}
 		fmt.Printf("Pushed: %s\n", published)
 	} else {
-		_, err := container.Export(ctx, "./ttal-manager.tar")
+		_, err := container.Export(ctx, "./ttal-manager-cc.tar")
 		if err != nil {
 			return fmt.Errorf("export failed: %w", err)
 		}
-		fmt.Println("Exported: ttal-manager.tar")
-		fmt.Println("Load with: podman load -i ttal-manager.tar")
+		fmt.Println("Exported: ttal-manager-cc.tar")
+		fmt.Println("Load with: podman load -i ttal-manager-cc.tar")
 	}
 
 	return nil

@@ -1,0 +1,33 @@
+name: Build Manager Container
+on:
+  push:
+    paths:
+      - 'containers/manager/**'
+    branches: [main]
+    tags:
+      - 'container/v*'
+
+permissions:
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dagger/dagger-for-github@v7
+        with:
+          version: "latest"
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Determine tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/container/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/container/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push
+        working-directory: containers/manager
+        run: dagger run go run main.go --push --tag ${{ steps.tag.outputs.tag }}
