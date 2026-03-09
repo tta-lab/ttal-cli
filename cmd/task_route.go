@@ -85,6 +85,10 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 		return err
 	}
 
+	if task.Status == taskStatusCompleted {
+		return fmt.Errorf("task %s is already completed — cannot route", taskUUID)
+	}
+
 	uuid := task.UUID
 	if len(uuid) > 8 {
 		uuid = uuid[:8]
@@ -125,7 +129,7 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return err
 	}
 
-	if task.Status == "completed" {
+	if task.Status == taskStatusCompleted {
 		return fmt.Errorf("task %s is already completed — cannot execute", taskUUID)
 	}
 
