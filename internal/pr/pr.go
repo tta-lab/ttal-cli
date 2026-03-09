@@ -169,6 +169,11 @@ func buildStatusLines(statuses []*gitprovider.CommitStatus, failing, pending int
 	return strings.Join(lines, "\n")
 }
 
+// PRIndex returns the PR index from the task's PRID UDA.
+func PRIndex(ctx *Context) (int64, error) {
+	return prIndex(ctx)
+}
+
 func prIndex(ctx *Context) (int64, error) {
 	if ctx.Task.PRID == "" {
 		return 0, fmt.Errorf("no PR associated with this task (create one first with: ttal pr create)")

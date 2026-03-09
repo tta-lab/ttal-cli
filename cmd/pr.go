@@ -202,6 +202,8 @@ Examples:
 	},
 }
 
+var prCommentPRIndex int64
+
 var prCommentCmd = &cobra.Command{
 	Use:   "comment",
 	Short: "Manage PR comments",
@@ -234,7 +236,13 @@ Examples:
 			}
 			body = strings.TrimSpace(string(bodyBytes))
 		}
-		comment, err := pr.CommentCreate(ctx, body)
+
+		index, err := resolveCommentIndex(ctx)
+		if err != nil {
+			return err
+		}
+
+		comment, err := ctx.Provider.CreateComment(ctx.Owner, ctx.Repo, index, body)
 		if err != nil {
 			return err
 		}
@@ -249,7 +257,7 @@ Examples:
 		role := tmux.Role()
 		isReviewer := role == "reviewer"
 
-		if isReviewer {
+		if isReviewer && ctx.Task.UUID != "" {
 			bodyLGTM := isLGTMBody(body)
 			if lgtmFlag || bodyLGTM {
 				if err := taskwarrior.SetPRLGTM(ctx.Task.UUID); err != nil {
@@ -390,7 +398,12 @@ var prCommentListCmd = &cobra.Command{
 			return err
 		}
 
-		comments, err := pr.CommentList(ctx)
+		index, err := resolveCommentIndex(ctx)
+		if err != nil {
+			return err
+		}
+
+		comments, err := ctx.Provider.ListComments(ctx.Owner, ctx.Repo, index)
 		if err != nil {
 			return err
 		}
@@ -406,6 +419,19 @@ var prCommentListCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+// resolveCommentIndex returns the PR index to use for comment operations.
+// It prefers the --pr flag value; falls back to the task's pr_id UDA.
+func resolveCommentIndex(ctx *pr.Context) (int64, error) {
+	if prCommentPRIndex > 0 {
+		return prCommentPRIndex, nil
+	}
+	idx, err := pr.PRIndex(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("no PR specified (use --pr <number> or run from a worker session): %w", err)
+	}
+	return idx, nil
 }
 
 func writeReviewFile(body string) (string, error) {
@@ -461,6 +487,8 @@ func init() {
 
 	prReviewCmd.Flags().BoolVar(&reviewForce, "force", false, "Kill and respawn reviewer window")
 	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
+
+	prCommentCmd.PersistentFlags().Int64Var(&prCommentPRIndex, "pr", 0, "PR number (required outside worker sessions)")
 
 	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
 	prCommentCreateCmd.Flags().Bool("lgtm", false, "Mark PR as approved (reviewer only)")
