@@ -99,13 +99,15 @@ type bashInput struct {
 	Command string `json:"command"`
 }
 
+const toolBash = "Bash"
+
 // refineBashTool inspects a Bash tool's input.command and returns a more
 // specific tool identifier for known CLI commands. Falls back to "Bash".
 // Keep the command list in sync with flicknote and ttal subcommands.
 func refineBashTool(input json.RawMessage) string {
 	var bi bashInput
 	if err := json.Unmarshal(input, &bi); err != nil || bi.Command == "" {
-		return "Bash"
+		return toolBash
 	}
 
 	// Normalize: trim leading whitespace
@@ -136,7 +138,7 @@ func refineBashTool(input json.RawMessage) string {
 		strings.HasPrefix(cmd, "flicknote list"):
 		return "flicknote:read"
 	default:
-		return "Bash"
+		return toolBash
 	}
 }
 
@@ -156,7 +158,7 @@ func extractToolUse(line []byte) string {
 
 	for _, block := range msg.Content {
 		if block.Type == "tool_use" && block.Name != "AskUserQuestion" {
-			if block.Name == "Bash" {
+			if block.Name == toolBash {
 				return refineBashTool(block.Input)
 			}
 			return block.Name

@@ -200,7 +200,8 @@ func TestExtractToolUse(t *testing.T) {
 		{
 			name: "Bash with flicknote add",
 			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_4","input":{"command":"flicknote add \"content\" --project ttal.plans"}}]}}`,
+				`[{"type":"tool_use","name":"Bash","id":"tu_4",` +
+				`"input":{"command":"flicknote add \"content\" --project ttal.plans"}}]}}`,
 			wantTool: "flicknote:write",
 		},
 		{
@@ -218,13 +219,15 @@ func TestExtractToolUse(t *testing.T) {
 		{
 			name: "Bash with heredoc pipe to flicknote",
 			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_7","input":{"command":"cat <<'EOF' | flicknote add --project ttal.plans\ncontent\nEOF"}}]}}`,
+				`[{"type":"tool_use","name":"Bash","id":"tu_7",` +
+				`"input":{"command":"cat <<'EOF' | flicknote add --project ttal.plans\ncontent\nEOF"}}]}}`,
 			wantTool: "flicknote:write",
 		},
 		{
 			name: "Bash with echo pipe to flicknote replace",
 			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_8","input":{"command":"echo \"new content\" | flicknote replace abc123"}}]}}`,
+				`[{"type":"tool_use","name":"Bash","id":"tu_8",` +
+				`"input":{"command":"echo \"new content\" | flicknote replace abc123"}}]}}`,
 			wantTool: "flicknote:write",
 		},
 		{
