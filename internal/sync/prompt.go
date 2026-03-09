@@ -89,20 +89,19 @@ func promptDestinations(home string) ([]promptDestination, error) {
 }
 
 func copyPrompt(src, dest string) error {
-	// Remove existing (symlink or file)
 	if info, err := os.Lstat(dest); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		if info.IsDir() {
+			if err := os.RemoveAll(dest); err != nil {
+				return fmt.Errorf("removing existing dir %s: %w", dest, err)
+			}
+		} else {
+			// covers symlinks and regular files
 			if err := os.Remove(dest); err != nil {
 				return fmt.Errorf("removing existing %s: %w", dest, err)
 			}
 		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("checking existing %s: %w", dest, err)
 	}
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("reading %s: %w", src, err)
-	}
-	if err := os.WriteFile(dest, data, 0o644); err != nil {
-		return fmt.Errorf("writing %s: %w", dest, err)
-	}
-	return nil
+	return copyFile(src, dest)
 }

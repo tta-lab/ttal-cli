@@ -99,17 +99,19 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 // copySkillDir recursively copies a skill directory to dest.
 // If dest exists, it is removed first to ensure a clean copy.
 func copySkillDir(src, dest string) error {
-	// Remove existing (symlink or directory)
 	if info, err := os.Lstat(dest); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
-			if err := os.Remove(dest); err != nil {
-				return fmt.Errorf("removing existing symlink %s: %w", dest, err)
-			}
-		} else if info.IsDir() {
+		if info.IsDir() {
 			if err := os.RemoveAll(dest); err != nil {
 				return fmt.Errorf("removing existing dir %s: %w", dest, err)
 			}
+		} else {
+			// covers symlinks and regular files
+			if err := os.Remove(dest); err != nil {
+				return fmt.Errorf("removing existing %s: %w", dest, err)
+			}
 		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("checking existing %s: %w", dest, err)
 	}
 	return copyDir(src, dest)
 }
@@ -117,11 +119,11 @@ func copySkillDir(src, dest string) error {
 // copyDir recursively copies src directory to dest.
 func copyDir(src, dest string) error {
 	if err := os.MkdirAll(dest, 0o755); err != nil {
-		return err
+		return fmt.Errorf("creating dir %s: %w", dest, err)
 	}
 	entries, err := os.ReadDir(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading dir %s: %w", src, err)
 	}
 	for _, entry := range entries {
 		srcPath := filepath.Join(src, entry.Name())
@@ -131,14 +133,22 @@ func copyDir(src, dest string) error {
 				return err
 			}
 		} else {
-			data, err := os.ReadFile(srcPath)
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(destPath, data, 0o644); err != nil {
+			if err := copyFile(srcPath, destPath); err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+// copyFile copies a single file from src to dest.
+func copyFile(src, dest string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", src, err)
+	}
+	if err := os.WriteFile(dest, data, 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", dest, err)
 	}
 	return nil
 }
