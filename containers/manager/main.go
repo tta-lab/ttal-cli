@@ -39,10 +39,10 @@ func build(ctx context.Context, push bool, tag string) error {
 		// System packages
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "install", "-y", "--no-install-recommends",
-			"git", "tmux", "curl", "wget", "jq", "tree",
+			"git", "tmux", "curl", "jq",
 			"openssh-client", "ca-certificates",
 			"build-essential", "python3",
-			"taskwarrior", "fish",
+			"taskwarrior", "ripgrep", "fd-find", "gh",
 		}).
 		WithExec([]string{"apt-get", "clean"}).
 		WithExec([]string{"sh", "-c", "rm -rf /var/lib/apt/lists/*"}).
