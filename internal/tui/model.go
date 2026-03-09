@@ -44,9 +44,10 @@ type Model struct {
 	tags     []string
 
 	// Task list cursor
-	cursor      int
-	offset      int
-	searchInput textinput.Model
+	cursor       int
+	selectedUUID string // UUID of task under cursor, survives refresh
+	offset       int
+	searchInput  textinput.Model
 
 	// Route input
 	routeInput   textinput.Model
@@ -273,14 +274,19 @@ func (m *Model) handleNavigation(action keyAction) bool {
 		m.moveCursor(-m.visibleRows() / 2)
 	case keyTop:
 		m.cursor = 0
+		if len(m.filtered) > 0 {
+			m.selectedUUID = m.filtered[0].UUID
+		}
 		m.ensureCursorVisible()
 	case keyBottom:
 		if len(m.filtered) > 0 {
 			m.cursor = len(m.filtered) - 1
+			m.selectedUUID = m.filtered[m.cursor].UUID
 			m.ensureCursorVisible()
 		}
 	case keyEnter:
 		if len(m.filtered) > 0 {
+			m.selectedUUID = m.filtered[m.cursor].UUID
 			m.state = stateTaskDetail
 		}
 	default:
@@ -619,6 +625,9 @@ func (m *Model) moveCursor(delta int) {
 	if len(m.filtered) > 0 && m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
+	if m.cursor >= 0 && m.cursor < len(m.filtered) {
+		m.selectedUUID = m.filtered[m.cursor].UUID
+	}
 	m.ensureCursorVisible()
 }
 
@@ -648,6 +657,8 @@ func (m *Model) visibleRows() int {
 }
 
 func (m *Model) applyFilter() {
+	prevUUID := m.selectedUUID
+
 	m.filtered = nil
 	for _, t := range m.tasks {
 		switch m.filter {
@@ -669,11 +680,27 @@ func (m *Model) applyFilter() {
 	sort.Slice(m.filtered, func(i, j int) bool {
 		return m.filtered[i].Urgency > m.filtered[j].Urgency
 	})
+
+	// Restore cursor to previously selected task by UUID
+	if prevUUID != "" {
+		for i, t := range m.filtered {
+			if t.UUID == prevUUID {
+				m.cursor = i
+				m.ensureCursorVisible()
+				return
+			}
+		}
+	}
+
+	// Fallback: clamp cursor (task was filtered out or deleted)
 	if m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
 	if m.cursor < 0 {
 		m.cursor = 0
+	}
+	if m.cursor >= 0 && m.cursor < len(m.filtered) {
+		m.selectedUUID = m.filtered[m.cursor].UUID
 	}
 	m.offset = 0
 }
