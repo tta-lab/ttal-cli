@@ -81,9 +81,6 @@ func (m Model) viewTaskList() string {
 
 		if selected {
 			line = styleSelected.Render(line)
-		} else if t.Start != "" {
-			// Active task: cyan foreground on the whole row.
-			line = lipgloss.NewStyle().Foreground(colorCyan).Render(line)
 		} else if t.IsToday() && m.filter == filterPending {
 			// Today-or-overdue scheduled task: blue background — only in pending view.
 			// Uses plain line because lipgloss Width() padding emits ANSI reset sequences

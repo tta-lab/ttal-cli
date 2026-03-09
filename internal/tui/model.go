@@ -636,7 +636,7 @@ func (m *Model) applyFilter() {
 				continue
 			}
 		case filterToday:
-			if !t.IsToday() {
+			if !t.IsToday() || t.Start != "" {
 				continue
 			}
 		case filterActive:
