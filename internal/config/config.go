@@ -92,6 +92,20 @@ type Config struct {
 	resolvedRoles          *RolesConfig
 }
 
+// KubernetesConfig holds per-team Kubernetes deployment settings.
+// When set, the daemon deploys one pod per team to the specified k8s context.
+type KubernetesConfig struct {
+	// Kubernetes context name (e.g. "orbstack", "docker-desktop")
+	Context string `toml:"context" jsonschema:"description=Kubernetes context name (e.g. orbstack)"`
+	// Agent container image (default: ghcr.io/tta-lab/ttal-manager-cc:latest)
+	AgentImage string `toml:"agent_image" jsonschema:"description=Agent container image"` //nolint:lll
+	// Worker container image (future use — not implemented yet)
+	WorkerImage string `toml:"worker_image" jsonschema:"description=Worker container image (future use)"` //nolint:lll
+}
+
+// DefaultAgentImage is the default container image for k8s agent pods.
+const DefaultAgentImage = "ghcr.io/tta-lab/ttal-manager-cc:latest"
+
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
 	// Root path for agent workspaces. Agent path = team_path/agent_name
@@ -130,6 +144,21 @@ type TeamConfig struct {
 	EmojiReactions *bool `toml:"emoji_reactions" jsonschema:"default=false"`
 	// TaskChampion sync server URL for ttal doctor --fix
 	TaskSyncURL string `toml:"task_sync_url"` //nolint:lll
+	// Kubernetes deployment settings (optional — nil means local tmux)
+	Kubernetes *KubernetesConfig `toml:"kubernetes" jsonschema:"description=Kubernetes deployment settings (optional)"` //nolint:lll
+}
+
+// IsK8s reports whether this team deploys agents to Kubernetes.
+func (t TeamConfig) IsK8s() bool {
+	return t.Kubernetes != nil && t.Kubernetes.Context != ""
+}
+
+// K8sAgentImage returns the container image for agent pods, with a sensible default.
+func (t TeamConfig) K8sAgentImage() string {
+	if t.Kubernetes != nil && t.Kubernetes.AgentImage != "" {
+		return t.Kubernetes.AgentImage
+	}
+	return DefaultAgentImage
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -710,6 +739,20 @@ type ResolvedTeam struct {
 	HooksToken        string
 	Voice             VoiceConfig
 	EmojiReactions    bool
+	Kubernetes        *KubernetesConfig // nil = local tmux (default)
+}
+
+// IsK8s reports whether this team deploys agents to Kubernetes.
+func (t *ResolvedTeam) IsK8s() bool {
+	return t.Kubernetes != nil && t.Kubernetes.Context != ""
+}
+
+// K8sAgentImage returns the container image for agent pods, with a sensible default.
+func (t *ResolvedTeam) K8sAgentImage() string {
+	if t.Kubernetes != nil && t.Kubernetes.AgentImage != "" {
+		return t.Kubernetes.AgentImage
+	}
+	return DefaultAgentImage
 }
 
 // DefaultTeamName returns the default team name with fallback to "default".
@@ -851,6 +894,7 @@ func resolveTeam(
 			Language:   lang,
 		},
 		EmojiReactions: resolveEmojiReactions(team),
+		Kubernetes:     team.Kubernetes,
 	}
 
 	// Resolve DataDir

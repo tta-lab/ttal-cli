@@ -193,6 +193,25 @@
           "task_sync_url": {
             "type": "string",
             "description": "TaskChampion sync server URL for ttal doctor --fix"
+          },
+          "kubernetes": {
+            "properties": {
+              "context": {
+                "type": "string",
+                "description": "Kubernetes context name (e.g. orbstack)"
+              },
+              "agent_image": {
+                "type": "string",
+                "description": "Agent container image"
+              },
+              "worker_image": {
+                "type": "string",
+                "description": "Worker container image (future use)"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "description": "Kubernetes deployment settings (optional)"
           }
         },
         "additionalProperties": false,

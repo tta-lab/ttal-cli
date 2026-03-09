@@ -25,6 +25,11 @@ import (
 
 const pidFileName = "daemon.pid"
 
+// k8sPods maps team name → running k8s team pod.
+// Populated during daemon startup (Phase 1 of initAdapters) and used by deliverToAgent.
+// Written once at startup before pollers start — no mutex needed.
+var k8sPods map[string]*k8sTeamPod
+
 // pollerTarget groups agent info for Telegram poller dispatch by chat ID.
 type pollerTarget struct {
 	teamName  string
@@ -297,10 +302,41 @@ func awaitShutdown(
 
 // initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for all others.
 // Config-driven: iterates all teams, no DB required.
+//
+// Two phases:
+//  1. Set up k8s team pods (synchronous — pods must be ready before agents spawn).
+//  2. Spawn per-agent sessions in parallel (local tmux or k8s exec).
 func initAdapters(
 	ctx context.Context, mcfg *config.DaemonConfig,
 	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
 ) {
+	// Phase 1: ensure k8s team pods exist with correct spec
+	home, _ := os.UserHomeDir()
+	k8sPods = make(map[string]*k8sTeamPod)
+	for teamName, team := range mcfg.Teams {
+		if !team.IsK8s() {
+			continue
+		}
+		pod := &k8sTeamPod{
+			kubectx:   team.Kubernetes.Context,
+			namespace: "ttal",
+			image:     team.K8sAgentImage(),
+			teamName:  teamName,
+		}
+		if err := pod.EnsureNamespace(); err != nil {
+			log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
+			continue
+		}
+		sharedEnv := buildSharedEnv(teamName, mcfg)
+		volumes := buildVolumes(team, home)
+		if err := pod.EnsurePod(sharedEnv, volumes); err != nil {
+			log.Printf("[k8s] failed to ensure pod for team %s: %v", teamName, err)
+			continue
+		}
+		k8sPods[teamName] = pod
+	}
+
+	// Phase 2: spawn per-agent sessions in parallel
 	var wg sync.WaitGroup
 	for _, ta := range mcfg.AllAgents() {
 		wg.Add(1)
@@ -318,6 +354,28 @@ func initSingleAdapter(
 	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
+
+	// K8s agents — spawn tmux session inside team pod instead of local tmux.
+	if team, ok := mcfg.Teams[ta.TeamName]; ok && team.IsK8s() {
+		pod, ok := k8sPods[ta.TeamName]
+		if !ok {
+			log.Printf("[daemon] k8s pod not ready for team %s, skipping agent %s", ta.TeamName, ta.AgentName)
+			return
+		}
+		if pod.SessionExists(ta.AgentName) {
+			log.Printf("[daemon] k8s agent %s already running in pod ttal-%s", ta.AgentName, ta.TeamName)
+			return
+		}
+		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
+		perAgentEnv := buildPerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+		if err := pod.SpawnAgent(ta.AgentName, model, perAgentEnv); err != nil {
+			log.Printf("[daemon] failed to spawn k8s agent %s: %v", ta.AgentName, err)
+		} else {
+			log.Printf("[daemon] k8s agent %s running in pod ttal-%s", ta.AgentName, ta.TeamName)
+		}
+		return
+	}
+
 	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 
 	// CC agents use tmux — spawn session but don't register adapter
@@ -389,6 +447,31 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	// Inject all secrets from .env
 	env = append(env, config.DotEnvParts()...)
 
+	return env
+}
+
+// buildSharedEnv returns container-level env vars for a k8s team pod.
+// Includes TTAL_TEAM and all .env secrets. Does NOT include per-agent vars.
+func buildSharedEnv(teamName string, _ *config.DaemonConfig) []string {
+	env := []string{
+		fmt.Sprintf("TTAL_TEAM=%s", teamName),
+	}
+	env = append(env, config.DotEnvParts()...)
+	return env
+}
+
+// buildPerAgentEnv returns tmux-session-level env vars for a k8s agent.
+// These are passed as `env KEY=VAL` prefix in the tmux command inside the pod.
+func buildPerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
+	env := []string{
+		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+	}
+	if team, ok := mcfg.Teams[teamName]; ok && team.TeamPath != "" {
+		info, err := agentfs.GetFromPath(filepath.Join(team.TeamPath, agentName))
+		if err == nil && info.FlicknoteProject != "" {
+			env = append(env, fmt.Sprintf("FLICKNOTE_PROJECT=%s", info.FlicknoteProject))
+		}
+	}
 	return env
 }
 
@@ -672,12 +755,25 @@ func IsRunning() (bool, int, error) {
 	return true, pid, nil
 }
 
-// shutdownAgents gracefully shuts down all CC agent sessions on daemon exit.
-// It sends /exit to each session, polls for exit up to 5s, then force-kills stragglers.
+// shutdownAgents gracefully shuts down all agent sessions on daemon exit.
+// K8s agent sessions receive /exit but pods are kept running for reuse.
+// Local CC sessions are polled for exit up to 5s, then force-killed.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
 
-	// Collect CC sessions to shut down
+	// Stop k8s agent sessions (keep pods running — reused on next daemon start)
+	for teamName, pod := range k8sPods {
+		for _, ta := range mcfg.AllAgents() {
+			if ta.TeamName != teamName {
+				continue
+			}
+			if err := pod.StopAgent(ta.AgentName); err != nil {
+				log.Printf("[daemon] failed to stop k8s agent %s: %v", ta.AgentName, err)
+			}
+		}
+	}
+
+	// Collect local CC sessions to shut down
 	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
