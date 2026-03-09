@@ -61,8 +61,8 @@
   margin-top: 3rem;
 }
 
-/* Terminal demo and install tabs inherit dark bg regardless of theme */
+/* Force dark browser chrome (scrollbars, selection, form controls) inside terminal components */
 .terminal-demo,
-.install-tabs .code-block {
+.install-tabs {
   color-scheme: dark;
 }

@@ -25,7 +25,7 @@
       <div class="terminal-line output">  PR <span class="hl-cyan">#47</span> created → <span class="hl-gray">github.com/acme/api/pull/47</span></div>
       <div class="terminal-line output">  <span class="hl-green">✓</span> Reviewer spawned in 'review' window</div>
       <div class="terminal-line spacer"></div>
-      <div class="terminal-line comment">  <span class="hl-gray"># 6 reviewers analyze code in parallel...</span></div>
+      <div class="terminal-line comment">  <span class="hl-gray"># Reviewer analyzes code across 6 dimensions...</span></div>
       <div class="terminal-line output">  <span class="hl-green">✓</span> Code quality: <span class="hl-green">LGTM</span></div>
       <div class="terminal-line output">  <span class="hl-green">✓</span> Type design: <span class="hl-green">no issues</span></div>
       <div class="terminal-line output">  <span class="hl-green">✓</span> Silent failures: <span class="hl-green">clean</span></div>

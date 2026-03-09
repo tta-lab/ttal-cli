@@ -12,16 +12,16 @@
       </button>
     </div>
     <div class="code-block">
-      <button class="copy-btn" @click="copy(activeContent)" :class="{ copied }">
-        {{ copied ? 'Copied!' : 'Copy' }}
+      <button class="copy-btn" @click="copy(activeContent, 'install')" :class="{ copied: copiedKey === 'install' }">
+        {{ copiedKey === 'install' ? 'Copied!' : 'Copy' }}
       </button>
       <pre><code>{{ activeContent }}</code></pre>
     </div>
     <div class="post-install">
       <div class="post-install-label">After install:</div>
       <div class="code-block">
-        <button class="copy-btn" @click="copy(postInstall)" :class="{ copied: copiedPost }">
-          {{ copiedPost ? 'Copied!' : 'Copy' }}
+        <button class="copy-btn" @click="copy(postInstall, 'post')" :class="{ copied: copiedKey === 'post' }">
+          {{ copiedKey === 'post' ? 'Copied!' : 'Copy' }}
         </button>
         <pre><code>{{ postInstall }}</code></pre>
       </div>
@@ -39,8 +39,7 @@ const tabs = [
 ]
 
 const activeTab = ref('macos')
-const copied = ref(false)
-const copiedPost = ref(false)
+const copiedKey = ref(null)
 
 const content = {
   macos: `brew tap tta-lab/ttal\nbrew install ttal`,
@@ -48,18 +47,17 @@ const content = {
   source: `git clone https://github.com/tta-lab/ttal-cli.git\ncd ttal-cli && make install`,
 }
 
-const postInstall = `ttal init --scaffold basic    # Quick setup with 2 agents\nttal daemon install            # Start the daemon`
+const postInstall = `ttal init --scaffold basic    # Initial setup\nttal daemon install            # Start the daemon`
 
 const activeContent = computed(() => content[activeTab.value])
 
-function copy(text) {
-  navigator.clipboard.writeText(text)
-  if (text === postInstall) {
-    copiedPost.value = true
-    setTimeout(() => { copiedPost.value = false }, 2000)
-  } else {
-    copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
+async function copy(text, key) {
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedKey.value = key
+    setTimeout(() => { copiedKey.value = null }, 2000)
+  } catch {
+    // Clipboard unavailable (non-HTTPS or permission denied) — do nothing
   }
 }
 </script>

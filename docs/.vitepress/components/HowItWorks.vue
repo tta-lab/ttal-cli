@@ -34,7 +34,7 @@ const steps = [
     icon: '✅',
     title: 'PR',
     desc: 'Merged and done',
-    code: '6 reviewers → triage → squash merge',
+    code: 'Reviewer → triage → squash merge',
   },
 ]
 </script>

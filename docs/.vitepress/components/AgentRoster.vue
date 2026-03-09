@@ -34,8 +34,8 @@ const agents = [
   {
     emoji: '🦅',
     name: 'Kestrel',
-    creature: 'Eagle',
-    role: 'Lifecycle — manages PRs, workers, merges, and the build pipeline',
+    creature: 'Falcon',
+    role: 'Bug-fix designer — diagnoses root causes and writes fix plans for workers to execute',
   },
 ]
 </script>
