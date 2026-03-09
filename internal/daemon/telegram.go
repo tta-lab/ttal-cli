@@ -407,7 +407,9 @@ func handleInboundMessage(
 // isBotCommandForAgent reports whether msg contains the given bot command addressed to
 // this agent. For DMs, it validates by chatID. For groups, it requires the @botname
 // suffix and that the group chatID is a registered dispatch target.
-func isBotCommandForAgent(msg *models.Message, cmd string, chatID int64, botUsername string, dispatch map[int64]pollerTarget) bool {
+func isBotCommandForAgent(
+	msg *models.Message, cmd string, chatID int64, botUsername string, dispatch map[int64]pollerTarget,
+) bool {
 	isGroup := msg.Chat.Type == chatTypeGroup || msg.Chat.Type == chatTypeSupergroup
 	// In private/other: require matching DM chat ID.
 	if !isGroup && msg.Chat.ID != chatID {
