@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func (m Model) viewTaskDetail() string {
@@ -52,7 +54,12 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 		field(b, "Path:", "   ", t.ProjectPath)
 	}
 	if t.PRID != "" {
-		field(b, "PR:", "    ", "#"+t.PRID)
+		info, err := taskwarrior.ParsePRID(t.PRID)
+		if err == nil && info.LGTM {
+			field(b, "PR:", "    ", fmt.Sprintf("#%d ✓", info.Index))
+		} else {
+			field(b, "PR:", "    ", "#"+t.PRID)
+		}
 	}
 	if t.Spawner != "" {
 		field(b, "Spawner:", " ", t.Spawner)

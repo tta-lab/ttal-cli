@@ -165,9 +165,9 @@ func prIndex(ctx *Context) (int64, error) {
 	if ctx.Task.PRID == "" {
 		return 0, fmt.Errorf("no PR associated with this task (create one first with: ttal pr create)")
 	}
-	index, err := strconv.ParseInt(ctx.Task.PRID, 10, 64)
+	info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
 	if err != nil {
-		return 0, fmt.Errorf("invalid pr_id %q: %w", ctx.Task.PRID, err)
+		return 0, err
 	}
-	return index, nil
+	return info.Index, nil
 }

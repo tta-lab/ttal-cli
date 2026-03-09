@@ -130,7 +130,15 @@ func printWorkerTable(workers []WorkerInfo) {
 
 		pr := "-"
 		if t.PRID != "" {
-			pr = "#" + t.PRID
+			info, err := taskwarrior.ParsePRID(t.PRID)
+			if err == nil {
+				pr = fmt.Sprintf("#%d", info.Index)
+				if info.LGTM {
+					pr += " ✓"
+				}
+			} else {
+				pr = "#" + t.PRID
+			}
 		}
 
 		branch := t.Branch
