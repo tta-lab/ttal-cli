@@ -19,7 +19,7 @@ jobs:
         with:
           version: "latest"
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Determine tag
         id: tag
         run: |
@@ -30,4 +30,6 @@ jobs:
           fi
       - name: Build and push
         working-directory: containers/manager
-        run: dagger run go run main.go --push --tag ${{ steps.tag.outputs.tag }}
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: dagger run go run main.go --push --tag "$IMAGE_TAG"

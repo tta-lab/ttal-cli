@@ -23,7 +23,15 @@ func main() {
 }
 
 func build(ctx context.Context, push bool, tag string) error {
-	defer dag.Close()
+	defer func() {
+		if err := dag.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: dag.Close: %v\n", err)
+		}
+	}()
+
+	if push && tag == "" {
+		return fmt.Errorf("--tag must not be empty when --push is set")
+	}
 
 	container := dag.Container().
 		From("node:22-slim").
@@ -37,7 +45,7 @@ func build(ctx context.Context, push bool, tag string) error {
 			"taskwarrior", "fish",
 		}).
 		WithExec([]string{"apt-get", "clean"}).
-		WithExec([]string{"rm", "-rf", "/var/lib/apt/lists/*"}).
+		WithExec([]string{"sh", "-c", "rm -rf /var/lib/apt/lists/*"}).
 
 		// Claude Code via npm (latest, no pin)
 		WithExec([]string{"npm", "install", "-g", "@anthropic-ai/claude-code"}).
