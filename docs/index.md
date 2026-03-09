@@ -92,21 +92,26 @@ TTAL runs your team on two planes:
 
 TTAL doesn't replace your coding agent — it makes it a team player.
 
-| Capability | TTAL | claude-flow / claude-squad | OpenClaw | Claudegram |
-|---|:---:|:---:|:---:|:---:|
-| Multi-agent coordination | ✓ | ✓ | ✓ | - |
-| Multi-runtime (Claude Code + OpenCode + Codex) | ✓ | - | - | - |
-| OpenClaw as manager runtime | ✓ | - | n/a | - |
-| Bidirectional Telegram | ✓ | - | - | ✓ |
-| Multimodal input | ✓ | - | - | ✓ |
-| TTS / STT | ✓ | - | - | ✓ |
-| Task management | ✓ | - | - | - |
-| Interactive questions | ✓ | - | - | ✓ |
-| Autonomous PR workflow | ✓ | - | - | - |
+| Capability | TTAL | Paperclip | claude-flow / claude-squad | OpenClaw | Claudegram |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Multi-agent coordination | ✓ | ✓ | ✓ | ✓ | - |
+| Multi-runtime (CC + OpenCode + Codex) | ✓ | ✓ | - | - | - |
+| OpenClaw as manager runtime | ✓ | - | - | n/a | - |
+| Zero infrastructure (no database) | ✓ | - | ✓ | - | - |
+| Bidirectional Telegram | ✓ | - | - | - | ✓ |
+| Multimodal input | ✓ | - | - | - | ✓ |
+| TTS / STT | ✓ | - | - | - | ✓ |
+| Task management | ✓ | ✓ | - | - | - |
+| Interactive questions | ✓ | - | - | - | ✓ |
+| Autonomous PR workflow | ✓ | - | - | - | - |
+| Git worktree isolation | ✓ | - | - | - | - |
+| Multi-team + cross-team comms | ✓ | - | - | - | - |
 
-TTAL is the only orchestrator that supports **two agent runtimes** — Claude Code (stable) and OpenCode — plus Codex CLI for workers, and even runs **OpenClaw as the manager plane runtime**, giving you the flexibility to mix runtimes across your team.
+The closest competitor is **Paperclip** (12K stars) — a company-as-abstraction platform with a React dashboard, goal hierarchy, and budget controls. It supports multiple runtimes including Claude Code, OpenCode, and Codex. Where it diverges: Paperclip requires PostgreSQL and a Node.js server; TTAL is a single Go binary with no database. Paperclip models your team as an org chart; TTAL models it as two planes — managers and workers — coordinated through git-native workflows and direct Telegram access.
 
-Competitors build chat assistants. TTAL builds autonomous team members who own the full delivery pipeline.
+TTAL is the only orchestrator that combines CLI-first zero-infra deployment, deep git integration (worktrees, PR lifecycle, PR watcher), and cross-team communication within a single org — something no other orchestrator supports.
+
+Competitors build chat assistants or company simulators. TTAL builds autonomous software teams who own the full delivery pipeline.
 
 ---
 
