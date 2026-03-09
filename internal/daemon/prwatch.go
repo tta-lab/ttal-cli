@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/notify"
@@ -254,6 +255,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 			log.Printf("[prwatch] PR #%d is %s — stopping", target.PRIndex, fetchedPR.State)
 			if fetchedPR.Merged {
 				notifySpawnerMerged(mcfg, registry, target)
+				notifyManagerAgents(mcfg, registry, target)
 			}
 			// Return true to keep UUID in active map until the async cleanup
 			// (task done) removes the task from ListTasksWithPR, preventing
@@ -424,9 +426,42 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 		return
 	}
 	teamName, agentName := parts[0], parts[1]
-	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s", target.TaskUUID[:8], target.PRIndex, target.Description)
+	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s",
+		shortSHA(target.TaskUUID), target.PRIndex, target.Description)
 	if err := deliverToAgent(registry, mcfg, teamName, agentName, msg); err != nil {
 		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
+	}
+}
+
+// notifyManagerAgents delivers a task-done notification to all agents with role "manager"
+// across all teams. Skips any agent that is the same as the spawner (already notified).
+func notifyManagerAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, target prWatchTarget) {
+	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s",
+		shortSHA(target.TaskUUID), target.PRIndex, target.Description)
+
+	for teamName, team := range mcfg.Teams {
+		if team.TeamPath == "" {
+			continue
+		}
+		managers, err := agentfs.FindByRole(team.TeamPath, "manager")
+		if err != nil {
+			log.Printf("[prwatch] notifyManagerAgents: failed to find managers in team %s: %v", teamName, err)
+			continue
+		}
+		if len(managers) == 0 {
+			log.Printf("[prwatch] notifyManagerAgents: no manager agents found in team %s", teamName)
+			continue
+		}
+		for _, agent := range managers {
+			// Skip if this agent is the same as the spawner (already notified by notifySpawnerMerged)
+			spawnerKey := teamName + ":" + agent.Name
+			if spawnerKey == target.Spawner {
+				continue
+			}
+			if err := deliverToAgent(registry, mcfg, teamName, agent.Name, msg); err != nil {
+				log.Printf("[prwatch] failed to notify manager %s/%s: %v", teamName, agent.Name, err)
+			}
+		}
 	}
 }
 
