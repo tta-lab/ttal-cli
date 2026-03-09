@@ -85,10 +85,10 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 			continue
 		}
 
-		if err := copySkillDir(skillDir, ccDest); err != nil {
+		if err := deploySkill(skillDir, ccDest); err != nil {
 			return nil, err
 		}
-		if err := copySkillDir(skillDir, codexDest); err != nil {
+		if err := deploySkill(skillDir, codexDest); err != nil {
 			return nil, err
 		}
 	}
@@ -96,16 +96,15 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 	return results, nil
 }
 
-// copySkillDir recursively copies a skill directory to dest.
+// deploySkill copies only SKILL.md from a skill directory to dest.
 // If dest exists, it is removed first to ensure a clean copy.
-func copySkillDir(src, dest string) error {
+func deploySkill(src, dest string) error {
 	if info, err := os.Lstat(dest); err == nil {
 		if info.IsDir() {
 			if err := os.RemoveAll(dest); err != nil {
 				return fmt.Errorf("removing existing dir %s: %w", dest, err)
 			}
 		} else {
-			// covers symlinks and regular files
 			if err := os.Remove(dest); err != nil {
 				return fmt.Errorf("removing existing %s: %w", dest, err)
 			}
@@ -113,32 +112,10 @@ func copySkillDir(src, dest string) error {
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("checking existing %s: %w", dest, err)
 	}
-	return copyDir(src, dest)
-}
-
-// copyDir recursively copies src directory to dest.
-func copyDir(src, dest string) error {
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return fmt.Errorf("creating dir %s: %w", dest, err)
 	}
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return fmt.Errorf("reading dir %s: %w", src, err)
-	}
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		destPath := filepath.Join(dest, entry.Name())
-		if entry.IsDir() {
-			if err := copyDir(srcPath, destPath); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(srcPath, destPath); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return copyFile(filepath.Join(src, "SKILL.md"), filepath.Join(dest, "SKILL.md"))
 }
 
 // copyFile copies a single file from src to dest.
