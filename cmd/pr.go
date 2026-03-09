@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -202,6 +203,8 @@ Examples:
 	},
 }
 
+var prCommentPRIndex int64
+
 var prCommentCmd = &cobra.Command{
 	Use:   "comment",
 	Short: "Manage PR comments",
@@ -234,9 +237,20 @@ Examples:
 			}
 			body = strings.TrimSpace(string(bodyBytes))
 		}
-		comment, err := pr.CommentCreate(ctx, body)
-		if err != nil {
-			return err
+
+		var comment *gitprovider.Comment
+		if prCommentPRIndex > 0 {
+			c, err := ctx.Provider.CreateComment(ctx.Owner, ctx.Repo, prCommentPRIndex, body)
+			if err != nil {
+				return err
+			}
+			comment = c
+		} else {
+			c, err := pr.CommentCreate(ctx, body)
+			if err != nil {
+				return err
+			}
+			comment = c
 		}
 
 		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
@@ -390,7 +404,18 @@ var prCommentListCmd = &cobra.Command{
 			return err
 		}
 
-		comments, err := pr.CommentList(ctx)
+		var index int64
+		if prCommentPRIndex > 0 {
+			index = prCommentPRIndex
+		} else {
+			idx, err := pr.PRIndex(ctx)
+			if err != nil {
+				return fmt.Errorf("no PR specified: use --pr <number> or run from a worker session")
+			}
+			index = idx
+		}
+
+		comments, err := ctx.Provider.ListComments(ctx.Owner, ctx.Repo, index)
 		if err != nil {
 			return err
 		}
@@ -461,6 +486,8 @@ func init() {
 
 	prReviewCmd.Flags().BoolVar(&reviewForce, "force", false, "Kill and respawn reviewer window")
 	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
+
+	prCommentCmd.PersistentFlags().Int64Var(&prCommentPRIndex, "pr", 0, "PR number (required outside worker sessions)")
 
 	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
 	prCommentCreateCmd.Flags().Bool("lgtm", false, "Mark PR as approved (reviewer only)")
