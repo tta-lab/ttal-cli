@@ -672,12 +672,13 @@ func IsRunning() (bool, int, error) {
 	return true, pid, nil
 }
 
-// shutdownAgents kills all agent sessions on daemon exit.
+// shutdownAgents gracefully shuts down all CC agent sessions on daemon exit.
+// It sends /exit to each session, polls for exit up to 5s, then force-kills stragglers.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
-	// Stop all adapter-managed agents (OC/OpenClaw)
 	registry.stopAll(context.Background())
 
-	// Kill CC tmux sessions
+	// Collect CC sessions to shut down
+	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 		if rt != runtime.ClaudeCode {
@@ -687,10 +688,44 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 		if !tmux.SessionExists(sessionName) {
 			continue
 		}
-		if err := tmux.KillSession(sessionName); err != nil {
-			log.Printf("[daemon] failed to kill session %s: %v", sessionName, err)
-		} else {
-			log.Printf("[daemon] killed CC session %s", sessionName)
+		sessions = append(sessions, sessionName)
+	}
+
+	if len(sessions) == 0 {
+		return
+	}
+
+	// Send /exit to all CC sessions so they save conversation state
+	for _, s := range sessions {
+		if err := tmux.SendKeys(s, "", "/exit"); err != nil {
+			log.Printf("[daemon] /exit to session %s failed (will force-kill): %v", s, err)
+		}
+	}
+
+	// Poll until all sessions are gone, up to 5s
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		allGone := true
+		for _, s := range sessions {
+			if tmux.SessionExists(s) {
+				allGone = false
+				break
+			}
+		}
+		if allGone {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Force kill any remaining sessions that didn't exit in time
+	for _, s := range sessions {
+		if tmux.SessionExists(s) {
+			if err := tmux.KillSession(s); err != nil {
+				log.Printf("[daemon] failed to kill session %s: %v", s, err)
+			} else {
+				log.Printf("[daemon] force-killed CC session %s", s)
+			}
 		}
 	}
 }
