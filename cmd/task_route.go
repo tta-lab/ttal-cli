@@ -86,7 +86,7 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("cannot route completed task %s", taskUUID)
+		return fmt.Errorf("task %s is already completed — cannot route", taskUUID)
 	}
 
 	uuid := task.UUID
