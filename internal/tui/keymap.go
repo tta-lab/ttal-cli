@@ -69,7 +69,7 @@ var keyMap = map[string]keyAction{
 	"?":      keyHelp,
 	"ctrl+r": keyRefresh,
 	"ctrl+x": keyCloseWorker,
-	"ctrl+X": keyForceCloseWorker,
+	"X":      keyForceCloseWorker,
 	"ctrl+f": keyPageDown,
 	"pgdown": keyPageDown,
 	"ctrl+b": keyPageUp,
@@ -108,7 +108,7 @@ const helpText = `Key Bindings:
   e               Edit task (task edit)
   D               Delete task (with confirmation)
   Ctrl+X          Close worker (graceful)
-  Ctrl+Shift+X    Force close worker
+  X               Force close worker
 
   a               Add to today
   Ctrl+A          Remove from today

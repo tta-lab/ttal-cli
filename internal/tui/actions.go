@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,33 +13,52 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+// runTtalCommand runs a ttal subcommand and returns combined output.
+func runTtalCommand(args ...string) ([]byte, error) {
+	return exec.Command("ttal", args...).CombinedOutput()
+}
+
+// extractWarnings scans command output for lines containing "warning:" and returns them.
+func extractWarnings(out []byte) string {
+	var warnings []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.Contains(strings.ToLower(line), "warning:") {
+			warnings = append(warnings, strings.TrimSpace(line))
+		}
+	}
+	return strings.Join(warnings, "\n")
+}
+
 func closeWorker(t *Task, force bool) tea.Cmd {
 	return func() tea.Msg {
 		sessionName := t.SessionName()
-		if sessionName == "" {
-			return actionResultMsg{err: fmt.Errorf("no worker session for this task")}
-		}
 		args := []string{"worker", "close", sessionName}
 		if force {
 			args = append(args, "--force")
 		}
-		cmd := exec.Command("ttal", args...)
-		out, err := cmd.CombinedOutput()
+		out, err := runTtalCommand(args...)
 		if err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+				return actionResultMsg{message: fmt.Sprintf("Cannot close %s: %s", sessionName, strings.TrimSpace(string(out)))}
+			}
 			return actionResultMsg{err: fmt.Errorf("worker close %s: %s", sessionName, strings.TrimSpace(string(out)))}
 		}
 		label := "closed"
 		if force {
 			label = "force closed"
 		}
-		return actionResultMsg{message: fmt.Sprintf("Worker %s: %s", label, sessionName), refresh: true}
+		msg := fmt.Sprintf("Worker %s: %s", label, sessionName)
+		if w := extractWarnings(out); w != "" {
+			msg += " — " + w
+		}
+		return actionResultMsg{message: msg, refresh: true}
 	}
 }
 
 func executeTask(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		cmd := exec.Command("ttal", "task", "execute", uuid)
-		out, err := cmd.CombinedOutput()
+		out, err := runTtalCommand("task", "execute", uuid)
 		short := uuid
 		if len(short) > 8 {
 			short = short[:8]
@@ -52,8 +72,7 @@ func executeTask(uuid string) tea.Cmd {
 
 func routeTask(uuid, agentName string) tea.Cmd {
 	return func() tea.Msg {
-		cmd := exec.Command("ttal", "task", "route", uuid, "--to", agentName)
-		out, err := cmd.CombinedOutput()
+		out, err := runTtalCommand("task", "route", uuid, "--to", agentName)
 		short := uuid
 		if len(short) > 8 {
 			short = short[:8]
@@ -67,8 +86,7 @@ func routeTask(uuid, agentName string) tea.Cmd {
 
 func openPR(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		cmd := exec.Command("ttal", "open", "pr", uuid)
-		out, err := cmd.CombinedOutput()
+		out, err := runTtalCommand("open", "pr", uuid)
 		if err != nil {
 			return actionResultMsg{err: fmt.Errorf("open PR: %s", strings.TrimSpace(string(out)))}
 		}
