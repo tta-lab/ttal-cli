@@ -53,7 +53,7 @@ You capture once, agents use it forever. No re-explaining. No copying context be
 
 - **[Getting Started](/docs/getting-started)** — install ttal and set up your first agent
 - **[Documentation](/docs/configuration)** — configuration, commands, and workflows
-- **[Blog](/blog/day-1-the-dream-setup)** — the journey from manual to autonomous
+- **[Blog](/blog/the-dream-setup)** — the journey from manual to autonomous
 - **[FlickNote](https://flicknote.app/)** — the capture layer
 
 ---

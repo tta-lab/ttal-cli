@@ -84,7 +84,7 @@ TTAL runs your team on two planes:
 
 **One bot per agent.** Each manager agent is its own Telegram bot, its own DM chat. Talk to your researcher about research while your designer designs.
 
-> **Why these choices?** Read the [Philosophy](/docs/philosophy) — the design decisions behind ttal and why they exist.
+> **Why these choices?** Read the [Philosophy](/blog/philosophy) — the design decisions behind ttal and why they exist.
 
 ---
 
