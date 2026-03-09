@@ -56,7 +56,7 @@ Each team lives under `[teams.<name>]`:
 | `taskrc` | string | Path to taskwarrior config |
 | `chat_id` | string | Default Telegram chat ID for this team |
 | `notification_token_env` | string | Override env var for notification bot token (default: `{UPPER_TEAM}_NOTIFICATION_BOT_TOKEN`) |
-| `agent_runtime` | string | Default runtime: `claude-code`, `opencode`, `codex`, `openclaw` |
+| `agent_runtime` | string | Default runtime: `claude-code`, `opencode`, `openclaw` |
 | `worker_runtime` | string | Default runtime for spawned workers |
 | `voice_language` | string | ISO 639-1 language code for STT, or `auto` |
 | `voice_vocabulary` | list | Custom vocabulary words to improve Whisper accuracy |

@@ -17,7 +17,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	"github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -296,7 +295,7 @@ func awaitShutdown(
 	cleanup()
 }
 
-// initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for OC/Codex/OpenClaw.
+// initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for all others.
 // Config-driven: iterates all teams, no DB required.
 func initAdapters(
 	ctx context.Context, mcfg *config.DaemonConfig,
@@ -351,8 +350,8 @@ func initSingleAdapter(
 	registry.set(ta.TeamName, ta.AgentName, adapter)
 	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
 	// Create or resume session for adapters that need one.
-	if rt == runtime.OpenCode || rt == runtime.Codex {
-		initSession(ctx, rt, ta.AgentName, adapter)
+	if rt == runtime.OpenCode {
+		initSession(ctx, ta.AgentName, adapter)
 	}
 	// OpenClaw owns messaging — skip Telegram event bridging
 	if rt != runtime.OpenClaw {
@@ -360,44 +359,14 @@ func initSingleAdapter(
 	}
 }
 
-// initSession creates or resumes a session for the adapter.
-// For Codex, it tries to resume the most recent thread (like CC's --continue)
-// before falling back to creating a new one.
-func initSession(ctx context.Context, rt runtime.Runtime, agentName string, adapter runtime.Adapter) {
-	var sid string
-	if rt == runtime.Codex {
-		if ca, ok := adapter.(*codex.Adapter); ok {
-			sid = tryResumeCodexThread(ctx, ca, agentName)
-		}
-	}
-	if sid != "" {
-		return
-	}
+// initSession creates a new session for the adapter.
+func initSession(ctx context.Context, agentName string, adapter runtime.Adapter) {
 	sid, err := adapter.CreateSession(ctx)
 	if err != nil {
 		log.Printf("[daemon] failed to create session for %s: %v", agentName, err)
 	} else {
 		log.Printf("[daemon] created session %s for %s", sid, agentName)
 	}
-}
-
-// tryResumeCodexThread finds and resumes the most recent Codex thread.
-// Returns the thread ID on success, empty string otherwise.
-func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName string) string {
-	lastID, err := ca.ListThreads(ctx)
-	if err != nil {
-		log.Printf("[daemon] failed to list threads for %s: %v", agentName, err)
-		return ""
-	}
-	if lastID == "" {
-		return ""
-	}
-	if _, err := ca.ResumeSession(ctx, lastID); err != nil {
-		log.Printf("[daemon] failed to resume %s for %s: %v — creating new", lastID, agentName, err)
-		return ""
-	}
-	log.Printf("[daemon] resumed session %s for %s", lastID, agentName)
-	return lastID
 }
 
 // buildAgentEnv returns env vars for an agent adapter.
@@ -705,7 +674,7 @@ func IsRunning() (bool, int, error) {
 
 // shutdownAgents kills all agent sessions on daemon exit.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
-	// Stop all adapter-managed agents (OC/Codex/OpenClaw)
+	// Stop all adapter-managed agents (OC/OpenClaw)
 	registry.stopAll(context.Background())
 
 	// Kill CC tmux sessions

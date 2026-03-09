@@ -140,7 +140,6 @@
             "enum": [
               "claude-code",
               "opencode",
-              "codex",
               "openclaw"
             ],
             "description": "Runtime for agent sessions"

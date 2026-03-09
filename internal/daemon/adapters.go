@@ -7,7 +7,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	cx "github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	oclw "github.com/tta-lab/ttal-cli/internal/runtime/openclaw"
 	oc "github.com/tta-lab/ttal-cli/internal/runtime/opencode"
 )
@@ -75,8 +74,6 @@ func createAdapterFromTeam(
 	}
 
 	switch rt {
-	case runtime.Codex:
-		return cx.New(cfg)
 	case runtime.OpenClaw:
 		return oclw.New(cfg)
 	default:
