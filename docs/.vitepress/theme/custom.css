@@ -55,3 +55,14 @@
   max-width: 48rem;
   margin-inline: auto;
 }
+
+/* Section headings rhythm */
+.vp-doc h2 {
+  margin-top: 3rem;
+}
+
+/* Terminal demo and install tabs inherit dark bg regardless of theme */
+.terminal-demo,
+.install-tabs .code-block {
+  color-scheme: dark;
+}

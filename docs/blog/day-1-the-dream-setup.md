@@ -205,6 +205,3 @@ For now, the takeaway: if you want autonomous workflows, you need structured tas
 **Guide series:**
 1. Day 1: The Dream Setup (you are here)
 2. [Day 2: OpenClaw Overview](/blog/day-2-openclaw-overview)
-3. [Day 3: Zellij + Coding Agents](/blog/day-3-zellij-coding-agents)
-4. [Day 4: Taskwarrior Deep Dive](/blog/day-4-taskwarrior-deep-dive)
-5. [Day 5+: Topics TBD](/blog/day-5-tbd)
