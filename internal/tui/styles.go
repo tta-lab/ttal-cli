@@ -10,7 +10,7 @@ var (
 	colorGreen   = lipgloss.Color("78")
 	colorCyan    = lipgloss.Color("86")
 	colorSubtle  = lipgloss.Color("245")
-	colorTodayBg = lipgloss.Color("22")
+	colorTodayBg = lipgloss.Color("17")
 
 	styleTitle = lipgloss.NewStyle().
 			Bold(true).
