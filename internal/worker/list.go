@@ -94,6 +94,20 @@ func categorizeWorkers(tasks []taskwarrior.Task) []WorkerInfo {
 	return workers
 }
 
+func formatPRCell(prid string) string {
+	if prid == "" {
+		return "-"
+	}
+	info, err := taskwarrior.ParsePRID(prid)
+	if err != nil {
+		return "#" + prid
+	}
+	if info.LGTM {
+		return fmt.Sprintf("#%d ✓", info.Index)
+	}
+	return fmt.Sprintf("#%d", info.Index)
+}
+
 func printWorkerTable(workers []WorkerInfo) {
 	// Count by status
 	counts := map[WorkerStatus]int{}
@@ -128,18 +142,7 @@ func printWorkerTable(workers []WorkerInfo) {
 	for _, info := range workers {
 		t := info.Task
 
-		pr := "-"
-		if t.PRID != "" {
-			info, err := taskwarrior.ParsePRID(t.PRID)
-			if err == nil {
-				pr = fmt.Sprintf("#%d", info.Index)
-				if info.LGTM {
-					pr += " ✓"
-				}
-			} else {
-				pr = "#" + t.PRID
-			}
-		}
+		pr := formatPRCell(t.PRID)
 
 		branch := t.Branch
 		if branch == "" {
