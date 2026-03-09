@@ -3,6 +3,8 @@ title: Configuration
 description: Config file reference for ttal
 ---
 
+<div v-pre>
+
 ttal uses a TOML config file at `~/.config/ttal/config.toml`.
 
 ## Config file layout
@@ -204,3 +206,5 @@ TTAL_TEAM=work ttal today list
 | `TTAL_JOB_ID` | Set automatically in worker sessions — task UUID prefix |
 | `FORGEJO_URL` | Forgejo instance URL (for PR commands) |
 | `FORGEJO_TOKEN` | Forgejo API token |
+
+</div>
