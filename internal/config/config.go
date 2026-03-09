@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/BurntSushi/toml"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/license"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
@@ -48,14 +49,13 @@ type FlicknoteConfig struct {
 // Config is the top-level structure for ~/.config/ttal/config.toml.
 //
 // Requires [teams] sections. After Load(), resolved fields are populated from the active team.
-// Callers access ChatID, Agents, etc. without caring about which team is active.
+// Callers access ChatID etc. without caring about which team is active.
 type Config struct {
 	// Resolved fields — populated from active team after Load(). Not directly settable in TOML.
-	ChatID            string                 `toml:"-" json:"-"`
-	LifecycleAgent    string                 `toml:"-" json:"-"` // Deprecated: use NotificationToken instead
-	NotificationToken string                 `toml:"-" json:"-"`
-	Agents            map[string]AgentConfig `toml:"-" json:"-"`
-	VoiceResolved     VoiceConfig            `toml:"-" json:"-"`
+	ChatID            string      `toml:"-" json:"-"`
+	LifecycleAgent    string      `toml:"-" json:"-"` // Deprecated: use NotificationToken instead
+	NotificationToken string      `toml:"-" json:"-"`
+	VoiceResolved     VoiceConfig `toml:"-" json:"-"`
 
 	// Shell for spawning workers
 	Shell string `toml:"shell" jsonschema:"enum=zsh,enum=fish"`
@@ -168,30 +168,29 @@ func (c *VoiceConfig) EffectiveVocabulary(teamVocabulary []string, allTeamNames,
 	return v
 }
 
-// AgentConfig holds per-agent Telegram credentials and runtime settings.
+// AgentConfig is deprecated. Per-agent config now lives in CLAUDE.md frontmatter and roles.toml.
+// Kept for backward-compatible TOML parsing only — all fields are ignored at runtime.
+// Agents are discovered from the filesystem: any subdir of team_path with CLAUDE.md is an agent.
 type AgentConfig struct {
-	// BotToken is resolved from ~/.config/ttal/.env at load time (not stored in TOML).
-	BotToken string `toml:"-" jsonschema:"-"`
-	// Override env var name for bot token (default: {UPPER_NAME}_BOT_TOKEN)
-	BotTokenEnv string `toml:"bot_token_env"` //nolint:lll
-	// API server port for opencode/codex runtimes
-	Port int `toml:"port"`
-	// Per-agent runtime override (falls back to team agent_runtime)
-	Runtime string `toml:"runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex,enum=openclaw"` //nolint:lll
-	// Claude model tier (falls back to team agent_model, then sonnet)
-	Model string `toml:"model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
-	// Heartbeat interval for this agent (e.g. "30m"). Empty means no heartbeat.
-	HeartbeatInterval string `toml:"heartbeat_interval"`
-	// Default flicknote project for this agent. Injected as $FLICKNOTE_PROJECT at session startup.
-	FlicknoteProject string `toml:"flicknote_project"`
+	BotToken          string `toml:"-"                jsonschema:"-"`
+	BotTokenEnv       string `toml:"bot_token_env"    jsonschema:"-"`
+	Port              int    `toml:"port"             jsonschema:"-"`
+	Runtime           string `toml:"runtime"          jsonschema:"-"`
+	Model             string `toml:"model"            jsonschema:"-"`
+	HeartbeatInterval string `toml:"heartbeat_interval" jsonschema:"-"`
+	FlicknoteProject  string `toml:"flicknote_project"  jsonschema:"-"`
 }
 
-// AgentRuntimeFor returns the effective runtime for an agent:
-// per-agent override > team agent_runtime > claude-code.
-func (c *Config) AgentRuntimeFor(agentName string) runtime.Runtime {
-	if ac, ok := c.Agents[agentName]; ok && ac.Runtime != "" {
-		return runtime.Runtime(ac.Runtime)
-	}
+// AgentBotToken returns the bot token for an agent using the naming convention.
+// Looks up {UPPER_NAME}_BOT_TOKEN from the loaded .env vars.
+func AgentBotToken(agentName string) string {
+	key := strings.ToUpper(agentName) + "_BOT_TOKEN"
+	return os.Getenv(key)
+}
+
+// AgentRuntimeFor returns the team-level agent runtime.
+// Per-agent overrides are no longer supported; configure via team agent_runtime.
+func (c *Config) AgentRuntimeFor(_ string) runtime.Runtime {
 	return c.AgentRuntime()
 }
 
@@ -211,12 +210,9 @@ func (c *Config) WorkerModel() string {
 	return DefaultModel
 }
 
-// AgentModelFor returns the effective model for an agent:
-// per-agent model > team agent_model > "sonnet".
-func (c *Config) AgentModelFor(agentName string) string {
-	if ac, ok := c.Agents[agentName]; ok && ac.Model != "" {
-		return ac.Model
-	}
+// AgentModelFor returns the team-level agent model.
+// Per-agent overrides are no longer supported; configure via team agent_model.
+func (c *Config) AgentModelFor(_ string) string {
 	return c.AgentModel()
 }
 
@@ -235,24 +231,18 @@ func resolveNotificationToken(teamName, envOverride string) string {
 	return env[envKey]
 }
 
-// resolveBotTokens loads .env and populates BotToken for all agents.
-// Convention: {UPPER_AGENT}_BOT_TOKEN.
-// Override: agent's bot_token_env field takes priority.
-// Non-fatal: if .env can't be loaded, tokens remain empty (doctor checks this).
-func resolveBotTokens(agents map[string]AgentConfig) {
+// loadDotEnvIntoProcess loads .env vars into process environment so AgentBotToken can find them.
+// Non-fatal: if .env can't be loaded, AgentBotToken will return empty strings.
+func loadDotEnvIntoProcess() {
 	env, err := LoadDotEnv()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load .env for bot tokens: %v\n", err)
+		fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
 		return
 	}
-
-	for name, ac := range agents {
-		envKey := ac.BotTokenEnv
-		if envKey == "" {
-			envKey = strings.ToUpper(name) + "_BOT_TOKEN"
+	for k, v := range env {
+		if os.Getenv(k) == "" {
+			_ = os.Setenv(k, v)
 		}
-		ac.BotToken = env[envKey]
-		agents[name] = ac
 	}
 }
 
@@ -398,6 +388,11 @@ func (c *Config) Prompt(key string) string {
 	return ""
 }
 
+// Roles returns the resolved roles config for use by external packages.
+func (c *Config) Roles() *RolesConfig {
+	return c.resolvedRoles
+}
+
 // HeartbeatPrompt returns the heartbeat_prompt for an agent's role from roles.toml.
 // agentName is used directly as the role key (e.g. "yuki" → [yuki] in roles.toml).
 // Returns empty string if not configured.
@@ -527,10 +522,6 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	if len(cfg.Agents) == 0 {
-		return nil, fmt.Errorf("config has no agents defined")
-	}
-
 	// Cache roles at load time so Prompt() doesn't re-read roles.toml on every call.
 	roles, err := LoadRoles()
 	if err != nil {
@@ -571,10 +562,9 @@ func (c *Config) resolve() error {
 	// Promote team fields to top-level.
 	c.ChatID = team.ChatID
 	c.LifecycleAgent = team.LifecycleAgent
-	c.Agents = team.Agents
-	// Note: resolveBotTokens is also called in resolveTeam() for LoadAll().
-	// Each path resolves independently — Load() uses resolve(), LoadAll() uses resolveTeam().
-	resolveBotTokens(c.Agents)
+
+	// Load .env vars into process so AgentBotToken() can find them.
+	loadDotEnvIntoProcess()
 
 	// Resolve notification bot token from .env
 	c.NotificationToken = resolveNotificationToken(teamName, team.NotificationTokenEnv)
@@ -654,10 +644,15 @@ func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
 	seenAgents := make(map[string]bool)
 	for tn, t := range c.Teams {
 		allTeamNames = append(allTeamNames, tn)
-		for agent := range t.Agents {
-			if !seenAgents[agent] {
-				seenAgents[agent] = true
-				allAgentNames = append(allAgentNames, agent)
+		if t.TeamPath != "" {
+			names, err := agentfs.DiscoverAgents(expandHome(t.TeamPath))
+			if err == nil {
+				for _, name := range names {
+					if !seenAgents[name] {
+						seenAgents[name] = true
+						allAgentNames = append(allAgentNames, name)
+					}
+				}
 			}
 		}
 	}
@@ -707,7 +702,6 @@ type ResolvedTeam struct {
 	GatewayURL        string
 	HooksToken        string
 	Voice             VoiceConfig
-	Agents            map[string]AgentConfig
 	EmojiReactions    bool
 }
 
@@ -723,7 +717,6 @@ func (m *DaemonConfig) DefaultTeamName() string {
 type TeamAgent struct {
 	TeamName  string
 	AgentName string
-	Config    AgentConfig
 	ChatID    string // team chat ID (all agents in a team share one chat)
 	TeamPath  string
 }
@@ -791,12 +784,17 @@ func resolveTeam(
 	allTeamNames := make([]string, 0, len(allTeams))
 	allAgentNames := make([]string, 0)
 	seenAgents := make(map[string]bool)
-	for tn := range allTeams {
+	for tn, t := range allTeams {
 		allTeamNames = append(allTeamNames, tn)
-		for agent := range allTeams[tn].Agents {
-			if !seenAgents[agent] {
-				seenAgents[agent] = true
-				allAgentNames = append(allAgentNames, agent)
+		if t.TeamPath != "" {
+			names, err := agentfs.DiscoverAgents(expandHome(t.TeamPath))
+			if err == nil {
+				for _, name := range names {
+					if !seenAgents[name] {
+						seenAgents[name] = true
+						allAgentNames = append(allAgentNames, name)
+					}
+				}
 			}
 		}
 	}
@@ -818,6 +816,9 @@ func resolveTeam(
 		lang = team.VoiceLanguage
 	}
 
+	// Load .env vars into process so AgentBotToken() can find them.
+	loadDotEnvIntoProcess()
+
 	rt := &ResolvedTeam{
 		Name:              teamName,
 		TeamPath:          expandHome(team.TeamPath),
@@ -835,11 +836,8 @@ func resolveTeam(
 			Vocabulary: mergedVocab,
 			Language:   lang,
 		},
-		Agents:         team.Agents,
 		EmojiReactions: resolveEmojiReactions(team),
 	}
-
-	resolveBotTokens(rt.Agents)
 
 	// Resolve DataDir
 	if team.DataDir != "" {
@@ -863,14 +861,21 @@ func resolveTeam(
 }
 
 // AllAgents returns all agents across all teams, sorted by team then agent name.
+// Agents are discovered from the filesystem: any subdir of team_path containing CLAUDE.md.
 func (m *DaemonConfig) AllAgents() []TeamAgent {
 	var agents []TeamAgent
 	for teamName, team := range m.Teams {
-		for agentName, ac := range team.Agents {
+		if team.TeamPath == "" {
+			continue
+		}
+		names, err := agentfs.DiscoverAgents(team.TeamPath)
+		if err != nil {
+			continue
+		}
+		for _, agentName := range names {
 			agents = append(agents, TeamAgent{
 				TeamName:  teamName,
 				AgentName: agentName,
-				Config:    ac,
 				ChatID:    team.ChatID,
 				TeamPath:  team.TeamPath,
 			})
@@ -885,15 +890,18 @@ func (m *DaemonConfig) AllAgents() []TeamAgent {
 	return agents
 }
 
-// FindAgent looks up which team an agent belongs to.
+// FindAgent looks up which team an agent belongs to by scanning team paths.
 // Returns the first match if agent names are unique across teams.
 func (m *DaemonConfig) FindAgent(agentName string) (*TeamAgent, bool) {
 	for teamName, team := range m.Teams {
-		if ac, ok := team.Agents[agentName]; ok {
+		if team.TeamPath == "" {
+			continue
+		}
+		claudeMd := filepath.Join(team.TeamPath, agentName, "CLAUDE.md")
+		if _, err := os.Stat(claudeMd); err == nil {
 			ta := TeamAgent{
 				TeamName:  teamName,
 				AgentName: agentName,
-				Config:    ac,
 				ChatID:    team.ChatID,
 				TeamPath:  team.TeamPath,
 			}
@@ -903,34 +911,34 @@ func (m *DaemonConfig) FindAgent(agentName string) (*TeamAgent, bool) {
 	return nil, false
 }
 
-// FindAgentInTeam looks up an agent within a specific team.
+// FindAgentInTeam looks up an agent within a specific team by checking the filesystem.
 func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, bool) {
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return nil, false
 	}
-	ac, ok := team.Agents[agentName]
-	if !ok {
+	if team.TeamPath == "" {
+		return nil, false
+	}
+	claudeMd := filepath.Join(team.TeamPath, agentName, "CLAUDE.md")
+	if _, err := os.Stat(claudeMd); err != nil {
 		return nil, false
 	}
 	ta := TeamAgent{
 		TeamName:  teamName,
 		AgentName: agentName,
-		Config:    ac,
 		ChatID:    team.ChatID,
 		TeamPath:  team.TeamPath,
 	}
 	return &ta, true
 }
 
-// AgentRuntimeForTeam resolves effective runtime for an agent in a team.
-func (m *DaemonConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.Runtime {
+// AgentRuntimeForTeam returns the team-level agent runtime.
+// Per-agent overrides are no longer supported; configure via team agent_runtime.
+func (m *DaemonConfig) AgentRuntimeForTeam(teamName, _ string) runtime.Runtime {
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return runtime.ClaudeCode
-	}
-	if ac, ok := team.Agents[agentName]; ok && ac.Runtime != "" {
-		return runtime.Runtime(ac.Runtime)
 	}
 	if team.AgentRuntime != "" {
 		return runtime.Runtime(team.AgentRuntime)
@@ -938,15 +946,12 @@ func (m *DaemonConfig) AgentRuntimeForTeam(teamName, agentName string) runtime.R
 	return runtime.ClaudeCode
 }
 
-// AgentModelForTeam resolves effective model for an agent in a team:
-// per-agent model > team agent_model > "sonnet".
-func (m *DaemonConfig) AgentModelForTeam(teamName, agentName string) string {
+// AgentModelForTeam returns the team-level agent model.
+// Per-agent overrides are no longer supported; configure via team agent_model.
+func (m *DaemonConfig) AgentModelForTeam(teamName, _ string) string {
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return DefaultModel
-	}
-	if ac, ok := team.Agents[agentName]; ok && ac.Model != "" {
-		return ac.Model
 	}
 	if team.AgentModel != "" {
 		return team.AgentModel

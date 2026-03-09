@@ -167,35 +167,20 @@ func TestAgentModelFor(t *testing.T) {
 		want  string
 	}{
 		{
-			"no agents defaults to sonnet",
+			"unset defaults to sonnet",
 			&Config{},
 			"kestrel",
 			DefaultModel,
 		},
 		{
-			"per-agent model wins",
-			&Config{
-				Agents:             map[string]AgentConfig{"kestrel": {Model: "opus"}},
-				resolvedAgentModel: "haiku",
-			},
-			"kestrel",
-			"opus",
-		},
-		{
-			"team agent_model used when no per-agent",
-			&Config{
-				Agents:             map[string]AgentConfig{"kestrel": {}},
-				resolvedAgentModel: "haiku",
-			},
+			"team agent_model returned for any agent",
+			&Config{resolvedAgentModel: "haiku"},
 			"kestrel",
 			"haiku",
 		},
 		{
-			"unknown agent falls back to team model",
-			&Config{
-				Agents:             map[string]AgentConfig{},
-				resolvedAgentModel: "opus",
-			},
+			"team agent_model returned for unknown agent",
+			&Config{resolvedAgentModel: "opus"},
 			"unknown",
 			"opus",
 		},
@@ -212,18 +197,8 @@ func TestAgentModelFor(t *testing.T) {
 func TestDaemonConfigAgentModelForTeam(t *testing.T) {
 	mcfg := &DaemonConfig{
 		Teams: map[string]*ResolvedTeam{
-			"teamA": {
-				AgentModel: "haiku",
-				Agents: map[string]AgentConfig{
-					"kestrel": {Model: "opus"},
-					"athena":  {},
-				},
-			},
-			"teamB": {
-				Agents: map[string]AgentConfig{
-					"mira": {},
-				},
-			},
+			"teamA": {AgentModel: "haiku"},
+			"teamB": {},
 		},
 	}
 
@@ -233,8 +208,7 @@ func TestDaemonConfigAgentModelForTeam(t *testing.T) {
 		agent string
 		want  string
 	}{
-		{"per-agent wins", "teamA", "kestrel", "opus"},
-		{"team agent_model used", "teamA", "athena", "haiku"},
+		{"team agent_model used", "teamA", "kestrel", "haiku"},
 		{"no team model defaults to sonnet", "teamB", "mira", DefaultModel},
 		{"unknown team defaults to sonnet", "unknown", "x", DefaultModel},
 	}

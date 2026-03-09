@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/project"
@@ -263,14 +264,14 @@ func checkConfig(fix bool) Section {
 // checkDotEnv verifies ~/.config/ttal/.env exists and agents have bot tokens.
 func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 	envPath, _ := config.DotEnvPath()
+
+	// Discover agent names from filesystem for .env template and token checks.
+	agentNames, _ := agentfs.DiscoverAgents(cfg.TeamPath())
+	sort.Strings(agentNames)
+
 	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
 		if fix {
-			names := make([]string, 0, len(cfg.Agents))
-			for name := range cfg.Agents {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			lines := make([]string, 0, 8+len(names))
+			lines := make([]string, 0, 8+len(agentNames))
 			lines = append(lines, "# ttal secrets — ~/.config/ttal/.env")
 			lines = append(lines, "# All entries are injected into worker and agent sessions.")
 			lines = append(lines, "")
@@ -279,7 +280,7 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 			lines = append(lines, "FORGEJO_TOKEN=")
 			lines = append(lines, "")
 			lines = append(lines, "# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN")
-			for _, name := range names {
+			for _, name := range agentNames {
 				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
 				lines = append(lines, envKey+"=")
 			}
@@ -299,15 +300,9 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 		section.add(LevelOK, "dotenv", fmt.Sprintf(".env file: %s", envPath))
 	}
 
-	// Sort agent names for deterministic output order.
-	agentNames := make([]string, 0, len(cfg.Agents))
-	for name := range cfg.Agents {
-		agentNames = append(agentNames, name)
-	}
-	sort.Strings(agentNames)
+	// Check bot tokens using convention: {UPPER_NAME}_BOT_TOKEN.
 	for _, name := range agentNames {
-		ac := cfg.Agents[name]
-		if ac.BotToken == "" {
+		if config.AgentBotToken(name) == "" {
 			section.add(LevelError, name,
 				fmt.Sprintf("Agent %s: bot token not found in .env", name))
 		} else {

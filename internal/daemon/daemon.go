@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -30,7 +31,6 @@ type pollerTarget struct {
 	teamName  string
 	agentName string
 	chatID    string
-	agentCfg  config.AgentConfig
 }
 
 // Run starts the daemon in the foreground. This is what launchd calls.
@@ -139,11 +139,12 @@ func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.T
 	// Deduplicate tokens first
 	tokenAgent := make(map[string]string) // token -> first agent name (for logging)
 	for _, ta := range allAgents {
-		if ta.Config.BotToken == "" {
+		token := config.AgentBotToken(ta.AgentName)
+		if token == "" {
 			continue
 		}
-		if _, ok := tokenAgent[ta.Config.BotToken]; !ok {
-			tokenAgent[ta.Config.BotToken] = ta.AgentName
+		if _, ok := tokenAgent[token]; !ok {
+			tokenAgent[token] = ta.AgentName
 		}
 	}
 	// Include notification bot tokens so they also get command menus.
@@ -198,7 +199,8 @@ func startTelegramPollers(
 func buildTokenTargets(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) map[string][]pollerTarget {
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
-		if ta.Config.BotToken == "" {
+		token := config.AgentBotToken(ta.AgentName)
+		if token == "" {
 			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", ta.AgentName)
 			continue
 		}
@@ -207,11 +209,10 @@ func buildTokenTargets(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) 
 			log.Printf("[daemon] agent %s uses OpenClaw — skipping Telegram poller", ta.AgentName)
 			continue
 		}
-		tokenTargets[ta.Config.BotToken] = append(tokenTargets[ta.Config.BotToken], pollerTarget{
+		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
 			teamName:  ta.TeamName,
 			agentName: ta.AgentName,
 			chatID:    ta.ChatID,
-			agentCfg:  ta.Config,
 		})
 	}
 	return tokenTargets
@@ -339,24 +340,16 @@ func initSingleAdapter(
 	}
 
 	model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-	port := ta.Config.Port
-	if rt.NeedsPort() && port == 0 {
-		log.Printf("[daemon] skipping %s adapter for %s/%s: "+
-			"port not configured (set [teams.%s.agents.%s] port = N)",
-			rt, ta.TeamName, ta.AgentName,
-			ta.TeamName, ta.AgentName)
-		return
-	}
 	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 
 	team := mcfg.Teams[ta.TeamName]
-	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, port, model, env, team)
+	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, 0, model, env, team)
 	if err := adapter.Start(ctx); err != nil {
 		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
 		return
 	}
 	registry.set(ta.TeamName, ta.AgentName, adapter)
-	log.Printf("[daemon] started %s adapter for %s on port %d", rt, ta.AgentName, port)
+	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
 	// Create or resume session for adapters that need one.
 	if rt == runtime.OpenCode || rt == runtime.Codex {
 		initSession(ctx, rt, ta.AgentName, adapter)
@@ -411,13 +404,17 @@ func tryResumeCodexThread(ctx context.Context, ca *codex.Adapter, agentName stri
 func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
 	env := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+		fmt.Sprintf("TTAL_TEAM=%s", teamName),
 	}
-	env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
-	if ta, ok := mcfg.FindAgentInTeam(teamName, agentName); ok && ta.Config.FlicknoteProject != "" {
-		env = append(env, fmt.Sprintf("FLICKNOTE_PROJECT=%s", ta.Config.FlicknoteProject))
+	// Read flicknote_project from CLAUDE.md frontmatter
+	if team, ok := mcfg.Teams[teamName]; ok && team.TeamPath != "" {
+		info, err := agentfs.GetFromPath(filepath.Join(team.TeamPath, agentName))
+		if err == nil && info.FlicknoteProject != "" {
+			env = append(env, fmt.Sprintf("FLICKNOTE_PROJECT=%s", info.FlicknoteProject))
+		}
 	}
 
 	// Inject all secrets from .env
@@ -432,7 +429,8 @@ func bridgeEvents(
 	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker,
 ) {
 	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-	if !ok || ta.Config.BotToken == "" {
+	botToken := config.AgentBotToken(agentName)
+	if !ok || botToken == "" {
 		return
 	}
 	chatID := ta.ChatID
@@ -441,7 +439,7 @@ func bridgeEvents(
 		for event := range adapter.Events() {
 			switch event.Type {
 			case runtime.EventText:
-				if err := telegram.SendMessage(ta.Config.BotToken, chatID, event.Text); err != nil {
+				if err := telegram.SendMessage(botToken, chatID, event.Text); err != nil {
 					log.Printf("[daemon] telegram send error for %s: %v", agentName, err)
 				}
 			case runtime.EventError:
@@ -492,10 +490,11 @@ func handleFrom(mcfg *config.DaemonConfig, req SendRequest) error {
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	if ta.Config.BotToken == "" {
+	botToken := config.AgentBotToken(ta.AgentName)
+	if botToken == "" {
 		return fmt.Errorf("agent %s has no telegram configured", req.From)
 	}
-	return telegram.SendMessage(ta.Config.BotToken, ta.ChatID, req.Message)
+	return telegram.SendMessage(botToken, ta.ChatID, req.Message)
 }
 
 // handleTo delivers a message to an agent via its runtime adapter.
@@ -571,12 +570,13 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTrack
 	w, err := watcher.New(agentMap,
 		func(teamName, agentName, text string) {
 			ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-			if !ok || ta.Config.BotToken == "" {
+			botToken := config.AgentBotToken(agentName)
+			if !ok || botToken == "" {
 				return
 			}
 			// Clear tracking — response text arriving is the done signal
 			mt.delete(teamName, agentName)
-			if err := telegram.SendMessage(ta.Config.BotToken, ta.ChatID, text); err != nil {
+			if err := telegram.SendMessage(botToken, ta.ChatID, text); err != nil {
 				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 			}
 		},
@@ -633,7 +633,8 @@ func handleIncomingQuestion(
 	}
 
 	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-	if !ok || ta.Config.BotToken == "" {
+	botToken := config.AgentBotToken(agentName)
+	if !ok || botToken == "" {
 		log.Printf("[questions] no bot config for agent %s, dropping question", agentName)
 		return
 	}
@@ -653,14 +654,14 @@ func handleIncomingQuestion(
 		Answers:       make(map[int]string),
 		CurrentPage:   0,
 		ChatID:        chatID,
-		BotToken:      ta.Config.BotToken,
+		BotToken:      botToken,
 		CreatedAt:     time.Now(),
 	}
 
 	page := buildQuestionPage(batch)
 	text, markup := telegram.RenderQuestionPage(page)
 
-	msgID, err := telegram.SendQuestionMessage(ta.Config.BotToken, chatID, text, markup)
+	msgID, err := telegram.SendQuestionMessage(botToken, chatID, text, markup)
 	if err != nil {
 		log.Printf("[questions] failed to send question to Telegram for %s: %v", agentName, err)
 		return
