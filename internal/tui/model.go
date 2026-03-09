@@ -44,9 +44,10 @@ type Model struct {
 	tags     []string
 
 	// Task list cursor
-	cursor      int
-	offset      int
-	searchInput textinput.Model
+	cursor       int
+	selectedUUID string // UUID of task under cursor, survives refresh
+	offset       int
+	searchInput  textinput.Model
 
 	// Route input
 	routeInput   textinput.Model
@@ -273,14 +274,21 @@ func (m *Model) handleNavigation(action keyAction) bool {
 		m.moveCursor(-m.visibleRows() / 2)
 	case keyTop:
 		m.cursor = 0
+		if len(m.filtered) > 0 {
+			m.selectedUUID = m.filtered[0].UUID
+		} else {
+			m.selectedUUID = ""
+		}
 		m.ensureCursorVisible()
 	case keyBottom:
 		if len(m.filtered) > 0 {
 			m.cursor = len(m.filtered) - 1
+			m.selectedUUID = m.filtered[m.cursor].UUID
 			m.ensureCursorVisible()
 		}
 	case keyEnter:
 		if len(m.filtered) > 0 {
+			m.selectedUUID = m.filtered[m.cursor].UUID
 			m.state = stateTaskDetail
 		}
 	default:
@@ -619,7 +627,15 @@ func (m *Model) moveCursor(delta int) {
 	if len(m.filtered) > 0 && m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
+	m.syncSelectedUUID()
 	m.ensureCursorVisible()
+}
+
+// syncSelectedUUID keeps selectedUUID in sync with the current cursor position.
+func (m *Model) syncSelectedUUID() {
+	if m.cursor >= 0 && m.cursor < len(m.filtered) {
+		m.selectedUUID = m.filtered[m.cursor].UUID
+	}
 }
 
 func (m *Model) ensureCursorVisible() {
@@ -648,6 +664,8 @@ func (m *Model) visibleRows() int {
 }
 
 func (m *Model) applyFilter() {
+	prevUUID := m.selectedUUID
+
 	m.filtered = nil
 	for _, t := range m.tasks {
 		switch m.filter {
@@ -669,13 +687,37 @@ func (m *Model) applyFilter() {
 	sort.Slice(m.filtered, func(i, j int) bool {
 		return m.filtered[i].Urgency > m.filtered[j].Urgency
 	})
+
+	if m.restoreCursorByUUID(prevUUID) {
+		return
+	}
+
+	// Fallback: clamp cursor (task was filtered out or deleted)
 	if m.cursor >= len(m.filtered) {
 		m.cursor = len(m.filtered) - 1
 	}
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+	m.syncSelectedUUID()
 	m.offset = 0
+}
+
+// restoreCursorByUUID repositions the cursor to the task with the given UUID.
+// Returns true if found; caller should return early to skip fallback clamping.
+func (m *Model) restoreCursorByUUID(uuid string) bool {
+	if uuid == "" {
+		return false
+	}
+	for i, t := range m.filtered {
+		if t.UUID == uuid {
+			m.cursor = i
+			m.offset = 0
+			m.ensureCursorVisible()
+			return true
+		}
+	}
+	return false
 }
 
 // Messages
