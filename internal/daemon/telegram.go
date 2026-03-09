@@ -271,15 +271,11 @@ func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[in
 		return nil
 	}
 
-	addressed := false
-
 	// Priority 1: reply to this bot's own message.
-	if msg.ReplyToMessage != nil &&
+	addressed := msg.ReplyToMessage != nil &&
 		msg.ReplyToMessage.From != nil &&
 		msg.ReplyToMessage.From.IsBot &&
-		strings.EqualFold(msg.ReplyToMessage.From.Username, botUsername) {
-		addressed = true
-	}
+		strings.EqualFold(msg.ReplyToMessage.From.Username, botUsername)
 
 	// Priority 2: first @mention of this bot.
 	if !addressed {
@@ -292,7 +288,8 @@ func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[in
 	}
 
 	if len(dispatch) > 1 {
-		log.Printf("[telegram] WARNING: group message for @%s — multiple agents share this token; routing to first match", botUsername)
+		log.Printf("[telegram] WARNING: group message for @%s — multiple agents share token; routing to first match",
+			botUsername)
 	}
 	for _, t := range dispatch {
 		target := t
