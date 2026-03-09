@@ -21,8 +21,13 @@ func formatAgentMessage(fromAgent, text string) string {
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.
-// Falls back to tmux for CC agents, notification bot for others.
+// K8s teams use kubectl exec into the team pod. Falls back to tmux for CC agents, notification bot for others.
 func deliverToAgent(registry *adapterRegistry, mcfg *config.DaemonConfig, teamName, agentName, text string) error {
+	// K8s delivery — reuse team pod from startup
+	if pod, ok := k8sPods[teamName]; ok {
+		return pod.SendKeys(agentName, text)
+	}
+
 	if registry != nil {
 		if adapter, ok := registry.get(teamName, agentName); ok {
 			return adapter.SendMessage(context.Background(), text)

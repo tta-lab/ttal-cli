@@ -92,6 +92,33 @@ type Config struct {
 	resolvedRoles          *RolesConfig
 }
 
+// KubernetesConfig holds per-team Kubernetes deployment settings.
+// When set, the daemon deploys one pod per team to the specified k8s context.
+type KubernetesConfig struct {
+	// Kubernetes context name (e.g. "orbstack", "docker-desktop")
+	Context string `toml:"context" jsonschema:"description=Kubernetes context name (e.g. orbstack)"`
+	// Agent container image (default: ghcr.io/tta-lab/ttal-manager-cc:latest)
+	AgentImage string `toml:"agent_image" jsonschema:"description=Agent container image"` //nolint:lll
+}
+
+// DefaultAgentImage is the default container image for k8s agent pods.
+const DefaultAgentImage = "ghcr.io/tta-lab/ttal-manager-cc:latest"
+
+// isSet reports whether this config enables k8s deployment.
+// Safe to call on a nil pointer.
+func (k *KubernetesConfig) isSet() bool {
+	return k != nil && k.Context != ""
+}
+
+// agentImage returns the container image, falling back to DefaultAgentImage.
+// Safe to call on a nil pointer.
+func (k *KubernetesConfig) agentImage() string {
+	if k != nil && k.AgentImage != "" {
+		return k.AgentImage
+	}
+	return DefaultAgentImage
+}
+
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
 	// Root path for agent workspaces. Agent path = team_path/agent_name
@@ -130,7 +157,15 @@ type TeamConfig struct {
 	EmojiReactions *bool `toml:"emoji_reactions" jsonschema:"default=false"`
 	// TaskChampion sync server URL for ttal doctor --fix
 	TaskSyncURL string `toml:"task_sync_url"` //nolint:lll
+	// Kubernetes deployment settings (optional — nil means local tmux)
+	Kubernetes *KubernetesConfig `toml:"kubernetes" jsonschema:"description=Kubernetes deployment settings (optional)"` //nolint:lll
 }
+
+// IsK8s reports whether this team deploys agents to Kubernetes.
+func (t TeamConfig) IsK8s() bool { return t.Kubernetes.isSet() }
+
+// K8sAgentImage returns the container image for agent pods, with a sensible default.
+func (t TeamConfig) K8sAgentImage() string { return t.Kubernetes.agentImage() }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
 type SyncConfig struct {
@@ -710,7 +745,14 @@ type ResolvedTeam struct {
 	HooksToken        string
 	Voice             VoiceConfig
 	EmojiReactions    bool
+	Kubernetes        *KubernetesConfig // nil = local tmux (default)
 }
+
+// IsK8s reports whether this team deploys agents to Kubernetes.
+func (t *ResolvedTeam) IsK8s() bool { return t.Kubernetes.isSet() }
+
+// K8sAgentImage returns the container image for agent pods, with a sensible default.
+func (t *ResolvedTeam) K8sAgentImage() string { return t.Kubernetes.agentImage() }
 
 // DefaultTeamName returns the default team name with fallback to "default".
 func (m *DaemonConfig) DefaultTeamName() string {
@@ -851,6 +893,7 @@ func resolveTeam(
 			Language:   lang,
 		},
 		EmojiReactions: resolveEmojiReactions(team),
+		Kubernetes:     team.Kubernetes,
 	}
 
 	// Resolve DataDir

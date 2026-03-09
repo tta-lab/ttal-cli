@@ -14,13 +14,11 @@ require (
 	github.com/google/go-github/v69 v69.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gordonklaus/portaudio v0.0.0-20260203164431-765aa7dfa631
-	github.com/gorilla/websocket v1.5.3
 	github.com/invopop/jsonschema v0.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.8.1
 	github.com/sst/opencode-sdk-go v0.19.2
 	github.com/stretchr/testify v1.10.0
-	github.com/tta-lab/codex-server-go v0.1.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
