@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -25,7 +26,7 @@ func (m Model) viewTaskDetail() string {
 	field(&b, "Status:", " ", t.Status)
 
 	writeOptionalFields(&b, t)
-	writeAnnotations(&b, t)
+	writeAnnotations(&b, t, m.width)
 
 	b.WriteString("\n")
 	b.WriteString(styleDim.Render(
@@ -75,17 +76,38 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	}
 }
 
-func writeAnnotations(b *strings.Builder, t *Task) {
+func writeAnnotations(b *strings.Builder, t *Task, width int) {
 	if len(t.Annotations) == 0 {
 		return
 	}
 	b.WriteString("\n  " + styleTitle.Render("Annotations") + "\n")
+
+	// datePrefix: "  " (2) + "2006-01-02" (10) + " " (1) = 13; no-date path is just "  " (2)
+	const datePrefixLen = 13
+
 	for _, ann := range t.Annotations {
 		date := ""
+		effPrefix := 2 // "  " only
 		if ann.Entry != "" {
 			date = styleDim.Render(formatDate(ann.Entry) + " ")
+			effPrefix = datePrefixLen
 		}
-		fmt.Fprintf(b, "  %s%s\n", date, ann.Description)
+
+		desc := ann.Description
+		if width > effPrefix+1 {
+			desc = lipgloss.Wrap(ann.Description, width-effPrefix, " ")
+			// Indent continuation lines to align under first line of text
+			indent := strings.Repeat(" ", effPrefix)
+			parts := strings.SplitAfter(desc, "\n")
+			for i := 1; i < len(parts); i++ {
+				if parts[i] != "" {
+					parts[i] = indent + parts[i]
+				}
+			}
+			desc = strings.Join(parts, "")
+		}
+
+		fmt.Fprintf(b, "  %s%s\n", date, desc)
 	}
 }
 
