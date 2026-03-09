@@ -3,9 +3,9 @@ package worker
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
@@ -43,24 +43,24 @@ type prMergedChecker func(projectPath, prID string) (merged bool, err error)
 
 // defaultPRMergedChecker is the real implementation used in production.
 func defaultPRMergedChecker(projectPath, prID string) (bool, error) {
+	prInfo, err := taskwarrior.ParsePRID(prID)
+	if err != nil {
+		return false, fmt.Errorf("cannot verify PR: %w", err)
+	}
+
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+		return false, fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
 	provider, err := gitprovider.NewProvider(info)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+		return false, fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
-	prIndex, err := strconv.ParseInt(prID, 10, 64)
+	pr, err := provider.GetPR(info.Owner, info.Repo, prInfo.Index)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%s: invalid pr_id", prID)
-	}
-
-	pr, err := provider.GetPR(info.Owner, info.Repo, prIndex)
-	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%s: %w", prID, err)
+		return false, fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
 	return pr.Merged, nil
@@ -94,5 +94,9 @@ func validateTaskCompletion(modified hookTask, checker prMergedChecker) error {
 		return nil
 	}
 
-	return fmt.Errorf("cannot complete task with unmerged PR #%s. Merge the PR first", prID)
+	prInfo, parseErr := taskwarrior.ParsePRID(prID)
+	if parseErr != nil {
+		return parseErr
+	}
+	return fmt.Errorf("cannot complete task with unmerged PR #%d. Merge the PR first", prInfo.Index)
 }

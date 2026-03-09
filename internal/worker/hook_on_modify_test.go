@@ -76,3 +76,16 @@ func TestValidateTaskCompletion_PROpen(t *testing.T) {
 		t.Fatal("expected error for unmerged PR")
 	}
 }
+
+func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
+	task := makeTask("7:lgtm", "/some/project")
+	checker := func(projectPath, prID string) (bool, error) {
+		if prID != "7:lgtm" {
+			return false, errors.New("unexpected prID: " + prID)
+		}
+		return true, nil
+	}
+	if err := validateTaskCompletion(task, checker); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
