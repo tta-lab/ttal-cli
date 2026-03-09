@@ -82,20 +82,22 @@ func writeAnnotations(b *strings.Builder, t *Task, width int) {
 	}
 	b.WriteString("\n  " + styleTitle.Render("Annotations") + "\n")
 
-	// "  " prefix (2) + "2006-01-02" date (10) + " " space (1) = 13
-	const prefixLen = 13
-	indent := strings.Repeat(" ", prefixLen)
+	// datePrefix: "  " (2) + "2006-01-02" (10) + " " (1) = 13; no-date path is just "  " (2)
+	const datePrefixLen = 13
 
 	for _, ann := range t.Annotations {
 		date := ""
+		effPrefix := 2 // "  " only
 		if ann.Entry != "" {
 			date = styleDim.Render(formatDate(ann.Entry) + " ")
+			effPrefix = datePrefixLen
 		}
 
 		desc := ann.Description
-		if width > prefixLen+1 {
-			desc = lipgloss.Wrap(ann.Description, width-prefixLen, " ")
+		if width > effPrefix+1 {
+			desc = lipgloss.Wrap(ann.Description, width-effPrefix, " ")
 			// Indent continuation lines to align under first line of text
+			indent := strings.Repeat(" ", effPrefix)
 			parts := strings.SplitAfter(desc, "\n")
 			for i := 1; i < len(parts); i++ {
 				if parts[i] != "" {
