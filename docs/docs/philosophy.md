@@ -31,7 +31,7 @@ Everything in ttal runs on local Unix tools. Not cloud services, not databases, 
 
 **tmux** for isolation — each worker gets a tmux session and a git worktree. Shell-native, zero infrastructure overhead. Workers run in parallel without touching each other.
 
-**FlickNote** for knowledge — notes stored locally, queried via CLI. No account required.
+**FlickNote** for knowledge — notes queried via CLI, integrated with the agent stack via MCP.
 
 The principle: if your laptop works, ttal works. No cloud dependency for core operations. Telegram is the only network dependency, and it's for convenience — mobile access from anywhere — not correctness. The system works fine without it.
 
@@ -81,9 +81,9 @@ The alternative — treating agents as stateless functions — loses everything 
 
 ttal pushes behavior into configuration, not source code.
 
-**Prompts in `config.toml`** — the execute prompt, review prompt, and triage prompt are all configurable fields. Change how workers behave without rebuilding the binary.
+**Prompts in `config.toml` and `roles.toml`** — execute, review, triage, and re-review prompts are all configurable fields. `roles.toml` takes priority for prompt resolution; role-specific prompts live there, global defaults in `config.toml`. Change how workers behave without rebuilding the binary.
 
-**Roles in `roles.toml`** — per-role tags, routing rules, prompt templates. Add a new role by editing TOML. Remove one the same way.
+**Roles in `roles.toml`** — per-role prompt templates and heartbeat prompts. Add a new role by editing TOML. Remove one the same way.
 
 **Skills as files** — agent capabilities are markdown files deployed via `ttal sync`. Drop a file into `~/clawd/docs/skills/`, sync, and every agent gains that capability.
 
