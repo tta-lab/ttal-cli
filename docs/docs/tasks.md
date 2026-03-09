@@ -100,16 +100,3 @@ uda.pr_id.type=string
 uda.pr_id.label=PR ID
 ```
 
-## Tag-based dispatch
-
-Tags trigger automatic routing to specific agents:
-
-```bash
-# Tasks tagged +research route to the research agent
-task add "Investigate auth library options" +research
-
-# Custom tag routes are configurable
-task add "Create new deployment skill" +newskill
-```
-
-Built-in tag routes include `+newskill` (skill creation workflow) and `+newagent` (agent creator).

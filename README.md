@@ -4,12 +4,11 @@ A command-line tool for managing agents, projects, workers, PRs, messaging, and 
 
 ## Features
 
-- **Project Management**: Add, list, archive, and tag projects
-- **Agent Management**: Configure agents with tags, status tracking, and heartbeat periods
+- **Project Management**: Add, list, and archive projects
+- **Agent Management**: Configure agents with role, voice, and status tracking
 - **Worker Management**: Spawn and close Claude Code workers in isolated sessions
 - **PR Management**: Create, modify, merge (squash), and comment on Forgejo PRs — context auto-resolved from worker session
 - **Messaging**: Bidirectional agent ↔ human (Telegram) and agent ↔ agent (tmux) communication via `ttal send`
-- **Tag-Based Routing**: Tag-based task routing to matching agents on task start
 - **Today Focus**: Manage daily task focus list via taskwarrior's `scheduled` date
 - **Task Routing**: Route tasks to agents by name or role with `ttal task route --to <agent>`, or spawn workers with `ttal task execute`
 - **Task Utilities**: Search tasks and export rich prompts with inlined markdown context
@@ -143,23 +142,16 @@ Project aliases support hierarchical matching for taskwarrior integration. When 
 
 ```bash
 # Add a project
-ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd +infrastructure +core
+ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd
 
 # List all projects
 ttal project list
 
-# List projects with specific tags
-ttal project list +backend +infrastructure
-
-# Modify project tags (use -- to separate from flags)
-ttal project modify clawd -- +new-tag -old-tag
-
 # Modify project fields
-ttal project modify clawd -- name:'New Project Name'
-ttal project modify clawd -- path:/new/path
-ttal project modify clawd -- description:'Updated description'
-# Modify multiple fields and tags at once
-ttal project modify clawd -- name:'New Name' path:/new/path +backend -legacy
+ttal project modify clawd name:'New Project Name'
+ttal project modify clawd path:/new/path
+# Modify multiple fields at once
+ttal project modify clawd name:'New Name' path:/new/path
 
 # Archive a project
 ttal project archive old-project
@@ -172,31 +164,18 @@ ttal project unarchive old-project
 
 ```bash
 # Add an agent
-ttal agent add yuki --path=/Users/neil/clawd/.openclaw-main --heartbeat=120 +secretary +core
+ttal agent add yuki --voice af_heart --emoji 🦅 --role designer
 
 # List all agents
 ttal agent list
 
-# List agents with specific tags
-ttal agent list +research
-
-# Get agent info (includes matching projects)
+# Get agent info
 ttal agent info yuki
 
-# Modify agent tags (use -- to separate from flags)
-ttal agent modify yuki -- +new-tag -old-tag
-
-# Modify agent path
-ttal agent modify yuki -- path:/Users/neil/clawd/.openclaw-main
-
-# Modify path and tags together
-ttal agent modify yuki -- path:/new/path +backend -legacy
-
-# Update agent status
-ttal agent status yuki busy
-
-# Update heartbeat period
-ttal agent heartbeat yuki 120
+# Modify agent metadata
+ttal agent modify yuki voice:af_heart
+ttal agent modify yuki emoji:🐱 description:'Task orchestration'
+ttal agent modify yuki role:researcher
 ```
 
 ### Worker Commands
@@ -245,7 +224,7 @@ tail -f ~/.task/hooks.log
 
 Tasks go through three hook-driven stages:
 
-**1. on-add: Auto-enrichment** — When a task is created, the on-add hook checks if its tags already match a registered agent. If not, it forks a background `claude -p --model haiku` process to enrich the task with `project_path` and `branch` UDAs.
+**1. on-add: Auto-enrichment** — When a task is created, the on-add hook forks a background `claude -p --model haiku` process to enrich the task with `project_path` and `branch` UDAs.
 
 **2. on-modify (start): Deterministic spawn** — When a task is started (`task <id> start`), the on-modify hook reads the enriched UDAs and forks a background `ttal task execute` to create a tmux session with a git worktree.
 
@@ -255,12 +234,10 @@ All lifecycle events are reported to the lifecycle agent's Telegram chat via the
 
 ```bash
 # Example flow:
-task add "Fix auth timeout in login API" +backend    # on-add: haiku enriches with project_path/branch
-task <id> start                                       # on-modify: spawns worker/fix-auth-timeout
-task <id> done                                        # on-modify: auto-cleanup if PR merged
+task add "Fix auth timeout in login API"  # on-add: haiku enriches with project_path/branch
+task <id> start                           # on-modify: spawns worker/fix-auth-timeout
+task <id> done                            # on-modify: auto-cleanup if PR merged
 ```
-
-If a task's tags already match an agent (e.g., `+kestrel`), enrichment is skipped — the task is assumed to be pre-configured.
 
 ### Today Commands
 
@@ -472,66 +449,29 @@ Worker commands require these tools in `$PATH`:
 
 ## Modify Command Syntax
 
-The `modify` command supports both tag operations and field updates using taskwarrior-like syntax:
+The `modify` command uses `field:value` syntax for updates:
 
-### Tag Operations
-- `+tag` - Add a tag
-- `-tag` - Remove a tag
-- `+tag1 +tag2` - Add multiple tags
-- `-old +new` - Mix add and remove operations
-
-### Field Updates
 - `field:value` - Update a field value
 - Use quotes for values with spaces: `name:'My Project Name'`
-- Combine multiple operations: `path:/new/path +backend -legacy`
+- Combine multiple updates: `name:'New Name' path:/new/path`
 
 ### Available Fields
 
 **Agent fields:**
-- `path` - Agent workspace path
+- `voice` - Kokoro TTS voice ID
+- `emoji` - Display emoji
+- `description` - Short role summary
+- `role` - Agent role (maps to `[prompts]` key)
 
 **Project fields:**
+- `alias` - Project alias (rename)
 - `name` - Project name
-- `description` - Project description
 - `path` - Filesystem path
-
-### Important Notes
-- Always use `--` before your modifications to prevent `-tag` from being interpreted as a command flag
-- Field names are case-insensitive
-- Tag names are automatically converted to lowercase
 
 ### Examples
 ```bash
-# Tags only
-ttal project modify clawd -- +backend -legacy
-
-# Fields only
-ttal project modify clawd -- name:'New Name' path:/new/path
-
-# Combined
-ttal agent modify yuki -- path:/new/path +research -demo
-```
-
-## Tag System
-
-Tags use taskwarrior-like syntax as described above in the Modify Command Syntax section
-
-### Agent-Project Matching
-
-Agents see projects that share at least one tag. Tags also drive task routing — when a taskwarrior task is started, it's routed to the agent with the most matching tags.
-
-```bash
-# Agent with tags: research, design
-ttal agent add athena +research +design
-
-# Project with tags: core, infrastructure
-ttal project add clawd +core +infrastructure
-
-# athena can work on projects with research or design tags
-ttal agent info athena  # Shows matching projects
-
-# Tasks tagged +research are automatically routed to athena
-# Tasks with no matching agent go to worker-lifecycle (default)
+ttal project modify clawd name:'New Name' path:/new/path
+ttal agent modify yuki voice:af_heart description:'Task orchestration'
 ```
 
 ## Commit Convention

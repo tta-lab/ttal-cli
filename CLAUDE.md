@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus with tag-based filtering and routing. It uses TOML-based project storage and taskwarrior integration for task and today commands.
+TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus. It uses TOML-based project storage and taskwarrior integration for task and today commands.
 
 ## Essential Commands
 

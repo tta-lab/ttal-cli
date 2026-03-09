@@ -56,7 +56,7 @@ The worker's prompt automatically includes the full content of those files. No m
 ### Step 1: Create the task
 
 ```bash
-task add "Add JWT authentication to the API" +backend
+ttal task add --project myapp "Add JWT authentication to the API"
 ```
 
 ### Step 2: Research
