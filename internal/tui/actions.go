@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,44 +15,6 @@ import (
 // runTtalCommand runs a ttal subcommand and returns combined output.
 func runTtalCommand(args ...string) ([]byte, error) {
 	return exec.Command("ttal", args...).CombinedOutput()
-}
-
-// extractWarnings scans command output for lines containing "warning:" and returns them.
-func extractWarnings(out []byte) string {
-	var warnings []string
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.Contains(strings.ToLower(line), "warning:") {
-			warnings = append(warnings, strings.TrimSpace(line))
-		}
-	}
-	return strings.Join(warnings, "\n")
-}
-
-func closeWorker(t *Task, force bool) tea.Cmd {
-	return func() tea.Msg {
-		sessionName := t.SessionName()
-		args := []string{"worker", "close", sessionName}
-		if force {
-			args = append(args, "--force")
-		}
-		out, err := runTtalCommand(args...)
-		if err != nil {
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-				return actionResultMsg{message: fmt.Sprintf("Cannot close %s: %s", sessionName, strings.TrimSpace(string(out)))}
-			}
-			return actionResultMsg{err: fmt.Errorf("worker close %s: %s", sessionName, strings.TrimSpace(string(out)))}
-		}
-		label := "closed"
-		if force {
-			label = "force closed"
-		}
-		msg := fmt.Sprintf("Worker %s: %s", label, sessionName)
-		if w := extractWarnings(out); w != "" {
-			msg += " — " + w
-		}
-		return actionResultMsg{message: msg, refresh: true}
-	}
 }
 
 func executeTask(uuid string) tea.Cmd {
