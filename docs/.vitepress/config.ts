@@ -19,7 +19,7 @@ export default defineConfig({
     nav: [
       { text: 'Docs', link: '/docs/getting-started' },
       { text: 'Guides', link: '/guides/research-design-execute' },
-      { text: 'Blog', link: '/blog/day-1-the-dream-setup' },
+      { text: 'Blog', link: '/blog/the-dream-setup' },
       { text: 'Pricing', link: '/pricing' },
       { text: 'Roadmap', link: '/roadmap' },
     ],
@@ -39,7 +39,6 @@ export default defineConfig({
             { text: 'Daemon', link: '/docs/daemon' },
             { text: 'Runtimes', link: '/docs/runtimes' },
             { text: 'Voice', link: '/docs/voice' },
-            { text: 'Philosophy', link: '/docs/philosophy' },
           ]
         }
       ],
@@ -58,10 +57,9 @@ export default defineConfig({
         {
           text: 'Blog',
           items: [
-            { text: 'Day 1: The Dream Setup', link: '/blog/day-1-the-dream-setup' },
-            { text: 'Day 2: OpenClaw Overview', link: '/blog/day-2-openclaw-overview' },
-            { text: 'Day 3: Zellij & Coding Agents', link: '/blog/day-3-zellij-coding-agents' },
-            { text: 'Day 4: Taskwarrior Deep Dive', link: '/blog/day-4-taskwarrior-deep-dive' },
+            { text: 'The Dream Setup', link: '/blog/the-dream-setup' },
+            { text: 'The Glue Layer', link: '/blog/the-glue-layer' },
+            { text: 'Philosophy', link: '/blog/philosophy' },
           ]
         }
       ],
