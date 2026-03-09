@@ -10,7 +10,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	cx "github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	oc "github.com/tta-lab/ttal-cli/internal/runtime/opencode"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -175,8 +174,6 @@ func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) erro
 		return routeCCResponse(batch)
 	case runtime.OpenCode:
 		return routeOCResponse(batch, registry)
-	case runtime.Codex:
-		return routeCodexResponse(batch, registry)
 	default:
 		return fmt.Errorf("unknown runtime %s for question response", batch.Runtime)
 	}
@@ -273,26 +270,6 @@ func routeOCResponse(batch *QuestionBatch, registry *adapterRegistry) error {
 	return ocAdapter.ReplyToQuestion(context.Background(), batch.CorrelationID, answers)
 }
 
-func routeCodexResponse(batch *QuestionBatch, registry *adapterRegistry) error {
-	adapter, ok := registry.get(batch.TeamName, batch.AgentName)
-	if !ok {
-		return fmt.Errorf("no adapter for Codex agent %s/%s", batch.TeamName, batch.AgentName)
-	}
-	cxAdapter, ok := adapter.(*cx.Adapter)
-	if !ok {
-		return fmt.Errorf("adapter for %s/%s is not Codex", batch.TeamName, batch.AgentName)
-	}
-
-	answers := make([]runtime.QuestionAnswer, 0, len(batch.Questions))
-	for i, q := range batch.Questions {
-		answers = append(answers, runtime.QuestionAnswer{
-			QuestionID: q.ID,
-			Answer:     batch.Answers[i],
-		})
-	}
-	return cxAdapter.RespondToUserInput(batch.CorrelationID, answers)
-}
-
 // cancelQuestion dismisses a pending question without answering.
 func cancelQuestion(batch *QuestionBatch, registry *adapterRegistry) error {
 	switch batch.Runtime {
@@ -309,16 +286,6 @@ func cancelQuestion(batch *QuestionBatch, registry *adapterRegistry) error {
 			return fmt.Errorf("adapter for %s/%s is not OpenCode", batch.TeamName, batch.AgentName)
 		}
 		return ocAdapter.ReplyToQuestion(context.Background(), batch.CorrelationID, []string{})
-	case runtime.Codex:
-		adapter, ok := registry.get(batch.TeamName, batch.AgentName)
-		if !ok {
-			return fmt.Errorf("no adapter for Codex agent %s/%s", batch.TeamName, batch.AgentName)
-		}
-		cxAdapter, ok := adapter.(*cx.Adapter)
-		if !ok {
-			return fmt.Errorf("adapter for %s/%s is not Codex", batch.TeamName, batch.AgentName)
-		}
-		return cxAdapter.RespondToUserInput(batch.CorrelationID, nil)
 	default:
 		return fmt.Errorf("unknown runtime %s for cancel", batch.Runtime)
 	}

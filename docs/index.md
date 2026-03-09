@@ -104,7 +104,7 @@ TTAL doesn't replace your coding agent — it makes it a team player.
 | Interactive questions | ✓ | - | - | ✓ |
 | Autonomous PR workflow | ✓ | - | - | - |
 
-TTAL is the only orchestrator that supports **three agent runtimes** — Claude Code (stable), OpenCode, and Codex CLI — and even runs **OpenClaw as the manager plane runtime**, giving you the flexibility to mix runtimes across your team.
+TTAL is the only orchestrator that supports **two agent runtimes** — Claude Code (stable) and OpenCode — plus Codex CLI for workers, and even runs **OpenClaw as the manager plane runtime**, giving you the flexibility to mix runtimes across your team.
 
 Competitors build chat assistants. TTAL builds autonomous team members who own the full delivery pipeline.
 
