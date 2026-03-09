@@ -12,7 +12,6 @@ ttal is runtime-agnostic. It manages agent sessions via tmux and doesn't care wh
 | **Claude Code** | Stable | Anthropic's CLI. Fully supported, battle-tested. |
 | **OpenCode** | Experimental | Open-source coding agent. Adapter exists but not battle-tested. |
 | **Codex CLI** | Experimental | OpenAI's coding CLI. Adapter exists but not battle-tested. |
-| **OpenClaw** | Experimental | Multi-platform AI gateway. Adapter exists but not battle-tested. |
 
 ## Configuration
 

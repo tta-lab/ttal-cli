@@ -77,16 +77,13 @@ make ci
 
 ### Pre-commit Hooks
 
-Install git hooks to automatically run checks before each commit:
+Install lefthook to automatically run checks before each commit:
 
 ```bash
-make install-hooks
+lefthook install
 ```
 
-The pre-commit hook runs:
-- Code formatting (`make fmt`)
-- Vet checks (`make vet`)
-- Tests (`make test`)
+The pre-commit hook runs `fmt`, `vet`, and `lint` in parallel. Tests are CI-only.
 
 ### Code Quality
 
@@ -226,7 +223,7 @@ Tasks go through hook-driven stages:
 
 **2. on-modify (complete): Auto-cleanup** — When a task is completed, the hook validates the completion (PR merge check). Workers are spawned explicitly via `ttal task execute`, not by `task start`.
 
-**3. Daemon cleanup** — After a PR is merged, `ttal pr merge` drops a cleanup request file. The daemon picks it up and handles: close tmux session → remove worktree → mark task done. If the PR is not merged or the worktree is dirty, `ErrNeedsDecision` is returned for manual handling.
+**3. Daemon cleanup** — After a PR is merged, `ttal pr merge` drops a cleanup request file. The daemon picks it up and handles: close tmux session → remove worktree → mark task done. If the PR is not merged or the worktree is dirty, `ErrNeedsDecision` is returned, causing the CLI to exit with code 1 for manual handling.
 
 ```bash
 # Example flow:

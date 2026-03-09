@@ -93,21 +93,16 @@ git push origin v1.0.0
 **Exclusions:**
 - Line length checks relaxed for generated code
 
-### Pre-commit Hook (`scripts/pre-commit.sh`)
+### Pre-commit Hook (lefthook)
 
-**Installed via:** `make install-hooks`
+**Installed via:** `lefthook install`
 
-**Checks performed:**
-1. Stash unstaged changes (to only check what's being committed)
-2. Run `make fmt` (auto-apply formatting)
-3. Run `make vet` (static analysis)
-4. Run `make test` (all tests)
-5. Restore stashed changes
+**Checks performed (parallel):**
+- `make fmt` — auto-apply formatting
+- `make vet` — static analysis
+- `make lint` — golangci-lint
 
-**Behavior:**
-- Auto-formats code and stages changes
-- Fails commit if vet or tests fail
-- Keeps working directory clean
+Tests are CI-only and do not run in the pre-commit hook.
 
 ## Makefile Enhancements
 
@@ -136,7 +131,7 @@ make schema        # Regenerate JSON Schema from config structs
 make fmt           # Format code with gofmt
 make vet           # Run go vet
 make lint          # Run golangci-lint (if installed)
-make all           # Format, schema, vet, and build
+make all           # Format, tidy, schema, vet, and build
 make ci            # Run all CI checks
 make check-clean   # Check if working directory is clean
 make install-hooks # Install git pre-commit hook
@@ -172,8 +167,8 @@ Added exclusions for:
 ### Standard Flow
 
 ```bash
-# 1. Install pre-commit hook (one-time)
-make install-hooks
+# 1. Install lefthook (one-time)
+lefthook install
 
 # 2. Make changes to code
 
