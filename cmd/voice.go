@@ -95,9 +95,10 @@ Examples:
 			return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", voiceID)
 		}
 
-		agentCfg, ok := cfg.Agents[agentName]
-		if !ok {
-			return fmt.Errorf("agent %s not found in config", agentName)
+		botToken := config.AgentBotToken(agentName)
+		if botToken == "" {
+			return fmt.Errorf("agent %s: bot token not found (set %s_BOT_TOKEN in .env)",
+				agentName, strings.ToUpper(agentName))
 		}
 
 		wavData, err := voice.SpeakToBytes(text, voiceID, speakSpeed)
@@ -116,7 +117,7 @@ Examples:
 			return err
 		}
 
-		return telegram.SendVoice(agentCfg.BotToken, chatID, oggData)
+		return telegram.SendVoice(botToken, chatID, oggData)
 	},
 }
 

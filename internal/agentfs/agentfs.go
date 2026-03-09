@@ -13,12 +13,13 @@ const frontmatterDelimiter = "---"
 
 // AgentInfo holds agent metadata parsed from CLAUDE.md frontmatter.
 type AgentInfo struct {
-	Name        string // directory name (lowercase)
-	Path        string // absolute path to agent directory
-	Voice       string // Kokoro TTS voice ID
-	Emoji       string // display emoji
-	Description string // short role summary
-	Role        string // e.g. designer, researcher — matches [prompts] key
+	Name             string // directory name (lowercase)
+	Path             string // absolute path to agent directory
+	Voice            string // Kokoro TTS voice ID
+	Emoji            string // display emoji
+	Description      string // short role summary
+	Role             string // e.g. designer, researcher — matches [prompts] key
+	FlicknoteProject string // default flicknote project for this agent
 }
 
 // Discover scans teamPath for agent directories (subdirs with CLAUDE.md).
@@ -49,6 +50,7 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 			info.Emoji = fm["emoji"]
 			info.Description = fm["description"]
 			info.Role = fm["role"]
+			info.FlicknoteProject = fm["flicknote_project"]
 		}
 
 		agents = append(agents, info)
@@ -79,9 +81,35 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 		info.Emoji = fm["emoji"]
 		info.Description = fm["description"]
 		info.Role = fm["role"]
+		info.FlicknoteProject = fm["flicknote_project"]
 	}
 
 	return info, nil
+}
+
+// GetFromPath returns agent metadata from an absolute agent directory path.
+func GetFromPath(agentPath string) (*AgentInfo, error) {
+	return Get(filepath.Dir(agentPath), filepath.Base(agentPath))
+}
+
+// DiscoverAgents returns sorted agent names from teamPath subdirs containing CLAUDE.md.
+func DiscoverAgents(teamPath string) ([]string, error) {
+	entries, err := os.ReadDir(teamPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read team path %s: %w", teamPath, err)
+	}
+	var agents []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		claudePath := filepath.Join(teamPath, e.Name(), "CLAUDE.md")
+		if _, err := os.Stat(claudePath); err == nil {
+			agents = append(agents, e.Name())
+		}
+	}
+	sort.Strings(agents)
+	return agents, nil
 }
 
 // FindByRole returns all agents with a matching role field.

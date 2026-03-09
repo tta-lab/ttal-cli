@@ -2,27 +2,40 @@ package daemon
 
 import (
 	"log"
+	"path/filepath"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 // startHeartbeatScheduler starts a per-agent ticker for agents with heartbeat_interval configured.
+// Interval is read from roles.toml via the agent's role field in CLAUDE.md frontmatter.
 // On each tick, delivers heartbeat_prompt (from roles.toml) to the agent via deliverToAgent.
 // Both heartbeat_interval and heartbeat_prompt must be non-empty — skips silently if either is missing.
 // Timer resets on daemon restart (no state persistence — acceptable tradeoff per spec).
 func startHeartbeatScheduler(mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) {
 	started, skipped := 0, 0
 
+	roles := mcfg.Global.Roles()
 	for _, ta := range mcfg.AllAgents() {
-		intervalStr := ta.Config.HeartbeatInterval
+		if ta.TeamPath == "" {
+			continue
+		}
+		info, err := agentfs.GetFromPath(filepath.Join(ta.TeamPath, ta.AgentName))
+		if err != nil || info.Role == "" {
+			continue
+		}
+
+		intervalStr := roles.HeartbeatIntervalForRole(info.Role)
 		if intervalStr == "" {
 			continue
 		}
 
 		interval, err := time.ParseDuration(intervalStr)
 		if err != nil {
-			log.Printf("[heartbeat] invalid heartbeat_interval %q for %s: %v — skipping", intervalStr, ta.AgentName, err)
+			log.Printf("[heartbeat] invalid heartbeat_interval %q for role %s (%s): %v — skipping",
+				intervalStr, info.Role, ta.AgentName, err)
 			skipped++
 			continue
 		}
@@ -34,7 +47,7 @@ func startHeartbeatScheduler(mcfg *config.DaemonConfig, registry *adapterRegistr
 			continue
 		}
 
-		log.Printf("[heartbeat] scheduling %s every %s", ta.AgentName, interval)
+		log.Printf("[heartbeat] scheduling %s (role: %s) every %s", ta.AgentName, info.Role, interval)
 		started++
 
 		teamName := ta.TeamName

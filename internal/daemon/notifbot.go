@@ -27,8 +27,8 @@ var notifBotCommands = []BotCommand{
 func startNotificationPollers(mcfg *config.DaemonConfig, done chan struct{}) {
 	agentTokens := make(map[string]bool)
 	for _, ta := range mcfg.AllAgents() {
-		if ta.Config.BotToken != "" {
-			agentTokens[ta.Config.BotToken] = true
+		if token := config.AgentBotToken(ta.AgentName); token != "" {
+			agentTokens[token] = true
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -59,10 +60,7 @@ func showStatus() error {
 	}
 
 	teamName := cfg.TeamName()
-	names := make([]string, 0, len(cfg.Agents))
-	for name := range cfg.Agents {
-		names = append(names, name)
-	}
+	names, _ := agentfs.DiscoverAgents(cfg.TeamPath())
 
 	rows := make([]agentRow, 0, len(names))
 	for _, name := range names {
@@ -113,15 +111,9 @@ func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
 	case runtime.ClaudeCode:
 		populateCCRow(&row, sessionName, s)
 	case runtime.OpenCode, runtime.Codex:
-		port := cfg.Agents[name].Port
-		if port == 0 {
-			row.health = "✗"
-			row.updated = "no port"
-		} else {
-			row.health = "~"
-			row.active = true
-			row.updated = fmt.Sprintf("port %d", port)
-		}
+		row.health = "~"
+		row.active = true
+		row.updated = "adapter"
 	case runtime.OpenClaw:
 		row.health = "●"
 		row.active = true

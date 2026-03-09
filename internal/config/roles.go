@@ -10,13 +10,15 @@ import (
 )
 
 type RolesConfig struct {
-	Roles            map[string]string `toml:"-"`
-	HeartbeatPrompts map[string]string `toml:"-"`
+	Roles              map[string]string `toml:"-"`
+	HeartbeatPrompts   map[string]string `toml:"-"`
+	HeartbeatIntervals map[string]string `toml:"-"` // per-role heartbeat interval (e.g. "1h")
 }
 
 func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 	r.Roles = make(map[string]string)
 	r.HeartbeatPrompts = make(map[string]string)
+	r.HeartbeatIntervals = make(map[string]string)
 	if m, ok := data.(map[string]interface{}); ok {
 		for role, v := range m {
 			section, ok := v.(map[string]interface{})
@@ -32,9 +34,21 @@ func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 			if hp, ok := section["heartbeat_prompt"].(string); ok && hp != "" {
 				r.HeartbeatPrompts[role] = hp
 			}
+			if hi, ok := section["heartbeat_interval"].(string); ok && hi != "" {
+				r.HeartbeatIntervals[role] = hi
+			}
 		}
 	}
 	return nil
+}
+
+// HeartbeatIntervalForRole returns the heartbeat interval for a given role.
+// Returns empty string if no interval is configured.
+func (r *RolesConfig) HeartbeatIntervalForRole(role string) string {
+	if r == nil || r.HeartbeatIntervals == nil {
+		return ""
+	}
+	return r.HeartbeatIntervals[role]
 }
 
 func LoadRoles() (*RolesConfig, error) {

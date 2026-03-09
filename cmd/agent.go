@@ -202,6 +202,9 @@ Example:
 		if ag.Voice != "" {
 			fmt.Printf("Voice:     %s\n", ag.Voice)
 		}
+		if ag.FlicknoteProject != "" {
+			fmt.Printf("Flicknote: %s\n", ag.FlicknoteProject)
+		}
 		return nil
 	},
 }
@@ -241,10 +244,10 @@ Examples:
 				if !voice.IsValidVoice(value) {
 					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
 				}
-			case "emoji", "description", "role":
+			case "emoji", "description", "role", "flicknote_project":
 				// valid fields
 			default:
-				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, role)", field)
+				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, role, flicknote_project)", field)
 			}
 
 			if err := agentfs.SetField(teamPath, name, field, value); err != nil {
