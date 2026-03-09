@@ -404,6 +404,41 @@ func handleInboundMessage(
 	onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
 }
 
+// isBotCommandForAgent reports whether msg contains the given bot command addressed to
+// this agent. For DMs, it validates by chatID. For groups, it requires the @botname
+// suffix and that the group chatID is a registered dispatch target.
+func isBotCommandForAgent(msg *models.Message, cmd string, chatID int64, botUsername string, dispatch map[int64]pollerTarget) bool {
+	isGroup := msg.Chat.Type == chatTypeGroup || msg.Chat.Type == chatTypeSupergroup
+	// In private/other: require matching DM chat ID.
+	if !isGroup && msg.Chat.ID != chatID {
+		return false
+	}
+	for _, e := range msg.Entities {
+		if e.Type != models.MessageEntityTypeBotCommand || e.Offset != 0 {
+			continue
+		}
+		// Extract command name: skip leading "/", strip @botname suffix.
+		raw := msg.Text[1:e.Length]
+		name, atBot, hasAt := strings.Cut(raw, "@")
+		if name != cmd {
+			continue
+		}
+		// In groups: @botname suffix MUST be present and match, AND the
+		// group chatID must be a registered dispatch target. This ensures
+		// commands only execute from explicitly authorized group chats.
+		if isGroup {
+			if !hasAt || !strings.EqualFold(atBot, botUsername) {
+				return false
+			}
+			if _, ok := dispatch[msg.Chat.ID]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // registerBotCommandsForAgent registers each bot command as a handler on the bot instance.
 // Uses RegisterHandlerMatchFunc with a custom matcher that:
 //   - Checks for bot_command entity at message start (like MatchTypeCommandStartOnly)
@@ -418,37 +453,7 @@ func registerBotCommandsForAgent(
 			if update.Message == nil {
 				return false
 			}
-			msg := update.Message
-			isGroup := msg.Chat.Type == chatTypeGroup || msg.Chat.Type == chatTypeSupergroup
-			// In groups: no chatID-based authorization (group ID ≠ DM chatID).
-			// In private/other: require matching DM chat ID.
-			if !isGroup && msg.Chat.ID != chatID {
-				return false
-			}
-			for _, e := range msg.Entities {
-				if e.Type != models.MessageEntityTypeBotCommand || e.Offset != 0 {
-					continue
-				}
-				// Extract command name: skip leading "/", strip @botname suffix.
-				raw := msg.Text[1:e.Length]
-				name, atBot, hasAt := strings.Cut(raw, "@")
-				if name != cmd {
-					continue
-				}
-				// In groups: @botname suffix MUST be present and match, AND the
-				// group chatID must be a registered dispatch target. This ensures
-				// commands only execute from explicitly authorized group chats.
-				if isGroup {
-					if !hasAt || !strings.EqualFold(atBot, botUsername) {
-						return false
-					}
-					if _, ok := dispatch[msg.Chat.ID]; !ok {
-						return false
-					}
-				}
-				return true
-			}
-			return false
+			return isBotCommandForAgent(update.Message, cmd, chatID, botUsername, dispatch)
 		}
 	}
 
