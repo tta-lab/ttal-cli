@@ -38,6 +38,18 @@ cd ttal-cli
 make install-dictate
 ```
 
+### Recommended: Clone + /setup skill
+
+The easiest way to get started — clone this repo, open in Claude Code, and run `/setup`:
+
+```bash
+git clone https://github.com/tta-lab/ttal-cli.git && cd ttal-cli
+# Open in Claude Code, then: /setup
+```
+
+The `/setup` skill installs ttal, runs `ttal onboard`, and handles Telegram config.
+Templates are in `templates/` — no network clone needed.
+
 ### Post-install setup
 
 ```bash

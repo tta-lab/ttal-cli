@@ -21,7 +21,10 @@ var (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a new ttal workspace from a starter template",
-	Long: `Clone the ttal-templates repo and set up a workspace with a chosen scaffold.
+	Long: `Set up a new ttal workspace from a starter template.
+
+Templates are read from the local templates/ directory when running from a cloned
+ttal-cli repo, or fetched from the remote cache for brew-installed users.
 
 Run without --scaffold to see available options and pick interactively.
 
@@ -56,9 +59,9 @@ func runInit() error {
 		}
 	}
 
-	// Clone or update templates
-	fmt.Print("Fetching templates...")
-	cacheDir, err := scaffold.EnsureCache()
+	// Find templates (local first, fallback to remote clone)
+	fmt.Print("Finding templates...")
+	cacheDir, err := scaffold.FindTemplatesDir()
 	if err != nil {
 		fmt.Println(" failed")
 		return err
@@ -191,20 +194,7 @@ func installInitConfig(workspace string) error {
 
 // printInitAgents scans workspace for agent directories.
 func printInitAgents(workspace string) {
-	entries, err := os.ReadDir(workspace)
-	if err != nil {
-		return
-	}
-	var agents []string
-	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		claudeMD := filepath.Join(workspace, e.Name(), "CLAUDE.md")
-		if _, err := os.Stat(claudeMD); err == nil {
-			agents = append(agents, e.Name())
-		}
-	}
+	agents := scaffold.AgentDirs(workspace)
 	if len(agents) > 0 {
 		fmt.Printf("  Agents: %s\n", strings.Join(agents, ", "))
 	}

@@ -37,6 +37,19 @@ ttal requires these tools in your `$PATH`:
 
 ## Initial setup
 
+### Recommended: Clone and run /setup in Claude Code
+
+The simplest path — clone ttal-cli, open it in Claude Code, and run the setup skill:
+
+```bash
+git clone https://github.com/tta-lab/ttal-cli.git
+cd ttal-cli
+# Open in Claude Code, then run:
+# /setup
+```
+
+The `/setup` skill handles installation, onboarding, and Telegram configuration. Templates live in `templates/` — already in the repo you cloned.
+
 ### Quick setup with ttal init
 
 The fastest way to get started — pick a scaffold and go:
@@ -51,7 +64,7 @@ ttal init --scaffold full-markdown      # 4 agents: manager, researcher, designe
 ttal init --scaffold full-flicknote     # 4 agents with FlickNote integration
 ```
 
-This clones a starter template, copies it to `~/ttal-workspace`, and installs a config file.
+When running from a cloned ttal-cli repo, templates are read from `templates/` locally — no network clone needed. Brew-installed users automatically fall back to a remote cache.
 
 ### Full onboarding
 
