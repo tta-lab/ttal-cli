@@ -171,7 +171,8 @@ Examples:
 		if mergeMode == config.MergeModeManual {
 			// Manual mode: notify instead of merging. Human decides.
 			worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s\n%s", ctx.Task.Description, prURL))
-			fmt.Printf("PR #%s is mergeable (manual mode — notification sent)\n", ctx.Task.PRID)
+			manualInfo, _ := taskwarrior.ParsePRID(ctx.Task.PRID)
+			fmt.Printf("PR #%d is mergeable (manual mode — notification sent)\n", manualInfo.Index)
 			return nil
 		}
 
@@ -179,7 +180,8 @@ Examples:
 			return err
 		}
 
-		fmt.Printf("PR #%s merged (squash)\n", ctx.Task.PRID)
+		mergeInfo, _ := taskwarrior.ParsePRID(ctx.Task.PRID)
+		fmt.Printf("PR #%d merged (squash)\n", mergeInfo.Index)
 		if !keepBranch {
 			fmt.Println("  Branch deleted")
 		}
