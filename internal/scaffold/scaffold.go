@@ -197,6 +197,40 @@ func findAgentDirs(dir string) []string {
 	return agents
 }
 
+// FindTemplatesDir locates the templates/ directory.
+// Priority:
+//  1. templates/ relative to cwd
+//  2. templates/ relative to git root (user may be in a subdirectory)
+//  3. Fallback: EnsureCache (remote clone, for brew install users)
+func FindTemplatesDir() (string, error) {
+	// 1. Check cwd
+	if info, err := os.Stat("templates"); err == nil && info.IsDir() {
+		if abs, err := filepath.Abs("templates"); err == nil {
+			return abs, nil
+		}
+	}
+
+	// 2. Check git root
+	if root, err := gitRoot(); err == nil {
+		candidate := filepath.Join(root, "templates")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, nil
+		}
+	}
+
+	// 3. Fallback: clone from remote (brew install users)
+	return EnsureCache()
+}
+
+// gitRoot returns the root of the current git repository.
+func gitRoot() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // EnsureCache clones or updates the templates repo cache.
 // Returns the cache directory path.
 func EnsureCache() (string, error) {
