@@ -12,6 +12,29 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+func closeWorker(t *Task, force bool) tea.Cmd {
+	return func() tea.Msg {
+		sessionName := t.SessionName()
+		if sessionName == "" {
+			return actionResultMsg{err: fmt.Errorf("no worker session for this task")}
+		}
+		args := []string{"worker", "close", sessionName}
+		if force {
+			args = append(args, "--force")
+		}
+		cmd := exec.Command("ttal", args...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return actionResultMsg{err: fmt.Errorf("worker close %s: %s", sessionName, strings.TrimSpace(string(out)))}
+		}
+		label := "closed"
+		if force {
+			label = "force closed"
+		}
+		return actionResultMsg{message: fmt.Sprintf("Worker %s: %s", label, sessionName), refresh: true}
+	}
+}
+
 func executeTask(uuid string) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("ttal", "task", "execute", uuid)

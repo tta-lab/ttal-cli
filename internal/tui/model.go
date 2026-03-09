@@ -373,6 +373,10 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		return m.annotateInput.Focus()
 	case keyDelete:
 		m.state = stateConfirmDelete
+	case keyCloseWorker:
+		return closeWorker(t, false)
+	case keyForceCloseWorker:
+		return closeWorker(t, true)
 	}
 	return nil
 }
