@@ -71,21 +71,23 @@ func scanForPRTasks(
 	done <-chan struct{},
 ) {
 	seenUUIDs := make(map[string]bool)
+	allSucceeded := true
 
-	// Iterate all teams to check their taskwarrior instances.
 	for teamName := range mcfg.Teams {
-		var seen map[string]bool
-		if teamName != config.DefaultTeamName {
-			prev := os.Getenv("TTAL_TEAM")
-			_ = os.Setenv("TTAL_TEAM", teamName)
-			seen = scanTeam(mcfg, registry, teamName, mu, active, done)
-			_ = os.Setenv("TTAL_TEAM", prev)
-		} else {
-			seen = scanTeam(mcfg, registry, teamName, mu, active, done)
+		seen := scanTeamWithEnv(mcfg, registry, teamName, mu, active, done)
+		if seen == nil {
+			// Team scan failed — skip pruning this round to avoid orphaning
+			// goroutines whose UUIDs would be absent from an error-empty result.
+			allSucceeded = false
+			continue
 		}
 		for uuid := range seen {
 			seenUUIDs[uuid] = true
 		}
+	}
+
+	if !allSucceeded {
+		return
 	}
 
 	// Prune UUIDs from active that no longer appear in any team's task list.
@@ -99,6 +101,24 @@ func scanForPRTasks(
 	mu.Unlock()
 }
 
+// scanTeamWithEnv sets TTAL_TEAM for non-default teams and delegates to scanTeam.
+// Returns nil on taskwarrior error so the caller can skip the pruning pass.
+func scanTeamWithEnv(
+	mcfg *config.DaemonConfig,
+	registry *adapterRegistry,
+	teamName string,
+	mu *sync.Mutex, active map[string]bool,
+	done <-chan struct{},
+) map[string]bool {
+	if teamName == config.DefaultTeamName {
+		return scanTeam(mcfg, registry, teamName, mu, active, done)
+	}
+	prev := os.Getenv("TTAL_TEAM")
+	_ = os.Setenv("TTAL_TEAM", teamName)
+	defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
+	return scanTeam(mcfg, registry, teamName, mu, active, done)
+}
+
 func scanTeam(
 	mcfg *config.DaemonConfig,
 	registry *adapterRegistry,
@@ -106,13 +126,13 @@ func scanTeam(
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
-	seenUUIDs := make(map[string]bool)
-
 	tasks, err := taskwarrior.ListTasksWithPR()
 	if err != nil {
 		log.Printf("[prwatch] failed to list PR tasks for team %s: %v", teamName, err)
-		return seenUUIDs
+		return nil // nil signals caller to skip pruning pass
 	}
+
+	seenUUIDs := make(map[string]bool)
 
 	for _, task := range tasks {
 		seenUUIDs[task.UUID] = true
@@ -131,6 +151,8 @@ func scanTeam(
 
 		prInfo, err := taskwarrior.ParsePRID(task.PRID)
 		if err != nil {
+			log.Printf("[prwatch] task %s has invalid pr_id %q: %v — skipping",
+				task.UUID, task.PRID, err)
 			continue
 		}
 		prIndex := prInfo.Index
@@ -377,6 +399,7 @@ func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status stri
 
 	teamCfg, ok := mcfg.Teams[team]
 	if !ok {
+		log.Printf("[prwatch] notifyPRStatus: no config for team %q — notification dropped", team)
 		return
 	}
 
@@ -396,6 +419,8 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 	}
 	parts := strings.SplitN(target.Spawner, ":", 2)
 	if len(parts) != 2 {
+		log.Printf("[prwatch] notifySpawnerMerged: malformed spawner %q (want team:agent) — notification dropped",
+			target.Spawner)
 		return
 	}
 	teamName, agentName := parts[0], parts[1]
