@@ -290,8 +290,8 @@ func resolveGroupTarget(msg *models.Message, botUsername string, dispatch map[in
 	// Route by chat ID — same as DM path.
 	target, ok := dispatch[msg.Chat.ID]
 	if !ok {
-		log.Printf("[telegram] WARNING: group message for @%s from chat %d — no matching agent",
-			botUsername, msg.Chat.ID)
+		log.Printf("[telegram] WARNING: group message for @%s from chat %d — no matching agent (%d registered)",
+			botUsername, msg.Chat.ID, len(dispatch))
 		return nil
 	}
 	return &target
@@ -321,7 +321,9 @@ func handleInboundMessage(
 	// Track this message for tool reactions
 	if mt != nil {
 		chatID, err := telegram.ParseChatID(chatIDStr)
-		if err == nil {
+		if err != nil {
+			log.Printf("[telegram] BUG: failed to parse chatIDStr %q for agent %s: %v", chatIDStr, agentName, err)
+		} else {
 			mt.set(teamName, agentName, trackedMessage{
 				ChatID:    chatID,
 				MessageID: msg.ID,
