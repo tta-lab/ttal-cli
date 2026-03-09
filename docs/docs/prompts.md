@@ -9,15 +9,16 @@ ttal lets you customize the prompts sent to agents when routing tasks. This cont
 
 ## Configuration
 
-Add a `[prompts]` section to your `config.toml`:
+Create `~/.config/ttal/prompts.toml` with your prompt templates:
 
 ```toml
-[prompts]
 design = "{{skill:sp-writing-plans}}\nDesign an implementation plan for this task: {{task-id}}"
 research = "{{skill:tell-me-more}}\nResearch this topic and write findings: {{task-id}}"
 test = "{{skill:sp-tdd}}\nWrite and run tests for this task: {{task-id}}"
 execute = "{{skill:sp-executing-plans}}"
 ```
+
+> **Note:** Prompts live in a dedicated `prompts.toml` file rather than `config.toml`, keeping your main config file focused on settings and team configuration.
 
 ## Template variables
 
@@ -86,7 +87,7 @@ Sent to the reviewer when the coder pushes fixes and requests a re-review. Conta
 ### Custom execute prompt with a specific skill
 
 ```toml
-[prompts]
+# ~/.config/ttal/prompts.toml
 execute = "{{skill:sp-tdd}}"
 ```
 
@@ -95,7 +96,7 @@ This would use test-driven development for all workers instead of the default pl
 ### Adding project-specific instructions
 
 ```toml
-[prompts]
+# ~/.config/ttal/prompts.toml
 execute = """\
 {{skill:sp-executing-plans}}
 Always run `make ci` before committing.
@@ -105,7 +106,7 @@ Use conventional commit messages."""
 ### Verbose research prompt
 
 ```toml
-[prompts]
+# ~/.config/ttal/prompts.toml
 research = """\
 {{skill:tell-me-more}}
 Research task {{task-id}} thoroughly:
@@ -118,7 +119,7 @@ Research task {{task-id}} thoroughly:
 ### Custom triage prompt
 
 ```toml
-[prompts]
+# ~/.config/ttal/prompts.toml
 triage = """\
 {{skill:triage}}
 PR review posted.{{review-file}} Read it, assess and fix issues.
@@ -128,7 +129,7 @@ Post your triage update with ttal pr comment create when done."""
 ### Custom review prompt
 
 ```toml
-[prompts]
+# ~/.config/ttal/prompts.toml
 review = """\
 You are reviewing PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}}.
 1. Run {{skill:pr-review}} to review the diff

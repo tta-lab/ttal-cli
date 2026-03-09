@@ -243,6 +243,18 @@ func checkConfig(fix bool) Section {
 
 	section.add(LevelOK, "config", cfgPath+" exists")
 
+	// Warn if [prompts] section still exists in config.toml (moved to prompts.toml).
+	// Check line-by-line to avoid false positives from comments or string values.
+	for _, line := range strings.Split(string(rawContent), "\n") {
+		if strings.TrimSpace(line) == "[prompts]" {
+			section.add(LevelWarn, "prompts_migration",
+				"[prompts] section found in config.toml — move to ~/.config/ttal/prompts.toml")
+			break
+		}
+	}
+
+	checkPrompts(&section, cfg.Prompts)
+
 	if cfg.ChatID == "" {
 		section.add(LevelError, "chat_id", "chat_id not set")
 	} else {
@@ -259,6 +271,17 @@ func checkConfig(fix bool) Section {
 	checkDotEnv(&section, cfg, fix)
 
 	return section
+}
+
+// checkPrompts verifies that prompts.toml was loaded and has required keys.
+// Receives the already-loaded PromptsConfig from cfg.Prompts to avoid a second disk read.
+func checkPrompts(section *Section, prompts config.PromptsConfig) {
+	if prompts.Execute == "" && prompts.Review == "" {
+		section.add(LevelWarn, "prompts",
+			"prompts.toml not found or missing 'execute'/'review' keys — create ~/.config/ttal/prompts.toml")
+		return
+	}
+	section.add(LevelOK, "prompts", "prompts.toml loaded")
 }
 
 // checkDotEnv verifies ~/.config/ttal/.env exists and agents have bot tokens.

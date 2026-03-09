@@ -61,8 +61,8 @@ type Config struct {
 	Shell string `toml:"shell" jsonschema:"enum=zsh,enum=fish"`
 	// Paths for subagent and skill deployment
 	Sync SyncConfig `toml:"sync"`
-	// Prompt templates for task routing
-	Prompts PromptsConfig `toml:"prompts"`
+	// Prompt templates for task routing (loaded from prompts.toml, not config.toml)
+	Prompts PromptsConfig `toml:"-"`
 	// Flicknote integration settings
 	Flicknote FlicknoteConfig `toml:"flicknote"`
 	// Global voice settings (vocabulary, language)
@@ -529,6 +529,13 @@ func Load() (*Config, error) {
 	}
 	cfg.resolvedRoles = roles
 
+	// Load prompts from dedicated file (prompts.toml overrides config.toml [prompts]).
+	prompts, err := LoadPrompts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load prompts.toml: %w", err)
+	}
+	cfg.Prompts = prompts
+
 	return &cfg, nil
 }
 
@@ -757,6 +764,13 @@ func LoadAll() (*DaemonConfig, error) {
 		return nil, fmt.Errorf("roles.toml: %w", err)
 	}
 	cfg.resolvedRoles = roles
+
+	// Load prompts from dedicated file.
+	prompts, err := LoadPrompts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load prompts.toml: %w", err)
+	}
+	cfg.Prompts = prompts
 
 	for teamName, team := range cfg.Teams {
 		rt, err := resolveTeam(teamName, team, &cfg.Voice, cfg.Teams)
