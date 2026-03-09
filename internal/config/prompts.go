@@ -16,15 +16,11 @@ func LoadPrompts() (PromptsConfig, error) {
 		return PromptsConfig{}, fmt.Errorf("could not determine home directory: %w", err)
 	}
 	path := filepath.Join(home, ".config", "ttal", "prompts.toml")
-	data, err := os.ReadFile(path)
-	if err != nil {
+	var prompts PromptsConfig
+	if _, err := toml.DecodeFile(path, &prompts); err != nil {
 		if os.IsNotExist(err) {
 			return PromptsConfig{}, nil
 		}
-		return PromptsConfig{}, err
-	}
-	var prompts PromptsConfig
-	if err := toml.Unmarshal(data, &prompts); err != nil {
 		return PromptsConfig{}, fmt.Errorf("failed to parse prompts.toml: %w", err)
 	}
 	return prompts, nil

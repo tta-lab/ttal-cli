@@ -244,12 +244,16 @@ func checkConfig(fix bool) Section {
 	section.add(LevelOK, "config", cfgPath+" exists")
 
 	// Warn if [prompts] section still exists in config.toml (moved to prompts.toml).
-	if strings.Contains(string(rawContent), "[prompts]") {
-		section.add(LevelWarn, "prompts_migration",
-			"[prompts] section found in config.toml — move to ~/.config/ttal/prompts.toml")
+	// Check line-by-line to avoid false positives from comments or string values.
+	for _, line := range strings.Split(string(rawContent), "\n") {
+		if strings.TrimSpace(line) == "[prompts]" {
+			section.add(LevelWarn, "prompts_migration",
+				"[prompts] section found in config.toml — move to ~/.config/ttal/prompts.toml")
+			break
+		}
 	}
 
-	checkPrompts(&section)
+	checkPrompts(&section, cfg.Prompts)
 
 	if cfg.ChatID == "" {
 		section.add(LevelError, "chat_id", "chat_id not set")
@@ -269,13 +273,9 @@ func checkConfig(fix bool) Section {
 	return section
 }
 
-// checkPrompts verifies ~/.config/ttal/prompts.toml exists and has required keys.
-func checkPrompts(section *Section) {
-	prompts, err := config.LoadPrompts()
-	if err != nil {
-		section.add(LevelWarn, "prompts", fmt.Sprintf("prompts.toml load error: %v", err))
-		return
-	}
+// checkPrompts verifies that prompts.toml was loaded and has required keys.
+// Receives the already-loaded PromptsConfig from cfg.Prompts to avoid a second disk read.
+func checkPrompts(section *Section, prompts config.PromptsConfig) {
 	if prompts.Execute == "" && prompts.Review == "" {
 		section.add(LevelWarn, "prompts",
 			"prompts.toml not found or missing 'execute'/'review' keys — create ~/.config/ttal/prompts.toml")
