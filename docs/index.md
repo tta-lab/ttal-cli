@@ -95,7 +95,7 @@ TTAL doesn't replace your coding agent — it makes it a team player.
 | Capability | TTAL | Paperclip | claude-flow / claude-squad | OpenClaw | Claudegram |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Multi-agent coordination | ✓ | ✓ | ✓ | ✓ | - |
-| Multi-runtime (CC + OpenCode + Codex) | ✓ | ✓ | - | - | - |
+| Multi-runtime (Claude Code + OpenCode + Codex) | ✓ | ✓ | - | - | - |
 | OpenClaw as manager runtime | ✓ | - | - | n/a | - |
 | Zero infrastructure (no database) | ✓ | - | ✓ | - | - |
 | Bidirectional Telegram | ✓ | - | - | - | ✓ |
@@ -109,7 +109,7 @@ TTAL doesn't replace your coding agent — it makes it a team player.
 
 The closest competitor is **Paperclip** (12K stars) — a company-as-abstraction platform with a React dashboard, goal hierarchy, and budget controls. It supports multiple runtimes including Claude Code, OpenCode, and Codex. Where it diverges: Paperclip requires PostgreSQL and a Node.js server; TTAL is a single Go binary with no database. Paperclip models your team as an org chart; TTAL models it as two planes — managers and workers — coordinated through git-native workflows and direct Telegram access.
 
-TTAL is the only orchestrator that combines CLI-first zero-infra deployment, deep git integration (worktrees, PR lifecycle, PR watcher), and cross-team communication within a single org — something no other orchestrator supports.
+TTAL is the only orchestrator that combines CLI-first zero-infra deployment with deep git integration (worktrees, PR lifecycle, PR watcher) and cross-team communication within a single org — no other orchestrator offers all three together.
 
 Competitors build chat assistants or company simulators. TTAL builds autonomous software teams who own the full delivery pipeline.
 
