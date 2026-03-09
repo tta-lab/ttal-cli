@@ -15,6 +15,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+// overlayHandled is returned by handleOverlayAction to signal that an action
+// was handled (state changed) but no async Cmd needs to run.
+var overlayHandled tea.Cmd = func() tea.Msg { return nil }
+
 // Key name constants for input handlers.
 const (
 	keyNameEnter     = "enter"
@@ -388,7 +392,7 @@ func (m *Model) handleOverlayAction(action keyAction) tea.Cmd {
 		return m.annotateInput.Focus()
 	case keyDelete:
 		m.state = stateConfirmDelete
-		return tea.Batch() // sentinel: action handled, no async cmd
+		return overlayHandled
 	}
 	return nil
 }
