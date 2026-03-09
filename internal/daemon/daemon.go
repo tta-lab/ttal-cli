@@ -351,7 +351,7 @@ func initSingleAdapter(
 	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
 	// Create or resume session for adapters that need one.
 	if rt == runtime.OpenCode {
-		initSession(ctx, rt, ta.AgentName, adapter)
+		initSession(ctx, ta.AgentName, adapter)
 	}
 	// OpenClaw owns messaging — skip Telegram event bridging
 	if rt != runtime.OpenClaw {
@@ -360,7 +360,7 @@ func initSingleAdapter(
 }
 
 // initSession creates a new session for the adapter.
-func initSession(ctx context.Context, rt runtime.Runtime, agentName string, adapter runtime.Adapter) {
+func initSession(ctx context.Context, agentName string, adapter runtime.Adapter) {
 	sid, err := adapter.CreateSession(ctx)
 	if err != nil {
 		log.Printf("[daemon] failed to create session for %s: %v", agentName, err)
