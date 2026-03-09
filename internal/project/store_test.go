@@ -6,6 +6,15 @@ import (
 	"testing"
 )
 
+const (
+	aliasFbAp = "fb.ap"
+	aliasFbTk = "fb.tk"
+	nameFbAp  = "Attachment Processor"
+	nameFbTk  = "Toolkit"
+	pathFbAp  = "/path/fb/ap"
+	pathFbTk  = "/path/fb/tk"
+)
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	return NewStore(filepath.Join(t.TempDir(), "projects.toml"))
@@ -202,12 +211,7 @@ func TestStoreFileCreatedOnFirstWrite(t *testing.T) {
 	}
 }
 
-func TestStoreSubPathProjects(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "projects.toml")
-
-	// Write TOML with dot-notation nested tables like [fb.ap] and [fb.tk]
-	tomlContent := `
+const subPathTOML = `
 [fb.ap]
 name = "Attachment Processor"
 path = "/path/fb/ap"
@@ -220,48 +224,57 @@ path = "/path/fb/tk"
 name = "TTAL Core"
 path = "/path/ttal"
 `
-	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
+
+func newSubPathStore(t *testing.T) *Store {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "projects.toml")
+	if err := os.WriteFile(path, []byte(subPathTOML), 0o644); err != nil {
 		t.Fatalf("writing test TOML: %v", err)
 	}
+	return NewStore(path)
+}
 
-	s := NewStore(path)
+func TestStoreSubPathGet(t *testing.T) {
+	s := newSubPathStore(t)
 
-	// Get sub-path projects
-	p, err := s.Get("fb.ap")
+	p, err := s.Get(aliasFbAp)
 	if err != nil {
-		t.Fatalf("Get(fb.ap) error: %v", err)
+		t.Fatalf("Get(%s) error: %v", aliasFbAp, err)
 	}
 	if p == nil {
-		t.Fatal("Get(fb.ap) returned nil")
+		t.Fatalf("Get(%s) returned nil", aliasFbAp)
 	}
-	if p.Name != "Attachment Processor" {
-		t.Errorf("Name = %q, want %q", p.Name, "Attachment Processor")
+	if p.Name != nameFbAp {
+		t.Errorf("Name = %q, want %q", p.Name, nameFbAp)
 	}
-	if p.Path != "/path/fb/ap" {
-		t.Errorf("Path = %q, want %q", p.Path, "/path/fb/ap")
+	if p.Path != pathFbAp {
+		t.Errorf("Path = %q, want %q", p.Path, pathFbAp)
 	}
-	if p.Alias != "fb.ap" {
-		t.Errorf("Alias = %q, want %q", p.Alias, "fb.ap")
+	if p.Alias != aliasFbAp {
+		t.Errorf("Alias = %q, want %q", p.Alias, aliasFbAp)
 	}
 
-	p, err = s.Get("fb.tk")
+	p, err = s.Get(aliasFbTk)
 	if err != nil {
-		t.Fatalf("Get(fb.tk) error: %v", err)
+		t.Fatalf("Get(%s) error: %v", aliasFbTk, err)
 	}
 	if p == nil {
-		t.Fatal("Get(fb.tk) returned nil")
+		t.Fatalf("Get(%s) returned nil", aliasFbTk)
 	}
-	if p.Name != "Toolkit" {
-		t.Errorf("fb.tk Name = %q, want %q", p.Name, "Toolkit")
+	if p.Name != nameFbTk {
+		t.Errorf("Name = %q, want %q", p.Name, nameFbTk)
 	}
-	if p.Path != "/path/fb/tk" {
-		t.Errorf("fb.tk Path = %q, want %q", p.Path, "/path/fb/tk")
+	if p.Path != pathFbTk {
+		t.Errorf("Path = %q, want %q", p.Path, pathFbTk)
 	}
-	if p.Alias != "fb.tk" {
-		t.Errorf("fb.tk Alias = %q, want %q", p.Alias, "fb.tk")
+	if p.Alias != aliasFbTk {
+		t.Errorf("Alias = %q, want %q", p.Alias, aliasFbTk)
 	}
+}
 
-	// List should include all three projects
+func TestStoreSubPathList(t *testing.T) {
+	s := newSubPathStore(t)
+
 	projects, err := s.List(false)
 	if err != nil {
 		t.Fatalf("List() error: %v", err)
@@ -275,11 +288,11 @@ path = "/path/ttal"
 	}
 
 	// Verify sorted order: fb.ap, fb.tk, ttal
-	if projects[0].Alias != "fb.ap" {
-		t.Errorf("projects[0].Alias = %q, want %q", projects[0].Alias, "fb.ap")
+	if projects[0].Alias != aliasFbAp {
+		t.Errorf("projects[0].Alias = %q, want %q", projects[0].Alias, aliasFbAp)
 	}
-	if projects[1].Alias != "fb.tk" {
-		t.Errorf("projects[1].Alias = %q, want %q", projects[1].Alias, "fb.tk")
+	if projects[1].Alias != aliasFbTk {
+		t.Errorf("projects[1].Alias = %q, want %q", projects[1].Alias, aliasFbTk)
 	}
 	if projects[2].Alias != "ttal" {
 		t.Errorf("projects[2].Alias = %q, want %q", projects[2].Alias, "ttal")
@@ -290,26 +303,26 @@ func TestStoreSubPathRoundTrip(t *testing.T) {
 	s := newTestStore(t)
 
 	// Add a dot-notation alias via the store API
-	if err := s.Add("fb.ap", "Attachment Processor", "/path/fb/ap"); err != nil {
-		t.Fatalf("Add(fb.ap) error: %v", err)
+	if err := s.Add(aliasFbAp, nameFbAp, pathFbAp); err != nil {
+		t.Fatalf("Add(%s) error: %v", aliasFbAp, err)
 	}
 
 	// Reload from disk and verify the alias survives the round-trip
-	p, err := s.Get("fb.ap")
+	p, err := s.Get(aliasFbAp)
 	if err != nil {
-		t.Fatalf("Get(fb.ap) after reload error: %v", err)
+		t.Fatalf("Get(%s) after reload error: %v", aliasFbAp, err)
 	}
 	if p == nil {
-		t.Fatal("Get(fb.ap) returned nil after reload")
+		t.Fatalf("Get(%s) returned nil after reload", aliasFbAp)
 	}
-	if p.Name != "Attachment Processor" {
-		t.Errorf("Name = %q, want %q", p.Name, "Attachment Processor")
+	if p.Name != nameFbAp {
+		t.Errorf("Name = %q, want %q", p.Name, nameFbAp)
 	}
-	if p.Path != "/path/fb/ap" {
-		t.Errorf("Path = %q, want %q", p.Path, "/path/fb/ap")
+	if p.Path != pathFbAp {
+		t.Errorf("Path = %q, want %q", p.Path, pathFbAp)
 	}
-	if p.Alias != "fb.ap" {
-		t.Errorf("Alias = %q, want %q", p.Alias, "fb.ap")
+	if p.Alias != aliasFbAp {
+		t.Errorf("Alias = %q, want %q", p.Alias, aliasFbAp)
 	}
 }
 
@@ -338,12 +351,12 @@ path = "/path/fb/tk"
 	s := NewStore(path)
 
 	// Archived dot-notation projects should be present
-	p, err := s.Get("fb.ap") // Get only checks active
+	p, err := s.Get(aliasFbAp) // Get only checks active
 	if err != nil {
-		t.Fatalf("Get(fb.ap) error: %v", err)
+		t.Fatalf("Get(%s) error: %v", aliasFbAp, err)
 	}
 	if p != nil {
-		t.Error("archived fb.ap should not appear in active Get()")
+		t.Errorf("archived %s should not appear in active Get()", aliasFbAp)
 	}
 
 	archived, err := s.List(true)
@@ -359,26 +372,26 @@ path = "/path/fb/tk"
 	}
 
 	// Verify aliases
-	if archived[0].Alias != "fb.ap" {
-		t.Errorf("archived[0].Alias = %q, want %q", archived[0].Alias, "fb.ap")
+	if archived[0].Alias != aliasFbAp {
+		t.Errorf("archived[0].Alias = %q, want %q", archived[0].Alias, aliasFbAp)
 	}
-	if archived[0].Name != "Attachment Processor" {
-		t.Errorf("archived[0].Name = %q, want %q", archived[0].Name, "Attachment Processor")
+	if archived[0].Name != nameFbAp {
+		t.Errorf("archived[0].Name = %q, want %q", archived[0].Name, nameFbAp)
 	}
-	if archived[1].Alias != "fb.tk" {
-		t.Errorf("archived[1].Alias = %q, want %q", archived[1].Alias, "fb.tk")
+	if archived[1].Alias != aliasFbTk {
+		t.Errorf("archived[1].Alias = %q, want %q", archived[1].Alias, aliasFbTk)
 	}
 
 	// Unarchive should work
-	if err := s.Unarchive("fb.ap"); err != nil {
-		t.Fatalf("Unarchive(fb.ap) error: %v", err)
+	if err := s.Unarchive(aliasFbAp); err != nil {
+		t.Fatalf("Unarchive(%s) error: %v", aliasFbAp, err)
 	}
-	p, err = s.Get("fb.ap")
+	p, err = s.Get(aliasFbAp)
 	if err != nil {
-		t.Fatalf("Get(fb.ap) after unarchive error: %v", err)
+		t.Fatalf("Get(%s) after unarchive error: %v", aliasFbAp, err)
 	}
 	if p == nil {
-		t.Fatal("fb.ap should be active after unarchive")
+		t.Fatalf("%s should be active after unarchive", aliasFbAp)
 	}
 }
 
