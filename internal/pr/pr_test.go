@@ -69,7 +69,12 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			status: &gitprovider.CombinedStatus{
 				State: gitprovider.StateFailure,
 				Statuses: []*gitprovider.CommitStatus{
-					{Context: "ci/build", State: gitprovider.StateFailure, Description: "exit code 1", TargetURL: "https://ci.example.com/1"},
+					{
+						Context:     "ci/build",
+						State:       gitprovider.StateFailure,
+						Description: "exit code 1",
+						TargetURL:   "https://ci.example.com/1",
+					},
 					{Context: "lint", State: gitprovider.StateError, Description: "3 issues", TargetURL: ""},
 				},
 			},
