@@ -5,6 +5,22 @@ description: Config file reference for ttal
 
 ttal uses a TOML config file at `~/.config/ttal/config.toml`.
 
+## Config file layout
+
+All ttal configuration lives in `~/.config/ttal/`:
+
+```
+~/.config/ttal/
+├── config.toml     — structure + settings (teams, sync, flicknote, voice)
+├── prompts.toml    — worker-plane prompt templates (execute, review, triage, re_review)
+├── roles.toml      — manager-plane per-role prompts + heartbeat config
+├── projects.toml   — project registry
+└── .env            — secrets (bot tokens, API keys)
+```
+
+**Boundary:** `prompts.toml` holds worker-plane templates (spawned workers and reviewers).
+`roles.toml` holds manager-plane per-role templates (long-running agents for task routing).
+
 ## Basic structure
 
 ```toml
@@ -103,6 +119,26 @@ prompt = "..."
 | `prompt` | string | Routing prompt template for this role |
 | `heartbeat_interval` | string | How often to send the heartbeat prompt (e.g. `"1h"`, `"30m"`) |
 | `heartbeat_prompt` | string | Prompt delivered on each heartbeat tick |
+
+## prompts.toml fields
+
+Worker-plane prompt templates live in `~/.config/ttal/prompts.toml`:
+
+```toml
+execute = "{{skill:sp-executing-plans}}\nwrite this plan task-by-task."
+triage = "{{skill:triage}}\nPR review posted.{{review-file}} Read it and fix issues."
+review = "{{skill:pr-review}}\nReview PR #{{pr-number}}."
+re_review = "{{skill:pr-review}}\nRe-review the fixes: {{review-scope}}"
+```
+
+| Key | Used by | Template variables |
+|-----|---------|-------------------|
+| `execute` | `ttal task execute` | `{{task-id}}`, `{{skill:name}}` |
+| `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
+| `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
+| `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}`, `{{skill:name}}` |
+
+See [Prompts](./prompts.md) for full documentation and examples.
 
 ## Notification bot token
 

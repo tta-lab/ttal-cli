@@ -291,7 +291,7 @@ role: designer
 ---
 ```
 
-The agent's role determines which `[prompts]` key is used. Each command sends a role-tagged message with the UUID, description, and completion instructions. If no agent has the required role, the error suggests using `ttal task route` instead.
+The agent's role determines which prompt key is used (from `~/.config/ttal/prompts.toml` or `roles.toml`). Each command sends a role-tagged message with the UUID, description, and completion instructions. If no agent has the required role, the error suggests using `ttal task route` instead.
 
 ### Daemon Setup
 
@@ -461,7 +461,7 @@ The `modify` command uses `field:value` syntax for updates:
 - `voice` - Kokoro TTS voice ID
 - `emoji` - Display emoji
 - `description` - Short role summary
-- `role` - Agent role (maps to `[prompts]` key)
+- `role` - Agent role (maps to prompt key in prompts.toml or roles.toml)
 
 **Project fields:**
 - `alias` - Project alias (rename)
