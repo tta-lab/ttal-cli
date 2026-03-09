@@ -106,31 +106,52 @@ func diagnoseMergeFailure(ctx *Context, pr *gitprovider.PullRequest) string {
 		return fmt.Sprintf("  Could not fetch CI status: %v\n  %s", err, possibleCauses)
 	}
 
-	var lines []string
-	var failing, pending int
-	for _, s := range cs.Statuses {
+	failing, pending := countCheckStates(cs.Statuses)
+
+	// When checks are still running and none have failed, give an actionable retry message.
+	if pending > 0 && failing == 0 {
+		return fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal pr merge", pending)
+	}
+
+	return buildStatusLines(cs.Statuses, failing, pending)
+}
+
+// countCheckStates returns the number of failed and pending checks.
+func countCheckStates(statuses []*gitprovider.CommitStatus) (failing, pending int) {
+	for _, s := range statuses {
 		switch s.State {
-		case "failure", "error":
+		case gitprovider.StateFailure, gitprovider.StateError:
 			failing++
-			line := fmt.Sprintf("  ✗ %s — %s", s.Context, s.Description)
-			if s.TargetURL != "" {
-				line += fmt.Sprintf("\n    %s", s.TargetURL)
-			}
-			lines = append(lines, line)
-		case "pending":
+		case gitprovider.StatePending:
 			pending++
 		}
+	}
+	return
+}
+
+// buildStatusLines formats failure details and a summary line for non-pending states.
+func buildStatusLines(statuses []*gitprovider.CommitStatus, failing, pending int) string {
+	var lines []string
+	for _, s := range statuses {
+		if s.State != gitprovider.StateFailure && s.State != gitprovider.StateError {
+			continue
+		}
+		line := fmt.Sprintf("  ✗ %s — %s", s.Context, s.Description)
+		if s.TargetURL != "" {
+			line += fmt.Sprintf("\n    %s", s.TargetURL)
+		}
+		lines = append(lines, line)
 	}
 
 	if failing > 0 {
 		lines = append([]string{fmt.Sprintf("  %d CI check(s) failed:", failing)}, lines...)
 	}
-	if pending > 0 {
+	if failing > 0 && pending > 0 {
 		lines = append(lines, fmt.Sprintf("  ⏳ %d check(s) still pending", pending))
 	}
 
 	if failing == 0 && pending == 0 {
-		if len(cs.Statuses) == 0 {
+		if len(statuses) == 0 {
 			lines = append(lines, "  No CI checks found. Likely cause: merge conflicts or branch protection rules.")
 		} else {
 			lines = append(lines, "  All CI checks passed. Likely cause: merge conflicts or branch protection rules.")

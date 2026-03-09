@@ -67,10 +67,15 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			name: "failing checks with target URL",
 			pr:   &gitprovider.PullRequest{HeadSHA: "abc123"},
 			status: &gitprovider.CombinedStatus{
-				State: "failure",
+				State: gitprovider.StateFailure,
 				Statuses: []*gitprovider.CommitStatus{
-					{Context: "ci/build", State: "failure", Description: "exit code 1", TargetURL: "https://ci.example.com/1"},
-					{Context: "lint", State: "error", Description: "3 issues", TargetURL: ""},
+					{
+						Context:     "ci/build",
+						State:       gitprovider.StateFailure,
+						Description: "exit code 1",
+						TargetURL:   "https://ci.example.com/1",
+					},
+					{Context: "lint", State: gitprovider.StateError, Description: "3 issues", TargetURL: ""},
 				},
 			},
 			contains: []string{
@@ -86,13 +91,16 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			name: "pending checks only",
 			pr:   &gitprovider.PullRequest{HeadSHA: "abc123"},
 			status: &gitprovider.CombinedStatus{
-				State: "pending",
+				State: gitprovider.StatePending,
 				Statuses: []*gitprovider.CommitStatus{
-					{Context: "ci/build", State: "pending", Description: "waiting"},
-					{Context: "lint", State: "pending", Description: "waiting"},
+					{Context: "ci/build", State: gitprovider.StatePending, Description: "waiting"},
+					{Context: "lint", State: gitprovider.StatePending, Description: "waiting"},
 				},
 			},
-			contains: []string{"2 check(s) still pending"},
+			contains: []string{
+				"CI checks still running (2 pending)",
+				"sleep 30 && ttal pr merge",
+			},
 		},
 		{
 			name: "no statuses at all",
@@ -107,9 +115,9 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			name: "all checks passing",
 			pr:   &gitprovider.PullRequest{HeadSHA: "abc123"},
 			status: &gitprovider.CombinedStatus{
-				State: "success",
+				State: gitprovider.StateSuccess,
 				Statuses: []*gitprovider.CommitStatus{
-					{Context: "ci/build", State: "success", Description: "passed"},
+					{Context: "ci/build", State: gitprovider.StateSuccess, Description: "passed"},
 				},
 			},
 			contains: []string{"All CI checks passed", "merge conflicts or branch protection"},
@@ -118,11 +126,11 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			name: "mixed failing and pending",
 			pr:   &gitprovider.PullRequest{HeadSHA: "abc123"},
 			status: &gitprovider.CombinedStatus{
-				State: "failure",
+				State: gitprovider.StateFailure,
 				Statuses: []*gitprovider.CommitStatus{
-					{Context: "ci/build", State: "failure", Description: "failed"},
-					{Context: "lint", State: "pending", Description: "waiting"},
-					{Context: "test", State: "success", Description: "passed"},
+					{Context: "ci/build", State: gitprovider.StateFailure, Description: "failed"},
+					{Context: "lint", State: gitprovider.StatePending, Description: "waiting"},
+					{Context: "test", State: gitprovider.StateSuccess, Description: "passed"},
 				},
 			},
 			contains: []string{
