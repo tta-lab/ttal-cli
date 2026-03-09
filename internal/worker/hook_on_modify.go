@@ -45,7 +45,7 @@ type prMergedChecker func(projectPath, prID string) (merged bool, err error)
 func defaultPRMergedChecker(projectPath, prID string) (bool, error) {
 	prInfo, err := taskwarrior.ParsePRID(prID)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR: %w", err)
+		return false, fmt.Errorf("cannot verify PR %q: %w", prID, err)
 	}
 
 	info, err := gitprovider.DetectProvider(projectPath)
@@ -75,6 +75,11 @@ func validateTaskCompletion(modified hookTask, checker prMergedChecker) error {
 		return nil
 	}
 
+	prInfo, err := taskwarrior.ParsePRID(prID)
+	if err != nil {
+		return fmt.Errorf("cannot verify PR %q: %w", prID, err)
+	}
+
 	projectPath := modified.ProjectPath()
 	if projectPath == "" {
 		return fmt.Errorf("cannot verify PR: task has pr_id but no project_path. " +
@@ -94,9 +99,5 @@ func validateTaskCompletion(modified hookTask, checker prMergedChecker) error {
 		return nil
 	}
 
-	prInfo, parseErr := taskwarrior.ParsePRID(prID)
-	if parseErr != nil {
-		return parseErr
-	}
 	return fmt.Errorf("cannot complete task with unmerged PR #%d. Merge the PR first", prInfo.Index)
 }

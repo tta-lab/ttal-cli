@@ -2,6 +2,7 @@ package worker
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +88,17 @@ func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
 	}
 	if err := validateTaskCompletion(task, checker); err != nil {
 		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateTaskCompletion_PROpenWithLGTM(t *testing.T) {
+	task := makeTask("7:lgtm", "/some/project")
+	checker := func(_, _ string) (bool, error) { return false, nil }
+	err := validateTaskCompletion(task, checker)
+	if err == nil {
+		t.Fatal("expected error for unmerged PR")
+	}
+	if !strings.Contains(err.Error(), "#7") {
+		t.Errorf("expected error to contain '#7', got: %v", err)
 	}
 }
