@@ -194,20 +194,7 @@ func installInitConfig(workspace string) error {
 
 // printInitAgents scans workspace for agent directories.
 func printInitAgents(workspace string) {
-	entries, err := os.ReadDir(workspace)
-	if err != nil {
-		return
-	}
-	var agents []string
-	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		claudeMD := filepath.Join(workspace, e.Name(), "CLAUDE.md")
-		if _, err := os.Stat(claudeMD); err == nil {
-			agents = append(agents, e.Name())
-		}
-	}
+	agents := scaffold.AgentDirs(workspace)
 	if len(agents) > 0 {
 		fmt.Printf("  Agents: %s\n", strings.Join(agents, ", "))
 	}
