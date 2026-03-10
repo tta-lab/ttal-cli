@@ -43,6 +43,7 @@ func build(ctx context.Context, push bool, tag string) error {
 			"openssh-client", "ca-certificates",
 			"build-essential", "python3",
 			"taskwarrior", "ripgrep", "fd-find",
+			"vim",
 		}).
 
 		// GitHub CLI (not in standard Debian repos — add official apt source)
@@ -52,6 +53,13 @@ func build(ctx context.Context, push bool, tag string) error {
 		WithExec([]string{"apt-get", "install", "-y", "--no-install-recommends", "gh"}).
 		WithExec([]string{"apt-get", "clean"}).
 		WithExec([]string{"sh", "-c", "rm -rf /var/lib/apt/lists/*"}).
+
+		// Helix editor — .deb from GitHub releases
+		// Version: 25.07.1 — check https://github.com/helix-editor/helix/releases for updates
+		WithExec([]string{"sh", "-c",
+			"curl -fsSL https://github.com/helix-editor/helix/releases/download/25.07.1/helix_25.7.1-1_amd64.deb -o /tmp/helix.deb" +
+				" && dpkg -i /tmp/helix.deb && rm /tmp/helix.deb"}).
+		WithExec([]string{"hx", "--version"}).
 
 		// Claude Code via npm (latest, no pin)
 		WithExec([]string{"npm", "install", "-g", "@anthropic-ai/claude-code"}).
