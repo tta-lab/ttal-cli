@@ -330,7 +330,7 @@ func initAdapters(
 				log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
 				continue
 			}
-			if err := bootstrapClaudeDir(teamName, home); err != nil {
+			if err := bootstrapClaudeDir(teamName, team.TeamPath, home); err != nil {
 				log.Printf("[k8s] failed to bootstrap .claude for team %s: %v", teamName, err)
 				continue
 			}
@@ -347,6 +347,8 @@ func initAdapters(
 			k8sPods[teamName] = pod
 		}
 	}
+
+	ensureLocalAgentTrust(mcfg)
 
 	// Phase 2: spawn per-agent sessions in parallel
 	var wg sync.WaitGroup
@@ -492,6 +494,38 @@ func buildPerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []s
 		}
 	}
 	return env
+}
+
+// ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json
+// for all non-k8s agent workspace paths. Idempotent.
+func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("[daemon] warning: cannot get home dir for local agent trust: %v", err)
+		return
+	}
+
+	var paths []string
+	for _, ta := range mcfg.AllAgents() {
+		team := mcfg.Teams[ta.TeamName]
+		if team != nil && team.IsK8s() {
+			continue
+		}
+		paths = append(paths, filepath.Join(ta.TeamPath, ta.AgentName))
+	}
+	if len(paths) == 0 {
+		return
+	}
+
+	claudeJSONPath := filepath.Join(home, ".claude.json")
+	added, err := upsertClaudeJSONTrust(claudeJSONPath, paths)
+	if err != nil {
+		log.Printf("[daemon] warning: could not update local agent trust: %v", err)
+		return
+	}
+	if added > 0 {
+		log.Printf("[daemon] added trust entries for %d local agent workspaces", added)
+	}
 }
 
 // bridgeEvents reads events from an adapter and routes them to Telegram.

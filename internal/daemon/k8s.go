@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 // k8sVolume defines a hostPath volume mount for the team pod.
@@ -306,7 +309,7 @@ func shellQuoteEnvPair(kv string) string {
 
 // bootstrapClaudeDir ensures ~/.ttal/<team>/.claude/ exists with seeded config.
 // Called once before EnsurePod. Idempotent — only creates/copies if missing.
-func bootstrapClaudeDir(teamName, home string) error {
+func bootstrapClaudeDir(teamName, teamPath, home string) error {
 	claudeDir := filepath.Join(home, ".ttal", teamName, ".claude")
 	if err := os.MkdirAll(claudeDir, 0o700); err != nil {
 		return fmt.Errorf("create .claude dir: %w", err)
@@ -340,7 +343,141 @@ func bootstrapClaudeDir(teamName, home string) error {
 		}
 	}
 
+	// Discover agents once — used for .claude.json trust entries and JSONL project dirs
+	agents, discErr := agentfs.DiscoverAgents(teamPath)
+	if discErr != nil {
+		log.Printf("[k8s] warning: could not discover agents for %s: %v", teamName, discErr)
+	}
+
+	// Seed ~/.ttal/<team>/.claude.json with onboarding + project trust
+	claudeJSON := filepath.Join(home, ".ttal", teamName, ".claude.json")
+	switch _, err := os.Stat(claudeJSON); {
+	case os.IsNotExist(err):
+		data := buildClaudeJSON(agents)
+		if werr := os.WriteFile(claudeJSON, data, 0o644); werr != nil {
+			log.Printf("[k8s] warning: could not seed .claude.json for team %s: %v", teamName, werr)
+		}
+	case err == nil:
+		// File exists — ensure any new agents get trust entries added
+		ensureAgentTrust(claudeJSON, agents)
+	}
+
+	// Pre-create per-agent JSONL project dirs for watcher
+	projectsDir := filepath.Join(claudeDir, "projects")
+	for _, name := range agents {
+		encoded := watcher.EncodePath(filepath.Join("/workspace", name))
+		if err := os.MkdirAll(filepath.Join(projectsDir, encoded), 0o700); err != nil {
+			log.Printf("[k8s] warning: could not create JSONL project dir for %s/%s: %v", teamName, name, err)
+		}
+	}
+
 	return nil
+}
+
+// buildClaudeJSON creates a minimal ~/.claude.json for k8s pods.
+func buildClaudeJSON(agentNames []string) []byte {
+	type projectEntry struct {
+		HasTrustDialogAccepted     bool     `json:"hasTrustDialogAccepted"`
+		HasCompletedProjectOnboard bool     `json:"hasCompletedProjectOnboarding"`
+		AllowedTools               []string `json:"allowedTools"`
+	}
+
+	type claudeJSONStruct struct {
+		HasCompletedOnboarding bool                    `json:"hasCompletedOnboarding"`
+		Projects               map[string]projectEntry `json:"projects"`
+	}
+
+	cfg := claudeJSONStruct{
+		HasCompletedOnboarding: true,
+		Projects:               make(map[string]projectEntry),
+	}
+
+	for _, name := range agentNames {
+		cfg.Projects["/workspace/"+name] = projectEntry{
+			HasTrustDialogAccepted:     true,
+			HasCompletedProjectOnboard: true,
+			AllowedTools:               []string{},
+		}
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		log.Printf("[k8s] warning: could not marshal .claude.json: %v", err)
+		return []byte("{}")
+	}
+	return data
+}
+
+// ensureAgentTrust adds trust entries for newly discovered agents to an existing .claude.json.
+func ensureAgentTrust(claudeJSONPath string, agents []string) {
+	keys := make([]string, len(agents))
+	for i, name := range agents {
+		keys[i] = "/workspace/" + name
+	}
+	if _, err := upsertClaudeJSONTrust(claudeJSONPath, keys); err != nil {
+		log.Printf("[k8s] warning: could not update agent trust in %s: %v", claudeJSONPath, err)
+	}
+}
+
+// upsertClaudeJSONTrust reads (or creates) a .claude.json file and ensures all
+// given project paths have trust entries. Returns count of added entries.
+func upsertClaudeJSONTrust(claudeJSONPath string, projectPaths []string) (int, error) {
+	if len(projectPaths) == 0 {
+		return 0, nil
+	}
+
+	var raw map[string]any
+	data, rerr := os.ReadFile(claudeJSONPath)
+	if rerr != nil && !os.IsNotExist(rerr) {
+		return 0, fmt.Errorf("read %s: %w", claudeJSONPath, rerr)
+	}
+	if rerr == nil {
+		if uerr := json.Unmarshal(data, &raw); uerr != nil {
+			return 0, fmt.Errorf("parse %s: %w", claudeJSONPath, uerr)
+		}
+	}
+	if raw == nil {
+		raw = map[string]any{"hasCompletedOnboarding": true}
+	}
+
+	projects, _ := raw["projects"].(map[string]any)
+	if projects == nil {
+		projects = make(map[string]any)
+		raw["projects"] = projects
+	}
+
+	added := 0
+	for _, path := range projectPaths {
+		if proj, exists := projects[path]; exists {
+			if m, ok := proj.(map[string]any); ok && m["hasTrustDialogAccepted"] == true {
+				continue
+			}
+		}
+		projects[path] = newProjectTrustEntry()
+		added++
+	}
+
+	if added == 0 {
+		return 0, nil
+	}
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return 0, fmt.Errorf("marshal %s: %w", claudeJSONPath, err)
+	}
+	if err := os.WriteFile(claudeJSONPath, out, 0o644); err != nil {
+		return 0, fmt.Errorf("write %s: %w", claudeJSONPath, err)
+	}
+	return added, nil
+}
+
+// newProjectTrustEntry returns a trust entry map for a CC project.
+func newProjectTrustEntry() map[string]any {
+	return map[string]any{
+		"hasTrustDialogAccepted":        true,
+		"hasCompletedProjectOnboarding": true,
+		"allowedTools":                  []any{},
+	}
 }
 
 // buildVolumes constructs the hostPath volume slice for a team pod.
@@ -357,6 +494,10 @@ func buildVolumes(team *config.ResolvedTeam, teamName, home string) []k8sVolume 
 		{
 			Name: "claude-config", HostPath: filepath.Join(home, ".ttal", teamName, ".claude"),
 			ContainerPath: "/home/node/.claude", Type: "Directory",
+		},
+		{
+			Name: "claude-json", HostPath: filepath.Join(home, ".ttal", teamName, ".claude.json"),
+			ContainerPath: "/home/node/.claude.json", Type: "File",
 		},
 		{
 			Name: "ttal-config", HostPath: filepath.Join(home, ".config", "ttal"),
