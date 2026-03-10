@@ -223,7 +223,8 @@ func startTelegramPollers(
 			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
-		}, done, qs, cas, registry, allCommands, mt, msgSvc)
+		}, done, qs, cas, registry, allCommands, mt, msgSvc,
+			func(teamName string) string { return mcfg.UserNameForTeam(teamName) })
 	}
 }
 

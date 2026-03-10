@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -210,7 +211,7 @@ func (s *ChatService) GetAvatar(agentName string) ([]byte, error) {
 			continue
 		}
 		for _, ext := range []string{".png", ".jpg", ".jpeg"} {
-			p := filepath.Join(info.Path, ".assets", "avatar"+ext)
+			p := filepath.Join(info.Path, "assets", "avatar"+ext)
 			data, err := os.ReadFile(p)
 			if err == nil {
 				return data, nil
@@ -221,6 +222,53 @@ func (s *ChatService) GetAvatar(agentName string) ([]byte, error) {
 		}
 	}
 	return nil, fmt.Errorf("avatar not found for agent %q", agentName)
+}
+
+// TeamInfo groups a team name with its agents for the sidebar.
+type TeamInfo struct {
+	Name   string         `json:"name"`
+	Agents []AgentSummary `json:"agents"`
+}
+
+// AgentSummary holds the minimal agent info needed by the sidebar.
+type AgentSummary struct {
+	Name        string `json:"name"`
+	Emoji       string `json:"emoji"`
+	Description string `json:"description"`
+}
+
+// GetTeams returns all teams and their agents from daemon config.
+func (s *ChatService) GetTeams() ([]TeamInfo, error) {
+	if s.mcfg == nil {
+		return nil, fmt.Errorf("no daemon config")
+	}
+	var teams []TeamInfo
+	for teamName, team := range s.mcfg.Teams {
+		if team.TeamPath == "" {
+			continue
+		}
+		agents, err := agentfs.Discover(team.TeamPath)
+		if err != nil {
+			log.Printf("[gui] GetTeams: agentfs.Discover(%q) failed for team %q: %v", team.TeamPath, teamName, err)
+			continue
+		}
+		ti := TeamInfo{Name: teamName}
+		for _, a := range agents {
+			ti.Agents = append(ti.Agents, AgentSummary{
+				Name:        a.Name,
+				Emoji:       a.Emoji,
+				Description: a.Description,
+			})
+		}
+		sort.Slice(ti.Agents, func(i, j int) bool {
+			return ti.Agents[i].Name < ti.Agents[j].Name
+		})
+		teams = append(teams, ti)
+	}
+	sort.Slice(teams, func(i, j int) bool {
+		return teams[i].Name < teams[j].Name
+	})
+	return teams, nil
 }
 
 // dialDaemon opens a connection to the daemon unix socket.

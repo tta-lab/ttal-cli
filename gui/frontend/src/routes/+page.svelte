@@ -6,11 +6,13 @@
 	import ChatBubble from '$lib/components/ChatBubble.svelte';
 	import MessageInput from '$lib/components/MessageInput.svelte';
 	import AgentFeed from '$lib/components/AgentFeed.svelte';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 
 	let daemonOnline = $state(false);
 	let statusMessage = $state('Connecting…');
 	let messagesEl = $state<HTMLElement | null>(null);
 	let loadingMore = $state(false);
+	let showCommandPalette = $state(false);
 
 	// Avatar blob URL cache — keyed by agent name, cleaned up on destroy
 	const avatarCache = new Map<string, string>();
@@ -28,7 +30,7 @@
 			console.warn(`GetAvatar failed for "${name}":`, err);
 			// Cache empty string so we don't retry on every contact switch
 			avatarCache.set(name, '');
-			return ''; // fallback to initials avatar
+			return ''; // fallback to emoji/initials
 		}
 	}
 
@@ -38,7 +40,19 @@
 		if (url) avatarMap = { ...avatarMap, [chatStore.activeContact]: url };
 	}
 
-	// Initialize: user name, daemon status, initial contacts
+	// Pre-fetch avatars for all agents in the active team
+	async function prefetchTeamAvatars() {
+		const team = chatStore.teams.find((t) => t.name === chatStore.activeTeam);
+		if (!team) return;
+		for (const agent of team.agents) {
+			if (!avatarCache.has(agent.name)) {
+				const url = await getAvatarUrl(agent.name);
+				if (url) avatarMap = { ...avatarMap, [agent.name]: url };
+			}
+		}
+	}
+
+	// Initialize: user name, daemon status, teams, contacts
 	async function init() {
 		try {
 			chatStore.userName = await ChatService.GetUserName();
@@ -52,6 +66,14 @@
 		} catch {
 			daemonOnline = false;
 			statusMessage = 'Daemon offline — read-only mode';
+		}
+		try {
+			const teams = await ChatService.GetTeams();
+			chatStore.setTeams(teams);
+			prefetchTeamAvatars().catch((err) => console.warn('prefetchTeamAvatars failed:', err));
+		} catch (err) {
+			console.error('GetTeams failed:', err);
+			statusMessage = `Failed to load teams: ${err}`;
 		}
 		try {
 			chatStore.contacts = await ChatService.GetContacts();
@@ -121,6 +143,12 @@
 		};
 	});
 
+	// Prefetch avatars when active team changes
+	$effect(() => {
+		chatStore.activeTeam;
+		prefetchTeamAvatars().catch((err) => console.warn('prefetchTeamAvatars failed:', err));
+	});
+
 	// Poll agent feed every 500ms when feed tab is active
 	let feedInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -185,9 +213,38 @@
 			await ChatService.SendMessage(chatStore.activeContact, content);
 		} catch (err) {
 			console.error('SendMessage failed:', err);
-			// Return content to caller so MessageInput can restore it
 			throw err;
 		}
+	}
+
+	function currentTeamAgents() {
+		const team = chatStore.teams.find((t) => t.name === chatStore.activeTeam);
+		return team?.agents ?? [];
+	}
+
+	function selectAgent(delta: 1 | -1) {
+		const agents = currentTeamAgents();
+		if (!agents.length) return;
+		const idx = agents.findIndex((a) => a.name === chatStore.activeContact);
+		const next = (idx + delta + agents.length) % agents.length;
+		chatStore.setActiveContact(agents[next].name);
+	}
+
+	function handleGlobalKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && showCommandPalette) {
+			showCommandPalette = false;
+			return;
+		}
+		if (!e.metaKey) return;
+		if (e.key === 'ArrowUp') { e.preventDefault(); selectAgent(-1); }
+		else if (e.key === 'ArrowDown') { e.preventDefault(); selectAgent(1); }
+		else if (e.key === 'k') { e.preventDefault(); showCommandPalette = !showCommandPalette; }
+	}
+
+	function handlePaletteSelect(team: string, agent: string) {
+		chatStore.setActiveTeam(team);
+		chatStore.setActiveContact(agent);
+		showCommandPalette = false;
 	}
 
 	onDestroy(() => {
@@ -201,11 +258,24 @@
 	});
 </script>
 
+<svelte:window onkeydown={handleGlobalKeydown} />
+
+{#if showCommandPalette}
+	<CommandPalette
+		teams={chatStore.teams}
+		onSelect={handlePaletteSelect}
+		onClose={() => (showCommandPalette = false)}
+	/>
+{/if}
+
 <div class="app-shell">
 	<!-- Sidebar -->
 	<Sidebar
-		contacts={chatStore.contacts}
+		teams={chatStore.teams}
+		activeTeam={chatStore.activeTeam}
 		activeContact={chatStore.activeContact}
+		{avatarMap}
+		onSelectTeam={(name) => chatStore.setActiveTeam(name)}
 		onSelect={(name) => chatStore.setActiveContact(name)}
 	/>
 
@@ -237,7 +307,7 @@
 		{#if chatStore.activeTab === 'chat'}
 			{#if !chatStore.activeContact}
 				<div class="empty-state">
-					<p>Select a conversation from the sidebar</p>
+					<p>Select an agent from the sidebar</p>
 				</div>
 			{:else}
 				<div

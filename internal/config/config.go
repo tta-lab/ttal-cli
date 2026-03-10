@@ -167,6 +167,8 @@ type TeamConfig struct {
 	TaskSyncURL string `toml:"task_sync_url"` //nolint:lll
 	// Kubernetes deployment settings (optional — nil means local tmux)
 	Kubernetes *KubernetesConfig `toml:"kubernetes" jsonschema:"description=Kubernetes deployment settings (optional)"` //nolint:lll
+	// Optional per-team human identity override (falls back to global [user])
+	User UserConfig `toml:"user"` //nolint:lll
 }
 
 // IsK8s reports whether this team deploys agents to Kubernetes.
@@ -762,6 +764,7 @@ type ResolvedTeam struct {
 	Voice             VoiceConfig
 	EmojiReactions    bool
 	Kubernetes        *KubernetesConfig // nil = local tmux (default)
+	UserName          string            // human identity for this team
 }
 
 // IsK8s reports whether this team deploys agents to Kubernetes.
@@ -769,6 +772,15 @@ func (t *ResolvedTeam) IsK8s() bool { return t.Kubernetes.isSet() }
 
 // K8sAgentImage returns the container image for agent pods, with a sensible default.
 func (t *ResolvedTeam) K8sAgentImage() string { return t.Kubernetes.agentImage() }
+
+// UserNameForTeam returns the human identity for a given team.
+// Falls back to the global [user] name, then $USER.
+func (d *DaemonConfig) UserNameForTeam(teamName string) string {
+	if team, ok := d.Teams[teamName]; ok && team.UserName != "" {
+		return team.UserName
+	}
+	return d.Global.UserName()
+}
 
 // DefaultTeamName returns the default team name with fallback to "default".
 func (m *DaemonConfig) DefaultTeamName() string {
@@ -835,6 +847,15 @@ func LoadAll() (*DaemonConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("team %q: %w", teamName, err)
 		}
+		// Resolve human username: per-team override → global → $USER
+		userName := team.User.Name
+		if userName == "" {
+			userName = cfg.User.Name
+		}
+		if userName == "" {
+			userName = os.Getenv("USER")
+		}
+		rt.UserName = userName
 		mcfg.Teams[teamName] = rt
 	}
 
