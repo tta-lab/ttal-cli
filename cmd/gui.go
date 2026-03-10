@@ -52,7 +52,7 @@ func findTtalGui() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("ttal-gui not found in PATH\n\nInstall it with:\n  cd gui && go build -o ~/go/bin/ttal-gui .")
+	return "", fmt.Errorf("ttal-gui not found in PATH — install with: cd gui && go build -o ~/go/bin/ttal-gui")
 }
 
 func init() {
