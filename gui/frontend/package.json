@@ -16,7 +16,6 @@
     "@tailwindcss/vite": "^4.2.1",
     "@wailsio/runtime": "latest",
     "daisyui": "^5.5.19",
-    "emoji-picker-element": "^1.29.1",
     "highlight.js": "^11.11.1",
     "rehype-highlight": "^7.0.2",
     "rehype-sanitize": "^6.0.0",

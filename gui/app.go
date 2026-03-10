@@ -14,7 +14,6 @@ import (
 	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
-	"github.com/google/uuid"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/ent"
@@ -307,26 +306,6 @@ func (s *ChatService) SendMessage(recipient, content string) error {
 
 	if _, err := conn.Write(data); err != nil {
 		return fmt.Errorf("write: %w", err)
-	}
-	return nil
-}
-
-// AddReaction writes a reaction directly to the local SQLite database.
-// Reactions are display-only and do not require daemon routing.
-func (s *ChatService) AddReaction(messageID, emoji string) error {
-	msgUUID, err := uuid.Parse(messageID)
-	if err != nil {
-		return fmt.Errorf("invalid message id: %w", err)
-	}
-	ctx := context.Background()
-	_, err = s.db.Reaction.Create().
-		SetID(uuid.New()).
-		SetEmoji(emoji).
-		SetFromAgent(s.userName).
-		SetMessageID(msgUUID).
-		Save(ctx)
-	if err != nil {
-		return fmt.Errorf("add reaction: %w", err)
 	}
 	return nil
 }
