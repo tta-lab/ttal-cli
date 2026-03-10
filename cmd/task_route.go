@@ -188,18 +188,9 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		Spawner:  detectSpawner(),
 	}
 
-	// Look up project image for Docker spawn.
-	// Supports hierarchical project names ("ttal.pr" → try "ttal.pr" then "ttal").
-	if task.Project != "" {
-		store := project.NewStore(config.ResolveProjectsPath())
-		candidates := buildProjectCandidates(task.Project)
-		for _, candidate := range candidates {
-			if proj, err := store.Get(candidate); err == nil && proj != nil && proj.Image != "" {
-				spawnCfg.UseDocker = true
-				spawnCfg.Image = proj.Image
-				break
-			}
-		}
+	if image := lookupProjectImage(task.Project); image != "" {
+		spawnCfg.UseDocker = true
+		spawnCfg.Image = image
 	}
 
 	if err := worker.Spawn(spawnCfg); err != nil {
@@ -209,15 +200,21 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	return nil
 }
 
-// buildProjectCandidates returns progressively shorter prefixes of a hierarchical
-// project name for alias lookup. E.g. "ttal.pr" → ["ttal.pr", "ttal"].
-func buildProjectCandidates(name string) []string {
-	parts := strings.Split(name, ".")
-	candidates := make([]string, 0, len(parts))
-	for i := len(parts); i >= 1; i-- {
-		candidates = append(candidates, strings.Join(parts[:i], "."))
+// lookupProjectImage returns the container image for a task's project name, or "".
+// Tries progressively shorter prefixes: "ttal.pr" → "ttal.pr", "ttal".
+func lookupProjectImage(taskProject string) string {
+	if taskProject == "" {
+		return ""
 	}
-	return candidates
+	store := project.NewStore(config.ResolveProjectsPath())
+	parts := strings.Split(taskProject, ".")
+	for i := len(parts); i >= 1; i-- {
+		candidate := strings.Join(parts[:i], ".")
+		if proj, err := store.Get(candidate); err == nil && proj != nil && proj.Image != "" {
+			return proj.Image
+		}
+	}
+	return ""
 }
 
 // detectSpawner returns the team:agent identity from env vars.
