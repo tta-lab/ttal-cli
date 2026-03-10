@@ -1,9 +1,9 @@
 package worker
 
-// Package-level doc: Docker workers run the coder window inside a Docker container
-// while keeping the reviewer window on bare metal within the same tmux session.
-// The container mounts the worktree, host socket, SSH keys, gitconfig, and a temp
-// env file so the coder process gets all secrets without the daemon leaking them.
+// Docker workers run the coder window inside a Docker container while keeping
+// the reviewer window on bare metal within the same tmux session.
+// The container mounts the worktree, host socket, SSH keys, gitconfig, and an
+// env file (co-located in the worktree so it's cleaned up with the worktree).
 
 import (
 	"fmt"
@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -39,16 +40,9 @@ func SpawnDocker(cfg SpawnConfig) error {
 		return fmt.Errorf("cannot find git root for %s: %w", project, err)
 	}
 
-	subpath := ""
-	resolvedProject, _ := filepath.EvalSymlinks(project)
-	resolvedRoot, _ := filepath.EvalSymlinks(gitRoot)
-	if resolvedProject != resolvedRoot {
-		rel, err := filepath.Rel(gitRoot, project)
-		if err != nil {
-			return fmt.Errorf("cannot compute relative subpath: %w", err)
-		}
-		subpath = rel
-		fmt.Printf("  Monorepo subpath: %s\n", subpath)
+	subpath, err := resolveSubpath(project, gitRoot)
+	if err != nil {
+		return err
 	}
 
 	cfg.Runtime = resolveRuntime(cfg.Runtime, task)
@@ -84,6 +78,13 @@ func SpawnDocker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
+	// OpenCode requires a permissions config in the worktree.
+	if cfg.Runtime == runtime.OpenCode {
+		if err := writeOpenCodeConfig(workDir); err != nil {
+			return fmt.Errorf("failed to write opencode.json: %w", err)
+		}
+	}
+
 	return launchDockerTmuxWorker(cfg, task, sessionName, worktreeRoot, workDir, branch, project)
 }
 
@@ -110,23 +111,23 @@ func launchDockerTmuxWorker(
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
-	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
 	model := resolveModel(task, shellCfg)
 
-	// Build the bare-metal launch command (gatekeeper + runtime args).
+	// Build the runtime command (gatekeeper + CC/OpenCode invocation).
 	runtimeCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model)
 	if err != nil {
 		return err
 	}
 
-	// Write a temp env file for Docker (--env-file). This delivers secrets to the
-	// container without embedding them in the docker run command string.
-	envFile, err := writeDockerEnvFile(taskrc)
+	// Write env file co-located in the worktree so it's cleaned up automatically
+	// when the worktree is removed by worker.Close.
+	envFile, err := writeDockerEnvFile(taskrc, worktreeRoot)
 	if err != nil {
 		return fmt.Errorf("failed to write docker env file: %w", err)
 	}
 
 	// Resolve host socket path for mounting into the container.
+	// hostSocketPath() always returns the host default (ignores TTAL_SOCKET_PATH).
 	hostSock, err := hostSocketPath()
 	if err != nil {
 		return fmt.Errorf("failed to resolve socket path: %w", err)
@@ -139,8 +140,10 @@ func launchDockerTmuxWorker(
 	sshDir := filepath.Join(home, ".ssh")
 	gitconfigPath := filepath.Join(home, ".gitconfig")
 
-	// workDir inside the container mirrors the host path (same absolute path).
-	dockerCmd := buildDockerCmd(
+	// buildDockerShellCmd produces a properly shell-quoted command string that
+	// tmux passes to the shell. Using shellQuote on all host paths and the
+	// runtimeCmd prevents breakage when paths contain spaces.
+	dockerShellCmd := buildDockerShellCmd(
 		task.SessionID(),
 		string(cfg.Runtime),
 		cfg.Image,
@@ -155,12 +158,11 @@ func launchDockerTmuxWorker(
 		runtimeCmd,
 	)
 
-	// Wrap with env vars so they land in the tmux session (picked up by reviewer window).
-	shellCmd := shellCfg.BuildEnvShellCommand(envParts, dockerCmd)
-
 	fmt.Printf("\nLaunching Docker %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, "worker", workDir, shellCmd); err != nil {
+	// Pass dockerShellCmd directly — env vars for the reviewer window are set by
+	// injectSessionEnv below. The Docker container gets its env via --env-file and --env=.
+	if err := tmux.NewSession(sessionName, "worker", workDir, dockerShellCmd); err != nil {
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
@@ -189,46 +191,52 @@ func launchDockerTmuxWorker(
 	return nil
 }
 
-// buildDockerCmd constructs the docker run command string.
-// The worktree, task file, host socket, SSH keys, gitconfig and env file are all
-// mounted read-only (except the worktree itself which needs write access for git).
-func buildDockerCmd(
-	sessionID, runtime, image string,
+// buildDockerShellCmd constructs a shell-safe docker run command string.
+// All host paths are shell-quoted so the command is safe when passed through
+// the user's shell (e.g. `tmux new-session ... 'docker run ...'`).
+func buildDockerShellCmd(
+	sessionID, rt, image string,
 	uid, gid int,
 	worktreeRoot, taskFile, hostSock, sshDir, gitconfigPath, envFile, runtimeCmd string,
 ) string {
+	sq := shellQuoteStr
 	parts := []string{
 		"docker", "run", "--rm", "-it",
-		fmt.Sprintf("--name=ttal-worker-%s", sessionID),
+		"--name=ttal-worker-" + sessionID,
 		fmt.Sprintf("--user=%d:%d", uid, gid),
+		// --workdir makes the working directory explicit (base image sets WORKDIR /workspace
+		// but worker images could override it).
+		"--workdir=/workspace",
 		// Worktree as /workspace (read-write for git operations)
-		fmt.Sprintf("--volume=%s:/workspace", worktreeRoot),
-		// Task file (read-only)
-		fmt.Sprintf("--volume=%s:%s:ro", taskFile, taskFile),
-		// Daemon socket (read-write so ttal send works)
-		fmt.Sprintf("--volume=%s:/run/ttal.sock", hostSock),
+		"--volume=" + sq(worktreeRoot) + ":/workspace",
+		// Task file (read-only; same path inside container as on host)
+		"--volume=" + sq(taskFile) + ":" + sq(taskFile) + ":ro",
+		// Daemon socket (read-write so ttal send works from inside the container)
+		"--volume=" + sq(hostSock) + ":/run/ttal.sock",
 		// SSH keys (read-only)
-		fmt.Sprintf("--volume=%s:/home/agent/.ssh:ro", sshDir),
+		"--volume=" + sq(sshDir) + ":/home/agent/.ssh:ro",
 		// gitconfig (read-only)
-		fmt.Sprintf("--volume=%s:/home/agent/.gitconfig:ro", gitconfigPath),
-		// Secrets env file
-		fmt.Sprintf("--env-file=%s", envFile),
+		"--volume=" + sq(gitconfigPath) + ":/home/agent/.gitconfig:ro",
+		// Secrets env file (co-located in worktree, cleaned up with worktree)
+		"--env-file=" + sq(envFile),
 		// Point ttal at the mounted socket path inside the container
 		"--env=TTAL_SOCKET_PATH=/run/ttal.sock",
 		"--env=TTAL_ROLE=coder",
-		fmt.Sprintf("--env=TTAL_JOB_ID=%s", sessionID),
-		fmt.Sprintf("--env=TTAL_RUNTIME=%s", runtime),
-		image,
-		// The runtime command (gatekeeper + CC/OpenCode) becomes the container CMD.
-		// Wrap in bash -c so shell features (&&, env substitution) work correctly.
-		"bash", "-c", runtimeCmd,
+		"--env=TTAL_JOB_ID=" + sessionID,
+		"--env=TTAL_RUNTIME=" + rt,
+		sq(image),
+		// bash -c <quoted-runtimeCmd>: shell-quoting runtimeCmd ensures it is
+		// treated as a single argument even when it contains spaces.
+		"bash", "-c", sq(runtimeCmd),
 	}
 	return strings.Join(parts, " ")
 }
 
-// writeDockerEnvFile writes a temp env file with all secrets from ~/.config/ttal/.env.
+// writeDockerEnvFile writes an env file with secrets from ~/.config/ttal/.env.
+// The file is placed inside worktreeRoot so it is automatically deleted when the
+// worktree is cleaned up by worker.Close, avoiding persistent secret leakage.
 // Docker --env-file format: KEY=VALUE, one per line.
-func writeDockerEnvFile(taskrc string) (string, error) {
+func writeDockerEnvFile(taskrc, worktreeRoot string) (string, error) {
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
 		// Non-fatal — worker launches without API secrets
@@ -236,16 +244,12 @@ func writeDockerEnvFile(taskrc string) (string, error) {
 		dotEnv = map[string]string{}
 	}
 
-	f, err := os.CreateTemp("", "ttal-docker-env-*.env")
+	envPath := filepath.Join(worktreeRoot, ".ttal-docker-env")
+	f, err := os.OpenFile(envPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", fmt.Errorf("creating env file: %w", err)
 	}
 	defer f.Close()
-
-	// Restrict to owner-only — contains API secrets
-	if err := os.Chmod(f.Name(), 0o600); err != nil {
-		return "", fmt.Errorf("chmod env file: %w", err)
-	}
 
 	for k, v := range dotEnv {
 		fmt.Fprintf(f, "%s=%s\n", k, v)
@@ -257,16 +261,49 @@ func writeDockerEnvFile(taskrc string) (string, error) {
 		fmt.Fprintf(f, "TTAL_TEAM=%s\n", team)
 	}
 
-	return f.Name(), nil
+	return envPath, nil
 }
 
 // hostSocketPath returns the daemon socket path on the host.
-// Ignores TTAL_SOCKET_PATH (which is for containers) and always returns the
-// host default, so we know the correct path to mount into the container.
+// Ignores TTAL_SOCKET_PATH (which is for containers pointing back at the host socket)
+// so we always get the real host path to mount into the container.
 func hostSocketPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(home, ".ttal", "daemon.sock"), nil
+}
+
+// resolveSubpath computes the relative subpath from gitRoot to project.
+// Returns ("", nil) when they are the same directory (not a monorepo subpath).
+// Logs a warning and falls back to unresolved paths when EvalSymlinks fails.
+func resolveSubpath(project, gitRoot string) (string, error) {
+	resolvedProject, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: EvalSymlinks(%s): %v — using unresolved path\n", project, err)
+		resolvedProject = project
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(gitRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: EvalSymlinks(%s): %v — using unresolved path\n", gitRoot, err)
+		resolvedRoot = gitRoot
+	}
+
+	if resolvedProject == resolvedRoot {
+		return "", nil
+	}
+
+	rel, err := filepath.Rel(gitRoot, project)
+	if err != nil {
+		return "", fmt.Errorf("cannot compute relative subpath: %w", err)
+	}
+	fmt.Printf("  Monorepo subpath: %s\n", rel)
+	return rel, nil
+}
+
+// shellQuoteStr wraps s in single quotes for POSIX shell, escaping embedded single quotes.
+// Identical to daemon/k8s.go shellQuote — kept local to avoid cross-package dependency.
+func shellQuoteStr(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

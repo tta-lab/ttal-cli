@@ -188,9 +188,11 @@ func listenSocket(sockPath string, handlers socketHandlers) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on %s: %w", sockPath, err)
 	}
-	// Owner-only permissions — Docker workers run with --user matching host UID.
+	// Owner-only permissions — Docker workers connect with --user matching host UID.
+	// Fail hard: if this succeeds but permissions are wrong, any local user can inject messages.
 	if err := os.Chmod(sockPath, 0o600); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to chmod socket: %v\n", err)
+		ln.Close()
+		return nil, fmt.Errorf("insecure socket permissions: %w", err)
 	}
 
 	go func() {

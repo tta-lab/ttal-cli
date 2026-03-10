@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 2
       - id: changed
         run: |
-          dirs=$(git diff --name-only HEAD~1 | grep '^containers/' | cut -d/ -f1-2 | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          dirs=$(git diff --name-only ${{ github.event.before }} HEAD | grep '^containers/' | cut -d/ -f1-2 | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
           echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
 
   build:

@@ -218,7 +218,12 @@ func lookupProjectImage(taskProject string) string {
 	parts := strings.Split(taskProject, ".")
 	for i := len(parts); i >= 1; i-- {
 		candidate := strings.Join(parts[:i], ".")
-		if proj, err := store.Get(candidate); err == nil && proj != nil && proj.Image != "" {
+		proj, err := store.Get(candidate)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: image lookup for %q failed: %v\n", candidate, err)
+			continue
+		}
+		if proj != nil && proj.Image != "" {
 			return proj.Image
 		}
 	}
