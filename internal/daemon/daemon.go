@@ -895,29 +895,14 @@ func IsRunning() (bool, int, error) {
 
 // shutdownAgents gracefully shuts down all agent sessions on daemon exit.
 // K8s agent sessions receive /exit but pods are kept running for reuse.
-// Local CC sessions are killed directly; status files are cleared so the
-// next spawn doesn't attempt --resume with a stale session ID.
+// Local CC sessions are killed directly; status files are preserved so the
+// next spawn can resume with --resume <session-id>.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
 	stopK8sAgents(mcfg)
 	sessions := collectCCSessions(mcfg)
 	if len(sessions) > 0 {
 		shutdownCCSessions(sessions)
-	}
-	clearCCStatusFiles(mcfg)
-}
-
-// clearCCStatusFiles removes persisted session status for all local CC agents
-// so that a stale session ID is never passed to --resume on next spawn.
-func clearCCStatusFiles(mcfg *config.DaemonConfig) {
-	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
-		if rt != runtime.ClaudeCode {
-			continue
-		}
-		if err := status.Remove(ta.TeamName, ta.AgentName); err != nil {
-			log.Printf("[daemon] failed to clear status for %s/%s: %v", ta.TeamName, ta.AgentName, err)
-		}
 	}
 }
 
