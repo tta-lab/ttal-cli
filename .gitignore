@@ -47,6 +47,9 @@ gui/frontend/.svelte-kit/
 gui/frontend/dist/
 gui/frontend/node_modules/
 
+# Docker worker secrets (co-located in worktree, auto-deleted with worktree)
+.ttal-docker-env
+
 # OS
 .DS_Store
 Thumbs.db
