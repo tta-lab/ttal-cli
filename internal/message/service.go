@@ -1,6 +1,3 @@
-// Package message provides CRUD operations for persisting daemon messages.
-//
-// Plane: manager
 package message
 
 import (
@@ -67,7 +64,9 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (*ent.Message, err
 }
 
 // ListConversation returns messages between two users, newest first.
-func (s *Service) ListConversation(ctx context.Context, userA, userB string, limit, offset int) ([]*ent.Message, error) {
+func (s *Service) ListConversation(
+	ctx context.Context, userA, userB string, limit, offset int,
+) ([]*ent.Message, error) {
 	return s.client.Message.Query().
 		Where(
 			entmessage.Or(
@@ -87,6 +86,9 @@ func (s *Service) ListConversation(ctx context.Context, userA, userB string, lim
 		All(ctx)
 }
 
+// listContactsMaxMessages caps the scan for contact deduplication.
+const listContactsMaxMessages = 5000
+
 // ListContacts returns the conversation partners of a user, ordered by most recent message.
 func (s *Service) ListContacts(ctx context.Context, userID string) ([]Contact, error) {
 	msgs, err := s.client.Message.Query().
@@ -97,6 +99,7 @@ func (s *Service) ListContacts(ctx context.Context, userID string) ([]Contact, e
 			),
 		).
 		Order(ent.Desc(entmessage.FieldCreatedAt)).
+		Limit(listContactsMaxMessages).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -145,7 +148,9 @@ func (s *Service) AddReaction(ctx context.Context, messageID uuid.UUID, emoji, f
 }
 
 // AddAttachment attaches a file to a message.
-func (s *Service) AddAttachment(ctx context.Context, messageID uuid.UUID, filename, mimeType, path string, size int64) (*ent.Attachment, error) {
+func (s *Service) AddAttachment(
+	ctx context.Context, messageID uuid.UUID, filename, mimeType, path string, size int64,
+) (*ent.Attachment, error) {
 	return s.client.Attachment.Create().
 		SetFilename(filename).
 		SetMimeType(mimeType).

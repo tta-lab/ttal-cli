@@ -68,6 +68,14 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// FilenameValidator is a validator for the "filename" field. It is called by the builders before save.
+	FilenameValidator func(string) error
+	// MimeTypeValidator is a validator for the "mime_type" field. It is called by the builders before save.
+	MimeTypeValidator func(string) error
+	// SizeBytesValidator is a validator for the "size_bytes" field. It is called by the builders before save.
+	SizeBytesValidator func(int64) error
+	// PathValidator is a validator for the "path" field. It is called by the builders before save.
+	PathValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )

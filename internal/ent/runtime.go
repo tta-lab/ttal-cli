@@ -18,6 +18,22 @@ import (
 func init() {
 	attachmentFields := schema.Attachment{}.Fields()
 	_ = attachmentFields
+	// attachmentDescFilename is the schema descriptor for filename field.
+	attachmentDescFilename := attachmentFields[1].Descriptor()
+	// attachment.FilenameValidator is a validator for the "filename" field. It is called by the builders before save.
+	attachment.FilenameValidator = attachmentDescFilename.Validators[0].(func(string) error)
+	// attachmentDescMimeType is the schema descriptor for mime_type field.
+	attachmentDescMimeType := attachmentFields[2].Descriptor()
+	// attachment.MimeTypeValidator is a validator for the "mime_type" field. It is called by the builders before save.
+	attachment.MimeTypeValidator = attachmentDescMimeType.Validators[0].(func(string) error)
+	// attachmentDescSizeBytes is the schema descriptor for size_bytes field.
+	attachmentDescSizeBytes := attachmentFields[3].Descriptor()
+	// attachment.SizeBytesValidator is a validator for the "size_bytes" field. It is called by the builders before save.
+	attachment.SizeBytesValidator = attachmentDescSizeBytes.Validators[0].(func(int64) error)
+	// attachmentDescPath is the schema descriptor for path field.
+	attachmentDescPath := attachmentFields[4].Descriptor()
+	// attachment.PathValidator is a validator for the "path" field. It is called by the builders before save.
+	attachment.PathValidator = attachmentDescPath.Validators[0].(func(string) error)
 	// attachmentDescID is the schema descriptor for id field.
 	attachmentDescID := attachmentFields[0].Descriptor()
 	// attachment.DefaultID holds the default value on creation for the id field.

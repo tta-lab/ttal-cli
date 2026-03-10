@@ -130,14 +130,34 @@ func (_c *AttachmentCreate) check() error {
 	if _, ok := _c.mutation.Filename(); !ok {
 		return &ValidationError{Name: "filename", err: errors.New(`ent: missing required field "Attachment.filename"`)}
 	}
+	if v, ok := _c.mutation.Filename(); ok {
+		if err := attachment.FilenameValidator(v); err != nil {
+			return &ValidationError{Name: "filename", err: fmt.Errorf(`ent: validator failed for field "Attachment.filename": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.MimeType(); !ok {
 		return &ValidationError{Name: "mime_type", err: errors.New(`ent: missing required field "Attachment.mime_type"`)}
+	}
+	if v, ok := _c.mutation.MimeType(); ok {
+		if err := attachment.MimeTypeValidator(v); err != nil {
+			return &ValidationError{Name: "mime_type", err: fmt.Errorf(`ent: validator failed for field "Attachment.mime_type": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.SizeBytes(); !ok {
 		return &ValidationError{Name: "size_bytes", err: errors.New(`ent: missing required field "Attachment.size_bytes"`)}
 	}
+	if v, ok := _c.mutation.SizeBytes(); ok {
+		if err := attachment.SizeBytesValidator(v); err != nil {
+			return &ValidationError{Name: "size_bytes", err: fmt.Errorf(`ent: validator failed for field "Attachment.size_bytes": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Path(); !ok {
 		return &ValidationError{Name: "path", err: errors.New(`ent: missing required field "Attachment.path"`)}
+	}
+	if v, ok := _c.mutation.Path(); ok {
+		if err := attachment.PathValidator(v); err != nil {
+			return &ValidationError{Name: "path", err: fmt.Errorf(`ent: validator failed for field "Attachment.path": %w`, err)}
+		}
 	}
 	if len(_c.mutation.MessageIDs()) == 0 {
 		return &ValidationError{Name: "message", err: errors.New(`ent: missing required edge "Attachment.message"`)}

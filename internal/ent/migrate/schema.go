@@ -94,6 +94,13 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "reaction_emoji_from_agent_message_reactions",
+				Unique:  true,
+				Columns: []*schema.Column{ReactionsColumns[1], ReactionsColumns[2], ReactionsColumns[4]},
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{

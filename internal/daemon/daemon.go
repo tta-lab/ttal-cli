@@ -70,12 +70,19 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("get home dir: %w", err)
 	}
-	dbPath := filepath.Join(home, ".ttal", "messages.db")
-	drv, err := entsql.Open("sqlite", "file:"+dbPath+"?cache=shared&_pragma=foreign_keys(1)&_journal_mode=WAL")
+	ttalDir := filepath.Join(home, ".ttal")
+	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
+		return fmt.Errorf("create message db dir: %w", err)
+	}
+	dbPath := filepath.Join(ttalDir, "messages.db")
+	// modernc/sqlite uses _pragma= syntax; foreign_keys and WAL mode required.
+	dbDSN := "file:" + dbPath + "?cache=shared&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
+	drv, err := entsql.Open("sqlite", dbDSN)
 	if err != nil {
 		return fmt.Errorf("open message db: %w", err)
 	}
 	entClient := ent.NewClient(ent.Driver(entsql.OpenDB("sqlite3", drv.DB())))
+	defer func() { _ = entClient.Close() }()
 	if err := entClient.Schema.Create(context.Background()); err != nil {
 		return fmt.Errorf("migrate message schema: %w", err)
 	}
@@ -134,7 +141,7 @@ func Run() error {
 
 	log.Printf("[daemon] ready")
 	notifyDaemonReady(mcfg)
-	awaitShutdown(done, cancel, mcfg, registry, cleanup, entClient)
+	awaitShutdown(done, cancel, mcfg, registry, cleanup)
 	return nil
 }
 
@@ -308,7 +315,7 @@ func notifyDaemonReady(mcfg *config.DaemonConfig) {
 func awaitShutdown(
 	done chan struct{}, cancel context.CancelFunc,
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
-	cleanup func(), entClient *ent.Client,
+	cleanup func(),
 ) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -318,10 +325,14 @@ func awaitShutdown(
 	close(done)
 	cancel()
 	shutdownAgents(mcfg, registry)
-	if err := entClient.Close(); err != nil {
-		log.Printf("[daemon] message db close error: %v", err)
-	}
 	cleanup()
+}
+
+// persistMsg persists a message and logs a warning if it fails.
+func persistMsg(msgSvc *message.Service, p message.CreateParams) {
+	if _, err := msgSvc.Create(context.Background(), p); err != nil {
+		log.Printf("[daemon] message persist failed (sender=%s): %v", p.Sender, err)
+	}
 }
 
 // initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for all others.
@@ -569,8 +580,8 @@ func bridgeEvents(
 			switch event.Type {
 			case runtime.EventText:
 				rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
-				msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-					Sender: agentName, Recipient: "neil", Content: event.Text,
+				persistMsg(msgSvc, message.CreateParams{
+					Sender: agentName, Recipient: mcfg.Global.UserName(), Content: event.Text,
 					Team: teamName, Channel: message.ChannelAdapter, Runtime: &rt,
 				})
 				if err := telegram.SendMessage(botToken, chatID, event.Text); err != nil {
@@ -629,8 +640,8 @@ func handleFrom(mcfg *config.DaemonConfig, msgSvc *message.Service, req SendRequ
 		return fmt.Errorf("agent %s has no telegram configured", req.From)
 	}
 	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.From)
-	msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-		Sender: req.From, Recipient: "neil", Content: req.Message,
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	return telegram.SendMessage(botToken, ta.ChatID, req.Message)
@@ -642,15 +653,17 @@ func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *mess
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-		Sender: "neil", Recipient: req.To, Content: req.Message,
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI,
 	})
 	return deliverToAgent(registry, mcfg, ta.TeamName, req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
-func handleAgentToAgent(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
+func handleAgentToAgent(
+	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest,
+) error {
 	fromTA := resolveAgent(mcfg, req.Team, req.From)
 	if fromTA == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
@@ -660,7 +673,7 @@ func handleAgentToAgent(mcfg *config.DaemonConfig, registry *adapterRegistry, ms
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
 	rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
-	msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
+	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
 		Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
@@ -704,7 +717,9 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 }
 
 // startWatcher initializes the JSONL watcher from config (all teams).
-func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{}) {
+func startWatcher(
+	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
+) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Printf("[daemon] watcher disabled: cannot get home directory: %v — CC→Telegram bridging will not work", err)
@@ -746,8 +761,8 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTrack
 			// Clear tracking — response text arriving is the done signal
 			mt.delete(teamName, agentName)
 			rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
-			msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-				Sender: agentName, Recipient: "neil", Content: text,
+			persistMsg(msgSvc, message.CreateParams{
+				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
 				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,
 			})
 			if err := telegram.SendMessage(botToken, ta.ChatID, text); err != nil {

@@ -17,10 +17,14 @@ func (Attachment) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).
 			Default(uuid.New),
-		field.String("filename"),
-		field.String("mime_type"),
-		field.Int64("size_bytes"),
+		field.String("filename").
+			NotEmpty(),
+		field.String("mime_type").
+			NotEmpty(),
+		field.Int64("size_bytes").
+			Min(0),
 		field.String("path").
+			NotEmpty().
 			Comment("relative path: {YYYY-MM}/{message_id}/{filename}"),
 		field.String("thumbnail_path").
 			Optional().

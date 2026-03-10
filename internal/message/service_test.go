@@ -17,13 +17,19 @@ func newTestService(t *testing.T) *message.Service {
 	t.Helper()
 	// modernc/sqlite registers as "sqlite" but Ent schema migration uses "sqlite3".
 	// modernc uses _pragma=foreign_keys(1) instead of _fk=1.
-	drv, err := entsql.Open("sqlite", "file:ent?mode=memory&cache=shared&_pragma=foreign_keys(1)")
+	// Use a unique DSN per test to avoid shared state between parallel tests.
+	dsn := "file:" + t.Name() + "?mode=memory&_pragma=foreign_keys(1)"
+	drv, err := entsql.Open("sqlite", dsn)
 	require.NoError(t, err)
 	// Re-wrap the underlying DB with the "sqlite3" dialect name so Ent migrate works.
 	wrapped := entsql.OpenDB("sqlite3", drv.DB())
 	client := ent.NewClient(ent.Driver(wrapped))
 	require.NoError(t, client.Schema.Create(context.Background()))
-	t.Cleanup(func() { client.Close() })
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Logf("close ent client: %v", err)
+		}
+	})
 	return message.NewService(client)
 }
 
@@ -118,6 +124,29 @@ func TestAddReaction(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "👍", reaction.Emoji)
 	require.Equal(t, "athena", reaction.FromAgent)
+}
+
+func TestListAgentFeed(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	// agent-to-agent messages (not involving "neil")
+	_, err := svc.Create(ctx, message.CreateParams{
+		Sender: "athena", Recipient: "yuki", Content: "handoff", Team: "default", Channel: message.ChannelCLI,
+	})
+	require.NoError(t, err)
+
+	// message involving neil — should not appear in feed
+	_, err = svc.Create(ctx, message.CreateParams{
+		Sender: "neil", Recipient: "athena", Content: "hi", Team: "default", Channel: message.ChannelCLI,
+	})
+	require.NoError(t, err)
+
+	feed, err := svc.ListAgentFeed(ctx, "neil", 10, 0)
+	require.NoError(t, err)
+	require.Len(t, feed, 1)
+	require.Equal(t, "athena", feed[0].Sender)
+	require.Equal(t, "yuki", feed[0].Recipient)
 }
 
 func TestAddAttachment(t *testing.T) {

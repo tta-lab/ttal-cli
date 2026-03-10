@@ -163,6 +163,26 @@ func (_u *AttachmentUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AttachmentUpdate) check() error {
+	if v, ok := _u.mutation.Filename(); ok {
+		if err := attachment.FilenameValidator(v); err != nil {
+			return &ValidationError{Name: "filename", err: fmt.Errorf(`ent: validator failed for field "Attachment.filename": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.MimeType(); ok {
+		if err := attachment.MimeTypeValidator(v); err != nil {
+			return &ValidationError{Name: "mime_type", err: fmt.Errorf(`ent: validator failed for field "Attachment.mime_type": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SizeBytes(); ok {
+		if err := attachment.SizeBytesValidator(v); err != nil {
+			return &ValidationError{Name: "size_bytes", err: fmt.Errorf(`ent: validator failed for field "Attachment.size_bytes": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Path(); ok {
+		if err := attachment.PathValidator(v); err != nil {
+			return &ValidationError{Name: "path", err: fmt.Errorf(`ent: validator failed for field "Attachment.path": %w`, err)}
+		}
+	}
 	if _u.mutation.MessageCleared() && len(_u.mutation.MessageIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Attachment.message"`)
 	}
@@ -398,6 +418,26 @@ func (_u *AttachmentUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AttachmentUpdateOne) check() error {
+	if v, ok := _u.mutation.Filename(); ok {
+		if err := attachment.FilenameValidator(v); err != nil {
+			return &ValidationError{Name: "filename", err: fmt.Errorf(`ent: validator failed for field "Attachment.filename": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.MimeType(); ok {
+		if err := attachment.MimeTypeValidator(v); err != nil {
+			return &ValidationError{Name: "mime_type", err: fmt.Errorf(`ent: validator failed for field "Attachment.mime_type": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SizeBytes(); ok {
+		if err := attachment.SizeBytesValidator(v); err != nil {
+			return &ValidationError{Name: "size_bytes", err: fmt.Errorf(`ent: validator failed for field "Attachment.size_bytes": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Path(); ok {
+		if err := attachment.PathValidator(v); err != nil {
+			return &ValidationError{Name: "path", err: fmt.Errorf(`ent: validator failed for field "Attachment.path": %w`, err)}
+		}
+	}
 	if _u.mutation.MessageCleared() && len(_u.mutation.MessageIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Attachment.message"`)
 	}

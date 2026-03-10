@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 )
 
@@ -33,6 +34,16 @@ func (Reaction) Edges() []ent.Edge {
 		edge.From("message", Message.Type).
 			Ref("reactions").
 			Required().
+			Unique(),
+	}
+}
+
+// Indexes of the Reaction.
+func (Reaction) Indexes() []ent.Index {
+	return []ent.Index{
+		// Prevent duplicate reactions (same emoji from same agent on same message).
+		index.Fields("emoji", "from_agent").
+			Edges("message").
 			Unique(),
 	}
 }

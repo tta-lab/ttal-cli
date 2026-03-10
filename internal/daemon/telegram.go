@@ -46,7 +46,9 @@ func startMultiAgentPoller(
 			default:
 			}
 
-			if err := runMultiAgentPoller(botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt, msgSvc); err != nil {
+			if err := runMultiAgentPoller(
+				botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt, msgSvc,
+			); err != nil {
 				log.Printf("[telegram] poller failed: %v — retrying in %s", err, backoff)
 				select {
 				case <-done:
@@ -350,10 +352,7 @@ func handleInboundMessage(
 			return
 		}
 		rawText := "[🎤 voice] " + transcription
-		msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-			Sender: senderName, Recipient: agentName, Content: rawText,
-			Team: teamName, Channel: message.ChannelTelegram,
-		})
+		persistInbound(msgSvc, senderName, agentName, teamName, rawText)
 		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
@@ -374,10 +373,7 @@ func handleInboundMessage(
 		if caption := msg.Caption; caption != "" {
 			rawText += " " + caption
 		}
-		msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-			Sender: senderName, Recipient: agentName, Content: rawText,
-			Team: teamName, Channel: message.ChannelTelegram,
-		})
+		persistInbound(msgSvc, senderName, agentName, teamName, rawText)
 		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
@@ -400,10 +396,7 @@ func handleInboundMessage(
 		if caption := msg.Caption; caption != "" {
 			rawText += " " + caption
 		}
-		msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-			Sender: senderName, Recipient: agentName, Content: rawText,
-			Team: teamName, Channel: message.ChannelTelegram,
-		})
+		persistInbound(msgSvc, senderName, agentName, teamName, rawText)
 		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
@@ -414,10 +407,7 @@ func handleInboundMessage(
 	} else {
 		text = strings.TrimSpace(msg.Text)
 	}
-	msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
-		Sender: senderName, Recipient: agentName, Content: text,
-		Team: teamName, Channel: message.ChannelTelegram,
-	})
+	persistInbound(msgSvc, senderName, agentName, teamName, text)
 	onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
 }
 
@@ -961,4 +951,14 @@ func interceptedAsCustomAnswer(
 		ReplyMarkup: markup,
 	})
 	return true
+}
+
+// persistInbound logs a warning if the inbound message cannot be persisted.
+func persistInbound(msgSvc *message.Service, sender, recipient, team, content string) {
+	if _, err := msgSvc.Create(context.Background(), message.CreateParams{
+		Sender: sender, Recipient: recipient, Content: content,
+		Team: team, Channel: message.ChannelTelegram,
+	}); err != nil {
+		log.Printf("[telegram] message persist failed (sender=%s): %v", sender, err)
+	}
 }
