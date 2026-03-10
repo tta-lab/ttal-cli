@@ -216,6 +216,17 @@
       },
       "type": "object",
       "description": "Per-team configuration sections"
+    },
+    "user": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human's display name (e.g. \"neil\"). Falls back to $USER env var if empty."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Human user identity (used by GUI ChatService and message queries)"
     }
   },
   "additionalProperties": false,
