@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,8 +12,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-
-	"encoding/json"
 
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
@@ -196,10 +196,10 @@ func (s *ChatService) GetAgentFeedMessages(limit, offset int) ([]*ent.Message, e
 }
 
 // GetAvatar reads the avatar image for agentName from its workspace .assets directory.
-// Returns raw bytes (PNG/JPEG). The frontend converts these to a blob URL.
-func (s *ChatService) GetAvatar(agentName string) ([]byte, error) {
+// Returns a data URL (data:image/…;base64,…) ready for use as an img src.
+func (s *ChatService) GetAvatar(agentName string) (string, error) {
 	if s.mcfg == nil {
-		return nil, fmt.Errorf("no daemon config")
+		return "", fmt.Errorf("no daemon config")
 	}
 	for _, team := range s.mcfg.Teams {
 		if team.TeamPath == "" {
@@ -214,14 +214,18 @@ func (s *ChatService) GetAvatar(agentName string) ([]byte, error) {
 			p := filepath.Join(info.Path, "assets", "avatar"+ext)
 			data, err := os.ReadFile(p)
 			if err == nil {
-				return data, nil
+				mime := "image/png"
+				if ext == ".jpg" || ext == ".jpeg" {
+					mime = "image/jpeg"
+				}
+				return fmt.Sprintf("data:%s;base64,%s", mime, base64.StdEncoding.EncodeToString(data)), nil
 			}
 			if !errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("read avatar %s: %w", p, err)
+				return "", fmt.Errorf("read avatar %s: %w", p, err)
 			}
 		}
 	}
-	return nil, fmt.Errorf("avatar not found for agent %q", agentName)
+	return "", fmt.Errorf("avatar not found for agent %q", agentName)
 }
 
 // TeamInfo groups a team name with its agents for the sidebar.

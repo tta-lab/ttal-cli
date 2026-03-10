@@ -21,9 +21,7 @@
 	async function getAvatarUrl(name: string): Promise<string> {
 		if (avatarCache.has(name)) return avatarCache.get(name)!;
 		try {
-			const avatarBytes = await ChatService.GetAvatar(name);
-			const blob = new Blob([new Uint8Array(avatarBytes as unknown as ArrayBuffer)]);
-			const url = URL.createObjectURL(blob);
+			const url = await ChatService.GetAvatar(name);
 			avatarCache.set(name, url);
 			return url;
 		} catch (err) {
@@ -251,9 +249,6 @@
 		clearInterval(contactsInterval);
 		if (messagesInterval) clearInterval(messagesInterval);
 		if (feedInterval) clearInterval(feedInterval);
-		for (const url of avatarCache.values()) {
-			URL.revokeObjectURL(url);
-		}
 		avatarCache.clear();
 	});
 </script>
