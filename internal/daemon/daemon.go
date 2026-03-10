@@ -330,12 +330,16 @@ func initAdapters(
 				log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
 				continue
 			}
+			if err := bootstrapClaudeDir(teamName, home); err != nil {
+				log.Printf("[k8s] failed to bootstrap .claude for team %s: %v", teamName, err)
+				continue
+			}
 			sharedEnv, err := buildSharedEnv(teamName)
 			if err != nil {
 				log.Printf("[k8s] failed to build shared env for team %s: %v", teamName, err)
 				continue
 			}
-			volumes := buildVolumes(team, home)
+			volumes := buildVolumes(team, teamName, home)
 			if err := pod.EnsurePod(sharedEnv, volumes); err != nil {
 				log.Printf("[k8s] failed to ensure pod for team %s: %v", teamName, err)
 				continue
@@ -624,13 +628,34 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 
 // startWatcher initializes the JSONL watcher from config (all teams).
 func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, done <-chan struct{}) {
-	agentMap := make(map[string]watcher.AgentInfo)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("[daemon] watcher disabled: cannot get home directory: %v — CC→Telegram bridging will not work", err)
+		return
+	}
+	defaultProjectsDir := filepath.Join(home, ".claude", "projects")
+
+	agentMap := make(map[string]watcher.WatchedAgent)
 	for _, ta := range mcfg.AllAgents() {
-		agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
-		encoded := watcher.EncodePath(agentPath)
-		agentMap[encoded] = watcher.AgentInfo{
-			TeamName:  ta.TeamName,
-			AgentName: ta.AgentName,
+		team := mcfg.Teams[ta.TeamName]
+
+		var encoded, projectsDir string
+		if team != nil && team.IsK8s() {
+			// Container runs from /workspace/<agent> — encode that path
+			encoded = watcher.EncodePath(filepath.Join("/workspace", ta.AgentName))
+			// JSONL lives in the team's isolated .claude
+			projectsDir = filepath.Join(home, ".ttal", ta.TeamName, ".claude", "projects")
+		} else {
+			encoded = watcher.EncodePath(filepath.Join(ta.TeamPath, ta.AgentName))
+			projectsDir = defaultProjectsDir
+		}
+
+		// Composite key avoids collision when multiple teams have same agent name
+		key := ta.TeamName + "/" + encoded
+		agentMap[key] = watcher.WatchedAgent{
+			AgentInfo:   watcher.AgentInfo{TeamName: ta.TeamName, AgentName: ta.AgentName},
+			ProjectsDir: projectsDir,
+			EncodedDir:  encoded,
 		}
 	}
 

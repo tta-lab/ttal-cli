@@ -31,15 +31,23 @@ type QuestionFunc func(teamName, agentName, correlationID string, questions []ru
 // ToolFunc is called when a tool invocation is detected in CC JSONL.
 type ToolFunc func(teamName, agentName, toolName string)
 
+// WatchedAgent pairs agent info with the projects dir and encoded dir name for its JSONL.
+// Exported because daemon.go constructs the map.
+type WatchedAgent struct {
+	AgentInfo
+	ProjectsDir string // which projects/ dir this agent's JSONL lives in
+	EncodedDir  string // the CC-encoded dir name (e.g. "-workspace-manager")
+}
+
 // Watcher tails active CC JSONL files and sends assistant text to Telegram.
 type Watcher struct {
-	projectsDir string               // ~/.claude/projects/
-	agents      map[string]AgentInfo // encoded dir name -> agent info
-	offsets     map[string]int64     // file path -> last read offset
-	mu          sync.Mutex
-	send        SendFunc
-	onQuestion  QuestionFunc
-	onTool      ToolFunc
+	agents     map[string]WatchedAgent // composite key "team/encoded" -> agent
+	dirToKey   map[string]string       // full dir path -> composite key (for fsnotify lookup)
+	offsets    map[string]int64        // file path -> last read offset
+	mu         sync.Mutex
+	send       SendFunc
+	onQuestion QuestionFunc
+	onTool     ToolFunc
 }
 
 // EncodePath converts an absolute path to CC's encoded project directory name.
@@ -50,23 +58,25 @@ func EncodePath(path string) string {
 	return encoded
 }
 
-// New creates a Watcher from a pre-built agent path mapping.
+// New creates a Watcher from a pre-built agent map.
+// Key is composite "teamName/encodedDir" to avoid collisions across teams.
 // Config-driven: no DB or config.Load() required.
-func New(agents map[string]AgentInfo, send SendFunc, onQuestion QuestionFunc, onTool ToolFunc) (*Watcher, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
+func New(agents map[string]WatchedAgent, send SendFunc, onQuestion QuestionFunc, onTool ToolFunc) (*Watcher, error) {
 	log.Printf("[watcher] watching %d agents", len(agents))
 
+	dirToKey := make(map[string]string, len(agents))
+	for key, agent := range agents {
+		fullDir := filepath.Join(agent.ProjectsDir, agent.EncodedDir)
+		dirToKey[fullDir] = key
+	}
+
 	return &Watcher{
-		projectsDir: filepath.Join(home, ".claude", "projects"),
-		agents:      agents,
-		offsets:     make(map[string]int64),
-		send:        send,
-		onQuestion:  onQuestion,
-		onTool:      onTool,
+		agents:     agents,
+		dirToKey:   dirToKey,
+		offsets:    make(map[string]int64),
+		send:       send,
+		onQuestion: onQuestion,
+		onTool:     onTool,
 	}, nil
 }
 
@@ -81,14 +91,14 @@ func (w *Watcher) Run(done <-chan struct{}) error {
 	// Watch each agent's project directory and seed offsets for existing files.
 	// MkdirAll ensures new agents get their project dir created at startup
 	// so they're watched from the start (not silently skipped).
-	for encoded, info := range w.agents {
-		dir := filepath.Join(w.projectsDir, encoded)
+	for _, agent := range w.agents {
+		dir := filepath.Join(agent.ProjectsDir, agent.EncodedDir)
 		if err := os.MkdirAll(dir, 0o700); err != nil {
-			log.Printf("[watcher] failed to create project dir for %s: %v", info.AgentName, err)
+			log.Printf("[watcher] failed to create project dir for %s: %v", agent.AgentName, err)
 			continue
 		}
 		if err := fsw.Add(dir); err != nil {
-			log.Printf("[watcher] failed to watch %s: %v", info.AgentName, err)
+			log.Printf("[watcher] failed to watch %s: %v", agent.AgentName, err)
 			continue
 		}
 		w.seedExistingOffsets(dir)
@@ -141,11 +151,12 @@ func (w *Watcher) seedExistingOffsets(dir string) {
 
 // handleFileWrite reads new bytes from a JSONL file and processes them.
 func (w *Watcher) handleFileWrite(path string) {
-	dir := filepath.Base(filepath.Dir(path))
-	agentInfo, ok := w.agents[dir]
+	dirPath := filepath.Dir(path)
+	key, ok := w.dirToKey[dirPath]
 	if !ok {
 		return
 	}
+	agentInfo := w.agents[key].AgentInfo
 
 	w.mu.Lock()
 	offset, exists := w.offsets[path]
