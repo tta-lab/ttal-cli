@@ -121,7 +121,7 @@ func launchDockerTmuxWorker(
 
 	// Write a temp env file for Docker (--env-file). This delivers secrets to the
 	// container without embedding them in the docker run command string.
-	envFile, err := writeDockerEnvFile(task, string(cfg.Runtime), taskrc, shellCfg)
+	envFile, err := writeDockerEnvFile(taskrc)
 	if err != nil {
 		return fmt.Errorf("failed to write docker env file: %w", err)
 	}
@@ -215,7 +215,7 @@ func buildDockerCmd(
 		fmt.Sprintf("--env-file=%s", envFile),
 		// Point ttal at the mounted socket path inside the container
 		"--env=TTAL_SOCKET_PATH=/run/ttal.sock",
-		fmt.Sprintf("--env=TTAL_ROLE=coder"),
+		"--env=TTAL_ROLE=coder",
 		fmt.Sprintf("--env=TTAL_JOB_ID=%s", sessionID),
 		fmt.Sprintf("--env=TTAL_RUNTIME=%s", runtime),
 		image,
@@ -228,11 +228,7 @@ func buildDockerCmd(
 
 // writeDockerEnvFile writes a temp env file with all secrets from ~/.config/ttal/.env.
 // Docker --env-file format: KEY=VALUE, one per line.
-func writeDockerEnvFile(
-	task *taskwarrior.Task,
-	rt, taskrc string,
-	shellCfg *config.Config,
-) (string, error) {
+func writeDockerEnvFile(taskrc string) (string, error) {
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
 		// Non-fatal — worker launches without API secrets
