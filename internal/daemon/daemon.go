@@ -402,7 +402,7 @@ func initSingleAdapter(
 		}
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, env, mcfg.Global.GetShell()); err != nil {
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, env, mcfg.Global.GetShell()); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
@@ -872,57 +872,25 @@ func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	return sessions
 }
 
-// shutdownCCSessions sends /exit to CC sessions, polls up to 5s, then force-kills stragglers.
+// shutdownCCSessions kills CC tmux sessions directly.
 func shutdownCCSessions(sessions []string) {
 	for _, s := range sessions {
-		if err := tmux.SendKeys(s, "", "/exit"); err != nil {
-			log.Printf("[daemon] /exit to session %s failed (will force-kill): %v", s, err)
-		}
-	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if allSessionsGone(sessions) {
-			return
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	forceKillSessions(sessions)
-}
-
-// allSessionsGone reports whether all given tmux sessions have exited.
-func allSessionsGone(sessions []string) bool {
-	for _, s := range sessions {
-		if tmux.SessionExists(s) {
-			return false
-		}
-	}
-	return true
-}
-
-// forceKillSessions kills any remaining tmux sessions.
-func forceKillSessions(sessions []string) {
-	for _, s := range sessions {
-		if !tmux.SessionExists(s) {
-			continue
-		}
 		if err := tmux.KillSession(s); err != nil {
 			log.Printf("[daemon] failed to kill session %s: %v", s, err)
 		} else {
-			log.Printf("[daemon] force-killed CC session %s", s)
+			log.Printf("[daemon] killed CC session %s", s)
 		}
 	}
 }
 
 // spawnCCSession creates a tmux session for a Claude Code agent.
-func spawnCCSession(sessionName, agentName, agentPath, model string, env []string, shell string) error {
+func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, env []string, shell string) error {
 	cmd := "claude --dangerously-skip-permissions"
 	if model != "" {
 		cmd += " --model " + model
 	}
-	if hasCCConversation(agentPath) {
-		cmd += " --continue"
+	if sid := lastSessionID(teamName, agentName); sid != "" {
+		cmd += " --resume " + sid
 	}
 
 	envStr := ""
@@ -949,18 +917,13 @@ func spawnCCSession(sessionName, agentName, agentPath, model string, env []strin
 	return nil
 }
 
-// hasCCConversation checks if Claude Code has a previous conversation for the given path.
-// Claude sanitizes paths: / and . are replaced with - to form the project directory name.
-func hasCCConversation(workDir string) bool {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
+// lastSessionID reads the persisted CC session ID for an agent from the status file.
+func lastSessionID(teamName, agentName string) string {
+	s, err := status.ReadAgent(teamName, agentName)
+	if err != nil || s == nil {
+		return ""
 	}
-	sanitized := strings.ReplaceAll(workDir, string(filepath.Separator), "-")
-	sanitized = strings.ReplaceAll(sanitized, ".", "-")
-	projectDir := filepath.Join(home, ".claude", "projects", sanitized)
-	matches, _ := filepath.Glob(filepath.Join(projectDir, "*.jsonl"))
-	return len(matches) > 0
+	return s.SessionID
 }
 
 func writePID(path string) error {
