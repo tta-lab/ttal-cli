@@ -1,6 +1,6 @@
-module github.com/tta-lab/ttal-cli/containers/manager
+module github.com/tta-lab/ttal-cli/containers/worker-node
 
-go 1.24.0
+go 1.25.0
 
 require dagger.io/dagger v0.18.12
 

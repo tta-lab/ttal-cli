@@ -490,56 +490,29 @@ func buildVolumes(team *config.ResolvedTeam, teamName, home string) []k8sVolume 
 	}
 	teamPath := team.TeamPath // already expanded
 
-	vols := []k8sVolume{
+	return []k8sVolume{
 		{
 			Name: "claude-config", HostPath: filepath.Join(home, ".ttal", teamName, ".claude"),
-			ContainerPath: "/home/node/.claude", Type: "Directory",
+			ContainerPath: "/home/agent/.claude", Type: "Directory",
 		},
 		{
 			Name: "claude-json", HostPath: filepath.Join(home, ".ttal", teamName, ".claude.json"),
-			ContainerPath: "/home/node/.claude.json", Type: "File",
+			ContainerPath: "/home/agent/.claude.json", Type: "File",
 		},
 		{
 			Name: "ttal-config", HostPath: filepath.Join(home, ".config", "ttal"),
-			ContainerPath: "/home/node/.config/ttal", ReadOnly: true, Type: "Directory",
+			ContainerPath: "/home/agent/.config/ttal", ReadOnly: true, Type: "Directory",
 		},
 		{
 			Name: "ttal-home", HostPath: filepath.Join(home, ".ttal"),
-			ContainerPath: "/home/node/.ttal", Type: "Directory",
+			ContainerPath: "/home/agent/.ttal", Type: "Directory",
 		},
 		{
 			Name: "ssh", HostPath: filepath.Join(home, ".ssh"),
-			ContainerPath: "/home/node/.ssh", ReadOnly: true, Type: "Directory",
+			ContainerPath: "/home/agent/.ssh", ReadOnly: true, Type: "Directory",
 		},
-		{Name: "taskrc", HostPath: taskrc, ContainerPath: "/home/node/.taskrc", ReadOnly: true, Type: "File"},
-		{Name: "taskdata", HostPath: filepath.Join(home, ".task"), ContainerPath: "/home/node/.task", Type: "Directory"},
+		{Name: "taskrc", HostPath: taskrc, ContainerPath: "/home/agent/.taskrc", ReadOnly: true, Type: "File"},
+		{Name: "taskdata", HostPath: filepath.Join(home, ".task"), ContainerPath: "/home/agent/.task", Type: "Directory"},
 		{Name: "team-workspace", HostPath: teamPath, ContainerPath: "/workspace", Type: "Directory"},
 	}
-
-	// Mount CLI binaries — skip if not installed
-	for _, bin := range []struct{ name, mountPath string }{
-		{"ttal", "/usr/local/bin/ttal"},
-		{"flicknote", "/usr/local/bin/flicknote"},
-		{"diary", "/usr/local/bin/diary"},
-	} {
-		path := whichBin(bin.name)
-		if path == "" {
-			continue
-		}
-		vols = append(vols, k8sVolume{
-			Name:          bin.name + "-bin",
-			HostPath:      path,
-			ContainerPath: bin.mountPath,
-			ReadOnly:      true,
-			Type:          "File",
-		})
-	}
-
-	return vols
-}
-
-// whichBin returns the full path to a binary, or "" if not found.
-func whichBin(name string) string {
-	path, _ := exec.LookPath(name)
-	return path
 }
