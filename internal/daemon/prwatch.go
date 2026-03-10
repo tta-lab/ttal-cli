@@ -433,34 +433,35 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 	}
 }
 
-// notifyManagerAgents delivers a task-done notification to all agents with role "manager"
-// across all teams. Skips any agent that is the same as the spawner (already notified).
+// notifyManagerAgents delivers a task-done notification to manager agents in the task's
+// owning team only. Skips any agent that is the same as the spawner (already notified).
 func notifyManagerAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, target prWatchTarget) {
 	msg := fmt.Sprintf("[task %s marked done, PR #%d merged] %s",
 		shortSHA(target.TaskUUID), target.PRIndex, target.Description)
 
-	for teamName, team := range mcfg.Teams {
-		if team.TeamPath == "" {
+	teamName := target.Team
+	if teamName == "" {
+		teamName = config.DefaultTeamName
+	}
+	team, ok := mcfg.Teams[teamName]
+	if !ok || team.TeamPath == "" {
+		log.Printf("[prwatch] notifyManagerAgents: no config for team %q", teamName)
+		return
+	}
+
+	managers, err := agentfs.FindByRole(team.TeamPath, "manager")
+	if err != nil {
+		log.Printf("[prwatch] notifyManagerAgents: FindByRole for team %s: %v", teamName, err)
+		return
+	}
+	for _, agent := range managers {
+		// Skip if this agent is the same as the spawner (already notified by notifySpawnerMerged)
+		spawnerKey := teamName + ":" + agent.Name
+		if spawnerKey == target.Spawner {
 			continue
 		}
-		managers, err := agentfs.FindByRole(team.TeamPath, "manager")
-		if err != nil {
-			log.Printf("[prwatch] notifyManagerAgents: failed to find managers in team %s: %v", teamName, err)
-			continue
-		}
-		if len(managers) == 0 {
-			log.Printf("[prwatch] notifyManagerAgents: no manager agents found in team %s", teamName)
-			continue
-		}
-		for _, agent := range managers {
-			// Skip if this agent is the same as the spawner (already notified by notifySpawnerMerged)
-			spawnerKey := teamName + ":" + agent.Name
-			if spawnerKey == target.Spawner {
-				continue
-			}
-			if err := deliverToAgent(registry, mcfg, teamName, agent.Name, msg); err != nil {
-				log.Printf("[prwatch] failed to notify manager %s/%s: %v", teamName, agent.Name, err)
-			}
+		if err := deliverToAgent(registry, mcfg, teamName, agent.Name, msg); err != nil {
+			log.Printf("[prwatch] notifyManagerAgents: deliver to %s/%s: %v", teamName, agent.Name, err)
 		}
 	}
 }
