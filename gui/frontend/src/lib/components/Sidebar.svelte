@@ -1,37 +1,60 @@
 <script lang="ts">
-	import type { Contact } from '../../../bindings/github.com/tta-lab/ttal-cli/gui/models.js';
-	import { formatRelativeTime } from '$lib/utils/time.js';
+	import type { TeamInfo } from '../../../bindings/github.com/tta-lab/ttal-cli/gui/models.js';
 
 	interface Props {
-		contacts: Contact[];
+		teams: TeamInfo[];
+		activeTeam: string | null;
 		activeContact: string | null;
+		avatarMap: Record<string, string>;
+		onSelectTeam: (name: string) => void;
 		onSelect: (name: string) => void;
 	}
 
-	let { contacts, activeContact, onSelect }: Props = $props();
+	let { teams, activeTeam, activeContact, avatarMap, onSelectTeam, onSelect }: Props = $props();
+
+	let visibleAgents = $derived(teams.find((t) => t.name === activeTeam)?.agents ?? []);
 </script>
 
 <aside class="sidebar">
-	<div class="sidebar-header">
-		<span class="sidebar-title">Conversations</span>
-	</div>
-	<ul class="contact-list">
-		{#if contacts.length === 0}
-			<li class="empty-hint">No conversations yet</li>
+	{#if teams.length > 1}
+		<div class="team-tabs">
+			{#each teams as team (team.name)}
+				<button
+					class="team-tab"
+					class:active={team.name === activeTeam}
+					onclick={() => onSelectTeam(team.name)}
+				>
+					{team.name}
+				</button>
+			{/each}
+		</div>
+	{/if}
+
+	<ul class="agent-list">
+		{#if visibleAgents.length === 0}
+			<li class="empty-hint">No agents in this team</li>
 		{/if}
-		{#each contacts as contact (contact.name)}
+		{#each visibleAgents as agent (agent.name)}
 			<li>
 				<button
-					class="contact-item"
-					class:active={contact.name === activeContact}
-					onclick={() => onSelect(contact.name)}
+					class="agent-item"
+					class:active={agent.name === activeContact}
+					onclick={() => onSelect(agent.name)}
 				>
-					<div class="contact-avatar">
-						{contact.name.slice(0, 1).toUpperCase()}
+					<div class="agent-avatar">
+						{#if avatarMap[agent.name]}
+							<img src={avatarMap[agent.name]} alt={agent.name} />
+						{:else if agent.emoji}
+							<span class="agent-emoji">{agent.emoji}</span>
+						{:else}
+							{agent.name.slice(0, 1).toUpperCase()}
+						{/if}
 					</div>
-					<div class="contact-info">
-						<span class="contact-name">{contact.name}</span>
-						<span class="contact-time">{formatRelativeTime(contact.lastMessageAt)}</span>
+					<div class="agent-info">
+						<span class="agent-name">{agent.name}</span>
+						{#if agent.description}
+							<span class="agent-desc">{agent.description}</span>
+						{/if}
 					</div>
 				</button>
 			</li>
@@ -50,20 +73,38 @@
 		overflow: hidden;
 	}
 
-	.sidebar-header {
-		padding: 16px 12px 10px;
+	.team-tabs {
+		display: flex;
+		gap: 2px;
+		padding: 8px 8px 0;
 		border-bottom: 1px solid #2a3348;
+		flex-wrap: wrap;
 	}
 
-	.sidebar-title {
-		font-size: 0.75rem;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+	.team-tab {
+		padding: 4px 10px;
+		border-radius: 4px 4px 0 0;
+		border: none;
+		background: transparent;
 		color: #64748b;
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.1s;
 	}
 
-	.contact-list {
+	.team-tab:hover {
+		color: #e2e8f0;
+		background: #1e2a40;
+	}
+
+	.team-tab.active {
+		color: #e2e8f0;
+		background: #1e2a40;
+		border-bottom: 2px solid #3b82f6;
+	}
+
+	.agent-list {
 		list-style: none;
 		margin: 0;
 		padding: 6px 0;
@@ -78,11 +119,11 @@
 		font-style: italic;
 	}
 
-	.contact-list li {
+	.agent-list li {
 		list-style: none;
 	}
 
-	.contact-item {
+	.agent-item {
 		display: flex;
 		align-items: center;
 		gap: 10px;
@@ -99,15 +140,15 @@
 		font: inherit;
 	}
 
-	.contact-item:hover {
+	.agent-item:hover {
 		background: #1e2a40;
 	}
 
-	.contact-item.active {
+	.agent-item.active {
 		background: #1e3a5f;
 	}
 
-	.contact-avatar {
+	.agent-avatar {
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
@@ -119,15 +160,26 @@
 		font-size: 0.85rem;
 		font-weight: 600;
 		flex-shrink: 0;
+		overflow: hidden;
 	}
 
-	.contact-info {
+	.agent-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.agent-emoji {
+		font-size: 1.1rem;
+	}
+
+	.agent-info {
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
 	}
 
-	.contact-name {
+	.agent-name {
 		font-size: 0.875rem;
 		font-weight: 500;
 		color: #e2e8f0;
@@ -136,8 +188,11 @@
 		text-overflow: ellipsis;
 	}
 
-	.contact-time {
+	.agent-desc {
 		font-size: 0.7rem;
 		color: #475569;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 </style>

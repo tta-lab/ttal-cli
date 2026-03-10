@@ -35,6 +35,7 @@ func startMultiAgentPoller(
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	allCommands []BotCommand, mt *messageTracker, msgSvc *message.Service,
+	userNameFn func(teamName string) string,
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -47,7 +48,7 @@ func startMultiAgentPoller(
 			}
 
 			if err := runMultiAgentPoller(
-				botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt, msgSvc,
+				botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt, msgSvc, userNameFn,
 			); err != nil {
 				log.Printf("[telegram] poller failed: %v — retrying in %s", err, backoff)
 				select {
@@ -71,6 +72,7 @@ func runMultiAgentPoller(
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	allCommands []BotCommand, mt *messageTracker, msgSvc *message.Service,
+	userNameFn func(teamName string) string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -86,7 +88,7 @@ func runMultiAgentPoller(
 	var botUsername string
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername, onMessage, qs, cas, registry, mt, msgSvc)
+		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername, onMessage, qs, cas, registry, mt, msgSvc, userNameFn)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
@@ -153,6 +155,7 @@ func handleDefaultUpdate(
 	onMessage func(teamName, agentName, text string),
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
 	mt *messageTracker, msgSvc *message.Service,
+	userNameFn func(teamName string) string,
 ) {
 	if update.CallbackQuery != nil {
 		if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage &&
@@ -194,7 +197,7 @@ func handleDefaultUpdate(
 			func(agentName, text string) {
 				onMessage(target.teamName, agentName, text)
 			},
-			mt, msgSvc, &stripped,
+			mt, msgSvc, &stripped, userNameFn,
 		)
 	default:
 		// DM / private: route by chat ID (existing behaviour, unchanged).
@@ -213,7 +216,7 @@ func handleDefaultUpdate(
 			func(agentName, text string) {
 				onMessage(target.teamName, agentName, text)
 			},
-			mt, msgSvc, nil,
+			mt, msgSvc, nil, userNameFn,
 		)
 	}
 }
@@ -320,6 +323,7 @@ func handleInboundMessage(
 	onMessage func(string, string),
 	mt *messageTracker, msgSvc *message.Service,
 	overrideText *string,
+	userNameFn func(teamName string) string,
 ) {
 	// Track this message for tool reactions
 	if mt != nil {
@@ -335,10 +339,7 @@ func handleInboundMessage(
 		}
 	}
 
-	senderName := msg.From.Username
-	if senderName == "" {
-		senderName = msg.From.FirstName
-	}
+	senderName := userNameFn(teamName)
 
 	// Extract reply context if this message is a reply
 	replyCtx := extractReplyContext(msg)

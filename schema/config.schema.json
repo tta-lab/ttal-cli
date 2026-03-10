@@ -208,6 +208,17 @@
             "additionalProperties": false,
             "type": "object",
             "description": "Kubernetes deployment settings (optional)"
+          },
+          "user": {
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Human's display name (e.g. \"neil\"). Falls back to $USER env var if empty."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "description": "Optional per-team human identity override (falls back to global [user])"
           }
         },
         "additionalProperties": false,
