@@ -983,13 +983,15 @@ func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, e
 }
 
 // lastSessionID reads the persisted CC session ID for an agent from the status file.
+// Returns "" on cold-start (no prior session) or on read error (logged as WARN).
 func lastSessionID(teamName, agentName string) string {
 	s, err := status.ReadAgent(teamName, agentName)
 	if err != nil {
-		log.Printf("[daemon] could not read status for %s/%s, starting without --resume: %v", teamName, agentName, err)
+		log.Printf("[daemon] WARN: could not read status for %s/%s, skipping --resume: %v", teamName, agentName, err)
 		return ""
 	}
 	if s == nil {
+		// Cold start — no prior session, nothing to resume.
 		return ""
 	}
 	return s.SessionID

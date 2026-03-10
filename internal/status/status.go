@@ -3,6 +3,7 @@ package status
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,11 +45,6 @@ func WriteAgent(team string, s AgentStatus) error {
 	return writeAgentTo(StatusDir(), team, s)
 }
 
-// Remove deletes the status file for an agent (called on session teardown).
-func Remove(team, name string) error {
-	return removeFrom(StatusDir(), team, name)
-}
-
 // IsStale returns true if the status hasn't been updated in the given duration.
 func (s *AgentStatus) IsStale(threshold time.Duration) bool {
 	return time.Since(s.UpdatedAt) > threshold
@@ -85,7 +81,11 @@ func readAllFrom(dir, team string) ([]AgentStatus, error) {
 			continue
 		}
 		s, err := readAgentFromFile(dir, entry.Name())
-		if err != nil || s == nil {
+		if err != nil {
+			log.Printf("[status] skipping corrupt status file %s: %v", entry.Name(), err)
+			continue
+		}
+		if s == nil {
 			continue
 		}
 		statuses = append(statuses, *s)
@@ -139,15 +139,6 @@ func writeAgentTo(dir, team string, s AgentStatus) error {
 	target := filepath.Join(dir, base+".json")
 	if err := os.Rename(tmp, target); err != nil {
 		os.Remove(tmp)
-		return err
-	}
-	return nil
-}
-
-// removeFrom deletes the status file for an agent from the given directory.
-func removeFrom(dir, team, name string) error {
-	path := filepath.Join(dir, statusFileName(team, name)+".json")
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil

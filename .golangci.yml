@@ -28,7 +28,7 @@ linters:
     # on every call site. Each entry was audited — see rationale below.
     #
     # SAFE — defer cleanup, nothing useful to do with the error:
-    #   .Close() variants, os.Remove, status.Remove
+    #   .Close() variants, os.Remove
     #
     # SAFE — test-only helpers:
     #   os.Mkdir, os.WriteFile
@@ -54,7 +54,6 @@ linters:
         - (*github.com/fsnotify/fsnotify.Watcher).Close
         - (*os.File).Close
         - os.Remove
-        - github.com/tta-lab/ttal-cli/internal/status.Remove
         # best-effort writes / commands (see rationale above)
         - (net.Conn).SetDeadline
         - (net.Conn).Write
