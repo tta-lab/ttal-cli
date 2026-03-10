@@ -77,14 +77,4 @@ html, body {
   @apply border-l-[3px] border-neutral pl-2.5 my-1 text-base-content/60;
 }
 
-/* emoji-picker-element CSS variables (shadow DOM, must be global) */
-emoji-picker {
-  --background: oklch(20% 0.03 250);
-  --border-color: oklch(30% 0.03 250);
-  --text-color: oklch(90% 0.01 250);
-  --input-background: oklch(18% 0.02 250);
-  --input-border-radius: 0.375rem;
-  --num-columns: 8;
-  width: 320px;
-  height: 280px;
-}
+

@@ -4,8 +4,7 @@
 	import rehypeSanitize from 'rehype-sanitize';
 	import rehypeHighlight from 'rehype-highlight';
 	import 'highlight.js/styles/github-dark.css';
-	import type { Message, Reaction } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
-	import ReactionBar from './ReactionBar.svelte';
+	import type { Message } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
 	import { formatTime } from '$lib/utils/time.js';
 
 	interface Props {
@@ -25,10 +24,7 @@
 
 	let isMine = $derived(message.sender === userName);
 	let initials = $derived((message.sender ?? '?').slice(0, 1).toUpperCase());
-	let reactions = $derived(
-		(message.edges?.reactions ?? []).filter((r): r is Reaction => r != null)
-	);
-	let messageId = $derived(message.id?.toString() ?? '');
+
 </script>
 
 <div class="chat" class:chat-start={!isMine} class:chat-end={isMine}>
@@ -55,8 +51,5 @@
 	</div>
 	<div class="chat-footer text-neutral-content/60">
 		<time class="text-xs">{formatTime(message.created_at)}</time>
-		{#if messageId}
-			<ReactionBar {messageId} {reactions} />
-		{/if}
 	</div>
 </div>

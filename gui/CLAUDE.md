@@ -40,7 +40,7 @@ All task shortcuts are in `Taskfile.yml` — run with `task dev`, `task build`, 
 
 - **`routes/+page.svelte`** — single page, owns all polling intervals and global keyboard handlers
 - **`lib/stores/messages.svelte.ts`** — Svelte 5 class-based reactive store (`chatStore`), single source of truth for messages, contacts, active contact/tab
-- **`lib/components/`** — `Sidebar`, `ChatBubble`, `MessageInput`, `ReactionBar`, `AgentFeed`
+- **`lib/components/`** — `Sidebar`, `ChatBubble`, `MessageInput`, `AgentFeed`
 
 Polling strategy: contacts every 5s, messages every 500ms when a contact is active, feed every 500ms when feed tab is active.
 
