@@ -268,7 +268,7 @@
 	/>
 {/if}
 
-<div class="app-shell">
+<div class="flex h-screen overflow-hidden font-sans">
 	<!-- Sidebar -->
 	<Sidebar
 		teams={chatStore.teams}
@@ -280,46 +280,46 @@
 	/>
 
 	<!-- Main area -->
-	<div class="main">
+	<div class="flex-1 flex flex-col overflow-hidden bg-base-100">
 		<!-- Tab bar + daemon status -->
-		<header class="topbar">
-			<div class="tabs">
+		<header class="flex items-center justify-between px-4 h-11 border-b border-neutral bg-base-200 shrink-0">
+			<div class="tabs tabs-box">
 				<button
 					class="tab"
-					class:active={chatStore.activeTab === 'chat'}
+					class:tab-active={chatStore.activeTab === 'chat'}
 					onclick={() => chatStore.setActiveTab('chat')}
 				>
 					Chat
 				</button>
 				<button
 					class="tab"
-					class:active={chatStore.activeTab === 'feed'}
+					class:tab-active={chatStore.activeTab === 'feed'}
 					onclick={() => chatStore.setActiveTab('feed')}
 				>
 					Agent Feed
 				</button>
 			</div>
-			<span class="status" class:online={daemonOnline} class:offline={!daemonOnline}>
+			<span class:text-success={daemonOnline} class:text-error={!daemonOnline} class="text-xs">
 				{statusMessage}
 			</span>
 		</header>
 
 		{#if chatStore.activeTab === 'chat'}
 			{#if !chatStore.activeContact}
-				<div class="empty-state">
+				<div class="flex-1 flex items-center justify-center text-neutral-content text-sm italic">
 					<p>Select an agent from the sidebar</p>
 				</div>
 			{:else}
 				<div
-					class="messages-area"
+					class="flex-1 overflow-y-auto p-4 pb-2 flex flex-col scroll-smooth"
 					bind:this={messagesEl}
 					onscroll={handleScroll}
 				>
 					{#if loadingMore}
-						<div class="loading-more">Loading…</div>
+						<div class="text-center text-xs text-neutral-content py-1.5">Loading…</div>
 					{/if}
 					{#if chatStore.messages.length === 0}
-						<div class="no-messages">No messages yet</div>
+						<div class="flex-1 flex items-center justify-center text-neutral-content text-sm italic py-10">No messages yet</div>
 					{/if}
 					{#each chatStore.messages as msg, i (msg.id?.toString() ?? `idx-${i}`)}
 						<ChatBubble
@@ -343,122 +343,3 @@
 		{/if}
 	</div>
 </div>
-
-<style>
-	:global(html, body) {
-		margin: 0;
-		padding: 0;
-		height: 100%;
-		overflow: hidden;
-		background: #0f172a;
-		color: #e2e8f0;
-	}
-
-	:global(#svelte) {
-		height: 100%;
-	}
-
-	.app-shell {
-		display: flex;
-		height: 100vh;
-		overflow: hidden;
-		font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-	}
-
-	.main {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		background: #0f172a;
-	}
-
-	.topbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0 16px;
-		height: 44px;
-		border-bottom: 1px solid #2a3348;
-		background: #131d2e;
-		flex-shrink: 0;
-	}
-
-	.tabs {
-		display: flex;
-		gap: 4px;
-	}
-
-	.tab {
-		padding: 5px 14px;
-		border-radius: 6px;
-		border: none;
-		background: transparent;
-		color: #64748b;
-		font-size: 0.85rem;
-		cursor: pointer;
-		transition: all 0.15s;
-		width: auto;
-		height: auto;
-		line-height: normal;
-	}
-
-	.tab:hover {
-		color: #e2e8f0;
-		background: #1e2a40;
-	}
-
-	.tab.active {
-		color: #e2e8f0;
-		background: #1e2a40;
-	}
-
-	.status {
-		font-size: 0.75rem;
-	}
-
-	.status.online {
-		color: #4ade80;
-	}
-
-	.status.offline {
-		color: #f87171;
-	}
-
-	.empty-state {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #475569;
-		font-size: 0.9rem;
-		font-style: italic;
-	}
-
-	.messages-area {
-		flex: 1;
-		overflow-y: auto;
-		padding: 16px 16px 8px;
-		display: flex;
-		flex-direction: column;
-		scroll-behavior: smooth;
-	}
-
-	.no-messages {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #475569;
-		font-size: 0.85rem;
-		font-style: italic;
-		padding: 40px 0;
-	}
-
-	.loading-more {
-		text-align: center;
-		font-size: 0.75rem;
-		color: #475569;
-		padding: 6px 0;
-	}
-</style>
