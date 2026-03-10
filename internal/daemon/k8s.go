@@ -96,8 +96,9 @@ func (k *k8sTeamPod) WaitForReady() error {
 
 // SpawnAgent creates a tmux session inside the pod for an agent.
 // Per-agent env vars are shell-quoted and passed via `env KEY=VAL` prefix.
+// Uses `cd /workspace/<agent>` so Claude Code creates per-agent JSONL dirs.
 func (k *k8sTeamPod) SpawnAgent(agentName, model string, perAgentEnv []string) error {
-	ccCmd := "claude --dangerously-skip-permissions"
+	ccCmd := fmt.Sprintf("cd /workspace/%s && claude --dangerously-skip-permissions", agentName)
 	if model != "" {
 		ccCmd += " --model " + shellQuote(model)
 	}
@@ -303,8 +304,37 @@ func shellQuoteEnvPair(kv string) string {
 	return parts[0] + "=" + shellQuote(parts[1])
 }
 
+// bootstrapClaudeDir ensures ~/.ttal/<team>/.claude/ exists with seeded config.
+// Called once before EnsurePod. Idempotent — only creates/copies if missing.
+func bootstrapClaudeDir(teamName, home string) error {
+	claudeDir := filepath.Join(home, ".ttal", teamName, ".claude")
+	if err := os.MkdirAll(claudeDir, 0o700); err != nil {
+		return fmt.Errorf("create .claude dir: %w", err)
+	}
+
+	// Seed settings.json and settings.local.json from host if not present
+	for _, name := range []string{"settings.json", "settings.local.json"} {
+		src := filepath.Join(home, ".claude", name)
+		dst := filepath.Join(claudeDir, name)
+		if _, err := os.Stat(dst); os.IsNotExist(err) {
+			if data, err := os.ReadFile(src); err == nil {
+				os.WriteFile(dst, data, 0o644) //nolint:errcheck
+			}
+		}
+	}
+
+	// Ensure subdirs exist for ttal sync and watcher
+	for _, sub := range []string{"skills", "agents", "rules", "projects"} {
+		os.MkdirAll(filepath.Join(claudeDir, sub), 0o755) //nolint:errcheck
+	}
+
+	return nil
+}
+
 // buildVolumes constructs the hostPath volume slice for a team pod.
-func buildVolumes(team *config.ResolvedTeam, home string) []k8sVolume {
+// Uses the team-isolated ~/.ttal/<teamName>/.claude for the claude-config volume
+// so each team's credentials and JSONL logs are fully isolated.
+func buildVolumes(team *config.ResolvedTeam, teamName, home string) []k8sVolume {
 	taskrc := filepath.Join(home, ".taskrc")
 	if team.TaskRC != "" {
 		taskrc = team.TaskRC // already expanded in ResolvedTeam
@@ -313,7 +343,7 @@ func buildVolumes(team *config.ResolvedTeam, home string) []k8sVolume {
 
 	vols := []k8sVolume{
 		{
-			Name: "claude-config", HostPath: filepath.Join(home, ".claude"),
+			Name: "claude-config", HostPath: filepath.Join(home, ".ttal", teamName, ".claude"),
 			ContainerPath: "/home/node/.claude", Type: "Directory",
 		},
 		{

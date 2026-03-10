@@ -54,6 +54,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		syncCfg := cfg.Sync
+		k8sTeams := collectK8sTeamClaudeDirs(cfg)
 
 		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
 			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 && syncCfg.GlobalPromptPath == ""
@@ -92,6 +93,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 			agentCount = len(results)
 
+			for teamName, claudeDir := range k8sTeams {
+				teamAgentsDir := filepath.Join(claudeDir, "agents")
+				if err := sync.DeployAgentsTo(syncCfg.SubagentsPaths, teamAgentsDir, syncDryRun); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: k8s agents sync for %s: %v\n", teamName, err)
+				}
+			}
+
 			if syncClean {
 				removed, err := sync.CleanAgents(syncCfg.SubagentsPaths, syncDryRun)
 				if err != nil {
@@ -122,6 +130,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			skillCount = countUniqueSkills(results)
+
+			for teamName, claudeDir := range k8sTeams {
+				teamSkillsDir := filepath.Join(claudeDir, "skills")
+				if _, err := sync.DeploySkillsTo(syncCfg.SkillsPaths, teamSkillsDir, syncDryRun); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: k8s skills sync for %s: %v\n", teamName, err)
+				}
+			}
 
 			if syncClean {
 				removed, err := sync.CleanSkills(syncCfg.SkillsPaths, syncDryRun)
@@ -155,6 +170,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 			commandCount = len(results)
 
+			for teamName, claudeDir := range k8sTeams {
+				teamSkillsDir := filepath.Join(claudeDir, "skills")
+				if err := sync.DeployCommandsTo(syncCfg.CommandsPaths, teamSkillsDir, syncDryRun); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: k8s commands sync for %s: %v\n", teamName, err)
+				}
+			}
+
 			if syncClean {
 				removed, err := sync.CleanCommands(syncCfg.CommandsPaths, syncDryRun)
 				if err != nil {
@@ -187,6 +209,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Fprintf(os.Stderr, "warning: codex rules: %v\n", err)
 			}
 
+			for teamName, claudeDir := range k8sTeams {
+				teamRulesDir := filepath.Join(claudeDir, "rules")
+				if _, err := sync.DeployRulesTo(syncCfg.RulesPaths, teamRulesDir, syncDryRun); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: k8s rules sync for %s: %v\n", teamName, err)
+				}
+			}
+
 			if syncClean {
 				removed, err := sync.CleanRules(syncCfg.RulesPaths, syncDryRun)
 				if err != nil {
@@ -214,6 +243,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for _, r := range results {
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (%s)\n", shortenHome(r.Dest), r.Runtime)
+			}
+
+			for teamName, claudeDir := range k8sTeams {
+				dest := filepath.Join(claudeDir, "CLAUDE.md")
+				if err := sync.DeployGlobalPromptTo(syncCfg.GlobalPromptPath, dest, syncDryRun); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: k8s prompt sync for %s: %v\n", teamName, err)
+				}
 			}
 		}
 
@@ -303,6 +339,23 @@ func shortenHome(path string) string {
 		return "~" + abs[len(home):]
 	}
 	return path
+}
+
+// collectK8sTeamClaudeDirs returns a map of team name → ~/.ttal/<team>/.claude/
+// for each team with kubernetes config. Returns empty map if none.
+func collectK8sTeamClaudeDirs(cfg *config.Config) map[string]string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	dirs := make(map[string]string)
+	for name, team := range cfg.Teams {
+		if !team.IsK8s() {
+			continue
+		}
+		dirs[name] = filepath.Join(home, ".ttal", name, ".claude")
+	}
+	return dirs
 }
 
 func countUniqueSkills(results []sync.SkillResult) int {

@@ -40,6 +40,65 @@ func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	return results, nil
 }
 
+// DeploySkillsTo copies skill directories to a custom CC skills dir.
+// Used for k8s team isolated .claude dirs.
+func DeploySkillsTo(skillsPaths []string, ccDir string, dryRun bool) ([]SkillResult, error) {
+	var results []SkillResult
+	for _, rawPath := range skillsPaths {
+		deployed, err := deploySkillsToDir(rawPath, ccDir, dryRun)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, deployed...)
+	}
+	return results, nil
+}
+
+// deploySkillsToDir deploys skills from a single source path to a single destination dir.
+func deploySkillsToDir(rawPath, destDir string, dryRun bool) ([]SkillResult, error) {
+	dir := config.ExpandHome(rawPath)
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "warning: skills path not found: %s\n", dir)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading skills dir %s: %w", dir, err)
+	}
+
+	if !dryRun {
+		if err := os.MkdirAll(destDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating skills dir %s: %w", destDir, err)
+		}
+	}
+
+	results := make([]SkillResult, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		skillDir := filepath.Join(dir, entry.Name())
+		skillMD := filepath.Join(skillDir, "SKILL.md")
+		if _, err := os.Stat(skillMD); err != nil {
+			continue
+		}
+		ccDest := filepath.Join(destDir, entry.Name())
+		results = append(results, SkillResult{
+			Source: skillDir,
+			Name:   entry.Name(),
+			Dest:   ccDest,
+		})
+		if dryRun {
+			continue
+		}
+		if err := deploySkill(skillDir, ccDest); err != nil {
+			return nil, err
+		}
+	}
+	return results, nil
+}
+
 func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillResult, error) {
 	dir := config.ExpandHome(rawPath)
 
