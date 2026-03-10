@@ -198,7 +198,6 @@ func listenSocket(sockPath string, handlers socketHandlers) (func(), error) {
 
 	cleanup := func() {
 		ln.Close()
-		os.Remove(sockPath)
 	}
 
 	return cleanup, nil

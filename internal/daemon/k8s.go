@@ -504,8 +504,8 @@ func buildVolumes(team *config.ResolvedTeam, teamName, home string) []k8sVolume 
 			ContainerPath: "/home/node/.config/ttal", ReadOnly: true, Type: "Directory",
 		},
 		{
-			Name: "daemon-sock", HostPath: filepath.Join(home, ".ttal", "daemon.sock"),
-			ContainerPath: "/home/node/.ttal/daemon.sock", Type: "Socket",
+			Name: "ttal-home", HostPath: filepath.Join(home, ".ttal"),
+			ContainerPath: "/home/node/.ttal", Type: "Directory",
 		},
 		{
 			Name: "ssh", HostPath: filepath.Join(home, ".ssh"),
