@@ -1,50 +1,36 @@
 <script>
-import {Events} from "@wailsio/runtime";
-import {GreetService} from "../../bindings/github.com/tta-lab/ttal-cli/gui";
+import { ChatService } from "../../bindings/github.com/tta-lab/ttal-cli/gui";
 
-let name = '';
-let result = 'Please enter your name below 👇';
-let time = 'Listening for Time event...';
+let userName = '';
+let daemonOnline = false;
+let statusMessage = 'Connecting...';
 
-const doGreet = () => {
-  let localName = name;
-  if (!localName) {
-    localName = 'anonymous';
+async function init() {
+  try {
+    userName = await ChatService.GetUserName();
+    daemonOnline = await ChatService.IsDaemonRunning();
+    statusMessage = daemonOnline ? 'Daemon online' : 'Daemon offline — read-only mode';
+  } catch (err) {
+    statusMessage = `Error: ${err}`;
   }
-  GreetService.Greet(localName).then((resultValue) => {
-    result = resultValue;
-  }).catch((err) => {
-    console.log(err);
-  });
 }
 
-Events.On('time', (timeValue) => {
-  time = timeValue.data;
-});
+init();
 </script>
 
 <div class="container">
-  <div>
-    <span data-wml-openURL="https://wails.io">
-      <img src="/wails.png" class="logo" alt="Wails logo"/>
-    </span>
-    <span data-wml-openURL="https://svelte.dev">
-      <img src="/svelte.svg" class="logo svelte" alt="Svelte logo"/>
-    </span>
-  </div>
-  <h1>Wails + Svelte</h1>
-  <div aria-label="result" class="result">{result}</div>
-  <div class="card">
-    <div class="input-box">
-      <input aria-label="input" class="input" bind:value={name} type="text" autocomplete="off"/>
-      <button aria-label="greet-btn" class="btn" on:click={doGreet}>Greet</button>
-    </div>
-  </div>
-  <div class="footer">
-    <div><p>Click on the Wails logo to learn more</p></div>
-    <div><p>{time}</p></div>
-  </div>
+  <h1>ttal Chat</h1>
+  {#if userName}
+    <p>Logged in as <strong>{userName}</strong></p>
+  {/if}
+  <p class="status" class:online={daemonOnline} class:offline={!daemonOnline}>
+    {statusMessage}
+  </p>
+  <p class="hint">Connect to an agent by selecting a contact once the full UI is built.</p>
 </div>
 
 <style>
+  .status.online  { color: #4ade80; }
+  .status.offline { color: #f87171; }
+  .hint { color: #94a3b8; font-size: 0.875rem; }
 </style>

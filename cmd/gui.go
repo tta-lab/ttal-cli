@@ -40,15 +40,16 @@ func findTtalGui() (string, error) {
 	}
 
 	home, err := os.UserHomeDir()
-	if err == nil {
-		candidates := []string{
-			filepath.Join(home, "go", "bin", "ttal-gui"),
-			filepath.Join(home, ".local", "bin", "ttal-gui"),
-		}
-		for _, p := range candidates {
-			if _, err := os.Stat(p); err == nil {
-				return p, nil
-			}
+	if err != nil {
+		return "", fmt.Errorf("resolve home dir: %w", err)
+	}
+	candidates := []string{
+		filepath.Join(home, "go", "bin", "ttal-gui"),
+		filepath.Join(home, ".local", "bin", "ttal-gui"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
 		}
 	}
 

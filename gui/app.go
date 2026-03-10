@@ -2,19 +2,24 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"encoding/json"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
+
+	_ "modernc.org/sqlite" // SQLite driver — registers "sqlite" dialect used by entsql.Open
 )
 
 const socketTimeout = 5 * time.Second
@@ -27,6 +32,17 @@ type Contact struct {
 
 // SendRequest mirrors daemon.SendRequest — defined locally to avoid pulling in
 // the full daemon package (which brings in CGO-incompatible deps via watcher).
+//
+// Routing semantics (source: internal/daemon/socket.go):
+//
+//	From only:    agent → human via Telegram
+//	To only:      system/hook → agent via tmux  ← ChatService.SendMessage uses this
+//	From + To:    agent → agent via tmux with attribution
+//
+// ChatService.SendMessage uses To-only so the daemon routes via handleTo →
+// deliverToAgent, the same path Telegram messages use. Do NOT set From here —
+// it would route to handleAgentToAgent which requires a registered agent named
+// after the sender and would fail for the human user.
 type SendRequest struct {
 	From    string `json:"from,omitempty"`
 	To      string `json:"to,omitempty"`
@@ -47,10 +63,13 @@ type ChatService struct {
 // NewChatService opens the Ent client and prepares the ChatService.
 // sockPath defaults to ~/.ttal/daemon.sock if empty.
 func NewChatService(dbPath, sockPath string, mcfg *config.DaemonConfig) (*ChatService, error) {
-	client, err := ent.Open("sqlite3", dbPath+"?_fk=1")
+	// Use the same open pattern as the daemon: modernc/sqlite + WAL mode.
+	dsn := "file:" + dbPath + "?cache=shared&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
+	drv, err := entsql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
+	client := ent.NewClient(ent.Driver(entsql.OpenDB("sqlite3", drv.DB())))
 
 	userName := ""
 	if mcfg != nil && mcfg.Global != nil {
@@ -58,6 +77,9 @@ func NewChatService(dbPath, sockPath string, mcfg *config.DaemonConfig) (*ChatSe
 	}
 	if userName == "" {
 		userName = os.Getenv("USER")
+	}
+	if userName == "" {
+		return nil, fmt.Errorf("could not determine user name — set [user] name in config.toml or $USER env")
 	}
 
 	if sockPath == "" {
@@ -106,10 +128,12 @@ func (s *ChatService) GetMessages(userA, userB string, limit, offset int) ([]*en
 	return msgs, nil
 }
 
-// GetContacts returns a list of contacts derived from message history.
+// GetContacts returns contacts sorted by most-recent message descending.
 // Each contact is an agent that has exchanged messages with the human user.
 func (s *ChatService) GetContacts() ([]Contact, error) {
 	ctx := context.Background()
+	// Fetch recent messages with a reasonable cap to bound memory use.
+	const maxRows = 5000
 	msgs, err := s.db.Message.Query().
 		Where(
 			message.Or(
@@ -118,11 +142,13 @@ func (s *ChatService) GetContacts() ([]Contact, error) {
 			),
 		).
 		Order(ent.Desc(message.FieldCreatedAt)).
+		Limit(maxRows).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query contacts: %w", err)
 	}
 
+	// Keep only the most-recent timestamp per partner.
 	seen := map[string]time.Time{}
 	for _, m := range msgs {
 		partner := m.Recipient
@@ -141,6 +167,9 @@ func (s *ChatService) GetContacts() ([]Contact, error) {
 	for name, ts := range seen {
 		contacts = append(contacts, Contact{Name: name, LastMessageAt: ts})
 	}
+	sort.Slice(contacts, func(i, j int) bool {
+		return contacts[i].LastMessageAt.After(contacts[j].LastMessageAt)
+	})
 	return contacts, nil
 }
 
@@ -177,6 +206,7 @@ func (s *ChatService) GetAvatar(agentName string) ([]byte, error) {
 		}
 		info, err := agentfs.Get(team.TeamPath, agentName)
 		if err != nil {
+			// Agent not in this team — try the next one.
 			continue
 		}
 		for _, ext := range []string{".png", ".jpg", ".jpeg"} {
@@ -185,26 +215,43 @@ func (s *ChatService) GetAvatar(agentName string) ([]byte, error) {
 			if err == nil {
 				return data, nil
 			}
+			if !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("read avatar %s: %w", p, err)
+			}
 		}
 	}
 	return nil, fmt.Errorf("avatar not found for agent %q", agentName)
 }
 
+// dialDaemon opens a connection to the daemon unix socket.
+func (s *ChatService) dialDaemon() (net.Conn, error) {
+	conn, err := net.DialTimeout("unix", s.sockPath, socketTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("daemon not running: %w", err)
+	}
+	return conn, nil
+}
+
 // SendMessage delivers a message to recipient through the daemon socket.
 // Uses To-only routing so the daemon handles delivery via handleTo.
 func (s *ChatService) SendMessage(recipient, content string) error {
+	if content == "" {
+		return fmt.Errorf("message content must not be empty")
+	}
 	req := SendRequest{To: recipient, Message: content}
 	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	conn, err := net.DialTimeout("unix", s.sockPath, socketTimeout)
+	conn, err := s.dialDaemon()
 	if err != nil {
-		return fmt.Errorf("daemon not running: %w", err)
+		return err
 	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(socketTimeout)) //nolint:errcheck
+	if err := conn.SetDeadline(time.Now().Add(socketTimeout)); err != nil {
+		return fmt.Errorf("set deadline: %w", err)
+	}
 
 	if _, err := conn.Write(data); err != nil {
 		return fmt.Errorf("write: %w", err)
@@ -234,7 +281,7 @@ func (s *ChatService) AddReaction(messageID, emoji string) error {
 
 // IsDaemonRunning returns true if the daemon socket is reachable.
 func (s *ChatService) IsDaemonRunning() bool {
-	conn, err := net.DialTimeout("unix", s.sockPath, socketTimeout)
+	conn, err := s.dialDaemon()
 	if err != nil {
 		return false
 	}
