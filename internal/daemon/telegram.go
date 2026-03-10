@@ -88,7 +88,8 @@ func runMultiAgentPoller(
 	var botUsername string
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername, onMessage, qs, cas, registry, mt, msgSvc, userNameFn)
+		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername,
+			onMessage, qs, cas, registry, mt, msgSvc, userNameFn)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
