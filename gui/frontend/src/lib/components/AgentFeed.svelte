@@ -1,34 +1,34 @@
 <script lang="ts">
 	import Markdown from 'svelte-exmarkdown';
 	import { gfmPlugin } from 'svelte-exmarkdown/gfm';
+	import rehypeSanitize from 'rehype-sanitize';
 	import rehypeHighlight from 'rehype-highlight';
 	import 'highlight.js/styles/github-dark.css';
 	import type { Message } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
+	import { formatTime } from '$lib/utils/time.js';
 
 	interface Props {
-		messages: (Message | null)[];
+		messages: Message[];
 	}
 
 	let { messages }: Props = $props();
 
-	const plugins = [gfmPlugin(), { rehypePlugin: [rehypeHighlight] }];
+	// rehype-sanitize runs before rehype-highlight to strip unsafe HTML
+	const plugins = [
+		gfmPlugin(),
+		{ rehypePlugin: [rehypeSanitize] },
+		{ rehypePlugin: [rehypeHighlight] }
+	];
 
 	// Feed shows oldest first (newest at bottom), reverse the DESC order from backend
-	let chronological = $derived([...messages].reverse().filter(Boolean) as Message[]);
-
-	function formatTime(ts: unknown): string {
-		if (!ts) return '';
-		const d = new Date(ts as string);
-		if (isNaN(d.getTime())) return '';
-		return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-	}
+	let chronological = $derived([...messages].reverse());
 </script>
 
 <div class="feed">
 	{#if chronological.length === 0}
 		<div class="empty">No agent messages yet</div>
 	{/if}
-	{#each chronological as msg (msg.id?.toString())}
+	{#each chronological as msg, i (msg.id?.toString() ?? `idx-${i}`)}
 		<div class="feed-entry">
 			<div class="feed-meta">
 				<span class="feed-sender">{msg.sender}</span>

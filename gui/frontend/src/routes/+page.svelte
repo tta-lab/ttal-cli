@@ -12,8 +12,9 @@
 	let messagesEl = $state<HTMLElement | null>(null);
 	let loadingMore = $state(false);
 
-	// Avatar blob URL lookup keyed by agent name
+	// Avatar blob URL cache — keyed by agent name, cleaned up on destroy
 	const avatarCache = new Map<string, string>();
+	let avatarMap = $state<Record<string, string>>({});
 
 	async function getAvatarUrl(name: string): Promise<string> {
 		if (avatarCache.has(name)) return avatarCache.get(name)!;
@@ -28,9 +29,6 @@
 		}
 	}
 
-	// Reactive map of name → blob URL for rendered avatars
-	let avatarMap = $state<Record<string, string>>({});
-
 	async function refreshAvatars() {
 		if (!chatStore.activeContact) return;
 		const url = await getAvatarUrl(chatStore.activeContact);
@@ -41,25 +39,38 @@
 	async function init() {
 		try {
 			chatStore.userName = await ChatService.GetUserName();
+		} catch (err) {
+			statusMessage = `Error loading user: ${err}`;
+			return;
+		}
+		try {
 			daemonOnline = await ChatService.IsDaemonRunning();
 			statusMessage = daemonOnline ? 'Daemon online' : 'Daemon offline — read-only mode';
+		} catch {
+			daemonOnline = false;
+			statusMessage = 'Daemon offline — read-only mode';
+		}
+		try {
 			chatStore.contacts = await ChatService.GetContacts();
 		} catch (err) {
-			statusMessage = `Error: ${err}`;
+			console.error('GetContacts failed during init:', err);
 		}
 	}
 
 	init();
 
-	// Poll contacts every 5s (they change rarely)
+	// Poll contacts every 5s — they change rarely
 	const contactsInterval = setInterval(async () => {
 		try {
 			chatStore.contacts = await ChatService.GetContacts();
-		} catch { /* ignore */ }
+		} catch (err) {
+			console.error('GetContacts poll failed:', err);
+		}
 	}, 5000);
 
 	// Poll messages for active contact every 500ms
 	let messagesInterval: ReturnType<typeof setInterval> | null = null;
+	let consecutiveMessageFailures = 0;
 
 	$effect(() => {
 		const contact = chatStore.activeContact;
@@ -68,6 +79,7 @@
 			clearInterval(messagesInterval);
 			messagesInterval = null;
 		}
+		consecutiveMessageFailures = 0;
 		if (!contact) return;
 
 		refreshAvatars();
@@ -81,13 +93,21 @@
 					50,
 					0
 				);
+				consecutiveMessageFailures = 0;
 				const prevCount = chatStore.messages.length;
-				chatStore.messages = msgs;
-				if (msgs.length > prevCount) {
+				chatStore.setMessages(msgs);
+				if (chatStore.messages.length > prevCount) {
 					await tick();
 					scrollToBottom();
 				}
-			} catch { /* ignore */ }
+			} catch (err) {
+				consecutiveMessageFailures++;
+				console.error('GetMessages poll failed:', err);
+				if (consecutiveMessageFailures >= 3) {
+					statusMessage = 'Connection lost — retrying…';
+					daemonOnline = false;
+				}
+			}
 		}, 500);
 
 		return () => {
@@ -112,8 +132,10 @@
 
 		feedInterval = setInterval(async () => {
 			try {
-				chatStore.feedMessages = await ChatService.GetAgentFeedMessages(50, 0);
-			} catch { /* ignore */ }
+				chatStore.setFeedMessages(await ChatService.GetAgentFeedMessages(50, 0));
+			} catch (err) {
+				console.error('GetAgentFeedMessages poll failed:', err);
+			}
 		}, 500);
 
 		return () => {
@@ -147,8 +169,9 @@
 				await tick();
 				messagesEl.scrollTop = messagesEl.scrollHeight - prevScrollHeight;
 			}
-		} catch { /* ignore */ }
-		finally {
+		} catch (err) {
+			console.error('Load more messages failed:', err);
+		} finally {
 			loadingMore = false;
 		}
 	}
@@ -159,6 +182,8 @@
 			await ChatService.SendMessage(chatStore.activeContact, content);
 		} catch (err) {
 			console.error('SendMessage failed:', err);
+			// Return content to caller so MessageInput can restore it
+			throw err;
 		}
 	}
 
@@ -220,14 +245,14 @@
 					{#if loadingMore}
 						<div class="loading-more">Loading…</div>
 					{/if}
-					{#if chatStore.messages.filter(Boolean).length === 0}
+					{#if chatStore.messages.length === 0}
 						<div class="no-messages">No messages yet</div>
 					{/if}
-					{#each chatStore.messages.filter(Boolean) as msg (msg!.id?.toString())}
+					{#each chatStore.messages as msg, i (msg.id?.toString() ?? `idx-${i}`)}
 						<ChatBubble
-							message={msg!}
+							message={msg}
 							userName={chatStore.userName}
-							avatarUrl={avatarMap[msg!.sender ?? ''] ?? ''}
+							avatarUrl={avatarMap[msg.sender ?? ''] ?? ''}
 						/>
 					{/each}
 				</div>

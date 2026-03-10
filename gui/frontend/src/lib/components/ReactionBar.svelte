@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Reaction } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
 	import * as ChatService from '../../../bindings/github.com/tta-lab/ttal-cli/gui/chatservice.js';
 	import 'emoji-picker-element';
+	import type { EmojiClickEvent } from 'emoji-picker-element/shared';
 
 	interface Props {
 		messageId: string;
@@ -27,27 +27,26 @@
 		)
 	);
 
+	// $effect re-runs whenever pickerEl changes (i.e. when {#if showPicker} renders it)
+	$effect(() => {
+		if (!pickerEl) return;
+		const handler = async (e: EmojiClickEvent) => {
+			const emoji = e.detail.unicode;
+			if (!emoji) return;
+			showPicker = false;
+			try {
+				await ChatService.AddReaction(messageId, emoji);
+			} catch (err) {
+				console.error('AddReaction failed:', err);
+			}
+		};
+		pickerEl.addEventListener('emoji-click', handler as EventListener);
+		return () => pickerEl?.removeEventListener('emoji-click', handler as EventListener);
+	});
+
 	function togglePicker() {
 		showPicker = !showPicker;
 	}
-
-	async function handleEmojiClick(e: Event) {
-		const detail = (e as CustomEvent).detail?.unicode as string | undefined;
-		if (!detail) return;
-		showPicker = false;
-		try {
-			await ChatService.AddReaction(messageId, detail);
-		} catch (err) {
-			console.error('AddReaction failed:', err);
-		}
-	}
-
-	onMount(() => {
-		if (pickerEl) {
-			pickerEl.addEventListener('emoji-click', handleEmojiClick);
-			return () => pickerEl?.removeEventListener('emoji-click', handleEmojiClick);
-		}
-	});
 </script>
 
 <div class="reaction-bar">
@@ -89,6 +88,9 @@
 		cursor: pointer;
 		color: #e2e8f0;
 		transition: background 0.1s;
+		width: auto;
+		height: auto;
+		line-height: normal;
 	}
 
 	.reaction-badge:hover {

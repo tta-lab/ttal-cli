@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Contact } from '../../../bindings/github.com/tta-lab/ttal-cli/gui/models.js';
+	import { formatRelativeTime } from '$lib/utils/time.js';
 
 	interface Props {
 		contacts: Contact[];
@@ -8,20 +9,6 @@
 	}
 
 	let { contacts, activeContact, onSelect }: Props = $props();
-
-	function formatTime(ts: unknown): string {
-		if (!ts) return '';
-		const d = new Date(ts as string);
-		if (isNaN(d.getTime())) return '';
-		const now = new Date();
-		const diffMs = now.getTime() - d.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		if (diffMins < 1) return 'just now';
-		if (diffMins < 60) return `${diffMins}m ago`;
-		const diffHours = Math.floor(diffMins / 60);
-		if (diffHours < 24) return `${diffHours}h ago`;
-		return d.toLocaleDateString();
-	}
 </script>
 
 <aside class="sidebar">
@@ -44,7 +31,7 @@
 					</div>
 					<div class="contact-info">
 						<span class="contact-name">{contact.name}</span>
-						<span class="contact-time">{formatTime(contact.lastMessageAt)}</span>
+						<span class="contact-time">{formatRelativeTime(contact.lastMessageAt)}</span>
 					</div>
 				</button>
 			</li>

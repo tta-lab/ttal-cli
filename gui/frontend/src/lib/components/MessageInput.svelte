@@ -1,6 +1,6 @@
 <script lang="ts">
 	interface Props {
-		onSend: (content: string) => void;
+		onSend: (content: string) => void | Promise<void>;
 		disabled?: boolean;
 		placeholder?: string;
 	}
@@ -8,12 +8,22 @@
 	let { onSend, disabled = false, placeholder = 'Type a message…' }: Props = $props();
 
 	let value = $state('');
+	let sending = $state(false);
 
-	function send() {
+	async function send() {
 		const trimmed = value.trim();
-		if (!trimmed || disabled) return;
-		onSend(trimmed);
+		if (!trimmed || disabled || sending) return;
+		sending = true;
+		const saved = value;
 		value = '';
+		try {
+			await onSend(trimmed);
+		} catch {
+			// Restore message so the user doesn't lose what they typed
+			value = saved;
+		} finally {
+			sending = false;
+		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -39,7 +49,7 @@
 			el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 		}}
 	></textarea>
-	<button class="send-btn" onclick={send} {disabled} title="Send (Enter)">
+	<button class="send-btn" onclick={send} disabled={disabled || sending} title="Send (Enter)">
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 			<path d="M22 2L11 13" />
 			<path d="M22 2L15 22 11 13 2 9l20-7z" />

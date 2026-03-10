@@ -1,10 +1,12 @@
 <script lang="ts">
 	import Markdown from 'svelte-exmarkdown';
 	import { gfmPlugin } from 'svelte-exmarkdown/gfm';
+	import rehypeSanitize from 'rehype-sanitize';
 	import rehypeHighlight from 'rehype-highlight';
 	import 'highlight.js/styles/github-dark.css';
 	import type { Message } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
 	import ReactionBar from './ReactionBar.svelte';
+	import { formatTime } from '$lib/utils/time.js';
 
 	interface Props {
 		message: Message;
@@ -14,19 +16,16 @@
 
 	let { message, userName, avatarUrl }: Props = $props();
 
-	const plugins = [gfmPlugin(), { rehypePlugin: [rehypeHighlight] }];
+	// rehype-sanitize runs before rehype-highlight to strip unsafe HTML
+	const plugins = [
+		gfmPlugin(),
+		{ rehypePlugin: [rehypeSanitize] },
+		{ rehypePlugin: [rehypeHighlight] }
+	];
 
 	let isMine = $derived(message.sender === userName);
 	let initials = $derived((message.sender ?? '?').slice(0, 1).toUpperCase());
-
-	function formatTime(ts: unknown): string {
-		if (!ts) return '';
-		const d = new Date(ts as string);
-		if (isNaN(d.getTime())) return '';
-		return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-	}
-
-	let reactions = $derived(message.edges?.reactions ?? []);
+	let reactions = $derived(message.edges?.reactions?.filter(Boolean) ?? []);
 	let messageId = $derived(message.id?.toString() ?? '');
 </script>
 
@@ -53,10 +52,8 @@
 		<div class="meta-row">
 			<span class="timestamp">{formatTime(message.created_at)}</span>
 		</div>
-		{#if reactions.length > 0 && messageId}
+		{#if messageId}
 			<ReactionBar {messageId} {reactions} />
-		{:else if messageId}
-			<ReactionBar {messageId} reactions={[]} />
 		{/if}
 	</div>
 </div>
