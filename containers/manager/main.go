@@ -11,6 +11,14 @@ import (
 
 const imageRef = "ghcr.io/tta-lab/ttal-manager-cc"
 
+const (
+	// helixReleaseTag is the GitHub release tag — check https://github.com/helix-editor/helix/releases for updates.
+	helixReleaseTag = "25.07.1"
+	// helixDebVersion is the Debian package version for the same release.
+	// Debian version strings strip leading zeros from numeric components (25.07.1 → 25.7.1).
+	helixDebVersion = "25.7.1"
+)
+
 func main() {
 	push := flag.Bool("push", false, "push image to GHCR")
 	tag := flag.String("tag", "latest", "image tag")
@@ -43,6 +51,7 @@ func build(ctx context.Context, push bool, tag string) error {
 			"openssh-client", "ca-certificates",
 			"build-essential", "python3",
 			"taskwarrior", "ripgrep", "fd-find",
+			"vim",
 		}).
 
 		// GitHub CLI (not in standard Debian repos — add official apt source)
@@ -52,6 +61,13 @@ func build(ctx context.Context, push bool, tag string) error {
 		WithExec([]string{"apt-get", "install", "-y", "--no-install-recommends", "gh"}).
 		WithExec([]string{"apt-get", "clean"}).
 		WithExec([]string{"sh", "-c", "rm -rf /var/lib/apt/lists/*"}).
+
+		// Helix editor — .deb from GitHub releases (arch-aware, matches pattern used for gh above)
+		WithExec([]string{"sh", "-c", fmt.Sprintf(
+			"curl -fsSL https://github.com/helix-editor/helix/releases/download/%s/helix_%s-1_$(dpkg --print-architecture).deb -o /tmp/helix.deb"+
+				" && dpkg -i /tmp/helix.deb && rm /tmp/helix.deb",
+			helixReleaseTag, helixDebVersion)}).
+		WithExec([]string{"hx", "--version"}).
 
 		// Claude Code via npm (latest, no pin)
 		WithExec([]string{"npm", "install", "-g", "@anthropic-ai/claude-code"}).
