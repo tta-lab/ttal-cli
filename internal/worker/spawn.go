@@ -37,7 +37,11 @@ func Spawn(cfg SpawnConfig) error {
 	if cfg.UseDocker {
 		return SpawnDocker(cfg)
 	}
+	return spawnBareMetal(cfg)
+}
 
+// spawnBareMetal spawns a bare-metal tmux worker (no container).
+func spawnBareMetal(cfg SpawnConfig) error {
 	task, err := loadAndValidateTask(cfg)
 	if err != nil {
 		return err

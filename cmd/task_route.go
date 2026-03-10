@@ -171,12 +171,8 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return nil
 	}
 
-	if err := taskwarrior.StartTask(task.UUID); err != nil {
-		if strings.Contains(err.Error(), "already active") {
-			fmt.Fprintf(os.Stderr, "Warning: task is already active in taskwarrior\n")
-		} else {
-			return fmt.Errorf("task start failed before worker spawn: %w", err)
-		}
+	if err := startTaskSafe(task.UUID); err != nil {
+		return err
 	}
 
 	spawnCfg := worker.SpawnConfig{
@@ -197,6 +193,18 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return err
 	}
 
+	return nil
+}
+
+// startTaskSafe starts a taskwarrior task, ignoring "already active" errors.
+func startTaskSafe(uuid string) error {
+	if err := taskwarrior.StartTask(uuid); err != nil {
+		if strings.Contains(err.Error(), "already active") {
+			fmt.Fprintf(os.Stderr, "Warning: task is already active in taskwarrior\n")
+			return nil
+		}
+		return fmt.Errorf("task start failed before worker spawn: %w", err)
+	}
 	return nil
 }
 
