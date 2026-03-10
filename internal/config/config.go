@@ -110,7 +110,7 @@ type KubernetesConfig struct {
 }
 
 // DefaultAgentImage is the default container image for k8s agent pods.
-const DefaultAgentImage = "ghcr.io/tta-lab/ttal-manager-cc:latest"
+const DefaultAgentImage = "ghcr.io/tta-lab/ttal-base:latest"
 
 // isSet reports whether this config enables k8s deployment.
 // Safe to call on a nil pointer.

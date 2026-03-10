@@ -11,6 +11,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -170,26 +171,63 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return nil
 	}
 
-	if err := taskwarrior.StartTask(task.UUID); err != nil {
-		if strings.Contains(err.Error(), "already active") {
-			fmt.Fprintf(os.Stderr, "Warning: task is already active in taskwarrior\n")
-		} else {
-			return fmt.Errorf("task start failed before worker spawn: %w", err)
-		}
+	if err := startTaskSafe(task.UUID); err != nil {
+		return err
 	}
 
-	if err := worker.Spawn(worker.SpawnConfig{
+	spawnCfg := worker.SpawnConfig{
 		Name:     workerName,
 		Project:  task.ProjectPath,
 		TaskUUID: task.UUID,
 		Worktree: true,
 		Runtime:  rt,
 		Spawner:  detectSpawner(),
-	}); err != nil {
+	}
+
+	if image := lookupProjectImage(task.Project); image != "" {
+		spawnCfg.UseDocker = true
+		spawnCfg.Image = image
+	}
+
+	if err := worker.Spawn(spawnCfg); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// startTaskSafe starts a taskwarrior task, ignoring "already active" errors.
+func startTaskSafe(uuid string) error {
+	if err := taskwarrior.StartTask(uuid); err != nil {
+		if strings.Contains(err.Error(), "already active") {
+			fmt.Fprintf(os.Stderr, "Warning: task is already active in taskwarrior\n")
+			return nil
+		}
+		return fmt.Errorf("task start failed before worker spawn: %w", err)
+	}
+	return nil
+}
+
+// lookupProjectImage returns the container image for a task's project name, or "".
+// Tries progressively shorter prefixes: "ttal.pr" → "ttal.pr", "ttal".
+func lookupProjectImage(taskProject string) string {
+	if taskProject == "" {
+		return ""
+	}
+	store := project.NewStore(config.ResolveProjectsPath())
+	parts := strings.Split(taskProject, ".")
+	for i := len(parts); i >= 1; i-- {
+		candidate := strings.Join(parts[:i], ".")
+		proj, err := store.Get(candidate)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: image lookup for %q failed: %v\n", candidate, err)
+			continue
+		}
+		if proj != nil && proj.Image != "" {
+			return proj.Image
+		}
+	}
+	return ""
 }
 
 // detectSpawner returns the team:agent identity from env vars.

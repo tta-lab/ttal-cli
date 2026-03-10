@@ -19,18 +19,29 @@ import (
 
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
-	Name     string
-	Project  string
-	TaskUUID string
-	Worktree bool
-	Force    bool
-	Runtime  runtime.Runtime
-	Spawner  string // team:agent format, set by ttal task execute
+	Name      string
+	Project   string
+	TaskUUID  string
+	Worktree  bool
+	Force     bool
+	Runtime   runtime.Runtime
+	Spawner   string // team:agent format, set by ttal task execute
+	UseDocker bool   // run coder window inside Docker container
+	Image     string // container image ref (e.g. ghcr.io/tta-lab/ttal-worker-go:latest)
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
 // and tracks the worker in taskwarrior.
+// When cfg.UseDocker is true, the coder window runs inside a Docker container.
 func Spawn(cfg SpawnConfig) error {
+	if cfg.UseDocker {
+		return SpawnDocker(cfg)
+	}
+	return spawnBareMetal(cfg)
+}
+
+// spawnBareMetal spawns a bare-metal tmux worker (no container).
+func spawnBareMetal(cfg SpawnConfig) error {
 	task, err := loadAndValidateTask(cfg)
 	if err != nil {
 		return err

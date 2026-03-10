@@ -1,0 +1,41 @@
+name: Build Container Images
+on:
+  push:
+    paths:
+      - 'containers/**'
+    branches: [main]
+
+permissions:
+  packages: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.changed.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: changed
+        run: |
+          dirs=$(git diff --name-only ${{ github.event.before }} HEAD | grep '^containers/' | cut -d/ -f1-2 | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: detect
+    if: ${{ needs.detect.outputs.dirs != '[]' && needs.detect.outputs.dirs != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect.outputs.dirs) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dagger/dagger-for-github@v7
+        with:
+          version: "latest"
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push
+        working-directory: ${{ matrix.dir }}
+        run: dagger run go run main.go --push
