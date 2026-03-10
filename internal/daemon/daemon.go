@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -330,7 +331,7 @@ func initAdapters(
 				log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
 				continue
 			}
-			if err := bootstrapClaudeDir(teamName, home); err != nil {
+			if err := bootstrapClaudeDir(teamName, team.TeamPath, home); err != nil {
 				log.Printf("[k8s] failed to bootstrap .claude for team %s: %v", teamName, err)
 				continue
 			}
@@ -347,6 +348,8 @@ func initAdapters(
 			k8sPods[teamName] = pod
 		}
 	}
+
+	ensureLocalAgentTrust(mcfg)
 
 	// Phase 2: spawn per-agent sessions in parallel
 	var wg sync.WaitGroup
@@ -492,6 +495,66 @@ func buildPerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []s
 		}
 	}
 	return env
+}
+
+// ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json
+// for all non-k8s agent workspace paths. Idempotent.
+func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	claudeJSONPath := filepath.Join(home, ".claude.json")
+
+	// Collect non-k8s agent paths
+	var paths []string
+	for _, ta := range mcfg.AllAgents() {
+		team := mcfg.Teams[ta.TeamName]
+		if team != nil && team.IsK8s() {
+			continue
+		}
+		paths = append(paths, filepath.Join(ta.TeamPath, ta.AgentName))
+	}
+	if len(paths) == 0 {
+		return
+	}
+
+	// Read existing .claude.json (or start fresh)
+	var raw map[string]any
+	if data, err := os.ReadFile(claudeJSONPath); err == nil {
+		json.Unmarshal(data, &raw)
+	}
+	if raw == nil {
+		raw = map[string]any{"hasCompletedOnboarding": true}
+	}
+
+	projects, _ := raw["projects"].(map[string]any)
+	if projects == nil {
+		projects = make(map[string]any)
+		raw["projects"] = projects
+	}
+
+	changed := false
+	for _, agentPath := range paths {
+		if proj, exists := projects[agentPath]; exists {
+			if m, ok := proj.(map[string]any); ok && m["hasTrustDialogAccepted"] == true {
+				continue
+			}
+		}
+		projects[agentPath] = map[string]any{
+			"hasTrustDialogAccepted":        true,
+			"hasCompletedProjectOnboarding": true,
+			"allowedTools":                  []any{},
+		}
+		changed = true
+	}
+
+	if changed {
+		out, _ := json.MarshalIndent(raw, "", "  ")
+		os.WriteFile(claudeJSONPath, out, 0o644)
+		log.Printf("[daemon] added trust entries for %d local agent workspaces", len(paths))
+	}
 }
 
 // bridgeEvents reads events from an adapter and routes them to Telegram.
