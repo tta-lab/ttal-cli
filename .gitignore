@@ -42,6 +42,11 @@ docs/dist/
 docs/node_modules/
 docs/.astro/
 
+# SvelteKit build cache
+gui/frontend/.svelte-kit/
+gui/frontend/dist/
+gui/frontend/node_modules/
+
 # OS
 .DS_Store
 Thumbs.db
