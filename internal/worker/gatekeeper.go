@@ -120,7 +120,7 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	return 0
 }
 
-// killProcessGroup sends SIGTERM to the process group, waits 500ms, then force-kills with SIGKILL.
+// killProcessGroup sends SIGTERM to the process group, waits 1s, then force-kills with SIGKILL.
 func killProcessGroup(pid int) {
 	pgid, err := syscall.Getpgid(pid)
 	if err != nil {
@@ -132,11 +132,15 @@ func killProcessGroup(pid int) {
 	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
 		fmt.Fprintf(os.Stderr, "gatekeeper: SIGTERM to pgid %d failed: %v\n", pgid, err)
 	}
-	time.Sleep(500 * time.Millisecond)
-	if err := syscall.Kill(-pgid, 0); err == nil {
-		if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
-			fmt.Fprintf(os.Stderr, "gatekeeper: SIGKILL to pgid %d failed: %v\n", pgid, err)
+	time.Sleep(1 * time.Second)
+	if err := syscall.Kill(-pgid, 0); err != nil {
+		if err != syscall.ESRCH {
+			fmt.Fprintf(os.Stderr, "gatekeeper: probe pgid %d failed, skipping SIGKILL: %v\n", pgid, err)
 		}
+		return
+	}
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
+		fmt.Fprintf(os.Stderr, "gatekeeper: SIGKILL to pgid %d failed: %v\n", pgid, err)
 	}
 }
 

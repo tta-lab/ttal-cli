@@ -832,13 +832,29 @@ func IsRunning() (bool, int, error) {
 
 // shutdownAgents gracefully shuts down all agent sessions on daemon exit.
 // K8s agent sessions receive /exit but pods are kept running for reuse.
-// Local CC sessions are polled for exit up to 5s, then force-killed.
+// Local CC sessions are killed directly; status files are cleared so the
+// next spawn doesn't attempt --resume with a stale session ID.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
 	stopK8sAgents(mcfg)
 	sessions := collectCCSessions(mcfg)
 	if len(sessions) > 0 {
 		shutdownCCSessions(sessions)
+	}
+	clearCCStatusFiles(mcfg)
+}
+
+// clearCCStatusFiles removes persisted session status for all local CC agents
+// so that a stale session ID is never passed to --resume on next spawn.
+func clearCCStatusFiles(mcfg *config.DaemonConfig) {
+	for _, ta := range mcfg.AllAgents() {
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+		if rt != runtime.ClaudeCode {
+			continue
+		}
+		if err := status.Remove(ta.TeamName, ta.AgentName); err != nil {
+			log.Printf("[daemon] failed to clear status for %s/%s: %v", ta.TeamName, ta.AgentName, err)
+		}
 	}
 }
 
@@ -921,7 +937,11 @@ func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, e
 // lastSessionID reads the persisted CC session ID for an agent from the status file.
 func lastSessionID(teamName, agentName string) string {
 	s, err := status.ReadAgent(teamName, agentName)
-	if err != nil || s == nil {
+	if err != nil {
+		log.Printf("[daemon] could not read status for %s/%s, starting without --resume: %v", teamName, agentName, err)
+		return ""
+	}
+	if s == nil {
 		return ""
 	}
 	return s.SessionID
