@@ -13,14 +13,19 @@ import (
 	"syscall"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/ent"
+	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
+
+	_ "modernc.org/sqlite"
 )
 
 const pidFileName = "daemon.pid"
@@ -60,6 +65,29 @@ func Run() error {
 		return err
 	}
 
+	// Open SQLite message database.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get home dir: %w", err)
+	}
+	ttalDir := filepath.Join(home, ".ttal")
+	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
+		return fmt.Errorf("create message db dir: %w", err)
+	}
+	dbPath := filepath.Join(ttalDir, "messages.db")
+	// modernc/sqlite uses _pragma= syntax; foreign_keys and WAL mode required.
+	dbDSN := "file:" + dbPath + "?cache=shared&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
+	drv, err := entsql.Open("sqlite", dbDSN)
+	if err != nil {
+		return fmt.Errorf("open message db: %w", err)
+	}
+	entClient := ent.NewClient(ent.Driver(entsql.OpenDB("sqlite3", drv.DB())))
+	defer func() { _ = entClient.Close() }()
+	if err := entClient.Schema.Create(context.Background()); err != nil {
+		return fmt.Errorf("migrate message schema: %w", err)
+	}
+	msgSvc := message.NewService(entClient)
+
 	allAgents := mcfg.AllAgents()
 	log.Printf("[daemon] starting — socket=%s teams=%d agents=%d",
 		sockPath, len(mcfg.Teams), len(allAgents))
@@ -80,7 +108,7 @@ func Run() error {
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		initAdapters(ctx, mcfg, registry, qs, mt)
+		initAdapters(ctx, mcfg, registry, qs, mt, msgSvc)
 	}()
 
 	startupWg.Add(1)
@@ -90,17 +118,17 @@ func Run() error {
 	}()
 
 	startupWg.Wait()
-	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt)
+	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt, msgSvc)
 	startNotificationPollers(mcfg, done)
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, registry, done)
-	startWatcherIfNeeded(mcfg, allAgents, qs, mt, done)
+	startWatcherIfNeeded(mcfg, allAgents, qs, mt, msgSvc, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
-			return handleSend(mcfg, registry, req)
+			return handleSend(mcfg, registry, msgSvc, req)
 		},
 		statusUpdate: handleStatusUpdate,
 	})
@@ -183,7 +211,7 @@ func startTelegramPollers(
 	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
 	registry *adapterRegistry, done chan struct{},
 	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
-	mt *messageTracker,
+	mt *messageTracker, msgSvc *message.Service,
 ) {
 	tokenTargets := buildTokenTargets(mcfg, allAgents)
 
@@ -195,7 +223,7 @@ func startTelegramPollers(
 			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
-		}, done, qs, cas, registry, allCommands, mt)
+		}, done, qs, cas, registry, allCommands, mt, msgSvc)
 	}
 }
 
@@ -244,12 +272,12 @@ func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
 // startWatcherIfNeeded starts the JSONL watcher unless all agents use OpenClaw.
 func startWatcherIfNeeded(
 	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
-	qs *questionStore, mt *messageTracker, done <-chan struct{},
+	qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
 ) {
 	for _, ta := range allAgents {
 		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 		if rt != runtime.OpenClaw {
-			startWatcher(mcfg, qs, mt, done)
+			startWatcher(mcfg, qs, mt, msgSvc, done)
 			return
 		}
 	}
@@ -300,6 +328,13 @@ func awaitShutdown(
 	cleanup()
 }
 
+// persistMsg persists a message and logs a warning if it fails.
+func persistMsg(msgSvc *message.Service, p message.CreateParams) {
+	if _, err := msgSvc.Create(context.Background(), p); err != nil {
+		log.Printf("[daemon] message persist failed (sender=%s): %v", p.Sender, err)
+	}
+}
+
 // initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for all others.
 // Config-driven: iterates all teams, no DB required.
 //
@@ -308,7 +343,7 @@ func awaitShutdown(
 //  2. Spawn per-agent sessions in parallel (local tmux or k8s exec).
 func initAdapters(
 	ctx context.Context, mcfg *config.DaemonConfig,
-	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
+	registry *adapterRegistry, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
 ) {
 	// Phase 1: ensure k8s team pods exist with correct spec
 	k8sPods = make(map[string]*k8sTeamPod)
@@ -356,7 +391,7 @@ func initAdapters(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ctx, ta, mcfg, registry, qs, mt)
+			initSingleAdapter(ctx, ta, mcfg, registry, qs, mt, msgSvc)
 		}()
 	}
 	wg.Wait()
@@ -365,7 +400,7 @@ func initAdapters(
 // initSingleAdapter initializes a single agent: tmux session for CC, HTTP adapter for others.
 func initSingleAdapter(
 	ctx context.Context, ta config.TeamAgent, mcfg *config.DaemonConfig,
-	registry *adapterRegistry, qs *questionStore, mt *messageTracker,
+	registry *adapterRegistry, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -428,7 +463,7 @@ func initSingleAdapter(
 	}
 	// OpenClaw owns messaging — skip Telegram event bridging
 	if rt != runtime.OpenClaw {
-		bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt)
+		bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt, msgSvc)
 	}
 }
 
@@ -532,7 +567,7 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 // bridgeEvents reads events from an adapter and routes them to Telegram.
 func bridgeEvents(
 	agentName, teamName string, adapter runtime.Adapter,
-	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker,
+	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
 ) {
 	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
 	botToken := config.AgentBotToken(agentName)
@@ -545,6 +580,11 @@ func bridgeEvents(
 		for event := range adapter.Events() {
 			switch event.Type {
 			case runtime.EventText:
+				rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
+				persistMsg(msgSvc, message.CreateParams{
+					Sender: agentName, Recipient: mcfg.Global.UserName(), Content: event.Text,
+					Team: teamName, Channel: message.ChannelAdapter, Runtime: &rt,
+				})
 				if err := telegram.SendMessage(botToken, chatID, event.Text); err != nil {
 					log.Printf("[daemon] telegram send error for %s: %v", agentName, err)
 				}
@@ -575,23 +615,23 @@ func bridgeEvents(
 
 // handleSend routes an incoming SendRequest based on From/To fields.
 // Resolves team from agent name or the Team field in the request.
-func handleSend(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequest) error {
+func handleSend(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
 	switch {
 	case req.From != "" && req.To == "human":
-		return handleFrom(mcfg, req)
+		return handleFrom(mcfg, msgSvc, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgent(mcfg, registry, req)
+		return handleAgentToAgent(mcfg, registry, msgSvc, req)
 	case req.From != "":
-		return handleFrom(mcfg, req)
+		return handleFrom(mcfg, msgSvc, req)
 	case req.To != "":
-		return handleTo(mcfg, registry, req)
+		return handleTo(mcfg, registry, msgSvc, req)
 	default:
 		return fmt.Errorf("send request missing from/to")
 	}
 }
 
 // handleFrom sends a message from an agent to the human via Telegram.
-func handleFrom(mcfg *config.DaemonConfig, req SendRequest) error {
+func handleFrom(mcfg *config.DaemonConfig, msgSvc *message.Service, req SendRequest) error {
 	ta := resolveAgent(mcfg, req.Team, req.From)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
@@ -600,20 +640,31 @@ func handleFrom(mcfg *config.DaemonConfig, req SendRequest) error {
 	if botToken == "" {
 		return fmt.Errorf("agent %s has no telegram configured", req.From)
 	}
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.From)
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
+		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+	})
 	return telegram.SendMessage(botToken, ta.ChatID, req.Message)
 }
 
 // handleTo delivers a message to an agent via its runtime adapter.
-func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequest) error {
+func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
 	ta := resolveAgent(mcfg, req.Team, req.To)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
+		Team: ta.TeamName, Channel: message.ChannelCLI,
+	})
 	return deliverToAgent(registry, mcfg, ta.TeamName, req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
-func handleAgentToAgent(mcfg *config.DaemonConfig, registry *adapterRegistry, req SendRequest) error {
+func handleAgentToAgent(
+	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest,
+) error {
 	fromTA := resolveAgent(mcfg, req.Team, req.From)
 	if fromTA == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
@@ -622,6 +673,11 @@ func handleAgentToAgent(mcfg *config.DaemonConfig, registry *adapterRegistry, re
 	if toTA == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
+	rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: req.From, Recipient: req.To, Content: req.Message,
+		Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+	})
 	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 	return deliverToAgent(registry, mcfg, toTA.TeamName, req.To, msg)
@@ -662,7 +718,9 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 }
 
 // startWatcher initializes the JSONL watcher from config (all teams).
-func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, done <-chan struct{}) {
+func startWatcher(
+	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
+) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Printf("[daemon] watcher disabled: cannot get home directory: %v — CC→Telegram bridging will not work", err)
@@ -703,6 +761,11 @@ func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTrack
 			}
 			// Clear tracking — response text arriving is the done signal
 			mt.delete(teamName, agentName)
+			rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
+			persistMsg(msgSvc, message.CreateParams{
+				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
+				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,
+			})
 			if err := telegram.SendMessage(botToken, ta.ChatID, text); err != nil {
 				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 			}

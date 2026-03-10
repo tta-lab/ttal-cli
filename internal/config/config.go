@@ -46,6 +46,12 @@ type FlicknoteConfig struct {
 	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
 }
 
+// UserConfig holds the human user's identity for the GUI and message queries.
+type UserConfig struct {
+	// Human's display name (e.g. "neil"). Falls back to $USER env var if empty.
+	Name string `toml:"name"`
+}
+
 // Config is the top-level structure for ~/.config/ttal/config.toml.
 //
 // Requires [teams] sections. After Load(), resolved fields are populated from the active team.
@@ -72,6 +78,8 @@ type Config struct {
 	DefaultTeam string `toml:"default_team"` //nolint:lll
 	// Per-team configuration sections
 	Teams map[string]TeamConfig `toml:"teams"`
+	// Human user identity (used by GUI ChatService and message queries)
+	User UserConfig `toml:"user"`
 
 	// Resolved at load time, not from TOML.
 	resolvedDataDir        string
@@ -312,6 +320,14 @@ func (c *Config) AgentPath(agentName string) string {
 // TeamName returns the resolved active team name.
 func (c *Config) TeamName() string {
 	return c.resolvedTeamName
+}
+
+// UserName returns the configured human name, falling back to the $USER env var.
+func (c *Config) UserName() string {
+	if c.User.Name != "" {
+		return c.User.Name
+	}
+	return os.Getenv("USER")
 }
 
 // AgentRuntime returns the team's agent runtime ("claude-code" if unset).
