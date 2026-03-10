@@ -4,7 +4,7 @@
 	import rehypeSanitize from 'rehype-sanitize';
 	import rehypeHighlight from 'rehype-highlight';
 	import 'highlight.js/styles/github-dark.css';
-	import type { Message } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
+	import type { Message, Reaction } from '../../../bindings/github.com/tta-lab/ttal-cli/internal/ent/models.js';
 	import ReactionBar from './ReactionBar.svelte';
 	import { formatTime } from '$lib/utils/time.js';
 
@@ -25,7 +25,9 @@
 
 	let isMine = $derived(message.sender === userName);
 	let initials = $derived((message.sender ?? '?').slice(0, 1).toUpperCase());
-	let reactions = $derived(message.edges?.reactions?.filter(Boolean) ?? []);
+	let reactions = $derived(
+		(message.edges?.reactions ?? []).filter((r): r is Reaction => r != null)
+	);
 	let messageId = $derived(message.id?.toString() ?? '');
 </script>
 

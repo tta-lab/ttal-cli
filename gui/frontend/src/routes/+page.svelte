@@ -24,7 +24,10 @@
 			const url = URL.createObjectURL(blob);
 			avatarCache.set(name, url);
 			return url;
-		} catch {
+		} catch (err) {
+			console.warn(`GetAvatar failed for "${name}":`, err);
+			// Cache empty string so we don't retry on every contact switch
+			avatarCache.set(name, '');
 			return ''; // fallback to initials avatar
 		}
 	}

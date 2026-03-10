@@ -6,28 +6,27 @@
 
 	interface Props {
 		messageId: string;
-		reactions: (Reaction | null)[];
+		reactions: Reaction[];
 	}
 
 	let { messageId, reactions }: Props = $props();
 
 	let showPicker = $state(false);
 	let pickerEl = $state<HTMLElement | null>(null);
+	let containerEl = $state<HTMLElement | null>(null);
 
 	// Group reactions by emoji for badge display
 	let grouped = $derived(
 		Object.entries(
-			reactions
-				.filter(Boolean)
-				.reduce<Record<string, number>>((acc, r) => {
-					const key = r!.emoji ?? '';
-					acc[key] = (acc[key] ?? 0) + 1;
-					return acc;
-				}, {})
+			reactions.reduce<Record<string, number>>((acc, r) => {
+				const key = r.emoji ?? '';
+				acc[key] = (acc[key] ?? 0) + 1;
+				return acc;
+			}, {})
 		)
 	);
 
-	// $effect re-runs whenever pickerEl changes (i.e. when {#if showPicker} renders it)
+	// Attach emoji-click listener when picker mounts
 	$effect(() => {
 		if (!pickerEl) return;
 		const handler = async (e: EmojiClickEvent) => {
@@ -44,12 +43,24 @@
 		return () => pickerEl?.removeEventListener('emoji-click', handler as EventListener);
 	});
 
+	// Close picker on click outside the container
+	$effect(() => {
+		if (!showPicker) return;
+		const handler = (e: MouseEvent) => {
+			if (containerEl && !containerEl.contains(e.target as Node)) {
+				showPicker = false;
+			}
+		};
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
+	});
+
 	function togglePicker() {
 		showPicker = !showPicker;
 	}
 </script>
 
-<div class="reaction-bar">
+<div class="reaction-bar" bind:this={containerEl}>
 	{#each grouped as [emoji, count] (emoji)}
 		<button class="reaction-badge" title="React with {emoji}" onclick={togglePicker}>
 			{emoji} <span class="count">{count}</span>
