@@ -402,7 +402,8 @@ func initSingleAdapter(
 		}
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, env, mcfg.Global.GetShell()); err != nil {
+		shell := mcfg.Global.GetShell()
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, env, shell); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
@@ -831,13 +832,29 @@ func IsRunning() (bool, int, error) {
 
 // shutdownAgents gracefully shuts down all agent sessions on daemon exit.
 // K8s agent sessions receive /exit but pods are kept running for reuse.
-// Local CC sessions are polled for exit up to 5s, then force-killed.
+// Local CC sessions are killed directly; status files are cleared so the
+// next spawn doesn't attempt --resume with a stale session ID.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
 	stopK8sAgents(mcfg)
 	sessions := collectCCSessions(mcfg)
 	if len(sessions) > 0 {
 		shutdownCCSessions(sessions)
+	}
+	clearCCStatusFiles(mcfg)
+}
+
+// clearCCStatusFiles removes persisted session status for all local CC agents
+// so that a stale session ID is never passed to --resume on next spawn.
+func clearCCStatusFiles(mcfg *config.DaemonConfig) {
+	for _, ta := range mcfg.AllAgents() {
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+		if rt != runtime.ClaudeCode {
+			continue
+		}
+		if err := status.Remove(ta.TeamName, ta.AgentName); err != nil {
+			log.Printf("[daemon] failed to clear status for %s/%s: %v", ta.TeamName, ta.AgentName, err)
+		}
 	}
 }
 
@@ -872,57 +889,25 @@ func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	return sessions
 }
 
-// shutdownCCSessions sends /exit to CC sessions, polls up to 5s, then force-kills stragglers.
+// shutdownCCSessions kills CC tmux sessions directly.
 func shutdownCCSessions(sessions []string) {
 	for _, s := range sessions {
-		if err := tmux.SendKeys(s, "", "/exit"); err != nil {
-			log.Printf("[daemon] /exit to session %s failed (will force-kill): %v", s, err)
-		}
-	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if allSessionsGone(sessions) {
-			return
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	forceKillSessions(sessions)
-}
-
-// allSessionsGone reports whether all given tmux sessions have exited.
-func allSessionsGone(sessions []string) bool {
-	for _, s := range sessions {
-		if tmux.SessionExists(s) {
-			return false
-		}
-	}
-	return true
-}
-
-// forceKillSessions kills any remaining tmux sessions.
-func forceKillSessions(sessions []string) {
-	for _, s := range sessions {
-		if !tmux.SessionExists(s) {
-			continue
-		}
 		if err := tmux.KillSession(s); err != nil {
 			log.Printf("[daemon] failed to kill session %s: %v", s, err)
 		} else {
-			log.Printf("[daemon] force-killed CC session %s", s)
+			log.Printf("[daemon] killed CC session %s", s)
 		}
 	}
 }
 
 // spawnCCSession creates a tmux session for a Claude Code agent.
-func spawnCCSession(sessionName, agentName, agentPath, model string, env []string, shell string) error {
+func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, env []string, shell string) error {
 	cmd := "claude --dangerously-skip-permissions"
 	if model != "" {
 		cmd += " --model " + model
 	}
-	if hasCCConversation(agentPath) {
-		cmd += " --continue"
+	if sid := lastSessionID(teamName, agentName); sid != "" {
+		cmd += " --resume " + sid
 	}
 
 	envStr := ""
@@ -949,18 +934,17 @@ func spawnCCSession(sessionName, agentName, agentPath, model string, env []strin
 	return nil
 }
 
-// hasCCConversation checks if Claude Code has a previous conversation for the given path.
-// Claude sanitizes paths: / and . are replaced with - to form the project directory name.
-func hasCCConversation(workDir string) bool {
-	home, err := os.UserHomeDir()
+// lastSessionID reads the persisted CC session ID for an agent from the status file.
+func lastSessionID(teamName, agentName string) string {
+	s, err := status.ReadAgent(teamName, agentName)
 	if err != nil {
-		return false
+		log.Printf("[daemon] could not read status for %s/%s, starting without --resume: %v", teamName, agentName, err)
+		return ""
 	}
-	sanitized := strings.ReplaceAll(workDir, string(filepath.Separator), "-")
-	sanitized = strings.ReplaceAll(sanitized, ".", "-")
-	projectDir := filepath.Join(home, ".claude", "projects", sanitized)
-	matches, _ := filepath.Glob(filepath.Join(projectDir, "*.jsonl"))
-	return len(matches) > 0
+	if s == nil {
+		return ""
+	}
+	return s.SessionID
 }
 
 func writePID(path string) error {

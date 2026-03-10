@@ -75,7 +75,7 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	cleanup := func() {
 		stopOnce.Do(func() {
 			close(stopCh)
-			gracefulStopChild(cmd.Process.Pid)
+			killProcessGroup(cmd.Process.Pid)
 		})
 	}
 
@@ -120,9 +120,8 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	return 0
 }
 
-// gracefulStopChild sends SIGINT to the process group for graceful exit,
-// waits up to 5s, then force-kills with SIGKILL if still running.
-func gracefulStopChild(pid int) {
+// killProcessGroup sends SIGTERM to the process group, waits 1s, then force-kills with SIGKILL.
+func killProcessGroup(pid int) {
 	pgid, err := syscall.Getpgid(pid)
 	if err != nil {
 		if err != syscall.ESRCH {
@@ -130,26 +129,16 @@ func gracefulStopChild(pid int) {
 		}
 		return
 	}
-
-	// Send SIGINT for graceful exit (Claude Code saves conversation on SIGINT)
-	if err := syscall.Kill(-pgid, syscall.SIGINT); err != nil && err != syscall.ESRCH {
-		fmt.Fprintf(os.Stderr, "gatekeeper: SIGINT to pgid %d failed: %v\n", pgid, err)
+	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
+		fmt.Fprintf(os.Stderr, "gatekeeper: SIGTERM to pgid %d failed: %v\n", pgid, err)
 	}
-
-	// Wait up to 5s for exit
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		err := syscall.Kill(-pgid, 0)
-		if err == syscall.ESRCH {
-			return // process gone
+	time.Sleep(1 * time.Second)
+	if err := syscall.Kill(-pgid, 0); err != nil {
+		if err != syscall.ESRCH {
+			fmt.Fprintf(os.Stderr, "gatekeeper: probe pgid %d failed, skipping SIGKILL: %v\n", pgid, err)
 		}
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "gatekeeper: unexpected error polling pgid %d: %v\n", pgid, err)
-		}
-		time.Sleep(500 * time.Millisecond)
+		return
 	}
-
-	// Force kill if still running
 	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
 		fmt.Fprintf(os.Stderr, "gatekeeper: SIGKILL to pgid %d failed: %v\n", pgid, err)
 	}
