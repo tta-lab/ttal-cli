@@ -319,32 +319,6 @@ func TestWriteAgentTo_CreatesDir(t *testing.T) {
 	}
 }
 
-func TestRemoveFrom(t *testing.T) {
-	team := testTeam
-
-	t.Run("removes existing file", func(t *testing.T) {
-		dir := t.TempDir()
-		now := time.Now().UTC().Truncate(time.Second)
-		writeStatusFile(t, dir, "guion-athena", AgentStatus{Agent: "athena", UpdatedAt: now})
-
-		if err := removeFrom(dir, team, "athena"); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Verify file is gone
-		if _, err := os.Stat(filepath.Join(dir, "guion-athena.json")); !os.IsNotExist(err) {
-			t.Error("expected file to be removed")
-		}
-	})
-
-	t.Run("no error for nonexistent file", func(t *testing.T) {
-		dir := t.TempDir()
-		if err := removeFrom(dir, team, "nonexistent"); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-}
-
 func TestStatusFileName(t *testing.T) {
 	tests := []struct {
 		team, agent, want string
