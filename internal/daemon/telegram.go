@@ -15,6 +15,7 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/voice"
 )
@@ -33,7 +34,7 @@ func startMultiAgentPoller(
 	dispatch map[int64]pollerTarget,
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
-	allCommands []BotCommand, mt *messageTracker,
+	allCommands []BotCommand, mt *messageTracker, msgSvc *message.Service,
 ) {
 	go func() {
 		backoff := 2 * time.Second
@@ -45,7 +46,7 @@ func startMultiAgentPoller(
 			default:
 			}
 
-			if err := runMultiAgentPoller(botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt); err != nil {
+			if err := runMultiAgentPoller(botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt, msgSvc); err != nil {
 				log.Printf("[telegram] poller failed: %v — retrying in %s", err, backoff)
 				select {
 				case <-done:
@@ -67,7 +68,7 @@ func runMultiAgentPoller(
 	dispatch map[int64]pollerTarget,
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
-	allCommands []BotCommand, mt *messageTracker,
+	allCommands []BotCommand, mt *messageTracker, msgSvc *message.Service,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -83,7 +84,7 @@ func runMultiAgentPoller(
 	var botUsername string
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername, onMessage, qs, cas, registry, mt)
+		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername, onMessage, qs, cas, registry, mt, msgSvc)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
@@ -149,7 +150,7 @@ func handleDefaultUpdate(
 	dispatch map[int64]pollerTarget, botToken, botUsername string,
 	onMessage func(teamName, agentName, text string),
 	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
-	mt *messageTracker,
+	mt *messageTracker, msgSvc *message.Service,
 ) {
 	if update.CallbackQuery != nil {
 		if update.CallbackQuery.Message.Type == models.MaybeInaccessibleMessageTypeMessage &&
@@ -191,7 +192,7 @@ func handleDefaultUpdate(
 			func(agentName, text string) {
 				onMessage(target.teamName, agentName, text)
 			},
-			mt, &stripped,
+			mt, msgSvc, &stripped,
 		)
 	default:
 		// DM / private: route by chat ID (existing behaviour, unchanged).
@@ -210,7 +211,7 @@ func handleDefaultUpdate(
 			func(agentName, text string) {
 				onMessage(target.teamName, agentName, text)
 			},
-			mt, nil,
+			mt, msgSvc, nil,
 		)
 	}
 }
@@ -315,7 +316,7 @@ func handleInboundMessage(
 	ctx context.Context, b *bot.Bot, msg *models.Message,
 	teamName, agentName, botToken, chatIDStr string,
 	onMessage func(string, string),
-	mt *messageTracker,
+	mt *messageTracker, msgSvc *message.Service,
 	overrideText *string,
 ) {
 	// Track this message for tool reactions
@@ -348,9 +349,12 @@ func handleInboundMessage(
 			_ = telegram.SendMessage(botToken, chatIDStr, "Voice transcription failed — check daemon logs for details")
 			return
 		}
-		text := "[🎤 voice] " + transcription
-		formatted := formatInboundMessage(agentName, senderName, replyCtx+text)
-		onMessage(agentName, formatted)
+		rawText := "[🎤 voice] " + transcription
+		msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
+			Sender: senderName, Recipient: agentName, Content: rawText,
+			Team: teamName, Channel: message.ChannelTelegram,
+		})
+		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
 
@@ -366,11 +370,15 @@ func handleInboundMessage(
 			return
 		}
 
-		text := fmt.Sprintf("[📷 photo] %s", localPath)
+		rawText := fmt.Sprintf("[📷 photo] %s", localPath)
 		if caption := msg.Caption; caption != "" {
-			text += " " + caption
+			rawText += " " + caption
 		}
-		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
+		msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
+			Sender: senderName, Recipient: agentName, Content: rawText,
+			Team: teamName, Channel: message.ChannelTelegram,
+		})
+		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
 
@@ -388,11 +396,15 @@ func handleInboundMessage(
 			return
 		}
 
-		text := fmt.Sprintf("[📎 file] %s", localPath)
+		rawText := fmt.Sprintf("[📎 file] %s", localPath)
 		if caption := msg.Caption; caption != "" {
-			text += " " + caption
+			rawText += " " + caption
 		}
-		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
+		msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
+			Sender: senderName, Recipient: agentName, Content: rawText,
+			Team: teamName, Channel: message.ChannelTelegram,
+		})
+		onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
 
@@ -402,6 +414,10 @@ func handleInboundMessage(
 	} else {
 		text = strings.TrimSpace(msg.Text)
 	}
+	msgSvc.Create(context.Background(), message.CreateParams{ //nolint:errcheck
+		Sender: senderName, Recipient: agentName, Content: text,
+		Team: teamName, Channel: message.ChannelTelegram,
+	})
 	onMessage(agentName, formatInboundMessage(agentName, senderName, replyCtx+text))
 }
 
