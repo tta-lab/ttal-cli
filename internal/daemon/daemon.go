@@ -628,7 +628,11 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 
 // startWatcher initializes the JSONL watcher from config (all teams).
 func startWatcher(mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, done <-chan struct{}) {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("[daemon] watcher disabled: cannot get home directory: %v — CC→Telegram bridging will not work", err)
+		return
+	}
 	defaultProjectsDir := filepath.Join(home, ".claude", "projects")
 
 	agentMap := make(map[string]watcher.WatchedAgent)

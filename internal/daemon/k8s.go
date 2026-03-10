@@ -98,7 +98,7 @@ func (k *k8sTeamPod) WaitForReady() error {
 // Per-agent env vars are shell-quoted and passed via `env KEY=VAL` prefix.
 // Uses `cd /workspace/<agent>` so Claude Code creates per-agent JSONL dirs.
 func (k *k8sTeamPod) SpawnAgent(agentName, model string, perAgentEnv []string) error {
-	ccCmd := fmt.Sprintf("cd /workspace/%s && claude --dangerously-skip-permissions", agentName)
+	ccCmd := fmt.Sprintf("cd /workspace/%s && claude --dangerously-skip-permissions", shellQuote(agentName))
 	if model != "" {
 		ccCmd += " --model " + shellQuote(model)
 	}
@@ -316,16 +316,28 @@ func bootstrapClaudeDir(teamName, home string) error {
 	for _, name := range []string{"settings.json", "settings.local.json"} {
 		src := filepath.Join(home, ".claude", name)
 		dst := filepath.Join(claudeDir, name)
-		if _, err := os.Stat(dst); os.IsNotExist(err) {
-			if data, err := os.ReadFile(src); err == nil {
-				os.WriteFile(dst, data, 0o644) //nolint:errcheck
+		switch _, err := os.Stat(dst); {
+		case err == nil:
+			// already exists, skip
+		case os.IsNotExist(err):
+			data, rerr := os.ReadFile(src)
+			if rerr != nil {
+				log.Printf("[k8s] warning: could not read %s for team %s: %v", name, teamName, rerr)
+				continue
 			}
+			if werr := os.WriteFile(dst, data, 0o644); werr != nil {
+				log.Printf("[k8s] warning: could not seed %s for team %s: %v", name, teamName, werr)
+			}
+		default:
+			log.Printf("[k8s] warning: could not stat %s for team %s: %v", dst, teamName, err)
 		}
 	}
 
 	// Ensure subdirs exist for ttal sync and watcher
 	for _, sub := range []string{"skills", "agents", "rules", "projects"} {
-		os.MkdirAll(filepath.Join(claudeDir, sub), 0o755) //nolint:errcheck
+		if err := os.MkdirAll(filepath.Join(claudeDir, sub), 0o755); err != nil {
+			log.Printf("[k8s] warning: could not create subdir %s for team %s: %v", sub, teamName, err)
+		}
 	}
 
 	return nil
