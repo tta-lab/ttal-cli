@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -248,6 +249,7 @@ func (s *ChatService) GetTeams() ([]TeamInfo, error) {
 		}
 		agents, err := agentfs.Discover(team.TeamPath)
 		if err != nil {
+			log.Printf("[gui] GetTeams: agentfs.Discover(%q) failed for team %q: %v", team.TeamPath, teamName, err)
 			continue
 		}
 		ti := TeamInfo{Name: teamName}
@@ -258,6 +260,9 @@ func (s *ChatService) GetTeams() ([]TeamInfo, error) {
 				Description: a.Description,
 			})
 		}
+		sort.Slice(ti.Agents, func(i, j int) bool {
+			return ti.Agents[i].Name < ti.Agents[j].Name
+		})
 		teams = append(teams, ti)
 	}
 	sort.Slice(teams, func(i, j int) bool {

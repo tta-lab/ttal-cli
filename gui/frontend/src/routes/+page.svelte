@@ -70,9 +70,10 @@
 		try {
 			const teams = await ChatService.GetTeams();
 			chatStore.setTeams(teams);
-			prefetchTeamAvatars();
+			prefetchTeamAvatars().catch((err) => console.warn('prefetchTeamAvatars failed:', err));
 		} catch (err) {
 			console.error('GetTeams failed:', err);
+			statusMessage = `Failed to load teams: ${err}`;
 		}
 		try {
 			chatStore.contacts = await ChatService.GetContacts();
@@ -145,7 +146,7 @@
 	// Prefetch avatars when active team changes
 	$effect(() => {
 		chatStore.activeTeam;
-		prefetchTeamAvatars();
+		prefetchTeamAvatars().catch((err) => console.warn('prefetchTeamAvatars failed:', err));
 	});
 
 	// Poll agent feed every 500ms when feed tab is active
@@ -221,35 +222,23 @@
 		return team?.agents ?? [];
 	}
 
-	function selectPreviousAgent() {
+	function selectAgent(delta: 1 | -1) {
 		const agents = currentTeamAgents();
 		if (!agents.length) return;
 		const idx = agents.findIndex((a) => a.name === chatStore.activeContact);
-		const prev = idx <= 0 ? agents.length - 1 : idx - 1;
-		chatStore.setActiveContact(agents[prev].name);
-	}
-
-	function selectNextAgent() {
-		const agents = currentTeamAgents();
-		if (!agents.length) return;
-		const idx = agents.findIndex((a) => a.name === chatStore.activeContact);
-		const next = idx >= agents.length - 1 ? 0 : idx + 1;
+		const next = (idx + delta + agents.length) % agents.length;
 		chatStore.setActiveContact(agents[next].name);
 	}
 
 	function handleGlobalKeydown(e: KeyboardEvent) {
-		if (e.metaKey && e.key === 'ArrowUp') {
-			e.preventDefault();
-			selectPreviousAgent();
-		} else if (e.metaKey && e.key === 'ArrowDown') {
-			e.preventDefault();
-			selectNextAgent();
-		} else if (e.metaKey && e.key === 'k') {
-			e.preventDefault();
-			showCommandPalette = !showCommandPalette;
-		} else if (e.key === 'Escape' && showCommandPalette) {
+		if (e.key === 'Escape' && showCommandPalette) {
 			showCommandPalette = false;
+			return;
 		}
+		if (!e.metaKey) return;
+		if (e.key === 'ArrowUp') { e.preventDefault(); selectAgent(-1); }
+		else if (e.key === 'ArrowDown') { e.preventDefault(); selectAgent(1); }
+		else if (e.key === 'k') { e.preventDefault(); showCommandPalette = !showCommandPalette; }
 	}
 
 	function handlePaletteSelect(team: string, agent: string) {

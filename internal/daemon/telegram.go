@@ -340,7 +340,18 @@ func handleInboundMessage(
 		}
 	}
 
+	// Normalize to the configured human identity so the GUI can match both sides of a
+	// conversation (inbound sender vs. outbound recipient both resolve to the same name).
+	// Falls back to the actual Telegram username when no identity is configured.
+	// Note: this assumes inbound messages to the bot are from the team's primary human user.
+	// Multi-human group scenarios would require a Telegram-username→internal-name mapping.
 	senderName := userNameFn(teamName)
+	if senderName == "" {
+		senderName = msg.From.Username
+		if senderName == "" {
+			senderName = msg.From.FirstName
+		}
+	}
 
 	// Extract reply context if this message is a reply
 	replyCtx := extractReplyContext(msg)
