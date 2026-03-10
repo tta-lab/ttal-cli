@@ -70,7 +70,6 @@
 	<button class="badge badge-sm badge-outline badge-ghost cursor-pointer hover:bg-secondary" title="Add reaction" onclick={togglePicker}>＋</button>
 
 	{#if showPicker}
-		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div class="absolute bottom-full left-0 z-50 mb-1">
 			<emoji-picker bind:this={pickerEl}></emoji-picker>
 		</div>

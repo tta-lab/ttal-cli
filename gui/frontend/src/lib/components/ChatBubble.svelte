@@ -55,8 +55,8 @@
 	</div>
 	<div class="chat-footer text-neutral-content/60">
 		<time class="text-xs">{formatTime(message.created_at)}</time>
+		{#if messageId}
+			<ReactionBar {messageId} {reactions} />
+		{/if}
 	</div>
-	{#if messageId}
-		<ReactionBar {messageId} {reactions} />
-	{/if}
 </div>

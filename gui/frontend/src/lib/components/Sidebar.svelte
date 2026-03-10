@@ -36,8 +36,8 @@
 		{/if}
 		{#each visibleAgents as agent (agent.name)}
 			<li>
-				<a
-					class="flex items-center gap-2.5 px-3 py-2 rounded-md mx-1.5 cursor-pointer"
+				<button
+					class="flex items-center gap-2.5 px-3 py-2 rounded-md mx-1.5 cursor-pointer w-full text-left"
 					class:active={agent.name === activeContact}
 					onclick={() => onSelect(agent.name)}
 				>
@@ -56,7 +56,7 @@
 							<span class="text-xs text-neutral-content truncate">{agent.description}</span>
 						{/if}
 					</div>
-				</a>
+				</button>
 			</li>
 		{/each}
 	</ul>
