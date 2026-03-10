@@ -57,9 +57,13 @@ func Attach(input string) error {
 // Inside k8s pods, tmux sessions are named just "<agent>" (not "<team>_<agent>")
 // because k8sTeamPod.SpawnAgent uses the bare agent name.
 func attachK8s(team config.TeamConfig, teamName, agentName string) error {
+	if team.Kubernetes == nil || team.Kubernetes.Context == "" {
+		return fmt.Errorf("team %q has no kubernetes context configured", teamName)
+	}
+
 	kubectlBin, err := exec.LookPath("kubectl")
 	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH")
+		return fmt.Errorf("kubectl not found in PATH: %w", err)
 	}
 
 	podName := fmt.Sprintf("ttal-%s", teamName)
