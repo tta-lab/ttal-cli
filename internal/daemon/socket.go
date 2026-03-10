@@ -16,8 +16,12 @@ import (
 const socketTimeout = 5 * time.Second
 
 // SocketPath returns the path to the daemon unix socket.
-// Fixed at ~/.ttal/daemon.sock — one daemon serves all teams.
+// TTAL_SOCKET_PATH overrides the default, which allows Docker workers to
+// inject the host socket path via the container environment.
 func SocketPath() (string, error) {
+	if p := os.Getenv("TTAL_SOCKET_PATH"); p != "" {
+		return p, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -184,6 +188,8 @@ func listenSocket(sockPath string, handlers socketHandlers) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on %s: %w", sockPath, err)
 	}
+	// Owner-only permissions — Docker workers run with --user matching host UID.
+	os.Chmod(sockPath, 0o600)
 
 	go func() {
 		for {

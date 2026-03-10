@@ -11,6 +11,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -178,18 +179,45 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		}
 	}
 
-	if err := worker.Spawn(worker.SpawnConfig{
+	spawnCfg := worker.SpawnConfig{
 		Name:     workerName,
 		Project:  task.ProjectPath,
 		TaskUUID: task.UUID,
 		Worktree: true,
 		Runtime:  rt,
 		Spawner:  detectSpawner(),
-	}); err != nil {
+	}
+
+	// Look up project image for Docker spawn.
+	// Supports hierarchical project names ("ttal.pr" → try "ttal.pr" then "ttal").
+	if task.Project != "" {
+		store := project.NewStore(config.ResolveProjectsPath())
+		candidates := buildProjectCandidates(task.Project)
+		for _, candidate := range candidates {
+			if proj, err := store.Get(candidate); err == nil && proj != nil && proj.Image != "" {
+				spawnCfg.UseDocker = true
+				spawnCfg.Image = proj.Image
+				break
+			}
+		}
+	}
+
+	if err := worker.Spawn(spawnCfg); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// buildProjectCandidates returns progressively shorter prefixes of a hierarchical
+// project name for alias lookup. E.g. "ttal.pr" → ["ttal.pr", "ttal"].
+func buildProjectCandidates(name string) []string {
+	parts := strings.Split(name, ".")
+	candidates := make([]string, 0, len(parts))
+	for i := len(parts); i >= 1; i-- {
+		candidates = append(candidates, strings.Join(parts[:i], "."))
+	}
+	return candidates
 }
 
 // detectSpawner returns the team:agent identity from env vars.
