@@ -402,7 +402,8 @@ func initSingleAdapter(
 		}
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, env, mcfg.Global.GetShell()); err != nil {
+		shell := mcfg.Global.GetShell()
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, env, shell); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
