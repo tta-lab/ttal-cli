@@ -366,7 +366,9 @@ func bootstrapClaudeDir(teamName, teamPath, home string) error {
 	projectsDir := filepath.Join(claudeDir, "projects")
 	for _, name := range agents {
 		encoded := watcher.EncodePath(filepath.Join("/workspace", name))
-		os.MkdirAll(filepath.Join(projectsDir, encoded), 0o700)
+		if err := os.MkdirAll(filepath.Join(projectsDir, encoded), 0o700); err != nil {
+			log.Printf("[k8s] warning: could not create JSONL project dir for %s/%s: %v", teamName, name, err)
+		}
 	}
 
 	return nil

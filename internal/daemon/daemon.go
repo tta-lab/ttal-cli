@@ -523,7 +523,7 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	// Read existing .claude.json (or start fresh)
 	var raw map[string]any
 	if data, err := os.ReadFile(claudeJSONPath); err == nil {
-		json.Unmarshal(data, &raw)
+		_ = json.Unmarshal(data, &raw)
 	}
 	if raw == nil {
 		raw = map[string]any{"hasCompletedOnboarding": true}
