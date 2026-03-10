@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -502,12 +501,10 @@ func buildPerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []s
 func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	home, err := os.UserHomeDir()
 	if err != nil {
+		log.Printf("[daemon] warning: cannot get home dir for local agent trust: %v", err)
 		return
 	}
 
-	claudeJSONPath := filepath.Join(home, ".claude.json")
-
-	// Collect non-k8s agent paths
 	var paths []string
 	for _, ta := range mcfg.AllAgents() {
 		team := mcfg.Teams[ta.TeamName]
@@ -520,40 +517,14 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 		return
 	}
 
-	// Read existing .claude.json (or start fresh)
-	var raw map[string]any
-	if data, err := os.ReadFile(claudeJSONPath); err == nil {
-		_ = json.Unmarshal(data, &raw)
+	claudeJSONPath := filepath.Join(home, ".claude.json")
+	added, err := upsertClaudeJSONTrust(claudeJSONPath, paths)
+	if err != nil {
+		log.Printf("[daemon] warning: could not update local agent trust: %v", err)
+		return
 	}
-	if raw == nil {
-		raw = map[string]any{"hasCompletedOnboarding": true}
-	}
-
-	projects, _ := raw["projects"].(map[string]any)
-	if projects == nil {
-		projects = make(map[string]any)
-		raw["projects"] = projects
-	}
-
-	changed := false
-	for _, agentPath := range paths {
-		if proj, exists := projects[agentPath]; exists {
-			if m, ok := proj.(map[string]any); ok && m["hasTrustDialogAccepted"] == true {
-				continue
-			}
-		}
-		projects[agentPath] = map[string]any{
-			"hasTrustDialogAccepted":        true,
-			"hasCompletedProjectOnboarding": true,
-			"allowedTools":                  []any{},
-		}
-		changed = true
-	}
-
-	if changed {
-		out, _ := json.MarshalIndent(raw, "", "  ")
-		os.WriteFile(claudeJSONPath, out, 0o644)
-		log.Printf("[daemon] added trust entries for %d local agent workspaces", len(paths))
+	if added > 0 {
+		log.Printf("[daemon] added trust entries for %d local agent workspaces", added)
 	}
 }
 
