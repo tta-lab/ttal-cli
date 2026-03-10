@@ -54,7 +54,7 @@ type SendRequest struct {
 // Read operations query SQLite directly; write operations go through the
 // daemon unix socket so delivery semantics are consistent with CLI sends.
 type ChatService struct {
-	db       *ent.Client          // SQLite client (read + local writes like reactions)
+	db       *ent.Client          // SQLite client (read queries)
 	sockPath string               // daemon unix socket for message delivery
 	userName string               // human identity (e.g. "neil")
 	mcfg     *config.DaemonConfig // for resolving agent workspaces
