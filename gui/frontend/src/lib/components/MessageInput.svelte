@@ -34,9 +34,9 @@
 	}
 </script>
 
-<div class="input-bar">
+<div class="flex items-end gap-2 p-2.5 px-3.5 border-t border-neutral bg-base-200">
 	<textarea
-		class="msg-input"
+		class="textarea textarea-bordered flex-1 bg-secondary border-neutral text-base-content text-sm leading-relaxed resize-none min-h-9 max-h-30 overflow-y-auto focus:border-primary"
 		bind:value
 		{placeholder}
 		{disabled}
@@ -49,80 +49,10 @@
 			el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 		}}
 	></textarea>
-	<button class="send-btn" onclick={send} disabled={disabled || sending} title="Send (Enter)">
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+	<button class="btn btn-primary btn-circle btn-sm" onclick={send} disabled={disabled || sending} title="Send (Enter)">
+		<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 			<path d="M22 2L11 13" />
 			<path d="M22 2L15 22 11 13 2 9l20-7z" />
 		</svg>
 	</button>
 </div>
-
-<style>
-	.input-bar {
-		display: flex;
-		align-items: flex-end;
-		gap: 8px;
-		padding: 10px 14px;
-		border-top: 1px solid #2a3348;
-		background: #131d2e;
-	}
-
-	.msg-input {
-		flex: 1;
-		background: #1e2a40;
-		border: 1px solid #2a3348;
-		border-radius: 10px;
-		color: #e2e8f0;
-		font-size: 0.875rem;
-		line-height: 1.5;
-		padding: 8px 12px;
-		resize: none;
-		outline: none;
-		font-family: inherit;
-		min-height: 36px;
-		max-height: 120px;
-		overflow-y: auto;
-		transition: border-color 0.15s;
-	}
-
-	.msg-input:focus {
-		border-color: #3b82f6;
-	}
-
-	.msg-input:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.send-btn {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		background: #2563eb;
-		border: none;
-		color: #fff;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		flex-shrink: 0;
-		transition: background 0.15s;
-		padding: 0;
-		margin: 0;
-		line-height: normal;
-	}
-
-	.send-btn:hover:not(:disabled) {
-		background: #1d4ed8;
-	}
-
-	.send-btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.send-btn svg {
-		width: 16px;
-		height: 16px;
-	}
-</style>
