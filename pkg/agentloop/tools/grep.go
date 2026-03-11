@@ -25,7 +25,7 @@ type GrepParams struct {
 func NewGrepTool(allowedPaths []string) fantasy.AgentTool {
 	return fantasy.NewAgentTool(
 		"grep",
-		"Search file contents using a regex pattern within allowed project directories. Returns matching lines with file paths and line numbers. Output capped at 30,000 characters.", //nolint:lll
+		schemaDescription(grepDescription),
 		func(ctx context.Context, params GrepParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			re, err := regexp.Compile(params.Pattern)
 			if err != nil {

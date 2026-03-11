@@ -30,7 +30,7 @@ type ReadParams struct {
 func NewReadTool(allowedPaths []string) fantasy.AgentTool {
 	return fantasy.NewAgentTool(
 		"read",
-		"Read a file and return its contents with line numbers. Only files within allowed project directories can be read.",
+		schemaDescription(readDescription),
 		func(ctx context.Context, params ReadParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if !isPathAllowed(params.FilePath, allowedPaths) {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: access denied: %q is not within an allowed directory", params.FilePath)), nil //nolint:lll

@@ -32,7 +32,7 @@ func NewSearchWebTool(client *http.Client) fantasy.AgentTool {
 
 	return fantasy.NewParallelAgentTool(
 		"search_web",
-		"Search the web using DuckDuckGo. Returns titles, URLs, and snippets.",
+		schemaDescription(searchWebDescription),
 		func(ctx context.Context, params SearchWebParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if params.Query == "" {
 				return fantasy.NewTextErrorResponse("query is required"), nil

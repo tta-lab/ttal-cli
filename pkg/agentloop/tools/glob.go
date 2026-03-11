@@ -24,7 +24,7 @@ type GlobParams struct {
 func NewGlobTool(allowedPaths []string) fantasy.AgentTool {
 	return fantasy.NewAgentTool(
 		"glob",
-		"Find files matching a glob pattern within allowed project directories. Supports ** for recursive matching. Returns up to 200 results sorted by modification time (most recent first).", //nolint:lll
+		schemaDescription(globDescription),
 		func(ctx context.Context, params GlobParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			searchDirs, err := resolveSearchPaths(params.Path, allowedPaths, true)
 			if err != nil {

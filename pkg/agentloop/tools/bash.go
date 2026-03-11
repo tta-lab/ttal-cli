@@ -18,10 +18,7 @@ type BashParams struct {
 func NewBashTool(sbx *sandbox.Sandbox) fantasy.AgentTool {
 	return fantasy.NewAgentTool(
 		"bash",
-		`Execute a bash command in a sandboxed environment.
-Available: python3, task, jq, curl, grep, sort, uniq, wc.
-Piping works: cat file.json | python3 -c "..."
-Read-only filesystem. Session-scoped /tmp. 30s timeout.`,
+		schemaDescription(bashDescription),
 		func(ctx context.Context, params BashParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			execCfg := sandbox.ExecConfigFromContext(ctx)
 

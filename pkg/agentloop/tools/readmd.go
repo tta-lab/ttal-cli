@@ -27,7 +27,7 @@ func NewReadMDTool(allowedPaths []string, treeThreshold int) fantasy.AgentTool {
 	}
 	return fantasy.NewAgentTool(
 		"read_md",
-		"Read a markdown file with structure awareness. Small files return content directly. Large files return heading tree with section IDs and char counts — use section param to read specific parts, or full to get everything.", //nolint:lll
+		schemaDescription(readMDDescription),
 		func(ctx context.Context, params ReadMDParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if !isPathAllowed(params.FilePath, allowedPaths) {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: access denied: %q is not within an allowed directory", params.FilePath)), nil //nolint:lll

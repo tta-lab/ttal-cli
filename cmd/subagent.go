@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
+	"time"
 
 	"charm.land/fantasy"
 	"charm.land/fantasy/providers/anthropic"
@@ -65,10 +67,34 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Build dynamic system prompt from runtime context.
+	richDescs := tools.RichToolDescriptions(selectedTools)
+	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
+	for i, d := range richDescs {
+		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
+	}
+
+	cwd, _ := os.Getwd()
+	basePrompt, err := agentloop.BuildSystemPrompt(agentloop.PromptData{
+		WorkingDir:   cwd,
+		Platform:     runtime.GOOS,
+		Date:         time.Now().Format("2006-01-02"),
+		AllowedPaths: subagentRunFlags.allowedPaths,
+		Tools:        toolInfos,
+	})
+	if err != nil {
+		return fmt.Errorf("build system prompt: %w", err)
+	}
+
+	systemPrompt := basePrompt
+	if subagentRunFlags.systemPrompt != "" {
+		systemPrompt = basePrompt + "\n\n" + subagentRunFlags.systemPrompt
+	}
+
 	cfg := agentloop.Config{
 		Provider:      provider,
 		Model:         subagentRunFlags.model,
-		SystemPrompt:  subagentRunFlags.systemPrompt,
+		SystemPrompt:  systemPrompt,
 		Tools:         selectedTools,
 		MaxSteps:      subagentRunFlags.maxSteps,
 		MaxTokens:     subagentRunFlags.maxTokens,
@@ -134,7 +160,7 @@ func init() {
 	subagentRunCmd.Flags().StringVar(&subagentRunFlags.provider, "provider", "anthropic", "LLM provider (anthropic)")
 	subagentRunCmd.Flags().StringVar(&subagentRunFlags.model, "model", "claude-sonnet-4-6", "Model ID")
 	subagentRunCmd.Flags().StringVar(
-		&subagentRunFlags.systemPrompt, "system", "You are a helpful assistant.", "System prompt",
+		&subagentRunFlags.systemPrompt, "system", "", "Additional instructions appended to the default system prompt",
 	)
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.toolNames, "tool", nil, //nolint:lll
