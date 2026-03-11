@@ -85,7 +85,7 @@ func (m *mockBackend) Fetch(_ context.Context, _ string) (string, error) {
 
 func TestDirectFetchBackend_Interface(t *testing.T) {
 	var _ WebFetchBackend = &mockBackend{}
-	var _ WebFetchBackend = NewDirectFetchBackend(nil)
-	var _ WebFetchBackend = NewDefuddleCLIBackend()
-	var _ WebFetchBackend = NewBrowserGatewayBackend("", nil)
+	var _ = NewDirectFetchBackend(nil)
+	var _ = NewDefuddleCLIBackend()
+	var _ = NewBrowserGatewayBackend("", nil)
 }

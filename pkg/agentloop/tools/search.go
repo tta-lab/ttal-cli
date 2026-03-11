@@ -24,7 +24,7 @@ type SearchResult struct {
 	Position int
 }
 
-var userAgents = []string{
+var userAgents = []string{ //nolint:lll
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
@@ -101,37 +101,38 @@ func parseLiteSearchResults(htmlContent string, maxResults int) ([]SearchResult,
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
+	results := collectSearchNodes(doc, maxResults)
+
+	if len(results) == 0 {
+		preview := htmlContent
+		if len(preview) > 500 {
+			preview = preview[:500]
+		}
+		slog.Warn("web_search returned zero results — possible CAPTCHA or HTML structure change", "html_preview", preview)
+	}
+
+	return results, nil
+}
+
+// collectSearchNodes walks the HTML tree and collects DuckDuckGo Lite search results.
+func collectSearchNodes(doc *html.Node, maxResults int) []SearchResult {
 	var results []SearchResult
-	var currentResult *SearchResult
+	var current *SearchResult
 
 	appendCurrent := func() bool {
-		if currentResult == nil || currentResult.Link == "" {
+		if current == nil || current.Link == "" {
 			return false
 		}
-		currentResult.Position = len(results) + 1
-		results = append(results, *currentResult)
-		currentResult = nil
+		current.Position = len(results) + 1
+		results = append(results, *current)
+		current = nil
 		return len(results) >= maxResults
 	}
 
 	var traverse func(*html.Node)
 	traverse = func(n *html.Node) {
 		if n.Type == html.ElementNode {
-			if n.Data == "a" && hasClass(n, "result-link") {
-				if appendCurrent() {
-					return
-				}
-				currentResult = &SearchResult{Title: getTextContent(n)}
-				for _, attr := range n.Attr {
-					if attr.Key == "href" {
-						currentResult.Link = cleanDuckDuckGoURL(attr.Val)
-						break
-					}
-				}
-			}
-			if n.Data == "td" && hasClass(n, "result-snippet") && currentResult != nil {
-				currentResult.Snippet = getTextContent(n)
-			}
+			handleSearchNode(n, &current, appendCurrent)
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if len(results) >= maxResults {
@@ -143,16 +144,26 @@ func parseLiteSearchResults(htmlContent string, maxResults int) ([]SearchResult,
 
 	traverse(doc)
 	appendCurrent()
+	return results
+}
 
-	if len(results) == 0 {
-		preview := htmlContent
-		if len(preview) > 500 {
-			preview = preview[:500]
+// handleSearchNode processes a single HTML element node for search result extraction.
+func handleSearchNode(n *html.Node, current **SearchResult, appendCurrent func() bool) {
+	if n.Data == "a" && hasClass(n, "result-link") {
+		if appendCurrent() {
+			return
 		}
-		slog.Warn("web_search returned zero results — possible CAPTCHA or HTML structure change", "html_preview", preview)
+		*current = &SearchResult{Title: getTextContent(n)}
+		for _, attr := range n.Attr {
+			if attr.Key == "href" {
+				(*current).Link = cleanDuckDuckGoURL(attr.Val)
+				break
+			}
+		}
 	}
-
-	return results, nil
+	if n.Data == "td" && hasClass(n, "result-snippet") && *current != nil {
+		(*current).Snippet = getTextContent(n)
+	}
 }
 
 func hasClass(n *html.Node, class string) bool {

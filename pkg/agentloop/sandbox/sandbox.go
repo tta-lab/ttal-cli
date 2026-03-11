@@ -41,10 +41,15 @@ type Mount struct {
 // Exec runs a bash command inside the bubblewrap sandbox.
 // If bwrap is unavailable and AllowUnsandboxed is false, it returns an error.
 // If AllowUnsandboxed is true (dev mode), it falls back to direct exec.
-func (s *Sandbox) Exec(ctx context.Context, command string, cfg *ExecConfig) (stdout, stderr string, exitCode int, err error) {
+func (s *Sandbox) Exec(
+	ctx context.Context, command string, cfg *ExecConfig,
+) (stdout, stderr string, exitCode int, err error) {
 	if !s.IsAvailable() {
 		if !s.AllowUnsandboxed {
-			return "", "", -1, fmt.Errorf("bwrap not found at %q — set AllowUnsandboxed=true for local dev without bubblewrap", s.BwrapPath)
+			return "", "", -1, fmt.Errorf(
+				"bwrap not found at %q — set AllowUnsandboxed=true for local dev without bubblewrap",
+				s.BwrapPath,
+			)
 		}
 		return s.execDirect(ctx, command, cfg)
 	}
@@ -67,7 +72,9 @@ func (s *Sandbox) IsAvailable() bool {
 }
 
 // execDirect runs a command without bwrap (dev-only, requires AllowUnsandboxed).
-func (s *Sandbox) execDirect(ctx context.Context, command string, cfg *ExecConfig) (stdout, stderr string, exitCode int, err error) {
+func (s *Sandbox) execDirect(
+	ctx context.Context, command string, cfg *ExecConfig,
+) (stdout, stderr string, exitCode int, err error) {
 	timeout := s.effectiveTimeout()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

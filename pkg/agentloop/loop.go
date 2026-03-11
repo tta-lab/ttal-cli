@@ -48,7 +48,13 @@ type RunResult struct {
 // Run executes one agent loop: prompt → LLM → tool calls → response.
 // Stateless — no DB, no conversation persistence. The caller handles that.
 // onDelta is called with each text delta as it streams; pass nil to disable streaming.
-func Run(ctx context.Context, cfg Config, history []fantasy.Message, prompt string, onDelta func(text string)) (*RunResult, error) {
+func Run(
+	ctx context.Context,
+	cfg Config,
+	history []fantasy.Message,
+	prompt string,
+	onDelta func(text string),
+) (*RunResult, error) {
 	// Wire sandbox env into context so tools can access it.
 	execCfg := &sandbox.ExecConfig{Env: cfg.SandboxEnv}
 	ctx = sandbox.ContextWithExecConfig(ctx, execCfg)
