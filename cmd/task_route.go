@@ -120,7 +120,8 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 
 // spawnWorkerForTask spawns a worker for a task using the standard spawn flow.
 // When dryRun is true, it prints what would happen without spawning.
-func spawnWorkerForTask(taskUUID string, dryRun bool) error {
+// When yes is false, it prints a confirmation hint and exits without spawning.
+func spawnWorkerForTask(taskUUID string, dryRun, yes bool) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -168,6 +169,11 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 
 	if dryRun {
 		printDryRun(task, rt, workerName)
+		return nil
+	}
+
+	if !yes {
+		printConfirmHint(task)
 		return nil
 	}
 
@@ -243,6 +249,12 @@ func detectSpawner() string {
 		team = "default"
 	}
 	return team + ":" + agent
+}
+
+func printConfirmHint(task *taskwarrior.Task) {
+	fmt.Printf("Project: %s\n", task.ProjectPath)
+	fmt.Println("⚠ Confirm project path matches your plan before proceeding:")
+	fmt.Printf("  ttal task execute %s --yes\n", task.UUID[:8])
 }
 
 func printDryRun(task *taskwarrior.Task, rt runtime.Runtime, workerName string) {

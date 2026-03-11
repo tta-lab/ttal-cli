@@ -19,6 +19,7 @@ const taskStatusCompleted = "completed"
 var (
 	findCompleted      bool
 	executeDryRun      bool
+	executeYes         bool
 	taskAddProject     string
 	taskAddTags        []string
 	taskAddPriority    string
@@ -158,7 +159,7 @@ or team's worker_runtime config. Creates a git worktree and tmux session.
 Use --dry-run to preview what would happen without actually spawning.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return spawnWorkerForTask(args[0], executeDryRun)
+		return spawnWorkerForTask(args[0], executeDryRun, executeYes)
 	},
 }
 
@@ -233,6 +234,7 @@ func init() {
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")
+	taskExecuteCmd.Flags().BoolVar(&executeYes, "yes", false, "Skip confirmation and execute immediately")
 
 	taskAddCmd.Flags().StringVar(&taskAddProject, "project", "", "Project alias (required, must exist in ttal)")
 	_ = taskAddCmd.MarkFlagRequired("project")
