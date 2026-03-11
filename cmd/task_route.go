@@ -257,9 +257,9 @@ func resolveRuntime(task *taskwarrior.Task, cfg *config.Config) runtime.Runtime 
 }
 
 func printConfirmHint(task *taskwarrior.Task) {
-	fmt.Printf("Project: %s\n", task.ProjectPath)
-	fmt.Println("⚠ Confirm project path matches your plan before proceeding:")
-	fmt.Printf("  ttal task execute %s --yes\n", task.SessionID())
+	fmt.Fprintf(os.Stderr, "Project: %s\n", task.ProjectPath)
+	fmt.Fprintf(os.Stderr, "⚠ Confirm project path matches your plan before proceeding:\n")
+	fmt.Fprintf(os.Stderr, "  ttal task execute %s --yes\n", task.SessionID())
 }
 
 func printDryRun(task *taskwarrior.Task, rt runtime.Runtime, workerName string) {
