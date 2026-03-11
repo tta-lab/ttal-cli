@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -18,15 +17,9 @@ const socketTimeout = 5 * time.Second
 // SocketPath returns the path to the daemon unix socket.
 // TTAL_SOCKET_PATH overrides the default, which allows Docker workers to
 // inject the host socket path via the container environment.
+// Delegates to config.SocketPath() to keep a single source of truth.
 func SocketPath() (string, error) {
-	if p := os.Getenv("TTAL_SOCKET_PATH"); p != "" {
-		return p, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".ttal", "daemon.sock"), nil
+	return config.SocketPath(), nil
 }
 
 // Request is the top-level socket message envelope.
