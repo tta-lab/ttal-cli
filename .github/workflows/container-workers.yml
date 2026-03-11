@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - id: changed
         run: |
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.dirs }}" ]; then
             dirs='${{ inputs.dirs }}'
           else
