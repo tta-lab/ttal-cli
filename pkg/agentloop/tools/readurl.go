@@ -76,7 +76,7 @@ func NewReadURLTool(backend ReadURLBackend, treeThreshold int) fantasy.AgentTool
 
 	return fantasy.NewParallelAgentTool(
 		"read_url",
-		"Fetch a URL and return its content. Small pages return content directly. Large pages return heading tree with section IDs and char counts — use section to read specific parts, or full to get everything.", //nolint:lll
+		schemaDescription(readURLDescription),
 		func(ctx context.Context, params ReadURLParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			page, err := fetchOrCachePage(ctx, params.URL, backend, cache)
 			if err != nil {
