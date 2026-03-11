@@ -74,7 +74,10 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
 	}
 
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
 	basePrompt, err := agentloop.BuildSystemPrompt(agentloop.PromptData{
 		WorkingDir:   cwd,
 		Platform:     runtime.GOOS,

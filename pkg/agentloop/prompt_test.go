@@ -102,3 +102,54 @@ func TestBuildSystemPrompt_AllowedPathsSection(t *testing.T) {
 	assert.Contains(t, result, "/code/repo")
 	assert.Contains(t, result, "/tmp/scratch")
 }
+
+// TestSystemPromptComposition tests the append pattern used in cmd/subagent.go:
+// basePrompt + "\n\n" + consumerInstructions.
+func TestSystemPromptComposition_AppendsConsumerInstructions(t *testing.T) {
+	data := PromptData{WorkingDir: "/project", Platform: "linux", Date: "2026-03-12"}
+
+	base, err := BuildSystemPrompt(data)
+	require.NoError(t, err)
+
+	consumerInstructions := "You are a code reviewer. Focus on correctness."
+	combined := base + "\n\n" + consumerInstructions
+
+	assert.Contains(t, combined, "# Environment")
+	assert.Contains(t, combined, consumerInstructions)
+	// Consumer instructions come after the default prompt.
+	assert.Greater(t, strings.Index(combined, consumerInstructions),
+		strings.Index(combined, "# Environment"))
+}
+
+func TestSystemPromptComposition_EmptyConsumer_NoAppend(t *testing.T) {
+	data := PromptData{WorkingDir: "/project", Platform: "linux", Date: "2026-03-12"}
+
+	base, err := BuildSystemPrompt(data)
+	require.NoError(t, err)
+
+	// When --system is empty, no append should happen.
+	consumerInstructions := ""
+	systemPrompt := base
+	if consumerInstructions != "" {
+		systemPrompt = base + "\n\n" + consumerInstructions
+	}
+
+	assert.Equal(t, base, systemPrompt)
+}
+
+// TestBuildSystemPrompt_TemplateSpecialChars documents that text/template does not
+// escape WorkingDir or AllowedPaths values — callers should not put template syntax there.
+// This test verifies the current contract: values are rendered literally.
+func TestBuildSystemPrompt_TemplateSpecialChars(t *testing.T) {
+	data := PromptData{
+		WorkingDir:   "/home/user/my project",
+		AllowedPaths: []string{"/path/with#hash"},
+		Tools:        []ToolInfo{{Name: "bash", Description: "desc"}},
+	}
+
+	result, err := BuildSystemPrompt(data)
+	require.NoError(t, err)
+
+	assert.Contains(t, result, "/home/user/my project")
+	assert.Contains(t, result, "/path/with#hash")
+}

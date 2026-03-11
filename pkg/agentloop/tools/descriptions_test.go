@@ -1,10 +1,12 @@
 package tools
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
 
+	"charm.land/fantasy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/sandbox"
@@ -119,6 +121,24 @@ func TestRichToolDescriptions_OnlyIncludesProvidedTools(t *testing.T) {
 	assert.NotContains(t, names, "read")
 	assert.NotContains(t, names, "glob")
 	assert.NotContains(t, names, "grep")
+}
+
+func TestRichToolDescriptions_FallbackToSchemaDescription(t *testing.T) {
+	// A tool whose name is not in richDescriptions falls back to its schema description.
+	type emptyParams struct{}
+	customTool := fantasy.NewAgentTool(
+		"custom_unknown_tool",
+		"The schema-level description.",
+		func(_ context.Context, _ emptyParams, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+			return fantasy.NewTextResponse(""), nil
+		},
+	)
+
+	richDescs := RichToolDescriptions([]fantasy.AgentTool{customTool})
+
+	require.Len(t, richDescs, 1)
+	assert.Equal(t, "custom_unknown_tool", richDescs[0].Name)
+	assert.Equal(t, "The schema-level description.", richDescs[0].Description)
 }
 
 func TestToolSchemaDescriptions_MatchFirstLineOfEmbeddedMd(t *testing.T) {

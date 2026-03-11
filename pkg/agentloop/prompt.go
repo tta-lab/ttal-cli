@@ -10,6 +10,9 @@ import (
 //go:embed system.md.tpl
 var systemPromptTemplate string
 
+// systemPromptTmpl is parsed once at init — surfaces syntax errors at startup.
+var systemPromptTmpl = template.Must(template.New("system").Parse(systemPromptTemplate))
+
 // PromptData holds the runtime context used to render the default system prompt.
 type PromptData struct {
 	WorkingDir   string
@@ -28,12 +31,8 @@ type ToolInfo struct {
 // BuildSystemPrompt renders the default system prompt with runtime context.
 // The result is the base prompt — consumers append their own instructions after this.
 func BuildSystemPrompt(data PromptData) (string, error) {
-	tmpl, err := template.New("system").Parse(systemPromptTemplate)
-	if err != nil {
-		return "", fmt.Errorf("parse system prompt template: %w", err)
-	}
 	var buf strings.Builder
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := systemPromptTmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("execute system prompt template: %w", err)
 	}
 	return buf.String(), nil
