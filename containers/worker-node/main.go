@@ -60,7 +60,6 @@ func workerImage() *dagger.Container {
 		WithExec([]string{"bash", "-c", "curl -fsSL https://moonrepo.dev/install/proto.sh | bash"}).
 		WithExec([]string{"proto", "install", "bun", "1.3.5"}).
 		WithExec([]string{"proto", "install", "moon", "2.0.1"}).
-		WithExec([]string{"proto", "install", "kubectl", "1.33.0"}).
 		// npm global installs need root
 		WithUser("root").
 		WithExec([]string{"npm", "install", "-g", "pnpm", "@biomejs/biome"}).
