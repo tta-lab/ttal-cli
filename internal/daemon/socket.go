@@ -66,6 +66,17 @@ type SendRequest struct {
 	Message string `json:"message"`
 }
 
+// TaskCompleteRequest notifies the daemon that a task has been marked done.
+// Wire format: {"type":"taskComplete","task_uuid":"...","team":"default",...}
+type TaskCompleteRequest struct {
+	Type     string `json:"type"` // "taskComplete"
+	TaskUUID string `json:"task_uuid"`
+	Team     string `json:"team,omitempty"`    // defaults to "default"
+	Spawner  string `json:"spawner,omitempty"` // "team:agent", optional
+	Desc     string `json:"desc,omitempty"`    // task description for the notification message
+	PRID     string `json:"pr_id,omitempty"`   // PR number for the notification message
+}
+
 // SendResponse is the JSON reply from the daemon.
 type SendResponse struct {
 	OK    bool   `json:"ok"`
@@ -176,6 +187,7 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 type socketHandlers struct {
 	send         func(SendRequest) error
 	statusUpdate func(StatusUpdateRequest)
+	taskComplete func([]byte) SendResponse
 }
 
 // listenSocket starts the unix socket server and dispatches incoming requests
@@ -243,6 +255,12 @@ func handleConn(conn net.Conn, handlers socketHandlers) {
 		writeJSON(conn, handleConnGetStatus(raw))
 	case "statusUpdate":
 		writeJSON(conn, handleConnStatusUpdate(raw, handlers))
+	case "taskComplete":
+		if handlers.taskComplete != nil {
+			writeJSON(conn, handlers.taskComplete(raw))
+		} else {
+			writeJSON(conn, SendResponse{OK: false, Error: "taskComplete handler not registered"})
+		}
 	default:
 		writeJSON(conn, handleConnSend(raw, handlers))
 	}

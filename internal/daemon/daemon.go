@@ -123,7 +123,7 @@ func Run() error {
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, done)
 	startCleanupWatcher(done)
-	startPRWatcher(mcfg, registry, done)
+	startPRWatcher(mcfg, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, mt, msgSvc, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
@@ -131,6 +131,9 @@ func Run() error {
 			return handleSend(mcfg, registry, msgSvc, req)
 		},
 		statusUpdate: handleStatusUpdate,
+		taskComplete: func(raw []byte) SendResponse {
+			return handleTaskComplete(raw, mcfg, registry)
+		},
 	})
 	if err != nil {
 		close(done)
