@@ -38,9 +38,10 @@ func handleTaskComplete(raw []byte, mcfg *config.DaemonConfig, registry *adapter
 	notifyManagerAgents(mcfg, registry, target)
 	if req.Spawner != "" {
 		notifySpawnerMerged(mcfg, registry, target)
+		log.Printf("[taskComplete] notified managers + spawner %q for task %s",
+			req.Spawner, shortSHA(req.TaskUUID))
+	} else {
+		log.Printf("[taskComplete] notified managers for task %s", shortSHA(req.TaskUUID))
 	}
-
-	log.Printf("[taskComplete] notified managers (and spawner %q) for task %s",
-		req.Spawner, shortSHA(req.TaskUUID))
 	return SendResponse{OK: true}
 }

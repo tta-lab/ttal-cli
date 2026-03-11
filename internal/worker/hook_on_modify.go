@@ -5,12 +5,23 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
+
+// taskCompletePayload mirrors daemon.TaskCompleteRequest for serialization.
+// Defined here to avoid a worker→daemon circular import.
+type taskCompletePayload struct {
+	Type     string `json:"type"`
+	TaskUUID string `json:"task_uuid"`
+	Team     string `json:"team,omitempty"`
+	Spawner  string `json:"spawner,omitempty"`
+	Desc     string `json:"desc,omitempty"`
+	PRID     string `json:"pr_id,omitempty"`
+}
 
 // notifyTaskComplete sends a taskComplete RPC to the daemon socket.
 // Fire-and-forget: daemon unreachable silently skipped so task completion never blocks.
@@ -19,25 +30,30 @@ func notifyTaskComplete(task hookTask) {
 	if team == "" {
 		team = "default"
 	}
-	payload, _ := json.Marshal(map[string]string{
-		"type":      "taskComplete",
-		"task_uuid": task.UUID(),
-		"team":      team,
-		"spawner":   task.Spawner(),
-		"desc":      task.Description(),
-		"pr_id":     task.PRID(),
-	})
+	msg := taskCompletePayload{
+		Type:     "taskComplete",
+		TaskUUID: task.UUID(),
+		Team:     team,
+		Spawner:  task.Spawner(),
+		Desc:     task.Description(),
+		PRID:     task.PRID(),
+	}
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		hookLogFile("taskComplete: marshal failed: " + err.Error())
+		return
+	}
 	payload = append(payload, '\n')
 
-	sockPath := filepath.Join(os.Getenv("HOME"), ".ttal", "daemon.sock")
+	sockPath := config.SocketPath()
 	conn, err := net.DialTimeout("unix", sockPath, 3*time.Second)
 	if err != nil {
 		hookLogFile("taskComplete: daemon unreachable: " + err.Error())
 		return
 	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
-	conn.Write(payload) //nolint:errcheck // fire-and-forget
+	conn.SetDeadline(time.Now().Add(3 * time.Second)) //nolint:errcheck // fire-and-forget
+	conn.Write(payload)                               //nolint:errcheck // fire-and-forget
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.

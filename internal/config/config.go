@@ -1128,6 +1128,16 @@ func DefaultTaskRC() string {
 	return defaultTaskRC()
 }
 
+// SocketPath returns the daemon unix socket path.
+// TTAL_SOCKET_PATH env var overrides the default (~/.ttal/daemon.sock).
+// Shared by daemon and worker packages to avoid circular imports.
+func SocketPath() string {
+	if p := os.Getenv("TTAL_SOCKET_PATH"); p != "" {
+		return p
+	}
+	return filepath.Join(defaultDataDir(), "daemon.sock")
+}
+
 func defaultDataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
