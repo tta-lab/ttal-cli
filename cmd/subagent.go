@@ -20,13 +20,15 @@ var subagentCmd = &cobra.Command{
 }
 
 var subagentRunFlags struct {
-	provider     string
-	model        string
-	systemPrompt string
-	toolNames    []string
-	maxSteps     int
-	maxTokens    int
-	sandboxEnv   []string
+	provider      string
+	model         string
+	systemPrompt  string
+	toolNames     []string
+	maxSteps      int
+	maxTokens     int
+	sandboxEnv    []string
+	allowedPaths  []string
+	treeThreshold int
 }
 
 var subagentRunCmd = &cobra.Command{
@@ -36,8 +38,9 @@ var subagentRunCmd = &cobra.Command{
 
 Examples:
   ttal subagent run "Fetch https://example.com and summarize it"
-  ttal subagent run --tool bash --tool web_search "Search for Go generics tutorials"
-  ttal subagent run --system "You are a code reviewer" "Review the diff at /tmp/diff.txt"`,
+  ttal subagent run --tool bash --tool search_web "Search for Go generics tutorials"
+  ttal subagent run --system "You are a code reviewer" "Review the diff at /tmp/diff.txt"
+  ttal subagent run --allowed-path /path/to/repo "Review the code in main.go"`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSubagent,
 }
@@ -56,20 +59,22 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 	}
 
 	fetchBackend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, fetchBackend)
+	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, subagentRunFlags.allowedPaths, subagentRunFlags.treeThreshold)
 	selectedTools, err := filterTools(allTools, subagentRunFlags.toolNames)
 	if err != nil {
 		return err
 	}
 
 	cfg := agentloop.Config{
-		Provider:     provider,
-		Model:        subagentRunFlags.model,
-		SystemPrompt: subagentRunFlags.systemPrompt,
-		Tools:        selectedTools,
-		MaxSteps:     subagentRunFlags.maxSteps,
-		MaxTokens:    subagentRunFlags.maxTokens,
-		SandboxEnv:   subagentRunFlags.sandboxEnv,
+		Provider:      provider,
+		Model:         subagentRunFlags.model,
+		SystemPrompt:  subagentRunFlags.systemPrompt,
+		Tools:         selectedTools,
+		MaxSteps:      subagentRunFlags.maxSteps,
+		MaxTokens:     subagentRunFlags.maxTokens,
+		SandboxEnv:    subagentRunFlags.sandboxEnv,
+		AllowedPaths:  subagentRunFlags.allowedPaths,
+		TreeThreshold: subagentRunFlags.treeThreshold,
 	}
 
 	result, err := agentloop.Run(context.Background(), cfg, nil, prompt, func(text string) {
@@ -132,12 +137,21 @@ func init() {
 		&subagentRunFlags.systemPrompt, "system", "You are a helpful assistant.", "System prompt",
 	)
 	subagentRunCmd.Flags().StringArrayVar(
-		&subagentRunFlags.toolNames, "tool", nil, "Tools to enable (bash, web_fetch, web_search); default: all",
+		&subagentRunFlags.toolNames, "tool", nil, //nolint:lll
+		"Tools to enable (bash, read_url, search_web, read, read_md, glob, grep); default: all",
 	)
 	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", 20, "Maximum agent steps")
 	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", 4096, "Maximum output tokens per step")
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
+	)
+	subagentRunCmd.Flags().StringArrayVar(
+		&subagentRunFlags.allowedPaths, "allowed-path", nil,
+		"Directories the read/glob/grep tools can access (repeatable)",
+	)
+	subagentRunCmd.Flags().IntVar(
+		&subagentRunFlags.treeThreshold, "tree-threshold", 5000,
+		"Char count above which read_md and read_url default to tree view",
 	)
 
 	subagentCmd.AddCommand(subagentRunCmd)

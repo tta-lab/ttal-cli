@@ -17,36 +17,36 @@ func TestNewBashTool_Constructs(t *testing.T) {
 	assert.Equal(t, "bash", tool.Info().Name)
 }
 
-func TestNewWebFetchTool_AllBackends(t *testing.T) {
+func TestNewReadURLTool_AllBackends(t *testing.T) {
 	// BrowserGatewayBackend
 	bgb := NewBrowserGatewayBackend("http://localhost:8080", nil)
 	require.NotNil(t, bgb)
-	tool1 := NewWebFetchTool(bgb)
-	assert.Equal(t, "web_fetch", tool1.Info().Name)
+	tool1 := NewReadURLTool(bgb, 0)
+	assert.Equal(t, "read_url", tool1.Info().Name)
 
 	// DefuddleCLIBackend
 	dcb := NewDefuddleCLIBackend()
 	require.NotNil(t, dcb)
-	tool2 := NewWebFetchTool(dcb)
-	assert.Equal(t, "web_fetch", tool2.Info().Name)
+	tool2 := NewReadURLTool(dcb, 0)
+	assert.Equal(t, "read_url", tool2.Info().Name)
 
 	// DirectFetchBackend
 	dfb := NewDirectFetchBackend(nil)
 	require.NotNil(t, dfb)
-	tool3 := NewWebFetchTool(dfb)
-	assert.Equal(t, "web_fetch", tool3.Info().Name)
+	tool3 := NewReadURLTool(dfb, 0)
+	assert.Equal(t, "read_url", tool3.Info().Name)
 }
 
-func TestNewWebSearchTool_Constructs(t *testing.T) {
-	tool := NewWebSearchTool(nil)
+func TestNewSearchWebTool_Constructs(t *testing.T) {
+	tool := NewSearchWebTool(nil)
 	assert.NotNil(t, tool)
-	assert.Equal(t, "web_search", tool.Info().Name)
+	assert.Equal(t, "search_web", tool.Info().Name)
 }
 
 func TestNewDefaultToolSet(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
 	backend := NewDirectFetchBackend(&http.Client{})
-	tools := NewDefaultToolSet(sbx, backend)
+	tools := NewDefaultToolSet(sbx, backend, nil, 0)
 
 	require.Len(t, tools, 3)
 
@@ -55,8 +55,26 @@ func TestNewDefaultToolSet(t *testing.T) {
 		names[i] = tool.Info().Name
 	}
 	assert.Contains(t, names, "bash")
-	assert.Contains(t, names, "web_fetch")
-	assert.Contains(t, names, "web_search")
+	assert.Contains(t, names, "read_url")
+	assert.Contains(t, names, "search_web")
+}
+
+func TestNewDefaultToolSet_WithAllowedPaths(t *testing.T) {
+	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	backend := NewDirectFetchBackend(&http.Client{})
+	dir := t.TempDir()
+	tools := NewDefaultToolSet(sbx, backend, []string{dir}, 0)
+
+	require.Len(t, tools, 7) // bash + read_url + search_web + read + read_md + glob + grep
+
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Info().Name
+	}
+	assert.Contains(t, names, "read")
+	assert.Contains(t, names, "read_md")
+	assert.Contains(t, names, "glob")
+	assert.Contains(t, names, "grep")
 }
 
 func TestTruncateContent(t *testing.T) {
@@ -73,7 +91,7 @@ func TestTruncateContent(t *testing.T) {
 	assert.Contains(t, result, "[content truncated at 30,000 characters]")
 }
 
-// mockBackend is a simple WebFetchBackend for testing.
+// mockBackend is a simple ReadURLBackend for testing.
 type mockBackend struct {
 	content string
 	err     error
@@ -84,7 +102,7 @@ func (m *mockBackend) Fetch(_ context.Context, _ string) (string, error) {
 }
 
 func TestDirectFetchBackend_Interface(t *testing.T) {
-	var _ WebFetchBackend = &mockBackend{}
+	var _ ReadURLBackend = &mockBackend{}
 	var _ = NewDirectFetchBackend(nil)
 	var _ = NewDefuddleCLIBackend()
 	var _ = NewBrowserGatewayBackend("", nil)
