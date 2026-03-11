@@ -156,6 +156,7 @@ var taskExecuteCmd = &cobra.Command{
 	Long: `Spawn a worker to execute a task. Resolves runtime from task tags
 or team's worker_runtime config. Creates a git worktree and tmux session.
 
+Use --yes to confirm and spawn. Without --yes, shows the resolved project path and exits non-zero.
 Use --dry-run to preview what would happen without actually spawning.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -234,7 +235,7 @@ func init() {
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")
-	taskExecuteCmd.Flags().BoolVar(&executeYes, "yes", false, "Skip confirmation and execute immediately")
+	taskExecuteCmd.Flags().BoolVar(&executeYes, "yes", false, "Execute immediately (omitting shows project path and exits non-zero)")
 
 	taskAddCmd.Flags().StringVar(&taskAddProject, "project", "", "Project alias (required, must exist in ttal)")
 	_ = taskAddCmd.MarkFlagRequired("project")
