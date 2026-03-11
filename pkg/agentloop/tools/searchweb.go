@@ -9,14 +9,14 @@ import (
 	"charm.land/fantasy"
 )
 
-// WebSearchParams are the input parameters for the web_search tool.
-type WebSearchParams struct {
+// SearchWebParams are the input parameters for the search_web tool.
+type SearchWebParams struct {
 	Query      string `json:"query" description:"The search query"`
 	MaxResults int    `json:"max_results,omitempty" description:"Maximum number of results (default 10, max 20)"`
 }
 
-// NewWebSearchTool creates a web search tool using DuckDuckGo Lite.
-func NewWebSearchTool(client *http.Client) fantasy.AgentTool {
+// NewSearchWebTool creates a web search tool using DuckDuckGo Lite.
+func NewSearchWebTool(client *http.Client) fantasy.AgentTool {
 	if client == nil {
 		var transport *http.Transport
 		if t, ok := http.DefaultTransport.(*http.Transport); ok {
@@ -31,9 +31,9 @@ func NewWebSearchTool(client *http.Client) fantasy.AgentTool {
 	}
 
 	return fantasy.NewParallelAgentTool(
-		"web_search",
+		"search_web",
 		"Search the web using DuckDuckGo. Returns titles, URLs, and snippets.",
-		func(ctx context.Context, params WebSearchParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
+		func(ctx context.Context, params SearchWebParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if params.Query == "" {
 				return fantasy.NewTextErrorResponse("query is required"), nil
 			}

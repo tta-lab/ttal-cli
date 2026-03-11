@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -23,33 +24,112 @@ const (
 	webFetchAgent   = "ttal-agentloop/1.0"
 )
 
-// WebFetchParams are the input parameters for the web_fetch tool.
-type WebFetchParams struct {
-	URL string `json:"url" description:"The URL to fetch content from"`
+// ReadURLParams are the input parameters for the read_url tool.
+type ReadURLParams struct {
+	URL     string `json:"url" description:"The URL to fetch content from"`
+	Tree    bool   `json:"tree,omitempty" description:"Force tree view regardless of content size"`
+	Section string `json:"section,omitempty" description:"Section ID to extract (use tree view first to see IDs)"`
+	Full    bool   `json:"full,omitempty" description:"Force full content (truncated at 30k chars)"`
 }
 
-// WebFetchBackend controls how HTML is fetched and converted to markdown.
-type WebFetchBackend interface {
+// ReadURLBackend controls how HTML is fetched and converted to markdown.
+type ReadURLBackend interface {
 	Fetch(ctx context.Context, url string) (content string, err error)
 }
 
-// NewWebFetchTool creates a web fetch tool using the provided backend.
+// cachedPage holds a parsed page with its markdown and headings.
+// The cache has no TTL — pages are cached for the lifetime of the agent loop.
+type cachedPage struct {
+	markdown string
+	headings []mdHeading
+}
+
+// pageCache is an in-memory cache of fetched pages.
+type pageCache struct {
+	mu    sync.RWMutex
+	pages map[string]*cachedPage
+}
+
+func (c *pageCache) get(url string) (*cachedPage, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	p, ok := c.pages[url]
+	return p, ok
+}
+
+func (c *pageCache) set(url string, page *cachedPage) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pages[url] = page
+}
+
+// NewReadURLTool creates a URL fetch tool using the provided backend.
 // backend controls how HTML is fetched and converted:
 //   - BrowserGatewayBackend: POST to browser-gateway /api/extract (for server use)
 //   - DefuddleCLIBackend: shell out to `defuddle parse <url> --markdown` (for local/CLI use)
 //   - DirectFetchBackend: plain HTTP + html-to-markdown (fallback)
-func NewWebFetchTool(backend WebFetchBackend) fantasy.AgentTool {
+func NewReadURLTool(backend ReadURLBackend, treeThreshold int) fantasy.AgentTool {
+	if treeThreshold <= 0 {
+		treeThreshold = 5000
+	}
+	cache := &pageCache{pages: make(map[string]*cachedPage)}
+
 	return fantasy.NewParallelAgentTool(
-		"web_fetch",
-		"Fetch a URL and return its content as text. HTML is converted to markdown.",
-		func(ctx context.Context, params WebFetchParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
-			content, err := backend.Fetch(ctx, params.URL)
+		"read_url",
+		"Fetch a URL and return its content. Small pages return content directly. Large pages return heading tree with section IDs and char counts — use section to read specific parts, or full to get everything.", //nolint:lll
+		func(ctx context.Context, params ReadURLParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
+			page, err := fetchOrCachePage(ctx, params.URL, backend, cache)
 			if err != nil {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("fetch error: %v", err)), nil
 			}
-			return fantasy.NewTextResponse(content), nil
+
+			source := []byte(page.markdown)
+
+			// Section extraction mode.
+			if params.Section != "" {
+				section, err := extractSection(source, page.headings, params.Section)
+				if err != nil {
+					return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: %v", err)), nil
+				}
+				return fantasy.NewTextResponse(section), nil
+			}
+
+			charCount := utf8.RuneCountInString(page.markdown)
+
+			// Tree mode (explicit or auto for large content).
+			if params.Tree || (!params.Full && charCount > treeThreshold) {
+				if len(page.headings) == 0 {
+					// No headings — return full content.
+					slog.Warn("read_url: no headings found, returning full content", "url", params.URL)
+					return fantasy.NewTextResponse(truncateContent(page.markdown)), nil
+				}
+				return fantasy.NewTextResponse(renderTree(page.headings, source)), nil
+			}
+
+			// Full mode (explicit or auto for small content).
+			return fantasy.NewTextResponse(truncateContent(page.markdown)), nil
 		},
 	)
+}
+
+// fetchOrCachePage fetches a URL and caches the result.
+func fetchOrCachePage(ctx context.Context, url string, backend ReadURLBackend, cache *pageCache) (*cachedPage, error) {
+	if page, ok := cache.get(url); ok {
+		return page, nil
+	}
+	markdown, err := backend.Fetch(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	source := []byte(markdown)
+	headings := parseHeadings(source)
+	assignIDs(headings)
+	page := &cachedPage{
+		markdown: markdown,
+		headings: headings,
+	}
+	cache.set(url, page)
+	return page, nil
 }
 
 // --- BrowserGatewayBackend ---
@@ -70,7 +150,7 @@ type browserGatewayBackend struct {
 
 // NewBrowserGatewayBackend creates a backend that fetches via browser-gateway.
 // Falls back to direct HTTP fetch on any gateway error.
-func NewBrowserGatewayBackend(gatewayURL string, client *http.Client) WebFetchBackend {
+func NewBrowserGatewayBackend(gatewayURL string, client *http.Client) ReadURLBackend {
 	if client == nil {
 		client = &http.Client{Timeout: 60 * time.Second}
 	}
@@ -147,7 +227,7 @@ type defuddleCLIBackend struct{}
 
 // NewDefuddleCLIBackend creates a backend that shells out to the defuddle CLI.
 // Requires defuddle to be installed and on PATH.
-func NewDefuddleCLIBackend() WebFetchBackend {
+func NewDefuddleCLIBackend() ReadURLBackend {
 	return &defuddleCLIBackend{}
 }
 
@@ -169,7 +249,7 @@ type directFetchBackend struct {
 
 // NewDirectFetchBackend creates a backend that fetches via plain HTTP.
 // HTML responses are converted to markdown using html-to-markdown.
-func NewDirectFetchBackend(client *http.Client) WebFetchBackend {
+func NewDirectFetchBackend(client *http.Client) ReadURLBackend {
 	if client == nil {
 		client = &http.Client{Timeout: 60 * time.Second}
 	}
@@ -208,9 +288,7 @@ func directFetch(ctx context.Context, client *http.Client, targetURL string) (st
 	if strings.Contains(contentType, "text/html") {
 		markdown, err := htmltomarkdown.ConvertString(string(body))
 		if err != nil {
-			// Return content with a warning prepended so the LLM knows it received raw HTML.
-			slog.Warn("html-to-markdown conversion failed, returning raw HTML", "url", targetURL, "error", err)
-			return truncateContent("[html-to-markdown conversion failed; raw HTML follows]\n\n" + string(body)), nil
+			return "", fmt.Errorf("html-to-markdown conversion failed: %w", err)
 		}
 		return truncateContent(markdown), nil
 	}

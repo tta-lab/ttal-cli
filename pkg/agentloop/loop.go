@@ -21,13 +21,15 @@ const (
 
 // Config holds everything needed to run one agent loop iteration.
 type Config struct {
-	Provider     fantasy.Provider
-	Model        string
-	SystemPrompt string
-	Tools        []fantasy.AgentTool
-	MaxSteps     int      // 0 means use default (20)
-	MaxTokens    int      // 0 means use default (4096)
-	SandboxEnv   []string // passed to sandbox ExecConfig
+	Provider      fantasy.Provider
+	Model         string
+	SystemPrompt  string
+	Tools         []fantasy.AgentTool
+	MaxSteps      int      // 0 means use default (20)
+	MaxTokens     int      // 0 means use default (4096)
+	SandboxEnv    []string // passed to sandbox ExecConfig
+	AllowedPaths  []string // absolute dirs the read/glob/grep tools may access
+	TreeThreshold int      // chars — content above this returns tree by default; 0 = use default (5000)
 }
 
 // StepMessage represents one message generated during the agent loop.
