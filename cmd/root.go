@@ -12,8 +12,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tui"
 )
 
-var teamFlag string
-
 var rootCmd = &cobra.Command{
 	Use:   "ttal",
 	Short: "TTAL - Task & Team Agent Lifecycle Manager",
@@ -28,9 +26,6 @@ Running ttal with no subcommand launches the interactive TUI.`,
 		return err
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if teamFlag != "" {
-			_ = os.Setenv("TTAL_TEAM", teamFlag)
-		}
 		// Load .env as fallback for tokens not already in the environment
 		if dotEnv, err := config.LoadDotEnv(); err == nil {
 			for k, v := range dotEnv {
@@ -44,7 +39,6 @@ Running ttal with no subcommand launches the interactive TUI.`,
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&teamFlag, "team", "", "Team to use (overrides TTAL_TEAM env)")
 }
 
 func Execute() error {
