@@ -5,39 +5,34 @@ on:
       - 'containers/**'
     branches: [main]
   workflow_dispatch:
-    inputs:
-      dirs:
-        description: 'JSON array of container dirs to build (e.g. ["containers/base","containers/worker-go"]). Leave empty to build all.'
-        required: false
-        default: ''
 
 permissions:
   packages: write
 
 jobs:
-  detect:
+  build-base:
     runs-on: ubuntu-latest
-    outputs:
-      dirs: ${{ steps.changed.outputs.dirs }}
     steps:
       - uses: actions/checkout@v4
-      - id: changed
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.dirs }}" ]; then
-            dirs='${{ inputs.dirs }}'
-          else
-            dirs=$(find containers -mindepth 1 -maxdepth 1 -type d | sort | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          fi
-          echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
+      - uses: dagger/dagger-for-github@v7
+        with:
+          version: "latest"
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push base
+        working-directory: containers/base
+        run: dagger run go run main.go --push
 
-  build:
-    needs: detect
-    if: ${{ needs.detect.outputs.dirs != '[]' && needs.detect.outputs.dirs != '' }}
+  build-workers:
+    needs: build-base
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dir: ${{ fromJson(needs.detect.outputs.dirs) }}
+        dir:
+          - containers/worker-go
+          - containers/worker-node
+          - containers/worker-rust
+          - containers/worker-devops
     steps:
       - uses: actions/checkout@v4
       - uses: dagger/dagger-for-github@v7
