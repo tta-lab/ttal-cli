@@ -82,7 +82,7 @@ func base(_ context.Context) *dagger.Container {
 
 	// Stage 2: Fat base image with all runtimes + tools.
 	base := dag.Container().
-		From("debian:bookworm-slim").
+		From("node:22-bookworm-slim").
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "install", "-y", "--no-install-recommends",
 			// Core utilities
@@ -105,15 +105,10 @@ func base(_ context.Context) *dagger.Container {
 				" && dpkg -i /tmp/helix.deb && rm /tmp/helix.deb",
 			helixReleaseTag, helixDebVersion)}).
 
-		// Node.js 22 via nodesource
-		WithExec([]string{"bash", "-c",
-			"curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs && apt-get clean && rm -rf /var/lib/apt/lists/*",
-		}).
-
-		// Go (system-level → /usr/local/go)
-		WithExec([]string{"bash", "-c",
-			"curl -fsSL https://go.dev/dl/go" + goVersion + ".linux-amd64.tar.gz | tar -C /usr/local -xz",
-		}).
+		// Go toolchain — temporary container to extract /usr/local/go (no spawned process, cross-image copy).
+		// Note: goVersion is also used in Stage 1 (golang:+goVersion builder). Both reference the same image;
+		// if a registry/tag failure occurs, check both stages.
+		WithDirectory("/usr/local/go", dag.Container().From("golang:"+goVersion).Directory("/usr/local/go")).
 
 		// Claude Code + OpenCode (npm global — runs as root for system-level install)
 		WithExec([]string{"npm", "install", "-g", "@anthropic-ai/claude-code", "opencode-ai"}).
