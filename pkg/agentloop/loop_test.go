@@ -2,6 +2,7 @@ package agentloop
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"charm.land/fantasy"
@@ -100,14 +101,21 @@ func TestRun_AccumulatesSteps(t *testing.T) {
 	require.NotNil(t, result)
 	// The final assistant text should be flushed into Steps
 	require.Len(t, result.Steps, 1)
-	assert.Equal(t, "assistant", result.Steps[0].Role)
+	assert.Equal(t, StepRoleAssistant, result.Steps[0].Role)
 	assert.Equal(t, "hello world", result.Steps[0].Content)
 }
 
+func TestRun_NilProviderReturnsError(t *testing.T) {
+	cfg := Config{
+		Provider: nil,
+		Model:    "mock-model",
+	}
+	_, err := Run(context.Background(), cfg, nil, "hello", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Provider must not be nil")
+}
+
 func TestRun_SandboxEnvInContext(t *testing.T) {
-	// Verify that SandboxEnv is wired into context (ExecConfig check)
-	// The mock model just streams text so no actual sandbox exec happens,
-	// but we verify Run() completes without error when SandboxEnv is set.
 	provider := &mockProvider{model: &mockLanguageModel{}}
 
 	cfg := Config{
@@ -127,4 +135,65 @@ func TestRun_DefaultMaxSteps(t *testing.T) {
 	cfg := Config{Provider: provider, Model: "mock-model"}
 	_, err := Run(context.Background(), cfg, nil, "hello", nil)
 	require.NoError(t, err)
+}
+
+// TestRun_ToolCallAndResultCallbacks verifies the OnToolCall/OnToolResult flush
+// state machine works: assistant text + tool calls are flushed before the tool
+// result, and the tool result lands in a separate StepRoleTool step.
+//
+// The mock emits: text → ToolCall → Finish (step 1). The agent executes the tool
+// (not registered → error result → OnToolResult fires). Then step 2 returns text → Finish.
+func TestRun_ToolCallAndResultCallbacks(t *testing.T) {
+	toolInput := `{"command":"echo hi"}`
+
+	callCount := 0
+	streamWithToolCall := func(_ context.Context, _ fantasy.Call) (fantasy.StreamResponse, error) {
+		callCount++
+		if callCount == 1 {
+			return func(yield func(fantasy.StreamPart) bool) {
+				// Step 1: text then tool call
+				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextStart, ID: "t1"})
+				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextDelta, ID: "t1", Delta: "Running bash..."})
+				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextEnd, ID: "t1"})
+				yield(fantasy.StreamPart{
+					Type:          fantasy.StreamPartTypeToolCall,
+					ID:            "tc1",
+					ToolCallName:  "bash",
+					ToolCallInput: toolInput,
+				})
+				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeFinish, FinishReason: fantasy.FinishReasonToolCalls})
+			}, nil
+		}
+		// Step 2: final text after tool result
+		return func(yield func(fantasy.StreamPart) bool) {
+			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextStart, ID: "t2"})
+			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextDelta, ID: "t2", Delta: "Done."})
+			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextEnd, ID: "t2"})
+			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeFinish, FinishReason: fantasy.FinishReasonStop})
+		}, nil
+	}
+
+	provider := &mockProvider{model: &mockLanguageModel{streamFunc: streamWithToolCall}}
+	cfg := Config{Provider: provider, Model: "mock-model", MaxSteps: 5}
+
+	result, err := Run(context.Background(), cfg, nil, "run bash", nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Steps: [assistant(text+toolcall), tool(error result), assistant(final text)]
+	require.GreaterOrEqual(t, len(result.Steps), 2)
+
+	// First step: assistant with tool call flushed before tool result
+	firstAssistant := result.Steps[0]
+	assert.Equal(t, StepRoleAssistant, firstAssistant.Role)
+	assert.Equal(t, "Running bash...", firstAssistant.Content)
+	require.Len(t, firstAssistant.ToolCalls, 1)
+	assert.Equal(t, "tc1", firstAssistant.ToolCalls[0].ID)
+	assert.Equal(t, "bash", firstAssistant.ToolCalls[0].Name)
+	assert.Equal(t, json.RawMessage(toolInput), firstAssistant.ToolCalls[0].Input)
+
+	// Second step: tool result (error — tool not registered in this test)
+	toolStep := result.Steps[1]
+	assert.Equal(t, StepRoleTool, toolStep.Role)
+	assert.Equal(t, "tc1", toolStep.ToolCallID)
 }

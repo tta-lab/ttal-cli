@@ -57,7 +57,10 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 
 	fetchBackend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, fetchBackend)
-	selectedTools := filterTools(allTools, subagentRunFlags.toolNames)
+	selectedTools, err := filterTools(allTools, subagentRunFlags.toolNames)
+	if err != nil {
+		return err
+	}
 
 	cfg := agentloop.Config{
 		Provider:     provider,
@@ -100,20 +103,24 @@ func buildProvider(providerName string) (fantasy.Provider, error) {
 }
 
 // filterTools returns all tools if names is empty, otherwise only the named tools.
-func filterTools(allTools []fantasy.AgentTool, names []string) []fantasy.AgentTool {
+// Returns an error if any requested name does not match a known tool.
+func filterTools(allTools []fantasy.AgentTool, names []string) ([]fantasy.AgentTool, error) {
 	if len(names) == 0 {
-		return allTools
+		return allTools, nil
+	}
+	byName := make(map[string]fantasy.AgentTool, len(allTools))
+	for _, tool := range allTools {
+		byName[tool.Info().Name] = tool
 	}
 	selected := make([]fantasy.AgentTool, 0, len(names))
-	for _, tool := range allTools {
-		for _, name := range names {
-			if tool.Info().Name == name {
-				selected = append(selected, tool)
-				break
-			}
+	for _, name := range names {
+		tool, ok := byName[name]
+		if !ok {
+			return nil, fmt.Errorf("unknown tool %q — available: bash, web_fetch, web_search", name)
 		}
+		selected = append(selected, tool)
 	}
-	return selected
+	return selected, nil
 }
 
 func init() {

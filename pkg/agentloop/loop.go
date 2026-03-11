@@ -2,6 +2,7 @@ package agentloop
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,21 +11,29 @@ import (
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/sandbox"
 )
 
+// StepRole represents the role of a message step in the agent loop.
+type StepRole string
+
+const (
+	StepRoleAssistant StepRole = "assistant"
+	StepRoleTool      StepRole = "tool"
+)
+
 // Config holds everything needed to run one agent loop iteration.
 type Config struct {
 	Provider     fantasy.Provider
 	Model        string
 	SystemPrompt string
 	Tools        []fantasy.AgentTool
-	MaxSteps     int
-	MaxTokens    int
+	MaxSteps     int      // 0 means use default (20)
+	MaxTokens    int      // 0 means use default (4096)
 	SandboxEnv   []string // passed to sandbox ExecConfig
 }
 
 // StepMessage represents one message generated during the agent loop.
 // Richer than fantasy.Message — includes tool call metadata for persistence.
 type StepMessage struct {
-	Role       string         // "assistant" or "tool"
+	Role       StepRole       // StepRoleAssistant or StepRoleTool
 	Content    string         // text content
 	ToolCalls  []ToolCallInfo // for assistant messages with tool use
 	ToolCallID string         // for tool result messages
@@ -35,7 +44,7 @@ type StepMessage struct {
 type ToolCallInfo struct {
 	ID    string
 	Name  string
-	Input string // JSON string as returned by fantasy
+	Input json.RawMessage // JSON-encoded tool input
 }
 
 // RunResult contains the agent's output after a loop completes.
@@ -55,6 +64,10 @@ func Run(
 	prompt string,
 	onDelta func(text string),
 ) (*RunResult, error) {
+	if cfg.Provider == nil {
+		return nil, fmt.Errorf("agentloop: Config.Provider must not be nil")
+	}
+
 	// Wire sandbox env into context so tools can access it.
 	execCfg := &sandbox.ExecConfig{Env: cfg.SandboxEnv}
 	ctx = sandbox.ContextWithExecConfig(ctx, execCfg)
@@ -104,7 +117,7 @@ func Run(
 			currentToolCalls = append(currentToolCalls, ToolCallInfo{
 				ID:    tc.ToolCallID,
 				Name:  tc.ToolName,
-				Input: tc.Input,
+				Input: json.RawMessage(tc.Input),
 			})
 			return nil
 		},
@@ -113,7 +126,7 @@ func Run(
 			// Flush current assistant text + tool calls before tool result.
 			if currentText.Len() > 0 || len(currentToolCalls) > 0 {
 				steps = append(steps, StepMessage{
-					Role:      "assistant",
+					Role:      StepRoleAssistant,
 					Content:   currentText.String(),
 					ToolCalls: currentToolCalls,
 					Timestamp: time.Now().UTC(),
@@ -130,7 +143,7 @@ func Run(
 			}
 
 			steps = append(steps, StepMessage{
-				Role:       "tool",
+				Role:       StepRoleTool,
 				ToolCallID: tr.ToolCallID,
 				Content:    resultText,
 				Timestamp:  time.Now().UTC(),
@@ -142,7 +155,7 @@ func Run(
 	// Flush any remaining assistant text after the loop.
 	if currentText.Len() > 0 {
 		steps = append(steps, StepMessage{
-			Role:      "assistant",
+			Role:      StepRoleAssistant,
 			Content:   currentText.String(),
 			ToolCalls: currentToolCalls,
 			Timestamp: time.Now().UTC(),

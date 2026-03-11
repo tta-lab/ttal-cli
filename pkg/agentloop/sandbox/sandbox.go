@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"runtime"
 	"time"
@@ -16,7 +17,6 @@ const maxOutputBytes = 64 * 1024 // 64KB output truncation
 type Sandbox struct {
 	BwrapPath        string
 	Timeout          time.Duration
-	MemoryMB         int
 	AllowUnsandboxed bool // if false (default), fail hard when bwrap is unavailable
 }
 
@@ -51,6 +51,7 @@ func (s *Sandbox) Exec(
 				s.BwrapPath,
 			)
 		}
+		slog.Warn("bwrap unavailable, running unsandboxed — do not use in production", "bwrap_path", s.BwrapPath)
 		return s.execDirect(ctx, command, cfg)
 	}
 

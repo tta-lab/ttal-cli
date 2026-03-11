@@ -81,13 +81,13 @@ func (b *browserGatewayBackend) Fetch(ctx context.Context, url string) (string, 
 	body, err := json.Marshal(map[string]string{"url": url})
 	if err != nil {
 		slog.Warn("browser-gateway marshal failed, falling back to direct fetch", "url", url, "error", err)
-		return directFetch(ctx, b.client, url)
+		return fallbackDirect(ctx, b.client, url)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.gatewayURL+"/api/extract", bytes.NewReader(body))
 	if err != nil {
 		slog.Warn("browser-gateway request build failed, falling back to direct fetch", "url", url, "error", err)
-		return directFetch(ctx, b.client, url)
+		return fallbackDirect(ctx, b.client, url)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", webFetchAgent)
@@ -95,24 +95,24 @@ func (b *browserGatewayBackend) Fetch(ctx context.Context, url string) (string, 
 	resp, err := b.client.Do(req)
 	if err != nil {
 		slog.Warn("browser-gateway fetch failed, falling back to direct fetch", "url", url, "error", err)
-		return directFetch(ctx, b.client, url)
+		return fallbackDirect(ctx, b.client, url)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode >= 400 {
 		slog.Warn("browser-gateway returned error, falling back to direct fetch", "url", url, "status", resp.StatusCode)
-		return directFetch(ctx, b.client, url)
+		return fallbackDirect(ctx, b.client, url)
 	}
 
 	var extracted extractResponse
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxBodyBytes)).Decode(&extracted); err != nil {
 		slog.Warn("browser-gateway decode failed, falling back to direct fetch", "url", url, "error", err)
-		return directFetch(ctx, b.client, url)
+		return fallbackDirect(ctx, b.client, url)
 	}
 
 	if extracted.Content == "" {
 		slog.Warn("browser-gateway returned empty content, falling back to direct fetch", "url", url)
-		return directFetch(ctx, b.client, url)
+		return fallbackDirect(ctx, b.client, url)
 	}
 
 	var sb strings.Builder
@@ -131,6 +131,15 @@ func (b *browserGatewayBackend) Fetch(ctx context.Context, url string) (string, 
 	return truncateContent(sb.String()), nil
 }
 
+// fallbackDirect checks ctx before delegating to directFetch so cancelled
+// contexts don't trigger a second network call.
+func fallbackDirect(ctx context.Context, client *http.Client, url string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	return directFetch(ctx, client, url)
+}
+
 // --- DefuddleCLIBackend ---
 
 // defuddleCLIBackend shells out to `defuddle parse <url> --markdown`.
@@ -143,9 +152,10 @@ func NewDefuddleCLIBackend() WebFetchBackend {
 }
 
 func (b *defuddleCLIBackend) Fetch(ctx context.Context, url string) (string, error) {
-	out, err := exec.CommandContext(ctx, "defuddle", "parse", url, "--markdown").Output()
+	cmd := exec.CommandContext(ctx, "defuddle", "parse", url, "--markdown")
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("defuddle parse failed: %w", err)
+		return "", fmt.Errorf("defuddle parse failed: %w\noutput: %s", err, strings.TrimSpace(string(out)))
 	}
 	return truncateContent(string(out)), nil
 }
@@ -198,10 +208,11 @@ func directFetch(ctx context.Context, client *http.Client, targetURL string) (st
 	if strings.Contains(contentType, "text/html") {
 		markdown, err := htmltomarkdown.ConvertString(string(body))
 		if err != nil {
-			slog.Warn("html-to-markdown conversion failed, returning raw content", "url", targetURL, "error", err)
-		} else {
-			return truncateContent(markdown), nil
+			// Return content with a warning prepended so the LLM knows it received raw HTML.
+			slog.Warn("html-to-markdown conversion failed, returning raw HTML", "url", targetURL, "error", err)
+			return truncateContent("[html-to-markdown conversion failed; raw HTML follows]\n\n" + string(body)), nil
 		}
+		return truncateContent(markdown), nil
 	}
 
 	return truncateContent(string(body)), nil

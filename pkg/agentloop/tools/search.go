@@ -129,22 +129,29 @@ func collectSearchNodes(doc *html.Node, maxResults int) []SearchResult {
 		return len(results) >= maxResults
 	}
 
-	var traverse func(*html.Node)
-	traverse = func(n *html.Node) {
+	walkHTMLTree(doc, func(n *html.Node) bool {
 		if n.Type == html.ElementNode {
 			handleSearchNode(n, &current, appendCurrent)
 		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if len(results) >= maxResults {
-				return
-			}
-			traverse(c)
-		}
-	}
+		return len(results) < maxResults
+	})
 
-	traverse(doc)
 	appendCurrent()
 	return results
+}
+
+// walkHTMLTree does a depth-first walk of the HTML tree, calling visit on each node.
+// If visit returns false, the walk stops early.
+func walkHTMLTree(n *html.Node, visit func(*html.Node) bool) bool {
+	if !visit(n) {
+		return false
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if !walkHTMLTree(c, visit) {
+			return false
+		}
+	}
+	return true
 }
 
 // handleSearchNode processes a single HTML element node for search result extraction.
@@ -179,16 +186,12 @@ func hasClass(n *html.Node, class string) bool {
 
 func getTextContent(n *html.Node) string {
 	var text strings.Builder
-	var traverse func(*html.Node)
-	traverse = func(node *html.Node) {
+	walkHTMLTree(n, func(node *html.Node) bool {
 		if node.Type == html.TextNode {
 			text.WriteString(node.Data)
 		}
-		for c := node.FirstChild; c != nil; c = c.NextSibling {
-			traverse(c)
-		}
-	}
-	traverse(n)
+		return true
+	})
 	return strings.TrimSpace(text.String())
 }
 
