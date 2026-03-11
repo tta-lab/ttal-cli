@@ -129,3 +129,18 @@ func TestReadMDTool_NoLineNumbers(t *testing.T) {
 	// read_md should NOT add line numbers (unlike read)
 	assert.NotContains(t, content, "1\t")
 }
+
+func TestReadMDTool_LargeFileNoHeadingsFallsBackToFull(t *testing.T) {
+	dir := t.TempDir()
+	// Plain text with no headings — large enough to exceed threshold.
+	plain := strings.Repeat("just plain text\n", 50)
+	f := filepath.Join(dir, "plain.md")
+	require.NoError(t, os.WriteFile(f, []byte(plain), 0o644))
+
+	tool := NewReadMDTool([]string{dir}, 10) // very low threshold
+	content, isErr := runTool(t, tool, ReadMDParams{FilePath: f})
+	assert.False(t, isErr, content)
+	// Should return full content, not an empty tree.
+	assert.Contains(t, content, "just plain text")
+	assert.NotContains(t, content, "section:") // no hint line
+}

@@ -95,10 +95,27 @@ func TestReadTool_OffsetAndLimit(t *testing.T) {
 	// Offset=1 means skip first line (0-based), Limit=2 means read 2 lines
 	content, isErr := runTool(t, tool, ReadParams{FilePath: f, Offset: 1, Limit: 2})
 	assert.False(t, isErr)
-	assert.Contains(t, content, "b")
-	assert.Contains(t, content, "c")
-	assert.NotContains(t, content, "\ta\n")
-	assert.NotContains(t, content, "\td\n")
+	// Line numbers should start at offset+1 = 2
+	assert.Contains(t, content, "2\tb")
+	assert.Contains(t, content, "3\tc")
+	assert.NotContains(t, content, "1\ta")
+	assert.NotContains(t, content, "4\td")
+}
+
+func TestReadTool_SymlinkEscape(t *testing.T) {
+	allowed := t.TempDir()
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret.txt")
+	require.NoError(t, os.WriteFile(secret, []byte("top secret"), 0o644))
+
+	// Create a symlink inside the allowed dir pointing outside.
+	link := filepath.Join(allowed, "escape")
+	require.NoError(t, os.Symlink(secret, link))
+
+	tool := NewReadTool([]string{allowed})
+	content, isErr := runTool(t, tool, ReadParams{FilePath: link})
+	assert.True(t, isErr, "symlink escaping allowed dir should be denied")
+	assert.Contains(t, strings.ToLower(content), "access denied")
 }
 
 func TestReadTool_FileTooLarge(t *testing.T) {

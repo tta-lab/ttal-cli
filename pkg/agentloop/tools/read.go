@@ -117,7 +117,13 @@ func readTextFile(path string, offset, limit int) ([]string, error) {
 			break
 		}
 	}
-	return lines, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		if err == bufio.ErrTooLong {
+			return lines, fmt.Errorf("file contains a line exceeding 64KB; use the bash tool with awk/cut to read it")
+		}
+		return lines, err
+	}
+	return lines, nil
 }
 
 // addLineNumbers formats lines with 1-based line numbers starting at startLine.

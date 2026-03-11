@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
-	"strings"
 	"unicode/utf8"
 
 	"charm.land/fantasy"
@@ -64,7 +64,8 @@ func NewReadMDTool(allowedPaths []string, treeThreshold int) fantasy.AgentTool {
 
 			if params.Tree || (!params.Full && charCount > treeThreshold) {
 				if len(headings) == 0 {
-					// No headings — return full content.
+					// No headings — fall back to full content and warn.
+					slog.Warn("read_md: no headings found, returning full content", "file", params.FilePath)
 					return fantasy.NewTextResponse(truncateContent(content)), nil
 				}
 				return fantasy.NewTextResponse(renderTree(headings, source)), nil
@@ -75,6 +76,3 @@ func NewReadMDTool(allowedPaths []string, treeThreshold int) fantasy.AgentTool {
 		},
 	)
 }
-
-// ensure strings package is used.
-var _ = strings.Contains

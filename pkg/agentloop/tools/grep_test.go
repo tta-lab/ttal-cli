@@ -81,6 +81,33 @@ func TestGrepTool_OutputTruncated(t *testing.T) {
 	assert.LessOrEqual(t, len([]rune(content)), maxContentChars+100)
 }
 
+func TestGrepTool_SingleFilePath(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "only.go")
+	require.NoError(t, os.WriteFile(f, []byte("func match() {}\nfunc other() {}\n"), 0o644))
+
+	tool := NewGrepTool([]string{dir})
+	content, isErr := runTool(t, tool, GrepParams{Pattern: "func match", Path: f})
+	assert.False(t, isErr, content)
+	assert.Contains(t, content, "match")
+	assert.NotContains(t, content, "other")
+}
+
+func TestGrepTool_SkippedFilesWarnInOutput(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "readable.txt")
+	require.NoError(t, os.WriteFile(f, []byte("hello\n"), 0o644))
+	unreadable := filepath.Join(dir, "locked.txt")
+	require.NoError(t, os.WriteFile(unreadable, []byte("secret\n"), 0o000))
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o644) })
+
+	tool := NewGrepTool([]string{dir})
+	content, isErr := runTool(t, tool, GrepParams{Pattern: ".", Path: dir})
+	assert.False(t, isErr, content)
+	// Should warn about skipped files.
+	assert.Contains(t, content, "Warning: skipped")
+}
+
 func TestGrepTool_NoMatches(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "x.txt"), []byte("hello world\n"), 0o644))

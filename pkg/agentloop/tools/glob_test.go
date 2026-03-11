@@ -61,6 +61,17 @@ func TestGlobTool_EmptyPathSearchesAllAllowed(t *testing.T) {
 	assert.Contains(t, content, "b.go")
 }
 
+func TestGlobTool_PathIsFileReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "afile.go")
+	require.NoError(t, os.WriteFile(f, []byte(""), 0o644))
+
+	tool := NewGlobTool([]string{dir})
+	content, isErr := runTool(t, tool, GlobParams{Pattern: "*.go", Path: f})
+	assert.True(t, isErr)
+	assert.Contains(t, content, "not a directory")
+}
+
 func TestGlobTool_ResultsCapped(t *testing.T) {
 	dir := t.TempDir()
 	for i := range 210 {

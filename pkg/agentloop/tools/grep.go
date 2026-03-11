@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,19 +32,27 @@ func NewGrepTool(allowedPaths []string) fantasy.AgentTool {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: invalid regex pattern: %v", err)), nil
 			}
 
-			searchDirs, err := resolveGrepSearchDirs(params.Path, allowedPaths)
+			// grep accepts both files and directories; pass mustBeDir=false.
+			searchDirs, err := resolveSearchPaths(params.Path, allowedPaths, false)
 			if err != nil {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: %v", err)), nil
 			}
 
 			var sb strings.Builder
+			var skipped int
 			for _, dir := range searchDirs {
-				if err := grepDir(ctx, re, dir, params.Glob, &sb); err != nil {
+				s, err := grepDir(ctx, re, dir, params.Glob, &sb)
+				skipped += s
+				if err != nil {
 					return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: %v", err)), nil
 				}
 				if len([]rune(sb.String())) >= maxContentChars {
 					break
 				}
+			}
+
+			if skipped > 0 {
+				fmt.Fprintf(&sb, "\n# Warning: skipped %d file(s) due to read errors (check logs for details)\n", skipped)
 			}
 
 			result := sb.String()
@@ -55,35 +64,48 @@ func NewGrepTool(allowedPaths []string) fantasy.AgentTool {
 	)
 }
 
-// resolveGrepSearchDirs resolves search directories for grep.
-// If path is a file, validates and returns [path] directly.
-// If path is a directory, validates and returns [path].
+// resolveSearchPaths resolves search paths for glob and grep tools.
+// If path is provided, validates it's within allowedPaths.
+// When mustBeDir is true, also verifies path is a directory.
 // If path is empty, returns all allowedPaths.
-func resolveGrepSearchDirs(path string, allowedPaths []string) ([]string, error) {
+func resolveSearchPaths(path string, allowedPaths []string, mustBeDir bool) ([]string, error) {
 	if path == "" {
 		return allowedPaths, nil
 	}
 	if !isPathAllowed(path, allowedPaths) {
 		return nil, fmt.Errorf("access denied: %q is not within an allowed directory", path)
 	}
+	if mustBeDir {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("path error: %v", err)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("%q is not a directory", path)
+		}
+	}
 	return []string{path}, nil
 }
 
 // grepDir walks a path (file or directory) and writes matching lines to sb.
-func grepDir(ctx context.Context, re *regexp.Regexp, root, globPattern string, sb *strings.Builder) error {
+// Returns the count of files skipped due to errors.
+func grepDir(ctx context.Context, re *regexp.Regexp, root, globPattern string, sb *strings.Builder) (skipped int, err error) { //nolint:lll
 	info, err := os.Stat(root)
 	if err != nil {
-		return fmt.Errorf("stat %q: %v", root, err)
+		return 0, fmt.Errorf("stat %q: %v", root, err)
 	}
 
 	// If root is a single file, search it directly.
 	if !info.IsDir() {
-		return grepFile(ctx, re, root, sb)
+		skip, err := grepFile(ctx, re, root, sb)
+		return skip, err
 	}
 
-	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil // skip unreadable entries
+			slog.Warn("grep: skipping unreadable entry", "path", path, "error", err)
+			skipped++
+			return nil
 		}
 		if d.IsDir() {
 			// Skip hidden directories.
@@ -109,15 +131,20 @@ func grepDir(ctx context.Context, re *regexp.Regexp, root, globPattern string, s
 			return filepath.SkipAll
 		}
 
-		return grepFile(ctx, re, path, sb)
+		s, err := grepFile(ctx, re, path, sb)
+		skipped += s
+		return err
 	})
+	return skipped, walkErr
 }
 
 // grepFile searches a single file and writes matching lines to sb.
-func grepFile(ctx context.Context, re *regexp.Regexp, path string, sb *strings.Builder) error {
+// Returns 1 if the file was skipped due to an error, 0 otherwise.
+func grepFile(ctx context.Context, re *regexp.Regexp, path string, sb *strings.Builder) (skipped int, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil // skip files we can't open
+		slog.Warn("grep: skipping unreadable file", "path", path, "error", err)
+		return 1, nil
 	}
 	defer f.Close() //nolint:errcheck
 
@@ -126,12 +153,15 @@ func grepFile(ctx context.Context, re *regexp.Regexp, path string, sb *strings.B
 	for scanner.Scan() {
 		lineNum++
 		if err := ctx.Err(); err != nil {
-			return err
+			return 0, err
 		}
 		line := scanner.Text()
 		if re.MatchString(line) {
 			fmt.Fprintf(sb, "%s:%d: %s\n", path, lineNum, line)
 		}
 	}
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("scanning %q: %w", path, err)
+	}
+	return 0, nil
 }

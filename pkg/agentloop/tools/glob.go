@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,7 +26,7 @@ func NewGlobTool(allowedPaths []string) fantasy.AgentTool {
 		"glob",
 		"Find files matching a glob pattern within allowed project directories. Supports ** for recursive matching. Returns up to 200 results sorted by modification time (most recent first).", //nolint:lll
 		func(ctx context.Context, params GlobParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
-			searchDirs, err := resolveGlobSearchDirs(params.Path, allowedPaths)
+			searchDirs, err := resolveSearchPaths(params.Path, allowedPaths, true)
 			if err != nil {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("Error: %v", err)), nil
 			}
@@ -77,26 +76,3 @@ func NewGlobTool(allowedPaths []string) fantasy.AgentTool {
 		},
 	)
 }
-
-// resolveGlobSearchDirs resolves the search directories for the glob tool.
-// If path is provided, validates it's within allowedPaths and returns [path].
-// If path is empty, returns all allowedPaths.
-func resolveGlobSearchDirs(path string, allowedPaths []string) ([]string, error) {
-	if path == "" {
-		return allowedPaths, nil
-	}
-	if !isPathAllowed(path, allowedPaths) {
-		return nil, fmt.Errorf("access denied: %q is not within an allowed directory", path)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("path error: %v", err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("%q is not a directory", path)
-	}
-	return []string{path}, nil
-}
-
-// ensure fs.FS is available (used implicitly via os.DirFS).
-var _ fs.FS = os.DirFS(".")

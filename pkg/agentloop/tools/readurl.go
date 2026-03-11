@@ -38,10 +38,10 @@ type ReadURLBackend interface {
 }
 
 // cachedPage holds a parsed page with its markdown and headings.
+// The cache has no TTL — pages are cached for the lifetime of the agent loop.
 type cachedPage struct {
-	markdown  string
-	headings  []mdHeading
-	fetchedAt time.Time
+	markdown string
+	headings []mdHeading
 }
 
 // pageCache is an in-memory cache of fetched pages.
@@ -125,9 +125,8 @@ func fetchOrCachePage(ctx context.Context, url string, backend ReadURLBackend, c
 	headings := parseHeadings(source)
 	assignIDs(headings)
 	page := &cachedPage{
-		markdown:  markdown,
-		headings:  headings,
-		fetchedAt: time.Now(),
+		markdown: markdown,
+		headings: headings,
 	}
 	cache.set(url, page)
 	return page, nil
