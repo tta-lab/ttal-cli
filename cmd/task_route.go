@@ -119,8 +119,9 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 }
 
 // spawnWorkerForTask spawns a worker for a task using the standard spawn flow.
-// When dryRun is true, it prints what would happen without spawning.
-func spawnWorkerForTask(taskUUID string, dryRun bool) error {
+// dryRun takes precedence: prints a preview and returns without spawning.
+// When yes is false, prints project path + re-run hint and returns a non-zero error.
+func spawnWorkerForTask(taskUUID string, dryRun, yes bool) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -151,15 +152,7 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 		return err
 	}
 
-	rt := cfg.WorkerRuntime()
-	for _, t := range task.Tags {
-		switch t {
-		case string(runtime.OpenCode), "oc":
-			rt = runtime.OpenCode
-		case string(runtime.Codex), "cx":
-			rt = runtime.Codex
-		}
-	}
+	rt := resolveRuntime(task, cfg)
 
 	workerName := strings.TrimPrefix(task.Branch, "worker/")
 	if workerName == "" {
@@ -169,6 +162,11 @@ func spawnWorkerForTask(taskUUID string, dryRun bool) error {
 	if dryRun {
 		printDryRun(task, rt, workerName)
 		return nil
+	}
+
+	if !yes {
+		printConfirmHint(task)
+		return fmt.Errorf("re-run with --yes to confirm")
 	}
 
 	if err := startTaskSafe(task.UUID); err != nil {
@@ -243,6 +241,25 @@ func detectSpawner() string {
 		team = "default"
 	}
 	return team + ":" + agent
+}
+
+func resolveRuntime(task *taskwarrior.Task, cfg *config.Config) runtime.Runtime {
+	rt := cfg.WorkerRuntime()
+	for _, t := range task.Tags {
+		switch t {
+		case string(runtime.OpenCode), "oc":
+			rt = runtime.OpenCode
+		case string(runtime.Codex), "cx":
+			rt = runtime.Codex
+		}
+	}
+	return rt
+}
+
+func printConfirmHint(task *taskwarrior.Task) {
+	fmt.Fprintf(os.Stderr, "Project: %s\n", task.ProjectPath)
+	fmt.Fprintf(os.Stderr, "⚠ Confirm project path matches your plan before proceeding:\n")
+	fmt.Fprintf(os.Stderr, "  ttal task execute %s --yes\n", task.SessionID())
 }
 
 func printDryRun(task *taskwarrior.Task, rt runtime.Runtime, workerName string) {
