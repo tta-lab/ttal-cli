@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -18,15 +17,9 @@ const socketTimeout = 5 * time.Second
 // SocketPath returns the path to the daemon unix socket.
 // TTAL_SOCKET_PATH overrides the default, which allows Docker workers to
 // inject the host socket path via the container environment.
+// Delegates to config.SocketPath() to keep a single source of truth.
 func SocketPath() (string, error) {
-	if p := os.Getenv("TTAL_SOCKET_PATH"); p != "" {
-		return p, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".ttal", "daemon.sock"), nil
+	return config.SocketPath(), nil
 }
 
 // Request is the top-level socket message envelope.
@@ -64,6 +57,17 @@ type SendRequest struct {
 	To      string `json:"to,omitempty"`
 	Team    string `json:"team,omitempty"`
 	Message string `json:"message"`
+}
+
+// TaskCompleteRequest notifies the daemon that a task has been marked done.
+// Wire format: {"type":"taskComplete","task_uuid":"...","team":"default",...}
+type TaskCompleteRequest struct {
+	Type     string `json:"type"` // "taskComplete"
+	TaskUUID string `json:"task_uuid"`
+	Team     string `json:"team,omitempty"`    // defaults to "default"
+	Spawner  string `json:"spawner,omitempty"` // "team:agent", optional
+	Desc     string `json:"desc,omitempty"`    // task description for the notification message
+	PRID     string `json:"pr_id,omitempty"`   // PR number for the notification message
 }
 
 // SendResponse is the JSON reply from the daemon.
@@ -176,6 +180,7 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 type socketHandlers struct {
 	send         func(SendRequest) error
 	statusUpdate func(StatusUpdateRequest)
+	taskComplete func([]byte) SendResponse
 }
 
 // listenSocket starts the unix socket server and dispatches incoming requests
@@ -243,6 +248,12 @@ func handleConn(conn net.Conn, handlers socketHandlers) {
 		writeJSON(conn, handleConnGetStatus(raw))
 	case "statusUpdate":
 		writeJSON(conn, handleConnStatusUpdate(raw, handlers))
+	case "taskComplete":
+		if handlers.taskComplete != nil {
+			writeJSON(conn, handlers.taskComplete(raw))
+		} else {
+			writeJSON(conn, SendResponse{OK: false, Error: "taskComplete handler not registered"})
+		}
 	default:
 		writeJSON(conn, handleConnSend(raw, handlers))
 	}

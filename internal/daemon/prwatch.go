@@ -39,7 +39,7 @@ type prWatchTarget struct {
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
 // and active tmux sessions, then spawns per-PR polling goroutines.
-func startPRWatcher(mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) {
+func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
 	var mu sync.Mutex
 	active := make(map[string]bool) // task UUID → polling
 
@@ -55,7 +55,7 @@ func startPRWatcher(mcfg *config.DaemonConfig, registry *adapterRegistry, done <
 			case <-timer.C:
 			}
 
-			scanForPRTasks(mcfg, registry, &mu, active, done)
+			scanForPRTasks(mcfg, &mu, active, done)
 			timer.Reset(prScanInterval)
 		}
 	}()
@@ -67,7 +67,6 @@ func startPRWatcher(mcfg *config.DaemonConfig, registry *adapterRegistry, done <
 // and spawns polling goroutines for new PRs.
 func scanForPRTasks(
 	mcfg *config.DaemonConfig,
-	registry *adapterRegistry,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
@@ -75,7 +74,7 @@ func scanForPRTasks(
 	allSucceeded := true
 
 	for teamName := range mcfg.Teams {
-		seen := scanTeamWithEnv(mcfg, registry, teamName, mu, active, done)
+		seen := scanTeamWithEnv(mcfg, teamName, mu, active, done)
 		if seen == nil {
 			// Team scan failed — skip pruning this round to avoid orphaning
 			// goroutines whose UUIDs would be absent from an error-empty result.
@@ -106,23 +105,21 @@ func scanForPRTasks(
 // Returns nil on taskwarrior error so the caller can skip the pruning pass.
 func scanTeamWithEnv(
 	mcfg *config.DaemonConfig,
-	registry *adapterRegistry,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
 	if teamName == config.DefaultTeamName {
-		return scanTeam(mcfg, registry, teamName, mu, active, done)
+		return scanTeam(mcfg, teamName, mu, active, done)
 	}
 	prev := os.Getenv("TTAL_TEAM")
 	_ = os.Setenv("TTAL_TEAM", teamName)
 	defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
-	return scanTeam(mcfg, registry, teamName, mu, active, done)
+	return scanTeam(mcfg, teamName, mu, active, done)
 }
 
 func scanTeam(
 	mcfg *config.DaemonConfig,
-	registry *adapterRegistry,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
@@ -189,7 +186,7 @@ func scanTeam(
 			prIndex, info.Owner, info.Repo, sessionName)
 
 		go func() {
-			keep := pollPR(target, mcfg, registry, done)
+			keep := pollPR(target, mcfg, done)
 			if !keep {
 				mu.Lock()
 				delete(active, target.TaskUUID)
@@ -207,7 +204,7 @@ func scanTeam(
 // Delivers status exactly once per HEAD SHA.
 // Returns true if the UUID should remain in the active map (PR merged/closed — wait for cleanup).
 // Returns false for all other exits (timeout, session gone, shutdown) — allows re-spawn.
-func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRegistry, done <-chan struct{}) bool {
+func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{}) bool {
 	provider, err := gitprovider.NewProviderByName(target.Provider)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
@@ -253,10 +250,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, registry *adapterRe
 
 		if fetchedPR.Merged || fetchedPR.State == "closed" {
 			log.Printf("[prwatch] PR #%d is %s — stopping", target.PRIndex, fetchedPR.State)
-			if fetchedPR.Merged {
-				notifySpawnerMerged(mcfg, registry, target)
-				notifyManagerAgents(mcfg, registry, target)
-			}
+			// Notifications now handled by on-modify hook → daemon RPC (taskComplete).
 			// Return true to keep UUID in active map until the async cleanup
 			// (task done) removes the task from ListTasksWithPR, preventing
 			// a new goroutine from re-detecting the merge and double-notifying.
@@ -416,8 +410,12 @@ func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status stri
 
 // formatTaskDoneMsg returns the standard task-done message used for agent notifications.
 func formatTaskDoneMsg(target prWatchTarget) string {
-	return fmt.Sprintf("[task %s marked done, PR #%d merged] %s",
-		shortSHA(target.TaskUUID), target.PRIndex, target.Description)
+	if target.PRIndex > 0 {
+		return fmt.Sprintf("[task %s done, PR #%d merged] %s",
+			shortSHA(target.TaskUUID), target.PRIndex, target.Description)
+	}
+	return fmt.Sprintf("[task %s done] %s",
+		shortSHA(target.TaskUUID), target.Description)
 }
 
 // notifySpawnerMerged delivers a PR-merged message to the spawning agent.

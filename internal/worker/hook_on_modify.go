@@ -1,12 +1,60 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
+
+// taskCompletePayload mirrors daemon.TaskCompleteRequest for serialization.
+// Defined here to avoid a worker→daemon circular import.
+type taskCompletePayload struct {
+	Type     string `json:"type"`
+	TaskUUID string `json:"task_uuid"`
+	Team     string `json:"team,omitempty"`
+	Spawner  string `json:"spawner,omitempty"`
+	Desc     string `json:"desc,omitempty"`
+	PRID     string `json:"pr_id,omitempty"`
+}
+
+// notifyTaskComplete sends a taskComplete RPC to the daemon socket.
+// Fire-and-forget: daemon unreachable silently skipped so task completion never blocks.
+func notifyTaskComplete(task hookTask) {
+	team := os.Getenv("TTAL_TEAM")
+	if team == "" {
+		team = "default"
+	}
+	msg := taskCompletePayload{
+		Type:     "taskComplete",
+		TaskUUID: task.UUID(),
+		Team:     team,
+		Spawner:  task.Spawner(),
+		Desc:     task.Description(),
+		PRID:     task.PRID(),
+	}
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		hookLogFile("taskComplete: marshal failed: " + err.Error())
+		return
+	}
+	payload = append(payload, '\n')
+
+	sockPath := config.SocketPath()
+	conn, err := net.DialTimeout("unix", sockPath, 3*time.Second)
+	if err != nil {
+		hookLogFile("taskComplete: daemon unreachable: " + err.Error())
+		return
+	}
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(3 * time.Second)) //nolint:errcheck // fire-and-forget
+	conn.Write(payload)                               //nolint:errcheck // fire-and-forget
+}
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
 func HookOnModify() {
@@ -26,6 +74,8 @@ func HookOnModify() {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
+		// Notify daemon — fire-and-forget, won't block task completion
+		notifyTaskComplete(modified)
 	}
 
 	// Re-enrich when project changes to a non-empty value.
