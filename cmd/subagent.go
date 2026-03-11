@@ -109,14 +109,16 @@ func filterTools(allTools []fantasy.AgentTool, names []string) ([]fantasy.AgentT
 		return allTools, nil
 	}
 	byName := make(map[string]fantasy.AgentTool, len(allTools))
+	availableNames := make([]string, 0, len(allTools))
 	for _, tool := range allTools {
 		byName[tool.Info().Name] = tool
+		availableNames = append(availableNames, tool.Info().Name)
 	}
 	selected := make([]fantasy.AgentTool, 0, len(names))
 	for _, name := range names {
 		tool, ok := byName[name]
 		if !ok {
-			return nil, fmt.Errorf("unknown tool %q — available: bash, web_fetch, web_search", name)
+			return nil, fmt.Errorf("unknown tool %q — available: %s", name, strings.Join(availableNames, ", "))
 		}
 		selected = append(selected, tool)
 	}
