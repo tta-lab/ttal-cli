@@ -152,15 +152,7 @@ func spawnWorkerForTask(taskUUID string, dryRun, yes bool) error {
 		return err
 	}
 
-	rt := cfg.WorkerRuntime()
-	for _, t := range task.Tags {
-		switch t {
-		case string(runtime.OpenCode), "oc":
-			rt = runtime.OpenCode
-		case string(runtime.Codex), "cx":
-			rt = runtime.Codex
-		}
-	}
+	rt := resolveRuntime(task, cfg)
 
 	workerName := strings.TrimPrefix(task.Branch, "worker/")
 	if workerName == "" {
@@ -249,6 +241,19 @@ func detectSpawner() string {
 		team = "default"
 	}
 	return team + ":" + agent
+}
+
+func resolveRuntime(task *taskwarrior.Task, cfg *config.Config) runtime.Runtime {
+	rt := cfg.WorkerRuntime()
+	for _, t := range task.Tags {
+		switch t {
+		case string(runtime.OpenCode), "oc":
+			rt = runtime.OpenCode
+		case string(runtime.Codex), "cx":
+			rt = runtime.Codex
+		}
+	}
+	return rt
 }
 
 func printConfirmHint(task *taskwarrior.Task) {
