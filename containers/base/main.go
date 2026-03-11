@@ -105,7 +105,9 @@ func base(_ context.Context) *dagger.Container {
 				" && dpkg -i /tmp/helix.deb && rm /tmp/helix.deb",
 			helixReleaseTag, helixDebVersion)}).
 
-		// Go toolchain (copied from official image — no network download)
+		// Go toolchain — temporary container to extract /usr/local/go (no spawned process, cross-image copy).
+		// Note: goVersion is also used in Stage 1 (golang:+goVersion builder). Both reference the same image;
+		// if a registry/tag failure occurs, check both stages.
 		WithDirectory("/usr/local/go", dag.Container().From("golang:"+goVersion).Directory("/usr/local/go")).
 
 		// Claude Code + OpenCode (npm global — runs as root for system-level install)
