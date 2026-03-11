@@ -235,7 +235,7 @@ func init() {
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")
-	taskExecuteCmd.Flags().BoolVar(&executeYes, "yes", false, "Spawn immediately; omitting shows project path and exits non-zero")
+	taskExecuteCmd.Flags().BoolVar(&executeYes, "yes", false, "Bypass confirmation and execute immediately")
 
 	taskAddCmd.Flags().StringVar(&taskAddProject, "project", "", "Project alias (required, must exist in ttal)")
 	_ = taskAddCmd.MarkFlagRequired("project")
