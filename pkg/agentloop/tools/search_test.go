@@ -1,24 +1,25 @@
 package tools
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/html"
-	"strings"
 )
 
-const sampleDDGLiteHTML = `
-<html><body>
-<table>
-  <tr><td><a class="result-link" href="https://example.com">Example Site</a></td></tr>
-  <tr><td class="result-snippet">A sample snippet for example.com</td></tr>
-  <tr><td><a class="result-link" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgolang.org%2F&rut=abc">Go Language</a></td></tr>
-  <tr><td class="result-snippet">The Go programming language</td></tr>
-</table>
-</body></html>
-`
+// ddgRedirectURL is a DDG redirect URL used in test fixtures. Split from the HTML
+// constant to avoid exceeding the lll line-length limit.
+const ddgRedirectURL = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fgolang.org%2F&rut=abc"
+
+// sampleDDGLiteHTML is a minimal DuckDuckGo Lite HTML response with two results.
+var sampleDDGLiteHTML = `<html><body><table>` +
+	`<tr><td><a class="result-link" href="https://example.com">Example Site</a></td></tr>` +
+	`<tr><td class="result-snippet">A sample snippet for example.com</td></tr>` +
+	`<tr><td><a class="result-link" href="` + ddgRedirectURL + `">Go Language</a></td></tr>` +
+	`<tr><td class="result-snippet">The Go programming language</td></tr>` +
+	`</table></body></html>`
 
 func TestParseLiteSearchResults(t *testing.T) {
 	results, err := parseLiteSearchResults(sampleDDGLiteHTML, 10)
