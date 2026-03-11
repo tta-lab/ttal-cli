@@ -46,7 +46,9 @@ func (m *mockLanguageModel) Model() string    { return "mock-model" }
 func (m *mockLanguageModel) GenerateObject(_ context.Context, _ fantasy.ObjectCall) (*fantasy.ObjectResponse, error) {
 	return nil, nil
 }
-func (m *mockLanguageModel) StreamObject(_ context.Context, _ fantasy.ObjectCall) (fantasy.ObjectStreamResponse, error) {
+func (m *mockLanguageModel) StreamObject(
+	_ context.Context, _ fantasy.ObjectCall,
+) (fantasy.ObjectStreamResponse, error) {
 	return nil, nil
 }
 

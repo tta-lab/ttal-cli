@@ -119,11 +119,17 @@ func filterTools(allTools []fantasy.AgentTool, names []string) []fantasy.AgentTo
 func init() {
 	subagentRunCmd.Flags().StringVar(&subagentRunFlags.provider, "provider", "anthropic", "LLM provider (anthropic)")
 	subagentRunCmd.Flags().StringVar(&subagentRunFlags.model, "model", "claude-sonnet-4-6", "Model ID")
-	subagentRunCmd.Flags().StringVar(&subagentRunFlags.systemPrompt, "system", "You are a helpful assistant.", "System prompt")
-	subagentRunCmd.Flags().StringArrayVar(&subagentRunFlags.toolNames, "tool", nil, "Tools to enable (bash, web_fetch, web_search); default: all")
+	subagentRunCmd.Flags().StringVar(
+		&subagentRunFlags.systemPrompt, "system", "You are a helpful assistant.", "System prompt",
+	)
+	subagentRunCmd.Flags().StringArrayVar(
+		&subagentRunFlags.toolNames, "tool", nil, "Tools to enable (bash, web_fetch, web_search); default: all",
+	)
 	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", 20, "Maximum agent steps")
 	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", 4096, "Maximum output tokens per step")
-	subagentRunCmd.Flags().StringArrayVar(&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)")
+	subagentRunCmd.Flags().StringArrayVar(
+		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
+	)
 
 	subagentCmd.AddCommand(subagentRunCmd)
 	rootCmd.AddCommand(subagentCmd)
