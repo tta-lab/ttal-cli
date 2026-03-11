@@ -21,16 +21,13 @@ jobs:
       dirs: ${{ steps.changed.outputs.dirs }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
       - id: changed
         run: |
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.dirs }}" ]; then
             dirs='${{ inputs.dirs }}'
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            dirs=$(find containers -mindepth 1 -maxdepth 1 -type d | sort | jq -R -s -c 'split("\n") | map(select(. != ""))')
           else
-            dirs=$(git diff --name-only HEAD~1 HEAD | grep '^containers/' | cut -d/ -f1-2 | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+            dirs=$(find containers -mindepth 1 -maxdepth 1 -type d | sort | jq -R -s -c 'split("\n") | map(select(. != ""))')
           fi
           echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
 
