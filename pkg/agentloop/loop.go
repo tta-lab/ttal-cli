@@ -76,8 +76,12 @@ func Run(
 		return nil, fmt.Errorf("agentloop: Config.Provider must not be nil")
 	}
 
-	// Wire sandbox env into context so tools can access it.
-	execCfg := &sandbox.ExecConfig{Env: cfg.SandboxEnv}
+	// Wire sandbox env and allowed paths into context so tools can access it.
+	mounts := make([]sandbox.Mount, len(cfg.AllowedPaths))
+	for i, p := range cfg.AllowedPaths {
+		mounts[i] = sandbox.Mount{Source: p, Target: p, ReadOnly: true}
+	}
+	execCfg := &sandbox.ExecConfig{Env: cfg.SandboxEnv, MountDirs: mounts}
 	ctx = sandbox.ContextWithExecConfig(ctx, execCfg)
 
 	model, err := cfg.Provider.LanguageModel(ctx, cfg.Model)
