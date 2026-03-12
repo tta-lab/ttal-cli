@@ -150,7 +150,7 @@ func exploreURL(question, rawURL string, cfg *config.Config, backend tools.ReadU
 	}
 
 	return runExploreAgent(exploreOpts{
-		question:     question,
+		question:     fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
 		systemExtra:  strings.ReplaceAll(exploreURLPrompt, "{rawURL}", rawURL),
 		allowedPaths: nil, // URL mode: no filesystem tools
 		toolNames:    []string{"read_url", "search_web"},
