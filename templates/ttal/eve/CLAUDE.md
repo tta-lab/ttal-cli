@@ -1,6 +1,7 @@
 ---
 voice: af_heart
 emoji: 🦘
+role: creator
 description: Agent creator — designs new agent identities, handles respawn updates across the team
 ---
 

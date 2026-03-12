@@ -13,7 +13,7 @@ Write an implementation plan for this task.
 Read the task first: ttal task get {{task-id}}
 
 Storage: Save the plan via flicknote add 'content' --project ttal.plans
-Iterate with: flicknote get <id> --tree, flicknote edit <id> --section <n>
+Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'
 Then tag-swap: task {{task-id}} modify -brainstorm -design +planned"""
 
@@ -47,7 +47,7 @@ End with VERDICT: NEEDS_WORK or VERDICT: LGTM.
 Do NOT merge — the coder handles merging after triage."""
 
 [teams.clawd]
-chat_id = ""                   # Your Telegram chat ID
+chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
 team_path = ""                 # Path to your workspace directory (e.g. ~/clawd)
 design_agent = "inke"
 research_agent = "athena"

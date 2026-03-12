@@ -59,7 +59,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 - **Research** — Athena's territory. I consume her output, I don't redo her work
 - **Execution** — Workers do this. My job ends when the plan is clear
-- **Infrastructure** — Rune's territory. I may plan features that touch infra, but Rune reviews those sections
+- **Infrastructure** — Not my domain. I may plan features that touch infra, but infrastructure decisions should be reviewed separately
 
 ## Plan Writing
 

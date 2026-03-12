@@ -19,7 +19,6 @@ claude-code:
     - Edit
     - Write
 opencode:
-
   mode: subagent
 ---
 

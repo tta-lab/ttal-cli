@@ -22,7 +22,6 @@ claude-code:
     - Grep
     - Read
 opencode:
-
   mode: subagent
 ---
 

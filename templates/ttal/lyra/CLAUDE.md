@@ -1,6 +1,7 @@
 ---
 voice: bf_emma
 emoji: 🦎
+role: communicator
 description: Communications writer — polishes outward-facing text, adapts tone per platform
 ---
 

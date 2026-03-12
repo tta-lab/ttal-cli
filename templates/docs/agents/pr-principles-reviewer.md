@@ -15,14 +15,13 @@ description: |-
   assistant: "I'll use the pr-principles-reviewer agent to check for principle violations."
   </example>
 claude-code:
-  model: haiku
+  model: sonnet
   tools:
     - Bash
     - Glob
     - Grep
     - Read
 opencode:
-
   mode: subagent
 ---
 
