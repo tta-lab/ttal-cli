@@ -102,9 +102,10 @@ func TestSplitMessage_Empty(t *testing.T) {
 func TestSplitMessage_AllWhitespaceOverLimit(t *testing.T) {
 	text := strings.Repeat("\n", 5000)
 	parts := splitMessage(text)
-	// All whitespace trims to nothing — splitMessage returns empty slice.
-	// SendMessage guards against this with TrimSpace check before calling splitMessage.
-	_ = parts // behavior is: 0 parts, handled by SendMessage guard
+	// verifies no panic or infinite loop; all whitespace trims to nothing so
+	// splitMessage returns an empty slice. SendMessage's TrimSpace guard prevents
+	// this input from ever reaching splitMessage in practice.
+	_ = parts
 }
 
 func TestSplitMessage_NonASCII(t *testing.T) {
