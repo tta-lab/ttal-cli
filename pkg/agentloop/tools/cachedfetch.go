@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -20,9 +21,11 @@ type CachedFetchBackend struct {
 }
 
 // NewCachedFetchBackend creates a CachedFetchBackend wrapping the given fallback.
-// cacheDir is created if it doesn't exist (best-effort).
+// cacheDir is created if it doesn't exist (best-effort; logs warning on failure).
 func NewCachedFetchBackend(cacheDir string, fallback ReadURLBackend) *CachedFetchBackend {
-	_ = os.MkdirAll(cacheDir, 0o755) // best-effort
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		slog.Warn("cachedfetch: failed to create cache dir, caching disabled", "dir", cacheDir, "error", err)
+	}
 	return &CachedFetchBackend{cacheDir: cacheDir, fallback: fallback}
 }
 
@@ -35,7 +38,9 @@ func (b *CachedFetchBackend) Fetch(ctx context.Context, rawURL string) (string, 
 	if err != nil {
 		return "", err
 	}
-	_ = b.writeCache(rawURL, content) // best-effort
+	if err := b.writeCache(rawURL, content); err != nil {
+		slog.Warn("cachedfetch: failed to write cache, fetch will not be cached", "url", rawURL, "error", err)
+	}
 	return content, nil
 }
 
@@ -59,13 +64,13 @@ func (b *CachedFetchBackend) cachePath(rawURL string) string {
 }
 
 // sanitizeURL converts a URL into a safe filename segment.
-// Replaces "://" → "___" and "/" → "_".
+// Replaces "://" → "___", "/" → "_", and ".." → "__" (prevents path traversal).
 // If query params are present, appends "_q" + first 8 chars of SHA256 of the query string.
 func sanitizeURL(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		// Fallback: just replace unsafe chars
-		r := strings.NewReplacer("://", "___", "/", "_", "?", "_", "=", "_", "&", "_")
+		// Fallback: replace unsafe chars
+		r := strings.NewReplacer("://", "___", "/", "_", "?", "_", "=", "_", "&", "_", "..", "__")
 		return r.Replace(rawURL)
 	}
 
@@ -76,7 +81,8 @@ func sanitizeURL(rawURL string) string {
 		base = withoutQuery
 	}
 	base = strings.ReplaceAll(base, "/", "_")
-	base = strings.TrimSuffix(base, "_") // strip trailing underscore
+	base = strings.TrimSuffix(base, "_")        // strip trailing underscore
+	base = strings.ReplaceAll(base, "..", "__") // prevent path traversal
 
 	if u.RawQuery != "" {
 		h := sha256.Sum256([]byte(u.RawQuery))

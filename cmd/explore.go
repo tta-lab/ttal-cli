@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -32,9 +31,9 @@ var exploreCmd = &cobra.Command{
 	Long: `Explore a codebase, open-source repository, or web page by asking a natural language question.
 
 Exactly one source flag must be specified:
-  --project <alias>    Explore a registered ttal project
-  --repo <url|org/repo> Explore a GitHub repo (auto-clone/pull)
-  --url <url>          Explore a web page (pre-fetched with defuddle)
+  --project <alias>      Explore a registered ttal project
+  --repo <url|org/repo>  Explore a GitHub repo (auto-clone/pull)
+  --url <url>            Explore a web page (pre-fetched with defuddle)
 
 Examples:
   ttal explore "how does routing work?" --project ttal-cli
@@ -65,18 +64,27 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("only one of --project, --repo, or --url may be specified at a time")
 	}
 
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
 	switch {
 	case exploreFlags.project != "":
-		return exploreProject(question, exploreFlags.project)
+		return exploreProject(question, exploreFlags.project, cfg)
 	case exploreFlags.repo != "":
-		return exploreRepo(question, exploreFlags.repo)
+		return exploreRepo(question, exploreFlags.repo, cfg)
 	default:
-		return exploreURL(question, exploreFlags.url)
+		backend, err := resolveFetchBackend()
+		if err != nil {
+			return err
+		}
+		return exploreURL(question, exploreFlags.url, cfg, backend)
 	}
 }
 
 // exploreProject explores a registered ttal project.
-func exploreProject(question, alias string) error {
+func exploreProject(question, alias string, cfg *config.Config) error {
 	projectPath := project.ResolveProjectPath(alias)
 	if projectPath == "" {
 		return fmt.Errorf("project %q not found\n\nRun 'ttal project list' to see available projects", alias)
@@ -86,29 +94,20 @@ func exploreProject(question, alias string) error {
 		return fmt.Errorf("project path %q does not exist on disk: %w", projectPath, err)
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
 	return runExploreAgent(exploreOpts{
 		question:     question,
 		systemExtra:  fmt.Sprintf("You are exploring the codebase at %s. Answer the user's question.", projectPath),
 		allowedPaths: []string{projectPath},
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
+		fetchBackend: tools.NewDefuddleCLIBackend(), // placeholder: read_url not in toolNames
 		maxSteps:     exploreFlags.maxSteps,
 		maxTokens:    exploreFlags.maxTokens,
 	})
 }
 
 // exploreRepo explores an open-source repository (auto-clone/pull).
-func exploreRepo(question, repoRef string) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
+func exploreRepo(question, repoRef string, cfg *config.Config) error {
 	referencesPath := cfg.ExploreReferencesPath()
 	cloneURL, localPath, err := resolveRepoRef(repoRef, referencesPath)
 	if err != nil {
@@ -128,23 +127,14 @@ func exploreRepo(question, repoRef string) error {
 		allowedPaths: []string{localPath},
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
+		fetchBackend: tools.NewDefuddleCLIBackend(), // placeholder: read_url not in toolNames
 		maxSteps:     exploreFlags.maxSteps,
 		maxTokens:    exploreFlags.maxTokens,
 	})
 }
 
 // exploreURL explores a web page using defuddle for pre-fetching.
-func exploreURL(question, rawURL string) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	backend, err := resolveFetchBackend()
-	if err != nil {
-		return err
-	}
-
+func exploreURL(question, rawURL string, cfg *config.Config, backend tools.ReadURLBackend) error {
 	// Pre-warm the cache so the agent's read_url call is instant.
 	fmt.Fprintf(os.Stderr, "Fetching %s...\n", rawURL)
 	ctx := context.Background()
@@ -158,10 +148,10 @@ func exploreURL(question, rawURL string) error {
 			"You are analyzing web content from %s. Use the read_url tool to access the content. Answer the user's question.",
 			rawURL,
 		),
-		allowedPaths: nil, // no filesystem access for URL mode
-		toolNames:    []string{"read_url", "search_web", "bash"},
+		allowedPaths: nil, // URL mode: no filesystem tools
+		toolNames:    []string{"read_url", "search_web"},
 		model:        cfg.ExploreModel(),
-		fetchBackend: backend, // pass pre-resolved backend to avoid double init
+		fetchBackend: backend,
 		maxSteps:     exploreFlags.maxSteps,
 		maxTokens:    exploreFlags.maxTokens,
 	})
@@ -174,7 +164,7 @@ type exploreOpts struct {
 	allowedPaths []string             // nil = no filesystem tools
 	toolNames    []string             // which tools to enable
 	model        string               // model string (e.g. "claude-sonnet-4-6")
-	fetchBackend tools.ReadURLBackend // optional: pre-resolved backend (nil = resolve fresh)
+	fetchBackend tools.ReadURLBackend // required: must be non-nil
 	maxSteps     int
 	maxTokens    int
 }
@@ -186,15 +176,7 @@ func runExploreAgent(opts exploreOpts) error {
 		return fmt.Errorf("build provider: %w", err)
 	}
 
-	backend := opts.fetchBackend
-	if backend == nil {
-		backend, err = resolveFetchBackend()
-		if err != nil {
-			return err
-		}
-	}
-
-	selectedTools, err := buildToolSet(opts.toolNames, opts.allowedPaths, backend)
+	selectedTools, err := buildToolSet(opts.toolNames, opts.allowedPaths, opts.fetchBackend)
 	if err != nil {
 		return err
 	}
@@ -205,33 +187,12 @@ func runExploreAgent(opts exploreOpts) error {
 	}
 
 	allowedPaths := opts.allowedPaths
-	if len(allowedPaths) == 0 {
-		allowedPaths = []string{cwd}
-	}
-
-	richDescs := tools.RichToolDescriptions(selectedTools)
-	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
-	for i, d := range richDescs {
-		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
-	}
-
-	base, err := agentloop.BuildSystemPrompt(agentloop.PromptData{
-		WorkingDir:   cwd,
-		Platform:     runtime.GOOS,
-		Date:         time.Now().Format("2006-01-02"),
-		AllowedPaths: allowedPaths,
-		Tools:        toolInfos,
-	})
+	systemPrompt, err := buildAgentSystemPrompt(cwd, allowedPaths, selectedTools, opts.systemExtra)
 	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
+		return err
 	}
 
-	systemPrompt := base
-	if opts.systemExtra != "" {
-		systemPrompt = base + "\n\n" + opts.systemExtra
-	}
-
-	cfg := agentloop.Config{
+	agentCfg := agentloop.Config{
 		Provider:     provider,
 		Model:        modelID,
 		SystemPrompt: systemPrompt,
@@ -241,7 +202,7 @@ func runExploreAgent(opts exploreOpts) error {
 		AllowedPaths: allowedPaths,
 	}
 
-	result, err := agentloop.Run(context.Background(), cfg, nil, opts.question, func(text string) {
+	result, err := agentloop.Run(context.Background(), agentCfg, nil, opts.question, func(text string) {
 		fmt.Print(text)
 	})
 	if err != nil {
@@ -257,6 +218,7 @@ func runExploreAgent(opts exploreOpts) error {
 
 // resolveRepoRef converts a repo reference to a clone URL and local path.
 // Supports full URLs (https://github.com/org/repo) and shorthands (org/repo → GitHub).
+// Shorthand must be exactly "org/repo" — bare names are rejected.
 func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err error) {
 	if strings.HasPrefix(ref, "https://") || strings.HasPrefix(ref, "http://") {
 		u, parseErr := url.Parse(ref)
@@ -269,23 +231,35 @@ func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 		localPath = filepath.Join(referencesPath, u.Host, repoPath)
 		cloneURL = ref
 	} else {
-		// Shorthand: "org/repo" → GitHub
+		// Shorthand: must be "org/repo" format (exactly one slash)
 		ref = strings.TrimSuffix(ref, "/")
 		ref = strings.TrimSuffix(ref, ".git")
+		parts := strings.Split(ref, "/")
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return "", "", fmt.Errorf(
+				"invalid repo shorthand %q: expected \"org/repo\" (e.g. woodpecker-ci/woodpecker) or a full URL",
+				ref,
+			)
+		}
 		cloneURL = "https://github.com/" + ref
 		localPath = filepath.Join(referencesPath, "github.com", ref)
 	}
 	return cloneURL, localPath, nil
 }
 
+const repoOpTimeout = 5 * time.Minute
+
 // ensureRepo clones the repo if it doesn't exist, or pulls if it does.
 func ensureRepo(cloneURL, localPath string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), repoOpTimeout)
+	defer cancel()
+
 	if dirExists(localPath) {
 		fmt.Fprintf(os.Stderr, "Updating %s...\n", filepath.Base(localPath))
-		cmd := exec.Command("git", "-C", localPath, "pull", "--ff-only")
+		cmd := exec.CommandContext(ctx, "git", "-C", localPath, "pull", "--ff-only")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("git pull failed in %s: %w (try deleting and re-cloning)", localPath, err)
+			return fmt.Errorf("git pull failed in %s: %w", localPath, err)
 		}
 		return nil
 	}
@@ -294,9 +268,12 @@ func ensureRepo(cloneURL, localPath string) error {
 	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
-	cmd := exec.Command("git", "clone", "--depth", "1", cloneURL, localPath)
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", cloneURL, localPath)
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git clone %s into %s: %w", cloneURL, localPath, err)
+	}
+	return nil
 }
 
 // dirExists reports whether path is an existing directory.

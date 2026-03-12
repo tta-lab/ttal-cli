@@ -85,6 +85,18 @@ func findTtalAgent(name string) (*internalsync.ParsedAgent, error) {
 
 const scrapesCacheDir = "~/.ttal/scrapes"
 
+// resolveFetchBackendFor returns a fetch backend only if the tool list includes URL tools
+// (read_url or search_web). Otherwise returns a lightweight placeholder that satisfies the
+// interface but is never invoked (since those tools are filtered out).
+func resolveFetchBackendFor(toolNames []string) (tools.ReadURLBackend, error) {
+	for _, name := range toolNames {
+		if name == "read_url" || name == "search_web" {
+			return resolveFetchBackend()
+		}
+	}
+	return tools.NewDefuddleCLIBackend(), nil // placeholder: never called when URL tools absent
+}
+
 // resolveFetchBackend returns the best available URL fetch backend:
 //  1. defuddle installed → CachedFetchBackend wrapping DefuddleCLIBackend
 //  2. BROWSER_GATEWAY_URL set → CachedFetchBackend wrapping BrowserGatewayBackend
@@ -158,7 +170,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	}
 	allowedPaths := []string{cwd}
 
-	fetchBackend, err := resolveFetchBackend()
+	fetchBackend, err := resolveFetchBackendFor(agent.Frontmatter.Ttal.Tools)
 	if err != nil {
 		return fmt.Errorf("resolve fetch backend: %w", err)
 	}
