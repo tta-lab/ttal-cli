@@ -97,12 +97,10 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		return exploreRepo(question, exploreFlags.repo, cfg, maxSteps, maxTokens)
 	case exploreFlags.web:
 		return exploreWeb(question, cfg, maxSteps, maxTokens)
+	case exploreFlags.url != "":
+		return exploreURL(question, exploreFlags.url, cfg, maxSteps, maxTokens)
 	default:
-		backend, err := resolveFetchBackend()
-		if err != nil {
-			return err
-		}
-		return exploreURL(question, exploreFlags.url, cfg, backend, maxSteps, maxTokens)
+		return fmt.Errorf("internal: unhandled explore mode")
 	}
 }
 
@@ -154,12 +152,12 @@ func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxToke
 }
 
 // exploreURL explores a web page using defuddle for pre-fetching.
-func exploreURL(
-	question, rawURL string,
-	cfg *config.Config,
-	backend tools.ReadURLBackend,
-	maxSteps, maxTokens int,
-) error {
+func exploreURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
+	backend, err := resolveFetchBackend()
+	if err != nil {
+		return err
+	}
+
 	// Pre-warm the cache so the agent's read_url call is instant.
 	fmt.Fprintf(os.Stderr, "Fetching %s...\n", rawURL)
 	ctx := context.Background()
