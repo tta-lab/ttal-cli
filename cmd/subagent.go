@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"time"
@@ -82,10 +83,27 @@ func findTtalAgent(name string) (*internalsync.ParsedAgent, error) {
 	return nil, fmt.Errorf("agent %q not found — available: %s", name, strings.Join(available, ", "))
 }
 
+const scrapesCacheDir = "~/.ttal/scrapes"
+
+// resolveFetchBackend returns the best available URL fetch backend:
+//  1. defuddle installed → CachedFetchBackend wrapping DefuddleCLIBackend
+//  2. BROWSER_GATEWAY_URL set → CachedFetchBackend wrapping BrowserGatewayBackend
+//  3. Neither → error (fail fast)
+func resolveFetchBackend() (tools.ReadURLBackend, error) {
+	cacheDir := config.ExpandHome(scrapesCacheDir)
+
+	if _, err := exec.LookPath("defuddle"); err == nil {
+		return tools.NewCachedFetchBackend(cacheDir, tools.NewDefuddleCLIBackend()), nil
+	}
+	if gwURL := os.Getenv("BROWSER_GATEWAY_URL"); gwURL != "" {
+		return tools.NewCachedFetchBackend(cacheDir, tools.NewBrowserGatewayBackend(gwURL, nil)), nil
+	}
+	return nil, fmt.Errorf("no fetch backend available: install defuddle or set BROWSER_GATEWAY_URL")
+}
+
 // buildToolSet creates and filters the tool set for a subagent.
-func buildToolSet(toolNames, allowedPaths []string) ([]fantasy.AgentTool, error) {
+func buildToolSet(toolNames, allowedPaths []string, fetchBackend tools.ReadURLBackend) ([]fantasy.AgentTool, error) {
 	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
-	fetchBackend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, allowedPaths, subagentRunFlags.treeThreshold)
 	return filterTools(allTools, toolNames)
 }
@@ -140,7 +158,12 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	}
 	allowedPaths := []string{cwd}
 
-	selectedTools, err := buildToolSet(agent.Frontmatter.Ttal.Tools, allowedPaths)
+	fetchBackend, err := resolveFetchBackend()
+	if err != nil {
+		return fmt.Errorf("resolve fetch backend: %w", err)
+	}
+
+	selectedTools, err := buildToolSet(agent.Frontmatter.Ttal.Tools, allowedPaths, fetchBackend)
 	if err != nil {
 		return err
 	}

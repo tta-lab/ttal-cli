@@ -40,6 +40,14 @@ func AgentSessionName(team, agent string) string {
 // DefaultInlineProjects is the default set of flicknote project keywords to inline.
 var DefaultInlineProjects = []string{"plan"}
 
+// ExploreConfig holds settings for the `ttal explore` command.
+type ExploreConfig struct {
+	// Local path for cloned OSS reference repos (default: ~/.ttal/references/)
+	ReferencesPath string `toml:"references_path"`
+	// Model for the explore subagent (default: claude-sonnet-4-6)
+	Model string `toml:"model"`
+}
+
 // FlicknoteConfig holds flicknote-related settings.
 type FlicknoteConfig struct {
 	// Project substrings to inline (default: plan)
@@ -69,6 +77,8 @@ type Config struct {
 	Sync SyncConfig `toml:"sync"`
 	// Prompt templates for task routing (loaded from prompts.toml, not config.toml)
 	Prompts PromptsConfig `toml:"-"`
+	// Explore subcommand settings
+	Explore ExploreConfig `toml:"explore"`
 	// Flicknote integration settings
 	Flicknote FlicknoteConfig `toml:"flicknote"`
 	// Global voice settings (vocabulary, language)
@@ -505,6 +515,29 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 	}
 
 	return result
+}
+
+const (
+	DefaultExploreModel          = "claude-sonnet-4-6"
+	defaultExploreReferencesPath = "~/.ttal/references/"
+)
+
+// ExploreReferencesPath returns the resolved path for cloned reference repos.
+// Defaults to ~/.ttal/references/ if not configured.
+func (c *Config) ExploreReferencesPath() string {
+	if c.Explore.ReferencesPath != "" {
+		return expandHome(c.Explore.ReferencesPath)
+	}
+	return expandHome(defaultExploreReferencesPath)
+}
+
+// ExploreModel returns the model to use for the explore subagent.
+// Defaults to claude-sonnet-4-6 if not configured.
+func (c *Config) ExploreModel() string {
+	if c.Explore.Model != "" {
+		return c.Explore.Model
+	}
+	return DefaultExploreModel
 }
 
 const DefaultShell = "zsh"

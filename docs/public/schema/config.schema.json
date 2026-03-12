@@ -49,6 +49,21 @@
       "type": "object",
       "description": "Paths for subagent and skill deployment"
     },
+    "explore": {
+      "properties": {
+        "references_path": {
+          "type": "string",
+          "description": "Local path for cloned OSS reference repos (default: ~/.ttal/references/)"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model for the explore subagent (default: claude-sonnet-4-6)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Explore subcommand settings"
+    },
     "flicknote": {
       "properties": {
         "inline_projects": {
