@@ -177,6 +177,11 @@ func installInitConfigs(workspace string) error {
 		return fmt.Errorf("glob toml files: %w", err)
 	}
 
+	if len(tomlFiles) == 0 {
+		fmt.Printf("  ! No .toml config files found in scaffold at %s\n", workspace)
+		return nil
+	}
+
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
