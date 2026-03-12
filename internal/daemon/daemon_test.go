@@ -21,7 +21,7 @@ func TestSessionJSONLExists(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("cannot create test project dir: %v", err)
 	}
-	t.Cleanup(func() { os.RemoveAll(dir) })
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	t.Run("returns false when JSONL missing", func(t *testing.T) {
 		if sessionJSONLExists("nonexistent-session-id", agentPath) {
