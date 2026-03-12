@@ -36,6 +36,7 @@ const (
 	keyToggleNext
 	keyCopy
 	keyDelete
+	keyHeatmap
 )
 
 var keyMap = map[string]keyAction{
@@ -64,6 +65,7 @@ var keyMap = map[string]keyAction{
 	"[":      keyFilterPrev,
 	"]":      keyFilterNext,
 	"/":      keySearch,
+	"h":      keyHeatmap,
 	"?":      keyHelp,
 	"ctrl+r": keyRefresh,
 	"ctrl+f": keyPageDown,
@@ -113,5 +115,6 @@ const helpText = `Key Bindings:
   Ctrl+C          Cancel search
   Ctrl+R          Refresh tasks
 
+  h               Heatmap (task completion, past year)
   ?               Toggle help
   q               Quit`
