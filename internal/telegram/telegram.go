@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-telegram/bot"
@@ -22,9 +23,45 @@ func ParseChatID(s string) (int64, error) {
 	return id, nil
 }
 
+const maxMessageLen = 4096
+
+// splitMessage splits text into chunks that fit within Telegram's message limit.
+// Splits at natural boundaries: paragraph breaks > newlines > spaces > hard cut.
+func splitMessage(text string) []string {
+	if len(text) <= maxMessageLen {
+		return []string{text}
+	}
+
+	var parts []string
+	for len(text) > 0 {
+		if len(text) <= maxMessageLen {
+			parts = append(parts, text)
+			break
+		}
+
+		chunk := text[:maxMessageLen]
+		cutAt := maxMessageLen
+		if i := strings.LastIndex(chunk, "\n\n"); i > 0 {
+			cutAt = i
+		} else if i := strings.LastIndex(chunk, "\n"); i > 0 {
+			cutAt = i
+		} else if i := strings.LastIndex(chunk, " "); i > 0 {
+			cutAt = i
+		}
+
+		part := strings.TrimRight(text[:cutAt], " \n")
+		if part != "" {
+			parts = append(parts, part)
+		}
+		text = strings.TrimLeft(text[cutAt:], " \n")
+	}
+	return parts
+}
+
 // SendMessage sends a text message to a chat via the Telegram Bot API.
+// Long messages are automatically split at natural boundaries to fit within Telegram's 4096-char limit.
 func SendMessage(botToken, chatID, text string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	b, err := bot.New(botToken)
@@ -37,13 +74,14 @@ func SendMessage(botToken, chatID, text string) error {
 		return err
 	}
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: id,
-		Text:   text,
-	}); err != nil {
-		return fmt.Errorf("telegram send: %w", err)
+	for _, chunk := range splitMessage(text) {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: id,
+			Text:   chunk,
+		}); err != nil {
+			return fmt.Errorf("telegram send: %w", err)
+		}
 	}
-
 	return nil
 }
 
