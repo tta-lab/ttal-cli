@@ -59,11 +59,7 @@ func loadSubagentsPaths() ([]string, error) {
 }
 
 // findTtalAgent discovers ttal-configured agents and returns the one matching name.
-func findTtalAgent(name string) (*internalsync.ParsedAgent, error) {
-	paths, err := loadSubagentsPaths()
-	if err != nil {
-		return nil, err
-	}
+func findTtalAgent(name string, paths []string) (*internalsync.ParsedAgent, error) {
 	agents, err := internalsync.DiscoverTtalAgents(paths)
 	if err != nil {
 		return nil, fmt.Errorf("discover agents: %w", err)
@@ -149,7 +145,13 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	prompt := args[1]
 
-	agent, err := findTtalAgent(name)
+	// Load config once — used for subagent paths and limit resolution.
+	ttalCfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	agent, err := findTtalAgent(name, ttalCfg.Sync.SubagentsPaths)
 	if err != nil {
 		return err
 	}
@@ -185,13 +187,15 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	maxSteps, maxTokens := resolveLimits(cmd, ttalCfg, subagentRunFlags.maxSteps, subagentRunFlags.maxTokens)
+
 	cfg := agentloop.Config{
 		Provider:      provider,
 		Model:         modelID,
 		SystemPrompt:  systemPrompt,
 		Tools:         selectedTools,
-		MaxSteps:      subagentRunFlags.maxSteps,
-		MaxTokens:     subagentRunFlags.maxTokens,
+		MaxSteps:      maxSteps,
+		MaxTokens:     maxTokens,
 		SandboxEnv:    subagentRunFlags.sandboxEnv,
 		AllowedPaths:  allowedPaths,
 		TreeThreshold: subagentRunFlags.treeThreshold,
@@ -323,9 +327,23 @@ func filterTools(allTools []fantasy.AgentTool, names []string) ([]fantasy.AgentT
 	return selected, nil
 }
 
+// resolveLimits returns effective max steps and max tokens.
+// Priority: explicit flag > config > built-in default (already baked into flagSteps/flagTokens).
+func resolveLimits(cmd *cobra.Command, cfg *config.Config, flagSteps, flagTokens int) (maxSteps, maxTokens int) {
+	maxSteps = flagSteps
+	maxTokens = flagTokens
+	if !cmd.Flags().Changed("max-steps") {
+		maxSteps = cfg.ExploreMaxSteps()
+	}
+	if !cmd.Flags().Changed("max-tokens") {
+		maxTokens = cfg.ExploreMaxTokens()
+	}
+	return
+}
+
 func init() {
-	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", 20, "Maximum agent steps")
-	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", 4096, "Maximum output tokens per step")
+	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", config.ExploreDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
+	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", config.ExploreDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
 	)

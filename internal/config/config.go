@@ -46,6 +46,10 @@ type ExploreConfig struct {
 	ReferencesPath string `toml:"references_path"`
 	// Model for the explore subagent (default: claude-sonnet-4-6)
 	Model string `toml:"model"`
+	// Maximum agent steps (default: 100)
+	MaxSteps int `toml:"max_steps"`
+	// Maximum output tokens per step (default: 131072)
+	MaxTokens int `toml:"max_tokens"`
 }
 
 // FlicknoteConfig holds flicknote-related settings.
@@ -520,6 +524,10 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 const (
 	DefaultExploreModel          = "claude-sonnet-4-6"
 	defaultExploreReferencesPath = "~/.ttal/references/"
+	// ExploreDefaultMaxSteps is the default for ttal explore / subagent run commands.
+	ExploreDefaultMaxSteps = 100
+	// ExploreDefaultMaxTokens is the default for ttal explore / subagent run commands.
+	ExploreDefaultMaxTokens = 131072
 )
 
 // ExploreReferencesPath returns the resolved path for cloned reference repos.
@@ -538,6 +546,24 @@ func (c *Config) ExploreModel() string {
 		return c.Explore.Model
 	}
 	return DefaultExploreModel
+}
+
+// ExploreMaxSteps returns the configured max steps for explore/subagent commands.
+// Defaults to ExploreDefaultMaxSteps (100) if not set in config.
+func (c *Config) ExploreMaxSteps() int {
+	if c.Explore.MaxSteps > 0 {
+		return c.Explore.MaxSteps
+	}
+	return ExploreDefaultMaxSteps
+}
+
+// ExploreMaxTokens returns the configured max output tokens for explore/subagent commands.
+// Defaults to ExploreDefaultMaxTokens (131072) if not set in config.
+func (c *Config) ExploreMaxTokens() int {
+	if c.Explore.MaxTokens > 0 {
+		return c.Explore.MaxTokens
+	}
+	return ExploreDefaultMaxTokens
 }
 
 const DefaultShell = "zsh"

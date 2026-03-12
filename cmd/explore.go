@@ -79,22 +79,24 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	maxSteps, maxTokens := resolveLimits(cmd, cfg, exploreFlags.maxSteps, exploreFlags.maxTokens)
+
 	switch {
 	case exploreFlags.project != "":
-		return exploreProject(question, exploreFlags.project, cfg)
+		return exploreProject(question, exploreFlags.project, cfg, maxSteps, maxTokens)
 	case exploreFlags.repo != "":
-		return exploreRepo(question, exploreFlags.repo, cfg)
+		return exploreRepo(question, exploreFlags.repo, cfg, maxSteps, maxTokens)
 	default:
 		backend, err := resolveFetchBackend()
 		if err != nil {
 			return err
 		}
-		return exploreURL(question, exploreFlags.url, cfg, backend)
+		return exploreURL(question, exploreFlags.url, cfg, backend, maxSteps, maxTokens)
 	}
 }
 
 // exploreProject explores a registered ttal project.
-func exploreProject(question, alias string, cfg *config.Config) error {
+func exploreProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
 	projectPath := project.ResolveProjectPath(alias)
 	if projectPath == "" {
 		return fmt.Errorf("project %q not found\n\nRun 'ttal project list' to see available projects", alias)
@@ -111,13 +113,13 @@ func exploreProject(question, alias string, cfg *config.Config) error {
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
 		fetchBackend: tools.NewDefuddleCLIBackend(), // placeholder: read_url not in toolNames
-		maxSteps:     exploreFlags.maxSteps,
-		maxTokens:    exploreFlags.maxTokens,
+		maxSteps:     maxSteps,
+		maxTokens:    maxTokens,
 	})
 }
 
 // exploreRepo explores an open-source repository (auto-clone/pull).
-func exploreRepo(question, repoRef string, cfg *config.Config) error {
+func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
 	referencesPath := cfg.ExploreReferencesPath()
 	cloneURL, localPath, err := resolveRepoRef(repoRef, referencesPath)
 	if err != nil {
@@ -135,13 +137,18 @@ func exploreRepo(question, repoRef string, cfg *config.Config) error {
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
 		fetchBackend: tools.NewDefuddleCLIBackend(), // placeholder: read_url not in toolNames
-		maxSteps:     exploreFlags.maxSteps,
-		maxTokens:    exploreFlags.maxTokens,
+		maxSteps:     maxSteps,
+		maxTokens:    maxTokens,
 	})
 }
 
 // exploreURL explores a web page using defuddle for pre-fetching.
-func exploreURL(question, rawURL string, cfg *config.Config, backend tools.ReadURLBackend) error {
+func exploreURL(
+	question, rawURL string,
+	cfg *config.Config,
+	backend tools.ReadURLBackend,
+	maxSteps, maxTokens int,
+) error {
 	// Pre-warm the cache so the agent's read_url call is instant.
 	fmt.Fprintf(os.Stderr, "Fetching %s...\n", rawURL)
 	ctx := context.Background()
@@ -156,8 +163,8 @@ func exploreURL(question, rawURL string, cfg *config.Config, backend tools.ReadU
 		toolNames:    []string{"read_url", "search_web"},
 		model:        cfg.ExploreModel(),
 		fetchBackend: backend,
-		maxSteps:     exploreFlags.maxSteps,
-		maxTokens:    exploreFlags.maxTokens,
+		maxSteps:     maxSteps,
+		maxTokens:    maxTokens,
 	})
 }
 
@@ -293,8 +300,8 @@ func init() {
 	exploreCmd.Flags().StringVar(&exploreFlags.project, "project", "", "Explore a registered ttal project by alias")
 	exploreCmd.Flags().StringVar(&exploreFlags.repo, "repo", "", "Explore an OSS repo (full URL or org/repo shorthand)")
 	exploreCmd.Flags().StringVar(&exploreFlags.url, "url", "", "Explore a web page (pre-fetched with defuddle)")
-	exploreCmd.Flags().IntVar(&exploreFlags.maxSteps, "max-steps", 20, "Maximum agent steps")
-	exploreCmd.Flags().IntVar(&exploreFlags.maxTokens, "max-tokens", 4096, "Maximum output tokens per step")
+	exploreCmd.Flags().IntVar(&exploreFlags.maxSteps, "max-steps", config.ExploreDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
+	exploreCmd.Flags().IntVar(&exploreFlags.maxTokens, "max-tokens", config.ExploreDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
 
 	rootCmd.AddCommand(exploreCmd)
 }

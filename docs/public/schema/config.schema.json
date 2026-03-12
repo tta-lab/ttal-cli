@@ -58,6 +58,14 @@
         "model": {
           "type": "string",
           "description": "Model for the explore subagent (default: claude-sonnet-4-6)"
+        },
+        "max_steps": {
+          "type": "integer",
+          "description": "Maximum agent steps (default: 100)"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Maximum output tokens per step (default: 131072)"
         }
       },
       "additionalProperties": false,
