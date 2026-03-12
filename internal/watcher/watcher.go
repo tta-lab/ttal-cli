@@ -89,16 +89,14 @@ func (w *Watcher) Run(done <-chan struct{}) error {
 	defer fsw.Close()
 
 	// Watch each agent's project directory and seed offsets for existing files.
-	// MkdirAll ensures new agents get their project dir created at startup
-	// so they're watched from the start (not silently skipped).
+	// Dirs are created by ensureProjectDir before agent spawn — skip any that
+	// don't exist yet (agent not spawned or dir cleaned up).
 	for _, agent := range w.agents {
 		dir := filepath.Join(agent.ProjectsDir, agent.EncodedDir)
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			log.Printf("[watcher] failed to create project dir for %s: %v", agent.AgentName, err)
-			continue
-		}
 		if err := fsw.Add(dir); err != nil {
-			log.Printf("[watcher] failed to watch %s: %v", agent.AgentName, err)
+			if !os.IsNotExist(err) {
+				log.Printf("[watcher] failed to watch %s: %v", agent.AgentName, err)
+			}
 			continue
 		}
 		w.seedExistingOffsets(dir)
