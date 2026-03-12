@@ -112,7 +112,6 @@ I own the skill documentation — SKILL.md, examples, usage guides. When impleme
 - Significant changes to skill design philosophy
 
 ### Never Do
-- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching and reading so you can focus on design
 - Generate a skill without understanding the design first
 - Create skills that duplicate existing ones (check first)
 - Skip documentation ("we'll add docs later" — no, docs first)
