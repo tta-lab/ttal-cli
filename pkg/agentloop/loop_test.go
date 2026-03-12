@@ -161,7 +161,10 @@ func TestRun_AllowedPathsInMountDirs(t *testing.T) {
 		callCount++
 		if callCount == 1 {
 			return func(yield func(fantasy.StreamPart) bool) {
-				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeToolCall, ID: "tc1", ToolCallName: "capture", ToolCallInput: "{}"})
+				yield(fantasy.StreamPart{
+					Type: fantasy.StreamPartTypeToolCall, ID: "tc1",
+					ToolCallName: "capture", ToolCallInput: "{}",
+				})
 				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeFinish, FinishReason: fantasy.FinishReasonToolCalls})
 			}, nil
 		}
@@ -181,8 +184,12 @@ func TestRun_AllowedPathsInMountDirs(t *testing.T) {
 	require.NotNil(t, capturedExecCfg, "tool should have captured ExecConfig from context")
 
 	require.Len(t, capturedExecCfg.MountDirs, 2)
-	assert.Equal(t, sandbox.Mount{Source: "/some/project/dir", Target: "/some/project/dir", ReadOnly: true}, capturedExecCfg.MountDirs[0])
-	assert.Equal(t, sandbox.Mount{Source: "/another/dir", Target: "/another/dir", ReadOnly: true}, capturedExecCfg.MountDirs[1])
+	assert.Equal(t,
+		sandbox.Mount{Source: "/some/project/dir", Target: "/some/project/dir", ReadOnly: true},
+		capturedExecCfg.MountDirs[0])
+	assert.Equal(t,
+		sandbox.Mount{Source: "/another/dir", Target: "/another/dir", ReadOnly: true},
+		capturedExecCfg.MountDirs[1])
 }
 
 // TestRun_ToolCallAndResultCallbacks verifies the OnToolCall/OnToolResult flush
