@@ -78,6 +78,7 @@ func NewReadURLTool(backend ReadURLBackend, treeThreshold int) fantasy.AgentTool
 		func(ctx context.Context, params ReadURLParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			page, err := fetchOrCachePage(ctx, params.URL, backend, cache)
 			if err != nil {
+				slog.Warn("read_url: fetch failed", "url", params.URL, "error", err)
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("fetch error: %v", err)), nil
 			}
 
