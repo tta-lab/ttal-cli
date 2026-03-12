@@ -243,7 +243,8 @@ func (k *k8sTeamPod) generatePodYAML(sharedEnv []string, volumes []k8sVolume) st
 
 	fmt.Fprintf(&sb, "apiVersion: v1\nkind: Pod\nmetadata:\n  name: %s\n  namespace: %s\n"+
 		"  labels:\n    ttal.io/team: %s\n    app: ttal-team\nspec:\n  restartPolicy: Always\n"+
-		"  containers:\n  - name: agent\n    image: %s\n    command: [\"sleep\", \"infinity\"]\n",
+		"  containers:\n  - name: agent\n    image: %s\n"+
+		"    imagePullPolicy: IfNotPresent\n    command: [\"sleep\", \"infinity\"]\n",
 		k.podName(), k.namespace, k.teamName, k.image)
 
 	// Env vars
