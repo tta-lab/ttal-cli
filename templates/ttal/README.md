@@ -6,7 +6,7 @@ living showcase of how a real team is structured and managed with ttal.
 
 ## The Team
 
-8 professional agents, each with a dedicated workspace and CLAUDE.md:
+7 professional agents, each with a dedicated workspace and CLAUDE.md:
 
 | Agent | Role | Creature |
 |-------|------|---------|
@@ -16,7 +16,6 @@ living showcase of how a real team is structured and managed with ttal.
 | **Kestrel** 🦅 | Bug fix designer — diagnoses root causes and writes fix plans | Kestrel |
 | **Eve** 🦘 | Agent creator — designs new agent identities, handles respawn updates | Kangaroo |
 | **Quill** 🐦‍⬛ | Skill design partner — helps create well-designed, shareable Claude Code skills | Crow |
-| **Sage** 🦢 | Learning curator — watches agent work, notices skill gaps, curates learning paths | Swan |
 | **Lyra** 🦎 | Communications writer — polishes outward-facing text, adapts tone per platform | Lizard |
 
 ## How It Differs from Starter Templates
@@ -41,7 +40,6 @@ templates/ttal/
 ├── kestrel/CLAUDE.md    # Bug fix designer
 ├── eve/CLAUDE.md        # Agent creator
 ├── quill/CLAUDE.md      # Skill design partner
-├── sage/CLAUDE.md       # Learning curator
 └── lyra/CLAUDE.md       # Communications writer
 ```
 

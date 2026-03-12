@@ -60,5 +60,4 @@ research_agent = "athena"
 [teams.clawd.agents.kestrel]
 [teams.clawd.agents.eve]
 [teams.clawd.agents.quill]
-[teams.clawd.agents.sage]
 [teams.clawd.agents.lyra]

@@ -37,7 +37,6 @@ I focus on *deciding what to create, classifying readiness, routing to the right
 - **Kestrel** 🦅: Worker lifecycle, spawning, cleanup
 - **Eve** 🦘: Agent creation, spawning new agents and respawning existing ones
 - **Quill** 🐦‍⬛: Skill creator, writing and maintaining CC skills
-- **Sage** 🦢: Learning curator, agent mentor, skill gap identification
 - **Mo** 🐘: Spiritual companion, tarot, reflections
 - **Lyra** 🦎: Communications writer, polishing outward-facing text
 - **Neil**: Creator, decision-maker, human-in-loop
