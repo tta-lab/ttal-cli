@@ -1,5 +1,6 @@
 ---
 name: pr-comment-analyzer
+emoji: 💬
 description: |-
   Analyzes code comments for accuracy, completeness, and long-term
   maintainability. Identifies comment rot, misleading documentation,

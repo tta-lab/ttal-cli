@@ -139,6 +139,8 @@ func exploreProject(question, alias string, cfg *config.Config, maxSteps, maxTok
 		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
+		emoji:        "🔭",
+		label:        "explore --project " + alias,
 	})
 }
 
@@ -168,6 +170,8 @@ func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxToke
 		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
+		emoji:        "🔭",
+		label:        "explore --repo " + repoRef,
 	})
 }
 
@@ -194,6 +198,8 @@ func exploreURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens
 		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
+		emoji:        "🔭",
+		label:        "explore --url",
 	})
 }
 
@@ -215,6 +221,8 @@ func exploreWeb(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		model:        cfg.ExploreModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
+		emoji:        "🔭",
+		label:        "explore --web",
 	})
 }
 
@@ -245,6 +253,8 @@ func exploreGeneral(question string, cfg *config.Config, maxSteps, maxTokens int
 		model:        cfg.ExploreModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
+		emoji:        "🔭",
+		label:        "explore",
 	})
 }
 
@@ -258,10 +268,18 @@ type exploreOpts struct {
 	fetchBackend tools.ReadURLBackend // required: must be non-nil
 	maxSteps     int
 	maxTokens    int
+	emoji        string // optional display emoji shown before output
+	label        string // display name shown in header (defaults to "explore")
 }
 
 // runExploreAgent builds and runs an agentloop for the explore command.
 func runExploreAgent(opts exploreOpts) error {
+	label := opts.label
+	if label == "" {
+		label = "explore"
+	}
+	printAgentHeader(opts.emoji, label)
+
 	provider, modelID, err := buildSubagentProvider(opts.model)
 	if err != nil {
 		return fmt.Errorf("build provider: %w", err)

@@ -1,5 +1,6 @@
 ---
 name: pr-test-analyzer
+emoji: 🧪
 description: |-
   Reviews test coverage quality and completeness in PR diffs. Identifies
   critical gaps, evaluates test quality, and prioritizes recommendations

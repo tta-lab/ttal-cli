@@ -189,6 +189,8 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 
 	maxSteps, maxTokens := resolveLimits(cmd, ttalCfg, subagentRunFlags.maxSteps, subagentRunFlags.maxTokens)
 
+	printAgentHeader(agent.Frontmatter.Emoji, name)
+
 	cfg := agentloop.Config{
 		Provider:      provider,
 		Model:         modelID,
@@ -260,6 +262,16 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 		fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, modelW, a.Frontmatter.Ttal.Model, toolsW, ts, desc)
 	}
 	return nil
+}
+
+// printAgentHeader prints a visual header with the agent emoji and name before output begins.
+// If emoji is empty, the name is printed without one.
+func printAgentHeader(emoji, name string) {
+	if emoji != "" {
+		fmt.Fprintf(os.Stderr, "\n%s %s\n\n", emoji, name)
+	} else {
+		fmt.Fprintf(os.Stderr, "\n%s\n\n", name)
+	}
 }
 
 // firstLine returns the first non-empty line of s.

@@ -1,5 +1,6 @@
 ---
 name: plan-reviewer
+emoji: 📋
 description: |-
   Reviews flicknote implementation plans for issues before execution. Checks for
   gaps, ambiguities, wrong assumptions, edge cases, structure, code logic,

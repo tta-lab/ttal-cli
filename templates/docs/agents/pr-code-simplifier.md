@@ -1,5 +1,6 @@
 ---
 name: pr-code-simplifier
+emoji: ✨
 description: |-
   Simplifies code for clarity, consistency, and maintainability while preserving
   all functionality. Applies project best practices from CLAUDE.md. Focuses on
