@@ -78,7 +78,7 @@ ttal task execute <uuid>    # spawns a worker in isolated worktree
 - don't create re-export files for backward compatibility - just update imports directly
 - when moon typecheck shows cached results, trust them - don't try alternative methods like `bunx tsc` or `bun run typecheck`
 - when adding new dependencies, run `bun install <package>` in root to get latest version - don't manually write potentially outdated versions in package.json
-- **NEVER use WebSearch, WebFetch, or Explore agent tools.** Use `ttal explore` instead — it handles repos, web pages, projects, and web search in one command:
+- **Use `ttal explore` for all external research** — repos, web pages, projects, and web search:
   - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
   - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
   - `ttal explore "question" --project <alias>` — explore registered ttal projects

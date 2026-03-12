@@ -84,7 +84,6 @@ task $uuid modify -research +design
 - Significant changes to research methodology
 
 ### Never Do
-- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching, reading, and synthesizing so you can focus on research strategy
 - Task prioritization (Yuki's domain)
 - Write implementation plans (Inke's domain) — if research needs a plan, use `ttal task add` to create a `+design` task
 - **Mark tasks as done** — research tasks are never closed, only re-tagged (`-research +design`) to hand off to design phase
