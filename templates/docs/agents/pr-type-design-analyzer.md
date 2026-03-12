@@ -10,6 +10,7 @@ description: |-
   assistant: "I'll use the pr-type-design-analyzer agent to review the type designs."
   </example>
 claude-code:
+  model: sonnet
   tools:
     - Bash
     - Glob

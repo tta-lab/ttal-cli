@@ -1,6 +1,6 @@
 # Binaries
-ttal
-ttal-*
+/ttal
+/ttal-*
 *.exe
 *.dll
 *.so

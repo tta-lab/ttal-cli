@@ -10,6 +10,7 @@ description: |-
   assistant: "I'll use the pr-test-analyzer agent to review the test coverage."
   </example>
 claude-code:
+  model: sonnet
   tools:
     - Bash
     - Glob
