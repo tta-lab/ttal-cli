@@ -527,8 +527,7 @@ func registerBotCommandsForAgent(
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
 				fullCmd := buildSkillCommand(origName, update.Message.Text)
-				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd,
-					fmt.Sprintf("Sent /%s to %s", origName, agentName))
+				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "")
 			})
 	}
 }

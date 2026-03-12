@@ -220,7 +220,9 @@ func sendKeysToAgent(teamName, agentName, botToken, chatID, keys, confirmMsg str
 		replyTelegram(botToken, chatID, "Error: "+err.Error())
 		return
 	}
-	replyTelegram(botToken, chatID, confirmMsg)
+	if confirmMsg != "" {
+		replyTelegram(botToken, chatID, confirmMsg)
+	}
 }
 
 func sendEscToAgent(teamName, agentName, botToken, chatID string) {
