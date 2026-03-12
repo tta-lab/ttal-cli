@@ -1,10 +1,16 @@
 #:schema https://ttal.guion.io/schema/config.schema.json
-default_team = "clawd"
+
+[flicknote]
+  inline_projects = ["plan", "fix"]
 
 [sync]
   skills_paths = ["../docs/skills"]
   subagents_paths = ["../docs/agents"]
   commands_paths = ["../docs/commands"]
+
+[voice]
+  vocabulary = ["session", "claude", "codex", "opencode", "worker", "tmux",
+    "taskwarrior", "flicknote"]
 
 [prompts]
 design = """\
@@ -46,18 +52,23 @@ Post your review with: ttal pr comment create "<markdown>"
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM.
 Do NOT merge — the coder handles merging after triage."""
 
-[teams.clawd]
-chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
-team_path = ""                 # Path to your workspace directory (e.g. ~/clawd)
-design_agent = "inke"
-research_agent = "athena"
-# notification_token_env = "KESTREL_BOT_TOKEN"
-# merge_mode = "squash"
+re_review = """\
+{{skill:pr-review}}
+Worker has pushed fixes addressing your review.{{coder-comment}}
+Re-review the changes: {{review-scope}}
+Post updated review with: ttal pr comment create "<markdown>" (NEVER use --no-review)
+End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
 
-[teams.clawd.agents.yuki]
-[teams.clawd.agents.athena]
-[teams.clawd.agents.inke]
-[teams.clawd.agents.kestrel]
-[teams.clawd.agents.eve]
-[teams.clawd.agents.quill]
-[teams.clawd.agents.lyra]
+[teams.clawd]
+  chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
+  team_path = ""                     # Path to your workspace directory (e.g. ~/clawd)
+  data_dir = "~/.ttal"
+  taskrc = "~/.taskrc"
+  voice_language = "en"
+  worker_runtime = "claude-code"
+  agent_model = "opus"
+  worker_model = "sonnet"
+  emoji_reactions = true
+  # notification_token_env = "KESTREL_BOT_TOKEN"
+  # merge_mode = "squash"
+

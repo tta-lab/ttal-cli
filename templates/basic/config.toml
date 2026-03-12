@@ -1,5 +1,7 @@
 #:schema https://ttal.guion.io/schema/config.schema.json
-default_team = "default"
+
+[flicknote]
+  inline_projects = ["plan", "fix"]
 
 [sync]
   skills_paths = ["./docs/skills"]
@@ -32,14 +34,24 @@ Scope: ONLY changes in this PR diff, not the entire codebase.
 Post your review with: ttal pr comment create "<markdown>"
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
 
+re_review = """\
+Worker has pushed fixes addressing your review.{{coder-comment}}
+Re-review the changes: {{review-scope}}
+Post updated review with: ttal pr comment create "<markdown>"
+End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
+
 [teams.default]
-chat_id = ""                 # Your Telegram chat ID (get from @userinfobot)
-team_path = ""               # Path to your workspace (e.g. ~/ttal-workspace)
-design_agent = "designer"
-# notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"  # optional override
+  chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
+  team_path = ""                     # Path to your workspace (e.g. ~/ttal-workspace)
+  data_dir = "~/.ttal"
+  taskrc = "~/.taskrc"
+  voice_language = "en"
+  worker_runtime = "claude-code"
+  agent_model = "sonnet"
+  worker_model = "sonnet"
+  emoji_reactions = true
+  # notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
 
 # Bot tokens go in ~/.config/ttal/.env, not here.
 # Convention: {UPPER_AGENT}_BOT_TOKEN=<telegram_token>
 # Run 'ttal doctor --fix' to generate a template .env file.
-[teams.default.agents.manager]
-[teams.default.agents.designer]

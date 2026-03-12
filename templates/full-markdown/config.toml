@@ -1,5 +1,7 @@
 #:schema https://ttal.guion.io/schema/config.schema.json
-default_team = "default"
+
+[flicknote]
+  inline_projects = ["plan", "fix"]
 
 [sync]
   skills_paths = ["./docs/skills"]
@@ -39,15 +41,22 @@ Scope: ONLY changes in this PR diff, not the entire codebase.
 Post your review with: ttal pr comment create "<markdown>"
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
 
-[teams.default]
-chat_id = ""                   # Your Telegram chat ID
-team_path = ""                 # Path to your workspace directory
-design_agent = "designer"
-research_agent = "researcher"
-# notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
-# merge_mode = "auto"         # Uncomment for auto-merge on LGTM
+re_review = """\
+Worker has pushed fixes addressing your review.{{coder-comment}}
+Re-review the changes: {{review-scope}}
+Post updated review with: ttal pr comment create "<markdown>"
+End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
 
-[teams.default.agents.manager]
-[teams.default.agents.designer]
-[teams.default.agents.researcher]
-[teams.default.agents.debugger]
+[teams.default]
+  chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
+  team_path = ""                     # Path to your workspace directory
+  data_dir = "~/.ttal"
+  taskrc = "~/.taskrc"
+  voice_language = "en"
+  worker_runtime = "claude-code"
+  agent_model = "sonnet"
+  worker_model = "sonnet"
+  emoji_reactions = true
+  # notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
+  # merge_mode = "auto"
+
