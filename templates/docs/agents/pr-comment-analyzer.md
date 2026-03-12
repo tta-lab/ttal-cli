@@ -10,6 +10,7 @@ description: |-
   assistant: "I'll use the pr-comment-analyzer agent to review the comments."
   </example>
 claude-code:
+  model: haiku
   tools:
     - Bash
     - Glob

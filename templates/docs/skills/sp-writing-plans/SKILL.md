@@ -108,11 +108,29 @@ Each step is one action (2-5 minutes):
 - "Run the tests and make sure they pass" — step
 - "Commit" — step
 
+## Inline Plans vs Flicknote Plans
+
+**Small tasks (≤6 steps, single file or mechanical changes):** Use inline plans — annotate the task directly with the plan. No flicknote needed.
+
+```bash
+ttal task add --project <alias> "description" --tag planned
+task <uuid> annotate 'Plan (inline): 1. Remove dep from package.json 2. Update imports in 3 files 3. Run bun install'
+```
+
+**Large tasks (architecture decisions, multi-file refactors, trade-off analysis needed):** Use flicknote plans — save to flicknote, annotate task with hex ID.
+
+```bash
+flicknote add 'full plan content' --project <your-project>
+task <uuid> annotate 'Plan: flicknote <hex-id>'
+```
+
+**Decision rule:** If the plan fits in 1-2 task annotations and a worker can execute it without ambiguity, inline it. If it needs headings, code examples, trade-off analysis, or context sections — use flicknote.
+
 ## After the Plan Is Written
 
-1. **Save the plan** — use the storage method configured for your team
-2. **Create a task:** use the task-creator subagent with description and project
-3. **Annotate the task** with a reference to the saved plan
+1. **Save the plan** — inline annotation or flicknote (see above)
+2. **Create a task** (if needed): `ttal task add --project <alias> "description" --tag planned`
+3. **Annotate the task** with plan reference (inline or flicknote hex ID)
 4. **Tag as planned:** `task <uuid> modify +planned`
 5. **Wait for approval** — never start execution yourself
 6. **On approval:** `ttal task execute <uuid>` spawns a worker

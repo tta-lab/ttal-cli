@@ -15,14 +15,13 @@ description: |-
   assistant: "Now I'll use the pr-code-reviewer agent to review this implementation."
   </example>
 claude-code:
-  model: opus
+  model: sonnet
   tools:
     - Bash
     - Glob
     - Grep
     - Read
 opencode:
-  model: anthropic/claude-opus-4-6
   mode: subagent
 ---
 

@@ -4,9 +4,13 @@
   inline_projects = ["plan", "fix"]
 
 [sync]
-  skills_paths = ["./docs/skills"]
-  subagents_paths = ["./docs/agents"]
-  commands_paths = ["./docs/commands"]
+  skills_paths = ["../docs/skills"]
+  subagents_paths = ["../docs/agents"]
+  commands_paths = ["../docs/commands"]
+
+[voice]
+  vocabulary = ["session", "claude", "codex", "opencode", "worker", "tmux",
+    "taskwarrior", "flicknote"]
 
 [prompts]
 design = """\
@@ -14,7 +18,7 @@ design = """\
 Write an implementation plan for this task.
 Read the task first: ttal task get {{task-id}}
 
-Storage: Save the plan via flicknote add 'content' --project plans
+Storage: Save the plan via flicknote add 'content' --project ttal.plans
 Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'
 Then tag-swap: task {{task-id}} modify -brainstorm -design +planned"""
@@ -24,7 +28,7 @@ research = """\
 Research this topic thoroughly.
 Read the task first: ttal task get {{task-id}}
 
-Storage: Save findings via flicknote add 'content' --project research
+Storage: Save findings via flicknote add 'content' --project ttal.research
 Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content'
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
@@ -55,16 +59,16 @@ Re-review the changes: {{review-scope}}
 Post updated review with: ttal pr comment create "<markdown>" (NEVER use --no-review)
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
 
-[teams.default]
+[teams.ttal]
   chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
-  team_path = ""                     # Path to your workspace directory
+  team_path = ""                     # Path to your workspace directory (e.g. ~/clawd)
   data_dir = "~/.ttal"
   taskrc = "~/.taskrc"
   voice_language = "en"
   worker_runtime = "claude-code"
-  agent_model = "sonnet"
+  agent_model = "opus"
   worker_model = "sonnet"
   emoji_reactions = true
-  # notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
-  # merge_mode = "auto"
+  # notification_token_env = "KESTREL_BOT_TOKEN"
+  # merge_mode = "squash"
 

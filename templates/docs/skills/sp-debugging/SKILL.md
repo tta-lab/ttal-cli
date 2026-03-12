@@ -1,55 +1,28 @@
 ---
 name: sp-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: Diagnose bugs systematically and write bug fix plans for workers to execute — diagnosis + plan writing in one skill
 ---
 
-# Systematic Debugging
+# Bug Fix Design
 
 ## Overview
 
-Random fixes waste time and create new bugs. Quick patches mask underlying issues.
+Diagnose bugs by tracing from symptom to root cause, then write a fix plan clear enough for a worker to execute without guessing. No fixes without diagnosis. No diagnosis without evidence.
 
-**Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
+**Core principle:** ALWAYS find root cause before writing the fix plan. Symptom fixes are failure.
 
-**Violating the letter of this process is violating the spirit of debugging.**
+**Announce at start:** "I'm using the debugging skill to diagnose this bug and write a fix plan."
 
-## The Iron Law
+## Designer Rules
 
-```
-NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
-```
+1. **Never write code** — you write fix plans, not implementations
+2. **Never execute without approval** — plans wait for explicit go-ahead
+3. **Always diagnose first** — no exceptions, even for "obvious" bugs
+4. **Design at structure level** — before adding behavior, question whether the existing structure supports it cleanly. Refactor first if needed.
 
-If you haven't completed Phase 1, you cannot propose fixes.
+## Phase 1: Root Cause Investigation
 
-## When to Use
-
-Use for ANY technical issue:
-- Test failures
-- Bugs in production
-- Unexpected behavior
-- Performance problems
-- Build failures
-- Integration issues
-
-**Use this ESPECIALLY when:**
-- Under time pressure (emergencies make guessing tempting)
-- "Just one quick fix" seems obvious
-- You've already tried multiple fixes
-- Previous fix didn't work
-- You don't fully understand the issue
-
-**Don't skip when:**
-- Issue seems simple (simple bugs have root causes too)
-- You're in a hurry (rushing guarantees rework)
-- Manager wants it fixed NOW (systematic is faster than thrashing)
-
-## The Four Phases
-
-You MUST complete each phase before proceeding to the next.
-
-### Phase 1: Root Cause Investigation
-
-**BEFORE attempting ANY fix:**
+**BEFORE writing ANY fix plan:**
 
 1. **Read Error Messages Carefully**
    - Don't skip past errors or warnings
@@ -73,7 +46,6 @@ You MUST complete each phase before proceeding to the next.
 
    **WHEN system has multiple components (CI → build → signing, API → service → database):**
 
-   **BEFORE proposing fixes, add diagnostic instrumentation:**
    ```
    For EACH component boundary:
      - Log what data enters component
@@ -86,30 +58,7 @@ You MUST complete each phase before proceeding to the next.
    THEN investigate that specific component
    ```
 
-   **Example (multi-layer system):**
-   ```bash
-   # Layer 1: Workflow
-   echo "=== Secrets available in workflow: ==="
-   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
-
-   # Layer 2: Build script
-   echo "=== Env vars in build script: ==="
-   env | grep IDENTITY || echo "IDENTITY not in environment"
-
-   # Layer 3: Signing script
-   echo "=== Keychain state: ==="
-   security list-keychains
-   security find-identity -v
-
-   # Layer 4: Actual signing
-   codesign --sign "$IDENTITY" --verbose=4 "$APP"
-   ```
-
-   **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
-
 5. **Trace Data Flow**
-
-   **WHEN error is deep in call stack:**
 
    See `root-cause-tracing.md` in this directory for the complete backward tracing technique.
 
@@ -119,178 +68,151 @@ You MUST complete each phase before proceeding to the next.
    - Keep tracing up until you find the source
    - Fix at source, not at symptom
 
-### Phase 2: Pattern Analysis
+## Phase 2: Pattern Analysis
 
-**Find the pattern before fixing:**
+1. **Find Working Examples** — locate similar working code in the same codebase
+2. **Compare Against References** — read reference implementations COMPLETELY, don't skim
+3. **Identify Differences** — list every difference between working and broken, however small
+4. **Understand Dependencies** — what components, settings, config, environment does this need?
 
-1. **Find Working Examples**
-   - Locate similar working code in same codebase
-   - What works that's similar to what's broken?
+## Phase 3: Hypothesis and Testing
 
-2. **Compare Against References**
-   - If implementing pattern, read reference implementation COMPLETELY
-   - Don't skim - read every line
-   - Understand the pattern fully before applying
+1. **Form Single Hypothesis** — "I think X is the root cause because Y"
+2. **Test Minimally** — smallest possible change to test hypothesis, one variable at a time
+3. **Verify** — did it work? Yes → write fix plan. No → form NEW hypothesis. Don't stack fixes.
+4. **If 3+ Hypotheses Failed** — STOP. Question the architecture. This is a wrong pattern, not a missing fix. Discuss with your human partner before continuing.
 
-3. **Identify Differences**
-   - What's different between working and broken?
-   - List every difference, however small
-   - Don't assume "that can't matter"
+## Phase 4: Write the Fix Plan
 
-4. **Understand Dependencies**
-   - What other components does this need?
-   - What settings, config, environment?
-   - What assumptions does it make?
+Once root cause is confirmed, write the fix plan.
 
-### Phase 3: Hypothesis and Testing
+### Fix Plan Structure
 
-**Scientific method:**
+```markdown
+# Fix: [Bug Title]
 
-1. **Form Single Hypothesis**
-   - State clearly: "I think X is the root cause because Y"
-   - Write it down
-   - Be specific, not vague
+> **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
 
-2. **Test Minimally**
-   - Make the SMALLEST possible change to test hypothesis
-   - One variable at a time
-   - Don't fix multiple things at once
+## Symptom
+[What the user/system sees — error messages, unexpected behavior]
 
-3. **Verify Before Continuing**
-   - Did it work? Yes → Phase 4
-   - Didn't work? Form NEW hypothesis
-   - DON'T add more fixes on top
+## Root Cause
+[What's actually broken and why — the diagnosis, not the symptom]
 
-4. **When You Don't Know**
-   - Say "I don't understand X"
-   - Don't pretend to know
-   - Ask for help
-   - Research more
+## Reproduction
+[Exact steps to trigger the bug]
 
-### Phase 4: Implementation
+## Fix Strategy
+[What needs to change and why this approach over alternatives]
 
-**Fix the root cause, not the symptom:**
+## Implementation Tasks
 
-1. **Create Failing Test Case**
-   - Simplest possible reproduction
-   - Automated test if possible
-   - One-off test script if no framework
-   - MUST have before fixing
-   - Use the `test-driven-development` skill for writing proper failing tests
+### Task 1: [Component Name]
 
-2. **Implement Single Fix**
-   - Address the root cause identified
-   - ONE change at a time
-   - No "while I'm here" improvements
-   - No bundled refactoring
+**Files:**
+- Modify: `exact/path/to/file.go`
+- Test: `tests/exact/path/to/test.go`
 
-3. **Verify Fix**
-   - Test passes now?
-   - No other tests broken?
-   - Issue actually resolved?
+**Step 1: Write the failing test**
+[exact test code]
 
-4. **If Fix Doesn't Work**
-   - STOP
-   - Count: How many fixes have you tried?
-   - If < 3: Return to Phase 1, re-analyze with new information
-   - **If ≥ 3: STOP and question the architecture (step 5 below)**
-   - DON'T attempt Fix #4 without architectural discussion
+**Step 2: Run test to verify it fails**
+Run: `go test ./path/... -run TestName -v`
+Expected: FAIL
 
-5. **If 3+ Fixes Failed: Question Architecture**
+**Step 3: Write minimal fix**
+[exact code change — before/after]
 
-   **Pattern indicating architectural problem:**
-   - Each fix reveals new shared state/coupling/problem in different place
-   - Fixes require "massive refactoring" to implement
-   - Each fix creates new symptoms elsewhere
+**Step 4: Run test to verify it passes**
+Run: `go test ./path/... -run TestName -v`
+Expected: PASS
 
-   **STOP and question fundamentals:**
-   - Is this pattern fundamentally sound?
-   - Are we "sticking with it through sheer inertia"?
-   - Should we refactor architecture vs. continue fixing symptoms?
+**Step 5: Commit**
+`fix(scope): description`
 
-   **Discuss with your human partner before attempting more fixes**
+## Verification
+[How the worker confirms the bug is actually fixed — beyond just tests passing]
+```
 
-   This is NOT a failed hypothesis - this is a wrong architecture.
+### Plan Quality Checklist
 
-## Red Flags - STOP and Follow Process
+Every task in the plan MUST have:
+
+- [ ] **Files** — exact paths to create, modify, and test
+- [ ] **Before/after code** — show what changes, not just "add validation"
+- [ ] **Build/test commands** — exact commands with expected output
+- [ ] **Commit message** — ready to copy-paste
+- [ ] **Dependencies explicit** — what must be done before this task
+- [ ] **Self-contained** — worker can execute without asking questions
+
+If a task fails this checklist, it's not ready.
+
+### Bite-Sized Task Granularity
+
+Each step is one action (2-5 minutes):
+- "Write the failing test" — step
+- "Run it to make sure it fails" — step
+- "Implement the minimal fix" — step
+- "Run the tests and make sure they pass" — step
+- "Commit" — step
+
+## Design Discipline
+
+- **Look for abstractions before patching:** When fixing a bug, ask "what are the right primitives?" not just "how do I fix this case?"
+- **Treat justified duplication as a smell:** If you catch yourself saying "this duplication is fine because X is rare," that's a signal to refactor, not rationalize
+- **Design at structure level, not code level:** Before adding new behavior, question whether the existing structure supports it cleanly. Refactor first if needed.
+
+## Inline vs Flicknote Fix Plans
+
+**Small fixes (≤6 steps, single file or mechanical changes):** Use inline plans — annotate the task directly. No flicknote needed.
+
+```bash
+task <uuid> annotate 'Fix (inline): Root cause: nil pointer in auth middleware. Fix: 1. Add nil check in middleware.go:42 2. Add test 3. Run tests'
+```
+
+**Large fixes (multi-file, needs diagnosis context, trade-off analysis):** Use flicknote — save full fix plan, annotate task with hex ID.
+
+```bash
+flicknote add 'full fix plan content' --project <your-project>
+task <uuid> annotate 'Fix plan: flicknote <hex-id>'
+```
+
+**Decision rule:** If the plan fits in 1-2 task annotations and a worker can execute it without ambiguity, inline it. If it needs headings, code examples, trade-off analysis, or context sections — use flicknote.
+
+## After the Fix Plan Is Written
+
+1. **Save the plan** — inline annotation or flicknote (see above)
+2. **Create a task** (if needed) via `ttal task add --project <alias> "description"`
+3. **Annotate the task** with plan reference (inline or flicknote hex ID)
+4. **Tag as planned:** `task <uuid> modify -bugfix +planned`
+5. **Wait for approval** — never start execution yourself
+6. **On approval:** `ttal task execute <uuid>` spawns a worker
+
+## Red Flags — STOP and Return to Phase 1
 
 If you catch yourself thinking:
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
-- "Add multiple changes, run tests"
-- "Skip the test, I'll manually verify"
 - "It's probably X, let me fix that"
 - "I don't fully understand but this might work"
-- "Pattern says X but I'll adapt it differently"
-- "Here are the main problems: [lists fixes without investigation]"
+- "One more fix attempt" (when already tried 2+)
 - Proposing solutions before tracing data flow
-- **"One more fix attempt" (when already tried 2+)**
-- **Each fix reveals new problem in different place**
+- Each fix reveals new problem in different place
 
-**ALL of these mean: STOP. Return to Phase 1.**
-
-**If 3+ fixes failed:** Question the architecture (see Phase 4.5)
-
-## your human partner's Signals You're Doing It Wrong
-
-**Watch for these redirections:**
-- "Is that not happening?" - You assumed without verifying
-- "Will it show us...?" - You should have added evidence gathering
-- "Stop guessing" - You're proposing fixes without understanding
-- "Ultrathink this" - Question fundamentals, not just symptoms
-- "We're stuck?" (frustrated) - Your approach isn't working
-
-**When you see these:** STOP. Return to Phase 1.
-
-## Common Rationalizations
-
-| Excuse | Reality |
-|--------|---------|
-| "Issue is simple, don't need process" | Simple issues have root causes too. Process is fast for simple bugs. |
-| "Emergency, no time for process" | Systematic debugging is FASTER than guess-and-check thrashing. |
-| "Just try this first, then investigate" | First fix sets the pattern. Do it right from the start. |
-| "I'll write test after confirming fix works" | Untested fixes don't stick. Test first proves it. |
-| "Multiple fixes at once saves time" | Can't isolate what worked. Causes new bugs. |
-| "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
-| "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
-| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Question pattern, don't fix again. |
-
-## Quick Reference
-
-| Phase | Key Activities | Success Criteria |
-|-------|---------------|------------------|
-| **1. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
-| **2. Pattern** | Find working examples, compare | Identify differences |
-| **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
-| **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
-
-## When Process Reveals "No Root Cause"
-
-If systematic investigation reveals issue is truly environmental, timing-dependent, or external:
-
-1. You've completed the process
-2. Document what you investigated
-3. Implement appropriate handling (retry, timeout, error message)
-4. Add monitoring/logging for future investigation
-
-**But:** 95% of "no root cause" cases are incomplete investigation.
+**ALL of these mean: STOP. Go back to diagnosis.**
 
 ## Supporting Techniques
 
-These techniques are part of systematic debugging and available in this directory:
+Available in this directory:
 
-- **`root-cause-tracing.md`** - Trace bugs backward through call stack to find original trigger
-- **`defense-in-depth.md`** - Add validation at multiple layers after finding root cause
-- **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
+- **`root-cause-tracing.md`** — trace bugs backward through call stack to find original trigger
+- **`defense-in-depth.md`** — add validation at multiple layers after finding root cause
+- **`condition-based-waiting.md`** — replace arbitrary timeouts with condition polling
 
-**Related skills:**
-- **test-driven-development** - For creating failing test case (Phase 4, Step 1)
-- **verification-before-completion** - Verify fix worked before claiming success
+## Remember
 
-## Real-World Impact
-
-From debugging sessions:
-- Systematic approach: 15-30 minutes to fix
-- Random fixes approach: 2-3 hours of thrashing
-- First-time fix rate: 95% vs 40%
-- New bugs introduced: Near zero vs common
+- Root cause first, always — no plan without diagnosis
+- Exact file paths, complete code, exact commands
+- One bug = one plan = one task = one worker
+- DRY, YAGNI, TDD, frequent commits
+- Worker should never need to ask questions

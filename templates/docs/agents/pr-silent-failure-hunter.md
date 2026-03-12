@@ -15,6 +15,7 @@ description: |-
   assistant: "I'll use the pr-silent-failure-hunter agent to check for silent failures."
   </example>
 claude-code:
+  model: sonnet
   tools:
     - Bash
     - Glob

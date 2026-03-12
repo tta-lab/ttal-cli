@@ -1,13 +1,11 @@
 ---
-name: task-create
+name: task-add
 description: "Create taskwarrior tasks from a plan, list, or description"
 argument-hint: "<plan-path or task descriptions>"
 claude-code:
-  context: fork
   allowed-tools:
     - Bash
     - Read
-    - Task
 opencode: {}
 ---
 
@@ -28,14 +26,16 @@ Create one or more taskwarrior tasks from the given input.
 ## Workflow
 
 1. Parse input to identify tasks
-2. For each task, dispatch to the **task-creator** subagent:
-   - Use Task tool with `subagent_type: "task-creator"`
-   - Include task description, project context, and any annotations
+2. For each task, create via `ttal task add`:
+   ```bash
+   ttal task add --project <alias> "description" --tag <tag> --priority M --annotate "note"
+   ```
 3. Report created tasks with UUIDs
 
 ## Rules
 
-- **Never run `task add` directly** — always use the task-creator subagent
-- task-creator handles project validation, tag conventions, and annotations
-- If creating from a plan file, annotate each task with the plan path
-- Group related tasks and set dependencies where appropriate
+- Use `ttal task add` for all task creation — it validates projects and handles conventions
+- Never run raw `task add` — use `ttal task add` instead
+- If creating from a plan file, use `--annotate "Plan: <path>"` to link back
+- Tags and annotations are repeatable (`--tag bugfix --tag urgent --annotate "note1" --annotate "note2"`)
+- Group related tasks and set dependencies where appropriate (`task <uuid> modify depends:<other-uuid>`)

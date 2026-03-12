@@ -1,9 +1,8 @@
 ---
 name: pr-review
-description: "Comprehensive PR review using 6 specialized agents"
-argument-hint: "[aspects: code|errors|tests|comments|types|simplify|all]"
+description: "Comprehensive PR review using 7 specialized agents"
+argument-hint: "[aspects: code|errors|tests|comments|types|principles|simplify|all]"
 claude-code:
-  context: fork
   allowed-tools:
     - Bash
     - Glob
@@ -37,6 +36,7 @@ This command always runs in a **git worktree** with the branch already checked o
    - **tests** - Review test coverage quality and completeness
    - **comments** - Analyze code comment accuracy and maintainability
    - **types** - Analyze type design and invariants (if new types added)
+   - **principles** - Check for DRY, SOLID, KISS, YAGNI, guard clauses violations
    - **simplify** - Simplify code for clarity and maintainability
    - **all** - Run all applicable reviews (default)
 
@@ -52,6 +52,7 @@ This command always runs in a **git worktree** with the branch already checked o
    - **If test files changed**: pr-test-analyzer
    - **If comments/docs added**: pr-comment-analyzer
    - **If types added/modified**: pr-type-design-analyzer
+   - **Always applicable**: pr-principles-reviewer (DRY, SOLID, KISS, YAGNI)
    - **After passing review**: pr-code-simplifier (polish and refine)
 
 5. **Launch Review Agents**
@@ -63,6 +64,7 @@ This command always runs in a **git worktree** with the branch already checked o
    - `subagent_type: "pr-comment-analyzer"`
    - `subagent_type: "pr-test-analyzer"`
    - `subagent_type: "pr-type-design-analyzer"`
+   - `subagent_type: "pr-principles-reviewer"`
 
    Launch independent specialists in parallel when possible.
 
@@ -145,6 +147,12 @@ This command always runs in a **git worktree** with the branch already checked o
 - Analyzes type encapsulation
 - Reviews invariant expression
 - Rates type design quality
+
+**pr-principles-reviewer**:
+- Checks DRY, SOLID, KISS, YAGNI
+- Flags guard clause opportunities
+- Reviews cyclomatic complexity
+- Confidence-gated (>= 80/100)
 
 **pr-code-simplifier**:
 - Simplifies complex code

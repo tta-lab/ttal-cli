@@ -10,7 +10,7 @@ description: |-
   assistant: "I'll use the pr-code-simplifier agent to refine the implementation."
   </example>
 claude-code:
-  model: opus
+  model: sonnet
   tools:
     - Bash
     - Glob
@@ -19,7 +19,6 @@ claude-code:
     - Edit
     - Write
 opencode:
-  model: anthropic/claude-opus-4-6
   mode: subagent
 ---
 
