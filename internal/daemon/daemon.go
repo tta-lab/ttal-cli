@@ -653,10 +653,20 @@ func handleFrom(mcfg *config.DaemonConfig, msgSvc *message.Service, req SendRequ
 }
 
 // handleTo delivers a message to an agent via its runtime adapter.
+// Falls back to worker session delivery when the recipient is a hex UUID.
+// Human→worker messages are sent as bare text (no [agent from:] prefix).
 func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
 	ta := resolveAgent(mcfg, req.Team, req.To)
 	if ta == nil {
-		return fmt.Errorf("unknown agent: %s", req.To)
+		session, err := resolveWorker(req.To)
+		if err != nil {
+			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+		}
+		log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
+		return dispatchToWorker(msgSvc, session, message.CreateParams{
+			Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
+			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
+		}, req.Message)
 	}
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
@@ -666,6 +676,7 @@ func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *mess
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
+// Falls back to worker session delivery when the recipient is a hex UUID.
 func handleAgentToAgent(
 	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest,
 ) error {
@@ -674,15 +685,24 @@ func handleAgentToAgent(
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
 	toTA := resolveAgent(mcfg, req.Team, req.To)
+	msg := formatAgentMessage(req.From, req.Message)
 	if toTA == nil {
-		return fmt.Errorf("unknown agent: %s", req.To)
+		session, err := resolveWorker(req.To)
+		if err != nil {
+			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+		}
+		rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
+		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
+		return dispatchToWorker(msgSvc, session, message.CreateParams{
+			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
+			Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		}, msg)
 	}
 	rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
 		Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
-	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 	return deliverToAgent(registry, mcfg, toTA.TeamName, req.To, msg)
 }
@@ -700,6 +720,49 @@ func resolveAgent(mcfg *config.DaemonConfig, teamHint, agentName string) *config
 		return ta
 	}
 	return nil
+}
+
+// workerWindow is the tmux window name used by all worker sessions.
+const workerWindow = "worker"
+
+// resolveWorker finds a tmux session for a worker identified by hex UUID prefix.
+// Session names follow the format: w-{uuid[:8]}-{slug}.
+// idPrefix must be at least 8 hex characters (case-insensitive).
+func resolveWorker(idPrefix string) (string, error) {
+	normalized := strings.ToLower(idPrefix)
+	if len(normalized) < 8 {
+		return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
+	}
+	for _, c := range normalized {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
+		}
+	}
+	sessions, err := tmux.ListSessions()
+	if err != nil {
+		return "", fmt.Errorf("list tmux sessions: %w", err)
+	}
+	if sessions == nil {
+		return "", fmt.Errorf("no tmux server running")
+	}
+	prefix := "w-" + normalized[:8]
+	for _, s := range sessions {
+		if strings.HasPrefix(s, prefix) {
+			return s, nil
+		}
+	}
+	return "", fmt.Errorf("no worker session for %s", idPrefix)
+}
+
+// dispatchToWorker persists a message and delivers it to a worker tmux session.
+func dispatchToWorker(msgSvc *message.Service, session string, params message.CreateParams, text string) error {
+	persistMsg(msgSvc, params)
+	return deliverToWorker(session, text)
+}
+
+// deliverToWorker sends a message to a worker's tmux session.
+func deliverToWorker(session, text string) error {
+	return tmux.SendKeys(session, workerWindow, text)
 }
 
 // handleStatusUpdate writes agent context status to the status directory.
