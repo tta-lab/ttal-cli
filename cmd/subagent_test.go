@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +11,7 @@ import (
 
 func TestFilterTools_EmptyNames_ReturnsAll(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
-	backend := tools.NewDirectFetchBackend(&http.Client{})
+	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
 	selected, err := filterTools(allTools, nil)
@@ -22,7 +21,7 @@ func TestFilterTools_EmptyNames_ReturnsAll(t *testing.T) {
 
 func TestFilterTools_ValidNames_ReturnsSubset(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
-	backend := tools.NewDirectFetchBackend(&http.Client{})
+	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
 	selected, err := filterTools(allTools, []string{"bash"})
@@ -33,7 +32,7 @@ func TestFilterTools_ValidNames_ReturnsSubset(t *testing.T) {
 
 func TestFilterTools_UnknownName_ReturnsError(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
-	backend := tools.NewDirectFetchBackend(&http.Client{})
+	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
 	_, err := filterTools(allTools, []string{"nonexistent_tool"})
@@ -44,7 +43,7 @@ func TestFilterTools_UnknownName_ReturnsError(t *testing.T) {
 
 func TestFilterTools_MixedNames_ErrorOnFirst_Unknown(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
-	backend := tools.NewDirectFetchBackend(&http.Client{})
+	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
 	_, err := filterTools(allTools, []string{"bash", "unknown_tool"})

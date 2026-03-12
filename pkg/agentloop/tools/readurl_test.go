@@ -11,83 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDirectFetchBackend_PlainText(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("hello world"))
-	}))
-	defer srv.Close()
-
-	backend := NewDirectFetchBackend(srv.Client())
-	content, err := backend.Fetch(context.Background(), srv.URL)
-	require.NoError(t, err)
-	assert.Equal(t, "hello world", content)
-}
-
-func TestDirectFetchBackend_HTMLConverted(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte("<html><body><h1>Title</h1><p>Body text</p></body></html>"))
-	}))
-	defer srv.Close()
-
-	backend := NewDirectFetchBackend(srv.Client())
-	content, err := backend.Fetch(context.Background(), srv.URL)
-	require.NoError(t, err)
-	// html-to-markdown should convert <h1> to # Title
-	assert.Contains(t, content, "Title")
-}
-
-func TestDirectFetchBackend_HTMLConversionFailureReturnsError(t *testing.T) {
-	// Confirm we now return an error (not raw HTML fallback) when conversion fails.
-	// In practice html-to-markdown rarely fails, so we test via interface compliance.
-	var _ = NewDirectFetchBackend(nil)
-}
-
-func TestDirectFetchBackend_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not found", http.StatusNotFound)
-	}))
-	defer srv.Close()
-
-	backend := NewDirectFetchBackend(srv.Client())
-	_, err := backend.Fetch(context.Background(), srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "404")
-}
-
-func TestDirectFetchBackend_InvalidURL(t *testing.T) {
-	backend := NewDirectFetchBackend(nil)
-	_, err := backend.Fetch(context.Background(), "://invalid")
-	require.Error(t, err)
-}
-
-func TestBrowserGatewayBackend_FallsBackOnGatewayError(t *testing.T) {
-	// Gateway returns 500, should fall back to direct fetch of the target URL.
-	targetSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("direct content"))
-	}))
-	defer targetSrv.Close()
-
+func TestBrowserGatewayBackend_GatewayError_ReturnsError(t *testing.T) {
 	gatewaySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "gateway error", http.StatusInternalServerError)
 	}))
 	defer gatewaySrv.Close()
 
-	backend := NewBrowserGatewayBackend(gatewaySrv.URL, gatewaySrv.Client())
-	// Use gateway's client but target direct server — this tests fallback path.
-	// We override the client to one that can reach both.
-	backend2 := &browserGatewayBackend{gatewayURL: gatewaySrv.URL, client: targetSrv.Client()}
-	content, err := backend2.Fetch(context.Background(), targetSrv.URL)
-	require.NoError(t, err)
-	assert.Equal(t, "direct content", content)
-	_ = backend
+	backend := &browserGatewayBackend{gatewayURL: gatewaySrv.URL, client: gatewaySrv.Client()}
+	_, err := backend.Fetch(context.Background(), "https://example.com")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
 }
 
-func TestBrowserGatewayBackend_ContextCancelledNoFallback(t *testing.T) {
+func TestBrowserGatewayBackend_ContextCancelled_ReturnsError(t *testing.T) {
 	gatewaySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simulate a gateway error to trigger fallback path
 		http.Error(w, "error", http.StatusInternalServerError)
 	}))
 	defer gatewaySrv.Close()
@@ -97,7 +34,6 @@ func TestBrowserGatewayBackend_ContextCancelledNoFallback(t *testing.T) {
 
 	backend := &browserGatewayBackend{gatewayURL: gatewaySrv.URL, client: gatewaySrv.Client()}
 	_, err := backend.Fetch(ctx, gatewaySrv.URL+"/target")
-	// Should return context error, not attempt fallback
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
 }

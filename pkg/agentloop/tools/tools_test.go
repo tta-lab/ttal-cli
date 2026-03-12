@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,12 +28,6 @@ func TestNewReadURLTool_AllBackends(t *testing.T) {
 	require.NotNil(t, dcb)
 	tool2 := NewReadURLTool(dcb, 0)
 	assert.Equal(t, "read_url", tool2.Info().Name)
-
-	// DirectFetchBackend
-	dfb := NewDirectFetchBackend(nil)
-	require.NotNil(t, dfb)
-	tool3 := NewReadURLTool(dfb, 0)
-	assert.Equal(t, "read_url", tool3.Info().Name)
 }
 
 func TestNewSearchWebTool_Constructs(t *testing.T) {
@@ -45,7 +38,7 @@ func TestNewSearchWebTool_Constructs(t *testing.T) {
 
 func TestNewDefaultToolSet(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
-	backend := NewDirectFetchBackend(&http.Client{})
+	backend := NewDefuddleCLIBackend()
 	tools := NewDefaultToolSet(sbx, backend, nil, 0)
 
 	require.Len(t, tools, 3)
@@ -61,7 +54,7 @@ func TestNewDefaultToolSet(t *testing.T) {
 
 func TestNewDefaultToolSet_WithAllowedPaths(t *testing.T) {
 	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
-	backend := NewDirectFetchBackend(&http.Client{})
+	backend := NewDefuddleCLIBackend()
 	dir := t.TempDir()
 	tools := NewDefaultToolSet(sbx, backend, []string{dir}, 0)
 
@@ -101,9 +94,8 @@ func (m *mockBackend) Fetch(_ context.Context, _ string) (string, error) {
 	return m.content, m.err
 }
 
-func TestDirectFetchBackend_Interface(t *testing.T) {
+func TestReadURLBackend_Interface(t *testing.T) {
 	var _ ReadURLBackend = &mockBackend{}
-	var _ = NewDirectFetchBackend(nil)
 	var _ = NewDefuddleCLIBackend()
 	var _ = NewBrowserGatewayBackend("", nil)
 }
