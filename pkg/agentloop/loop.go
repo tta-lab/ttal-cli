@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -76,10 +77,13 @@ func Run(
 		return nil, fmt.Errorf("agentloop: Config.Provider must not be nil")
 	}
 
-	// Wire sandbox env and allowed paths into context so tools can access it.
-	mounts := make([]sandbox.Mount, len(cfg.AllowedPaths))
-	for i, p := range cfg.AllowedPaths {
-		mounts[i] = sandbox.Mount{Source: p, Target: p, ReadOnly: true}
+	// Validate and convert AllowedPaths into sandbox mounts.
+	var mounts []sandbox.Mount
+	for _, p := range cfg.AllowedPaths {
+		if p == "" || !filepath.IsAbs(p) {
+			return nil, fmt.Errorf("agentloop: AllowedPaths entry %q must be a non-empty absolute path", p)
+		}
+		mounts = append(mounts, sandbox.Mount{Source: p, Target: p, ReadOnly: true})
 	}
 	execCfg := &sandbox.ExecConfig{Env: cfg.SandboxEnv, MountDirs: mounts}
 	ctx = sandbox.ContextWithExecConfig(ctx, execCfg)
