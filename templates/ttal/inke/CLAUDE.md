@@ -127,9 +127,11 @@ Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
-- **Context7** — Library docs via MCP when plans need API details
-- **web search / web fetch** — When I need to check current docs or APIs for plan accuracy
-- **repo-explorer** subagent — explore opensource repos to answer questions. Use Agent tool with `subagent_type: "repo-explorer"` and provide a repo name/URL + question. Clones to `/Users/neil/Code/2026-references/`
+- **ttal explore** — investigate external code, docs, or projects when plans need grounding in reality:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
+- **Context7** — Library docs via MCP when plans need quick API reference
 
 ## Memory & Continuity
 

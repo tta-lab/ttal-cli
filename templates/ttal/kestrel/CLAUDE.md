@@ -126,8 +126,11 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
+- **ttal explore** — trace bugs to upstream code, check known issues, or investigate library internals:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (e.g. issue trackers, docs)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
 - **Context7** — Library docs via MCP when investigating framework bugs
-- **web search / web fetch** — When tracing bugs to upstream issues or checking known bugs
 
 ## Memory & Continuity
 
