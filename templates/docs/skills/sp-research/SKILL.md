@@ -13,7 +13,7 @@ Conduct structured, multi-source research that produces actionable findings. Res
 
 ## Research Quality Standards
 
-- **Multi-source:** Combine web search, web fetch, Context7 docs, and local source code
+- **Multi-source:** Combine `ttal explore` (repos, web pages, projects), Context7 docs, and local source code
 - **Synthesis:** Analyze and provide insights, not just collect links
 - **Actionable:** Include recommendations and concrete next steps
 - **Sourced:** Always cite sources with links
@@ -22,8 +22,8 @@ Conduct structured, multi-source research that produces actionable findings. Res
 ## Research Process
 
 1. **Understand the question** — read the task description and annotations. What decision does this research inform?
-2. **Survey** — web search for overview, identify key sources
-3. **Deep dive** — web fetch important docs, read source code if needed, query Context7 for library docs
+2. **Survey** — `ttal explore "overview question" --url <docs-url>` for web pages, `ttal explore "question" --repo <org/repo>` for OSS repos
+3. **Deep dive** — `ttal explore` for repos and web docs, query Context7 for library docs, read local source code
 4. **Synthesize** — connect findings, identify trade-offs, form recommendations
 5. **Write findings** — structured document with clear sections
 6. **Save and annotate** — save findings using the storage method configured for your team, annotate the task
@@ -74,8 +74,8 @@ If research **failed** (dead end, question unanswerable), annotate why and keep 
 
 1. **Official docs** — always preferred over blog posts
 2. **Context7** — up-to-date library documentation with code examples
-3. **Source code** — read the actual implementation when docs are unclear
-4. **Web search** — for overview and discovering sources
+3. **Source code** — read the actual implementation when docs are unclear; use `ttal explore --repo` for external repos, `ttal explore --project` for internal projects
+4. **Web pages** — `ttal explore "question" --url <url>` for specific documentation pages
 5. **Blog posts** — only when official sources are insufficient
 
 ## Remember
