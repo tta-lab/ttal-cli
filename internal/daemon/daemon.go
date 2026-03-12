@@ -442,6 +442,7 @@ func initSingleAdapter(
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 		shell := mcfg.Global.GetShell()
+		ensureProjectDir(agentPath)
 		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, env, shell); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
@@ -1015,13 +1016,28 @@ func shutdownCCSessions(sessions []string) {
 	}
 }
 
+// ensureProjectDir creates the CC JSONL project directory for an agent.
+// Called before spawnCCSession so the dir exists when CC starts and is
+// ready for the watcher to monitor.
+func ensureProjectDir(agentPath string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	encoded := watcher.EncodePath(agentPath)
+	dir := filepath.Join(home, ".claude", "projects", encoded)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		log.Printf("[daemon] failed to create project dir for %s: %v", filepath.Base(agentPath), err)
+	}
+}
+
 // spawnCCSession creates a tmux session for a Claude Code agent.
 func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, env []string, shell string) error {
 	cmd := "claude --dangerously-skip-permissions"
 	if model != "" {
 		cmd += " --model " + model
 	}
-	if sid := lastSessionID(teamName, agentName); sid != "" {
+	if sid := lastSessionID(teamName, agentName, agentPath); sid != "" {
 		cmd += " --resume " + sid
 	}
 
@@ -1049,9 +1065,23 @@ func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, e
 	return nil
 }
 
+// sessionJSONLExists checks if a session's JSONL file exists in the
+// project dir for the given agent path.
+func sessionJSONLExists(sessionID, agentPath string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return true // best-effort: assume exists
+	}
+	encoded := watcher.EncodePath(agentPath)
+	jsonlPath := filepath.Join(home, ".claude", "projects", encoded, sessionID+".jsonl")
+	_, err = os.Stat(jsonlPath)
+	return err == nil
+}
+
 // lastSessionID reads the persisted CC session ID for an agent from the status file.
-// Returns "" on cold-start (no prior session) or on read error (logged as WARN).
-func lastSessionID(teamName, agentName string) string {
+// Returns "" on cold-start (no prior session), on read error (logged as WARN),
+// or when the session's JSONL doesn't exist in the current project dir (CWD change).
+func lastSessionID(teamName, agentName, agentPath string) string {
 	s, err := status.ReadAgent(teamName, agentName)
 	if err != nil {
 		log.Printf("[daemon] WARN: could not read status for %s/%s, skipping --resume: %v", teamName, agentName, err)
@@ -1059,6 +1089,12 @@ func lastSessionID(teamName, agentName string) string {
 	}
 	if s == nil {
 		// Cold start — no prior session, nothing to resume.
+		return ""
+	}
+	// Verify session JSONL exists in the current project dir.
+	// After a CWD change the old session lives in a different encoded dir.
+	if !sessionJSONLExists(s.SessionID, agentPath) {
+		log.Printf("[daemon] session %s not found in %s — starting fresh", s.SessionID, watcher.EncodePath(agentPath))
 		return ""
 	}
 	return s.SessionID
