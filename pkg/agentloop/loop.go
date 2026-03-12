@@ -68,7 +68,9 @@ type RunResult struct {
 type Callbacks struct {
 	// OnDelta is called with each text delta as Claude streams its response.
 	OnDelta func(text string)
-	// OnToolStart is called when the agent invokes a tool, with the tool name.
+	// OnToolStart is called when the agent selects a tool, before execution begins.
+	// Fires in the order: OnToolStart → tool executes → OnToolResult (internal).
+	// Use this to show progress indicators (e.g. "Using flicknote…").
 	OnToolStart func(toolName string)
 }
 

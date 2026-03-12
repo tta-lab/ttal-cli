@@ -304,3 +304,25 @@ func TestRun_ToolCallAndResultCallbacks(t *testing.T) {
 	assert.Equal(t, StepRoleTool, toolStep.Role)
 	assert.Equal(t, "tc1", toolStep.ToolCallID)
 }
+
+// TestRun_OnToolStart verifies that OnToolStart fires with the correct tool name
+// before execution. A regression passing tc.ToolCallID instead of tc.ToolName,
+// or moving the callback to OnToolResult, would fail this test.
+func TestRun_OnToolStart(t *testing.T) {
+	provider := &mockProvider{model: &mockLanguageModel{streamFunc: toolCallThenDoneStream()}}
+	cfg := Config{
+		Provider: provider,
+		Model:    "mock-model",
+		Tools:    []fantasy.AgentTool{makeCaptureTool(new(*sandbox.ExecConfig))},
+		MaxSteps: 5,
+	}
+
+	var toolsStarted []string
+	_, err := Run(context.Background(), cfg, nil, "capture", Callbacks{
+		OnToolStart: func(toolName string) {
+			toolsStarted = append(toolsStarted, toolName)
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"capture"}, toolsStarted)
+}
