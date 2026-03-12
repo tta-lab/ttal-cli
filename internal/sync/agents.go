@@ -313,6 +313,7 @@ func DiscoverTtalAgents(subagentsPaths []string) ([]*ParsedAgent, error) {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "warning: subagents path not found: %s\n", dir)
 				continue
 			}
 			return nil, fmt.Errorf("reading subagents dir %s: %w", dir, err)
@@ -327,7 +328,8 @@ func DiscoverTtalAgents(subagentsPaths []string) ([]*ParsedAgent, error) {
 			}
 			agent, err := ParseAgentFile(string(content))
 			if err != nil {
-				continue // skip malformed files
+				fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", entry.Name(), err)
+				continue
 			}
 			if agent.Frontmatter.Ttal != nil {
 				agents = append(agents, agent)

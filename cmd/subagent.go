@@ -195,6 +195,9 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 	// Compute column widths
 	nameW, modelW, toolsW := len("NAME"), len("MODEL"), len("TOOLS")
 	for _, a := range agents {
+		if a.Frontmatter.Ttal == nil {
+			continue
+		}
 		if n := len(a.Frontmatter.Name); n > nameW {
 			nameW = n
 		}
@@ -210,6 +213,9 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 	// Header
 	fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, "NAME", modelW, "MODEL", toolsW, "TOOLS", "DESCRIPTION")
 	for _, a := range agents {
+		if a.Frontmatter.Ttal == nil {
+			continue
+		}
 		ts := strings.Join(a.Frontmatter.Ttal.Tools, ", ")
 		desc := firstLine(a.Frontmatter.Description)
 		fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, modelW, a.Frontmatter.Ttal.Model, toolsW, ts, desc)
@@ -242,14 +248,20 @@ func buildSubagentProvider(model string) (fantasy.Provider, string, error) {
 		}
 		modelID := strings.TrimPrefix(model, "minimax/")
 		p, err := anthropic.New(anthropic.WithBaseURL(baseURL), anthropic.WithAPIKey(apiKey))
-		return p, modelID, err
+		if err != nil {
+			return nil, "", fmt.Errorf("minimax provider (%s): %w", modelID, err)
+		}
+		return p, modelID, nil
 	default:
 		apiKey := os.Getenv("ANTHROPIC_API_KEY")
 		if apiKey == "" {
 			return nil, "", fmt.Errorf("ANTHROPIC_API_KEY is not set")
 		}
 		p, err := anthropic.New(anthropic.WithAPIKey(apiKey))
-		return p, model, err
+		if err != nil {
+			return nil, "", fmt.Errorf("anthropic provider (%s): %w", model, err)
+		}
+		return p, model, nil
 	}
 }
 
