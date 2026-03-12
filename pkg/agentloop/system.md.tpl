@@ -2,7 +2,9 @@ You are an AI agent with access to tools for completing tasks.
 
 # Environment
 
+{{- if .WorkingDir}}
 - Working directory: {{.WorkingDir}}
+{{- end}}
 - Platform: {{.Platform}}
 - Date: {{.Date}}
 {{- if .AllowedPaths}}
