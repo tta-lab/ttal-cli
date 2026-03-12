@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/NimbleMarkets/ntcharts/v2/heatmap"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -70,6 +71,11 @@ type Model struct {
 	loading        bool
 	teamName       string
 	loadingSpinner spinner.Model
+
+	// Heatmap
+	heatmapModel heatmap.Model
+	heatmapReady bool
+	heatmapTotal int // cached total for display, computed during async load
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -103,8 +109,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.heatmapReady {
+			m.heatmapModel.Resize(msg.Width, msg.Height)
+		}
 		return m, nil
-	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg:
+	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg, heatmapLoadedMsg:
 		return m.handleDataMsg(msg)
 	case spinner.TickMsg:
 		if !m.loading {
@@ -161,6 +170,17 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "Error: " + msg.err.Error()
 		}
 		return m, nil
+	case heatmapLoadedMsg:
+		if msg.err != nil {
+			m.statusMsg = fmt.Sprintf("heatmap error: %v", msg.err)
+			m.state = stateTaskList
+			return m, nil
+		}
+		m.heatmapModel = msg.model
+		m.heatmapModel.Canvas.Focus() // Required — canvas ignores key events when unfocused
+		m.heatmapTotal = msg.total
+		m.heatmapReady = true
+		return m, nil
 	}
 	return m, nil
 }
@@ -200,6 +220,8 @@ func (m Model) View() tea.View {
 		content = m.viewTaskList() // show list behind overlay
 	case stateHelp:
 		content = m.viewHelp()
+	case stateHeatmap:
+		content = m.viewHeatmap()
 	}
 
 	// Overlays
@@ -233,6 +255,17 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleAnnotateKey(msg)
 	case stateConfirmDelete:
 		return m.handleConfirmDeleteKey(msg)
+	case stateHeatmap:
+		action := resolveKey(msg)
+		switch action {
+		case keyHeatmap, keyEsc:
+			m.heatmapModel.Canvas.Blur()
+			m.state = stateTaskList
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.heatmapModel, cmd = m.heatmapModel.Update(msg)
+		return m, cmd
 	}
 
 	action := resolveKey(msg)
@@ -344,6 +377,10 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 		}
 	case keyRefresh:
 		return m, m.reloadTasks()
+	case keyHeatmap:
+		m.heatmapReady = false
+		m.state = stateHeatmap
+		return m, loadHeatmapCmd(m.width, m.height)
 	}
 	return m, nil
 }

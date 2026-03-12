@@ -10,6 +10,7 @@ require (
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
 	entgo.io/ent v0.14.5
 	github.com/BurntSushi/toml v1.6.0
+	github.com/NimbleMarkets/ntcharts/v2 v2.0.0
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/coder/acp-go-sdk v0.6.3
 	github.com/fsnotify/fsnotify v1.9.0
@@ -58,7 +59,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/anthropic-sdk-go v0.0.0-20260223140439-63879b0b8dab // indirect
 	github.com/charmbracelet/colorprofile v0.4.2 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260223171050-89c142e4aa73 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250904123553-b4e2667e5ad5 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
@@ -89,6 +90,7 @@ require (
 	github.com/kaptinlin/jsonpointer v0.4.17 // indirect
 	github.com/kaptinlin/jsonschema v0.7.5 // indirect
 	github.com/kaptinlin/messageformat-go v0.4.18 // indirect
+	github.com/lrstanley/bubblezone/v2 v2.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -100,7 +102,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

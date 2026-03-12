@@ -199,6 +199,36 @@ func Remove(ids []string) error {
 	return nil
 }
 
+// CompletedCounts returns a map of date → completed task count for the past year.
+// Date keys are truncated to midnight UTC for consistent lookups.
+func CompletedCounts() (map[time.Time]int, error) {
+	out, err := taskwarrior.Command("status:completed", "end.after:today-1y", "export").Output()
+	if err != nil {
+		return nil, fmt.Errorf("query completed tasks: %w", err)
+	}
+
+	var tasks []task
+	if err := json.Unmarshal(out, &tasks); err != nil {
+		return nil, fmt.Errorf("parse completed tasks: %w", err)
+	}
+
+	counts := make(map[time.Time]int)
+	for _, t := range tasks {
+		if t.End == "" {
+			continue
+		}
+		end, err := parseTaskDate(t.End)
+		if err != nil {
+			continue
+		}
+		// Truncate to midnight UTC — taskwarrior dates are UTC
+		day := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, time.UTC)
+		counts[day]++
+	}
+
+	return counts, nil
+}
+
 // parseTaskDate parses taskwarrior date formats (ISO 8601 with T and Z).
 func parseTaskDate(s string) (time.Time, error) {
 	// Taskwarrior exports dates as "20260224T120000Z"
