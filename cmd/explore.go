@@ -121,13 +121,18 @@ func exploreProject(question, alias string, cfg *config.Config, maxSteps, maxTok
 		return fmt.Errorf("project path %q does not exist on disk: %w", projectPath, err)
 	}
 
+	backend, err := resolveFetchBackend()
+	if err != nil {
+		return err
+	}
+
 	return runExploreAgent(exploreOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(exploreProjectPrompt, "{projectPath}", projectPath),
 		allowedPaths: []string{projectPath},
-		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
+		toolNames:    []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"},
 		model:        cfg.ExploreModel(),
-		fetchBackend: tools.NewDefuddleCLIBackend(), // placeholder: read_url not in toolNames
+		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 	})
@@ -145,13 +150,18 @@ func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxToke
 		return err
 	}
 
+	backend, err := resolveFetchBackend()
+	if err != nil {
+		return err
+	}
+
 	return runExploreAgent(exploreOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(exploreRepoPrompt, "{localPath}", localPath),
 		allowedPaths: []string{localPath},
-		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
+		toolNames:    []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"},
 		model:        cfg.ExploreModel(),
-		fetchBackend: tools.NewDefuddleCLIBackend(), // placeholder: read_url not in toolNames
+		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 	})
