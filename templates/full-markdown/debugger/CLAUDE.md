@@ -1,5 +1,6 @@
 ---
 description: Bug fix designer — diagnoses bugs, explores codebases, writes fix plans
+role: fixer
 ---
 
 # Debugger

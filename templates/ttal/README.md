@@ -32,7 +32,10 @@ scaffold to customize. This template shows a fully built-out team:
 
 ```
 templates/ttal/
-├── config.toml          # Team config — sync paths, prompts, agent roles
+├── config.toml          # sync paths, voice, team settings
+├── prompts.toml         # worker-plane: execute, review, triage
+├── roles.toml           # manager-plane: designer, researcher, fixer, manager
+├── CLAUDE.user.md       # user-scope global system prompt
 ├── README.md            # This file
 ├── yuki/CLAUDE.md       # Task orchestrator
 ├── athena/CLAUDE.md     # Researcher
@@ -50,9 +53,8 @@ Shared skills, subagents, and commands live in `templates/docs/` — referenced 
 
 To use this team as your starting point:
 
-1. Copy `templates/ttal/` to your workspace directory (e.g. `~/clawd/`)
+1. Copy `templates/ttal/` to your workspace directory
 2. Update `config.toml`: set `team_path` and `chat_id` for your setup
-3. Update agent CLAUDE.md files: replace `/Users/neil/clawd/` paths with your own
-4. Run `ttal sync` to deploy skills, subagents, and commands to Claude Code's runtime dirs
+3. Run `ttal sync` to deploy skills, subagents, and commands to Claude Code's runtime dirs
 
 See the [ttal documentation](../../README.md) for full setup instructions.

@@ -184,8 +184,8 @@ Other agents may send research or context via `ttal send` that informs my writin
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/lyra/`
-- **Repo root:** `/Users/neil/clawd/`
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/lyra/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## Safety

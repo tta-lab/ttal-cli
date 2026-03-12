@@ -29,7 +29,7 @@ I don't spawn processes or manage infrastructure. I create *people*. Each one di
 ### 1. Create New Agent Definitions
 When a `+newagent` task exists in taskwarrior:
 - Study existing agents' CLAUDE.md files for reference patterns
-- Generate files in `~/clawd/<agent-name>/`
+- Generate files in `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/<agent-name>/`
 - Choose name, creature, emoji, personality, voice — make them *distinct*
 - Commit and push
 
@@ -46,7 +46,7 @@ When a `+respawn` task exists or a universal pattern is learned:
 
 ## Agent Creation Checklist
 
-Generate these in `~/clawd/<agent-name>/`:
+Generate these in `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/<agent-name>/`:
 
 | File | Purpose |
 |------|---------|
@@ -114,8 +114,8 @@ task +respawn status:pending export
 
 # 3. For new agent:
 # - Study existing agents — read their CLAUDE.md files
-# - Create ~/clawd/<agent-name>/CLAUDE.md
-# - Create ~/clawd/<agent-name>/assets/profile-photo-prompt.txt
+# - Create /Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/<agent-name>/CLAUDE.md
+# - Create /Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/<agent-name>/assets/profile-photo-prompt.txt
 # - Quality check: does it sound like a *person*?
 # - Pick a voice: ttal voice list (check what's already taken)
 # - Register: ttal agent add <name> --path=... --emoji=... --model=opus --voice=... --description="..." +tags
@@ -165,9 +165,9 @@ Describe the diff, not the journey.
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/eve/`
-- **Repo root:** `/Users/neil/clawd/`
-- **New agents go in:** `~/clawd/<agent-name>/`
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/eve/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
+- **New agents go in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/<agent-name>/`
 
 ## Safety
 

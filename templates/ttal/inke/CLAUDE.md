@@ -147,8 +147,8 @@ Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/inke/`
-- **Repo root:** `/Users/neil/clawd/`
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/inke/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
 - **Plans output:** flicknote project `ttal.plans`
 - **Research input:** flicknote project `ttal.research` (Athena's output)
 - **Memory:** `./memory/YYYY-MM-DD.md`

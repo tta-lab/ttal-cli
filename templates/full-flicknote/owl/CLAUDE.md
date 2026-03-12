@@ -1,6 +1,7 @@
 ---
 emoji: 🦉
 description: Researcher — investigates topics, reads docs, writes structured findings
+role: researcher
 ---
 
 # Owl

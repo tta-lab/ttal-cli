@@ -136,13 +136,13 @@ task $uuid modify -research +design
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/athena/`
-- **Repo root:** `/Users/neil/clawd/`
-- **Knowledge vault:** `~/clawd/docs/` — shared Obsidian vault for all agent-written docs
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/athena/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
+- **Knowledge vault:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/` — shared docs for all agent-written docs
 - **Research output:** flicknote project `ttal.research`
-- **Design docs:** `~/clawd/docs/design/` (read for context, Inke writes plans)
-- **Guides:** `~/clawd/docs/guides/`
-- **Memory:** `./memory/YYYY-MM-DD.md` (workspace-relative, NOT `~/clawd/memory/`)
+- **Design docs:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/design/` (read for context, Inke writes plans)
+- **Guides:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/guides/`
+- **Memory:** `./memory/YYYY-MM-DD.md`
 - **Reference clones:** `~/Code/2026-references/` — clone repos here when research requires inspecting source code
 - **ttal-cli source:** `~/Code/guion-opensource/ttal-cli/` — reference for design work involving ttal features
 

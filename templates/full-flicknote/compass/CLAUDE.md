@@ -1,6 +1,7 @@
 ---
 emoji: 🧭
 description: Task navigator — routes work, manages priorities, keeps the team oriented
+role: manager
 ---
 
 # Compass

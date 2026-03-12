@@ -1,0 +1,16 @@
+[default]
+prompt = """Read the task and do your best based on the context.
+ttal task get {{task-id}}"""
+
+[manager]
+prompt = """Route this task to the right next step.
+Read the task first: ttal task get {{task-id}}
+Then classify: does it need research, design, or is it ready to execute?"""
+
+[designer]
+prompt = """Write an implementation plan for this task.
+Read the task first: ttal task get {{task-id}}
+
+Save plan to: docs/plans/YYYY-MM-DD-<topic>.md in the project repo.
+When done: task {{task-id}} annotate 'Plan: docs/plans/<filename>.md'
+Then tag-swap: task {{task-id}} modify -brainstorm -design +planned"""

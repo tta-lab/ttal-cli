@@ -272,6 +272,6 @@ Session naming: `w-<uuid[:8]>-<slug>` (workers), `session-<agent>` (agents)
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/yuki/`
-- **Repo root:** `/Users/neil/clawd/`
-- **Research output:** `~/clawd/docs/research/`
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/yuki/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
+- **Research output:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/research/`

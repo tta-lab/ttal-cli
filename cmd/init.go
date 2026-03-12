@@ -100,8 +100,8 @@ func runInit() error {
 		}
 	}
 
-	// Install config
-	if err := installInitConfig(workspace); err != nil {
+	// Install config files
+	if err := installInitConfigs(workspace); err != nil {
 		fmt.Printf("  ! Config: %v\n", err)
 	}
 
@@ -164,31 +164,41 @@ func pickScaffold(scaffolds []scaffold.ScaffoldInfo) (string, error) {
 	}
 }
 
-// installInitConfig copies the scaffold's config.toml to ~/.config/ttal/ if none exists.
-func installInitConfig(workspace string) error {
-	configDst, err := config.Path()
+// installInitConfigs copies all .toml files from the scaffold to ~/.config/ttal/.
+func installInitConfigs(workspace string) error {
+	configPath, err := config.Path()
 	if err != nil {
 		return err
 	}
+	configDir := filepath.Dir(configPath)
 
-	if _, err := os.Stat(configDst); err == nil {
-		fmt.Printf("  Config already exists: %s\n", configDst)
-		return nil
-	}
-
-	scaffoldConfig := filepath.Join(workspace, "config.toml")
-	data, err := os.ReadFile(scaffoldConfig)
+	tomlFiles, err := filepath.Glob(filepath.Join(workspace, "*.toml"))
 	if err != nil {
-		return fmt.Errorf("read scaffold config: %w", err)
+		return fmt.Errorf("glob toml files: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(configDst), 0o755); err != nil {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(configDst, data, 0o600); err != nil {
-		return err
+
+	for _, src := range tomlFiles {
+		name := filepath.Base(src)
+		dst := filepath.Join(configDir, name)
+
+		if _, err := os.Stat(dst); err == nil {
+			fmt.Printf("  Config already exists: %s\n", dst)
+			continue
+		}
+
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", name, err)
+		}
+		if err := os.WriteFile(dst, data, 0o600); err != nil {
+			return fmt.Errorf("write %s: %w", name, err)
+		}
+		fmt.Printf("  Installed: %s\n", dst)
 	}
-	fmt.Printf("  Installed config: %s\n", configDst)
 	return nil
 }
 

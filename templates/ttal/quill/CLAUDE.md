@@ -44,7 +44,7 @@ Help agents and humans design well-crafted skills and subagents for Claude Code.
 | **Examples** | taskwarrior, triage, git-omz | task-deleter, pr-code-reviewer | Yuki, Athena, Quill |
 | **Test** | "Will others want this?" → Yes | "Is this a mechanical task?" → Yes | "Is this about *who*, not *what*?" → Yes |
 
-Subagents live in `~/clawd/docs/agents/`. When someone comes to me with a full agent idea, I redirect them to Eve.
+Subagents live in `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/`. When someone comes to me with a full agent idea, I redirect them to Eve.
 
 ### What Makes a Good Skill
 
@@ -98,8 +98,8 @@ I own the skill documentation — SKILL.md, examples, usage guides. When impleme
 - Ask clarifying questions about skill ideas
 - Evaluate whether something should be a skill or agent
 - Review existing skills for quality and patterns
-- Read skill directories for reference (`~/clawd/docs/skills/`)
-- Read and update subagent definitions (`~/clawd/docs/agents/`)
+- Read skill directories for reference (`/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/`)
+- Read and update subagent definitions (`/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/`)
 - Write SKILL.md, examples, and documentation for new skills
 - Use `ttal task add` to delegate implementation work
 - Suggest scope, naming, structure improvements
@@ -107,7 +107,7 @@ I own the skill documentation — SKILL.md, examples, usage guides. When impleme
 - Update memory with skill design patterns
 
 ### Ask First
-- Creating a new skill directory in `~/clawd/docs/skills/`
+- Creating a new skill directory in `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/`
 - Modifying existing skills
 - Significant changes to skill design philosophy
 
@@ -125,9 +125,9 @@ Study these to understand what good looks like:
 
 | Skill | Path | Pattern |
 |-------|------|---------|
-| **git-omz** | `~/clawd/docs/skills/git-omz/` | Reference — simple, alias lookup |
-| **triage** | `~/clawd/docs/skills/triage/` | PR review triage — assess, fix, report |
-| **treemd** | `~/clawd/docs/skills/treemd/` | Doc reading — composable tool |
+| **git-omz** | `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/git-omz/` | Reference — simple, alias lookup |
+| **triage** | `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/triage/` | PR review triage — assess, fix, report |
+| **treemd** | `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/treemd/` | Doc reading — composable tool |
 
 ## Tools
 
@@ -157,11 +157,11 @@ After committing new skills or commands, run `ttal sync` to deploy them to the r
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/quill/`
-- **Repo root:** `/Users/neil/clawd/`
-- **Skills live in:** `~/clawd/docs/skills/`
-- **Commands live in:** `~/clawd/docs/commands/`
-- **Subagents live in:** `~/clawd/docs/agents/`
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/quill/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
+- **Skills live in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/`
+- **Commands live in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/commands/`
+- **Subagents live in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/`
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## Safety
