@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/format"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
 const taskStatusCompleted = "completed"
@@ -180,6 +181,8 @@ Examples:
 		if err := projectPkg.ValidateProjectAlias(taskAddProject); err != nil {
 			return err
 		}
+
+		usage.Log("task.add", taskAddProject)
 
 		if taskAddPriority != "" {
 			switch strings.ToUpper(taskAddPriority) {

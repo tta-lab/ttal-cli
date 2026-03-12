@@ -45,6 +45,18 @@ func (f ReactionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReactionMutation", m)
 }
 
+// The ToolUsageFunc type is an adapter to allow the use of ordinary
+// function as ToolUsage mutator.
+type ToolUsageFunc func(context.Context, *ent.ToolUsageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ToolUsageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ToolUsageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ToolUsageMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 

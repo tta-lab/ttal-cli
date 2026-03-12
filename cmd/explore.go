@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/usage"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/tools"
 )
@@ -85,6 +86,8 @@ func runExplore(cmd *cobra.Command, args []string) error {
 	if flagsSet > 1 {
 		return fmt.Errorf("only one of --project, --repo, --url, or --web may be specified at a time")
 	}
+
+	usage.Log("explore", exploreLogTarget())
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -368,4 +371,20 @@ func init() {
 	exploreCmd.Flags().IntVar(&exploreFlags.maxTokens, "max-tokens", config.ExploreDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
 
 	rootCmd.AddCommand(exploreCmd)
+}
+
+// exploreLogTarget returns the usage log target string based on active explore flags.
+func exploreLogTarget() string {
+	switch {
+	case exploreFlags.project != "":
+		return exploreFlags.project
+	case exploreFlags.repo != "":
+		return exploreFlags.repo
+	case exploreFlags.url != "":
+		return exploreFlags.url
+	case exploreFlags.web:
+		return "web"
+	default:
+		return "general"
+	}
 }

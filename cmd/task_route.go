@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/usage"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
@@ -41,6 +42,7 @@ Examples:
 			return err
 		}
 		uuid := args[0]
+		usage.Log("task.route", routeToAgent)
 		rt := cfg.AgentRuntimeFor(routeToAgent)
 		role := agent.Role
 		if role == "" {
@@ -187,6 +189,7 @@ func spawnWorkerForTask(taskUUID string, dryRun, yes bool) error {
 		spawnCfg.Image = image
 	}
 
+	usage.Log("task.execute", taskUUID)
 	if err := worker.Spawn(spawnCfg); err != nil {
 		return err
 	}
