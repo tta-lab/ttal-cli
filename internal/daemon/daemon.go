@@ -1016,16 +1016,25 @@ func shutdownCCSessions(sessions []string) {
 	}
 }
 
+// agentProjectDir returns the ~/.claude/projects/<encoded> path for an agent.
+func agentProjectDir(agentPath string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get home dir: %w", err)
+	}
+	encoded := watcher.EncodePath(agentPath)
+	return filepath.Join(home, ".claude", "projects", encoded), nil
+}
+
 // ensureProjectDir creates the CC JSONL project directory for an agent.
 // Called before spawnCCSession so the dir exists when CC starts and is
 // ready for the watcher to monitor.
 func ensureProjectDir(agentPath string) {
-	home, err := os.UserHomeDir()
+	dir, err := agentProjectDir(agentPath)
 	if err != nil {
+		log.Printf("[daemon] failed to resolve project dir for %s: %v", filepath.Base(agentPath), err)
 		return
 	}
-	encoded := watcher.EncodePath(agentPath)
-	dir := filepath.Join(home, ".claude", "projects", encoded)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		log.Printf("[daemon] failed to create project dir for %s: %v", filepath.Base(agentPath), err)
 	}
@@ -1067,15 +1076,23 @@ func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, e
 
 // sessionJSONLExists checks if a session's JSONL file exists in the
 // project dir for the given agent path.
+// Returns true on unexpected stat errors (conservative fallback — better to
+// attempt --resume than silently drop it on a transient I/O error).
 func sessionJSONLExists(sessionID, agentPath string) bool {
-	home, err := os.UserHomeDir()
+	dir, err := agentProjectDir(agentPath)
 	if err != nil {
 		return true // best-effort: assume exists
 	}
-	encoded := watcher.EncodePath(agentPath)
-	jsonlPath := filepath.Join(home, ".claude", "projects", encoded, sessionID+".jsonl")
+	jsonlPath := filepath.Join(dir, sessionID+".jsonl")
 	_, err = os.Stat(jsonlPath)
-	return err == nil
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	log.Printf("[daemon] WARN: could not stat session JSONL %s: %v — assuming exists", jsonlPath, err)
+	return true
 }
 
 // lastSessionID reads the persisted CC session ID for an agent from the status file.
@@ -1094,7 +1111,8 @@ func lastSessionID(teamName, agentName, agentPath string) string {
 	// Verify session JSONL exists in the current project dir.
 	// After a CWD change the old session lives in a different encoded dir.
 	if !sessionJSONLExists(s.SessionID, agentPath) {
-		log.Printf("[daemon] session %s not found in %s — starting fresh", s.SessionID, watcher.EncodePath(agentPath))
+		dir, _ := agentProjectDir(agentPath)
+		log.Printf("[daemon] session %s not found in %s — starting fresh", s.SessionID, filepath.Base(dir))
 		return ""
 	}
 	return s.SessionID
