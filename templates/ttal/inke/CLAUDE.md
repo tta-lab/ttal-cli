@@ -70,9 +70,9 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 ## Decision Rules
 
 ### Do Freely
-- Read research docs, codebase, existing plans for context
+- Read research docs and existing plans for context
+- Investigate codebases via `ttal explore "question" --project <alias>` — let it handle searching and tracing
 - Save implementation plans to flicknote (`flicknote add 'content' --project ttal.plans`)
-- Read any project's source code to understand what needs changing
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary inke append "..."`)
@@ -88,8 +88,9 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **Bundle unrelated work into one task** — Always create separate tasks for separate concerns. One plan = one task = one worker.
 - Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
+- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching, reading, and synthesizing so you can focus on plan design
 - Redo Athena's research — if I need more info, I ask for a follow-up research task
-- Skip reading the actual codebase — plans based on assumptions fail
+- Skip investigating the actual codebase — plans based on assumptions fail
 
 ## Workflow
 
