@@ -19,14 +19,20 @@ const (
 	StepRoleTool      StepRole = "tool"
 )
 
+// DefaultMaxSteps is the fallback max steps when Config.MaxSteps is 0.
+const DefaultMaxSteps = 30
+
+// DefaultMaxTokens is the fallback max output tokens when Config.MaxTokens is 0.
+const DefaultMaxTokens = 16384
+
 // Config holds everything needed to run one agent loop iteration.
 type Config struct {
 	Provider      fantasy.Provider
 	Model         string
 	SystemPrompt  string
 	Tools         []fantasy.AgentTool
-	MaxSteps      int      // 0 means use default (20)
-	MaxTokens     int      // 0 means use default (4096)
+	MaxSteps      int      // 0 means use default (DefaultMaxSteps)
+	MaxTokens     int      // 0 means use default (DefaultMaxTokens)
 	SandboxEnv    []string // passed to sandbox ExecConfig
 	AllowedPaths  []string // absolute dirs the read/glob/grep tools may access
 	TreeThreshold int      // chars — content above this returns tree by default; 0 = use default (5000)
@@ -81,11 +87,11 @@ func Run(
 
 	maxSteps := cfg.MaxSteps
 	if maxSteps <= 0 {
-		maxSteps = 20
+		maxSteps = DefaultMaxSteps
 	}
 	maxTokens := int64(cfg.MaxTokens)
 	if maxTokens <= 0 {
-		maxTokens = 4096
+		maxTokens = DefaultMaxTokens
 	}
 
 	agnt := fantasy.NewAgent(model,
