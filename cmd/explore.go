@@ -314,8 +314,8 @@ func runExploreAgent(opts exploreOpts) error {
 		AllowedPaths: allowedPaths,
 	}
 
-	result, err := agentloop.Run(context.Background(), agentCfg, nil, opts.question, func(text string) {
-		fmt.Print(text)
+	result, err := agentloop.Run(context.Background(), agentCfg, nil, opts.question, agentloop.Callbacks{
+		OnDelta: func(text string) { fmt.Print(text) },
 	})
 	if err != nil {
 		return fmt.Errorf("agent loop: %w", err)

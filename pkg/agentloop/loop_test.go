@@ -79,8 +79,8 @@ func TestRun_SimpleTextResponse(t *testing.T) {
 	}
 
 	var deltas []string
-	result, err := Run(context.Background(), cfg, nil, "say hello", func(text string) {
-		deltas = append(deltas, text)
+	result, err := Run(context.Background(), cfg, nil, "say hello", Callbacks{
+		OnDelta: func(text string) { deltas = append(deltas, text) },
 	})
 
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestRun_AccumulatesSteps(t *testing.T) {
 		Model:    "mock-model",
 	}
 
-	result, err := Run(context.Background(), cfg, nil, "hello", nil)
+	result, err := Run(context.Background(), cfg, nil, "hello", Callbacks{})
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -112,7 +112,7 @@ func TestRun_NilProviderReturnsError(t *testing.T) {
 		Provider: nil,
 		Model:    "mock-model",
 	}
-	_, err := Run(context.Background(), cfg, nil, "hello", nil)
+	_, err := Run(context.Background(), cfg, nil, "hello", Callbacks{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Provider must not be nil")
 }
@@ -126,7 +126,7 @@ func TestRun_SandboxEnvInContext(t *testing.T) {
 		SandboxEnv: []string{"MY_VAR=test"},
 	}
 
-	result, err := Run(context.Background(), cfg, nil, "hello", nil)
+	result, err := Run(context.Background(), cfg, nil, "hello", Callbacks{})
 	require.NoError(t, err)
 	assert.Equal(t, "hello world", result.Response)
 }
@@ -135,7 +135,7 @@ func TestRun_DefaultMaxSteps(t *testing.T) {
 	// When MaxSteps=0, defaults to 20 — verify no panic/error
 	provider := &mockProvider{model: &mockLanguageModel{}}
 	cfg := Config{Provider: provider, Model: "mock-model"}
-	_, err := Run(context.Background(), cfg, nil, "hello", nil)
+	_, err := Run(context.Background(), cfg, nil, "hello", Callbacks{})
 	require.NoError(t, err)
 }
 
@@ -143,7 +143,7 @@ func TestRun_NilAllowedPathsProducesNilMounts(t *testing.T) {
 	// nil AllowedPaths should produce nil MountDirs (not a non-nil empty slice).
 	provider := &mockProvider{model: &mockLanguageModel{}}
 	cfg := Config{Provider: provider, Model: "mock-model", AllowedPaths: nil}
-	_, err := Run(context.Background(), cfg, nil, "hello", nil)
+	_, err := Run(context.Background(), cfg, nil, "hello", Callbacks{})
 	require.NoError(t, err)
 }
 
@@ -154,7 +154,7 @@ func TestRun_InvalidAllowedPathReturnsError(t *testing.T) {
 		Provider:     provider,
 		Model:        "mock-model",
 		AllowedPaths: []string{""},
-	}, nil, "hello", nil)
+	}, nil, "hello", Callbacks{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "non-empty absolute path")
 
@@ -162,7 +162,7 @@ func TestRun_InvalidAllowedPathReturnsError(t *testing.T) {
 		Provider:     provider,
 		Model:        "mock-model",
 		AllowedPaths: []string{"relative/path"},
-	}, nil, "hello", nil)
+	}, nil, "hello", Callbacks{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "non-empty absolute path")
 }
@@ -212,7 +212,7 @@ func TestRun_SandboxEnvAndAllowedPathsBothWired(t *testing.T) {
 		AllowedPaths: []string{"/some/dir"},
 	}
 
-	_, err := Run(context.Background(), cfg, nil, "capture", nil)
+	_, err := Run(context.Background(), cfg, nil, "capture", Callbacks{})
 	require.NoError(t, err)
 	require.NotNil(t, capturedExecCfg)
 	assert.Equal(t, []string{"MY_VAR=hello"}, capturedExecCfg.Env)
@@ -231,7 +231,7 @@ func TestRun_AllowedPathsInMountDirs(t *testing.T) {
 		AllowedPaths: []string{"/some/project/dir", "/another/dir"},
 	}
 
-	_, err := Run(context.Background(), cfg, nil, "capture exec config", nil)
+	_, err := Run(context.Background(), cfg, nil, "capture exec config", Callbacks{})
 	require.NoError(t, err)
 	require.NotNil(t, capturedExecCfg, "tool should have captured ExecConfig from context")
 
@@ -283,7 +283,7 @@ func TestRun_ToolCallAndResultCallbacks(t *testing.T) {
 	provider := &mockProvider{model: &mockLanguageModel{streamFunc: streamWithToolCall}}
 	cfg := Config{Provider: provider, Model: "mock-model", MaxSteps: 5}
 
-	result, err := Run(context.Background(), cfg, nil, "run bash", nil)
+	result, err := Run(context.Background(), cfg, nil, "run bash", Callbacks{})
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -303,4 +303,26 @@ func TestRun_ToolCallAndResultCallbacks(t *testing.T) {
 	toolStep := result.Steps[1]
 	assert.Equal(t, StepRoleTool, toolStep.Role)
 	assert.Equal(t, "tc1", toolStep.ToolCallID)
+}
+
+// TestRun_OnToolStart verifies that OnToolStart fires with the correct tool name
+// before execution. A regression passing tc.ToolCallID instead of tc.ToolName,
+// or moving the callback to OnToolResult, would fail this test.
+func TestRun_OnToolStart(t *testing.T) {
+	provider := &mockProvider{model: &mockLanguageModel{streamFunc: toolCallThenDoneStream()}}
+	cfg := Config{
+		Provider: provider,
+		Model:    "mock-model",
+		Tools:    []fantasy.AgentTool{makeCaptureTool(new(*sandbox.ExecConfig))},
+		MaxSteps: 5,
+	}
+
+	var toolsStarted []string
+	_, err := Run(context.Background(), cfg, nil, "capture", Callbacks{
+		OnToolStart: func(toolName string) {
+			toolsStarted = append(toolsStarted, toolName)
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"capture"}, toolsStarted)
 }

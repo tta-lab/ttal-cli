@@ -203,8 +203,8 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		TreeThreshold: subagentRunFlags.treeThreshold,
 	}
 
-	result, err := agentloop.Run(context.Background(), cfg, nil, prompt, func(text string) {
-		fmt.Print(text)
+	result, err := agentloop.Run(context.Background(), cfg, nil, prompt, agentloop.Callbacks{
+		OnDelta: func(text string) { fmt.Print(text) },
 	})
 	if err != nil {
 		return fmt.Errorf("agent loop: %w", err)
