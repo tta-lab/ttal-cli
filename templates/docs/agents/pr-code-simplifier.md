@@ -22,7 +22,7 @@ opencode:
   mode: subagent
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [read, glob, grep]
+  tools: [bash, read, glob, grep]
 ---
 
 ## Environment
