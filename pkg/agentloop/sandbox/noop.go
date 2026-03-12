@@ -14,7 +14,9 @@ type NoopSandbox struct {
 }
 
 // Exec runs a bash command directly on the host, without sandboxing.
-func (n *NoopSandbox) Exec(ctx context.Context, command string, cfg *ExecConfig) (stdout, stderr string, exitCode int, err error) {
+func (n *NoopSandbox) Exec(
+	ctx context.Context, command string, cfg *ExecConfig,
+) (stdout, stderr string, exitCode int, err error) {
 	timeout := effectiveTimeout(n.Timeout)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

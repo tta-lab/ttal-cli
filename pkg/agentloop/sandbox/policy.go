@@ -40,12 +40,12 @@ func buildPolicy(cfg *ExecConfig) (policy string, params []string, err error) {
 			}
 			if m.ReadOnly {
 				key := fmt.Sprintf("READABLE_ROOT_%d", readableIdx)
-				b.WriteString(fmt.Sprintf("\n(allow file-read* (subpath (param %q)))", key))
+				fmt.Fprintf(&b, "\n(allow file-read* (subpath (param %q)))", key)
 				params = append(params, "-D", key+"="+m.Source)
 				readableIdx++
 			} else {
 				key := fmt.Sprintf("WRITABLE_ROOT_%d", writableIdx)
-				b.WriteString(fmt.Sprintf("\n(allow file-read* file-write* (subpath (param %q)))", key))
+				fmt.Fprintf(&b, "\n(allow file-read* file-write* (subpath (param %q)))", key)
 				params = append(params, "-D", key+"="+m.Source)
 				writableIdx++
 			}

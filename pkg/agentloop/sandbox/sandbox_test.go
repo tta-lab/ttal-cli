@@ -20,7 +20,7 @@ func TestNew_ReturnsCorrectType(t *testing.T) {
 	case "darwin":
 		// sandbox-exec is always present on macOS — should be SeatbeltSandbox
 		assert.IsType(t, &SeatbeltSandbox{}, sbx)
-	case "linux":
+	default:
 		// bwrap may or may not be installed; with AllowUnsandboxed either type is fine
 		_, isBwrap := sbx.(*BwrapSandbox)
 		_, isNoop := sbx.(*NoopSandbox)

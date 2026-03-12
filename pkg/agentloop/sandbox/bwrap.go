@@ -15,7 +15,9 @@ type BwrapSandbox struct {
 }
 
 // Exec runs a bash command inside the bubblewrap sandbox.
-func (s *BwrapSandbox) Exec(ctx context.Context, command string, cfg *ExecConfig) (stdout, stderr string, exitCode int, err error) {
+func (s *BwrapSandbox) Exec(
+	ctx context.Context, command string, cfg *ExecConfig,
+) (stdout, stderr string, exitCode int, err error) {
 	timeout := effectiveTimeout(s.Timeout)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

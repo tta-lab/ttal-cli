@@ -15,7 +15,9 @@ type SeatbeltSandbox struct {
 }
 
 // Exec runs a bash command inside the seatbelt sandbox.
-func (s *SeatbeltSandbox) Exec(ctx context.Context, command string, cfg *ExecConfig) (stdout, stderr string, exitCode int, err error) {
+func (s *SeatbeltSandbox) Exec(
+	ctx context.Context, command string, cfg *ExecConfig,
+) (stdout, stderr string, exitCode int, err error) {
 	timeout := effectiveTimeout(s.Timeout)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -25,14 +27,15 @@ func (s *SeatbeltSandbox) Exec(ctx context.Context, command string, cfg *ExecCon
 	if err != nil {
 		return "", "", -1, fmt.Errorf("create temp home: %w", err)
 	}
-	defer os.RemoveAll(homeDir)
+	defer func() { _ = os.RemoveAll(homeDir) }()
 
 	policy, dParams, err := buildPolicy(cfg)
 	if err != nil {
 		return "", "", -1, fmt.Errorf("build seatbelt policy: %w", err)
 	}
 
-	args := []string{"-p", policy}
+	args := make([]string, 0, 2+len(dParams)+3)
+	args = append(args, "-p", policy)
 	args = append(args, dParams...)
 	args = append(args, "--", "bash", "-c", command)
 

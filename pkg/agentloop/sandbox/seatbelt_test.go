@@ -47,7 +47,7 @@ func TestSeatbeltSandbox_DeniesFileRead(t *testing.T) {
 
 	sentinel := filepath.Join(homeDir, ".ttal_sandbox_test_sentinel")
 	require.NoError(t, os.WriteFile(sentinel, []byte("secret"), 0600))
-	t.Cleanup(func() { os.Remove(sentinel) })
+	t.Cleanup(func() { _ = os.Remove(sentinel) })
 
 	s := &SeatbeltSandbox{Timeout: 10 * time.Second}
 	_, _, code, err := s.Exec(t.Context(), "cat "+sentinel, nil)
@@ -65,7 +65,7 @@ func TestSeatbeltSandbox_AllowsMountRead(t *testing.T) {
 
 	testDir := filepath.Join(homeDir, ".ttal_sandbox_test_mount")
 	require.NoError(t, os.MkdirAll(testDir, 0755))
-	t.Cleanup(func() { os.RemoveAll(testDir) })
+	t.Cleanup(func() { _ = os.RemoveAll(testDir) })
 
 	testFile := filepath.Join(testDir, "hello.txt")
 	require.NoError(t, os.WriteFile(testFile, []byte("hello"), 0644))
@@ -86,7 +86,8 @@ func TestSeatbeltSandbox_NetworkWorks(t *testing.T) {
 
 	s := &SeatbeltSandbox{Timeout: 15 * time.Second}
 	// Use curl to check network reachability (DNS + TCP).
-	stdout, stderr, code, err := s.Exec(t.Context(), "curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://example.com", nil)
+	curlCmd := "curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://example.com"
+	stdout, stderr, code, err := s.Exec(t.Context(), curlCmd, nil)
 
 	require.NoError(t, err)
 	// Accept any HTTP response — we just want network to work.
