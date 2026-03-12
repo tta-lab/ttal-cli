@@ -662,7 +662,7 @@ func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *mess
 		if err != nil {
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
-		log.Printf("[daemon] human-to-worker: → %s (%s)", req.To, session)
+		log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
 		return dispatchToWorker(msgSvc, session, message.CreateParams{
 			Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
 			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
