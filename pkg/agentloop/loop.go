@@ -63,15 +63,24 @@ type RunResult struct {
 	Result   *fantasy.AgentResult
 }
 
+// Callbacks holds optional streaming callbacks for the agent loop.
+// All fields are nil-safe — unset callbacks are simply not called.
+type Callbacks struct {
+	// OnDelta is called with each text delta as Claude streams its response.
+	OnDelta func(text string)
+	// OnToolStart is called when the agent invokes a tool, with the tool name.
+	OnToolStart func(toolName string)
+}
+
 // Run executes one agent loop: prompt → LLM → tool calls → response.
 // Stateless — no DB, no conversation persistence. The caller handles that.
-// onDelta is called with each text delta as it streams; pass nil to disable streaming.
+// cbs carries optional streaming callbacks; zero value disables all callbacks.
 func Run(
 	ctx context.Context,
 	cfg Config,
 	history []fantasy.Message,
 	prompt string,
-	onDelta func(text string),
+	cbs Callbacks,
 ) (*RunResult, error) {
 	if cfg.Provider == nil {
 		return nil, fmt.Errorf("agentloop: Config.Provider must not be nil")
@@ -123,8 +132,8 @@ func Run(
 		OnTextDelta: func(id, text string) error {
 			currentText.WriteString(text)
 			responseText.WriteString(text)
-			if onDelta != nil {
-				onDelta(text)
+			if cbs.OnDelta != nil {
+				cbs.OnDelta(text)
 			}
 			return nil
 		},
@@ -135,6 +144,9 @@ func Run(
 				Name:  tc.ToolName,
 				Input: json.RawMessage(tc.Input),
 			})
+			if cbs.OnToolStart != nil {
+				cbs.OnToolStart(tc.ToolName)
+			}
 			return nil
 		},
 
