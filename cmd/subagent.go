@@ -59,11 +59,7 @@ func loadSubagentsPaths() ([]string, error) {
 }
 
 // findTtalAgent discovers ttal-configured agents and returns the one matching name.
-func findTtalAgent(name string) (*internalsync.ParsedAgent, error) {
-	paths, err := loadSubagentsPaths()
-	if err != nil {
-		return nil, err
-	}
+func findTtalAgent(name string, paths []string) (*internalsync.ParsedAgent, error) {
 	agents, err := internalsync.DiscoverTtalAgents(paths)
 	if err != nil {
 		return nil, fmt.Errorf("discover agents: %w", err)
@@ -149,7 +145,13 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	prompt := args[1]
 
-	agent, err := findTtalAgent(name)
+	// Load config once — used for subagent paths and limit resolution.
+	ttalCfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	agent, err := findTtalAgent(name, ttalCfg.Sync.SubagentsPaths)
 	if err != nil {
 		return err
 	}
@@ -185,7 +187,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	maxSteps, maxTokens := resolveAgentLimits(cmd)
+	maxSteps, maxTokens := resolveLimits(cmd, ttalCfg, subagentRunFlags.maxSteps, subagentRunFlags.maxTokens)
 
 	cfg := agentloop.Config{
 		Provider:      provider,
@@ -325,25 +327,16 @@ func filterTools(allTools []fantasy.AgentTool, names []string) ([]fantasy.AgentT
 	return selected, nil
 }
 
-// resolveAgentLimits returns effective max steps and max tokens for a subagent run.
-// Priority: explicit flag > config > built-in default.
-func resolveAgentLimits(cmd *cobra.Command) (maxSteps, maxTokens int) {
-	maxSteps = subagentRunFlags.maxSteps
-	maxTokens = subagentRunFlags.maxTokens
-	stepsChanged := cmd.Flags().Changed("max-steps")
-	tokensChanged := cmd.Flags().Changed("max-tokens")
-	if stepsChanged && tokensChanged {
-		return
+// resolveLimits returns effective max steps and max tokens.
+// Priority: explicit flag > config > built-in default (already baked into flagSteps/flagTokens).
+func resolveLimits(cmd *cobra.Command, cfg *config.Config, flagSteps, flagTokens int) (maxSteps, maxTokens int) {
+	maxSteps = flagSteps
+	maxTokens = flagTokens
+	if !cmd.Flags().Changed("max-steps") {
+		maxSteps = cfg.ExploreMaxSteps()
 	}
-	ttalCfg, err := config.Load()
-	if err != nil {
-		return
-	}
-	if !stepsChanged {
-		maxSteps = ttalCfg.ExploreMaxSteps()
-	}
-	if !tokensChanged {
-		maxTokens = ttalCfg.ExploreMaxTokens()
+	if !cmd.Flags().Changed("max-tokens") {
+		maxTokens = cfg.ExploreMaxTokens()
 	}
 	return
 }

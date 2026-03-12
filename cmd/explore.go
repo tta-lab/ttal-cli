@@ -79,15 +79,7 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Resolve max-steps and max-tokens: explicit flag > config > built-in default.
-	maxSteps := exploreFlags.maxSteps
-	if !cmd.Flags().Changed("max-steps") {
-		maxSteps = cfg.ExploreMaxSteps()
-	}
-	maxTokens := exploreFlags.maxTokens
-	if !cmd.Flags().Changed("max-tokens") {
-		maxTokens = cfg.ExploreMaxTokens()
-	}
+	maxSteps, maxTokens := resolveLimits(cmd, cfg, exploreFlags.maxSteps, exploreFlags.maxTokens)
 
 	switch {
 	case exploreFlags.project != "":
