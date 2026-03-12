@@ -12,8 +12,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Log records a command invocation. Skips silently if TTAL_AGENT_NAME is not
-// set or if the database is unreachable. Never fails the caller.
+// Log records a command invocation with "command attempted" semantics — it fires
+// immediately after flag validation, before the underlying operation completes.
+// Skips silently if TTAL_AGENT_NAME is not set. Never fails the caller.
 func Log(subcommand, target string) {
 	agent := os.Getenv("TTAL_AGENT_NAME")
 	if agent == "" {
@@ -26,6 +27,7 @@ func Log(subcommand, target string) {
 
 	client, err := open()
 	if err != nil {
+		log.Printf("[usage] open error: %v", err)
 		return
 	}
 	defer func() { _ = client.Close() }()
@@ -46,6 +48,8 @@ func Log(subcommand, target string) {
 	}
 }
 
+// open returns an ent client connected to ~/.ttal/messages.db.
+// Schema creation is owned by the daemon — this function does not migrate.
 func open() (*ent.Client, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -58,14 +62,5 @@ func open() (*ent.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	client := ent.NewClient(ent.Driver(entsql.OpenDB("sqlite3", drv.DB())))
-
-	// Ensure schema exists (idempotent, fast for existing tables).
-	if err := client.Schema.Create(context.Background()); err != nil {
-		_ = client.Close()
-		return nil, err
-	}
-
-	return client, nil
+	return ent.NewClient(ent.Driver(drv)), nil
 }

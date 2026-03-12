@@ -16,6 +16,8 @@ type Count struct {
 }
 
 // Summary returns usage counts for an agent since a given time, grouped by subcommand and target.
+// Returns (nil, err) if the database is unavailable (e.g., daemon has not yet run); callers
+// should treat this as non-fatal and fall back gracefully.
 func Summary(agent string, since time.Time) ([]Count, error) {
 	client, err := open()
 	if err != nil {
