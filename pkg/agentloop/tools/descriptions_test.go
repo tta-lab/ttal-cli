@@ -78,7 +78,7 @@ func TestSchemaDescription_ReturnsFirstLine(t *testing.T) {
 }
 
 func TestRichToolDescriptions_ReturnsFullContent(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := NewDefuddleCLIBackend()
 	allTools := NewDefaultToolSet(sbx, backend, []string{t.TempDir()}, 0)
 
@@ -101,7 +101,7 @@ func TestRichToolDescriptions_ReturnsFullContent(t *testing.T) {
 }
 
 func TestRichToolDescriptions_OnlyIncludesProvidedTools(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := NewDefuddleCLIBackend()
 	// No allowed paths → only bash, read_url, search_web.
 	allTools := NewDefaultToolSet(sbx, backend, nil, 0)
@@ -141,7 +141,7 @@ func TestRichToolDescriptions_FallbackToSchemaDescription(t *testing.T) {
 }
 
 func TestToolSchemaDescriptions_MatchFirstLineOfEmbeddedMd(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := NewDefuddleCLIBackend()
 	allTools := NewDefaultToolSet(sbx, backend, []string{t.TempDir()}, 0)
 

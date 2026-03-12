@@ -55,10 +55,9 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("build provider: %w", err)
 	}
 
-	sbx := &sandbox.Sandbox{
-		BwrapPath:        "bwrap",
-		AllowUnsandboxed: true, // local dev — bwrap may not be available
-	}
+	sbx := sandbox.New(sandbox.Options{
+		AllowUnsandboxed: true, // local dev — platform sandbox may not be available
+	})
 
 	fetchBackend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, subagentRunFlags.allowedPaths, subagentRunFlags.treeThreshold)

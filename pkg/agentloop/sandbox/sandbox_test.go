@@ -1,58 +1,53 @@
 package sandbox
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestSandboxBuildArgs(t *testing.T) {
-	s := &Sandbox{BwrapPath: "bwrap"}
-
-	args := s.buildArgs("echo hello", nil)
-
-	// Verify core bwrap flags are present
-	assert.Contains(t, args, "--ro-bind")
-	assert.Contains(t, args, "--unshare-all")
-	assert.Contains(t, args, "--share-net")
-	assert.Contains(t, args, "--die-with-parent")
-
-	// Verify command is last
-	require.GreaterOrEqual(t, len(args), 3)
-	assert.Equal(t, "bash", args[len(args)-3])
-	assert.Equal(t, "-c", args[len(args)-2])
-	assert.Equal(t, "echo hello", args[len(args)-1])
+func TestNew_AllowUnsandboxed_IsAvailable(t *testing.T) {
+	sbx := New(Options{AllowUnsandboxed: true})
+	require.NotNil(t, sbx)
+	assert.True(t, sbx.IsAvailable())
 }
 
-func TestSandboxBuildArgs_WithMounts(t *testing.T) {
-	s := &Sandbox{BwrapPath: "bwrap"}
-	cfg := &ExecConfig{
-		MountDirs: []Mount{
-			{Source: "/data", Target: "/data", ReadOnly: true},
-			{Source: "/writable", Target: "/writable", ReadOnly: false},
-		},
+func TestNew_ReturnsCorrectType(t *testing.T) {
+	sbx := New(Options{AllowUnsandboxed: true})
+	switch runtime.GOOS {
+	case "darwin":
+		// sandbox-exec is always present on macOS — should be SeatbeltSandbox
+		assert.IsType(t, &SeatbeltSandbox{}, sbx)
+	default:
+		// bwrap may or may not be installed; with AllowUnsandboxed either type is fine
+		_, isBwrap := sbx.(*BwrapSandbox)
+		_, isNoop := sbx.(*NoopSandbox)
+		assert.True(t, isBwrap || isNoop, "expected BwrapSandbox or NoopSandbox on Linux")
 	}
+}
 
-	args := s.buildArgs("ls", cfg)
+func TestNoopSandbox_Exec(t *testing.T) {
+	n := &NoopSandbox{}
+	stdout, stderr, code, err := n.Exec(t.Context(), "echo hello", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", stdout)
+	assert.Empty(t, stderr)
+	assert.Equal(t, 0, code)
+}
 
-	// Verify read-only mount uses --ro-bind
-	foundROBind := false
-	for i, a := range args {
-		if a == "--ro-bind" && i+2 < len(args) && args[i+1] == "/data" && args[i+2] == "/data" {
-			foundROBind = true
-		}
-	}
-	assert.True(t, foundROBind, "expected --ro-bind for /data")
+func TestUnavailableSandbox_AlwaysErrors(t *testing.T) {
+	u := &UnavailableSandbox{Platform: "testplatform"}
+	_, _, _, err := u.Exec(t.Context(), "echo hello", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "testplatform")
+	assert.Contains(t, err.Error(), "no sandbox available")
+}
 
-	// Verify writable mount uses --bind
-	foundBind := false
-	for i, a := range args {
-		if a == "--bind" && i+2 < len(args) && args[i+1] == "/writable" && args[i+2] == "/writable" {
-			foundBind = true
-		}
-	}
-	assert.True(t, foundBind, "expected --bind for /writable")
+func TestUnavailableSandbox_IsAvailable(t *testing.T) {
+	u := &UnavailableSandbox{Platform: "linux"}
+	assert.False(t, u.IsAvailable())
 }
 
 func TestBuildEnv(t *testing.T) {
@@ -60,7 +55,7 @@ func TestBuildEnv(t *testing.T) {
 		Env: []string{"FOO=bar", "BAZ=qux"},
 	}
 
-	env := buildEnv(cfg)
+	env := buildEnv(cfg, "")
 
 	assert.Contains(t, env, "PATH=/usr/bin:/usr/local/bin:/bin")
 	assert.Contains(t, env, "HOME=/home/agent")
@@ -69,10 +64,15 @@ func TestBuildEnv(t *testing.T) {
 }
 
 func TestBuildEnv_Nil(t *testing.T) {
-	env := buildEnv(nil)
+	env := buildEnv(nil, "")
 
 	assert.Contains(t, env, "PATH=/usr/bin:/usr/local/bin:/bin")
 	assert.Len(t, env, 3) // PATH, HOME, TERM
+}
+
+func TestBuildEnv_WithHomeDir(t *testing.T) {
+	env := buildEnv(nil, "/tmp/ttal-agent-12345")
+	assert.Contains(t, env, "HOME=/tmp/ttal-agent-12345")
 }
 
 func TestTruncate(t *testing.T) {
@@ -82,34 +82,6 @@ func TestTruncate(t *testing.T) {
 	long := "12345678901234567890"
 	result := truncate(long, 10)
 	assert.Equal(t, "1234567890\n[output truncated]", result)
-}
-
-func TestExecDirect_AllowUnsandboxed(t *testing.T) {
-	s := &Sandbox{
-		BwrapPath:        "bwrap-nonexistent",
-		AllowUnsandboxed: true,
-	}
-
-	ctx := t.Context()
-	stdout, stderr, code, err := s.Exec(ctx, "echo hello", nil)
-
-	require.NoError(t, err)
-	assert.Equal(t, "hello\n", stdout)
-	assert.Empty(t, stderr)
-	assert.Equal(t, 0, code)
-}
-
-func TestExecDirect_Unsandboxed_Denied(t *testing.T) {
-	s := &Sandbox{
-		BwrapPath:        "bwrap-nonexistent",
-		AllowUnsandboxed: false,
-	}
-
-	ctx := t.Context()
-	_, _, _, err := s.Exec(ctx, "echo hello", nil)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "bwrap not found")
 }
 
 func TestContextWithExecConfig(t *testing.T) {

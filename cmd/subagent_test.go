@@ -10,7 +10,7 @@ import (
 )
 
 func TestFilterTools_EmptyNames_ReturnsAll(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
@@ -20,7 +20,7 @@ func TestFilterTools_EmptyNames_ReturnsAll(t *testing.T) {
 }
 
 func TestFilterTools_ValidNames_ReturnsSubset(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
@@ -31,7 +31,7 @@ func TestFilterTools_ValidNames_ReturnsSubset(t *testing.T) {
 }
 
 func TestFilterTools_UnknownName_ReturnsError(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
@@ -42,7 +42,7 @@ func TestFilterTools_UnknownName_ReturnsError(t *testing.T) {
 }
 
 func TestFilterTools_MixedNames_ErrorOnFirst_Unknown(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := tools.NewDefuddleCLIBackend()
 	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
 
