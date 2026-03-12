@@ -78,7 +78,10 @@ ttal task execute <uuid>    # spawns a worker in isolated worktree
 - don't create re-export files for backward compatibility - just update imports directly
 - when moon typecheck shows cached results, trust them - don't try alternative methods like `bunx tsc` or `bun run typecheck`
 - when adding new dependencies, run `bun install <package>` in root to get latest version - don't manually write potentially outdated versions in package.json
-- **Never use the built-in WebFetch tool.** Use `defuddle parse <url> --markdown` via Bash instead — it produces much cleaner markdown with proper content extraction. Example: `defuddle parse https://example.com --markdown`
+- **NEVER use WebSearch, WebFetch, or Explore agent tools.** Use `ttal explore` instead — it handles repos, web pages, and projects in one command:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
 
 ## ttal CLI
 
@@ -119,20 +122,26 @@ ttal task get <uuid>         # get formatted task prompt
 
 ### Task Routing
 
-Route tasks to the right agent instead of doing everything yourself. Each command takes a task UUID.
+Route tasks to the right agent instead of doing everything yourself.
 
 ```bash
-ttal task design <uuid>      # send to design agent — "write an implementation plan for this"
-ttal task research <uuid>    # send to research agent — "research this and write findings"
-ttal task test <uuid>        # send to test agent — NOT YET IMPLEMENTED
-ttal task execute <uuid>     # spawn a worker to implement the task
+ttal task route <uuid> --to <agent>    # route to agent for design/research/brainstorm
+ttal task execute <uuid>               # spawn a worker to implement the task
 ```
 
 **When to use:**
-- `ttal task design` — task needs a plan before coding. The design agent writes a plan doc and annotates the task with its path.
-- `ttal task research` — task needs investigation first. The research agent writes findings and annotates the task.
-- `ttal task execute` — task is ready to implement. Spawns a Claude Code worker in its own tmux session + git worktree.
-- `ttal task test` — not yet available.
+- `ttal task route` — task needs design, research, or brainstorming. Use `/task-route` command to classify readiness and pick the right agent.
+- `ttal task execute` — task has a plan/design doc annotated and is ready to implement. Spawns a Claude Code worker in its own tmux session + git worktree.
+
+### Explore
+
+Investigate external repos, web pages, or internal projects:
+
+```bash
+ttal explore "how does routing work?" --project ttal-cli
+ttal explore "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
+ttal explore "what API endpoints are available?" --url https://docs.example.com
+```
 
 ### Projects
 ```bash
