@@ -30,6 +30,9 @@ var exploreURLPrompt string
 //go:embed explore_prompts/web.md
 var exploreWebPrompt string
 
+//go:embed explore_prompts/general.md
+var exploreGeneralPrompt string
+
 var exploreFlags struct {
 	project   string
 	repo      string
@@ -41,20 +44,23 @@ var exploreFlags struct {
 
 var exploreCmd = &cobra.Command{
 	Use:   "explore <question>",
-	Short: "Explore a project, repo, web page, or the web with an AI agent",
-	Long: `Explore a codebase, open-source repository, web page, or the web by asking a natural language question.
+	Short: "Explore code, repos, web pages, or search the web with an AI agent",
+	Long: `Explore a codebase, open-source repository, or web page by asking a natural language question.
 
-Exactly one source flag must be specified:
+With no flags, explores the current directory with both filesystem and web access.
+Use a flag to narrow the scope to a specific source:
+
   --project <alias>      Explore a registered ttal project
   --repo <url|org/repo>  Explore a GitHub repo (auto-clone/pull)
   --url <url>            Explore a web page (pre-fetched with defuddle)
   --web                  Search the web to answer the question
 
 Examples:
-  ttal explore "how does routing work?" --project ttal-cli
-  ttal explore "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
-  ttal explore "what API endpoints are available?" --url https://docs.example.com
-  ttal explore "what is the latest Go generics syntax?" --web`,
+  ttal explore "how does the auth middleware work?"                               # general (CWD + web)
+  ttal explore "how does routing work?" --project ttal-cli                        # registered project
+  ttal explore "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker   # OSS repo
+  ttal explore "what API endpoints are available?" --url https://docs.example.com # specific URL
+  ttal explore "what is the latest Go generics syntax?" --web                     # web search only`,
 	Args: cobra.ExactArgs(1),
 	RunE: runExplore,
 }
@@ -76,9 +82,6 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		flagsSet++
 	}
 
-	if flagsSet == 0 {
-		return fmt.Errorf("one of --project, --repo, --url, or --web is required\n\nRun 'ttal explore --help' for usage")
-	}
 	if flagsSet > 1 {
 		return fmt.Errorf("only one of --project, --repo, --url, or --web may be specified at a time")
 	}
@@ -100,7 +103,7 @@ func runExplore(cmd *cobra.Command, args []string) error {
 	case exploreFlags.url != "":
 		return exploreURL(question, exploreFlags.url, cfg, maxSteps, maxTokens)
 	default:
-		return fmt.Errorf("internal: unhandled explore mode")
+		return exploreGeneral(question, cfg, maxSteps, maxTokens)
 	}
 }
 
@@ -191,6 +194,32 @@ func exploreWeb(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		systemExtra:  prompt,
 		allowedPaths: nil,
 		toolNames:    []string{"search_web", "read_url"},
+		fetchBackend: backend,
+		model:        cfg.ExploreModel(),
+		maxSteps:     maxSteps,
+		maxTokens:    maxTokens,
+	})
+}
+
+// exploreGeneral explores the current working directory with both filesystem and web tools.
+func exploreGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+	backend, err := resolveFetchBackend()
+	if err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	prompt := strings.ReplaceAll(exploreGeneralPrompt, "{cwd}", cwd)
+
+	return runExploreAgent(exploreOpts{
+		question:     question,
+		systemExtra:  prompt,
+		allowedPaths: []string{cwd},
+		toolNames:    []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"},
 		fetchBackend: backend,
 		model:        cfg.ExploreModel(),
 		maxSteps:     maxSteps,
