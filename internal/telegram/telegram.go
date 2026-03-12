@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-telegram/bot"
@@ -22,10 +23,48 @@ func ParseChatID(s string) (int64, error) {
 	return id, nil
 }
 
+const maxMessageLen = 4096
+
+// splitMessage splits text into chunks that fit within Telegram's 4096-rune limit.
+// Splits at natural boundaries: paragraph breaks > newlines > spaces > hard cut.
+func splitMessage(text string) []string {
+	runes := []rune(text)
+	if len(runes) <= maxMessageLen {
+		return []string{text}
+	}
+
+	var parts []string
+	for len(runes) > 0 {
+		if len(runes) <= maxMessageLen {
+			parts = append(parts, string(runes))
+			break
+		}
+
+		chunk := string(runes[:maxMessageLen])
+		cutAt := maxMessageLen // in runes
+		if i := strings.LastIndex(chunk, "\n\n"); i > 0 {
+			cutAt = len([]rune(chunk[:i]))
+		} else if i := strings.LastIndex(chunk, "\n"); i > 0 {
+			cutAt = len([]rune(chunk[:i]))
+		} else if i := strings.LastIndex(chunk, " "); i > 0 {
+			cutAt = len([]rune(chunk[:i]))
+		}
+
+		part := strings.TrimRight(string(runes[:cutAt]), " \n")
+		if part != "" {
+			parts = append(parts, part)
+		}
+		runes = []rune(strings.TrimLeft(string(runes[cutAt:]), " \n"))
+	}
+	return parts
+}
+
 // SendMessage sends a text message to a chat via the Telegram Bot API.
+// Long messages are automatically split at natural boundaries to fit within Telegram's 4096-rune limit.
 func SendMessage(botToken, chatID, text string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
 
 	b, err := bot.New(botToken)
 	if err != nil {
@@ -37,13 +76,18 @@ func SendMessage(botToken, chatID, text string) error {
 		return err
 	}
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: id,
-		Text:   text,
-	}); err != nil {
-		return fmt.Errorf("telegram send: %w", err)
-	}
+	chunks := splitMessage(text)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(len(chunks)+1)*15*time.Second)
+	defer cancel()
 
+	for i, chunk := range chunks {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: id,
+			Text:   chunk,
+		}); err != nil {
+			return fmt.Errorf("telegram send (chunk %d/%d): %w", i+1, len(chunks), err)
+		}
+	}
 	return nil
 }
 
