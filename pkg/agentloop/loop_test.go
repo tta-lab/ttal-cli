@@ -167,27 +167,21 @@ func TestRun_InvalidAllowedPathReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "non-empty absolute path")
 }
 
-func TestRun_SandboxEnvAndAllowedPathsBothWired(t *testing.T) {
-	// Verify SandboxEnv and AllowedPaths both survive ExecConfig construction together.
-	provider := &mockProvider{model: &mockLanguageModel{}}
-
-	cfg := Config{
-		Provider:     provider,
-		Model:        "mock-model",
-		SandboxEnv:   []string{"MY_VAR=hello"},
-		AllowedPaths: []string{"/some/dir"},
-	}
-
-	var capturedExecCfg *sandbox.ExecConfig
+// makeCaptureTool returns a tool that captures the ExecConfig from context into dst.
+func makeCaptureTool(dst **sandbox.ExecConfig) fantasy.AgentTool {
 	type captureInput struct{}
-	captureTool := fantasy.NewAgentTool("capture", "captures exec config from context",
+	return fantasy.NewAgentTool("capture", "captures exec config from context",
 		func(ctx context.Context, _ captureInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
-			capturedExecCfg = sandbox.ExecConfigFromContext(ctx)
+			*dst = sandbox.ExecConfigFromContext(ctx)
 			return fantasy.NewTextResponse("ok"), nil
 		})
+}
 
+// toolCallThenDoneStream returns a stream func that emits one "capture" tool call,
+// then on the second call returns a final text response.
+func toolCallThenDoneStream() func(_ context.Context, _ fantasy.Call) (fantasy.StreamResponse, error) {
 	callCount := 0
-	streamFn := func(_ context.Context, _ fantasy.Call) (fantasy.StreamResponse, error) {
+	return func(_ context.Context, _ fantasy.Call) (fantasy.StreamResponse, error) {
 		callCount++
 		if callCount == 1 {
 			return func(yield func(fantasy.StreamPart) bool) {
@@ -205,9 +199,18 @@ func TestRun_SandboxEnvAndAllowedPathsBothWired(t *testing.T) {
 			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeFinish, FinishReason: fantasy.FinishReasonStop})
 		}, nil
 	}
+}
 
-	cfg.Tools = []fantasy.AgentTool{captureTool}
-	cfg.Provider = &mockProvider{model: &mockLanguageModel{streamFunc: streamFn}}
+func TestRun_SandboxEnvAndAllowedPathsBothWired(t *testing.T) {
+	// Verify SandboxEnv and AllowedPaths both survive ExecConfig construction together.
+	var capturedExecCfg *sandbox.ExecConfig
+	cfg := Config{
+		Provider:     &mockProvider{model: &mockLanguageModel{streamFunc: toolCallThenDoneStream()}},
+		Model:        "mock-model",
+		Tools:        []fantasy.AgentTool{makeCaptureTool(&capturedExecCfg)},
+		SandboxEnv:   []string{"MY_VAR=hello"},
+		AllowedPaths: []string{"/some/dir"},
+	}
 
 	_, err := Run(context.Background(), cfg, nil, "capture", nil)
 	require.NoError(t, err)
@@ -220,44 +223,13 @@ func TestRun_SandboxEnvAndAllowedPathsBothWired(t *testing.T) {
 }
 
 func TestRun_AllowedPathsInMountDirs(t *testing.T) {
-	provider := &mockProvider{model: &mockLanguageModel{}}
-
+	var capturedExecCfg *sandbox.ExecConfig
 	cfg := Config{
-		Provider:     provider,
+		Provider:     &mockProvider{model: &mockLanguageModel{streamFunc: toolCallThenDoneStream()}},
 		Model:        "mock-model",
+		Tools:        []fantasy.AgentTool{makeCaptureTool(&capturedExecCfg)},
 		AllowedPaths: []string{"/some/project/dir", "/another/dir"},
 	}
-
-	var capturedExecCfg *sandbox.ExecConfig
-	type captureInput struct{}
-	captureTool := fantasy.NewAgentTool("capture", "captures exec config from context",
-		func(ctx context.Context, _ captureInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
-			capturedExecCfg = sandbox.ExecConfigFromContext(ctx)
-			return fantasy.NewTextResponse("ok"), nil
-		})
-
-	callCount := 0
-	streamWithCapture := func(_ context.Context, _ fantasy.Call) (fantasy.StreamResponse, error) {
-		callCount++
-		if callCount == 1 {
-			return func(yield func(fantasy.StreamPart) bool) {
-				yield(fantasy.StreamPart{
-					Type: fantasy.StreamPartTypeToolCall, ID: "tc1",
-					ToolCallName: "capture", ToolCallInput: "{}",
-				})
-				yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeFinish, FinishReason: fantasy.FinishReasonToolCalls})
-			}, nil
-		}
-		return func(yield func(fantasy.StreamPart) bool) {
-			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextStart, ID: "t1"})
-			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextDelta, ID: "t1", Delta: "done"})
-			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeTextEnd, ID: "t1"})
-			yield(fantasy.StreamPart{Type: fantasy.StreamPartTypeFinish, FinishReason: fantasy.FinishReasonStop})
-		}, nil
-	}
-
-	cfg.Tools = []fantasy.AgentTool{captureTool}
-	cfg.Provider = &mockProvider{model: &mockLanguageModel{streamFunc: streamWithCapture}}
 
 	_, err := Run(context.Background(), cfg, nil, "capture exec config", nil)
 	require.NoError(t, err)
