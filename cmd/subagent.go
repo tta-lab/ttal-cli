@@ -91,7 +91,9 @@ func buildToolSet(toolNames, allowedPaths []string) ([]fantasy.AgentTool, error)
 }
 
 // buildAgentSystemPrompt constructs the system prompt for a subagent, appending the agent body.
-func buildAgentSystemPrompt(cwd string, allowedPaths []string, selectedTools []fantasy.AgentTool, agentBody string) (string, error) {
+func buildAgentSystemPrompt(
+	cwd string, allowedPaths []string, selectedTools []fantasy.AgentTool, agentBody string,
+) (string, error) {
 	richDescs := tools.RichToolDescriptions(selectedTools)
 	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
 	for i, d := range richDescs {
