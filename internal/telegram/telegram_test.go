@@ -77,7 +77,8 @@ func TestSplitMessage_MultiChunk(t *testing.T) {
 }
 
 func TestSplitMessage_HardCut(t *testing.T) {
-	text := strings.Repeat("a", 5000)
+	const textLen = 5000
+	text := strings.Repeat("a", textLen)
 	parts := splitMessage(text)
 	if len(parts) != 2 {
 		t.Errorf("expected 2 chunks, got %d", len(parts))
@@ -85,8 +86,9 @@ func TestSplitMessage_HardCut(t *testing.T) {
 	if len(parts[0]) != maxMessageLen {
 		t.Errorf("expected first chunk to be %d, got %d", maxMessageLen, len(parts[0]))
 	}
-	if len(parts[1]) != 904 {
-		t.Errorf("expected second chunk to be 904, got %d", len(parts[1]))
+	want := textLen - maxMessageLen
+	if len(parts[1]) != want {
+		t.Errorf("expected second chunk to be %d, got %d", want, len(parts[1]))
 	}
 }
 
@@ -94,6 +96,29 @@ func TestSplitMessage_Empty(t *testing.T) {
 	parts := splitMessage("")
 	if len(parts) != 1 {
 		t.Errorf("expected 1 part for empty string, got %d", len(parts))
+	}
+}
+
+func TestSplitMessage_AllWhitespaceOverLimit(t *testing.T) {
+	text := strings.Repeat("\n", 5000)
+	parts := splitMessage(text)
+	// All whitespace trims to nothing — splitMessage returns empty slice.
+	// SendMessage guards against this with TrimSpace check before calling splitMessage.
+	_ = parts // behavior is: 0 parts, handled by SendMessage guard
+}
+
+func TestSplitMessage_NonASCII(t *testing.T) {
+	// Each emoji is 4 bytes — 4096 runes = 16384 bytes.
+	// Byte-based slicing would corrupt at char boundaries; rune-based is safe.
+	text := strings.Repeat("😀", 5000)
+	parts := splitMessage(text)
+	if len(parts) < 2 {
+		t.Errorf("expected at least 2 chunks, got %d", len(parts))
+	}
+	for _, p := range parts {
+		if len([]rune(p)) > maxMessageLen {
+			t.Errorf("chunk exceeds rune limit: %d runes", len([]rune(p)))
+		}
 	}
 }
 
