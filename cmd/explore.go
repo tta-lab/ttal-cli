@@ -27,28 +27,34 @@ var exploreRepoPrompt string
 //go:embed explore_prompts/url.md
 var exploreURLPrompt string
 
+//go:embed explore_prompts/web.md
+var exploreWebPrompt string
+
 var exploreFlags struct {
 	project   string
 	repo      string
 	url       string
+	web       bool
 	maxSteps  int
 	maxTokens int
 }
 
 var exploreCmd = &cobra.Command{
 	Use:   "explore <question>",
-	Short: "Explore a project, repo, or web page with an AI agent",
-	Long: `Explore a codebase, open-source repository, or web page by asking a natural language question.
+	Short: "Explore a project, repo, web page, or the web with an AI agent",
+	Long: `Explore a codebase, open-source repository, web page, or the web by asking a natural language question.
 
 Exactly one source flag must be specified:
   --project <alias>      Explore a registered ttal project
   --repo <url|org/repo>  Explore a GitHub repo (auto-clone/pull)
   --url <url>            Explore a web page (pre-fetched with defuddle)
+  --web                  Search the web to answer the question
 
 Examples:
   ttal explore "how does routing work?" --project ttal-cli
   ttal explore "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
-  ttal explore "what API endpoints are available?" --url https://docs.example.com`,
+  ttal explore "what API endpoints are available?" --url https://docs.example.com
+  ttal explore "what is the latest Go generics syntax?" --web`,
 	Args: cobra.ExactArgs(1),
 	RunE: runExplore,
 }
@@ -66,12 +72,15 @@ func runExplore(cmd *cobra.Command, args []string) error {
 	if exploreFlags.url != "" {
 		flagsSet++
 	}
+	if exploreFlags.web {
+		flagsSet++
+	}
 
 	if flagsSet == 0 {
-		return fmt.Errorf("one of --project, --repo, or --url is required\n\nRun 'ttal explore --help' for usage")
+		return fmt.Errorf("one of --project, --repo, --url, or --web is required\n\nRun 'ttal explore --help' for usage")
 	}
 	if flagsSet > 1 {
-		return fmt.Errorf("only one of --project, --repo, or --url may be specified at a time")
+		return fmt.Errorf("only one of --project, --repo, --url, or --web may be specified at a time")
 	}
 
 	cfg, err := config.Load()
@@ -86,12 +95,12 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		return exploreProject(question, exploreFlags.project, cfg, maxSteps, maxTokens)
 	case exploreFlags.repo != "":
 		return exploreRepo(question, exploreFlags.repo, cfg, maxSteps, maxTokens)
+	case exploreFlags.web:
+		return exploreWeb(question, cfg, maxSteps, maxTokens)
+	case exploreFlags.url != "":
+		return exploreURL(question, exploreFlags.url, cfg, maxSteps, maxTokens)
 	default:
-		backend, err := resolveFetchBackend()
-		if err != nil {
-			return err
-		}
-		return exploreURL(question, exploreFlags.url, cfg, backend, maxSteps, maxTokens)
+		return fmt.Errorf("internal: unhandled explore mode")
 	}
 }
 
@@ -143,12 +152,12 @@ func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxToke
 }
 
 // exploreURL explores a web page using defuddle for pre-fetching.
-func exploreURL(
-	question, rawURL string,
-	cfg *config.Config,
-	backend tools.ReadURLBackend,
-	maxSteps, maxTokens int,
-) error {
+func exploreURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
+	backend, err := resolveFetchBackend()
+	if err != nil {
+		return err
+	}
+
 	// Pre-warm the cache so the agent's read_url call is instant.
 	fmt.Fprintf(os.Stderr, "Fetching %s...\n", rawURL)
 	ctx := context.Background()
@@ -163,6 +172,27 @@ func exploreURL(
 		toolNames:    []string{"read_url", "search_web"},
 		model:        cfg.ExploreModel(),
 		fetchBackend: backend,
+		maxSteps:     maxSteps,
+		maxTokens:    maxTokens,
+	})
+}
+
+// exploreWeb searches the web to answer a question.
+func exploreWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+	backend, err := resolveFetchBackend()
+	if err != nil {
+		return err
+	}
+
+	prompt := strings.ReplaceAll(exploreWebPrompt, "{query}", question)
+
+	return runExploreAgent(exploreOpts{
+		question:     question,
+		systemExtra:  prompt,
+		allowedPaths: nil,
+		toolNames:    []string{"search_web", "read_url"},
+		fetchBackend: backend,
+		model:        cfg.ExploreModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 	})
@@ -300,6 +330,7 @@ func init() {
 	exploreCmd.Flags().StringVar(&exploreFlags.project, "project", "", "Explore a registered ttal project by alias")
 	exploreCmd.Flags().StringVar(&exploreFlags.repo, "repo", "", "Explore an OSS repo (full URL or org/repo shorthand)")
 	exploreCmd.Flags().StringVar(&exploreFlags.url, "url", "", "Explore a web page (pre-fetched with defuddle)")
+	exploreCmd.Flags().BoolVar(&exploreFlags.web, "web", false, "Search the web to answer the question")
 	exploreCmd.Flags().IntVar(&exploreFlags.maxSteps, "max-steps", config.ExploreDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
 	exploreCmd.Flags().IntVar(&exploreFlags.maxTokens, "max-tokens", config.ExploreDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
 

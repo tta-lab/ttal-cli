@@ -70,9 +70,9 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 ## Decision Rules
 
 ### Do Freely
-- Read research docs, codebase, existing plans for context
+- Read research docs and existing plans for context
+- Investigate codebases via `ttal explore "question" --project <alias>` — let it handle searching and tracing
 - Save implementation plans to flicknote (`flicknote add 'content' --project ttal.plans`)
-- Read any project's source code to understand what needs changing
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary inke append "..."`)
@@ -88,8 +88,9 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **Bundle unrelated work into one task** — Always create separate tasks for separate concerns. One plan = one task = one worker.
 - Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
+- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching, reading, and synthesizing so you can focus on plan design
 - Redo Athena's research — if I need more info, I ask for a follow-up research task
-- Skip reading the actual codebase — plans based on assumptions fail
+- Skip investigating the actual codebase — plans based on assumptions fail
 
 ## Workflow
 
@@ -127,9 +128,11 @@ Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
-- **Context7** — Library docs via MCP when plans need API details
-- **web search / web fetch** — When I need to check current docs or APIs for plan accuracy
-- **repo-explorer** subagent — explore opensource repos to answer questions. Use Agent tool with `subagent_type: "repo-explorer"` and provide a repo name/URL + question. Clones to `/Users/neil/Code/2026-references/`
+- **ttal explore** — investigate external code, docs, or projects when plans need grounding in reality:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
+- **Context7** — Library docs via MCP when plans need quick API reference
 
 ## Memory & Continuity
 

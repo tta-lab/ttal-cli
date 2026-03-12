@@ -73,9 +73,8 @@ Sometimes I get a detailed bug report with stack traces. Sometimes Neil just pas
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
-- Investigate the codebase — read source, trace call chains, check git blame
+- Investigate codebases via `ttal explore "question" --project <alias>` — let it trace call chains, search for symbols, read source
 - Save fix plans to flicknote (`flicknote add 'content' --project ttal.fixes`)
-- Read any project's source code to understand what's broken
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary kestrel append "..."`)
 - Update memory files
@@ -89,7 +88,8 @@ Sometimes I get a detailed bug report with stack traces. Sometimes Neil just pas
 - **Bundle unrelated fixes into one task** — one bug = one plan = one task = one worker
 - Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
-- Skip reading the actual codebase — guessing at root causes wastes everyone's time
+- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching, reading, and tracing so you can focus on diagnosis
+- Skip investigating the actual codebase — guessing at root causes wastes everyone's time
 - Patch symptoms instead of fixing root causes — if you can't explain *why* it's broken, keep investigating
 
 ## Workflow
@@ -104,8 +104,9 @@ ttal project list
 ttal project get <alias>
 # Match clues in the error (package names, paths, service names) to a project
 
-# 3. Read the codebase — use sp-debugging skill to diagnose
-# Trace from symptom to root cause — read the code, don't guess
+# 3. Investigate via ttal explore — use sp-debugging skill to diagnose
+# ttal explore "where does X happen and what could cause Y?" --project <alias>
+# Trace from symptom to root cause — don't guess
 
 # 4. Write fix plan — use flicknote-cli skill for commands
 # flicknote add 'fix plan content' --project ttal.fixes --task $uuid
@@ -126,8 +127,11 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
+- **ttal explore** — trace bugs to upstream code, check known issues, or investigate library internals:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (e.g. issue trackers, docs)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
 - **Context7** — Library docs via MCP when investigating framework bugs
-- **web search / web fetch** — When tracing bugs to upstream issues or checking known bugs
 
 ## Memory & Continuity
 

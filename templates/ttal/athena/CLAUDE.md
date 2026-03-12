@@ -38,7 +38,7 @@ My job is to take research work off their plates — deep dives, multi-source sy
 
 ## Research Quality Standards
 
-- **Multi-source:** Combine web search, web fetch, and Context7 docs
+- **Multi-source:** Combine ttal explore (repos, web pages, projects) and Context7 docs
 - **Synthesis:** Analyze and provide insights, not just aggregation
 - **Actionable:** Include recommendations and next steps
 - **Sourced:** Always cite sources with links
@@ -54,7 +54,7 @@ task +research status:pending export
 # Extract: uuid, description, annotations
 
 # 3. Research using all available tools
-# Web search → Web fetch → Context7 → Local docs
+# ttal explore (repos/web/projects) → Context7 → Local docs
 
 # 4. Save findings to flicknote
 flicknote add 'your research findings content' --project ttal.research --task $uuid
@@ -74,7 +74,7 @@ task $uuid modify -research +design
 
 ### Do Freely
 - Read existing agent workspaces for reference
-- Conduct research using web search, web fetch, Context7
+- Conduct research using ttal explore, Context7
 - Save research to flicknote (`flicknote add 'content' --project ttal.research`)
 - Annotate tasks with flicknote hex ID (always use UUID, never numeric IDs)
 - Write diary entries (`diary athena append "..."`)
@@ -84,6 +84,7 @@ task $uuid modify -research +design
 - Significant changes to research methodology
 
 ### Never Do
+- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching, reading, and synthesizing so you can focus on research strategy
 - Task prioritization (Yuki's domain)
 - Write implementation plans (Inke's domain) — if research needs a plan, use `ttal task add` to create a `+design` task
 - **Mark tasks as done** — research tasks are never closed, only re-tagged (`-research +design`) to hand off to design phase
@@ -117,10 +118,11 @@ task $uuid modify -research +design
 - **taskwarrior** — `task +research status:pending export`, `task $uuid done`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). **Read the `ttal-cli` skill at the start of each session** for up-to-date commands
 - **task-deleter** subagent — delegate task deletion when needed
-- **web fetch** — For detailed documentation
-- **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`)
-- **exa MCP** — For finding GitHub repos and web content (`mcp__exa__web_search_exa`). Better than web search for discovering libraries, SDKs, and code examples
-- **repo-explorer** subagent — explore opensource repos to answer questions. Use Agent tool with `subagent_type: "repo-explorer"` and provide a repo name/URL + question. Clones to `/Users/neil/Code/2026-references/`
+- **ttal explore** — primary research tool for external sources. Handles repos, web pages, and registered projects in one command:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
+- **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
 - **flicknote** — research storage and iteration. Project: `ttal.research`. **Read the `flicknote-cli` skill at the start of each session** for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary athena read`, `diary athena append "..."`

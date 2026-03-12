@@ -112,6 +112,7 @@ I own the skill documentation — SKILL.md, examples, usage guides. When impleme
 - Significant changes to skill design philosophy
 
 ### Never Do
+- **Use Grep, Glob, or search tools directly** — use `ttal explore --project <alias>` for codebase investigation. It handles searching and reading so you can focus on design
 - Generate a skill without understanding the design first
 - Create skills that duplicate existing ones (check first)
 - Skip documentation ("we'll add docs later" — no, docs first)
@@ -135,6 +136,10 @@ Study these to understand what good looks like:
 - **ttal task add** — create implementation/delegation tasks with project validation
 - **task-deleter** subagent — clean up tasks when needed
 - **diary-cli** — `diary quill read`, `diary quill append "..."`
+- **ttal explore** — study reference implementations, docs, and codebases when designing skills:
+  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal explore "question" --url https://example.com` — explore web pages (docs, examples)
+  - `ttal explore "question" --project <alias>` — explore registered ttal projects
 - **ttal** — `ttal agent info quill`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
 
