@@ -57,36 +57,69 @@ func loadSubagentsPaths() ([]string, error) {
 	return cfg.Sync.SubagentsPaths, nil
 }
 
+// findTtalAgent discovers ttal-configured agents and returns the one matching name.
+func findTtalAgent(name string) (*internalsync.ParsedAgent, error) {
+	paths, err := loadSubagentsPaths()
+	if err != nil {
+		return nil, err
+	}
+	agents, err := internalsync.DiscoverTtalAgents(paths)
+	if err != nil {
+		return nil, fmt.Errorf("discover agents: %w", err)
+	}
+	for _, a := range agents {
+		if a.Frontmatter.Name == name {
+			return a, nil
+		}
+	}
+	available := make([]string, len(agents))
+	for i, a := range agents {
+		available[i] = a.Frontmatter.Name
+	}
+	if len(available) == 0 {
+		return nil, fmt.Errorf("agent %q not found (no agents with ttal: frontmatter discovered)", name)
+	}
+	return nil, fmt.Errorf("agent %q not found — available: %s", name, strings.Join(available, ", "))
+}
+
+// buildToolSet creates and filters the tool set for a subagent.
+func buildToolSet(toolNames, allowedPaths []string) ([]fantasy.AgentTool, error) {
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
+	fetchBackend := tools.NewDefuddleCLIBackend()
+	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, allowedPaths, subagentRunFlags.treeThreshold)
+	return filterTools(allTools, toolNames)
+}
+
+// buildAgentSystemPrompt constructs the system prompt for a subagent, appending the agent body.
+func buildAgentSystemPrompt(cwd string, allowedPaths []string, selectedTools []fantasy.AgentTool, agentBody string) (string, error) {
+	richDescs := tools.RichToolDescriptions(selectedTools)
+	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
+	for i, d := range richDescs {
+		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
+	}
+	base, err := agentloop.BuildSystemPrompt(agentloop.PromptData{
+		WorkingDir:   cwd,
+		Platform:     runtime.GOOS,
+		Date:         time.Now().Format("2006-01-02"),
+		AllowedPaths: allowedPaths,
+		Tools:        toolInfos,
+	})
+	if err != nil {
+		return "", fmt.Errorf("build system prompt: %w", err)
+	}
+	if agentBody == "" {
+		return base, nil
+	}
+	return base + "\n\n" + agentBody, nil
+}
+
 func runSubagentByName(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	prompt := args[1]
 
-	paths, err := loadSubagentsPaths()
+	agent, err := findTtalAgent(name)
 	if err != nil {
 		return err
-	}
-
-	agents, err := internalsync.DiscoverTtalAgents(paths)
-	if err != nil {
-		return fmt.Errorf("discover agents: %w", err)
-	}
-
-	var agent *internalsync.ParsedAgent
-	for _, a := range agents {
-		if a.Frontmatter.Name == name {
-			agent = a
-			break
-		}
-	}
-	if agent == nil {
-		available := make([]string, len(agents))
-		for i, a := range agents {
-			available[i] = a.Frontmatter.Name
-		}
-		if len(available) == 0 {
-			return fmt.Errorf("agent %q not found (no agents with ttal: frontmatter discovered)", name)
-		}
-		return fmt.Errorf("agent %q not found — available: %s", name, strings.Join(available, ", "))
 	}
 
 	model := agent.Frontmatter.Ttal.Model
@@ -105,37 +138,14 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	}
 	allowedPaths := []string{cwd}
 
-	sbx := sandbox.New(sandbox.Options{
-		AllowUnsandboxed: true,
-	})
-
-	fetchBackend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, allowedPaths, subagentRunFlags.treeThreshold)
-	selectedTools, err := filterTools(allTools, agent.Frontmatter.Ttal.Tools)
+	selectedTools, err := buildToolSet(agent.Frontmatter.Ttal.Tools, allowedPaths)
 	if err != nil {
 		return err
 	}
 
-	richDescs := tools.RichToolDescriptions(selectedTools)
-	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
-	for i, d := range richDescs {
-		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
-	}
-
-	basePrompt, err := agentloop.BuildSystemPrompt(agentloop.PromptData{
-		WorkingDir:   cwd,
-		Platform:     runtime.GOOS,
-		Date:         time.Now().Format("2006-01-02"),
-		AllowedPaths: allowedPaths,
-		Tools:        toolInfos,
-	})
+	systemPrompt, err := buildAgentSystemPrompt(cwd, allowedPaths, selectedTools, agent.Body)
 	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-
-	systemPrompt := basePrompt
-	if agent.Body != "" {
-		systemPrompt = basePrompt + "\n\n" + agent.Body
+		return err
 	}
 
 	cfg := agentloop.Config{
