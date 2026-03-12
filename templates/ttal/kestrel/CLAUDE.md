@@ -145,8 +145,8 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
 
 ## Working Directory
 
-- **My workspace:** `/Users/neil/clawd/kestrel/`
-- **Repo root:** `/Users/neil/clawd/`
+- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/kestrel/`
+- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
 - **Fix plans output:** flicknote project `ttal.fixes`
 - **Research input:** flicknote project `ttal.research` (Athena's output)
 - **Memory:** `./memory/YYYY-MM-DD.md`

@@ -1,0 +1,63 @@
+execute = """\
+{{skill:sp-executing-plans}}
+write this plan task-by-task.
+Follow each task in order: read the plan, make changes, verify, commit.
+
+IMPORTANT: Use `ttal task get` (no extra params) to get task details including the plan.
+IMPORTANT: Always use `ttal pr` for PR operations (create, modify, comment) — never use `gh` or `tea`, even if the repo is on GitHub."""
+
+triage = """\
+{{skill:triage}}
+PR review posted.{{review-file}} Read it, assess and fix issues.
+Post your triage update with ttal pr comment create when done.
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal pr comment create
+## Triage Update
+### Fixed
+- [x] Issue — fix details
+### Remaining
+- [ ] Issue
+EOF
+```
+If verdict is LGTM and no remaining issues, merge with: ttal pr merge"""
+
+review = """\
+{{skill:pr-review}}
+Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
+
+Scope: ONLY changes in this PR diff, not the entire codebase.
+Post your review with: ttal pr comment create "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal pr comment create
+## Review
+### Critical Issues
+- None
+### Important Issues
+- [file:line] Description
+### VERDICT: LGTM
+EOF
+```
+NEVER use --no-review flag when posting comments."""
+
+re_review = """\
+{{skill:pr-review}}
+Worker has pushed fixes addressing your review.{{coder-comment}}
+Re-review the changes: {{review-scope}}
+
+Post updated review with: ttal pr comment create "<markdown>" (NEVER use --no-review)
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal pr comment create
+## Re-review
+### Fixed
+- [x] Issue from previous review
+### Remaining
+- [ ] New issue
+### VERDICT: LGTM
+EOF
+```"""

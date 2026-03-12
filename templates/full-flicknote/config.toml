@@ -8,53 +8,6 @@
   subagents_paths = ["./docs/agents"]
   commands_paths = ["./docs/commands"]
 
-[prompts]
-design = """\
-{{skill:sp-writing-plans}} {{skill:flicknote-cli}}
-Write an implementation plan for this task.
-Read the task first: ttal task get {{task-id}}
-
-Storage: Save the plan via flicknote add 'content' --project plans
-Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'
-Then tag-swap: task {{task-id}} modify -brainstorm -design +planned"""
-
-research = """\
-{{skill:sp-research}} {{skill:flicknote-cli}}
-Research this topic thoroughly.
-Read the task first: ttal task get {{task-id}}
-
-Storage: Save findings via flicknote add 'content' --project research
-Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content'
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
-
-execute = """\
-{{skill:sp-executing-plans}}
-Implement this task following the referenced plan.
-Follow each task in order: read the plan, make changes, verify, commit.
-Use ttal pr create for pull requests."""
-
-triage = """\
-{{skill:triage}}
-PR review posted. {{review-file}} Read it, assess and fix issues.
-Post your triage update with ttal pr comment create when done.
-If verdict is LGTM and no remaining issues, merge with: ttal pr merge"""
-
-review = """\
-{{skill:pr-review}}
-Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
-Scope: ONLY changes in this PR diff, not the entire codebase.
-Post your review with: ttal pr comment create "<markdown>"
-End with VERDICT: NEEDS_WORK or VERDICT: LGTM.
-Do NOT merge — the coder handles merging after triage."""
-
-re_review = """\
-{{skill:pr-review}}
-Worker has pushed fixes addressing your review.{{coder-comment}}
-Re-review the changes: {{review-scope}}
-Post updated review with: ttal pr comment create "<markdown>" (NEVER use --no-review)
-End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
-
 [teams.default]
   chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
   team_path = ""                     # Path to your workspace directory
@@ -67,4 +20,3 @@ End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
   emoji_reactions = true
   # notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
   # merge_mode = "auto"
-

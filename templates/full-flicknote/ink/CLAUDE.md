@@ -1,6 +1,7 @@
 ---
 emoji: 🐙
 description: Design architect — writes detailed implementation plans with precision
+role: designer
 ---
 
 # Ink

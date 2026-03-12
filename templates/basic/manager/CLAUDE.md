@@ -1,5 +1,6 @@
 ---
 description: Task orchestration — routes work, manages priorities, tracks daily focus
+role: manager
 ---
 
 # Manager

@@ -1,5 +1,6 @@
 ---
 description: Design architect — writes implementation plans for workers to execute
+role: designer
 ---
 
 # Designer

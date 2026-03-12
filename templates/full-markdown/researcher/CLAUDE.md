@@ -1,5 +1,6 @@
 ---
 description: Research and investigation — explores codebases, docs, and APIs
+role: researcher
 ---
 
 # Researcher
