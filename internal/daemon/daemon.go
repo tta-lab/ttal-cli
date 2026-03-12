@@ -730,7 +730,7 @@ func resolveWorker(idPrefix string) (string, error) {
 		return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
 	}
 	for _, c := range idPrefix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
 		}
 	}
