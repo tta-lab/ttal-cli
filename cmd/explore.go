@@ -208,6 +208,10 @@ func exploreGeneral(question string, cfg *config.Config, maxSteps, maxTokens int
 		return err
 	}
 
+	if !strings.Contains(exploreGeneralPrompt, "{cwd}") {
+		return fmt.Errorf("general.md prompt is missing {cwd} placeholder")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get working directory: %w", err)
