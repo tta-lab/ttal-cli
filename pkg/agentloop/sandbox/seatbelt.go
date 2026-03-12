@@ -54,5 +54,11 @@ func (s *SeatbeltSandbox) Exec(
 // IsAvailable checks whether sandbox-exec is present on the system.
 func (s *SeatbeltSandbox) IsAvailable() bool {
 	_, err := os.Stat("/usr/bin/sandbox-exec")
-	return err == nil || !os.IsNotExist(err)
+	if err == nil {
+		return true
+	}
+	if !os.IsNotExist(err) {
+		slog.Warn("seatbelt: unexpected error checking sandbox-exec", "err", err)
+	}
+	return false
 }
