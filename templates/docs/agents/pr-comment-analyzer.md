@@ -18,6 +18,9 @@ claude-code:
     - Read
 opencode:
   mode: subagent
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [read, glob, grep]
 ---
 
 ## Environment

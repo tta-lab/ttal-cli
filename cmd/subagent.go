@@ -11,6 +11,8 @@ import (
 	"charm.land/fantasy"
 	"charm.land/fantasy/providers/anthropic"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	internalsync "github.com/tta-lab/ttal-cli/internal/sync"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/sandbox"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/tools"
@@ -22,66 +24,109 @@ var subagentCmd = &cobra.Command{
 }
 
 var subagentRunFlags struct {
-	provider      string
-	model         string
-	systemPrompt  string
-	toolNames     []string
 	maxSteps      int
 	maxTokens     int
 	sandboxEnv    []string
-	allowedPaths  []string
 	treeThreshold int
 }
 
 var subagentRunCmd = &cobra.Command{
-	Use:   "run <prompt>",
-	Short: "Execute a one-shot agent loop",
-	Long: `Run a stateless agent loop with the given prompt. Streams output to stdout.
+	Use:   "run <name> <prompt>",
+	Short: "Execute a subagent by name using its ttal: frontmatter config",
+	Long: `Run a named subagent using model/tools/system-prompt from its ttal: frontmatter.
+CWD is automatically added to allowed paths.
 
 Examples:
-  ttal subagent run "Fetch https://example.com and summarize it"
-  ttal subagent run --tool bash --tool search_web "Search for Go generics tutorials"
-  ttal subagent run --system "You are a code reviewer" "Review the diff at /tmp/diff.txt"
-  ttal subagent run --allowed-path /path/to/repo "Review the code in main.go"`,
-	Args: cobra.ExactArgs(1),
-	RunE: runSubagent,
+  ttal subagent run pr-code-reviewer "Review the current diff"
+  ttal subagent run web-fetcher "Fetch https://example.com and summarize"`,
+	Args: cobra.ExactArgs(2),
+	RunE: runSubagentByName,
 }
 
-func runSubagent(cmd *cobra.Command, args []string) error {
-	prompt := args[0]
+var subagentListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List subagents that have ttal: frontmatter config",
+	RunE:  listSubagents,
+}
 
-	provider, err := buildProvider(subagentRunFlags.provider)
+func loadSubagentsPaths() ([]string, error) {
+	cfg, err := config.Load()
 	if err != nil {
-		return fmt.Errorf("build provider: %w", err)
+		return nil, fmt.Errorf("load config: %w", err)
 	}
+	return cfg.Sync.SubagentsPaths, nil
+}
 
-	sbx := sandbox.New(sandbox.Options{
-		AllowUnsandboxed: true, // local dev — platform sandbox may not be available
-	})
+func runSubagentByName(cmd *cobra.Command, args []string) error {
+	name := args[0]
+	prompt := args[1]
 
-	fetchBackend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, subagentRunFlags.allowedPaths, subagentRunFlags.treeThreshold)
-	selectedTools, err := filterTools(allTools, subagentRunFlags.toolNames)
+	paths, err := loadSubagentsPaths()
 	if err != nil {
 		return err
 	}
 
-	// Build dynamic system prompt from runtime context.
-	richDescs := tools.RichToolDescriptions(selectedTools)
-	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
-	for i, d := range richDescs {
-		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
+	agents, err := internalsync.DiscoverTtalAgents(paths)
+	if err != nil {
+		return fmt.Errorf("discover agents: %w", err)
+	}
+
+	var agent *internalsync.ParsedAgent
+	for _, a := range agents {
+		if a.Frontmatter.Name == name {
+			agent = a
+			break
+		}
+	}
+	if agent == nil {
+		available := make([]string, len(agents))
+		for i, a := range agents {
+			available[i] = a.Frontmatter.Name
+		}
+		if len(available) == 0 {
+			return fmt.Errorf("agent %q not found (no agents with ttal: frontmatter discovered)", name)
+		}
+		return fmt.Errorf("agent %q not found — available: %s", name, strings.Join(available, ", "))
+	}
+
+	model := agent.Frontmatter.Ttal.Model
+	if model == "" {
+		return fmt.Errorf("agent %q has no model in ttal: frontmatter", name)
+	}
+
+	provider, modelID, err := buildSubagentProvider(model)
+	if err != nil {
+		return fmt.Errorf("build provider: %w", err)
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get working directory: %w", err)
 	}
+	allowedPaths := []string{cwd}
+
+	sbx := sandbox.New(sandbox.Options{
+		AllowUnsandboxed: true,
+	})
+
+	fetchBackend := tools.NewDefuddleCLIBackend()
+	allTools := tools.NewDefaultToolSet(sbx, fetchBackend, allowedPaths, subagentRunFlags.treeThreshold)
+	selectedTools, err := filterTools(allTools, agent.Frontmatter.Ttal.Tools)
+	if err != nil {
+		return err
+	}
+
+	richDescs := tools.RichToolDescriptions(selectedTools)
+	toolInfos := make([]agentloop.ToolInfo, len(richDescs))
+	for i, d := range richDescs {
+		toolInfos[i] = agentloop.ToolInfo{Name: d.Name, Description: d.Description}
+	}
+
 	basePrompt, err := agentloop.BuildSystemPrompt(agentloop.PromptData{
 		WorkingDir:   cwd,
 		Platform:     runtime.GOOS,
 		Date:         time.Now().Format("2006-01-02"),
-		AllowedPaths: subagentRunFlags.allowedPaths,
+		AllowedPaths: allowedPaths,
 		Tools:        toolInfos,
 	})
 	if err != nil {
@@ -89,19 +134,19 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 	}
 
 	systemPrompt := basePrompt
-	if subagentRunFlags.systemPrompt != "" {
-		systemPrompt = basePrompt + "\n\n" + subagentRunFlags.systemPrompt
+	if agent.Body != "" {
+		systemPrompt = basePrompt + "\n\n" + agent.Body
 	}
 
 	cfg := agentloop.Config{
 		Provider:      provider,
-		Model:         subagentRunFlags.model,
+		Model:         modelID,
 		SystemPrompt:  systemPrompt,
 		Tools:         selectedTools,
 		MaxSteps:      subagentRunFlags.maxSteps,
 		MaxTokens:     subagentRunFlags.maxTokens,
 		SandboxEnv:    subagentRunFlags.sandboxEnv,
-		AllowedPaths:  subagentRunFlags.allowedPaths,
+		AllowedPaths:  allowedPaths,
 		TreeThreshold: subagentRunFlags.treeThreshold,
 	}
 
@@ -112,7 +157,6 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("agent loop: %w", err)
 	}
 
-	// Ensure trailing newline if the model didn't emit one.
 	if result.Response != "" && !strings.HasSuffix(result.Response, "\n") {
 		fmt.Println()
 	}
@@ -120,18 +164,80 @@ func runSubagent(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// buildProvider creates a fantasy.Provider from the provider flag.
-// Currently supports "anthropic" using ANTHROPIC_API_KEY.
-func buildProvider(providerName string) (fantasy.Provider, error) {
-	switch providerName {
-	case "anthropic":
+func listSubagents(_ *cobra.Command, _ []string) error {
+	paths, err := loadSubagentsPaths()
+	if err != nil {
+		return err
+	}
+
+	agents, err := internalsync.DiscoverTtalAgents(paths)
+	if err != nil {
+		return fmt.Errorf("discover agents: %w", err)
+	}
+
+	if len(agents) == 0 {
+		fmt.Println("No subagents with ttal: frontmatter found.")
+		return nil
+	}
+
+	// Compute column widths
+	nameW, modelW, toolsW := len("NAME"), len("MODEL"), len("TOOLS")
+	for _, a := range agents {
+		if n := len(a.Frontmatter.Name); n > nameW {
+			nameW = n
+		}
+		if n := len(a.Frontmatter.Ttal.Model); n > modelW {
+			modelW = n
+		}
+		ts := strings.Join(a.Frontmatter.Ttal.Tools, ", ")
+		if n := len(ts); n > toolsW {
+			toolsW = n
+		}
+	}
+
+	// Header
+	fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, "NAME", modelW, "MODEL", toolsW, "TOOLS", "DESCRIPTION")
+	for _, a := range agents {
+		ts := strings.Join(a.Frontmatter.Ttal.Tools, ", ")
+		desc := firstLine(a.Frontmatter.Description)
+		fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, modelW, a.Frontmatter.Ttal.Model, toolsW, ts, desc)
+	}
+	return nil
+}
+
+// firstLine returns the first non-empty line of s.
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+// buildSubagentProvider creates a fantasy.Provider and resolved model ID from a model string.
+// Model format: "provider/model-id" or bare model ID (defaults to anthropic).
+// Currently supports: "minimax/" prefix (→ anthropic-compat via MINIMAX_API_URL/MINIMAX_API_KEY)
+// and bare model IDs (→ anthropic via ANTHROPIC_API_KEY).
+func buildSubagentProvider(model string) (fantasy.Provider, string, error) {
+	switch {
+	case strings.HasPrefix(model, "minimax/"):
+		baseURL := os.Getenv("MINIMAX_API_URL")
+		apiKey := os.Getenv("MINIMAX_API_KEY")
+		if baseURL == "" || apiKey == "" {
+			return nil, "", fmt.Errorf("minimax/ model requires MINIMAX_API_URL and MINIMAX_API_KEY env vars")
+		}
+		modelID := strings.TrimPrefix(model, "minimax/")
+		p, err := anthropic.New(anthropic.WithBaseURL(baseURL), anthropic.WithAPIKey(apiKey))
+		return p, modelID, err
+	default:
 		apiKey := os.Getenv("ANTHROPIC_API_KEY")
 		if apiKey == "" {
-			return nil, fmt.Errorf("ANTHROPIC_API_KEY is not set")
+			return nil, "", fmt.Errorf("ANTHROPIC_API_KEY is not set")
 		}
-		return anthropic.New(anthropic.WithAPIKey(apiKey))
-	default:
-		return nil, fmt.Errorf("unsupported provider %q — currently only \"anthropic\" is supported", providerName)
+		p, err := anthropic.New(anthropic.WithAPIKey(apiKey))
+		return p, model, err
 	}
 }
 
@@ -159,23 +265,10 @@ func filterTools(allTools []fantasy.AgentTool, names []string) ([]fantasy.AgentT
 }
 
 func init() {
-	subagentRunCmd.Flags().StringVar(&subagentRunFlags.provider, "provider", "anthropic", "LLM provider (anthropic)")
-	subagentRunCmd.Flags().StringVar(&subagentRunFlags.model, "model", "claude-sonnet-4-6", "Model ID")
-	subagentRunCmd.Flags().StringVar(
-		&subagentRunFlags.systemPrompt, "system", "", "Additional instructions appended to the default system prompt",
-	)
-	subagentRunCmd.Flags().StringArrayVar(
-		&subagentRunFlags.toolNames, "tool", nil, //nolint:lll
-		"Tools to enable (bash, read_url, search_web, read, read_md, glob, grep); default: all",
-	)
 	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", 20, "Maximum agent steps")
 	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", 4096, "Maximum output tokens per step")
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
-	)
-	subagentRunCmd.Flags().StringArrayVar(
-		&subagentRunFlags.allowedPaths, "allowed-path", nil,
-		"Directories the read/glob/grep tools can access (repeatable)",
 	)
 	subagentRunCmd.Flags().IntVar(
 		&subagentRunFlags.treeThreshold, "tree-threshold", 5000,
@@ -183,5 +276,6 @@ func init() {
 	)
 
 	subagentCmd.AddCommand(subagentRunCmd)
+	subagentCmd.AddCommand(subagentListCmd)
 	rootCmd.AddCommand(subagentCmd)
 }
