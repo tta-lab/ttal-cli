@@ -8,7 +8,7 @@ import (
 // NewDefaultToolSet creates the standard tool set: bash, read_url, search_web.
 // Optionally adds read, read_md, glob, grep when allowedPaths is non-empty.
 // Panics if sbx or fetchBackend is nil.
-func NewDefaultToolSet(sbx *sandbox.Sandbox, fetchBackend ReadURLBackend, allowedPaths []string, treeThreshold int) []fantasy.AgentTool { //nolint:lll
+func NewDefaultToolSet(sbx sandbox.Sandbox, fetchBackend ReadURLBackend, allowedPaths []string, treeThreshold int) []fantasy.AgentTool { //nolint:lll
 	if sbx == nil {
 		panic("agentloop/tools: NewDefaultToolSet: sbx must not be nil")
 	}

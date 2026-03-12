@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewBashTool_Constructs(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	tool := NewBashTool(sbx)
 	assert.NotNil(t, tool)
 	assert.Equal(t, "bash", tool.Info().Name)
@@ -37,7 +37,7 @@ func TestNewSearchWebTool_Constructs(t *testing.T) {
 }
 
 func TestNewDefaultToolSet(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := NewDefuddleCLIBackend()
 	tools := NewDefaultToolSet(sbx, backend, nil, 0)
 
@@ -53,7 +53,7 @@ func TestNewDefaultToolSet(t *testing.T) {
 }
 
 func TestNewDefaultToolSet_WithAllowedPaths(t *testing.T) {
-	sbx := &sandbox.Sandbox{AllowUnsandboxed: true}
+	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
 	backend := NewDefuddleCLIBackend()
 	dir := t.TempDir()
 	tools := NewDefaultToolSet(sbx, backend, []string{dir}, 0)

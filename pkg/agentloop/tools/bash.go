@@ -15,7 +15,7 @@ type BashParams struct {
 }
 
 // NewBashTool creates a sandboxed bash tool for use in the agent.
-func NewBashTool(sbx *sandbox.Sandbox) fantasy.AgentTool {
+func NewBashTool(sbx sandbox.Sandbox) fantasy.AgentTool {
 	return fantasy.NewAgentTool(
 		"bash",
 		schemaDescription(bashDescription),
