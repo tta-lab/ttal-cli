@@ -653,10 +653,19 @@ func handleFrom(mcfg *config.DaemonConfig, msgSvc *message.Service, req SendRequ
 }
 
 // handleTo delivers a message to an agent via its runtime adapter.
+// Falls back to worker session delivery when the recipient is a hex UUID.
 func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
 	ta := resolveAgent(mcfg, req.Team, req.To)
 	if ta == nil {
-		return fmt.Errorf("unknown agent: %s", req.To)
+		session, err := resolveWorker(req.To)
+		if err != nil {
+			return fmt.Errorf("unknown agent or worker: %s", req.To)
+		}
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
+			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
+		})
+		return deliverToWorker(session, req.Message)
 	}
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
@@ -666,6 +675,7 @@ func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *mess
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
+// Falls back to worker session delivery when the recipient is a hex UUID.
 func handleAgentToAgent(
 	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest,
 ) error {
@@ -674,15 +684,25 @@ func handleAgentToAgent(
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
 	toTA := resolveAgent(mcfg, req.Team, req.To)
+	msg := formatAgentMessage(req.From, req.Message)
 	if toTA == nil {
-		return fmt.Errorf("unknown agent: %s", req.To)
+		session, err := resolveWorker(req.To)
+		if err != nil {
+			return fmt.Errorf("unknown agent or worker: %s", req.To)
+		}
+		rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
+			Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		})
+		log.Printf("[daemon] agent-to-worker: %s → %s", req.From, req.To)
+		return deliverToWorker(session, msg)
 	}
 	rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
 		Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
-	msg := formatAgentMessage(req.From, req.Message)
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 	return deliverToAgent(registry, mcfg, toTA.TeamName, req.To, msg)
 }
@@ -700,6 +720,36 @@ func resolveAgent(mcfg *config.DaemonConfig, teamHint, agentName string) *config
 		return ta
 	}
 	return nil
+}
+
+// resolveWorker finds a tmux session for a worker identified by hex UUID prefix.
+// Session names follow the format: w-{uuid[:8]}-{slug}.
+// idPrefix must be at least 8 hex characters.
+func resolveWorker(idPrefix string) (string, error) {
+	if len(idPrefix) < 8 {
+		return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
+	}
+	for _, c := range idPrefix {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
+		}
+	}
+	sessions, err := tmux.ListSessions()
+	if err != nil {
+		return "", fmt.Errorf("list tmux sessions: %w", err)
+	}
+	prefix := "w-" + idPrefix[:8]
+	for _, s := range sessions {
+		if strings.HasPrefix(s, prefix) {
+			return s, nil
+		}
+	}
+	return "", fmt.Errorf("no worker session for %s", idPrefix)
+}
+
+// deliverToWorker sends a message to a worker's tmux session.
+func deliverToWorker(session, text string) error {
+	return tmux.SendKeys(session, "worker", text)
 }
 
 // handleStatusUpdate writes agent context status to the status directory.
