@@ -86,7 +86,7 @@ func base(_ context.Context) *dagger.Container {
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "install", "-y", "--no-install-recommends",
 			// Core utilities
-			"curl", "git", "ssh", "jq", "ca-certificates", "bash",
+			"curl", "git", "ssh", "jq", "unzip", "ca-certificates", "bash",
 			"build-essential", "pkg-config", "libcurl4-openssl-dev",
 			// Session & editing
 			"tmux", "vim",
