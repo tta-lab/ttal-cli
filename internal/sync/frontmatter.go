@@ -11,6 +11,13 @@ import (
 // so CleanAgents and CleanCommands can identify ttal-managed files and avoid deleting user-created ones.
 const ManagedMarkerField = "managed_by: ttal-sync"
 
+// TtalAgentConfig holds ttal-native execution config for a subagent.
+// When present, ttal can run the agent directly without manual --tool/--model flags.
+type TtalAgentConfig struct {
+	Model string   `yaml:"model"`
+	Tools []string `yaml:"tools"`
+}
+
 // AgentFrontmatter holds parsed frontmatter from a canonical agent .md file.
 type AgentFrontmatter struct {
 	Name        string                 `yaml:"name"`
@@ -18,6 +25,7 @@ type AgentFrontmatter struct {
 	ClaudeCode  map[string]interface{} `yaml:"claude-code"`
 	OpenCode    map[string]interface{} `yaml:"opencode"`
 	Codex       map[string]interface{} `yaml:"codex"`
+	Ttal        *TtalAgentConfig       `yaml:"ttal"`
 }
 
 // ParsedAgent holds the parsed frontmatter and body of an agent .md file.

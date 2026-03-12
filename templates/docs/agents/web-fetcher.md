@@ -18,6 +18,9 @@ claude-code:
   model: haiku
   tools:
     - Bash
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash]
 ---
 
 ## Role

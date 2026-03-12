@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -301,4 +302,42 @@ func cleanManagedAgentsInDir(dir string, validNames map[string]bool, dryRun bool
 	}
 
 	return removed, nil
+}
+
+// DiscoverTtalAgents scans subagents_paths for .md files with ttal: frontmatter.
+// Returns only agents that have a ttal: section, sorted by name.
+func DiscoverTtalAgents(subagentsPaths []string) ([]*ParsedAgent, error) {
+	var agents []*ParsedAgent
+	for _, rawPath := range subagentsPaths {
+		dir := config.ExpandHome(rawPath)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "warning: subagents path not found: %s\n", dir)
+				continue
+			}
+			return nil, fmt.Errorf("reading subagents dir %s: %w", dir, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+				continue
+			}
+			content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("reading %s: %w", entry.Name(), err)
+			}
+			agent, err := ParseAgentFile(string(content))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", entry.Name(), err)
+				continue
+			}
+			if agent.Frontmatter.Ttal != nil {
+				agents = append(agents, agent)
+			}
+		}
+	}
+	sort.Slice(agents, func(i, j int) bool {
+		return agents[i].Frontmatter.Name < agents[j].Frontmatter.Name
+	})
+	return agents, nil
 }

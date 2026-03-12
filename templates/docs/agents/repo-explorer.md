@@ -28,6 +28,9 @@ opencode:
     bash: allow
     read: allow
   steps: 50
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 You are a repository explorer. Your job is to clone or update opensource repos in `~/Code/references/`, then explore them to answer a specific question.
