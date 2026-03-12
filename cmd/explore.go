@@ -106,7 +106,7 @@ func exploreProject(question, alias string, cfg *config.Config) error {
 
 	return runExploreAgent(exploreOpts{
 		question:     question,
-		systemExtra:  exploreProjectPrompt,
+		systemExtra:  strings.ReplaceAll(exploreProjectPrompt, "{projectPath}", projectPath),
 		allowedPaths: []string{projectPath},
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
@@ -130,7 +130,7 @@ func exploreRepo(question, repoRef string, cfg *config.Config) error {
 
 	return runExploreAgent(exploreOpts{
 		question:     question,
-		systemExtra:  exploreRepoPrompt,
+		systemExtra:  strings.ReplaceAll(exploreRepoPrompt, "{localPath}", localPath),
 		allowedPaths: []string{localPath},
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
@@ -151,7 +151,7 @@ func exploreURL(question, rawURL string, cfg *config.Config, backend tools.ReadU
 
 	return runExploreAgent(exploreOpts{
 		question:     question,
-		systemExtra:  exploreURLPrompt,
+		systemExtra:  strings.ReplaceAll(exploreURLPrompt, "{rawURL}", rawURL),
 		allowedPaths: nil, // URL mode: no filesystem tools
 		toolNames:    []string{"read_url", "search_web"},
 		model:        cfg.ExploreModel(),
