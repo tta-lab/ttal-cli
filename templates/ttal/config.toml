@@ -59,7 +59,7 @@ Re-review the changes: {{review-scope}}
 Post updated review with: ttal pr comment create "<markdown>" (NEVER use --no-review)
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""
 
-[teams.clawd]
+[teams.ttal]
   chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
   team_path = ""                     # Path to your workspace directory (e.g. ~/clawd)
   data_dir = "~/.ttal"
