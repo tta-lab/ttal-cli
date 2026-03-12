@@ -10,6 +10,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
 	"github.com/tta-lab/ttal-cli/internal/ent/reaction"
 	"github.com/tta-lab/ttal-cli/internal/ent/schema"
+	"github.com/tta-lab/ttal-cli/internal/ent/toolusage"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -74,4 +75,30 @@ func init() {
 	reactionDescID := reactionFields[0].Descriptor()
 	// reaction.DefaultID holds the default value on creation for the id field.
 	reaction.DefaultID = reactionDescID.Default.(func() uuid.UUID)
+	toolusageFields := schema.ToolUsage{}.Fields()
+	_ = toolusageFields
+	// toolusageDescAgent is the schema descriptor for agent field.
+	toolusageDescAgent := toolusageFields[1].Descriptor()
+	// toolusage.AgentValidator is a validator for the "agent" field. It is called by the builders before save.
+	toolusage.AgentValidator = toolusageDescAgent.Validators[0].(func(string) error)
+	// toolusageDescTeam is the schema descriptor for team field.
+	toolusageDescTeam := toolusageFields[2].Descriptor()
+	// toolusage.TeamValidator is a validator for the "team" field. It is called by the builders before save.
+	toolusage.TeamValidator = toolusageDescTeam.Validators[0].(func(string) error)
+	// toolusageDescCommand is the schema descriptor for command field.
+	toolusageDescCommand := toolusageFields[3].Descriptor()
+	// toolusage.CommandValidator is a validator for the "command" field. It is called by the builders before save.
+	toolusage.CommandValidator = toolusageDescCommand.Validators[0].(func(string) error)
+	// toolusageDescSubcommand is the schema descriptor for subcommand field.
+	toolusageDescSubcommand := toolusageFields[4].Descriptor()
+	// toolusage.SubcommandValidator is a validator for the "subcommand" field. It is called by the builders before save.
+	toolusage.SubcommandValidator = toolusageDescSubcommand.Validators[0].(func(string) error)
+	// toolusageDescCreatedAt is the schema descriptor for created_at field.
+	toolusageDescCreatedAt := toolusageFields[6].Descriptor()
+	// toolusage.DefaultCreatedAt holds the default value on creation for the created_at field.
+	toolusage.DefaultCreatedAt = toolusageDescCreatedAt.Default.(func() time.Time)
+	// toolusageDescID is the schema descriptor for id field.
+	toolusageDescID := toolusageFields[0].Descriptor()
+	// toolusage.DefaultID holds the default value on creation for the id field.
+	toolusage.DefaultID = toolusageDescID.Default.(func() uuid.UUID)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/ent/attachment"
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
 	"github.com/tta-lab/ttal-cli/internal/ent/reaction"
+	"github.com/tta-lab/ttal-cli/internal/ent/toolusage"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -78,6 +79,7 @@ func checkColumn(t, c string) error {
 			attachment.Table: attachment.ValidColumn,
 			message.Table:    message.ValidColumn,
 			reaction.Table:   reaction.ValidColumn,
+			toolusage.Table:  toolusage.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

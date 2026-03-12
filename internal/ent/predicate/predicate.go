@@ -14,3 +14,6 @@ type Message func(*sql.Selector)
 
 // Reaction is the predicate function for reaction builders.
 type Reaction func(*sql.Selector)
+
+// ToolUsage is the predicate function for toolusage builders.
+type ToolUsage func(*sql.Selector)

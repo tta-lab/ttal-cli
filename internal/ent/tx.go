@@ -18,6 +18,8 @@ type Tx struct {
 	Message *MessageClient
 	// Reaction is the client for interacting with the Reaction builders.
 	Reaction *ReactionClient
+	// ToolUsage is the client for interacting with the ToolUsage builders.
+	ToolUsage *ToolUsageClient
 
 	// lazily loaded.
 	client     *Client
@@ -152,6 +154,7 @@ func (tx *Tx) init() {
 	tx.Attachment = NewAttachmentClient(tx.config)
 	tx.Message = NewMessageClient(tx.config)
 	tx.Reaction = NewReactionClient(tx.config)
+	tx.ToolUsage = NewToolUsageClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
 var (
@@ -70,6 +71,8 @@ Examples:
 			team = parts[0]
 			to = parts[1]
 		}
+
+		usage.Log("send", to)
 
 		return daemon.Send(daemon.SendRequest{
 			From:    from,

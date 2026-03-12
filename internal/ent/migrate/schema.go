@@ -102,11 +102,40 @@ var (
 			},
 		},
 	}
+	// ToolUsagesColumns holds the columns for the "tool_usages" table.
+	ToolUsagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "agent", Type: field.TypeString},
+		{Name: "team", Type: field.TypeString},
+		{Name: "command", Type: field.TypeString},
+		{Name: "subcommand", Type: field.TypeString},
+		{Name: "target", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// ToolUsagesTable holds the schema information for the "tool_usages" table.
+	ToolUsagesTable = &schema.Table{
+		Name:       "tool_usages",
+		Columns:    ToolUsagesColumns,
+		PrimaryKey: []*schema.Column{ToolUsagesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "toolusage_agent_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ToolUsagesColumns[1], ToolUsagesColumns[6]},
+			},
+			{
+				Name:    "toolusage_agent_subcommand_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ToolUsagesColumns[1], ToolUsagesColumns[4], ToolUsagesColumns[6]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AttachmentsTable,
 		MessagesTable,
 		ReactionsTable,
+		ToolUsagesTable,
 	}
 )
 

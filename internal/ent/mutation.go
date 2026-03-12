@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
 	"github.com/tta-lab/ttal-cli/internal/ent/predicate"
 	"github.com/tta-lab/ttal-cli/internal/ent/reaction"
+	"github.com/tta-lab/ttal-cli/internal/ent/toolusage"
 )
 
 const (
@@ -30,6 +31,7 @@ const (
 	TypeAttachment = "Attachment"
 	TypeMessage    = "Message"
 	TypeReaction   = "Reaction"
+	TypeToolUsage  = "ToolUsage"
 )
 
 // AttachmentMutation represents an operation that mutates the Attachment nodes in the graph.
@@ -2191,4 +2193,628 @@ func (m *ReactionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Reaction edge %s", name)
+}
+
+// ToolUsageMutation represents an operation that mutates the ToolUsage nodes in the graph.
+type ToolUsageMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	agent         *string
+	team          *string
+	command       *string
+	subcommand    *string
+	target        *string
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*ToolUsage, error)
+	predicates    []predicate.ToolUsage
+}
+
+var _ ent.Mutation = (*ToolUsageMutation)(nil)
+
+// toolusageOption allows management of the mutation configuration using functional options.
+type toolusageOption func(*ToolUsageMutation)
+
+// newToolUsageMutation creates new mutation for the ToolUsage entity.
+func newToolUsageMutation(c config, op Op, opts ...toolusageOption) *ToolUsageMutation {
+	m := &ToolUsageMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeToolUsage,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withToolUsageID sets the ID field of the mutation.
+func withToolUsageID(id uuid.UUID) toolusageOption {
+	return func(m *ToolUsageMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ToolUsage
+		)
+		m.oldValue = func(ctx context.Context) (*ToolUsage, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ToolUsage.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withToolUsage sets the old ToolUsage of the mutation.
+func withToolUsage(node *ToolUsage) toolusageOption {
+	return func(m *ToolUsageMutation) {
+		m.oldValue = func(context.Context) (*ToolUsage, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ToolUsageMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ToolUsageMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ToolUsage entities.
+func (m *ToolUsageMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ToolUsageMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ToolUsageMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ToolUsage.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAgent sets the "agent" field.
+func (m *ToolUsageMutation) SetAgent(s string) {
+	m.agent = &s
+}
+
+// Agent returns the value of the "agent" field in the mutation.
+func (m *ToolUsageMutation) Agent() (r string, exists bool) {
+	v := m.agent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgent returns the old "agent" field's value of the ToolUsage entity.
+// If the ToolUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ToolUsageMutation) OldAgent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgent: %w", err)
+	}
+	return oldValue.Agent, nil
+}
+
+// ResetAgent resets all changes to the "agent" field.
+func (m *ToolUsageMutation) ResetAgent() {
+	m.agent = nil
+}
+
+// SetTeam sets the "team" field.
+func (m *ToolUsageMutation) SetTeam(s string) {
+	m.team = &s
+}
+
+// Team returns the value of the "team" field in the mutation.
+func (m *ToolUsageMutation) Team() (r string, exists bool) {
+	v := m.team
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTeam returns the old "team" field's value of the ToolUsage entity.
+// If the ToolUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ToolUsageMutation) OldTeam(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTeam is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTeam requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTeam: %w", err)
+	}
+	return oldValue.Team, nil
+}
+
+// ResetTeam resets all changes to the "team" field.
+func (m *ToolUsageMutation) ResetTeam() {
+	m.team = nil
+}
+
+// SetCommand sets the "command" field.
+func (m *ToolUsageMutation) SetCommand(s string) {
+	m.command = &s
+}
+
+// Command returns the value of the "command" field in the mutation.
+func (m *ToolUsageMutation) Command() (r string, exists bool) {
+	v := m.command
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommand returns the old "command" field's value of the ToolUsage entity.
+// If the ToolUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ToolUsageMutation) OldCommand(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommand is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommand requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommand: %w", err)
+	}
+	return oldValue.Command, nil
+}
+
+// ResetCommand resets all changes to the "command" field.
+func (m *ToolUsageMutation) ResetCommand() {
+	m.command = nil
+}
+
+// SetSubcommand sets the "subcommand" field.
+func (m *ToolUsageMutation) SetSubcommand(s string) {
+	m.subcommand = &s
+}
+
+// Subcommand returns the value of the "subcommand" field in the mutation.
+func (m *ToolUsageMutation) Subcommand() (r string, exists bool) {
+	v := m.subcommand
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubcommand returns the old "subcommand" field's value of the ToolUsage entity.
+// If the ToolUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ToolUsageMutation) OldSubcommand(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubcommand is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubcommand requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubcommand: %w", err)
+	}
+	return oldValue.Subcommand, nil
+}
+
+// ResetSubcommand resets all changes to the "subcommand" field.
+func (m *ToolUsageMutation) ResetSubcommand() {
+	m.subcommand = nil
+}
+
+// SetTarget sets the "target" field.
+func (m *ToolUsageMutation) SetTarget(s string) {
+	m.target = &s
+}
+
+// Target returns the value of the "target" field in the mutation.
+func (m *ToolUsageMutation) Target() (r string, exists bool) {
+	v := m.target
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTarget returns the old "target" field's value of the ToolUsage entity.
+// If the ToolUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ToolUsageMutation) OldTarget(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTarget is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTarget requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTarget: %w", err)
+	}
+	return oldValue.Target, nil
+}
+
+// ClearTarget clears the value of the "target" field.
+func (m *ToolUsageMutation) ClearTarget() {
+	m.target = nil
+	m.clearedFields[toolusage.FieldTarget] = struct{}{}
+}
+
+// TargetCleared returns if the "target" field was cleared in this mutation.
+func (m *ToolUsageMutation) TargetCleared() bool {
+	_, ok := m.clearedFields[toolusage.FieldTarget]
+	return ok
+}
+
+// ResetTarget resets all changes to the "target" field.
+func (m *ToolUsageMutation) ResetTarget() {
+	m.target = nil
+	delete(m.clearedFields, toolusage.FieldTarget)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ToolUsageMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ToolUsageMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ToolUsage entity.
+// If the ToolUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ToolUsageMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ToolUsageMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the ToolUsageMutation builder.
+func (m *ToolUsageMutation) Where(ps ...predicate.ToolUsage) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ToolUsageMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ToolUsageMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ToolUsage, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ToolUsageMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ToolUsageMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ToolUsage).
+func (m *ToolUsageMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ToolUsageMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.agent != nil {
+		fields = append(fields, toolusage.FieldAgent)
+	}
+	if m.team != nil {
+		fields = append(fields, toolusage.FieldTeam)
+	}
+	if m.command != nil {
+		fields = append(fields, toolusage.FieldCommand)
+	}
+	if m.subcommand != nil {
+		fields = append(fields, toolusage.FieldSubcommand)
+	}
+	if m.target != nil {
+		fields = append(fields, toolusage.FieldTarget)
+	}
+	if m.created_at != nil {
+		fields = append(fields, toolusage.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ToolUsageMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case toolusage.FieldAgent:
+		return m.Agent()
+	case toolusage.FieldTeam:
+		return m.Team()
+	case toolusage.FieldCommand:
+		return m.Command()
+	case toolusage.FieldSubcommand:
+		return m.Subcommand()
+	case toolusage.FieldTarget:
+		return m.Target()
+	case toolusage.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ToolUsageMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case toolusage.FieldAgent:
+		return m.OldAgent(ctx)
+	case toolusage.FieldTeam:
+		return m.OldTeam(ctx)
+	case toolusage.FieldCommand:
+		return m.OldCommand(ctx)
+	case toolusage.FieldSubcommand:
+		return m.OldSubcommand(ctx)
+	case toolusage.FieldTarget:
+		return m.OldTarget(ctx)
+	case toolusage.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ToolUsage field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ToolUsageMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case toolusage.FieldAgent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgent(v)
+		return nil
+	case toolusage.FieldTeam:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTeam(v)
+		return nil
+	case toolusage.FieldCommand:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommand(v)
+		return nil
+	case toolusage.FieldSubcommand:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubcommand(v)
+		return nil
+	case toolusage.FieldTarget:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTarget(v)
+		return nil
+	case toolusage.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ToolUsage field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ToolUsageMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ToolUsageMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ToolUsageMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ToolUsage numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ToolUsageMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(toolusage.FieldTarget) {
+		fields = append(fields, toolusage.FieldTarget)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ToolUsageMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ToolUsageMutation) ClearField(name string) error {
+	switch name {
+	case toolusage.FieldTarget:
+		m.ClearTarget()
+		return nil
+	}
+	return fmt.Errorf("unknown ToolUsage nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ToolUsageMutation) ResetField(name string) error {
+	switch name {
+	case toolusage.FieldAgent:
+		m.ResetAgent()
+		return nil
+	case toolusage.FieldTeam:
+		m.ResetTeam()
+		return nil
+	case toolusage.FieldCommand:
+		m.ResetCommand()
+		return nil
+	case toolusage.FieldSubcommand:
+		m.ResetSubcommand()
+		return nil
+	case toolusage.FieldTarget:
+		m.ResetTarget()
+		return nil
+	case toolusage.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ToolUsage field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ToolUsageMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ToolUsageMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ToolUsageMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ToolUsageMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ToolUsageMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ToolUsageMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ToolUsageMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ToolUsage unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ToolUsageMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ToolUsage edge %s", name)
 }

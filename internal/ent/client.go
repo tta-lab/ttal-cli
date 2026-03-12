@@ -19,6 +19,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/ent/attachment"
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
 	"github.com/tta-lab/ttal-cli/internal/ent/reaction"
+	"github.com/tta-lab/ttal-cli/internal/ent/toolusage"
 )
 
 // Client is the client that holds all ent builders.
@@ -32,6 +33,8 @@ type Client struct {
 	Message *MessageClient
 	// Reaction is the client for interacting with the Reaction builders.
 	Reaction *ReactionClient
+	// ToolUsage is the client for interacting with the ToolUsage builders.
+	ToolUsage *ToolUsageClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -46,6 +49,7 @@ func (c *Client) init() {
 	c.Attachment = NewAttachmentClient(c.config)
 	c.Message = NewMessageClient(c.config)
 	c.Reaction = NewReactionClient(c.config)
+	c.ToolUsage = NewToolUsageClient(c.config)
 }
 
 type (
@@ -141,6 +145,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Attachment: NewAttachmentClient(cfg),
 		Message:    NewMessageClient(cfg),
 		Reaction:   NewReactionClient(cfg),
+		ToolUsage:  NewToolUsageClient(cfg),
 	}, nil
 }
 
@@ -163,6 +168,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Attachment: NewAttachmentClient(cfg),
 		Message:    NewMessageClient(cfg),
 		Reaction:   NewReactionClient(cfg),
+		ToolUsage:  NewToolUsageClient(cfg),
 	}, nil
 }
 
@@ -194,6 +200,7 @@ func (c *Client) Use(hooks ...Hook) {
 	c.Attachment.Use(hooks...)
 	c.Message.Use(hooks...)
 	c.Reaction.Use(hooks...)
+	c.ToolUsage.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
@@ -202,6 +209,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Attachment.Intercept(interceptors...)
 	c.Message.Intercept(interceptors...)
 	c.Reaction.Intercept(interceptors...)
+	c.ToolUsage.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -213,6 +221,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Message.mutate(ctx, m)
 	case *ReactionMutation:
 		return c.Reaction.mutate(ctx, m)
+	case *ToolUsageMutation:
+		return c.ToolUsage.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -681,12 +691,145 @@ func (c *ReactionClient) mutate(ctx context.Context, m *ReactionMutation) (Value
 	}
 }
 
+// ToolUsageClient is a client for the ToolUsage schema.
+type ToolUsageClient struct {
+	config
+}
+
+// NewToolUsageClient returns a client for the ToolUsage from the given config.
+func NewToolUsageClient(c config) *ToolUsageClient {
+	return &ToolUsageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `toolusage.Hooks(f(g(h())))`.
+func (c *ToolUsageClient) Use(hooks ...Hook) {
+	c.hooks.ToolUsage = append(c.hooks.ToolUsage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `toolusage.Intercept(f(g(h())))`.
+func (c *ToolUsageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ToolUsage = append(c.inters.ToolUsage, interceptors...)
+}
+
+// Create returns a builder for creating a ToolUsage entity.
+func (c *ToolUsageClient) Create() *ToolUsageCreate {
+	mutation := newToolUsageMutation(c.config, OpCreate)
+	return &ToolUsageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ToolUsage entities.
+func (c *ToolUsageClient) CreateBulk(builders ...*ToolUsageCreate) *ToolUsageCreateBulk {
+	return &ToolUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ToolUsageClient) MapCreateBulk(slice any, setFunc func(*ToolUsageCreate, int)) *ToolUsageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ToolUsageCreateBulk{err: fmt.Errorf("calling to ToolUsageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ToolUsageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ToolUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ToolUsage.
+func (c *ToolUsageClient) Update() *ToolUsageUpdate {
+	mutation := newToolUsageMutation(c.config, OpUpdate)
+	return &ToolUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ToolUsageClient) UpdateOne(_m *ToolUsage) *ToolUsageUpdateOne {
+	mutation := newToolUsageMutation(c.config, OpUpdateOne, withToolUsage(_m))
+	return &ToolUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ToolUsageClient) UpdateOneID(id uuid.UUID) *ToolUsageUpdateOne {
+	mutation := newToolUsageMutation(c.config, OpUpdateOne, withToolUsageID(id))
+	return &ToolUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ToolUsage.
+func (c *ToolUsageClient) Delete() *ToolUsageDelete {
+	mutation := newToolUsageMutation(c.config, OpDelete)
+	return &ToolUsageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ToolUsageClient) DeleteOne(_m *ToolUsage) *ToolUsageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ToolUsageClient) DeleteOneID(id uuid.UUID) *ToolUsageDeleteOne {
+	builder := c.Delete().Where(toolusage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ToolUsageDeleteOne{builder}
+}
+
+// Query returns a query builder for ToolUsage.
+func (c *ToolUsageClient) Query() *ToolUsageQuery {
+	return &ToolUsageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeToolUsage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ToolUsage entity by its id.
+func (c *ToolUsageClient) Get(ctx context.Context, id uuid.UUID) (*ToolUsage, error) {
+	return c.Query().Where(toolusage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ToolUsageClient) GetX(ctx context.Context, id uuid.UUID) *ToolUsage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ToolUsageClient) Hooks() []Hook {
+	return c.hooks.ToolUsage
+}
+
+// Interceptors returns the client interceptors.
+func (c *ToolUsageClient) Interceptors() []Interceptor {
+	return c.inters.ToolUsage
+}
+
+func (c *ToolUsageClient) mutate(ctx context.Context, m *ToolUsageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ToolUsageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ToolUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ToolUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ToolUsageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ToolUsage mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Attachment, Message, Reaction []ent.Hook
+		Attachment, Message, Reaction, ToolUsage []ent.Hook
 	}
 	inters struct {
-		Attachment, Message, Reaction []ent.Interceptor
+		Attachment, Message, Reaction, ToolUsage []ent.Interceptor
 	}
 )
