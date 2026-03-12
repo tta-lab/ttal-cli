@@ -185,9 +185,12 @@ func runExploreAgent(opts exploreOpts) error {
 		return err
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("get working directory: %w", err)
+	var cwd string
+	if len(opts.allowedPaths) > 0 {
+		cwd, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get working directory: %w", err)
+		}
 	}
 
 	allowedPaths := opts.allowedPaths
