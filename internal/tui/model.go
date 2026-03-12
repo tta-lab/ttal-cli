@@ -172,14 +172,16 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case heatmapLoadedMsg:
 		if msg.err != nil {
-			m.statusMsg = fmt.Sprintf("heatmap error: %v", msg.err)
+			m.statusMsg = fmt.Sprintf("Error: %v", msg.err)
 			m.state = stateTaskList
 			return m, nil
 		}
 		m.heatmapModel = msg.model
-		m.heatmapModel.Canvas.Focus() // Required — canvas ignores key events when unfocused
 		m.heatmapTotal = msg.total
 		m.heatmapReady = true
+		if m.state == stateHeatmap {
+			m.heatmapModel.Canvas.Focus() // guard: user may have navigated away before load
+		}
 		return m, nil
 	}
 	return m, nil
@@ -256,16 +258,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case stateConfirmDelete:
 		return m.handleConfirmDeleteKey(msg)
 	case stateHeatmap:
-		action := resolveKey(msg)
-		switch action {
-		case keyHeatmap, keyEsc:
-			m.heatmapModel.Canvas.Blur()
-			m.state = stateTaskList
-			return m, nil
-		}
-		var cmd tea.Cmd
-		m.heatmapModel, cmd = m.heatmapModel.Update(msg)
-		return m, cmd
+		return m.handleHeatmapKey(msg)
 	}
 
 	action := resolveKey(msg)
@@ -436,6 +429,19 @@ func (m *Model) handleOverlayAction(action keyAction) tea.Cmd {
 		return overlayHandled
 	}
 	return nil
+}
+
+func (m *Model) handleHeatmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	action := resolveKey(msg)
+	switch action {
+	case keyHeatmap, keyEsc:
+		m.heatmapModel.Canvas.Blur()
+		m.state = stateTaskList
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.heatmapModel, cmd = m.heatmapModel.Update(msg)
+	return m, cmd
 }
 
 func (m *Model) handleConfirmDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {

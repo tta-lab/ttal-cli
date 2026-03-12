@@ -6,7 +6,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/NimbleMarkets/ntcharts/v2/heatmap"
 	"github.com/tta-lab/ttal-cli/internal/today"
 )
@@ -79,15 +78,9 @@ func (m Model) viewHeatmap() string {
 		return "Loading heatmap..."
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Render("Task Completion Heatmap — Past Year")
-
-	summary := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render(fmt.Sprintf("%d tasks completed in the last year", m.heatmapTotal))
-
-	footer := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render("h/esc  back")
+	title := styleHeatmapTitle.Render("Task Completion Heatmap — Past Year")
+	summary := styleDim.Render(fmt.Sprintf("%d tasks completed in the last year", m.heatmapTotal))
+	footer := styleDim.Render("h/esc  back")
 
 	return fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s", title, m.heatmapModel.View(), summary, footer)
 }

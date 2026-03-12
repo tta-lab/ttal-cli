@@ -3,6 +3,7 @@ package today
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -219,6 +220,7 @@ func CompletedCounts() (map[time.Time]int, error) {
 		}
 		end, err := parseTaskDate(t.End)
 		if err != nil {
+			log.Printf("CompletedCounts: skipping task %s: cannot parse end date %q: %v", t.UUID, t.End, err)
 			continue
 		}
 		// Truncate to midnight UTC — taskwarrior dates are UTC
