@@ -15,7 +15,6 @@ import (
 	"unicode/utf8"
 
 	"charm.land/fantasy"
-	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 )
 
 const (
@@ -67,7 +66,6 @@ func (c *pageCache) set(url string, page *cachedPage) {
 // backend controls how HTML is fetched and converted:
 //   - BrowserGatewayBackend: POST to browser-gateway /api/extract (for server use)
 //   - DefuddleCLIBackend: shell out to `defuddle parse <url> --markdown` (for local/CLI use)
-//   - DirectFetchBackend: plain HTTP + html-to-markdown (fallback)
 func NewReadURLTool(backend ReadURLBackend, treeThreshold int) fantasy.AgentTool {
 	if treeThreshold <= 0 {
 		treeThreshold = 5000
@@ -149,7 +147,6 @@ type browserGatewayBackend struct {
 }
 
 // NewBrowserGatewayBackend creates a backend that fetches via browser-gateway.
-// Falls back to direct HTTP fetch on any gateway error.
 func NewBrowserGatewayBackend(gatewayURL string, client *http.Client) ReadURLBackend {
 	if client == nil {
 		client = &http.Client{Timeout: 60 * time.Second}
@@ -160,39 +157,34 @@ func NewBrowserGatewayBackend(gatewayURL string, client *http.Client) ReadURLBac
 func (b *browserGatewayBackend) Fetch(ctx context.Context, url string) (string, error) {
 	body, err := json.Marshal(map[string]string{"url": url})
 	if err != nil {
-		slog.Warn("browser-gateway marshal failed, falling back to direct fetch", "url", url, "error", err)
-		return fallbackDirect(ctx, b.client, url)
+		return "", fmt.Errorf("browser-gateway: marshal request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.gatewayURL+"/api/extract", bytes.NewReader(body))
 	if err != nil {
-		slog.Warn("browser-gateway request build failed, falling back to direct fetch", "url", url, "error", err)
-		return fallbackDirect(ctx, b.client, url)
+		return "", fmt.Errorf("browser-gateway: build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", webFetchAgent)
 
 	resp, err := b.client.Do(req)
 	if err != nil {
-		slog.Warn("browser-gateway fetch failed, falling back to direct fetch", "url", url, "error", err)
-		return fallbackDirect(ctx, b.client, url)
+		return "", fmt.Errorf("browser-gateway: fetch: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode >= 400 {
-		slog.Warn("browser-gateway returned error, falling back to direct fetch", "url", url, "status", resp.StatusCode)
-		return fallbackDirect(ctx, b.client, url)
+		slog.Warn("browser-gateway returned error status", "url", url, "status", resp.StatusCode)
+		return "", fmt.Errorf("browser-gateway: HTTP %d", resp.StatusCode)
 	}
 
 	var extracted extractResponse
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxBodyBytes)).Decode(&extracted); err != nil {
-		slog.Warn("browser-gateway decode failed, falling back to direct fetch", "url", url, "error", err)
-		return fallbackDirect(ctx, b.client, url)
+		return "", fmt.Errorf("browser-gateway: decode response: %w", err)
 	}
 
 	if extracted.Content == "" {
-		slog.Warn("browser-gateway returned empty content, falling back to direct fetch", "url", url)
-		return fallbackDirect(ctx, b.client, url)
+		return "", fmt.Errorf("browser-gateway: empty content for %s", url)
 	}
 
 	var sb strings.Builder
@@ -209,15 +201,6 @@ func (b *browserGatewayBackend) Fetch(ctx context.Context, url string) (string, 
 	sb.WriteString(extracted.Content)
 
 	return truncateContent(sb.String()), nil
-}
-
-// fallbackDirect checks ctx before delegating to directFetch so cancelled
-// contexts don't trigger a second network call.
-func fallbackDirect(ctx context.Context, client *http.Client, url string) (string, error) {
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	return directFetch(ctx, client, url)
 }
 
 // --- DefuddleCLIBackend ---
@@ -238,62 +221,6 @@ func (b *defuddleCLIBackend) Fetch(ctx context.Context, url string) (string, err
 		return "", fmt.Errorf("defuddle parse failed: %w\noutput: %s", err, strings.TrimSpace(string(out)))
 	}
 	return truncateContent(string(out)), nil
-}
-
-// --- DirectFetchBackend ---
-
-// directFetchBackend fetches via plain HTTP and converts HTML to markdown.
-type directFetchBackend struct {
-	client *http.Client
-}
-
-// NewDirectFetchBackend creates a backend that fetches via plain HTTP.
-// HTML responses are converted to markdown using html-to-markdown.
-func NewDirectFetchBackend(client *http.Client) ReadURLBackend {
-	if client == nil {
-		client = &http.Client{Timeout: 60 * time.Second}
-	}
-	return &directFetchBackend{client: client}
-}
-
-func (b *directFetchBackend) Fetch(ctx context.Context, url string) (string, error) {
-	return directFetch(ctx, b.client, url)
-}
-
-// directFetch is the shared plain-HTTP implementation used by both
-// directFetchBackend and browserGatewayBackend's fallback path.
-func directFetch(ctx context.Context, client *http.Client, targetURL string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %w", err)
-	}
-	req.Header.Set("User-Agent", webFetchAgent)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("fetch error: %w", err)
-	}
-	defer resp.Body.Close() //nolint:errcheck
-
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
-	if err != nil {
-		return "", fmt.Errorf("read error: %w", err)
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, "text/html") {
-		markdown, err := htmltomarkdown.ConvertString(string(body))
-		if err != nil {
-			return "", fmt.Errorf("html-to-markdown conversion failed: %w", err)
-		}
-		return truncateContent(markdown), nil
-	}
-
-	return truncateContent(string(body)), nil
 }
 
 func truncateContent(s string) string {
