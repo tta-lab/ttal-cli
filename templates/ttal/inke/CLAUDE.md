@@ -132,6 +132,7 @@ Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `
   - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
   - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
   - `ttal explore "question" --project <alias>` — explore registered ttal projects
+  - `ttal explore "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP when plans need quick API reference
 
 ## Memory & Continuity
