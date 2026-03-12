@@ -1,5 +1,6 @@
 ---
 name: pr-code-reviewer
+emoji: 🔍
 description: |-
   General code quality reviewer with confidence scoring. Reviews PR diffs for
   bugs, style violations, CLAUDE.md compliance, and security issues.

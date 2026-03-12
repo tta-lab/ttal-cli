@@ -22,6 +22,7 @@ type TtalAgentConfig struct {
 type AgentFrontmatter struct {
 	Name        string                 `yaml:"name"`
 	Description string                 `yaml:"description"`
+	Emoji       string                 `yaml:"emoji"`
 	ClaudeCode  map[string]interface{} `yaml:"claude-code"`
 	OpenCode    map[string]interface{} `yaml:"opencode"`
 	Codex       map[string]interface{} `yaml:"codex"`
