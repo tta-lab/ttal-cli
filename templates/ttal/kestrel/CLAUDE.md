@@ -131,6 +131,7 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
   - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
   - `ttal explore "question" --url https://example.com` — explore web pages (e.g. issue trackers, docs)
   - `ttal explore "question" --project <alias>` — explore registered ttal projects
+  - `ttal explore "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP when investigating framework bugs
 
 ## Memory & Continuity

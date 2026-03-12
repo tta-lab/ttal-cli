@@ -122,6 +122,7 @@ task $uuid modify -research +design
   - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
   - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
   - `ttal explore "question" --project <alias>` — explore registered ttal projects
+  - `ttal explore "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
 - **flicknote** — research storage and iteration. Project: `ttal.research`. **Read the `flicknote-cli` skill at the start of each session** for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
