@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"net/url"
 	"os"
@@ -16,6 +17,15 @@ import (
 	"github.com/tta-lab/ttal-cli/pkg/agentloop"
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/tools"
 )
+
+//go:embed explore_prompts/project.md
+var exploreProjectPrompt string
+
+//go:embed explore_prompts/repo.md
+var exploreRepoPrompt string
+
+//go:embed explore_prompts/url.md
+var exploreURLPrompt string
 
 var exploreFlags struct {
 	project   string
@@ -96,7 +106,7 @@ func exploreProject(question, alias string, cfg *config.Config) error {
 
 	return runExploreAgent(exploreOpts{
 		question:     question,
-		systemExtra:  fmt.Sprintf("You are exploring the codebase at %s. Answer the user's question.", projectPath),
+		systemExtra:  exploreProjectPrompt,
 		allowedPaths: []string{projectPath},
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
@@ -119,11 +129,8 @@ func exploreRepo(question, repoRef string, cfg *config.Config) error {
 	}
 
 	return runExploreAgent(exploreOpts{
-		question: question,
-		systemExtra: fmt.Sprintf( //nolint:lll
-			"You are exploring the repository at %s (cloned from %s). Answer the user's question.",
-			localPath, cloneURL,
-		),
+		question:     question,
+		systemExtra:  exploreRepoPrompt,
 		allowedPaths: []string{localPath},
 		toolNames:    []string{"bash", "read", "read_md", "glob", "grep"},
 		model:        cfg.ExploreModel(),
@@ -143,11 +150,8 @@ func exploreURL(question, rawURL string, cfg *config.Config, backend tools.ReadU
 	}
 
 	return runExploreAgent(exploreOpts{
-		question: question,
-		systemExtra: fmt.Sprintf( //nolint:lll
-			"You are analyzing web content from %s. Use the read_url tool to access the content. Answer the user's question.",
-			rawURL,
-		),
+		question:     question,
+		systemExtra:  exploreURLPrompt,
 		allowedPaths: nil, // URL mode: no filesystem tools
 		toolNames:    []string{"read_url", "search_web"},
 		model:        cfg.ExploreModel(),
