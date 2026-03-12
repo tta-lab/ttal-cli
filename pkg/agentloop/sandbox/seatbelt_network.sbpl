@@ -1,6 +1,6 @@
 ; Network access — equivalent to bwrap's --share-net.
 (allow network-outbound)
-(allow network-inbound)
+(allow network-inbound (local ip "localhost:*"))
 (allow network-bind (local ip "localhost:*"))
 
 ; TLS mach services required for HTTPS.

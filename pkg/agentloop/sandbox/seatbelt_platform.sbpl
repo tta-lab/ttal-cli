@@ -39,7 +39,12 @@
   (subpath "/var/tmp")
   (subpath "/private/var/tmp"))
 
-; Homebrew libraries (Apple Silicon default path).
+; Intel Homebrew and /usr/local tools (curl, git, jq, etc.).
+(allow file-read*
+  (subpath "/usr/local/bin")
+  (subpath "/usr/local/lib"))
+
+; Apple Silicon Homebrew.
 (allow file-read*
   (subpath "/opt/homebrew/lib")
   (subpath "/opt/homebrew/bin"))

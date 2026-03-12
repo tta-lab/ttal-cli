@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"time"
@@ -27,7 +28,11 @@ func (s *SeatbeltSandbox) Exec(
 	if err != nil {
 		return "", "", -1, fmt.Errorf("create temp home: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(homeDir) }()
+	defer func() {
+		if rmErr := os.RemoveAll(homeDir); rmErr != nil {
+			slog.Warn("seatbelt: failed to remove temp home dir", "path", homeDir, "err", rmErr)
+		}
+	}()
 
 	policy, dParams, err := buildPolicy(cfg)
 	if err != nil {
@@ -41,6 +46,7 @@ func (s *SeatbeltSandbox) Exec(
 
 	cmd := exec.CommandContext(ctx, "/usr/bin/sandbox-exec", args...)
 	cmd.Env = buildEnv(cfg, homeDir)
+	cmd.Dir = homeDir // avoid getcwd errors when cwd is outside sandbox paths
 
 	return runCmd(ctx, cmd)
 }
@@ -48,5 +54,5 @@ func (s *SeatbeltSandbox) Exec(
 // IsAvailable checks whether sandbox-exec is present on the system.
 func (s *SeatbeltSandbox) IsAvailable() bool {
 	_, err := os.Stat("/usr/bin/sandbox-exec")
-	return err == nil
+	return err == nil || !os.IsNotExist(err)
 }

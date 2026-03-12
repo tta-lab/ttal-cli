@@ -30,12 +30,12 @@ func TestSeatbeltSandbox_EchoHello(t *testing.T) {
 	requireSandboxExec(t)
 
 	s := &SeatbeltSandbox{Timeout: 10 * time.Second}
-	stdout, _, code, err := s.Exec(t.Context(), "echo hello", nil)
+	stdout, stderr, code, err := s.Exec(t.Context(), "echo hello", nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, code)
 	assert.Equal(t, "hello\n", stdout)
-	// Note: stderr may contain bash's getcwd warning when cwd is outside sandbox paths.
+	assert.Empty(t, stderr)
 }
 
 func TestSeatbeltSandbox_DeniesFileRead(t *testing.T) {
@@ -81,8 +81,38 @@ func TestSeatbeltSandbox_AllowsMountRead(t *testing.T) {
 	assert.Equal(t, "hello", stdout)
 }
 
+func TestSeatbeltSandbox_AllowsMountWrite(t *testing.T) {
+	requireSandboxExec(t)
+
+	// Create a test directory in user home (not in default allowed paths).
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	testDir := filepath.Join(homeDir, ".ttal_sandbox_test_mount_write")
+	require.NoError(t, os.MkdirAll(testDir, 0755))
+	t.Cleanup(func() { _ = os.RemoveAll(testDir) })
+
+	outFile := filepath.Join(testDir, "output.txt")
+
+	s := &SeatbeltSandbox{Timeout: 10 * time.Second}
+	cfg := &ExecConfig{
+		MountDirs: []Mount{{Source: testDir, Target: testDir, ReadOnly: false}},
+	}
+	_, _, code, err := s.Exec(t.Context(), "echo written > "+outFile, cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, code)
+
+	content, readErr := os.ReadFile(outFile)
+	require.NoError(t, readErr, "output file should exist after sandbox write")
+	assert.Equal(t, "written\n", string(content))
+}
+
 func TestSeatbeltSandbox_NetworkWorks(t *testing.T) {
 	requireSandboxExec(t)
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network test in CI (may be airgapped)")
+	}
 
 	s := &SeatbeltSandbox{Timeout: 15 * time.Second}
 	// Use curl to check network reachability (DNS + TCP).

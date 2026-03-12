@@ -55,7 +55,7 @@ func buildPolicy(cfg *ExecConfig) (policy string, params []string, err error) {
 	// Add DARWIN_USER_CACHE_DIR for TLS cache.
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		cacheDir = "/Library/Caches" // safe fallback
+		return "", nil, fmt.Errorf("resolve user cache dir: %w", err)
 	}
 	params = append(params, "-D", "DARWIN_USER_CACHE_DIR="+cacheDir)
 
