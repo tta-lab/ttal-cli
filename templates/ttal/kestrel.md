@@ -7,12 +7,12 @@ role: fixer
 voice: af_river
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Write, Edit]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep, write, edit]
+  tools: [bash, read, glob, grep]
 ---
 
 # CLAUDE.md - Kestrel's Workspace
