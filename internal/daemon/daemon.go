@@ -1043,7 +1043,7 @@ func ensureProjectDir(agentPath string) {
 
 // spawnCCSession creates a tmux session for a Claude Code agent.
 func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, env []string, shell string) error {
-	cmd := "claude --dangerously-skip-permissions"
+	cmd := "claude --dangerously-skip-permissions --agent " + agentName
 	if model != "" {
 		cmd += " --model " + model
 	}
