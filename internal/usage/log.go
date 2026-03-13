@@ -12,10 +12,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Log records a command invocation with "command attempted" semantics — it fires
-// immediately after flag validation, before the underlying operation completes.
+// LogWith records a tool invocation. command is the tool name (e.g. "ttal", "flicknote").
 // Skips silently if TTAL_AGENT_NAME is not set. Never fails the caller.
-func Log(subcommand, target string) {
+func LogWith(command, subcommand, target string) {
 	agent := os.Getenv("TTAL_AGENT_NAME")
 	if agent == "" {
 		return
@@ -38,7 +37,7 @@ func Log(subcommand, target string) {
 	builder := client.ToolUsage.Create().
 		SetAgent(agent).
 		SetTeam(team).
-		SetCommand("ttal").
+		SetCommand(command).
 		SetSubcommand(subcommand)
 	if target != "" {
 		builder = builder.SetTarget(target)
@@ -46,6 +45,14 @@ func Log(subcommand, target string) {
 	if _, err := builder.Save(ctx); err != nil {
 		log.Printf("[usage] log error: %v", err)
 	}
+}
+
+// Log records a ttal command invocation with "command attempted" semantics — it fires
+// immediately after flag validation, before the underlying operation completes.
+// Convenience wrapper for LogWith("ttal", ...).
+// Skips silently if TTAL_AGENT_NAME is not set. Never fails the caller.
+func Log(subcommand, target string) {
+	LogWith("ttal", subcommand, target)
 }
 
 // open returns an ent client connected to ~/.ttal/messages.db.
