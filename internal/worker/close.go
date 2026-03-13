@@ -71,9 +71,8 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		gitRoot = projectPath
 	}
 
-	// Derive work_dir from branch name (worker/<name> → ~/.ttal/worktrees/<name>)
-	workerName := strings.TrimPrefix(branch, "worker/")
-	workDir := filepath.Join(worktreeRoot(), workerName)
+	// Derive work_dir from task UUID and project alias
+	workDir := filepath.Join(worktreeRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
