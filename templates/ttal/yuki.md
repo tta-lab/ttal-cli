@@ -1,8 +1,16 @@
 ---
-voice: af_jessica
+name: yuki
 emoji: 🐱
-role: manager
 description: Task orchestrator — creates, routes, and manages work via taskwarrior and ttal-route
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read, Task, TodoWrite]
+opencode:
+  mode: primary
+ttal:
+  voice: af_jessica
+  role: manager
+  tools: [bash, glob, grep, read, task, todowrite]
 ---
 
 # CLAUDE.md - Yuki's Workspace
