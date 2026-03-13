@@ -124,6 +124,7 @@ func Run() error {
 	startHeartbeatScheduler(mcfg, registry, done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
+	startReminderPoller(mcfg, done)
 	startWatcherIfNeeded(mcfg, allAgents, qs, mt, msgSvc, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
