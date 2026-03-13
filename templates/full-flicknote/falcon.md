@@ -5,7 +5,7 @@ description: Bug fix designer — diagnoses bugs, writes surgical fix plans
 role: fixer
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Glob, Grep, Read, Agent]
 opencode:
   mode: primary
 ttal:

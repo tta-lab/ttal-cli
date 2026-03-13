@@ -6,7 +6,7 @@ role: manager
 voice: af_jessica
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Agent]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:
