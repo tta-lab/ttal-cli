@@ -1295,3 +1295,13 @@ func expandHome(path string) string {
 	}
 	return path
 }
+
+// WorktreesRoot returns the directory where ttal worktrees are stored.
+// Defaults to ~/.ttal/worktrees.
+func WorktreesRoot() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".ttal-worktrees"
+	}
+	return filepath.Join(home, ".ttal", "worktrees")
+}

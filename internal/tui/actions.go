@@ -9,15 +9,12 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func ttalWorktreeRoot() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".ttal-worktrees"
-	}
-	return filepath.Join(home, ".ttal", "worktrees")
+	return config.WorktreesRoot()
 }
 
 // runTtalCommand runs a ttal subcommand and returns combined output.
