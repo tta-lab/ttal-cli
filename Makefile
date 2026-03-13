@@ -55,17 +55,15 @@ install-dictate:
 # First-time setup: install binary, hooks, and daemon
 setup: install
 	@echo "Setting up ttal..."
-	@$(shell go env GOPATH)/bin/ttal worker install
 	@$(shell go env GOPATH)/bin/ttal daemon install
 	@echo "✓ Setup complete"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Run: ttal doctor --fix (generates template .env for bot tokens)"
+	@echo "  1. Run: ttal doctor --fix (installs hooks, generates template .env)"
 	@echo "  2. Edit ~/.config/ttal/.env with your bot tokens"
 
 # Install and restart all running daemons
 reinstall: install
-	@ttal worker install
 	@for label in $$(launchctl list 2>/dev/null | awk '/io\.guion\.ttal\.daemon/ {print $$3}'); do \
 		echo "Restarting $$label..."; \
 		launchctl kickstart -k "gui/$$(id -u)/$$label"; \
