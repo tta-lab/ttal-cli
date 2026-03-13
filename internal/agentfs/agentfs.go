@@ -15,6 +15,7 @@ const frontmatterDelimiter = "---"
 
 // SkipFiles contains known non-agent files to exclude from discovery.
 var SkipFiles = map[string]bool{
+	"CLAUDE":      true,
 	"CLAUDE.user": true,
 	"README":      true,
 }
