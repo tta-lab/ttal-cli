@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -78,6 +79,8 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 			info.Description = fm["description"]
 			info.Role = fm["role"]
 			info.FlicknoteProject = fm["flicknote_project"]
+		} else {
+			log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 		}
 
 		agents = append(agents, info)
@@ -109,6 +112,8 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 		info.Description = fm["description"]
 		info.Role = fm["role"]
 		info.FlicknoteProject = fm["flicknote_project"]
+	} else {
+		log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 	}
 
 	return info, nil

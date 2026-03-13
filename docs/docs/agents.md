@@ -3,29 +3,32 @@ title: Agents
 description: Agent management and identity in ttal
 ---
 
-Agents in ttal are persistent identities defined by their workspace directories. Each agent has a directory containing a `CLAUDE.md` file with optional frontmatter for metadata like voice, emoji, and description.
+Agents in ttal are persistent identities defined by flat `.md` files in the team's workspace directory. Each agent has a `.md` file with YAML frontmatter for metadata like voice, emoji, and description.
 
 ## How agents are discovered
 
-Agents are discovered from the filesystem — any subdirectory of `team_path` (configured in `config.toml`) that contains a `CLAUDE.md` file is treated as an agent. The directory name is the agent name.
+Agents are discovered from the filesystem — any `.md` file in `team_path` (configured in `config.toml`) is treated as an agent. The filename (without `.md`) is the agent name.
 
 ```
 ~/ttal-workspace/
-  kestrel/CLAUDE.md    → agent "kestrel"
-  athena/CLAUDE.md     → agent "athena"
-  docs/                → not an agent (no CLAUDE.md)
+  kestrel.md     → agent "kestrel"
+  athena.md      → agent "athena"
+  README.md      → not an agent (skipped)
+  CLAUDE.user.md → not an agent (skipped)
 ```
 
-## CLAUDE.md frontmatter
+## Agent frontmatter
 
-Agent metadata lives in YAML frontmatter at the top of `CLAUDE.md`:
+Agent metadata lives in YAML frontmatter at the top of the `.md` file:
 
 ```markdown
 ---
 voice: af_heart
 emoji: 🦅
 description: Worker lifecycle management
+role: fixer
 ---
+
 # Kestrel
 
 Your agent instructions here.
@@ -41,18 +44,17 @@ All frontmatter fields are optional:
 | `role` | Role key matching `[role]` in `roles.toml` | `manager`, `designer` |
 | `flicknote_project` | Default flicknote project (injected as `$FLICKNOTE_PROJECT`) | `ttal.plans` |
 
-CLAUDE.md frontmatter is the single source of truth for agent identity and per-agent config.
+Agent `.md` frontmatter is the single source of truth for agent identity and per-agent config.
 Operational config (prompts, heartbeat) lives in `~/.config/ttal/roles.toml` per role.
 
 ## Adding agents
 
 ```bash
-# Create an agent directory with CLAUDE.md
+# Create an agent .md file
 ttal agent add kestrel --emoji 🦅 --description "Worker lifecycle"
 
 # Or manually:
-mkdir -p ~/ttal-workspace/kestrel
-cat > ~/ttal-workspace/kestrel/CLAUDE.md << 'EOF'
+cat > ~/ttal-workspace/kestrel.md << 'EOF'
 ---
 emoji: 🦅
 description: Worker lifecycle management
