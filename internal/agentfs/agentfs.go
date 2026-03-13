@@ -11,6 +11,17 @@ import (
 
 const frontmatterDelimiter = "---"
 
+// Skip these known non-agent files
+var skipFiles = map[string]bool{
+	"CLAUDE.user": true,
+	"README":      true,
+}
+
+// isSkipFile returns true if the filename should be excluded from agent discovery.
+func isSkipFile(name string) bool {
+	return skipFiles[name]
+}
+
 // AgentInfo holds agent metadata parsed from .md file frontmatter.
 type AgentInfo struct {
 	Name             string // directory name (lowercase)
@@ -32,12 +43,6 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 
 	agents := make([]AgentInfo, 0, len(entries))
 
-	// Skip these known non-agent files
-	skipNames := map[string]bool{
-		"CLAUDE.user": true,
-		"README":      true,
-	}
-
 	for _, e := range entries {
 		if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
@@ -47,7 +52,7 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 		}
 
 		name := strings.TrimSuffix(e.Name(), ".md")
-		if skipNames[name] {
+		if isSkipFile(name) {
 			continue
 		}
 
@@ -112,12 +117,6 @@ func DiscoverAgents(teamPath string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read team path %s: %w", teamPath, err)
 	}
 
-	// Skip these known non-agent files
-	skipNames := map[string]bool{
-		"CLAUDE.user": true,
-		"README":      true,
-	}
-
 	var agents []string
 	for _, e := range entries {
 		if e.IsDir() {
@@ -127,7 +126,7 @@ func DiscoverAgents(teamPath string) ([]string, error) {
 			continue
 		}
 		name := strings.TrimSuffix(e.Name(), ".md")
-		if skipNames[name] {
+		if isSkipFile(name) {
 			continue
 		}
 		agents = append(agents, name)
