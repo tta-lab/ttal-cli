@@ -5,7 +5,7 @@ description: "PR review orchestrator — coordinates 7 specialized subagents for
 role: reviewer
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Task]
+  tools: [Bash, Glob, Grep, Read, Agent]
 opencode:
   mode: primary
 ---
