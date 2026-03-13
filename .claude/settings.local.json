@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sort -k6,7)"
+    ]
+  }
+}
