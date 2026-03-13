@@ -1,3 +1,8 @@
+---
+name: ttal-agent
+description: List and get info about agents in your team.
+---
+
 # ttal agent
 
 ## List all agents

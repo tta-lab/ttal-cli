@@ -1,3 +1,8 @@
+---
+name: ttal-task
+description: Create tasks and export rich prompts for piping to agents.
+---
+
 # ttal task
 
 Create tasks and export rich prompts for piping to agents.

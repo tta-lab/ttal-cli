@@ -1,3 +1,8 @@
+---
+name: ttal-pr
+description: Manage pull requests from your worker session.
+---
+
 # ttal pr
 
 Manage pull requests from your worker session. Context is auto-resolved from TTAL_JOB_ID — no flags needed.
