@@ -756,28 +756,11 @@ func (c *Config) resolve() error {
 	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
-	// Validate worker_runtime is not openclaw (agent-only)
-	if c.resolvedWorkerRuntime != "" {
-		rt := runtime.Runtime(c.resolvedWorkerRuntime)
-		if !rt.IsWorkerRuntime() {
-			return fmt.Errorf(
-				"worker_runtime %q is not valid for workers"+
-					" (use claude-code, opencode, or codex)",
-				c.resolvedWorkerRuntime,
-			)
-		}
+	if err := validateWorkerPlaneRuntime("worker_runtime", c.resolvedWorkerRuntime); err != nil {
+		return err
 	}
-
-	// Validate reviewer_runtime is not openclaw (agent-only)
-	if c.resolvedReviewerRuntime != "" {
-		rt := runtime.Runtime(c.resolvedReviewerRuntime)
-		if !rt.IsWorkerRuntime() {
-			return fmt.Errorf(
-				"reviewer_runtime %q is not valid for reviewers"+
-					" (use claude-code, opencode, or codex)",
-				c.resolvedReviewerRuntime,
-			)
-		}
+	if err := validateWorkerPlaneRuntime("reviewer_runtime", c.resolvedReviewerRuntime); err != nil {
+		return err
 	}
 
 	// Merge mode: from team config (defaults to empty = "auto" behavior).
@@ -827,6 +810,18 @@ func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
 // resolveEmojiReactions resolves whether emoji reactions are enabled for a team.
 func resolveEmojiReactions(team TeamConfig) bool {
 	return team.EmojiReactions != nil && *team.EmojiReactions
+}
+
+// validateWorkerPlaneRuntime returns an error if the given runtime string is set but not
+// valid for worker-plane sessions (openclaw is agent-only).
+func validateWorkerPlaneRuntime(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	if !runtime.Runtime(value).IsWorkerRuntime() {
+		return fmt.Errorf("%s %q is not valid for workers (use claude-code, opencode, or codex)", field, value)
+	}
+	return nil
 }
 
 func (c *Config) validateMergeMode() error {

@@ -49,8 +49,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		return err
 	}
 
-	envParts := []string{"TTAL_ROLE=reviewer"}
-	envParts = append(envParts, fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT))
+	envParts := []string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
 	shellCmd := cfg.BuildEnvShellCommand(envParts, reviewerCmd)
 
 	workDir, err := os.Getwd()
