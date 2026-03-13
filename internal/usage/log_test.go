@@ -10,10 +10,11 @@ func TestLogWith_SkipsWithoutAgentName(t *testing.T) {
 	LogWith("flicknote", "add", "note-abc")
 }
 
-func TestLogWith_SetsCommandField(t *testing.T) {
-	// Verifies function signature accepts command parameter.
-	// Full integration test requires DB — covered by existing daemon tests.
+func TestLogWith_AcceptsArbitraryCommand(t *testing.T) {
+	// Verifies the function signature accepts any command string (not just "ttal").
+	// Full DB write is skipped because TTAL_AGENT_NAME is unset — this confirms
+	// the silent-skip path handles multiple callers without panicking.
 	t.Setenv("TTAL_AGENT_NAME", "")
 	LogWith("flicknote", "add", "note-abc")
-	LogWith("ttal", "explore", "ttal-cli")
+	LogWith("flicknote", "replace", "note-xyz")
 }

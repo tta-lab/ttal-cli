@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -50,13 +51,18 @@ var usageLogTarget string
 // extractTargetFromStdin reads the first line of stdin, parses as JSON,
 // and returns the "id" field. Returns "" on any failure.
 func extractTargetFromStdin() string {
-	info, _ := os.Stdin.Stat()
-	if info.Mode()&os.ModeCharDevice != 0 {
-		return "" // no piped input
+	info, err := os.Stdin.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
+		return "" // stat failed or no piped input
 	}
+	return extractIDFromReader(os.Stdin)
+}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
+// extractIDFromReader reads the first line of r, parses as JSON, and returns
+// the "id" field as a string. Returns "" on any failure. Extracted for testability.
+func extractIDFromReader(r io.Reader) string {
+	scanner := bufio.NewScanner(r)
+	if !scanner.Scan() || scanner.Err() != nil {
 		return ""
 	}
 

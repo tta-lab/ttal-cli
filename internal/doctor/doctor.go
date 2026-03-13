@@ -817,7 +817,7 @@ func checkTaskwarriorHooks(section *Section, fix bool) {
 
 	taskDataDir, err := taskwarrior.ResolveDataLocation()
 	if err != nil {
-		section.add(LevelWarn, "tw-hooks", "taskwarrior data dir not found (skipping hook check)")
+		section.add(LevelWarn, "tw-hooks", fmt.Sprintf("taskwarrior data dir not found (%v) — skipping hook check", err))
 		return
 	}
 	hookDir := filepath.Join(taskDataDir, "hooks")
@@ -851,6 +851,16 @@ func checkTaskwarriorHooks(section *Section, fix bool) {
 		fmt.Sprintf("installed taskwarrior hooks: %s", hookDir))
 }
 
+// cmdHookScript is the shared template for on-add and on-modify hooks.
+// Both extract the command name from the $2 arg (e.g. "command:replace" → "replace").
+const cmdHookScript = `#!/bin/sh
+# FlickNote hook — logs usage to ttal worklog.
+# Installed by: ttal doctor --fix
+CMD=$(echo "$2" | sed 's/^command://')
+ttal usage log flicknote "$CMD" 2>/dev/null
+exit 0
+`
+
 // flicknoteHooks maps hook file names to their script content.
 // Each script extracts the command from $2 (e.g., "command:replace" → "replace")
 // and logs it via ttal usage log. Always exits 0 to never reject operations.
@@ -860,20 +870,8 @@ var flicknoteHooks = []struct {
 	File   string
 	Script string
 }{
-	{"on-add", `#!/bin/sh
-# FlickNote hook — logs usage to ttal worklog.
-# Installed by: ttal doctor --fix
-CMD=$(echo "$2" | sed 's/^command://')
-ttal usage log flicknote "$CMD" 2>/dev/null
-exit 0
-`},
-	{"on-modify", `#!/bin/sh
-# FlickNote hook — logs usage to ttal worklog.
-# Installed by: ttal doctor --fix
-CMD=$(echo "$2" | sed 's/^command://')
-ttal usage log flicknote "$CMD" 2>/dev/null
-exit 0
-`},
+	{"on-add", cmdHookScript},
+	{"on-modify", cmdHookScript},
 	{"on-archive", `#!/bin/sh
 # FlickNote hook — logs usage to ttal worklog.
 # Installed by: ttal doctor --fix
@@ -892,7 +890,7 @@ exit 0
 func checkFlicknoteHooks(section *Section, fix bool) {
 	// Check if flicknote is installed — skip section entirely if not
 	if _, err := exec.LookPath("flicknote"); err != nil {
-		section.add(LevelOK, "fn-hooks", "flicknote not installed (skipping hook check)")
+		section.add(LevelWarn, "fn-hooks", "flicknote not installed (skipping hook check)")
 		return
 	}
 
@@ -913,9 +911,8 @@ func checkFlicknoteHooks(section *Section, fix bool) {
 		}
 
 		if readErr == nil {
-			// File exists — check if it's ours
-			if strings.Contains(string(data), "ttal doctor --fix") ||
-				strings.Contains(string(data), "ttal usage log flicknote") {
+			// File exists — check if it's ours via the exact sentinel line
+			if strings.Contains(string(data), "# Installed by: ttal doctor --fix") {
 				section.add(LevelOK, h.File, fmt.Sprintf("flicknote hook: %s", hookPath))
 				continue
 			}
@@ -925,8 +922,11 @@ func checkFlicknoteHooks(section *Section, fix bool) {
 					fmt.Sprintf("flicknote hook %s exists but not managed by ttal", h.File))
 				continue
 			}
-			// Back up existing hook
+			// Back up existing hook (warn if .bak already exists — it will be overwritten)
 			backupPath := hookPath + ".bak"
+			if _, bakErr := os.Stat(backupPath); bakErr == nil {
+				section.add(LevelWarn, h.File, fmt.Sprintf("overwriting existing backup: %s", backupPath))
+			}
 			if backupErr := os.Rename(hookPath, backupPath); backupErr != nil {
 				section.add(LevelError, h.File,
 					fmt.Sprintf("failed to backup existing %s: %v", h.File, backupErr))
