@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
@@ -12,6 +13,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/format"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/today"
+	"github.com/tta-lab/ttal-cli/internal/tui"
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
@@ -228,6 +231,23 @@ Examples:
 	},
 }
 
+var taskHeatmapCmd = &cobra.Command{
+	Use:   "heatmap",
+	Short: "Show task completion heatmap for the past year",
+	Long: `Print a compact GitHub-style heatmap of completed tasks for the past year.
+
+Example:
+  ttal task heatmap`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		counts, err := today.CompletedCounts()
+		if err != nil {
+			return fmt.Errorf("loading completed tasks: %w", err)
+		}
+		fmt.Print(tui.RenderHeatmap(counts, time.Now()))
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(taskCmd)
 	taskCmd.AddCommand(taskGetCmd)
@@ -235,6 +255,7 @@ func init() {
 	taskCmd.AddCommand(taskAddCmd)
 	taskCmd.AddCommand(taskRouteCmd)
 	taskCmd.AddCommand(taskExecuteCmd)
+	taskCmd.AddCommand(taskHeatmapCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
 	taskExecuteCmd.Flags().BoolVar(&executeDryRun, "dry-run", false, "Show what would happen without spawning")

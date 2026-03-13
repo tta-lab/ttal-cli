@@ -266,7 +266,7 @@ func (m Model) viewHeatmap() string {
 	}
 
 	title := styleHeatmapTitle.Render("Task Completion Heatmap — Past Year")
-	footer := styleDim.Render("←↑↓→ navigate  h/esc back")
+	footer := styleDim.Render("hjkl/←↑↓→ navigate  H/esc back")
 
 	return fmt.Sprintf("%s\n\n%s\n\n%s", title, m.heatmapModel.view(), footer)
 }
