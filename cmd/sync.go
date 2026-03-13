@@ -264,7 +264,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d subagents, %d skills, %d commands, %d rules.%s\n",
+		fmt.Printf("\nSynced %d agents, %d skills, %d commands, %d rules.%s\n",
 			agentCount, skillCount, commandCount, ruleCount, suffix)
 		return nil
 	},
