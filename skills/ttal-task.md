@@ -18,9 +18,11 @@ ttal task add --project ttal "Fix auth bug" --tag bugfix --tag urgent --priority
 ## Search and export tasks
 
 ```bash
-ttal task get <uuid>           # export task as rich prompt (inlines referenced docs)
-ttal task find <keyword>        # search pending tasks by keyword (OR, case-insensitive)
-ttal task find <keyword> --completed  # search completed tasks
+ttal task get <uuid>                    # export task as rich prompt (inlines referenced docs)
+ttal task get                           # uses $TTAL_JOB_ID env var
+ttal task find <keyword>               # search pending tasks (OR, case-insensitive)
+ttal task find <keyword1> <keyword2>   # multiple keywords use OR logic
+ttal task find <keyword> --completed   # search completed tasks
 ```
 
 `ttal task get` inlines markdown files from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns — useful for feeding full context to agents.
@@ -30,8 +32,10 @@ ttal task find <keyword> --completed  # search completed tasks
 Route tasks to the right agent instead of doing everything yourself.
 
 ```bash
-ttal task route <uuid> --to <agent>    # route to agent for design/research/brainstorm
-ttal task execute <uuid>               # spawn a worker to implement the task
+ttal task route <uuid> --to <agent>              # route to agent for design/research/brainstorm
+ttal task route <uuid> --to <agent> --message "context"  # add context
+ttal task execute <uuid> --yes                   # spawn a worker immediately
+ttal task execute <uuid> --dry-run               # preview without spawning
 ```
 
 **When to use:**
