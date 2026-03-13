@@ -17,6 +17,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+func worktreeRoot() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".ttal-worktrees"
+	}
+	return filepath.Join(home, ".ttal", "worktrees")
+}
+
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
 	Name      string
