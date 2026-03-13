@@ -1093,15 +1093,13 @@ func (m *DaemonConfig) AllAgents() []TeamAgent {
 
 // FindAgent looks up which team an agent belongs to by scanning team paths.
 // Returns the first match if agent names are unique across teams.
-// Uses flat .md file discovery (same as AllAgents).
+// Uses agentfs.HasAgent for discovery.
 func (m *DaemonConfig) FindAgent(agentName string) (*TeamAgent, bool) {
 	for teamName, team := range m.Teams {
 		if team.TeamPath == "" {
 			continue
 		}
-		// Check for flat .md file (e.g., team_path/yuki.md)
-		agentFile := filepath.Join(team.TeamPath, agentName+".md")
-		if _, err := os.Stat(agentFile); err == nil {
+		if agentfs.HasAgent(team.TeamPath, agentName) {
 			ta := TeamAgent{
 				TeamName:  teamName,
 				AgentName: agentName,
@@ -1115,7 +1113,7 @@ func (m *DaemonConfig) FindAgent(agentName string) (*TeamAgent, bool) {
 }
 
 // FindAgentInTeam looks up an agent within a specific team by checking the filesystem.
-// Uses flat .md file discovery (same as AllAgents).
+// Uses agentfs.HasAgent for discovery.
 func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, bool) {
 	team, ok := m.Teams[teamName]
 	if !ok {
@@ -1124,9 +1122,7 @@ func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, 
 	if team.TeamPath == "" {
 		return nil, false
 	}
-	// Check for flat .md file (e.g., team_path/yuki.md)
-	agentFile := filepath.Join(team.TeamPath, agentName+".md")
-	if _, err := os.Stat(agentFile); err != nil {
+	if !agentfs.HasAgent(team.TeamPath, agentName) {
 		return nil, false
 	}
 	ta := TeamAgent{

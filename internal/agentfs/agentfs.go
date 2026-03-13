@@ -144,6 +144,13 @@ func DiscoverAgents(teamPath string) ([]string, error) {
 	return agents, nil
 }
 
+// HasAgent returns true if an agent with the given name exists in teamPath.
+func HasAgent(teamPath, agentName string) bool {
+	agentFile := filepath.Join(teamPath, agentName+".md")
+	_, err := os.Stat(agentFile)
+	return err == nil
+}
+
 // FindByRole returns all agents with a matching role field.
 func FindByRole(teamPath, role string) ([]AgentInfo, error) {
 	agents, err := Discover(teamPath)
