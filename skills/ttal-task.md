@@ -34,8 +34,7 @@ Route tasks to the right agent instead of doing everything yourself.
 ```bash
 ttal task route <uuid> --to <agent>              # route to agent for design/research/brainstorm
 ttal task route <uuid> --to <agent> --message "context"  # add context
-ttal task execute <uuid> --yes                   # spawn a worker immediately
-ttal task execute <uuid> --dry-run               # preview without spawning
+ttal task execute <uuid>                         # spawn a worker
 ```
 
 **When to use:**
