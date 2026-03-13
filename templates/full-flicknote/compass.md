@@ -1,7 +1,16 @@
 ---
+name: compass
 emoji: 🧭
 description: Task navigator — routes work, manages priorities, keeps the team oriented
 role: manager
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read, Task, TodoWrite]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep, task, todowrite]
 ---
 
 # Compass
