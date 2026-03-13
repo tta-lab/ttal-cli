@@ -7,7 +7,7 @@ shell = "zsh"
 
 [sync]
   global_prompt_path = "/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/CLAUDE.user.md"
-  skills_paths = ["../docs/skills"]
+  skills_paths = ["../docs/skills", "../skills"]
   subagents_paths = ["../docs/agents"]
   commands_paths = ["../docs/commands"]
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
@@ -76,6 +77,31 @@ func deploySkillsToDir(rawPath, destDir string, dryRun bool) ([]SkillResult, err
 	results := make([]SkillResult, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			// Handle flat .md files (e.g., ttal-voice.md -> skill "ttal-voice")
+			if strings.HasSuffix(entry.Name(), ".md") {
+				name := strings.TrimSuffix(entry.Name(), ".md")
+				srcPath := filepath.Join(dir, entry.Name())
+				ccDest := filepath.Join(destDir, name)
+				results = append(results, SkillResult{
+					Source: srcPath,
+					Name:   name,
+					Dest:   ccDest,
+				})
+				if dryRun {
+					continue
+				}
+				// Deploy flat .md as SKILL.md in a subdirectory
+				if err := os.MkdirAll(ccDest, 0o755); err != nil {
+					return nil, fmt.Errorf("creating skill dir %s: %w", ccDest, err)
+				}
+				data, err := os.ReadFile(srcPath)
+				if err != nil {
+					return nil, fmt.Errorf("reading skill file %s: %w", srcPath, err)
+				}
+				if err := os.WriteFile(filepath.Join(ccDest, "SKILL.md"), data, 0o644); err != nil {
+					return nil, fmt.Errorf("writing SKILL.md: %w", err)
+				}
+			}
 			continue
 		}
 		skillDir := filepath.Join(dir, entry.Name())
@@ -122,6 +148,35 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 	results := make([]SkillResult, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			// Handle flat .md files (e.g., ttal-voice.md -> skill "ttal-voice")
+			if strings.HasSuffix(entry.Name(), ".md") {
+				name := strings.TrimSuffix(entry.Name(), ".md")
+				srcPath := filepath.Join(dir, entry.Name())
+				ccDest := filepath.Join(ccDir, name)
+				codexDest := filepath.Join(codexDir, name)
+				results = append(results, SkillResult{
+					Source:    srcPath,
+					Name:      name,
+					Dest:      ccDest,
+					CodexDest: codexDest,
+				})
+				if dryRun {
+					continue
+				}
+				// Deploy flat .md as SKILL.md in subdirectories
+				for _, d := range []string{ccDest, codexDest} {
+					if err := os.MkdirAll(d, 0o755); err != nil {
+						return nil, fmt.Errorf("creating skill dir %s: %w", d, err)
+					}
+					data, err := os.ReadFile(srcPath)
+					if err != nil {
+						return nil, fmt.Errorf("reading skill file %s: %w", srcPath, err)
+					}
+					if err := os.WriteFile(filepath.Join(d, "SKILL.md"), data, 0o644); err != nil {
+						return nil, fmt.Errorf("writing SKILL.md: %w", err)
+					}
+				}
+			}
 			continue
 		}
 
