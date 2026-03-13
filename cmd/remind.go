@@ -26,9 +26,10 @@ var (
 var remindAddCmd = &cobra.Command{
 	Use:   "add [message]",
 	Short: "Create a new reminder",
-	Long:  `Creates a taskwarrior task with +reminder tag and scheduled date. The daemon polls for due reminders and sends Telegram notifications.`,
-	Args:  cobra.MinimumNArgs(1),
-	RunE:  runRemindAdd,
+	Long: `Creates a taskwarrior task with +reminder tag and scheduled date.
+The daemon polls for due reminders and sends Telegram notifications.`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: runRemindAdd,
 }
 
 func runRemindAdd(cmd *cobra.Command, args []string) error {
