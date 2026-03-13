@@ -3,6 +3,7 @@ package agentfs
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,15 +12,30 @@ import (
 
 const frontmatterDelimiter = "---"
 
-// Skip these known non-agent files
-var skipFiles = map[string]bool{
+// SkipFiles contains known non-agent files to exclude from discovery.
+var SkipFiles = map[string]bool{
 	"CLAUDE.user": true,
 	"README":      true,
 }
 
 // isSkipFile returns true if the filename should be excluded from agent discovery.
 func isSkipFile(name string) bool {
-	return skipFiles[name]
+	return SkipFiles[name]
+}
+
+// isAgentFile returns true if the entry is a valid agent .md file.
+func isAgentFile(e fs.DirEntry) (name string, ok bool) {
+	if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		return "", false
+	}
+	if !strings.HasSuffix(e.Name(), ".md") {
+		return "", false
+	}
+	name = strings.TrimSuffix(e.Name(), ".md")
+	if isSkipFile(name) {
+		return "", false
+	}
+	return name, true
 }
 
 // AgentInfo holds agent metadata parsed from .md file frontmatter.
@@ -44,15 +60,8 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 	agents := make([]AgentInfo, 0, len(entries))
 
 	for _, e := range entries {
-		if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		if !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-
-		name := strings.TrimSuffix(e.Name(), ".md")
-		if isSkipFile(name) {
+		name, ok := isAgentFile(e)
+		if !ok {
 			continue
 		}
 
@@ -119,14 +128,8 @@ func DiscoverAgents(teamPath string) ([]string, error) {
 
 	var agents []string
 	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-		name := strings.TrimSuffix(e.Name(), ".md")
-		if isSkipFile(name) {
+		name, ok := isAgentFile(e)
+		if !ok {
 			continue
 		}
 		agents = append(agents, name)

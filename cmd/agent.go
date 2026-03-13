@@ -192,7 +192,7 @@ Example:
 			displayName = ag.Emoji + " " + displayName
 		}
 		fmt.Printf("Name:      %s\n", displayName)
-		fmt.Printf("Path:      %s\n", ag.Path)
+		fmt.Printf("Path:      %s\n", filepath.Join(teamPath, ag.Name))
 		if ag.Role != "" {
 			fmt.Printf("Role:      %s\n", ag.Role)
 		}
