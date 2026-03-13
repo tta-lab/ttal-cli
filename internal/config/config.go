@@ -1305,3 +1305,13 @@ func WorktreesRoot() string {
 	}
 	return filepath.Join(home, ".ttal", "worktrees")
 }
+
+// EnsureWorktreeRoot creates the worktrees root directory if it doesn't exist.
+// Returns the root path. Logs a warning to stderr on failure.
+func EnsureWorktreeRoot() string {
+	root := WorktreesRoot()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to create worktree root: %v\n", err)
+	}
+	return root
+}

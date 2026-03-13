@@ -48,16 +48,11 @@ func Editor(uuid string) error {
 }
 
 func resolveWorkDir(task *taskwarrior.Task) string {
-	// Try worktree by UUID and project alias
 	if task.UUID != "" && task.Project != "" {
-		worktreeRoot := config.WorktreesRoot()
-		if err := os.MkdirAll(worktreeRoot, 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to create worktree root: %v\n", err)
-		} else {
-			dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
-			if isDir(dir) {
-				return dir
-			}
+		worktreeRoot := config.EnsureWorktreeRoot()
+		dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+		if isDir(dir) {
+			return dir
 		}
 	}
 

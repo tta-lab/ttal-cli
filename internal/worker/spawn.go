@@ -62,25 +62,9 @@ func spawnBareMetal(cfg SpawnConfig) error {
 	}
 
 	// Compute relative subpath from git root to project directory.
-	// Resolve symlinks before comparing — git rev-parse resolves them but filepath.Abs does not.
-	subpath := ""
-	resolvedProject, err := filepath.EvalSymlinks(project)
+	subpath, err := computeSubpath(project, gitRoot)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to resolve symlinks for project: %v\n", err)
-		resolvedProject = project
-	}
-	resolvedRoot, err := filepath.EvalSymlinks(gitRoot)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to resolve symlinks for git root: %v\n", err)
-		resolvedRoot = gitRoot
-	}
-	if resolvedProject != resolvedRoot {
-		rel, err := filepath.Rel(gitRoot, project)
-		if err != nil {
-			return fmt.Errorf("cannot compute relative subpath: %w", err)
-		}
-		subpath = rel
-		fmt.Printf("  Monorepo subpath: %s\n", subpath)
+		return err
 	}
 
 	cfg.Runtime = resolveRuntime(cfg.Runtime, task)
@@ -145,6 +129,30 @@ func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
 	}
 
 	return task, nil
+}
+
+// computeSubpath computes the relative subpath from git root to project directory.
+// Resolves symlinks before comparing — git rev-parse resolves them but filepath.Abs does not.
+func computeSubpath(project, gitRoot string) (string, error) {
+	resolvedProject, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to resolve symlinks for project: %v\n", err)
+		resolvedProject = project
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(gitRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to resolve symlinks for git root: %v\n", err)
+		resolvedRoot = gitRoot
+	}
+	if resolvedProject != resolvedRoot {
+		rel, err := filepath.Rel(gitRoot, project)
+		if err != nil {
+			return "", fmt.Errorf("cannot compute relative subpath: %w", err)
+		}
+		fmt.Printf("  Monorepo subpath: %s\n", rel)
+		return rel, nil
+	}
+	return "", nil
 }
 
 // resolveModel determines the worker model: +hard tag uses opus, otherwise team worker_model config.
