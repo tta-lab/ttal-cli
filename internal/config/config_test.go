@@ -218,6 +218,19 @@ func TestReviewerRuntimeRejectsOpenClaw(t *testing.T) {
 	}
 }
 
+func TestResolveTeamRejectsOpenClawReviewerRuntime(t *testing.T) {
+	_, err := resolveTeam("default", TeamConfig{
+		TeamPath:        "/tmp/test",
+		ReviewerRuntime: "openclaw",
+	}, nil, nil)
+	if err == nil {
+		t.Fatal("resolveTeam() should reject openclaw as reviewer_runtime")
+	}
+	if !strings.Contains(err.Error(), "reviewer_runtime") {
+		t.Errorf("expected reviewer_runtime error, got: %v", err)
+	}
+}
+
 func TestReviewerRuntimeRoundTrip(t *testing.T) {
 	cfg := &Config{
 		DefaultTeam: "default",
