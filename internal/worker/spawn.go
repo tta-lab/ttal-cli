@@ -17,10 +17,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
-func worktreeRoot() string {
-	return config.WorktreesRoot()
-}
-
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
 	Name      string
@@ -68,8 +64,16 @@ func spawnBareMetal(cfg SpawnConfig) error {
 	// Compute relative subpath from git root to project directory.
 	// Resolve symlinks before comparing — git rev-parse resolves them but filepath.Abs does not.
 	subpath := ""
-	resolvedProject, _ := filepath.EvalSymlinks(project)
-	resolvedRoot, _ := filepath.EvalSymlinks(gitRoot)
+	resolvedProject, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to resolve symlinks for project: %v\n", err)
+		resolvedProject = project
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(gitRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to resolve symlinks for git root: %v\n", err)
+		resolvedRoot = gitRoot
+	}
 	if resolvedProject != resolvedRoot {
 		rel, err := filepath.Rel(gitRoot, project)
 		if err != nil {
@@ -164,7 +168,10 @@ func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime 
 	if rt != "" {
 		return rt
 	}
-	shellCfg, _ := config.Load()
+	shellCfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load config: %v\n", err)
+	}
 	if shellCfg != nil {
 		return shellCfg.WorkerRuntime()
 	}
@@ -354,7 +361,7 @@ func writeTaskFile(
 }
 
 func setupWorktree(project, name, projectAlias string) (string, error) {
-	root := worktreeRoot()
+	root := config.WorktreesRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create worktree root %s: %w", root, err)
 	}
