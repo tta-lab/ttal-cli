@@ -10,6 +10,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+func ttalWorktreeRoot() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".ttal-worktrees"
+	}
+	return filepath.Join(home, ".ttal", "worktrees")
+}
+
 // Editor opens the task's project directory (or worktree) in an editor.
 func Editor(uuid string) error {
 	if err := taskwarrior.ValidateUUID(uuid); err != nil {
@@ -51,7 +59,7 @@ func resolveWorkDir(task *taskwarrior.Task) string {
 	// Try worktree by branch name (without worker/ prefix)
 	if task.Branch != "" {
 		name := strings.TrimPrefix(task.Branch, "worker/")
-		dir := filepath.Join(task.ProjectPath, ".worktrees", name)
+		dir := filepath.Join(ttalWorktreeRoot(), name)
 		if isDir(dir) {
 			return dir
 		}
