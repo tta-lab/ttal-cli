@@ -96,22 +96,24 @@ type Config struct {
 	User UserConfig `toml:"user"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir        string
-	resolvedTaskRC         string
-	resolvedTaskData       string
-	resolvedTeamName       string
-	resolvedAgentRuntime   string
-	resolvedWorkerRuntime  string
-	resolvedAgentModel     string
-	resolvedWorkerModel    string
-	resolvedMergeMode      string
-	resolvedTeamPath       string
-	resolvedProjectsPath   string
-	resolvedGatewayURL     string
-	resolvedHooksToken     string
-	resolvedTaskSyncURL    string
-	resolvedEmojiReactions bool
-	resolvedRoles          *RolesConfig
+	resolvedDataDir         string
+	resolvedTaskRC          string
+	resolvedTaskData        string
+	resolvedTeamName        string
+	resolvedAgentRuntime    string
+	resolvedWorkerRuntime   string
+	resolvedReviewerRuntime string
+	resolvedAgentModel      string
+	resolvedWorkerModel     string
+	resolvedReviewerModel   string
+	resolvedMergeMode       string
+	resolvedTeamPath        string
+	resolvedProjectsPath    string
+	resolvedGatewayURL      string
+	resolvedHooksToken      string
+	resolvedTaskSyncURL     string
+	resolvedEmojiReactions  bool
+	resolvedRoles           *RolesConfig
 }
 
 // KubernetesConfig holds per-team Kubernetes deployment settings.
@@ -163,6 +165,10 @@ type TeamConfig struct {
 	AgentModel string `toml:"agent_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// Model for spawned workers (default: sonnet; +hard tag overrides to opus)
 	WorkerModel string `toml:"worker_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
+	// Runtime for spawned reviewers (falls back to worker_runtime)
+	ReviewerRuntime string `toml:"reviewer_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex"` //nolint:lll
+	// Model for spawned reviewers (falls back to worker_model)
+	ReviewerModel string `toml:"reviewer_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// OpenClaw Gateway URL
 	GatewayURL string `toml:"gateway_url"`
 	// OpenClaw hooks auth token
@@ -360,6 +366,24 @@ func (c *Config) WorkerRuntime() runtime.Runtime {
 		return runtime.Runtime(c.resolvedWorkerRuntime)
 	}
 	return runtime.ClaudeCode
+}
+
+// ReviewerRuntime returns the team's reviewer runtime.
+// Falls back to WorkerRuntime if not set.
+func (c *Config) ReviewerRuntime() runtime.Runtime {
+	if c.resolvedReviewerRuntime != "" {
+		return runtime.Runtime(c.resolvedReviewerRuntime)
+	}
+	return c.WorkerRuntime()
+}
+
+// ReviewerModel returns the team's reviewer model.
+// Falls back to WorkerModel if not set.
+func (c *Config) ReviewerModel() string {
+	if c.resolvedReviewerModel != "" {
+		return c.resolvedReviewerModel
+	}
+	return c.WorkerModel()
 }
 
 const DefaultGatewayURL = "http://127.0.0.1:18789"
@@ -724,22 +748,16 @@ func (c *Config) resolve() error {
 
 	c.resolvedAgentRuntime = team.AgentRuntime
 	c.resolvedWorkerRuntime = team.WorkerRuntime
+	c.resolvedReviewerRuntime = team.ReviewerRuntime
 	c.resolvedAgentModel = team.AgentModel
 	c.resolvedWorkerModel = team.WorkerModel
+	c.resolvedReviewerModel = team.ReviewerModel
 	c.resolvedGatewayURL = team.GatewayURL
 	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
-	// Validate worker_runtime is not openclaw (agent-only)
-	if c.resolvedWorkerRuntime != "" {
-		rt := runtime.Runtime(c.resolvedWorkerRuntime)
-		if !rt.IsWorkerRuntime() {
-			return fmt.Errorf(
-				"worker_runtime %q is not valid for workers"+
-					" (use claude-code, opencode, or codex)",
-				c.resolvedWorkerRuntime,
-			)
-		}
+	if err := validateTeamRuntimes(c.resolvedWorkerRuntime, c.resolvedReviewerRuntime); err != nil {
+		return err
 	}
 
 	// Merge mode: from team config (defaults to empty = "auto" behavior).
@@ -791,6 +809,28 @@ func resolveEmojiReactions(team TeamConfig) bool {
 	return team.EmojiReactions != nil && *team.EmojiReactions
 }
 
+// validateTeamRuntimes validates worker_runtime and reviewer_runtime for a team config.
+// Combines both checks into a single call to keep callers at low cyclomatic complexity.
+func validateTeamRuntimes(workerRuntime, reviewerRuntime string) error {
+	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", workerRuntime); err != nil {
+		return err
+	}
+	return validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", reviewerRuntime)
+}
+
+// validateWorkerPlaneRuntime returns an error if the given runtime string is set but not
+// valid for worker-plane sessions (openclaw is agent-only).
+// role is the human-readable noun for the error message (e.g. "workers", "reviewers").
+func validateWorkerPlaneRuntime(field, role, value string) error {
+	if value == "" {
+		return nil
+	}
+	if !runtime.Runtime(value).IsWorkerRuntime() {
+		return fmt.Errorf("%s %q is not valid for %s (use claude-code, opencode, or codex)", field, value, role)
+	}
+	return nil
+}
+
 func (c *Config) validateMergeMode() error {
 	if c.resolvedMergeMode != "" && c.resolvedMergeMode != MergeModeAuto && c.resolvedMergeMode != MergeModeManual {
 		return fmt.Errorf("invalid merge_mode %q (must be %q or %q)", c.resolvedMergeMode, MergeModeAuto, MergeModeManual)
@@ -815,8 +855,10 @@ type ResolvedTeam struct {
 	NotificationToken string
 	AgentRuntime      string
 	WorkerRuntime     string
+	ReviewerRuntime   string
 	AgentModel        string
 	WorkerModel       string
+	ReviewerModel     string
 	MergeMode         string
 	GatewayURL        string
 	HooksToken        string
@@ -979,8 +1021,10 @@ func resolveTeam(
 		NotificationToken: resolveNotificationToken(teamName, team.NotificationTokenEnv),
 		AgentRuntime:      team.AgentRuntime,
 		WorkerRuntime:     team.WorkerRuntime,
+		ReviewerRuntime:   team.ReviewerRuntime,
 		AgentModel:        team.AgentModel,
 		WorkerModel:       team.WorkerModel,
+		ReviewerModel:     team.ReviewerModel,
 		MergeMode:         team.MergeMode,
 		GatewayURL:        team.GatewayURL,
 		HooksToken:        team.HooksToken,
@@ -1008,6 +1052,10 @@ func resolveTeam(
 		rt.TaskRC = defaultTaskRC()
 	} else {
 		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
+	}
+
+	if err := validateTeamRuntimes(team.WorkerRuntime, team.ReviewerRuntime); err != nil {
+		return nil, err
 	}
 
 	return rt, nil

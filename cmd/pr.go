@@ -72,15 +72,15 @@ Examples:
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		} else if sessionName != "" {
-			cfg, rt := loadConfigAndCoderRuntime()
+			cfg, _ := loadConfigAndCoderRuntime()
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Reviewer already running, sending review request...")
-				if err := review.RequestReReview(sessionName, false, "", cfg, rt); err != nil {
+				if err := review.RequestReReview(sessionName, false, "", cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
 				fmt.Println("  Spawning reviewer...")
-				if err := review.SpawnReviewer(sessionName, ctx, cfg, rt); err != nil {
+				if err := review.SpawnReviewer(sessionName, ctx, cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
@@ -317,16 +317,16 @@ Examples:
 		// Auto-trigger re-review when coder posts a comment (triage done).
 		noReview, _ := cmd.Flags().GetBool("no-review")
 		if sessionName != "" && role == "coder" && !noReview {
-			cfg, rt := loadConfigAndCoderRuntime()
+			cfg, _ := loadConfigAndCoderRuntime()
 			if tmux.WindowExists(sessionName, "review") {
 				fmt.Println("  Triggering re-review...")
-				if err := review.RequestReReview(sessionName, false, body, cfg, rt); err != nil {
+				if err := review.RequestReReview(sessionName, false, body, cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
 				// Reviewer window gone (crashed or closed) — respawn it
 				fmt.Println("  Reviewer not running, spawning...")
-				if err := review.SpawnReviewer(sessionName, ctx, cfg, rt); err != nil {
+				if err := review.SpawnReviewer(sessionName, ctx, cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
@@ -380,12 +380,12 @@ Examples:
 			fmt.Println("Killed existing reviewer window")
 		}
 
-		cfg, rt := loadConfigAndCoderRuntime()
+		cfg, _ := loadConfigAndCoderRuntime()
 		if tmux.WindowExists(sessionName, "review") {
-			return review.RequestReReview(sessionName, reviewFull, "", cfg, rt)
+			return review.RequestReReview(sessionName, reviewFull, "", cfg)
 		}
 
-		return review.SpawnReviewer(sessionName, ctx, cfg, rt)
+		return review.SpawnReviewer(sessionName, ctx, cfg)
 	},
 }
 
