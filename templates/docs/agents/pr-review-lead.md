@@ -22,15 +22,6 @@ You orchestrate comprehensive PR reviews by coordinating 7 specialized subagents
 - **Prioritize** issues by severity
 - **Suggest** next steps
 
-## Invocation
-
-Users invoke you with:
-```
-pr-review-lead
-pr-review-lead tests errors
-pr-review-lead simplify
-```
-
 ## Environment
 
 You always run in a **git worktree** with the branch already checked out. Use `git diff` and `git log` — don't run `git pull`, `git fetch`, or network operations.
