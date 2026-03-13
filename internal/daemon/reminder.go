@@ -13,9 +13,17 @@ const reminderPollInterval = 2 * time.Minute
 
 // startReminderPoller polls taskwarrior for due reminders and sends Telegram notifications.
 func startReminderPoller(mcfg *config.DaemonConfig, done <-chan struct{}) {
+	// Validate team config once at startup — misconfiguration should be loud, not a recurring log.
+	defaultTeam := mcfg.DefaultTeamName()
+	team, ok := mcfg.Teams[defaultTeam]
+	if !ok {
+		log.Printf("[reminder] WARNING: default team %q not found in config — reminder poller disabled", defaultTeam)
+		return
+	}
+
 	go func() {
 		// Check immediately on startup (catch reminders that came due while daemon was down).
-		fireReminders(mcfg)
+		fireReminders(team)
 
 		ticker := time.NewTicker(reminderPollInterval)
 		defer ticker.Stop()
@@ -24,27 +32,19 @@ func startReminderPoller(mcfg *config.DaemonConfig, done <-chan struct{}) {
 			case <-done:
 				return
 			case <-ticker.C:
-				fireReminders(mcfg)
+				fireReminders(team)
 			}
 		}
 	}()
 }
 
-func fireReminders(mcfg *config.DaemonConfig) {
+func fireReminders(team *config.ResolvedTeam) {
 	tasks, err := taskwarrior.GetDueReminders()
 	if err != nil {
 		log.Printf("[reminder] poll error: %v", err)
 		return
 	}
 	if len(tasks) == 0 {
-		return
-	}
-
-	// Resolve notification config from the default team (same pattern as notifyDaemonReady).
-	defaultTeam := mcfg.DefaultTeamName()
-	team, ok := mcfg.Teams[defaultTeam]
-	if !ok {
-		log.Printf("[reminder] default team %q not found — skipping %d reminders", defaultTeam, len(tasks))
 		return
 	}
 
@@ -55,6 +55,7 @@ func fireReminders(mcfg *config.DaemonConfig) {
 			continue
 		}
 		if err := taskwarrior.MarkDone(t.UUID); err != nil {
+			// Task stays pending and will be retried on the next poll cycle.
 			log.Printf("[reminder] failed to mark done %s: %v", t.SessionID(), err)
 			continue
 		}

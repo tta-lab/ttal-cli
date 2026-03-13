@@ -69,8 +69,12 @@ func runRemindAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create reminder: %w", err)
 	}
 
+	id := uuid
+	if len(id) > 8 {
+		id = id[:8]
+	}
 	fmt.Printf("⏰ Reminder set: %s\n", message)
-	fmt.Printf("   UUID: %s\n", uuid[:8])
+	fmt.Printf("   UUID: %s\n", id)
 	fmt.Printf("   Scheduled: %s\n", scheduled)
 	return nil
 }
@@ -86,7 +90,7 @@ var remindListCmd = &cobra.Command{
 func runRemindList(_ *cobra.Command, _ []string) error {
 	tasks, err := taskwarrior.GetPendingReminders()
 	if err != nil {
-		return err
+		return fmt.Errorf("list reminders: %w", err)
 	}
 	if len(tasks) == 0 {
 		fmt.Println("No pending reminders.")
@@ -122,7 +126,7 @@ func runRemindDelete(_ *cobra.Command, args []string) error {
 		return err
 	}
 	if err := taskwarrior.MarkDeleted(uuid); err != nil {
-		return err
+		return fmt.Errorf("delete reminder: %w", err)
 	}
 	fmt.Printf("Deleted reminder %s\n", uuid)
 	return nil
