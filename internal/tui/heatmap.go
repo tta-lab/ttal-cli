@@ -101,7 +101,7 @@ func dayLabel(row int) string {
 }
 
 // RenderHeatmap returns a compact GitHub-style heatmap string (for CLI use, no cursor).
-// Exported so cmd/today.go can call tui.RenderHeatmap().
+// Exported so cmd/task.go can call tui.RenderHeatmap().
 func RenderHeatmap(counts map[time.Time]int, now time.Time) string {
 	grid := buildGrid(counts, now)
 	var sb strings.Builder
@@ -266,7 +266,7 @@ func (m Model) viewHeatmap() string {
 	}
 
 	title := styleHeatmapTitle.Render("Task Completion Heatmap — Past Year")
-	footer := styleDim.Render("←↑↓→ navigate  h/esc back")
+	footer := styleDim.Render("hjkl/←↑↓→ navigate  H/esc back")
 
 	return fmt.Sprintf("%s\n\n%s\n\n%s", title, m.heatmapModel.view(), footer)
 }
