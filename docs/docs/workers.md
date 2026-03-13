@@ -38,7 +38,7 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 ## What happens on spawn
 
 1. A new git branch is created: `worker/<name>`
-2. A git worktree is set up in `.worktrees/<name>`
+2. A git worktree is set up in `~/.ttal/worktrees/<name>`
 3. A tmux session is created with the coding runtime (Claude Code by default)
 4. The task prompt is sent to the agent, including any inlined plan/research docs from annotations
 
