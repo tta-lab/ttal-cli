@@ -10,7 +10,7 @@ opencode:
   mode: primary
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep, task, todowrite]
+  tools: [bash, read, glob, grep]
 ---
 
 # Compass
