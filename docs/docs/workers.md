@@ -95,12 +95,12 @@ ttal worker cleanup
 
 This processes any pending cleanup request files that the daemon hasn't handled yet.
 
-## Dry run
+## Execute a task
 
-Preview what would happen without actually spawning:
+Spawn a worker to implement a task:
 
 ```bash
-ttal task execute <uuid> --dry-run
+ttal task execute <uuid>
 ```
 
-Shows the worker name, branch, project path, and runtime that would be used.
+Without `--yes`, shows the project path and prompts for confirmation.
