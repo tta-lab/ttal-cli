@@ -159,6 +159,59 @@ func TestWorkerModel(t *testing.T) {
 	}
 }
 
+func TestReviewerRuntime(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want runtime.Runtime
+	}{
+		{"explicit opencode", &Config{resolvedReviewerRuntime: "opencode"}, runtime.OpenCode},
+		{"explicit claude-code", &Config{resolvedReviewerRuntime: "claude-code"}, runtime.ClaudeCode},
+		{"falls back to worker_runtime", &Config{resolvedWorkerRuntime: "opencode"}, runtime.OpenCode},
+		{"falls back to claude-code default", &Config{}, runtime.ClaudeCode},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.ReviewerRuntime(); got != tt.want {
+				t.Errorf("ReviewerRuntime() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReviewerModel(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{"explicit opus", &Config{resolvedReviewerModel: "opus"}, "opus"},
+		{"falls back to worker_model", &Config{resolvedWorkerModel: "opus"}, "opus"},
+		{"falls back to sonnet default", &Config{}, "sonnet"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.ReviewerModel(); got != tt.want {
+				t.Errorf("ReviewerModel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReviewerRuntimeRejectsOpenClaw(t *testing.T) {
+	cfg := &Config{
+		Teams: map[string]TeamConfig{
+			"default": {
+				TeamPath:        "/tmp/test",
+				ReviewerRuntime: "openclaw",
+			},
+		},
+	}
+	if err := cfg.resolve(); err == nil {
+		t.Fatal("resolve() should reject openclaw as reviewer_runtime")
+	}
+}
+
 func TestAgentModelFor(t *testing.T) {
 	tests := []struct {
 		name  string

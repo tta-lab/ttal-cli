@@ -171,6 +171,24 @@
             ],
             "description": "Model for spawned workers (default: sonnet; +hard tag overrides to opus)"
           },
+          "reviewer_runtime": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "opencode",
+              "codex"
+            ],
+            "description": "Runtime for spawned reviewers (falls back to worker_runtime)"
+          },
+          "reviewer_model": {
+            "type": "string",
+            "enum": [
+              "haiku",
+              "sonnet",
+              "opus"
+            ],
+            "description": "Model for spawned reviewers (falls back to worker_model)"
+          },
           "gateway_url": {
             "type": "string",
             "description": "OpenClaw Gateway URL"

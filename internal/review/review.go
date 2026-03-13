@@ -16,7 +16,7 @@ import (
 const windowName = "review"
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
-func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt runtime.Runtime) error {
+func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
@@ -27,7 +27,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 	}
 	prIndex := prInfo.Index
 
-	prompt := buildReviewerPrompt(cfg, ctx, prIndex, rt)
+	reviewerRT := cfg.ReviewerRuntime()
+
+	prompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT)
 	if prompt == "" {
 		return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
 	}
@@ -42,16 +44,13 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	// Reviewers are worker-plane, so they share the team's worker_model.
-	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, rt, cfg.WorkerModel())
+	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, reviewerRT, cfg.ReviewerModel())
 	if err != nil {
 		return err
 	}
 
 	envParts := []string{"TTAL_ROLE=reviewer"}
-	if rtEnv := os.Getenv("TTAL_RUNTIME"); rtEnv != "" {
-		envParts = append(envParts, "TTAL_RUNTIME="+rtEnv)
-	}
+	envParts = append(envParts, fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT))
 	shellCmd := cfg.BuildEnvShellCommand(envParts, reviewerCmd)
 
 	workDir, err := os.Getwd()
@@ -74,7 +73,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config, rt r
 // coderComment, if non-empty, is best-effort written to a temp file.
 // If write succeeds, its path is included in the message so the reviewer
 // can read the coder's triage update.
-func RequestReReview(sessionName string, full bool, coderComment string, cfg *config.Config, rt runtime.Runtime) error {
+func RequestReReview(sessionName string, full bool, coderComment string, cfg *config.Config) error {
 	var commentRef string
 	if coderComment != "" {
 		f, err := os.CreateTemp("", "ttal-coder-comment-*.md")
@@ -104,7 +103,7 @@ func RequestReReview(sessionName string, full bool, coderComment string, cfg *co
 		"{{coder-comment}}", commentRef,
 		"{{review-scope}}", scope,
 	)
-	msg := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
+	msg := config.RenderTemplate(replacer.Replace(tmpl), "", cfg.ReviewerRuntime())
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
 	return tmux.SendKeys(sessionName, windowName, msg)

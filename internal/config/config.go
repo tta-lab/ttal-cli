@@ -96,22 +96,24 @@ type Config struct {
 	User UserConfig `toml:"user"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir        string
-	resolvedTaskRC         string
-	resolvedTaskData       string
-	resolvedTeamName       string
-	resolvedAgentRuntime   string
-	resolvedWorkerRuntime  string
-	resolvedAgentModel     string
-	resolvedWorkerModel    string
-	resolvedMergeMode      string
-	resolvedTeamPath       string
-	resolvedProjectsPath   string
-	resolvedGatewayURL     string
-	resolvedHooksToken     string
-	resolvedTaskSyncURL    string
-	resolvedEmojiReactions bool
-	resolvedRoles          *RolesConfig
+	resolvedDataDir         string
+	resolvedTaskRC          string
+	resolvedTaskData        string
+	resolvedTeamName        string
+	resolvedAgentRuntime    string
+	resolvedWorkerRuntime   string
+	resolvedReviewerRuntime string
+	resolvedAgentModel      string
+	resolvedWorkerModel     string
+	resolvedReviewerModel   string
+	resolvedMergeMode       string
+	resolvedTeamPath        string
+	resolvedProjectsPath    string
+	resolvedGatewayURL      string
+	resolvedHooksToken      string
+	resolvedTaskSyncURL     string
+	resolvedEmojiReactions  bool
+	resolvedRoles           *RolesConfig
 }
 
 // KubernetesConfig holds per-team Kubernetes deployment settings.
@@ -163,6 +165,10 @@ type TeamConfig struct {
 	AgentModel string `toml:"agent_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// Model for spawned workers (default: sonnet; +hard tag overrides to opus)
 	WorkerModel string `toml:"worker_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
+	// Runtime for spawned reviewers (falls back to worker_runtime)
+	ReviewerRuntime string `toml:"reviewer_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex"` //nolint:lll
+	// Model for spawned reviewers (falls back to worker_model)
+	ReviewerModel string `toml:"reviewer_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// OpenClaw Gateway URL
 	GatewayURL string `toml:"gateway_url"`
 	// OpenClaw hooks auth token
@@ -360,6 +366,24 @@ func (c *Config) WorkerRuntime() runtime.Runtime {
 		return runtime.Runtime(c.resolvedWorkerRuntime)
 	}
 	return runtime.ClaudeCode
+}
+
+// ReviewerRuntime returns the team's reviewer runtime.
+// Falls back to WorkerRuntime if not set.
+func (c *Config) ReviewerRuntime() runtime.Runtime {
+	if c.resolvedReviewerRuntime != "" {
+		return runtime.Runtime(c.resolvedReviewerRuntime)
+	}
+	return c.WorkerRuntime()
+}
+
+// ReviewerModel returns the team's reviewer model.
+// Falls back to WorkerModel if not set.
+func (c *Config) ReviewerModel() string {
+	if c.resolvedReviewerModel != "" {
+		return c.resolvedReviewerModel
+	}
+	return c.WorkerModel()
 }
 
 const DefaultGatewayURL = "http://127.0.0.1:18789"
@@ -724,8 +748,10 @@ func (c *Config) resolve() error {
 
 	c.resolvedAgentRuntime = team.AgentRuntime
 	c.resolvedWorkerRuntime = team.WorkerRuntime
+	c.resolvedReviewerRuntime = team.ReviewerRuntime
 	c.resolvedAgentModel = team.AgentModel
 	c.resolvedWorkerModel = team.WorkerModel
+	c.resolvedReviewerModel = team.ReviewerModel
 	c.resolvedGatewayURL = team.GatewayURL
 	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
@@ -738,6 +764,18 @@ func (c *Config) resolve() error {
 				"worker_runtime %q is not valid for workers"+
 					" (use claude-code, opencode, or codex)",
 				c.resolvedWorkerRuntime,
+			)
+		}
+	}
+
+	// Validate reviewer_runtime is not openclaw (agent-only)
+	if c.resolvedReviewerRuntime != "" {
+		rt := runtime.Runtime(c.resolvedReviewerRuntime)
+		if !rt.IsWorkerRuntime() {
+			return fmt.Errorf(
+				"reviewer_runtime %q is not valid for reviewers"+
+					" (use claude-code, opencode, or codex)",
+				c.resolvedReviewerRuntime,
 			)
 		}
 	}
@@ -815,8 +853,10 @@ type ResolvedTeam struct {
 	NotificationToken string
 	AgentRuntime      string
 	WorkerRuntime     string
+	ReviewerRuntime   string
 	AgentModel        string
 	WorkerModel       string
+	ReviewerModel     string
 	MergeMode         string
 	GatewayURL        string
 	HooksToken        string
@@ -979,8 +1019,10 @@ func resolveTeam(
 		NotificationToken: resolveNotificationToken(teamName, team.NotificationTokenEnv),
 		AgentRuntime:      team.AgentRuntime,
 		WorkerRuntime:     team.WorkerRuntime,
+		ReviewerRuntime:   team.ReviewerRuntime,
 		AgentModel:        team.AgentModel,
 		WorkerModel:       team.WorkerModel,
+		ReviewerModel:     team.ReviewerModel,
 		MergeMode:         team.MergeMode,
 		GatewayURL:        team.GatewayURL,
 		HooksToken:        team.HooksToken,
