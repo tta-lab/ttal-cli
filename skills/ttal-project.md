@@ -1,3 +1,8 @@
+---
+name: ttal-project
+description: Manage projects in your team.
+---
+
 # ttal project
 
 Manage projects in your team.

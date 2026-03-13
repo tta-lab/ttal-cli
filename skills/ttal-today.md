@@ -1,3 +1,8 @@
+---
+name: ttal-today
+description: Manage your daily task focus list using taskwarrior scheduled date.
+---
+
 # ttal today
 
 Manage your daily task focus list (uses taskwarrior `scheduled` date).

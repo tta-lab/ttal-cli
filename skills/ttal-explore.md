@@ -1,3 +1,8 @@
+---
+name: ttal-explore
+description: Investigate external repos, web pages, or internal projects by asking natural language questions.
+---
+
 # ttal explore
 
 Investigate external repos, web pages, or internal projects by asking natural language questions.

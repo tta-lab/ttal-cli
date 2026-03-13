@@ -1,3 +1,8 @@
+---
+name: ttal-messaging
+description: Send messages to agents or humans via Telegram.
+---
+
 # ttal messaging
 
 Send messages to agents or humans.

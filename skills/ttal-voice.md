@@ -1,3 +1,8 @@
+---
+name: ttal-voice
+description: Generate speech using your assigned Kokoro TTS voice.
+---
+
 # ttal voice
 
 Generate speech using your assigned Kokoro TTS voice. Audio is generated locally on Apple Silicon via mlx-audio.
