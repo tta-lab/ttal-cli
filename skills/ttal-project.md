@@ -1,8 +1,10 @@
 # ttal project
 
-Look up project details.
+Manage projects in your team.
 
 ```bash
 ttal project list              # list all active projects
-ttal project get <alias>       # project details (path, tags, etc.)
+ttal project add <alias>      # add a new project
+ttal project modify <alias>   # modify project fields
+ttal project archive <alias>  # archive a project
 ```
