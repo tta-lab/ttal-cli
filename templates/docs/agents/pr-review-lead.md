@@ -26,9 +26,9 @@ You orchestrate comprehensive PR reviews by coordinating 7 specialized subagents
 
 Users invoke you with:
 ```
-@pr-review-lead
-@pr-review-lead tests errors
-@pr-review-lead simplify
+pr-review-lead
+pr-review-lead tests errors
+pr-review-lead simplify
 ```
 
 ## Environment
@@ -61,7 +61,7 @@ Run `git diff --name-only` to see modified files and determine which reviews app
 
 ### 4. Launch Subagents
 
-Invoke subagents naturally — the runtime handles the invocation (via @mention in OpenCode, Task tool in Claude Code):
+Invoke subagents naturally:
 
 ```
 Use pr-code-reviewer to review for general code quality
