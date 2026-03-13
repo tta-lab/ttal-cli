@@ -18,11 +18,7 @@ import (
 )
 
 func worktreeRoot() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".ttal-worktrees"
-	}
-	return filepath.Join(home, ".ttal", "worktrees")
+	return config.WorktreesRoot()
 }
 
 // SpawnConfig holds configuration for spawning a worker.

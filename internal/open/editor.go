@@ -7,15 +7,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func ttalWorktreeRoot() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".ttal-worktrees"
-	}
-	return filepath.Join(home, ".ttal", "worktrees")
+	return config.WorktreesRoot()
 }
 
 // Editor opens the task's project directory (or worktree) in an editor.
