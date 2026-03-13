@@ -5,30 +5,23 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
-	// Agent with frontmatter
-	yuki := filepath.Join(dir, "yuki")
-	require.NoError(t, os.MkdirAll(yuki, 0o755))
+	// Agent with frontmatter (flat .md file)
 	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\n---\n# Yuki")
-	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), yukiContent, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
-	// Agent without frontmatter
-	kestrel := filepath.Join(dir, "kestrel")
-	require.NoError(t, os.MkdirAll(kestrel, 0o755))
-	os.WriteFile(filepath.Join(kestrel, "CLAUDE.md"), []byte("# Kestrel\n\nA hawk agent."), 0o644)
+	// Agent without frontmatter (flat .md file)
+	os.WriteFile(filepath.Join(dir, "kestrel.md"), []byte("# Kestrel\n\nA hawk agent."), 0o644)
 
-	// Non-agent directory (no CLAUDE.md)
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "docs"), 0o755))
+	// Non-agent file (no .md extension)
+	os.WriteFile(filepath.Join(dir, "README.txt"), []byte("readme"), 0o644)
 
-	// Dot directory (should be skipped)
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
-	os.WriteFile(filepath.Join(dir, ".git", "CLAUDE.md"), []byte("# fake"), 0o644)
+	// Dot file (should be skipped)
+	os.WriteFile(filepath.Join(dir, ".hidden.md"), []byte("# hidden"), 0o644)
 
 	agents, err := Discover(dir)
 	if err != nil {
@@ -76,9 +69,7 @@ func TestDiscover(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	dir := t.TempDir()
-	yuki := filepath.Join(dir, "yuki")
-	require.NoError(t, os.MkdirAll(yuki, 0o755))
-	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("---\nvoice: af_sky\n---\n# Yuki"), 0o644)
+	os.WriteFile(filepath.Join(dir, "yuki.md"), []byte("---\nvoice: af_sky\n---\n# Yuki"), 0o644)
 
 	ag, err := Get(dir, "yuki")
 	if err != nil {
@@ -100,12 +91,10 @@ func TestGetNotFound(t *testing.T) {
 func TestCount(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"a", "b", "c"} {
-		d := filepath.Join(dir, name)
-		require.NoError(t, os.MkdirAll(d, 0o755))
-		os.WriteFile(filepath.Join(d, "CLAUDE.md"), []byte("# "+name), 0o644)
+		os.WriteFile(filepath.Join(dir, name+".md"), []byte("# "+name), 0o644)
 	}
 	// Non-agent
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "docs"), 0o755))
+	os.WriteFile(filepath.Join(dir, "README.txt"), []byte("readme"), 0o644)
 
 	n, err := Count(dir)
 	if err != nil {
@@ -118,10 +107,8 @@ func TestCount(t *testing.T) {
 
 func TestSetField(t *testing.T) {
 	dir := t.TempDir()
-	yuki := filepath.Join(dir, "yuki")
-	require.NoError(t, os.MkdirAll(yuki, 0o755))
 	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n---\n# Yuki\n\nSome content.")
-	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), yukiContent, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "voice", "af_sky"); err != nil {
 		t.Fatalf("SetField: %v", err)
@@ -138,9 +125,7 @@ func TestSetField(t *testing.T) {
 
 func TestSetFieldNoFrontmatter(t *testing.T) {
 	dir := t.TempDir()
-	yuki := filepath.Join(dir, "yuki")
-	require.NoError(t, os.MkdirAll(yuki, 0o755))
-	os.WriteFile(filepath.Join(yuki, "CLAUDE.md"), []byte("# Yuki\n\nNo frontmatter here."), 0o644)
+	os.WriteFile(filepath.Join(dir, "yuki.md"), []byte("# Yuki\n\nNo frontmatter here."), 0o644)
 
 	if err := SetField(dir, "yuki", "voice", "af_heart"); err != nil {
 		t.Fatalf("SetField: %v", err)
@@ -151,7 +136,7 @@ func TestSetFieldNoFrontmatter(t *testing.T) {
 		t.Errorf("voice: got %q, want af_heart", ag.Voice)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(yuki, "CLAUDE.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "yuki.md"))
 	if !strings.Contains(string(data), "# Yuki") {
 		t.Error("original content should be preserved")
 	}

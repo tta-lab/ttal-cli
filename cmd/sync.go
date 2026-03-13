@@ -82,9 +82,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 		if len(agentPaths) > 0 {
 			if syncDryRun {
-				fmt.Println("Syncing subagents (dry run)...")
+				fmt.Println("Syncing agents (dry run)...")
 			} else {
-				fmt.Println("Syncing subagents...")
+				fmt.Println("Syncing agents...")
 			}
 
 			results, err := sync.DeployAgents(agentPaths, syncDryRun)
@@ -264,7 +264,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d subagents, %d skills, %d commands, %d rules.%s\n",
+		fmt.Printf("\nSynced %d agents, %d skills, %d commands, %d rules.%s\n",
 			agentCount, skillCount, commandCount, ruleCount, suffix)
 		return nil
 	},

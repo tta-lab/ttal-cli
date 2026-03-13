@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
@@ -54,6 +55,32 @@ func DeploySkillsTo(skillsPaths []string, ccDir string, dryRun bool) ([]SkillRes
 	return results, nil
 }
 
+// deployFlatSkillToDir deploys a flat .md file to a single destination.
+func deployFlatSkillToDir(srcPath, destDir string, dryRun bool) ([]SkillResult, error) {
+	name := strings.TrimSuffix(filepath.Base(srcPath), ".md")
+	result := SkillResult{
+		Source: srcPath,
+		Name:   name,
+		Dest:   destDir,
+	}
+
+	if dryRun {
+		return []SkillResult{result}, nil
+	}
+
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return nil, fmt.Errorf("creating skill dir %s: %w", destDir, err)
+	}
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading skill file %s: %w", srcPath, err)
+	}
+	if err := os.WriteFile(filepath.Join(destDir, "SKILL.md"), data, 0o644); err != nil {
+		return nil, fmt.Errorf("writing SKILL.md: %w", err)
+	}
+	return []SkillResult{result}, nil
+}
+
 // deploySkillsToDir deploys skills from a single source path to a single destination dir.
 func deploySkillsToDir(rawPath, destDir string, dryRun bool) ([]SkillResult, error) {
 	dir := config.ExpandHome(rawPath)
@@ -76,6 +103,16 @@ func deploySkillsToDir(rawPath, destDir string, dryRun bool) ([]SkillResult, err
 	results := make([]SkillResult, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			// Handle flat .md files (e.g., ttal-voice.md -> skill "ttal-voice")
+			if strings.HasSuffix(entry.Name(), ".md") {
+				srcPath := filepath.Join(dir, entry.Name())
+				ccDest := filepath.Join(destDir, strings.TrimSuffix(entry.Name(), ".md"))
+				deployed, err := deployFlatSkillToDir(srcPath, ccDest, dryRun)
+				if err != nil {
+					return nil, err
+				}
+				results = append(results, deployed...)
+			}
 			continue
 		}
 		skillDir := filepath.Join(dir, entry.Name())
@@ -97,6 +134,35 @@ func deploySkillsToDir(rawPath, destDir string, dryRun bool) ([]SkillResult, err
 		}
 	}
 	return results, nil
+}
+
+// deployFlatSkill deploys a flat .md file as a skill by creating subdirs with SKILL.md.
+func deployFlatSkill(srcPath, ccDest, codexDest string, dryRun bool) ([]SkillResult, error) {
+	name := strings.TrimSuffix(filepath.Base(srcPath), ".md")
+	result := SkillResult{
+		Source:    srcPath,
+		Name:      name,
+		Dest:      ccDest,
+		CodexDest: codexDest,
+	}
+
+	if dryRun {
+		return []SkillResult{result}, nil
+	}
+
+	for _, d := range []string{ccDest, codexDest} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			return nil, fmt.Errorf("creating skill dir %s: %w", d, err)
+		}
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			return nil, fmt.Errorf("reading skill file %s: %w", srcPath, err)
+		}
+		if err := os.WriteFile(filepath.Join(d, "SKILL.md"), data, 0o644); err != nil {
+			return nil, fmt.Errorf("writing SKILL.md: %w", err)
+		}
+	}
+	return []SkillResult{result}, nil
 }
 
 func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillResult, error) {
@@ -122,6 +188,17 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 	results := make([]SkillResult, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			// Handle flat .md files (e.g., ttal-voice.md -> skill "ttal-voice")
+			if strings.HasSuffix(entry.Name(), ".md") {
+				srcPath := filepath.Join(dir, entry.Name())
+				ccDest := filepath.Join(ccDir, strings.TrimSuffix(entry.Name(), ".md"))
+				codexDest := filepath.Join(codexDir, strings.TrimSuffix(entry.Name(), ".md"))
+				deployed, err := deployFlatSkill(srcPath, ccDest, codexDest, dryRun)
+				if err != nil {
+					return nil, err
+				}
+				results = append(results, deployed...)
+			}
 			continue
 		}
 

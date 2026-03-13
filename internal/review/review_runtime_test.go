@@ -21,20 +21,20 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 			rt:    runtime.ClaudeCode,
 			model: "sonnet",
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
-				" -- claude --model sonnet --dangerously-skip-permissions --",
+				" -- claude --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "claude-code with opus model",
 			rt:    runtime.ClaudeCode,
 			model: "opus",
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
-				" -- claude --model opus --dangerously-skip-permissions --",
+				" -- claude --model opus --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "opencode ignores model",
 			rt:    runtime.OpenCode,
 			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt",
+			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt --agent pr-review-lead",
 		},
 		{
 			name:  "codex ignores model",

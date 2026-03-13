@@ -76,12 +76,8 @@ func TestParseModifyArgs(t *testing.T) {
 
 func TestAgentfsSetField(t *testing.T) {
 	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "test-agent")
-	if err := os.MkdirAll(agentDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	content := []byte("---\nvoice: af_heart\n---\n# test-agent\n")
-	if err := os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), content, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "test-agent.md"), content, 0o644); err != nil {
 		t.Fatal(err)
 	}
 

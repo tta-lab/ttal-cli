@@ -7,6 +7,10 @@ import (
 )
 
 func TestBuildGatekeeperCommand(t *testing.T) {
+	ccBase := "ttal worker gatekeeper --task-file /tmp/task.txt -- claude"
+	ocBase := "ttal worker gatekeeper --task-file /tmp/task.txt -- opencode"
+	codexBase := "ttal worker gatekeeper --task-file /tmp/task.txt -- codex"
+
 	tests := []struct {
 		name  string
 		rt    runtime.Runtime
@@ -18,31 +22,31 @@ func TestBuildGatekeeperCommand(t *testing.T) {
 			name:  "claude-code with sonnet",
 			rt:    runtime.ClaudeCode,
 			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model sonnet --dangerously-skip-permissions --",
+			want:  ccBase + " --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "claude-code with opus",
 			rt:    runtime.ClaudeCode,
 			model: "opus",
-			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model opus --dangerously-skip-permissions --",
+			want:  ccBase + " --model opus --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "claude-code empty model defaults to sonnet",
 			rt:    runtime.ClaudeCode,
 			model: "",
-			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- claude --model sonnet --dangerously-skip-permissions --",
+			want:  ccBase + " --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "opencode ignores model",
 			rt:    runtime.OpenCode,
 			model: "opus",
-			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- opencode --prompt",
+			want:  ocBase + " --prompt --agent pr-review-lead",
 		},
 		{
 			name:  "codex ignores model",
 			rt:    runtime.Codex,
 			model: "opus",
-			want:  "ttal worker gatekeeper --task-file /tmp/task.txt -- codex --yolo --prompt",
+			want:  codexBase + " --yolo --prompt",
 		},
 		{
 			name: "non-worker runtime returns error",

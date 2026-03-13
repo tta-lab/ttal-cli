@@ -210,7 +210,7 @@ func (s *ChatService) GetAvatar(agentName string) (string, error) {
 			continue
 		}
 		for _, ext := range []string{".png", ".jpg", ".jpeg"} {
-			p := filepath.Join(info.Path, "assets", "avatar"+ext)
+			p := filepath.Join(info.Path, info.Name, "assets", "avatar"+ext)
 			data, err := os.ReadFile(p)
 			if err == nil {
 				mime := "image/png"

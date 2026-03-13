@@ -3,6 +3,8 @@ package agentfs
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,7 +13,33 @@ import (
 
 const frontmatterDelimiter = "---"
 
-// AgentInfo holds agent metadata parsed from CLAUDE.md frontmatter.
+// SkipFiles contains known non-agent files to exclude from discovery.
+var SkipFiles = map[string]bool{
+	"CLAUDE.user": true,
+	"README":      true,
+}
+
+// isSkipFile returns true if the filename should be excluded from agent discovery.
+func isSkipFile(name string) bool {
+	return SkipFiles[name]
+}
+
+// isAgentFile returns true if the entry is a valid agent .md file.
+func isAgentFile(e fs.DirEntry) (name string, ok bool) {
+	if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		return "", false
+	}
+	if !strings.HasSuffix(e.Name(), ".md") {
+		return "", false
+	}
+	name = strings.TrimSuffix(e.Name(), ".md")
+	if isSkipFile(name) {
+		return "", false
+	}
+	return name, true
+}
+
+// AgentInfo holds agent metadata parsed from .md file frontmatter.
 type AgentInfo struct {
 	Name             string // directory name (lowercase)
 	Path             string // absolute path to agent directory
@@ -22,7 +50,7 @@ type AgentInfo struct {
 	FlicknoteProject string // default flicknote project for this agent
 }
 
-// Discover scans teamPath for agent directories (subdirs with CLAUDE.md).
+// Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
 // Returns sorted list of agents with metadata parsed from frontmatter.
 func Discover(teamPath string) ([]AgentInfo, error) {
 	entries, err := os.ReadDir(teamPath)
@@ -31,26 +59,28 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 	}
 
 	agents := make([]AgentInfo, 0, len(entries))
+
 	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		name, ok := isAgentFile(e)
+		if !ok {
 			continue
 		}
-		claudeMd := filepath.Join(teamPath, e.Name(), "CLAUDE.md")
-		if _, err := os.Stat(claudeMd); err != nil {
-			continue
-		}
+
+		mdPath := filepath.Join(teamPath, e.Name())
 
 		info := AgentInfo{
-			Name: e.Name(),
-			Path: filepath.Join(teamPath, e.Name()),
+			Name: name,
+			Path: teamPath,
 		}
 
-		if fm, err := parseFrontmatter(claudeMd); err == nil {
+		if fm, err := parseFrontmatter(mdPath); err == nil {
 			info.Voice = fm["voice"]
 			info.Emoji = fm["emoji"]
 			info.Description = fm["description"]
 			info.Role = fm["role"]
 			info.FlicknoteProject = fm["flicknote_project"]
+		} else {
+			log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 		}
 
 		agents = append(agents, info)
@@ -63,25 +93,27 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 }
 
 // Get returns metadata for a single agent by name.
+// Looks for name.md in team root.
 func Get(teamPath, name string) (*AgentInfo, error) {
-	agentDir := filepath.Join(teamPath, name)
-	claudeMd := filepath.Join(agentDir, "CLAUDE.md")
+	mdPath := filepath.Join(teamPath, name+".md")
 
-	if _, err := os.Stat(claudeMd); err != nil {
-		return nil, fmt.Errorf("agent '%s' not found (no CLAUDE.md in %s)", name, agentDir)
+	if _, err := os.Stat(mdPath); err != nil {
+		return nil, fmt.Errorf("agent '%s' not found (no %s.md in %s)", name, name, teamPath)
 	}
 
 	info := &AgentInfo{
 		Name: name,
-		Path: agentDir,
+		Path: teamPath,
 	}
 
-	if fm, err := parseFrontmatter(claudeMd); err == nil {
+	if fm, err := parseFrontmatter(mdPath); err == nil {
 		info.Voice = fm["voice"]
 		info.Emoji = fm["emoji"]
 		info.Description = fm["description"]
 		info.Role = fm["role"]
 		info.FlicknoteProject = fm["flicknote_project"]
+	} else {
+		log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 	}
 
 	return info, nil
@@ -92,21 +124,20 @@ func GetFromPath(agentPath string) (*AgentInfo, error) {
 	return Get(filepath.Dir(agentPath), filepath.Base(agentPath))
 }
 
-// DiscoverAgents returns sorted agent names from teamPath subdirs containing CLAUDE.md.
+// DiscoverAgents returns sorted agent names from flat .md files in team root.
 func DiscoverAgents(teamPath string) ([]string, error) {
 	entries, err := os.ReadDir(teamPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read team path %s: %w", teamPath, err)
 	}
+
 	var agents []string
 	for _, e := range entries {
-		if !e.IsDir() {
+		name, ok := isAgentFile(e)
+		if !ok {
 			continue
 		}
-		claudePath := filepath.Join(teamPath, e.Name(), "CLAUDE.md")
-		if _, err := os.Stat(claudePath); err == nil {
-			agents = append(agents, e.Name())
-		}
+		agents = append(agents, name)
 	}
 	sort.Strings(agents)
 	return agents, nil
@@ -136,13 +167,13 @@ func Count(teamPath string) (int, error) {
 	return len(agents), nil
 }
 
-// SetField updates a single frontmatter field in an agent's CLAUDE.md.
+// SetField updates a single frontmatter field in an agent's .md file.
 // If no frontmatter exists, it adds one. Preserves existing content.
 func SetField(teamPath, name, field, value string) error {
-	claudeMd := filepath.Join(teamPath, name, "CLAUDE.md")
-	data, err := os.ReadFile(claudeMd)
+	mdPath := filepath.Join(teamPath, name+".md")
+	data, err := os.ReadFile(mdPath)
 	if err != nil {
-		return fmt.Errorf("read %s: %w", claudeMd, err)
+		return fmt.Errorf("read %s: %w", mdPath, err)
 	}
 
 	content := string(data)
@@ -165,7 +196,7 @@ func SetField(teamPath, name, field, value string) error {
 	sb.WriteString("---\n")
 	sb.WriteString(body)
 
-	return os.WriteFile(claudeMd, []byte(sb.String()), 0o644)
+	return os.WriteFile(mdPath, []byte(sb.String()), 0o644)
 }
 
 // parseFrontmatter reads YAML-like frontmatter from a markdown file.
