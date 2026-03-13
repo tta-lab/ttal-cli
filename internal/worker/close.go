@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	gitroot "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -72,7 +73,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	}
 
 	// Derive work_dir from task UUID and project alias
-	workDir := filepath.Join(worktreeRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
