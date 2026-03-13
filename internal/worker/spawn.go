@@ -93,7 +93,7 @@ func spawnBareMetal(cfg SpawnConfig) error {
 		return err
 	}
 
-	workDir, branch, err := setupWorkDir(cfg, gitRoot)
+	workDir, branch, err := setupWorkDir(cfg, task, gitRoot)
 	if err != nil {
 		return err
 	}
@@ -187,9 +187,9 @@ func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error 
 		sessionName, cfg.Name, filepath.Base(project))
 }
 
-func setupWorkDir(cfg SpawnConfig, project string) (workDir, branch string, err error) {
+func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (workDir, branch string, err error) {
 	if cfg.Worktree {
-		workDir, err = setupWorktree(project, cfg.Name)
+		workDir, err = setupWorktree(project, task.SessionID(), task.Project)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to setup worktree: %w", err)
 		}
@@ -353,13 +353,13 @@ func writeTaskFile(
 	return taskFile.Name(), nil
 }
 
-func setupWorktree(project, name string) (string, error) {
+func setupWorktree(project, name, projectAlias string) (string, error) {
 	root := worktreeRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create worktree root %s: %w", root, err)
 	}
 
-	worktreeDir := filepath.Join(root, name)
+	worktreeDir := filepath.Join(root, fmt.Sprintf("%s-%s", name, projectAlias))
 	workerBranch := fmt.Sprintf("worker/%s", name)
 
 	// Reuse existing worktree

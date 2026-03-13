@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -53,12 +52,11 @@ func Editor(uuid string) error {
 }
 
 func resolveWorkDir(task *taskwarrior.Task) string {
-	// Try worktree by branch name (without worker/ prefix)
-	if task.Branch != "" {
-		name := strings.TrimPrefix(task.Branch, "worker/")
+	// Try worktree by UUID and project alias
+	if task.UUID != "" && task.Project != "" {
 		worktreeRoot := ttalWorktreeRoot()
 		if err := os.MkdirAll(worktreeRoot, 0o755); err == nil {
-			dir := filepath.Join(worktreeRoot, name)
+			dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
 			if isDir(dir) {
 				return dir
 			}

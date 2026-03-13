@@ -250,6 +250,16 @@ func clipboardWrite(text string) error {
 
 // resolveWorkDir finds the working directory for a task (worktree or project root).
 func resolveWorkDir(t *Task) string {
+	if t.UUID != "" && t.Project != "" {
+		worktreeRoot := ttalWorktreeRoot()
+		if err := os.MkdirAll(worktreeRoot, 0o755); err == nil {
+			dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", t.UUID[:8], t.Project))
+			if info, err := os.Stat(dir); err == nil && info.IsDir() {
+				return dir
+			}
+		}
+	}
+
 	if t.Branch != "" {
 		name := strings.TrimPrefix(t.Branch, "worker/")
 		worktreeRoot := ttalWorktreeRoot()

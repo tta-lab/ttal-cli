@@ -60,7 +60,7 @@ func SpawnDocker(cfg SpawnConfig) error {
 		return err
 	}
 
-	workDir, branch, err := setupWorkDir(cfg, gitRoot)
+	workDir, branch, err := setupWorkDir(cfg, task, gitRoot)
 	if err != nil {
 		return err
 	}
