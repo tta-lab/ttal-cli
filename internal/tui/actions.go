@@ -12,6 +12,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+func ttalWorktreeRoot() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".ttal-worktrees"
+	}
+	return filepath.Join(home, ".ttal", "worktrees")
+}
+
 // runTtalCommand runs a ttal subcommand and returns combined output.
 func runTtalCommand(args ...string) ([]byte, error) {
 	return exec.Command("ttal", args...).CombinedOutput()
@@ -247,9 +255,12 @@ func clipboardWrite(text string) error {
 func resolveWorkDir(t *Task) string {
 	if t.Branch != "" {
 		name := strings.TrimPrefix(t.Branch, "worker/")
-		dir := filepath.Join(t.ProjectPath, ".worktrees", name)
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
-			return dir
+		worktreeRoot := ttalWorktreeRoot()
+		if err := os.MkdirAll(worktreeRoot, 0o755); err == nil {
+			dir := filepath.Join(worktreeRoot, name)
+			if info, err := os.Stat(dir); err == nil && info.IsDir() {
+				return dir
+			}
 		}
 	}
 	return t.ProjectPath

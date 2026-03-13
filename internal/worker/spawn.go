@@ -17,6 +17,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+func worktreeRoot() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".ttal-worktrees"
+	}
+	return filepath.Join(home, ".ttal", "worktrees")
+}
+
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
 	Name      string
@@ -350,7 +358,12 @@ func writeTaskFile(
 }
 
 func setupWorktree(project, name string) (string, error) {
-	worktreeDir := filepath.Join(project, ".worktrees", name)
+	root := worktreeRoot()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create worktree root %s: %w", root, err)
+	}
+
+	worktreeDir := filepath.Join(root, name)
 	workerBranch := fmt.Sprintf("worker/%s", name)
 
 	// Reuse existing worktree
