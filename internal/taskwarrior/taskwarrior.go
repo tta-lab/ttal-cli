@@ -58,6 +58,7 @@ type Task struct {
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Start       string       `json:"start,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
+	Scheduled   string       `json:"scheduled,omitempty"`
 	Branch      string       `json:"branch"`
 	ProjectPath string       `json:"project_path"`
 	PRID        string       `json:"pr_id,omitempty"`
