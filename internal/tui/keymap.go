@@ -37,6 +37,8 @@ const (
 	keyCopy
 	keyDelete
 	keyHeatmap
+	keyLeft
+	keyRight
 )
 
 var keyMap = map[string]keyAction{
@@ -44,6 +46,8 @@ var keyMap = map[string]keyAction{
 	"ctrl+c": keyQuit,
 	"k":      keyUp,
 	"up":     keyUp,
+	"left":   keyLeft,
+	"right":  keyRight,
 	"j":      keyDown,
 	"down":   keyDown,
 	"enter":  keyEnter,
@@ -115,6 +119,6 @@ const helpText = `Key Bindings:
   Ctrl+C          Cancel search
   Ctrl+R          Refresh tasks
 
-  h               Heatmap (task completion, past year)
+  h               Heatmap (task completion, past year) — ←↑↓→ to navigate, h/Esc to close
   ?               Toggle help
   q               Quit`
