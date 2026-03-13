@@ -10,7 +10,6 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/NimbleMarkets/ntcharts/v2/heatmap"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -73,9 +72,8 @@ type Model struct {
 	loadingSpinner spinner.Model
 
 	// Heatmap
-	heatmapModel heatmap.Model
+	heatmapModel heatmapModel
 	heatmapReady bool
-	heatmapTotal int // cached total for display, computed during async load
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -109,9 +107,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.heatmapReady {
-			m.heatmapModel.Resize(msg.Width, msg.Height)
-		}
 		return m, nil
 	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg, heatmapLoadedMsg:
 		return m.handleDataMsg(msg)
@@ -177,11 +172,7 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.heatmapModel = msg.model
-		m.heatmapTotal = msg.total
 		m.heatmapReady = true
-		if m.state == stateHeatmap {
-			m.heatmapModel.Canvas.Focus() // guard: user may have navigated away before load
-		}
 		return m, nil
 	}
 	return m, nil
@@ -373,7 +364,7 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 	case keyHeatmap:
 		m.heatmapReady = false
 		m.state = stateHeatmap
-		return m, loadHeatmapCmd(m.width, m.height)
+		return m, loadHeatmapCmd()
 	}
 	return m, nil
 }
@@ -435,13 +426,13 @@ func (m *Model) handleHeatmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	action := resolveKey(msg)
 	switch action {
 	case keyHeatmap, keyEsc:
-		m.heatmapModel.Canvas.Blur()
 		m.state = stateTaskList
 		return m, nil
+	case keyUp, keyDown, keyLeft, keyRight:
+		m.heatmapModel.moveCursor(action)
+		return m, nil
 	}
-	var cmd tea.Cmd
-	m.heatmapModel, cmd = m.heatmapModel.Update(msg)
-	return m, cmd
+	return m, nil
 }
 
 func (m *Model) handleConfirmDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
