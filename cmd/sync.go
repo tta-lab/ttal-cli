@@ -73,14 +73,21 @@ Configure source paths in ~/.config/ttal/config.toml:
 		commandCount := 0
 		ruleCount := 0
 
-		if len(syncCfg.SubagentsPaths) > 0 {
+		// Collect agent paths: subagents_paths + team_path (if exists)
+		agentPaths := make([]string, len(syncCfg.SubagentsPaths))
+		copy(agentPaths, syncCfg.SubagentsPaths)
+		if teamPath := cfg.TeamPath(); teamPath != "" {
+			agentPaths = append(agentPaths, teamPath)
+		}
+
+		if len(agentPaths) > 0 {
 			if syncDryRun {
 				fmt.Println("Syncing subagents (dry run)...")
 			} else {
 				fmt.Println("Syncing subagents...")
 			}
 
-			results, err := sync.DeployAgents(syncCfg.SubagentsPaths, syncDryRun)
+			results, err := sync.DeployAgents(agentPaths, syncDryRun)
 			if err != nil {
 				return fmt.Errorf("agent sync failed: %w", err)
 			}
@@ -95,13 +102,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 			for teamName, claudeDir := range k8sTeams {
 				teamAgentsDir := filepath.Join(claudeDir, "agents")
-				if err := sync.DeployAgentsTo(syncCfg.SubagentsPaths, teamAgentsDir, syncDryRun); err != nil {
+				if err := sync.DeployAgentsTo(agentPaths, teamAgentsDir, syncDryRun); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: k8s agents sync for %s: %v\n", teamName, err)
 				}
 			}
 
 			if syncClean {
-				removed, err := sync.CleanAgents(syncCfg.SubagentsPaths, syncDryRun)
+				removed, err := sync.CleanAgents(agentPaths, syncDryRun)
 				if err != nil {
 					return fmt.Errorf("agent cleanup failed: %w", err)
 				}
