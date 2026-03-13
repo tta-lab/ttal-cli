@@ -62,7 +62,7 @@ func extractTargetFromStdin() string {
 // the "id" field as a string. Returns "" on any failure. Extracted for testability.
 func extractIDFromReader(r io.Reader) string {
 	scanner := bufio.NewScanner(r)
-	if !scanner.Scan() || scanner.Err() != nil {
+	if !scanner.Scan() {
 		return ""
 	}
 
