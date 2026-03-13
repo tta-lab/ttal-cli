@@ -217,7 +217,8 @@ func (a *ACPAdapter) CreateSession(ctx context.Context) (string, error) {
 	a.mu.Unlock()
 
 	resp, err := conn.NewSession(ctx, acp.NewSessionRequest{
-		Cwd: a.cfg.WorkDir,
+		Cwd:        a.cfg.WorkDir,
+		McpServers: []acp.McpServer{},
 	})
 	if err != nil {
 		return "", err
@@ -239,8 +240,9 @@ func (a *ACPAdapter) ResumeSession(ctx context.Context, sessionID string) (strin
 	a.mu.Unlock()
 
 	_, err := conn.LoadSession(ctx, acp.LoadSessionRequest{
-		SessionId: acp.SessionId(sessionID),
-		Cwd:       a.cfg.WorkDir,
+		SessionId:  acp.SessionId(sessionID),
+		Cwd:        a.cfg.WorkDir,
+		McpServers: []acp.McpServer{},
 	})
 	if err != nil {
 		return "", err
