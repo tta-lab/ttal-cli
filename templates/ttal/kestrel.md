@@ -7,7 +7,7 @@ role: fixer
 voice: af_river
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Glob, Grep, Read, Agent]
 opencode:
   mode: primary
 ttal:
