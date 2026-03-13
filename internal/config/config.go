@@ -756,10 +756,7 @@ func (c *Config) resolve() error {
 	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
-	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", c.resolvedWorkerRuntime); err != nil {
-		return err
-	}
-	if err := validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", c.resolvedReviewerRuntime); err != nil {
+	if err := validateTeamRuntimes(c.resolvedWorkerRuntime, c.resolvedReviewerRuntime); err != nil {
 		return err
 	}
 
@@ -810,6 +807,15 @@ func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
 // resolveEmojiReactions resolves whether emoji reactions are enabled for a team.
 func resolveEmojiReactions(team TeamConfig) bool {
 	return team.EmojiReactions != nil && *team.EmojiReactions
+}
+
+// validateTeamRuntimes validates worker_runtime and reviewer_runtime for a team config.
+// Combines both checks into a single call to keep callers at low cyclomatic complexity.
+func validateTeamRuntimes(workerRuntime, reviewerRuntime string) error {
+	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", workerRuntime); err != nil {
+		return err
+	}
+	return validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", reviewerRuntime)
 }
 
 // validateWorkerPlaneRuntime returns an error if the given runtime string is set but not
@@ -1048,10 +1054,7 @@ func resolveTeam(
 		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
 	}
 
-	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", team.WorkerRuntime); err != nil {
-		return nil, err
-	}
-	if err := validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", team.ReviewerRuntime); err != nil {
+	if err := validateTeamRuntimes(team.WorkerRuntime, team.ReviewerRuntime); err != nil {
 		return nil, err
 	}
 
