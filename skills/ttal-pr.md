@@ -1,6 +1,6 @@
 # ttal pr
 
-Manage Forgejo pull requests from your worker session. Context is auto-resolved from TTAL_JOB_ID — no flags needed.
+Manage pull requests from your worker session. Context is auto-resolved from TTAL_JOB_ID — no flags needed.
 
 ## Create a PR
 

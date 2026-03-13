@@ -2,6 +2,16 @@
 
 Investigate external repos, web pages, or internal projects by asking natural language questions.
 
+## No flag (CWD + web)
+
+Explore the current directory with both filesystem and web search:
+
+```bash
+ttal explore "how does routing work?"
+```
+
+## With source flag
+
 ```bash
 ttal explore "how does routing work?" --project ttal-cli
 ttal explore "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
