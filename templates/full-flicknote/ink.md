@@ -5,7 +5,7 @@ description: Design architect — writes detailed implementation plans with prec
 role: designer
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Glob, Grep, Read, Agent]
 opencode:
   mode: primary
 ttal:

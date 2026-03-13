@@ -64,3 +64,4 @@ containers/worker-rust/worker-rust
 containers/worker-rust/*.tar
 containers/worker-devops/worker-devops
 containers/worker-devops/*.tar
+.claude/settings.local.json

@@ -7,7 +7,7 @@ role: designer
 voice: af_nova
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Glob, Grep, Read, Agent]
 opencode:
   mode: primary
 ttal:
