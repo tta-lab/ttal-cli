@@ -20,17 +20,30 @@ var heatmapColors = []color.Color{
 	lipgloss.Color("#39d353"), // 4: high
 }
 
+// heatmapCellStyles[i] is the precomputed lipgloss style for color bucket i.
+// Allocated once at package init to avoid per-cell allocations in renderGrid.
+var heatmapCellStyles [5]lipgloss.Style
+
+func init() {
+	for i, c := range heatmapColors {
+		heatmapCellStyles[i] = lipgloss.NewStyle().Foreground(c)
+	}
+}
+
 // heatmapGrid holds the precomputed 53×7 grid data.
 type heatmapGrid struct {
-	cells [53][7]int
-	dates [53][7]time.Time
-	max   int
-	total int
-	today time.Time
+	cells     [53][7]int
+	dates     [53][7]time.Time
+	max       int
+	total     int
+	today     time.Time
+	todayWeek int // week column of today (0-52)
+	todayDay  int // day row of today (0-6)
 }
 
 // buildGrid builds the 53×7 grid from completed counts.
 // Columns are weeks (0=oldest), rows are days of week (0=Sun, 6=Sat).
+// Use UTC consistently — taskwarrior dates parse as UTC.
 func buildGrid(counts map[time.Time]int, now time.Time) heatmapGrid {
 	todayDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
@@ -46,6 +59,10 @@ func buildGrid(counts map[time.Time]int, now time.Time) heatmapGrid {
 		for day := 0; day < 7; day++ {
 			date := start.AddDate(0, 0, week*7+day)
 			g.dates[week][day] = date
+			if date.Equal(todayDate) {
+				g.todayWeek = week
+				g.todayDay = day
+			}
 			if !date.After(todayDate) {
 				count := counts[date]
 				g.cells[week][day] = count
@@ -61,16 +78,12 @@ func buildGrid(counts map[time.Time]int, now time.Time) heatmapGrid {
 }
 
 // colorBucket maps a count to a 0-4 color index.
-// Uses 1+(count*3)/max so that count==max yields bucket 4.
+// Formula 1+(count*3)/max yields range 1-4; count==max yields exactly 4.
 func colorBucket(count, max int) int {
 	if count == 0 || max == 0 {
 		return 0
 	}
-	b := 1 + (count*3)/max
-	if b > 4 {
-		b = 4
-	}
-	return b
+	return 1 + (count*3)/max
 }
 
 // dayLabel returns the left label for a given row (GitHub style: Mon, Wed, Fri only).
@@ -116,7 +129,7 @@ func renderGrid(grid heatmapGrid, cursorX, cursorY int) string {
 				bucket = colorBucket(count, grid.max)
 			}
 
-			style := lipgloss.NewStyle().Foreground(heatmapColors[bucket])
+			style := heatmapCellStyles[bucket]
 			if week == cursorX && row == cursorY {
 				style = style.Reverse(true)
 			}
@@ -236,15 +249,11 @@ func loadHeatmapCmd() tea.Cmd {
 			return heatmapLoadedMsg{err: err}
 		}
 		grid := buildGrid(counts, time.Now())
-		model := heatmapModel{grid: grid}
-		// Initialize cursor at today's position.
-		for week := 0; week < 53; week++ {
-			for day := 0; day < 7; day++ {
-				if grid.dates[week][day].Equal(grid.today) {
-					model.cursorX = week
-					model.cursorY = day
-				}
-			}
+		// Initialize cursor at today's position (stored in grid during buildGrid).
+		model := heatmapModel{
+			grid:    grid,
+			cursorX: grid.todayWeek,
+			cursorY: grid.todayDay,
 		}
 		return heatmapLoadedMsg{model: model}
 	}

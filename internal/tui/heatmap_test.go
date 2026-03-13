@@ -134,4 +134,42 @@ func TestHeatmapModel_MoveCursor_ClampHorizontal(t *testing.T) {
 	if m.cursorX != 0 {
 		t.Errorf("expected cursorX to stay 0 at left boundary, got %d", m.cursorX)
 	}
+
+	// Can't go right past week 52.
+	m.cursorX = 52
+	m.cursorY = 0 // week 52 day 0 = Sun 2026-03-08, not future
+	m.moveCursor(keyRight)
+	if m.cursorX != 52 {
+		t.Errorf("expected cursorX to stay 52 at right boundary, got %d", m.cursorX)
+	}
+}
+
+func TestHeatmapModel_MoveCursor_FutureDateGuard(t *testing.T) {
+	// now = 2026-03-12 (Thu). Today is at grid.todayWeek=52, grid.todayDay=4.
+	// Moving down from today lands on (52, 5) = Fri 2026-03-13 = future — should revert.
+	now := time.Date(2026, 3, 12, 0, 0, 0, 0, time.UTC)
+	grid := buildGrid(map[time.Time]int{}, now)
+	m := heatmapModel{grid: grid, cursorX: grid.todayWeek, cursorY: grid.todayDay}
+
+	m.moveCursor(keyDown)
+	if m.cursorX != grid.todayWeek || m.cursorY != grid.todayDay {
+		t.Errorf("expected cursor to revert to today (%d,%d), got (%d,%d)",
+			grid.todayWeek, grid.todayDay, m.cursorX, m.cursorY)
+	}
+}
+
+func TestBuildGrid_TodayPosition(t *testing.T) {
+	// now = 2026-03-12 (Thu): todayWeek and todayDay should be set in grid.
+	now := time.Date(2026, 3, 12, 0, 0, 0, 0, time.UTC)
+	grid := buildGrid(map[time.Time]int{}, now)
+
+	todayDate := time.Date(2026, 3, 12, 0, 0, 0, 0, time.UTC)
+	if !grid.dates[grid.todayWeek][grid.todayDay].Equal(todayDate) {
+		t.Errorf("grid.dates[%d][%d] = %v, want %v",
+			grid.todayWeek, grid.todayDay, grid.dates[grid.todayWeek][grid.todayDay], todayDate)
+	}
+	// Thursday = weekday 4
+	if grid.todayDay != 4 {
+		t.Errorf("expected todayDay=4 (Thu), got %d", grid.todayDay)
+	}
 }
