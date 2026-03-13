@@ -756,10 +756,10 @@ func (c *Config) resolve() error {
 	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
-	if err := validateWorkerPlaneRuntime("worker_runtime", c.resolvedWorkerRuntime); err != nil {
+	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", c.resolvedWorkerRuntime); err != nil {
 		return err
 	}
-	if err := validateWorkerPlaneRuntime("reviewer_runtime", c.resolvedReviewerRuntime); err != nil {
+	if err := validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", c.resolvedReviewerRuntime); err != nil {
 		return err
 	}
 
@@ -814,12 +814,13 @@ func resolveEmojiReactions(team TeamConfig) bool {
 
 // validateWorkerPlaneRuntime returns an error if the given runtime string is set but not
 // valid for worker-plane sessions (openclaw is agent-only).
-func validateWorkerPlaneRuntime(field, value string) error {
+// role is the human-readable noun for the error message (e.g. "workers", "reviewers").
+func validateWorkerPlaneRuntime(field, role, value string) error {
 	if value == "" {
 		return nil
 	}
 	if !runtime.Runtime(value).IsWorkerRuntime() {
-		return fmt.Errorf("%s %q is not valid for workers (use claude-code, opencode, or codex)", field, value)
+		return fmt.Errorf("%s %q is not valid for %s (use claude-code, opencode, or codex)", field, value, role)
 	}
 	return nil
 }
@@ -1045,6 +1046,13 @@ func resolveTeam(
 		rt.TaskRC = defaultTaskRC()
 	} else {
 		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
+	}
+
+	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", team.WorkerRuntime); err != nil {
+		return nil, err
+	}
+	if err := validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", team.ReviewerRuntime); err != nil {
+		return nil, err
 	}
 
 	return rt, nil

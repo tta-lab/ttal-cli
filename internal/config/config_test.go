@@ -204,11 +204,36 @@ func TestReviewerRuntimeRejectsOpenClaw(t *testing.T) {
 			"default": {
 				TeamPath:        "/tmp/test",
 				ReviewerRuntime: "openclaw",
+				ChatID:          "x",
+				Agents:          map[string]AgentConfig{"k": {}},
 			},
 		},
 	}
-	if err := cfg.resolve(); err == nil {
+	err := cfg.resolve()
+	if err == nil {
 		t.Fatal("resolve() should reject openclaw as reviewer_runtime")
+	}
+	if !strings.Contains(err.Error(), "reviewer_runtime") {
+		t.Errorf("expected reviewer_runtime error, got: %v", err)
+	}
+}
+
+func TestReviewerRuntimeRoundTrip(t *testing.T) {
+	cfg := &Config{
+		DefaultTeam: "default",
+		Teams: map[string]TeamConfig{
+			"default": {
+				TeamPath:        "/tmp/test",
+				ReviewerRuntime: "opencode",
+				ChatID:          "x",
+			},
+		},
+	}
+	if err := cfg.resolve(); err != nil {
+		t.Fatalf("resolve() failed: %v", err)
+	}
+	if got := cfg.ReviewerRuntime(); got != runtime.OpenCode {
+		t.Errorf("ReviewerRuntime() = %q, want %q", got, runtime.OpenCode)
 	}
 }
 
