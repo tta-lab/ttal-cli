@@ -53,16 +53,15 @@ Templates are in `templates/` — no network clone needed.
 ### Post-install setup
 
 ```bash
-# Set up taskwarrior hook (routes task events to agents)
-ttal worker install
+# Set up hooks and config (taskwarrior + flicknote hooks)
+ttal doctor --fix
 
 # Set up daemon (Telegram integration + worker cleanup, macOS)
 ttal daemon install
 ```
 
-To remove:
+To remove daemon:
 ```bash
-ttal worker uninstall
 ttal daemon uninstall
 ```
 
@@ -213,15 +212,12 @@ ttal worker close <session-name> --force
 
 #### Worker Setup
 
-`ttal worker install` installs two taskwarrior hooks (`on-add-ttal` and `on-modify-ttal`).
+`ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal` and `on-modify-ttal`) and flicknote hooks.
 Worker cleanup after PR merge is handled by the daemon (see [Daemon Setup](#daemon-setup) below).
 
 ```bash
-# Install taskwarrior hooks
-ttal worker install
-
-# Remove taskwarrior hooks
-ttal worker uninstall
+# Install all hooks (taskwarrior + flicknote)
+ttal doctor --fix
 
 # View hook logs
 tail -f ~/.task/hooks.log
