@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // Level indicates the severity of a check result.
@@ -89,6 +90,7 @@ func Run(fix bool) *Report {
 	r.Sections = append(r.Sections, checkEnvironment())
 	r.Sections = append(r.Sections, checkVoice())
 	r.Sections = append(r.Sections, checkCCIntegration(fix))
+	r.Sections = append(r.Sections, checkHooks(fix))
 	return r
 }
 
@@ -795,4 +797,163 @@ func writeSettingsJSON(path string, v interface{}) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+// --- Hooks ---
+
+func checkHooks(fix bool) Section {
+	section := Section{Name: "Hooks"}
+	checkTaskwarriorHooks(&section, fix)
+	checkFlicknoteHooks(&section, fix)
+	return section
+}
+
+func checkTaskwarriorHooks(section *Section, fix bool) {
+	cfg, err := config.Load()
+	if err != nil {
+		section.add(LevelWarn, "tw-hooks", fmt.Sprintf("cannot load config: %v", err))
+		return
+	}
+
+	taskDataDir, err := taskwarrior.ResolveDataLocation()
+	if err != nil {
+		section.add(LevelWarn, "tw-hooks", "taskwarrior data dir not found (skipping hook check)")
+		return
+	}
+	hookDir := filepath.Join(taskDataDir, "hooks")
+	teamName := cfg.TeamName()
+
+	allPresent := true
+	for _, name := range []string{"on-add-ttal", "on-modify-ttal"} {
+		if _, statErr := os.Stat(filepath.Join(hookDir, name)); statErr != nil {
+			allPresent = false
+			break
+		}
+	}
+
+	if allPresent {
+		section.add(LevelOK, "tw-hooks", fmt.Sprintf("taskwarrior hooks installed: %s", hookDir))
+		return
+	}
+
+	if !fix {
+		section.add(LevelError, "tw-hooks",
+			"taskwarrior hooks not found (run: ttal doctor --fix)")
+		return
+	}
+
+	if err := worker.InstallHooks(hookDir, teamName); err != nil {
+		section.add(LevelError, "tw-hooks",
+			fmt.Sprintf("failed to install taskwarrior hooks: %v", err))
+		return
+	}
+	section.add(LevelWarn, "tw-hooks",
+		fmt.Sprintf("installed taskwarrior hooks: %s", hookDir))
+}
+
+// flicknoteHooks maps hook file names to their script content.
+// Each script extracts the command from $2 (e.g., "command:replace" → "replace")
+// and logs it via ttal usage log. Always exits 0 to never reject operations.
+//
+// on-archive is special: logs coarse "archive" regardless of archive/unarchive.
+var flicknoteHooks = []struct {
+	File   string
+	Script string
+}{
+	{"on-add", `#!/bin/sh
+# FlickNote hook — logs usage to ttal worklog.
+# Installed by: ttal doctor --fix
+CMD=$(echo "$2" | sed 's/^command://')
+ttal usage log flicknote "$CMD" 2>/dev/null
+exit 0
+`},
+	{"on-modify", `#!/bin/sh
+# FlickNote hook — logs usage to ttal worklog.
+# Installed by: ttal doctor --fix
+CMD=$(echo "$2" | sed 's/^command://')
+ttal usage log flicknote "$CMD" 2>/dev/null
+exit 0
+`},
+	{"on-archive", `#!/bin/sh
+# FlickNote hook — logs usage to ttal worklog.
+# Installed by: ttal doctor --fix
+# Logs both archive and unarchive as "archive".
+ttal usage log flicknote archive 2>/dev/null
+exit 0
+`},
+	{"on-get", `#!/bin/sh
+# FlickNote hook — logs usage to ttal worklog.
+# Installed by: ttal doctor --fix
+ttal usage log flicknote get 2>/dev/null
+exit 0
+`},
+}
+
+func checkFlicknoteHooks(section *Section, fix bool) {
+	// Check if flicknote is installed — skip section entirely if not
+	if _, err := exec.LookPath("flicknote"); err != nil {
+		section.add(LevelOK, "fn-hooks", "flicknote not installed (skipping hook check)")
+		return
+	}
+
+	hooksDir, err := config.FlicknoteHooksDir()
+	if err != nil {
+		section.add(LevelWarn, "fn-hooks", fmt.Sprintf("cannot determine hooks dir: %v", err))
+		return
+	}
+
+	for _, h := range flicknoteHooks {
+		hookPath := filepath.Join(hooksDir, h.File)
+
+		data, readErr := os.ReadFile(hookPath)
+		if readErr != nil && !os.IsNotExist(readErr) {
+			section.add(LevelError, h.File,
+				fmt.Sprintf("cannot read %s: %v", hookPath, readErr))
+			continue
+		}
+
+		if readErr == nil {
+			// File exists — check if it's ours
+			if strings.Contains(string(data), "ttal doctor --fix") ||
+				strings.Contains(string(data), "ttal usage log flicknote") {
+				section.add(LevelOK, h.File, fmt.Sprintf("flicknote hook: %s", hookPath))
+				continue
+			}
+			// Exists but not installed by ttal
+			if !fix {
+				section.add(LevelWarn, h.File,
+					fmt.Sprintf("flicknote hook %s exists but not managed by ttal", h.File))
+				continue
+			}
+			// Back up existing hook
+			backupPath := hookPath + ".bak"
+			if backupErr := os.Rename(hookPath, backupPath); backupErr != nil {
+				section.add(LevelError, h.File,
+					fmt.Sprintf("failed to backup existing %s: %v", h.File, backupErr))
+				continue
+			}
+			section.add(LevelWarn, h.File, fmt.Sprintf("backed up existing hook: %s", backupPath))
+			// Fall through to install below
+		}
+
+		// Hook doesn't exist (or was just backed up) — install or report
+		if !fix {
+			section.add(LevelError, h.File,
+				fmt.Sprintf("flicknote hook %s not found (run: ttal doctor --fix)", h.File))
+			continue
+		}
+
+		if mkErr := os.MkdirAll(hooksDir, 0o755); mkErr != nil {
+			section.add(LevelError, h.File,
+				fmt.Sprintf("failed to create hooks dir: %v", mkErr))
+			continue
+		}
+
+		if writeErr := os.WriteFile(hookPath, []byte(h.Script), 0o755); writeErr != nil {
+			section.add(LevelError, h.File,
+				fmt.Sprintf("failed to write %s: %v", h.File, writeErr))
+		} else {
+			section.add(LevelWarn, h.File, fmt.Sprintf("installed flicknote hook: %s", hookPath))
+		}
+	}
 }

@@ -144,7 +144,7 @@ Even with LGTM, the coder triages remaining non-blocking issues before merging. 
 runs `ttal pr merge` after triage, which drops a cleanup request file to `~/.ttal/cleanup/`.
 The daemon picks it up via fsnotify and handles the full lifecycle: close session, remove
 worktree, mark task done.
-`ttal worker install` installs both `on-add-ttal` and `on-modify-ttal` taskwarrior hooks.
+`ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
 
 ### Modify Command Syntax
 

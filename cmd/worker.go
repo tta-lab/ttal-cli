@@ -20,35 +20,6 @@ var workerCmd = &cobra.Command{
 	Long:  `Spawn, list, and close coding agent workers running in isolated tmux sessions.`,
 }
 
-var workerInstallCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install taskwarrior hook",
-	Long: `Set up the taskwarrior on-modify hook for worker lifecycle management.
-
-Safe to re-run — updates existing installations.
-
-Worker cleanup after PR merge is handled by the ttal daemon.
-Run 'ttal daemon install' to set up the daemon.
-
-Example:
-  make install          # build ttal binary
-  ttal worker install   # set up taskwarrior hook
-  ttal daemon install   # set up completion daemon`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return worker.Install()
-	},
-}
-
-var workerUninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Remove taskwarrior hook",
-	Long: `Remove the taskwarrior hook.
-Log files are preserved. To also remove the daemon: ttal daemon uninstall`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return worker.Uninstall()
-	},
-}
-
 var workerCloseCmd = &cobra.Command{
 	Use:   "close <session-name>",
 	Short: "Close a worker and cleanup",
@@ -142,8 +113,6 @@ Example:
 func init() {
 	rootCmd.AddCommand(workerCmd)
 
-	workerCmd.AddCommand(workerInstallCmd)
-	workerCmd.AddCommand(workerUninstallCmd)
 	workerCmd.AddCommand(workerListCmd)
 	workerCmd.AddCommand(workerCloseCmd)
 	workerCmd.AddCommand(workerCleanupCmd)

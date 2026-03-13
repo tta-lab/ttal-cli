@@ -25,7 +25,7 @@ func hookShim(hookCmd, teamName string) string {
 	}
 	return fmt.Sprintf(`#!/bin/bash
 # Taskwarrior hook — delegates to ttal.
-# Installed by: ttal worker install
+# Installed by: ttal doctor --fix
 %s
 exec ttal worker hook %s
 `, envLine, hookCmd)
@@ -56,7 +56,7 @@ func Install() error {
 	}
 	fmt.Println()
 
-	if err := installHooks(hookDir, teamName); err != nil {
+	if err := InstallHooks(hookDir, teamName); err != nil {
 		return fmt.Errorf("hook install failed: %w", err)
 	}
 
@@ -88,7 +88,8 @@ func Uninstall() error {
 	return nil
 }
 
-func installHooks(hookDir, teamName string) error {
+// InstallHooks writes taskwarrior hook scripts to the given directory.
+func InstallHooks(hookDir, teamName string) error {
 	if err := os.MkdirAll(hookDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}
