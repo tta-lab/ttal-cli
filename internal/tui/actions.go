@@ -255,9 +255,12 @@ func clipboardWrite(text string) error {
 func resolveWorkDir(t *Task) string {
 	if t.Branch != "" {
 		name := strings.TrimPrefix(t.Branch, "worker/")
-		dir := filepath.Join(ttalWorktreeRoot(), name)
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
-			return dir
+		worktreeRoot := ttalWorktreeRoot()
+		if err := os.MkdirAll(worktreeRoot, 0o755); err == nil {
+			dir := filepath.Join(worktreeRoot, name)
+			if info, err := os.Stat(dir); err == nil && info.IsDir() {
+				return dir
+			}
 		}
 	}
 	return t.ProjectPath

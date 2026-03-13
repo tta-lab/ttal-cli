@@ -59,9 +59,12 @@ func resolveWorkDir(task *taskwarrior.Task) string {
 	// Try worktree by branch name (without worker/ prefix)
 	if task.Branch != "" {
 		name := strings.TrimPrefix(task.Branch, "worker/")
-		dir := filepath.Join(ttalWorktreeRoot(), name)
-		if isDir(dir) {
-			return dir
+		worktreeRoot := ttalWorktreeRoot()
+		if err := os.MkdirAll(worktreeRoot, 0o755); err == nil {
+			dir := filepath.Join(worktreeRoot, name)
+			if isDir(dir) {
+				return dir
+			}
 		}
 	}
 

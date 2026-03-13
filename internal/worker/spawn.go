@@ -363,7 +363,7 @@ func setupWorktree(project, name string) (string, error) {
 		return "", fmt.Errorf("failed to create worktree root %s: %w", root, err)
 	}
 
-	worktreeDir := filepath.Join(worktreeRoot(), name)
+	worktreeDir := filepath.Join(root, name)
 	workerBranch := fmt.Sprintf("worker/%s", name)
 
 	// Reuse existing worktree
