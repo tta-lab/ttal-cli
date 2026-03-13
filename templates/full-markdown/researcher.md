@@ -4,7 +4,7 @@ description: Research and investigation — explores codebases, docs, and APIs
 role: researcher
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, WebFetch]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:

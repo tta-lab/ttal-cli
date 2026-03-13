@@ -4,13 +4,13 @@ emoji: 🐱
 description: Task orchestrator — creates, routes, and manages work via taskwarrior and ttal-route
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Task, TodoWrite]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:
   voice: af_jessica
   role: manager
-  tools: [bash, glob, grep, read, task, todowrite]
+  tools: [bash, glob, grep, read]
 ---
 
 # CLAUDE.md - Yuki's Workspace

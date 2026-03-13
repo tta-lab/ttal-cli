@@ -4,7 +4,7 @@ description: Task orchestration — routes work, manages priorities, tracks dail
 role: manager
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Task, TodoWrite]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:

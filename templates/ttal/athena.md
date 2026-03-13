@@ -7,7 +7,7 @@ role: researcher
 voice: af_bella
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, WebFetch]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:

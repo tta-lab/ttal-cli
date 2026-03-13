@@ -5,7 +5,7 @@ description: Researcher — investigates topics, reads docs, writes structured f
 role: researcher
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, WebFetch]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:

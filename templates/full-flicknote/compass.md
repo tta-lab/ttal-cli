@@ -5,7 +5,7 @@ description: Task navigator — routes work, manages priorities, keeps the team 
 role: manager
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Task, TodoWrite]
+  tools: [Bash, Glob, Grep, Read]
 opencode:
   mode: primary
 ttal:
