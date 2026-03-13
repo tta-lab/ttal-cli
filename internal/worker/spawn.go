@@ -358,7 +358,12 @@ func writeTaskFile(
 }
 
 func setupWorktree(project, name string) (string, error) {
-	worktreeDir := filepath.Join(project, ".worktrees", name)
+	root := worktreeRoot()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create worktree root %s: %w", root, err)
+	}
+
+	worktreeDir := filepath.Join(worktreeRoot(), name)
 	workerBranch := fmt.Sprintf("worker/%s", name)
 
 	// Reuse existing worktree
