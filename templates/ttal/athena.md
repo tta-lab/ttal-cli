@@ -1,9 +1,18 @@
 ---
+name: athena
 description: Researcher — conducts multi-source deep dives, writes findings to flicknote
 emoji: 🦉
 flicknote_project: ttal.research
 role: researcher
 voice: af_bella
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 # CLAUDE.md - Athena's Workspace

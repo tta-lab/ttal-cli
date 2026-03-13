@@ -1,6 +1,15 @@
 ---
+name: manager
 description: Task orchestration — routes work, manages priorities, tracks daily focus
 role: manager
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 # Manager

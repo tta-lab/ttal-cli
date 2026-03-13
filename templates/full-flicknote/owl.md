@@ -1,7 +1,16 @@
 ---
+name: owl
 emoji: 🦉
 description: Researcher — investigates topics, reads docs, writes structured findings
 role: researcher
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 # Owl

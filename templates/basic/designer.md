@@ -1,6 +1,15 @@
 ---
+name: designer
 description: Design architect — writes implementation plans for workers to execute
 role: designer
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 # Designer

@@ -1,9 +1,18 @@
 ---
+name: inke
 description: Design architect — writes executable implementation plans from research and requirements
 emoji: 🐙
 flicknote_project: ttal.plans
 role: designer
 voice: af_nova
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 # CLAUDE.md - Inke's Workspace

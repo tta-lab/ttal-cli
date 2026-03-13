@@ -10,7 +10,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	oc "github.com/tta-lab/ttal-cli/internal/runtime/opencode"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -258,16 +257,13 @@ func routeOCResponse(batch *QuestionBatch, registry *adapterRegistry) error {
 	if !ok {
 		return fmt.Errorf("no adapter for OC agent %s/%s", batch.TeamName, batch.AgentName)
 	}
-	ocAdapter, ok := adapter.(*oc.Adapter)
-	if !ok {
-		return fmt.Errorf("adapter for %s/%s is not OpenCode", batch.TeamName, batch.AgentName)
-	}
 
 	answers := make([]string, len(batch.Questions))
 	for i := range batch.Questions {
 		answers[i] = batch.Answers[i]
 	}
-	return ocAdapter.ReplyToQuestion(context.Background(), batch.CorrelationID, answers)
+	// ACP doesn't have ReplyToQuestion, send answers as message
+	return adapter.SendMessage(context.Background(), answers[0])
 }
 
 // cancelQuestion dismisses a pending question without answering.
@@ -281,11 +277,8 @@ func cancelQuestion(batch *QuestionBatch, registry *adapterRegistry) error {
 		if !ok {
 			return fmt.Errorf("no adapter for OC agent %s/%s", batch.TeamName, batch.AgentName)
 		}
-		ocAdapter, ok := adapter.(*oc.Adapter)
-		if !ok {
-			return fmt.Errorf("adapter for %s/%s is not OpenCode", batch.TeamName, batch.AgentName)
-		}
-		return ocAdapter.ReplyToQuestion(context.Background(), batch.CorrelationID, []string{})
+		// ACP doesn't have ReplyToQuestion, send empty answer
+		return adapter.SendMessage(context.Background(), "")
 	default:
 		return fmt.Errorf("unknown runtime %s for cancel", batch.Runtime)
 	}

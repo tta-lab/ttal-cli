@@ -1,7 +1,16 @@
 ---
+name: ink
 emoji: 🐙
 description: Design architect — writes detailed implementation plans with precision
 role: designer
+claude-code:
+  model: sonnet
+  tools: [Bash, Glob, Grep, Read]
+opencode:
+  mode: primary
+ttal:
+  model: minimax/MiniMax-M2.5-highspeed
+  tools: [bash, read, glob, grep]
 ---
 
 # Ink

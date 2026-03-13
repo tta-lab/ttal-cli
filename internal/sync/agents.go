@@ -84,6 +84,12 @@ func deployAgentsFromDir(rawPath, ccDir, ocDir, codexDir string, dryRun bool) ([
 			continue
 		}
 
+		// Skip non-agent markdown files
+		name := strings.TrimSuffix(entry.Name(), ".md")
+		if name == "README" || name == "CLAUDE.user" || name == "CLAUDE" {
+			continue
+		}
+
 		r, agent, err := deployOneAgent(filepath.Join(dir, entry.Name()), ccDir, ocDir, codexDir, dryRun)
 		if err != nil {
 			return nil, nil, err
@@ -175,6 +181,13 @@ func deployAgentsCCOnly(rawPath, ccDir string, dryRun bool) error {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
+
+		// Skip non-agent markdown files
+		name := strings.TrimSuffix(entry.Name(), ".md")
+		if name == "README" || name == "CLAUDE.user" || name == "CLAUDE" {
+			continue
+		}
+
 		content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", entry.Name(), err)
