@@ -30,11 +30,6 @@ import (
 
 const pidFileName = "daemon.pid"
 
-// k8sPods maps team name → running k8s team pod.
-// Populated during daemon startup (Phase 1 of initAdapters) and used by deliverToAgent.
-// Written once at startup before pollers start — no mutex needed.
-var k8sPods map[string]*k8sTeamPod
-
 // pollerTarget groups agent info for Telegram poller dispatch by chat ID.
 type pollerTarget struct {
 	teamName  string
@@ -329,54 +324,12 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 	}
 }
 
-// initAdapters starts all agent sessions in parallel: tmux for CC, HTTP adapters for all others.
+// initAdapters starts all agent sessions in parallel via tmux.
 // Config-driven: iterates all teams, no DB required.
-//
-// Two phases:
-//  1. Set up k8s team pods (synchronous — pods must be ready before agents spawn).
-//  2. Spawn per-agent sessions in parallel (local tmux or k8s exec).
 func initAdapters(mcfg *config.DaemonConfig) {
-	// Phase 1: ensure k8s team pods exist with correct spec
-	k8sPods = make(map[string]*k8sTeamPod)
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Printf("[k8s] cannot get home directory — skipping all k8s teams: %v", err)
-	} else {
-		for teamName, team := range mcfg.Teams {
-			if !team.IsK8s() {
-				continue
-			}
-			pod := &k8sTeamPod{
-				kubectx:   team.Kubernetes.Context,
-				namespace: "ttal",
-				image:     team.K8sAgentImage(),
-				teamName:  teamName,
-			}
-			if err := pod.EnsureNamespace(); err != nil {
-				log.Printf("[k8s] failed to ensure namespace for team %s: %v", teamName, err)
-				continue
-			}
-			if err := bootstrapClaudeDir(teamName, team.TeamPath, home); err != nil {
-				log.Printf("[k8s] failed to bootstrap .claude for team %s: %v", teamName, err)
-				continue
-			}
-			sharedEnv, err := buildSharedEnv(teamName)
-			if err != nil {
-				log.Printf("[k8s] failed to build shared env for team %s: %v", teamName, err)
-				continue
-			}
-			volumes := buildVolumes(team, teamName, home)
-			if err := pod.EnsurePod(sharedEnv, volumes); err != nil {
-				log.Printf("[k8s] failed to ensure pod for team %s: %v", teamName, err)
-				continue
-			}
-			k8sPods[teamName] = pod
-		}
-	}
-
 	ensureLocalAgentTrust(mcfg)
 
-	// Phase 2: spawn per-agent sessions in parallel
+	// Spawn per-agent sessions in parallel
 	var wg sync.WaitGroup
 	for _, ta := range mcfg.AllAgents() {
 		wg.Add(1)
@@ -388,32 +341,11 @@ func initAdapters(mcfg *config.DaemonConfig) {
 	wg.Wait()
 }
 
-// initSingleAdapter initializes a single agent: tmux session for CC, k8s pod for k8s teams.
+// initSingleAdapter initializes a single agent's tmux session.
 func initSingleAdapter(
 	ta config.TeamAgent, mcfg *config.DaemonConfig,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
-
-	// K8s agents — spawn tmux session inside team pod instead of local tmux.
-	if team, ok := mcfg.Teams[ta.TeamName]; ok && team.IsK8s() {
-		pod, ok := k8sPods[ta.TeamName]
-		if !ok {
-			log.Printf("[daemon] k8s pod not ready for team %s, skipping agent %s", ta.TeamName, ta.AgentName)
-			return
-		}
-		if pod.SessionExists(ta.AgentName) {
-			log.Printf("[daemon] k8s agent %s already running in pod ttal-%s", ta.AgentName, ta.TeamName)
-			return
-		}
-		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-		perAgentEnv := buildPerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-		if err := pod.SpawnAgent(ta.AgentName, model, perAgentEnv); err != nil {
-			log.Printf("[daemon] failed to spawn k8s agent %s: %v", ta.AgentName, err)
-		} else {
-			log.Printf("[daemon] k8s agent %s running in pod ttal-%s", ta.AgentName, ta.TeamName)
-		}
-		return
-	}
 
 	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
 
@@ -461,40 +393,8 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	return env
 }
 
-// buildSharedEnv returns container-level env vars for a k8s team pod.
-// Includes TTAL_TEAM and all .env secrets. Does NOT include per-agent vars.
-// Returns an error if .env exists but cannot be loaded — a pod created with
-// stripped secrets would be reused indefinitely due to spec-hash matching.
-func buildSharedEnv(teamName string) ([]string, error) {
-	dotenvMap, err := config.LoadDotEnv()
-	if err != nil {
-		return nil, fmt.Errorf("loading .env for k8s pod: %w", err)
-	}
-	env := make([]string, 0, 1+len(dotenvMap))
-	env = append(env, fmt.Sprintf("TTAL_TEAM=%s", teamName))
-	for k, v := range dotenvMap {
-		env = append(env, fmt.Sprintf("%s=%s", k, v))
-	}
-	return env, nil
-}
-
-// buildPerAgentEnv returns tmux-session-level env vars for a k8s agent.
-// These are passed as `env KEY=VAL` prefix in the tmux command inside the pod.
-func buildPerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
-	env := []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
-	}
-	if team, ok := mcfg.Teams[teamName]; ok && team.TeamPath != "" {
-		info, err := agentfs.GetFromPath(filepath.Join(team.TeamPath, agentName))
-		if err == nil && info.FlicknoteProject != "" {
-			env = append(env, fmt.Sprintf("FLICKNOTE_PROJECT=%s", info.FlicknoteProject))
-		}
-	}
-	return env
-}
-
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json
-// for all non-k8s agent workspace paths. Idempotent.
+// for all agent workspace paths. Idempotent.
 func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -504,10 +404,6 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 
 	var paths []string
 	for _, ta := range mcfg.AllAgents() {
-		team := mcfg.Teams[ta.TeamName]
-		if team != nil && team.IsK8s() {
-			continue
-		}
 		paths = append(paths, filepath.Join(ta.TeamPath, ta.AgentName))
 	}
 	if len(paths) == 0 {
@@ -705,18 +601,8 @@ func startWatcher(
 
 	agentMap := make(map[string]watcher.WatchedAgent)
 	for _, ta := range mcfg.AllAgents() {
-		team := mcfg.Teams[ta.TeamName]
-
-		var encoded, projectsDir string
-		if team != nil && team.IsK8s() {
-			// Container runs from /workspace/<agent> — encode that path
-			encoded = watcher.EncodePath(filepath.Join("/workspace", ta.AgentName))
-			// JSONL lives in the team's isolated .claude
-			projectsDir = filepath.Join(home, ".ttal", ta.TeamName, ".claude", "projects")
-		} else {
-			encoded = watcher.EncodePath(filepath.Join(ta.TeamPath, ta.AgentName))
-			projectsDir = defaultProjectsDir
-		}
+		encoded := watcher.EncodePath(filepath.Join(ta.TeamPath, ta.AgentName))
+		projectsDir := defaultProjectsDir
 
 		// Composite key avoids collision when multiple teams have same agent name
 		key := ta.TeamName + "/" + encoded
@@ -869,29 +755,13 @@ func IsRunning() (bool, int, error) {
 }
 
 // shutdownAgents gracefully shuts down all agent sessions on daemon exit.
-// K8s agent sessions receive /exit but pods are kept running for reuse.
 // Local CC sessions are killed directly; status files are preserved so the
 // next spawn can resume with --resume <session-id>.
 func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
-	stopK8sAgents(mcfg)
 	sessions := collectCCSessions(mcfg)
 	if len(sessions) > 0 {
 		shutdownCCSessions(sessions)
-	}
-}
-
-// stopK8sAgents sends /exit to all k8s agent tmux sessions. Pods are kept running.
-func stopK8sAgents(mcfg *config.DaemonConfig) {
-	for teamName, pod := range k8sPods {
-		for _, ta := range mcfg.AllAgents() {
-			if ta.TeamName != teamName {
-				continue
-			}
-			if err := pod.StopAgent(ta.AgentName); err != nil {
-				log.Printf("[daemon] failed to stop k8s agent %s: %v", ta.AgentName, err)
-			}
-		}
 	}
 }
 
