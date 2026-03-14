@@ -145,22 +145,6 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dr
 	return result, nil
 }
 
-// DeployCommandsTo deploys CC-variant commands (as skill dirs) to a custom skills dir.
-// Used for deploying to custom .claude dirs.
-func DeployCommandsTo(commandsPaths []string, ccSkillsDir string, dryRun bool) error {
-	if !dryRun {
-		if err := os.MkdirAll(ccSkillsDir, 0o755); err != nil {
-			return fmt.Errorf("creating skills dir %s: %w", ccSkillsDir, err)
-		}
-	}
-	for _, rawPath := range commandsPaths {
-		if err := deployCommandsCCOnly(rawPath, ccSkillsDir, dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // deployCommandsCCOnly deploys CC-variant commands from a single source path.
 func deployCommandsCCOnly(rawPath, ccSkillsDir string, dryRun bool) error {
 	dir := config.ExpandHome(rawPath)

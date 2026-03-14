@@ -96,7 +96,7 @@ func spawnWorker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	return launchAndTrack(cfg, task, sessionName, workDir, branch, project)
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, project)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -196,10 +196,6 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 
 	fmt.Println("Working in main directory (no worktree)")
 	return project, detectBranch(project), nil
-}
-
-func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, project)
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.

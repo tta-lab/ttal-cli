@@ -41,20 +41,6 @@ func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	return results, nil
 }
 
-// DeploySkillsTo copies skill directories to a custom CC skills dir.
-// Used for deploying to custom .claude dirs.
-func DeploySkillsTo(skillsPaths []string, ccDir string, dryRun bool) ([]SkillResult, error) {
-	var results []SkillResult
-	for _, rawPath := range skillsPaths {
-		deployed, err := deploySkillsToDir(rawPath, ccDir, dryRun)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, deployed...)
-	}
-	return results, nil
-}
-
 // deployFlatSkillToDir deploys a flat .md file to a single destination.
 func deployFlatSkillToDir(srcPath, destDir string, dryRun bool) ([]SkillResult, error) {
 	name := strings.TrimSuffix(filepath.Base(srcPath), ".md")
