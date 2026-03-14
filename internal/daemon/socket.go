@@ -15,8 +15,7 @@ import (
 const socketTimeout = 5 * time.Second
 
 // SocketPath returns the path to the daemon unix socket.
-// TTAL_SOCKET_PATH overrides the default, which allows Docker workers to
-// inject the host socket path via the container environment.
+// TTAL_SOCKET_PATH overrides the default.
 // Delegates to config.SocketPath() to keep a single source of truth.
 func SocketPath() (string, error) {
 	return config.SocketPath(), nil
@@ -193,8 +192,8 @@ func listenSocket(sockPath string, handlers socketHandlers) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on %s: %w", sockPath, err)
 	}
-	// Owner-only permissions — Docker workers connect with --user matching host UID.
-	// Fail hard: if this succeeds but permissions are wrong, any local user can inject messages.
+	// Owner-only permissions — fail hard if permissions are wrong,
+	// as any local user could inject messages.
 	if err := os.Chmod(sockPath, 0o600); err != nil {
 		ln.Close()
 		return nil, fmt.Errorf("insecure socket permissions: %w", err)
