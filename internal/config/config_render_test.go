@@ -55,6 +55,18 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			rt:    runtime.ClaudeCode,
 			want:  "Use triage skill\n\nStart  middle end",
 		},
+		{
+			name:  "Codex uses $ prefix for skills",
+			input: "{{skill:triage}}\nDo the thing",
+			rt:    runtime.Codex,
+			want:  "$triage\n\nDo the thing",
+		},
+		{
+			name:  "Codex task-id replacement",
+			input: "Task: {{task-id}}",
+			rt:    runtime.Codex,
+			want:  "Task: abc123",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
