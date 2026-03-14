@@ -89,6 +89,26 @@ func TestBuildLaunchCmd(t *testing.T) {
 	}
 }
 
+func TestBuildLaunchCmd_Codex(t *testing.T) {
+	cfg := SpawnConfig{Name: "test", Runtime: runtime.Codex}
+	shellCfg := &config.Config{}
+
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "")
+	if err != nil {
+		t.Fatalf("buildLaunchCmd returned error: %v", err)
+	}
+
+	if !strings.Contains(cmd, "codex") {
+		t.Error("Codex command should contain 'codex'")
+	}
+	if !strings.Contains(cmd, "--yolo") {
+		t.Error("Codex command should include --yolo flag")
+	}
+	if !strings.Contains(cmd, "gatekeeper") {
+		t.Error("Codex command should use gatekeeper wrapper")
+	}
+}
+
 func TestBuildLaunchCmd_OpusModel(t *testing.T) {
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
 	shellCfg := &config.Config{}
@@ -177,6 +197,12 @@ func TestResolveRuntime(t *testing.T) {
 			configRT: "",
 			taskTags: nil,
 			want:     runtime.ClaudeCode,
+		},
+		{
+			name:     "config codex returns codex",
+			configRT: runtime.Codex,
+			taskTags: nil,
+			want:     runtime.Codex,
 		},
 	}
 
