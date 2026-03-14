@@ -69,7 +69,7 @@ var daemonStatusCmd = &cobra.Command{
 
 		if running {
 			fmt.Printf("Daemon: running (pid=%d)\n", pid)
-			fmt.Printf("Socket: %s\n", sockPath)
+			fmt.Printf("Socket: %s (HTTP)\n", sockPath)
 		} else {
 			fmt.Println("Daemon: not running")
 			if pid != 0 {
