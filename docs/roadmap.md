@@ -49,17 +49,12 @@ Replace Telegram with [Matrix](https://matrix.org) as the primary communication 
 
 ## v2.x — Sandboxed Execution
 
-Containerize worker execution for security and reproducibility.
+Worker execution sandboxing via temenos (seatbelt on macOS, bwrap on Linux).
 
-**Why sandboxing:**
+**Shipped:**
 - **Isolation** — workers can't affect host system or other workers
-- **Reproducibility** — consistent environments across runs
 - **Security** — untrusted code execution in a safe boundary
 - **Resource limits** — cap CPU, memory, disk per worker
 
-**Planned approach:**
-- Container-per-worker (lightweight, ephemeral)
-- Pre-built images with common toolchains (Node, Go, Rust, Python)
-- Volume mounts for git worktrees
-- Network policy controls
+**Approach:** OS-native sandboxing (seatbelt/bwrap) via temenos — no containers needed.
 

@@ -13,16 +13,14 @@ import (
 type Project struct {
 	Name     string `toml:"name"`
 	Path     string `toml:"path"`
-	Image    string `toml:"image"`
 	Alias    string `toml:"-"` // derived from TOML key
 	Archived bool   `toml:"-"` // derived from section
 }
 
 // projectEntry is the on-disk TOML structure for a single project.
 type projectEntry struct {
-	Name  string `toml:"name"`
-	Path  string `toml:"path"`
-	Image string `toml:"image"`
+	Name string `toml:"name"`
+	Path string `toml:"path"`
 }
 
 // projectsFile is the on-disk TOML structure.
@@ -95,7 +93,7 @@ func flattenProjects(out map[string]projectEntry, prefix string, val any) {
 		out[prefix] = parseEntry(val)
 	}
 	for k, v := range m {
-		if k == "name" || k == "path" || k == "image" {
+		if k == "name" || k == "path" {
 			continue
 		}
 		if _, ok := v.(map[string]any); ok {
@@ -115,9 +113,6 @@ func parseEntry(val any) projectEntry {
 	}
 	if path, ok := m["path"].(string); ok {
 		e.Path = path
-	}
-	if image, ok := m["image"].(string); ok {
-		e.Image = image
 	}
 	return e
 }
@@ -180,9 +175,6 @@ func entryToMap(e projectEntry) map[string]string {
 	if e.Path != "" {
 		m["path"] = e.Path
 	}
-	if e.Image != "" {
-		m["image"] = e.Image
-	}
 	return m
 }
 
@@ -214,7 +206,6 @@ func (s *Store) List(archived bool) ([]Project, error) {
 		projects = append(projects, Project{
 			Name:     entry.Name,
 			Path:     entry.Path,
-			Image:    entry.Image,
 			Alias:    alias,
 			Archived: archived,
 		})
@@ -242,7 +233,6 @@ func (s *Store) Get(alias string) (*Project, error) {
 	return &Project{
 		Name:  entry.Name,
 		Path:  entry.Path,
-		Image: entry.Image,
 		Alias: alias,
 	}, nil
 }
@@ -286,10 +276,8 @@ func (s *Store) Modify(alias string, updates map[string]string) error {
 			entry.Name = value
 		case "path":
 			entry.Path = value
-		case "image":
-			entry.Image = value
 		default:
-			return fmt.Errorf("unknown field %q (available: alias, name, path, image)", field)
+			return fmt.Errorf("unknown field %q (available: alias, name, path)", field)
 		}
 	}
 

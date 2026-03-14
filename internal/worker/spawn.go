@@ -20,29 +20,23 @@ import (
 
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
-	Name      string
-	Project   string
-	TaskUUID  string
-	Worktree  bool
-	Force     bool
-	Runtime   runtime.Runtime
-	Spawner   string // team:agent format, set by ttal task execute
-	UseDocker bool   // run coder window inside Docker container
-	Image     string // container image ref (e.g. ghcr.io/tta-lab/ttal-worker-go:latest)
+	Name     string
+	Project  string
+	TaskUUID string
+	Worktree bool
+	Force    bool
+	Runtime  runtime.Runtime
+	Spawner  string // team:agent format, set by ttal task execute
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
 // and tracks the worker in taskwarrior.
-// When cfg.UseDocker is true, the coder window runs inside a Docker container.
 func Spawn(cfg SpawnConfig) error {
-	if cfg.UseDocker {
-		return SpawnDocker(cfg)
-	}
-	return spawnBareMetal(cfg)
+	return spawnWorker(cfg)
 }
 
-// spawnBareMetal spawns a bare-metal tmux worker (no container).
-func spawnBareMetal(cfg SpawnConfig) error {
+// spawnWorker spawns a tmux worker.
+func spawnWorker(cfg SpawnConfig) error {
 	task, err := loadAndValidateTask(cfg)
 	if err != nil {
 		return err
@@ -103,7 +97,7 @@ func spawnBareMetal(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	return launchAndTrack(cfg, task, sessionName, workDir, branch, project)
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, project)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -203,10 +197,6 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 
 	fmt.Println("Working in main directory (no worktree)")
 	return project, detectBranch(project), nil
-}
-
-func launchAndTrack(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, project)
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
