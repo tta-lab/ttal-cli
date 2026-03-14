@@ -47,6 +47,8 @@ brews:
     license: "MIT"
     install: |
       bin.install "ttal"
+
+      generate_completions_from_executable(bin/"ttal", "completion")
     test: |
       system "#{bin}/ttal", "version"
     repository:
