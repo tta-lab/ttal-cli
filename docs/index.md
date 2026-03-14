@@ -2,8 +2,8 @@
 layout: home
 
 hero:
-  text: One binary to run your autonomous software company.
-  tagline: Built on the coding agents you love. Managed from your phone. The full cycle runs itself.
+  text: "Hi, I'm TTal — yes, a snail."
+  tagline: Slow to break things, fast to ship them. One binary. No cloud. Drop me in your terminal.
   actions:
     - theme: brand
       text: Get Started
@@ -14,17 +14,17 @@ hero:
 
 features:
   - icon: "📱"
-    title: Mobile Command Center
-    details: Each agent is its own Telegram bot, its own DM chat. Send text, voice, photos, files. Approve PRs from your phone. Interactive question buttons when agents need input.
+    title: Talk to me from anywhere
+    details: Each agent is its own Telegram bot. Send tasks from your couch.
   - icon: "🐱"
-    title: Persistent Agent Team
-    details: Named agents with roles, voices, and memory. Your orchestrator routes tasks. Your researcher investigates. Your designer plans. They talk to each other.
+    title: I remember my team
+    details: Named agents with roles and memory. They talk to each other so you don't have to.
   - icon: "📋"
-    title: Task-Driven Pipeline
-    details: Research → Design → Execute → Review → Merge. Each phase produces artifacts. Taskwarrior integration with enrichment hooks. Quality from structure, not babysitting.
+    title: The pipeline runs itself
+    details: Research → Design → Execute → Review → Merge. You approve from your phone.
   - icon: "⚡"
-    title: Multi-Runtime Flexibility
-    details: Claude Code, Codex CLI — mix runtimes across your team. Workers spawn in isolated git worktrees. 6 specialized reviewers on every PR.
+    title: Swap any brain in
+    details: Claude Code, Codex, whatever's next. The pipeline doesn't care which LLM thinks.
 ---
 
 <script setup>
@@ -34,7 +34,10 @@ import HowItWorks from './.vitepress/components/HowItWorks.vue'
 import InstallTabs from './.vitepress/components/InstallTabs.vue'
 import PricingCards from './.vitepress/components/PricingCards.vue'
 import FaqSection from './.vitepress/components/FaqSection.vue'
+import StatsBar from './.vitepress/components/StatsBar.vue'
 </script>
+
+<StatsBar />
 
 ## See it in action
 
@@ -58,11 +61,13 @@ Your agents aren't anonymous processes — they're persistent team members with 
 
 ## Two-Plane Architecture
 
-TTAL runs your team on two planes:
+**[TTal](https://github.com/tta-lab/ttal-cli) coordinates. [logos](https://github.com/tta-lab/logos) thinks. [temenos](https://github.com/tta-lab/temenos) isolates.**
 
-**Manager Plane** — Long-running agents with specialized roles. Your researcher, designer, orchestrator. They persist across sessions, have memory, and coordinate via agent-to-agent messaging.
+Two planes. Everything else follows from that.
 
-**Worker Plane** — Short-lived coders and reviewers. Spawned on demand, one per task, isolated in git worktrees. Multiple workers run in parallel. They implement, review, triage, and merge — then they're done.
+**Manager Plane** — Long-running agents with specialized roles. Researcher, designer, orchestrator. They persist across sessions, have memory, and coordinate via agent-to-agent messaging.
+
+**Worker Plane** — Short-lived coders and reviewers. One per task, isolated in git worktrees. Multiple workers run in parallel. They implement, review, triage, and merge — then they're done.
 
 ```text
 ┌─────────────────────────────────────────────────┐
@@ -82,7 +87,7 @@ TTAL runs your team on two planes:
 └─────────────────────────────────────────────────┘
 ```
 
-**One bot per agent.** Each manager agent is its own Telegram bot, its own DM chat. Talk to your researcher about research while your designer designs.
+**One bot per agent.** Each manager is its own Telegram bot, its own DM. Talk to your researcher while your workers ship.
 
 > **Why these choices?** Read the [Philosophy](/blog/philosophy) — the design decisions behind ttal and why they exist.
 
@@ -92,23 +97,14 @@ TTAL runs your team on two planes:
 
 TTAL doesn't replace your coding agent — it makes it a team player.
 
-| Capability | TTAL | Paperclip | claude-flow / claude-squad | OpenClaw | Claudegram |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Multi-agent coordination | ✓ | ✓ | ✓ | ✓ | - |
-| Multi-runtime (Claude Code + Codex) | ✓ | ✓ | - | - | - |
-| Zero infrastructure (no database) | ✓ | - | ✓ | - | - |
-| Bidirectional Telegram | ✓ | - | - | - | ✓ |
-| Multimodal input | ✓ | - | - | - | ✓ |
-| TTS / STT | ✓ | - | - | - | ✓ |
-| Task management | ✓ | ✓ | - | - | - |
-| Interactive questions | ✓ | - | - | - | ✓ |
-| Autonomous PR workflow | ✓ | - | - | - | - |
-| Git worktree isolation | ✓ | - | - | - | - |
-| Multi-team + cross-team comms | ✓ | - | - | - | - |
+| Capability | TTAL | Paperclip |
+|---|:---:|:---:|
+| Multi-agent coordination | ✓ | ✓ |
+| Zero infrastructure (no database) | ✓ | - |
+| Bidirectional Telegram | ✓ | - |
+| Autonomous PR workflow | ✓ | - |
 
-The closest competitor is **Paperclip** (12K stars) — a company-as-abstraction platform with a React dashboard, goal hierarchy, and budget controls. It supports multiple runtimes including Claude Code and Codex. Where it diverges: Paperclip requires PostgreSQL and a Node.js server; TTAL is a single Go binary with no database. Paperclip models your team as an org chart; TTAL models it as two planes — managers and workers — coordinated through git-native workflows and direct Telegram access.
-
-TTAL is the only orchestrator that combines CLI-first zero-infra deployment with deep git integration (worktrees, PR lifecycle, PR watcher) and cross-team communication within a single org — no other orchestrator offers all three together.
+The closest competitor is **Paperclip** (12K stars) — multi-runtime support, goal hierarchy, React dashboard. It requires PostgreSQL and a Node.js server. TTAL is a single Go binary with no database. Paperclip models your team as an org chart; TTAL models it as two planes — coordinated through git-native workflows and direct Telegram access.
 
 Competitors build chat assistants or company simulators. TTAL builds autonomous software teams who own the full delivery pipeline.
 

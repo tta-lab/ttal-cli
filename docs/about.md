@@ -31,9 +31,11 @@ ttal is the coordination layer for Claude Code and Codex CLI. It adds multi-agen
 
 - **Capture from everywhere** — voice memos, links, messages, meeting notes
 - **AI auto-tagging** — it organizes so you don't have to
-- **MCP integration** — agents can read your knowledge base, meetings, and links
+- **CLI integration** — agents read and write to FlickNote via flicknote-cli
 
 Think of it as the input layer. Everything important goes here.
+
+No MCP. CLI-first. Agents use the same tools you do.
 
 ### The Connection
 
@@ -42,7 +44,7 @@ FlickNote and ttal are designed to work together:
 ```
 FlickNote captures insights
        ↓
-ttal agents read & act (via MCP)
+ttal agents read & act (via CLI)
        ↓
 Back to your tasks & annotations
 ```
