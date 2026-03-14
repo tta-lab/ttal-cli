@@ -88,9 +88,8 @@ func Run() error {
 	}
 	msgSvc := message.NewService(entClient)
 
-	allAgents := mcfg.AllAgents()
-	log.Printf("[daemon] starting — socket=%s teams=%d agents=%d",
-		sockPath, len(mcfg.Teams), len(allAgents))
+	log.Printf("[daemon] starting — socket=%s teams=%d",
+		sockPath, len(mcfg.Teams))
 
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -115,11 +114,11 @@ func Run() error {
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		allCommands = discoverAndRegisterCommands(mcfg, allAgents)
+		allCommands = discoverAndRegisterCommands(mcfg)
 	}()
 
 	startupWg.Wait()
-	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt, msgSvc)
+	startTelegramPollers(mcfg, registry, done, qs, cas, allCommands, mt, msgSvc)
 	startNotificationPollers(mcfg, done)
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, done)
@@ -168,7 +167,8 @@ func setupDataDir() (string, error) {
 }
 
 // discoverAndRegisterCommands discovers dynamic commands and registers them with Telegram bots.
-func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) []BotCommand {
+func discoverAndRegisterCommands(mcfg *config.DaemonConfig) []BotCommand {
+	allAgents := mcfg.AllAgents()
 	discovered := DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
 	allCommands := AllCommands(discovered)
 	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
@@ -213,11 +213,11 @@ func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.T
 
 // startTelegramPollers deduplicates agents by bot token and starts one poller per token.
 func startTelegramPollers(
-	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
-	registry *adapterRegistry, done chan struct{},
+	mcfg *config.DaemonConfig, registry *adapterRegistry, done chan struct{},
 	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
 	mt *messageTracker, msgSvc *message.Service,
 ) {
+	allAgents := mcfg.AllAgents()
 	tokenTargets := buildTokenTargets(allAgents)
 
 	for botToken, targets := range tokenTargets {
