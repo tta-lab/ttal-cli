@@ -13,14 +13,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
-// startWatcherIfNeeded starts the JSONL watcher.
-func startWatcherIfNeeded(
-	mcfg *config.DaemonConfig,
-	qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
-) {
-	startWatcher(mcfg, qs, mt, msgSvc, done)
-}
-
 // startWatcher initializes the JSONL watcher from config (all teams).
 func startWatcher(
 	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},

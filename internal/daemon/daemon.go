@@ -107,7 +107,7 @@ func Run() error {
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
 	startReminderPoller(mcfg, done)
-	startWatcherIfNeeded(mcfg, qs, mt, msgSvc, done)
+	startWatcher(mcfg, qs, mt, msgSvc, done)
 
 	srv, err := listenHTTP(sockPath, httpHandlers{
 		send: func(req SendRequest) error {

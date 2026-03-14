@@ -693,10 +693,13 @@ func checkDaemon() Section {
 		},
 	}
 	resp, err := client.Get("http://daemon/health")
-	if err == nil {
+	if err == nil && resp.StatusCode == http.StatusOK {
 		resp.Body.Close()
 		section.add(LevelOK, "http", fmt.Sprintf("HTTP server: %s", sockPath))
 	} else if running {
+		if err == nil {
+			resp.Body.Close()
+		}
 		section.add(LevelWarn, "http", fmt.Sprintf("daemon running but HTTP not responding: %s", sockPath))
 	}
 

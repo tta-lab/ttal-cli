@@ -56,10 +56,11 @@ type SendRequest struct {
 // Read operations query SQLite directly; write operations go through the
 // daemon unix socket so delivery semantics are consistent with CLI sends.
 type ChatService struct {
-	db       *ent.Client          // SQLite client (read queries)
-	sockPath string               // daemon unix socket for message delivery
-	userName string               // human identity (e.g. "neil")
-	mcfg     *config.DaemonConfig // for resolving agent workspaces
+	db         *ent.Client          // SQLite client (read queries)
+	sockPath   string               // daemon unix socket for message delivery
+	userName   string               // human identity (e.g. "neil")
+	mcfg       *config.DaemonConfig // for resolving agent workspaces
+	daemonHTTP *http.Client         // reused across calls — shares connection pool
 }
 
 // NewChatService opens the Ent client and prepares the ChatService.
@@ -92,12 +93,24 @@ func NewChatService(dbPath, sockPath string, mcfg *config.DaemonConfig) (*ChatSe
 		sockPath = filepath.Join(home, ".ttal", "daemon.sock")
 	}
 
-	return &ChatService{
+	svc := &ChatService{
 		db:       client,
 		sockPath: sockPath,
 		userName: userName,
 		mcfg:     mcfg,
-	}, nil
+	}
+	// Build the HTTP transport once and reuse across all daemon calls.
+	// Creating a fresh http.Transport per call disables connection pooling
+	// and accumulates goroutines from keep-alive management.
+	svc.daemonHTTP = &http.Client{
+		Timeout: socketTimeout,
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, socketTimeout)
+			},
+		},
+	}
+	return svc, nil
 }
 
 // Close releases the database connection.
@@ -276,18 +289,6 @@ func (s *ChatService) GetTeams() ([]TeamInfo, error) {
 	return teams, nil
 }
 
-// daemonClient returns an HTTP client configured to connect via the daemon unix socket.
-func (s *ChatService) daemonClient() *http.Client {
-	return &http.Client{
-		Timeout: socketTimeout,
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.DialTimeout("unix", s.sockPath, socketTimeout)
-			},
-		},
-	}
-}
-
 // SendMessage delivers a message to recipient through the daemon HTTP server.
 // Uses To-only routing so the daemon handles delivery via handleTo.
 func (s *ChatService) SendMessage(recipient, content string) error {
@@ -300,19 +301,25 @@ func (s *ChatService) SendMessage(recipient, content string) error {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	client := s.daemonClient()
-	resp, err := client.Post("http://daemon/send", "application/json", bytes.NewReader(data))
+	resp, err := s.daemonHTTP.Post("http://daemon/send", "application/json", bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("daemon not running: %w", err)
 	}
 	defer resp.Body.Close()
+
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("invalid response from daemon: %w", err)
+	}
+	if !result.OK {
+		return fmt.Errorf("daemon error: %s", result.Error)
+	}
 	return nil
 }
 
 // IsDaemonRunning returns true if the daemon HTTP health endpoint is reachable.
 func (s *ChatService) IsDaemonRunning() bool {
-	client := s.daemonClient()
-	resp, err := client.Get("http://daemon/health")
+	resp, err := s.daemonHTTP.Get("http://daemon/health")
 	if err != nil {
 		return false
 	}

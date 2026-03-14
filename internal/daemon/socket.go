@@ -193,13 +193,17 @@ func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(v) //nolint:errcheck
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("[daemon] writeHTTPJSON: failed to encode response: %v", err)
+	}
 }
 
 // listenHTTP starts the chi HTTP server on a unix socket.
 // Returns the server and any startup error.
 func listenHTTP(sockPath string, handlers httpHandlers) (*http.Server, error) {
-	os.Remove(sockPath) // remove stale socket
+	if err := os.Remove(sockPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("[daemon] warning: could not remove stale socket %s: %v", sockPath, err)
+	}
 
 	ln, err := net.Listen("unix", sockPath)
 	if err != nil {
