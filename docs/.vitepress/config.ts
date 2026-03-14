@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'TTAL',
-  description: 'Manage your coding agents from your phone. Multi-agent orchestration for Claude Code, OpenCode, and Codex CLI.',
+  description: 'Manage your coding agents from your phone. Multi-agent orchestration for Claude Code and Codex CLI.',
 
   head: [
     ['meta', { property: 'og:type', content: 'website' }],

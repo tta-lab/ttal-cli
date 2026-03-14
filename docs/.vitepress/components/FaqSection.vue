@@ -8,7 +8,7 @@ const faqs = [
   },
   {
     q: 'What coding agents does it support?',
-    a: 'Claude Code (stable) and OpenCode (experimental) as manager-plane runtimes. Codex CLI is supported as a worker runtime. You can mix runtimes across your team — run managers on Claude Code and workers on Codex, or any combination.',
+    a: 'Claude Code (stable) as the primary runtime. Codex CLI is supported as a worker runtime. You can mix runtimes across your team — run managers on Claude Code and workers on Codex, or any combination.',
   },
   {
     q: 'Do I need Telegram?',

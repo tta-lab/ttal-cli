@@ -92,7 +92,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for _, r := range results {
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			agentCount = len(results)
@@ -155,7 +154,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for _, r := range results {
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			commandCount = len(results)
