@@ -32,9 +32,9 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 			want:  ccBase + " --model opus --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
-			name:  "codex",
+			name:  "codex ignores model",
 			rt:    runtime.Codex,
-			model: "",
+			model: "sonnet",
 			want:  codexBase + " --yolo --",
 		},
 	}

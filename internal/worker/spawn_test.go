@@ -89,26 +89,6 @@ func TestBuildLaunchCmd(t *testing.T) {
 	}
 }
 
-func TestBuildLaunchCmd_Codex(t *testing.T) {
-	cfg := SpawnConfig{Name: "test", Runtime: runtime.Codex}
-	shellCfg := &config.Config{}
-
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "")
-	if err != nil {
-		t.Fatalf("buildLaunchCmd returned error: %v", err)
-	}
-
-	if !strings.Contains(cmd, "codex") {
-		t.Error("Codex command should contain 'codex'")
-	}
-	if !strings.Contains(cmd, "--yolo") {
-		t.Error("Codex command should include --yolo flag")
-	}
-	if !strings.Contains(cmd, "gatekeeper") {
-		t.Error("Codex command should use gatekeeper wrapper")
-	}
-}
-
 func TestBuildLaunchCmd_OpusModel(t *testing.T) {
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
 	shellCfg := &config.Config{}
@@ -119,6 +99,18 @@ func TestBuildLaunchCmd_OpusModel(t *testing.T) {
 	}
 	if !strings.Contains(cmd, "--model opus") {
 		t.Errorf("CC command should use opus model, got: %s", cmd)
+	}
+}
+
+func TestBuildLaunchCmd_Codex(t *testing.T) {
+	cfg := SpawnConfig{Runtime: runtime.Codex}
+	shellCfg := &config.Config{}
+	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "sonnet")
+	if err != nil {
+		t.Fatalf("buildLaunchCmd returned error: %v", err)
+	}
+	if !strings.Contains(cmd, "codex --yolo --") {
+		t.Errorf("Codex command should contain 'codex --yolo --', got: %s", cmd)
 	}
 }
 
@@ -193,16 +185,28 @@ func TestResolveRuntime(t *testing.T) {
 		want     runtime.Runtime
 	}{
 		{
+			name:     "codex tag switches runtime when config empty",
+			configRT: "",
+			taskTags: []string{"codex"},
+			want:     runtime.Codex,
+		},
+		{
+			name:     "cx alias switches runtime",
+			configRT: "",
+			taskTags: []string{"cx"},
+			want:     runtime.Codex,
+		},
+		{
+			name:     "claude-code with codex tag switches to codex",
+			configRT: runtime.ClaudeCode,
+			taskTags: []string{"codex"},
+			want:     runtime.Codex,
+		},
+		{
 			name:     "empty config no tags defaults to claude-code",
 			configRT: "",
 			taskTags: nil,
 			want:     runtime.ClaudeCode,
-		},
-		{
-			name:     "config codex returns codex",
-			configRT: runtime.Codex,
-			taskTags: nil,
-			want:     runtime.Codex,
 		},
 	}
 

@@ -36,9 +36,9 @@ func TestBuildGatekeeperCommand(t *testing.T) {
 			want:  ccBase + " --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
-			name:  "codex",
+			name:  "codex ignores model",
 			rt:    runtime.Codex,
-			model: "",
+			model: "opus",
 			want:  codexBase + " --yolo --",
 		},
 	}

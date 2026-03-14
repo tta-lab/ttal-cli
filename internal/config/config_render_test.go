@@ -26,10 +26,16 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			want:  "Use sp-writing-plans skill\n\nWrite a plan for task abc123",
 		},
 		{
+			name:  "Codex replaces skill placeholder with dollar",
+			input: "{{skill:sp-writing-plans}}\nWrite a plan for task {{task-id}}",
+			rt:    runtime.Codex,
+			want:  "$sp-writing-plans\n\nWrite a plan for task abc123",
+		},
+		{
 			name:  "multiple skill placeholders",
 			input: "{{skill:sp-writing-plans}}\n{{skill:flicknote-cli}}\nDo the thing",
-			rt:    runtime.ClaudeCode,
-			want:  "Use sp-writing-plans skill\nUse flicknote-cli skill\n\nDo the thing",
+			rt:    runtime.Codex,
+			want:  "$sp-writing-plans\n$flicknote-cli\n\nDo the thing",
 		},
 		{
 			name:  "no placeholders unchanged",
@@ -56,16 +62,10 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			want:  "Use triage skill\n\nStart  middle end",
 		},
 		{
-			name:  "Codex uses $ prefix for skills",
-			input: "{{skill:triage}}\nDo the thing",
+			name:  "skill placeholder at end of text",
+			input: "Some text {{skill:sp-executing-plans}}",
 			rt:    runtime.Codex,
-			want:  "$triage\n\nDo the thing",
-		},
-		{
-			name:  "Codex task-id replacement",
-			input: "Task: {{task-id}}",
-			rt:    runtime.Codex,
-			want:  "Task: abc123",
+			want:  "$sp-executing-plans\n\nSome text ",
 		},
 	}
 	for _, tt := range tests {

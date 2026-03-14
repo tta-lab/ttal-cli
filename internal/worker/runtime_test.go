@@ -14,6 +14,7 @@ func TestValidateRuntime(t *testing.T) {
 		wantBin string
 	}{
 		{"claude-code maps to claude binary", runtime.ClaudeCode, "claude"},
+		{"codex maps to codex binary", runtime.Codex, "codex"},
 	}
 
 	for _, tt := range tests {
