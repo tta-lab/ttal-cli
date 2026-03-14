@@ -58,11 +58,6 @@ func (r Runtime) IsWorkerRuntime() bool {
 	}
 }
 
-// NeedsPort returns true if the runtime requires an explicit port for its HTTP server.
-func (r Runtime) NeedsPort() bool {
-	return false
-}
-
 func joinRuntimes() string {
 	all := All()
 	s := ""

@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	cc "github.com/tta-lab/ttal-cli/internal/runtime/claudecode"
 )
 
 // adapterRegistry holds adapters for all agents, keyed by "teamName/agentName"
@@ -47,19 +46,4 @@ func (r *adapterRegistry) stopAll(ctx context.Context) {
 			log.Printf("[daemon] error stopping adapter for %s: %v", name, err)
 		}
 	}
-}
-
-// createAdapterFromTeam builds the appropriate adapter for an agent's runtime.
-func createAdapterFromTeam(
-	agentName string, agentPath string,
-	model string, env []string,
-) runtime.Adapter {
-	cfg := runtime.AdapterConfig{
-		AgentName: agentName,
-		WorkDir:   agentPath,
-		Model:     model,
-		Env:       env,
-	}
-
-	return cc.New(cfg)
 }

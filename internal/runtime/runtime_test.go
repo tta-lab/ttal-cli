@@ -80,12 +80,6 @@ func TestValues(t *testing.T) {
 	}
 }
 
-func TestNeedsPort(t *testing.T) {
-	if got := ClaudeCode.NeedsPort(); got != false {
-		t.Errorf("ClaudeCode.NeedsPort() = %v, want false", got)
-	}
-}
-
 func TestIsWorkerRuntime(t *testing.T) {
 	if got := ClaudeCode.IsWorkerRuntime(); got != true {
 		t.Errorf("ClaudeCode.IsWorkerRuntime() = %v, want true", got)

@@ -244,6 +244,8 @@ func resolveRuntime(task *taskwarrior.Task, cfg *config.Config) runtime.Runtime 
 		switch t {
 		case string(runtime.Codex), "cx":
 			rt = runtime.Codex
+		case "oc", "opencode":
+			fmt.Fprintf(os.Stderr, "warning: +%s tag is no longer supported (OpenCode removed), using default runtime\n", t)
 		}
 	}
 	return rt

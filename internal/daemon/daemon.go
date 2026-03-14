@@ -95,6 +95,7 @@ func Run() error {
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	_ = ctx // reserved for future use
 
 	registry := newAdapterRegistry()
 	qs := newQuestionStore()
@@ -108,7 +109,7 @@ func Run() error {
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		initAdapters(ctx, mcfg, registry, qs, mt, msgSvc)
+		initAdapters(mcfg)
 	}()
 
 	startupWg.Add(1)
@@ -334,10 +335,7 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 // Two phases:
 //  1. Set up k8s team pods (synchronous — pods must be ready before agents spawn).
 //  2. Spawn per-agent sessions in parallel (local tmux or k8s exec).
-func initAdapters(
-	ctx context.Context, mcfg *config.DaemonConfig,
-	registry *adapterRegistry, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
-) {
+func initAdapters(mcfg *config.DaemonConfig) {
 	// Phase 1: ensure k8s team pods exist with correct spec
 	k8sPods = make(map[string]*k8sTeamPod)
 	home, err := os.UserHomeDir()
@@ -384,16 +382,15 @@ func initAdapters(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ctx, ta, mcfg, registry, qs, mt, msgSvc)
+			initSingleAdapter(ta, mcfg)
 		}()
 	}
 	wg.Wait()
 }
 
-// initSingleAdapter initializes a single agent: tmux session for CC, HTTP adapter for others.
+// initSingleAdapter initializes a single agent: tmux session for CC, k8s pod for k8s teams.
 func initSingleAdapter(
-	ctx context.Context, ta config.TeamAgent, mcfg *config.DaemonConfig,
-	registry *adapterRegistry, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
+	ta config.TeamAgent, mcfg *config.DaemonConfig,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -439,18 +436,6 @@ func initSingleAdapter(
 		}
 		return
 	}
-
-	model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-
-	adapter := createAdapterFromTeam(ta.AgentName, agentPath, model, env)
-	if err := adapter.Start(ctx); err != nil {
-		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
-		return
-	}
-	registry.set(ta.TeamName, ta.AgentName, adapter)
-	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
-	bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt, msgSvc)
 }
 
 // buildAgentEnv returns env vars for an agent adapter.
@@ -538,55 +523,6 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	if added > 0 {
 		log.Printf("[daemon] added trust entries for %d local agent workspaces", added)
 	}
-}
-
-// bridgeEvents reads events from an adapter and routes them to Telegram.
-func bridgeEvents(
-	agentName, teamName string, adapter runtime.Adapter,
-	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
-) {
-	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-	botToken := config.AgentBotToken(agentName)
-	if !ok || botToken == "" {
-		return
-	}
-	chatID := ta.ChatID
-
-	go func() {
-		for event := range adapter.Events() {
-			switch event.Type {
-			case runtime.EventText:
-				rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
-				persistMsg(msgSvc, message.CreateParams{
-					Sender: agentName, Recipient: mcfg.Global.UserName(), Content: event.Text,
-					Team: teamName, Channel: message.ChannelAdapter, Runtime: &rt,
-				})
-				if err := telegram.SendMessage(botToken, chatID, event.Text); err != nil {
-					log.Printf("[daemon] telegram send error for %s: %v", agentName, err)
-				}
-			case runtime.EventError:
-				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
-			case runtime.EventQuestion:
-				handleIncomingQuestion(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
-			case runtime.EventTool:
-				emoji := telegram.ToolEmoji(event.ToolName)
-				if emoji == "" || mt == nil {
-					break
-				}
-				// Check if emoji reactions are enabled for this team
-				if team, ok := mcfg.Teams[teamName]; !ok || !team.EmojiReactions {
-					break
-				}
-				tracked, ok := mt.get(teamName, agentName)
-				if !ok {
-					break
-				}
-				if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
-					log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, event.ToolName, err)
-				}
-			}
-		}
-	}()
 }
 
 // handleSend routes an incoming SendRequest based on From/To fields.

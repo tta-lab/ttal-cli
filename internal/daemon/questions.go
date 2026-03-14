@@ -167,12 +167,7 @@ func buildQuestionPage(batch *QuestionBatch) telegram.QuestionPage {
 
 // routeQuestionResponse sends collected answers back to the agent's runtime.
 func routeQuestionResponse(batch *QuestionBatch) error {
-	switch batch.Runtime {
-	case runtime.ClaudeCode:
-		return routeCCResponse(batch)
-	default:
-		return fmt.Errorf("unknown runtime %s for question response", batch.Runtime)
-	}
+	return routeCCResponse(batch)
 }
 
 // routeCCResponse sends number keystrokes to CC's TUI select prompt.
@@ -251,13 +246,8 @@ func findOptionIndex(options []runtime.QuestionOption, label string) int {
 
 // cancelQuestion dismisses a pending question without answering.
 func cancelQuestion(batch *QuestionBatch) error {
-	switch batch.Runtime {
-	case runtime.ClaudeCode:
-		session := config.AgentSessionName(batch.TeamName, batch.AgentName)
-		return tmux.SendRawKey(session, batch.AgentName, "Escape")
-	default:
-		return fmt.Errorf("unknown runtime %s for cancel", batch.Runtime)
-	}
+	session := config.AgentSessionName(batch.TeamName, batch.AgentName)
+	return tmux.SendRawKey(session, batch.AgentName, "Escape")
 }
 
 // advanceToNextUnanswered moves CurrentPage to the next unanswered question.
