@@ -13,7 +13,7 @@ const osDarwin = "darwin"
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Bidirectional agent communication daemon",
-	Long: `Run the ttal daemon — manages Telegram polling, unix socket notifications,
+	Long: `Run the ttal daemon — manages Telegram polling, HTTP server,
 JSONL watching, and worker cleanup.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return daemon.Run()

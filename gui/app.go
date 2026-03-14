@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -274,16 +276,19 @@ func (s *ChatService) GetTeams() ([]TeamInfo, error) {
 	return teams, nil
 }
 
-// dialDaemon opens a connection to the daemon unix socket.
-func (s *ChatService) dialDaemon() (net.Conn, error) {
-	conn, err := net.DialTimeout("unix", s.sockPath, socketTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("daemon not running: %w", err)
+// daemonClient returns an HTTP client configured to connect via the daemon unix socket.
+func (s *ChatService) daemonClient() *http.Client {
+	return &http.Client{
+		Timeout: socketTimeout,
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", s.sockPath, socketTimeout)
+			},
+		},
 	}
-	return conn, nil
 }
 
-// SendMessage delivers a message to recipient through the daemon socket.
+// SendMessage delivers a message to recipient through the daemon HTTP server.
 // Uses To-only routing so the daemon handles delivery via handleTo.
 func (s *ChatService) SendMessage(recipient, content string) error {
 	if content == "" {
@@ -295,27 +300,22 @@ func (s *ChatService) SendMessage(recipient, content string) error {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	conn, err := s.dialDaemon()
+	client := s.daemonClient()
+	resp, err := client.Post("http://daemon/send", "application/json", bytes.NewReader(data))
 	if err != nil {
-		return err
+		return fmt.Errorf("daemon not running: %w", err)
 	}
-	defer conn.Close()
-	if err := conn.SetDeadline(time.Now().Add(socketTimeout)); err != nil {
-		return fmt.Errorf("set deadline: %w", err)
-	}
-
-	if _, err := conn.Write(data); err != nil {
-		return fmt.Errorf("write: %w", err)
-	}
+	defer resp.Body.Close()
 	return nil
 }
 
-// IsDaemonRunning returns true if the daemon socket is reachable.
+// IsDaemonRunning returns true if the daemon HTTP health endpoint is reachable.
 func (s *ChatService) IsDaemonRunning() bool {
-	conn, err := s.dialDaemon()
+	client := s.daemonClient()
+	resp, err := client.Get("http://daemon/health")
 	if err != nil {
 		return false
 	}
-	conn.Close()
-	return true
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }

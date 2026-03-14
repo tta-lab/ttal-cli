@@ -1,9 +1,12 @@
 package worker
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -23,7 +26,7 @@ type taskCompletePayload struct {
 	PRID     string `json:"pr_id,omitempty"`
 }
 
-// notifyTaskComplete sends a taskComplete RPC to the daemon socket.
+// notifyTaskComplete sends a taskComplete HTTP request to the daemon.
 // Fire-and-forget: daemon unreachable silently skipped so task completion never blocks.
 func notifyTaskComplete(task hookTask) {
 	team := os.Getenv("TTAL_TEAM")
@@ -43,17 +46,22 @@ func notifyTaskComplete(task hookTask) {
 		hookLogFile("taskComplete: marshal failed: " + err.Error())
 		return
 	}
-	payload = append(payload, '\n')
 
 	sockPath := config.SocketPath()
-	conn, err := net.DialTimeout("unix", sockPath, 3*time.Second)
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, 3*time.Second)
+			},
+		},
+	}
+	resp, err := client.Post("http://daemon/task/complete", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		hookLogFile("taskComplete: daemon unreachable: " + err.Error())
 		return
 	}
-	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(3 * time.Second)) //nolint:errcheck // fire-and-forget
-	conn.Write(payload)                               //nolint:errcheck // fire-and-forget
+	resp.Body.Close() //nolint:errcheck // fire-and-forget
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
