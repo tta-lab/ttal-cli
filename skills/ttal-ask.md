@@ -24,7 +24,7 @@ ttal ask "what API endpoints are available?" --url https://docs.example.com
 ttal ask "what is the latest Go generics syntax?" --web
 ```
 
-Exactly one source flag is required:
+Use one source flag, or omit all flags for CWD mode:
 - `--project <alias>` — ask about a registered ttal project
 - `--repo <url|org/repo>` — ask about a GitHub repo (auto-clone/pull to references dir)
 - `--url <url>` — ask about a web page (pre-fetched with defuddle)

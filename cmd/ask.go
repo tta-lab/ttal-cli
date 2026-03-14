@@ -34,7 +34,7 @@ var askWebPrompt string
 //go:embed ask_prompts/general.md
 var askGeneralPrompt string
 
-// askCodespaceTools is the tool set for modes that explore a local codebase
+// askCodespaceTools is the tool set for modes that ask about a local codebase
 // and may also need to fetch external docs or search the web.
 var askCodespaceTools = []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"}
 
@@ -52,7 +52,7 @@ var askCmd = &cobra.Command{
 	Short: "Ask about code, repos, web pages, or the web using an AI agent",
 	Long: `Ask a natural language question about a codebase, open-source repository, or web page.
 
-With no flags, explores the current directory with both filesystem and web access.
+With no flags, asks about the current directory with both filesystem and web access.
 Use a flag to narrow the scope to a specific source:
 
   --project <alias>      Ask about a registered ttal project
