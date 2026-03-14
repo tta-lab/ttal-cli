@@ -139,10 +139,12 @@ func formatCIState(state string) string {
 	}
 }
 
+const ciIconSuccess = "✓"
+
 func ciStateIcon(state string) string {
 	switch state {
 	case gitprovider.StateSuccess:
-		return "✓"
+		return ciIconSuccess
 	case gitprovider.StateFailure, gitprovider.StateError:
 		return "✗"
 	case gitprovider.StatePending:
