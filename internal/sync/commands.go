@@ -145,50 +145,6 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dr
 	return result, nil
 }
 
-// deployCommandsCCOnly deploys CC-variant commands from a single source path.
-func deployCommandsCCOnly(rawPath, ccSkillsDir string, dryRun bool) error {
-	dir := config.ExpandHome(rawPath)
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: commands path not found: %s\n", dir)
-			return nil
-		}
-		return fmt.Errorf("reading commands dir %s: %w", dir, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-		content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-		if err != nil {
-			return fmt.Errorf("reading %s: %w", entry.Name(), err)
-		}
-		cmd, err := ParseCommandFile(string(content))
-		if err != nil {
-			return fmt.Errorf("parsing %s: %w", entry.Name(), err)
-		}
-		ccContent, err := GenerateCCCommandVariant(cmd)
-		if err != nil {
-			return fmt.Errorf("generating CC variant for %s: %w", cmd.Frontmatter.Name, err)
-		}
-		if dryRun {
-			continue
-		}
-		ccSkillDir := filepath.Join(ccSkillsDir, cmd.Frontmatter.Name)
-		if err := os.MkdirAll(ccSkillDir, 0o755); err != nil {
-			return fmt.Errorf("creating skill dir %s: %w", ccSkillDir, err)
-		}
-		dest := filepath.Join(ccSkillDir, "SKILL.md")
-		if err := os.WriteFile(dest, []byte(ccContent), 0o644); err != nil {
-			return fmt.Errorf("writing CC command %s: %w", dest, err)
-		}
-	}
-	return nil
-}
-
 // CleanCommands removes ttal-managed command files that no longer exist in source paths.
 func CleanCommands(commandsPaths []string, dryRun bool) ([]string, error) {
 	home, err := os.UserHomeDir()

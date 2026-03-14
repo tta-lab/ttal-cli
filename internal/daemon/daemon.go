@@ -413,7 +413,8 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	claudeJSONPath := filepath.Join(home, ".claude.json")
 	added, err := upsertClaudeJSONTrust(claudeJSONPath, paths)
 	if err != nil {
-		log.Printf("[daemon] warning: could not update agent trust in %s: %v — delete the file to reset or check permissions", claudeJSONPath, err)
+		log.Printf("[daemon] warning: could not update agent trust in %s: %v\n"+
+			"  — delete the file to reset or check permissions", claudeJSONPath, err)
 		return
 	}
 	if added > 0 {

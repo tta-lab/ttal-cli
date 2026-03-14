@@ -148,53 +148,6 @@ func deployOneAgent(srcPath, ccDir, ocDir, codexDir string, dryRun bool) (AgentR
 	return result, agent, nil
 }
 
-// deployAgentsCCOnly deploys CC-variant agent files from a single source path.
-func deployAgentsCCOnly(rawPath, ccDir string, dryRun bool) error {
-	dir := config.ExpandHome(rawPath)
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: subagents path not found: %s\n", dir)
-			return nil
-		}
-		return fmt.Errorf("reading subagents dir %s: %w", dir, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		// Skip non-agent markdown files
-		name := strings.TrimSuffix(entry.Name(), ".md")
-		if name == "README" || name == "CLAUDE.user" || name == "CLAUDE" {
-			continue
-		}
-
-		content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-		if err != nil {
-			return fmt.Errorf("reading %s: %w", entry.Name(), err)
-		}
-		agent, err := ParseAgentFile(string(content))
-		if err != nil {
-			return fmt.Errorf("parsing %s: %w", entry.Name(), err)
-		}
-		ccContent, err := GenerateCCVariant(agent)
-		if err != nil {
-			return fmt.Errorf("generating CC variant for %s: %w", agent.Frontmatter.Name, err)
-		}
-		if dryRun {
-			continue
-		}
-		dest := filepath.Join(ccDir, agent.Frontmatter.Name+".md")
-		if err := os.WriteFile(dest, []byte(ccContent), 0o644); err != nil {
-			return fmt.Errorf("writing CC agent %s: %w", dest, err)
-		}
-	}
-	return nil
-}
-
 // CleanAgents removes ttal-managed agent files that no longer exist in source paths.
 // Only removes files containing the ManagedMarkerField to avoid deleting user-created agents.
 // Also cleans stale Codex agent .toml files and config.toml entries.
