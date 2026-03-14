@@ -14,7 +14,6 @@ import (
 // Attach attaches the current terminal to an agent's tmux session.
 // Accepts "agent" (uses active team) or "team:agent" (explicit team).
 // Uses exec (replaces current process) so the user's terminal becomes the session.
-// For k8s teams, uses kubectl exec into the pod's tmux session instead.
 func Attach(input string) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -30,13 +29,8 @@ func Attach(input string) error {
 		agent = input
 	}
 
-	team, ok := cfg.Teams[teamName]
-	if !ok {
+	if _, ok := cfg.Teams[teamName]; !ok {
 		return fmt.Errorf("unknown team: %s", teamName)
-	}
-
-	if team.IsK8s() {
-		return attachK8s(team, teamName, agent)
 	}
 
 	sessionName := config.AgentSessionName(teamName, agent)
@@ -51,29 +45,4 @@ func Attach(input string) error {
 
 	args := []string{"tmux", "attach-session", "-t", sessionName}
 	return syscall.Exec(tmuxBin, args, os.Environ())
-}
-
-// attachK8s execs into a k8s pod's tmux session.
-// Inside k8s pods, tmux sessions are named just "<agent>" (not "<team>_<agent>")
-// because k8sTeamPod.SpawnAgent uses the bare agent name.
-func attachK8s(team config.TeamConfig, teamName, agentName string) error {
-	if team.Kubernetes == nil || team.Kubernetes.Context == "" {
-		return fmt.Errorf("team %q has no kubernetes context configured", teamName)
-	}
-
-	kubectlBin, err := exec.LookPath("kubectl")
-	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH: %w", err)
-	}
-
-	podName := fmt.Sprintf("ttal-%s", teamName)
-	// Namespace is hardcoded to "ttal" — matches daemon k8s.go:325
-	args := []string{
-		"kubectl",
-		"--context", team.Kubernetes.Context,
-		"-n", "ttal",
-		"exec", "-it", podName,
-		"--", "tmux", "attach-session", "-t", agentName,
-	}
-	return syscall.Exec(kubectlBin, args, os.Environ())
 }
