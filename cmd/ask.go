@@ -19,26 +19,26 @@ import (
 	"github.com/tta-lab/ttal-cli/pkg/agentloop/tools"
 )
 
-//go:embed explore_prompts/project.md
-var exploreProjectPrompt string
+//go:embed ask_prompts/project.md
+var askProjectPrompt string
 
-//go:embed explore_prompts/repo.md
-var exploreRepoPrompt string
+//go:embed ask_prompts/repo.md
+var askRepoPrompt string
 
-//go:embed explore_prompts/url.md
-var exploreURLPrompt string
+//go:embed ask_prompts/url.md
+var askURLPrompt string
 
-//go:embed explore_prompts/web.md
-var exploreWebPrompt string
+//go:embed ask_prompts/web.md
+var askWebPrompt string
 
-//go:embed explore_prompts/general.md
-var exploreGeneralPrompt string
+//go:embed ask_prompts/general.md
+var askGeneralPrompt string
 
-// exploreCodespaceTools is the tool set for modes that explore a local codebase
+// askCodespaceTools is the tool set for modes that ask about a local codebase
 // and may also need to fetch external docs or search the web.
-var exploreCodespaceTools = []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"}
+var askCodespaceTools = []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"}
 
-var exploreFlags struct {
+var askFlags struct {
 	project   string
 	repo      string
 	url       string
@@ -47,43 +47,43 @@ var exploreFlags struct {
 	maxTokens int
 }
 
-var exploreCmd = &cobra.Command{
-	Use:   "explore <question>",
-	Short: "Explore code, repos, web pages, or search the web with an AI agent",
-	Long: `Explore a codebase, open-source repository, or web page by asking a natural language question.
+var askCmd = &cobra.Command{
+	Use:   "ask <question>",
+	Short: "Ask about code, repos, web pages, or the web using an AI agent",
+	Long: `Ask a natural language question about a codebase, open-source repository, or web page.
 
-With no flags, explores the current directory with both filesystem and web access.
+With no flags, asks about the current directory with both filesystem and web access.
 Use a flag to narrow the scope to a specific source:
 
-  --project <alias>      Explore a registered ttal project
-  --repo <url|org/repo>  Explore a GitHub repo (auto-clone/pull)
-  --url <url>            Explore a web page (pre-fetched with defuddle)
+  --project <alias>      Ask about a registered ttal project
+  --repo <url|org/repo>  Ask about a GitHub repo (auto-clone/pull)
+  --url <url>            Ask about a web page (pre-fetched with defuddle)
   --web                  Search the web to answer the question
 
 Examples:
-  ttal explore "how does the auth middleware work?"                               # general (CWD + web)
-  ttal explore "how does routing work?" --project ttal-cli                        # registered project
-  ttal explore "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker   # OSS repo
-  ttal explore "what API endpoints are available?" --url https://docs.example.com # specific URL
-  ttal explore "what is the latest Go generics syntax?" --web                     # web search only`,
+  ttal ask "how does the auth middleware work?"                               # general (CWD + web)
+  ttal ask "how does routing work?" --project ttal-cli                        # registered project
+  ttal ask "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker   # OSS repo
+  ttal ask "what API endpoints are available?" --url https://docs.example.com # specific URL
+  ttal ask "what is the latest Go generics syntax?" --web                     # web search only`,
 	Args: cobra.ExactArgs(1),
-	RunE: runExplore,
+	RunE: runAsk,
 }
 
-func runExplore(cmd *cobra.Command, args []string) error {
+func runAsk(cmd *cobra.Command, args []string) error {
 	question := args[0]
 
 	flagsSet := 0
-	if exploreFlags.project != "" {
+	if askFlags.project != "" {
 		flagsSet++
 	}
-	if exploreFlags.repo != "" {
+	if askFlags.repo != "" {
 		flagsSet++
 	}
-	if exploreFlags.url != "" {
+	if askFlags.url != "" {
 		flagsSet++
 	}
-	if exploreFlags.web {
+	if askFlags.web {
 		flagsSet++
 	}
 
@@ -91,31 +91,31 @@ func runExplore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("only one of --project, --repo, --url, or --web may be specified at a time")
 	}
 
-	usage.Log("explore", exploreLogTarget())
+	usage.Log("ask", askLogTarget())
 
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	maxSteps, maxTokens := resolveLimits(cmd, cfg, exploreFlags.maxSteps, exploreFlags.maxTokens)
+	maxSteps, maxTokens := resolveLimits(cmd, cfg, askFlags.maxSteps, askFlags.maxTokens)
 
 	switch {
-	case exploreFlags.project != "":
-		return exploreProject(question, exploreFlags.project, cfg, maxSteps, maxTokens)
-	case exploreFlags.repo != "":
-		return exploreRepo(question, exploreFlags.repo, cfg, maxSteps, maxTokens)
-	case exploreFlags.web:
-		return exploreWeb(question, cfg, maxSteps, maxTokens)
-	case exploreFlags.url != "":
-		return exploreURL(question, exploreFlags.url, cfg, maxSteps, maxTokens)
+	case askFlags.project != "":
+		return askProject(question, askFlags.project, cfg, maxSteps, maxTokens)
+	case askFlags.repo != "":
+		return askRepo(question, askFlags.repo, cfg, maxSteps, maxTokens)
+	case askFlags.web:
+		return askWeb(question, cfg, maxSteps, maxTokens)
+	case askFlags.url != "":
+		return askURL(question, askFlags.url, cfg, maxSteps, maxTokens)
 	default:
-		return exploreGeneral(question, cfg, maxSteps, maxTokens)
+		return askGeneral(question, cfg, maxSteps, maxTokens)
 	}
 }
 
-// exploreProject explores a registered ttal project.
-func exploreProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
+// askProject asks about a registered ttal project.
+func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
 	projectPath := project.ResolveProjectPath(alias)
 	if projectPath == "" {
 		return fmt.Errorf("project %q not found\n\nRun 'ttal project list' to see available projects", alias)
@@ -130,23 +130,23 @@ func exploreProject(question, alias string, cfg *config.Config, maxSteps, maxTok
 		return fmt.Errorf("resolve fetch backend: %w", err)
 	}
 
-	return runExploreAgent(exploreOpts{
+	return runAskAgent(askOpts{
 		question:     question,
-		systemExtra:  strings.ReplaceAll(exploreProjectPrompt, "{projectPath}", projectPath),
+		systemExtra:  strings.ReplaceAll(askProjectPrompt, "{projectPath}", projectPath),
 		allowedPaths: []string{projectPath},
-		toolNames:    exploreCodespaceTools,
-		model:        cfg.ExploreModel(),
+		toolNames:    askCodespaceTools,
+		model:        cfg.AskModel(),
 		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
-		label:        "explore --project " + alias,
+		label:        "ask --project " + alias,
 	})
 }
 
-// exploreRepo explores an open-source repository (auto-clone/pull).
-func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
-	referencesPath := cfg.ExploreReferencesPath()
+// askRepo asks about an open-source repository (auto-clone/pull).
+func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
+	referencesPath := cfg.AskReferencesPath()
 	cloneURL, localPath, err := resolveRepoRef(repoRef, referencesPath)
 	if err != nil {
 		return err
@@ -161,22 +161,22 @@ func exploreRepo(question, repoRef string, cfg *config.Config, maxSteps, maxToke
 		return fmt.Errorf("resolve fetch backend: %w", err)
 	}
 
-	return runExploreAgent(exploreOpts{
+	return runAskAgent(askOpts{
 		question:     question,
-		systemExtra:  strings.ReplaceAll(exploreRepoPrompt, "{localPath}", localPath),
+		systemExtra:  strings.ReplaceAll(askRepoPrompt, "{localPath}", localPath),
 		allowedPaths: []string{localPath},
-		toolNames:    exploreCodespaceTools,
-		model:        cfg.ExploreModel(),
+		toolNames:    askCodespaceTools,
+		model:        cfg.AskModel(),
 		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
-		label:        "explore --repo " + repoRef,
+		label:        "ask --repo " + repoRef,
 	})
 }
 
-// exploreURL explores a web page using defuddle for pre-fetching.
-func exploreURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
+// askURL asks about a web page using defuddle for pre-fetching.
+func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
 	backend, err := resolveFetchBackend()
 	if err != nil {
 		return err
@@ -189,51 +189,51 @@ func exploreURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens
 		return fmt.Errorf("pre-fetch %s: %w", rawURL, err)
 	}
 
-	return runExploreAgent(exploreOpts{
+	return runAskAgent(askOpts{
 		question:     fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
-		systemExtra:  strings.ReplaceAll(exploreURLPrompt, "{rawURL}", rawURL),
+		systemExtra:  strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
 		allowedPaths: nil, // URL mode: no filesystem tools
 		toolNames:    []string{"read_url", "search_web"},
-		model:        cfg.ExploreModel(),
+		model:        cfg.AskModel(),
 		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
-		label:        "explore --url",
+		label:        "ask --url",
 	})
 }
 
-// exploreWeb searches the web to answer a question.
-func exploreWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+// askWeb searches the web to answer a question.
+func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
 	backend, err := resolveFetchBackend()
 	if err != nil {
 		return err
 	}
 
-	prompt := strings.ReplaceAll(exploreWebPrompt, "{query}", question)
+	prompt := strings.ReplaceAll(askWebPrompt, "{query}", question)
 
-	return runExploreAgent(exploreOpts{
+	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  prompt,
 		allowedPaths: nil,
 		toolNames:    []string{"search_web", "read_url"},
 		fetchBackend: backend,
-		model:        cfg.ExploreModel(),
+		model:        cfg.AskModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
-		label:        "explore --web",
+		label:        "ask --web",
 	})
 }
 
-// exploreGeneral explores the current working directory with both filesystem and web tools.
-func exploreGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+// askGeneral asks about the current working directory with both filesystem and web tools.
+func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
 	backend, err := resolveFetchBackend()
 	if err != nil {
 		return err
 	}
 
-	if !strings.Contains(exploreGeneralPrompt, "{cwd}") {
+	if !strings.Contains(askGeneralPrompt, "{cwd}") {
 		return fmt.Errorf("general.md prompt is missing {cwd} placeholder")
 	}
 
@@ -242,24 +242,24 @@ func exploreGeneral(question string, cfg *config.Config, maxSteps, maxTokens int
 		return fmt.Errorf("get working directory: %w", err)
 	}
 
-	prompt := strings.ReplaceAll(exploreGeneralPrompt, "{cwd}", cwd)
+	prompt := strings.ReplaceAll(askGeneralPrompt, "{cwd}", cwd)
 
-	return runExploreAgent(exploreOpts{
+	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  prompt,
 		allowedPaths: []string{cwd},
-		toolNames:    exploreCodespaceTools,
+		toolNames:    askCodespaceTools,
 		fetchBackend: backend,
-		model:        cfg.ExploreModel(),
+		model:        cfg.AskModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
-		label:        "explore",
+		label:        "ask",
 	})
 }
 
-// exploreOpts holds parameters for running the explore subagent.
-type exploreOpts struct {
+// askOpts holds parameters for running the ask subagent.
+type askOpts struct {
 	question     string
 	systemExtra  string               // mode-specific system prompt addition
 	allowedPaths []string             // nil = no filesystem tools
@@ -269,14 +269,14 @@ type exploreOpts struct {
 	maxSteps     int
 	maxTokens    int
 	emoji        string // optional display emoji shown before output
-	label        string // display name shown in header (defaults to "explore")
+	label        string // display name shown in header (defaults to "ask")
 }
 
-// runExploreAgent builds and runs an agentloop for the explore command.
-func runExploreAgent(opts exploreOpts) error {
+// runAskAgent builds and runs an agentloop for the ask command.
+func runAskAgent(opts askOpts) error {
 	label := opts.label
 	if label == "" {
-		label = "explore"
+		label = "ask"
 	}
 	printAgentHeader(opts.emoji, label)
 
@@ -395,26 +395,26 @@ func dirExists(path string) bool {
 }
 
 func init() {
-	exploreCmd.Flags().StringVar(&exploreFlags.project, "project", "", "Explore a registered ttal project by alias")
-	exploreCmd.Flags().StringVar(&exploreFlags.repo, "repo", "", "Explore an OSS repo (full URL or org/repo shorthand)")
-	exploreCmd.Flags().StringVar(&exploreFlags.url, "url", "", "Explore a web page (pre-fetched with defuddle)")
-	exploreCmd.Flags().BoolVar(&exploreFlags.web, "web", false, "Search the web to answer the question")
-	exploreCmd.Flags().IntVar(&exploreFlags.maxSteps, "max-steps", config.ExploreDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
-	exploreCmd.Flags().IntVar(&exploreFlags.maxTokens, "max-tokens", config.ExploreDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
+	askCmd.Flags().StringVar(&askFlags.project, "project", "", "Ask about a registered ttal project by alias")
+	askCmd.Flags().StringVar(&askFlags.repo, "repo", "", "Ask about an OSS repo (full URL or org/repo shorthand)")
+	askCmd.Flags().StringVar(&askFlags.url, "url", "", "Ask about a web page (pre-fetched with defuddle)")
+	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
+	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
 
-	rootCmd.AddCommand(exploreCmd)
+	rootCmd.AddCommand(askCmd)
 }
 
-// exploreLogTarget returns the usage log target string based on active explore flags.
-func exploreLogTarget() string {
+// askLogTarget returns the usage log target string based on active ask flags.
+func askLogTarget() string {
 	switch {
-	case exploreFlags.project != "":
-		return exploreFlags.project
-	case exploreFlags.repo != "":
-		return exploreFlags.repo
-	case exploreFlags.url != "":
-		return exploreFlags.url
-	case exploreFlags.web:
+	case askFlags.project != "":
+		return askFlags.project
+	case askFlags.repo != "":
+		return askFlags.repo
+	case askFlags.url != "":
+		return askFlags.url
+	case askFlags.web:
 		return "web"
 	default:
 		return "general"

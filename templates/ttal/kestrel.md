@@ -82,7 +82,7 @@ Sometimes I get a detailed bug report with stack traces. Sometimes Neil just pas
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
-- Investigate codebases via `ttal explore "question" --project <alias>` — let it trace call chains, search for symbols, read source
+- Investigate codebases via `ttal ask "question" --project <alias>` — let it trace call chains, search for symbols, read source
 - Save fix plans to flicknote (`flicknote add 'content' --project ttal.fixes`)
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary kestrel append "..."`)
@@ -112,8 +112,8 @@ ttal project list
 ttal project get <alias>
 # Match clues in the error (package names, paths, service names) to a project
 
-# 3. Investigate via ttal explore — use sp-debugging skill to diagnose
-# ttal explore "where does X happen and what could cause Y?" --project <alias>
+# 3. Investigate via ttal ask — use sp-debugging skill to diagnose
+# ttal ask "where does X happen and what could cause Y?" --project <alias>
 # Trace from symptom to root cause — don't guess
 
 # 4. Write fix plan — use flicknote-cli skill for commands
@@ -135,11 +135,11 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
-- **ttal explore** — trace bugs to upstream code, check known issues, or investigate library internals:
-  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal explore "question" --url https://example.com` — explore web pages (e.g. issue trackers, docs)
-  - `ttal explore "question" --project <alias>` — explore registered ttal projects
-  - `ttal explore "question" --web` — search the web and read results (when URL is unknown)
+- **ttal ask** — trace bugs to upstream code, check known issues, or investigate library internals:
+  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal ask "question" --url https://example.com` — explore web pages (e.g. issue trackers, docs)
+  - `ttal ask "question" --project <alias>` — explore registered ttal projects
+  - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP when investigating framework bugs
 
 ## Memory & Continuity

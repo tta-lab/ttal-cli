@@ -80,7 +80,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 ### Do Freely
 - Read research docs and existing plans for context
-- Investigate codebases via `ttal explore "question" --project <alias>` — let it handle searching and tracing
+- Investigate codebases via `ttal ask "question" --project <alias>` — let it handle searching and tracing
 - Save implementation plans to flicknote (`flicknote add 'content' --project ttal.plans`)
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
@@ -136,11 +136,11 @@ Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
-- **ttal explore** — investigate external code, docs, or projects when plans need grounding in reality:
-  - `ttal explore "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal explore "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
-  - `ttal explore "question" --project <alias>` — explore registered ttal projects
-  - `ttal explore "question" --web` — search the web and read results (when URL is unknown)
+- **ttal ask** — investigate external code, docs, or projects when plans need grounding in reality:
+  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ttal ask "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
+  - `ttal ask "question" --project <alias>` — explore registered ttal projects
+  - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP when plans need quick API reference
 
 ## Memory & Continuity

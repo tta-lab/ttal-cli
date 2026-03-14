@@ -49,7 +49,7 @@
       "type": "object",
       "description": "Paths for subagent and skill deployment"
     },
-    "explore": {
+    "ask": {
       "properties": {
         "references_path": {
           "type": "string",
@@ -57,7 +57,7 @@
         },
         "model": {
           "type": "string",
-          "description": "Model for the explore subagent (default: claude-sonnet-4-6)"
+          "description": "Model for the ask subagent (default: claude-sonnet-4-6)"
         },
         "max_steps": {
           "type": "integer",
@@ -70,7 +70,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Explore subcommand settings"
+      "description": "Ask subcommand settings"
     },
     "flicknote": {
       "properties": {
