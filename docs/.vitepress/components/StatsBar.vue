@@ -1,23 +1,25 @@
+<script setup>
+const props = withDefaults(defineProps<{
+  stats?: Array<{ number?: string; label: string; em?: boolean }>
+}>(), {
+  stats: () => [
+    { number: '356', label: 'PRs merged' },
+    { number: '29k', label: 'lines of Go' },
+    { number: '33',  label: 'days' },
+    { label: 'built with itself', em: true },
+  ],
+})
+</script>
+
 <template>
   <div class="stats-bar">
-    <div class="stat">
-      <span class="stat-number">356</span>
-      <span class="stat-label">PRs merged</span>
-    </div>
-    <span class="stat-sep">·</span>
-    <div class="stat">
-      <span class="stat-number">29k</span>
-      <span class="stat-label">lines of Go</span>
-    </div>
-    <span class="stat-sep">·</span>
-    <div class="stat">
-      <span class="stat-number">33</span>
-      <span class="stat-label">days</span>
-    </div>
-    <span class="stat-sep">·</span>
-    <div class="stat">
-      <span class="stat-label stat-label--em">built with itself</span>
-    </div>
+    <template v-for="(stat, i) in props.stats" :key="i">
+      <span v-if="i > 0" class="stat-sep">·</span>
+      <div class="stat">
+        <span v-if="stat.number" class="stat-number">{{ stat.number }}</span>
+        <span class="stat-label" :class="{ 'stat-label--em': stat.em }">{{ stat.label }}</span>
+      </div>
+    </template>
   </div>
 </template>
 
