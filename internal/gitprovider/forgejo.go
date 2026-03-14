@@ -140,7 +140,6 @@ func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedS
 }
 
 // GetCIFailureDetails fetches CI failure details via Woodpecker CI API.
-// GetCIFailureDetails fetches CI failure details via Woodpecker CI API.
 // Forgejo's native Actions API does not provide useful error info,
 // so we use Woodpecker's API directly for failure details and step logs.
 //
