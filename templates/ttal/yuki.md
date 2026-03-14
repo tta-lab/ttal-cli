@@ -7,8 +7,6 @@ voice: af_jessica
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read]
-opencode:
-  mode: primary
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, glob, grep, read]
@@ -214,7 +212,7 @@ data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
 chat_id = "845849177"
 lifecycle_agent = "kestrel"
-default_runtime = "claude-code"    # claude-code | opencode | codex
+default_runtime = "claude-code"    # claude-code | codex
 
 [teams.clawd.agents.yuki]
 bot_token = "..."
@@ -229,7 +227,7 @@ chat_id = "..."                    # optional per-agent override
 
 ### Runtimes
 
-Selection priority: task tag (`+opencode`) → worker flag → agent DB → team default → claude-code
+Selection priority: task tag (`+cx`) → worker flag → agent DB → team default → claude-code
 
 ### Worker Lifecycle
 

@@ -4,7 +4,7 @@
 
 ## ttal Two-Plane Architecture
 
-**Manager Plane** — Long-running agents (orchestrator, researcher, designer). Runs on Claude Code / OpenCode / Codex CLI. Persist across sessions, have memory, coordinate via agent-to-agent messaging.
+**Manager Plane** — Long-running agents (orchestrator, researcher, designer). Runs on Claude Code. Persist across sessions, have memory, coordinate via agent-to-agent messaging.
 
 **Worker Plane** — Short-lived coders/reviewers. Spawned on demand per task, isolated in git worktrees within tmux sessions. Run in parallel, implement → review → merge → done.
 

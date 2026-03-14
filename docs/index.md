@@ -24,7 +24,7 @@ features:
     details: Research → Design → Execute → Review → Merge. Each phase produces artifacts. Taskwarrior integration with enrichment hooks. Quality from structure, not babysitting.
   - icon: "⚡"
     title: Multi-Runtime Flexibility
-    details: Claude Code, OpenCode, Codex CLI — mix runtimes across your team. Workers spawn in isolated git worktrees. 6 specialized reviewers on every PR.
+    details: Claude Code, Codex CLI — mix runtimes across your team. Workers spawn in isolated git worktrees. 6 specialized reviewers on every PR.
 ---
 
 <script setup>
@@ -78,7 +78,7 @@ TTAL runs your team on two planes:
 ├────────────────────┴────────────────────────────┤
 │  TTAL (coordination, messaging, task routing)   │
 ├─────────────────────────────────────────────────┤
-│  Runtime (Claude Code / OpenCode / Codex)       │
+│  Runtime (Claude Code / Codex)                  │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -95,8 +95,7 @@ TTAL doesn't replace your coding agent — it makes it a team player.
 | Capability | TTAL | Paperclip | claude-flow / claude-squad | OpenClaw | Claudegram |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Multi-agent coordination | ✓ | ✓ | ✓ | ✓ | - |
-| Multi-runtime (Claude Code + OpenCode + Codex) | ✓ | ✓ | - | - | - |
-| OpenClaw as manager runtime | ✓ | - | - | n/a | - |
+| Multi-runtime (Claude Code + Codex) | ✓ | ✓ | - | - | - |
 | Zero infrastructure (no database) | ✓ | - | ✓ | - | - |
 | Bidirectional Telegram | ✓ | - | - | - | ✓ |
 | Multimodal input | ✓ | - | - | - | ✓ |
@@ -107,7 +106,7 @@ TTAL doesn't replace your coding agent — it makes it a team player.
 | Git worktree isolation | ✓ | - | - | - | - |
 | Multi-team + cross-team comms | ✓ | - | - | - | - |
 
-The closest competitor is **Paperclip** (12K stars) — a company-as-abstraction platform with a React dashboard, goal hierarchy, and budget controls. It supports multiple runtimes including Claude Code, OpenCode, and Codex. Where it diverges: Paperclip requires PostgreSQL and a Node.js server; TTAL is a single Go binary with no database. Paperclip models your team as an org chart; TTAL models it as two planes — managers and workers — coordinated through git-native workflows and direct Telegram access.
+The closest competitor is **Paperclip** (12K stars) — a company-as-abstraction platform with a React dashboard, goal hierarchy, and budget controls. It supports multiple runtimes including Claude Code and Codex. Where it diverges: Paperclip requires PostgreSQL and a Node.js server; TTAL is a single Go binary with no database. Paperclip models your team as an org chart; TTAL models it as two planes — managers and workers — coordinated through git-native workflows and direct Telegram access.
 
 TTAL is the only orchestrator that combines CLI-first zero-infra deployment with deep git integration (worktrees, PR lifecycle, PR watcher) and cross-team communication within a single org — no other orchestrator offers all three together.
 

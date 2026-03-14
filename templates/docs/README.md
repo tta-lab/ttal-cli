@@ -13,7 +13,7 @@ docs/
 
 ## How it works
 
-Run `ttal sync` to deploy these to your agent runtime (Claude Code, OpenCode, or Codex):
+Run `ttal sync` to deploy these to your agent runtime (Claude Code or Codex):
 
 ```bash
 ttal sync            # Deploy to runtime

@@ -18,7 +18,7 @@ type SkillResult struct {
 }
 
 // DeploySkills copies skill directories (those containing SKILL.md) to
-// ~/.claude/skills/ (CC + OpenCode) and ~/.codex/skills/ (Codex).
+// ~/.claude/skills/ (CC) and ~/.codex/skills/ (Codex).
 func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

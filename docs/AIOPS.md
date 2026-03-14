@@ -13,7 +13,7 @@ Like GitHub Codespaces, but local. Under your control. And extensible to any wor
 - **[Taskwarrior](https://taskwarrior.org/)** — Your tasks as structured data. Hooks that fire when things change.
 - **Telegram** — Talk to your agents from your phone. Messages delivered to agent terminal sessions.
 - **tmux** — Terminal sessions that spawn, manage context, and clean up automatically.
-- **[Claude Code](https://claude.com/product/claude-code)** — AI that actually writes code. (Or swap for opencode, aider, crush—your choice.)
+- **[Claude Code](https://claude.com/product/claude-code)** — AI that actually writes code. (Or swap for Codex CLI, aider, crush—your choice.)
 
 Desktop apps (browser automation, Excel, PowerPoint) plug into the same webhook system alongside terminal agents.
 
