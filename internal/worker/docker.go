@@ -14,7 +14,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -78,13 +77,6 @@ func SpawnDocker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	// OpenCode requires a permissions config in the worktree.
-	if cfg.Runtime == runtime.OpenCode {
-		if err := writeOpenCodeConfig(workDir); err != nil {
-			return fmt.Errorf("failed to write opencode.json: %w", err)
-		}
-	}
-
 	return launchDockerTmuxWorker(cfg, task, sessionName, worktreeRoot, workDir, branch, project)
 }
 
@@ -113,7 +105,7 @@ func launchDockerTmuxWorker(
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 	model := resolveModel(task, shellCfg)
 
-	// Build the runtime command (gatekeeper + CC/OpenCode invocation).
+	// Build the runtime command (gatekeeper + CC/Codex invocation).
 	runtimeCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model)
 	if err != nil {
 		return err

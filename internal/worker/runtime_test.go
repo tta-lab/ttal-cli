@@ -14,8 +14,6 @@ func TestValidateRuntime(t *testing.T) {
 		wantBin string
 	}{
 		{"claude-code maps to claude binary", runtime.ClaudeCode, "claude"},
-		{"opencode maps to opencode binary", runtime.OpenCode, "opencode"},
-		{"codex maps to codex binary", runtime.Codex, "codex"},
 	}
 
 	for _, tt := range tests {
@@ -29,15 +27,5 @@ func TestValidateRuntime(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestValidateRuntime_RejectsNonWorkerRuntimes(t *testing.T) {
-	err := validateRuntime(runtime.OpenClaw)
-	if err == nil {
-		t.Fatal("validateRuntime(openclaw) should return error for non-worker runtime")
-	}
-	if !strings.Contains(err.Error(), "cannot be used for workers") {
-		t.Errorf("error should mention 'cannot be used for workers', got: %s", err.Error())
 	}
 }

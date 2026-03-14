@@ -242,8 +242,6 @@ func resolveRuntime(task *taskwarrior.Task, cfg *config.Config) runtime.Runtime 
 	rt := cfg.WorkerRuntime()
 	for _, t := range task.Tags {
 		switch t {
-		case string(runtime.OpenCode), "oc":
-			rt = runtime.OpenCode
 		case string(runtime.Codex), "cx":
 			rt = runtime.Codex
 		}

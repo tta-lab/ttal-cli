@@ -7,14 +7,12 @@ type Runtime string
 
 const (
 	ClaudeCode Runtime = "claude-code"
-	OpenCode   Runtime = "opencode"
 	Codex      Runtime = "codex"
-	OpenClaw   Runtime = "openclaw"
 )
 
 // All returns all valid runtime values.
 func All() []Runtime {
-	return []Runtime{ClaudeCode, OpenCode, Codex, OpenClaw}
+	return []Runtime{ClaudeCode, Codex}
 }
 
 // Values returns all valid runtime strings (for ent schema enum).
@@ -28,17 +26,13 @@ func Values() []string {
 }
 
 // Parse converts a string to a Runtime, defaulting to ClaudeCode.
-// Accepts aliases: "cc" for claude-code, "oc" for opencode.
+// Accepts aliases: "cc" for claude-code, "cx" for codex.
 func Parse(s string) (Runtime, error) {
 	switch s {
 	case "", string(ClaudeCode), "cc":
 		return ClaudeCode, nil
-	case string(OpenCode), "oc":
-		return OpenCode, nil
 	case string(Codex), "cx":
 		return Codex, nil
-	case string(OpenClaw), "oclw":
-		return OpenClaw, nil
 	default:
 		return "", fmt.Errorf("unknown runtime: %q (valid: %s)", s, joinRuntimes())
 	}
@@ -50,15 +44,15 @@ func Validate(s string) error {
 		if s == string(r) {
 			return nil
 		}
+		return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
 	}
-	return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
+	return nil
 }
 
 // IsWorkerRuntime returns true if the runtime can be used for workers.
-// OpenClaw is agent-only — workers always use CC/OC/Codex.
 func (r Runtime) IsWorkerRuntime() bool {
 	switch r {
-	case ClaudeCode, OpenCode, Codex:
+	case ClaudeCode, Codex:
 		return true
 	default:
 		return false
@@ -66,14 +60,8 @@ func (r Runtime) IsWorkerRuntime() bool {
 }
 
 // NeedsPort returns true if the runtime requires an explicit port for its HTTP server.
-// Codex runs HTTP serve process; CC, OpenCode (ACP), and OpenClaw do not.
 func (r Runtime) NeedsPort() bool {
-	switch r {
-	case Codex:
-		return true
-	default:
-		return false
-	}
+	return false
 }
 
 func joinRuntimes() string {

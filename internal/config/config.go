@@ -109,8 +109,6 @@ type Config struct {
 	resolvedMergeMode       string
 	resolvedTeamPath        string
 	resolvedProjectsPath    string
-	resolvedGatewayURL      string
-	resolvedHooksToken      string
 	resolvedTaskSyncURL     string
 	resolvedEmojiReactions  bool
 	resolvedRoles           *RolesConfig
@@ -158,21 +156,17 @@ type TeamConfig struct {
 	// Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)
 	NotificationTokenEnv string `toml:"notification_token_env"` //nolint:lll
 	// Runtime for agent sessions
-	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=openclaw"` //nolint:lll
+	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code"` //nolint:lll
 	// Runtime for spawned workers
-	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex"` //nolint:lll
+	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
 	// Model for agent sessions (default: sonnet)
 	AgentModel string `toml:"agent_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// Model for spawned workers (default: sonnet; +hard tag overrides to opus)
 	WorkerModel string `toml:"worker_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// Runtime for spawned reviewers (falls back to worker_runtime)
-	ReviewerRuntime string `toml:"reviewer_runtime" jsonschema:"enum=claude-code,enum=opencode,enum=codex"` //nolint:lll
+	ReviewerRuntime string `toml:"reviewer_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
 	// Model for spawned reviewers (falls back to worker_model)
 	ReviewerModel string `toml:"reviewer_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
-	// OpenClaw Gateway URL
-	GatewayURL string `toml:"gateway_url"`
-	// OpenClaw hooks auth token
-	HooksToken string `toml:"hooks_token"`
 	// PR merge mode override for this team
 	MergeMode string `toml:"merge_mode" jsonschema:"enum=auto,enum=manual"` //nolint:lll
 	// ISO 639-1 language code for Whisper (default: en; auto for auto-detect)
@@ -384,21 +378,6 @@ func (c *Config) ReviewerModel() string {
 		return c.resolvedReviewerModel
 	}
 	return c.WorkerModel()
-}
-
-const DefaultGatewayURL = "http://127.0.0.1:18789"
-
-// GatewayURL returns the OpenClaw Gateway URL for the active team.
-func (c *Config) GatewayURL() string {
-	if c.resolvedGatewayURL != "" {
-		return c.resolvedGatewayURL
-	}
-	return DefaultGatewayURL
-}
-
-// HooksToken returns the OpenClaw hooks auth token for the active team.
-func (c *Config) HooksToken() string {
-	return c.resolvedHooksToken
 }
 
 // TaskSyncURL returns the TaskChampion sync server URL for the active team.
@@ -752,8 +731,6 @@ func (c *Config) resolve() error {
 	c.resolvedAgentModel = team.AgentModel
 	c.resolvedWorkerModel = team.WorkerModel
 	c.resolvedReviewerModel = team.ReviewerModel
-	c.resolvedGatewayURL = team.GatewayURL
-	c.resolvedHooksToken = team.HooksToken
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
 	if err := validateTeamRuntimes(c.resolvedWorkerRuntime, c.resolvedReviewerRuntime); err != nil {
@@ -819,14 +796,14 @@ func validateTeamRuntimes(workerRuntime, reviewerRuntime string) error {
 }
 
 // validateWorkerPlaneRuntime returns an error if the given runtime string is set but not
-// valid for worker-plane sessions (openclaw is agent-only).
+// valid for worker-plane sessions.
 // role is the human-readable noun for the error message (e.g. "workers", "reviewers").
 func validateWorkerPlaneRuntime(field, role, value string) error {
 	if value == "" {
 		return nil
 	}
 	if !runtime.Runtime(value).IsWorkerRuntime() {
-		return fmt.Errorf("%s %q is not valid for %s (use claude-code, opencode, or codex)", field, value, role)
+		return fmt.Errorf("%s %q is not valid for %s (use claude-code or codex)", field, value, role)
 	}
 	return nil
 }
@@ -860,8 +837,6 @@ type ResolvedTeam struct {
 	WorkerModel       string
 	ReviewerModel     string
 	MergeMode         string
-	GatewayURL        string
-	HooksToken        string
 	Voice             VoiceConfig
 	EmojiReactions    bool
 	Kubernetes        *KubernetesConfig // nil = local tmux (default)
@@ -1026,8 +1001,6 @@ func resolveTeam(
 		WorkerModel:       team.WorkerModel,
 		ReviewerModel:     team.ReviewerModel,
 		MergeMode:         team.MergeMode,
-		GatewayURL:        team.GatewayURL,
-		HooksToken:        team.HooksToken,
 		Voice: VoiceConfig{
 			Vocabulary: mergedVocab,
 			Language:   lang,

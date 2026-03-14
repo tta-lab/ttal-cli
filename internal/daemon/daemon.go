@@ -232,18 +232,13 @@ func startTelegramPollers(
 	}
 }
 
-// buildTokenTargets groups agents by bot token, skipping those without tokens or using OpenClaw.
+// buildTokenTargets groups agents by bot token, skipping those without tokens.
 func buildTokenTargets(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) map[string][]pollerTarget {
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		token := config.AgentBotToken(ta.AgentName)
 		if token == "" {
 			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", ta.AgentName)
-			continue
-		}
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
-		if rt == runtime.OpenClaw {
-			log.Printf("[daemon] agent %s uses OpenClaw — skipping Telegram poller", ta.AgentName)
 			continue
 		}
 		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
@@ -274,19 +269,12 @@ func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
 	return dispatchMap
 }
 
-// startWatcherIfNeeded starts the JSONL watcher unless all agents use OpenClaw.
+// startWatcherIfNeeded starts the JSONL watcher.
 func startWatcherIfNeeded(
 	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
 	qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
 ) {
-	for _, ta := range allAgents {
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
-		if rt != runtime.OpenClaw {
-			startWatcher(mcfg, qs, mt, msgSvc, done)
-			return
-		}
-	}
-	log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
+	startWatcher(mcfg, qs, mt, msgSvc, done)
 }
 
 // runQuestionCleanup periodically cleans up stale question batches.
@@ -455,22 +443,14 @@ func initSingleAdapter(
 	model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 
-	team := mcfg.Teams[ta.TeamName]
-	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, 0, model, env, team)
+	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, model, env)
 	if err := adapter.Start(ctx); err != nil {
 		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
 		return
 	}
 	registry.set(ta.TeamName, ta.AgentName, adapter)
 	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
-	// Create or resume session for adapters that need one.
-	if rt == runtime.OpenCode {
-		initSession(ctx, ta.AgentName, adapter)
-	}
-	// OpenClaw owns messaging — skip Telegram event bridging
-	if rt != runtime.OpenClaw {
-		bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt, msgSvc)
-	}
+	bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt, msgSvc)
 }
 
 // initSession creates a new session for the adapter.

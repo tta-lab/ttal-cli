@@ -110,14 +110,10 @@ func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
 	switch rt {
 	case runtime.ClaudeCode:
 		populateCCRow(&row, sessionName, s)
-	case runtime.OpenCode, runtime.Codex:
+	case runtime.Codex:
 		row.health = "~"
 		row.active = true
 		row.updated = "adapter"
-	case runtime.OpenClaw:
-		row.health = "●"
-		row.active = true
-		row.updated = "self-managed"
 	default:
 		row.health = "?"
 		row.updated = "unknown runtime"

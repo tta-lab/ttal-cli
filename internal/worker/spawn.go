@@ -102,14 +102,6 @@ func spawnBareMetal(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	// Write OpenCode permission config to worktree for OpenCode workers.
-	// This replaces the old OPENCODE_PERMISSION env var hack.
-	if cfg.Runtime == runtime.OpenCode {
-		if err := writeOpenCodeConfig(workDir); err != nil {
-			return fmt.Errorf("failed to write opencode.json: %w", err)
-		}
-	}
-
 	return launchAndTrack(cfg, task, sessionName, workDir, branch, project)
 }
 
@@ -163,12 +155,9 @@ func resolveModel(task *taskwarrior.Task, shellCfg *config.Config) string {
 	return shellCfg.WorkerModel()
 }
 
-// resolveRuntime determines the worker runtime from task tags, falling back to config default.
+// resolveRuntime determines the worker runtime from config, defaulting to ClaudeCode.
 func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime {
 	if rt == "" || rt == runtime.ClaudeCode {
-		if task.HasTag("opencode") || task.HasTag("oc") {
-			return runtime.OpenCode
-		}
 		if task.HasTag("codex") || task.HasTag("cx") {
 			return runtime.Codex
 		}
@@ -539,25 +528,4 @@ func detectBranch(workDir string) string {
 		return b
 	}
 	return "unknown"
-}
-
-// writeOpenCodeConfig writes the OpenCode permission config to the worktree.
-func writeOpenCodeConfig(workDir string) error {
-	ocConfig := `{
-  "$schema": "https://opencode.ai/config.json",
-  "permission": {
-    "external_directory": {
-      "*": "allow"
-    },
-    "bash": {
-      "*": "allow",
-      "gh *": "deny",
-      "bun run lint:fix": "deny",
-      "xcodebuild *": "deny"
-    }
-  }
-}`
-
-	path := filepath.Join(workDir, "opencode.json")
-	return os.WriteFile(path, []byte(ocConfig), 0644)
 }

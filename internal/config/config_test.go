@@ -71,8 +71,6 @@ func TestAgentRuntime(t *testing.T) {
 		want runtime.Runtime
 	}{
 		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
-		{"explicit opencode", &Config{resolvedAgentRuntime: "opencode"}, runtime.OpenCode},
-		{"explicit openclaw", &Config{resolvedAgentRuntime: "openclaw"}, runtime.OpenClaw},
 		{"explicit claude-code", &Config{resolvedAgentRuntime: "claude-code"}, runtime.ClaudeCode},
 	}
 	for _, tt := range tests {
@@ -91,7 +89,6 @@ func TestWorkerRuntime(t *testing.T) {
 		want runtime.Runtime
 	}{
 		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
-		{"explicit opencode", &Config{resolvedWorkerRuntime: "opencode"}, runtime.OpenCode},
 		{"explicit claude-code", &Config{resolvedWorkerRuntime: "claude-code"}, runtime.ClaudeCode},
 	}
 	for _, tt := range tests {
@@ -100,23 +97,6 @@ func TestWorkerRuntime(t *testing.T) {
 				t.Errorf("WorkerRuntime() = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestWorkerRuntimeRejectsOpenClaw(t *testing.T) {
-	cfg := &Config{
-		DefaultTeam: "test",
-		Teams: map[string]TeamConfig{
-			"test": {
-				TeamPath:      "/tmp/test",
-				WorkerRuntime: "openclaw",
-				ChatID:        "x",
-				Agents:        map[string]AgentConfig{"k": {}},
-			},
-		},
-	}
-	if err := cfg.resolve(); err == nil {
-		t.Fatal("resolve() should reject openclaw as worker_runtime")
 	}
 }
 
@@ -165,9 +145,7 @@ func TestReviewerRuntime(t *testing.T) {
 		cfg  *Config
 		want runtime.Runtime
 	}{
-		{"explicit opencode", &Config{resolvedReviewerRuntime: "opencode"}, runtime.OpenCode},
 		{"explicit claude-code", &Config{resolvedReviewerRuntime: "claude-code"}, runtime.ClaudeCode},
-		{"falls back to worker_runtime", &Config{resolvedWorkerRuntime: "opencode"}, runtime.OpenCode},
 		{"falls back to claude-code default", &Config{}, runtime.ClaudeCode},
 	}
 	for _, tt := range tests {
@@ -198,46 +176,13 @@ func TestReviewerModel(t *testing.T) {
 	}
 }
 
-func TestReviewerRuntimeRejectsOpenClaw(t *testing.T) {
-	cfg := &Config{
-		Teams: map[string]TeamConfig{
-			"default": {
-				TeamPath:        "/tmp/test",
-				ReviewerRuntime: "openclaw",
-				ChatID:          "x",
-				Agents:          map[string]AgentConfig{"k": {}},
-			},
-		},
-	}
-	err := cfg.resolve()
-	if err == nil {
-		t.Fatal("resolve() should reject openclaw as reviewer_runtime")
-	}
-	if !strings.Contains(err.Error(), "reviewer_runtime") {
-		t.Errorf("expected reviewer_runtime error, got: %v", err)
-	}
-}
-
-func TestResolveTeamRejectsOpenClawReviewerRuntime(t *testing.T) {
-	_, err := resolveTeam("default", TeamConfig{
-		TeamPath:        "/tmp/test",
-		ReviewerRuntime: "openclaw",
-	}, nil, nil)
-	if err == nil {
-		t.Fatal("resolveTeam() should reject openclaw as reviewer_runtime")
-	}
-	if !strings.Contains(err.Error(), "reviewer_runtime") {
-		t.Errorf("expected reviewer_runtime error, got: %v", err)
-	}
-}
-
 func TestReviewerRuntimeRoundTrip(t *testing.T) {
 	cfg := &Config{
 		DefaultTeam: "default",
 		Teams: map[string]TeamConfig{
 			"default": {
 				TeamPath:        "/tmp/test",
-				ReviewerRuntime: "opencode",
+				ReviewerRuntime: "claude-code",
 				ChatID:          "x",
 			},
 		},
@@ -245,8 +190,8 @@ func TestReviewerRuntimeRoundTrip(t *testing.T) {
 	if err := cfg.resolve(); err != nil {
 		t.Fatalf("resolve() failed: %v", err)
 	}
-	if got := cfg.ReviewerRuntime(); got != runtime.OpenCode {
-		t.Errorf("ReviewerRuntime() = %q, want %q", got, runtime.OpenCode)
+	if got := cfg.ReviewerRuntime(); got != runtime.ClaudeCode {
+		t.Errorf("ReviewerRuntime() = %q, want %q", got, runtime.ClaudeCode)
 	}
 }
 

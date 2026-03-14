@@ -11,7 +11,6 @@ require (
 	entgo.io/ent v0.14.5
 	github.com/BurntSushi/toml v1.6.0
 	github.com/bmatcuk/doublestar/v4 v4.10.0
-	github.com/coder/acp-go-sdk v0.6.3
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-telegram/bot v1.18.0
 	github.com/google/go-github/v69 v69.2.0
@@ -20,7 +19,6 @@ require (
 	github.com/invopop/jsonschema v0.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.8.1
-	github.com/sst/opencode-sdk-go v0.19.2
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.7.16
 	golang.org/x/net v0.51.0

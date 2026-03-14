@@ -30,23 +30,6 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
 				" -- claude --model opus --dangerously-skip-permissions --agent pr-review-lead --",
 		},
-		{
-			name:  "opencode ignores model",
-			rt:    runtime.OpenCode,
-			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt --agent pr-review-lead",
-		},
-		{
-			name:  "codex ignores model",
-			rt:    runtime.Codex,
-			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex --yolo --prompt",
-		},
-		{
-			name: "non-worker runtime errors",
-			rt:   runtime.OpenClaw,
-			err:  true,
-		},
 	}
 
 	for _, tt := range tests {

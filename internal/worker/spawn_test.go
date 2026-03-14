@@ -102,33 +102,9 @@ func TestBuildLaunchCmd_OpusModel(t *testing.T) {
 	}
 }
 
-func TestBuildLaunchCmd_OpenCode(t *testing.T) {
-	cfg := SpawnConfig{Runtime: runtime.OpenCode}
-	shellCfg := &config.Config{}
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "sonnet")
-	if err != nil {
-		t.Fatalf("buildLaunchCmd returned error: %v", err)
-	}
-	if !strings.Contains(cmd, "opencode --prompt") {
-		t.Errorf("OpenCode command should contain 'opencode --prompt', got: %s", cmd)
-	}
-}
-
-func TestBuildLaunchCmd_Codex(t *testing.T) {
-	cfg := SpawnConfig{Runtime: runtime.Codex}
-	shellCfg := &config.Config{}
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "sonnet")
-	if err != nil {
-		t.Fatalf("buildLaunchCmd returned error: %v", err)
-	}
-	if !strings.Contains(cmd, "codex --yolo --prompt") {
-		t.Errorf("Codex command should contain 'codex --yolo --prompt', got: %s", cmd)
-	}
-}
-
 func TestBuildLaunchCmd_RejectsUnsupportedRuntime(t *testing.T) {
 	_, err := buildLaunchCmd(
-		SpawnConfig{Runtime: runtime.OpenClaw},
+		SpawnConfig{Runtime: "unknown"},
 		"/usr/bin/ttal",
 		"/tmp/task.txt",
 		nil,
@@ -196,48 +172,6 @@ func TestResolveRuntime(t *testing.T) {
 		taskTags []string
 		want     runtime.Runtime
 	}{
-		{
-			name:     "explicit opencode config wins over codex tag",
-			configRT: runtime.OpenCode,
-			taskTags: []string{"codex"},
-			want:     runtime.OpenCode,
-		},
-		{
-			name:     "opencode tag switches runtime when config empty",
-			configRT: "",
-			taskTags: []string{"opencode"},
-			want:     runtime.OpenCode,
-		},
-		{
-			name:     "oc alias switches runtime",
-			configRT: "",
-			taskTags: []string{"oc"},
-			want:     runtime.OpenCode,
-		},
-		{
-			name:     "codex tag switches runtime when config empty",
-			configRT: "",
-			taskTags: []string{"codex"},
-			want:     runtime.Codex,
-		},
-		{
-			name:     "cx alias switches runtime",
-			configRT: "",
-			taskTags: []string{"cx"},
-			want:     runtime.Codex,
-		},
-		{
-			name:     "claude-code with opencode tag switches to opencode",
-			configRT: runtime.ClaudeCode,
-			taskTags: []string{"opencode"},
-			want:     runtime.OpenCode,
-		},
-		{
-			name:     "claude-code with codex tag switches to codex",
-			configRT: runtime.ClaudeCode,
-			taskTags: []string{"codex"},
-			want:     runtime.Codex,
-		},
 		{
 			name:     "empty config no tags defaults to claude-code",
 			configRT: "",
