@@ -125,7 +125,7 @@ func Run() error {
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
 	startReminderPoller(mcfg, done)
-	startWatcherIfNeeded(mcfg, allAgents, qs, mt, msgSvc, done)
+	startWatcherIfNeeded(mcfg, qs, mt, msgSvc, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
@@ -217,7 +217,7 @@ func startTelegramPollers(
 	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
 	mt *messageTracker, msgSvc *message.Service,
 ) {
-	tokenTargets := buildTokenTargets(mcfg, allAgents)
+	tokenTargets := buildTokenTargets(allAgents)
 
 	for botToken, targets := range tokenTargets {
 		dispatchMap := buildDispatchMap(targets)
@@ -227,13 +227,13 @@ func startTelegramPollers(
 			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
-		}, done, qs, cas, registry, allCommands, mt, msgSvc,
+		}, done, qs, cas, allCommands, mt, msgSvc,
 			func(teamName string) string { return mcfg.UserNameForTeam(teamName) })
 	}
 }
 
 // buildTokenTargets groups agents by bot token, skipping those without tokens.
-func buildTokenTargets(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) map[string][]pollerTarget {
+func buildTokenTargets(allAgents []config.TeamAgent) map[string][]pollerTarget {
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		token := config.AgentBotToken(ta.AgentName)
@@ -271,7 +271,7 @@ func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
 
 // startWatcherIfNeeded starts the JSONL watcher.
 func startWatcherIfNeeded(
-	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
+	mcfg *config.DaemonConfig,
 	qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
 ) {
 	startWatcher(mcfg, qs, mt, msgSvc, done)
@@ -443,7 +443,7 @@ func initSingleAdapter(
 	model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 
-	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, model, env)
+	adapter := createAdapterFromTeam(ta.AgentName, agentPath, model, env)
 	if err := adapter.Start(ctx); err != nil {
 		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
 		return
@@ -451,16 +451,6 @@ func initSingleAdapter(
 	registry.set(ta.TeamName, ta.AgentName, adapter)
 	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
 	bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt, msgSvc)
-}
-
-// initSession creates a new session for the adapter.
-func initSession(ctx context.Context, agentName string, adapter runtime.Adapter) {
-	sid, err := adapter.CreateSession(ctx)
-	if err != nil {
-		log.Printf("[daemon] failed to create session for %s: %v", agentName, err)
-	} else {
-		log.Printf("[daemon] created session %s for %s", sid, agentName)
-	}
 }
 
 // buildAgentEnv returns env vars for an agent adapter.

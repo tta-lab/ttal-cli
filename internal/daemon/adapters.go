@@ -51,7 +51,7 @@ func (r *adapterRegistry) stopAll(ctx context.Context) {
 
 // createAdapterFromTeam builds the appropriate adapter for an agent's runtime.
 func createAdapterFromTeam(
-	agentName string, rt runtime.Runtime, agentPath string,
+	agentName string, agentPath string,
 	model string, env []string,
 ) runtime.Adapter {
 	cfg := runtime.AdapterConfig{

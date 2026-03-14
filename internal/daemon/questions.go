@@ -166,7 +166,7 @@ func buildQuestionPage(batch *QuestionBatch) telegram.QuestionPage {
 }
 
 // routeQuestionResponse sends collected answers back to the agent's runtime.
-func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) error {
+func routeQuestionResponse(batch *QuestionBatch) error {
 	switch batch.Runtime {
 	case runtime.ClaudeCode:
 		return routeCCResponse(batch)
@@ -250,7 +250,7 @@ func findOptionIndex(options []runtime.QuestionOption, label string) int {
 }
 
 // cancelQuestion dismisses a pending question without answering.
-func cancelQuestion(batch *QuestionBatch, registry *adapterRegistry) error {
+func cancelQuestion(batch *QuestionBatch) error {
 	switch batch.Runtime {
 	case runtime.ClaudeCode:
 		session := config.AgentSessionName(batch.TeamName, batch.AgentName)

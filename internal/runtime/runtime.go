@@ -44,9 +44,8 @@ func Validate(s string) error {
 		if s == string(r) {
 			return nil
 		}
-		return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
 	}
-	return nil
+	return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
 }
 
 // IsWorkerRuntime returns true if the runtime can be used for workers.
