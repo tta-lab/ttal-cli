@@ -290,18 +290,20 @@ func handleCIStatus(
 
 	switch cs.State {
 	case gitprovider.StateSuccess:
+		msg := fmt.Sprintf("✅ PR #%d CI checks passed (sha=%s). Waiting for reviewer LGTM before merge.",
+			target.PRIndex, shortSHA(headSHA))
+		deliverToWorkerSession(target.SessionName, msg)
 		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
-		deliverToWorkerSession(target.SessionName,
-			fmt.Sprintf("✅ PR #%d CI checks passed (sha=%s)", target.PRIndex, shortSHA(headSHA)))
 		// Return prPollInitial so the caller updates lastDeliveredSHA, preventing
 		// re-notification for the same SHA. Goroutine stays alive to detect future
 		// pushes and the eventual PR merge.
 		return prPollInitial
 
 	case gitprovider.StateFailure, gitprovider.StateError:
-		msg, runURL := formatCIFailureWithURL(provider, target, headSHA)
+		msg := fmt.Sprintf("❌ PR #%d CI checks failed (sha=%s). Run `ttal pr ci --log` for failure details.",
+			target.PRIndex, shortSHA(headSHA))
 		deliverToWorkerSession(target.SessionName, msg)
-		notifyPRStatus(mcfg, target, "❌ CI failed", runURL)
+		notifyPRStatus(mcfg, target, "❌ CI failed", "")
 		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		return prPollInitial
 
@@ -328,45 +330,6 @@ func checkMergeConflict(
 	notifyPRStatus(mcfg, target, "⚠️ Merge conflict detected", "")
 	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))
 	return true
-}
-
-// formatCIFailureWithURL builds a detailed failure message for the worker
-// and returns the first run URL for Telegram notifications.
-func formatCIFailureWithURL(provider gitprovider.Provider, target prWatchTarget, sha string) (string, string) {
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "PR #%d CI checks failed.\n", target.PRIndex)
-
-	failures, err := provider.GetCIFailureDetails(target.Owner, target.Repo, sha)
-	if err != nil {
-		fmt.Fprintf(&sb, "Could not fetch failure details: %v\n", err)
-		sb.WriteString("Fix the issues and push again.")
-		return sb.String(), ""
-	}
-
-	if len(failures) == 0 {
-		sb.WriteString("No detailed failure info available. Check CI directly.\n")
-		sb.WriteString("Fix the issues and push again.")
-		return sb.String(), ""
-	}
-
-	runURL := ""
-	for _, f := range failures {
-		fmt.Fprintf(&sb, "\nWorkflow: %s\n  Job: %s\n", f.WorkflowName, f.JobName)
-		if f.HTMLURL != "" {
-			fmt.Fprintf(&sb, "  URL: %s\n", f.HTMLURL)
-			if runURL == "" {
-				runURL = f.HTMLURL
-			}
-		}
-		if f.LogTail != "" {
-			sb.WriteString("  Log tail:\n")
-			for _, line := range strings.Split(f.LogTail, "\n") {
-				sb.WriteString("    " + line + "\n")
-			}
-		}
-	}
-	sb.WriteString("\nFix the issues and push again.")
-	return sb.String(), runURL
 }
 
 // deliverToWorkerSession sends a message to the coder window of a worker tmux session.
