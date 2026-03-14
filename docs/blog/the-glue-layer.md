@@ -121,7 +121,7 @@ The worker doesn't need to remember your last three projects. It needs exactly t
 
 One of ttal's design goals: the orchestration layer should be runtime-agnostic.
 
-Workers run in tmux sessions. What runs *inside* those sessions is configurable — Claude Code, OpenCode, Codex CLI, or anything else. The spawn logic injects a task prompt and sets up the workspace. The coding agent is just a process that reads the prompt and writes code.
+Workers run in tmux sessions. What runs *inside* those sessions is configurable — Claude Code, Codex CLI, or anything else. The spawn logic injects a task prompt and sets up the workspace. The coding agent is just a process that reads the prompt and writes code.
 
 This means the stack doesn't break when a new coding agent appears. Swap the runtime; keep the orchestration.
 

@@ -7,8 +7,6 @@ description: Skill design partner — helps create well-designed, shareable Clau
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Write, Edit]
-opencode:
-  mode: primary
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, read, glob, grep, write, edit]

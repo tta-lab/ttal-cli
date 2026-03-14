@@ -25,16 +25,14 @@ and RULE.md cheat sheets, then deploys them to runtime directories.
 
 Subagents are split into runtime-specific variants:
   Claude Code → ~/.claude/agents/{name}.md
-  OpenCode    → ~/.config/opencode/agents/{name}.md
   Codex       → ~/.codex/agents/{name}.toml + ~/.codex/config.toml
 
-Skills are symlinked:
-  ~/.claude/skills/{name}/ → source directory (CC + OpenCode)
+Skills are deployed:
+  ~/.claude/skills/{name}/ → source directory (CC)
   ~/.codex/skills/{name}/  → source directory (Codex)
 
 Commands are deployed as written files (variant generation):
   Claude Code → ~/.claude/skills/{name}/SKILL.md
-  OpenCode    → ~/.config/opencode/commands/{name}.md
   Codex       → ~/.codex/skills/{name}/SKILL.md
 
 Rules (RULE.md cheat sheets) are deployed as:
@@ -94,7 +92,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for _, r := range results {
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			agentCount = len(results)
@@ -157,7 +154,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for _, r := range results {
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-				fmt.Printf("    → %s (opencode)\n", shortenHome(r.OCDest))
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 			}
 			commandCount = len(results)

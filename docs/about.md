@@ -15,7 +15,7 @@ I wanted something different: manage a team of coding agents from anywhere, with
 
 **Manage your coding agents from your phone.**
 
-ttal is the coordination layer for Claude Code, OpenCode, and Codex CLI. It adds multi-agent orchestration, Telegram messaging, Taskwarrior integration, and voice I/O on top of whatever coding runtime you use.
+ttal is the coordination layer for Claude Code and Codex CLI. It adds multi-agent orchestration, Telegram messaging, Taskwarrior integration, and voice I/O on top of whatever coding runtime you use.
 
 - **Open source** — MIT license, [hosted on GitHub](https://github.com/tta-lab/ttal-cli)
 - **Mobile-first** — each agent is its own Telegram bot, manage everything from your phone

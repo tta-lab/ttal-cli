@@ -1,6 +1,6 @@
 ---
 title: Runtimes
-description: Multi-runtime support — Claude Code, OpenCode, Codex CLI, and more
+description: Multi-runtime support — Claude Code, Codex CLI, and more
 ---
 
 ttal is runtime-agnostic. It manages agent sessions via tmux and doesn't care what coding CLI runs inside.
@@ -10,7 +10,6 @@ ttal is runtime-agnostic. It manages agent sessions via tmux and doesn't care wh
 | Runtime | Status | Description |
 |---------|--------|-------------|
 | **Claude Code** | Stable | Anthropic's CLI. Fully supported, battle-tested. |
-| **OpenCode** | Experimental | Open-source coding agent. Adapter exists but not battle-tested. |
 | **Codex CLI** | Experimental | OpenAI's coding CLI. Adapter exists but not battle-tested. |
 
 ## Configuration
@@ -29,11 +28,10 @@ worker_runtime = "claude-code"
 
 Task tags can trigger runtime overrides:
 
-- `+oc` → OpenCode
 - `+cx` → Codex CLI
 
 ```bash
-task add "Implement feature X" +oc    # Worker will use OpenCode
+task add "Implement feature X" +cx    # Worker will use Codex CLI
 ```
 
 ## How the adapter works
@@ -53,9 +51,9 @@ Human (Telegram)
     ↓
 ttal (coordination layer)
     ↓
-Coding harness (optional — e.g., oh-my-opencode)
+Coding harness (optional — e.g., oh-my-claudecode)
     ↓
-Runtime (Claude Code / OpenCode / Codex CLI)
+Runtime (Claude Code / Codex CLI)
 ```
 
-ttal operates at the coordination layer. Coding harnesses like oh-my-opencode or oh-my-claudecode operate at the coding layer — they make individual agents code better within a session. The two layers are complementary, not competitive.
+ttal operates at the coordination layer. Coding harnesses like oh-my-claudecode operate at the coding layer — they make individual agents code better within a session. The two layers are complementary, not competitive.

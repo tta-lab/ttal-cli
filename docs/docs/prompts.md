@@ -33,7 +33,6 @@ correct invocation syntax based on the target agent's runtime:
 | Runtime     | `{{skill:triage}}` resolves to |
 |-------------|-------------------------------|
 | claude-code | `/triage`                     |
-| opencode    | `/triage`                     |
 | codex       | `$triage`                     |
 
 Skill references should appear at the **beginning** of the prompt (first line),

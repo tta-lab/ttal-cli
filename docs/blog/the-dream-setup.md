@@ -187,7 +187,7 @@ task start → on-modify hook → ttal daemon → spawn worker in tmux
 task done  → ttal daemon → close session, remove worktree, mark done
 ```
 
-Any coding agent runtime works inside the tmux session — Claude Code, OpenCode, or Codex CLI. The orchestration layer doesn't care what's running inside; it just handles the lifecycle.
+Any coding agent runtime works inside the tmux session — Claude Code, Codex CLI, or any terminal-based coding CLI. The orchestration layer doesn't care what's running inside; it just handles the lifecycle.
 
 ## What's Next
 
