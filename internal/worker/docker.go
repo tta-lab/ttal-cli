@@ -106,7 +106,7 @@ func launchDockerTmuxWorker(
 	model := resolveModel(task, shellCfg)
 
 	// Build the runtime command (gatekeeper + CC/Codex invocation).
-	runtimeCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model)
+	runtimeCmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model, "")
 	if err != nil {
 		return err
 	}

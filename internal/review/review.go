@@ -121,7 +121,7 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 }
 
 func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime, model string) (string, error) {
-	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, model)
+	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, model, "pr-review-lead")
 }
 
 func writePromptFile(prompt string) (string, error) {
