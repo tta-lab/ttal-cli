@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	gitutil "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
@@ -356,27 +357,44 @@ func setupWorktree(project, dirName, branchName, projectAlias string) (string, e
 	worktreeDir := filepath.Join(root, fmt.Sprintf("%s-%s", dirName, projectAlias))
 	workerBranch := fmt.Sprintf("worker/%s", branchName)
 
-	// Reuse existing worktree
 	if info, err := os.Stat(worktreeDir); err == nil && info.IsDir() {
 		fmt.Printf("Worktree already exists at %s, reusing\n", worktreeDir)
-		return worktreeDir, nil
-	}
-
-	// Pull latest from remote so worktree branches from up-to-date main
-	pullLatest(project)
-
-	if err := createWorktree(project, worktreeDir, workerBranch); err != nil {
-		return "", err
-	}
-
-	if err := pushBranchToUpstream(project, workerBranch); err != nil {
-		fmt.Fprintf(os.Stderr, "  warning: failed to push branch (non-fatal): %v\n", err)
-		fmt.Fprintf(os.Stderr, "  Worker can still function locally; push manually if needed.\n")
 	} else {
-		fmt.Printf("  Pushed branch to origin/%s\n", workerBranch)
+		// Pull latest from remote so worktree branches from up-to-date main
+		pullLatest(project)
+
+		if err := createWorktree(project, worktreeDir, workerBranch); err != nil {
+			return "", err
+		}
+
+		if err := pushBranchToUpstream(project, workerBranch); err != nil {
+			fmt.Fprintf(os.Stderr, "  warning: failed to push branch (non-fatal): %v\n", err)
+			fmt.Fprintf(os.Stderr, "  Worker can still function locally; push manually if needed.\n")
+		} else {
+			fmt.Printf("  Pushed branch to origin/%s\n", workerBranch)
+		}
 	}
 
+	ensureWorktreeTrust(worktreeDir)
 	return worktreeDir, nil
+}
+
+// ensureWorktreeTrust adds a trust entry for the worktree path in ~/.claude.json.
+// Non-fatal: logs a warning on failure since the worker can still function
+// (user just gets a manual trust prompt).
+func ensureWorktreeTrust(worktreeDir string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: cannot resolve home dir for trust entry: %v\n", err)
+		return
+	}
+	claudeJSONPath := filepath.Join(home, ".claude.json")
+	n, err := claudeconfig.UpsertTrust(claudeJSONPath, []string{worktreeDir})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: failed to add trust entry (non-fatal): %v\n", err)
+	} else if n > 0 {
+		fmt.Printf("  Trust entry added for worktree: %s\n", worktreeDir)
+	}
 }
 
 func createWorktree(project, worktreeDir, workerBranch string) error {

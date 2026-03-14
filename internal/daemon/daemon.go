@@ -15,6 +15,7 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
+	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -411,7 +412,7 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	}
 
 	claudeJSONPath := filepath.Join(home, ".claude.json")
-	added, err := upsertClaudeJSONTrust(claudeJSONPath, paths)
+	added, err := claudeconfig.UpsertTrust(claudeJSONPath, paths)
 	if err != nil {
 		log.Printf("[daemon] warning: could not update agent trust in %s: %v\n"+
 			"  — delete the file to reset or check permissions", claudeJSONPath, err)
