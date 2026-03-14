@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -69,7 +70,7 @@ func Run() error {
 	}
 	msgSvc := message.NewService(entClient)
 
-	log.Printf("[daemon] starting — socket=%s teams=%d",
+	log.Printf("[daemon] starting — http=%s teams=%d",
 		sockPath, len(mcfg.Teams))
 
 	done := make(chan struct{})
@@ -108,13 +109,13 @@ func Run() error {
 	startReminderPoller(mcfg, done)
 	startWatcherIfNeeded(mcfg, qs, mt, msgSvc, done)
 
-	cleanup, err := listenSocket(sockPath, socketHandlers{
+	srv, err := listenHTTP(sockPath, httpHandlers{
 		send: func(req SendRequest) error {
 			return handleSend(mcfg, registry, msgSvc, req)
 		},
 		statusUpdate: handleStatusUpdate,
-		taskComplete: func(raw []byte) SendResponse {
-			return handleTaskComplete(raw, mcfg, registry)
+		taskComplete: func(req TaskCompleteRequest) SendResponse {
+			return handleTaskComplete(req, mcfg, registry)
 		},
 	})
 	if err != nil {
@@ -126,7 +127,7 @@ func Run() error {
 
 	log.Printf("[daemon] ready")
 	notifyDaemonReady(mcfg)
-	awaitShutdown(done, cancel, mcfg, registry, cleanup)
+	awaitShutdown(done, cancel, mcfg, registry, srv)
 	return nil
 }
 
@@ -178,7 +179,7 @@ func notifyDaemonReady(mcfg *config.DaemonConfig) {
 func awaitShutdown(
 	done chan struct{}, cancel context.CancelFunc,
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
-	cleanup func(),
+	srv *http.Server,
 ) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -188,7 +189,11 @@ func awaitShutdown(
 	close(done)
 	cancel()
 	shutdownAgents(mcfg, registry)
-	cleanup()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("[daemon] HTTP server shutdown error: %v", err)
+	}
 }
 
 // IsRunning checks whether the daemon is running by inspecting the pid file.

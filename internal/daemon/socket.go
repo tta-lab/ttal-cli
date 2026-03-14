@@ -1,13 +1,19 @@
 package daemon
 
 import (
-	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/status"
 )
@@ -19,15 +25,6 @@ const socketTimeout = 5 * time.Second
 // Delegates to config.SocketPath() to keep a single source of truth.
 func SocketPath() (string, error) {
 	return config.SocketPath(), nil
-}
-
-// Request is the top-level socket message envelope.
-// GetStatusRequest queries agent status from the daemon.
-// Wire format: {"type":"getStatus","agent":"kestrel"}
-type GetStatusRequest struct {
-	Type  string `json:"type"`            // "getStatus"
-	Team  string `json:"team,omitempty"`  // team name (defaults to "default")
-	Agent string `json:"agent,omitempty"` // empty = all agents
 }
 
 // StatusUpdateRequest writes agent context status to the daemon.
@@ -82,7 +79,169 @@ type StatusResponse struct {
 	Error  string               `json:"error,omitempty"`
 }
 
-// Send connects to the daemon socket and sends a message.
+// httpHandlers groups all handler functions for the HTTP server.
+// Unlike the old socketHandlers, taskComplete receives a typed struct
+// instead of raw bytes — the HTTP layer handles JSON decoding.
+type httpHandlers struct {
+	send         func(SendRequest) error
+	statusUpdate func(StatusUpdateRequest)
+	taskComplete func(TaskCompleteRequest) SendResponse
+}
+
+// newDaemonRouter creates the chi router with all daemon routes.
+func newDaemonRouter(handlers httpHandlers) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.Recoverer)
+	r.Post("/send", handleHTTPSend(handlers))
+	r.Get("/status", handleHTTPGetStatus())
+	r.Post("/status/update", handleHTTPStatusUpdate(handlers))
+	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
+	})
+	return r
+}
+
+func handleHTTPSend(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req SendRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				SendResponse{OK: false, Error: "invalid JSON: " + err.Error()})
+			return
+		}
+		if err := handlers.send(req); err != nil {
+			writeHTTPJSON(w, http.StatusInternalServerError,
+				SendResponse{OK: false, Error: err.Error()})
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
+	}
+}
+
+func handleHTTPGetStatus() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		team := r.URL.Query().Get("team")
+		agent := r.URL.Query().Get("agent")
+		if team == "" {
+			team = config.DefaultTeamName
+		}
+
+		var resp StatusResponse
+		if agent != "" {
+			s, err := status.ReadAgent(team, agent)
+			if err != nil {
+				writeHTTPJSON(w, http.StatusInternalServerError,
+					StatusResponse{OK: false, Error: err.Error()})
+				return
+			}
+			if s == nil {
+				resp = StatusResponse{OK: true, Agents: nil}
+			} else {
+				resp = StatusResponse{OK: true, Agents: []status.AgentStatus{*s}}
+			}
+		} else {
+			all, err := status.ReadAll(team)
+			if err != nil {
+				writeHTTPJSON(w, http.StatusInternalServerError,
+					StatusResponse{OK: false, Error: err.Error()})
+				return
+			}
+			resp = StatusResponse{OK: true, Agents: all}
+		}
+		writeHTTPJSON(w, http.StatusOK, resp)
+	}
+}
+
+func handleHTTPStatusUpdate(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req StatusUpdateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				SendResponse{OK: false, Error: "invalid statusUpdate JSON: " + err.Error()})
+			return
+		}
+		if handlers.statusUpdate != nil {
+			handlers.statusUpdate(req)
+		}
+		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
+	}
+}
+
+func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req TaskCompleteRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				SendResponse{OK: false, Error: "invalid taskComplete JSON: " + err.Error()})
+			return
+		}
+		if handlers.taskComplete != nil {
+			resp := handlers.taskComplete(req)
+			code := http.StatusOK
+			if !resp.OK {
+				code = http.StatusInternalServerError
+			}
+			writeHTTPJSON(w, code, resp)
+		} else {
+			writeHTTPJSON(w, http.StatusNotImplemented,
+				SendResponse{OK: false, Error: "taskComplete handler not registered"})
+		}
+	}
+}
+
+func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(v) //nolint:errcheck
+}
+
+// listenHTTP starts the chi HTTP server on a unix socket.
+// Returns the server and any startup error.
+func listenHTTP(sockPath string, handlers httpHandlers) (*http.Server, error) {
+	os.Remove(sockPath) // remove stale socket
+
+	ln, err := net.Listen("unix", sockPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen on %s: %w", sockPath, err)
+	}
+	if err := os.Chmod(sockPath, 0o600); err != nil {
+		ln.Close()
+		return nil, fmt.Errorf("insecure socket permissions: %w", err)
+	}
+
+	router := newDaemonRouter(handlers)
+	srv := &http.Server{Handler: router}
+
+	go func() {
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			log.Printf("[daemon] HTTP server error: %v", err)
+		}
+	}()
+
+	return srv, nil
+}
+
+// daemonBaseURL is the HTTP base URL for the daemon server.
+// The host is ignored — connections go via unix socket.
+const daemonBaseURL = "http://daemon"
+
+// daemonHTTPClient returns an http.Client configured to connect via unix socket.
+// Note: SocketPath() wraps config.SocketPath() which always succeeds (returns
+// a default path on error), so the error discard is safe.
+func daemonHTTPClient() *http.Client {
+	sockPath, _ := SocketPath()
+	return &http.Client{
+		Timeout: socketTimeout,
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, socketTimeout)
+			},
+		},
+	}
+}
+
+// Send connects to the daemon socket and sends a message via HTTP.
 // Returns an error if the daemon is not running or if delivery fails.
 // Auto-populates Team from TTAL_TEAM env if not set.
 func Send(req SendRequest) error {
@@ -90,228 +249,54 @@ func Send(req SendRequest) error {
 		req.Team = os.Getenv("TTAL_TEAM")
 	}
 
-	sockPath, err := SocketPath()
+	body, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	conn, err := net.DialTimeout("unix", sockPath, socketTimeout)
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/send", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("daemon not running (could not connect to %s): %w", sockPath, err)
+		return fmt.Errorf("daemon not running: %w", err)
 	}
-	defer conn.Close()
+	defer resp.Body.Close()
 
-	conn.SetDeadline(time.Now().Add(socketTimeout))
-
-	data, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	data = append(data, '\n')
-
-	if _, err := conn.Write(data); err != nil {
-		return fmt.Errorf("failed to send: %w", err)
-	}
-
-	scanner := bufio.NewScanner(conn)
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("reading daemon response: %w", err)
-		}
-		return fmt.Errorf("no response from daemon")
-	}
-
-	var resp SendResponse
-	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return fmt.Errorf("invalid response from daemon: %w", err)
 	}
-
-	if !resp.OK {
-		return fmt.Errorf("daemon error: %s", resp.Error)
+	if !result.OK {
+		return fmt.Errorf("daemon error: %s", result.Error)
 	}
-
 	return nil
 }
 
-// QueryStatus connects to the daemon socket and queries agent status.
+// QueryStatus connects to the daemon and queries agent status via HTTP.
 func QueryStatus(team, agent string) (*StatusResponse, error) {
-	sockPath, err := SocketPath()
+	client := daemonHTTPClient()
+
+	params := url.Values{}
+	if team != "" {
+		params.Set("team", team)
+	}
+	if agent != "" {
+		params.Set("agent", agent)
+	}
+
+	reqURL := daemonBaseURL + "/status"
+	if encoded := params.Encode(); encoded != "" {
+		reqURL += "?" + encoded
+	}
+
+	resp, err := client.Get(reqURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("daemon not running: %w", err)
 	}
+	defer resp.Body.Close()
 
-	conn, err := net.DialTimeout("unix", sockPath, socketTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("daemon not running (could not connect to %s): %w", sockPath, err)
-	}
-	defer conn.Close()
-
-	conn.SetDeadline(time.Now().Add(socketTimeout))
-
-	req := GetStatusRequest{Type: "getStatus", Team: team, Agent: agent}
-	data, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	data = append(data, '\n')
-
-	if _, err := conn.Write(data); err != nil {
-		return nil, fmt.Errorf("failed to send: %w", err)
-	}
-
-	scanner := bufio.NewScanner(conn)
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return nil, fmt.Errorf("reading daemon response: %w", err)
-		}
-		return nil, fmt.Errorf("no response from daemon")
-	}
-
-	var resp StatusResponse
-	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+	var result StatusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("invalid response from daemon: %w", err)
 	}
-
-	return &resp, nil
-}
-
-// socketHandlers groups all handler functions for the socket dispatcher.
-type socketHandlers struct {
-	send         func(SendRequest) error
-	statusUpdate func(StatusUpdateRequest)
-	taskComplete func([]byte) SendResponse
-}
-
-// listenSocket starts the unix socket server and dispatches incoming requests
-// to the handler functions. Returns a cleanup function and any startup error.
-func listenSocket(sockPath string, handlers socketHandlers) (func(), error) {
-	// Remove stale socket file
-	os.Remove(sockPath)
-
-	ln, err := net.Listen("unix", sockPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %s: %w", sockPath, err)
-	}
-	// Owner-only permissions — fail hard if permissions are wrong,
-	// as any local user could inject messages.
-	if err := os.Chmod(sockPath, 0o600); err != nil {
-		ln.Close()
-		return nil, fmt.Errorf("insecure socket permissions: %w", err)
-	}
-
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				// Listener closed — exit goroutine
-				return
-			}
-			go handleConn(conn, handlers)
-		}
-	}()
-
-	cleanup := func() {
-		ln.Close()
-	}
-
-	return cleanup, nil
-}
-
-func handleConn(conn net.Conn, handlers socketHandlers) {
-	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(socketTimeout))
-
-	scanner := bufio.NewScanner(conn)
-	if !scanner.Scan() {
-		errMsg := "empty request"
-		if err := scanner.Err(); err != nil {
-			errMsg = "read error: " + err.Error()
-		}
-		writeJSON(conn, SendResponse{OK: false, Error: errMsg})
-		return
-	}
-
-	raw := scanner.Bytes()
-
-	// Peek at type field to route the message.
-	var peek struct {
-		Type string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &peek); err != nil {
-		writeJSON(conn, SendResponse{OK: false, Error: "invalid JSON: " + err.Error()})
-		return
-	}
-
-	switch peek.Type {
-	case "getStatus":
-		writeJSON(conn, handleConnGetStatus(raw))
-	case "statusUpdate":
-		writeJSON(conn, handleConnStatusUpdate(raw, handlers))
-	case "taskComplete":
-		if handlers.taskComplete != nil {
-			writeJSON(conn, handlers.taskComplete(raw))
-		} else {
-			writeJSON(conn, SendResponse{OK: false, Error: "taskComplete handler not registered"})
-		}
-	default:
-		writeJSON(conn, handleConnSend(raw, handlers))
-	}
-}
-
-func handleConnGetStatus(raw []byte) StatusResponse {
-	var req GetStatusRequest
-	if err := json.Unmarshal(raw, &req); err != nil {
-		return StatusResponse{OK: false, Error: "invalid JSON: " + err.Error()}
-	}
-	team := req.Team
-	if team == "" {
-		team = config.DefaultTeamName
-	}
-	if req.Agent != "" {
-		s, err := status.ReadAgent(team, req.Agent)
-		if err != nil {
-			return StatusResponse{OK: false, Error: err.Error()}
-		}
-		if s == nil {
-			return StatusResponse{OK: true, Agents: nil}
-		}
-		return StatusResponse{OK: true, Agents: []status.AgentStatus{*s}}
-	}
-
-	all, err := status.ReadAll(team)
-	if err != nil {
-		return StatusResponse{OK: false, Error: err.Error()}
-	}
-	return StatusResponse{OK: true, Agents: all}
-}
-
-func handleConnStatusUpdate(raw []byte, handlers socketHandlers) SendResponse {
-	var req StatusUpdateRequest
-	if err := json.Unmarshal(raw, &req); err != nil {
-		return SendResponse{OK: false, Error: "invalid statusUpdate JSON: " + err.Error()}
-	}
-	if handlers.statusUpdate != nil {
-		handlers.statusUpdate(req)
-	}
-	return SendResponse{OK: true}
-}
-
-func handleConnSend(raw []byte, handlers socketHandlers) SendResponse {
-	var req SendRequest
-	if err := json.Unmarshal(raw, &req); err != nil {
-		return SendResponse{OK: false, Error: "invalid JSON: " + err.Error()}
-	}
-
-	if err := handlers.send(req); err != nil {
-		return SendResponse{OK: false, Error: err.Error()}
-	}
-	return SendResponse{OK: true}
-}
-
-func writeJSON(conn net.Conn, v interface{}) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return
-	}
-	conn.Write(append(data, '\n'))
+	return &result, nil
 }
