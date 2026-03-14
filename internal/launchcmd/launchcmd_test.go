@@ -8,6 +8,7 @@ import (
 
 func TestBuildGatekeeperCommand(t *testing.T) {
 	ccBase := "ttal worker gatekeeper --task-file /tmp/task.txt -- claude"
+	codexBase := "ttal worker gatekeeper --task-file /tmp/task.txt -- codex"
 
 	tests := []struct {
 		name  string
@@ -33,6 +34,12 @@ func TestBuildGatekeeperCommand(t *testing.T) {
 			rt:    runtime.ClaudeCode,
 			model: "",
 			want:  ccBase + " --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
+		},
+		{
+			name:  "codex",
+			rt:    runtime.Codex,
+			model: "",
+			want:  codexBase + " --yolo --",
 		},
 	}
 
