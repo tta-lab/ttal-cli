@@ -42,7 +42,7 @@ func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 }
 
 // DeploySkillsTo copies skill directories to a custom CC skills dir.
-// Used for k8s team isolated .claude dirs.
+// Used for deploying to custom .claude dirs.
 func DeploySkillsTo(skillsPaths []string, ccDir string, dryRun bool) ([]SkillResult, error) {
 	var results []SkillResult
 	for _, rawPath := range skillsPaths {

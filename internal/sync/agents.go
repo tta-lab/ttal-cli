@@ -149,7 +149,7 @@ func deployOneAgent(srcPath, ccDir, ocDir, codexDir string, dryRun bool) (AgentR
 }
 
 // DeployAgentsTo deploys CC-variant agent files to a custom agents dir.
-// Used for k8s team isolated .claude dirs.
+// Used for deploying to custom .claude dirs.
 func DeployAgentsTo(subagentsPaths []string, ccDir string, dryRun bool) error {
 	if !dryRun {
 		if err := os.MkdirAll(ccDir, 0o755); err != nil {

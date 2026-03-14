@@ -146,7 +146,7 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dr
 }
 
 // DeployCommandsTo deploys CC-variant commands (as skill dirs) to a custom skills dir.
-// Used for k8s team isolated .claude dirs.
+// Used for deploying to custom .claude dirs.
 func DeployCommandsTo(commandsPaths []string, ccSkillsDir string, dryRun bool) error {
 	if !dryRun {
 		if err := os.MkdirAll(ccSkillsDir, 0o755); err != nil {

@@ -61,7 +61,7 @@ func DeployGlobalPrompt(rawPath string, dryRun bool) ([]GlobalPromptResult, erro
 }
 
 // DeployGlobalPromptTo copies the global prompt to a single destination path.
-// Used for k8s team isolated .claude dirs.
+// Used for deploying to custom .claude dirs.
 func DeployGlobalPromptTo(rawPath string, dest string, dryRun bool) error {
 	source := config.ExpandHome(rawPath)
 	if _, err := os.Stat(source); err != nil {
