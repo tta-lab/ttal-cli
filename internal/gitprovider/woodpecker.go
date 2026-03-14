@@ -3,6 +3,7 @@ package gitprovider
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -18,7 +19,8 @@ func IsWoodpeckerContext(ctx string) bool {
 
 // WoodpeckerClient wraps the Woodpecker SDK for CI failure details.
 type WoodpeckerClient struct {
-	client woodpecker.Client
+	client  woodpecker.Client
+	baseURL string // trimmed server URL, stored at construction
 }
 
 // NewWoodpeckerClient creates a Woodpecker API client from env vars.
@@ -37,7 +39,7 @@ func NewWoodpeckerClient() (*WoodpeckerClient, error) {
 	httpClient := oauth2.NewClient(context.Background(), ts)
 	client := woodpecker.NewClient(url, httpClient)
 
-	return &WoodpeckerClient{client: client}, nil
+	return &WoodpeckerClient{client: client, baseURL: strings.TrimRight(url, "/")}, nil
 }
 
 // GetFailureDetails fetches failed pipeline steps and their logs for a commit SHA.
@@ -69,10 +71,10 @@ func (w *WoodpeckerClient) GetFailureDetails(owner, repo, sha string) ([]*JobFai
 		// Fetch full pipeline to get workflows and steps
 		full, err := w.client.Pipeline(repoObj.ID, p.Number)
 		if err != nil {
+			log.Printf("[woodpecker] failed to fetch pipeline %d: %v — skipping", p.Number, err)
 			continue
 		}
 
-		wpURL := strings.TrimRight(os.Getenv("WOODPECKER_URL"), "/")
 		for _, wf := range full.Workflows {
 			for _, step := range wf.Children {
 				if step.State != woodpecker.StatusFailure && step.State != woodpecker.StatusError {
@@ -82,12 +84,15 @@ func (w *WoodpeckerClient) GetFailureDetails(owner, repo, sha string) ([]*JobFai
 				jf := &JobFailure{
 					WorkflowName: wf.Name,
 					JobName:      step.Name,
-					HTMLURL:      fmt.Sprintf("%s/%s/%d", wpURL, repoObj.FullName, p.Number),
+					HTMLURL:      fmt.Sprintf("%s/%s/%d", w.baseURL, repoObj.FullName, p.Number),
 				}
 
-				// Fetch step logs
+				// Fetch step logs; annotate with error if fetch fails so
+				// the caller can tell the difference from genuinely empty output.
 				logs, logErr := w.client.StepLogEntries(repoObj.ID, p.Number, step.ID)
-				if logErr == nil && len(logs) > 0 {
+				if logErr != nil {
+					jf.LogTail = fmt.Sprintf("(log fetch failed: %v)", logErr)
+				} else if len(logs) > 0 {
 					jf.LogTail = formatWoodpeckerLogs(logs, 50)
 				}
 

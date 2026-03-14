@@ -140,8 +140,12 @@ func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedS
 }
 
 // GetCIFailureDetails fetches CI failure details via Woodpecker CI API.
+// GetCIFailureDetails fetches CI failure details via Woodpecker CI API.
 // Forgejo's native Actions API does not provide useful error info,
 // so we use Woodpecker's API directly for failure details and step logs.
+//
+// Note: this method requires WOODPECKER_URL and WOODPECKER_TOKEN to be set
+// independently of the Forgejo credentials — Woodpecker is a separate service.
 func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
 	wc, err := NewWoodpeckerClient()
 	if err != nil {

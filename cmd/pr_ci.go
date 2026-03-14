@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -47,7 +48,7 @@ Examples:
 		if prCIShowLog && hasCIFailures(cs) {
 			fmt.Println()
 			if err := printFailureLogs(ctx, sha); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not fetch failure details: %v\n", err)
+				fmt.Fprintf(os.Stderr, "warning: could not fetch failure logs (WOODPECKER_URL/WOODPECKER_TOKEN set?): %v\n", err)
 			}
 		}
 
@@ -60,9 +61,13 @@ Examples:
 func resolveHEADSHA(ctx *pr.Context) (string, error) {
 	if ctx.Task.PRID != "" {
 		idx, err := pr.PRIndex(ctx)
-		if err == nil {
+		if err != nil {
+			log.Printf("[pr ci] could not resolve PR index: %v — falling back to local HEAD", err)
+		} else {
 			fetchedPR, err := ctx.Provider.GetPR(ctx.Owner, ctx.Repo, idx)
-			if err == nil && fetchedPR.HeadSHA != "" {
+			if err != nil {
+				log.Printf("[pr ci] could not fetch PR #%d from API: %v — falling back to local HEAD", idx, err)
+			} else if fetchedPR.HeadSHA != "" {
 				return fetchedPR.HeadSHA, nil
 			}
 		}
