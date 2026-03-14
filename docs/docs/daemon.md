@@ -40,11 +40,24 @@ ttal daemon
 tail -f ~/.ttal/daemon.log
 ```
 
-## Socket API
+## HTTP API
 
-The daemon listens on a Unix socket at `~/.ttal/daemon.sock`.
+The daemon runs an HTTP server on a Unix socket at `~/.ttal/daemon.sock`.
 
-Internal commands (like `ttal send` and task routing) communicate with the daemon through this socket using a `SendRequest` struct:
+Routes:
+- `POST /send` — deliver messages between agents/humans
+- `GET /status?team=X&agent=Y` — query agent context status
+- `POST /status/update` — write agent context status
+- `POST /task/complete` — notify task completion
+- `GET /health` — health check
+
+Debug with curl:
+```bash
+curl --unix-socket ~/.ttal/daemon.sock http://daemon/health
+curl --unix-socket ~/.ttal/daemon.sock http://daemon/status
+```
+
+Internal commands (like `ttal send` and task routing) communicate with the daemon via HTTP over the unix socket using a `SendRequest` struct:
 
 ```go
 type SendRequest struct {
