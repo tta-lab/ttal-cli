@@ -493,11 +493,14 @@ func init() {
 	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
 	prCommentCreateCmd.Flags().Bool("lgtm", false, "Mark PR as approved (reviewer only)")
 
+	prCICmd.Flags().BoolVar(&prCIShowLog, "log", false, "Include failure details and log tails")
+
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)
 	prCmd.AddCommand(prMergeCmd)
 	prCmd.AddCommand(prReviewCmd)
 	prCmd.AddCommand(prCommentCmd)
+	prCmd.AddCommand(prCICmd)
 
 	prCommentCmd.AddCommand(prCommentCreateCmd)
 	prCommentCmd.AddCommand(prCommentListCmd)

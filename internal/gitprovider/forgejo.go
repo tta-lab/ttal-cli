@@ -1,20 +1,14 @@
 package gitprovider
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"sort"
-	"strings"
 
 	forgejo_sdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
 )
 
 type ForgejoProvider struct {
-	client  *forgejo_sdk.Client
-	baseURL string
-	token   string
+	client *forgejo_sdk.Client
 }
 
 func NewForgejoProvider() (Provider, error) {
@@ -36,7 +30,7 @@ func NewForgejoProvider() (Provider, error) {
 		return nil, fmt.Errorf("failed to create Forgejo client: %w", err)
 	}
 
-	return &ForgejoProvider{client: client, baseURL: url, token: token}, nil
+	return &ForgejoProvider{client: client}, nil
 }
 
 func (p *ForgejoProvider) Name() string { return "forgejo" }
@@ -145,145 +139,18 @@ func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedS
 	}, nil
 }
 
-// forgejoActionRun mirrors the Forgejo Actions API response for workflow runs.
-type forgejoActionRun struct {
-	ID        int64  `json:"id"`
-	Title     string `json:"title"`
-	Status    string `json:"status"`
-	HTMLURL   string `json:"html_url"`
-	CommitSHA string `json:"commit_sha"`
-}
-
-type forgejoActionRunList struct {
-	WorkflowRuns []forgejoActionRun `json:"workflow_runs"`
-}
-
-// forgejoActionTask mirrors the Forgejo /actions/tasks API response.
-// Each task corresponds to a single job within a workflow run.
-type forgejoActionTask struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	HeadSHA    string `json:"head_sha"`
-	RunNumber  int64  `json:"run_number"`
-	Status     string `json:"status"`
-	WorkflowID string `json:"workflow_id"`
-}
-
-type forgejoActionTaskList struct {
-	WorkflowRuns []forgejoActionTask `json:"workflow_runs"`
-}
-
+// GetCIFailureDetails fetches CI failure details via Woodpecker CI API.
+// Forgejo's native Actions API does not provide useful error info,
+// so we use Woodpecker's API directly for failure details and step logs.
+//
+// Note: this method requires WOODPECKER_URL and WOODPECKER_TOKEN to be set
+// independently of the Forgejo credentials — Woodpecker is a separate service.
 func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
-	runs, err := p.listActionRuns(owner, repo, sha)
+	wc, err := NewWoodpeckerClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list action runs: %w", err)
+		return nil, fmt.Errorf("woodpecker client: %w (set WOODPECKER_URL and WOODPECKER_TOKEN)", err)
 	}
-
-	var failedRuns []forgejoActionRun
-	for _, run := range runs {
-		if isFailedStatus(run.Status) {
-			failedRuns = append(failedRuns, run)
-		}
-	}
-	if len(failedRuns) == 0 {
-		return nil, nil
-	}
-
-	// Sort by ID for deterministic ordering when multiple runs fail.
-	sort.Slice(failedRuns, func(i, j int) bool {
-		return failedRuns[i].ID < failedRuns[j].ID
-	})
-
-	// Fetch tasks (jobs) for individual job names.
-	// Note: Forgejo's public API does not expose per-job log retrieval,
-	// so LogTail is always empty for Forgejo tasks.
-	tasks, err := p.listActionTasks(owner, repo, sha)
-	if err != nil {
-		// Fall back to run-level reporting
-		failures := make([]*JobFailure, 0, len(failedRuns))
-		for _, run := range failedRuns {
-			failures = append(failures, &JobFailure{
-				WorkflowName: run.Title,
-				JobName:      "(could not fetch job details)",
-				HTMLURL:      run.HTMLURL,
-			})
-		}
-		return failures, nil
-	}
-
-	// Use the first failed run (by ID) as the default URL/workflow name
-	// for tasks that don't have a direct run association.
-	defaultRun := failedRuns[0]
-
-	failures := make([]*JobFailure, 0, len(tasks))
-	for _, task := range tasks {
-		if !isFailedStatus(task.Status) {
-			continue
-		}
-		failures = append(failures, &JobFailure{
-			WorkflowName: defaultRun.Title,
-			JobName:      task.Name,
-			HTMLURL:      defaultRun.HTMLURL,
-		})
-	}
-
-	// If no failed tasks but runs failed, report at run level
-	if len(failures) == 0 {
-		for _, run := range failedRuns {
-			failures = append(failures, &JobFailure{
-				WorkflowName: run.Title,
-				JobName:      "(check run page for details)",
-				HTMLURL:      run.HTMLURL,
-			})
-		}
-	}
-
-	return failures, nil
-}
-
-func (p *ForgejoProvider) forgejoGet(url string, target interface{}) error {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "token "+p.token)
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-	return json.NewDecoder(resp.Body).Decode(target)
-}
-
-func (p *ForgejoProvider) listActionRuns(owner, repo, sha string) ([]forgejoActionRun, error) {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs?head_sha=%s",
-		strings.TrimRight(p.baseURL, "/"), owner, repo, sha)
-	var result forgejoActionRunList
-	if err := p.forgejoGet(url, &result); err != nil {
-		return nil, err
-	}
-	return result.WorkflowRuns, nil
-}
-
-// listActionTasks fetches action tasks for a repo and filters by SHA.
-// The /actions/tasks endpoint has no SHA filter, so we filter client-side.
-func (p *ForgejoProvider) listActionTasks(owner, repo, sha string) ([]forgejoActionTask, error) {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/tasks?limit=50",
-		strings.TrimRight(p.baseURL, "/"), owner, repo)
-	var result forgejoActionTaskList
-	if err := p.forgejoGet(url, &result); err != nil {
-		return nil, err
-	}
-	var matched []forgejoActionTask
-	for _, t := range result.WorkflowRuns {
-		if t.HeadSHA == sha {
-			matched = append(matched, t)
-		}
-	}
-	return matched, nil
+	return wc.GetFailureDetails(owner, repo, sha)
 }
 
 func toPullRequest(pr *forgejo_sdk.PullRequest) *PullRequest {

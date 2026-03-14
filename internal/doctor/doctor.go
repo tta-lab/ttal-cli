@@ -304,6 +304,10 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 			lines = append(lines, "GITHUB_TOKEN=")
 			lines = append(lines, "FORGEJO_TOKEN=")
 			lines = append(lines, "")
+			lines = append(lines, "# Woodpecker CI")
+			lines = append(lines, "WOODPECKER_URL=")
+			lines = append(lines, "WOODPECKER_TOKEN=")
+			lines = append(lines, "")
 			lines = append(lines, "# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN")
 			for _, name := range agentNames {
 				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
@@ -350,6 +354,16 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 		section.add(LevelWarn, "forgejo_token", "FORGEJO_TOKEN not set in .env")
 	} else {
 		section.add(LevelOK, "forgejo_token", "FORGEJO_TOKEN set in .env")
+	}
+	if env["WOODPECKER_URL"] == "" {
+		section.add(LevelWarn, "woodpecker_url", "WOODPECKER_URL not set in .env")
+	} else {
+		section.add(LevelOK, "woodpecker_url", "WOODPECKER_URL set in .env")
+	}
+	if env["WOODPECKER_TOKEN"] == "" {
+		section.add(LevelWarn, "woodpecker_token", "WOODPECKER_TOKEN not set in .env")
+	} else {
+		section.add(LevelOK, "woodpecker_token", "WOODPECKER_TOKEN set in .env")
 	}
 }
 
