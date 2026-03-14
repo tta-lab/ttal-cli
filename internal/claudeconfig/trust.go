@@ -13,39 +13,20 @@ func UpsertTrust(claudeJSONPath string, projectPaths []string) (int, error) {
 		return 0, nil
 	}
 
-	var raw map[string]any
-	data, rerr := os.ReadFile(claudeJSONPath)
-	if rerr != nil && !os.IsNotExist(rerr) {
-		return 0, fmt.Errorf("read %s: %w", claudeJSONPath, rerr)
-	}
-	if rerr == nil {
-		if uerr := json.Unmarshal(data, &raw); uerr != nil {
-			return 0, fmt.Errorf("parse %s: %w", claudeJSONPath, uerr)
-		}
-	}
-	if raw == nil {
-		raw = map[string]any{"hasCompletedOnboarding": true}
+	raw, err := readOrCreateClaudeJSON(claudeJSONPath)
+	if err != nil {
+		return 0, err
 	}
 
-	var projects map[string]any
-	if v, exists := raw["projects"]; exists {
-		m, ok := v.(map[string]any)
-		if !ok {
-			return 0, fmt.Errorf("parse %s: \"projects\" field has unexpected type %T", claudeJSONPath, v)
-		}
-		projects = m
-	}
-	if projects == nil {
-		projects = make(map[string]any)
-		raw["projects"] = projects
+	projects, err := extractProjects(raw, claudeJSONPath)
+	if err != nil {
+		return 0, err
 	}
 
 	added := 0
 	for _, path := range projectPaths {
-		if proj, exists := projects[path]; exists {
-			if m, ok := proj.(map[string]any); ok && m["hasTrustDialogAccepted"] == true {
-				continue
-			}
+		if isTrusted(projects[path]) {
+			continue
 		}
 		projects[path] = NewProjectTrustEntry()
 		added++
@@ -55,14 +36,56 @@ func UpsertTrust(claudeJSONPath string, projectPaths []string) (int, error) {
 		return 0, nil
 	}
 
-	out, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return 0, fmt.Errorf("marshal %s: %w", claudeJSONPath, err)
+	out, merr := json.MarshalIndent(raw, "", "  ")
+	if merr != nil {
+		return 0, fmt.Errorf("marshal %s: %w", claudeJSONPath, merr)
 	}
-	if err := os.WriteFile(claudeJSONPath, out, 0o644); err != nil {
-		return 0, fmt.Errorf("write %s: %w", claudeJSONPath, err)
+	if werr := os.WriteFile(claudeJSONPath, out, 0o644); werr != nil {
+		return 0, fmt.Errorf("write %s: %w", claudeJSONPath, werr)
 	}
 	return added, nil
+}
+
+// readOrCreateClaudeJSON reads ~/.claude.json into a raw map, or returns a
+// fresh map with hasCompletedOnboarding if the file does not exist yet.
+func readOrCreateClaudeJSON(claudeJSONPath string) (map[string]any, error) {
+	data, err := os.ReadFile(claudeJSONPath)
+	if os.IsNotExist(err) {
+		return map[string]any{"hasCompletedOnboarding": true}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", claudeJSONPath, err)
+	}
+	var raw map[string]any
+	if uerr := json.Unmarshal(data, &raw); uerr != nil {
+		return nil, fmt.Errorf("parse %s: %w", claudeJSONPath, uerr)
+	}
+	if raw == nil {
+		return map[string]any{"hasCompletedOnboarding": true}, nil
+	}
+	return raw, nil
+}
+
+// extractProjects returns the projects map from raw, creating it if absent.
+// Returns an error if "projects" exists but is not a JSON object.
+func extractProjects(raw map[string]any, claudeJSONPath string) (map[string]any, error) {
+	v, exists := raw["projects"]
+	if !exists {
+		projects := make(map[string]any)
+		raw["projects"] = projects
+		return projects, nil
+	}
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("parse %s: \"projects\" field has unexpected type %T", claudeJSONPath, v)
+	}
+	return m, nil
+}
+
+// isTrusted reports whether a project entry already has hasTrustDialogAccepted set to true.
+func isTrusted(entry any) bool {
+	m, ok := entry.(map[string]any)
+	return ok && m["hasTrustDialogAccepted"] == true
 }
 
 // NewProjectTrustEntry returns a trust entry map for a CC project.
