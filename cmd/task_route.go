@@ -9,7 +9,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/usage"
@@ -175,11 +174,6 @@ func spawnWorkerForTask(taskUUID string, yes bool) error {
 		Spawner:  detectSpawner(),
 	}
 
-	if image := lookupProjectImage(task.Project); image != "" {
-		spawnCfg.UseDocker = true
-		spawnCfg.Image = image
-	}
-
 	usage.Log("task.execute", taskUUID)
 	if err := worker.Spawn(spawnCfg); err != nil {
 		return err
@@ -198,28 +192,6 @@ func startTaskSafe(uuid string) error {
 		return fmt.Errorf("task start failed before worker spawn: %w", err)
 	}
 	return nil
-}
-
-// lookupProjectImage returns the container image for a task's project name, or "".
-// Tries progressively shorter prefixes: "ttal.pr" → "ttal.pr", "ttal".
-func lookupProjectImage(taskProject string) string {
-	if taskProject == "" {
-		return ""
-	}
-	store := project.NewStore(config.ResolveProjectsPath())
-	parts := strings.Split(taskProject, ".")
-	for i := len(parts); i >= 1; i-- {
-		candidate := strings.Join(parts[:i], ".")
-		proj, err := store.Get(candidate)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: image lookup for %q failed: %v\n", candidate, err)
-			continue
-		}
-		if proj != nil && proj.Image != "" {
-			return proj.Image
-		}
-	}
-	return ""
 }
 
 // detectSpawner returns the team:agent identity from env vars.
