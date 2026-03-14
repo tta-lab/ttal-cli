@@ -345,17 +345,17 @@ func resolveLimits(cmd *cobra.Command, cfg *config.Config, flagSteps, flagTokens
 	maxSteps = flagSteps
 	maxTokens = flagTokens
 	if !cmd.Flags().Changed("max-steps") {
-		maxSteps = cfg.ExploreMaxSteps()
+		maxSteps = cfg.AskMaxSteps()
 	}
 	if !cmd.Flags().Changed("max-tokens") {
-		maxTokens = cfg.ExploreMaxTokens()
+		maxTokens = cfg.AskMaxTokens()
 	}
 	return
 }
 
 func init() {
-	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", config.ExploreDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
-	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", config.ExploreDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
+	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
+	subagentRunCmd.Flags().IntVar(&subagentRunFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
 	)

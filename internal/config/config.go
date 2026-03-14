@@ -40,11 +40,11 @@ func AgentSessionName(team, agent string) string {
 // DefaultInlineProjects is the default set of flicknote project keywords to inline.
 var DefaultInlineProjects = []string{"plan"}
 
-// ExploreConfig holds settings for the `ttal explore` command.
-type ExploreConfig struct {
+// AskConfig holds settings for the `ttal ask` command.
+type AskConfig struct {
 	// Local path for cloned OSS reference repos (default: ~/.ttal/references/)
 	ReferencesPath string `toml:"references_path"`
-	// Model for the explore subagent (default: claude-sonnet-4-6)
+	// Model for the ask subagent (default: claude-sonnet-4-6)
 	Model string `toml:"model"`
 	// Maximum agent steps (default: 100)
 	MaxSteps int `toml:"max_steps"`
@@ -81,8 +81,8 @@ type Config struct {
 	Sync SyncConfig `toml:"sync"`
 	// Prompt templates for task routing (loaded from prompts.toml, not config.toml)
 	Prompts PromptsConfig `toml:"-"`
-	// Explore subcommand settings
-	Explore ExploreConfig `toml:"explore"`
+	// Ask subcommand settings
+	Ask AskConfig `toml:"ask"`
 	// Flicknote integration settings
 	Flicknote FlicknoteConfig `toml:"flicknote"`
 	// Global voice settings (vocabulary, language)
@@ -490,48 +490,48 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 }
 
 const (
-	DefaultExploreModel          = "claude-sonnet-4-6"
-	defaultExploreReferencesPath = "~/.ttal/references/"
-	// ExploreDefaultMaxSteps is the default for ttal explore / subagent run commands.
-	ExploreDefaultMaxSteps = 100
-	// ExploreDefaultMaxTokens is the default for ttal explore / subagent run commands.
-	ExploreDefaultMaxTokens = 131072
+	DefaultAskModel          = "claude-sonnet-4-6"
+	defaultAskReferencesPath = "~/.ttal/references/"
+	// AskDefaultMaxSteps is the default for ttal ask / subagent run commands.
+	AskDefaultMaxSteps = 100
+	// AskDefaultMaxTokens is the default for ttal ask / subagent run commands.
+	AskDefaultMaxTokens = 131072
 )
 
-// ExploreReferencesPath returns the resolved path for cloned reference repos.
+// AskReferencesPath returns the resolved path for cloned reference repos.
 // Defaults to ~/.ttal/references/ if not configured.
-func (c *Config) ExploreReferencesPath() string {
-	if c.Explore.ReferencesPath != "" {
-		return expandHome(c.Explore.ReferencesPath)
+func (c *Config) AskReferencesPath() string {
+	if c.Ask.ReferencesPath != "" {
+		return expandHome(c.Ask.ReferencesPath)
 	}
-	return expandHome(defaultExploreReferencesPath)
+	return expandHome(defaultAskReferencesPath)
 }
 
-// ExploreModel returns the model to use for the explore subagent.
+// AskModel returns the model to use for the ask subagent.
 // Defaults to claude-sonnet-4-6 if not configured.
-func (c *Config) ExploreModel() string {
-	if c.Explore.Model != "" {
-		return c.Explore.Model
+func (c *Config) AskModel() string {
+	if c.Ask.Model != "" {
+		return c.Ask.Model
 	}
-	return DefaultExploreModel
+	return DefaultAskModel
 }
 
-// ExploreMaxSteps returns the configured max steps for explore/subagent commands.
-// Defaults to ExploreDefaultMaxSteps (100) if not set in config.
-func (c *Config) ExploreMaxSteps() int {
-	if c.Explore.MaxSteps > 0 {
-		return c.Explore.MaxSteps
+// AskMaxSteps returns the configured max steps for ask/subagent commands.
+// Defaults to AskDefaultMaxSteps (100) if not set in config.
+func (c *Config) AskMaxSteps() int {
+	if c.Ask.MaxSteps > 0 {
+		return c.Ask.MaxSteps
 	}
-	return ExploreDefaultMaxSteps
+	return AskDefaultMaxSteps
 }
 
-// ExploreMaxTokens returns the configured max output tokens for explore/subagent commands.
-// Defaults to ExploreDefaultMaxTokens (131072) if not set in config.
-func (c *Config) ExploreMaxTokens() int {
-	if c.Explore.MaxTokens > 0 {
-		return c.Explore.MaxTokens
+// AskMaxTokens returns the configured max output tokens for ask/subagent commands.
+// Defaults to AskDefaultMaxTokens (131072) if not set in config.
+func (c *Config) AskMaxTokens() int {
+	if c.Ask.MaxTokens > 0 {
+		return c.Ask.MaxTokens
 	}
-	return ExploreDefaultMaxTokens
+	return AskDefaultMaxTokens
 }
 
 const DefaultShell = "zsh"
