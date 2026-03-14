@@ -52,19 +52,19 @@ TTal is three things:
 │               routes tasks, spawns      │
 │               workers, manages agents   │
 ├─────────────────────────────────────────┤
-│  agentloop    the reasoning engine      │
-│               model-agnostic agent loop │
-│               + tools (bash, web, fs)   │
+│  logos        the reasoning engine      │
+│               bash-only agent loop      │
+│               LLMs think in plain text  │
 ├─────────────────────────────────────────┤
-│  sandbox      the boundary              │
+│  temenos      the sacred boundary       │
 │               seatbelt (macOS) / bwrap  │
-│               (Linux) — no containers   │
+│               (Linux) — YAGNI containers│
 └─────────────────────────────────────────┘
 ```
 
-**TTal** coordinates. **agentloop** thinks. **sandbox** isolates. Workers can't touch each other or the host.
+**TTal** coordinates. **[logos](https://github.com/tta-lab/logos)** thinks. **[temenos](https://github.com/tta-lab/temenos)** isolates. Workers can't touch each other or the host.
 
-The agent loop is model-agnostic — swap in any LLM. The sandbox uses OS-native isolation, not Docker. One binary, runs anywhere.
+Logos is a bash-only reasoning engine — no tool schemas, no JSON ceremony. Temenos is OS-native filesystem isolation — no containers needed. Three repos, one pipeline.
 
 ## Install
 
