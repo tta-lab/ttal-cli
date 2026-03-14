@@ -27,7 +27,14 @@ func UpsertTrust(claudeJSONPath string, projectPaths []string) (int, error) {
 		raw = map[string]any{"hasCompletedOnboarding": true}
 	}
 
-	projects, _ := raw["projects"].(map[string]any)
+	var projects map[string]any
+	if v, exists := raw["projects"]; exists {
+		m, ok := v.(map[string]any)
+		if !ok {
+			return 0, fmt.Errorf("parse %s: \"projects\" field has unexpected type %T", claudeJSONPath, v)
+		}
+		projects = m
+	}
 	if projects == nil {
 		projects = make(map[string]any)
 		raw["projects"] = projects

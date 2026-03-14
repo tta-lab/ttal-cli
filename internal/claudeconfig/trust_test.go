@@ -98,6 +98,55 @@ func TestUpsertTrust_Idempotent(t *testing.T) {
 	}
 }
 
+func TestUpsertTrust_InvalidJSON(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".claude.json")
+	_ = os.WriteFile(path, []byte("{invalid json"), 0o644)
+
+	_, err := claudeconfig.UpsertTrust(path, []string{"/workspace/agent1"})
+	if err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+
+	// File must be unchanged
+	data, _ := os.ReadFile(path)
+	if string(data) != "{invalid json" {
+		t.Error("file was modified despite parse error")
+	}
+}
+
+func TestUpsertTrust_FalseEntryOverwritten(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".claude.json")
+
+	existing := map[string]any{
+		"projects": map[string]any{
+			"/workspace/agent1": map[string]any{
+				"hasTrustDialogAccepted": false,
+			},
+		},
+	}
+	data, _ := json.MarshalIndent(existing, "", "  ")
+	_ = os.WriteFile(path, data, 0o644)
+
+	added, err := claudeconfig.UpsertTrust(path, []string{"/workspace/agent1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if added != 1 {
+		t.Fatalf("expected 1 added (overwrite false entry), got %d", added)
+	}
+
+	data, _ = os.ReadFile(path)
+	var raw map[string]any
+	_ = json.Unmarshal(data, &raw)
+	projects, _ := raw["projects"].(map[string]any)
+	entry, _ := projects["/workspace/agent1"].(map[string]any)
+	if entry["hasTrustDialogAccepted"] != true {
+		t.Error("false entry was not overwritten to true")
+	}
+}
+
 func TestUpsertTrust_MultiplePaths(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".claude.json")
