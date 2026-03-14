@@ -14,6 +14,8 @@ func TestParse(t *testing.T) {
 		{"empty defaults to claude-code", "", ClaudeCode, false},
 		{"claude-code literal", "claude-code", ClaudeCode, false},
 		{"cc alias", "cc", ClaudeCode, false},
+		{"codex literal", "codex", Codex, false},
+		{"cx alias", "cx", Codex, false},
 		{"unknown errors", "vim", "", true},
 		{"partial match errors", "claude", "", true},
 	}
@@ -39,7 +41,9 @@ func TestValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"claude-code valid", "claude-code", false},
+		{"codex valid", "codex", false},
 		{"alias not valid for Validate", "cc", true},
+		{"alias not valid for Validate", "cx", true},
 		{"empty not valid for Validate", "", true},
 		{"unknown not valid", "neovim", true},
 	}
@@ -83,5 +87,8 @@ func TestValues(t *testing.T) {
 func TestIsWorkerRuntime(t *testing.T) {
 	if got := ClaudeCode.IsWorkerRuntime(); got != true {
 		t.Errorf("ClaudeCode.IsWorkerRuntime() = %v, want true", got)
+	}
+	if got := Codex.IsWorkerRuntime(); got != true {
+		t.Errorf("Codex.IsWorkerRuntime() = %v, want true", got)
 	}
 }
