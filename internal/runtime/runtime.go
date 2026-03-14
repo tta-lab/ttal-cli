@@ -1,6 +1,9 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Runtime identifies which coding agent backend to use.
 type Runtime string
@@ -40,12 +43,10 @@ func Parse(s string) (Runtime, error) {
 
 // Validate checks that a string is a valid runtime value.
 func Validate(s string) error {
-	for _, r := range All() {
-		if s == string(r) {
-			return nil
-		}
+	if !Runtime(s).IsWorkerRuntime() {
+		return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
 	}
-	return fmt.Errorf("unknown runtime %q (available: %s)", s, joinRuntimes())
+	return nil
 }
 
 // IsWorkerRuntime returns true if the runtime can be used for workers.
@@ -60,12 +61,9 @@ func (r Runtime) IsWorkerRuntime() bool {
 
 func joinRuntimes() string {
 	all := All()
-	s := ""
+	strs := make([]string, len(all))
 	for i, r := range all {
-		if i > 0 {
-			s += ", "
-		}
-		s += string(r)
+		strs[i] = string(r)
 	}
-	return s
+	return strings.Join(strs, ", ")
 }

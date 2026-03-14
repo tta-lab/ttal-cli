@@ -21,7 +21,6 @@ func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, model 
 		return fmt.Sprintf(
 			"%s worker gatekeeper --task-file %s -- codex --yolo --",
 			ttalBin, taskFile), nil
-	default:
-		return "", fmt.Errorf("unsupported worker runtime for gatekeeper command: %q", rt)
 	}
+	return "", fmt.Errorf("unsupported worker runtime for gatekeeper command: %q", rt)
 }
