@@ -87,6 +87,9 @@ func TestBuildLaunchCmd(t *testing.T) {
 	if !strings.Contains(cmd, "gatekeeper") {
 		t.Error("CC command should use gatekeeper wrapper")
 	}
+	if strings.Contains(cmd, "--agent") {
+		t.Error("coder CC command should NOT contain --agent flag")
+	}
 }
 
 func TestBuildLaunchCmd_OpusModel(t *testing.T) {

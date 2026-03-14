@@ -193,7 +193,7 @@ func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error 
 
 func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (workDir, branch string, err error) {
 	if cfg.Worktree {
-		workDir, err = setupWorktree(project, task.SessionID(), task.Project)
+		workDir, err = setupWorktree(project, task.SessionID(), cfg.Name, task.Project)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to setup worktree: %w", err)
 		}
@@ -289,7 +289,7 @@ func buildLaunchCmd(
 	shellCfg *config.Config,
 	model string,
 ) (string, error) {
-	cmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model)
+	cmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model, "")
 	if err != nil {
 		return "", err
 	}
@@ -357,14 +357,14 @@ func writeTaskFile(
 	return taskFile.Name(), nil
 }
 
-func setupWorktree(project, name, projectAlias string) (string, error) {
+func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {
 	root := config.WorktreesRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create worktree root %s: %w", root, err)
 	}
 
-	worktreeDir := filepath.Join(root, fmt.Sprintf("%s-%s", name, projectAlias))
-	workerBranch := fmt.Sprintf("worker/%s", name)
+	worktreeDir := filepath.Join(root, fmt.Sprintf("%s-%s", dirName, projectAlias))
+	workerBranch := fmt.Sprintf("worker/%s", branchName)
 
 	// Reuse existing worktree
 	if info, err := os.Stat(worktreeDir); err == nil && info.IsDir() {

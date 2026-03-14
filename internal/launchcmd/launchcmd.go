@@ -6,17 +6,20 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
-const reviewerAgent = "pr-review-lead"
-
-func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, model string) (string, error) {
+func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, model, agent string) (string, error) {
 	if model == "" {
 		model = "sonnet"
 	}
 	switch rt {
 	case runtime.ClaudeCode:
-		return fmt.Sprintf(
-			"%s worker gatekeeper --task-file %s -- claude --model %s --dangerously-skip-permissions --agent %s --",
-			ttalBin, taskFile, model, reviewerAgent), nil
+		cmd := fmt.Sprintf(
+			"%s worker gatekeeper --task-file %s -- claude --model %s --dangerously-skip-permissions",
+			ttalBin, taskFile, model)
+		if agent != "" {
+			cmd += fmt.Sprintf(" --agent %s", agent)
+		}
+		cmd += " --"
+		return cmd, nil
 	case runtime.Codex:
 		return fmt.Sprintf(
 			"%s worker gatekeeper --task-file %s -- codex --yolo --",
