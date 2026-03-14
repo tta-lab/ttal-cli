@@ -134,7 +134,7 @@ ttal task execute <uuid>               # spawn a worker to implement the task
 - `ttal task route` — task needs design, research, or brainstorming. Use `/task-route` command to classify readiness and pick the right agent.
 - `ttal task execute` — task has a plan/design doc annotated and is ready to implement. Spawns a Claude Code worker in its own tmux session + git worktree.
 
-### Explore
+### Ask
 
 Investigate external repos, web pages, internal projects, or search the web:
 
