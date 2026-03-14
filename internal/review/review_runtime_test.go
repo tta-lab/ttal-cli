@@ -9,6 +9,9 @@ import (
 )
 
 func TestBuildReviewerRuntimeCmd(t *testing.T) {
+	ccBase := "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude"
+	codexBase := "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex"
+
 	tests := []struct {
 		name  string
 		rt    runtime.Runtime
@@ -20,32 +23,19 @@ func TestBuildReviewerRuntimeCmd(t *testing.T) {
 			name:  "claude-code uses sonnet by default",
 			rt:    runtime.ClaudeCode,
 			model: "sonnet",
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
-				" -- claude --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
+			want:  ccBase + " --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "claude-code with opus model",
 			rt:    runtime.ClaudeCode,
 			model: "opus",
-			want: "ttal worker gatekeeper --task-file /tmp/prompt.txt" +
-				" -- claude --model opus --dangerously-skip-permissions --agent pr-review-lead --",
-		},
-		{
-			name:  "opencode ignores model",
-			rt:    runtime.OpenCode,
-			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- opencode --prompt --agent pr-review-lead",
+			want:  ccBase + " --model opus --dangerously-skip-permissions --agent pr-review-lead --",
 		},
 		{
 			name:  "codex ignores model",
 			rt:    runtime.Codex,
 			model: "sonnet",
-			want:  "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex --yolo --prompt",
-		},
-		{
-			name: "non-worker runtime errors",
-			rt:   runtime.OpenClaw,
-			err:  true,
+			want:  codexBase + " --yolo --",
 		},
 	}
 

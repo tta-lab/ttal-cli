@@ -10,7 +10,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -107,21 +106,7 @@ func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
 		ctxPct:  -1,
 	}
 
-	switch rt {
-	case runtime.ClaudeCode:
-		populateCCRow(&row, sessionName, s)
-	case runtime.OpenCode, runtime.Codex:
-		row.health = "~"
-		row.active = true
-		row.updated = "adapter"
-	case runtime.OpenClaw:
-		row.health = "●"
-		row.active = true
-		row.updated = "self-managed"
-	default:
-		row.health = "?"
-		row.updated = "unknown runtime"
-	}
+	populateCCRow(&row, sessionName, s)
 
 	return row
 }

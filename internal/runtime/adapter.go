@@ -58,7 +58,7 @@ const (
 )
 
 // Adapter abstracts the transport for communicating with a coding agent runtime.
-// Each runtime (CC, OpenCode, Codex) implements this interface.
+// Each runtime (CC, Codex) implements this interface.
 type Adapter interface {
 	// Start launches the runtime process and establishes connection.
 	Start(ctx context.Context) error
@@ -89,11 +89,8 @@ type Adapter interface {
 
 // AdapterConfig holds common configuration for all adapters.
 type AdapterConfig struct {
-	AgentName  string
-	WorkDir    string   // Agent workspace directory
-	Port       int      // API server port (0 = not applicable for CC)
-	Model      string   // Model override
-	Env        []string // Additional env vars (TTAL_AGENT_NAME, TTAL_TEAM, etc.)
-	GatewayURL string   // OpenClaw Gateway URL (for openclaw runtime)
-	HooksToken string   // OpenClaw hooks auth token (for openclaw runtime)
+	AgentName string
+	WorkDir   string   // Agent workspace directory
+	Model     string   // Model override
+	Env       []string // Additional env vars (TTAL_AGENT_NAME, TTAL_TEAM, etc.)
 }

@@ -5,10 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	oclw "github.com/tta-lab/ttal-cli/internal/runtime/openclaw"
-	oc "github.com/tta-lab/ttal-cli/internal/runtime/opencode"
 )
 
 // adapterRegistry holds adapters for all agents, keyed by "teamName/agentName"
@@ -48,35 +45,5 @@ func (r *adapterRegistry) stopAll(ctx context.Context) {
 		if err := a.Stop(ctx); err != nil {
 			log.Printf("[daemon] error stopping adapter for %s: %v", name, err)
 		}
-	}
-}
-
-// createAdapterFromTeam builds the appropriate adapter for an agent's runtime,
-// using team-resolved config values for GatewayURL and HooksToken.
-func createAdapterFromTeam(
-	agentName string, rt runtime.Runtime, agentPath string,
-	port int, model string, env []string,
-	team *config.ResolvedTeam,
-) runtime.Adapter {
-	cfg := runtime.AdapterConfig{
-		AgentName: agentName,
-		WorkDir:   agentPath,
-		Port:      port,
-		Model:     model,
-		Env:       env,
-	}
-	if team != nil {
-		cfg.GatewayURL = team.GatewayURL
-		if cfg.GatewayURL == "" {
-			cfg.GatewayURL = config.DefaultGatewayURL
-		}
-		cfg.HooksToken = team.HooksToken
-	}
-
-	switch rt {
-	case runtime.OpenClaw:
-		return oclw.New(cfg)
-	default:
-		return oc.NewACPAdapter(cfg)
 	}
 }

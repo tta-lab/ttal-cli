@@ -10,7 +10,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/usage"
@@ -151,7 +150,7 @@ func spawnWorkerForTask(taskUUID string, yes bool) error {
 		return err
 	}
 
-	rt := resolveRuntime(task, cfg)
+	rt := cfg.WorkerRuntime()
 
 	workerName := strings.TrimPrefix(task.Branch, "worker/")
 	if workerName == "" {
@@ -236,19 +235,6 @@ func detectSpawner() string {
 		team = "default"
 	}
 	return team + ":" + agent
-}
-
-func resolveRuntime(task *taskwarrior.Task, cfg *config.Config) runtime.Runtime {
-	rt := cfg.WorkerRuntime()
-	for _, t := range task.Tags {
-		switch t {
-		case string(runtime.OpenCode), "oc":
-			rt = runtime.OpenCode
-		case string(runtime.Codex), "cx":
-			rt = runtime.Codex
-		}
-	}
-	return rt
 }
 
 func printConfirmHint(task *taskwarrior.Task) {

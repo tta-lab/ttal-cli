@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -167,15 +166,8 @@ func buildQuestionPage(batch *QuestionBatch) telegram.QuestionPage {
 }
 
 // routeQuestionResponse sends collected answers back to the agent's runtime.
-func routeQuestionResponse(batch *QuestionBatch, registry *adapterRegistry) error {
-	switch batch.Runtime {
-	case runtime.ClaudeCode:
-		return routeCCResponse(batch)
-	case runtime.OpenCode:
-		return routeOCResponse(batch, registry)
-	default:
-		return fmt.Errorf("unknown runtime %s for question response", batch.Runtime)
-	}
+func routeQuestionResponse(batch *QuestionBatch) error {
+	return routeCCResponse(batch)
 }
 
 // routeCCResponse sends number keystrokes to CC's TUI select prompt.
@@ -252,36 +244,10 @@ func findOptionIndex(options []runtime.QuestionOption, label string) int {
 	return -1
 }
 
-func routeOCResponse(batch *QuestionBatch, registry *adapterRegistry) error {
-	adapter, ok := registry.get(batch.TeamName, batch.AgentName)
-	if !ok {
-		return fmt.Errorf("no adapter for OC agent %s/%s", batch.TeamName, batch.AgentName)
-	}
-
-	answers := make([]string, len(batch.Questions))
-	for i := range batch.Questions {
-		answers[i] = batch.Answers[i]
-	}
-	// ACP doesn't have ReplyToQuestion, send answers as message
-	return adapter.SendMessage(context.Background(), answers[0])
-}
-
 // cancelQuestion dismisses a pending question without answering.
-func cancelQuestion(batch *QuestionBatch, registry *adapterRegistry) error {
-	switch batch.Runtime {
-	case runtime.ClaudeCode:
-		session := config.AgentSessionName(batch.TeamName, batch.AgentName)
-		return tmux.SendRawKey(session, batch.AgentName, "Escape")
-	case runtime.OpenCode:
-		adapter, ok := registry.get(batch.TeamName, batch.AgentName)
-		if !ok {
-			return fmt.Errorf("no adapter for OC agent %s/%s", batch.TeamName, batch.AgentName)
-		}
-		// ACP doesn't have ReplyToQuestion, send empty answer
-		return adapter.SendMessage(context.Background(), "")
-	default:
-		return fmt.Errorf("unknown runtime %s for cancel", batch.Runtime)
-	}
+func cancelQuestion(batch *QuestionBatch) error {
+	session := config.AgentSessionName(batch.TeamName, batch.AgentName)
+	return tmux.SendRawKey(session, batch.AgentName, "Escape")
 }
 
 // advanceToNextUnanswered moves CurrentPage to the next unanswered question.

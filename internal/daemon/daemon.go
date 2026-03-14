@@ -88,13 +88,13 @@ func Run() error {
 	}
 	msgSvc := message.NewService(entClient)
 
-	allAgents := mcfg.AllAgents()
-	log.Printf("[daemon] starting — socket=%s teams=%d agents=%d",
-		sockPath, len(mcfg.Teams), len(allAgents))
+	log.Printf("[daemon] starting — socket=%s teams=%d",
+		sockPath, len(mcfg.Teams))
 
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	_ = ctx // reserved for future use
 
 	registry := newAdapterRegistry()
 	qs := newQuestionStore()
@@ -108,24 +108,24 @@ func Run() error {
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		initAdapters(ctx, mcfg, registry, qs, mt, msgSvc)
+		initAdapters(mcfg)
 	}()
 
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		allCommands = discoverAndRegisterCommands(mcfg, allAgents)
+		allCommands = discoverAndRegisterCommands(mcfg)
 	}()
 
 	startupWg.Wait()
-	startTelegramPollers(mcfg, allAgents, registry, done, qs, cas, allCommands, mt, msgSvc)
+	startTelegramPollers(mcfg, registry, done, qs, cas, allCommands, mt, msgSvc)
 	startNotificationPollers(mcfg, done)
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
 	startReminderPoller(mcfg, done)
-	startWatcherIfNeeded(mcfg, allAgents, qs, mt, msgSvc, done)
+	startWatcherIfNeeded(mcfg, qs, mt, msgSvc, done)
 
 	cleanup, err := listenSocket(sockPath, socketHandlers{
 		send: func(req SendRequest) error {
@@ -167,7 +167,8 @@ func setupDataDir() (string, error) {
 }
 
 // discoverAndRegisterCommands discovers dynamic commands and registers them with Telegram bots.
-func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) []BotCommand {
+func discoverAndRegisterCommands(mcfg *config.DaemonConfig) []BotCommand {
+	allAgents := mcfg.AllAgents()
 	discovered := DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
 	allCommands := AllCommands(discovered)
 	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
@@ -212,12 +213,12 @@ func discoverAndRegisterCommands(mcfg *config.DaemonConfig, allAgents []config.T
 
 // startTelegramPollers deduplicates agents by bot token and starts one poller per token.
 func startTelegramPollers(
-	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
-	registry *adapterRegistry, done chan struct{},
+	mcfg *config.DaemonConfig, registry *adapterRegistry, done chan struct{},
 	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
 	mt *messageTracker, msgSvc *message.Service,
 ) {
-	tokenTargets := buildTokenTargets(mcfg, allAgents)
+	allAgents := mcfg.AllAgents()
+	tokenTargets := buildTokenTargets(allAgents)
 
 	for botToken, targets := range tokenTargets {
 		dispatchMap := buildDispatchMap(targets)
@@ -227,23 +228,18 @@ func startTelegramPollers(
 			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
 				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
 			}
-		}, done, qs, cas, registry, allCommands, mt, msgSvc,
+		}, done, qs, cas, allCommands, mt, msgSvc,
 			func(teamName string) string { return mcfg.UserNameForTeam(teamName) })
 	}
 }
 
-// buildTokenTargets groups agents by bot token, skipping those without tokens or using OpenClaw.
-func buildTokenTargets(mcfg *config.DaemonConfig, allAgents []config.TeamAgent) map[string][]pollerTarget {
+// buildTokenTargets groups agents by bot token, skipping those without tokens.
+func buildTokenTargets(allAgents []config.TeamAgent) map[string][]pollerTarget {
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		token := config.AgentBotToken(ta.AgentName)
 		if token == "" {
 			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", ta.AgentName)
-			continue
-		}
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
-		if rt == runtime.OpenClaw {
-			log.Printf("[daemon] agent %s uses OpenClaw — skipping Telegram poller", ta.AgentName)
 			continue
 		}
 		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
@@ -274,19 +270,12 @@ func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
 	return dispatchMap
 }
 
-// startWatcherIfNeeded starts the JSONL watcher unless all agents use OpenClaw.
+// startWatcherIfNeeded starts the JSONL watcher.
 func startWatcherIfNeeded(
-	mcfg *config.DaemonConfig, allAgents []config.TeamAgent,
+	mcfg *config.DaemonConfig,
 	qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
 ) {
-	for _, ta := range allAgents {
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
-		if rt != runtime.OpenClaw {
-			startWatcher(mcfg, qs, mt, msgSvc, done)
-			return
-		}
-	}
-	log.Printf("[daemon] all agents use OpenClaw — skipping JSONL watcher")
+	startWatcher(mcfg, qs, mt, msgSvc, done)
 }
 
 // runQuestionCleanup periodically cleans up stale question batches.
@@ -346,10 +335,7 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 // Two phases:
 //  1. Set up k8s team pods (synchronous — pods must be ready before agents spawn).
 //  2. Spawn per-agent sessions in parallel (local tmux or k8s exec).
-func initAdapters(
-	ctx context.Context, mcfg *config.DaemonConfig,
-	registry *adapterRegistry, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
-) {
+func initAdapters(mcfg *config.DaemonConfig) {
 	// Phase 1: ensure k8s team pods exist with correct spec
 	k8sPods = make(map[string]*k8sTeamPod)
 	home, err := os.UserHomeDir()
@@ -396,16 +382,15 @@ func initAdapters(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ctx, ta, mcfg, registry, qs, mt, msgSvc)
+			initSingleAdapter(ta, mcfg)
 		}()
 	}
 	wg.Wait()
 }
 
-// initSingleAdapter initializes a single agent: tmux session for CC, HTTP adapter for others.
+// initSingleAdapter initializes a single agent: tmux session for CC, k8s pod for k8s teams.
 func initSingleAdapter(
-	ctx context.Context, ta config.TeamAgent, mcfg *config.DaemonConfig,
-	registry *adapterRegistry, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
+	ta config.TeamAgent, mcfg *config.DaemonConfig,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -450,36 +435,6 @@ func initSingleAdapter(
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
 		}
 		return
-	}
-
-	model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-	env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-
-	team := mcfg.Teams[ta.TeamName]
-	adapter := createAdapterFromTeam(ta.AgentName, rt, agentPath, 0, model, env, team)
-	if err := adapter.Start(ctx); err != nil {
-		log.Printf("[daemon] failed to start %s adapter for %s: %v", rt, ta.AgentName, err)
-		return
-	}
-	registry.set(ta.TeamName, ta.AgentName, adapter)
-	log.Printf("[daemon] started %s adapter for %s", rt, ta.AgentName)
-	// Create or resume session for adapters that need one.
-	if rt == runtime.OpenCode {
-		initSession(ctx, ta.AgentName, adapter)
-	}
-	// OpenClaw owns messaging — skip Telegram event bridging
-	if rt != runtime.OpenClaw {
-		bridgeEvents(ta.AgentName, ta.TeamName, adapter, mcfg, qs, mt, msgSvc)
-	}
-}
-
-// initSession creates a new session for the adapter.
-func initSession(ctx context.Context, agentName string, adapter runtime.Adapter) {
-	sid, err := adapter.CreateSession(ctx)
-	if err != nil {
-		log.Printf("[daemon] failed to create session for %s: %v", agentName, err)
-	} else {
-		log.Printf("[daemon] created session %s for %s", sid, agentName)
 	}
 }
 
@@ -568,55 +523,6 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	if added > 0 {
 		log.Printf("[daemon] added trust entries for %d local agent workspaces", added)
 	}
-}
-
-// bridgeEvents reads events from an adapter and routes them to Telegram.
-func bridgeEvents(
-	agentName, teamName string, adapter runtime.Adapter,
-	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service,
-) {
-	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-	botToken := config.AgentBotToken(agentName)
-	if !ok || botToken == "" {
-		return
-	}
-	chatID := ta.ChatID
-
-	go func() {
-		for event := range adapter.Events() {
-			switch event.Type {
-			case runtime.EventText:
-				rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
-				persistMsg(msgSvc, message.CreateParams{
-					Sender: agentName, Recipient: mcfg.Global.UserName(), Content: event.Text,
-					Team: teamName, Channel: message.ChannelAdapter, Runtime: &rt,
-				})
-				if err := telegram.SendMessage(botToken, chatID, event.Text); err != nil {
-					log.Printf("[daemon] telegram send error for %s: %v", agentName, err)
-				}
-			case runtime.EventError:
-				log.Printf("[daemon] runtime error for %s: %s", agentName, event.Text)
-			case runtime.EventQuestion:
-				handleIncomingQuestion(qs, teamName, agentName, adapter.Runtime(), event.CorrelationID, event.Questions, mcfg)
-			case runtime.EventTool:
-				emoji := telegram.ToolEmoji(event.ToolName)
-				if emoji == "" || mt == nil {
-					break
-				}
-				// Check if emoji reactions are enabled for this team
-				if team, ok := mcfg.Teams[teamName]; !ok || !team.EmojiReactions {
-					break
-				}
-				tracked, ok := mt.get(teamName, agentName)
-				if !ok {
-					break
-				}
-				if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
-					log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, event.ToolName, err)
-				}
-			}
-		}
-	}()
 }
 
 // handleSend routes an incoming SendRequest based on From/To fields.

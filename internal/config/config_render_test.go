@@ -32,12 +32,6 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			want:  "$sp-writing-plans\n\nWrite a plan for task abc123",
 		},
 		{
-			name:  "OC replaces skill placeholder with text",
-			input: "{{skill:pr-review}}\nReview this PR",
-			rt:    runtime.OpenCode,
-			want:  "Use pr-review skill\n\nReview this PR",
-		},
-		{
 			name:  "multiple skill placeholders",
 			input: "{{skill:sp-writing-plans}}\n{{skill:flicknote-cli}}\nDo the thing",
 			rt:    runtime.Codex,

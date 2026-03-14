@@ -15,7 +15,7 @@ type AgentResult struct {
 	Source    string
 	Name      string
 	CCDest    string
-	OCDest    string
+	OCDest    string // Deprecated: kept for sync compatibility
 	CodexDest string
 }
 

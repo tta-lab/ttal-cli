@@ -33,7 +33,7 @@ func startMultiAgentPoller(
 	botToken string,
 	dispatch map[int64]pollerTarget,
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
-	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	qs *questionStore, cas *customAnswerStore,
 	allCommands []BotCommand, mt *messageTracker, msgSvc *message.Service,
 	userNameFn func(teamName string) string,
 ) {
@@ -48,7 +48,7 @@ func startMultiAgentPoller(
 			}
 
 			if err := runMultiAgentPoller(
-				botToken, dispatch, onMessage, done, qs, cas, registry, allCommands, mt, msgSvc, userNameFn,
+				botToken, dispatch, onMessage, done, qs, cas, allCommands, mt, msgSvc, userNameFn,
 			); err != nil {
 				log.Printf("[telegram] poller failed: %v — retrying in %s", err, backoff)
 				select {
@@ -70,7 +70,7 @@ func runMultiAgentPoller(
 	botToken string,
 	dispatch map[int64]pollerTarget,
 	onMessage func(teamName, agentName, text string), done <-chan struct{},
-	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	qs *questionStore, cas *customAnswerStore,
 	allCommands []BotCommand, mt *messageTracker, msgSvc *message.Service,
 	userNameFn func(teamName string) string,
 ) error {
@@ -89,7 +89,7 @@ func runMultiAgentPoller(
 
 	defaultHandler := func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		handleDefaultUpdate(ctx, b, update, dispatch, botToken, botUsername,
-			onMessage, qs, cas, registry, mt, msgSvc, userNameFn)
+			onMessage, qs, cas, mt, msgSvc, userNameFn)
 	}
 
 	b, err := bot.New(botToken, bot.WithDefaultHandler(defaultHandler))
@@ -154,7 +154,7 @@ func handleDefaultUpdate(
 	ctx context.Context, b *bot.Bot, update *models.Update,
 	dispatch map[int64]pollerTarget, botToken, botUsername string,
 	onMessage func(teamName, agentName, text string),
-	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	qs *questionStore, cas *customAnswerStore,
 	mt *messageTracker, msgSvc *message.Service,
 	userNameFn func(teamName string) string,
 ) {
@@ -163,7 +163,7 @@ func handleDefaultUpdate(
 			update.CallbackQuery.Message.Message != nil {
 			chatID := update.CallbackQuery.Message.Message.Chat.ID
 			if _, ok := dispatch[chatID]; ok {
-				handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas, registry)
+				handleCallbackQuery(ctx, b, update.CallbackQuery, chatID, qs, cas)
 			}
 		}
 		return
@@ -184,7 +184,7 @@ func handleDefaultUpdate(
 			return
 		}
 		if msg.Text != "" {
-			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas, registry) {
+			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas) {
 				return
 			}
 		}
@@ -207,7 +207,7 @@ func handleDefaultUpdate(
 			return
 		}
 		if msg.Text != "" {
-			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas, registry) {
+			if interceptedAsCustomAnswer(ctx, b, msg, qs, cas) {
 				return
 			}
 		}
@@ -654,7 +654,7 @@ func downloadTelegramFile(
 // handleCallbackQuery processes inline keyboard button presses for question batches.
 func handleCallbackQuery(
 	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery,
-	chatID int64, qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	chatID int64, qs *questionStore, cas *customAnswerStore,
 ) {
 	// Always acknowledge the callback
 	defer func() {
@@ -679,19 +679,19 @@ func handleCallbackQuery(
 
 	switch {
 	case strings.HasPrefix(data, "q:"):
-		handleOptionSelect(ctx, b, cq, data, qs, cas, registry)
+		handleOptionSelect(ctx, b, cq, data, qs, cas)
 	case strings.HasPrefix(data, "qnav:"):
 		handleNavigation(ctx, b, cq, data, qs, cas)
 	case strings.HasPrefix(data, "qsubmit:"):
-		handleSubmit(ctx, b, cq, data, qs, registry)
+		handleSubmit(ctx, b, cq, data, qs)
 	case strings.HasPrefix(data, "qskip:"):
-		handleSkip(ctx, b, cq, data, qs, cas, registry)
+		handleSkip(ctx, b, cq, data, qs, cas)
 	}
 }
 
 func handleOptionSelect(
 	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
-	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	qs *questionStore, cas *customAnswerStore,
 ) {
 	// Parse: q:<shortID>:<qIdx>:<optIdx> or q:<shortID>:<qIdx>:custom
 	parts := strings.Split(data, ":")
@@ -745,7 +745,7 @@ func handleOptionSelect(
 
 	// Single question batch: submit immediately
 	if len(batch.Questions) == 1 {
-		if err := submitBatch(ctx, b, batch, qs, registry); err != nil {
+		if err := submitBatch(ctx, b, batch, qs); err != nil {
 			_ = telegram.SendMessage(batch.BotToken, fmt.Sprintf("%d", batch.ChatID), "Failed to send answer: "+err.Error())
 		}
 		return
@@ -812,7 +812,7 @@ func handleNavigation(
 
 func handleSubmit(
 	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
-	qs *questionStore, registry *adapterRegistry,
+	qs *questionStore,
 ) {
 	parts := strings.Split(data, ":")
 	if len(parts) != 2 {
@@ -829,7 +829,7 @@ func handleSubmit(
 		return
 	}
 
-	if err := submitBatch(ctx, b, batch, qs, registry); err != nil {
+	if err := submitBatch(ctx, b, batch, qs); err != nil {
 		_, _ = b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 			CallbackQueryID: cq.ID,
 			Text:            "Failed to send answer: " + err.Error(),
@@ -840,7 +840,7 @@ func handleSubmit(
 
 func handleSkip(
 	ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, data string,
-	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	qs *questionStore, cas *customAnswerStore,
 ) {
 	parts := strings.Split(data, ":")
 	if len(parts) != 2 {
@@ -856,7 +856,7 @@ func handleSkip(
 
 	cas.clear(cq.Message.Message.Chat.ID)
 
-	if err := cancelQuestion(batch, registry); err != nil {
+	if err := cancelQuestion(batch); err != nil {
 		log.Printf("[questions] cancel error for %s: %v", batch.AgentName, err)
 	}
 
@@ -876,9 +876,9 @@ func handleSkip(
 // Returns error so callers can provide appropriate user feedback.
 func submitBatch(
 	ctx context.Context, b *bot.Bot, batch *QuestionBatch,
-	qs *questionStore, registry *adapterRegistry,
+	qs *questionStore,
 ) error {
-	if err := routeQuestionResponse(batch, registry); err != nil {
+	if err := routeQuestionResponse(batch); err != nil {
 		log.Printf("[questions] failed to route response for %s: %v", batch.AgentName, err)
 		return err
 	}
@@ -915,7 +915,7 @@ func answerExpiredCallback(ctx context.Context, b *bot.Bot, cq *models.CallbackQ
 // Returns true if the message was consumed as a custom answer and should not be forwarded.
 func interceptedAsCustomAnswer(
 	ctx context.Context, b *bot.Bot, msg *models.Message,
-	qs *questionStore, cas *customAnswerStore, registry *adapterRegistry,
+	qs *questionStore, cas *customAnswerStore,
 ) bool {
 	state, ok := cas.getAndClear(msg.Chat.ID)
 	if !ok {
@@ -943,7 +943,7 @@ func interceptedAsCustomAnswer(
 
 	// Single question: submit immediately
 	if len(batch.Questions) == 1 {
-		if err := submitBatch(ctx, b, batch, qs, registry); err != nil {
+		if err := submitBatch(ctx, b, batch, qs); err != nil {
 			_ = telegram.SendMessage(batch.BotToken, fmt.Sprintf("%d", batch.ChatID), "Failed to send answer: "+err.Error())
 		}
 		return true
