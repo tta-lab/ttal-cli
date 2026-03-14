@@ -32,7 +32,7 @@ All task shortcuts are in `Taskfile.yml` — run with `task dev`, `task build`, 
 `ChatService` is the only Wails service. Every exported method on it becomes a callable TypeScript function. It has two data paths:
 
 - **Reads**: query SQLite directly via Ent (`s.db`)
-- **Writes**: go through daemon unix socket (`~/.ttal/daemon.sock`) as a `SendRequest` JSON blob — this keeps delivery semantics consistent with CLI `ttal send`
+- **Writes**: go through daemon HTTP server (unix socket at `~/.ttal/daemon.sock`) as a POST /send request — this keeps delivery semantics consistent with CLI `ttal send`
 
 `main.go` wires it up: loads `~/.config/ttal/config.toml` via `config.LoadAll()`, constructs `ChatService`, registers it as a Wails service, opens a single window.
 

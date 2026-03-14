@@ -1,10 +1,13 @@
 package doctor
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -681,10 +684,23 @@ func checkDaemon() Section {
 	}
 
 	sockPath, _ := daemon.SocketPath()
-	if _, err := os.Stat(sockPath); err == nil {
-		section.add(LevelOK, "socket", sockPath)
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, 2*time.Second)
+			},
+		},
+	}
+	resp, err := client.Get("http://daemon/health")
+	if err == nil && resp.StatusCode == http.StatusOK {
+		resp.Body.Close()
+		section.add(LevelOK, "http", fmt.Sprintf("HTTP server: %s", sockPath))
 	} else if running {
-		section.add(LevelWarn, "socket", fmt.Sprintf("%s not found (daemon running but socket missing?)", sockPath))
+		if err == nil {
+			resp.Body.Close()
+		}
+		section.add(LevelWarn, "http", fmt.Sprintf("daemon running but HTTP not responding: %s", sockPath))
 	}
 
 	return section

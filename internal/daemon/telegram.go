@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-telegram/bot"
@@ -973,4 +974,108 @@ func persistInbound(msgSvc *message.Service, sender, recipient, team, content st
 	}); err != nil {
 		log.Printf("[telegram] message persist failed (sender=%s): %v", sender, err)
 	}
+}
+
+// startTelegramPollers deduplicates agents by bot token and starts one poller per token.
+func startTelegramPollers(
+	mcfg *config.DaemonConfig, registry *adapterRegistry, done chan struct{},
+	qs *questionStore, cas *customAnswerStore, allCommands []BotCommand,
+	mt *messageTracker, msgSvc *message.Service,
+) {
+	allAgents := mcfg.AllAgents()
+	tokenTargets := buildTokenTargets(allAgents)
+
+	for botToken, targets := range tokenTargets {
+		dispatchMap := buildDispatchMap(targets)
+		log.Printf("[daemon] starting multi-agent poller for %d agents on token ...%s",
+			len(targets), botToken[len(botToken)-min(4, len(botToken)):])
+		startMultiAgentPoller(botToken, dispatchMap, func(teamName, agentName, text string) {
+			if err := deliverToAgent(registry, mcfg, teamName, agentName, text); err != nil {
+				log.Printf("[daemon] agent delivery failed for %s: %v", agentName, err)
+			}
+		}, done, qs, cas, allCommands, mt, msgSvc,
+			func(teamName string) string { return mcfg.UserNameForTeam(teamName) })
+	}
+}
+
+// buildTokenTargets groups agents by bot token, skipping those without tokens.
+func buildTokenTargets(allAgents []config.TeamAgent) map[string][]pollerTarget {
+	tokenTargets := make(map[string][]pollerTarget)
+	for _, ta := range allAgents {
+		token := config.AgentBotToken(ta.AgentName)
+		if token == "" {
+			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", ta.AgentName)
+			continue
+		}
+		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
+			teamName:  ta.TeamName,
+			agentName: ta.AgentName,
+			chatID:    ta.ChatID,
+		})
+	}
+	return tokenTargets
+}
+
+// buildDispatchMap converts poller targets into a chat ID → target map.
+func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
+	dispatchMap := make(map[int64]pollerTarget)
+	for _, t := range targets {
+		chatID, err := telegram.ParseChatID(t.chatID)
+		if err != nil {
+			log.Printf("[daemon] invalid chat_id for %s: %v", t.agentName, err)
+			continue
+		}
+		if existing, ok := dispatchMap[chatID]; ok {
+			log.Printf("[daemon] WARNING: chat ID %d collision — "+
+				"agent %s/%s overwrites %s/%s (same bot token, same chat)",
+				chatID, t.teamName, t.agentName, existing.teamName, existing.agentName)
+		}
+		dispatchMap[chatID] = t
+	}
+	return dispatchMap
+}
+
+// discoverAndRegisterCommands discovers dynamic commands and registers them with Telegram bots.
+func discoverAndRegisterCommands(mcfg *config.DaemonConfig) []BotCommand {
+	allAgents := mcfg.AllAgents()
+	discovered := DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
+	allCommands := AllCommands(discovered)
+	log.Printf("[daemon] discovered %d dynamic commands", len(discovered))
+
+	// Deduplicate tokens first
+	tokenAgent := make(map[string]string) // token -> first agent name (for logging)
+	for _, ta := range allAgents {
+		token := config.AgentBotToken(ta.AgentName)
+		if token == "" {
+			continue
+		}
+		if _, ok := tokenAgent[token]; !ok {
+			tokenAgent[token] = ta.AgentName
+		}
+	}
+	// Include notification bot tokens so they also get command menus.
+	for teamName, team := range mcfg.Teams {
+		if team.NotificationToken == "" {
+			continue
+		}
+		if _, ok := tokenAgent[team.NotificationToken]; !ok {
+			tokenAgent[team.NotificationToken] = teamName + "-notify"
+		}
+	}
+
+	var wg sync.WaitGroup
+	for token, agentName := range tokenAgent {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := RegisterBotCommands(token, allCommands); err != nil {
+				log.Printf("[daemon] warning: failed to register bot commands for %s: %v",
+					agentName, err)
+			} else {
+				log.Printf("[daemon] registered bot commands for %s", agentName)
+			}
+		}()
+	}
+	wg.Wait()
+	return allCommands
 }

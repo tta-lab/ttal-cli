@@ -12,6 +12,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-telegram/bot v1.18.0
 	github.com/google/go-github/v69 v69.2.0
 	github.com/google/uuid v1.6.0
@@ -21,7 +22,9 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.7.16
+	go.woodpecker-ci.org/woodpecker/v3 v3.13.0
 	golang.org/x/net v0.51.0
+	golang.org/x/oauth2 v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.46.1
 )
@@ -113,11 +116,9 @@ require (
 	go.opentelemetry.io/otel v1.40.0 // indirect
 	go.opentelemetry.io/otel/metric v1.40.0 // indirect
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
-	go.woodpecker-ci.org/woodpecker/v3 v3.13.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/mod v0.33.0 // indirect
-	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect

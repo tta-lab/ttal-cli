@@ -1,20 +1,15 @@
 package daemon
 
 import (
-	"encoding/json"
 	"log"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-// handleTaskComplete processes a taskComplete socket message and delivers
+// handleTaskComplete processes a taskComplete HTTP request and delivers
 // task-done notifications to manager agents and optionally the spawner.
-func handleTaskComplete(raw []byte, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
-	var req TaskCompleteRequest
-	if err := json.Unmarshal(raw, &req); err != nil {
-		return SendResponse{OK: false, Error: "invalid taskComplete JSON: " + err.Error()}
-	}
+func handleTaskComplete(req TaskCompleteRequest, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
 	if req.Team == "" {
 		req.Team = config.DefaultTeamName
 	}

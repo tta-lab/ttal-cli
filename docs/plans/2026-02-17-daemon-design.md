@@ -6,6 +6,11 @@
 > Routing is direction-aware: `--from` only → Telegram, `--to` only → Zellij,
 > both → agent-to-agent via Zellij with `[agent from:name]` attribution.
 
+> **Implementation note (2026-03-14):** The daemon was migrated from raw
+> newline-delimited JSON over unix socket to HTTP over unix socket.
+> Routes: POST /send, GET /status, POST /status/update, POST /task/complete, GET /health.
+> Client code uses `http.Client` with a unix socket transport.
+
 ## Overview
 
 A local daemon embedded in `ttal` that provides bidirectional communication between CC agents running in zellij and humans on Telegram. It replaces the current OpenClaw-based notification and the standalone poll-completion launchd service with a single, unified process.

@@ -13,7 +13,7 @@ const osDarwin = "darwin"
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Bidirectional agent communication daemon",
-	Long: `Run the ttal daemon — manages Telegram polling, unix socket notifications,
+	Long: `Run the ttal daemon — manages Telegram polling, HTTP server,
 JSONL watching, and worker cleanup.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return daemon.Run()
@@ -69,7 +69,7 @@ var daemonStatusCmd = &cobra.Command{
 
 		if running {
 			fmt.Printf("Daemon: running (pid=%d)\n", pid)
-			fmt.Printf("Socket: %s\n", sockPath)
+			fmt.Printf("Socket: %s (HTTP)\n", sockPath)
 		} else {
 			fmt.Println("Daemon: not running")
 			if pid != 0 {
