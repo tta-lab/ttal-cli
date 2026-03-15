@@ -16,6 +16,8 @@ export default defineConfig({
   srcExclude: ['plans/**', 'posts/**', 'AIOPS.md', 'DATABASE.md', 'ECOSYSTEM.md', 'STT_SETUP.md', 'TELEGRAM_LIB_DECISION.md', 'VOICE_SETUP.md'],
 
   themeConfig: {
+    logo: '/ttal-snail.svg',
+
     nav: [
       { text: 'Docs', link: '/docs/getting-started' },
       { text: 'Guides', link: '/guides/research-design-execute' },
