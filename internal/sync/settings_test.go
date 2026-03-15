@@ -206,7 +206,10 @@ func TestDenyPrimaryAgentsAsSubagents_NonArrayDenyReturnsError(t *testing.T) {
 	}
 
 	// File must not have been modified
-	written, _ := os.ReadFile(settingsPath)
+	written, err2 := os.ReadFile(settingsPath)
+	if err2 != nil {
+		t.Fatalf("reading settings.json after error: %v", err2)
+	}
 	if string(written) != string(content) {
 		t.Error("settings.json should not be modified when returning an error")
 	}
@@ -228,7 +231,10 @@ func TestDenyPrimaryAgentsAsSubagents_NonObjectPermissionsReturnsError(t *testin
 	}
 
 	// File must not have been modified
-	written, _ := os.ReadFile(settingsPath)
+	written, err2 := os.ReadFile(settingsPath)
+	if err2 != nil {
+		t.Fatalf("reading settings.json after error: %v", err2)
+	}
 	if string(written) != string(content) {
 		t.Error("settings.json should not be modified when returning an error")
 	}
