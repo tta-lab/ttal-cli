@@ -23,30 +23,15 @@ func DenyPrimaryAgentsAsSubagents(agentNames []string, dryRun bool) (added []str
 	return denyPrimaryAgentsAsSubagents(agentNames, dryRun, settingsPath)
 }
 
-func denyPrimaryAgentsAsSubagents(agentNames []string, dryRun bool, settingsPath string) (added []string, err error) {
-	var settings map[string]interface{}
-
-	data, err := os.ReadFile(settingsPath)
+func denyPrimaryAgentsAsSubagents(agentNames []string, dryRun bool, settingsPath string) ([]string, error) {
+	settings, err := readOrInitSettings(settingsPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("reading settings.json: %w", err)
-		}
-		settings = map[string]interface{}{}
-	} else {
-		if err := json.Unmarshal(data, &settings); err != nil {
-			return nil, fmt.Errorf("parsing settings.json: %w", err)
-		}
+		return nil, err
 	}
 
-	// Navigate to permissions.deny, creating maps/slices as needed
-	perms, _ := settings["permissions"].(map[string]interface{})
-	if perms == nil {
-		perms = map[string]interface{}{}
-	}
-
-	var denySlice []interface{}
-	if raw, ok := perms["deny"]; ok {
-		denySlice, _ = raw.([]interface{})
+	perms, denySlice, err := extractPermsDenyList(settings)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build set of existing deny entries for O(1) lookup
@@ -58,6 +43,7 @@ func denyPrimaryAgentsAsSubagents(agentNames []string, dryRun bool, settingsPath
 	}
 
 	// Append missing Agent(<name>) entries
+	var added []string
 	for _, name := range agentNames {
 		entry := fmt.Sprintf("Agent(%s)", name)
 		if _, ok := existing[entry]; ok {
@@ -67,7 +53,10 @@ func denyPrimaryAgentsAsSubagents(agentNames []string, dryRun bool, settingsPath
 		added = append(added, name)
 	}
 
-	if len(added) == 0 || dryRun {
+	if len(added) == 0 {
+		return added, nil
+	}
+	if dryRun {
 		return added, nil
 	}
 
@@ -79,6 +68,47 @@ func denyPrimaryAgentsAsSubagents(agentNames []string, dryRun bool, settingsPath
 	}
 
 	return added, nil
+}
+
+// readOrInitSettings reads settings.json from path, or returns an empty map if the file doesn't exist.
+func readOrInitSettings(settingsPath string) (map[string]interface{}, error) {
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]interface{}{}, nil
+		}
+		return nil, fmt.Errorf("reading settings.json: %w", err)
+	}
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return nil, fmt.Errorf("parsing settings.json: %w", err)
+	}
+	return settings, nil
+}
+
+// extractPermsDenyList navigates settings to permissions.deny with type validation.
+// Returns the permissions map and deny list (both may be empty/nil but are never from bad type assertions).
+func extractPermsDenyList(settings map[string]interface{}) (map[string]interface{}, []interface{}, error) {
+	var perms map[string]interface{}
+	if raw, ok := settings["permissions"]; ok {
+		perms, ok = raw.(map[string]interface{})
+		if !ok {
+			return nil, nil, fmt.Errorf("settings.json: permissions is not an object (got %T)", raw)
+		}
+	}
+	if perms == nil {
+		perms = map[string]interface{}{}
+	}
+
+	var denySlice []interface{}
+	if raw, ok := perms["deny"]; ok {
+		denySlice, ok = raw.([]interface{})
+		if !ok {
+			return nil, nil, fmt.Errorf("settings.json: permissions.deny is not an array (got %T)", raw)
+		}
+	}
+
+	return perms, denySlice, nil
 }
 
 // writeSettingsJSON marshals v to indented JSON and writes to path (0o644).

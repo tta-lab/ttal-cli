@@ -103,7 +103,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 			denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: deny primary agents as subagents: %v\n", err)
+				fmt.Fprintf(os.Stderr,
+					"warning: agents NOT denied as subagents (settings.json update failed — fix permissions and re-run sync): %v\n",
+					err)
 			} else {
 				for _, name := range denied {
 					fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)

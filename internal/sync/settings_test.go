@@ -124,9 +124,14 @@ func TestDenyPrimaryAgentsAsSubagents_Idempotent(t *testing.T) {
 	}
 
 	// Verify deny list has exactly 2 entries (no duplicates)
-	data, _ := os.ReadFile(settingsPath)
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("reading settings.json: %v", err)
+	}
 	var settings map[string]interface{}
-	json.Unmarshal(data, &settings) //nolint:errcheck
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
 	perms, _ := settings["permissions"].(map[string]interface{})
 	deny, _ := perms["deny"].([]interface{})
 
@@ -182,5 +187,49 @@ func TestDenyPrimaryAgentsAsSubagents_DryRunExistingFile(t *testing.T) {
 	written, _ := os.ReadFile(settingsPath)
 	if string(written) != string(originalContent) {
 		t.Error("dry-run should not modify existing settings.json")
+	}
+}
+
+func TestDenyPrimaryAgentsAsSubagents_NonArrayDenyReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	// Write settings.json where permissions.deny is null (not an array)
+	content := []byte(`{"permissions": {"deny": null}}` + "\n")
+	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := denyPrimaryAgentsAsSubagents([]string{"athena"}, false, settingsPath)
+	if err == nil {
+		t.Fatal("expected error for non-array deny, got nil")
+	}
+
+	// File must not have been modified
+	written, _ := os.ReadFile(settingsPath)
+	if string(written) != string(content) {
+		t.Error("settings.json should not be modified when returning an error")
+	}
+}
+
+func TestDenyPrimaryAgentsAsSubagents_NonObjectPermissionsReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	// Write settings.json where permissions is a string (not an object)
+	content := []byte(`{"permissions": "invalid"}` + "\n")
+	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := denyPrimaryAgentsAsSubagents([]string{"athena"}, false, settingsPath)
+	if err == nil {
+		t.Fatal("expected error for non-object permissions, got nil")
+	}
+
+	// File must not have been modified
+	written, _ := os.ReadFile(settingsPath)
+	if string(written) != string(content) {
+		t.Error("settings.json should not be modified when returning an error")
 	}
 }
