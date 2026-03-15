@@ -20,6 +20,41 @@ Assume the worker is a skilled developer, but knows almost nothing about our too
 3. **Always plan first** — no exceptions, even for "quick fixes"
 4. **Design at structure level** — before adding behavior, question whether the existing structure supports it cleanly. Refactor first if needed.
 
+## Project Scope Gate
+
+**Rule: 1 task → 1 plan → 1 project/repo.**
+
+Before writing any plan, you MUST confirm the target project:
+
+1. **Run `ttal project list`** — see all available projects
+2. **Check the task's project field** — if it has one, use it as a hint for the target alias, then confirm with `ttal project get <alias>`
+3. **If no project field** — ask explicitly: "Which repo does this plan target?"
+4. **Validate the repo exists** — run `ttal project get <alias>` to confirm the path
+
+**Hard rule:** Do NOT proceed past this gate without a confirmed single target repo.
+
+### When Scope Is Too Big
+
+If a task touches multiple projects/repos, the scope is too big for a single plan. Split it:
+
+1. **Identify the repos involved** — list every repo the task would touch
+2. **Extract separate tasks** — one task per repo, each with its own clear goal
+3. **Set task dependencies** — use `task <uuid> modify depends:<other-uuid>` so phases execute in order (`ttal` doesn't expose `depends` — use taskwarrior directly for this)
+4. **Write separate plans** — one plan per task, each scoped to its single repo
+5. **Link plans via `Depends on`** — reference the other plan/task in the header
+
+Example: "Add auth to API and update frontend to use it" → split into:
+- Task A: `ttal task add --project api "Add auth endpoint"` → Plan A (api repo)
+- Task B: `ttal task add --project frontend "Integrate auth endpoint"` → Plan B (frontend repo), depends on Task A
+
+### Scope Violations — What to Flag
+
+- Plan references files in multiple repos → **stop and split** into separate tasks + plans
+- Task touches multiple projects → scope is too big, extract per-repo tasks with dependencies
+- Plan says "update the API and the frontend" without specifying they're the same repo → clarify, likely needs splitting
+- Task has no project field and plan doesn't state one → ask before writing
+- Plan's target repo doesn't match the task's project field → reconcile before proceeding
+
 ## Design Discipline
 
 - **Look for abstractions before patching:** When fixing a bug, ask "what are the right primitives?" not just "how do I fix this case?"
@@ -48,8 +83,8 @@ Every plan MUST start with:
 
 > **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
 
+**Project:** [ttal project alias — e.g. `ttal-cli`]
 **Goal:** [One sentence describing what this builds]
-
 **Depends on:** [Other plans/tasks, or "None"]
 
 ---
@@ -120,7 +155,8 @@ task <uuid> annotate 'Plan (inline): 1. Remove dep from package.json 2. Update i
 **Large tasks (architecture decisions, multi-file refactors, trade-off analysis needed):** Use flicknote plans — save to flicknote, annotate task with hex ID.
 
 ```bash
-flicknote add 'full plan content' --project <your-project>
+# Plans are stored centrally in ttal.plans (Inke's convention — all agents share this bucket)
+flicknote add 'full plan content' --project ttal.plans
 task <uuid> annotate 'Plan: flicknote <hex-id>'
 ```
 
