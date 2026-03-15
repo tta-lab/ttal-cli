@@ -316,22 +316,24 @@ Examples:
 
 		// Auto-trigger re-review when coder posts a comment (triage done).
 		noReview, _ := cmd.Flags().GetBool("no-review")
-		if sessionName != "" && role == "coder" && !noReview {
-			cfg, _ := loadConfigAndCoderRuntime()
-			if tmux.WindowExists(sessionName, "review") {
-				fmt.Println("  Triggering re-review...")
-				if err := review.RequestReReview(sessionName, false, body, cfg); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
-				}
+		if sessionName != "" && role == "coder" {
+			if noReview {
+				fmt.Println("  --no-review: reviewer will NOT be notified by this comment")
 			} else {
-				// Reviewer window gone (crashed or closed) — respawn it
-				fmt.Println("  Reviewer not running, spawning...")
-				if err := review.SpawnReviewer(sessionName, ctx, cfg); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
+				cfg, _ := loadConfigAndCoderRuntime()
+				if tmux.WindowExists(sessionName, "review") {
+					fmt.Println("  Triggering re-review...")
+					if err := review.RequestReReview(sessionName, false, body, cfg); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
+					}
+				} else {
+					// Reviewer window gone (crashed or closed) — respawn it
+					fmt.Println("  Reviewer not running, spawning...")
+					if err := review.SpawnReviewer(sessionName, ctx, cfg); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
+					}
 				}
 			}
-		} else if sessionName != "" && role == "coder" && noReview {
-			fmt.Println("  --no-review: reviewer will NOT be notified by this comment")
 		}
 
 		return nil
