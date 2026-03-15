@@ -21,6 +21,8 @@ task created → research → design → worker spawns → PR opens → review �
 
 All automatic. All in your terminal.
 
+![TUI Dashboard](docs/public/screenshots/tui.png)
+
 ## See it work
 
 ```bash
@@ -41,6 +43,8 @@ ttal task execute abc12345
 ```
 
 We built TTal with TTal. 356 PRs merged, 29k lines of Go in 33 days. Then we pointed it at flicknote-cli — 55 PRs merged in 15 days, Rust. Same pipeline, different repo, same velocity.
+
+![Heatmap](docs/public/screenshots/heatmap.png)
 
 ## Architecture
 
@@ -109,6 +113,8 @@ TTal agents aren't chatbots. They're specialists with clear roles:
 | Workers | Coders | Spawn per-task, implement, open PRs, self-cleanup |
 
 Each agent runs in its own tmux session. Workers get isolated git worktrees — they can't step on each other. The daemon handles all messaging: Telegram in, agent-to-agent routing, status updates out.
+
+![Telegram Chat](docs/public/screenshots/telegram.png)
 
 ## How it connects
 
