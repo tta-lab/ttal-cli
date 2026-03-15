@@ -13,8 +13,6 @@ Assume the worker is a skilled developer, but knows almost nothing about our too
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**First action:** Run `ttal project list` to identify the target project before writing anything.
-
 ## Designer Rules
 
 1. **Never write code** — you write plans, not implementations
@@ -29,10 +27,9 @@ Assume the worker is a skilled developer, but knows almost nothing about our too
 Before writing any plan, you MUST confirm the target project:
 
 1. **Run `ttal project list`** — see all available projects
-2. **Check the task's project field** — if it has one, that's your target repo
+2. **Check the task's project field** — if it has one, use it as a hint for the target alias, then confirm with `ttal project get <alias>`
 3. **If no project field** — ask explicitly: "Which repo does this plan target?"
-4. **One plan = one repo** — never write a plan that spans multiple repositories
-5. **Validate the repo exists** — run `ttal project get <alias>` to confirm the path
+4. **Validate the repo exists** — run `ttal project get <alias>` to confirm the path
 
 **Hard rule:** Do NOT proceed past this gate without a confirmed single target repo.
 
@@ -42,15 +39,13 @@ If a task touches multiple projects/repos, the scope is too big for a single pla
 
 1. **Identify the repos involved** — list every repo the task would touch
 2. **Extract separate tasks** — one task per repo, each with its own clear goal
-3. **Set task dependencies** — use `task <uuid> modify depends:<other-uuid>` so phases execute in order
+3. **Set task dependencies** — use `task <uuid> modify depends:<other-uuid>` so phases execute in order (`ttal` doesn't expose `depends` — use taskwarrior directly for this)
 4. **Write separate plans** — one plan per task, each scoped to its single repo
 5. **Link plans via `Depends on`** — reference the other plan/task in the header
 
 Example: "Add auth to API and update frontend to use it" → split into:
 - Task A: `ttal task add --project api "Add auth endpoint"` → Plan A (api repo)
 - Task B: `ttal task add --project frontend "Integrate auth endpoint"` → Plan B (frontend repo), depends on Task A
-
-Never write one plan that spans repos — always split first, then plan each piece.
 
 ### Scope Violations — What to Flag
 
@@ -160,8 +155,8 @@ task <uuid> annotate 'Plan (inline): 1. Remove dep from package.json 2. Update i
 **Large tasks (architecture decisions, multi-file refactors, trade-off analysis needed):** Use flicknote plans — save to flicknote, annotate task with hex ID.
 
 ```bash
-# Use <repo-alias>.plans as the flicknote project (convention: plans are stored per-repo)
-flicknote add 'full plan content' --project <alias>.plans
+# Plans are stored centrally in ttal.plans (Inke's convention — all agents share this bucket)
+flicknote add 'full plan content' --project ttal.plans
 task <uuid> annotate 'Plan: flicknote <hex-id>'
 ```
 
