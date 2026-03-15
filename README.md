@@ -22,6 +22,7 @@ task created → research → design → worker spawns → PR opens → review �
 All automatic. All in your terminal.
 
 ![TUI Dashboard](docs/public/screenshots/tui.png)
+![Yuki Chat](docs/public/screenshots/yuki-chat.jpg)
 
 ## See it work
 
