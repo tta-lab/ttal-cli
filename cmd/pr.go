@@ -330,6 +330,8 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
+		} else if sessionName != "" && role == "coder" && noReview {
+			fmt.Println("  --no-review: reviewer will NOT be notified by this comment")
 		}
 
 		return nil
