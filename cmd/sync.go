@@ -96,6 +96,22 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 			agentCount = len(results)
 
+			// Deny deployed agents as subagents in settings.json
+			primaryAgentNames := make([]string, len(results))
+			for i, r := range results {
+				primaryAgentNames[i] = r.Name
+			}
+			denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
+			if err != nil {
+				fmt.Fprintf(os.Stderr,
+					"warning: agents NOT denied as subagents (settings.json update failed — fix permissions and re-run sync): %v\n",
+					err)
+			} else {
+				for _, name := range denied {
+					fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)
+				}
+			}
+
 			if syncClean {
 				removed, err := sync.CleanAgents(agentPaths, syncDryRun)
 				if err != nil {
