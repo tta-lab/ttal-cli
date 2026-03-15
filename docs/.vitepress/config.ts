@@ -6,7 +6,12 @@ export default defineConfig({
 
   head: [
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:site_name', content: 'ttal' }],
+    ['meta', { property: 'og:site_name', content: 'TTal' }],
+    ['meta', { property: 'og:image', content: 'https://ttal.guion.io/og-image.png' }],
+    ['meta', { property: 'og:image:width', content: '1280' }],
+    ['meta', { property: 'og:image:height', content: '640' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:image', content: 'https://ttal.guion.io/og-image.png' }],
   ],
 
   // Output to ./dist for wrangler compatibility
