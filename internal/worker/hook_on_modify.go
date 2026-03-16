@@ -24,11 +24,12 @@ type taskCompletePayload struct {
 	Spawner  string `json:"spawner,omitempty"`
 	Desc     string `json:"desc,omitempty"`
 	PRID     string `json:"pr_id,omitempty"`
+	PRTitle  string `json:"pr_title,omitempty"`
 }
 
 // notifyTaskComplete sends a taskComplete HTTP request to the daemon.
 // Fire-and-forget: daemon unreachable silently skipped so task completion never blocks.
-func notifyTaskComplete(task hookTask) {
+func notifyTaskComplete(task hookTask, prTitle string) {
 	team := os.Getenv("TTAL_TEAM")
 	if team == "" {
 		team = "default"
@@ -40,6 +41,7 @@ func notifyTaskComplete(task hookTask) {
 		Spawner:  task.Spawner(),
 		Desc:     task.Description(),
 		PRID:     task.PRID(),
+		PRTitle:  prTitle,
 	}
 	payload, err := json.Marshal(msg)
 	if err != nil {
@@ -77,13 +79,14 @@ func HookOnModify() {
 
 	// Check if task is being completed
 	if modified.Status() == taskStatusCompleted && original.Status() != taskStatusCompleted {
-		if err := validateTaskCompletion(modified, nil); err != nil {
+		prTitle, err := validateTaskCompletion(modified, nil)
+		if err != nil {
 			hookLogFile("ERROR: " + err.Error())
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
 		// Notify daemon — fire-and-forget, won't block task completion
-		notifyTaskComplete(modified)
+		notifyTaskComplete(modified, prTitle)
 	}
 
 	// Re-enrich when project changes to a non-empty value.
@@ -94,53 +97,54 @@ func HookOnModify() {
 	writeTask(modified)
 }
 
-// prMergedChecker is a function that checks whether a PR is merged.
-// It receives the project path and PR ID string and returns (merged bool, err error).
+// prMergedChecker checks whether a PR is merged and returns its title.
+// It receives the project path and PR ID string and returns (merged bool, title string, err error).
 // Injected for testability; production code uses defaultPRMergedChecker.
-type prMergedChecker func(projectPath, prID string) (merged bool, err error)
+type prMergedChecker func(projectPath, prID string) (merged bool, title string, err error)
 
 // defaultPRMergedChecker is the real implementation used in production.
-func defaultPRMergedChecker(projectPath, prID string) (bool, error) {
+func defaultPRMergedChecker(projectPath, prID string) (bool, string, error) {
 	prInfo, err := taskwarrior.ParsePRID(prID)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR %q: %w", prID, err)
+		return false, "", fmt.Errorf("cannot verify PR %q: %w", prID, err)
 	}
 
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
+		return false, "", fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
 	provider, err := gitprovider.NewProvider(info)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
+		return false, "", fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
 	pr, err := provider.GetPR(info.Owner, info.Repo, prInfo.Index)
 	if err != nil {
-		return false, fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
+		return false, "", fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
-	return pr.Merged, nil
+	return pr.Merged, pr.Title, nil
 }
 
 // validateTaskCompletion checks if a task can be completed.
 // It blocks completion if the task has an unmerged PR.
+// Returns the PR title if available (empty string if no PR).
 // checker may be nil, in which case defaultPRMergedChecker is used.
-func validateTaskCompletion(modified hookTask, checker prMergedChecker) error {
+func validateTaskCompletion(modified hookTask, checker prMergedChecker) (prTitle string, err error) {
 	prID := modified.PRID()
 	if prID == "" {
-		return nil
+		return "", nil
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(prID)
 	if err != nil {
-		return fmt.Errorf("cannot verify PR %q: %w", prID, err)
+		return "", fmt.Errorf("cannot verify PR %q: %w", prID, err)
 	}
 
 	projectPath := modified.ProjectPath()
 	if projectPath == "" {
-		return fmt.Errorf("cannot verify PR: task has pr_id but no project_path. " +
+		return "", fmt.Errorf("cannot verify PR: task has pr_id but no project_path. " +
 			"Add project_path or remove pr_id to complete")
 	}
 
@@ -148,14 +152,14 @@ func validateTaskCompletion(modified hookTask, checker prMergedChecker) error {
 		checker = defaultPRMergedChecker
 	}
 
-	merged, err := checker(projectPath, prID)
+	merged, title, err := checker(projectPath, prID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if merged {
-		return nil
+	if !merged {
+		return "", fmt.Errorf("cannot complete task with unmerged PR #%d. Merge the PR first", prInfo.Index)
 	}
 
-	return fmt.Errorf("cannot complete task with unmerged PR #%d. Merge the PR first", prInfo.Index)
+	return title, nil
 }

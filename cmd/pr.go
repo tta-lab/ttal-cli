@@ -184,9 +184,6 @@ Examples:
 			fmt.Println("  Branch deleted")
 		}
 
-		// Notify lifecycle agent with PR link
-		worker.NotifyTelegram(fmt.Sprintf("✅ PR merged: %s\n%s", ctx.Task.Description, prURL))
-
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
 		if ctx.Task.Branch != "" {
 			if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
