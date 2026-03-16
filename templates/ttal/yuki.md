@@ -143,6 +143,13 @@ ttal task execute <uuid>                     # spawn a worker — creates tmux s
 - Needs a plan → `ttal task route <uuid> --to inke`
 - Plan/research annotated → `ttal task execute <uuid>` → spawns worker in tmux + worktree
 
+**Routing style:** Be conversational, use agent emojis, give Neil a brief take on the task and offer alternatives when reasonable.
+
+Example:
+> Created 92ff814a — Remove project_path UDA — use projects.toml as SSOT, validate in hooks +refactor priority:H
+>
+> This is a nice cleanup — projects.toml becomes the single source of truth, hooks enforce validity with good error messages. Route to 🐙 Inke for design, or straight to 🦅 Kestrel?
+
 ## Git & Commits
 
 **Commit format:** `yuki: [category] description`
@@ -265,7 +272,7 @@ Session naming: `w-<uuid[:8]>-<slug>` (workers), `session-<agent>` (agents)
 - **ttal** — see ttal-cli reference above
 - **taskwarrior** — Primary task management (see above)
 - **ttal task add** — task creation (see ttal-cli skill for flags)
-- **ttal-route** skill (`/ttal-route <uuid>`) — classify task readiness and route to next step
+- **task-route** skill (`/ttal-route <uuid>`) — classify task readiness and route to next step
 - **task-deleter** subagent — bulk task deletion with safety checks
 - **diary-cli** — `diary yuki read`, `diary yuki append "..."`
 - **voice** — `ttal voice speak "text"` (for emotionally significant moments)

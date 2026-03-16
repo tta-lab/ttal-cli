@@ -43,7 +43,7 @@ Inspect a task and decide where it goes next. Tasks move through five states bef
    ask → brainstorm → investigate (research/fix/design) → plan → execute
    ```
 
-5. **Present your recommendation** — explain in one sentence which state you picked and what command you'd run. **Do NOT run it yet.**
+5. **Present your recommendation** — explain in one sentence which state you picked and what command you'd run. Include agent emojis from `ttal agent list` to make routing options scannable. **Do NOT run it yet.**
 
 6. **Wait for approval** — only proceed when Neil says "y", "go", or equivalent.
 
@@ -183,29 +183,44 @@ Use `ttal agent list` — don't hardcode agent names, the team changes.
 
 Don't say "Execute" then route to an agent, or vice versa.
 
+## Recommendation Style
+
+When presenting routing recommendations, be conversational and include agent emojis. Give Neil a brief take on the task — what's interesting, what the approach would be, and who should handle it. Offer alternatives when reasonable.
+
+**Good:**
+> Created 92ff814a — Remove project_path UDA — use projects.toml as SSOT, validate in hooks +refactor priority:H
+>
+> This is a nice cleanup — projects.toml becomes the single source of truth, hooks enforce validity with good error messages. Route to Inke for design, or straight to Kestrel? 🐙🦅
+
+**Bad:**
+> Task 92ff814a needs design work. Recommend routing to inke.
+> Waiting for your go.
+
+Use emojis from `ttal agent list` when mentioning agents by name.
+
 ## Examples
 
 ```
 /ttal-route b2c491aa
 ```
-> Description is "improve the thing" — no specifics.
-> **Recommend:** Tag `+ask` and ask: "What does 'improve the thing' mean for task b2c491aa?"
-> Waiting for your go.
+> "improve the thing" — too vague to act on. What does "improve" mean here? Performance? UX? Code quality? 🤔
+>
+> **Recommend:** Tag `+ask` and get clarity before routing.
 
 ---
 
 ```
 /ttal-route a3f920c1
 ```
-> Clear goal, no plan.
-> **Recommend:** Route to brainstorm → `ttal task route a3f920c1 --to athena --message "please use /sp-brainstorming to explore this"`
-> Waiting for your go.
+> Clear goal, no existing design. This needs brainstorming before anyone writes a plan.
+>
+> **Recommend:** Route to 🦉 Athena for brainstorming → `ttal task route a3f920c1 --to athena`
 
 ---
 
 ```
 /ttal-route e18379f3
 ```
-> Flicknote plan annotated — ready to implement.
+> Flicknote plan annotated, reviewed and approved — ready to ship. 🚀
+>
 > **Recommend:** `ttal task execute e18379f3`
-> Waiting for your go.
