@@ -314,25 +314,38 @@ func (f *MatrixFrontend) RegisterCommands(commands []Command) error {
 	return nil
 }
 
+// parseMatrixCommand splits a /command[@bot] text into (cmd, args).
+func parseMatrixCommand(text string) (string, []string) {
+	parts := strings.Fields(text)
+	if len(parts) == 0 {
+		return "", nil
+	}
+	cmd := strings.TrimPrefix(parts[0], "/")
+	cmd, _, _ = strings.Cut(cmd, "@") // strip optional @botname suffix
+	return cmd, parts[1:]
+}
+
+// makeMatrixReplyFn returns a reply function that sends text to the given room.
+func makeMatrixReplyFn(client *mautrix.Client, roomID id.RoomID, logTag string) func(string) {
+	return func(reply string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if _, err := client.SendText(ctx, roomID, reply); err != nil {
+			log.Printf("[matrix] %s: reply failed: %v", logTag, err)
+		}
+	}
+}
+
 // handleMatrixCommand parses and dispatches a /command message from an agent room.
 func (f *MatrixFrontend) handleMatrixCommand(
 	agentName, text string, client *mautrix.Client, roomID id.RoomID,
 ) {
-	parts := strings.Fields(text)
-	if len(parts) == 0 {
+	cmd, args := parseMatrixCommand(text)
+	if cmd == "" {
 		return
 	}
-	cmd := strings.TrimPrefix(parts[0], "/")
-	cmd, _, _ = strings.Cut(cmd, "@") // strip optional @botname
-	args := parts[1:]
 
-	replyFn := func(reply string) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if _, err := client.SendText(ctx, roomID, reply); err != nil {
-			log.Printf("[matrix] command reply failed for %s: %v", agentName, err)
-		}
-	}
+	replyFn := makeMatrixReplyFn(client, roomID, "agent="+agentName)
 
 	switch cmd {
 	case "status":
@@ -453,21 +466,12 @@ func sendEscToAgentWithReply(teamName, agentName string, replyFn func(string)) {
 
 // handleNotifCommand parses and dispatches a /command message from the notification room.
 func (f *MatrixFrontend) handleNotifCommand(text string) {
-	parts := strings.Fields(text)
-	if len(parts) == 0 {
+	cmd, args := parseMatrixCommand(text)
+	if cmd == "" {
 		return
 	}
-	cmd := strings.TrimPrefix(parts[0], "/")
-	cmd, _, _ = strings.Cut(cmd, "@") // strip optional @botname
-	args := parts[1:]
 
-	replyFn := func(reply string) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if _, err := f.notifyClient.SendText(ctx, f.notifyRoom, reply); err != nil {
-			log.Printf("[matrix] notif reply failed: %v", err)
-		}
-	}
+	replyFn := makeMatrixReplyFn(f.notifyClient, f.notifyRoom, "notif")
 
 	switch cmd {
 	case "status":
@@ -475,12 +479,16 @@ func (f *MatrixFrontend) handleNotifCommand(text string) {
 	case "usage":
 		f.handleMatrixUsageCommand(replyFn)
 	case "restart":
-		replyFn("🔄 Daemon restarting...")
-		if f.cfg.RestartFn != nil {
-			if err := f.cfg.RestartFn(); err != nil {
-				log.Printf("[matrix] restart failed: %v", err)
-			}
+		if f.cfg.RestartFn == nil {
+			replyFn("⚠️ Restart not configured")
+			return
 		}
+		if err := f.cfg.RestartFn(); err != nil {
+			log.Printf("[matrix] restart failed: %v", err)
+			replyFn("❌ Restart failed: " + err.Error())
+			return
+		}
+		replyFn("🔄 Daemon restarting...")
 	case "help":
 		var sb strings.Builder
 		sb.WriteString("Notification commands:\n")

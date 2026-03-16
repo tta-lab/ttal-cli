@@ -58,13 +58,19 @@ func (s *matrixAskStore) remove(roomID id.RoomID) {
 	delete(s.pending, roomID)
 }
 
-func (s *matrixAskStore) deliverAnswer(roomID id.RoomID, answer string) bool {
+// claimEntry atomically removes and returns the pending entry for a room.
+func (s *matrixAskStore) claimEntry(roomID id.RoomID) (*matrixAskEntry, bool) {
 	s.mu.Lock()
 	e, ok := s.pending[roomID]
 	if ok {
 		delete(s.pending, roomID)
 	}
 	s.mu.Unlock()
+	return e, ok
+}
+
+func (s *matrixAskStore) deliverAnswer(roomID id.RoomID, answer string) bool {
+	e, ok := s.claimEntry(roomID)
 	if !ok {
 		return false
 	}
@@ -73,16 +79,29 @@ func (s *matrixAskStore) deliverAnswer(roomID id.RoomID, answer string) bool {
 }
 
 func (s *matrixAskStore) deliverSkip(roomID id.RoomID) bool {
+	e, ok := s.claimEntry(roomID)
+	if !ok {
+		return false
+	}
+	e.ch <- askHumanResult{skipped: true}
+	return true
+}
+
+// deliverSkipIfEntry skips only if the entry pointer matches — prevents a stale timeout
+// goroutine from skipping a new question that arrived after context cancellation.
+func (s *matrixAskStore) deliverSkipIfEntry(roomID id.RoomID, entry *matrixAskEntry) bool {
 	s.mu.Lock()
 	e, ok := s.pending[roomID]
-	if ok {
+	if ok && e == entry {
 		delete(s.pending, roomID)
+	} else {
+		ok = false
 	}
 	s.mu.Unlock()
 	if !ok {
 		return false
 	}
-	e.ch <- askHumanResult{skipped: true}
+	entry.ch <- askHumanResult{skipped: true}
 	return true
 }
 
@@ -111,12 +130,16 @@ func (f *MatrixFrontend) AskHuman(
 	}
 	f.mas.store(sess.roomID, entry)
 
-	// Timeout goroutine — leaks until sleep completes on ctx cancel (same as Telegram, acceptable)
+	// Timeout goroutine. Captures entry pointer to guard against skipping a newer question
+	// that arrives after context cancellation (same room, new AskHuman call).
 	go func() {
 		time.Sleep(askHumanTimeout)
-		if f.mas.deliverSkip(sess.roomID) {
+		if f.mas.deliverSkipIfEntry(sess.roomID, entry) {
 			expiredText := text + "\n\n⏰ _expired (no response within 5m)_"
-			editMatrixMessage(sess.client, sess.roomID, resp.EventID, expiredText)
+			if err := editMatrixMessage(sess.client, sess.roomID, resp.EventID, expiredText); err != nil {
+				log.Printf("[matrix] ask-human: edit expired failed (agent=%s, event=%s): %v",
+					agentName, resp.EventID, err)
+			}
 		}
 	}()
 
@@ -126,8 +149,11 @@ func (f *MatrixFrontend) AskHuman(
 	case <-ctx.Done():
 		f.mas.remove(sess.roomID)
 		disconnectedText := text + "\n\n⚡ _agent disconnected before receiving answer_"
-		editMatrixMessage(sess.client, sess.roomID, resp.EventID, disconnectedText)
-		return "", true, ctx.Err()
+		if err := editMatrixMessage(sess.client, sess.roomID, resp.EventID, disconnectedText); err != nil {
+			log.Printf("[matrix] ask-human: edit disconnect failed (agent=%s, event=%s): %v",
+				agentName, resp.EventID, err)
+		}
+		return "", true, nil // ctx cancel is a normal lifecycle event, not a server fault
 	}
 }
 
@@ -151,11 +177,6 @@ func buildMatrixAskMessage(agentName, question string, options []string) string 
 // question in this room. Returns true if consumed, false if no pending question or if the
 // timeout already fired (so the message falls through to normal delivery).
 func (f *MatrixFrontend) interceptMatrixAskAnswer(roomID id.RoomID, text string) bool {
-	_, ok := f.mas.get(roomID)
-	if !ok {
-		return false
-	}
-
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return false
@@ -165,6 +186,7 @@ func (f *MatrixFrontend) interceptMatrixAskAnswer(roomID id.RoomID, text string)
 		return f.mas.deliverSkip(roomID)
 	}
 
+	// Single get — eliminates TOCTOU between existence check and options read.
 	entry, ok := f.mas.get(roomID)
 	if !ok {
 		return false
@@ -182,7 +204,8 @@ func (f *MatrixFrontend) interceptMatrixAskAnswer(roomID id.RoomID, text string)
 }
 
 // editMatrixMessage edits a Matrix message in-place using m.replace relation type.
-func editMatrixMessage(client *mautrix.Client, roomID id.RoomID, eventID id.EventID, newText string) {
+// Returns an error so callers can log with full context (agent name, event ID).
+func editMatrixMessage(client *mautrix.Client, roomID id.RoomID, eventID id.EventID, newText string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	content := &event.MessageEventContent{
@@ -198,8 +221,9 @@ func editMatrixMessage(client *mautrix.Client, roomID id.RoomID, eventID id.Even
 		},
 	}
 	if _, err := client.SendMessageEvent(ctx, roomID, event.EventMessage, content); err != nil {
-		log.Printf("[matrix] edit message failed: %v", err)
+		return fmt.Errorf("edit matrix message: %w", err)
 	}
+	return nil
 }
 
 // AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
@@ -213,15 +237,14 @@ func (f *MatrixFrontend) AskHumanHTTPHandler() http.HandlerFunc {
 			return
 		}
 
-		agentName := req.AgentName
-		if agentName == "" {
+		if req.AgentName == "" {
 			writeAskHumanJSON(w, http.StatusBadRequest, askHumanHTTPResponse{
 				OK: false, Error: "agent_name required for Matrix frontend",
 			})
 			return
 		}
 
-		answer, skipped, err := f.AskHuman(r.Context(), agentName, req.Question, req.Options)
+		answer, skipped, err := f.AskHuman(r.Context(), req.AgentName, req.Question, req.Options)
 		if err != nil {
 			writeAskHumanJSON(w, http.StatusInternalServerError, askHumanHTTPResponse{
 				OK: false, Error: err.Error(),

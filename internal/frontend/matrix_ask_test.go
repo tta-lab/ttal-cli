@@ -1,9 +1,12 @@
 package frontend
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/id"
 )
 
@@ -228,17 +231,19 @@ func TestHandleMatrixCommand_Help(t *testing.T) {
 
 // TestHandleMatrixCommand_Unknown verifies unknown commands produce no reply (silently ignored).
 func TestHandleMatrixCommand_Unknown(t *testing.T) {
-	called := false
-	fe := &MatrixFrontend{
-		cfg:         MatrixConfig{TeamName: "test"},
-		allCommands: []Command{{Name: "status", Description: "Show status"}},
+	var bodies []string
+	srv := matrixTestServer(t, &bodies)
+	defer srv.Close()
+
+	fe := buildTestFrontend(t, srv, "yuki", "!testroom:test")
+	fe.allCommands = []Command{{Name: testCommandStatus, Description: "Show status"}}
+	sess := fe.sessions["yuki"]
+
+	fe.handleMatrixCommand("yuki", "/nonexistent-command-xyz", sess.client, sess.roomID)
+
+	if len(bodies) != 0 {
+		t.Errorf("expected no reply for unknown command, got %d send requests", len(bodies))
 	}
-	// resolveSkillCommand for unknown command returns ""
-	result := fe.resolveSkillCommand("nonexistent-command-xyz")
-	if result != "" {
-		t.Errorf("expected empty string for unknown command, got %q", result)
-	}
-	_ = called
 }
 
 // TestInterceptMatrixAskAnswer_TimeoutRace verifies that if the timeout fires first,
@@ -266,5 +271,132 @@ func TestInterceptMatrixAskAnswer_TimeoutRace(t *testing.T) {
 	// Now intercept should return false (no pending entry).
 	if fe.interceptMatrixAskAnswer(roomID, "late answer") {
 		t.Error("expected false after timeout, got true")
+	}
+}
+
+// TestAskHumanHTTPHandler_BadJSON verifies that malformed JSON returns 400.
+func TestAskHumanHTTPHandler_BadJSON(t *testing.T) {
+	fe := &MatrixFrontend{
+		sessions:    make(map[string]agentSession),
+		lastEventID: make(map[string]id.EventID),
+		mas:         newMatrixAskStore(),
+	}
+	handler := fe.AskHumanHTTPHandler()
+
+	req := httptest.NewRequest(http.MethodPost, "/ask/human", strings.NewReader("not json"))
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "invalid JSON") {
+		t.Errorf("expected 'invalid JSON' in body, got %q", body)
+	}
+}
+
+// TestAskHumanHTTPHandler_MissingAgentName verifies that empty agent_name returns 400.
+func TestAskHumanHTTPHandler_MissingAgentName(t *testing.T) {
+	fe := &MatrixFrontend{
+		sessions:    make(map[string]agentSession),
+		lastEventID: make(map[string]id.EventID),
+		mas:         newMatrixAskStore(),
+	}
+	handler := fe.AskHumanHTTPHandler()
+
+	body := `{"question":"what?","agent_name":""}`
+	req := httptest.NewRequest(http.MethodPost, "/ask/human", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "agent_name required") {
+		t.Errorf("expected 'agent_name required' in body, got %q", w.Body.String())
+	}
+}
+
+// TestHandleMatrixUsageCommand_NilFn verifies that nil GetUsageFn returns "not available".
+func TestHandleMatrixUsageCommand_NilFn(t *testing.T) {
+	var got string
+	replyFn := func(msg string) { got = msg }
+	fe := &MatrixFrontend{cfg: MatrixConfig{GetUsageFn: nil}}
+	fe.handleMatrixUsageCommand(replyFn)
+	if got != "Usage data not available" {
+		t.Errorf("expected not-available message, got %q", got)
+	}
+}
+
+// TestHandleMatrixUsageCommand_EmptyString verifies that empty GetUsageFn result returns fetching message.
+func TestHandleMatrixUsageCommand_EmptyString(t *testing.T) {
+	var got string
+	replyFn := func(msg string) { got = msg }
+	fe := &MatrixFrontend{cfg: MatrixConfig{GetUsageFn: func() string { return "" }}}
+	fe.handleMatrixUsageCommand(replyFn)
+	if !strings.Contains(got, "still fetching") {
+		t.Errorf("expected fetching message, got %q", got)
+	}
+}
+
+// TestHandleNotifCommand_RestartNilFn verifies that nil RestartFn sends "not configured" reply.
+func TestHandleNotifCommand_RestartNilFn(t *testing.T) {
+	var bodies []string
+	srv := matrixTestServer(t, &bodies)
+	defer srv.Close()
+
+	userID := id.NewUserID("notify", "test")
+	nc, err := mautrix.NewClient(srv.URL, userID, "notify-token")
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	fe := &MatrixFrontend{
+		cfg: MatrixConfig{
+			TeamName:  "testteam",
+			RestartFn: nil,
+		},
+		sessions:     make(map[string]agentSession),
+		notifyClient: nc,
+		notifyRoom:   id.RoomID("!notifyroom:test"),
+		lastEventID:  make(map[string]id.EventID),
+	}
+
+	fe.handleNotifCommand("/restart")
+
+	if len(bodies) != 1 {
+		t.Fatalf("expected 1 reply, got %d", len(bodies))
+	}
+	if !strings.Contains(bodies[0], "not configured") {
+		t.Errorf("expected 'not configured' reply, got %q", bodies[0])
+	}
+}
+
+// TestHandleNotifCommand_Help verifies /help in notification room lists notif commands.
+func TestHandleNotifCommand_Help(t *testing.T) {
+	var bodies []string
+	srv := matrixTestServer(t, &bodies)
+	defer srv.Close()
+
+	userID := id.NewUserID("notify", "test")
+	nc, err := mautrix.NewClient(srv.URL, userID, "notify-token")
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	fe := &MatrixFrontend{
+		cfg:          MatrixConfig{TeamName: "testteam"},
+		sessions:     make(map[string]agentSession),
+		notifyClient: nc,
+		notifyRoom:   id.RoomID("!notifyroom:test"),
+		lastEventID:  make(map[string]id.EventID),
+	}
+
+	fe.handleNotifCommand("/help")
+
+	if len(bodies) != 1 {
+		t.Fatalf("expected 1 reply, got %d", len(bodies))
+	}
+	if !strings.Contains(bodies[0], "restart") {
+		t.Errorf("expected 'restart' in help body, got %q", bodies[0])
 	}
 }
