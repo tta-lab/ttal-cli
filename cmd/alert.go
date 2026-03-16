@@ -38,62 +38,69 @@ Examples:
 			message = fmt.Sprintf("[%s] %s", sessionName, message)
 		}
 
-		// Route to spawner agent unless --to-human is set
-		if !alertToHuman {
-			if err := alertToSpawner(cmd, message); err == nil {
-				return nil // delivered to spawner
-			}
-			// Fall through to Telegram on any error
+		if alertToHuman {
+			return notify.Send(message)
 		}
 
+		routed, err := alertToSpawner(cmd, message)
+		if err != nil {
+			return err // delivery was attempted but failed — don't silently fall back
+		}
+		if routed {
+			return nil
+		}
+
+		// No spawner configured — fall through to Telegram
 		return notify.Send(message)
 	},
 }
 
 // alertToSpawner attempts to route the alert to the spawner agent.
-// Returns nil on success, error if spawner can't be resolved or delivery fails.
-func alertToSpawner(cmd *cobra.Command, message string) error {
+//
+//   - routed=false, err=nil  → no spawner configured, caller should fall back to Telegram
+//   - routed=true,  err=nil  → delivered to spawner
+//   - routed=false, err!=nil → spawner resolved but delivery failed — surface to caller
+func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error) {
 	sessionID := os.Getenv("TTAL_JOB_ID")
 	if sessionID == "" {
-		return fmt.Errorf("no TTAL_JOB_ID")
+		return false, nil
 	}
 
-	task, err := taskwarrior.ExportTaskBySessionID(sessionID, "pending")
-	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not resolve task for alert routing: %v\n", err)
-		return err
+	task, twErr := taskwarrior.ExportTaskBySessionID(sessionID, "pending")
+	if twErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not resolve task for alert routing: %v\n", twErr)
+		return false, nil // can't determine spawner — fall back gracefully
 	}
 
-	spawner := task.Spawner
-	if spawner == "" {
-		return fmt.Errorf("no spawner on task")
+	if task.Spawner == "" {
+		return false, nil
 	}
 
-	// Parse team:agent — default to TTAL_TEAM if no team prefix
-	team, agent := parseSpawner(spawner)
+	team, agent := parseSpawner(task.Spawner)
 
 	// Append reply instructions
 	message += fmt.Sprintf("\n\nReply to this worker: ttal send --to %s \"your message\"", sessionID)
 
-	return daemon.Send(daemon.SendRequest{
+	if sendErr := daemon.Send(daemon.SendRequest{
+		From:    os.Getenv("TTAL_AGENT_NAME"),
 		To:      agent,
 		Team:    team,
 		Message: message,
-	})
+	}); sendErr != nil {
+		return false, sendErr
+	}
+
+	return true, nil
 }
 
-// parseSpawner splits a "team:agent" string. If no colon is present,
-// falls back to TTAL_TEAM env var (or "default") as the team.
+// parseSpawner splits a "team:agent" string.
+// Returns empty team when no colon is present — daemon.Send auto-fills Team from TTAL_TEAM.
 func parseSpawner(s string) (team, agent string) {
 	parts := strings.SplitN(s, ":", 2)
 	if len(parts) == 2 {
 		return parts[0], parts[1]
 	}
-	team = os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = defaultTeam
-	}
-	return team, s
+	return "", s
 }
 
 func init() {
