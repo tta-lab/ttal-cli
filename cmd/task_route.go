@@ -17,6 +17,7 @@ import (
 )
 
 const defaultTeam = "default"
+const defaultRole = "default"
 
 var routeToAgent string
 var routeMessage string
@@ -45,7 +46,7 @@ Examples:
 		rt := cfg.AgentRuntimeFor(routeToAgent)
 		role := agent.Role
 		if role == "" {
-			role = defaultTeam
+			role = defaultRole
 		}
 		prompt := cfg.RenderPrompt(role, uuid, rt)
 		if prompt == "" {
