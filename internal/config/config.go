@@ -216,6 +216,17 @@ type MatrixAgentConfig struct {
 	RoomID string `toml:"room_id"`
 }
 
+// Validate checks that required Matrix config fields are set and constraints are met.
+func (m *MatrixTeamConfig) Validate() error {
+	if m.Homeserver == "" {
+		return fmt.Errorf("matrix.homeserver is required")
+	}
+	if (m.NotifyRoom == "") != (m.NotifyTokenEnv == "") {
+		return fmt.Errorf("matrix: notification_room and notification_token_env must both be set or both be empty")
+	}
+	return nil
+}
+
 // AgentConfig is deprecated. Per-agent config now lives in CLAUDE.md frontmatter and roles.toml.
 // Kept for backward-compatible TOML parsing only — all fields are ignored at runtime.
 // Agents are discovered from the filesystem: any subdir of team_path with CLAUDE.md is an agent.

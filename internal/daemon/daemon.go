@@ -300,16 +300,20 @@ func buildFrontends(
 		if ft == "" {
 			ft = "telegram" // backward compatible default
 		}
+
+		// onMsg is shared across all frontend types — extract to avoid duplication.
+		onMsg := func(team, agent, text string) {
+			if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
+				log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
+			}
+		}
+
 		switch ft {
 		case "telegram":
 			fe := frontend.NewTelegram(frontend.TelegramConfig{
-				TeamName: teamName,
-				MCfg:     mcfg,
-				OnMessage: func(team, agent, text string) {
-					if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
-						log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
-					}
-				},
+				TeamName:   teamName,
+				MCfg:       mcfg,
+				OnMessage:  onMsg,
 				MsgSvc:     msgSvc,
 				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
 				GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
@@ -318,13 +322,9 @@ func buildFrontends(
 			frontends[teamName] = fe
 		case "matrix":
 			fe, err := frontend.NewMatrix(frontend.MatrixConfig{
-				TeamName: teamName,
-				MCfg:     mcfg,
-				OnMessage: func(team, agent, text string) {
-					if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
-						log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
-					}
-				},
+				TeamName:   teamName,
+				MCfg:       mcfg,
+				OnMessage:  onMsg,
 				MsgSvc:     msgSvc,
 				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
 			})

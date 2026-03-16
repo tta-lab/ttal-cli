@@ -50,9 +50,41 @@ func buildTestFrontend(t *testing.T, srv *httptest.Server, agentName, roomID str
 			TeamName:   "testteam",
 			UserNameFn: func() string { return "neil" },
 		},
-		clients:     map[string]*mautrix.Client{agentName: client},
-		roomIDs:     map[string]id.RoomID{agentName: id.RoomID(roomID)},
+		sessions: map[string]agentSession{
+			agentName: {client: client, roomID: id.RoomID(roomID)},
+		},
 		lastEventID: make(map[string]id.EventID),
+	}
+}
+
+// TestNewMatrix_MissingCallbacks verifies error when required callbacks are nil.
+func TestNewMatrix_MissingCallbacks(t *testing.T) {
+	mcfg := &config.DaemonConfig{
+		Teams: map[string]*config.ResolvedTeam{
+			"myteam": {Name: "myteam", Frontend: "matrix", Matrix: &config.MatrixTeamConfig{
+				Homeserver: "https://matrix.example.com",
+			}},
+		},
+	}
+
+	_, err := NewMatrix(MatrixConfig{
+		TeamName:   "myteam",
+		MCfg:       mcfg,
+		OnMessage:  nil,
+		UserNameFn: func() string { return "neil" },
+	})
+	if err == nil {
+		t.Fatal("expected error for nil OnMessage, got nil")
+	}
+
+	_, err = NewMatrix(MatrixConfig{
+		TeamName:  "myteam",
+		MCfg:      mcfg,
+		OnMessage: func(_, _, _ string) {},
+		// UserNameFn intentionally nil
+	})
+	if err == nil {
+		t.Fatal("expected error for nil UserNameFn, got nil")
 	}
 }
 
@@ -64,8 +96,10 @@ func TestNewMatrix_MissingConfig(t *testing.T) {
 		},
 	}
 	_, err := NewMatrix(MatrixConfig{
-		TeamName: "myteam",
-		MCfg:     mcfg,
+		TeamName:   "myteam",
+		MCfg:       mcfg,
+		OnMessage:  func(_, _, _ string) {},
+		UserNameFn: func() string { return "neil" },
 	})
 	if err == nil {
 		t.Fatal("expected error for missing [matrix] config, got nil")
@@ -91,13 +125,14 @@ func TestNewMatrix_SkipsAgentWithoutToken(t *testing.T) {
 	fe, err := NewMatrix(MatrixConfig{
 		TeamName:   "myteam",
 		MCfg:       mcfg,
+		OnMessage:  func(_, _, _ string) {},
 		UserNameFn: func() string { return "neil" },
 	})
 	if err != nil {
 		t.Fatalf("NewMatrix should succeed with missing token, got: %v", err)
 	}
-	if len(fe.clients) != 0 {
-		t.Errorf("expected 0 clients (agent skipped), got %d", len(fe.clients))
+	if len(fe.sessions) != 0 {
+		t.Errorf("expected 0 sessions (agent skipped), got %d", len(fe.sessions))
 	}
 }
 
@@ -126,8 +161,7 @@ func TestMatrixFrontend_SendText(t *testing.T) {
 // TestMatrixFrontend_SendText_UnknownAgent verifies error for unregistered agents.
 func TestMatrixFrontend_SendText_UnknownAgent(t *testing.T) {
 	fe := &MatrixFrontend{
-		clients:     map[string]*mautrix.Client{},
-		roomIDs:     map[string]id.RoomID{},
+		sessions:    map[string]agentSession{},
 		lastEventID: make(map[string]id.EventID),
 	}
 	if err := fe.SendText(context.Background(), "unknown", "hi"); err == nil {
@@ -148,8 +182,7 @@ func TestMatrixFrontend_SendNotification(t *testing.T) {
 	}
 	fe := &MatrixFrontend{
 		cfg:          MatrixConfig{TeamName: "testteam"},
-		clients:      map[string]*mautrix.Client{},
-		roomIDs:      map[string]id.RoomID{},
+		sessions:     map[string]agentSession{},
 		notifyClient: nc,
 		notifyRoom:   id.RoomID("!notifyroom:test"),
 		lastEventID:  make(map[string]id.EventID),
@@ -204,7 +237,7 @@ func TestMatrixFrontend_StubMethods(t *testing.T) {
 	}
 }
 
-// TestSplitMatrixMessage verifies message splitting behavior.
+// TestSplitMatrixMessage verifies message splitting behavior including content preservation.
 func TestSplitMatrixMessage(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -227,8 +260,18 @@ func TestSplitMatrixMessage(t *testing.T) {
 			wantLen: 1,
 		},
 		{
-			name:    "over limit splits into two",
+			name:    "over limit splits on paragraph break",
 			input:   strings.Repeat("a", maxMatrixMessageBytes/2) + "\n\n" + strings.Repeat("b", maxMatrixMessageBytes/2),
+			wantLen: 2,
+		},
+		{
+			name:    "over limit splits on single newline",
+			input:   strings.Repeat("a", maxMatrixMessageBytes/2) + "\n" + strings.Repeat("b", maxMatrixMessageBytes/2+1),
+			wantLen: 2,
+		},
+		{
+			name:    "over limit splits on space",
+			input:   strings.Repeat("a", maxMatrixMessageBytes/2) + " " + strings.Repeat("b", maxMatrixMessageBytes/2+1),
 			wantLen: 2,
 		},
 	}
@@ -243,25 +286,53 @@ func TestSplitMatrixMessage(t *testing.T) {
 					t.Errorf("part exceeds limit: len=%d", len(p))
 				}
 			}
+			// Verify content is preserved: every word from the original should appear in some part.
+			if tt.input != "" {
+				joined := strings.Join(parts, " ")
+				words := strings.Fields(tt.input)
+				for _, w := range words[:min(len(words), 3)] { // check first few words
+					if !strings.Contains(joined, w) {
+						t.Errorf("content lost: word %q not found in split output", w)
+					}
+				}
+			}
 		})
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // TestExtractDomain verifies domain extraction from homeserver URLs.
 func TestExtractDomain(t *testing.T) {
 	tests := []struct {
-		url  string
-		want string
+		url     string
+		want    string
+		wantErr bool
 	}{
-		{"https://matrix.example.com", "matrix.example.com"},
-		{"https://host:8448", "host:8448"},
-		{"not-a-url", "not-a-url"},
-		{"http://localhost:8008", "localhost:8008"},
+		{"https://matrix.example.com", "matrix.example.com", false},
+		{"https://host:8448", "host:8448", false},
+		{"http://localhost:8008", "localhost:8008", false},
+		{"not-a-url", "", true}, // no host → error
+		{"https://", "", true},  // empty host → error
+		{"://bad", "", true},    // parse error → error
 	}
 	for _, tt := range tests {
-		got := extractDomain(tt.url)
-		if got != tt.want {
-			t.Errorf("extractDomain(%q) = %q, want %q", tt.url, got, tt.want)
+		got, err := extractDomain(tt.url)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("extractDomain(%q): expected error, got %q", tt.url, got)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("extractDomain(%q): unexpected error: %v", tt.url, err)
+			} else if got != tt.want {
+				t.Errorf("extractDomain(%q) = %q, want %q", tt.url, got, tt.want)
+			}
 		}
 	}
 }
@@ -278,5 +349,51 @@ func TestMatrixFrontend_ClearTracking(t *testing.T) {
 	}
 	if _, ok := fe.lastEventID["yuki"]; ok {
 		t.Error("expected lastEventID for 'yuki' to be cleared")
+	}
+}
+
+// TestMatrixTeamConfig_Validate verifies Validate() catches missing homeserver and mismatched notify config.
+func TestMatrixTeamConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     config.MatrixTeamConfig
+		wantErr bool
+	}{
+		{
+			name:    "valid minimal",
+			cfg:     config.MatrixTeamConfig{Homeserver: "https://matrix.example.com"},
+			wantErr: false,
+		},
+		{
+			name:    "valid with notification",
+			cfg:     config.MatrixTeamConfig{Homeserver: "https://x.com", NotifyRoom: "!r:x.com", NotifyTokenEnv: "TOKEN_ENV"},
+			wantErr: false,
+		},
+		{
+			name:    "missing homeserver",
+			cfg:     config.MatrixTeamConfig{},
+			wantErr: true,
+		},
+		{
+			name:    "notify room without token env",
+			cfg:     config.MatrixTeamConfig{Homeserver: "https://x.com", NotifyRoom: "!r:x.com"},
+			wantErr: true,
+		},
+		{
+			name:    "token env without notify room",
+			cfg:     config.MatrixTeamConfig{Homeserver: "https://x.com", NotifyTokenEnv: "TOKEN_ENV"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

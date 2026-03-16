@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
@@ -27,11 +26,16 @@ type MatrixConfig struct {
 	UserNameFn func() string // returns human display name for this team
 }
 
+// agentSession holds a Matrix client and its associated room for one agent.
+type agentSession struct {
+	client *mautrix.Client
+	roomID id.RoomID
+}
+
 // MatrixFrontend implements Frontend using the Matrix protocol via mautrix-go.
 type MatrixFrontend struct {
 	cfg          MatrixConfig
-	clients      map[string]*mautrix.Client // agentName → client
-	roomIDs      map[string]id.RoomID       // agentName → room
+	sessions     map[string]agentSession // agentName → session
 	notifyClient *mautrix.Client
 	notifyRoom   id.RoomID
 	cancel       context.CancelFunc
@@ -43,9 +47,16 @@ type MatrixFrontend struct {
 }
 
 // NewMatrix constructs a MatrixFrontend from the given config.
-// Returns an error if the team's [matrix] config block is missing.
+// Returns an error if required config fields are missing or callbacks are nil.
 // Agents whose env-var tokens are unset are skipped with a warning (partial setup is OK).
 func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
+	if cfg.OnMessage == nil {
+		return nil, fmt.Errorf("MatrixConfig.OnMessage is required")
+	}
+	if cfg.UserNameFn == nil {
+		return nil, fmt.Errorf("MatrixConfig.UserNameFn is required")
+	}
+
 	team, ok := cfg.MCfg.Teams[cfg.TeamName]
 	if !ok {
 		return nil, fmt.Errorf("team %q not found in config", cfg.TeamName)
@@ -56,11 +67,12 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 	}
 
 	homeserver := matrixCfg.Homeserver
-	domain := extractDomain(homeserver)
+	domain, err := extractDomain(homeserver)
+	if err != nil {
+		return nil, fmt.Errorf("team %q: invalid matrix homeserver %q: %w", cfg.TeamName, homeserver, err)
+	}
 
-	clients := make(map[string]*mautrix.Client)
-	roomIDs := make(map[string]id.RoomID)
-
+	sessions := make(map[string]agentSession)
 	for agentName, agentCfg := range matrixCfg.Agents {
 		token := os.Getenv(agentCfg.AccessTokenEnv)
 		if token == "" {
@@ -72,8 +84,10 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 		if err != nil {
 			return nil, fmt.Errorf("matrix client for %s: %w", agentName, err)
 		}
-		clients[agentName] = client
-		roomIDs[agentName] = id.RoomID(agentCfg.RoomID)
+		sessions[agentName] = agentSession{
+			client: client,
+			roomID: id.RoomID(agentCfg.RoomID),
+		}
 	}
 
 	// Notification client (optional — log and skip if not configured)
@@ -95,8 +109,7 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 
 	return &MatrixFrontend{
 		cfg:          cfg,
-		clients:      clients,
-		roomIDs:      roomIDs,
+		sessions:     sessions,
 		notifyClient: notifyClient,
 		notifyRoom:   notifyRoom,
 		lastEventID:  make(map[string]id.EventID),
@@ -109,25 +122,17 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 func (f *MatrixFrontend) Start(ctx context.Context) error {
 	ctx, f.cancel = context.WithCancel(ctx)
 
-	for agentName, client := range f.clients {
-		name := agentName // capture loop variable
-		cli := client     // capture loop variable
+	for agentName, sess := range f.sessions {
+		name := agentName
+		s := sess
 
-		// Skip events until initial sync completes (prevents replaying old messages).
-		// mautrix-go's DefaultSyncer processes OnEventType handlers BEFORE OnSync callbacks,
-		// so events in the initial batch correctly see ready=false and are skipped.
-		var ready atomic.Bool
+		syncer := s.client.Syncer.(*mautrix.DefaultSyncer)
 
-		syncer := cli.Syncer.(*mautrix.DefaultSyncer)
-
-		// Mark ready after first sync batch completes.
-		syncer.OnSync(func(_ context.Context, _ *mautrix.RespSync, _ string) bool {
-			if !ready.Load() {
-				ready.Store(true)
-				log.Printf("[matrix] initial sync complete for %s, now processing events", name)
-			}
-			return true // continue syncing
-		})
+		// Skip all events in the initial sync batch (since="") to prevent
+		// replaying old messages on daemon restart.
+		// DontProcessOldEvents returns false when since="", causing ProcessResponse
+		// to return immediately before dispatching any events for that batch.
+		syncer.OnSync(s.client.DontProcessOldEvents)
 
 		// Filter: only receive m.room.message events (no presence, typing, read receipts).
 		// FilterJSON is set on DefaultSyncer, NOT on Client.
@@ -139,13 +144,9 @@ func (f *MatrixFrontend) Start(ctx context.Context) error {
 			},
 		}
 
-		syncer.OnEventType(event.EventMessage, func(_ context.Context, evt *event.Event) {
-			// Skip events from initial sync (old messages).
-			if !ready.Load() {
-				return
-			}
+		syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
 			// Skip own messages.
-			if evt.Sender == cli.UserID {
+			if evt.Sender == s.client.UserID {
 				return
 			}
 			msg := evt.Content.AsMessage()
@@ -162,7 +163,7 @@ func (f *MatrixFrontend) Start(ctx context.Context) error {
 			// call MsgSvc.Create directly with a nil guard instead).
 			senderName := f.cfg.UserNameFn()
 			if f.cfg.MsgSvc != nil {
-				if _, err := f.cfg.MsgSvc.Create(context.Background(), message.CreateParams{
+				if _, err := f.cfg.MsgSvc.Create(ctx, message.CreateParams{
 					Sender:    senderName,
 					Recipient: name,
 					Content:   msg.Body,
@@ -180,9 +181,9 @@ func (f *MatrixFrontend) Start(ctx context.Context) error {
 
 		go func(c *mautrix.Client, n string) {
 			if err := c.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("[matrix] sync stopped for %s: %v", n, err)
+				log.Printf("[matrix] FATAL: sync stopped for agent %s — no messages will be received until restart: %v", n, err)
 			}
-		}(cli, name)
+		}(s.client, name)
 	}
 
 	return nil
@@ -201,16 +202,12 @@ func (f *MatrixFrontend) Stop(_ context.Context) error {
 // SendText sends a text message to an agent's Matrix room.
 // Long messages are split at natural boundaries to stay within the 65535-byte limit.
 func (f *MatrixFrontend) SendText(ctx context.Context, agentName, text string) error {
-	client, ok := f.clients[agentName]
+	sess, ok := f.sessions[agentName]
 	if !ok {
-		return fmt.Errorf("no Matrix client for agent %s", agentName)
-	}
-	roomID, ok := f.roomIDs[agentName]
-	if !ok {
-		return fmt.Errorf("no room ID for agent %s", agentName)
+		return fmt.Errorf("no Matrix session for agent %s", agentName)
 	}
 	for _, chunk := range splitMatrixMessage(text) {
-		if _, err := client.SendText(ctx, roomID, chunk); err != nil {
+		if _, err := sess.client.SendText(ctx, sess.roomID, chunk); err != nil {
 			return fmt.Errorf("matrix send to %s: %w", agentName, err)
 		}
 	}
@@ -293,11 +290,15 @@ func splitMatrixMessage(text string) []string {
 }
 
 // extractDomain extracts the host portion from a homeserver URL.
+// Returns an error if the URL is malformed or has no host (which would produce invalid Matrix user IDs).
 // e.g. "https://matrix.example.com" → "matrix.example.com"
-func extractDomain(homeserverURL string) string {
+func extractDomain(homeserverURL string) (string, error) {
 	u, err := url.Parse(homeserverURL)
-	if err != nil || u.Host == "" {
-		return homeserverURL
+	if err != nil {
+		return "", fmt.Errorf("parse error: %w", err)
 	}
-	return u.Host
+	if u.Host == "" {
+		return "", fmt.Errorf("no host in URL (missing scheme?)")
+	}
+	return u.Host, nil
 }
