@@ -167,6 +167,20 @@ Study these to understand what good looks like:
 
 After committing new skills or commands, run `ttal sync` to deploy them to the runtime dirs (`~/.claude/skills/`, `~/.claude/agents/`). Skills aren't live until synced.
 
+## Deployment Model
+
+Both **skills** (`templates/docs/skills/`) and **commands** (`templates/docs/commands/`) deploy to `~/.claude/skills/` for Claude Code. Subagents (`templates/docs/agents/`) deploy to `~/.claude/agents/`. Run `ttal sync` after changes.
+
+## Plan Quality Workflow
+
+When reviewing plans before execution, use the plan-review → plan-triage cycle:
+
+1. **`/plan-review <flicknote-id>`** — spawns plan-reviewer subagent to find issues
+2. **`/plan-triage`** — categorize issues as FIX/FALSE POSITIVE/DEFER/ASK, fix actionable ones
+3. **Re-review** if needed — resume the same subagent for round tracking
+
+Key plan design rule: **1 task → 1 plan → 1 project/repo.** If a task touches multiple repos, split into separate tasks with dependencies, each getting its own plan.
+
 ## Working Directory
 
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/quill/`

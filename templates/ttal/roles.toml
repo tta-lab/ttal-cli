@@ -34,14 +34,14 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 Tag as planned: task {{task-id}} modify -bugfix +planned"""
 
 [manager]
-prompt = """{{skill:ttal-route}}
+prompt = """{{skill:task-route}}
 Apply this routing framework to the task.
 Read the task first: ttal task get {{task-id}}
 Then classify and route it."""
 
 # heartbeat_interval = "1h"
 
-heartbeat_prompt = """{{skill:ttal-route}}
+heartbeat_prompt = """{{skill:task-route}}
 Pick a task from today's list and make progress.
 Run: ttal today list and pick one.
 Then apply the routing framework to decide: ask / brainstorm / research / design / execute."""
