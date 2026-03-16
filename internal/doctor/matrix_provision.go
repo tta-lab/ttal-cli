@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -49,14 +50,7 @@ func checkMatrix(fix bool) Section {
 		return section
 	}
 
-	// Sort for deterministic output
-	for i := 0; i < len(matrixTeams)-1; i++ {
-		for j := i + 1; j < len(matrixTeams); j++ {
-			if matrixTeams[i] > matrixTeams[j] {
-				matrixTeams[i], matrixTeams[j] = matrixTeams[j], matrixTeams[i]
-			}
-		}
-	}
+	sort.Strings(matrixTeams)
 
 	for _, teamName := range matrixTeams {
 		checkMatrixTeam(&section, cfg, teamName, fix)
@@ -91,15 +85,13 @@ func checkMatrixTeam(section *Section, cfg *config.Config, teamName string, fix 
 	if teamPath == "" {
 		teamPath = cfg.TeamPath()
 	}
-	agentNames, _ := agentfs.DiscoverAgents(teamPath)
-	// Sort for deterministic output
-	for i := 0; i < len(agentNames)-1; i++ {
-		for j := i + 1; j < len(agentNames); j++ {
-			if agentNames[i] > agentNames[j] {
-				agentNames[i], agentNames[j] = agentNames[j], agentNames[i]
-			}
-		}
+	agentNames, err := agentfs.DiscoverAgents(teamPath)
+	if err != nil {
+		section.add(LevelError, teamName+".agents",
+			fmt.Sprintf("cannot discover agents at %s: %v", teamPath, err))
+		return
 	}
+	sort.Strings(agentNames)
 
 	checkMatrixAgents(section, cfg, teamName, matrixCfg, agentNames, fix)
 	checkMatrixNotify(section, cfg, teamName, matrixCfg, fix)
@@ -314,7 +306,9 @@ func provisionMatrixNotify(section *Section, _ *config.Config, teamName string, 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	_ = client.SetDisplayName(ctx, "🔔 Notifications — "+teamName)
+	if err := client.SetDisplayName(ctx, "🔔 Notifications — "+teamName); err != nil {
+		log.Printf("[matrix-provision] display name failed for notify-%s: %v", teamName, err)
+	}
 
 	createReq := &mautrix.ReqCreateRoom{
 		Name:   fmt.Sprintf("Notifications — %s", teamName),
@@ -352,7 +346,10 @@ func registerMatrixUser(homeserver, sharedSecret, username string) (string, erro
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	password := generateRandomPassword(32)
+	password, err := generateRandomPassword(32)
+	if err != nil {
+		return "", fmt.Errorf("generate password: %w", err)
+	}
 
 	nonce, err := getRegistrationNonce(ctx, homeserver)
 	if err != nil {
@@ -404,6 +401,10 @@ func getRegistrationNonce(ctx context.Context, homeserver string) (string, error
 		return "", err
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("nonce endpoint returned %d", resp.StatusCode)
+	}
 
 	var result struct {
 		Nonce string `json:"nonce"`
@@ -523,7 +524,9 @@ func updateMatrixNotifyConfig(teamName, envKey, roomID string) error {
 	matrixMap["notification_token_env"] = envKey
 	matrixMap["notification_room"] = roomID
 
-	// Atomic write — write to tmp, then rename (prevents corruption on encode failure)
+	// Atomic write — write to tmp, then rename (prevents corruption on encode failure).
+	// Close() is checked before Rename: the encoder may buffer until Close, so a
+	// silent close failure could leave a truncated .tmp that replaces config.toml.
 	tmp := cfgPath + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
@@ -534,15 +537,21 @@ func updateMatrixNotifyConfig(teamName, envKey, roomID string) error {
 		_ = os.Remove(tmp)
 		return encErr
 	}
-	_ = f.Close()
+	if closeErr := f.Close(); closeErr != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("flush config.toml.tmp: %w", closeErr)
+	}
 	return os.Rename(tmp, cfgPath)
 }
 
 // generateRandomPassword generates a URL-safe base64 string from n random bytes.
-func generateRandomPassword(nBytes int) string {
+// Returns an error if the system's cryptographic random source is unavailable.
+func generateRandomPassword(nBytes int) (string, error) {
 	b := make([]byte, nBytes)
-	_, _ = rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("crypto/rand unavailable: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // extractDomainFromURL extracts the host portion from a homeserver URL.

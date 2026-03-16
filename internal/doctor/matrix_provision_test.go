@@ -73,8 +73,14 @@ func TestComputeRegistrationMAC(t *testing.T) {
 // TestGenerateRandomPassword verifies the output is URL-safe base64, non-empty,
 // and that two calls produce different values.
 func TestGenerateRandomPassword(t *testing.T) {
-	p1 := generateRandomPassword(32)
-	p2 := generateRandomPassword(32)
+	p1, err := generateRandomPassword(32)
+	if err != nil {
+		t.Fatalf("generateRandomPassword: %v", err)
+	}
+	p2, err := generateRandomPassword(32)
+	if err != nil {
+		t.Fatalf("generateRandomPassword (second call): %v", err)
+	}
 
 	if p1 == "" {
 		t.Error("expected non-empty password")

@@ -162,7 +162,11 @@ func (f *MatrixFrontend) startAgentSync(ctx context.Context, agentName string, s
 			return
 		}
 		msg := evt.Content.AsMessage()
-		if msg == nil || msg.Body == "" {
+		if msg == nil {
+			return
+		}
+		// Audio messages may have an empty Body — don't filter them out before the MsgAudio check.
+		if msg.MsgType != event.MsgAudio && msg.Body == "" {
 			return
 		}
 
@@ -366,9 +370,12 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		// Notify the human about the failure
 		sess, ok := f.sessions[agentName]
 		if ok {
-			tctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
-			_, _ = sess.client.SendText(tctx, sess.roomID, "Voice transcription failed — check daemon logs for details")
+			const failMsg = "Voice transcription failed — check daemon logs for details"
+			if _, sendErr := sess.client.SendText(tctx, sess.roomID, failMsg); sendErr != nil {
+				log.Printf("[matrix] voice failure notification not sent for %s: %v", agentName, sendErr)
+			}
 		}
 		return
 	}
