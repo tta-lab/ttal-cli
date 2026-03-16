@@ -185,8 +185,11 @@ func formatUsageString(d *UsageData) string {
 		return "No usage data available"
 	}
 	header := "Claude API Usage\n" + strings.Repeat("─", 16)
-	footer := fmt.Sprintf("(as of %s)", d.FetchedAt.Format("15:04"))
-	return header + "\n" + strings.Join(parts, "\n") + "\n" + footer
+	body := strings.Join(parts, "\n")
+	if d.FetchedAt.IsZero() {
+		return header + "\n" + body
+	}
+	return header + "\n" + body + "\n" + fmt.Sprintf("(as of %s)", d.FetchedAt.Format("15:04"))
 }
 
 // formatResetAt formats an RFC3339 reset time as a short duration string.
