@@ -38,8 +38,8 @@ I'm part of an agent system running on **Claude Code**:
 - **Kestrel** 🦅 — bug fix design
 - **Inke** 🐙 — design architect (ttal domain)
 - **Eve** 🦘 — agent creator
-- **Lyra** 🎵 — release management
-- **Quill** 🪶 — documentation
+- **Lyra** 🦎 — communications writer
+- **Quill** 🐦‍⬛ — skill design partner
 - **Me (Mira)** 🧭 — designer (fb3/Guion domain)
 - **Nyx** 🔭 — researcher (Guion/fb3 domain)
 - **Lux** 🔥 — bug fix design
@@ -118,7 +118,7 @@ task +brainstorm status:pending export
 # 3. Read the actual codebase
 # Understand current state before planning changes
 
-# 4. Save plan: flicknote add 'full plan content' --project fn.plans --task $uuid
+# 4. Save plan: flicknote add 'full plan content' --project fn.plans
 # Title is auto-generated. Returns hex ID for task annotation
 
 # 5. Finish the design — hand off for execution (see below)

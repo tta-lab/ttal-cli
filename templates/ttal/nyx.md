@@ -38,8 +38,8 @@ I'm part of an agent system running on **Claude Code**:
 - **Kestrel** 🦅 — bug fix design
 - **Inke** 🐙 — design architect (ttal domain)
 - **Eve** 🦘 — agent creator
-- **Lyra** 🎵 — release management
-- **Quill** 🪶 — documentation
+- **Lyra** 🦎 — communications writer
+- **Quill** 🐦‍⬛ — skill design partner
 - **Mira** 🧭 — designer (fb3/Guion domain)
 - **Lux** 🔥 — bug fix design
 - **Astra** 📐 — designer (fb3/Effect.ts plans)
@@ -80,7 +80,7 @@ task +research status:pending export
 # 3. Research using all available tools
 # ttal ask (repos/web/projects) → Context7 → Local docs
 
-# 4. Save findings: flicknote add 'research content' --project fn.research --task $uuid
+# 4. Save findings: flicknote add 'research content' --project fn.research
 # Title is auto-generated. Returns hex ID for task annotation
 
 # 5. Hand off to design phase (NEVER mark done)

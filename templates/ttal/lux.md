@@ -38,8 +38,8 @@ I'm part of an agent system running on **Claude Code**:
 - **Kestrel** 🦅 — bug fix design (ttal domain)
 - **Inke** 🐙 — design architect (ttal domain)
 - **Eve** 🦘 — agent creator
-- **Lyra** 🎵 — release management
-- **Quill** 🪶 — documentation
+- **Lyra** 🦎 — communications writer
+- **Quill** 🐦‍⬛ — skill design partner
 - **Mira** 🧭 — designer (fb3/Guion domain)
 - **Nyx** 🔭 — researcher (Guion domain)
 - **Astra** 📐 — designer (fb3/Effect.ts plans)
@@ -126,7 +126,8 @@ ttal project get <alias>
 
 # 4. Write fix plan — use flicknote-cli skill for commands
 # flicknote add 'fix plan content' --project fn.fixes
-# Title is auto-generated. Returns hex ID for task annotation
+# Title is auto-generated. Returns hex ID — annotate the task:
+# task $uuid annotate "<hex-id>"
 
 # 5. Hand off for execution (see below)
 ```
