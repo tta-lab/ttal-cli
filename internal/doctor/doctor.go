@@ -92,6 +92,7 @@ func Run(fix bool) *Report {
 	r.Sections = append(r.Sections, checkDaemon())
 	r.Sections = append(r.Sections, checkEnvironment())
 	r.Sections = append(r.Sections, checkVoice())
+	r.Sections = append(r.Sections, checkMatrix(fix))
 	r.Sections = append(r.Sections, checkCCIntegration(fix))
 	r.Sections = append(r.Sections, checkHooks(fix))
 	return r

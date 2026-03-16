@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/voice"
 )
 
 // MatrixConfig holds construction parameters for MatrixFrontend.
@@ -183,7 +184,13 @@ func (f *MatrixFrontend) startAgentSync(ctx context.Context, agentName string, s
 			return
 		}
 
-		// 3. Regular message — persist and deliver.
+		// 3. Check if this is a voice/audio message — transcribe it.
+		if msg.MsgType == event.MsgAudio {
+			f.handleMatrixVoice(ctx, agentName, msg, sess.client)
+			return
+		}
+
+		// 4. Regular message — persist and deliver.
 		f.deliverInboundMessage(ctx, agentName, msg.Body)
 	})
 
@@ -293,9 +300,93 @@ func (f *MatrixFrontend) SendNotification(ctx context.Context, text string) erro
 	return nil
 }
 
-// SetReaction is a no-op stub — Phase 4 will implement emoji reactions.
-func (f *MatrixFrontend) SetReaction(_ context.Context, _ string, _ string) error {
-	return nil // no-op — Phase 4
+// SetReaction sends an emoji reaction on the last tracked inbound message for an agent.
+// Matrix reactions are additive (each call adds a new reaction, unlike Telegram which replaces).
+func (f *MatrixFrontend) SetReaction(ctx context.Context, agentName string, emoji string) error {
+	sess, ok := f.sessions[agentName]
+	if !ok {
+		return nil // no session — silently skip (same as Telegram)
+	}
+
+	f.lastEventMu.RLock()
+	evtID, ok := f.lastEventID[agentName]
+	f.lastEventMu.RUnlock()
+	if !ok {
+		return nil // no tracked message — silently skip
+	}
+
+	content := &event.ReactionEventContent{
+		RelatesTo: event.RelatesTo{
+			Type:    event.RelAnnotation,
+			EventID: evtID,
+			Key:     emoji,
+		},
+	}
+	_, err := sess.client.SendMessageEvent(ctx, sess.roomID, event.EventReaction, content)
+	if err != nil {
+		return fmt.Errorf("matrix reaction for %s: %w", agentName, err)
+	}
+	return nil
+}
+
+// handleMatrixVoice downloads and transcribes an inbound Matrix voice/audio message,
+// then delivers the transcription to the agent as a regular message.
+func (f *MatrixFrontend) handleMatrixVoice(ctx context.Context, agentName string, msg *event.MessageEventContent, client *mautrix.Client) {
+	if msg.URL == "" {
+		log.Printf("[matrix] voice message from %s has no URL — skipping", agentName)
+		return
+	}
+
+	mxcURL, err := msg.URL.Parse()
+	if err != nil {
+		log.Printf("[matrix] invalid mxc URL for voice from %s: %v", agentName, err)
+		return
+	}
+
+	audioData, err := client.DownloadBytes(ctx, mxcURL)
+	if err != nil {
+		log.Printf("[matrix] voice download failed for %s: %v", agentName, err)
+		return
+	}
+
+	// Determine filename from message or default to voice.ogg
+	filename := "voice.ogg"
+	if msg.FileName != "" {
+		filename = msg.FileName
+	} else if msg.Body != "" && msg.Body != "Voice message" {
+		filename = msg.Body
+	}
+
+	transcription, err := voice.Transcribe(audioData, filename)
+	if err != nil {
+		log.Printf("[matrix] voice transcription failed for %s: %v", agentName, err)
+		// Notify the human about the failure
+		sess, ok := f.sessions[agentName]
+		if ok {
+			tctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_, _ = sess.client.SendText(tctx, sess.roomID, "Voice transcription failed — check daemon logs for details")
+		}
+		return
+	}
+
+	senderName := f.cfg.UserNameFn()
+	rawText := "[🎤 voice] " + transcription
+
+	if f.cfg.MsgSvc != nil {
+		if _, err := f.cfg.MsgSvc.Create(ctx, message.CreateParams{
+			Sender:    senderName,
+			Recipient: agentName,
+			Content:   rawText,
+			Team:      f.cfg.TeamName,
+			Channel:   message.ChannelMatrix,
+		}); err != nil {
+			log.Printf("[matrix] voice persist failed: %v", err)
+		}
+	}
+
+	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, rawText)
+	f.cfg.OnMessage(f.cfg.TeamName, agentName, formatted)
 }
 
 // ClearTracking clears the tracked inbound event ID for an agent.

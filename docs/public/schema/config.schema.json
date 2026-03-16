@@ -256,6 +256,10 @@
                 "type": "string",
                 "description": "Env var name for notification bot access token"
               },
+              "human_user_id": {
+                "type": "string",
+                "description": "Matrix user ID of the human owner, invited to all provisioned rooms (e.g. \"@neil:ttal.dev\")"
+              },
               "agents": {
                 "additionalProperties": {
                   "properties": {
