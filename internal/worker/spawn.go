@@ -97,7 +97,7 @@ func spawnWorker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, project)
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -200,7 +200,7 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch, project string) error {
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -240,7 +240,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		}
 	}
 
-	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch, project); err != nil {
+	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch); err != nil {
 		return fmt.Errorf("session created but task tracking failed\n"+
 			"  Session: %s\n"+
 			"  To attach: tmux attach -t %s\n\n"+

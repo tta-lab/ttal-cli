@@ -486,7 +486,7 @@ func checkUDAs(section *Section, taskrcTtalPath string) {
 		section.add(LevelError, ".taskrc.ttal", fmt.Sprintf("cannot read: %v", err))
 		return
 	}
-	for _, uda := range []string{"branch", "project_path", "pr_id", "spawner"} {
+	for _, uda := range []string{"branch", "pr_id", "spawner"} {
 		if strings.Contains(string(ttalContent), "uda."+uda+".type") {
 			section.add(LevelOK, uda, "UDA "+uda+" defined")
 		} else {
@@ -549,9 +549,6 @@ func checkTaskrcInclude(section *Section, taskrc, content, inc string, fix bool)
 const taskrcTtalContent = `# TTAL Worker UDAs
 uda.branch.type=string
 uda.branch.label=Branch
-
-uda.project_path.type=string
-uda.project_path.label=Project
 
 uda.pr_id.type=string
 uda.pr_id.label=PR ID

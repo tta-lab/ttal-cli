@@ -9,6 +9,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/usage"
@@ -137,11 +138,9 @@ func spawnWorkerForTask(taskUUID string, yes bool) error {
 		return fmt.Errorf("session %s already exists — cannot spawn duplicate", sessionName)
 	}
 
-	if task.ProjectPath == "" {
-		return fmt.Errorf(
-			"task %s has no project_path — run enrichment first "+
-				"(task add usually triggers this automatically)",
-			taskUUID)
+	projectPath, err := projectPkg.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return fmt.Errorf("task %s: %w", taskUUID, err)
 	}
 
 	cfg, err := config.Load()
@@ -157,7 +156,7 @@ func spawnWorkerForTask(taskUUID string, yes bool) error {
 	}
 
 	if !yes {
-		printConfirmHint(task)
+		printConfirmHint(task, projectPath)
 		return fmt.Errorf("re-run with --yes to confirm")
 	}
 
@@ -167,7 +166,7 @@ func spawnWorkerForTask(taskUUID string, yes bool) error {
 
 	spawnCfg := worker.SpawnConfig{
 		Name:     workerName,
-		Project:  task.ProjectPath,
+		Project:  projectPath,
 		TaskUUID: task.UUID,
 		Worktree: true,
 		Runtime:  rt,
@@ -209,8 +208,8 @@ func detectSpawner() string {
 	return team + ":" + agent
 }
 
-func printConfirmHint(task *taskwarrior.Task) {
-	fmt.Fprintf(os.Stderr, "Project: %s\n", task.ProjectPath)
+func printConfirmHint(task *taskwarrior.Task, projectPath string) {
+	fmt.Fprintf(os.Stderr, "Project: %s\n", projectPath)
 	fmt.Fprintf(os.Stderr, "⚠ Confirm project path matches your plan before proceeding:\n")
 	fmt.Fprintf(os.Stderr, "  ttal task execute %s --yes\n", task.SessionID())
 }

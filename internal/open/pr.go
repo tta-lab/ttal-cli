@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -30,8 +31,9 @@ func PR(uuid string) error {
 		return fmt.Errorf("%s", msg)
 	}
 
-	if task.ProjectPath == "" {
-		return fmt.Errorf("task has PR #%s but no project_path UDA", task.PRID)
+	projectPath, err := project.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return err
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(task.PRID)
@@ -39,7 +41,7 @@ func PR(uuid string) error {
 		return fmt.Errorf("invalid pr_id: %w", err)
 	}
 
-	repoInfo, err := gitprovider.DetectProvider(task.ProjectPath)
+	repoInfo, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
 		return fmt.Errorf("cannot determine repo: %w", err)
 	}

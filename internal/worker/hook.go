@@ -57,11 +57,6 @@ func (t hookTask) Project() string {
 	return v
 }
 
-func (t hookTask) ProjectPath() string {
-	v, _ := t["project_path"].(string)
-	return v
-}
-
 func (t hookTask) Branch() string {
 	v, _ := t["branch"].(string)
 	return v

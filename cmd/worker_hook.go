@@ -31,10 +31,9 @@ var workerHookOnAddCmd = &cobra.Command{
 	Long: `Handle taskwarrior on-add event.
 
 Reads one JSON line from stdin (the new task).
-Enriches the task inline (project_path, branch) if a project is set.
+Validates the project alias against projects.toml and enriches branch if a project is set.
 Outputs the task JSON to stdout (required by taskwarrior).
-
-This command always exits 0 to avoid blocking taskwarrior.`,
+Exits 1 if the project alias is not registered, rejecting the task.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		worker.HookOnAdd()
 	},

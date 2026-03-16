@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -51,8 +52,8 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	if t.Branch != "" {
 		field(b, "Branch:", " ", t.Branch)
 	}
-	if t.ProjectPath != "" {
-		field(b, "Path:", "   ", t.ProjectPath)
+	if path := project.ResolveProjectPath(t.Project); path != "" {
+		field(b, "Path:", "   ", path)
 	}
 	if t.PRID != "" {
 		info, err := taskwarrior.ParsePRID(t.PRID)

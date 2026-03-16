@@ -23,7 +23,7 @@ var openPRCmd = &cobra.Command{
 	Short: "Open PR in browser",
 	Long: `Open the Forgejo PR associated with a task in the default browser.
 
-Reads pr_id and project_path UDAs from the task, detects the git remote
+Reads pr_id UDA and resolves project path from projects.toml, detects the git remote
 to construct the PR URL, and opens it.
 
 Environment variables:
