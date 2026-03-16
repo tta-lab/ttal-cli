@@ -300,13 +300,6 @@ func TestSplitMatrixMessage(t *testing.T) {
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // TestExtractDomain verifies domain extraction from homeserver URLs.
 func TestExtractDomain(t *testing.T) {
 	tests := []struct {

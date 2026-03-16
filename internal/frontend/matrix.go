@@ -65,6 +65,9 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 	if matrixCfg == nil {
 		return nil, fmt.Errorf("team %q has frontend=matrix but no [teams.%s.matrix] config", cfg.TeamName, cfg.TeamName)
 	}
+	if err := matrixCfg.Validate(); err != nil {
+		return nil, fmt.Errorf("team %q matrix config invalid: %w", cfg.TeamName, err)
+	}
 
 	homeserver := matrixCfg.Homeserver
 	domain, err := extractDomain(homeserver)
