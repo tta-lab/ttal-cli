@@ -70,7 +70,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		commandCount := 0
 		ruleCount := 0
 
-		// Collect agent paths: subagents_paths + team_path (if exists)
+		// Build combined agentPaths for CleanAgents (needs both sources)
 		agentPaths := make([]string, len(syncCfg.SubagentsPaths))
 		copy(agentPaths, syncCfg.SubagentsPaths)
 		if teamPath := cfg.TeamPath(); teamPath != "" {
@@ -84,31 +84,46 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Println("Syncing agents...")
 			}
 
-			results, err := sync.DeployAgents(agentPaths, syncDryRun)
-			if err != nil {
-				return fmt.Errorf("agent sync failed: %w", err)
+			// Deploy subagents (from subagents_paths) — NOT denied
+			if len(syncCfg.SubagentsPaths) > 0 {
+				subResults, err := sync.DeployAgents(syncCfg.SubagentsPaths, syncDryRun)
+				if err != nil {
+					return fmt.Errorf("subagent sync failed: %w", err)
+				}
+				for _, r := range subResults {
+					fmt.Printf("  %s\n", shortenHome(r.Source))
+					fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
+					fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
+				}
+				agentCount += len(subResults)
 			}
 
-			for _, r := range results {
-				fmt.Printf("  %s\n", shortenHome(r.Source))
-				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
-			}
-			agentCount = len(results)
+			// Deploy team agents (from team_path) — denied as subagents
+			if teamPath := cfg.TeamPath(); teamPath != "" {
+				teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
+				if err != nil {
+					return fmt.Errorf("team agent sync failed: %w", err)
+				}
+				for _, r := range teamResults {
+					fmt.Printf("  %s\n", shortenHome(r.Source))
+					fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
+					fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
+				}
+				agentCount += len(teamResults)
 
-			// Deny deployed agents as subagents in settings.json
-			primaryAgentNames := make([]string, len(results))
-			for i, r := range results {
-				primaryAgentNames[i] = r.Name
-			}
-			denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
-			if err != nil {
-				fmt.Fprintf(os.Stderr,
-					"warning: agents NOT denied as subagents (settings.json update failed — fix permissions and re-run sync): %v\n",
-					err)
-			} else {
-				for _, name := range denied {
-					fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)
+				// Only deny team agents as subagents
+				primaryAgentNames := make([]string, len(teamResults))
+				for i, r := range teamResults {
+					primaryAgentNames[i] = r.Name
+				}
+				denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
+				if err != nil {
+					fmt.Fprintf(os.Stderr,
+						"warning: agents NOT denied as subagents (settings.json update failed): %v\n", err)
+				} else {
+					for _, name := range denied {
+						fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)
+					}
 				}
 			}
 
