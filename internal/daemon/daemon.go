@@ -296,24 +296,46 @@ func buildFrontends(
 ) map[string]frontend.Frontend {
 	frontends := make(map[string]frontend.Frontend)
 	for teamName, team := range mcfg.Teams {
-		if team.Frontend != "" && team.Frontend != "telegram" {
-			log.Printf("[daemon] warning: team %q has frontend=%q — only 'telegram' is implemented; using telegram",
-				teamName, team.Frontend)
+		ft := team.Frontend
+		if ft == "" {
+			ft = "telegram" // backward compatible default
 		}
-		fe := frontend.NewTelegram(frontend.TelegramConfig{
-			TeamName: teamName,
-			MCfg:     mcfg,
-			OnMessage: func(team, agent, text string) {
-				if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
-					log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
-				}
-			},
-			MsgSvc:     msgSvc,
-			UserNameFn: func() string { return mcfg.Global.UserName() },
-			GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
-			RestartFn:  Restart,
-		})
-		frontends[teamName] = fe
+
+		// onMsg is shared across all frontend types — extract to avoid duplication.
+		onMsg := func(team, agent, text string) {
+			if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
+				log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
+			}
+		}
+
+		switch ft {
+		case "telegram":
+			fe := frontend.NewTelegram(frontend.TelegramConfig{
+				TeamName:   teamName,
+				MCfg:       mcfg,
+				OnMessage:  onMsg,
+				MsgSvc:     msgSvc,
+				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
+				GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
+				RestartFn:  Restart,
+			})
+			frontends[teamName] = fe
+		case "matrix":
+			fe, err := frontend.NewMatrix(frontend.MatrixConfig{
+				TeamName:   teamName,
+				MCfg:       mcfg,
+				OnMessage:  onMsg,
+				MsgSvc:     msgSvc,
+				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
+			})
+			if err != nil {
+				log.Printf("[daemon] matrix frontend failed for team %s: %v — skipping", teamName, err)
+				continue
+			}
+			frontends[teamName] = fe
+		default:
+			log.Printf("[daemon] unknown frontend %q for team %s — skipping", ft, teamName)
+		}
 	}
 	return frontends
 }

@@ -40,7 +40,7 @@ var (
 		{Name: "content", Type: field.TypeString, Size: 2147483647},
 		{Name: "message_type", Type: field.TypeEnum, Enums: []string{"text", "system", "notification"}, Default: "text"},
 		{Name: "team", Type: field.TypeString},
-		{Name: "channel", Type: field.TypeEnum, Enums: []string{"telegram", "gui", "cli", "watcher", "adapter"}},
+		{Name: "channel", Type: field.TypeEnum, Enums: []string{"telegram", "matrix", "gui", "cli", "watcher", "adapter"}},
 		{Name: "runtime", Type: field.TypeString, Nullable: true},
 		{Name: "reply_to_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},

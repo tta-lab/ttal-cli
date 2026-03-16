@@ -33,7 +33,7 @@ func (Message) Fields() []ent.Field {
 		field.String("team").
 			NotEmpty(),
 		field.Enum("channel").
-			Values("telegram", "gui", "cli", "watcher", "adapter"),
+			Values("telegram", "matrix", "gui", "cli", "watcher", "adapter"),
 		field.String("runtime").
 			Optional().
 			Validate(func(s string) error {
