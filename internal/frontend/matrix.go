@@ -189,7 +189,7 @@ func (f *MatrixFrontend) startAgentSync(ctx context.Context, agentName string, s
 
 	go func() {
 		if err := sess.client.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
-			log.Printf("[matrix] FATAL: sync stopped for agent %s — no messages will be received until restart: %v", agentName, err)
+			log.Printf("[matrix] FATAL: sync stopped for agent %s — restart required: %v", agentName, err)
 		}
 	}()
 }
