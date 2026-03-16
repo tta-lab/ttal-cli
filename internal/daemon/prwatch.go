@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,8 +11,8 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
-	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -39,7 +40,7 @@ type prWatchTarget struct {
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
 // and active tmux sessions, then spawns per-PR polling goroutines.
-func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
+func startPRWatcher(mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, done <-chan struct{}) {
 	var mu sync.Mutex
 	active := make(map[string]bool) // task UUID → polling
 
@@ -55,7 +56,7 @@ func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
 			case <-timer.C:
 			}
 
-			scanForPRTasks(mcfg, &mu, active, done)
+			scanForPRTasks(mcfg, frontends, &mu, active, done)
 			timer.Reset(prScanInterval)
 		}
 	}()
@@ -66,7 +67,7 @@ func startPRWatcher(mcfg *config.DaemonConfig, done <-chan struct{}) {
 // scanForPRTasks queries taskwarrior for tasks with pr_id, checks tmux sessions,
 // and spawns polling goroutines for new PRs.
 func scanForPRTasks(
-	mcfg *config.DaemonConfig,
+	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
@@ -74,7 +75,7 @@ func scanForPRTasks(
 	allSucceeded := true
 
 	for teamName := range mcfg.Teams {
-		seen := scanTeamWithEnv(mcfg, teamName, mu, active, done)
+		seen := scanTeamWithEnv(frontends, teamName, mu, active, done)
 		if seen == nil {
 			// Team scan failed — skip pruning this round to avoid orphaning
 			// goroutines whose UUIDs would be absent from an error-empty result.
@@ -104,22 +105,22 @@ func scanForPRTasks(
 // scanTeamWithEnv sets TTAL_TEAM for non-default teams and delegates to scanTeam.
 // Returns nil on taskwarrior error so the caller can skip the pruning pass.
 func scanTeamWithEnv(
-	mcfg *config.DaemonConfig,
+	frontends map[string]frontend.Frontend,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
 	if teamName == config.DefaultTeamName {
-		return scanTeam(mcfg, teamName, mu, active, done)
+		return scanTeam(frontends, teamName, mu, active, done)
 	}
 	prev := os.Getenv("TTAL_TEAM")
 	_ = os.Setenv("TTAL_TEAM", teamName)
 	defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
-	return scanTeam(mcfg, teamName, mu, active, done)
+	return scanTeam(frontends, teamName, mu, active, done)
 }
 
 func scanTeam(
-	mcfg *config.DaemonConfig,
+	frontends map[string]frontend.Frontend,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
@@ -186,7 +187,7 @@ func scanTeam(
 			prIndex, info.Owner, info.Repo, sessionName)
 
 		go func() {
-			keep := pollPR(target, mcfg, done)
+			keep := pollPR(target, frontends, done)
 			if !keep {
 				mu.Lock()
 				delete(active, target.TaskUUID)
@@ -204,7 +205,10 @@ func scanTeam(
 // Delivers status exactly once per HEAD SHA.
 // Returns true if the UUID should remain in the active map (PR merged/closed — wait for cleanup).
 // Returns false for all other exits (timeout, session gone, shutdown) — allows re-spawn.
-func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{}) bool {
+func pollPR(
+	target prWatchTarget,
+	frontends map[string]frontend.Frontend, done <-chan struct{},
+) bool {
 	provider, err := gitprovider.NewProviderByName(target.Provider)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
@@ -257,7 +261,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{
 			return true
 		}
 
-		conflictNotified = checkMergeConflict(fetchedPR, target, mcfg, conflictNotified)
+		conflictNotified = checkMergeConflict(fetchedPR, target, frontends, conflictNotified)
 
 		headSHA := fetchedPR.HeadSHA
 		if headSHA == "" || headSHA == lastDeliveredSHA {
@@ -266,7 +270,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{
 			continue
 		}
 
-		newInterval := handleCIStatus(provider, target, mcfg, headSHA, interval)
+		newInterval := handleCIStatus(provider, target, frontends, headSHA, interval)
 		if newInterval == prPollInitial {
 			lastDeliveredSHA = headSHA
 		}
@@ -280,7 +284,7 @@ func pollPR(target prWatchTarget, mcfg *config.DaemonConfig, done <-chan struct{
 // Callers use prPollInitial as a sentinel to update lastDeliveredSHA.
 func handleCIStatus(
 	provider gitprovider.Provider, target prWatchTarget,
-	mcfg *config.DaemonConfig, headSHA string, interval time.Duration,
+	frontends map[string]frontend.Frontend, headSHA string, interval time.Duration,
 ) time.Duration {
 	cs, err := provider.GetCombinedStatus(target.Owner, target.Repo, headSHA)
 	if err != nil {
@@ -303,7 +307,7 @@ func handleCIStatus(
 		msg := fmt.Sprintf("❌ PR #%d CI checks failed (sha=%s). Run `ttal pr ci --log` for failure details.",
 			target.PRIndex, shortSHA(headSHA))
 		deliverToWorkerSession(target.SessionName, msg)
-		notifyPRStatus(mcfg, target, "❌ CI failed", "")
+		notifyPRStatus(frontends, target, "❌ CI failed", "")
 		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		return prPollInitial
 
@@ -316,7 +320,7 @@ func handleCIStatus(
 // Returns the updated conflictNotified flag.
 func checkMergeConflict(
 	pr *gitprovider.PullRequest, target prWatchTarget,
-	mcfg *config.DaemonConfig, alreadyNotified bool,
+	frontends map[string]frontend.Frontend, alreadyNotified bool,
 ) bool {
 	if pr.Mergeable {
 		return false
@@ -327,7 +331,7 @@ func checkMergeConflict(
 	msg := fmt.Sprintf("PR #%d has merge conflicts — rebase or merge base branch to resolve.",
 		target.PRIndex)
 	deliverToWorkerSession(target.SessionName, msg)
-	notifyPRStatus(mcfg, target, "⚠️ Merge conflict detected", "")
+	notifyPRStatus(frontends, target, "⚠️ Merge conflict detected", "")
 	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))
 	return true
 }
@@ -349,16 +353,19 @@ func deliverToWorkerSession(sessionName, msg string) {
 	}
 }
 
-// notifyPRStatus sends PR status to the team's Telegram chat via the notification bot.
-func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status string, runURL string) {
+// notifyPRStatus sends PR status to the team's frontend notification channel.
+func notifyPRStatus(
+	frontends map[string]frontend.Frontend,
+	target prWatchTarget, status string, runURL string,
+) {
 	team := target.Team
 	if team == "" {
 		team = config.DefaultTeamName
 	}
 
-	teamCfg, ok := mcfg.Teams[team]
+	fe, ok := frontends[team]
 	if !ok {
-		log.Printf("[prwatch] notifyPRStatus: no config for team %q — notification dropped", team)
+		log.Printf("[prwatch] notifyPRStatus: no frontend for team %q — notification dropped", team)
 		return
 	}
 
@@ -366,8 +373,8 @@ func notifyPRStatus(mcfg *config.DaemonConfig, target prWatchTarget, status stri
 	if runURL != "" {
 		msg += "\n" + runURL
 	}
-	if err := notify.SendWithConfig(teamCfg.NotificationToken, teamCfg.ChatID, msg); err != nil {
-		log.Printf("[prwatch] telegram notify failed: %v", err)
+	if err := fe.SendNotification(context.Background(), msg); err != nil {
+		log.Printf("[prwatch] notify failed: %v", err)
 	}
 }
 
@@ -382,7 +389,10 @@ func formatTaskDoneMsg(target prWatchTarget) string {
 }
 
 // notifySpawnerMerged delivers a PR-merged message to the spawning agent.
-func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, target prWatchTarget) {
+func notifySpawnerMerged(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend, target prWatchTarget,
+) {
 	if target.Spawner == "" {
 		return
 	}
@@ -393,14 +403,17 @@ func notifySpawnerMerged(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 		return
 	}
 	teamName, agentName := parts[0], parts[1]
-	if err := deliverToAgent(registry, mcfg, teamName, agentName, formatTaskDoneMsg(target)); err != nil {
+	if err := deliverToAgent(registry, mcfg, frontends, teamName, agentName, formatTaskDoneMsg(target)); err != nil {
 		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
 	}
 }
 
 // notifyManagerAgents delivers a task-done notification to manager agents in the task's
 // owning team only. Skips any agent that is the same as the spawner (already notified).
-func notifyManagerAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, target prWatchTarget) {
+func notifyManagerAgents(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend, target prWatchTarget,
+) {
 	teamName := target.Team
 	if teamName == "" {
 		log.Printf("[prwatch] notifyManagerAgents: target.Team empty, falling back to default team")
@@ -428,7 +441,7 @@ func notifyManagerAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, t
 		if spawnerKey == target.Spawner {
 			continue
 		}
-		if err := deliverToAgent(registry, mcfg, teamName, agent.Name, msg); err != nil {
+		if err := deliverToAgent(registry, mcfg, frontends, teamName, agent.Name, msg); err != nil {
 			log.Printf("[prwatch] notifyManagerAgents: deliver to %s/%s: %v", teamName, agent.Name, err)
 		}
 	}

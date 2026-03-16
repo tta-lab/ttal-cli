@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -16,8 +17,8 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/ent"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
-	"github.com/tta-lab/ttal-cli/internal/notify"
 
 	_ "modernc.org/sqlite"
 )
@@ -76,15 +77,12 @@ func Run() error {
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	_ = ctx // reserved for future use
 
 	registry := newAdapterRegistry()
-	ahs := newAskHumanStore()
-	mt := newMessageTracker()
 
-	// Run adapter init and bot command registration concurrently — they're independent.
+	// Run adapter init concurrently with command discovery — they're independent.
 	var startupWg sync.WaitGroup
-	var allCommands []BotCommand
+	var discovered []BotCommand
 
 	startupWg.Add(1)
 	go func() {
@@ -95,28 +93,56 @@ func Run() error {
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		allCommands = discoverAndRegisterCommands(mcfg)
+		discovered = DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
 	}()
 
 	startupWg.Wait()
-	startTelegramPollers(mcfg, registry, done, ahs, allCommands, mt, msgSvc)
-	startNotificationPollers(mcfg, done)
+
+	// Build frontends per-team and register commands.
+	// Frontends capture registry and frontends itself via closure, which is
+	// fully populated before Start is called below.
+	frontends := buildFrontends(mcfg, registry, msgSvc)
+	registerFrontendCommands(frontends, AllCommands(discovered))
+
+	// Start all frontends.
+	if err := startFrontends(ctx, done, frontends); err != nil {
+		return err
+	}
+
 	startUsagePoller(done)
-	startHeartbeatScheduler(mcfg, registry, done)
+	startHeartbeatScheduler(mcfg, registry, frontends, done)
 	startCleanupWatcher(done)
-	startPRWatcher(mcfg, done)
-	startReminderPoller(mcfg, done)
-	startWatcher(mcfg, mt, msgSvc, done)
+	startPRWatcher(mcfg, frontends, done)
+	startReminderPoller(mcfg, frontends, done)
+	startWatcher(mcfg, frontends, msgSvc, done)
+
+	// Pick a default frontend for HTTP handlers that need one.
+	defaultFE := frontends[mcfg.DefaultTeamName()]
+	if defaultFE == nil {
+		close(done)
+		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
+	}
+
+	// AskHumanHTTPHandler is Telegram-specific; access via concrete type.
+	var askHumanHandler http.HandlerFunc
+	if tfe, ok := defaultFE.(*frontend.TelegramFrontend); ok {
+		askHumanHandler = tfe.AskHumanHTTPHandler()
+	} else {
+		askHumanHandler = func(w http.ResponseWriter, _ *http.Request) {
+			writeHTTPJSON(w, http.StatusNotImplemented,
+				SendResponse{OK: false, Error: "ask human not supported by this frontend"})
+		}
+	}
 
 	srv, err := listenHTTP(sockPath, httpHandlers{
 		send: func(req SendRequest) error {
-			return handleSend(mcfg, registry, msgSvc, req)
+			return handleSend(mcfg, registry, frontends, msgSvc, req)
 		},
 		statusUpdate: handleStatusUpdate,
 		taskComplete: func(req TaskCompleteRequest) SendResponse {
-			return handleTaskComplete(req, mcfg, registry)
+			return handleTaskComplete(req, mcfg, registry, frontends)
 		},
-		askHuman: handleHTTPAskHuman(ahs, mcfg),
+		askHuman: askHumanHandler,
 	})
 	if err != nil {
 		close(done)
@@ -124,9 +150,70 @@ func Run() error {
 	}
 
 	log.Printf("[daemon] ready")
-	notifyDaemonReady(mcfg)
+	if err := defaultFE.SendNotification(ctx, "✅ Daemon ready"); err != nil {
+		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
+	}
 	awaitShutdown(done, cancel, mcfg, registry, srv)
 	return nil
+}
+
+// formatUsageString formats UsageData into a human-readable string for the /usage command.
+// Returns "" if data is nil (not yet fetched).
+func formatUsageString(d *UsageData) string {
+	if d == nil {
+		return ""
+	}
+	if d.Error != "" {
+		return "Usage fetch error: " + d.Error
+	}
+	var parts []string
+	if d.SessionUsage != nil {
+		line := fmt.Sprintf("5-hour:  %.0f%% used", *d.SessionUsage*100)
+		if d.SessionResetAt != "" {
+			line += " (resets in " + formatResetAt(d.SessionResetAt) + ")"
+		}
+		parts = append(parts, line)
+	}
+	if d.WeeklyUsage != nil {
+		line := fmt.Sprintf("Weekly:  %.0f%% used", *d.WeeklyUsage*100)
+		if d.WeeklyResetAt != "" {
+			line += " (resets in " + formatResetAt(d.WeeklyResetAt) + ")"
+		}
+		parts = append(parts, line)
+	}
+	if len(parts) == 0 {
+		return "No usage data available"
+	}
+	header := "Claude API Usage\n" + strings.Repeat("─", 16)
+	body := strings.Join(parts, "\n")
+	if d.FetchedAt.IsZero() {
+		return header + "\n" + body
+	}
+	return header + "\n" + body + "\n" + fmt.Sprintf("(as of %s)", d.FetchedAt.Format("15:04"))
+}
+
+// formatResetAt formats an RFC3339 reset time as a short duration string.
+func formatResetAt(resetAt string) string {
+	t, err := time.Parse(time.RFC3339, resetAt)
+	if err != nil {
+		return resetAt
+	}
+	remaining := time.Until(t)
+	if remaining < 0 {
+		return "now"
+	}
+	return formatDuration(remaining)
+}
+
+// formatDuration formats a duration as a compact human-readable string.
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Minute)
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%dh%dm", h, m)
+	}
+	return fmt.Sprintf("%dm", m)
 }
 
 // setupDataDir creates ~/.ttal/ and writes the PID file. Returns the PID file path.
@@ -144,19 +231,6 @@ func setupDataDir() (string, error) {
 		return "", fmt.Errorf("failed to write pid file: %w", err)
 	}
 	return pidPath, nil
-}
-
-// notifyDaemonReady sends a startup notification to the default team via its notification bot token.
-func notifyDaemonReady(mcfg *config.DaemonConfig) {
-	defaultTeam := mcfg.DefaultTeamName()
-	team, ok := mcfg.Teams[defaultTeam]
-	if !ok {
-		log.Printf("[daemon] warning: default team %q not found in config", defaultTeam)
-		return
-	}
-	if err := notify.SendWithConfig(team.NotificationToken, team.ChatID, "✅ Daemon ready"); err != nil {
-		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
-	}
 }
 
 // awaitShutdown waits for SIGINT/SIGTERM and performs graceful shutdown.
@@ -213,4 +287,63 @@ func IsRunning() (bool, int, error) {
 
 func writePID(path string) error {
 	return os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0o644)
+}
+
+// buildFrontends constructs one Frontend per team. The frontends map is passed by
+// reference into the OnMessage closure so message routing can use the full map.
+func buildFrontends(
+	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service,
+) map[string]frontend.Frontend {
+	frontends := make(map[string]frontend.Frontend)
+	for teamName, team := range mcfg.Teams {
+		if team.Frontend != "" && team.Frontend != "telegram" {
+			log.Printf("[daemon] warning: team %q has frontend=%q — only 'telegram' is implemented; using telegram",
+				teamName, team.Frontend)
+		}
+		fe := frontend.NewTelegram(frontend.TelegramConfig{
+			TeamName: teamName,
+			MCfg:     mcfg,
+			OnMessage: func(team, agent, text string) {
+				if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
+					log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
+				}
+			},
+			MsgSvc:     msgSvc,
+			UserNameFn: func() string { return mcfg.Global.UserName() },
+			GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
+			RestartFn:  Restart,
+		})
+		frontends[teamName] = fe
+	}
+	return frontends
+}
+
+// registerFrontendCommands converts BotCommand slice to frontend.Command slice
+// and registers them with every frontend.
+func registerFrontendCommands(frontends map[string]frontend.Frontend, cmds []BotCommand) {
+	feCmds := make([]frontend.Command, len(cmds))
+	for i, c := range cmds {
+		feCmds[i] = frontend.Command{
+			Name:         c.Command,
+			Description:  c.Description,
+			OriginalName: c.OriginalName,
+		}
+	}
+	for teamName, fe := range frontends {
+		if err := fe.RegisterCommands(feCmds); err != nil {
+			log.Printf("[daemon] RegisterCommands for team %s failed: %v", teamName, err)
+		}
+	}
+}
+
+// startFrontends calls Start for every frontend.
+// StartNotificationPoller is called internally by TelegramFrontend.Start.
+func startFrontends(ctx context.Context, done chan struct{}, frontends map[string]frontend.Frontend) error {
+	for teamName, fe := range frontends {
+		if err := fe.Start(ctx); err != nil {
+			close(done)
+			return fmt.Errorf("start frontend for team %s: %w", teamName, err)
+		}
+	}
+	return nil
 }

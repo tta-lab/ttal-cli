@@ -1,21 +1,12 @@
 package daemon
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/status"
-	"github.com/tta-lab/ttal-cli/internal/telegram"
-	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,14 +16,14 @@ func sanitizeCommandName(name string) string {
 	return strings.ReplaceAll(name, "-", "_")
 }
 
-// BotCommand represents a Telegram bot command for the menu.
+// BotCommand represents a bot command for the menu.
 type BotCommand struct {
 	Command      string `json:"command"`
 	Description  string `json:"description"`
 	OriginalName string `json:"-"` // original name before sanitization (for dispatch to agent)
 }
 
-// registeredCommands is the canonical list of commands the bot understands.
+// registeredCommands is the canonical list of static commands the bot understands.
 var registeredCommands = []BotCommand{
 	{Command: "status", Description: "Show agent context usage and stats"},
 	{Command: "usage", Description: "Show Claude API usage (5-hour and weekly limits)"},
@@ -44,7 +35,7 @@ var registeredCommands = []BotCommand{
 }
 
 // DiscoverCommands reads canonical command .md files from configured paths
-// and returns BotCommand entries for Telegram registration.
+// and returns BotCommand entries for registration.
 func DiscoverCommands(commandsPaths []string) []BotCommand {
 	var discovered []BotCommand
 	for _, rawPath := range commandsPaths {
@@ -67,7 +58,7 @@ func DiscoverCommands(commandsPaths []string) []BotCommand {
 				continue
 			}
 			sanitized := sanitizeCommandName(name)
-			if isStaticCommand(sanitized) {
+			if isStaticBotCommand(sanitized) {
 				continue
 			}
 			discovered = append(discovered, BotCommand{
@@ -100,9 +91,9 @@ func parseCommandFrontmatter(content []byte) (string, string) {
 	return fm.Name, fm.Description
 }
 
-// isStaticCommand checks whether name matches a built-in command.
+// isStaticBotCommand checks whether name matches a built-in command.
 // Callers must pass the already-sanitized name.
-func isStaticCommand(name string) bool {
+func isStaticBotCommand(name string) bool {
 	for _, cmd := range registeredCommands {
 		if cmd.Command == name {
 			return true
@@ -112,7 +103,6 @@ func isStaticCommand(name string) bool {
 }
 
 // truncateDescription truncates to Telegram's 256-char limit for command descriptions.
-// Uses rune-based counting for correct handling of multi-byte UTF-8 characters.
 func truncateDescription(desc string) string {
 	if idx := strings.Index(desc, "\n"); idx > 0 {
 		desc = desc[:idx]
@@ -129,171 +119,4 @@ func AllCommands(discovered []BotCommand) []BotCommand {
 	allCommands := make([]BotCommand, len(registeredCommands))
 	copy(allCommands, registeredCommands)
 	return append(allCommands, discovered...)
-}
-
-// RegisterBotCommands calls Telegram setMyCommands API to expose
-// the command menu in the chat UI. Includes both static and discovered commands.
-func RegisterBotCommands(botToken string, allCommands []BotCommand) error {
-
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/setMyCommands", botToken)
-
-	payload := map[string]interface{}{
-		"commands": allCommands,
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal commands: %w", err)
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post(url, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("setMyCommands request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("setMyCommands returned %d: %s", resp.StatusCode, string(respBody))
-	}
-	return nil
-}
-
-func handleStatusCommand(teamName, _, botToken, chatID string, args []string) {
-	var agents []status.AgentStatus
-
-	if len(args) > 0 {
-		// "status <agent>" → single agent
-		s, err := status.ReadAgent(teamName, args[0])
-		if err != nil {
-			replyTelegram(botToken, chatID, "Error: "+err.Error())
-			return
-		}
-		if s == nil {
-			replyTelegram(botToken, chatID, args[0]+": no status data")
-			return
-		}
-		agents = []status.AgentStatus{*s}
-	} else {
-		// "status" → all agents
-		all, err := status.ReadAll(teamName)
-		if err != nil {
-			replyTelegram(botToken, chatID, "Error reading status: "+err.Error())
-			return
-		}
-		agents = all
-	}
-
-	if len(agents) == 0 {
-		replyTelegram(botToken, chatID, "No agent status data available")
-		return
-	}
-
-	var sb strings.Builder
-	for _, a := range agents {
-		staleMarker := ""
-		if a.IsStale(5 * time.Minute) {
-			staleMarker = " (stale)"
-		}
-		fmt.Fprintf(&sb,
-			"%s: %.0f%% ctx | %s%s\n",
-			a.Agent, a.ContextUsedPct, a.ModelName, staleMarker,
-		)
-	}
-
-	replyTelegram(botToken, chatID, sb.String())
-}
-
-func handleHelpCommand(botToken, chatID string, allCommands []BotCommand) {
-	var sb strings.Builder
-	sb.WriteString("Available commands:\n")
-	for _, cmd := range allCommands {
-		fmt.Fprintf(&sb, "/%s — %s\n", cmd.Command, cmd.Description)
-	}
-	sb.WriteString("\nAnything else is sent as a message to the agent.")
-	replyTelegram(botToken, chatID, sb.String())
-}
-
-func sendKeysToAgent(teamName, agentName, botToken, chatID, keys, confirmMsg string) {
-	session := config.AgentSessionName(teamName, agentName)
-	if err := tmux.SendKeys(session, agentName, keys); err != nil {
-		replyTelegram(botToken, chatID, "Error: "+err.Error())
-		return
-	}
-	if confirmMsg != "" {
-		replyTelegram(botToken, chatID, confirmMsg)
-	}
-}
-
-func sendEscToAgent(teamName, agentName, botToken, chatID string) {
-	session := config.AgentSessionName(teamName, agentName)
-	if err := tmux.SendRawKey(session, agentName, "Escape"); err != nil {
-		replyTelegram(botToken, chatID, "Error: "+err.Error())
-		return
-	}
-	replyTelegram(botToken, chatID, "Sent Escape — interrupting agent")
-}
-
-func replyTelegram(botToken, chatID, text string) {
-	if err := telegram.SendMessage(botToken, chatID, text); err != nil {
-		log.Printf("[telegram] reply failed: %v", err)
-	}
-}
-
-func handleUsageCommand(botToken, chatID string) {
-	d := getUsageCache()
-	if d == nil {
-		replyTelegram(botToken, chatID, "Usage data not yet available — daemon is still fetching")
-		return
-	}
-	replyTelegram(botToken, chatID, formatUsageMessage(d))
-}
-
-func formatUsageMessage(d *UsageData) string {
-	var sb strings.Builder
-	sb.WriteString("Claude API Usage\n")
-	sb.WriteString("────────────────\n")
-	if d.SessionUsage != nil {
-		fmt.Fprintf(&sb, "5-hour:  %.0f%% used%s\n", *d.SessionUsage, formatResetAt(d.SessionResetAt))
-	}
-	if d.WeeklyUsage != nil {
-		fmt.Fprintf(&sb, "Weekly:  %.0f%% used%s\n", *d.WeeklyUsage, formatResetAt(d.WeeklyResetAt))
-	}
-	if !d.FetchedAt.IsZero() {
-		age := time.Since(d.FetchedAt)
-		fmt.Fprintf(&sb, "(as of %s", d.FetchedAt.Format("15:04"))
-		if age > 5*time.Minute {
-			fmt.Fprintf(&sb, ", %s ago", formatDuration(age))
-		}
-		sb.WriteString(")")
-	}
-	return strings.TrimRight(sb.String(), "\n")
-}
-
-func formatResetAt(s string) string {
-	if s == "" {
-		return ""
-	}
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return ""
-	}
-	d := time.Until(t)
-	if d <= 0 {
-		return " (resetting)"
-	}
-	return fmt.Sprintf(" (resets in %s)", formatDuration(d))
-}
-
-func formatDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	}
-	if d < 24*time.Hour {
-		return fmt.Sprintf("%.0fh", d.Hours())
-	}
-	return fmt.Sprintf("%.0fd", d.Hours()/24)
 }

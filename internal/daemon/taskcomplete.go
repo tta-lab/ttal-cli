@@ -1,16 +1,20 @@
 package daemon
 
 import (
+	"context"
 	"log"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/notify"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // handleTaskComplete processes a taskComplete HTTP request and delivers
-// task-done notifications to manager agents, optionally the spawner, and Telegram.
-func handleTaskComplete(req TaskCompleteRequest, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
+// task-done notifications to manager agents, optionally the spawner, and frontend.
+func handleTaskComplete(
+	req TaskCompleteRequest, mcfg *config.DaemonConfig,
+	registry *adapterRegistry, frontends map[string]frontend.Frontend,
+) SendResponse {
 	if req.Team == "" {
 		req.Team = config.DefaultTeamName
 	}
@@ -40,9 +44,9 @@ func handleTaskComplete(req TaskCompleteRequest, mcfg *config.DaemonConfig, regi
 		PRIndex:     prIndex,
 	}
 
-	notifyManagerAgents(mcfg, registry, target)
+	notifyManagerAgents(mcfg, registry, frontends, target)
 	if req.Spawner != "" {
-		notifySpawnerMerged(mcfg, registry, target)
+		notifySpawnerMerged(mcfg, registry, frontends, target)
 		log.Printf("[taskComplete] notified managers + spawner %q for task %s",
 			req.Spawner, shortSHA(req.TaskUUID))
 	} else {
@@ -50,24 +54,24 @@ func handleTaskComplete(req TaskCompleteRequest, mcfg *config.DaemonConfig, regi
 	}
 	// Only notify Telegram if there was a PR — plain task completions are silent.
 	if req.PRID != "" {
-		notifyTelegramTaskDone(mcfg, target)
+		notifyTelegramTaskDone(frontends, target)
 	}
 	return SendResponse{OK: true}
 }
 
-// notifyTelegramTaskDone sends a task-done Telegram message to the team's notification channel.
-func notifyTelegramTaskDone(mcfg *config.DaemonConfig, target prWatchTarget) {
+// notifyTelegramTaskDone sends a task-done notification to the team's frontend.
+func notifyTelegramTaskDone(frontends map[string]frontend.Frontend, target prWatchTarget) {
 	teamName := target.Team
 	if teamName == "" {
 		teamName = config.DefaultTeamName
 	}
-	teamCfg, ok := mcfg.Teams[teamName]
+	fe, ok := frontends[teamName]
 	if !ok {
-		log.Printf("[taskComplete] notifyTelegram: no config for team %q — skipped", teamName)
+		log.Printf("[taskComplete] notifyTelegram: no frontend for team %q — skipped", teamName)
 		return
 	}
 	msg := formatTaskDoneMsg(target)
-	if err := notify.SendWithConfig(teamCfg.NotificationToken, teamCfg.ChatID, msg); err != nil {
-		log.Printf("[taskComplete] telegram notify failed: %v", err)
+	if err := fe.SendNotification(context.Background(), msg); err != nil {
+		log.Printf("[taskComplete] notify failed: %v", err)
 	}
 }

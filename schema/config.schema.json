@@ -111,6 +111,14 @@
     "teams": {
       "additionalProperties": {
         "properties": {
+          "frontend": {
+            "type": "string",
+            "enum": [
+              "telegram",
+              "matrix"
+            ],
+            "description": "Messaging frontend for this team (\"telegram\" or \"matrix\"; default: \"telegram\")"
+          },
           "team_path": {
             "type": "string",
             "description": "Root path for agent workspaces. Agent path = team_path/agent_name"

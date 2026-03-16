@@ -116,6 +116,8 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
+	// Messaging frontend for this team ("telegram" or "matrix"; default: "telegram")
+	Frontend string `toml:"frontend" jsonschema:"enum=telegram,enum=matrix"`
 	// Root path for agent workspaces. Agent path = team_path/agent_name
 	TeamPath string `toml:"team_path"` //nolint:lll
 	// ttal data directory (default: ~/.ttal/<team>)
@@ -789,6 +791,7 @@ type DaemonConfig struct {
 // ResolvedTeam holds one team's fully resolved configuration.
 type ResolvedTeam struct {
 	Name              string
+	Frontend          string // "telegram" or "matrix" (default: "telegram")
 	TeamPath          string
 	DataDir           string
 	TaskRC            string
@@ -948,6 +951,7 @@ func resolveTeam(
 
 	rt := &ResolvedTeam{
 		Name:              teamName,
+		Frontend:          team.Frontend,
 		TeamPath:          expandHome(team.TeamPath),
 		ChatID:            team.ChatID,
 		LifecycleAgent:    team.LifecycleAgent,

@@ -1,4 +1,4 @@
-package daemon
+package frontend
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 
 func TestAskHumanStore_StoreAndGet(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	entry := &askHumanEntry{ch: ch, chatID: 42}
 
 	s.store(entry, "ah000001", false)
@@ -36,7 +36,7 @@ func TestAskHumanStore_StoreAndGet(t *testing.T) {
 
 func TestAskHumanStore_GetAndRemove(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	entry := &askHumanEntry{ch: ch, chatID: 99}
 	s.store(entry, "ah000001", false)
 
@@ -57,15 +57,15 @@ func TestAskHumanStore_GetAndRemove(t *testing.T) {
 
 func TestAskHumanStore_DeliverAnswer(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	s.store(&askHumanEntry{ch: ch, chatID: 1}, "ah000001", false)
 
 	if !s.deliverAnswer("ah000001", "yes") {
 		t.Fatal("expected deliverAnswer to return true")
 	}
 	resp := <-ch
-	if !resp.OK || resp.Answer != "yes" {
-		t.Errorf("unexpected response: %+v", resp)
+	if resp.answer != "yes" || resp.skipped {
+		t.Errorf("unexpected response: answer=%q skipped=%v", resp.answer, resp.skipped)
 	}
 
 	// Second delivery must fail.
@@ -76,15 +76,15 @@ func TestAskHumanStore_DeliverAnswer(t *testing.T) {
 
 func TestAskHumanStore_DeliverSkip(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	s.store(&askHumanEntry{ch: ch, chatID: 2}, "ah000002", false)
 
 	if !s.deliverSkip("ah000002") {
 		t.Fatal("expected deliverSkip to return true")
 	}
 	resp := <-ch
-	if resp.OK || !resp.Skipped {
-		t.Errorf("unexpected response: %+v", resp)
+	if !resp.skipped {
+		t.Errorf("unexpected response: answer=%q skipped=%v", resp.answer, resp.skipped)
 	}
 
 	if s.deliverSkip("ah000002") {
@@ -94,7 +94,7 @@ func TestAskHumanStore_DeliverSkip(t *testing.T) {
 
 func TestAskHumanStore_GetForChat_NoOptions(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	entry := &askHumanEntry{ch: ch, chatID: 7}
 	s.store(entry, "ah000003", true) // noOptions=true → registers chatPending
 
@@ -112,7 +112,7 @@ func TestAskHumanStore_GetForChat_NoOptions(t *testing.T) {
 
 func TestAskHumanStore_GetForChat_WithOptions(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	s.store(&askHumanEntry{ch: ch, chatID: 8}, "ah000004", false) // noOptions=false → NOT registered
 
 	_, _, ok := s.getForChat(8)
@@ -123,7 +123,7 @@ func TestAskHumanStore_GetForChat_WithOptions(t *testing.T) {
 
 func TestAskHumanStore_Remove_ClearsChatPending(t *testing.T) {
 	s := newAskHumanStore()
-	ch := make(chan AskHumanResponse, 1)
+	ch := make(chan askHumanResult, 1)
 	s.store(&askHumanEntry{ch: ch, chatID: 5}, "ah000005", true)
 
 	s.remove("ah000005")
@@ -195,7 +195,7 @@ func minimalDaemonConfig() *config.DaemonConfig {
 }
 
 func TestResolveAskHumanTarget_NoContext(t *testing.T) {
-	_, _, _, err := resolveAskHumanTarget(AskHumanRequest{}, minimalDaemonConfig())
+	_, _, _, err := resolveAskHumanTarget(askHumanHTTPRequest{}, minimalDaemonConfig())
 	if err == nil {
 		t.Fatal("expected error when AgentName and Session are both empty")
 	}
@@ -206,7 +206,7 @@ func TestResolveAskHumanTarget_NoContext(t *testing.T) {
 
 func TestResolveAskHumanTarget_SessionNoTeam(t *testing.T) {
 	_, _, _, err := resolveAskHumanTarget(
-		AskHumanRequest{Session: "%1"},
+		askHumanHTTPRequest{Session: "%1"},
 		minimalDaemonConfig(), // no teams configured
 	)
 	if err == nil {
@@ -216,24 +216,17 @@ func TestResolveAskHumanTarget_SessionNoTeam(t *testing.T) {
 
 // --- HTTP handler tests ---
 
-func testAskHumanRouter(t *testing.T) http.Handler {
-	t.Helper()
-	h := testHandlers(nil)
-	h.askHuman = handleHTTPAskHuman(newAskHumanStore(), minimalDaemonConfig())
-	return newDaemonRouter(h)
-}
-
 func TestHTTPAskHuman_BadJSON(t *testing.T) {
-	r := testAskHumanRouter(t)
+	handler := handleHTTPAskHuman(newAskHumanStore(), minimalDaemonConfig())
 
 	req := httptest.NewRequest(http.MethodPost, "/ask/human", bytes.NewReader([]byte("not json")))
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	handler(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for bad JSON, got %d", w.Code)
 	}
-	var resp AskHumanResponse
+	var resp askHumanHTTPResponse
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
@@ -246,17 +239,17 @@ func TestHTTPAskHuman_BadJSON(t *testing.T) {
 }
 
 func TestHTTPAskHuman_MissingAgentAndSession(t *testing.T) {
-	r := testAskHumanRouter(t)
+	handler := handleHTTPAskHuman(newAskHumanStore(), minimalDaemonConfig())
 
-	body, _ := json.Marshal(AskHumanRequest{Question: "hello?"}) // no AgentName, no Session
+	body, _ := json.Marshal(askHumanHTTPRequest{Question: "hello?"}) // no AgentName, no Session
 	req := httptest.NewRequest(http.MethodPost, "/ask/human", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	handler(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 when AgentName and Session missing, got %d", w.Code)
 	}
-	var resp AskHumanResponse
+	var resp askHumanHTTPResponse
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
