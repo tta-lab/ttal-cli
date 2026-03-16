@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -41,6 +42,9 @@ type Frontend interface {
 	// RegisterCommands registers bot commands for discoverability and stores them
 	// for use by the polling handlers. Must be called before Start.
 	RegisterCommands(commands []Command) error
+
+	// AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
+	AskHumanHTTPHandler() http.HandlerFunc
 }
 
 // Command describes a bot command for registration and handler dispatch.

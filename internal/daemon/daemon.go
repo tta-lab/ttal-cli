@@ -123,16 +123,7 @@ func Run() error {
 		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
 	}
 
-	// AskHumanHTTPHandler is Telegram-specific; access via concrete type.
-	var askHumanHandler http.HandlerFunc
-	if tfe, ok := defaultFE.(*frontend.TelegramFrontend); ok {
-		askHumanHandler = tfe.AskHumanHTTPHandler()
-	} else {
-		askHumanHandler = func(w http.ResponseWriter, _ *http.Request) {
-			writeHTTPJSON(w, http.StatusNotImplemented,
-				SendResponse{OK: false, Error: "ask human not supported by this frontend"})
-		}
-	}
+	askHumanHandler := defaultFE.AskHumanHTTPHandler()
 
 	srv, err := listenHTTP(sockPath, httpHandlers{
 		send: func(req SendRequest) error {
@@ -327,6 +318,8 @@ func buildFrontends(
 				OnMessage:  onMsg,
 				MsgSvc:     msgSvc,
 				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
+				GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
+				RestartFn:  Restart,
 			})
 			if err != nil {
 				log.Printf("[daemon] matrix frontend failed for team %s: %v — skipping", teamName, err)
