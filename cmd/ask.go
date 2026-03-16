@@ -8,15 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/logos"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/usage"
-	"github.com/tta-lab/ttal-cli/pkg/agentloop"
-	"github.com/tta-lab/ttal-cli/pkg/agentloop/tools"
 )
 
 //go:embed ask_prompts/project.md
@@ -33,10 +33,6 @@ var askWebPrompt string
 
 //go:embed ask_prompts/general.md
 var askGeneralPrompt string
-
-// askCodespaceTools is the tool set for modes that ask about a local codebase
-// and may also need to fetch external docs or search the web.
-var askCodespaceTools = []string{"bash", "read", "read_md", "glob", "grep", "search_web", "read_url"}
 
 var askFlags struct {
 	project   string
@@ -138,18 +134,13 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		return fmt.Errorf("project path %q does not exist on disk: %w", projectPath, err)
 	}
 
-	backend, err := resolveFetchBackend()
-	if err != nil {
-		return fmt.Errorf("resolve fetch backend: %w", err)
-	}
-
 	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(askProjectPrompt, "{projectPath}", projectPath),
 		allowedPaths: []string{projectPath},
-		toolNames:    askCodespaceTools,
+		network:      true,
+		readFS:       true,
 		model:        cfg.AskModel(),
-		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
@@ -169,18 +160,13 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		return err
 	}
 
-	backend, err := resolveFetchBackend()
-	if err != nil {
-		return fmt.Errorf("resolve fetch backend: %w", err)
-	}
-
 	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(askRepoPrompt, "{localPath}", localPath),
 		allowedPaths: []string{localPath},
-		toolNames:    askCodespaceTools,
+		network:      true,
+		readFS:       true,
 		model:        cfg.AskModel(),
-		fetchBackend: backend,
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
@@ -188,64 +174,39 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 	})
 }
 
-// askURL asks about a web page using defuddle for pre-fetching.
+// askURL asks about a web page using temenos for pre-fetching.
 func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
-	backend, err := resolveFetchBackend()
-	if err != nil {
-		return err
-	}
-
-	// Pre-warm the cache so the agent's read_url call is instant.
-	fmt.Fprintf(os.Stderr, "Fetching %s...\n", rawURL)
-	ctx := context.Background()
-	if _, err := backend.Fetch(ctx, rawURL); err != nil {
-		return fmt.Errorf("pre-fetch %s: %w", rawURL, err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
-		systemExtra:  strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
-		allowedPaths: nil, // URL mode: no filesystem tools
-		toolNames:    []string{"read_url", "search_web"},
-		model:        cfg.AskModel(),
-		fetchBackend: backend,
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --url",
+		question:    fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
+		systemExtra: strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
+		network:     true,
+		readFS:      false,
+		preWarmURL:  rawURL,
+		model:       cfg.AskModel(),
+		maxSteps:    maxSteps,
+		maxTokens:   maxTokens,
+		emoji:       "🔭",
+		label:       "ask --url",
 	})
 }
 
 // askWeb searches the web to answer a question.
 func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
-	backend, err := resolveFetchBackend()
-	if err != nil {
-		return err
-	}
-
-	prompt := strings.ReplaceAll(askWebPrompt, "{query}", question)
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemExtra:  prompt,
-		allowedPaths: nil,
-		toolNames:    []string{"search_web", "read_url"},
-		fetchBackend: backend,
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --web",
+		question:    question,
+		systemExtra: strings.ReplaceAll(askWebPrompt, "{query}", question),
+		network:     true,
+		readFS:      false,
+		model:       cfg.AskModel(),
+		maxSteps:    maxSteps,
+		maxTokens:   maxTokens,
+		emoji:       "🔭",
+		label:       "ask --web",
 	})
 }
 
 // askGeneral asks about the current working directory with both filesystem and web tools.
 func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
-	backend, err := resolveFetchBackend()
-	if err != nil {
-		return err
-	}
-
 	if !strings.Contains(askGeneralPrompt, "{cwd}") {
 		return fmt.Errorf("general.md prompt is missing {cwd} placeholder")
 	}
@@ -255,14 +216,12 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		return fmt.Errorf("get working directory: %w", err)
 	}
 
-	prompt := strings.ReplaceAll(askGeneralPrompt, "{cwd}", cwd)
-
 	return runAskAgent(askOpts{
 		question:     question,
-		systemExtra:  prompt,
+		systemExtra:  strings.ReplaceAll(askGeneralPrompt, "{cwd}", cwd),
 		allowedPaths: []string{cwd},
-		toolNames:    askCodespaceTools,
-		fetchBackend: backend,
+		network:      true,
+		readFS:       true,
 		model:        cfg.AskModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
@@ -274,18 +233,19 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 // askOpts holds parameters for running the ask subagent.
 type askOpts struct {
 	question     string
-	systemExtra  string               // mode-specific system prompt addition
-	allowedPaths []string             // nil = no filesystem tools
-	toolNames    []string             // which tools to enable
-	model        string               // model string (e.g. "claude-sonnet-4-6")
-	fetchBackend tools.ReadURLBackend // required: must be non-nil
+	systemExtra  string   // mode-specific system prompt addition
+	allowedPaths []string // nil = no filesystem access
+	network      bool     // include read-url + search in prompt
+	readFS       bool     // include rg + read-only filesystem guidance in prompt
+	preWarmURL   string   // if set, pre-fetch via temenos before agent loop
+	model        string   // model string (e.g. "claude-sonnet-4-6")
 	maxSteps     int
 	maxTokens    int
 	emoji        string // optional display emoji shown before output
 	label        string // display name shown in header (defaults to "ask")
 }
 
-// runAskAgent builds and runs an agentloop for the ask command.
+// runAskAgent builds and runs a logos agent loop for the ask command.
 func runAskAgent(opts askOpts) error {
 	label := opts.label
 	if label == "" {
@@ -298,11 +258,7 @@ func runAskAgent(opts askOpts) error {
 		return fmt.Errorf("build provider: %w", err)
 	}
 
-	selectedTools, err := buildToolSet(opts.toolNames, opts.allowedPaths, opts.fetchBackend)
-	if err != nil {
-		return err
-	}
-
+	// cwd declared here so it's accessible to PromptData below.
 	var cwd string
 	if len(opts.allowedPaths) > 0 {
 		cwd, err = os.Getwd()
@@ -311,33 +267,61 @@ func runAskAgent(opts askOpts) error {
 		}
 	}
 
-	allowedPaths := opts.allowedPaths
-	systemPrompt, err := buildAgentSystemPrompt(cwd, allowedPaths, selectedTools, opts.systemExtra)
+	promptData := logos.PromptData{
+		WorkingDir: cwd,
+		Platform:   runtime.GOOS,
+		Date:       time.Now().Format("2006-01-02"),
+		Network:    opts.network,
+		ReadFS:     opts.readFS,
+	}
+	systemPrompt, err := logos.BuildSystemPrompt(promptData)
 	if err != nil {
-		return err
+		return fmt.Errorf("build system prompt: %w", err)
+	}
+	if opts.systemExtra != "" {
+		systemPrompt += "\n\n" + opts.systemExtra
 	}
 
-	agentCfg := agentloop.Config{
+	tc, err := logos.NewClient("")
+	if err != nil {
+		return fmt.Errorf("connect to temenos daemon: %w\n\n"+
+			"Is the daemon running? Try: temenos daemon install && temenos daemon start", err)
+	}
+
+	// Pre-warm URL cache if requested (used by --url mode).
+	if opts.preWarmURL != "" {
+		fmt.Fprintf(os.Stderr, "Fetching %s...\n", opts.preWarmURL)
+		if _, err := tc.Run(context.Background(), logos.RunRequest{
+			Command: "temenos read-url " + opts.preWarmURL,
+		}); err != nil {
+			return fmt.Errorf("pre-fetch %s: %w", opts.preWarmURL, err)
+		}
+	}
+
+	var allowedPaths []logos.AllowedPath
+	for _, p := range opts.allowedPaths {
+		allowedPaths = append(allowedPaths, logos.AllowedPath{Path: p, ReadOnly: true})
+	}
+
+	cfg := logos.Config{
 		Provider:     provider,
 		Model:        modelID,
 		SystemPrompt: systemPrompt,
-		Tools:        selectedTools,
 		MaxSteps:     opts.maxSteps,
 		MaxTokens:    opts.maxTokens,
+		Temenos:      tc,
 		AllowedPaths: allowedPaths,
 	}
 
-	result, err := agentloop.Run(context.Background(), agentCfg, nil, opts.question, agentloop.Callbacks{
+	result, err := logos.Run(context.Background(), cfg, nil, opts.question, logos.Callbacks{
 		OnDelta: func(text string) { fmt.Print(text) },
 	})
+	if result != nil && result.Response != "" && !strings.HasSuffix(result.Response, "\n") {
+		fmt.Println()
+	}
 	if err != nil {
 		return fmt.Errorf("agent loop: %w", err)
 	}
-
-	if result.Response != "" && !strings.HasSuffix(result.Response, "\n") {
-		fmt.Println()
-	}
-
 	return nil
 }
 

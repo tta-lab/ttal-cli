@@ -5,48 +5,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tta-lab/ttal-cli/pkg/agentloop/sandbox"
-	"github.com/tta-lab/ttal-cli/pkg/agentloop/tools"
 )
 
-func TestFilterTools_EmptyNames_ReturnsAll(t *testing.T) {
-	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
-	backend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
-
-	selected, err := filterTools(allTools, nil)
+func TestBuildSubagentProvider_Anthropic(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	p, modelID, err := buildSubagentProvider("claude-sonnet-4-6")
 	require.NoError(t, err)
-	assert.Equal(t, allTools, selected)
+	assert.NotNil(t, p)
+	assert.Equal(t, "claude-sonnet-4-6", modelID)
 }
 
-func TestFilterTools_ValidNames_ReturnsSubset(t *testing.T) {
-	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
-	backend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
-
-	selected, err := filterTools(allTools, []string{"bash"})
-	require.NoError(t, err)
-	require.Len(t, selected, 1)
-	assert.Equal(t, "bash", selected[0].Info().Name)
-}
-
-func TestFilterTools_UnknownName_ReturnsError(t *testing.T) {
-	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
-	backend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
-
-	_, err := filterTools(allTools, []string{"nonexistent_tool"})
+func TestBuildSubagentProvider_MissingKey(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	_, _, err := buildSubagentProvider("claude-sonnet-4-6")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "nonexistent_tool")
-	assert.Contains(t, err.Error(), "available")
-}
-
-func TestFilterTools_MixedNames_ErrorOnFirst_Unknown(t *testing.T) {
-	sbx := sandbox.New(sandbox.Options{AllowUnsandboxed: true})
-	backend := tools.NewDefuddleCLIBackend()
-	allTools := tools.NewDefaultToolSet(sbx, backend, nil, 0)
-
-	_, err := filterTools(allTools, []string{"bash", "unknown_tool"})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown_tool")
+	assert.Contains(t, err.Error(), "ANTHROPIC_API_KEY")
 }
