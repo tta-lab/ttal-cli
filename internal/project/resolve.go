@@ -17,52 +17,14 @@ import (
 //  3. If no match but only ONE project exists → use it (single-project shortcut)
 //  4. Otherwise → return empty (no match)
 func ResolveProjectPath(projectName string) string {
-	store := NewStore(config.ResolveProjectsPath())
-
-	// Try hierarchical candidates: "ttal.pr" → try "ttal.pr", then "ttal"
-	if projectName != "" {
-		candidates := []string{projectName}
-		parts := strings.Split(projectName, ".")
-		for i := len(parts) - 1; i >= 1; i-- {
-			candidates = append(candidates, strings.Join(parts[:i], "."))
-		}
-
-		for _, candidate := range candidates {
-			proj, err := store.Get(candidate)
-			if err != nil {
-				return ""
-			}
-			if proj != nil && proj.Path != "" {
-				return proj.Path
-			}
-		}
-	}
-
-	// Fetch all active projects for contains fallback and single-project shortcut.
-	allProjects, err := store.List(false)
-	if err != nil {
-		return ""
-	}
-
-	// Contains fallback: "ttal-cli" matches alias "ttal" because "ttal-cli" contains "ttal"
-	if projectName != "" {
-		if path := matchByContains(projectName, allProjects); path != "" {
-			return path
-		}
-	}
-
-	// Single-project shortcut: if only one active project, always use it.
-	if len(allProjects) == 1 && allProjects[0].Path != "" {
-		return allProjects[0].Path
-	}
-
-	return ""
+	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPath()))
 }
 
 // ResolveProjectPathOrError resolves a project path from a taskwarrior project field.
 // Returns a user-friendly error if the project alias is not registered.
 func ResolveProjectPathOrError(projectName string) (string, error) {
-	path := ResolveProjectPath(projectName)
+	store := NewStore(config.ResolveProjectsPath())
+	path := resolveProjectPathWithStore(projectName, store)
 	if path != "" {
 		return path, nil
 	}
@@ -74,7 +36,47 @@ func ResolveProjectPathOrError(projectName string) (string, error) {
 	if i := strings.Index(projectName, "."); i > 0 {
 		baseAlias = projectName[:i]
 	}
-	return "", formatProjectNotFoundError(baseAlias, NewStore(config.ResolveProjectsPath()))
+	return "", formatProjectNotFoundError(baseAlias, store)
+}
+
+// resolveProjectPathWithStore performs the resolution logic using a provided store.
+// Shared by ResolveProjectPath and ResolveProjectPathOrError to avoid double store opens.
+func resolveProjectPathWithStore(projectName string, store *Store) string {
+	// Try hierarchical candidates: "ttal.pr" → try "ttal.pr", then "ttal"
+	if projectName != "" {
+		candidates := []string{projectName}
+		parts := strings.Split(projectName, ".")
+		for i := len(parts) - 1; i >= 1; i-- {
+			candidates = append(candidates, strings.Join(parts[:i], "."))
+		}
+
+		for _, candidate := range candidates {
+			proj, err := store.Get(candidate)
+			if err != nil {
+				continue // I/O error on this candidate — try next
+			}
+			if proj != nil && proj.Path != "" {
+				return proj.Path
+			}
+		}
+	}
+
+	allProjects, err := store.List(false)
+	if err != nil {
+		return ""
+	}
+
+	if projectName != "" {
+		if path := matchByContains(projectName, allProjects); path != "" {
+			return path
+		}
+	}
+
+	if len(allProjects) == 1 && allProjects[0].Path != "" {
+		return allProjects[0].Path
+	}
+
+	return ""
 }
 
 // ValidateProjectAlias checks that a project alias exists (exact match, active only).

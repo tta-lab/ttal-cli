@@ -160,6 +160,8 @@ func scanTeam(
 		// Detect provider from project path
 		projectPath := project.ResolveProjectPath(task.Project)
 		if projectPath == "" {
+			log.Printf("[prwatch] task %s: project %q not found in projects.toml — skipping PR watch",
+				shortSHA(task.UUID), task.Project)
 			continue
 		}
 		info, err := gitprovider.DetectProvider(projectPath)

@@ -21,9 +21,9 @@ func HookOnAdd() {
 
 	// Inline enrichment — validates project alias and generates branch.
 	if task.Project() != "" {
-		if err := enrichInline(task); err != nil {
+		if err := enrichInline(task, nil); err != nil {
 			hookLogFile("ERROR: " + err.Error())
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	}

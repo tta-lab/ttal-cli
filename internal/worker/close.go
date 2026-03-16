@@ -62,6 +62,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 
 	projectPath := project.ResolveProjectPath(task.Project)
 	if projectPath == "" {
+		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml — using current directory\n", task.Project)
 		projectPath = "."
 	}
 

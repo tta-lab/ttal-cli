@@ -71,10 +71,10 @@ func openSession(t *Task) tea.Cmd {
 }
 
 func openTerm(t *Task) tea.Cmd {
-	projectPath := project.ResolveProjectPath(t.Project)
-	if projectPath == "" {
+	projectPath, err := project.ResolveProjectPathOrError(t.Project)
+	if err != nil {
 		return func() tea.Msg {
-			return actionResultMsg{err: fmt.Errorf("no project path for this task")}
+			return actionResultMsg{err: err}
 		}
 	}
 	workDir := resolveWorkDir(t, projectPath)

@@ -6,6 +6,53 @@ import (
 	"testing"
 )
 
+// makeEnrichTask builds a minimal hookTask for enrichInline tests.
+func makeEnrichTask(project, description string) hookTask {
+	t := hookTask{}
+	if project != "" {
+		t["project"] = project
+	}
+	if description != "" {
+		t["description"] = description
+	}
+	t["uuid"] = "test-uuid-1234"
+	return t
+}
+
+func TestEnrichInline_EmptyProject(t *testing.T) {
+	task := makeEnrichTask("", "add feature")
+	if err := enrichInline(task, nil); err != nil {
+		t.Errorf("expected nil for empty project, got: %v", err)
+	}
+}
+
+func TestEnrichInline_RegisteredProject(t *testing.T) {
+	task := makeEnrichTask("testproj", "add new feature for testing")
+	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
+	if err := enrichInline(task, resolver); err != nil {
+		t.Errorf("expected nil for registered project, got: %v", err)
+	}
+	branch, ok := task["branch"].(string)
+	if !ok || branch == "" {
+		t.Error("expected branch to be set after enrichInline")
+	}
+	if !strings.HasPrefix(branch, "worker/") {
+		t.Errorf("expected branch to have worker/ prefix, got: %q", branch)
+	}
+}
+
+func TestEnrichInline_UnregisteredProject(t *testing.T) {
+	task := makeEnrichTask("nonexistent", "add feature")
+	resolver := mockResolver(map[string]string{}) // empty — no projects
+	err := enrichInline(task, resolver)
+	if err == nil {
+		t.Fatal("expected error for unregistered project")
+	}
+	if task["branch"] != nil {
+		t.Error("branch should not be set when project is unregistered")
+	}
+}
+
 // makeTask builds a minimal hookTask with the given fields.
 func makeTask(prID, projectAlias string) hookTask {
 	t := hookTask{}

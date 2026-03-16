@@ -83,7 +83,7 @@ func HookOnModify() {
 		prTitle, err := validateTaskCompletion(modified, nil, nil)
 		if err != nil {
 			hookLogFile("ERROR: " + err.Error())
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 		// Notify daemon — fire-and-forget, won't block task completion
@@ -92,9 +92,9 @@ func HookOnModify() {
 
 	// Re-enrich when project changes to a non-empty value.
 	if newProject := modified.Project(); newProject != "" && newProject != original.Project() {
-		if err := enrichInline(modified); err != nil {
+		if err := enrichInline(modified, nil); err != nil {
 			hookLogFile("ERROR: " + err.Error())
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	}
