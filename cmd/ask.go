@@ -282,19 +282,24 @@ func runAskAgent(opts askOpts) error {
 		systemPrompt += "\n\n" + opts.systemExtra
 	}
 
-	tc, err := logos.NewClient("")
+	tc, err := newTemenosClient(context.Background())
 	if err != nil {
-		return fmt.Errorf("connect to temenos daemon: %w\n\n"+
-			"Is the daemon running? Try: temenos daemon install && temenos daemon start", err)
+		return err
 	}
 
 	// Pre-warm URL cache if requested (used by --url mode).
 	if opts.preWarmURL != "" {
 		fmt.Fprintf(os.Stderr, "Fetching %s...\n", opts.preWarmURL)
-		if _, err := tc.Run(context.Background(), logos.RunRequest{
-			Command: "temenos read-url " + opts.preWarmURL,
-		}); err != nil {
+		quotedURL := "'" + strings.ReplaceAll(opts.preWarmURL, "'", "'\\''") + "'"
+		resp, err := tc.Run(context.Background(), logos.RunRequest{
+			Command: "temenos read-url " + quotedURL,
+		})
+		if err != nil {
 			return fmt.Errorf("pre-fetch %s: %w", opts.preWarmURL, err)
+		}
+		if resp.ExitCode != 0 {
+			return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
+				opts.preWarmURL, resp.ExitCode, strings.TrimSpace(resp.Stderr))
 		}
 	}
 
@@ -316,13 +321,7 @@ func runAskAgent(opts askOpts) error {
 	result, err := logos.Run(context.Background(), cfg, nil, opts.question, logos.Callbacks{
 		OnDelta: func(text string) { fmt.Print(text) },
 	})
-	if result != nil && result.Response != "" && !strings.HasSuffix(result.Response, "\n") {
-		fmt.Println()
-	}
-	if err != nil {
-		return fmt.Errorf("agent loop: %w", err)
-	}
-	return nil
+	return flushAgentResult(result, err)
 }
 
 // resolveRepoRef converts a repo reference to a clone URL and local path.

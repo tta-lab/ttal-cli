@@ -122,10 +122,9 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		systemPrompt += "\n\n" + agent.Body
 	}
 
-	tc, err := logos.NewClient("")
+	tc, err := newTemenosClient(context.Background())
 	if err != nil {
-		return fmt.Errorf("connect to temenos daemon: %w\n\n"+
-			"Is the daemon running? Try: temenos daemon install && temenos daemon start", err)
+		return err
 	}
 
 	maxSteps, maxTokens := resolveLimits(cmd, ttalCfg, subagentRunFlags.maxSteps, subagentRunFlags.maxTokens)
@@ -133,9 +132,11 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	// Convert --env KEY=VALUE flags to map.
 	envMap := make(map[string]string, len(subagentRunFlags.sandboxEnv))
 	for _, e := range subagentRunFlags.sandboxEnv {
-		if k, v, ok := strings.Cut(e, "="); ok {
-			envMap[k] = v
+		k, v, ok := strings.Cut(e, "=")
+		if !ok {
+			return fmt.Errorf("invalid --env value %q: expected KEY=VALUE format", e)
 		}
+		envMap[k] = v
 	}
 
 	printAgentHeader(agent.Frontmatter.Emoji, name)
@@ -154,13 +155,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	result, err := logos.Run(context.Background(), cfg, nil, prompt, logos.Callbacks{
 		OnDelta: func(text string) { fmt.Print(text) },
 	})
-	if result != nil && result.Response != "" && !strings.HasSuffix(result.Response, "\n") {
-		fmt.Println()
-	}
-	if err != nil {
-		return fmt.Errorf("agent loop: %w", err)
-	}
-	return nil
+	return flushAgentResult(result, err)
 }
 
 // deriveCapabilities maps frontmatter tool names to logos capability switches.
@@ -175,6 +170,8 @@ func deriveCapabilities(toolNames []string) (network, readFS bool) {
 			network = true
 		case "bash", "read", "read_md", "glob", "grep":
 			readFS = true
+		default:
+			fmt.Fprintf(os.Stderr, "warning: unrecognised tool %q in agent frontmatter — ignored\n", t)
 		}
 	}
 	return network, readFS
