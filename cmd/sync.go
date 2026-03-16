@@ -71,9 +71,10 @@ Configure source paths in ~/.config/ttal/config.toml:
 		ruleCount := 0
 
 		// Build combined agentPaths for CleanAgents (needs both sources)
+		teamPath := cfg.TeamPath()
 		agentPaths := make([]string, len(syncCfg.SubagentsPaths))
 		copy(agentPaths, syncCfg.SubagentsPaths)
-		if teamPath := cfg.TeamPath(); teamPath != "" {
+		if teamPath != "" {
 			agentPaths = append(agentPaths, teamPath)
 		}
 
@@ -90,25 +91,17 @@ Configure source paths in ~/.config/ttal/config.toml:
 				if err != nil {
 					return fmt.Errorf("subagent sync failed: %w", err)
 				}
-				for _, r := range subResults {
-					fmt.Printf("  %s\n", shortenHome(r.Source))
-					fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-					fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
-				}
+				printAgentResults(subResults)
 				agentCount += len(subResults)
 			}
 
 			// Deploy team agents (from team_path) — denied as subagents
-			if teamPath := cfg.TeamPath(); teamPath != "" {
+			if teamPath != "" {
 				teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
 				if err != nil {
 					return fmt.Errorf("team agent sync failed: %w", err)
 				}
-				for _, r := range teamResults {
-					fmt.Printf("  %s\n", shortenHome(r.Source))
-					fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-					fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
-				}
+				printAgentResults(teamResults)
 				agentCount += len(teamResults)
 
 				// Only deny team agents as subagents
@@ -337,6 +330,14 @@ func shortenHome(path string) string {
 		return "~" + abs[len(home):]
 	}
 	return path
+}
+
+func printAgentResults(results []sync.AgentResult) {
+	for _, r := range results {
+		fmt.Printf("  %s\n", shortenHome(r.Source))
+		fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
+		fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
+	}
 }
 
 func countUniqueSkills(results []sync.SkillResult) int {
