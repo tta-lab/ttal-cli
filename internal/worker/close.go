@@ -31,13 +31,15 @@ type CloseResult struct {
 }
 
 // Close handles worker cleanup with smart or force mode.
+// team is the TTAL team name from the cleanup request; pass "" when calling
+// from the CLI (uses the active team from config).
 //
 // Exit semantics (reflected in the returned error and CloseResult):
 //
 //	nil error + Cleaned=true  → cleaned up successfully (exit 0)
 //	ErrNeedsDecision          → needs manual decision (exit 1)
 //	other error               → script/worker error (exit 2)
-func Close(sessionID string, force bool) (*CloseResult, error) {
+func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 	// Find the task by UUID prefix (try completed first, then pending)
 	// Handle both old (bare UUID[:8]) and new (w-UUID[:8]-slug) formats
 	sid := taskwarrior.ExtractSessionID(sessionID)
@@ -60,10 +62,15 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return &CloseResult{Error: true, Status: "Task missing required UDA: branch"}, fmt.Errorf("missing branch UDA")
 	}
 
-	projectPath := project.ResolveProjectPath(task.Project)
+	// Derive work_dir from task UUID and project alias
+	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+
+	// Use team-aware resolution so the daemon (which caches config via sync.Once at startup)
+	// reads the correct team's projects.toml rather than its own.
+	projectPath := project.ResolveProjectPathForTeam(task.Project, team)
 	if projectPath == "" {
-		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml — using current directory\n", task.Project)
-		projectPath = "."
+		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml\n", task.Project)
+		return closeWithoutProject(task, sessionName, workDir)
 	}
 
 	// Resolve git root — projectPath may be a subpath in a monorepo.
@@ -73,9 +80,6 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
 		gitRoot = projectPath
 	}
-
-	// Derive work_dir from task UUID and project alias
-	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
@@ -126,6 +130,31 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	}
 
 	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
+}
+
+// closeWithoutProject handles cleanup when the project alias can't be resolved in projects.toml.
+// Cleanup requests are only created after successful merge, so the PR is already merged.
+// Performs best-effort cleanup: kills the tmux session, removes the worktree directory,
+// and marks the task done — skipping git operations that require a valid repo root.
+func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*CloseResult, error) {
+	if tmux.SessionExists(sessionName) {
+		if err := tmux.KillSession(sessionName); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to kill session %s: %v\n", sessionName, err)
+		}
+	}
+	if err := os.RemoveAll(workDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to remove worktree dir %s: %v\n", workDir, err)
+	}
+	// Skip git worktree prune + branch delete — no valid gitRoot.
+	// Orphaned metadata is cleaned up on next manual `git worktree prune` in the real repo.
+	if err := taskwarrior.MarkDone(task.UUID); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
+	}
+	archiveTaskPlans(task.Annotations)
+	return &CloseResult{
+		Cleaned: true,
+		Status:  fmt.Sprintf("Worker cleaned up (project %q unresolvable — skipped PR check and git cleanup)", task.Project),
+	}, nil
 }
 
 // closeWithPR handles the smart-close path when a PR exists.

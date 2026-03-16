@@ -51,16 +51,10 @@ func CleanupDir() (string, error) {
 	return filepath.Join(config.DefaultDataDir(), cleanupDir), nil
 }
 
-// ExecuteCleanup processes a parsed cleanup request: sets team env, closes the worker,
-// and removes the request file. Returns error for callers that need it (CLI).
+// ExecuteCleanup processes a parsed cleanup request: closes the worker, and
+// removes the request file. Returns error for callers that need it (CLI).
 // The force parameter controls whether worker.Close uses force mode.
 func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
-	if req.Team != "" {
-		prev := os.Getenv("TTAL_TEAM")
-		_ = os.Setenv("TTAL_TEAM", req.Team)
-		defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
-	}
-
 	if req.SessionID == "" {
 		if req.TaskUUID != "" {
 			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
@@ -70,7 +64,7 @@ func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
 		return os.Remove(path)
 	}
 
-	if _, err := Close(req.SessionID, force); err != nil {
+	if _, err := Close(req.SessionID, force, req.Team); err != nil {
 		return fmt.Errorf("close failed for %s: %w", req.SessionID, err)
 	}
 

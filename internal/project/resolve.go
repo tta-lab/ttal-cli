@@ -20,6 +20,18 @@ func ResolveProjectPath(projectName string) string {
 	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPath()))
 }
 
+// ResolveProjectPathForTeam is like ResolveProjectPath but reads from the specified
+// team's projects.toml instead of the cached active team. Use this when the team
+// is known at call time (e.g. from a CleanupRequest) to avoid sync.Once cache issues
+// in the daemon where config.ResolveProjectsPath() is cached at startup.
+// When team is empty, falls back to ResolveProjectPath behavior.
+func ResolveProjectPathForTeam(projectName, team string) string {
+	if team == "" {
+		return ResolveProjectPath(projectName)
+	}
+	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPathForTeam(team)))
+}
+
 // ResolveProjectPathOrError resolves a project path from a taskwarrior project field.
 // Returns a user-friendly error if the project alias is not registered.
 func ResolveProjectPathOrError(projectName string) (string, error) {
