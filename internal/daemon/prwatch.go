@@ -385,10 +385,10 @@ func notifyPRStatus(
 // formatTaskDoneMsg returns the standard task-done message used for agent notifications.
 func formatTaskDoneMsg(target prWatchTarget) string {
 	if target.PRIndex > 0 {
-		return fmt.Sprintf("[task %s done, PR #%d merged] %s",
+		return fmt.Sprintf("✅ [task %s done, PR #%d merged] %s",
 			shortSHA(target.TaskUUID), target.PRIndex, target.Description)
 	}
-	return fmt.Sprintf("[task %s done] %s",
+	return fmt.Sprintf("✅ [task %s done] %s",
 		shortSHA(target.TaskUUID), target.Description)
 }
 

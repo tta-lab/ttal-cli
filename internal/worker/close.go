@@ -61,7 +61,8 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	}
 
 	projectPath := project.ResolveProjectPath(task.Project)
-	if projectPath == "" {
+	projectResolved := projectPath != ""
+	if !projectResolved {
 		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml — using current directory\n", task.Project)
 		projectPath = "."
 	}
@@ -125,7 +126,38 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
+	if !projectResolved {
+		return closeWithoutProject(task, sessionName, workDir)
+	}
+
 	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
+}
+
+// closeWithoutProject handles cleanup when the project alias can't be resolved in projects.toml.
+// Cleanup requests are only created after successful merge, so the PR is already merged.
+// Performs best-effort cleanup: kills the tmux session, removes the worktree directory,
+// and marks the task done — skipping git operations that require a valid repo root.
+func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*CloseResult, error) {
+	if tmux.SessionExists(sessionName) {
+		if err := tmux.KillSession(sessionName); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to kill session %s: %v\n", sessionName, err)
+		}
+	}
+	if err := os.RemoveAll(workDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to remove worktree dir %s: %v\n", workDir, err)
+	}
+	// Skip git worktree prune + branch delete — no valid gitRoot.
+	// Orphaned metadata is cleaned up on next manual `git worktree prune` in the real repo.
+	if task.UUID != "" {
+		if err := taskwarrior.MarkDone(task.UUID); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to mark task done: %v\n", err)
+		}
+	}
+	archiveTaskPlans(task.Annotations)
+	return &CloseResult{
+		Cleaned: true,
+		Status:  fmt.Sprintf("Worker cleaned up (project %q unresolvable — skipped PR check and git cleanup)", task.Project),
+	}, nil
 }
 
 // closeWithPR handles the smart-close path when a PR exists.
