@@ -204,6 +204,8 @@ type MatrixTeamConfig struct {
 	NotifyRoom string `toml:"notification_room"`
 	// Env var name for notification bot access token
 	NotifyTokenEnv string `toml:"notification_token_env"`
+	// Matrix user ID of the human owner, invited to all provisioned rooms (e.g. "@neil:ttal.dev")
+	HumanUserID string `toml:"human_user_id"`
 	// Per-agent Matrix credentials
 	Agents map[string]MatrixAgentConfig `toml:"agents"`
 }

@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -226,11 +227,56 @@ func TestMatrixFrontend_StubMethods(t *testing.T) {
 	if err := fe.SendVoice(ctx, "agent", []byte("data")); err != nil {
 		t.Errorf("SendVoice: %v", err)
 	}
-	if err := fe.SetReaction(ctx, "agent", "👍"); err != nil {
-		t.Errorf("SetReaction: %v", err)
-	}
 	if err := fe.RegisterCommands([]Command{{Name: "help"}}); err != nil {
 		t.Errorf("RegisterCommands: %v", err)
+	}
+}
+
+// TestMatrixFrontend_SetReaction verifies SetReaction sends a m.reaction event with correct content.
+func TestMatrixFrontend_SetReaction(t *testing.T) {
+	var sentContent []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/send/m.reaction/") {
+			body, _ := io.ReadAll(r.Body)
+			sentContent = body
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"event_id":"$reaction1"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	fe := buildTestFrontend(t, srv, "yuki", "!room:test")
+
+	// Set a tracked event ID
+	fe.lastEventMu.Lock()
+	fe.lastEventID["yuki"] = "$msg123"
+	fe.lastEventMu.Unlock()
+
+	err := fe.SetReaction(context.Background(), "yuki", "🤔")
+	if err != nil {
+		t.Fatalf("SetReaction: %v", err)
+	}
+	if !strings.Contains(string(sentContent), `"key":"🤔"`) {
+		t.Errorf("reaction content missing emoji key, got: %s", sentContent)
+	}
+	if !strings.Contains(string(sentContent), `"event_id":"$msg123"`) {
+		t.Errorf("reaction content missing event ID, got: %s", sentContent)
+	}
+}
+
+// TestMatrixFrontend_SetReaction_NoTracked verifies SetReaction is a no-op when no event is tracked.
+func TestMatrixFrontend_SetReaction_NoTracked(t *testing.T) {
+	fe := &MatrixFrontend{
+		sessions:    make(map[string]agentSession),
+		lastEventID: make(map[string]id.EventID),
+	}
+	err := fe.SetReaction(context.Background(), "yuki", "🤔")
+	if err != nil {
+		t.Fatalf("expected nil error for no-tracked, got: %v", err)
 	}
 }
 
