@@ -16,6 +16,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
+const defaultTeam = "default"
+
 var routeToAgent string
 var routeMessage string
 
@@ -43,7 +45,7 @@ Examples:
 		rt := cfg.AgentRuntimeFor(routeToAgent)
 		role := agent.Role
 		if role == "" {
-			role = "default"
+			role = defaultTeam
 		}
 		prompt := cfg.RenderPrompt(role, uuid, rt)
 		if prompt == "" {
@@ -203,7 +205,7 @@ func detectSpawner() string {
 	}
 	team := os.Getenv("TTAL_TEAM")
 	if team == "" {
-		team = "default"
+		team = defaultTeam
 	}
 	return team + ":" + agent
 }

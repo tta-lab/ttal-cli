@@ -91,7 +91,7 @@ func parseSpawner(s string) (team, agent string) {
 	}
 	team = os.Getenv("TTAL_TEAM")
 	if team == "" {
-		team = "default"
+		team = defaultTeam
 	}
 	return team, s
 }
