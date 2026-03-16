@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const pathTtal = "/path/ttal"
+
 // newTestStoreWithProjects creates a temp store pre-populated with the given projects.
 func newTestStoreWithProjects(t *testing.T, projects []Project) *Store {
 	t.Helper()
@@ -28,37 +30,37 @@ func TestResolveProjectPathWithStore(t *testing.T) {
 		{
 			name:        "exact match",
 			projectName: "ttal",
-			projects:    []Project{{Alias: "ttal", Path: "/path/ttal"}},
-			want:        "/path/ttal",
+			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
+			want:        pathTtal,
 		},
 		{
 			name:        "hierarchical fallback: ttal.pr → ttal",
 			projectName: "ttal.pr",
-			projects:    []Project{{Alias: "ttal", Path: "/path/ttal"}},
-			want:        "/path/ttal",
+			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
+			want:        pathTtal,
 		},
 		{
 			name:        "contains fallback: ttal-cli contains ttal",
 			projectName: "ttal-cli",
-			projects:    []Project{{Alias: "ttal", Path: "/path/ttal"}},
-			want:        "/path/ttal",
+			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
+			want:        pathTtal,
 		},
 		{
 			name:        "empty project name — single-project shortcut",
 			projectName: "",
-			projects:    []Project{{Alias: "ttal", Path: "/path/ttal"}},
-			want:        "/path/ttal",
+			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
+			want:        pathTtal,
 		},
 		{
 			name:        "unknown project returns empty",
 			projectName: "nonexistent",
-			projects:    []Project{{Alias: "ttal", Path: "/path/ttal"}, {Alias: "other", Path: "/path/other"}},
+			projects:    []Project{{Alias: "ttal", Path: pathTtal}, {Alias: "other", Path: "/path/other"}},
 			want:        "",
 		},
 		{
 			name:        "empty project name with multiple projects returns empty",
 			projectName: "",
-			projects:    []Project{{Alias: "ttal", Path: "/path/ttal"}, {Alias: "other", Path: "/path/other"}},
+			projects:    []Project{{Alias: "ttal", Path: pathTtal}, {Alias: "other", Path: "/path/other"}},
 			want:        "",
 		},
 	}
@@ -76,17 +78,17 @@ func TestResolveProjectPathWithStore(t *testing.T) {
 
 func TestResolveProjectPathOrError(t *testing.T) {
 	t.Run("found returns path", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: "/path/ttal"}})
+		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
 		// Call resolveProjectPathWithStore directly to avoid needing the real config path
 		path := resolveProjectPathWithStore("ttal", store)
-		if path != "/path/ttal" {
+		if path != pathTtal {
 			t.Errorf("want /path/ttal, got %q", path)
 		}
 	})
 
 	t.Run("unknown project returns error listing available", func(t *testing.T) {
 		store := newTestStoreWithProjects(t, []Project{
-			{Alias: "ttal", Path: "/path/ttal"},
+			{Alias: "ttal", Path: pathTtal},
 			{Alias: "flicknote", Path: "/path/flicknote"},
 		})
 		err := formatProjectNotFoundError("unknown", store)
@@ -106,18 +108,18 @@ func TestResolveProjectPathOrError(t *testing.T) {
 	})
 
 	t.Run("empty project name returns appropriate error", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: "/path/ttal"}})
+		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
 		path := resolveProjectPathWithStore("", store)
 		// Empty name with single project triggers single-project shortcut
-		if path != "/path/ttal" {
+		if path != pathTtal {
 			t.Errorf("single-project shortcut: want /path/ttal, got %q", path)
 		}
 	})
 
 	t.Run("hierarchical fallback ttal.pr.sub → ttal", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: "/path/ttal"}})
+		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
 		path := resolveProjectPathWithStore("ttal.pr.sub", store)
-		if path != "/path/ttal" {
+		if path != pathTtal {
 			t.Errorf("want /path/ttal for ttal.pr.sub, got %q", path)
 		}
 	})
@@ -134,16 +136,16 @@ func TestMatchByContains(t *testing.T) {
 			name:  "input contains one alias",
 			input: "ttal-cli",
 			projects: []Project{
-				{Alias: "ttal", Path: "/path/ttal"},
+				{Alias: "ttal", Path: pathTtal},
 				{Alias: "flicknote", Path: "/path/flicknote"},
 			},
-			want: "/path/ttal",
+			want: pathTtal,
 		},
 		{
 			name:  "input contains multiple aliases - ambiguous",
 			input: "ttal-flicknote-app",
 			projects: []Project{
-				{Alias: "ttal", Path: "/path/ttal"},
+				{Alias: "ttal", Path: pathTtal},
 				{Alias: "flicknote", Path: "/path/flicknote"},
 			},
 			want: "",
@@ -152,7 +154,7 @@ func TestMatchByContains(t *testing.T) {
 			name:  "alias contains input but not vice versa - no match",
 			input: "tt",
 			projects: []Project{
-				{Alias: "ttal", Path: "/path/ttal"},
+				{Alias: "ttal", Path: pathTtal},
 			},
 			want: "",
 		},
@@ -160,9 +162,9 @@ func TestMatchByContains(t *testing.T) {
 			name:  "case insensitive match",
 			input: "TTAL-CLI",
 			projects: []Project{
-				{Alias: "ttal", Path: "/path/ttal"},
+				{Alias: "ttal", Path: pathTtal},
 			},
-			want: "/path/ttal",
+			want: pathTtal,
 		},
 		{
 			name:  "empty alias skipped",
@@ -190,9 +192,9 @@ func TestMatchByContains(t *testing.T) {
 			name:  "exact alias match via contains",
 			input: "ttal",
 			projects: []Project{
-				{Alias: "ttal", Path: "/path/ttal"},
+				{Alias: "ttal", Path: pathTtal},
 			},
-			want: "/path/ttal",
+			want: pathTtal,
 		},
 	}
 
