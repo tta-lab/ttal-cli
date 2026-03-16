@@ -79,6 +79,20 @@ func (s *askHumanStore) get(shortID string) (*askHumanEntry, bool) {
 	return e, ok
 }
 
+// getAndRemove atomically retrieves and removes an entry, preventing TOCTOU races
+// between concurrent callers (e.g. timeout goroutine vs. button press).
+func (s *askHumanStore) getAndRemove(shortID string) (*askHumanEntry, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.pending[shortID]
+	if !ok {
+		return nil, false
+	}
+	delete(s.chatPending, e.chatID)
+	delete(s.pending, shortID)
+	return e, true
+}
+
 // getForChat returns the pending no-option entry for a chat (for text reply routing).
 func (s *askHumanStore) getForChat(chatID int64) (string, *askHumanEntry, bool) {
 	s.mu.Lock()
@@ -101,26 +115,24 @@ func (s *askHumanStore) remove(shortID string) {
 	}
 }
 
-// deliverAnswer writes the answer to the channel and removes the entry.
+// deliverAnswer atomically claims and answers the entry.
 // Returns false if the entry is not found (already answered or timed out).
 func (s *askHumanStore) deliverAnswer(shortID, answer string) bool {
-	e, ok := s.get(shortID)
+	e, ok := s.getAndRemove(shortID)
 	if !ok {
 		return false
 	}
-	s.remove(shortID)
 	e.ch <- AskHumanResponse{OK: true, Answer: answer}
 	return true
 }
 
-// deliverSkip writes a skip response to the channel and removes the entry.
+// deliverSkip atomically claims and skips the entry.
 // Returns false if the entry is not found (already answered or timed out).
 func (s *askHumanStore) deliverSkip(shortID string) bool {
-	e, ok := s.get(shortID)
+	e, ok := s.getAndRemove(shortID)
 	if !ok {
 		return false
 	}
-	s.remove(shortID)
 	e.ch <- AskHumanResponse{OK: false, Skipped: true}
 	return true
 }
@@ -170,6 +182,7 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 		go func() {
 			time.Sleep(askHumanTimeout)
 			if store.deliverSkip(shortID) {
+				log.Printf("[ask-human] question timed out (shortID=%s, display=%s)", shortID, displayName)
 				expiredText := fmt.Sprintf("⏰ <b>%s</b> — question expired (no response within 5m)", displayName)
 				editAskHumanMessage(botToken, chatID, msgID, expiredText, nil)
 			}
@@ -181,6 +194,9 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 			writeHTTPJSON(w, http.StatusOK, resp)
 		case <-r.Context().Done():
 			store.remove(shortID)
+			log.Printf("[ask-human] agent disconnected (shortID=%s, display=%s)", shortID, displayName)
+			disconnectedText := fmt.Sprintf("⚡ <b>%s</b> — agent disconnected before receiving answer", displayName)
+			editAskHumanMessage(botToken, chatID, msgID, disconnectedText, nil)
 		}
 	}
 }
@@ -246,15 +262,24 @@ func buildAskHumanMessage( //nolint:lll
 	return text, &models.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-// sendAskHumanMessage sends the ask-human Telegram message and returns its ID.
-func sendAskHumanMessage(botToken string, chatID int64, text string, markup *models.InlineKeyboardMarkup) (int, error) {
+// newAskHumanBot creates a bot instance and a 10-second context for a single API call.
+func newAskHumanBot(botToken string) (*bot.Bot, context.Context, context.CancelFunc, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	b, err := bot.New(botToken)
 	if err != nil {
-		return 0, fmt.Errorf("bot init: %w", err)
+		cancel()
+		return nil, nil, nil, fmt.Errorf("bot init: %w", err)
 	}
+	return b, ctx, cancel, nil
+}
+
+// sendAskHumanMessage sends the ask-human Telegram message and returns its ID.
+func sendAskHumanMessage(botToken string, chatID int64, text string, markup *models.InlineKeyboardMarkup) (int, error) {
+	b, ctx, cancel, err := newAskHumanBot(botToken)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
 
 	params := &bot.SendMessageParams{
 		ChatID:    chatID,
@@ -274,14 +299,12 @@ func sendAskHumanMessage(botToken string, chatID int64, text string, markup *mod
 
 // editAskHumanMessage edits the ask-human Telegram message in-place.
 func editAskHumanMessage(botToken string, chatID int64, msgID int, text string, markup *models.InlineKeyboardMarkup) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	b, err := bot.New(botToken)
+	b, ctx, cancel, err := newAskHumanBot(botToken)
 	if err != nil {
 		log.Printf("[ask-human] bot init error: %v", err)
 		return
 	}
+	defer cancel()
 
 	params := &bot.EditMessageTextParams{
 		ChatID:    chatID,

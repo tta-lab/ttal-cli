@@ -16,8 +16,7 @@ func runAskHuman(_ *cobra.Command, args []string, options []string) error {
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	tmuxEnv := os.Getenv("TMUX")
 	if agentName == "" && tmuxEnv == "" {
-		fmt.Fprintln(os.Stderr, "error: TTAL_AGENT_NAME not set and not in a tmux session — cannot route question to Telegram") //nolint:lll
-		os.Exit(1)
+		return fmt.Errorf("TTAL_AGENT_NAME not set and not in a tmux session — cannot route question to Telegram") //nolint:lll
 	}
 
 	tmuxSession := ""
@@ -34,13 +33,11 @@ func runAskHuman(_ *cobra.Command, args []string, options []string) error {
 
 	result, err := daemon.AskHuman(req)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		return fmt.Errorf("ask human: %w", err)
 	}
 
 	if result.Skipped {
-		fmt.Fprintln(os.Stderr, "question skipped or timed out (no response within 5m)")
-		os.Exit(1)
+		return fmt.Errorf("question skipped or timed out (no response within 5m)")
 	}
 
 	fmt.Print(result.Answer)

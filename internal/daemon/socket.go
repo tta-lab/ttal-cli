@@ -97,9 +97,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Get("/status", handleHTTPGetStatus())
 	r.Post("/status/update", handleHTTPStatusUpdate(handlers))
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
-	if handlers.askHuman != nil {
-		r.Post("/ask/human", handlers.askHuman)
-	}
+	r.Post("/ask/human", handlers.askHuman)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
 	})
@@ -313,12 +311,18 @@ func AskHuman(req AskHumanRequest) (AskHumanResponse, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return AskHumanResponse{}, fmt.Errorf("daemon error (HTTP %d)", resp.StatusCode)
+	}
 	var result AskHumanResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return AskHumanResponse{}, fmt.Errorf("invalid response from daemon: %w", err)
 	}
 	if result.Error != "" {
 		return AskHumanResponse{}, fmt.Errorf("daemon error: %s", result.Error)
+	}
+	if !result.OK && !result.Skipped {
+		return AskHumanResponse{}, fmt.Errorf("daemon returned failure without details")
 	}
 	return result, nil
 }

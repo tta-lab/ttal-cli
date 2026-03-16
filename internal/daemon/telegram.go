@@ -732,6 +732,9 @@ func handleAskHumanCallback(
 			Text:      answeredText,
 			ParseMode: models.ParseModeHTML,
 		})
+	} else {
+		// Timeout raced with button press between get and deliverAnswer.
+		answerExpiredCallback(ctx, b, cq)
 	}
 }
 
@@ -760,8 +763,11 @@ func interceptedAsHumanAnswer(msg *models.Message, ahs *askHumanStore) bool {
 	if ahs.deliverAnswer(shortID, text) {
 		answeredText := fmt.Sprintf("✅ Answered: <b>%s</b>", text)
 		editAskHumanMessage(e.botToken, e.chatID, e.msgID, answeredText, nil)
+		return true
 	}
-	return true
+	// Delivery failed (timeout race) — don't intercept; let message route normally.
+	log.Printf("[ask-human] text reply delivery failed for shortID=%s (already answered/timed out)", shortID)
+	return false
 }
 
 // persistInbound logs a warning if the inbound message cannot be persisted.
