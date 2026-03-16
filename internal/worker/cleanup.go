@@ -55,6 +55,13 @@ func CleanupDir() (string, error) {
 // removes the request file. Returns error for callers that need it (CLI).
 // The force parameter controls whether worker.Close uses force mode.
 func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
+	// Set TTAL_TEAM so taskwarrior.resolveTaskRC() (via config.Load()) picks
+	// up the correct team taskrc for this request — config.Load() reads the
+	// env fresh each call, so this must be set before any taskwarrior calls.
+	if req.Team != "" {
+		os.Setenv("TTAL_TEAM", req.Team) //nolint:errcheck
+	}
+
 	if req.SessionID == "" {
 		if req.TaskUUID != "" {
 			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
