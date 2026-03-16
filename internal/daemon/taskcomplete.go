@@ -19,7 +19,9 @@ func handleTaskComplete(req TaskCompleteRequest, mcfg *config.DaemonConfig, regi
 	// Owner, Repo, Provider, SessionName are left zero — not used by notify functions.
 	var prIndex int64
 	if req.PRID != "" {
-		if info, err := taskwarrior.ParsePRID(req.PRID); err == nil {
+		if info, err := taskwarrior.ParsePRID(req.PRID); err != nil {
+			log.Printf("[taskComplete] ParsePRID %q failed: %v — PR index will be 0", req.PRID, err)
+		} else {
 			prIndex = info.Index
 		}
 	}
@@ -46,7 +48,10 @@ func handleTaskComplete(req TaskCompleteRequest, mcfg *config.DaemonConfig, regi
 	} else {
 		log.Printf("[taskComplete] notified managers for task %s", shortSHA(req.TaskUUID))
 	}
-	notifyTelegramTaskDone(mcfg, target)
+	// Only notify Telegram if there was a PR — plain task completions are silent.
+	if req.PRID != "" {
+		notifyTelegramTaskDone(mcfg, target)
+	}
 	return SendResponse{OK: true}
 }
 
