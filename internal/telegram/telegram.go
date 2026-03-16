@@ -140,8 +140,6 @@ func ToolEmoji(toolName string) string {
 		return "👀"
 	case "Agent":
 		return "🔥"
-	case "AskUserQuestion":
-		return ""
 
 	// CLI-specific refinements (from Bash input parsing)
 	case "ttal:send", "ttal:route":

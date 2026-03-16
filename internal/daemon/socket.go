@@ -86,6 +86,7 @@ type httpHandlers struct {
 	send         func(SendRequest) error
 	statusUpdate func(StatusUpdateRequest)
 	taskComplete func(TaskCompleteRequest) SendResponse
+	askHuman     http.HandlerFunc
 }
 
 // newDaemonRouter creates the chi router with all daemon routes.
@@ -96,6 +97,9 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Get("/status", handleHTTPGetStatus())
 	r.Post("/status/update", handleHTTPStatusUpdate(handlers))
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
+	if handlers.askHuman != nil {
+		r.Post("/ask/human", handlers.askHuman)
+	}
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
 	})
@@ -245,6 +249,20 @@ func daemonHTTPClient() *http.Client {
 	}
 }
 
+// daemonHTTPClientLong returns an http.Client with a custom timeout for long-blocking
+// requests (e.g. /ask/human which waits up to 5 minutes for a human reply).
+func daemonHTTPClientLong(timeout time.Duration) *http.Client {
+	sockPath, _ := SocketPath()
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, socketTimeout)
+			},
+		},
+	}
+}
+
 // Send connects to the daemon socket and sends a message via HTTP.
 // Returns an error if the daemon is not running or if delivery fails.
 // Auto-populates Team from TTAL_TEAM env if not set.
@@ -273,6 +291,36 @@ func Send(req SendRequest) error {
 		return fmt.Errorf("daemon error: %s", result.Error)
 	}
 	return nil
+}
+
+// askHumanClientTimeout is the total request timeout for /ask/human.
+// 30 seconds longer than the daemon's 5-minute question timeout to allow the
+// daemon to write its response before the client gives up.
+const askHumanClientTimeout = 5*time.Minute + 30*time.Second
+
+// AskHuman sends a question to a human via Telegram and blocks until answered.
+// Returns the response with the human's answer, or Skipped=true on timeout/skip.
+func AskHuman(req AskHumanRequest) (AskHumanResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return AskHumanResponse{}, fmt.Errorf("encode request: %w", err)
+	}
+
+	client := daemonHTTPClientLong(askHumanClientTimeout)
+	resp, err := client.Post(daemonBaseURL+"/ask/human", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return AskHumanResponse{}, fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result AskHumanResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return AskHumanResponse{}, fmt.Errorf("invalid response from daemon: %w", err)
+	}
+	if result.Error != "" {
+		return AskHumanResponse{}, fmt.Errorf("daemon error: %s", result.Error)
+	}
+	return result, nil
 }
 
 // QueryStatus connects to the daemon and queries agent status via HTTP.

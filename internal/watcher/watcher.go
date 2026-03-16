@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 const jsonlExt = ".jsonl"
@@ -25,9 +24,6 @@ type AgentInfo struct {
 // teamName and agentName identify the agent, text is the assistant text block.
 type SendFunc func(teamName, agentName, text string)
 
-// QuestionFunc is called when an AskUserQuestion is detected in CC JSONL.
-type QuestionFunc func(teamName, agentName, correlationID string, questions []runtime.Question)
-
 // ToolFunc is called when a tool invocation is detected in CC JSONL.
 type ToolFunc func(teamName, agentName, toolName string)
 
@@ -41,13 +37,12 @@ type WatchedAgent struct {
 
 // Watcher tails active CC JSONL files and sends assistant text to Telegram.
 type Watcher struct {
-	agents     map[string]WatchedAgent // composite key "team/encoded" -> agent
-	dirToKey   map[string]string       // full dir path -> composite key (for fsnotify lookup)
-	offsets    map[string]int64        // file path -> last read offset
-	mu         sync.Mutex
-	send       SendFunc
-	onQuestion QuestionFunc
-	onTool     ToolFunc
+	agents   map[string]WatchedAgent // composite key "team/encoded" -> agent
+	dirToKey map[string]string       // full dir path -> composite key (for fsnotify lookup)
+	offsets  map[string]int64        // file path -> last read offset
+	mu       sync.Mutex
+	send     SendFunc
+	onTool   ToolFunc
 }
 
 // EncodePath converts an absolute path to CC's encoded project directory name.
@@ -61,7 +56,7 @@ func EncodePath(path string) string {
 // New creates a Watcher from a pre-built agent map.
 // Key is composite "teamName/encodedDir" to avoid collisions across teams.
 // Config-driven: no DB or config.Load() required.
-func New(agents map[string]WatchedAgent, send SendFunc, onQuestion QuestionFunc, onTool ToolFunc) (*Watcher, error) {
+func New(agents map[string]WatchedAgent, send SendFunc, onTool ToolFunc) (*Watcher, error) {
 	log.Printf("[watcher] watching %d agents", len(agents))
 
 	dirToKey := make(map[string]string, len(agents))
@@ -71,12 +66,11 @@ func New(agents map[string]WatchedAgent, send SendFunc, onQuestion QuestionFunc,
 	}
 
 	return &Watcher{
-		agents:     agents,
-		dirToKey:   dirToKey,
-		offsets:    make(map[string]int64),
-		send:       send,
-		onQuestion: onQuestion,
-		onTool:     onTool,
+		agents:   agents,
+		dirToKey: dirToKey,
+		offsets:  make(map[string]int64),
+		send:     send,
+		onTool:   onTool,
 	}, nil
 }
 
@@ -211,19 +205,12 @@ func (w *Watcher) handleFileWrite(path string) {
 	w.mu.Unlock()
 }
 
-// processLines processes complete JSONL lines, dispatching questions, tools, and text events.
+// processLines processes complete JSONL lines, dispatching tools and text events.
 // Returns the number of bytes consumed (including newlines).
 func (w *Watcher) processLines(data []byte, agent AgentInfo) int {
 	consumed := 0
 	for _, line := range splitCompleteLines(data) {
 		consumed += len(line) + 1
-
-		if correlationID, questions := extractQuestions(line); len(questions) > 0 {
-			if w.onQuestion != nil {
-				w.onQuestion(agent.TeamName, agent.AgentName, correlationID, questions)
-			}
-			continue
-		}
 
 		if toolName := extractToolUse(line); toolName != "" {
 			if w.onTool != nil {

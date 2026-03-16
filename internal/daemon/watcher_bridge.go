@@ -4,18 +4,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 // startWatcher initializes the JSONL watcher from config (all teams).
 func startWatcher(
-	mcfg *config.DaemonConfig, qs *questionStore, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
+	mcfg *config.DaemonConfig, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
 ) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -56,9 +54,6 @@ func startWatcher(
 				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
 			}
 		},
-		func(teamName, agentName, correlationID string, questions []runtime.Question) {
-			handleIncomingQuestion(qs, teamName, agentName, runtime.ClaudeCode, correlationID, questions, mcfg)
-		},
 		func(teamName, agentName, toolName string) {
 			emoji := telegram.ToolEmoji(toolName)
 			if emoji == "" {
@@ -86,64 +81,4 @@ func startWatcher(
 			log.Printf("[daemon] watcher error: %v", err)
 		}
 	}()
-}
-
-// handleIncomingQuestion handles questions with team context.
-func handleIncomingQuestion(
-	store *questionStore,
-	teamName, agentName string,
-	rt runtime.Runtime,
-	correlationID string,
-	questions []runtime.Question,
-	mcfg *config.DaemonConfig,
-) {
-	if len(questions) == 0 {
-		return
-	}
-
-	for _, q := range questions {
-		if q.MultiSelect {
-			log.Printf("[questions] warning: multi-select not supported in Telegram UI"+
-				" for %s question %q — treating as single-select", agentName, q.Header)
-		}
-	}
-
-	ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-	botToken := config.AgentBotToken(agentName)
-	if !ok || botToken == "" {
-		log.Printf("[questions] no bot config for agent %s, dropping question", agentName)
-		return
-	}
-	chatID, err := telegram.ParseChatID(ta.ChatID)
-	if err != nil {
-		log.Printf("[questions] invalid chat ID for %s: %v", agentName, err)
-		return
-	}
-
-	batch := &QuestionBatch{
-		ShortID:       store.nextShortID(),
-		CorrelationID: correlationID,
-		TeamName:      teamName,
-		AgentName:     agentName,
-		Runtime:       rt,
-		Questions:     questions,
-		Answers:       make(map[int]string),
-		CurrentPage:   0,
-		ChatID:        chatID,
-		BotToken:      botToken,
-		CreatedAt:     time.Now(),
-	}
-
-	page := buildQuestionPage(batch)
-	text, markup := telegram.RenderQuestionPage(page)
-
-	msgID, err := telegram.SendQuestionMessage(botToken, chatID, text, markup)
-	if err != nil {
-		log.Printf("[questions] failed to send question to Telegram for %s: %v", agentName, err)
-		return
-	}
-	batch.TelegramMsgID = msgID
-
-	store.store(batch)
-	log.Printf("[questions] sent question %s for %s (batch %s)", correlationID, agentName, batch.ShortID)
 }

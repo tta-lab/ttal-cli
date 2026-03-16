@@ -14,47 +14,19 @@ type Event struct {
 	ModelID             string
 	SessionID           string
 
-	// Question fields (for EventQuestion).
-	CorrelationID string     // tool_use_id / requestID / call_id
-	Questions     []Question // 1-4 questions per event
-
 	// Tool fields (for EventTool).
 	ToolName string
-}
-
-// Question represents a single question from any runtime, normalized to a common format.
-type Question struct {
-	ID          string           // Per-question ID (empty for CC, Codex uses for answer mapping)
-	Header      string           // Short label (e.g. "Database", "Approach")
-	Text        string           // Full question text
-	Options     []QuestionOption // Available choices
-	MultiSelect bool             // Allow multiple selections
-	AllowCustom bool             // Allow free-form text input
-	IsSecret    bool             // Mask input (Codex only)
-}
-
-// QuestionOption is one selectable choice for a Question.
-type QuestionOption struct {
-	Label       string
-	Description string
-}
-
-// QuestionAnswer pairs a question ID with the user's answer (used for Codex response routing).
-type QuestionAnswer struct {
-	QuestionID string
-	Answer     string
 }
 
 // EventType classifies runtime events.
 type EventType string
 
 const (
-	EventText     EventType = "text"     // Assistant text output → bridge to Telegram
-	EventStatus   EventType = "status"   // Context/model status update
-	EventError    EventType = "error"    // Runtime error
-	EventIdle     EventType = "idle"     // Agent finished processing, waiting for input
-	EventQuestion EventType = "question" // Agent needs human input
-	EventTool     EventType = "tool"     // Tool invocation detected
+	EventText   EventType = "text"   // Assistant text output → bridge to Telegram
+	EventStatus EventType = "status" // Context/model status update
+	EventError  EventType = "error"  // Runtime error
+	EventIdle   EventType = "idle"   // Agent finished processing, waiting for input
+	EventTool   EventType = "tool"   // Tool invocation detected
 )
 
 // Adapter abstracts the transport for communicating with a coding agent runtime.
