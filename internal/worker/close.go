@@ -67,19 +67,21 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		projectPath = "."
 	}
 
-	// Resolve git root — projectPath may be a subpath in a monorepo.
-	// Worktrees and git pull must operate at the git root level.
-	gitRoot, err := gitroot.FindRoot(projectPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
-		gitRoot = projectPath
-	}
-
 	// Derive work_dir from task UUID and project alias
 	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
+		if !projectResolved {
+			return closeWithoutProject(task, sessionName, workDir)
+		}
+		// Resolve git root — projectPath may be a subpath in a monorepo.
+		// Worktrees and git pull must operate at the git root level.
+		gitRoot, err := gitroot.FindRoot(projectPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
+			gitRoot = projectPath
+		}
 		dumpPath := dumpState(sessionName, workDir)
 		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
@@ -130,6 +132,14 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return closeWithoutProject(task, sessionName, workDir)
 	}
 
+	// Resolve git root — projectPath may be a subpath in a monorepo.
+	// Worktrees and git pull must operate at the git root level.
+	gitRoot, err := gitroot.FindRoot(projectPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
+		gitRoot = projectPath
+	}
+
 	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
 }
 
@@ -148,10 +158,8 @@ func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*
 	}
 	// Skip git worktree prune + branch delete — no valid gitRoot.
 	// Orphaned metadata is cleaned up on next manual `git worktree prune` in the real repo.
-	if task.UUID != "" {
-		if err := taskwarrior.MarkDone(task.UUID); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to mark task done: %v\n", err)
-		}
+	if err := taskwarrior.MarkDone(task.UUID); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 	}
 	archiveTaskPlans(task.Annotations)
 	return &CloseResult{
