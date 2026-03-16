@@ -58,7 +58,15 @@ func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
 	// Set TTAL_TEAM so taskwarrior.resolveTaskRC() (via config.Load()) picks
 	// up the correct team taskrc for this request — config.Load() reads the
 	// env fresh each call, so this must be set before any taskwarrior calls.
+	// Restore the previous value on return to avoid polluting subsequent
+	// cleanup calls in the daemon (e.g. a default-team request after a
+	// named-team request would otherwise inherit the wrong TTAL_TEAM).
 	if req.Team != "" {
+		if prev, ok := os.LookupEnv("TTAL_TEAM"); ok {
+			defer os.Setenv("TTAL_TEAM", prev) //nolint:errcheck
+		} else {
+			defer os.Unsetenv("TTAL_TEAM") //nolint:errcheck
+		}
 		os.Setenv("TTAL_TEAM", req.Team) //nolint:errcheck
 	}
 
