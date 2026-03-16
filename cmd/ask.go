@@ -43,6 +43,8 @@ var askFlags struct {
 	repo      string
 	url       string
 	web       bool
+	human     bool
+	options   []string
 	maxSteps  int
 	maxTokens int
 }
@@ -86,9 +88,20 @@ func runAsk(cmd *cobra.Command, args []string) error {
 	if askFlags.web {
 		flagsSet++
 	}
+	if askFlags.human {
+		flagsSet++
+	}
 
 	if flagsSet > 1 {
-		return fmt.Errorf("only one of --project, --repo, --url, or --web may be specified at a time")
+		return fmt.Errorf("only one of --project, --repo, --url, --web, or --human may be specified at a time")
+	}
+
+	if len(askFlags.options) > 0 && !askFlags.human {
+		return fmt.Errorf("--option is only valid with --human")
+	}
+
+	if askFlags.human {
+		return runAskHuman(cmd, args, askFlags.options)
 	}
 
 	usage.Log("ask", askLogTarget())
@@ -399,8 +412,10 @@ func init() {
 	askCmd.Flags().StringVar(&askFlags.repo, "repo", "", "Ask about an OSS repo (full URL or org/repo shorthand)")
 	askCmd.Flags().StringVar(&askFlags.url, "url", "", "Ask about a web page (pre-fetched with defuddle)")
 	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
-	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")               //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step") //nolint:lll
+	askCmd.Flags().BoolVar(&askFlags.human, "human", false, "Ask a human via Telegram and block until answered")
+	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)") //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                      //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")        //nolint:lll
 
 	rootCmd.AddCommand(askCmd)
 }
@@ -416,6 +431,8 @@ func askLogTarget() string {
 		return askFlags.url
 	case askFlags.web:
 		return "web"
+	case askFlags.human:
+		return "human"
 	default:
 		return "general"
 	}

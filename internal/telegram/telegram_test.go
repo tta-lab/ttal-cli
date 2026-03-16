@@ -137,7 +137,6 @@ func TestToolEmoji(t *testing.T) {
 		{"WebSearch", "👀"},
 		{"WebFetch", "👀"},
 		{"Agent", "🔥"},
-		{"AskUserQuestion", ""},
 		{"SomeUnknownTool", "🔥"},
 		{"ttal:send", "🕊"},
 		{"ttal:route", "🕊"},

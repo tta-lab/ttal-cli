@@ -79,8 +79,7 @@ func Run() error {
 	_ = ctx // reserved for future use
 
 	registry := newAdapterRegistry()
-	qs := newQuestionStore()
-	cas := newCustomAnswerStore()
+	ahs := newAskHumanStore()
 	mt := newMessageTracker()
 
 	// Run adapter init and bot command registration concurrently — they're independent.
@@ -100,14 +99,14 @@ func Run() error {
 	}()
 
 	startupWg.Wait()
-	startTelegramPollers(mcfg, registry, done, qs, cas, allCommands, mt, msgSvc)
+	startTelegramPollers(mcfg, registry, done, ahs, allCommands, mt, msgSvc)
 	startNotificationPollers(mcfg, done)
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, done)
 	startCleanupWatcher(done)
 	startPRWatcher(mcfg, done)
 	startReminderPoller(mcfg, done)
-	startWatcher(mcfg, qs, mt, msgSvc, done)
+	startWatcher(mcfg, mt, msgSvc, done)
 
 	srv, err := listenHTTP(sockPath, httpHandlers{
 		send: func(req SendRequest) error {
@@ -117,13 +116,12 @@ func Run() error {
 		taskComplete: func(req TaskCompleteRequest) SendResponse {
 			return handleTaskComplete(req, mcfg, registry)
 		},
+		askHuman: handleHTTPAskHuman(ahs, mcfg),
 	})
 	if err != nil {
 		close(done)
 		return err
 	}
-
-	go runQuestionCleanup(qs, done)
 
 	log.Printf("[daemon] ready")
 	notifyDaemonReady(mcfg)
@@ -146,20 +144,6 @@ func setupDataDir() (string, error) {
 		return "", fmt.Errorf("failed to write pid file: %w", err)
 	}
 	return pidPath, nil
-}
-
-// runQuestionCleanup periodically cleans up stale question batches.
-func runQuestionCleanup(qs *questionStore, done <-chan struct{}) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-done:
-			return
-		case <-ticker.C:
-			qs.cleanup(30 * time.Minute)
-		}
-	}
 }
 
 // notifyDaemonReady sends a startup notification to the default team via its notification bot token.

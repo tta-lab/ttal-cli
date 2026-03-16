@@ -1,10 +1,7 @@
 package watcher
 
 import (
-	"encoding/json"
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 func TestEncodePath(t *testing.T) {
@@ -51,117 +48,6 @@ func TestSplitCompleteLines(t *testing.T) {
 	}
 }
 
-func TestExtractQuestions(t *testing.T) {
-	t.Run("single question with options", func(t *testing.T) {
-		input := map[string]interface{}{
-			"questions": []map[string]interface{}{
-				{
-					"question":    "Which database?",
-					"header":      "Database",
-					"multiSelect": false,
-					"options": []map[string]string{
-						{"label": "PostgreSQL", "description": "Relational DB"},
-						{"label": "MongoDB", "description": "Document DB"},
-					},
-				},
-			},
-		}
-		correlationID, questions := extractQuestionsFromInput(t, input, "toolu_123")
-		assertCorrelationID(t, correlationID, "toolu_123")
-		if len(questions) != 1 {
-			t.Fatalf("len(questions) = %d, want 1", len(questions))
-		}
-		q := questions[0]
-		assertQuestionFields(t, q, "Which database?", "Database", 2, true)
-	})
-
-	t.Run("multi question batch", func(t *testing.T) {
-		input := map[string]interface{}{
-			"questions": []map[string]interface{}{
-				{"question": "Q1", "header": "H1", "options": []map[string]string{{"label": "A"}}},
-				{"question": "Q2", "header": "H2", "options": []map[string]string{{"label": "B"}}},
-			},
-		}
-		correlationID, questions := extractQuestionsFromInput(t, input, "toolu_456")
-		assertCorrelationID(t, correlationID, "toolu_456")
-		if len(questions) != 2 {
-			t.Fatalf("len(questions) = %d, want 2", len(questions))
-		}
-	})
-
-	t.Run("non-assistant type returns nil", func(t *testing.T) {
-		line := `{"type":"user","message":{"content":[{"type":"tool_use",` +
-			`"id":"x","name":"AskUserQuestion","input":{"questions":[]}}]}}`
-		assertEmptyExtraction(t, line, "non-assistant")
-	})
-
-	t.Run("non-AskUserQuestion tool_use ignored", func(t *testing.T) {
-		line := `{"type":"assistant","message":{"content":[` +
-			`{"type":"tool_use","id":"x","name":"Read","input":{}}]}}`
-		assertEmptyExtraction(t, line, "non-question tool_use")
-	})
-
-	t.Run("text-only assistant returns nil", func(t *testing.T) {
-		line := `{"type":"assistant","message":{"content":[` +
-			`{"type":"text","text":"hello"}]}}`
-		assertEmptyExtraction(t, line, "text-only")
-	})
-
-	t.Run("invalid json returns nil", func(t *testing.T) {
-		assertEmptyExtraction(t, "not json", "invalid json")
-	})
-}
-
-// extractQuestionsFromInput builds a JSONL line from input and toolID, then calls extractQuestions.
-func extractQuestionsFromInput(
-	t *testing.T, input map[string]interface{}, toolID string,
-) (string, []runtime.Question) {
-	t.Helper()
-	inputJSON, err := json.Marshal(input)
-	if err != nil {
-		t.Fatalf("failed to marshal input: %v", err)
-	}
-	line := `{"type":"assistant","message":{"content":[{"type":"tool_use",` +
-		`"id":"` + toolID + `","name":"AskUserQuestion","input":` +
-		string(inputJSON) + `}]}}`
-	return extractQuestions([]byte(line))
-}
-
-func assertCorrelationID(t *testing.T, got, want string) {
-	t.Helper()
-	if got != want {
-		t.Errorf("correlationID = %q, want %q", got, want)
-	}
-}
-
-func assertQuestionFields(
-	t *testing.T, q runtime.Question,
-	wantText, wantHeader string, wantOptions int, wantCustom bool,
-) {
-	t.Helper()
-	if q.Text != wantText {
-		t.Errorf("Text = %q, want %q", q.Text, wantText)
-	}
-	if q.Header != wantHeader {
-		t.Errorf("Header = %q, want %q", q.Header, wantHeader)
-	}
-	if len(q.Options) != wantOptions {
-		t.Errorf("len(Options) = %d, want %d", len(q.Options), wantOptions)
-	}
-	if q.AllowCustom != wantCustom {
-		t.Errorf("AllowCustom = %v, want %v", q.AllowCustom, wantCustom)
-	}
-}
-
-func assertEmptyExtraction(t *testing.T, line, desc string) {
-	t.Helper()
-	correlationID, questions := extractQuestions([]byte(line))
-	if correlationID != "" || questions != nil {
-		t.Errorf("expected empty result for %s, got %q %v",
-			desc, correlationID, questions)
-	}
-}
-
 func TestExtractToolUse(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -184,12 +70,6 @@ func TestExtractToolUse(t *testing.T) {
 			name: "text block returns empty",
 			line: `{"type":"assistant","message":{"content":` +
 				`[{"type":"text","text":"hello"}]}}`,
-			wantTool: "",
-		},
-		{
-			name: "AskUserQuestion skipped",
-			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"AskUserQuestion","id":"tu_3","input":{}}]}}`,
 			wantTool: "",
 		},
 		{

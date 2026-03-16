@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
-
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 const jsonlTypeAssistant = "assistant"
@@ -29,69 +27,6 @@ type contentBlock struct {
 	Name  string          `json:"name,omitempty"`  // tool_use name
 	ID    string          `json:"id,omitempty"`    // tool_use_id
 	Input json.RawMessage `json:"input,omitempty"` // tool_use input
-}
-
-// askUserInput is the input schema for AskUserQuestion tool_use blocks.
-type askUserInput struct {
-	Questions []askUserQuestion `json:"questions"`
-}
-
-type askUserQuestion struct {
-	Question    string          `json:"question"`
-	Header      string          `json:"header"`
-	Options     []askUserOption `json:"options"`
-	MultiSelect bool            `json:"multiSelect"`
-}
-
-type askUserOption struct {
-	Label       string `json:"label"`
-	Description string `json:"description"`
-}
-
-// extractQuestions detects AskUserQuestion tool_use blocks in an assistant JSONL entry.
-// Returns empty correlationID and nil if no questions found.
-func extractQuestions(line []byte) (correlationID string, questions []runtime.Question) {
-	var entry jsonlEntry
-	if err := json.Unmarshal(line, &entry); err != nil || entry.Type != jsonlTypeAssistant {
-		return "", nil
-	}
-
-	var msg assistantMessage
-	if err := json.Unmarshal(entry.Message, &msg); err != nil {
-		return "", nil
-	}
-
-	for _, block := range msg.Content {
-		if block.Type != "tool_use" || block.Name != "AskUserQuestion" {
-			continue
-		}
-
-		var input askUserInput
-		if err := json.Unmarshal(block.Input, &input); err != nil {
-			log.Printf("[watcher] failed to parse AskUserQuestion input: %v", err)
-			continue
-		}
-
-		for _, q := range input.Questions {
-			rq := runtime.Question{
-				Header:      q.Header,
-				Text:        q.Question,
-				MultiSelect: q.MultiSelect,
-				AllowCustom: true, // CC always allows custom via implicit "Other"
-			}
-			for _, opt := range q.Options {
-				rq.Options = append(rq.Options, runtime.QuestionOption{
-					Label:       opt.Label,
-					Description: opt.Description,
-				})
-			}
-			questions = append(questions, rq)
-		}
-
-		return block.ID, questions
-	}
-
-	return "", nil
 }
 
 // bashInput extracts the command field from a Bash tool_use input.
@@ -150,7 +85,7 @@ func refineBashTool(input json.RawMessage) string {
 }
 
 // extractToolUse detects tool_use blocks in an assistant JSONL entry.
-// Returns the tool name of the first non-AskUserQuestion tool_use block, or "" if none found.
+// Returns the tool name of the first tool_use block, or "" if none found.
 // For Bash tools, it inspects the command to return a refined tool identifier.
 func extractToolUse(line []byte) string {
 	var entry jsonlEntry
@@ -164,7 +99,7 @@ func extractToolUse(line []byte) string {
 	}
 
 	for _, block := range msg.Content {
-		if block.Type == "tool_use" && block.Name != "AskUserQuestion" {
+		if block.Type == "tool_use" {
 			if block.Name == toolBash {
 				return refineBashTool(block.Input)
 			}
