@@ -6,17 +6,22 @@ living showcase of how a real team is structured and managed with ttal.
 
 ## The Team
 
-7 professional agents, each with a dedicated workspace and CLAUDE.md:
+12 professional agents, each with a dedicated workspace and CLAUDE.md:
 
-| Agent | Role | Creature |
-|-------|------|---------|
+| Agent | Role | Creature/Object |
+|-------|------|----------------|
 | **Yuki** 🐱 | Task orchestrator — creates, routes, and manages work via taskwarrior | Black Cat |
 | **Athena** 🦉 | Researcher — conducts multi-source deep dives, writes findings to flicknote | Owl |
-| **Inke** 🐙 | Design architect — writes executable implementation plans from research | Octopus |
+| **Inke** 🐙 | Design architect — writes executable implementation plans (ttal domain) | Octopus |
 | **Kestrel** 🦅 | Bug fix designer — diagnoses root causes and writes fix plans | Kestrel |
 | **Eve** 🦘 | Agent creator — designs new agent identities, handles respawn updates | Kangaroo |
 | **Quill** 🐦‍⬛ | Skill design partner — helps create well-designed, shareable Claude Code skills | Crow |
 | **Lyra** 🦎 | Communications writer — polishes outward-facing text, adapts tone per platform | Lizard |
+| **Mira** 🧭 | Design architect — writes implementation plans (fb3/Guion domain) | Compass |
+| **Nyx** 🔭 | Researcher — deep dives on Guion/fb3 projects and Effect.ts stack | Telescope |
+| **Lux** 🔥 | Bug fix designer — diagnoses root causes across all projects | Matchstick |
+| **Astra** 📐 | Design architect — writes implementation plans (Effect.ts/fb3 domain) | Drafting Compass |
+| **Cael** ⚓ | Devops design architect — K8s, GitOps, Tanka, Flux, infrastructure | Anchor |
 
 ## How It Differs from Starter Templates
 
@@ -38,12 +43,17 @@ templates/ttal/
 ├── CLAUDE.user.md       # user-scope global system prompt
 ├── README.md            # This file
 ├── yuki/CLAUDE.md       # Task orchestrator
-├── athena/CLAUDE.md     # Researcher
-├── inke/CLAUDE.md       # Design architect
+├── athena/CLAUDE.md     # Researcher (ttal domain)
+├── inke/CLAUDE.md       # Design architect (ttal domain)
 ├── kestrel/CLAUDE.md    # Bug fix designer
 ├── eve/CLAUDE.md        # Agent creator
 ├── quill/CLAUDE.md      # Skill design partner
-└── lyra/CLAUDE.md       # Communications writer
+├── lyra/CLAUDE.md       # Communications writer
+├── mira/CLAUDE.md       # Design architect (fb3/Guion domain)
+├── nyx/CLAUDE.md        # Researcher (Guion/fb3 domain)
+├── lux/CLAUDE.md        # Bug fix designer
+├── astra/CLAUDE.md      # Design architect (Effect.ts/fb3 domain)
+└── cael/CLAUDE.md       # Devops design architect
 ```
 
 Shared skills, subagents, and commands live in `templates/docs/` — referenced via
