@@ -186,7 +186,9 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 }
 
 // resolveAskHumanTarget resolves bot token, chat ID, and display name from the request.
-func resolveAskHumanTarget(req AskHumanRequest, mcfg *config.DaemonConfig) (botToken string, chatID int64, displayName string, err error) {
+func resolveAskHumanTarget(req AskHumanRequest, mcfg *config.DaemonConfig) ( //nolint:lll
+	botToken string, chatID int64, displayName string, err error,
+) {
 	if req.AgentName != "" {
 		token := config.AgentBotToken(req.AgentName)
 		if token == "" {
@@ -220,7 +222,9 @@ func resolveAskHumanTarget(req AskHumanRequest, mcfg *config.DaemonConfig) (botT
 }
 
 // buildAskHumanMessage builds the message text and optional inline keyboard.
-func buildAskHumanMessage(displayName, question string, options []string, shortID string) (string, *models.InlineKeyboardMarkup) {
+func buildAskHumanMessage( //nolint:lll
+	displayName, question string, options []string, shortID string,
+) (string, *models.InlineKeyboardMarkup) {
 	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", displayName, question)
 
 	if len(options) == 0 {

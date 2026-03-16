@@ -16,7 +16,7 @@ func runAskHuman(_ *cobra.Command, args []string, options []string) error {
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	tmuxEnv := os.Getenv("TMUX")
 	if agentName == "" && tmuxEnv == "" {
-		fmt.Fprintln(os.Stderr, "error: TTAL_AGENT_NAME not set and not in a tmux session — cannot route question to Telegram")
+		fmt.Fprintln(os.Stderr, "error: TTAL_AGENT_NAME not set and not in a tmux session — cannot route question to Telegram") //nolint:lll
 		os.Exit(1)
 	}
 
