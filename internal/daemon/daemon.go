@@ -118,6 +118,21 @@ func Run() error {
 
 	// Pick a default frontend for HTTP handlers that need one.
 	defaultFE := frontends[mcfg.DefaultTeamName()]
+	if defaultFE == nil {
+		close(done)
+		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
+	}
+
+	// AskHumanHTTPHandler is Telegram-specific; access via concrete type.
+	var askHumanHandler http.HandlerFunc
+	if tfe, ok := defaultFE.(*frontend.TelegramFrontend); ok {
+		askHumanHandler = tfe.AskHumanHTTPHandler()
+	} else {
+		askHumanHandler = func(w http.ResponseWriter, _ *http.Request) {
+			writeHTTPJSON(w, http.StatusNotImplemented,
+				SendResponse{OK: false, Error: "ask human not supported by this frontend"})
+		}
+	}
 
 	srv, err := listenHTTP(sockPath, httpHandlers{
 		send: func(req SendRequest) error {
@@ -127,7 +142,7 @@ func Run() error {
 		taskComplete: func(req TaskCompleteRequest) SendResponse {
 			return handleTaskComplete(req, mcfg, registry, frontends)
 		},
-		askHuman: defaultFE.AskHumanHTTPHandler(),
+		askHuman: askHumanHandler,
 	})
 	if err != nil {
 		close(done)
@@ -153,23 +168,25 @@ func formatUsageString(d *UsageData) string {
 	}
 	var parts []string
 	if d.SessionUsage != nil {
-		line := fmt.Sprintf("5-hour: %.0f%%", *d.SessionUsage*100)
+		line := fmt.Sprintf("5-hour:  %.0f%% used", *d.SessionUsage*100)
 		if d.SessionResetAt != "" {
-			line += " (resets " + formatResetAt(d.SessionResetAt) + ")"
+			line += " (resets in " + formatResetAt(d.SessionResetAt) + ")"
 		}
 		parts = append(parts, line)
 	}
 	if d.WeeklyUsage != nil {
-		line := fmt.Sprintf("Weekly: %.0f%%", *d.WeeklyUsage*100)
+		line := fmt.Sprintf("Weekly:  %.0f%% used", *d.WeeklyUsage*100)
 		if d.WeeklyResetAt != "" {
-			line += " (resets " + formatResetAt(d.WeeklyResetAt) + ")"
+			line += " (resets in " + formatResetAt(d.WeeklyResetAt) + ")"
 		}
 		parts = append(parts, line)
 	}
 	if len(parts) == 0 {
 		return "No usage data available"
 	}
-	return strings.Join(parts, "\n")
+	header := "Claude API Usage\n" + strings.Repeat("─", 16)
+	footer := fmt.Sprintf("(as of %s)", d.FetchedAt.Format("15:04"))
+	return header + "\n" + strings.Join(parts, "\n") + "\n" + footer
 }
 
 // formatResetAt formats an RFC3339 reset time as a short duration string.
@@ -275,7 +292,11 @@ func buildFrontends(
 	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service,
 ) map[string]frontend.Frontend {
 	frontends := make(map[string]frontend.Frontend)
-	for teamName := range mcfg.Teams {
+	for teamName, team := range mcfg.Teams {
+		if team.Frontend != "" && team.Frontend != "telegram" {
+			log.Printf("[daemon] warning: team %q has frontend=%q — only 'telegram' is implemented; using telegram",
+				teamName, team.Frontend)
+		}
 		fe := frontend.NewTelegram(frontend.TelegramConfig{
 			TeamName: teamName,
 			MCfg:     mcfg,
@@ -312,15 +333,13 @@ func registerFrontendCommands(frontends map[string]frontend.Frontend, cmds []Bot
 	}
 }
 
-// startFrontends calls Start and StartNotificationPoller for every frontend.
+// startFrontends calls Start for every frontend.
+// StartNotificationPoller is called internally by TelegramFrontend.Start.
 func startFrontends(ctx context.Context, done chan struct{}, frontends map[string]frontend.Frontend) error {
 	for teamName, fe := range frontends {
 		if err := fe.Start(ctx); err != nil {
 			close(done)
 			return fmt.Errorf("start frontend for team %s: %w", teamName, err)
-		}
-		if err := fe.StartNotificationPoller(ctx); err != nil {
-			log.Printf("[daemon] StartNotificationPoller for team %s failed: %v", teamName, err)
 		}
 	}
 	return nil

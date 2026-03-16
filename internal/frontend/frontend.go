@@ -2,7 +2,6 @@ package frontend
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -35,16 +34,13 @@ type Frontend interface {
 	// Returns the human's answer, or skipped=true on timeout/skip.
 	AskHuman(ctx context.Context, agentName, question string, options []string) (answer string, skipped bool, err error)
 
-	// AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
-	// daemon.go wires this into httpHandlers.askHuman at startup.
-	AskHumanHTTPHandler() http.HandlerFunc
+	// ClearTracking clears the tracked inbound message for an agent.
+	// Called after the agent responds to prevent stale reactions on old messages.
+	ClearTracking(ctx context.Context, agentName string) error
 
 	// RegisterCommands registers bot commands for discoverability and stores them
 	// for use by the polling handlers. Must be called before Start.
 	RegisterCommands(commands []Command) error
-
-	// StartNotificationPoller starts the notification-only command handler.
-	StartNotificationPoller(ctx context.Context) error
 }
 
 // Command describes a bot command for registration and handler dispatch.

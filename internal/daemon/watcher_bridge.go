@@ -53,7 +53,9 @@ func startWatcher(
 				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,
 			})
 			if err := fe.SendText(context.Background(), agentName, text); err != nil {
-				log.Printf("[watcher] send error for %s: %v", agentName, err)
+				log.Printf("[watcher] send error for %s/%s: %v", teamName, agentName, err)
+			} else {
+				_ = fe.ClearTracking(context.Background(), agentName)
 			}
 		},
 		func(teamName, agentName, toolName string) {

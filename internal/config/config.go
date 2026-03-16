@@ -788,19 +788,6 @@ type DaemonConfig struct {
 	Teams  map[string]*ResolvedTeam // team name -> resolved team config
 }
 
-// MatrixAgentConfig holds per-agent Matrix credentials.
-type MatrixAgentConfig struct {
-	AccessTokenEnv string `toml:"access_token_env"` // env var holding the access token
-	RoomID         string `toml:"room_id"`          // Matrix room ID (!abc:example.com)
-}
-
-// MatrixConfig holds Matrix-specific team configuration.
-type MatrixConfig struct {
-	Homeserver string                       `toml:"homeserver"`        // e.g. "https://matrix.example.com"
-	NotifyRoom string                       `toml:"notification_room"` // notification room ID
-	Agents     map[string]MatrixAgentConfig `toml:"agents"`            // agentName → credentials
-}
-
 // ResolvedTeam holds one team's fully resolved configuration.
 type ResolvedTeam struct {
 	Name              string

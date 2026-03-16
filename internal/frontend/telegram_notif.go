@@ -57,7 +57,12 @@ func (f *TelegramFrontend) StartNotificationPoller(ctx context.Context) error {
 }
 
 // startNotifBotPoller starts a long-poll loop for a notification bot token.
+// Must be called after Start() to ensure f.done is initialised.
 func (f *TelegramFrontend) startNotifBotPoller(botToken string, chatID int64, ctx context.Context) {
+	if f.done == nil {
+		log.Printf("[notifbot] startNotifBotPoller called before Start for team %s — skipping", f.cfg.TeamName)
+		return
+	}
 	go func() {
 		backoff := 2 * time.Second
 		for {

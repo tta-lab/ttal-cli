@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -80,6 +81,12 @@ func (mt *messageTracker) get(teamName, agentName string) (trackedMessage, bool)
 	return msg, ok
 }
 
+func (mt *messageTracker) delete(teamName, agentName string) {
+	mt.mu.Lock()
+	delete(mt.store, trackerKey(teamName, agentName))
+	mt.mu.Unlock()
+}
+
 // TelegramFrontend implements Frontend using the Telegram Bot API.
 type TelegramFrontend struct {
 	cfg         TelegramConfig
@@ -101,6 +108,7 @@ func NewTelegram(cfg TelegramConfig) *TelegramFrontend {
 
 // RegisterCommands stores the command list and calls Telegram setMyCommands for all
 // agent bot tokens and the notification bot token in this team.
+// Returns an aggregated error if any bot fails — callers may treat this as non-fatal.
 func (f *TelegramFrontend) RegisterCommands(commands []Command) error {
 	f.allCommands = commands
 
@@ -126,20 +134,27 @@ func (f *TelegramFrontend) RegisterCommands(commands []Command) error {
 		}
 	}
 
-	var wg sync.WaitGroup
+	var (
+		wg    sync.WaitGroup
+		errMu sync.Mutex
+		errs  []error
+	)
 	for token, agentName := range tokenAgent {
 		wg.Add(1)
 		go func(tok, name string) {
 			defer wg.Done()
 			if err := f.registerBotCommands(tok); err != nil {
 				log.Printf("[telegram] warning: failed to register bot commands for %s: %v", name, err)
+				errMu.Lock()
+				errs = append(errs, err)
+				errMu.Unlock()
 			} else {
 				log.Printf("[telegram] registered bot commands for %s", name)
 			}
 		}(token, agentName)
 	}
 	wg.Wait()
-	return nil
+	return errors.Join(errs...)
 }
 
 // Start begins Telegram polling for agents in this team.
@@ -151,6 +166,16 @@ func (f *TelegramFrontend) Start(ctx context.Context) error {
 		f.stopOnce.Do(func() { close(f.done) })
 	}()
 	f.startPollers()
+	if err := f.StartNotificationPoller(ctx); err != nil {
+		log.Printf("[telegram] StartNotificationPoller for team %s failed: %v", f.cfg.TeamName, err)
+	}
+	return nil
+}
+
+// ClearTracking clears the tracked inbound message for an agent.
+// Called after the agent responds to prevent stale reactions on old messages.
+func (f *TelegramFrontend) ClearTracking(_ context.Context, agentName string) error {
+	f.mt.delete(f.cfg.TeamName, agentName)
 	return nil
 }
 
@@ -876,14 +901,7 @@ func stripFirstBotMention(msg *models.Message, botUsername string) string {
 }
 
 // extractReplyContext extracts the text from a replied-to message as a formatted prefix.
-func extractReplyContext(msg *models.Message) (ctx string) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[telegram] extractReplyContext panicked: %v", r)
-			ctx = ""
-		}
-	}()
-
+func extractReplyContext(msg *models.Message) string {
 	if msg == nil || msg.ReplyToMessage == nil {
 		return ""
 	}
