@@ -331,7 +331,10 @@ func (f *MatrixFrontend) SetReaction(ctx context.Context, agentName string, emoj
 
 // handleMatrixVoice downloads and transcribes an inbound Matrix voice/audio message,
 // then delivers the transcription to the agent as a regular message.
-func (f *MatrixFrontend) handleMatrixVoice(ctx context.Context, agentName string, msg *event.MessageEventContent, client *mautrix.Client) {
+func (f *MatrixFrontend) handleMatrixVoice(
+	ctx context.Context, agentName string,
+	msg *event.MessageEventContent, client *mautrix.Client,
+) {
 	if msg.URL == "" {
 		log.Printf("[matrix] voice message from %s has no URL — skipping", agentName)
 		return

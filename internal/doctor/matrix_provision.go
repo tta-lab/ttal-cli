@@ -59,77 +59,98 @@ func checkMatrix(fix bool) Section {
 	}
 
 	for _, teamName := range matrixTeams {
-		team := cfg.Teams[teamName]
-		if team.Matrix == nil {
-			section.add(LevelError, teamName, "frontend=matrix but no [teams."+teamName+".matrix] config")
-			continue
-		}
-		matrixCfg := team.Matrix
-		if matrixCfg.Homeserver == "" {
-			section.add(LevelError, teamName, "matrix.homeserver not set")
-			continue
-		}
-		section.add(LevelOK, teamName+".homeserver", matrixCfg.Homeserver)
+		checkMatrixTeam(&section, cfg, teamName, fix)
+	}
 
-		if matrixCfg.HumanUserID == "" {
-			section.add(LevelWarn, teamName+".human_user_id", "human_user_id not set — provisioning cannot invite human to rooms")
-		}
+	return section
+}
 
-		// Check connectivity to homeserver
-		checkMatrixConnectivity(&section, teamName, matrixCfg.Homeserver)
+// checkMatrixTeam runs all Matrix checks for a single team.
+func checkMatrixTeam(section *Section, cfg *config.Config, teamName string, fix bool) {
+	team := cfg.Teams[teamName]
+	if team.Matrix == nil {
+		section.add(LevelError, teamName, "frontend=matrix but no [teams."+teamName+".matrix] config")
+		return
+	}
+	matrixCfg := team.Matrix
+	if matrixCfg.Homeserver == "" {
+		section.add(LevelError, teamName, "matrix.homeserver not set")
+		return
+	}
+	section.add(LevelOK, teamName+".homeserver", matrixCfg.Homeserver)
 
-		// Discover agents from team_path
-		teamPath := team.TeamPath
-		if teamPath == "" {
-			teamPath = cfg.TeamPath()
-		}
-		agentNames, _ := agentfs.DiscoverAgents(teamPath)
-		// Sort for deterministic output
-		for i := 0; i < len(agentNames)-1; i++ {
-			for j := i + 1; j < len(agentNames); j++ {
-				if agentNames[i] > agentNames[j] {
-					agentNames[i], agentNames[j] = agentNames[j], agentNames[i]
-				}
-			}
-		}
+	if matrixCfg.HumanUserID == "" {
+		section.add(LevelWarn, teamName+".human_user_id",
+			"human_user_id not set — provisioning cannot invite human to rooms")
+	}
 
-		// Check agent tokens
-		for _, agentName := range agentNames {
-			agentCfg, ok := matrixCfg.Agents[agentName]
-			if !ok {
-				if fix {
-					provisionMatrixAgent(&section, cfg, teamName, matrixCfg, agentName)
-				} else {
-					section.add(LevelError, agentName, fmt.Sprintf("Agent %s: no Matrix config (run: ttal doctor --fix)", agentName))
-				}
-				continue
-			}
-			token := os.Getenv(agentCfg.AccessTokenEnv)
-			if token == "" {
-				section.add(LevelError, agentName, fmt.Sprintf("Agent %s: %s not set in env", agentName, agentCfg.AccessTokenEnv))
-			} else {
-				section.add(LevelOK, agentName, fmt.Sprintf("Agent %s: token set, room %s", agentName, agentCfg.RoomID))
-			}
-		}
+	checkMatrixConnectivity(section, teamName, matrixCfg.Homeserver)
 
-		// Check notification config
-		if matrixCfg.NotifyTokenEnv == "" || matrixCfg.NotifyRoom == "" {
-			if fix {
-				provisionMatrixNotify(&section, cfg, teamName, matrixCfg)
-			} else {
-				section.add(LevelWarn, teamName+".notify", "Notification room not configured (run: ttal doctor --fix)")
-			}
-		} else {
-			token := os.Getenv(matrixCfg.NotifyTokenEnv)
-			if token == "" {
-				section.add(LevelError, teamName+".notify", matrixCfg.NotifyTokenEnv+" not set in env")
-			} else {
-				section.add(LevelOK, teamName+".notify", "Notification configured")
+	// Discover agents from team_path
+	teamPath := team.TeamPath
+	if teamPath == "" {
+		teamPath = cfg.TeamPath()
+	}
+	agentNames, _ := agentfs.DiscoverAgents(teamPath)
+	// Sort for deterministic output
+	for i := 0; i < len(agentNames)-1; i++ {
+		for j := i + 1; j < len(agentNames); j++ {
+			if agentNames[i] > agentNames[j] {
+				agentNames[i], agentNames[j] = agentNames[j], agentNames[i]
 			}
 		}
 	}
 
-	return section
+	checkMatrixAgents(section, cfg, teamName, matrixCfg, agentNames, fix)
+	checkMatrixNotify(section, cfg, teamName, matrixCfg, fix)
+}
+
+// checkMatrixAgents verifies or provisions Matrix users for each discovered agent.
+func checkMatrixAgents(
+	section *Section, cfg *config.Config, teamName string,
+	matrixCfg *config.MatrixTeamConfig, agentNames []string, fix bool,
+) {
+	for _, agentName := range agentNames {
+		agentCfg, ok := matrixCfg.Agents[agentName]
+		if !ok {
+			if fix {
+				provisionMatrixAgent(section, cfg, teamName, matrixCfg, agentName)
+			} else {
+				section.add(LevelError, agentName,
+					fmt.Sprintf("Agent %s: no Matrix config (run: ttal doctor --fix)", agentName))
+			}
+			continue
+		}
+		token := os.Getenv(agentCfg.AccessTokenEnv)
+		if token == "" {
+			section.add(LevelError, agentName,
+				fmt.Sprintf("Agent %s: %s not set in env", agentName, agentCfg.AccessTokenEnv))
+		} else {
+			section.add(LevelOK, agentName,
+				fmt.Sprintf("Agent %s: token set, room %s", agentName, agentCfg.RoomID))
+		}
+	}
+}
+
+// checkMatrixNotify verifies or provisions the Matrix notification room.
+func checkMatrixNotify(
+	section *Section, cfg *config.Config, teamName string,
+	matrixCfg *config.MatrixTeamConfig, fix bool,
+) {
+	if matrixCfg.NotifyTokenEnv == "" || matrixCfg.NotifyRoom == "" {
+		if fix {
+			provisionMatrixNotify(section, cfg, teamName, matrixCfg)
+		} else {
+			section.add(LevelWarn, teamName+".notify", "Notification room not configured (run: ttal doctor --fix)")
+		}
+		return
+	}
+	token := os.Getenv(matrixCfg.NotifyTokenEnv)
+	if token == "" {
+		section.add(LevelError, teamName+".notify", matrixCfg.NotifyTokenEnv+" not set in env")
+	} else {
+		section.add(LevelOK, teamName+".notify", "Notification configured")
+	}
 }
 
 // checkMatrixConnectivity verifies that the homeserver's /_matrix/client/versions endpoint is reachable.
@@ -160,7 +181,10 @@ func checkMatrixConnectivity(section *Section, teamName, homeserver string) {
 // provisionMatrixAgent creates a Matrix user, sets profile, creates a room, and updates config.
 // Idempotent: skips steps that are already done. If the user already exists on the homeserver,
 // provisioning cannot retrieve the token — logs an actionable message for manual resolution.
-func provisionMatrixAgent(section *Section, cfg *config.Config, teamName string, matrixCfg *config.MatrixTeamConfig, agentName string) {
+func provisionMatrixAgent(
+	section *Section, cfg *config.Config, teamName string,
+	matrixCfg *config.MatrixTeamConfig, agentName string,
+) {
 	homeserver := matrixCfg.Homeserver
 
 	// Step 1: Register user via Synapse-compatible admin API
@@ -252,7 +276,7 @@ func provisionMatrixAgent(section *Section, cfg *config.Config, teamName string,
 }
 
 // provisionMatrixNotify creates a Matrix notification user and room, updating config.
-func provisionMatrixNotify(section *Section, cfg *config.Config, teamName string, matrixCfg *config.MatrixTeamConfig) {
+func provisionMatrixNotify(section *Section, _ *config.Config, teamName string, matrixCfg *config.MatrixTeamConfig) {
 	homeserver := matrixCfg.Homeserver
 
 	regSecret := os.Getenv("MATRIX_REGISTRATION_SECRET")
@@ -313,7 +337,7 @@ func provisionMatrixNotify(section *Section, cfg *config.Config, teamName string
 	}
 
 	// Update config.toml — read, parse, modify, write back atomically
-	if err := updateMatrixNotifyConfig(cfg, teamName, envKey, string(roomResp.RoomID)); err != nil {
+	if err := updateMatrixNotifyConfig(teamName, envKey, string(roomResp.RoomID)); err != nil {
 		section.add(LevelError, teamName+".notify", fmt.Sprintf("failed to update config.toml: %v", err))
 		return
 	}
@@ -469,7 +493,7 @@ func appendMatrixAgentConfig(teamName, agentName, envKey, roomID string) error {
 
 // updateMatrixNotifyConfig reads config.toml, sets notification_token_env and notification_room
 // under [teams.<team>.matrix], then atomically writes back.
-func updateMatrixNotifyConfig(cfg *config.Config, teamName, envKey, roomID string) error {
+func updateMatrixNotifyConfig(teamName, envKey, roomID string) error {
 	cfgPath, err := config.Path()
 	if err != nil {
 		return err
@@ -521,7 +545,8 @@ func generateRandomPassword(nBytes int) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// extractDomainFromURL extracts the host portion from a homeserver URL (e.g. "https://matrix.example.com" → "matrix.example.com").
+// extractDomainFromURL extracts the host portion from a homeserver URL.
+// e.g. "https://matrix.example.com" → "matrix.example.com"
 func extractDomainFromURL(homeserverURL string) string {
 	u, err := url.Parse(homeserverURL)
 	if err != nil || u.Host == "" {
