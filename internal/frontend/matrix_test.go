@@ -16,6 +16,8 @@ import (
 
 const testUserName = "neil"
 
+const testCommandStatus = "status"
+
 // matrixTestServer starts an httptest server that handles Matrix send-message requests.
 // It captures request bodies and returns a success response.
 func matrixTestServer(t *testing.T, bodies *[]string) *httptest.Server {
@@ -213,9 +215,12 @@ func TestMatrixFrontend_SendNotification_NilClient(t *testing.T) {
 	}
 }
 
-// TestMatrixFrontend_StubMethods verifies all stub methods return expected values without blocking.
+// TestMatrixFrontend_StubMethods verifies stub methods return expected values without blocking.
 func TestMatrixFrontend_StubMethods(t *testing.T) {
-	fe := &MatrixFrontend{lastEventID: make(map[string]id.EventID)}
+	fe := &MatrixFrontend{
+		lastEventID: make(map[string]id.EventID),
+		mas:         newMatrixAskStore(),
+	}
 	ctx := context.Background()
 
 	if err := fe.SendVoice(ctx, "agent", []byte("data")); err != nil {
@@ -227,15 +232,40 @@ func TestMatrixFrontend_StubMethods(t *testing.T) {
 	if err := fe.RegisterCommands([]Command{{Name: "help"}}); err != nil {
 		t.Errorf("RegisterCommands: %v", err)
 	}
-	answer, skipped, err := fe.AskHuman(ctx, "agent", "question?", nil)
-	if err != nil {
-		t.Errorf("AskHuman: %v", err)
+}
+
+// TestMatrixFrontend_AskHuman_UnknownAgent verifies AskHuman returns error for unregistered agents.
+func TestMatrixFrontend_AskHuman_UnknownAgent(t *testing.T) {
+	fe := &MatrixFrontend{
+		sessions:    make(map[string]agentSession),
+		lastEventID: make(map[string]id.EventID),
+		mas:         newMatrixAskStore(),
 	}
-	if !skipped {
-		t.Errorf("AskHuman should return skipped=true, got false")
+	_, _, err := fe.AskHuman(context.Background(), "nonexistent", "question?", nil)
+	if err == nil {
+		t.Fatal("expected error for unknown agent, got nil")
 	}
-	if answer != "" {
-		t.Errorf("AskHuman should return empty answer, got %q", answer)
+	if !strings.Contains(err.Error(), "no Matrix session for agent nonexistent") {
+		t.Errorf("error %q does not contain expected text", err.Error())
+	}
+}
+
+// TestMatrixFrontend_RegisterCommands verifies RegisterCommands stores commands.
+func TestMatrixFrontend_RegisterCommands(t *testing.T) {
+	fe := &MatrixFrontend{
+		sessions:    make(map[string]agentSession),
+		lastEventID: make(map[string]id.EventID),
+		mas:         newMatrixAskStore(),
+	}
+	cmds := []Command{{Name: testCommandStatus, Description: "test"}}
+	if err := fe.RegisterCommands(cmds); err != nil {
+		t.Fatalf("RegisterCommands: %v", err)
+	}
+	if len(fe.allCommands) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(fe.allCommands))
+	}
+	if fe.allCommands[0].Name != testCommandStatus {
+		t.Errorf("expected command name %q, got %q", testCommandStatus, fe.allCommands[0].Name)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // MatrixConfig holds construction parameters for MatrixFrontend.
@@ -24,6 +27,8 @@ type MatrixConfig struct {
 	OnMessage  InboundHandler
 	MsgSvc     *message.Service
 	UserNameFn func() string // returns human display name for this team
+	GetUsageFn func() string // returns formatted usage string, or "" if unavailable
+	RestartFn  func() error  // triggers daemon restart (launchctl kickstart -k)
 }
 
 // agentSession holds a Matrix client and its associated room for one agent.
@@ -44,6 +49,9 @@ type MatrixFrontend struct {
 	// Track last event ID per agent for future reaction support (Phase 4).
 	lastEventMu sync.RWMutex
 	lastEventID map[string]id.EventID // agentName → last inbound event ID
+
+	mas         *matrixAskStore // ask-human state
+	allCommands []Command       // stored by RegisterCommands for /help and skill dispatch
 }
 
 // NewMatrix constructs a MatrixFrontend from the given config.
@@ -116,80 +124,130 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 		notifyClient: notifyClient,
 		notifyRoom:   notifyRoom,
 		lastEventID:  make(map[string]id.EventID),
+		mas:          newMatrixAskStore(),
 	}, nil
 }
 
-// Start begins polling/syncing for inbound messages for each configured agent.
-// NOTE: Do NOT start notification client sync in Phase 2 — no event handlers are registered.
-// Phase 3 adds notification room command handlers and starts the sync goroutine then.
+// Start begins polling/syncing for inbound messages for each configured agent
+// and starts the notification client sync with command handlers.
 func (f *MatrixFrontend) Start(ctx context.Context) error {
 	ctx, f.cancel = context.WithCancel(ctx)
-
 	for agentName, sess := range f.sessions {
-		name := agentName
-		s := sess
+		f.startAgentSync(ctx, agentName, sess)
+	}
+	f.startNotifSync(ctx)
+	return nil
+}
 
-		syncer := s.client.Syncer.(*mautrix.DefaultSyncer)
+// startAgentSync sets up the sync loop for one agent session.
+func (f *MatrixFrontend) startAgentSync(ctx context.Context, agentName string, sess agentSession) {
+	syncer := sess.client.Syncer.(*mautrix.DefaultSyncer)
 
-		// Skip all events in the initial sync batch (since="") to prevent
-		// replaying old messages on daemon restart.
-		// DontProcessOldEvents returns false when since="", causing ProcessResponse
-		// to return immediately before dispatching any events for that batch.
-		syncer.OnSync(s.client.DontProcessOldEvents)
+	// Skip all events in the initial sync batch (since="") to prevent
+	// replaying old messages on daemon restart.
+	syncer.OnSync(sess.client.DontProcessOldEvents)
 
-		// Filter: only receive m.room.message events (no presence, typing, read receipts).
-		// FilterJSON is set on DefaultSyncer, NOT on Client.
-		syncer.FilterJSON = &mautrix.Filter{
-			Room: &mautrix.RoomFilter{
-				Timeline: &mautrix.FilterPart{
-					Types: []event.Type{event.EventMessage},
-				},
+	// Filter: only receive m.room.message events (no presence, typing, read receipts).
+	syncer.FilterJSON = &mautrix.Filter{
+		Room: &mautrix.RoomFilter{
+			Timeline: &mautrix.FilterPart{
+				Types: []event.Type{event.EventMessage},
 			},
-		}
-
-		syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
-			// Skip own messages.
-			if evt.Sender == s.client.UserID {
-				return
-			}
-			msg := evt.Content.AsMessage()
-			if msg == nil || msg.Body == "" {
-				return
-			}
-
-			// Track for future reactions (Phase 4).
-			f.lastEventMu.Lock()
-			f.lastEventID[name] = evt.ID
-			f.lastEventMu.Unlock()
-
-			// Persist inbound message (persistMsg is in daemon package and can't be imported;
-			// call MsgSvc.Create directly with a nil guard instead).
-			senderName := f.cfg.UserNameFn()
-			if f.cfg.MsgSvc != nil {
-				if _, err := f.cfg.MsgSvc.Create(ctx, message.CreateParams{
-					Sender:    senderName,
-					Recipient: name,
-					Content:   msg.Body,
-					Team:      f.cfg.TeamName,
-					Channel:   message.ChannelMatrix,
-				}); err != nil {
-					log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
-				}
-			}
-
-			// Format and deliver to agent via tmux.
-			formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, msg.Body)
-			f.cfg.OnMessage(f.cfg.TeamName, name, formatted)
-		})
-
-		go func(c *mautrix.Client, n string) {
-			if err := c.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("[matrix] FATAL: sync stopped for agent %s — no messages will be received until restart: %v", n, err)
-			}
-		}(s.client, name)
+		},
 	}
 
-	return nil
+	syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
+		if evt.Sender == sess.client.UserID {
+			return
+		}
+		msg := evt.Content.AsMessage()
+		if msg == nil || msg.Body == "" {
+			return
+		}
+
+		// Track for future reactions (Phase 4).
+		f.lastEventMu.Lock()
+		f.lastEventID[agentName] = evt.ID
+		f.lastEventMu.Unlock()
+
+		body := strings.TrimSpace(msg.Body)
+
+		// 1. Check if this is an answer to a pending ask-human question.
+		if f.interceptMatrixAskAnswer(sess.roomID, body) {
+			return // consumed as ask-human answer
+		}
+
+		// 2. Check if this is a /command.
+		if strings.HasPrefix(body, "/") {
+			f.handleMatrixCommand(agentName, body, sess.client, sess.roomID)
+			return
+		}
+
+		// 3. Regular message — persist and deliver.
+		f.deliverInboundMessage(ctx, agentName, msg.Body)
+	})
+
+	go func() {
+		if err := sess.client.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("[matrix] FATAL: sync stopped for agent %s — restart required: %v", agentName, err)
+		}
+	}()
+}
+
+// deliverInboundMessage persists and forwards a regular inbound message to the agent.
+func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, body string) {
+	senderName := f.cfg.UserNameFn()
+	if f.cfg.MsgSvc != nil {
+		if _, err := f.cfg.MsgSvc.Create(ctx, message.CreateParams{
+			Sender:    senderName,
+			Recipient: agentName,
+			Content:   body,
+			Team:      f.cfg.TeamName,
+			Channel:   message.ChannelMatrix,
+		}); err != nil {
+			log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
+		}
+	}
+	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, body)
+	f.cfg.OnMessage(f.cfg.TeamName, agentName, formatted)
+}
+
+// startNotifSync sets up the notification client sync loop with command handlers.
+func (f *MatrixFrontend) startNotifSync(ctx context.Context) {
+	if f.notifyClient == nil {
+		return
+	}
+	notifSyncer := f.notifyClient.Syncer.(*mautrix.DefaultSyncer)
+
+	notifSyncer.OnSync(f.notifyClient.DontProcessOldEvents)
+
+	notifSyncer.FilterJSON = &mautrix.Filter{
+		Room: &mautrix.RoomFilter{
+			Timeline: &mautrix.FilterPart{
+				Types: []event.Type{event.EventMessage},
+			},
+		},
+	}
+
+	notifSyncer.OnEventType(event.EventMessage, func(_ context.Context, evt *event.Event) {
+		if evt.Sender == f.notifyClient.UserID {
+			return
+		}
+		msg := evt.Content.AsMessage()
+		if msg == nil || msg.Body == "" {
+			return
+		}
+		body := strings.TrimSpace(msg.Body)
+		if strings.HasPrefix(body, "/") {
+			f.handleNotifCommand(body)
+		}
+	})
+
+	go func() {
+		if err := f.notifyClient.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("[matrix] notification sync stopped: %v", err)
+		}
+	}()
 }
 
 // Stop gracefully shuts down all sync loops.
@@ -249,15 +307,203 @@ func (f *MatrixFrontend) ClearTracking(_ context.Context, agentName string) erro
 	return nil
 }
 
-// AskHuman immediately returns skipped — MUST NOT block as the daemon HTTP handler calls it
-// synchronously. Phase 3 will implement interactive ask-human via Matrix.
-func (f *MatrixFrontend) AskHuman(_ context.Context, _ string, _ string, _ []string) (string, bool, error) {
-	return "", true, nil // immediately skipped — MUST NOT block — Phase 3
+// RegisterCommands stores bot commands for /help and skill dispatch.
+// Matrix has no native /setMyCommands equivalent, so we only store locally.
+func (f *MatrixFrontend) RegisterCommands(commands []Command) error {
+	f.allCommands = commands
+	return nil
 }
 
-// RegisterCommands is a no-op — Matrix has no native /setMyCommands equivalent.
-func (f *MatrixFrontend) RegisterCommands(_ []Command) error {
-	return nil
+// parseMatrixCommand splits a /command[@bot] text into (cmd, args).
+func parseMatrixCommand(text string) (string, []string) {
+	parts := strings.Fields(text)
+	if len(parts) == 0 {
+		return "", nil
+	}
+	cmd := strings.TrimPrefix(parts[0], "/")
+	cmd, _, _ = strings.Cut(cmd, "@") // strip optional @botname suffix
+	return cmd, parts[1:]
+}
+
+// makeMatrixReplyFn returns a reply function that sends text to the given room.
+func makeMatrixReplyFn(client *mautrix.Client, roomID id.RoomID, logTag string) func(string) {
+	return func(reply string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if _, err := client.SendText(ctx, roomID, reply); err != nil {
+			log.Printf("[matrix] %s: reply failed: %v", logTag, err)
+		}
+	}
+}
+
+// handleMatrixCommand parses and dispatches a /command message from an agent room.
+func (f *MatrixFrontend) handleMatrixCommand(
+	agentName, text string, client *mautrix.Client, roomID id.RoomID,
+) {
+	cmd, args := parseMatrixCommand(text)
+	if cmd == "" {
+		return
+	}
+
+	replyFn := makeMatrixReplyFn(client, roomID, "agent="+agentName)
+
+	switch cmd {
+	case "status":
+		f.handleMatrixStatusCommand(f.cfg.TeamName, replyFn, args)
+	case "help":
+		f.handleMatrixHelpCommand(replyFn)
+	case "usage":
+		f.handleMatrixUsageCommand(replyFn)
+	case "new":
+		fullCmd := "/" + cmd + joinArgs(args, " ")
+		sendKeysToAgentWithReply(f.cfg.TeamName, agentName, fullCmd, "Sent /new — starting fresh conversation", replyFn)
+	case "compact":
+		fullCmd := "/" + cmd + joinArgs(args, " ")
+		sendKeysToAgentWithReply(f.cfg.TeamName, agentName, fullCmd, "Sent /compact — compacting conversation", replyFn)
+	case "wait":
+		sendEscToAgentWithReply(f.cfg.TeamName, agentName, replyFn)
+	default:
+		origName := f.resolveSkillCommand(cmd)
+		if origName != "" {
+			fullCmd := buildSkillCommand(origName, text)
+			sendKeysToAgentWithReply(f.cfg.TeamName, agentName, fullCmd, "", replyFn)
+		}
+		// Unknown commands are silently ignored (same as Telegram default handler)
+	}
+}
+
+func (f *MatrixFrontend) handleMatrixStatusCommand(teamName string, replyFn func(string), args []string) {
+	var agents []status.AgentStatus
+	if len(args) > 0 {
+		s, err := status.ReadAgent(teamName, args[0])
+		if err != nil {
+			replyFn("Error: " + err.Error())
+			return
+		}
+		if s == nil {
+			replyFn(args[0] + ": no status data")
+			return
+		}
+		agents = []status.AgentStatus{*s}
+	} else {
+		all, err := status.ReadAll(teamName)
+		if err != nil {
+			replyFn("Error reading status: " + err.Error())
+			return
+		}
+		agents = all
+	}
+	if len(agents) == 0 {
+		replyFn("No agent status data available")
+		return
+	}
+	var sb strings.Builder
+	for _, a := range agents {
+		staleMarker := ""
+		if a.IsStale(5 * time.Minute) {
+			staleMarker = " (stale)"
+		}
+		fmt.Fprintf(&sb, "%s: %.0f%% ctx | %s%s\n", a.Agent, a.ContextUsedPct, a.ModelName, staleMarker)
+	}
+	replyFn(sb.String())
+}
+
+func (f *MatrixFrontend) handleMatrixHelpCommand(replyFn func(string)) {
+	var sb strings.Builder
+	sb.WriteString("Available commands:\n")
+	for _, cmd := range f.allCommands {
+		fmt.Fprintf(&sb, "/%s — %s\n", cmd.Name, cmd.Description)
+	}
+	replyFn(sb.String())
+}
+
+func (f *MatrixFrontend) handleMatrixUsageCommand(replyFn func(string)) {
+	if f.cfg.GetUsageFn == nil {
+		replyFn("Usage data not available")
+		return
+	}
+	msg := f.cfg.GetUsageFn()
+	if msg == "" {
+		replyFn("Usage data not yet available — daemon is still fetching")
+		return
+	}
+	replyFn(msg)
+}
+
+func (f *MatrixFrontend) resolveSkillCommand(cmd string) string {
+	for _, c := range f.allCommands {
+		if c.Name == cmd {
+			if c.OriginalName != "" {
+				return c.OriginalName
+			}
+			return c.Name
+		}
+	}
+	return ""
+}
+
+// sendKeysToAgentWithReply sends tmux keys to an agent and optionally replies with a confirmation.
+func sendKeysToAgentWithReply(teamName, agentName, keys, confirmMsg string, replyFn func(string)) {
+	session := config.AgentSessionName(teamName, agentName)
+	if err := tmux.SendKeys(session, agentName, keys); err != nil {
+		replyFn("Error: " + err.Error())
+		return
+	}
+	if confirmMsg != "" {
+		replyFn(confirmMsg)
+	}
+}
+
+// sendEscToAgentWithReply sends Escape to an agent's tmux session and replies with confirmation.
+func sendEscToAgentWithReply(teamName, agentName string, replyFn func(string)) {
+	session := config.AgentSessionName(teamName, agentName)
+	if err := tmux.SendRawKey(session, agentName, "Escape"); err != nil {
+		replyFn("Error: " + err.Error())
+		return
+	}
+	replyFn("Sent Escape — interrupting agent")
+}
+
+// handleNotifCommand parses and dispatches a /command message from the notification room.
+func (f *MatrixFrontend) handleNotifCommand(text string) {
+	cmd, args := parseMatrixCommand(text)
+	if cmd == "" {
+		return
+	}
+
+	replyFn := makeMatrixReplyFn(f.notifyClient, f.notifyRoom, "notif")
+
+	switch cmd {
+	case "status":
+		f.handleMatrixStatusCommand(f.cfg.TeamName, replyFn, args)
+	case "usage":
+		f.handleMatrixUsageCommand(replyFn)
+	case "restart":
+		if f.cfg.RestartFn == nil {
+			replyFn("⚠️ Restart not configured")
+			return
+		}
+		if err := f.cfg.RestartFn(); err != nil {
+			log.Printf("[matrix] restart failed: %v", err)
+			replyFn("❌ Restart failed: " + err.Error())
+			return
+		}
+		replyFn("🔄 Daemon restarting...")
+	case "help":
+		var sb strings.Builder
+		sb.WriteString("Notification commands:\n")
+		for _, c := range matrixNotifCommands {
+			fmt.Fprintf(&sb, "/%s — %s\n", c.Name, c.Description)
+		}
+		replyFn(sb.String())
+	}
+}
+
+var matrixNotifCommands = []Command{
+	{Name: "status", Description: "Show all agents' context usage and stats"},
+	{Name: "usage", Description: "Show Claude API 5hr/weekly rate limit consumption"},
+	{Name: "restart", Description: "Restart the daemon (launchctl kickstart -k)"},
+	{Name: "help", Description: "List available commands"},
 }
 
 const maxMatrixMessageBytes = 65535
