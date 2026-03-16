@@ -5,15 +5,10 @@ import (
 	"fmt"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/notify"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
-
-// formatInboundMessage formats a Telegram message for delivery to CC.
-func formatInboundMessage(_, senderName, text string) string {
-	return fmt.Sprintf("[telegram from:%s] %s", senderName, text)
-}
 
 // formatAgentMessage formats an agent-to-agent message for delivery.
 func formatAgentMessage(fromAgent, text string) string {
@@ -21,24 +16,28 @@ func formatAgentMessage(fromAgent, text string) string {
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.
-// Falls back to tmux for CC agents, notification bot for others.
-func deliverToAgent(registry *adapterRegistry, mcfg *config.DaemonConfig, teamName, agentName, text string) error {
+// Falls back to tmux for CC agents, frontend notification for others.
+func deliverToAgent(
+	registry *adapterRegistry, mcfg *config.DaemonConfig,
+	frontends map[string]frontend.Frontend,
+	teamName, agentName, text string,
+) error {
 	if registry != nil {
 		if adapter, ok := registry.get(teamName, agentName); ok {
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}
-	// Fallback: tmux for CC agents, notification bot for others
+	// Fallback: tmux for CC agents, frontend notification for others
 	rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
 	if rt == runtime.ClaudeCode {
 		session := config.AgentSessionName(teamName, agentName)
 		return tmux.SendKeys(session, agentName, text)
 	}
-	// Non-CC agent with no adapter — send via notification bot
-	team, ok := mcfg.Teams[teamName]
+	// Non-CC agent with no adapter — send via frontend notification
+	fe, ok := frontends[teamName]
 	if !ok {
-		return fmt.Errorf("no team config for %s", teamName)
+		return fmt.Errorf("no frontend for team %s", teamName)
 	}
 	msg := fmt.Sprintf("[undelivered → %s] %s", agentName, text)
-	return notify.SendWithConfig(team.NotificationToken, team.ChatID, msg)
+	return fe.SendNotification(context.Background(), msg)
 }

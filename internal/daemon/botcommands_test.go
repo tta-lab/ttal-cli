@@ -42,9 +42,9 @@ func TestIsStaticCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isStaticCommand(tt.name)
+			got := isStaticBotCommand(tt.name)
 			if got != tt.want {
-				t.Errorf("isStaticCommand(%q) = %v, want %v", tt.name, got, tt.want)
+				t.Errorf("isStaticBotCommand(%q) = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}
@@ -52,12 +52,12 @@ func TestIsStaticCommand(t *testing.T) {
 
 func TestDiscoverCommands_FiltersStaticAfterSanitize(t *testing.T) {
 	// Verify that a skill named "new" (matching static command) gets filtered out.
-	// We test this indirectly: isStaticCommand("new") should be true.
-	if !isStaticCommand(sanitizeCommandName("new")) {
+	// We test this indirectly: isStaticBotCommand("new") should be true.
+	if !isStaticBotCommand(sanitizeCommandName("new")) {
 		t.Error("expected 'new' to be filtered as static command")
 	}
 	// A hyphenated name that doesn't collide should pass through.
-	if isStaticCommand(sanitizeCommandName("review-pr")) {
+	if isStaticBotCommand(sanitizeCommandName("review-pr")) {
 		t.Error("expected 'review-pr' (sanitized: 'review_pr') to NOT be a static command")
 	}
 }

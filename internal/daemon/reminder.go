@@ -1,29 +1,30 @@
 package daemon
 
 import (
+	"context"
 	"log"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/notify"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const reminderPollInterval = 2 * time.Minute
 
-// startReminderPoller polls taskwarrior for due reminders and sends Telegram notifications.
-func startReminderPoller(mcfg *config.DaemonConfig, done <-chan struct{}) {
-	// Validate team config once at startup — misconfiguration should be loud, not a recurring log.
+// startReminderPoller polls taskwarrior for due reminders and sends frontend notifications.
+func startReminderPoller(mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, done <-chan struct{}) {
+	// Validate default team frontend once at startup — misconfiguration should be loud, not a recurring log.
 	defaultTeam := mcfg.DefaultTeamName()
-	team, ok := mcfg.Teams[defaultTeam]
+	fe, ok := frontends[defaultTeam]
 	if !ok {
-		log.Printf("[reminder] WARNING: default team %q not found in config — reminder poller disabled", defaultTeam)
+		log.Printf("[reminder] WARNING: no frontend for default team %q — reminder poller disabled", defaultTeam)
 		return
 	}
 
 	go func() {
 		// Check immediately on startup (catch reminders that came due while daemon was down).
-		fireReminders(team)
+		fireReminders(fe)
 
 		ticker := time.NewTicker(reminderPollInterval)
 		defer ticker.Stop()
@@ -32,13 +33,13 @@ func startReminderPoller(mcfg *config.DaemonConfig, done <-chan struct{}) {
 			case <-done:
 				return
 			case <-ticker.C:
-				fireReminders(team)
+				fireReminders(fe)
 			}
 		}
 	}()
 }
 
-func fireReminders(team *config.ResolvedTeam) {
+func fireReminders(fe frontend.Frontend) {
 	tasks, err := taskwarrior.GetDueReminders()
 	if err != nil {
 		log.Printf("[reminder] poll error: %v", err)
@@ -50,7 +51,7 @@ func fireReminders(team *config.ResolvedTeam) {
 
 	for _, t := range tasks {
 		msg := "🔔 " + t.Description
-		if err := notify.SendWithConfig(team.NotificationToken, team.ChatID, msg); err != nil {
+		if err := fe.SendNotification(context.Background(), msg); err != nil {
 			log.Printf("[reminder] failed to send for %s: %v", t.SessionID(), err)
 			continue
 		}

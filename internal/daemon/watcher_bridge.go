@@ -1,11 +1,13 @@
 package daemon
 
 import (
+	"context"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
@@ -13,7 +15,7 @@ import (
 
 // startWatcher initializes the JSONL watcher from config (all teams).
 func startWatcher(
-	mcfg *config.DaemonConfig, mt *messageTracker, msgSvc *message.Service, done <-chan struct{},
+	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, msgSvc *message.Service, done <-chan struct{},
 ) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -38,20 +40,20 @@ func startWatcher(
 
 	w, err := watcher.New(agentMap,
 		func(teamName, agentName, text string) {
-			ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
-			botToken := config.AgentBotToken(agentName)
-			if !ok || botToken == "" {
+			if _, ok := mcfg.FindAgentInTeam(teamName, agentName); !ok {
 				return
 			}
-			// Clear tracking — response text arriving is the done signal
-			mt.delete(teamName, agentName)
+			fe, ok := frontends[teamName]
+			if !ok {
+				return
+			}
 			rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
 			persistMsg(msgSvc, message.CreateParams{
 				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
 				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,
 			})
-			if err := telegram.SendMessage(botToken, ta.ChatID, text); err != nil {
-				log.Printf("[watcher] telegram send error for %s: %v", agentName, err)
+			if err := fe.SendText(context.Background(), agentName, text); err != nil {
+				log.Printf("[watcher] send error for %s: %v", agentName, err)
 			}
 		},
 		func(teamName, agentName, toolName string) {
@@ -63,11 +65,11 @@ func startWatcher(
 			if team, ok := mcfg.Teams[teamName]; !ok || !team.EmojiReactions {
 				return
 			}
-			tracked, ok := mt.get(teamName, agentName)
+			fe, ok := frontends[teamName]
 			if !ok {
 				return
 			}
-			if err := telegram.SetReaction(tracked.BotToken, tracked.ChatID, tracked.MessageID, emoji); err != nil {
+			if err := fe.SetReaction(context.Background(), agentName, emoji); err != nil {
 				log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, toolName, err)
 			}
 		},

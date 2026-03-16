@@ -116,6 +116,8 @@ type Config struct {
 
 // TeamConfig holds per-team configuration.
 type TeamConfig struct {
+	// Messaging frontend for this team ("telegram" or "matrix"; default: "telegram")
+	Frontend string `toml:"frontend" jsonschema:"enum=telegram,enum=matrix"`
 	// Root path for agent workspaces. Agent path = team_path/agent_name
 	TeamPath string `toml:"team_path"` //nolint:lll
 	// ttal data directory (default: ~/.ttal/<team>)
@@ -786,9 +788,23 @@ type DaemonConfig struct {
 	Teams  map[string]*ResolvedTeam // team name -> resolved team config
 }
 
+// MatrixAgentConfig holds per-agent Matrix credentials.
+type MatrixAgentConfig struct {
+	AccessTokenEnv string `toml:"access_token_env"` // env var holding the access token
+	RoomID         string `toml:"room_id"`          // Matrix room ID (!abc:example.com)
+}
+
+// MatrixConfig holds Matrix-specific team configuration.
+type MatrixConfig struct {
+	Homeserver string                       `toml:"homeserver"`        // e.g. "https://matrix.example.com"
+	NotifyRoom string                       `toml:"notification_room"` // notification room ID
+	Agents     map[string]MatrixAgentConfig `toml:"agents"`            // agentName → credentials
+}
+
 // ResolvedTeam holds one team's fully resolved configuration.
 type ResolvedTeam struct {
 	Name              string
+	Frontend          string // "telegram" or "matrix" (default: "telegram")
 	TeamPath          string
 	DataDir           string
 	TaskRC            string
@@ -948,6 +964,7 @@ func resolveTeam(
 
 	rt := &ResolvedTeam{
 		Name:              teamName,
+		Frontend:          team.Frontend,
 		TeamPath:          expandHome(team.TeamPath),
 		ChatID:            team.ChatID,
 		LifecycleAgent:    team.LifecycleAgent,

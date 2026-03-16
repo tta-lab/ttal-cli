@@ -8,18 +8,11 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/status"
-	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
-
-// pollerTarget groups agent info for Telegram poller dispatch by chat ID.
-type pollerTarget struct {
-	teamName  string
-	agentName string
-	chatID    string
-}
 
 // workerWindow is the tmux window name used by all worker sessions.
 const workerWindow = "worker"
@@ -33,43 +26,55 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 
 // handleSend routes an incoming SendRequest based on From/To fields.
 // Resolves team from agent name or the Team field in the request.
-func handleSend(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
+func handleSend(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, req SendRequest,
+) error {
 	switch {
 	case req.From != "" && req.To == "human":
-		return handleFrom(mcfg, msgSvc, req)
+		return handleFrom(mcfg, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgent(mcfg, registry, msgSvc, req)
+		return handleAgentToAgent(mcfg, registry, frontends, msgSvc, req)
 	case req.From != "":
-		return handleFrom(mcfg, msgSvc, req)
+		return handleFrom(mcfg, frontends, msgSvc, req)
 	case req.To != "":
-		return handleTo(mcfg, registry, msgSvc, req)
+		return handleTo(mcfg, registry, frontends, msgSvc, req)
 	default:
 		return fmt.Errorf("send request missing from/to")
 	}
 }
 
-// handleFrom sends a message from an agent to the human via Telegram.
-func handleFrom(mcfg *config.DaemonConfig, msgSvc *message.Service, req SendRequest) error {
+// handleFrom sends a message from an agent to the human via the team's frontend.
+func handleFrom(
+	mcfg *config.DaemonConfig,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, req SendRequest,
+) error {
 	ta := resolveAgent(mcfg, req.Team, req.From)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	botToken := config.AgentBotToken(ta.AgentName)
-	if botToken == "" {
-		return fmt.Errorf("agent %s has no telegram configured", req.From)
+	fe, ok := frontends[ta.TeamName]
+	if !ok {
+		return fmt.Errorf("no frontend configured for team %s (agent %s)", ta.TeamName, req.From)
 	}
 	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
-	return telegram.SendMessage(botToken, ta.ChatID, req.Message)
+	return fe.SendText(context.Background(), ta.AgentName, req.Message)
 }
 
 // handleTo delivers a message to an agent via its runtime adapter.
 // Falls back to worker session delivery when the recipient is a hex UUID.
 // Human→worker messages are sent as bare text (no [agent from:] prefix).
-func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest) error {
+func handleTo(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, req SendRequest,
+) error {
 	ta := resolveAgent(mcfg, req.Team, req.To)
 	if ta == nil {
 		session, err := resolveWorker(req.To)
@@ -86,13 +91,15 @@ func handleTo(mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *mess
 		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI,
 	})
-	return deliverToAgent(registry, mcfg, ta.TeamName, req.To, req.Message)
+	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
 // Falls back to worker session delivery when the recipient is a hex UUID.
 func handleAgentToAgent(
-	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service, req SendRequest,
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, req SendRequest,
 ) error {
 	fromTA := resolveAgent(mcfg, req.Team, req.From)
 	if fromTA == nil {
@@ -118,7 +125,7 @@ func handleAgentToAgent(
 		Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, mcfg, toTA.TeamName, req.To, msg)
+	return deliverToAgent(registry, mcfg, frontends, toTA.TeamName, req.To, msg)
 }
 
 // resolveAgent finds an agent by name, using team hint if provided.
