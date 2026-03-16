@@ -59,6 +59,24 @@ func ResolveProjectPath(projectName string) string {
 	return ""
 }
 
+// ResolveProjectPathOrError resolves a project path from a taskwarrior project field.
+// Returns a user-friendly error if the project alias is not registered.
+func ResolveProjectPathOrError(projectName string) (string, error) {
+	path := ResolveProjectPath(projectName)
+	if path != "" {
+		return path, nil
+	}
+	if projectName == "" {
+		return "", fmt.Errorf("task has no project field set")
+	}
+	// Extract base alias for the error message
+	baseAlias := projectName
+	if i := strings.Index(projectName, "."); i > 0 {
+		baseAlias = projectName[:i]
+	}
+	return "", formatProjectNotFoundError(baseAlias, NewStore(config.ResolveProjectsPath()))
+}
+
 // ValidateProjectAlias checks that a project alias exists (exact match, active only).
 // Returns a user-friendly error listing available projects if not found.
 func ValidateProjectAlias(alias string) error {

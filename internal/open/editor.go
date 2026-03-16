@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -21,11 +22,12 @@ func Editor(uuid string) error {
 		return err
 	}
 
-	if task.ProjectPath == "" {
-		return fmt.Errorf("no project path associated with this task: missing project_path UDA")
+	projectPath, err := project.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return err
 	}
 
-	workDir := resolveWorkDir(task)
+	workDir := resolveWorkDir(task, projectPath)
 
 	if _, err := os.Stat(workDir); err != nil {
 		return fmt.Errorf("directory not found: %s", workDir)
@@ -47,7 +49,7 @@ func Editor(uuid string) error {
 	return syscall.Exec(editorBin, []string{editor, "."}, os.Environ())
 }
 
-func resolveWorkDir(task *taskwarrior.Task) string {
+func resolveWorkDir(task *taskwarrior.Task, projectPath string) string {
 	if task.UUID != "" && task.Project != "" {
 		worktreeRoot := config.EnsureWorktreeRoot()
 		dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
@@ -56,7 +58,7 @@ func resolveWorkDir(task *taskwarrior.Task) string {
 		}
 	}
 
-	return task.ProjectPath
+	return projectPath
 }
 
 func resolveEditor() string {

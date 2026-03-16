@@ -13,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -157,10 +158,11 @@ func scanTeam(
 		prIndex := prInfo.Index
 
 		// Detect provider from project path
-		if task.ProjectPath == "" {
+		projectPath := project.ResolveProjectPath(task.Project)
+		if projectPath == "" {
 			continue
 		}
-		info, err := gitprovider.DetectProvider(task.ProjectPath)
+		info, err := gitprovider.DetectProvider(projectPath)
 		if err != nil {
 			log.Printf("[prwatch] cannot detect provider for task %s: %v",
 				shortSHA(task.UUID), err)

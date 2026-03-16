@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -70,12 +71,13 @@ func openSession(t *Task) tea.Cmd {
 }
 
 func openTerm(t *Task) tea.Cmd {
-	if t.ProjectPath == "" {
+	projectPath := project.ResolveProjectPath(t.Project)
+	if projectPath == "" {
 		return func() tea.Msg {
 			return actionResultMsg{err: fmt.Errorf("no project path for this task")}
 		}
 	}
-	workDir := resolveWorkDir(t)
+	workDir := resolveWorkDir(t, projectPath)
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/sh"
@@ -245,7 +247,7 @@ func clipboardWrite(text string) error {
 }
 
 // resolveWorkDir finds the working directory for a task (worktree or project root).
-func resolveWorkDir(t *Task) string {
+func resolveWorkDir(t *Task, projectPath string) string {
 	if t.UUID != "" && t.Project != "" {
 		worktreeRoot := config.EnsureWorktreeRoot()
 		dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", t.UUID[:8], t.Project))
@@ -262,5 +264,5 @@ func resolveWorkDir(t *Task) string {
 			return dir
 		}
 	}
-	return t.ProjectPath
+	return projectPath
 }

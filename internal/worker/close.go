@@ -14,6 +14,7 @@ import (
 	gitroot "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -59,7 +60,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return &CloseResult{Error: true, Status: "Task missing required UDA: branch"}, fmt.Errorf("missing branch UDA")
 	}
 
-	projectPath := task.ProjectPath
+	projectPath := project.ResolveProjectPath(task.Project)
 	if projectPath == "" {
 		projectPath = "."
 	}

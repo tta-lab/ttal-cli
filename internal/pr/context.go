@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -30,13 +31,14 @@ func resolveFromTask(jobID string) (*Context, error) {
 		return nil, err
 	}
 
-	if task.ProjectPath == "" {
-		return nil, fmt.Errorf("task has no project_path UDA set")
+	projectPath, err := project.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return nil, err
 	}
 
-	info, err := gitprovider.DetectProvider(task.ProjectPath)
+	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot determine repo from %s: %w", task.ProjectPath, err)
+		return nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
 	}
 
 	provider, err := gitprovider.NewProvider(info)

@@ -19,9 +19,13 @@ func HookOnAdd() {
 
 	hookLog("ADD", task.UUID(), task.Description())
 
-	// Inline enrichment — no subprocess needed.
+	// Inline enrichment — validates project alias and generates branch.
 	if task.Project() != "" {
-		enrichInline(task)
+		if err := enrichInline(task); err != nil {
+			hookLogFile("ERROR: " + err.Error())
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	}
 
 	writeTask(task)

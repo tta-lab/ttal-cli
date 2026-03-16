@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -149,9 +150,9 @@ func printWorkerTable(workers []WorkerInfo) {
 			branch = "-"
 		}
 
-		project := "-"
-		if t.ProjectPath != "" {
-			project = filepath.Base(t.ProjectPath)
+		projectDisplay := "-"
+		if resolvedPath := project.ResolveProjectPath(t.Project); resolvedPath != "" {
+			projectDisplay = filepath.Base(resolvedPath)
 		}
 
 		desc := t.Description
@@ -159,7 +160,7 @@ func printWorkerTable(workers []WorkerInfo) {
 			desc = desc[:57] + "..."
 		}
 
-		rows = append(rows, []string{t.SessionName(), info.Status.String(), pr, branch, project, desc})
+		rows = append(rows, []string{t.SessionName(), info.Status.String(), pr, branch, projectDisplay, desc})
 	}
 
 	tbl := table.New().

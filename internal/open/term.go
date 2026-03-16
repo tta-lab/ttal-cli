@@ -5,6 +5,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -19,11 +20,12 @@ func Term(uuid string) error {
 		return err
 	}
 
-	if task.ProjectPath == "" {
-		return fmt.Errorf("no project path associated with this task: missing project_path UDA")
+	projectPath, err := project.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return err
 	}
 
-	workDir := resolveWorkDir(task)
+	workDir := resolveWorkDir(task, projectPath)
 
 	if _, err := os.Stat(workDir); err != nil {
 		return fmt.Errorf("directory not found: %s", workDir)

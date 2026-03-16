@@ -60,7 +60,6 @@ type Task struct {
 	Modified    string       `json:"modified,omitempty"`
 	Scheduled   string       `json:"scheduled,omitempty"`
 	Branch      string       `json:"branch"`
-	ProjectPath string       `json:"project_path"`
 	PRID        string       `json:"pr_id,omitempty"`
 	Spawner     string       `json:"spawner,omitempty"`
 }
@@ -213,8 +212,7 @@ func ValidateUUID(s string) error {
 	return nil
 }
 
-// VerifyRequiredUDAs checks that branch and project_path UDAs
-// are configured in taskwarrior.
+// VerifyRequiredUDAs checks that the branch UDA is configured in taskwarrior.
 func VerifyRequiredUDAs() error {
 	out, err := runTask("show")
 	if err != nil {
@@ -222,7 +220,7 @@ func VerifyRequiredUDAs() error {
 			"  This prevents creating orphaned sessions that aren't tracked.", err)}
 	}
 
-	required := []string{"branch", "project_path"}
+	required := []string{"branch"}
 	var missing []string
 	for _, uda := range required {
 		if !strings.Contains(out, fmt.Sprintf("uda.%s.", uda)) {
@@ -244,11 +242,10 @@ func VerifyRequiredUDAs() error {
 	return nil
 }
 
-// UpdateWorkerMetadata sets branch and project_path UDAs on a task.
-func UpdateWorkerMetadata(uuid, branch, projectPath string) error {
+// UpdateWorkerMetadata sets the branch UDA on a task.
+func UpdateWorkerMetadata(uuid, branch string) error {
 	_, err := runTask(uuid, "modify",
 		fmt.Sprintf("branch:%s", branch),
-		fmt.Sprintf("project_path:%s", projectPath),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to assign worker metadata to task %s: %w", uuid, err)

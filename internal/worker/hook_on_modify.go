@@ -12,6 +12,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -79,7 +80,7 @@ func HookOnModify() {
 
 	// Check if task is being completed
 	if modified.Status() == taskStatusCompleted && original.Status() != taskStatusCompleted {
-		prTitle, err := validateTaskCompletion(modified, nil)
+		prTitle, err := validateTaskCompletion(modified, nil, nil)
 		if err != nil {
 			hookLogFile("ERROR: " + err.Error())
 			fmt.Println(err.Error())
@@ -91,7 +92,11 @@ func HookOnModify() {
 
 	// Re-enrich when project changes to a non-empty value.
 	if newProject := modified.Project(); newProject != "" && newProject != original.Project() {
-		enrichInline(modified)
+		if err := enrichInline(modified); err != nil {
+			hookLogFile("ERROR: " + err.Error())
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	}
 
 	writeTask(modified)
@@ -101,6 +106,10 @@ func HookOnModify() {
 // It receives the project path and PR ID string and returns (merged bool, title string, err error).
 // Injected for testability; production code uses defaultPRMergedChecker.
 type prMergedChecker func(projectPath, prID string) (merged bool, title string, err error)
+
+// pathResolver resolves a project alias to a filesystem path.
+// Injected for testability; production code uses project.ResolveProjectPath.
+type pathResolver func(projectName string) string
 
 // defaultPRMergedChecker is the real implementation used in production.
 func defaultPRMergedChecker(projectPath, prID string) (bool, string, error) {
@@ -130,8 +139,10 @@ func defaultPRMergedChecker(projectPath, prID string) (bool, string, error) {
 // validateTaskCompletion checks if a task can be completed.
 // It blocks completion if the task has an unmerged PR.
 // Returns the PR title if available (empty string if no PR).
-// checker may be nil, in which case defaultPRMergedChecker is used.
-func validateTaskCompletion(modified hookTask, checker prMergedChecker) (prTitle string, err error) {
+// checker and resolver may be nil, in which case production defaults are used.
+func validateTaskCompletion(
+	modified hookTask, checker prMergedChecker, resolver pathResolver,
+) (prTitle string, err error) {
 	prID := modified.PRID()
 	if prID == "" {
 		return "", nil
@@ -142,10 +153,14 @@ func validateTaskCompletion(modified hookTask, checker prMergedChecker) (prTitle
 		return "", fmt.Errorf("cannot verify PR %q: %w", prID, err)
 	}
 
-	projectPath := modified.ProjectPath()
+	if resolver == nil {
+		resolver = project.ResolveProjectPath
+	}
+
+	projectPath := resolver(modified.Project())
 	if projectPath == "" {
-		return "", fmt.Errorf("cannot verify PR: task has pr_id but no project_path. " +
-			"Add project_path or remove pr_id to complete")
+		return "", fmt.Errorf("cannot verify PR: project %q not found in projects.toml. "+
+			"Run `ttal project list` to see registered projects", modified.Project())
 	}
 
 	if checker == nil {

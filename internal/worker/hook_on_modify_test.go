@@ -7,15 +7,22 @@ import (
 )
 
 // makeTask builds a minimal hookTask with the given fields.
-func makeTask(prID, projectPath string) hookTask {
+func makeTask(prID, projectAlias string) hookTask {
 	t := hookTask{}
 	if prID != "" {
 		t["pr_id"] = prID
 	}
-	if projectPath != "" {
-		t["project_path"] = projectPath
+	if projectAlias != "" {
+		t["project"] = projectAlias
 	}
 	return t
+}
+
+// mockResolver returns a resolver that maps project aliases to paths.
+func mockResolver(mapping map[string]string) pathResolver {
+	return func(name string) string {
+		return mapping[name]
+	}
 }
 
 func TestValidateTaskCompletion_NoPRID(t *testing.T) {
@@ -26,7 +33,7 @@ func TestValidateTaskCompletion_NoPRID(t *testing.T) {
 		checkerCalled = true
 		return false, "", nil
 	}
-	if _, err := validateTaskCompletion(task, checker); err != nil {
+	if _, err := validateTaskCompletion(task, checker, nil); err != nil {
 		t.Errorf("expected nil error for task with no pr_id, got: %v", err)
 	}
 	if checkerCalled {
@@ -34,25 +41,27 @@ func TestValidateTaskCompletion_NoPRID(t *testing.T) {
 	}
 }
 
-func TestValidateTaskCompletion_PRIDButNoProjectPath(t *testing.T) {
+func TestValidateTaskCompletion_PRIDButNoProject(t *testing.T) {
 	task := makeTask("42", "")
-	// Has pr_id but no project_path — should return an error before calling checker.
+	// Has pr_id but no project — should return an error before calling checker.
 	checkerCalled := false
 	checker := func(_, _ string) (bool, string, error) {
 		checkerCalled = true
 		return false, "", nil
 	}
-	_, err := validateTaskCompletion(task, checker)
+	resolver := mockResolver(map[string]string{})
+	_, err := validateTaskCompletion(task, checker, resolver)
 	if err == nil {
-		t.Fatal("expected error when pr_id is set but project_path is empty")
+		t.Fatal("expected error when pr_id is set but project is empty")
 	}
 	if checkerCalled {
-		t.Error("checker should not be called when project_path is missing")
+		t.Error("checker should not be called when project is missing")
 	}
 }
 
 func TestValidateTaskCompletion_PRMerged(t *testing.T) {
-	task := makeTask("7", "/some/project")
+	task := makeTask("7", "testproj")
+	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
 	checker := func(projectPath, prID string) (bool, string, error) {
 		if projectPath != "/some/project" {
 			return false, "", errors.New("unexpected projectPath: " + projectPath)
@@ -62,7 +71,7 @@ func TestValidateTaskCompletion_PRMerged(t *testing.T) {
 		}
 		return true, "feat: test PR title", nil // merged
 	}
-	prTitle, err := validateTaskCompletion(task, checker)
+	prTitle, err := validateTaskCompletion(task, checker, resolver)
 	if err != nil {
 		t.Errorf("expected nil error for merged PR, got: %v", err)
 	}
@@ -72,25 +81,27 @@ func TestValidateTaskCompletion_PRMerged(t *testing.T) {
 }
 
 func TestValidateTaskCompletion_PROpen(t *testing.T) {
-	task := makeTask("7", "/some/project")
+	task := makeTask("7", "testproj")
+	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
 	checker := func(_, _ string) (bool, string, error) {
 		return false, "", nil // not merged
 	}
-	_, err := validateTaskCompletion(task, checker)
+	_, err := validateTaskCompletion(task, checker, resolver)
 	if err == nil {
 		t.Fatal("expected error for unmerged PR")
 	}
 }
 
 func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
-	task := makeTask("7:lgtm", "/some/project")
+	task := makeTask("7:lgtm", "testproj")
+	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
 	checker := func(projectPath, prID string) (bool, string, error) {
 		if prID != "7:lgtm" {
 			return false, "", errors.New("unexpected prID: " + prID)
 		}
 		return true, "fix: lgtm title", nil
 	}
-	prTitle, err := validateTaskCompletion(task, checker)
+	prTitle, err := validateTaskCompletion(task, checker, resolver)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -100,9 +111,10 @@ func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
 }
 
 func TestValidateTaskCompletion_PROpenWithLGTM(t *testing.T) {
-	task := makeTask("7:lgtm", "/some/project")
+	task := makeTask("7:lgtm", "testproj")
+	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
 	checker := func(_, _ string) (bool, string, error) { return false, "", nil }
-	_, err := validateTaskCompletion(task, checker)
+	_, err := validateTaskCompletion(task, checker, resolver)
 	if err == nil {
 		t.Fatal("expected error for unmerged PR")
 	}
