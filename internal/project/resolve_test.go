@@ -79,25 +79,42 @@ func TestResolveProjectPathWithStore(t *testing.T) {
 func TestResolveProjectPathOrError(t *testing.T) {
 	t.Run("found returns path", func(t *testing.T) {
 		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
-		// Call resolveProjectPathWithStore directly to avoid needing the real config path
-		path := resolveProjectPathWithStore("ttal", store)
+		path, err := resolveProjectPathOrErrorWithStore("ttal", store)
+		if err != nil {
+			t.Fatalf("expected nil error, got: %v", err)
+		}
 		if path != pathTtal {
-			t.Errorf("want /path/ttal, got %q", path)
+			t.Errorf("want %q, got %q", pathTtal, path)
 		}
 	})
 
-	t.Run("unknown project returns error listing available", func(t *testing.T) {
+	t.Run("empty project name returns task-has-no-project error", func(t *testing.T) {
+		// Use a multi-project store so single-project shortcut doesn't fire
+		store := newTestStoreWithProjects(t, []Project{
+			{Alias: "ttal", Path: pathTtal},
+			{Alias: "other", Path: "/path/other"},
+		})
+		_, err := resolveProjectPathOrErrorWithStore("", store)
+		if err == nil {
+			t.Fatal("expected error for empty project name")
+		}
+		if !strings.Contains(err.Error(), "no project field") {
+			t.Errorf("expected 'no project field' error, got: %v", err)
+		}
+	})
+
+	t.Run("unknown project returns error listing available projects", func(t *testing.T) {
 		store := newTestStoreWithProjects(t, []Project{
 			{Alias: "ttal", Path: pathTtal},
 			{Alias: "flicknote", Path: "/path/flicknote"},
 		})
-		err := formatProjectNotFoundError("unknown", store)
+		_, err := resolveProjectPathOrErrorWithStore("nonexistent", store)
 		if err == nil {
 			t.Fatal("expected error for unknown project")
 		}
 		msg := err.Error()
-		if !strings.Contains(msg, "unknown") {
-			t.Errorf("error should mention alias %q: %v", "unknown", msg)
+		if !strings.Contains(msg, "nonexistent") {
+			t.Errorf("error should mention alias: %v", msg)
 		}
 		if !strings.Contains(msg, "ttal") || !strings.Contains(msg, "flicknote") {
 			t.Errorf("error should list available projects: %v", msg)
@@ -107,20 +124,20 @@ func TestResolveProjectPathOrError(t *testing.T) {
 		}
 	})
 
-	t.Run("empty project name returns appropriate error", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
-		path := resolveProjectPathWithStore("", store)
-		// Empty name with single project triggers single-project shortcut
-		if path != pathTtal {
-			t.Errorf("single-project shortcut: want /path/ttal, got %q", path)
+	t.Run("hierarchical alias uses base in error message", func(t *testing.T) {
+		// "ttal.pr" is not registered; error should mention "ttal" not "ttal.pr".
+		// Two projects prevent the single-project shortcut from firing.
+		store := newTestStoreWithProjects(t, []Project{
+			{Alias: "other", Path: "/path/other"},
+			{Alias: "another", Path: "/path/another"},
+		})
+		_, err := resolveProjectPathOrErrorWithStore("ttal.pr", store)
+		if err == nil {
+			t.Fatal("expected error for unregistered hierarchical alias")
 		}
-	})
-
-	t.Run("hierarchical fallback ttal.pr.sub → ttal", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
-		path := resolveProjectPathWithStore("ttal.pr.sub", store)
-		if path != pathTtal {
-			t.Errorf("want /path/ttal for ttal.pr.sub, got %q", path)
+		msg := err.Error()
+		if !strings.Contains(msg, `"ttal"`) {
+			t.Errorf("error should use base alias 'ttal', got: %v", msg)
 		}
 	})
 }

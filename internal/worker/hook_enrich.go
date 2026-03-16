@@ -10,7 +10,9 @@ import (
 // enrichInline validates the project alias and generates a branch.
 // Sets branch in-place so writeTask outputs the enriched version.
 // Returns an error if the project alias is not registered.
-// resolver may be nil, in which case project.ResolveProjectPathOrError is used.
+// resolver may be nil, in which case project.ResolveProjectPath is used.
+// Error messages always come from project.ResolveProjectPathOrError so
+// production and test paths produce the same user-facing text.
 func enrichInline(task hookTask, resolver pathResolver) error {
 	projectAlias := task.Project()
 	if projectAlias == "" {
@@ -18,15 +20,17 @@ func enrichInline(task hookTask, resolver pathResolver) error {
 	}
 
 	if resolver == nil {
-		// Production path: use ResolveProjectPathOrError for user-friendly errors.
-		if _, err := project.ResolveProjectPathOrError(projectAlias); err != nil {
+		resolver = project.ResolveProjectPath
+	}
+
+	if resolver(projectAlias) == "" {
+		// Delegate to ResolveProjectPathOrError for the user-friendly error message —
+		// same text whether called from production (nil resolver) or tests (mock resolver).
+		_, err := project.ResolveProjectPathOrError(projectAlias)
+		if err != nil {
 			return err
 		}
-	} else {
-		// Test path: resolver returns empty string for unknown projects.
-		if resolver(projectAlias) == "" {
-			return fmt.Errorf("project %q not found in projects.toml", projectAlias)
-		}
+		return fmt.Errorf("project %q not found in projects.toml", projectAlias)
 	}
 
 	branch := enrichment.GenerateBranch(task.Description())
