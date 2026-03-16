@@ -31,13 +31,15 @@ type CloseResult struct {
 }
 
 // Close handles worker cleanup with smart or force mode.
+// team is the TTAL team name from the cleanup request; pass "" when calling
+// from the CLI (uses the active team from config).
 //
 // Exit semantics (reflected in the returned error and CloseResult):
 //
 //	nil error + Cleaned=true  → cleaned up successfully (exit 0)
 //	ErrNeedsDecision          → needs manual decision (exit 1)
 //	other error               → script/worker error (exit 2)
-func Close(sessionID string, force bool) (*CloseResult, error) {
+func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 	// Find the task by UUID prefix (try completed first, then pending)
 	// Handle both old (bare UUID[:8]) and new (w-UUID[:8]-slug) formats
 	sid := taskwarrior.ExtractSessionID(sessionID)
@@ -60,28 +62,27 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return &CloseResult{Error: true, Status: "Task missing required UDA: branch"}, fmt.Errorf("missing branch UDA")
 	}
 
-	projectPath := project.ResolveProjectPath(task.Project)
-	projectResolved := projectPath != ""
-	if !projectResolved {
-		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml — using current directory\n", task.Project)
-		projectPath = "."
-	}
-
 	// Derive work_dir from task UUID and project alias
 	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
 
+	// Use team-aware resolution so the daemon (which caches config via sync.Once at startup)
+	// reads the correct team's projects.toml rather than its own.
+	projectPath := project.ResolveProjectPathForTeam(task.Project, team)
+	if projectPath == "" {
+		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml\n", task.Project)
+		return closeWithoutProject(task, sessionName, workDir)
+	}
+
+	// Resolve git root — projectPath may be a subpath in a monorepo.
+	// Worktrees and git pull must operate at the git root level.
+	gitRoot, err := gitroot.FindRoot(projectPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
+		gitRoot = projectPath
+	}
+
 	// Force mode: dump + cleanup + exit 0
 	if force {
-		if !projectResolved {
-			return closeWithoutProject(task, sessionName, workDir)
-		}
-		// Resolve git root — projectPath may be a subpath in a monorepo.
-		// Worktrees and git pull must operate at the git root level.
-		gitRoot, err := gitroot.FindRoot(projectPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
-			gitRoot = projectPath
-		}
 		dumpPath := dumpState(sessionName, workDir)
 		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
@@ -126,18 +127,6 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 			Status:    "Task completed but no PR created - check worker output",
 			StateDump: dumpPath,
 		}, ErrNeedsDecision
-	}
-
-	if !projectResolved {
-		return closeWithoutProject(task, sessionName, workDir)
-	}
-
-	// Resolve git root — projectPath may be a subpath in a monorepo.
-	// Worktrees and git pull must operate at the git root level.
-	gitRoot, err := gitroot.FindRoot(projectPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not determine git root for %s: %v\n", projectPath, err)
-		gitRoot = projectPath
 	}
 
 	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
