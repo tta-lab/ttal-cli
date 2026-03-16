@@ -14,6 +14,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
+const testUserName = "neil"
+
 // matrixTestServer starts an httptest server that handles Matrix send-message requests.
 // It captures request bodies and returns a success response.
 func matrixTestServer(t *testing.T, bodies *[]string) *httptest.Server {
@@ -48,7 +50,7 @@ func buildTestFrontend(t *testing.T, srv *httptest.Server, agentName, roomID str
 	return &MatrixFrontend{
 		cfg: MatrixConfig{
 			TeamName:   "testteam",
-			UserNameFn: func() string { return "neil" },
+			UserNameFn: func() string { return testUserName },
 		},
 		sessions: map[string]agentSession{
 			agentName: {client: client, roomID: id.RoomID(roomID)},
@@ -71,7 +73,7 @@ func TestNewMatrix_MissingCallbacks(t *testing.T) {
 		TeamName:   "myteam",
 		MCfg:       mcfg,
 		OnMessage:  nil,
-		UserNameFn: func() string { return "neil" },
+		UserNameFn: func() string { return testUserName },
 	})
 	if err == nil {
 		t.Fatal("expected error for nil OnMessage, got nil")
@@ -99,7 +101,7 @@ func TestNewMatrix_MissingConfig(t *testing.T) {
 		TeamName:   "myteam",
 		MCfg:       mcfg,
 		OnMessage:  func(_, _, _ string) {},
-		UserNameFn: func() string { return "neil" },
+		UserNameFn: func() string { return testUserName },
 	})
 	if err == nil {
 		t.Fatal("expected error for missing [matrix] config, got nil")
@@ -126,7 +128,7 @@ func TestNewMatrix_SkipsAgentWithoutToken(t *testing.T) {
 		TeamName:   "myteam",
 		MCfg:       mcfg,
 		OnMessage:  func(_, _, _ string) {},
-		UserNameFn: func() string { return "neil" },
+		UserNameFn: func() string { return testUserName },
 	})
 	if err != nil {
 		t.Fatalf("NewMatrix should succeed with missing token, got: %v", err)
