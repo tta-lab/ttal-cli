@@ -132,118 +132,122 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 // and starts the notification client sync with command handlers.
 func (f *MatrixFrontend) Start(ctx context.Context) error {
 	ctx, f.cancel = context.WithCancel(ctx)
-
 	for agentName, sess := range f.sessions {
-		name := agentName
-		s := sess
-
-		syncer := s.client.Syncer.(*mautrix.DefaultSyncer)
-
-		// Skip all events in the initial sync batch (since="") to prevent
-		// replaying old messages on daemon restart.
-		// DontProcessOldEvents returns false when since="", causing ProcessResponse
-		// to return immediately before dispatching any events for that batch.
-		syncer.OnSync(s.client.DontProcessOldEvents)
-
-		// Filter: only receive m.room.message events (no presence, typing, read receipts).
-		// FilterJSON is set on DefaultSyncer, NOT on Client.
-		syncer.FilterJSON = &mautrix.Filter{
-			Room: &mautrix.RoomFilter{
-				Timeline: &mautrix.FilterPart{
-					Types: []event.Type{event.EventMessage},
-				},
-			},
-		}
-
-		syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
-			// Skip own messages.
-			if evt.Sender == s.client.UserID {
-				return
-			}
-			msg := evt.Content.AsMessage()
-			if msg == nil || msg.Body == "" {
-				return
-			}
-
-			// Track for future reactions (Phase 4).
-			f.lastEventMu.Lock()
-			f.lastEventID[name] = evt.ID
-			f.lastEventMu.Unlock()
-
-			body := strings.TrimSpace(msg.Body)
-
-			// 1. Check if this is an answer to a pending ask-human question.
-			if f.interceptMatrixAskAnswer(s.roomID, body) {
-				return // consumed as ask-human answer
-			}
-
-			// 2. Check if this is a /command.
-			if strings.HasPrefix(body, "/") {
-				f.handleMatrixCommand(name, body, s.client, s.roomID)
-				return
-			}
-
-			// 3. Regular message — persist and deliver.
-			senderName := f.cfg.UserNameFn()
-			if f.cfg.MsgSvc != nil {
-				if _, err := f.cfg.MsgSvc.Create(ctx, message.CreateParams{
-					Sender:    senderName,
-					Recipient: name,
-					Content:   msg.Body,
-					Team:      f.cfg.TeamName,
-					Channel:   message.ChannelMatrix,
-				}); err != nil {
-					log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
-				}
-			}
-
-			formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, msg.Body)
-			f.cfg.OnMessage(f.cfg.TeamName, name, formatted)
-		})
-
-		go func(c *mautrix.Client, n string) {
-			if err := c.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("[matrix] FATAL: sync stopped for agent %s — no messages will be received until restart: %v", n, err)
-			}
-		}(s.client, name)
+		f.startAgentSync(ctx, agentName, sess)
 	}
-
-	// Start notification client sync with command handlers.
-	if f.notifyClient != nil {
-		notifSyncer := f.notifyClient.Syncer.(*mautrix.DefaultSyncer)
-
-		notifSyncer.OnSync(f.notifyClient.DontProcessOldEvents)
-
-		notifSyncer.FilterJSON = &mautrix.Filter{
-			Room: &mautrix.RoomFilter{
-				Timeline: &mautrix.FilterPart{
-					Types: []event.Type{event.EventMessage},
-				},
-			},
-		}
-
-		notifSyncer.OnEventType(event.EventMessage, func(_ context.Context, evt *event.Event) {
-			if evt.Sender == f.notifyClient.UserID {
-				return
-			}
-			msg := evt.Content.AsMessage()
-			if msg == nil || msg.Body == "" {
-				return
-			}
-			body := strings.TrimSpace(msg.Body)
-			if strings.HasPrefix(body, "/") {
-				f.handleNotifCommand(body)
-			}
-		})
-
-		go func() {
-			if err := f.notifyClient.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("[matrix] notification sync stopped: %v", err)
-			}
-		}()
-	}
-
+	f.startNotifSync(ctx)
 	return nil
+}
+
+// startAgentSync sets up the sync loop for one agent session.
+func (f *MatrixFrontend) startAgentSync(ctx context.Context, agentName string, sess agentSession) {
+	syncer := sess.client.Syncer.(*mautrix.DefaultSyncer)
+
+	// Skip all events in the initial sync batch (since="") to prevent
+	// replaying old messages on daemon restart.
+	syncer.OnSync(sess.client.DontProcessOldEvents)
+
+	// Filter: only receive m.room.message events (no presence, typing, read receipts).
+	syncer.FilterJSON = &mautrix.Filter{
+		Room: &mautrix.RoomFilter{
+			Timeline: &mautrix.FilterPart{
+				Types: []event.Type{event.EventMessage},
+			},
+		},
+	}
+
+	syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
+		if evt.Sender == sess.client.UserID {
+			return
+		}
+		msg := evt.Content.AsMessage()
+		if msg == nil || msg.Body == "" {
+			return
+		}
+
+		// Track for future reactions (Phase 4).
+		f.lastEventMu.Lock()
+		f.lastEventID[agentName] = evt.ID
+		f.lastEventMu.Unlock()
+
+		body := strings.TrimSpace(msg.Body)
+
+		// 1. Check if this is an answer to a pending ask-human question.
+		if f.interceptMatrixAskAnswer(sess.roomID, body) {
+			return // consumed as ask-human answer
+		}
+
+		// 2. Check if this is a /command.
+		if strings.HasPrefix(body, "/") {
+			f.handleMatrixCommand(agentName, body, sess.client, sess.roomID)
+			return
+		}
+
+		// 3. Regular message — persist and deliver.
+		f.deliverInboundMessage(ctx, agentName, msg.Body)
+	})
+
+	go func() {
+		if err := sess.client.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("[matrix] FATAL: sync stopped for agent %s — no messages will be received until restart: %v", agentName, err)
+		}
+	}()
+}
+
+// deliverInboundMessage persists and forwards a regular inbound message to the agent.
+func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, body string) {
+	senderName := f.cfg.UserNameFn()
+	if f.cfg.MsgSvc != nil {
+		if _, err := f.cfg.MsgSvc.Create(ctx, message.CreateParams{
+			Sender:    senderName,
+			Recipient: agentName,
+			Content:   body,
+			Team:      f.cfg.TeamName,
+			Channel:   message.ChannelMatrix,
+		}); err != nil {
+			log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
+		}
+	}
+	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, body)
+	f.cfg.OnMessage(f.cfg.TeamName, agentName, formatted)
+}
+
+// startNotifSync sets up the notification client sync loop with command handlers.
+func (f *MatrixFrontend) startNotifSync(ctx context.Context) {
+	if f.notifyClient == nil {
+		return
+	}
+	notifSyncer := f.notifyClient.Syncer.(*mautrix.DefaultSyncer)
+
+	notifSyncer.OnSync(f.notifyClient.DontProcessOldEvents)
+
+	notifSyncer.FilterJSON = &mautrix.Filter{
+		Room: &mautrix.RoomFilter{
+			Timeline: &mautrix.FilterPart{
+				Types: []event.Type{event.EventMessage},
+			},
+		},
+	}
+
+	notifSyncer.OnEventType(event.EventMessage, func(_ context.Context, evt *event.Event) {
+		if evt.Sender == f.notifyClient.UserID {
+			return
+		}
+		msg := evt.Content.AsMessage()
+		if msg == nil || msg.Body == "" {
+			return
+		}
+		body := strings.TrimSpace(msg.Body)
+		if strings.HasPrefix(body, "/") {
+			f.handleNotifCommand(body)
+		}
+	})
+
+	go func() {
+		if err := f.notifyClient.SyncWithContext(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("[matrix] notification sync stopped: %v", err)
+		}
+	}()
 }
 
 // Stop gracefully shuts down all sync loops.

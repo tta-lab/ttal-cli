@@ -16,6 +16,8 @@ import (
 
 const testUserName = "neil"
 
+const testCommandStatus = "status"
+
 // matrixTestServer starts an httptest server that handles Matrix send-message requests.
 // It captures request bodies and returns a success response.
 func matrixTestServer(t *testing.T, bodies *[]string) *httptest.Server {
@@ -255,15 +257,15 @@ func TestMatrixFrontend_RegisterCommands(t *testing.T) {
 		lastEventID: make(map[string]id.EventID),
 		mas:         newMatrixAskStore(),
 	}
-	cmds := []Command{{Name: "status", Description: "test"}}
+	cmds := []Command{{Name: testCommandStatus, Description: "test"}}
 	if err := fe.RegisterCommands(cmds); err != nil {
 		t.Fatalf("RegisterCommands: %v", err)
 	}
 	if len(fe.allCommands) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(fe.allCommands))
 	}
-	if fe.allCommands[0].Name != "status" {
-		t.Errorf("expected command name 'status', got %q", fe.allCommands[0].Name)
+	if fe.allCommands[0].Name != testCommandStatus {
+		t.Errorf("expected command name %q, got %q", testCommandStatus, fe.allCommands[0].Name)
 	}
 }
 
