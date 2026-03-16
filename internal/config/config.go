@@ -156,6 +156,8 @@ type TeamConfig struct {
 	TaskSyncURL string `toml:"task_sync_url"` //nolint:lll
 	// Optional per-team human identity override (falls back to global [user])
 	User UserConfig `toml:"user"` //nolint:lll
+	// Matrix-specific configuration (only used when frontend = "matrix")
+	Matrix *MatrixTeamConfig `toml:"matrix"`
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -192,6 +194,26 @@ func (c *VoiceConfig) EffectiveVocabulary(teamVocabulary []string, allTeamNames,
 	v = append(v, allAgentNames...)
 
 	return v
+}
+
+// MatrixTeamConfig holds Matrix-specific configuration for a team.
+type MatrixTeamConfig struct {
+	// Matrix homeserver URL (e.g. "https://matrix.example.com")
+	Homeserver string `toml:"homeserver"`
+	// Room ID for system notifications
+	NotifyRoom string `toml:"notification_room"`
+	// Env var name for notification bot access token
+	NotifyTokenEnv string `toml:"notification_token_env"`
+	// Per-agent Matrix credentials
+	Agents map[string]MatrixAgentConfig `toml:"agents"`
+}
+
+// MatrixAgentConfig holds per-agent Matrix credentials.
+type MatrixAgentConfig struct {
+	// Env var name for this agent's Matrix access token
+	AccessTokenEnv string `toml:"access_token_env"`
+	// Matrix room ID for this agent's chat (e.g. "!abc:example.com")
+	RoomID string `toml:"room_id"`
 }
 
 // AgentConfig is deprecated. Per-agent config now lives in CLAUDE.md frontmatter and roles.toml.
@@ -807,7 +829,8 @@ type ResolvedTeam struct {
 	MergeMode         string
 	Voice             VoiceConfig
 	EmojiReactions    bool
-	UserName          string // human identity for this team
+	UserName          string            // human identity for this team
+	Matrix            *MatrixTeamConfig // nil for telegram teams
 }
 
 // UserNameForTeam returns the human identity for a given team.
@@ -968,6 +991,7 @@ func resolveTeam(
 			Language:   lang,
 		},
 		EmojiReactions: resolveEmojiReactions(team),
+		Matrix:         team.Matrix,
 	}
 
 	// Resolve DataDir

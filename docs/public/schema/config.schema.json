@@ -241,6 +241,44 @@
             "additionalProperties": false,
             "type": "object",
             "description": "Optional per-team human identity override (falls back to global [user])"
+          },
+          "matrix": {
+            "properties": {
+              "homeserver": {
+                "type": "string",
+                "description": "Matrix homeserver URL (e.g. \"https://matrix.example.com\")"
+              },
+              "notification_room": {
+                "type": "string",
+                "description": "Room ID for system notifications"
+              },
+              "notification_token_env": {
+                "type": "string",
+                "description": "Env var name for notification bot access token"
+              },
+              "agents": {
+                "additionalProperties": {
+                  "properties": {
+                    "access_token_env": {
+                      "type": "string",
+                      "description": "Env var name for this agent's Matrix access token"
+                    },
+                    "room_id": {
+                      "type": "string",
+                      "description": "Matrix room ID for this agent's chat (e.g. \"!abc:example.com\")"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "description": "MatrixAgentConfig holds per-agent Matrix credentials."
+                },
+                "type": "object",
+                "description": "Per-agent Matrix credentials"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "description": "Matrix-specific configuration (only used when frontend = \"matrix\")"
           }
         },
         "additionalProperties": false,

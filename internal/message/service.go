@@ -15,6 +15,7 @@ type Channel string
 
 const (
 	ChannelTelegram Channel = "telegram"
+	ChannelMatrix   Channel = "matrix"
 	ChannelGUI      Channel = "gui"
 	ChannelCLI      Channel = "cli"
 	ChannelWatcher  Channel = "watcher"

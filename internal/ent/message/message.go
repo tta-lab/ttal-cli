@@ -128,6 +128,7 @@ type Channel string
 // Channel values.
 const (
 	ChannelTelegram Channel = "telegram"
+	ChannelMatrix   Channel = "matrix"
 	ChannelGui      Channel = "gui"
 	ChannelCli      Channel = "cli"
 	ChannelWatcher  Channel = "watcher"
@@ -141,7 +142,7 @@ func (c Channel) String() string {
 // ChannelValidator is a validator for the "channel" field enum values. It is called by the builders before save.
 func ChannelValidator(c Channel) error {
 	switch c {
-	case ChannelTelegram, ChannelGui, ChannelCli, ChannelWatcher, ChannelAdapter:
+	case ChannelTelegram, ChannelMatrix, ChannelGui, ChannelCli, ChannelWatcher, ChannelAdapter:
 		return nil
 	default:
 		return fmt.Errorf("message: invalid enum value for channel field: %q", c)
