@@ -130,19 +130,23 @@ func TestExtractDomainFromURL(t *testing.T) {
 
 // TestCheckMatrix_NoMatrixTeams verifies checkMatrix skips when no teams use Matrix frontend.
 func TestCheckMatrix_NoMatrixTeams(t *testing.T) {
-	// Point config path to a non-existent file to force config.Load() to fail gracefully,
-	// OR use an env override. Since we need a real-ish config, create a minimal one.
+	// config.Path() hardcodes $HOME/.config/ttal/config.toml, so we override HOME.
 	tmpDir := t.TempDir()
+	cfgDir := tmpDir + "/.config/ttal"
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
 
 	cfgContent := `
-[teams.myteam]
+[teams.default]
 frontend = "telegram"
+team_path = "/tmp"
 `
-	cfgPath := tmpDir + "/config.toml"
+	cfgPath := cfgDir + "/config.toml"
 	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	t.Setenv("TTAL_CONFIG_PATH", cfgPath)
+	t.Setenv("HOME", tmpDir)
 
 	section := checkMatrix(false)
 	if section.Name != "Matrix" {
