@@ -204,6 +204,9 @@ func formatDuration(d time.Duration) string {
 	if h >= 24 {
 		days := h / 24
 		h = h % 24
+		if h == 0 {
+			return fmt.Sprintf("%dd", days)
+		}
 		return fmt.Sprintf("%dd%dh", days, h)
 	}
 	if h > 0 {
