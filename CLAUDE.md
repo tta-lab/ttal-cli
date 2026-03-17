@@ -248,6 +248,28 @@ Default: `~/.config/ttal/projects.toml`
 
 Per-team: `~/.config/ttal/{team}-projects.toml`
 
+## Templates (SSOT for Agent Definitions & Skills)
+
+The `templates/` directory is the **single source of truth** for agent identities and skills. `ttal sync` deploys these to runtime directories.
+
+```
+templates/
+  ttal/              - Agent CLAUDE.md files (frontmatter + identity)
+    ├── yuki.md      - Each agent's full identity, role, decision rules
+    ├── kestrel.md
+    ├── inke.md
+    └── ...
+  docs/
+    skills/           - Skill definitions (→ deployed to ~/.claude/skills/)
+      ├── sp-writing-plans/SKILL.md
+      ├── sp-debugging/SKILL.md
+      ├── task-route/SKILL.md
+      └── ...
+    agents/           - Subagent definitions (→ deployed to ~/.claude/agents/)
+```
+
+**Edit skills and agent definitions here, not in `~/.claude/`.** Runtime copies are overwritten by `ttal sync`.
+
 ## Additional Documentation
 
 - `README.md` - User-facing documentation and usage
