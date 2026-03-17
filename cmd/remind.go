@@ -139,7 +139,7 @@ func runRemindDelete(_ *cobra.Command, args []string) error {
 func init() {
 	rootCmd.AddCommand(remindCmd)
 
-	remindAddCmd.Flags().StringVar(&remindAt, "at", "", "Absolute datetime in ISO 8601 format (e.g. '2026-03-18T14:00:00Z')")
+	remindAddCmd.Flags().StringVar(&remindAt, "at", "", "ISO 8601 datetime (e.g. '2026-03-18T14:00:00Z')")
 	remindAddCmd.Flags().StringVar(&remindIn, "in", "", "Relative duration (e.g. '2h', '30m', '1h30m')")
 	remindCmd.AddCommand(remindAddCmd)
 
