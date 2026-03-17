@@ -41,6 +41,7 @@ func TestDiscover(t *testing.T) {
 	}
 	if yAgent == nil {
 		t.Fatal("yuki not found")
+		return
 	}
 	if yAgent.Voice != "af_heart" {
 		t.Errorf("voice: got %q, want af_heart", yAgent.Voice)
@@ -61,6 +62,7 @@ func TestDiscover(t *testing.T) {
 	}
 	if kAgent == nil {
 		t.Fatal("kestrel not found")
+		return
 	}
 	if kAgent.Voice != "" || kAgent.Emoji != "" {
 		t.Errorf("kestrel should have empty metadata, got voice=%q emoji=%q", kAgent.Voice, kAgent.Emoji)
