@@ -25,13 +25,21 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 
 [fixer]
 prompt = """{{skill:sp-debugging}}
+{{skill:sp-writing-plans}}
 {{skill:flicknote-cli}}
-Diagnose this bug and write a fix plan.
-Read the task first: ttal task get {{task-id}}
+You operate in dual mode. Read the task first, then pick the right mode:
 
-Storage: Save findings via flicknote add 'content' --project ttal.fixes
+**Mode selection:**
+- Task has +bugfix tag, or describes a bug/error/regression → **Bugfix mode** (use sp-debugging skill)
+- Task has +feature or +refactor tag, or describes a small feature/improvement → **Designer mode** (use sp-writing-plans skill)
+
+Read the task: ttal task get {{task-id}}
+
+**Bugfix mode:** Diagnose root cause → write fix plan → save to flicknote
+**Designer mode:** Investigate codebase → write implementation plan → save to flicknote
+
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'
-Tag as planned: task {{task-id}} modify -bugfix +planned"""
+Tag as planned: task {{task-id}} modify -bugfix -feature -refactor +planned"""
 
 [manager]
 prompt = """{{skill:task-route}}
