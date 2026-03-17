@@ -3,6 +3,7 @@ package flicktask
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -29,10 +30,6 @@ func ExportTaskBySessionID(sessionID, status string) (*Task, error) {
 
 	out, err := runFlicktask(args...)
 	if err != nil {
-		// Try pending if status wasn't explicitly completed
-		if status != "completed" {
-			return nil, fmt.Errorf("no task found with ID prefix %s: %w", sessionID, err)
-		}
 		return nil, fmt.Errorf("no task found with ID prefix %s: %w", sessionID, err)
 	}
 	return parseFirstTask(out)
@@ -54,30 +51,22 @@ func FindTasks(keywords []string, completed bool) ([]Task, error) {
 	return parseTasks(out)
 }
 
-// exportAll runs flicktask export and returns pending tasks.
-func exportAll() ([]Task, error) {
-	out, err := runFlicktask("export")
+// ExportAll returns all tasks. Pass completed=true to get completed tasks.
+func ExportAll(completed bool) ([]Task, error) {
+	args := []string{"export"}
+	if completed {
+		args = append(args, "--completed")
+	}
+	out, err := runFlicktask(args...)
 	if err != nil {
 		return nil, err
 	}
 	return parseTasks(out)
 }
 
-// ExportAll returns all tasks. Pass completed=true to get completed tasks.
-func ExportAll(completed bool) ([]Task, error) {
-	if completed {
-		out, err := runFlicktask("export", "--completed")
-		if err != nil {
-			return nil, err
-		}
-		return parseTasks(out)
-	}
-	return exportAll()
-}
-
 // ListTasksWithPR returns active tasks that have a pr_id set.
 func ListTasksWithPR() ([]Task, error) {
-	tasks, err := exportAll()
+	tasks, err := ExportAll(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks with PR: %w", err)
 	}
@@ -93,7 +82,7 @@ func ListTasksWithPR() ([]Task, error) {
 
 // GetActiveWorkerTasks returns pending/active tasks that have a branch set.
 func GetActiveWorkerTasks() ([]Task, error) {
-	tasks, err := exportAll()
+	tasks, err := ExportAll(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active worker tasks: %w", err)
 	}
@@ -109,7 +98,7 @@ func GetActiveWorkerTasks() ([]Task, error) {
 
 // GetDueReminders returns pending tasks tagged +reminder with scheduled <= now.
 func GetDueReminders() ([]Task, error) {
-	tasks, err := exportAll()
+	tasks, err := ExportAll(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query due reminders: %w", err)
 	}
@@ -122,6 +111,7 @@ func GetDueReminders() ([]Task, error) {
 		}
 		scheduled, err := parseTaskTime(t.Scheduled)
 		if err != nil {
+			log.Printf("[reminders] task %s has unparseable scheduled %q: %v — skipping", t.UUID, t.Scheduled, err)
 			continue
 		}
 		if !scheduled.After(now) {
@@ -133,7 +123,7 @@ func GetDueReminders() ([]Task, error) {
 
 // GetPendingReminders returns all pending tasks tagged +reminder.
 func GetPendingReminders() ([]Task, error) {
-	tasks, err := exportAll()
+	tasks, err := ExportAll(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pending reminders: %w", err)
 	}
@@ -149,7 +139,7 @@ func GetPendingReminders() ([]Task, error) {
 
 // GetProjects returns unique project names from all tasks.
 func GetProjects() ([]string, error) {
-	tasks, err := exportAll()
+	tasks, err := ExportAll(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
@@ -167,7 +157,7 @@ func GetProjects() ([]string, error) {
 
 // GetTags returns unique tag names from all tasks.
 func GetTags() ([]string, error) {
-	tasks, err := exportAll()
+	tasks, err := ExportAll(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
@@ -222,7 +212,20 @@ func parseTasks(output string) ([]Task, error) {
 	return tasks, nil
 }
 
-// parseTaskTime parses a taskwarrior-style timestamp (20060102T150405Z).
+// parseTaskTime parses a task timestamp. Handles multiple formats since
+// flicktask may store timestamps differently than what we write on input.
 func parseTaskTime(s string) (time.Time, error) {
-	return time.Parse("20060102T150405Z", s)
+	formats := []string{
+		"20060102T150405Z",
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unparseable timestamp: %s", s)
 }

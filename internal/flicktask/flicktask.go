@@ -16,9 +16,11 @@ var hexIDPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 // HexIDPattern finds a flicknote hex ID (8+ lowercase hex chars) anywhere in an annotation.
 var HexIDPattern = regexp.MustCompile(`\b([a-f0-9]{8,})\b`)
 
+var hexIDLongPattern = regexp.MustCompile(`^[a-f0-9]{8,}$`)
+
 // IsHexID returns true if s looks like a bare flicknote/UUID hex prefix (8+ hex chars).
 func IsHexID(s string) bool {
-	return regexp.MustCompile(`^[a-f0-9]{8,}$`).MatchString(s)
+	return hexIDLongPattern.MatchString(s)
 }
 
 const cmdTimeout = 5 * time.Second

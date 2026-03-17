@@ -34,7 +34,7 @@ The daemon polls for due reminders and sends Telegram notifications.`,
 
 func runRemindAdd(cmd *cobra.Command, args []string) error {
 	if remindAt == "" && remindIn == "" {
-		return fmt.Errorf("specify when to remind\n\n  Example: ttal remind add \"check build\" --in 30m\n  Or:      ttal remind add \"standup\" --at 09:00") //nolint:lll
+		return fmt.Errorf("specify when to remind\n\n  Example: ttal remind add \"check build\" --in 30m\n  Or:      ttal remind add \"standup\" --at 2026-03-18T09:00:00Z") //nolint:lll
 	}
 	if remindAt != "" && remindIn != "" {
 		return fmt.Errorf("use --at or --in, not both\n\n  Example: ttal remind add \"check build\" --in 30m")
@@ -50,7 +50,7 @@ func runRemindAdd(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid --in duration %q: %w\n\n  Use Go duration syntax: 30m, 2h, 1h30m", remindIn, err)
 		}
-		scheduled = time.Now().Add(dur).UTC().Format("2006-01-02T15:04:05")
+		scheduled = time.Now().Add(dur).UTC().Format("2006-01-02T15:04:05Z")
 	} else {
 		scheduled = remindAt
 	}
@@ -103,8 +103,11 @@ func runRemindList(_ *cobra.Command, _ []string) error {
 	for _, t := range tasks {
 		sched := t.Scheduled
 		if sched != "" {
-			if parsed, err := time.Parse("20060102T150405Z", sched); err == nil {
-				sched = parsed.Local().Format("2006-01-02 15:04")
+			for _, f := range []string{"20060102T150405Z", time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02T15:04:05"} {
+				if parsed, err := time.Parse(f, sched); err == nil {
+					sched = parsed.Local().Format("2006-01-02 15:04")
+					break
+				}
 			}
 		}
 		fmt.Printf("%-10s %-20s %s\n", t.SessionID(), sched, t.Description)
@@ -136,7 +139,7 @@ func runRemindDelete(_ *cobra.Command, args []string) error {
 func init() {
 	rootCmd.AddCommand(remindCmd)
 
-	remindAddCmd.Flags().StringVar(&remindAt, "at", "", "Absolute time (e.g. '14:00', 'tomorrow', '2026-03-14T14:00')")
+	remindAddCmd.Flags().StringVar(&remindAt, "at", "", "Absolute datetime in ISO 8601 format (e.g. '2026-03-18T14:00:00Z')")
 	remindAddCmd.Flags().StringVar(&remindIn, "in", "", "Relative duration (e.g. '2h', '30m', '1h30m')")
 	remindCmd.AddCommand(remindAddCmd)
 

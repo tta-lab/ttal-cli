@@ -2,6 +2,7 @@ package flicktask
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -68,16 +69,16 @@ func AddTask(description string, opts ...AddOption) (string, error) {
 	return id, nil
 }
 
+// createdIDPattern matches "Created task <8-hex-id>" in flicktask add output.
+var createdIDPattern = regexp.MustCompile(`(?i)created task ([0-9a-f]{8})\b`)
+
 // parseCreatedID extracts the 8-char hex ID from flicktask add output.
+// Anchors to the "created task <id>" line to avoid false matches on
+// hashes or other hex tokens in warnings/verbose output.
 func parseCreatedID(output string) (string, error) {
 	// flicktask outputs something like "Created task abc12345"
-	for _, line := range strings.Split(output, "\n") {
-		fields := strings.Fields(line)
-		for _, f := range fields {
-			if hexIDPattern.MatchString(f) {
-				return f, nil
-			}
-		}
+	if m := createdIDPattern.FindStringSubmatch(output); m != nil {
+		return m[1], nil
 	}
 	return "", fmt.Errorf("could not find task ID in flicktask output: %q", output)
 }
