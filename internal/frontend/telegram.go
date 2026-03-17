@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -660,6 +661,7 @@ func (f *TelegramFrontend) handleStatusCommand(teamName, _, botToken, chatID str
 		return
 	}
 
+	sort.Slice(agents, func(i, j int) bool { return agents[i].ContextUsedPct > agents[j].ContextUsedPct })
 	var sb strings.Builder
 	for _, a := range agents {
 		staleMarker := ""
