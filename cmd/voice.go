@@ -72,7 +72,7 @@ Examples:
 		voiceID := speakVoice
 		agentName := os.Getenv("TTAL_AGENT_NAME")
 		if agentName == "" {
-			return fmt.Errorf("TTAL_AGENT_NAME not set — voice messages are sent via the agent's Telegram bot.\nThis is set automatically in agent sessions.")
+			return fmt.Errorf("TTAL_AGENT_NAME not set — voice messages are sent via the agent's Telegram bot\nThis is set automatically in agent sessions") //nolint:lll
 		}
 
 		cfg, err := config.Load()

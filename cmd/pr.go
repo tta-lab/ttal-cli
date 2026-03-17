@@ -111,7 +111,7 @@ Examples:
 		body, _ := cmd.Flags().GetString("body")
 
 		if title == "" && body == "" {
-			return fmt.Errorf("specify --title, --body, or both\n\n  Example: ttal pr modify --title \"new title\" --body \"updated description\"")
+			return fmt.Errorf("specify --title, --body, or both\n\n  Example: ttal pr modify --title \"new title\" --body \"updated description\"") //nolint:lll
 		}
 
 		result, err := pr.Modify(ctx, title, body)

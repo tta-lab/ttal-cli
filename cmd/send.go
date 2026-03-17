@@ -50,7 +50,7 @@ Examples:
 			message = strings.TrimRight(string(data), "\n")
 		} else {
 			if len(args) == 0 {
-				return fmt.Errorf("message required\n\n  Example: ttal send --to kestrel \"your message\"\n  Or pipe: echo \"msg\" | ttal send --to kestrel --stdin")
+				return fmt.Errorf("message required\n\n  Example: ttal send --to kestrel \"your message\"\n  Or pipe: echo \"msg\" | ttal send --to kestrel --stdin") //nolint:lll
 			}
 			message = strings.Join(args, " ")
 		}
@@ -61,7 +61,7 @@ Examples:
 
 		from := os.Getenv("TTAL_AGENT_NAME")
 		if sendTo == "human" && from == "" {
-			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity.\nThis is set automatically in agent sessions.")
+			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
 		}
 
 		// Resolve team:agent syntax or fall back to TTAL_TEAM env var
