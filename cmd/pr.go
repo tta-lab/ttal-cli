@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -257,7 +257,7 @@ Examples:
 		if isReviewer && ctx.Task.UUID != "" {
 			bodyLGTM := isLGTMBody(body)
 			if lgtmFlag || bodyLGTM {
-				if err := flicktask.SetPRLGTM(ctx.Task.UUID); err != nil {
+				if err := taskwarrior.SetPRLGTM(ctx.Task.UUID); err != nil {
 					return fmt.Errorf(
 						"comment posted but LGTM gate not set: %w\n"+
 							"  Retry: ttal pr comment create --lgtm \"approved\"",

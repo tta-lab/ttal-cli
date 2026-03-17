@@ -11,11 +11,11 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -31,7 +31,7 @@ type SpawnConfig struct {
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
-// and tracks the worker in flicktask.
+// and tracks the worker in taskwarrior.
 func Spawn(cfg SpawnConfig) error {
 	return spawnWorker(cfg)
 }
@@ -101,16 +101,20 @@ func spawnWorker(cfg SpawnConfig) error {
 	return launchTmuxWorker(cfg, task, sessionName, workDir, branch)
 }
 
-func loadAndValidateTask(cfg SpawnConfig) (*flicktask.Task, error) {
-	if err := flicktask.ValidateID(cfg.TaskUUID); err != nil {
+func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
+	if err := taskwarrior.ValidateUUID(cfg.TaskUUID); err != nil {
 		return nil, err
 	}
 
-	task, err := flicktask.ExportTask(strings.TrimSpace(cfg.TaskUUID))
+	task, err := taskwarrior.ExportTask(strings.TrimSpace(cfg.TaskUUID))
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Loaded task from flicktask\n  UUID: %s\n", task.UUID)
+	fmt.Printf("Loaded task from taskwarrior\n  UUID: %s\n", task.UUID)
+
+	if err := taskwarrior.VerifyRequiredUDAs(); err != nil {
+		return nil, err
+	}
 
 	return task, nil
 }
@@ -140,7 +144,7 @@ func computeSubpath(project, gitRoot string) (string, error) {
 }
 
 // resolveModel determines the worker model: +hard tag uses opus, otherwise team worker_model config.
-func resolveModel(task *flicktask.Task, shellCfg *config.Config) string {
+func resolveModel(task *taskwarrior.Task, shellCfg *config.Config) string {
 	if task.HasTag("hard") {
 		return "opus"
 	}
@@ -148,7 +152,7 @@ func resolveModel(task *flicktask.Task, shellCfg *config.Config) string {
 }
 
 // resolveRuntime determines the worker runtime from config, defaulting to ClaudeCode.
-func resolveRuntime(rt runtime.Runtime, task *flicktask.Task) runtime.Runtime {
+func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime {
 	if rt == "" || rt == runtime.ClaudeCode {
 		if task.HasTag("codex") || task.HasTag("cx") {
 			return runtime.Codex
@@ -183,7 +187,7 @@ func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error 
 		sessionName, cfg.Name, filepath.Base(project))
 }
 
-func setupWorkDir(cfg SpawnConfig, task *flicktask.Task, project string) (workDir, branch string, err error) {
+func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (workDir, branch string, err error) {
 	if cfg.Worktree {
 		workDir, err = setupWorktree(project, task.SessionID(), cfg.Name, task.Project)
 		if err != nil {
@@ -197,7 +201,7 @@ func setupWorkDir(cfg SpawnConfig, task *flicktask.Task, project string) (workDi
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-func launchTmuxWorker(cfg SpawnConfig, task *flicktask.Task, sessionName, workDir, branch string) error {
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -213,7 +217,8 @@ func launchTmuxWorker(cfg SpawnConfig, task *flicktask.Task, sessionName, workDi
 		return err
 	}
 
-	envParts := buildEnvParts(task, cfg.Runtime)
+	taskrc := resolveTaskRCFromConfig(shellCfg)
+	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
 	model := resolveModel(task, shellCfg)
 	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, envParts, shellCfg, model)
 	if err != nil {
@@ -226,17 +231,17 @@ func launchTmuxWorker(cfg SpawnConfig, task *flicktask.Task, sessionName, workDi
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	if err := injectSessionEnv(sessionName, task); err != nil {
+	if err := injectSessionEnv(sessionName, task, taskrc); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 	}
 
 	if cfg.Spawner != "" {
-		if err := flicktask.SetSpawner(task.UUID, cfg.Spawner); err != nil {
+		if err := taskwarrior.SetSpawner(task.UUID, cfg.Spawner); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to set spawner: %v\n", err)
 		}
 	}
 
-	if err := flicktask.UpdateWorkerMetadata(task.UUID, branch); err != nil {
+	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch); err != nil {
 		return fmt.Errorf("session created but task tracking failed\n"+
 			"  Session: %s\n"+
 			"  To attach: tmux attach -t %s\n\n"+
@@ -253,7 +258,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *flicktask.Task, sessionName, workDi
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *flicktask.Task, rt runtime.Runtime) []string {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []string {
 	parts := []string{
 		"TTAL_ROLE=coder",
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
@@ -261,6 +266,9 @@ func buildEnvParts(task *flicktask.Task, rt runtime.Runtime) []string {
 	}
 	if team := os.Getenv("TTAL_TEAM"); team != "" {
 		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
+	}
+	if taskrc != "" {
+		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 
 	return parts
@@ -280,7 +288,7 @@ func buildLaunchCmd(
 	return shellCfg.BuildEnvShellCommand(envParts, cmd), nil
 }
 
-func injectSessionEnv(sessionName string, task *flicktask.Task) error {
+func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) error {
 	setEnv := func(key, val string) {
 		if err := tmux.SetEnv(sessionName, key, val); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
@@ -295,6 +303,10 @@ func injectSessionEnv(sessionName string, task *flicktask.Task) error {
 	}
 	setEnv("TTAL_TEAM", team)
 
+	if taskrc != "" {
+		setEnv("TASKRC", taskrc)
+	}
+
 	// Inject all .env secrets at session level (inherited by all windows).
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
@@ -308,7 +320,7 @@ func injectSessionEnv(sessionName string, task *flicktask.Task) error {
 }
 
 func writeTaskFile(
-	task *flicktask.Task, cfg SpawnConfig,
+	task *taskwarrior.Task, cfg SpawnConfig,
 	shellCfg *config.Config,
 ) (string, error) {
 	var b strings.Builder
@@ -497,6 +509,19 @@ func pullLatest(project string) {
 			fmt.Fprintf(os.Stderr, "  output: %s\n", strings.TrimSpace(string(out)))
 		}
 	}
+}
+
+// resolveTaskRCFromConfig returns the taskrc path from the provided config.
+// Returns empty string if using default taskrc.
+func resolveTaskRCFromConfig(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	taskrc := cfg.TaskRC()
+	if taskrc == config.DefaultTaskRC() {
+		return ""
+	}
+	return taskrc
 }
 
 func detectBranch(workDir string) string {

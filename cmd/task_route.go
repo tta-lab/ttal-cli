@@ -9,8 +9,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/usage"
 	"github.com/tta-lab/ttal-cli/internal/worker"
@@ -54,7 +54,7 @@ Examples:
 		}
 
 		// Fetch task early — fail before asking for approval on a doomed operation.
-		taskInfo, err := flicktask.ExportTask(uuid)
+		taskInfo, err := taskwarrior.ExportTask(uuid)
 		if err != nil {
 			return fmt.Errorf("cannot fetch task %s: %w", uuid, err)
 		}
@@ -103,17 +103,17 @@ func buildRoutingRecord(from, to, message string) string {
 
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.
 func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) error {
-	if err := flicktask.ValidateID(taskUUID); err != nil {
+	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
 
-	task, err := flicktask.ExportTask(taskUUID)
+	task, err := taskwarrior.ExportTask(taskUUID)
 	if err != nil {
 		return err
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("task %s is already completed — cannot route\n\n  Check task status: flicktask get %s", taskUUID, taskUUID) //nolint:lll
+		return fmt.Errorf("task %s is already completed — cannot route\n\n  Check task status: ttal task get %s", taskUUID, taskUUID) //nolint:lll
 	}
 
 	uuid := task.UUID
@@ -143,8 +143,8 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 	}
 
 	record := buildRoutingRecord(sender, agentName, message)
-	if err := flicktask.AnnotateTask(task.UUID, record); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to write routing record: %v\n", err)
+	if err := taskwarrior.AnnotateTask(task.UUID, record); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to write routing record (check taskwarrior config and task UUID): %v\n", err)
 	}
 	fmt.Printf("Routed task %s to %s\n", uuid, agentName)
 	return nil
@@ -154,17 +154,17 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 // In agent sessions (TTAL_AGENT_NAME set), requires human approval via Telegram/Matrix
 // buttons before proceeding.
 func spawnWorkerForTask(taskUUID string) error {
-	if err := flicktask.ValidateID(taskUUID); err != nil {
+	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
 
-	task, err := flicktask.ExportTask(taskUUID)
+	task, err := taskwarrior.ExportTask(taskUUID)
 	if err != nil {
 		return err
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("task %s is already completed — cannot execute\n\n  Check task status: flicktask get %s", taskUUID, taskUUID) //nolint:lll
+		return fmt.Errorf("task %s is already completed — cannot execute\n\n  Check task status: ttal task get %s", taskUUID, taskUUID) //nolint:lll
 	}
 
 	sessionName := task.SessionName()
@@ -228,11 +228,11 @@ func spawnWorkerForTask(taskUUID string) error {
 	return nil
 }
 
-// startTaskSafe starts a task, ignoring "already active" errors.
+// startTaskSafe starts a taskwarrior task, ignoring "already active" errors.
 func startTaskSafe(uuid string) error {
-	if err := flicktask.StartTask(uuid); err != nil {
+	if err := taskwarrior.StartTask(uuid); err != nil {
 		if strings.Contains(err.Error(), "already active") {
-			fmt.Fprintf(os.Stderr, "Warning: task is already active\n")
+			fmt.Fprintf(os.Stderr, "Warning: task is already active in taskwarrior\n")
 			return nil
 		}
 		return fmt.Errorf("task start failed before worker spawn: %w", err)

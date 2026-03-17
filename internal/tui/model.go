@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -11,7 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // overlayHandled is returned by handleOverlayAction to signal that an action
@@ -88,9 +89,9 @@ func NewModel() Model {
 		filter:         filterPending,
 		loading:        true,
 		offset:         0,
-		searchInput:    newTextInput("keyword search..."),
+		searchInput:    newTextInput("project:x +tag priority:H"),
 		routeInput:     newTextInput("agent name..."),
-		modifyInput:    newTextInput("use flicktask edit <id> to modify"),
+		modifyInput:    newTextInput("+tag project:x priority:H"),
 		annotateInput:  newTextInput("annotation text"),
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 	}
@@ -713,9 +714,8 @@ func (m *Model) applyFilter() {
 		}
 		m.filtered = append(m.filtered, t)
 	}
-	// Sort by entry descending (newest tasks first).
 	sort.Slice(m.filtered, func(i, j int) bool {
-		return m.filtered[i].Entry > m.filtered[j].Entry
+		return m.filtered[i].Urgency > m.filtered[j].Urgency
 	})
 
 	if m.restoreCursorByUUID(prevUUID) {
@@ -793,11 +793,11 @@ func loadConfig() tea.Cmd {
 			log.Printf("failed to discover agents: %v", err)
 		}
 
-		projects, err := flicktask.GetProjects()
+		projects, err := taskwarrior.GetProjects()
 		if err != nil {
 			log.Printf("failed to load projects for autocomplete: %v", err)
 		}
-		tags, err := flicktask.GetTags()
+		tags, err := taskwarrior.GetTags()
 		if err != nil {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}
@@ -808,11 +808,11 @@ func loadConfig() tea.Cmd {
 
 func loadConfigForAutocomplete() tea.Cmd {
 	return func() tea.Msg {
-		projects, err := flicktask.GetProjects()
+		projects, err := taskwarrior.GetProjects()
 		if err != nil {
 			log.Printf("failed to load projects for autocomplete: %v", err)
 		}
-		tags, err := flicktask.GetTags()
+		tags, err := taskwarrior.GetTags()
 		if err != nil {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}
@@ -828,23 +828,32 @@ func (m *Model) reloadTasks() tea.Cmd {
 
 func loadTasks(filter filterMode, search string) tea.Cmd {
 	return func() tea.Msg {
-		completed := filter == filterCompleted
+		var args []string
+		switch filter {
+		case filterPending, filterToday, filterActive:
+			args = append(args, "status:pending")
+		case filterCompleted:
+			args = append(args, "status:completed")
+		}
 
-		var ftTasks []flicktask.Task
-		var err error
+		// Pass search as raw taskwarrior filter args
 		if search != "" {
-			ftTasks, err = flicktask.FindTasks(strings.Fields(search), completed)
-		} else {
-			ftTasks, err = flicktask.ExportAll(completed)
-		}
-		if err != nil {
-			return tasksLoadedMsg{err: fmt.Errorf("flicktask: %w", err)}
+			args = append(args, strings.Fields(search)...)
 		}
 
-		tasks := make([]Task, len(ftTasks))
-		for i, t := range ftTasks {
-			tasks[i] = Task{t}
+		args = append(args, "export")
+
+		cmd := taskwarrior.Command(args...)
+		out, err := cmd.Output()
+		if err != nil {
+			return tasksLoadedMsg{err: fmt.Errorf("taskwarrior: %w", err)}
 		}
+
+		var tasks []Task
+		if err := json.Unmarshal(out, &tasks); err != nil {
+			return tasksLoadedMsg{err: fmt.Errorf("parse tasks: %w", err)}
+		}
+
 		return tasksLoadedMsg{tasks: tasks}
 	}
 }

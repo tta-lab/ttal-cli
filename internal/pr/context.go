@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 type Context struct {
-	Task     *flicktask.Task
+	Task     *taskwarrior.Task
 	Owner    string
 	Repo     string
 	Provider gitprovider.Provider
@@ -72,7 +72,7 @@ func resolveFromCwd() (*Context, error) {
 	}
 
 	return &Context{
-		Task:     &flicktask.Task{},
+		Task:     &taskwarrior.Task{},
 		Owner:    info.Owner,
 		Repo:     info.Repo,
 		Provider: provider,
@@ -81,11 +81,11 @@ func resolveFromCwd() (*Context, error) {
 }
 
 // resolveTask finds the task from TTAL_JOB_ID.
-func resolveTask(jobID string) (*flicktask.Task, error) {
+func resolveTask(jobID string) (*taskwarrior.Task, error) {
 	// Try pending (active worker), then completed (just finished)
-	task, err := flicktask.ExportTaskBySessionID(jobID, "pending")
+	task, err := taskwarrior.ExportTaskBySessionID(jobID, "pending")
 	if err != nil {
-		task, err = flicktask.ExportTaskBySessionID(jobID, "completed")
+		task, err = taskwarrior.ExportTaskBySessionID(jobID, "completed")
 		if err != nil {
 			return nil, fmt.Errorf("no task found for job ID %q: %w", jobID, err)
 		}

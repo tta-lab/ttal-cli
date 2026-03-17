@@ -3,15 +3,15 @@ package tui
 import (
 	"testing"
 
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func TestMoveCursor(t *testing.T) {
 	m := Model{
 		filtered: []Task{
-			{Task: flicktask.Task{UUID: "aa000001"}},
-			{Task: flicktask.Task{UUID: "bb000002"}},
-			{Task: flicktask.Task{UUID: "cc000003"}},
+			{Task: taskwarrior.Task{ID: 1}},
+			{Task: taskwarrior.Task{ID: 2}},
+			{Task: taskwarrior.Task{ID: 3}},
 		},
 		cursor: 0,
 		offset: 0,
@@ -48,14 +48,14 @@ func TestMoveCursor(t *testing.T) {
 func TestEnsureCursorVisible(t *testing.T) {
 	m := Model{
 		filtered: []Task{
-			{Task: flicktask.Task{UUID: "aa000001"}},
-			{Task: flicktask.Task{UUID: "bb000002"}},
-			{Task: flicktask.Task{UUID: "cc000003"}},
-			{Task: flicktask.Task{UUID: "dd000004"}},
-			{Task: flicktask.Task{UUID: "ee000005"}},
-			{Task: flicktask.Task{UUID: "ff000006"}},
-			{Task: flicktask.Task{UUID: "aa000007"}},
-			{Task: flicktask.Task{UUID: "bb000008"}},
+			{Task: taskwarrior.Task{ID: 1}},
+			{Task: taskwarrior.Task{ID: 2}},
+			{Task: taskwarrior.Task{ID: 3}},
+			{Task: taskwarrior.Task{ID: 4}},
+			{Task: taskwarrior.Task{ID: 5}},
+			{Task: taskwarrior.Task{ID: 6}},
+			{Task: taskwarrior.Task{ID: 7}},
+			{Task: taskwarrior.Task{ID: 8}},
 		},
 		cursor: 0,
 		offset: 0,

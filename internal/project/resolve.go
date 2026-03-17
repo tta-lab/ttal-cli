@@ -7,7 +7,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
-// ResolveProjectPath looks up a project path by matching the flicktask
+// ResolveProjectPath looks up a project path by matching the taskwarrior
 // project field against the ttal project alias.
 // Returns empty string if no match found (caller should notify lifecycle agent).
 //
@@ -32,7 +32,7 @@ func ResolveProjectPathForTeam(projectName, team string) string {
 	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPathForTeam(team)))
 }
 
-// ResolveProjectPathOrError resolves a project path from a flicktask project field.
+// ResolveProjectPathOrError resolves a project path from a taskwarrior project field.
 // Returns a user-friendly error if the project alias is not registered.
 func ResolveProjectPathOrError(projectName string) (string, error) {
 	return resolveProjectPathOrErrorWithStore(projectName, NewStore(config.ResolveProjectsPath()))

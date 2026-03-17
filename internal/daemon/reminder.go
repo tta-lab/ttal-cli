@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const reminderPollInterval = 2 * time.Minute
@@ -40,7 +40,7 @@ func startReminderPoller(mcfg *config.DaemonConfig, frontends map[string]fronten
 }
 
 func fireReminders(fe frontend.Frontend) {
-	tasks, err := flicktask.GetDueReminders()
+	tasks, err := taskwarrior.GetDueReminders()
 	if err != nil {
 		log.Printf("[reminder] poll error: %v", err)
 		return
@@ -55,7 +55,7 @@ func fireReminders(fe frontend.Frontend) {
 			log.Printf("[reminder] failed to send for %s: %v", t.SessionID(), err)
 			continue
 		}
-		if err := flicktask.MarkDone(t.UUID); err != nil {
+		if err := taskwarrior.MarkDone(t.UUID); err != nil {
 			// Task stays pending and will be retried on the next poll cycle.
 			log.Printf("[reminder] failed to mark done %s: %v", t.SessionID(), err)
 			continue

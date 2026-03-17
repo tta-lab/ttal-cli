@@ -159,10 +159,10 @@ func scanAndPrintAgents(workspace string) {
 	printAgentDirs(dirs)
 }
 
-// --- Step 3: flicktask & config ---
+// --- Step 3: Taskwarrior & config ---
 
 func setupTaskwarriorAndConfig() error {
-	// Reuse doctor --fix for flicktask hooks and config template
+	// Reuse doctor --fix for taskwarrior UDAs and config template
 	report := doctor.Run(true)
 
 	// Report relevant results and count errors
@@ -184,7 +184,7 @@ func setupTaskwarriorAndConfig() error {
 		}
 	}
 	if errs > 0 {
-		return fmt.Errorf("%d config check(s) failed", errs)
+		return fmt.Errorf("%d config/taskwarrior check(s) failed", errs)
 	}
 	return nil
 }
@@ -207,8 +207,8 @@ func installDaemonAndWorker() error {
 		fmt.Println("  ! Daemon install is macOS-only (launchd)")
 	}
 
-	// Worker hook install (flicktask on-modify hook)
-	fmt.Print("  Installing flicktask hooks...")
+	// Worker hook install (taskwarrior on-modify hook)
+	fmt.Print("  Installing taskwarrior hooks...")
 	if err := worker.Install(); err != nil {
 		fmt.Printf(" failed: %v\n", err)
 		errs = append(errs, "worker hooks")
