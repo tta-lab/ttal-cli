@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -116,16 +117,6 @@ func (s *askHumanStore) deliverAnswer(shortID, answer string) bool {
 	return true
 }
 
-// deliverSkip atomically claims and skips the entry.
-func (s *askHumanStore) deliverSkip(shortID string) bool {
-	e, ok := s.getAndRemove(shortID)
-	if !ok {
-		return false
-	}
-	e.ch <- askHumanResult{skipped: true}
-	return true
-}
-
 // deliverSkipWithText atomically claims, skips the entry, and returns its original text.
 func (s *askHumanStore) deliverSkipWithText(shortID string) (string, bool) {
 	e, ok := s.getAndRemove(shortID)
@@ -138,17 +129,23 @@ func (s *askHumanStore) deliverSkipWithText(shortID string) (string, bool) {
 
 const telegramMaxLen = 4096
 
-// capText appends suffix to origText, truncating origText if necessary to stay within Telegram's limit.
+// capText appends suffix to origText, truncating origText on rune boundaries if necessary
+// to stay within Telegram's 4096-character limit.
 func capText(origText, suffix string) string {
 	combined := origText + "\n\n" + suffix
-	if len(combined) <= telegramMaxLen {
+	if utf8.RuneCountInString(combined) <= telegramMaxLen {
 		return combined
 	}
-	maxOrig := telegramMaxLen - len("\n\n") - len(suffix) - len("…")
-	if maxOrig < 0 {
+	overhead := 2 + utf8.RuneCountInString(suffix) + 1 // "\n\n" + suffix + "…"
+	maxOrigRunes := telegramMaxLen - overhead
+	if maxOrigRunes < 0 {
 		return suffix
 	}
-	return origText[:maxOrig] + "…\n\n" + suffix
+	runes := []rune(origText)
+	if len(runes) > maxOrigRunes {
+		runes = runes[:maxOrigRunes]
+	}
+	return string(runes) + "…\n\n" + suffix
 }
 
 // AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
@@ -439,23 +436,17 @@ func handleAskHumanCallback(
 	action := parts[2]
 
 	if action == "skip" {
-		e, ok := ahs.get(shortID)
+		origText, ok := ahs.deliverSkipWithText(shortID)
 		if !ok {
 			answerExpiredCallback(ctx, b, cq)
 			return
 		}
-		origText := e.origText // capture before deliverSkip removes the entry
-		if ahs.deliverSkip(shortID) {
-			skippedText := capText(origText, "→ ⏭ <b>Skipped</b>")
-			_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
-				ChatID:    cq.Message.Message.Chat.ID,
-				MessageID: cq.Message.Message.ID,
-				Text:      skippedText,
-				ParseMode: models.ParseModeHTML,
-			})
-		} else {
-			answerExpiredCallback(ctx, b, cq)
-		}
+		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+			ChatID:    cq.Message.Message.Chat.ID,
+			MessageID: cq.Message.Message.ID,
+			Text:      capText(origText, "→ ⏭ <b>Skipped</b>"),
+			ParseMode: models.ParseModeHTML,
+		})
 		return
 	}
 
