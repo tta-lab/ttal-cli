@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -498,6 +499,7 @@ func (f *MatrixFrontend) handleMatrixStatusCommand(teamName string, replyFn func
 		replyFn("No agent status data available")
 		return
 	}
+	sort.Slice(agents, func(i, j int) bool { return agents[i].ContextUsedPct > agents[j].ContextUsedPct })
 	var sb strings.Builder
 	for _, a := range agents {
 		staleMarker := ""
