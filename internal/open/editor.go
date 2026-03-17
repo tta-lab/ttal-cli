@@ -7,17 +7,17 @@ import (
 	"syscall"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // Editor opens the task's project directory (or worktree) in an editor.
 func Editor(uuid string) error {
-	if err := taskwarrior.ValidateUUID(uuid); err != nil {
+	if err := flicktask.ValidateID(uuid); err != nil {
 		return err
 	}
 
-	task, err := taskwarrior.ExportTask(uuid)
+	task, err := flicktask.ExportTask(uuid)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func Editor(uuid string) error {
 	return syscall.Exec(editorBin, []string{editor, "."}, os.Environ())
 }
 
-func resolveWorkDir(task *taskwarrior.Task, projectPath string) string {
+func resolveWorkDir(task *flicktask.Task, projectPath string) string {
 	if task.UUID != "" && task.Project != "" {
 		worktreeRoot := config.EnsureWorktreeRoot()
 		dir := filepath.Join(worktreeRoot, fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))

@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -103,20 +102,14 @@ func scanForPRTasks(
 	mu.Unlock()
 }
 
-// scanTeamWithEnv sets TTAL_TEAM for non-default teams and delegates to scanTeam.
-// Returns nil on taskwarrior error so the caller can skip the pruning pass.
+// scanTeamWithEnv delegates to scanTeam. No TTAL_TEAM env swap needed —
+// all teams share a single flicktask instance.
 func scanTeamWithEnv(
 	frontends map[string]frontend.Frontend,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
-	if teamName == config.DefaultTeamName {
-		return scanTeam(frontends, teamName, mu, active, done)
-	}
-	prev := os.Getenv("TTAL_TEAM")
-	_ = os.Setenv("TTAL_TEAM", teamName)
-	defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
 	return scanTeam(frontends, teamName, mu, active, done)
 }
 
@@ -126,7 +119,7 @@ func scanTeam(
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
-	tasks, err := taskwarrior.ListTasksWithPR()
+	tasks, err := flicktask.ListTasksWithPR()
 	if err != nil {
 		log.Printf("[prwatch] failed to list PR tasks for team %s: %v", teamName, err)
 		return nil // nil signals caller to skip pruning pass
@@ -149,7 +142,7 @@ func scanTeam(
 			continue
 		}
 
-		prInfo, err := taskwarrior.ParsePRID(task.PRID)
+		prInfo, err := flicktask.ParsePRID(task.PRID)
 		if err != nil {
 			log.Printf("[prwatch] task %s has invalid pr_id %q: %v — skipping",
 				task.UUID, task.PRID, err)

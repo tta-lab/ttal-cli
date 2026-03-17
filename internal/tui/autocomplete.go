@@ -4,7 +4,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 )
 
 var (
@@ -24,11 +24,11 @@ func ensureProjectsAndTags(projects, tags []string) ([]string, []string) {
 		return cachedProjects, cachedTags
 	}
 	var err error
-	cachedProjects, err = taskwarrior.GetProjects()
+	cachedProjects, err = flicktask.GetProjects()
 	if err != nil {
 		log.Printf("failed to get projects: %v", err)
 	}
-	cachedTags, err = taskwarrior.GetTags()
+	cachedTags, err = flicktask.GetTags()
 	if err != nil {
 		log.Printf("failed to get tags: %v", err)
 	}

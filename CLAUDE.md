@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus. It uses TOML-based project storage and taskwarrior integration for task and today commands.
+TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus. It uses TOML-based project storage and flicktask integration for task and today commands.
 
 ## Essential Commands
 
@@ -99,7 +99,7 @@ cmd/             - CLI commands (cobra)
   ├── pr.go      - ttal pr create/modify/merge/comment
   ├── worker.go  - ttal worker close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
-  ├── task.go    - ttal task get/find (taskwarrior queries)
+  ├── task.go    - ttal task orchestration (execute, route, heatmap)
   └── task_route.go - ttal task route/execute (routing + spawn)
 
 internal/
@@ -113,7 +113,7 @@ internal/
   ├── gitutil/   - Git/worktree utilities (dump state, cleanup)
   ├── tmux/      - tmux session management and send-keys delivery
   ├── today/     - Today focus list (lipgloss tables, scheduled date mgmt)
-  └── taskwarrior/ - Shared taskwarrior helpers (export, find, prompt, UDAs)
+  └── flicktask/ - flicktask CLI adapter (export, find, commands, UDAs)
 ```
 
 ### Daemon Architecture
@@ -144,7 +144,7 @@ Even with LGTM, the coder triages remaining non-blocking issues before merging. 
 runs `ttal pr merge` after triage, which drops a cleanup request file to `~/.ttal/cleanup/`.
 The daemon picks it up via fsnotify and handles the full lifecycle: close session, remove
 worktree, mark task done.
-`ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
+`ttal doctor --fix` installs flicktask hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
 
 ### Modify Command Syntax
 
@@ -223,9 +223,9 @@ Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
 
 1. **Pushing directly to `main`** — branch protection requires a PR with passing CI. Always create a branch, push, and open a PR.
 
-2. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
-   - Symptom: Ignores team TASKRC, no timeout, no `rc.verbose:nothing`
-   - Fix: Always use the `internal/taskwarrior` package. If a helper doesn't exist (e.g. `StartTask`), add it there first — don't inline raw exec calls in `cmd/` or other packages.
+2. **Bypassing `internal/flicktask` with raw `exec.Command("flicktask", ...)`**
+   - Symptom: No timeout enforcement, inconsistent error handling
+   - Fix: Always use the `internal/flicktask` package. If a helper doesn't exist, add it there first — don't inline raw exec calls in `cmd/` or other packages.
 
 ## Agent Loop Design Principles
 

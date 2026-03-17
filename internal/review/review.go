@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -21,7 +21,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
 
-	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
+	prInfo, err := flicktask.ParsePRID(ctx.Task.PRID)
 	if err != nil {
 		return fmt.Errorf("invalid pr_id %q: %w", ctx.Task.PRID, err)
 	}

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // taskCompletePayload mirrors daemon.TaskCompleteRequest for serialization.
@@ -113,7 +113,7 @@ type pathResolver func(projectName string) string
 
 // defaultPRMergedChecker is the real implementation used in production.
 func defaultPRMergedChecker(projectPath, prID string) (bool, string, error) {
-	prInfo, err := taskwarrior.ParsePRID(prID)
+	prInfo, err := flicktask.ParsePRID(prID)
 	if err != nil {
 		return false, "", fmt.Errorf("cannot verify PR %q: %w", prID, err)
 	}
@@ -148,7 +148,7 @@ func validateTaskCompletion(
 		return "", nil
 	}
 
-	prInfo, err := taskwarrior.ParsePRID(prID)
+	prInfo, err := flicktask.ParsePRID(prID)
 	if err != nil {
 		return "", fmt.Errorf("cannot verify PR %q: %w", prID, err)
 	}

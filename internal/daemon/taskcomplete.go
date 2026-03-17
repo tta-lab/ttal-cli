@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // handleTaskComplete processes a taskComplete HTTP request and delivers
@@ -23,7 +23,7 @@ func handleTaskComplete(
 	// Owner, Repo, Provider, SessionName are left zero — not used by notify functions.
 	var prIndex int64
 	if req.PRID != "" {
-		if info, err := taskwarrior.ParsePRID(req.PRID); err != nil {
+		if info, err := flicktask.ParsePRID(req.PRID); err != nil {
 			log.Printf("[taskComplete] ParsePRID %q failed: %v — PR index will be 0", req.PRID, err)
 		} else {
 			prIndex = info.Index

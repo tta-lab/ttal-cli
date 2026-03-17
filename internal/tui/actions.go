@@ -10,8 +10,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // runTtalCommand runs a ttal subcommand and returns combined output.
@@ -89,23 +89,16 @@ func openTerm(t *Task) tea.Cmd {
 	})
 }
 
-func openEditor(t *Task) tea.Cmd {
-	if t.UUID == "" {
-		return func() tea.Msg {
-			return actionResultMsg{err: fmt.Errorf("task has no UUID")}
-		}
+func openEditor(_ *Task) tea.Cmd {
+	return func() tea.Msg {
+		return actionResultMsg{err: fmt.Errorf("use 'flicktask edit <id>' to edit tasks")}
 	}
-	c := taskwarrior.Command(t.UUID, "edit")
-	return tea.ExecProcess(c, func(err error) tea.Msg {
-		return execFinishedMsg{err: err}
-	})
 }
 
 func addToToday(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		cmd := taskwarrior.Command(uuid, "modify", "scheduled:today")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return actionResultMsg{err: fmt.Errorf("add to today: %s", strings.TrimSpace(string(out)))}
+		if err := flicktask.EditScheduled(uuid, "today"); err != nil {
+			return actionResultMsg{err: fmt.Errorf("add to today: %w", err)}
 		}
 		return actionResultMsg{message: "Added to today", refresh: true}
 	}
@@ -113,9 +106,8 @@ func addToToday(uuid string) tea.Cmd {
 
 func removeFromToday(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		cmd := taskwarrior.Command(uuid, "modify", "scheduled:")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return actionResultMsg{err: fmt.Errorf("remove from today: %s", strings.TrimSpace(string(out)))}
+		if err := flicktask.ClearScheduled(uuid); err != nil {
+			return actionResultMsg{err: fmt.Errorf("remove from today: %w", err)}
 		}
 		return actionResultMsg{message: "Removed from today", refresh: true}
 	}
@@ -123,9 +115,8 @@ func removeFromToday(uuid string) tea.Cmd {
 
 func doneTask(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		cmd := taskwarrior.Command(uuid, "done")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return actionResultMsg{err: fmt.Errorf("done: %s", strings.TrimSpace(string(out)))}
+		if err := flicktask.MarkDone(uuid); err != nil {
+			return actionResultMsg{err: fmt.Errorf("done: %w", err)}
 		}
 		return actionResultMsg{message: "Task marked done", refresh: true}
 	}
@@ -136,31 +127,22 @@ func deleteTask(uuid string) tea.Cmd {
 		if uuid == "" {
 			return actionResultMsg{err: fmt.Errorf("delete: task has no UUID")}
 		}
-		cmd := taskwarrior.Command("rc.confirmation:off", uuid, "delete")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return actionResultMsg{err: fmt.Errorf("delete: %s", strings.TrimSpace(string(out)))}
+		if err := flicktask.MarkDeleted(uuid); err != nil {
+			return actionResultMsg{err: fmt.Errorf("delete: %w", err)}
 		}
 		return actionResultMsg{message: "Task deleted", refresh: true}
 	}
 }
 
-func modifyTask(uuid, modifiers string) tea.Cmd {
+func modifyTask(_ string, _ string) tea.Cmd {
 	return func() tea.Msg {
-		fields := strings.Fields(modifiers)
-		args := make([]string, 0, 2+len(fields))
-		args = append(args, uuid, "modify")
-		args = append(args, fields...)
-		cmd := taskwarrior.Command(args...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return actionResultMsg{err: fmt.Errorf("modify: %s", strings.TrimSpace(string(out)))}
-		}
-		return actionResultMsg{message: "Task modified", refresh: true}
+		return actionResultMsg{err: fmt.Errorf("use 'flicktask edit <id>' to modify tasks")}
 	}
 }
 
 func annotateTask(uuid, text string) tea.Cmd {
 	return func() tea.Msg {
-		if err := taskwarrior.AnnotateTask(uuid, text); err != nil {
+		if err := flicktask.AnnotateTask(uuid, text); err != nil {
 			return actionResultMsg{err: fmt.Errorf("annotate: %w", err)}
 		}
 		return actionResultMsg{message: "Annotation added", refresh: true}
@@ -169,27 +151,17 @@ func annotateTask(uuid, text string) tea.Cmd {
 
 func toggleNext(t *Task) tea.Cmd {
 	return func() tea.Msg {
-		hasNext := false
-		for _, tag := range t.Tags {
-			if tag == "next" {
-				hasNext = true
-				break
-			}
-		}
-		var modifier string
-		var message string
+		hasNext := t.HasTag("next")
 		if hasNext {
-			modifier = "-next"
-			message = "Removed +next tag"
-		} else {
-			modifier = "+next"
-			message = "Added +next tag"
+			if err := flicktask.RemoveTag(t.UUID, "next"); err != nil {
+				return actionResultMsg{err: fmt.Errorf("toggle next: %w", err)}
+			}
+			return actionResultMsg{message: "Removed +next tag", refresh: true}
 		}
-		cmd := taskwarrior.Command(t.UUID, "modify", modifier)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return actionResultMsg{err: fmt.Errorf("toggle next: %s", strings.TrimSpace(string(out)))}
+		if err := flicktask.AddTag(t.UUID, "next"); err != nil {
+			return actionResultMsg{err: fmt.Errorf("toggle next: %w", err)}
 		}
-		return actionResultMsg{message: message, refresh: true}
+		return actionResultMsg{message: "Added +next tag", refresh: true}
 	}
 }
 

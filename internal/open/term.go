@@ -5,17 +5,17 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // Term opens a terminal (shell) in the task's working directory (worktree or project root).
 func Term(uuid string) error {
-	if err := taskwarrior.ValidateUUID(uuid); err != nil {
+	if err := flicktask.ValidateID(uuid); err != nil {
 		return err
 	}
 
-	task, err := taskwarrior.ExportTask(uuid)
+	task, err := flicktask.ExportTask(uuid)
 	if err != nil {
 		return err
 	}

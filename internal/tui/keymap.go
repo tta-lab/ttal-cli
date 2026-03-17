@@ -116,7 +116,7 @@ const helpText = `Key Bindings:
   Ctrl+A          Remove from today
   [               Previous filter
   ]               Next filter
-  /               Search (taskwarrior syntax: project:x +tag etc)
+  /               Search tasks by keyword
   Ctrl+W          Delete word (in search)
   Ctrl+C          Cancel search
   Ctrl+R          Refresh tasks

@@ -5,16 +5,16 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 )
 
 // Session attaches to the tmux session associated with a task.
 func Session(uuid string) error {
-	if err := taskwarrior.ValidateUUID(uuid); err != nil {
+	if err := flicktask.ValidateID(uuid); err != nil {
 		return err
 	}
 
-	task, err := taskwarrior.ExportTask(uuid)
+	task, err := flicktask.ExportTask(uuid)
 	if err != nil {
 		return err
 	}

@@ -3,18 +3,18 @@ package tui
 import (
 	"testing"
 
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 )
 
 func TestApplyFilterPendingExcludesActiveTasks(t *testing.T) {
 	m := Model{
 		filter: filterPending,
 		tasks: []Task{
-			{Task: taskwarrior.Task{ID: 1, UUID: "aa000001"}},
-			{Task: taskwarrior.Task{ID: 2, UUID: "bb000002", Start: "20260101T100000Z"}},
-			{Task: taskwarrior.Task{ID: 3, UUID: "cc000003"}},
+			{Task: flicktask.Task{UUID: "aa000001"}},
+			{Task: flicktask.Task{UUID: "bb000002", Start: "20260101T100000Z"}},
+			{Task: flicktask.Task{UUID: "cc000003"}},
 			// scheduled in the past but not active — should remain in pending
-			{Task: taskwarrior.Task{ID: 4, UUID: "dd000004"}, Scheduled: "20200101T000000Z"},
+			{Task: flicktask.Task{UUID: "dd000004", Scheduled: "20200101T000000Z"}},
 		},
 		height: 20,
 	}
@@ -34,8 +34,8 @@ func TestApplyFilterPendingAllActive(t *testing.T) {
 	m := Model{
 		filter: filterPending,
 		tasks: []Task{
-			{Task: taskwarrior.Task{ID: 1, UUID: "aa000001", Start: "20260101T100000Z"}},
-			{Task: taskwarrior.Task{ID: 2, UUID: "bb000002", Start: "20260101T110000Z"}},
+			{Task: flicktask.Task{UUID: "aa000001", Start: "20260101T100000Z"}},
+			{Task: flicktask.Task{UUID: "bb000002", Start: "20260101T110000Z"}},
 		},
 		height: 20,
 	}
@@ -66,7 +66,7 @@ func TestAnnotateInputAcceptsText(t *testing.T) {
 
 func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
 	// Pre-populate the package-level cache so ensureProjectsAndTags skips the
-	// taskwarrior exec call (not available in CI).
+	// flicktask exec call (not available in CI).
 	cachedProjects = []string{"ttal", "ttal.cli", "projectX", "other"}
 	cachedTags = []string{"bug", "feature"}
 	autocompleteLoaded = true

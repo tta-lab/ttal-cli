@@ -5,16 +5,13 @@ import (
 	"math"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 )
 
+// Task wraps flicktask.Task with TUI-specific helpers.
+// Fields like Priority, Scheduled, Due, Entry are promoted from the embedded type.
 type Task struct {
-	taskwarrior.Task
-	Priority  string  `json:"priority,omitempty"`
-	Urgency   float64 `json:"urgency"`
-	Scheduled string  `json:"scheduled,omitempty"`
-	Due       string  `json:"due,omitempty"`
-	Entry     string  `json:"entry,omitempty"`
+	flicktask.Task
 }
 
 func (t *Task) ShortUUID() string {

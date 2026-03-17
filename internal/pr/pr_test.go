@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // mockProvider implements gitprovider.Provider for testing.
@@ -195,7 +195,7 @@ func TestMergeLGTMGate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &Context{
-				Task:     &taskwarrior.Task{PRID: tt.prid},
+				Task:     &flicktask.Task{PRID: tt.prid},
 				Owner:    "owner",
 				Repo:     "repo",
 				Provider: mergeableProvider,
@@ -245,7 +245,7 @@ func TestBuildPRURLWithLGTM(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &Context{
-				Task: &taskwarrior.Task{PRID: tt.prid},
+				Task: &flicktask.Task{PRID: tt.prid},
 				Info: &gitprovider.RepoInfo{
 					Owner:    "owner",
 					Repo:     "repo",

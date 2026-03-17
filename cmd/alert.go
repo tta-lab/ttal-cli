@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/notify"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -66,7 +66,7 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 		return false, nil
 	}
 
-	task, twErr := taskwarrior.ExportTaskBySessionID(sessionID, "pending")
+	task, twErr := flicktask.ExportTaskBySessionID(sessionID, "pending")
 	if twErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not resolve task for alert routing: %v\n", twErr)
 		return false, nil // can't determine spawner — fall back gracefully

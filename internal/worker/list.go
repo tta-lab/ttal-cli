@@ -7,9 +7,9 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // WorkerStatus represents the categorized status of a worker.
@@ -33,13 +33,13 @@ func (s WorkerStatus) String() string {
 
 // WorkerInfo holds a worker task with its derived status.
 type WorkerInfo struct {
-	Task   taskwarrior.Task
+	Task   flicktask.Task
 	Status WorkerStatus
 }
 
 // List queries active worker tasks and prints a table view.
 func List() error {
-	tasks, err := taskwarrior.GetActiveWorkerTasks()
+	tasks, err := flicktask.GetActiveWorkerTasks()
 	if err != nil {
 		return fmt.Errorf("failed to query workers: %w", err)
 	}
@@ -53,7 +53,7 @@ func List() error {
 
 	// Deduplicate by session ID (keep first, which is most recent from taskwarrior)
 	seen := make(map[string]bool)
-	unique := make([]taskwarrior.Task, 0, len(tasks))
+	unique := make([]flicktask.Task, 0, len(tasks))
 	for _, t := range tasks {
 		sid := t.SessionID()
 		if sid == "" || seen[sid] {
@@ -81,7 +81,7 @@ func List() error {
 	return nil
 }
 
-func categorizeWorkers(tasks []taskwarrior.Task) []WorkerInfo {
+func categorizeWorkers(tasks []flicktask.Task) []WorkerInfo {
 	workers := make([]WorkerInfo, 0, len(tasks))
 	for _, t := range tasks {
 		info := WorkerInfo{Task: t}
@@ -99,7 +99,7 @@ func formatPRCell(prid string) string {
 	if prid == "" {
 		return "-"
 	}
-	info, err := taskwarrior.ParsePRID(prid)
+	info, err := flicktask.ParsePRID(prid)
 	if err != nil {
 		return "#" + prid
 	}
