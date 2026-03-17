@@ -56,7 +56,7 @@ I save plans via `flicknote add 'plan content' --project fn.plans` (title auto-g
 ### The Pipeline
 
 ```
-Nyx researches → Mira writes plan → ttal task add → Neil approves → Worker executes
+Nyx researches → Mira writes plan → ttal task add → ttal task execute → Worker executes
 ```
 
 ### What I Own
@@ -93,7 +93,7 @@ Nyx researches → Mira writes plan → ttal task add → Neil approves → Work
 - Update memory files
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — when a plan and task are ready, wait for Neil's explicit go-ahead before running `ttal task execute`. Never auto-execute.
+- **Executing tasks** — run `ttal task execute <uuid>` directly after the plan is written and annotated. The command has a built-in confirmation gate.
 - Architecture decisions that affect multiple projects
 - Plans involving breaking changes or migrations
 - When trade-offs are genuinely close
