@@ -125,9 +125,9 @@ func runAsk(cmd *cobra.Command, args []string) error {
 
 // askProject asks about a registered ttal project.
 func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
-	projectPath := project.ResolveProjectPath(alias)
-	if projectPath == "" {
-		return fmt.Errorf("project %q not found\n\nRun 'ttal project list' to see available projects", alias)
+	projectPath, err := project.GetProjectPath(alias)
+	if err != nil {
+		return err
 	}
 
 	if _, err := os.Stat(projectPath); err != nil {
@@ -325,8 +325,8 @@ func runAskAgent(opts askOpts) error {
 }
 
 // resolveRepoRef converts a repo reference to a clone URL and local path.
-// Supports full URLs (https://github.com/org/repo) and shorthands (org/repo → GitHub).
-// Shorthand must be exactly "org/repo" — bare names are rejected.
+// Supports full URLs, "org/repo" shorthands (→ GitHub), and bare repo names
+// for repos that are already cloned locally in the references directory.
 func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err error) {
 	if strings.HasPrefix(ref, "https://") || strings.HasPrefix(ref, "http://") {
 		u, parseErr := url.Parse(ref)
@@ -338,7 +338,7 @@ func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 		repoPath = strings.TrimSuffix(repoPath, ".git")
 		localPath = filepath.Join(referencesPath, u.Host, repoPath)
 		cloneURL = ref
-	} else {
+	} else if strings.Contains(ref, "/") {
 		// Shorthand: must be "org/repo" format (exactly one slash)
 		ref = strings.TrimSuffix(ref, "/")
 		ref = strings.TrimSuffix(ref, ".git")
@@ -351,8 +351,86 @@ func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 		}
 		cloneURL = "https://github.com/" + ref
 		localPath = filepath.Join(referencesPath, "github.com", ref)
+	} else {
+		// Bare name: scan already-cloned repos for a match.
+		// Only works for repos that are already cloned locally.
+		localPath, err = findClonedRepo(ref, referencesPath)
+		if err != nil {
+			return "", "", err
+		}
+		// Derive cloneURL from local path for ensureRepo's git-pull path.
+		// Note: bare-name repos are always already cloned, so ensureRepo will
+		// only use this for "git pull", never "git clone".
+		rel, _ := filepath.Rel(referencesPath, localPath)
+		cloneURL = "https://" + rel
 	}
 	return cloneURL, localPath, nil
+}
+
+// findClonedRepo scans the references directory for an already-cloned repo
+// matching the bare name (case-sensitive). Returns the local path if exactly
+// one match is found. Errors with disambiguation list on multiple matches.
+func findClonedRepo(name, referencesPath string) (string, error) {
+	var matches []string
+
+	hosts, err := os.ReadDir(referencesPath)
+	if err != nil {
+		return "", fmt.Errorf(
+			"repo %q not found as org/repo and no local references at %s",
+			name, referencesPath,
+		)
+	}
+
+	for _, host := range hosts {
+		if !host.IsDir() {
+			continue
+		}
+		hostPath := filepath.Join(referencesPath, host.Name())
+		orgs, err := os.ReadDir(hostPath)
+		if err != nil {
+			continue
+		}
+		for _, org := range orgs {
+			if !org.IsDir() {
+				continue
+			}
+			orgPath := filepath.Join(hostPath, org.Name())
+			repos, err := os.ReadDir(orgPath)
+			if err != nil {
+				continue
+			}
+			for _, repo := range repos {
+				if repo.IsDir() && repo.Name() == name {
+					matches = append(matches, filepath.Join(orgPath, repo.Name()))
+				}
+			}
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf(
+			"repo %q not found locally; use org/repo format (e.g. charmbracelet/%s) to clone it",
+			name, name,
+		)
+	case 1:
+		return matches[0], nil
+	default:
+		var options []string
+		for _, m := range matches {
+			rel, _ := filepath.Rel(referencesPath, m)
+			parts := strings.SplitN(rel, string(filepath.Separator), 2)
+			if len(parts) == 2 {
+				options = append(options, parts[1])
+			} else {
+				options = append(options, rel)
+			}
+		}
+		return "", fmt.Errorf(
+			"ambiguous repo name %q matches multiple repos:\n  %s\n\nSpecify org/repo to disambiguate",
+			name, strings.Join(options, "\n  "),
+		)
+	}
 }
 
 const repoOpTimeout = 5 * time.Minute

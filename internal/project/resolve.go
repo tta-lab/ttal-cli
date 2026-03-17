@@ -96,6 +96,34 @@ func resolveProjectPathWithStore(projectName string, store *Store) string {
 	return ""
 }
 
+// GetProjectPath looks up a project by exact alias and returns its path.
+// Returns a user-friendly error listing available projects if not found.
+// If the alias contains "." and a hierarchical parent exists, suggests it.
+func GetProjectPath(alias string) (string, error) {
+	store := NewStore(config.ResolveProjectsPath())
+	proj, err := store.Get(alias)
+	if err != nil {
+		return "", fmt.Errorf("project lookup failed: %w", err)
+	}
+	if proj != nil {
+		if proj.Path == "" {
+			return "", fmt.Errorf("project %q exists but has no path configured", alias)
+		}
+		return proj.Path, nil
+	}
+
+	// Not found — check for hierarchical "did you mean?" suggestion
+	if i := strings.Index(alias, "."); i > 0 {
+		base := alias[:i]
+		baseProj, baseErr := store.Get(base)
+		if baseErr == nil && baseProj != nil {
+			return "", fmt.Errorf("project %q not found — did you mean %q?", alias, base)
+		}
+	}
+
+	return "", formatProjectNotFoundError(alias, store)
+}
+
 // ValidateProjectAlias checks that a project alias exists (exact match, active only).
 // Returns a user-friendly error listing available projects if not found.
 func ValidateProjectAlias(alias string) error {
