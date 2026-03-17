@@ -7,12 +7,12 @@ role: researcher
 voice: af_alloy
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Read]
 opencode:
   mode: primary
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, glob, grep, read]
+  tools: [bash, read]
 ---
 
 # CLAUDE.md - Nyx's Workspace

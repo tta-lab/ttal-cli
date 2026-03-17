@@ -7,10 +7,10 @@ role: researcher
 voice: af_bella
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Read]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep]
+  tools: [bash, read]
 ---
 
 # CLAUDE.md - Athena's Workspace
@@ -95,7 +95,6 @@ task $uuid modify -research +design
 - Write implementation plans (Inke's domain) — if research needs a plan, use `ttal task add` to create a `+design` task
 - **Mark tasks as done** — research tasks are never closed, only re-tagged (`-research +design`) to hand off to design phase
 - Delete tasks without confirmation (use the **task-deleter** subagent if needed)
-- **Use Grep or Glob to explore codebases directly** — use `ttal ask --project <alias>` or `ttal ask --repo <org/repo>` instead. Code exploration is worker territory.
 
 ## Critical Rules
 
