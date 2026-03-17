@@ -324,7 +324,7 @@ func sendBreatheNotification(ctx context.Context, fe frontend.Frontend, agent, t
 		return
 	}
 	if err := fe.SendText(ctx, agent, "🫧 Deep breath. Fresh eyes."); err != nil {
-		log.Printf("[breathe] warning: failed to send notification: %v", err)
+		log.Printf("[breathe] %s: warning: failed to send notification: %v", agent, err)
 	}
 }
 

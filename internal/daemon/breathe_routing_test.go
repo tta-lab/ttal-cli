@@ -84,8 +84,9 @@ func TestBuildCCRestartCmd(t *testing.T) {
 
 // mockFrontend is a minimal frontend.Frontend for testing notification calls.
 type mockFrontend struct {
-	texts   []sentText
-	textErr error
+	texts        []sentText
+	textErr      error
+	notifyCalled int
 }
 
 type sentText struct {
@@ -99,9 +100,12 @@ func (m *mockFrontend) SendText(_ context.Context, agent, text string) error {
 }
 
 // Implement remaining interface methods as no-ops.
-func (m *mockFrontend) Start(_ context.Context) error                           { return nil }
-func (m *mockFrontend) Stop(_ context.Context) error                            { return nil }
-func (m *mockFrontend) SendNotification(_ context.Context, _ string) error      { return nil }
+func (m *mockFrontend) Start(_ context.Context) error { return nil }
+func (m *mockFrontend) Stop(_ context.Context) error  { return nil }
+func (m *mockFrontend) SendNotification(_ context.Context, _ string) error {
+	m.notifyCalled++
+	return nil
+}
 func (m *mockFrontend) SendVoice(_ context.Context, _ string, _ []byte) error   { return nil }
 func (m *mockFrontend) SetReaction(_ context.Context, _ string, _ string) error { return nil }
 func (m *mockFrontend) AskHuman(_ context.Context, _, _ string, _ []string) (string, bool, error) {
@@ -126,6 +130,20 @@ func TestSendBreatheNotification(t *testing.T) {
 		}
 		if m.texts[0].text != "🫧 Deep breath. Fresh eyes." {
 			t.Errorf("unexpected notification text: %q", m.texts[0].text)
+		}
+		if m.notifyCalled != 0 {
+			t.Errorf("SendNotification should not be called, got %d calls", m.notifyCalled)
+		}
+	})
+
+	t.Run("routes to correct agent channel for different agents", func(t *testing.T) {
+		m := &mockFrontend{}
+		sendBreatheNotification(context.Background(), m, "athena", "default")
+		if len(m.texts) != 1 {
+			t.Fatalf("expected 1 SendText call, got %d", len(m.texts))
+		}
+		if m.texts[0].agent != "athena" {
+			t.Errorf("expected agent %q, got %q", "athena", m.texts[0].agent)
 		}
 	})
 
