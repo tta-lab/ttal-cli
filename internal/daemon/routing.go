@@ -316,15 +316,15 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 	return SendResponse{OK: true}
 }
 
-// sendBreatheNotification sends the post-breathe notification via the frontend.
+// sendBreatheNotification sends the post-breathe notification through the agent's own channel.
 // Extracted for unit testing. A nil frontend is valid — logs and skips.
 func sendBreatheNotification(ctx context.Context, fe frontend.Frontend, agent, team string) {
 	if fe == nil {
 		log.Printf("[breathe] %s: no frontend for team %q — notification skipped", agent, team)
 		return
 	}
-	if err := fe.SendNotification(ctx, "🫧 Deep breath. Fresh eyes."); err != nil {
-		log.Printf("[breathe] warning: failed to send notification: %v", err)
+	if err := fe.SendText(ctx, agent, "🫧 Deep breath. Fresh eyes."); err != nil {
+		log.Printf("[breathe] %s: warning: failed to send notification: %v", agent, err)
 	}
 }
 
