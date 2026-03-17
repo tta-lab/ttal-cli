@@ -159,14 +159,14 @@ func formatUsageString(d *UsageData) string {
 	}
 	var parts []string
 	if d.SessionUsage != nil {
-		line := fmt.Sprintf("5-hour:  %.0f%% used", *d.SessionUsage*100)
+		line := fmt.Sprintf("5-hour:  %.0f%% used", *d.SessionUsage)
 		if d.SessionResetAt != "" {
 			line += " (resets in " + formatResetAt(d.SessionResetAt) + ")"
 		}
 		parts = append(parts, line)
 	}
 	if d.WeeklyUsage != nil {
-		line := fmt.Sprintf("Weekly:  %.0f%% used", *d.WeeklyUsage*100)
+		line := fmt.Sprintf("Weekly:  %.0f%% used", *d.WeeklyUsage)
 		if d.WeeklyResetAt != "" {
 			line += " (resets in " + formatResetAt(d.WeeklyResetAt) + ")"
 		}
@@ -201,6 +201,14 @@ func formatDuration(d time.Duration) string {
 	d = d.Round(time.Minute)
 	h := int(d.Hours())
 	m := int(d.Minutes()) % 60
+	if h >= 24 {
+		days := h / 24
+		h = h % 24
+		if h == 0 {
+			return fmt.Sprintf("%dd", days)
+		}
+		return fmt.Sprintf("%dd%dh", days, h)
+	}
 	if h > 0 {
 		return fmt.Sprintf("%dh%dm", h, m)
 	}
