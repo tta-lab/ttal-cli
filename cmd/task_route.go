@@ -53,12 +53,12 @@ Examples:
 			return fmt.Errorf("no prompt for role %q, no [default] in roles.toml, and no fallback in config.toml", role)
 		}
 
-		// Fetch task for approval display.
-		taskInfo, taskErr := taskwarrior.ExportTask(uuid)
-		taskDesc := uuid
-		if taskErr == nil {
-			taskDesc = taskInfo.Description
+		// Fetch task early — fail before asking for approval on a doomed operation.
+		taskInfo, err := taskwarrior.ExportTask(uuid)
+		if err != nil {
+			return fmt.Errorf("cannot fetch task %s: %w", uuid, err)
 		}
+		taskDesc := taskInfo.Description
 
 		// Agent sessions require human approval before routing tasks.
 		agentLabel := routeToAgent
@@ -181,6 +181,11 @@ func spawnWorkerForTask(taskUUID string) error {
 	workerName := strings.TrimPrefix(task.Branch, "worker/")
 	if workerName == "" {
 		workerName = task.SessionName()
+	}
+
+	// For human CLI: print project path as a preview before spawning.
+	if os.Getenv("TTAL_AGENT_NAME") == "" {
+		fmt.Fprintf(os.Stderr, "Project: %s\n", projectPath)
 	}
 
 	// Agent sessions require human approval before spawning workers.

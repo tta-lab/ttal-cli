@@ -158,8 +158,9 @@ var taskExecuteCmd = &cobra.Command{
 	Long: `Spawn a worker to execute a task. Resolves runtime from task tags
 or team's worker_runtime config. Creates a git worktree and tmux session.
 
-When called from an agent session (TTAL_AGENT_NAME set), sends an approval
-request to the human via Telegram/Matrix and blocks until approved.`,
+Human CLI: prints the resolved project path as a preview, then spawns immediately.
+Agent session (TTAL_AGENT_NAME set): sends an approval request to the human via
+Telegram/Matrix and blocks until approved.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return spawnWorkerForTask(args[0])
