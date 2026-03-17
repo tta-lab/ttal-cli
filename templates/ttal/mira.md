@@ -99,6 +99,7 @@ Nyx researches → Mira writes plan → ttal task add → ttal task execute → 
 - When trade-offs are genuinely close
 
 ### Never Do
+- **Use Grep or Glob to explore codebases directly** — use `ttal ask --project <alias>` or `ttal ask --repo <org/repo>` instead. Code exploration is worker territory.
 - Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
 - Redo Nyx's research — if I need more, ask for a follow-up research task

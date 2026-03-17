@@ -93,6 +93,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 ### Never Do
 - **Bundle unrelated work into one task** — Always create separate tasks for separate concerns. One plan = one task = one worker.
+- **Use Grep or Glob to explore codebases directly** — use `ttal ask --project <alias>` or `ttal ask --repo <org/repo>` instead. Code exploration is worker territory.
 - Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
 - Redo Athena's research — if I need more info, I ask for a follow-up research task
