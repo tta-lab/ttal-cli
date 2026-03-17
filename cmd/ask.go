@@ -361,7 +361,10 @@ func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 		// Derive cloneURL from local path for ensureRepo's git-pull path.
 		// Note: bare-name repos are always already cloned, so ensureRepo will
 		// only use this for "git pull", never "git clone".
-		rel, _ := filepath.Rel(referencesPath, localPath)
+		rel, relErr := filepath.Rel(referencesPath, localPath)
+		if relErr != nil {
+			return "", "", fmt.Errorf("computing repo clone URL from %s: %w", localPath, relErr)
+		}
 		cloneURL = "https://" + rel
 	}
 	return cloneURL, localPath, nil
@@ -375,10 +378,10 @@ func findClonedRepo(name, referencesPath string) (string, error) {
 
 	hosts, err := os.ReadDir(referencesPath)
 	if err != nil {
-		return "", fmt.Errorf(
-			"repo %q not found as org/repo and no local references at %s",
-			name, referencesPath,
-		)
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("repo %q not found as org/repo; references directory does not exist at %s", name, referencesPath)
+		}
+		return "", fmt.Errorf("repo %q not found as org/repo; could not read references directory %s: %w", name, referencesPath, err)
 	}
 
 	for _, host := range hosts {
@@ -388,6 +391,7 @@ func findClonedRepo(name, referencesPath string) (string, error) {
 		hostPath := filepath.Join(referencesPath, host.Name())
 		orgs, err := os.ReadDir(hostPath)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", hostPath, err)
 			continue
 		}
 		for _, org := range orgs {
@@ -397,6 +401,7 @@ func findClonedRepo(name, referencesPath string) (string, error) {
 			orgPath := filepath.Join(hostPath, org.Name())
 			repos, err := os.ReadDir(orgPath)
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", orgPath, err)
 				continue
 			}
 			for _, repo := range repos {
@@ -418,7 +423,11 @@ func findClonedRepo(name, referencesPath string) (string, error) {
 	default:
 		var options []string
 		for _, m := range matches {
-			rel, _ := filepath.Rel(referencesPath, m)
+			rel, relErr := filepath.Rel(referencesPath, m)
+			if relErr != nil {
+				options = append(options, m) // fallback to absolute path
+				continue
+			}
 			parts := strings.SplitN(rel, string(filepath.Separator), 2)
 			if len(parts) == 2 {
 				options = append(options, parts[1])
