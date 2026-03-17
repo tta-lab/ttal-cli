@@ -227,6 +227,12 @@ Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
    - Symptom: Ignores team TASKRC, no timeout, no `rc.verbose:nothing`
    - Fix: Always use the `internal/taskwarrior` package. If a helper doesn't exist (e.g. `StartTask`), add it there first — don't inline raw exec calls in `cmd/` or other packages.
 
+## Agent Loop Design Principles
+
+1. **Boundaries are structural.** Enforce limits in code, not prompts. Prompt rules are suggestions models can ignore — `maxSteps`, retry caps, and degenerate-loop detection are walls they cannot. Every prompt-level rule that matters (e.g. "one command per turn") needs a corresponding runtime guard.
+
+2. **Boundary contact produces actionable feedback.** When an agent hits a limit, don't silently absorb it (`step--` forever) or crash with a bare error. Inject a clear, actionable message the model can act on — "You wrote multiple commands. Run one at a time." or "Summarize what you've found." The boundary is the constraint; the feedback is the recovery path.
+
 ## Secrets (.env)
 
 All secrets live in `~/.config/ttal/.env` — bot tokens, API tokens, credentials.
