@@ -625,7 +625,7 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 		}
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
-				fullCmd := buildSkillCommand(origName, update.Message.Text)
+				fullCmd := buildFullCommand(origName, update.Message.Text)
 				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "")
 			})
 	}
@@ -742,11 +742,6 @@ func joinArgs(args []string, separator string) string {
 func buildFullCommand(cmdName, messageText string) string {
 	args := parseCommandArgs(messageText)
 	return "/" + cmdName + joinArgs(args, " ")
-}
-
-func buildSkillCommand(cmdName, messageText string) string {
-	args := parseCommandArgs(messageText)
-	return "Use " + cmdName + " skill" + joinArgs(args, ". ")
 }
 
 func isStaticCommand(name string) bool {
