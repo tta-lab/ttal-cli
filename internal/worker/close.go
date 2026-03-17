@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	gitroot "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -42,10 +42,10 @@ type CloseResult struct {
 func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 	// Find the task by UUID prefix (try completed first, then pending)
 	// Handle both old (bare UUID[:8]) and new (w-UUID[:8]-slug) formats
-	sid := flicktask.ExtractSessionID(sessionID)
-	task, err := flicktask.ExportTaskBySessionID(sid, taskStatusCompleted)
+	sid := taskwarrior.ExtractSessionID(sessionID)
+	task, err := taskwarrior.ExportTaskBySessionID(sid, taskStatusCompleted)
 	if err != nil {
-		task, err = flicktask.ExportTaskBySessionID(sid, taskStatusPending)
+		task, err = taskwarrior.ExportTaskBySessionID(sid, taskStatusPending)
 	}
 	if err != nil {
 		result := &CloseResult{
@@ -92,7 +92,7 @@ func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 			}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		if task.UUID != "" {
-			if err := flicktask.MarkDoneRecursive(task.UUID); err != nil {
+			if err := taskwarrior.MarkDone(task.UUID); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 			}
 		}
@@ -136,7 +136,7 @@ func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 // Cleanup requests are only created after successful merge, so the PR is already merged.
 // Performs best-effort cleanup: kills the tmux session, removes the worktree directory,
 // and marks the task done — skipping git operations that require a valid repo root.
-func closeWithoutProject(task *flicktask.Task, sessionName, workDir string) (*CloseResult, error) {
+func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*CloseResult, error) {
 	if tmux.SessionExists(sessionName) {
 		if err := tmux.KillSession(sessionName); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to kill session %s: %v\n", sessionName, err)
@@ -147,7 +147,7 @@ func closeWithoutProject(task *flicktask.Task, sessionName, workDir string) (*Cl
 	}
 	// Skip git worktree prune + branch delete — no valid gitRoot.
 	// Orphaned metadata is cleaned up on next manual `git worktree prune` in the real repo.
-	if err := flicktask.MarkDoneRecursive(task.UUID); err != nil {
+	if err := taskwarrior.MarkDone(task.UUID); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 	}
 	archiveTaskPlans(task.Annotations)
@@ -160,9 +160,9 @@ func closeWithoutProject(task *flicktask.Task, sessionName, workDir string) (*Cl
 // closeWithPR handles the smart-close path when a PR exists.
 func closeWithPR(
 	taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string,
-	worktreeExists bool, annotations []flicktask.Annotation,
+	worktreeExists bool, annotations []taskwarrior.Annotation,
 ) (*CloseResult, error) {
-	pridInfo, err := flicktask.ParsePRID(prIDStr)
+	pridInfo, err := taskwarrior.ParsePRID(prIDStr)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Invalid pr_id: %s", prIDStr)}, err
 	}
@@ -214,7 +214,7 @@ func closeWithPR(
 			}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		if taskUUID != "" {
-			if err := flicktask.MarkDoneRecursive(taskUUID); err != nil {
+			if err := taskwarrior.MarkDone(taskUUID); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", taskUUID, err)
 			}
 		}
@@ -256,29 +256,29 @@ func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
 }
 
-// archiveTaskPlans archives flicknote research notes referenced in task annotations.
-// Only archives notes from "research" projects — plans are now flicktask subtrees
-// and don't need archival. Best-effort: failures are logged but never returned.
-func archiveTaskPlans(annotations []flicktask.Annotation) {
+// archiveTaskPlans archives flicknote plan/design notes referenced in a task's
+// annotations. Best-effort: failures are logged but never returned.
+// Called after successful cleanup so plan notes don't linger after PR merges.
+func archiveTaskPlans(annotations []taskwarrior.Annotation) {
 	if len(annotations) == 0 {
 		return
 	}
 
+	inlineProjects := taskwarrior.LoadInlineProjects()
+
 	for _, ann := range annotations {
-		m := flicktask.HexIDPattern.FindStringSubmatch(ann.Description)
+		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
 		if len(m) == 0 {
 			continue
 		}
 		hexID := m[1]
 
-		note := flicktask.ReadFlicknoteJSON(hexID)
+		note := taskwarrior.ReadFlicknoteJSON(hexID)
 		if note == nil {
 			log.Printf("[archive] flicknote %s not found or not readable — skipping", hexID)
 			continue
 		}
-
-		// Only archive research notes — plans are subtasks now, not flicknotes.
-		if !strings.Contains(strings.ToLower(note.Project), "research") {
+		if !taskwarrior.ShouldInlineNote(note, inlineProjects) {
 			continue
 		}
 
@@ -287,7 +287,7 @@ func archiveTaskPlans(annotations []flicktask.Annotation) {
 		if err := cmd.Run(); err != nil {
 			log.Printf("[archive] warning: failed to archive flicknote %s: %v", hexID, err)
 		} else {
-			log.Printf("[archive] archived research note: %s", hexID)
+			log.Printf("[archive] archived plan note: %s", hexID)
 		}
 		cancel()
 	}

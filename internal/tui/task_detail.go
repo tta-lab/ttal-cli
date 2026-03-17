@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func (m Model) viewTaskDetail() string {
@@ -22,6 +22,7 @@ func (m Model) viewTaskDetail() string {
 
 	// Core fields
 	field(&b, "UUID:", "  ", t.UUID)
+	field(&b, "ID:", "    ", fmt.Sprintf("%d", t.ID))
 	field(&b, "Desc:", "  ", t.Description)
 	field(&b, "Status:", " ", t.Status)
 
@@ -45,6 +46,9 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	if len(t.Tags) > 0 {
 		field(b, "Tags:", "  ", styleTag.Render(strings.Join(t.Tags, ", ")))
 	}
+	if t.Urgency != 0 {
+		field(b, "Urg:", "   ", fmt.Sprintf("%.1f", t.Urgency))
+	}
 	if t.Branch != "" {
 		field(b, "Branch:", " ", t.Branch)
 	}
@@ -52,7 +56,7 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 		field(b, "Path:", "   ", path)
 	}
 	if t.PRID != "" {
-		info, err := flicktask.ParsePRID(t.PRID)
+		info, err := taskwarrior.ParsePRID(t.PRID)
 		if err == nil && info.LGTM {
 			field(b, "PR:", "    ", fmt.Sprintf("#%d ✓", info.Index))
 		} else {

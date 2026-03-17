@@ -20,6 +20,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
@@ -134,7 +135,7 @@ type prerequisite struct {
 
 var prerequisites = []prerequisite{
 	{"tmux", "tmux", true, "brew install tmux"},
-	{"flicktask", "flicktask", true, "see https://github.com/tta-lab/flicktask for install instructions"},
+	{"taskwarrior", "task", true, "brew install task"},
 	{"git", "git", true, "brew install git"},
 	{"ffmpeg", "ffmpeg", false, "brew install ffmpeg (needed for voice)"},
 }
@@ -497,7 +498,10 @@ func checkUDAs(section *Section, taskrcTtalPath string) {
 
 // checkTaskDataDir verifies the task data directory exists.
 func checkTaskDataDir(section *Section, cfg *config.Config, fix bool) {
-	taskData := cfg.TaskData()
+	taskData, tdErr := taskwarrior.ResolveDataLocation()
+	if tdErr != nil {
+		taskData = cfg.TaskData()
+	}
 	if _, err := os.Stat(taskData); err == nil {
 		section.add(LevelOK, "task_data",
 			fmt.Sprintf("data directory %s exists", taskData))
@@ -835,16 +839,16 @@ func checkHooks(fix bool) Section {
 func checkTaskwarriorHooks(section *Section, fix bool) {
 	cfg, err := config.Load()
 	if err != nil {
-		section.add(LevelWarn, "ft-hooks", fmt.Sprintf("cannot load config: %v", err))
+		section.add(LevelWarn, "tw-hooks", fmt.Sprintf("cannot load config: %v", err))
 		return
 	}
 
-	home, err := os.UserHomeDir()
+	taskDataDir, err := taskwarrior.ResolveDataLocation()
 	if err != nil {
-		section.add(LevelWarn, "ft-hooks", fmt.Sprintf("cannot resolve home dir: %v", err))
+		section.add(LevelWarn, "tw-hooks", fmt.Sprintf("taskwarrior data dir not found (%v) — skipping hook check", err))
 		return
 	}
-	hookDir := filepath.Join(home, ".config", "flicktask", "hooks")
+	hookDir := filepath.Join(taskDataDir, "hooks")
 	teamName := cfg.TeamName()
 
 	allPresent := true
@@ -856,23 +860,23 @@ func checkTaskwarriorHooks(section *Section, fix bool) {
 	}
 
 	if allPresent {
-		section.add(LevelOK, "ft-hooks", fmt.Sprintf("flicktask hooks installed: %s", hookDir))
+		section.add(LevelOK, "tw-hooks", fmt.Sprintf("taskwarrior hooks installed: %s", hookDir))
 		return
 	}
 
 	if !fix {
-		section.add(LevelError, "ft-hooks",
-			"flicktask hooks not found (run: ttal doctor --fix)")
+		section.add(LevelError, "tw-hooks",
+			"taskwarrior hooks not found (run: ttal doctor --fix)")
 		return
 	}
 
 	if err := worker.InstallHooks(hookDir, teamName); err != nil {
-		section.add(LevelError, "ft-hooks",
-			fmt.Sprintf("failed to install flicktask hooks: %v", err))
+		section.add(LevelError, "tw-hooks",
+			fmt.Sprintf("failed to install taskwarrior hooks: %v", err))
 		return
 	}
-	section.add(LevelWarn, "ft-hooks",
-		fmt.Sprintf("installed flicktask hooks: %s", hookDir))
+	section.add(LevelWarn, "tw-hooks",
+		fmt.Sprintf("installed taskwarrior hooks: %s", hookDir))
 }
 
 // cmdHookScript is the shared template for on-add and on-modify hooks.

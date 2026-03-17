@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) {
@@ -24,7 +24,7 @@ func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) 
 		return nil, err
 	}
 
-	if err := flicktask.SetPRID(ctx.Task.UUID, strconv.FormatInt(pr.Index, 10)); err != nil {
+	if err := taskwarrior.SetPRID(ctx.Task.UUID, strconv.FormatInt(pr.Index, 10)); err != nil {
 		fmt.Printf("warning: PR created but failed to update task: %v\n", err)
 	}
 
@@ -83,7 +83,7 @@ func CheckMergeable(ctx *Context) error {
 
 func Merge(ctx *Context, deleteAfterMerge bool) error {
 	// Gate: reviewer must have approved (pr_id must end with :lgtm)
-	info, err := flicktask.ParsePRID(ctx.Task.PRID)
+	info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func prIndex(ctx *Context) (int64, error) {
 	if ctx.Task.PRID == "" {
 		return 0, fmt.Errorf("no PR associated with this task (create one first with: ttal pr create)")
 	}
-	info, err := flicktask.ParsePRID(ctx.Task.PRID)
+	info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
 	if err != nil {
 		return 0, err
 	}

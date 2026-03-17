@@ -32,7 +32,7 @@ type PromptsConfig struct {
 // Convention: "ttal-<team>-<agent>" (e.g. "ttal-default-athena", "ttal-guion-mira").
 //
 // This is distinct from worker sessions which use "w-<uuid[:8]>-<slug>"
-// (e.g. "w-e9d4b7c1-fix-auth"). See flicktask.Task.SessionName().
+// (e.g. "w-e9d4b7c1-fix-auth"). See taskwarrior.Task.SessionName().
 func AgentSessionName(team, agent string) string {
 	return fmt.Sprintf("ttal-%s-%s", team, agent)
 }
@@ -317,7 +317,7 @@ func (c *Config) TaskRC() string {
 	return c.resolvedTaskRC
 }
 
-// TaskData returns the resolved task data directory for the active team.
+// TaskData returns the resolved taskwarrior data directory for the active team.
 func (c *Config) TaskData() string {
 	return c.resolvedTaskData
 }

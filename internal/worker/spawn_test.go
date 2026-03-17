@@ -5,17 +5,17 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func TestBuildEnvParts(t *testing.T) {
-	task := &flicktask.Task{
+	task := &taskwarrior.Task{
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode)
+	parts := buildEnvParts(task, runtime.ClaudeCode, "/custom/taskrc")
 
 	if len(parts) < 2 {
 		t.Fatal("expected at least TTAL_ROLE and TTAL_JOB_ID")
@@ -38,25 +38,29 @@ func TestBuildEnvParts(t *testing.T) {
 		t.Error("expected TTAL_RUNTIME=claude-code in env parts")
 	}
 
-	// TASKRC should not be present (flicktask doesn't use it)
+	// Check taskrc is included
+	found := false
 	for _, p := range parts {
-		if strings.HasPrefix(p, "TASKRC=") {
-			t.Error("TASKRC should not be set (flicktask doesn't use taskrc)")
+		if p == "TASKRC=/custom/taskrc" {
+			found = true
 		}
+	}
+	if !found {
+		t.Error("expected TASKRC=/custom/taskrc in env parts")
 	}
 }
 
 func TestBuildEnvParts_NoTaskRC(t *testing.T) {
-	task := &flicktask.Task{
+	task := &taskwarrior.Task{
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode)
+	parts := buildEnvParts(task, runtime.ClaudeCode, "")
 
 	for _, p := range parts {
 		if strings.HasPrefix(p, "TASKRC=") {
-			t.Error("TASKRC should not be set")
+			t.Error("TASKRC should not be set when empty")
 		}
 	}
 }
@@ -160,7 +164,7 @@ func TestResolveModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			task := &flicktask.Task{
+			task := &taskwarrior.Task{
 				UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 				Description: "test task",
 				Tags:        tt.tags,
@@ -211,7 +215,7 @@ func TestResolveRuntime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			task := &flicktask.Task{
+			task := &taskwarrior.Task{
 				UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 				Description: "test task",
 				Tags:        tt.taskTags,
