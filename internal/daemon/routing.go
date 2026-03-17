@@ -286,7 +286,10 @@ func handleBreathe(shellCfg *config.Config, fe frontend.Frontend, req BreatheReq
 	}
 
 	// 6. Build restart command
-	ccCmd := fmt.Sprintf("claude --resume %s --model %s --dangerously-skip-permissions --agent %s", newSessionID, am.model, req.Agent)
+	ccCmd := fmt.Sprintf(
+		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
+		newSessionID, am.model, req.Agent,
+	)
 	fullCmd := shellCfg.BuildEnvShellCommand([]string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
