@@ -248,6 +248,51 @@ Default: `~/.config/ttal/projects.toml`
 
 Per-team: `~/.config/ttal/{team}-projects.toml`
 
+## Templates & Skills (SSOT)
+
+The repo contains the **single source of truth** for agent definitions, skills, commands, and subagents. `ttal sync` deploys them to `~/.claude/skills/`, `~/.claude/agents/`, etc. **Edit here, not in `~/.claude/`** — runtime copies are overwritten by `ttal sync`.
+
+### Source Directories
+
+```
+templates/
+  ttal/                - Agent identity files (frontmatter + CLAUDE.md)
+    ├── yuki.md        - Each agent's full identity, role, decision rules
+    ├── kestrel.md
+    └── ...
+  docs/
+    skills/            - Skill directories (each has SKILL.md)
+      ├── sp-writing-plans/SKILL.md   - Plan writing methodology
+      ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
+      ├── sp-brainstorming/SKILL.md   - Brainstorming framework
+      └── ...
+    commands/          - Command .md files (flat, deployed as skills)
+      ├── task-route.md     - Task routing decision tree
+      ├── plan-review.md    - Plan review via subagent
+      ├── breathe.md        - Context window refresh
+      └── ...
+    agents/            - Subagent definitions (→ ~/.claude/agents/)
+      ├── plan-reviewer.md
+      ├── pr-code-reviewer.md
+      └── ...
+
+skills/                - ttal CLI reference skills (flat .md files)
+  ├── ttal-pr.md       - PR operations reference
+  ├── ttal-task.md     - Task management reference
+  ├── ttal-agent.md    - Agent commands reference
+  └── ...
+```
+
+### What Goes Where
+
+| Type | Location | Format | Deploys to |
+|------|----------|--------|------------|
+| Skills (methodology) | `templates/docs/skills/` | Directory with `SKILL.md` | `~/.claude/skills/{name}/` |
+| Commands (slash commands) | `templates/docs/commands/` | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
+| Subagents | `templates/docs/agents/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
+| Agent identities | `templates/ttal/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
+| CLI reference skills | `skills/` (repo root) | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
+
 ## Additional Documentation
 
 - `README.md` - User-facing documentation and usage

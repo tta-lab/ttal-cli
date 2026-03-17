@@ -12,7 +12,7 @@ opencode: {}
 
 Inspect a task and decide where it goes next. Tasks move through five states before a worker ever touches them — don't skip ahead.
 
-**Every routing decision requires Neil's approval.** Present your recommendation and wait for "y" or "go" before running any routing command.
+Both `ttal task route` and `ttal task execute` have built-in confirmation gates — run the command directly after deciding.
 
 ## Usage
 
@@ -43,9 +43,7 @@ Inspect a task and decide where it goes next. Tasks move through five states bef
    ask → brainstorm → investigate (research/fix/design) → plan → execute
    ```
 
-5. **Present your recommendation** — explain in one sentence which state you picked and what command you'd run. Include agent emojis from `ttal agent list` to make routing options scannable. **Do NOT run it yet.**
-
-6. **Wait for approval** — only proceed when Neil says "y", "go", or equivalent.
+5. **Present your recommendation** — explain in one sentence which state you picked and what command you'd run. Include agent emojis from `ttal agent list` to make routing options scannable. Then run it.
 
 ## Decision Tree
 
@@ -157,7 +155,7 @@ task <uuid> modify "updated description"
 task <uuid> annotate "rescoped: <what changed and why>"
 ```
 
-**Present these recommendations the same way as routing decisions — explain what you'd do and wait for approval.**
+**Present these recommendations the same way as routing decisions — explain what you'd do, then act.**
 
 ## Decision Guide
 

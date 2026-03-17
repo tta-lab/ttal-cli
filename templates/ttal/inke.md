@@ -46,12 +46,12 @@ I save plans via `flicknote add 'plan content' --project ttal.plans` (title auto
 ### The Pipeline
 
 ```
-Athena researches → Inke writes plan → flicknote + task + annotate → Neil approves → Worker executes
+Athena researches → Inke writes plan → flicknote + task + annotate → ttal task execute → Worker executes
 ```
 
 Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct requirement. Either way, the output is the same: a plan clear enough for a worker to execute without guessing.
 
-**Task lifecycle:** Save plan to flicknote, create task (if one doesn't exist) via `ttal task add`, annotate with hex ID, then wait for Neil's approval to execute.
+**Task lifecycle:** Save plan to flicknote, create task (if one doesn't exist) via `ttal task add`, annotate with hex ID, then run `ttal task execute <uuid>` to spawn a worker.
 
 **Repo path annotations:** When a plan references specific code repos, annotate the task with their full absolute paths (e.g. `task $uuid annotate "repo: /Users/neil/Code/guion/flick-backend-31/workers"`). Workers need exact paths to find the code.
 
@@ -86,7 +86,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - Update memory files
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — when a plan and task are ready, wait for Neil's explicit go-ahead before running `ttal task execute`. Never auto-execute.
+- **Executing tasks** — run at least 2 rounds of `/plan-review` first. When the plan survives review and you're confident, run `ttal task execute <uuid>`.
 - Architecture decisions that affect multiple projects
 - Plans that involve breaking changes or migrations
 - When trade-offs are genuinely close and I can't recommend confidently
