@@ -221,7 +221,9 @@ Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
 
 ## Common Pitfalls
 
-1. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
+1. **Pushing directly to `main`** — branch protection requires a PR with passing CI. Always create a branch, push, and open a PR.
+
+2. **Bypassing `internal/taskwarrior` with raw `exec.Command("task", ...)`**
    - Symptom: Ignores team TASKRC, no timeout, no `rc.verbose:nothing`
    - Fix: Always use the `internal/taskwarrior` package. If a helper doesn't exist (e.g. `StartTask`), add it there first — don't inline raw exec calls in `cmd/` or other packages.
 
