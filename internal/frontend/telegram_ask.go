@@ -442,7 +442,7 @@ func handleAskHumanCallback(
 	chatID := e.chatID
 	msgID := e.msgID
 	if ahs.deliverAnswer(shortID, answer) {
-		answeredText := fmt.Sprintf("✅ Answered: <b>%s</b>", answer)
+		answeredText := fmt.Sprintf("<b>%s</b>", answer)
 		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:    chatID,
 			MessageID: msgID,
@@ -477,7 +477,7 @@ func interceptedAsHumanAnswer(msg *models.Message, ahs *askHumanStore) bool {
 	}
 
 	if ahs.deliverAnswer(shortID, text) {
-		answeredText := fmt.Sprintf("✅ Answered: <b>%s</b>", text)
+		answeredText := fmt.Sprintf("💬 <b>%s</b>", text)
 		editAskHumanMessage(e.botToken, e.chatID, e.msgID, answeredText)
 		return true
 	}
