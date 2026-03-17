@@ -12,6 +12,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
+const sendExample = `ttal send --to kestrel "your message"`
+
 var (
 	sendTo    string
 	sendStdin bool
@@ -37,7 +39,7 @@ Examples:
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {
-			return fmt.Errorf("--to is required\n\n  Example: ttal send --to kestrel \"your message\"")
+			return fmt.Errorf("--to is required\n\n  Example: %s", sendExample)
 		}
 
 		var message string
@@ -50,13 +52,13 @@ Examples:
 			message = strings.TrimRight(string(data), "\n")
 		} else {
 			if len(args) == 0 {
-				return fmt.Errorf("message required\n\n  Example: ttal send --to kestrel \"your message\"\n  Or pipe: echo \"msg\" | ttal send --to kestrel --stdin") //nolint:lll
+				return fmt.Errorf("message required\n\n  Example: %s\n  Or pipe: echo \"msg\" | ttal send --to kestrel --stdin", sendExample) //nolint:lll
 			}
 			message = strings.Join(args, " ")
 		}
 
 		if message == "" {
-			return fmt.Errorf("message cannot be empty\n\n  Example: ttal send --to kestrel \"your message\"")
+			return fmt.Errorf("message cannot be empty\n\n  Example: %s", sendExample)
 		}
 
 		from := os.Getenv("TTAL_AGENT_NAME")

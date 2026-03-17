@@ -14,6 +14,8 @@ import (
 
 const statusCol = 3 // index of the STATUS column in project list table
 
+const projectAddExample = `ttal project add --alias myproj --name "My Project" --path /path/to/repo`
+
 var (
 	projectAlias string
 	projectName  string
@@ -40,10 +42,10 @@ Example:
   ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if projectAlias == "" {
-			return fmt.Errorf("--alias is required\n\n  Example: ttal project add --alias myproj --name \"My Project\" --path /path/to/repo") //nolint:lll
+			return fmt.Errorf("--alias is required\n\n  Example: %s", projectAddExample)
 		}
 		if projectName == "" {
-			return fmt.Errorf("--name is required\n\n  Example: ttal project add --alias myproj --name \"My Project\" --path /path/to/repo") //nolint:lll
+			return fmt.Errorf("--name is required\n\n  Example: %s", projectAddExample)
 		}
 
 		store := getProjectStore()

@@ -113,7 +113,7 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("task %s is already completed — cannot route\n\n  Verify: task %s export", taskUUID, taskUUID) //nolint:lll
+		return fmt.Errorf("task %s is already completed — cannot route\n\n  Check task status: ttal task get %s", taskUUID, taskUUID) //nolint:lll
 	}
 
 	uuid := task.UUID
@@ -164,7 +164,7 @@ func spawnWorkerForTask(taskUUID string) error {
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("task %s is already completed — cannot execute\n\n  Check task status: task %s export", taskUUID, taskUUID) //nolint:lll
+		return fmt.Errorf("task %s is already completed — cannot execute\n\n  Check task status: ttal task get %s", taskUUID, taskUUID) //nolint:lll
 	}
 
 	sessionName := task.SessionName()
