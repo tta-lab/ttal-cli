@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestBuildSkillCommand(t *testing.T) {
+func TestBuildFullCommand(t *testing.T) {
 	tests := []struct {
 		name        string
 		cmdName     string
@@ -15,33 +15,33 @@ func TestBuildSkillCommand(t *testing.T) {
 			name:        "command with no args",
 			cmdName:     "triage",
 			messageText: "/triage",
-			want:        "Use triage skill",
+			want:        "/triage",
 		},
 		{
 			name:        "command with args",
 			cmdName:     "triage",
 			messageText: "/triage fix this",
-			want:        "Use triage skill. fix this",
+			want:        "/triage fix this",
 		},
 		{
 			name:        "command with multiple args",
 			cmdName:     "brainstorm",
 			messageText: "/brainstorm new feature ideas",
-			want:        "Use brainstorm skill. new feature ideas",
+			want:        "/brainstorm new feature ideas",
 		},
 		{
 			name:        "hyphenated skill name with args",
 			cmdName:     "write-plan",
 			messageText: "/write_plan implement auth",
-			want:        "Use write-plan skill. implement auth",
+			want:        "/write-plan implement auth",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildSkillCommand(tt.cmdName, tt.messageText)
+			got := buildFullCommand(tt.cmdName, tt.messageText)
 			if got != tt.want {
-				t.Errorf("buildSkillCommand(%q, %q) = %q, want %q", tt.cmdName, tt.messageText, got, tt.want)
+				t.Errorf("buildFullCommand(%q, %q) = %q, want %q", tt.cmdName, tt.messageText, got, tt.want)
 			}
 		})
 	}
