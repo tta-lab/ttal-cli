@@ -121,8 +121,14 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 		uuid = uuid[:8]
 	}
 
-	msg := fmt.Sprintf("[%s] %s — %s\n%s",
-		roleTag, uuid, task.Description, rolePrompt)
+	// Build header: role tag, UUID, description, and project path (if resolvable).
+	header := fmt.Sprintf("[%s] %s — %s", roleTag, uuid, task.Description)
+	if task.Project != "" {
+		if projectPath := projectPkg.ResolveProjectPath(task.Project); projectPath != "" {
+			header += fmt.Sprintf("\nProject: %s (%s)", task.Project, projectPath)
+		}
+	}
+	msg := header + "\n" + rolePrompt
 	if message != "" {
 		msg += "\n\nAdditional context: " + message
 	}
