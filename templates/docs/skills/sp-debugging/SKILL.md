@@ -185,8 +185,7 @@ task <uuid> annotate 'Fix plan: flicknote <hex-id>'
 2. **Create a task** (if needed) via `ttal task add --project <alias> "description"`
 3. **Annotate the task** with plan reference (inline or flicknote hex ID)
 4. **Tag as planned:** `task <uuid> modify -bugfix +planned`
-5. **Wait for approval** — never start execution yourself
-6. **On approval:** `ttal task execute <uuid>` spawns a worker
+5. **Execute:** `ttal task execute <uuid>` — spawns a worker (command has a built-in confirmation gate)
 
 ## Red Flags — STOP and Return to Phase 1
 
