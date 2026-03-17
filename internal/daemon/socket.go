@@ -180,48 +180,31 @@ func handleHTTPStatusUpdate(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
-func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
+// handleHTTPWithResponse creates a typed HTTP handler: decode JSON, call fn, map OK/error to status code.
+// fn must be non-nil; callers are responsible for always populating httpHandlers fields.
+func handleHTTPWithResponse[Req any](name string, fn func(Req) SendResponse) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req TaskCompleteRequest
+		var req Req
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeHTTPJSON(w, http.StatusBadRequest,
-				SendResponse{OK: false, Error: "invalid taskComplete JSON: " + err.Error()})
+				SendResponse{OK: false, Error: "invalid " + name + " JSON: " + err.Error()})
 			return
 		}
-		if handlers.taskComplete != nil {
-			resp := handlers.taskComplete(req)
-			code := http.StatusOK
-			if !resp.OK {
-				code = http.StatusInternalServerError
-			}
-			writeHTTPJSON(w, code, resp)
-		} else {
-			writeHTTPJSON(w, http.StatusNotImplemented,
-				SendResponse{OK: false, Error: "taskComplete handler not registered"})
-		}
-	}
-}
-
-func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req BreatheRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeHTTPJSON(w, http.StatusBadRequest,
-				SendResponse{OK: false, Error: "invalid breathe JSON: " + err.Error()})
-			return
-		}
-		if handlers.breathe == nil {
-			writeHTTPJSON(w, http.StatusNotImplemented,
-				SendResponse{OK: false, Error: "breathe handler not registered"})
-			return
-		}
-		result := handlers.breathe(req)
+		result := fn(req)
 		code := http.StatusOK
 		if !result.OK {
 			code = http.StatusInternalServerError
 		}
 		writeHTTPJSON(w, code, result)
 	}
+}
+
+func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
+	return handleHTTPWithResponse("taskComplete", handlers.taskComplete)
+}
+
+func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
+	return handleHTTPWithResponse("breathe", handlers.breathe)
 }
 
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {

@@ -120,7 +120,10 @@ func WriteSyntheticSession(dir string, cfg SessionConfig) (string, error) {
 // CCProjectDir returns the CC project directory for a given CWD.
 // Uses watcher.EncodePath which replaces both "/" and "." with "-".
 // Result: ~/.claude/projects/<encoded-cwd>/
-func CCProjectDir(cwd string) string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".claude", "projects", watcher.EncodePath(cwd))
+func CCProjectDir(cwd string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get home dir: %w", err)
+	}
+	return filepath.Join(home, ".claude", "projects", watcher.EncodePath(cwd)), nil
 }

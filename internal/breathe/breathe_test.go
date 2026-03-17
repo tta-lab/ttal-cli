@@ -64,4 +64,7 @@ func TestWriteSyntheticSession(t *testing.T) {
 	if msg["content"] != cfg.Handoff {
 		t.Errorf("content mismatch")
 	}
+	if userMsg["permissionMode"] != "bypassPermissions" {
+		t.Errorf("permissionMode = %v, want bypassPermissions", userMsg["permissionMode"])
+	}
 }

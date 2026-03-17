@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -185,9 +185,41 @@ func deliverToWorker(session, text string) error {
 	return tmux.SendKeys(session, workerWindow, text)
 }
 
+// breatheAgentModel holds the model info resolved from the agent's status file.
+type breatheAgentModel struct {
+	model, ccVersion, modelName string
+}
+
+// resolveAgentModel reads the current model/CC version from the agent's status file.
+func resolveAgentModel(team, agent string) breatheAgentModel {
+	s, _ := status.ReadAgent(team, agent)
+	info := breatheAgentModel{model: "sonnet"}
+	if s != nil {
+		if s.ModelID != "" {
+			info.model = s.ModelID
+		}
+		info.ccVersion = s.CCVersion
+		info.modelName = s.ModelName
+	}
+	return info
+}
+
+// injectSecretsToSession loads .env and injects each key into the tmux session environment.
+func injectSecretsToSession(sessionName string) {
+	dotEnv, err := config.LoadDotEnv()
+	if err != nil {
+		log.Printf("[breathe] warning: .env load failed, secrets may be missing: %v", err)
+	}
+	for k, v := range dotEnv {
+		if err := tmux.SetEnv(sessionName, k, v); err != nil {
+			log.Printf("[breathe] warning: failed to inject %s into session %s: %v", k, sessionName, err)
+		}
+	}
+}
+
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
-func handleBreathe(_ *config.DaemonConfig, shellCfg *config.Config, req BreatheRequest) SendResponse {
+func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	team := req.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -212,87 +244,62 @@ func handleBreathe(_ *config.DaemonConfig, shellCfg *config.Config, req BreatheR
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("get cwd: %v", err)}
 	}
-
-	// 3. Get model and CC version from status file
-	agentStatus, _ := status.ReadAgent(team, req.Agent)
-	model := "sonnet"
-	ccVersion := ""
-	if agentStatus != nil {
-		if agentStatus.ModelID != "" {
-			model = agentStatus.ModelID
-		}
-		ccVersion = agentStatus.CCVersion
+	if cwd == "" {
+		return SendResponse{OK: false, Error: "pane CWD is empty — pane may have exited"}
 	}
 
-	// 4. Get git branch
-	gitBranch := gitBranchForDir(cwd)
+	// 3. Get model, CC version, and git branch
+	am := resolveAgentModel(team, req.Agent)
+	gitBranch := gitutil.BranchName(cwd)
+	if gitBranch == "" {
+		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, cwd)
+	}
 
-	// 5. Write synthetic JSONL session (BEFORE killing anything)
-	projectDir := breathe.CCProjectDir(cwd)
-	cfg := breathe.SessionConfig{
+	// 4. Write synthetic JSONL session (BEFORE killing anything)
+	projectDir, err := breathe.CCProjectDir(cwd)
+	if err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("resolve CC project dir: %v", err)}
+	}
+	newSessionID, err := breathe.WriteSyntheticSession(projectDir, breathe.SessionConfig{
 		CWD:       cwd,
-		CCVersion: ccVersion,
+		CCVersion: am.ccVersion,
 		GitBranch: gitBranch,
 		Handoff:   req.Handoff,
-	}
-	newSessionID, err := breathe.WriteSyntheticSession(projectDir, cfg)
+	})
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("write session: %v", err)}
 	}
 
-	// 6. Update status file with new session ID
-	newStatus := status.AgentStatus{
+	// 5. Update status file with new session ID
+	if err := status.WriteAgent(team, status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           newSessionID,
 		ContextUsedPct:      0,
 		ContextRemainingPct: 100,
-		ModelID:             model,
-		CCVersion:           ccVersion,
+		ModelID:             am.model,
+		ModelName:           am.modelName,
+		CCVersion:           am.ccVersion,
 		UpdatedAt:           time.Now().UTC(),
+	}); err != nil {
+		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
-	if agentStatus != nil {
-		newStatus.ModelName = agentStatus.ModelName
-	}
-	_ = status.WriteAgent(team, newStatus)
 
-	// 7. Build restart command
-	envParts := []string{
+	// 6. Build restart command
+	ccCmd := fmt.Sprintf("claude --resume %s --model %s --dangerously-skip-permissions", newSessionID, am.model)
+	fullCmd := shellCfg.BuildEnvShellCommand([]string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
-	}
-	ccCmd := fmt.Sprintf("claude --resume %s --model %s --dangerously-skip-permissions", newSessionID, model)
-	fullCmd := shellCfg.BuildEnvShellCommand(envParts, ccCmd)
+	}, ccCmd)
 
-	// 8. Inject .env secrets into tmux session
-	dotEnv, err := config.LoadDotEnv()
-	if err != nil {
-		log.Printf("[breathe] warning: .env load failed, secrets may be missing: %v", err)
-	}
-	for k, v := range dotEnv {
-		_ = tmux.SetEnv(sessionName, k, v)
-	}
-
-	// 9. Respawn window (kills existing CC process + starts new one)
-	log.Printf("[breathe] %s: restarting with session %s (model: %s)", req.Agent, newSessionID, model)
+	// 7. Inject .env secrets and respawn
+	injectSecretsToSession(sessionName)
+	log.Printf("[breathe] %s: restarting with session %s (model: %s)", req.Agent, newSessionID, am.model)
 	if err := tmux.RespawnWindow(sessionName, windowName, cwd, fullCmd); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("respawn: %v", err)}
 	}
 
-	log.Printf("[breathe] %s: fresh breath taken ✓", req.Agent)
+	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
 	return SendResponse{OK: true}
-}
-
-// gitBranchForDir returns the current git branch for the given directory, or "main" if unknown.
-func gitBranchForDir(cwd string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "-C", cwd, "symbolic-ref", "--short", "HEAD")
-	cmd.Stderr = nil
-	out, err := cmd.Output()
-	if err != nil {
-		return "main"
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // handleStatusUpdate writes agent context status to the status directory.

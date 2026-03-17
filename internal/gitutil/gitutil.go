@@ -88,6 +88,19 @@ func RemoveWorktree(projectDir, workDir, branch string) error {
 	return nil
 }
 
+// BranchName returns the current git branch for dir.
+// Returns "" if in detached HEAD state or on any error.
+func BranchName(dir string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "branch", "--show-current")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func runGit(dir string, args ...string) (string, error) {
 	return runGitWithTimeout(cmdTimeout, dir, args...)
 }
