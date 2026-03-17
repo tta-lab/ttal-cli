@@ -7,7 +7,7 @@ flicknote_project: fn.plans
 description: Design architect — writes executable implementation plans for Guion/fb3 projects
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash, Glob, Grep, Read, Agent]
 opencode:
   mode: primary
 ttal:
