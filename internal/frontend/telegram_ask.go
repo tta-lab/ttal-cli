@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -26,6 +27,7 @@ type askHumanEntry struct {
 	botToken string
 	chatID   int64
 	msgID    int
+	origText string // original HTML message text — preserved for appending answers
 }
 
 // askHumanResult is the internal result type for an ask-human operation.
@@ -115,14 +117,35 @@ func (s *askHumanStore) deliverAnswer(shortID, answer string) bool {
 	return true
 }
 
-// deliverSkip atomically claims and skips the entry.
-func (s *askHumanStore) deliverSkip(shortID string) bool {
+// deliverSkipWithText atomically claims, skips the entry, and returns its original text.
+func (s *askHumanStore) deliverSkipWithText(shortID string) (string, bool) {
 	e, ok := s.getAndRemove(shortID)
 	if !ok {
-		return false
+		return "", false
 	}
 	e.ch <- askHumanResult{skipped: true}
-	return true
+	return e.origText, true
+}
+
+const telegramMaxLen = 4096
+
+// capText appends suffix to origText, truncating origText on rune boundaries if necessary
+// to stay within Telegram's 4096-character limit.
+func capText(origText, suffix string) string {
+	combined := origText + "\n\n" + suffix
+	if utf8.RuneCountInString(combined) <= telegramMaxLen {
+		return combined
+	}
+	overhead := 2 + utf8.RuneCountInString(suffix) + 1 // "\n\n" + suffix + "…"
+	maxOrigRunes := telegramMaxLen - overhead
+	if maxOrigRunes < 0 {
+		return suffix
+	}
+	runes := []rune(origText)
+	if len(runes) > maxOrigRunes {
+		runes = runes[:maxOrigRunes]
+	}
+	return string(runes) + "…\n\n" + suffix
 }
 
 // AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
@@ -157,13 +180,13 @@ func (f *TelegramFrontend) AskHuman(
 	}
 
 	ch := make(chan askHumanResult, 1)
-	entry := &askHumanEntry{ch: ch, options: options, botToken: botToken, chatID: chatID, msgID: msgID}
+	entry := &askHumanEntry{ch: ch, options: options, botToken: botToken, chatID: chatID, msgID: msgID, origText: text}
 	f.ahs.store(entry, shortID, noOptions)
 
 	go func() {
 		time.Sleep(askHumanTimeout)
-		if f.ahs.deliverSkip(shortID) {
-			expiredText := fmt.Sprintf("⏰ <b>%s</b> — question expired (no response within 5m)", agentName)
+		if origText, ok := f.ahs.deliverSkipWithText(shortID); ok {
+			expiredText := capText(origText, "→ ⏰ <b>Expired</b> (no response within 5m)")
 			editAskHumanMessage(botToken, chatID, msgID, expiredText)
 		}
 	}()
@@ -210,14 +233,15 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 			botToken: botToken,
 			chatID:   chatID,
 			msgID:    msgID,
+			origText: text,
 		}
 		store.store(entry, shortID, noOptions)
 
 		go func() {
 			time.Sleep(askHumanTimeout)
-			if store.deliverSkip(shortID) {
+			if origText, ok := store.deliverSkipWithText(shortID); ok {
 				log.Printf("[ask-human] question timed out (shortID=%s, display=%s)", shortID, displayName)
-				expiredText := fmt.Sprintf("⏰ <b>%s</b> — question expired (no response within 5m)", displayName)
+				expiredText := capText(origText, "→ ⏰ <b>Expired</b> (no response within 5m)")
 				editAskHumanMessage(botToken, chatID, msgID, expiredText)
 			}
 		}()
@@ -227,10 +251,11 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 			resp := askHumanHTTPResponse{OK: !result.skipped, Answer: result.answer, Skipped: result.skipped}
 			writeAskHumanJSON(w, http.StatusOK, resp)
 		case <-r.Context().Done():
-			store.remove(shortID)
-			log.Printf("[ask-human] agent disconnected (shortID=%s, display=%s)", shortID, displayName)
-			disconnectedText := fmt.Sprintf("⚡ <b>%s</b> — agent disconnected before receiving answer", displayName)
-			editAskHumanMessage(botToken, chatID, msgID, disconnectedText)
+			if e, ok := store.getAndRemove(shortID); ok {
+				log.Printf("[ask-human] agent disconnected (shortID=%s, display=%s)", shortID, displayName)
+				disconnectedText := capText(e.origText, "→ ⚡ <b>Agent disconnected</b>")
+				editAskHumanMessage(botToken, chatID, msgID, disconnectedText)
+			}
 		}
 	}
 }
@@ -411,16 +436,17 @@ func handleAskHumanCallback(
 	action := parts[2]
 
 	if action == "skip" {
-		if ahs.deliverSkip(shortID) {
-			_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
-				ChatID:    cq.Message.Message.Chat.ID,
-				MessageID: cq.Message.Message.ID,
-				Text:      "⏭ Question skipped",
-				ParseMode: models.ParseModeHTML,
-			})
-		} else {
+		origText, ok := ahs.deliverSkipWithText(shortID)
+		if !ok {
 			answerExpiredCallback(ctx, b, cq)
+			return
 		}
+		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+			ChatID:    cq.Message.Message.Chat.ID,
+			MessageID: cq.Message.Message.ID,
+			Text:      capText(origText, "→ ⏭ <b>Skipped</b>"),
+			ParseMode: models.ParseModeHTML,
+		})
 		return
 	}
 
@@ -441,10 +467,9 @@ func handleAskHumanCallback(
 	answer := e.options[optIdx]
 	chatID := e.chatID
 	msgID := e.msgID
+	origText := e.origText // capture before deliverAnswer removes the entry
 	if ahs.deliverAnswer(shortID, answer) {
-		// Button option text already carries its own emoji/label (e.g. "✅ Approve"),
-		// so no prefix is needed — show the answer directly.
-		answeredText := fmt.Sprintf("<b>%s</b>", answer)
+		answeredText := capText(origText, fmt.Sprintf("→ <b>%s</b>", answer))
 		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:    chatID,
 			MessageID: msgID,
@@ -479,9 +504,7 @@ func interceptedAsHumanAnswer(msg *models.Message, ahs *askHumanStore) bool {
 	}
 
 	if ahs.deliverAnswer(shortID, text) {
-		// Free-form text has no inherent emoji, so prefix with 💬 to distinguish
-		// a typed reply from a button press visually.
-		answeredText := fmt.Sprintf("💬 <b>%s</b>", text)
+		answeredText := capText(e.origText, fmt.Sprintf("→ 💬 <b>%s</b>", text))
 		editAskHumanMessage(e.botToken, e.chatID, e.msgID, answeredText)
 		return true
 	}

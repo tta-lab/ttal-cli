@@ -77,18 +77,18 @@ func TestAskHumanStore_DeliverAnswer(t *testing.T) {
 func TestAskHumanStore_DeliverSkip(t *testing.T) {
 	s := newAskHumanStore()
 	ch := make(chan askHumanResult, 1)
-	s.store(&askHumanEntry{ch: ch, chatID: 2}, "ah000002", false)
+	s.store(&askHumanEntry{ch: ch, chatID: 2, origText: "original"}, "ah000002", false)
 
-	if !s.deliverSkip("ah000002") {
-		t.Fatal("expected deliverSkip to return true")
+	if _, ok := s.deliverSkipWithText("ah000002"); !ok {
+		t.Fatal("expected deliverSkipWithText to return true")
 	}
 	resp := <-ch
 	if !resp.skipped {
 		t.Errorf("unexpected response: answer=%q skipped=%v", resp.answer, resp.skipped)
 	}
 
-	if s.deliverSkip("ah000002") {
-		t.Error("expected second deliverSkip to return false")
+	if _, ok := s.deliverSkipWithText("ah000002"); ok {
+		t.Error("expected second deliverSkipWithText to return false")
 	}
 }
 
