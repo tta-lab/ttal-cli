@@ -88,9 +88,9 @@ func NewModel() Model {
 		filter:         filterPending,
 		loading:        true,
 		offset:         0,
-		searchInput:    newTextInput("project:x +tag priority:H"),
+		searchInput:    newTextInput("keyword search..."),
 		routeInput:     newTextInput("agent name..."),
-		modifyInput:    newTextInput("+tag project:x priority:H"),
+		modifyInput:    newTextInput("use flicktask edit <id> to modify"),
 		annotateInput:  newTextInput("annotation text"),
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 	}
