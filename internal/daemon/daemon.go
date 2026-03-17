@@ -140,7 +140,7 @@ func Run() error {
 			return handleTaskComplete(req, mcfg, registry, frontends)
 		},
 		breathe: func(req BreatheRequest) SendResponse {
-			return handleBreathe(shellCfg, req)
+			return handleBreathe(shellCfg, frontends, req)
 		},
 		askHuman: askHumanHandler,
 	})

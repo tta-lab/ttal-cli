@@ -217,9 +217,19 @@ func injectSecretsToSession(sessionName string) {
 	}
 }
 
+// buildCCRestartCmd returns the claude --resume command for a breathe restart.
+// Extracted for unit testing.
+func buildCCRestartCmd(sessionID, model, agent string) string {
+	return fmt.Sprintf(
+		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
+		sessionID, model, agent,
+	)
+}
+
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
-func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
+// frontends is the full team→frontend map; team resolution happens inside.
+func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Frontend, req BreatheRequest) SendResponse {
 	team := req.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -285,7 +295,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 
 	// 6. Build restart command
-	ccCmd := fmt.Sprintf("claude --resume %s --model %s --dangerously-skip-permissions", newSessionID, am.model)
+	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent)
 	fullCmd := shellCfg.BuildEnvShellCommand([]string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
@@ -299,7 +309,23 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 
 	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
+
+	// 8. Notify via frontend
+	sendBreatheNotification(context.Background(), frontends[team], req.Agent, team)
+
 	return SendResponse{OK: true}
+}
+
+// sendBreatheNotification sends the post-breathe notification via the frontend.
+// Extracted for unit testing. A nil frontend is valid — logs and skips.
+func sendBreatheNotification(ctx context.Context, fe frontend.Frontend, agent, team string) {
+	if fe == nil {
+		log.Printf("[breathe] %s: no frontend for team %q — notification skipped", agent, team)
+		return
+	}
+	if err := fe.SendNotification(ctx, "🫧 Deep breath. Fresh eyes."); err != nil {
+		log.Printf("[breathe] warning: failed to send notification: %v", err)
+	}
 }
 
 // handleStatusUpdate writes agent context status to the status directory.
