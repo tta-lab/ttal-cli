@@ -41,6 +41,7 @@ func TestProjectModifyAlias(t *testing.T) {
 	}
 	if updated == nil {
 		t.Fatal("project with new alias not found")
+		return
 	}
 	if updated.Alias != "new-alias" {
 		t.Errorf("project alias = %v, want new-alias", updated.Alias)
@@ -63,6 +64,7 @@ func TestProjectModifyName(t *testing.T) {
 	}
 	if updated == nil {
 		t.Fatal("project not found")
+		return
 	}
 	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want %v", updated.Name, testNewName)
@@ -85,6 +87,7 @@ func TestProjectModifyPath(t *testing.T) {
 	}
 	if updated == nil {
 		t.Fatal("project not found")
+		return
 	}
 	if updated.Path != testNewPath {
 		t.Errorf("project path = %v, want %v", updated.Path, testNewPath)
@@ -107,6 +110,7 @@ func TestProjectModifyMultipleFields(t *testing.T) {
 	}
 	if updated == nil {
 		t.Fatal("project not found")
+		return
 	}
 	if updated.Name != testNewName {
 		t.Errorf("project name = %v, want New Name", updated.Name)
