@@ -52,6 +52,30 @@ Examples:
 		if prompt == "" {
 			return fmt.Errorf("no prompt for role %q, no [default] in roles.toml, and no fallback in config.toml", role)
 		}
+
+		// Fetch task for approval display.
+		taskInfo, taskErr := taskwarrior.ExportTask(uuid)
+		taskDesc := uuid
+		if taskErr == nil {
+			taskDesc = taskInfo.Description
+		}
+
+		// Agent sessions require human approval before routing tasks.
+		agentLabel := routeToAgent
+		if agent.Emoji != "" {
+			agentLabel = agent.Emoji + " " + routeToAgent
+		}
+		if err := requireHumanApproval(
+			"task route",
+			fmt.Sprintf("Route task to agent\n\n"+
+				"📋 Task: %s\n"+
+				"🎯 Target: %s\n"+
+				"🏷️ Role: %s",
+				taskDesc, agentLabel, role),
+		); err != nil {
+			return err
+		}
+
 		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt, routeMessage)
 	},
 }
@@ -121,8 +145,9 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 }
 
 // spawnWorkerForTask spawns a worker for a task using the standard spawn flow.
-// When yes is false, prints project path + re-run hint and returns a non-zero error.
-func spawnWorkerForTask(taskUUID string, yes bool) error {
+// In agent sessions (TTAL_AGENT_NAME set), requires human approval via Telegram/Matrix
+// buttons before proceeding.
+func spawnWorkerForTask(taskUUID string) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -158,9 +183,17 @@ func spawnWorkerForTask(taskUUID string, yes bool) error {
 		workerName = task.SessionName()
 	}
 
-	if !yes {
-		printConfirmHint(task, projectPath)
-		return fmt.Errorf("re-run with --yes to confirm")
+	// Agent sessions require human approval before spawning workers.
+	if err := requireHumanApproval(
+		"task execute",
+		fmt.Sprintf("Spawn worker to execute task\n\n"+
+			"📋 Task: %s\n"+
+			"📂 Project: %s\n"+
+			"🔧 Worker: %s\n"+
+			"🌿 Branch: worker/%s",
+			task.Description, projectPath, workerName, workerName),
+	); err != nil {
+		return err
 	}
 
 	if err := startTaskSafe(task.UUID); err != nil {
@@ -209,10 +242,4 @@ func detectSpawner() string {
 		team = defaultTeam
 	}
 	return team + ":" + agent
-}
-
-func printConfirmHint(task *taskwarrior.Task, projectPath string) {
-	fmt.Fprintf(os.Stderr, "Project: %s\n", projectPath)
-	fmt.Fprintf(os.Stderr, "⚠ Confirm project path matches your plan before proceeding:\n")
-	fmt.Fprintf(os.Stderr, "  ttal task execute %s --yes\n", task.SessionID())
 }
