@@ -140,12 +140,7 @@ func Run() error {
 			return handleTaskComplete(req, mcfg, registry, frontends)
 		},
 		breathe: func(req BreatheRequest) SendResponse {
-			team := req.Team
-			if team == "" {
-				team = config.DefaultTeamName
-			}
-			fe := frontends[team]
-			return handleBreathe(shellCfg, fe, req)
+			return handleBreathe(shellCfg, frontends, req)
 		},
 		askHuman: askHumanHandler,
 	})
