@@ -18,6 +18,7 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		send:         sendFn,
 		statusUpdate: func(req StatusUpdateRequest) {},
 		taskComplete: func(req TaskCompleteRequest) SendResponse { return SendResponse{OK: true} },
+		breathe:      func(req BreatheRequest) SendResponse { return SendResponse{OK: true} },
 		askHuman: func(w http.ResponseWriter, r *http.Request) {
 			writeHTTPJSON(w, http.StatusServiceUnavailable, AskHumanResponse{Error: "not configured in test"})
 		},

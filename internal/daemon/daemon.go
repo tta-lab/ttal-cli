@@ -116,6 +116,12 @@ func Run() error {
 	startReminderPoller(mcfg, frontends, done)
 	startWatcher(mcfg, frontends, msgSvc, done)
 
+	shellCfg, err := config.Load()
+	if err != nil {
+		log.Printf("[daemon] warning: failed to load shell config: %v", err)
+		shellCfg = &config.Config{}
+	}
+
 	// Pick a default frontend for HTTP handlers that need one.
 	defaultFE := frontends[mcfg.DefaultTeamName()]
 	if defaultFE == nil {
@@ -132,6 +138,9 @@ func Run() error {
 		statusUpdate: handleStatusUpdate,
 		taskComplete: func(req TaskCompleteRequest) SendResponse {
 			return handleTaskComplete(req, mcfg, registry, frontends)
+		},
+		breathe: func(req BreatheRequest) SendResponse {
+			return handleBreathe(mcfg, shellCfg, req)
 		},
 		askHuman: askHumanHandler,
 	})

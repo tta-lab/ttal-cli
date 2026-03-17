@@ -80,6 +80,13 @@ type StatusResponse struct {
 	Error  string               `json:"error,omitempty"`
 }
 
+// BreatheRequest asks the daemon to restart an agent with a fresh context window.
+type BreatheRequest struct {
+	Team    string `json:"team,omitempty"` // defaults to "default"
+	Agent   string `json:"agent"`          // agent name
+	Handoff string `json:"handoff"`        // handoff prompt content
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -87,6 +94,7 @@ type httpHandlers struct {
 	send         func(SendRequest) error
 	statusUpdate func(StatusUpdateRequest)
 	taskComplete func(TaskCompleteRequest) SendResponse
+	breathe      func(BreatheRequest) SendResponse
 	askHuman     http.HandlerFunc
 }
 
@@ -98,6 +106,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Get("/status", handleHTTPGetStatus())
 	r.Post("/status/update", handleHTTPStatusUpdate(handlers))
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
+	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
@@ -190,6 +199,28 @@ func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
 			writeHTTPJSON(w, http.StatusNotImplemented,
 				SendResponse{OK: false, Error: "taskComplete handler not registered"})
 		}
+	}
+}
+
+func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req BreatheRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				SendResponse{OK: false, Error: "invalid breathe JSON: " + err.Error()})
+			return
+		}
+		if handlers.breathe == nil {
+			writeHTTPJSON(w, http.StatusNotImplemented,
+				SendResponse{OK: false, Error: "breathe handler not registered"})
+			return
+		}
+		result := handlers.breathe(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
 	}
 }
 
@@ -356,4 +387,30 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 		return nil, fmt.Errorf("invalid response from daemon: %w", err)
 	}
 	return &result, nil
+}
+
+// Breathe sends a breathe request to the daemon, asking it to restart an agent's
+// CC session with a fresh context window and the provided handoff prompt.
+func Breathe(req BreatheRequest) error {
+	if req.Team == "" {
+		req.Team = os.Getenv("TTAL_TEAM")
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/breathe", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("invalid response from daemon: %w", err)
+	}
+	if !result.OK {
+		return fmt.Errorf("breathe failed: %s", result.Error)
+	}
+	return nil
 }
