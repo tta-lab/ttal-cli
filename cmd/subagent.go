@@ -134,7 +134,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	for _, e := range subagentRunFlags.sandboxEnv {
 		k, v, ok := strings.Cut(e, "=")
 		if !ok {
-			return fmt.Errorf("invalid --env value %q: expected KEY=VALUE format", e)
+			return fmt.Errorf("invalid --env value %q: expected KEY=VALUE\n\n  Example: ttal subagent run myagent --env FOO=bar --env BAZ=qux", e)
 		}
 		envMap[k] = v
 	}

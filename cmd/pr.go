@@ -111,7 +111,7 @@ Examples:
 		body, _ := cmd.Flags().GetString("body")
 
 		if title == "" && body == "" {
-			return fmt.Errorf("specify --title, --body, or both")
+			return fmt.Errorf("specify --title, --body, or both\n\n  Example: ttal pr modify --title \"new title\" --body \"updated description\"")
 		}
 
 		result, err := pr.Modify(ctx, title, body)
@@ -371,7 +371,7 @@ Examples:
 			return fmt.Errorf("failed to detect tmux session: %w", err)
 		}
 		if sessionName == "" {
-			return fmt.Errorf("must be run inside a tmux session")
+			return fmt.Errorf("must be run inside a tmux session (this command is for worker sessions)")
 		}
 
 		if reviewForce && tmux.WindowExists(sessionName, "review") {

@@ -40,10 +40,10 @@ Example:
   ttal project add --alias=clawd --name='TTAL Core' --path=/Users/neil/clawd`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if projectAlias == "" {
-			return fmt.Errorf("--alias is required")
+			return fmt.Errorf("--alias is required\n\n  Example: ttal project add --alias myproj --name \"My Project\" --path /path/to/repo")
 		}
 		if projectName == "" {
-			return fmt.Errorf("--name is required")
+			return fmt.Errorf("--name is required\n\n  Example: ttal project add --alias myproj --name \"My Project\" --path /path/to/repo")
 		}
 
 		store := getProjectStore()
@@ -195,7 +195,7 @@ Examples:
 		}
 
 		if len(fieldUpdates) == 0 {
-			return fmt.Errorf("no modifications specified (use field:value to update)")
+			return fmt.Errorf("no modifications specified\n\n  Example: ttal project modify myproj name:\"New Name\" path:/new/path")
 		}
 
 		store := getProjectStore()

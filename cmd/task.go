@@ -191,7 +191,7 @@ Examples:
 			case "H", "M", "L":
 				taskAddPriority = strings.ToUpper(taskAddPriority)
 			default:
-				return fmt.Errorf("invalid priority %q — use H, M, or L", taskAddPriority)
+				return fmt.Errorf("invalid priority %q — use H, M, or L\n\n  Example: ttal task add --project ttal \"description\" --priority M", taskAddPriority)
 			}
 		}
 

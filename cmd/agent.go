@@ -225,7 +225,7 @@ Examples:
 			return err
 		}
 		if len(fieldUpdates) == 0 {
-			return fmt.Errorf("no modifications specified (use field:value to update)")
+			return fmt.Errorf("no modifications specified\n\n  Example: ttal agent modify kestrel voice:af_heart emoji:🦅")
 		}
 
 		teamPath, err := resolveTeamPath()
@@ -278,7 +278,7 @@ var agentDeleteCmd = &cobra.Command{
 
 		agentDir := filepath.Join(teamPath, name)
 		if _, err := os.Stat(filepath.Join(agentDir, "CLAUDE.md")); err != nil {
-			return fmt.Errorf("agent '%s' not found", name)
+			return fmt.Errorf("agent '%s' not found\n\n  List available agents: ttal agent list", name)
 		}
 
 		if !confirmPrompt(fmt.Sprintf("Permanently delete agent '%s' and its directory %s? [y/N] ", name, agentDir)) {

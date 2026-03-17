@@ -55,7 +55,7 @@ func runBreathe(_ *cobra.Command, args []string) error {
 	}
 
 	if handoff == "" {
-		return fmt.Errorf("handoff prompt is required — provide as argument or via stdin")
+		return fmt.Errorf("handoff prompt is required\n\n  Example: ttal breathe \"summary of current state and next steps\"")
 	}
 
 	if err := daemon.Breathe(daemon.BreatheRequest{

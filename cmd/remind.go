@@ -34,10 +34,10 @@ The daemon polls for due reminders and sends Telegram notifications.`,
 
 func runRemindAdd(cmd *cobra.Command, args []string) error {
 	if remindAt == "" && remindIn == "" {
-		return fmt.Errorf("specify --at or --in")
+		return fmt.Errorf("specify when to remind\n\n  Example: ttal remind add \"check build\" --in 30m\n  Or:      ttal remind add \"standup\" --at 09:00")
 	}
 	if remindAt != "" && remindIn != "" {
-		return fmt.Errorf("use --at or --in, not both")
+		return fmt.Errorf("use --at or --in, not both\n\n  Example: ttal remind add \"check build\" --in 30m")
 	}
 
 	message := strings.Join(args, " ")

@@ -89,11 +89,11 @@ func runAsk(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagsSet > 1 {
-		return fmt.Errorf("only one of --project, --repo, --url, --web, or --human may be specified at a time")
+		return fmt.Errorf("only one of --project, --repo, --url, --web, or --human may be specified at a time\n\n  Example: ttal ask \"question\" --project ttal")
 	}
 
 	if len(askFlags.options) > 0 && !askFlags.human {
-		return fmt.Errorf("--option is only valid with --human")
+		return fmt.Errorf("--option is only valid with --human\n\n  Example: ttal ask --human \"question\" --option \"yes\" --option \"no\"")
 	}
 
 	if askFlags.human {
