@@ -35,6 +35,12 @@ func TestBuildFullCommand(t *testing.T) {
 			messageText: "/write_plan implement auth",
 			want:        "/write-plan implement auth",
 		},
+		{
+			name:        "command with @bot suffix in group chat",
+			cmdName:     "write-plan",
+			messageText: "/write_plan@somebot implement auth",
+			want:        "/write-plan implement auth",
+		},
 	}
 
 	for _, tt := range tests {
