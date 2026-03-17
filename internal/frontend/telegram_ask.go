@@ -442,6 +442,8 @@ func handleAskHumanCallback(
 	chatID := e.chatID
 	msgID := e.msgID
 	if ahs.deliverAnswer(shortID, answer) {
+		// Button option text already carries its own emoji/label (e.g. "✅ Approve"),
+		// so no prefix is needed — show the answer directly.
 		answeredText := fmt.Sprintf("<b>%s</b>", answer)
 		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:    chatID,
@@ -477,6 +479,8 @@ func interceptedAsHumanAnswer(msg *models.Message, ahs *askHumanStore) bool {
 	}
 
 	if ahs.deliverAnswer(shortID, text) {
+		// Free-form text has no inherent emoji, so prefix with 💬 to distinguish
+		// a typed reply from a button press visually.
 		answeredText := fmt.Sprintf("💬 <b>%s</b>", text)
 		editAskHumanMessage(e.botToken, e.chatID, e.msgID, answeredText)
 		return true
