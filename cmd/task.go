@@ -22,7 +22,6 @@ const taskStatusCompleted = "completed"
 
 var (
 	findCompleted      bool
-	executeYes         bool
 	taskAddProject     string
 	taskAddTags        []string
 	taskAddPriority    string
@@ -159,10 +158,12 @@ var taskExecuteCmd = &cobra.Command{
 	Long: `Spawn a worker to execute a task. Resolves runtime from task tags
 or team's worker_runtime config. Creates a git worktree and tmux session.
 
-Use --yes to confirm and spawn. Without --yes, shows the resolved project path and exits non-zero.`,
+Human CLI: prints the resolved project path as a preview, then spawns immediately.
+Agent session (TTAL_AGENT_NAME set): sends an approval request to the human via
+Telegram/Matrix and blocks until approved.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return spawnWorkerForTask(args[0], executeYes)
+		return spawnWorkerForTask(args[0])
 	},
 }
 
@@ -256,7 +257,6 @@ func init() {
 	taskCmd.AddCommand(taskHeatmapCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")
-	taskExecuteCmd.Flags().BoolVar(&executeYes, "yes", false, "Bypass confirmation and execute immediately")
 
 	taskAddCmd.Flags().StringVar(&taskAddProject, "project", "", "Project alias (required, must exist in ttal)")
 	_ = taskAddCmd.MarkFlagRequired("project")
