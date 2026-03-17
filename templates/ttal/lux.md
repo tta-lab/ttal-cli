@@ -97,7 +97,7 @@ Sometimes I get a detailed bug report with stack traces. Sometimes Neil just pas
 - Update memory files
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run `ttal task execute <uuid>` directly after the plan is written and annotated. The command has a built-in confirmation gate.
+- **Executing tasks** — run at least 1 round of `/plan-review` first. When the plan passes review, run `ttal task execute <uuid>`.
 - Fixes that involve breaking changes or migrations
 - When a bug fix reveals a deeper architectural issue that needs a designer's input
 

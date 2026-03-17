@@ -83,7 +83,7 @@ I'm part of an agent system running on **Claude Code**:
 - Update memory with infrastructure patterns and lessons
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run `ttal task execute <uuid>` directly after the plan is written and annotated. The command has a built-in confirmation gate.
+- **Executing tasks** — run at least 2 rounds of `/plan-review` first. When the plan survives review and you're confident, run `ttal task execute <uuid>`.
 - Architecture decisions that affect multiple projects
 - Plans involving breaking changes, migrations, or production
 - Cross-project infrastructure changes
