@@ -370,6 +370,34 @@ func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 	return cloneURL, localPath, nil
 }
 
+// scanHostDir scans host/org/repo under hostPath, collecting paths where the
+// final directory component equals name.
+func scanHostDir(name, hostPath string) []string {
+	var matches []string
+	orgs, err := os.ReadDir(hostPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", hostPath, err)
+		return nil
+	}
+	for _, org := range orgs {
+		if !org.IsDir() {
+			continue
+		}
+		orgPath := filepath.Join(hostPath, org.Name())
+		repos, err := os.ReadDir(orgPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", orgPath, err)
+			continue
+		}
+		for _, repo := range repos {
+			if repo.IsDir() && repo.Name() == name {
+				matches = append(matches, filepath.Join(orgPath, repo.Name()))
+			}
+		}
+	}
+	return matches
+}
+
 // findClonedRepo scans the references directory for an already-cloned repo
 // matching the bare name (case-sensitive). Returns the local path if exactly
 // one match is found. Errors with disambiguation list on multiple matches.
@@ -379,9 +407,15 @@ func findClonedRepo(name, referencesPath string) (string, error) {
 	hosts, err := os.ReadDir(referencesPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("repo %q not found as org/repo; references directory does not exist at %s", name, referencesPath)
+			return "", fmt.Errorf(
+				"repo %q not found as org/repo; references directory does not exist at %s",
+				name, referencesPath,
+			)
 		}
-		return "", fmt.Errorf("repo %q not found as org/repo; could not read references directory %s: %w", name, referencesPath, err)
+		return "", fmt.Errorf(
+			"repo %q not found as org/repo; could not read references directory %s: %w",
+			name, referencesPath, err,
+		)
 	}
 
 	for _, host := range hosts {
@@ -389,27 +423,7 @@ func findClonedRepo(name, referencesPath string) (string, error) {
 			continue
 		}
 		hostPath := filepath.Join(referencesPath, host.Name())
-		orgs, err := os.ReadDir(hostPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", hostPath, err)
-			continue
-		}
-		for _, org := range orgs {
-			if !org.IsDir() {
-				continue
-			}
-			orgPath := filepath.Join(hostPath, org.Name())
-			repos, err := os.ReadDir(orgPath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", orgPath, err)
-				continue
-			}
-			for _, repo := range repos {
-				if repo.IsDir() && repo.Name() == name {
-					matches = append(matches, filepath.Join(orgPath, repo.Name()))
-				}
-			}
-		}
+		matches = append(matches, scanHostDir(name, hostPath)...)
 	}
 
 	switch len(matches) {
