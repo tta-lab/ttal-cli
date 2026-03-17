@@ -6,17 +6,17 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func PR(uuid string) error {
-	if err := taskwarrior.ValidateUUID(uuid); err != nil {
+	if err := flicktask.ValidateID(uuid); err != nil {
 		return err
 	}
 
-	task, err := taskwarrior.ExportTask(uuid)
+	task, err := flicktask.ExportTask(uuid)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func PR(uuid string) error {
 		return err
 	}
 
-	prInfo, err := taskwarrior.ParsePRID(task.PRID)
+	prInfo, err := flicktask.ParsePRID(task.PRID)
 	if err != nil {
 		return fmt.Errorf("invalid pr_id: %w", err)
 	}

@@ -54,13 +54,25 @@ func FindTasks(keywords []string, completed bool) ([]Task, error) {
 	return parseTasks(out)
 }
 
-// exportAll runs flicktask export and returns all tasks.
+// exportAll runs flicktask export and returns pending tasks.
 func exportAll() ([]Task, error) {
 	out, err := runFlicktask("export")
 	if err != nil {
 		return nil, err
 	}
 	return parseTasks(out)
+}
+
+// ExportAll returns all tasks. Pass completed=true to get completed tasks.
+func ExportAll(completed bool) ([]Task, error) {
+	if completed {
+		out, err := runFlicktask("export", "--completed")
+		if err != nil {
+			return nil, err
+		}
+		return parseTasks(out)
+	}
+	return exportAll()
 }
 
 // ListTasksWithPR returns active tasks that have a pr_id set.

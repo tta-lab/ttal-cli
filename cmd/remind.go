@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/flicktask"
 )
 
 var remindCmd = &cobra.Command{
@@ -26,7 +26,7 @@ var (
 var remindAddCmd = &cobra.Command{
 	Use:   "add [message]",
 	Short: "Create a new reminder",
-	Long: `Creates a taskwarrior task with +reminder tag and scheduled date.
+	Long: `Creates a flicktask task with +reminder tag and scheduled date.
 The daemon polls for due reminders and sends Telegram notifications.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runRemindAdd,
@@ -42,10 +42,15 @@ func runRemindAdd(cmd *cobra.Command, args []string) error {
 
 	message := strings.Join(args, " ")
 
-	// Both paths delegate to taskwarrior's native date parser.
 	var scheduled string
 	if remindIn != "" {
-		scheduled = "now+" + remindIn
+		// flicktask --scheduled doesn't support now+30m relative offsets.
+		// Parse the duration client-side and convert to absolute datetime.
+		dur, err := time.ParseDuration(remindIn)
+		if err != nil {
+			return fmt.Errorf("invalid --in duration %q: %w\n\n  Use Go duration syntax: 30m, 2h, 1h30m", remindIn, err)
+		}
+		scheduled = time.Now().Add(dur).UTC().Format("2006-01-02T15:04:05")
 	} else {
 		scheduled = remindAt
 	}
@@ -60,21 +65,17 @@ func runRemindAdd(cmd *cobra.Command, args []string) error {
 		project = teamName + "." + agent
 	}
 
-	uuid, err := taskwarrior.AddTask(message,
-		"project:"+project,
-		"+reminder",
-		"scheduled:"+scheduled,
+	id, err := flicktask.AddTask(message,
+		flicktask.WithProject(project),
+		flicktask.WithTag("reminder"),
+		flicktask.WithScheduled(scheduled),
 	)
 	if err != nil {
 		return fmt.Errorf("create reminder: %w", err)
 	}
 
-	id := uuid
-	if len(id) > 8 {
-		id = id[:8]
-	}
 	fmt.Printf("⏰ Reminder set: %s\n", message)
-	fmt.Printf("   UUID: %s\n", id)
+	fmt.Printf("   ID: %s\n", id)
 	fmt.Printf("   Scheduled: %s\n", scheduled)
 	return nil
 }
@@ -88,7 +89,7 @@ var remindListCmd = &cobra.Command{
 }
 
 func runRemindList(_ *cobra.Command, _ []string) error {
-	tasks, err := taskwarrior.GetPendingReminders()
+	tasks, err := flicktask.GetPendingReminders()
 	if err != nil {
 		return fmt.Errorf("list reminders: %w", err)
 	}
@@ -114,21 +115,21 @@ func runRemindList(_ *cobra.Command, _ []string) error {
 // --- remind delete ---
 
 var remindDeleteCmd = &cobra.Command{
-	Use:   "delete [uuid]",
+	Use:   "delete [id]",
 	Short: "Delete a reminder",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runRemindDelete,
 }
 
 func runRemindDelete(_ *cobra.Command, args []string) error {
-	uuid := args[0]
-	if err := taskwarrior.ValidateUUID(uuid); err != nil {
+	id := args[0]
+	if err := flicktask.ValidateID(id); err != nil {
 		return err
 	}
-	if err := taskwarrior.MarkDeleted(uuid); err != nil {
+	if err := flicktask.MarkDeleted(id); err != nil {
 		return fmt.Errorf("delete reminder: %w", err)
 	}
-	fmt.Printf("Deleted reminder %s\n", uuid)
+	fmt.Printf("Deleted reminder %s\n", id)
 	return nil
 }
 
@@ -136,7 +137,7 @@ func init() {
 	rootCmd.AddCommand(remindCmd)
 
 	remindAddCmd.Flags().StringVar(&remindAt, "at", "", "Absolute time (e.g. '14:00', 'tomorrow', '2026-03-14T14:00')")
-	remindAddCmd.Flags().StringVar(&remindIn, "in", "", "Relative duration (e.g. '2h', '30min', '1d')")
+	remindAddCmd.Flags().StringVar(&remindIn, "in", "", "Relative duration (e.g. '2h', '30m', '1h30m')")
 	remindCmd.AddCommand(remindAddCmd)
 
 	remindCmd.AddCommand(remindListCmd)

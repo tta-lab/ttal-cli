@@ -31,21 +31,20 @@ func (m Model) viewTaskList() string {
 	}
 
 	// Column widths
-	colID := 4
 	colUUID := 10
 	colPri := 3
 	colAge := 6
 	colProject := 12
 	colTags := 12
-	colDesc := m.width - colID - colUUID - colPri - colAge - colProject - colTags - 10
+	colDesc := m.width - colUUID - colPri - colAge - colProject - colTags - 8
 	if colDesc < 20 {
 		colDesc = 20
 	}
 
 	// Header
 	header := styleDim.Render(
-		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			colID, "ID", colUUID, "UUID", colPri, "P",
+		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+			colUUID, "UUID", colPri, "P",
 			colAge, "Age", colProject, "Project", colTags, "Tags", "Description"))
 	b.WriteString(header)
 	b.WriteString("\n")
@@ -61,7 +60,6 @@ func (m Model) viewTaskList() string {
 		t := &m.filtered[i]
 		selected := i == m.cursor
 
-		id := fmt.Sprintf("%d", t.ID)
 		uuid := t.ShortUUID()
 		pri := t.Priority
 		if pri == "" {
@@ -75,8 +73,8 @@ func (m Model) viewTaskList() string {
 		tags := truncate(strings.Join(t.Tags, " "), colTags)
 		desc := truncate(t.Description, colDesc)
 
-		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			colID, id, colUUID, uuid, colPri, pri,
+		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+			colUUID, uuid, colPri, pri,
 			colAge, age, colProject, proj, colTags, tags, desc)
 
 		if selected {
@@ -87,14 +85,13 @@ func (m Model) viewTaskList() string {
 			// that clear the outer background when cells are styled individually.
 			line = styleToday.Render(line)
 		} else {
-			styledID := lipgloss.NewStyle().Width(colID).Render(styleDim.Render(id))
 			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
 			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
 			styledAge := lipgloss.NewStyle().Width(colAge).Render(styleDim.Render(age))
 			styledProj := lipgloss.NewStyle().Width(colProject).Render(proj)
 			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleTag.Render(tags))
 
-			line = " " + styledID + " " + styledUUID + " " + styledPri + " " +
+			line = " " + styledUUID + " " + styledPri + " " +
 				styledAge + " " + styledProj + " " + styledTags + " " + desc
 		}
 

@@ -53,6 +53,7 @@ type Task struct {
 	Tags        []string     `json:"tags,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Start       string       `json:"start,omitempty"`
+	End         string       `json:"end,omitempty"`
 	Entry       string       `json:"entry,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
 	Scheduled   string       `json:"scheduled,omitempty"`

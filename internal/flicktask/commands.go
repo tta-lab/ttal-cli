@@ -171,6 +171,24 @@ func SetPRLGTM(id string) error {
 	return SetPRID(id, task.PRID+":lgtm")
 }
 
+// AddTag adds a tag to a task.
+func AddTag(id, tag string) error {
+	_, err := runFlicktask("tag", id, tag)
+	if err != nil {
+		return fmt.Errorf("failed to add tag %s to task %s: %w", tag, id, err)
+	}
+	return nil
+}
+
+// RemoveTag removes a tag from a task.
+func RemoveTag(id, tag string) error {
+	_, err := runFlicktask("untag", id, tag)
+	if err != nil {
+		return fmt.Errorf("failed to remove tag %s from task %s: %w", tag, id, err)
+	}
+	return nil
+}
+
 // EditScheduled sets the scheduled date on a task.
 func EditScheduled(id, date string) error {
 	_, err := runFlicktask("edit", id, "--scheduled", date)
