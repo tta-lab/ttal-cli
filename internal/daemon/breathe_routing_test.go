@@ -33,7 +33,7 @@ func TestHandleBreatheValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := handleBreathe(shellCfg, tt.req)
+			resp := handleBreathe(shellCfg, nil, tt.req)
 			if resp.OK {
 				t.Fatalf("expected OK=false, got OK=true")
 			}
@@ -48,7 +48,7 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 	shellCfg := &config.Config{}
 
 	// team="" should default without panicking — it will fail at session check
-	resp := handleBreathe(shellCfg, BreatheRequest{
+	resp := handleBreathe(shellCfg, nil, BreatheRequest{
 		Team:    "",
 		Agent:   "nonexistent-test-agent-xyz",
 		Handoff: "# Handoff",

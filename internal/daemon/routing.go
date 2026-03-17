@@ -219,7 +219,8 @@ func injectSecretsToSession(sessionName string) {
 
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
-func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
+// fe is the team's frontend for sending the post-breathe notification (may be nil).
+func handleBreathe(shellCfg *config.Config, fe frontend.Frontend, req BreatheRequest) SendResponse {
 	team := req.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -285,7 +286,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 
 	// 6. Build restart command
-	ccCmd := fmt.Sprintf("claude --resume %s --model %s --dangerously-skip-permissions", newSessionID, am.model)
+	ccCmd := fmt.Sprintf("claude --resume %s --model %s --dangerously-skip-permissions --agent %s", newSessionID, am.model, req.Agent)
 	fullCmd := shellCfg.BuildEnvShellCommand([]string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
@@ -299,6 +300,14 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 
 	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
+
+	// 8. Notify via frontend
+	if fe != nil {
+		if err := fe.SendNotification(context.Background(), "🫧 Deep breath. Fresh eyes."); err != nil {
+			log.Printf("[breathe] warning: failed to send notification: %v", err)
+		}
+	}
+
 	return SendResponse{OK: true}
 }
 
