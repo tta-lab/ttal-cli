@@ -137,6 +137,7 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(askProjectPrompt, "{projectPath}", projectPath),
+		workingDir:   projectPath,
 		allowedPaths: []string{projectPath},
 		network:      true,
 		readFS:       true,
@@ -163,6 +164,7 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(askRepoPrompt, "{localPath}", localPath),
+		workingDir:   localPath,
 		allowedPaths: []string{localPath},
 		network:      true,
 		readFS:       true,
@@ -219,6 +221,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 	return runAskAgent(askOpts{
 		question:     question,
 		systemExtra:  strings.ReplaceAll(askGeneralPrompt, "{cwd}", cwd),
+		workingDir:   cwd,
 		allowedPaths: []string{cwd},
 		network:      true,
 		readFS:       true,
@@ -234,6 +237,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 type askOpts struct {
 	question     string
 	systemExtra  string   // mode-specific system prompt addition
+	workingDir   string   // working dir shown in system prompt (also used for PromptData)
 	allowedPaths []string // nil = no filesystem access
 	network      bool     // include read-url + search in prompt
 	readFS       bool     // include rg + read-only filesystem guidance in prompt
@@ -258,14 +262,7 @@ func runAskAgent(opts askOpts) error {
 		return fmt.Errorf("build provider: %w", err)
 	}
 
-	// cwd declared here so it's accessible to PromptData below.
-	var cwd string
-	if len(opts.allowedPaths) > 0 {
-		cwd, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
-		}
-	}
+	cwd := opts.workingDir
 
 	promptData := logos.PromptData{
 		WorkingDir: cwd,
