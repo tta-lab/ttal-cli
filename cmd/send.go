@@ -12,6 +12,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
+const sendExample = `ttal send --to kestrel "your message"`
+
 var (
 	sendTo    string
 	sendStdin bool
@@ -37,7 +39,7 @@ Examples:
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {
-			return fmt.Errorf("--to is required (agent→Telegram is handled by the daemon JSONL watcher)")
+			return fmt.Errorf("--to is required\n\n  Example: %s", sendExample)
 		}
 
 		var message string
@@ -50,18 +52,18 @@ Examples:
 			message = strings.TrimRight(string(data), "\n")
 		} else {
 			if len(args) == 0 {
-				return fmt.Errorf("message argument required (or use --stdin)")
+				return fmt.Errorf("message required\n\n  Example: %s\n  Or pipe: echo \"msg\" | ttal send --to kestrel --stdin", sendExample) //nolint:lll
 			}
 			message = strings.Join(args, " ")
 		}
 
 		if message == "" {
-			return fmt.Errorf("message cannot be empty")
+			return fmt.Errorf("message cannot be empty\n\n  Example: %s", sendExample)
 		}
 
 		from := os.Getenv("TTAL_AGENT_NAME")
 		if sendTo == "human" && from == "" {
-			return fmt.Errorf("TTAL_AGENT_NAME env var required to send to human")
+			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
 		}
 
 		// Resolve team:agent syntax or fall back to TTAL_TEAM env var

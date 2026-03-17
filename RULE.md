@@ -4,6 +4,7 @@
 
 ```bash
 ttal send --to <agent> "message"
+ttal send --to <uuid> "message"        # send to worker session (8+ hex chars)
 ```
 
 ## Tasks
@@ -41,8 +42,7 @@ EOF
 ## Projects & Agents
 
 ```bash
-ttal project list                      # all active projects
-ttal project get <alias>               # project details
+ttal project list                      # all active projects with paths
 ttal agent info <name>                 # agent details
 ttal agent list                        # all agents
 ```

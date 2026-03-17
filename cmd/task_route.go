@@ -113,7 +113,7 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("task %s is already completed — cannot route", taskUUID)
+		return fmt.Errorf("task %s is already completed — cannot route\n\n  Check task status: ttal task get %s", taskUUID, taskUUID) //nolint:lll
 	}
 
 	uuid := task.UUID
@@ -164,12 +164,12 @@ func spawnWorkerForTask(taskUUID string) error {
 	}
 
 	if task.Status == taskStatusCompleted {
-		return fmt.Errorf("task %s is already completed — cannot execute", taskUUID)
+		return fmt.Errorf("task %s is already completed — cannot execute\n\n  Check task status: ttal task get %s", taskUUID, taskUUID) //nolint:lll
 	}
 
 	sessionName := task.SessionName()
 	if tmux.SessionExists(sessionName) {
-		return fmt.Errorf("session %s already exists — cannot spawn duplicate", sessionName)
+		return fmt.Errorf("session %s already exists — cannot spawn duplicate\n\n  List active workers: ttal worker list", sessionName) //nolint:lll
 	}
 
 	projectPath, err := projectPkg.ResolveProjectPathOrError(task.Project)
