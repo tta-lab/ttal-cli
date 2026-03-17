@@ -158,6 +158,7 @@ func TestBuildAskHumanMessage_WithOptions(t *testing.T) {
 
 	if markup == nil {
 		t.Fatal("expected inline keyboard for options question")
+		return
 	}
 	if strings.Contains(text, "Reply to this message") {
 		t.Error("no-options reply prompt should not appear when options are set")

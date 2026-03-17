@@ -11,7 +11,8 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	gitutil "github.com/tta-lab/ttal-cli/internal/git"
+	git "github.com/tta-lab/ttal-cli/internal/git"
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -51,7 +52,7 @@ func spawnWorker(cfg SpawnConfig) error {
 	}
 
 	// Detect git root — project may be a subpath within a monorepo
-	gitRoot, err := gitutil.FindRoot(project)
+	gitRoot, err := git.FindRoot(project)
 	if err != nil {
 		return fmt.Errorf("cannot find git root for %s: %w", project, err)
 	}
@@ -524,15 +525,7 @@ func resolveTaskRCFromConfig(cfg *config.Config) string {
 }
 
 func detectBranch(workDir string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "branch", "--show-current")
-	out, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
-	if b := strings.TrimSpace(string(out)); b != "" {
+	if b := gitutil.BranchName(workDir); b != "" {
 		return b
 	}
 	return "unknown"

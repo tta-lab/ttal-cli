@@ -262,6 +262,43 @@ func Role() string {
 	return os.Getenv("TTAL_ROLE")
 }
 
+// GetPaneCwd returns the current working directory of the pane in the given session:window.
+func GetPaneCwd(session, window string) (string, error) {
+	target := session
+	if window != "" {
+		target = session + ":" + window
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-t", target, "-p", "#{pane_current_path}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("get pane cwd: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// RespawnWindow kills any existing process and starts a new command in the window.
+func RespawnWindow(session, window, workDir, command string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	target := session + ":" + window
+	args := []string{"respawn-window", "-k", "-t", target}
+	if workDir != "" {
+		args = append(args, "-c", workDir)
+	}
+	args = append(args, command)
+
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("respawn-window failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // sanitizeForTerminal replaces newlines/CR with spaces and strips control chars.
 func sanitizeForTerminal(s string) string {
 	var b strings.Builder

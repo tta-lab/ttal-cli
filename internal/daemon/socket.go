@@ -80,6 +80,13 @@ type StatusResponse struct {
 	Error  string               `json:"error,omitempty"`
 }
 
+// BreatheRequest asks the daemon to restart an agent with a fresh context window.
+type BreatheRequest struct {
+	Team    string `json:"team,omitempty"` // defaults to "default"
+	Agent   string `json:"agent"`          // agent name
+	Handoff string `json:"handoff"`        // handoff prompt content
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -87,6 +94,7 @@ type httpHandlers struct {
 	send         func(SendRequest) error
 	statusUpdate func(StatusUpdateRequest)
 	taskComplete func(TaskCompleteRequest) SendResponse
+	breathe      func(BreatheRequest) SendResponse
 	askHuman     http.HandlerFunc
 }
 
@@ -98,6 +106,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Get("/status", handleHTTPGetStatus())
 	r.Post("/status/update", handleHTTPStatusUpdate(handlers))
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
+	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
@@ -171,26 +180,31 @@ func handleHTTPStatusUpdate(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
-func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
+// handleHTTPWithResponse creates a typed HTTP handler: decode JSON, call fn, map OK/error to status code.
+// fn must be non-nil; callers are responsible for always populating httpHandlers fields.
+func handleHTTPWithResponse[Req any](name string, fn func(Req) SendResponse) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req TaskCompleteRequest
+		var req Req
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeHTTPJSON(w, http.StatusBadRequest,
-				SendResponse{OK: false, Error: "invalid taskComplete JSON: " + err.Error()})
+				SendResponse{OK: false, Error: "invalid " + name + " JSON: " + err.Error()})
 			return
 		}
-		if handlers.taskComplete != nil {
-			resp := handlers.taskComplete(req)
-			code := http.StatusOK
-			if !resp.OK {
-				code = http.StatusInternalServerError
-			}
-			writeHTTPJSON(w, code, resp)
-		} else {
-			writeHTTPJSON(w, http.StatusNotImplemented,
-				SendResponse{OK: false, Error: "taskComplete handler not registered"})
+		result := fn(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
 		}
+		writeHTTPJSON(w, code, result)
 	}
+}
+
+func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
+	return handleHTTPWithResponse("taskComplete", handlers.taskComplete)
+}
+
+func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
+	return handleHTTPWithResponse("breathe", handlers.breathe)
 }
 
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {
@@ -356,4 +370,30 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 		return nil, fmt.Errorf("invalid response from daemon: %w", err)
 	}
 	return &result, nil
+}
+
+// Breathe sends a breathe request to the daemon, asking it to restart an agent's
+// CC session with a fresh context window and the provided handoff prompt.
+func Breathe(req BreatheRequest) error {
+	if req.Team == "" {
+		req.Team = os.Getenv("TTAL_TEAM")
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/breathe", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("invalid response from daemon: %w", err)
+	}
+	if !result.OK {
+		return fmt.Errorf("breathe failed: %s", result.Error)
+	}
+	return nil
 }

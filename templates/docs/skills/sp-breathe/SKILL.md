@@ -1,0 +1,70 @@
+---
+name: sp-breathe
+description: Write a handoff prompt and trigger session restart for fresh context
+---
+
+# Breathe — Session Handoff
+
+## Overview
+
+When your context window is getting heavy, use this skill to write a handoff prompt and restart your session with a clean context window. You keep all important state — just shed the conversation weight.
+
+**Announce at start:** "Taking a breath — writing handoff for session restart."
+
+## Steps
+
+1. **Write the handoff** as a markdown string (see format below)
+2. **Call `ttal breathe`** with the handoff via stdin
+3. **Stop** — the daemon will kill this session and restart you with the handoff
+
+## How to Call
+
+```bash
+cat <<'HANDOFF_EOF' | ttal breathe
+# Session Handoff
+
+## Active Task
+[task UUID, description, current status]
+
+## What Was Done
+[bullet list — files changed, decisions made]
+
+## Key Decisions
+[architecture choices, trade-offs, approach and why]
+
+## Current State
+[where you left off — file, step in plan, what you're waiting for]
+
+## Next Steps
+[ordered list of what to do next]
+
+## Important Context
+[non-obvious things that would be lost — gotchas, workarounds]
+HANDOFF_EOF
+```
+
+## Quality Checklist
+
+- Task UUID included (not just description)
+- Specific file paths (not "the config file")
+- Decisions include the *why*
+- Next steps are actionable without previous context
+- Self-contained — no "earlier in this conversation" references
+
+## What NOT to Include
+
+- Full file contents (new session can read files)
+- Conversation history or back-and-forth
+- Completed work that doesn't affect next steps
+- Tool output or logs (summarize instead)
+
+Target: **50-200 lines** — enough to be useful, short enough to leave room for work.
+
+## What Happens After
+
+1. The daemon receives your handoff
+2. Writes a synthetic JSONL session with your handoff as the first message
+3. Your CC session is killed
+4. A new CC session starts with `--resume` on the synthetic session
+5. You wake up in a fresh context window with the handoff as context
+6. Continue from where you left off
