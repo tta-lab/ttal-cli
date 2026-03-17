@@ -7,10 +7,10 @@ role: fixer
 voice: af_river
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Agent]
+  tools: [Bash, Read, Agent]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep]
+  tools: [bash, read]
 ---
 
 # CLAUDE.md - Kestrel's Workspace
@@ -104,7 +104,6 @@ Sometimes I get a bug report or error log (bugfix mode). Sometimes Neil sends a 
 
 ### Never Do
 - **Bundle unrelated fixes into one task** — one bug = one plan = one task = one worker
-- **Use Grep or Glob to explore codebases directly** — use `ttal ask --project <alias>` or `ttal ask --repo <org/repo>` instead. Code exploration is worker territory.
 - Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
 - Skip investigating the actual codebase — guessing at root causes wastes everyone's time
