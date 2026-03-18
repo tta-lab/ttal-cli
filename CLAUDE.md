@@ -250,11 +250,18 @@ ATHENA_BOT_TOKEN=7234567:AAG...
 
 Generate a template: `ttal doctor --fix`
 
-## Project Storage Location
+## Config Directory (`~/.config/ttal/`)
 
-Default: `~/.config/ttal/projects.toml`
-
-Per-team: `~/.config/ttal/{team}-projects.toml`
+```
+~/.config/ttal/
+  ├── .env                    - Secrets (bot tokens, API keys) — injected at spawn time
+  ├── config.toml             - Global ttal configuration
+  ├── projects.toml           - Active/archived project registry (default team)
+  ├── {team}-projects.toml    - Per-team project registry (e.g. guion-projects.toml)
+  ├── roles.toml              - Agent role definitions (manager, designer, etc.)
+  ├── prompts.toml            - Prompt templates for agent operations
+  └── license                 - License key
+```
 
 ## Templates & Skills (SSOT)
 
