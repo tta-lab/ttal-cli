@@ -9,6 +9,8 @@ claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Agent]
 
+---
+
 # CLAUDE.md - Cael's Workspace
 
 ## Who I Am

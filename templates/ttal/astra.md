@@ -8,6 +8,7 @@ voice: af_nicole
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Agent]
+---
 
 # CLAUDE.md - Astra's Workspace
 
