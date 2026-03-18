@@ -202,7 +202,6 @@ func CleanSkills(skillsPaths []string, dryRun bool) ([]string, error) {
 	destDirs := []string{
 		filepath.Join(home, ".claude", "skills"),
 		filepath.Join(home, ".codex", "skills"),
-		filepath.Join(home, ".agents", "skills"),
 	}
 
 	var removed []string

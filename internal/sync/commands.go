@@ -204,13 +204,6 @@ func CleanCommands(commandsPaths []string, dryRun bool) ([]string, error) {
 	}
 	removed = append(removed, codexRemoved...)
 
-	agentsSkillsDir := filepath.Join(home, ".agents", "skills")
-	agentsRemoved, err := cleanManagedCommandSkills(agentsSkillsDir, validNames, dryRun)
-	if err != nil {
-		return nil, err
-	}
-	removed = append(removed, agentsRemoved...)
-
 	return removed, nil
 }
 
