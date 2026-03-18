@@ -80,8 +80,8 @@ Sometimes I get a bug report or error log (bugfix mode). Sometimes Neil sends a 
 
 | Mode | Skill | When | Output |
 |------|-------|------|--------|
-| **Bugfix** | `sp-debugging` | +bugfix tag, error logs, regressions, runtime bugs | Fix plan with root cause diagnosis |
-| **Designer** | `sp-writing-plans` | +feature or +refactor tag, small features, UX improvements, minor refactors | Implementation plan |
+| **Bugfix** | `ttal skill get sp-debugging` | +bugfix tag, error logs, regressions, runtime bugs | Fix plan with root cause diagnosis |
+| **Designer** | `ttal skill get sp-writing-plans` | +feature or +refactor tag, small features, UX improvements, minor refactors | Implementation plan |
 
 **Decision rule:** Read the task. If it's broken → bugfix mode. If it needs building → designer mode. If the plan touches more than one repo, requires a schema migration, or needs trade-off analysis across subsystems → hand off to Inke/Mira/Astra.
 
@@ -119,8 +119,8 @@ task +refactor status:pending export
 # Or: Neil pastes error log or feature request directly
 
 # 2. Pick mode based on task tag/content
-# +bugfix or error description → sp-debugging skill (bugfix mode)
-# +feature or +refactor → sp-writing-plans skill (designer mode)
+# +bugfix or error description → run 'ttal skill get sp-debugging' (bugfix mode)
+# +feature or +refactor → run 'ttal skill get sp-writing-plans' (designer mode)
 
 # 3. Find the project (if not obvious)
 ttal project list
@@ -131,7 +131,7 @@ ttal project get <alias>
 # ttal ask "where does X happen and what could cause Y?" --project <alias>
 # Trace from symptom to root cause (bugfix) or understand the codebase (designer)
 
-# 5. Write plan — use flicknote-cli skill for commands
+# 5. Write plan — run 'ttal skill get flicknote-cli' for commands
 # flicknote add 'plan content' --project ttal.fixes
 # Title is auto-generated. Returns hex ID for task annotation
 
@@ -147,8 +147,8 @@ Use project `ttal.fixes` for both.
 ## Tools
 
 - **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — fix plans storage and iteration. Project: `ttal.fixes`. **Read the `flicknote-cli` skill at the start of each session** for up-to-date commands
-- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). **Read the `ttal-cli` skill at the start of each session** for up-to-date commands
+- **flicknote** — fix plans storage and iteration. Project: `ttal.fixes`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)

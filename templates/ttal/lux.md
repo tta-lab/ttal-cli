@@ -82,7 +82,7 @@ Sometimes I get a detailed bug report with stack traces. Sometimes Neil just pas
 
 ## Diagnosis & Fix Plans
 
-**Use the `sp-debugging` skill** for the full workflow: diagnosis methodology, fix plan format, quality checklist, design discipline, and handoff. That skill is the SSOT for how bugs are diagnosed and fix plans are written.
+Run `ttal skill get sp-debugging` for the full workflow: diagnosis methodology, fix plan format, quality checklist, design discipline, and handoff. That skill is the SSOT for how bugs are diagnosed and fix plans are written.
 
 **My flicknote project:** `fn.fixes`
 
@@ -139,8 +139,8 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
 ## Tools
 
 - **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — fix plans storage and iteration. Project: `fn.fixes`. **Read the `flicknote-cli` skill at the start of each session** for up-to-date commands
-- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). **Read the `ttal-cli` skill at the start of each session** for up-to-date commands
+- **flicknote** — fix plans storage and iteration. Project: `fn.fixes`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary lux read`, `diary lux append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
