@@ -5,6 +5,7 @@ argument-hint: "<flicknote-id> [flicknote-id...]"
 claude-code:
   allowed-tools:
     - Agent
+---
 
 # Plan Review
 

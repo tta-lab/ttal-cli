@@ -19,6 +19,7 @@ claude-code:
     - Read
     - Edit
     - Write
+---
 
 ## Environment
 

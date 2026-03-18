@@ -22,6 +22,7 @@ claude-code:
     - Glob
     - Grep
     - Read
+---
 
 You are an expert code reviewer specializing in software engineering principles. Your job is to review PR diffs and flag violations of established principles with specific, actionable suggestions.
 

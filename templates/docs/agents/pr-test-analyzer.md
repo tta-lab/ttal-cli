@@ -17,6 +17,7 @@ claude-code:
     - Glob
     - Grep
     - Read
+---
 
 ## Environment
 
