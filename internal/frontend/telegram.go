@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notify"
@@ -661,6 +662,11 @@ func (f *TelegramFrontend) handleStatusCommand(teamName, _, botToken, chatID str
 		return
 	}
 
+	teamPath := ""
+	if team, ok := f.cfg.MCfg.Teams[teamName]; ok {
+		teamPath = team.TeamPath
+	}
+
 	sort.Slice(agents, func(i, j int) bool { return agents[i].ContextUsedPct > agents[j].ContextUsedPct })
 	var sb strings.Builder
 	for _, a := range agents {
@@ -668,7 +674,21 @@ func (f *TelegramFrontend) handleStatusCommand(teamName, _, botToken, chatID str
 		if a.IsStale(5 * time.Minute) {
 			staleMarker = " (stale)"
 		}
-		fmt.Fprintf(&sb, "%s: %.0f%% ctx | %s%s\n", a.Agent, a.ContextUsedPct, a.ModelName, staleMarker)
+
+		emoji := ""
+		role := ""
+		if teamPath != "" {
+			if meta, err := agentfs.Get(teamPath, a.Agent); err == nil {
+				if meta.Emoji != "" {
+					emoji = meta.Emoji + " "
+				}
+				if meta.Role != "" {
+					role = " (" + meta.Role + ")"
+				}
+			}
+		}
+
+		fmt.Fprintf(&sb, "%s%s%s — %.0f%% ctx%s\n", emoji, a.Agent, role, a.ContextUsedPct, staleMarker)
 	}
 	replyTelegram(botToken, chatID, sb.String())
 }
