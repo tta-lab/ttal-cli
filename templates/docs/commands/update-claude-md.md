@@ -2,6 +2,7 @@
 name: update-claude-md
 description: "Update CLAUDE.md based on what was just discussed in conversation"
 claude-code: {}
+---
 
 # Update CLAUDE.md
 
