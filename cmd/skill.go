@@ -387,7 +387,8 @@ func runSkillAddFile(name, filePath, category, description string, force bool) e
 	if description == "" {
 		description = fmDesc
 	}
-	// Prefer frontmatter name if provided; name is always set (cobra MinimumNArgs(1) guarantees it)
+	// Frontmatter name takes precedence over the CLI argument: it's the file's canonical identity.
+	// e.g. `ttal skill add my-alias --file foo.md` registers as the frontmatter name if present.
 	if fmName != "" {
 		name = fmName
 	}
