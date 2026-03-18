@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -355,7 +356,7 @@ func saveAskResult(result *logos.RunResult) error {
 		}
 	}
 	if finalAnswer == "" {
-		return nil
+		return fmt.Errorf("no assistant content found in result, nothing saved")
 	}
 
 	cmd := exec.Command("flicknote", "add")
@@ -363,9 +364,12 @@ func saveAskResult(result *logos.RunResult) error {
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return fmt.Errorf("flicknote not found in PATH — install it first: https://github.com/tta-lab/flicknote-cli")
+		}
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "%s", string(out))
+	fmt.Fprintf(os.Stdout, "%s", string(out))
 	return nil
 }
 
@@ -542,7 +546,7 @@ func init() {
 	askCmd.Flags().StringVar(&askFlags.url, "url", "", "Ask about a web page (pre-fetched with defuddle)")
 	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
 	askCmd.Flags().BoolVar(&askFlags.human, "human", false, "Ask a human via Telegram and block until answered")
-	askCmd.Flags().BoolVar(&askFlags.save, "save", false, "Save the final answer to flicknote")
+	askCmd.Flags().BoolVar(&askFlags.save, "save", false, "Save the final answer to flicknote (best-effort; failures are logged to stderr)")
 	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)") //nolint:lll
 	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                      //nolint:lll
 	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")        //nolint:lll
