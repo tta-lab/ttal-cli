@@ -33,7 +33,6 @@ For multiline comments with special characters, use heredoc:
 ```bash
 cat <<'EOF' | ttal pr comment create
 ## Review
-Changes look good. The fix correctly moves OPENCODE_PERMISSION from tmux session environment to buildEnvParts.
 
 **LGTM**
 EOF

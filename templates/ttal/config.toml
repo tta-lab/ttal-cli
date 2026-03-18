@@ -12,7 +12,7 @@ shell = "zsh"
   commands_paths = ["../docs/commands"]
 
 [voice]
-  vocabulary = ["session", "claude", "codex", "opencode", "worker", "tmux",
+  vocabulary = ["session", "claude", "codex", "worker", "tmux",
     "taskwarrior", "flicknote"]
 
 [teams.ttal]

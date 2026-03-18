@@ -8,7 +8,7 @@ import (
 )
 
 // ManagedMarkerField is a YAML frontmatter field embedded in deployed files
-// so CleanAgents and CleanCommands can identify ttal-managed files and avoid deleting user-created ones.
+// to identify them as ttal-managed.
 const ManagedMarkerField = "managed_by: ttal-sync"
 
 // TtalAgentConfig holds ttal-native execution config for a subagent.
@@ -24,7 +24,6 @@ type AgentFrontmatter struct {
 	Description string                 `yaml:"description"`
 	Emoji       string                 `yaml:"emoji"`
 	ClaudeCode  map[string]interface{} `yaml:"claude-code"`
-	OpenCode    map[string]interface{} `yaml:"opencode"`
 	Codex       map[string]interface{} `yaml:"codex"`
 	Ttal        *TtalAgentConfig       `yaml:"ttal"`
 }
@@ -36,7 +35,7 @@ type ParsedAgent struct {
 }
 
 // splitFrontmatter splits content into raw YAML frontmatter and body text.
-// Returns the YAML string between --- delimiters and the body after the closing delimiter.
+// Returns the YAML String between --- delimiters and the body after the closing delimiter.
 func splitFrontmatter(content string) (yamlContent string, body string, err error) {
 	content = strings.TrimSpace(content)
 	if !strings.HasPrefix(content, "---") {
@@ -105,27 +104,12 @@ func GenerateCCVariant(agent *ParsedAgent) (string, error) {
 	return renderFile(fm, agent.Body)
 }
 
-// GenerateOCVariant produces an OpenCode agent .md file from a parsed canonical agent.
-// Includes shared fields (name, description) plus opencode specific fields.
-func GenerateOCVariant(agent *ParsedAgent) (string, error) {
-	fm := make(map[string]interface{})
-	fm["name"] = agent.Frontmatter.Name
-	if agent.Frontmatter.Description != "" {
-		fm["description"] = agent.Frontmatter.Description
-	}
-	for k, v := range agent.Frontmatter.OpenCode {
-		fm[k] = v
-	}
-	return renderFile(fm, agent.Body)
-}
-
 // CommandFrontmatter holds parsed frontmatter from a canonical command .md file.
 type CommandFrontmatter struct {
 	Name         string                 `yaml:"name"`
 	Description  string                 `yaml:"description"`
 	ArgumentHint string                 `yaml:"argument-hint"`
 	ClaudeCode   map[string]interface{} `yaml:"claude-code"`
-	OpenCode     map[string]interface{} `yaml:"opencode"`
 }
 
 // ParsedCommand holds the parsed frontmatter and body of a command .md file.
@@ -176,22 +160,6 @@ func GenerateCCCommandVariant(cmd *ParsedCommand) (string, error) {
 		fm["argument-hint"] = cmd.Frontmatter.ArgumentHint
 	}
 	for k, v := range cmd.Frontmatter.ClaudeCode {
-		fm[k] = v
-	}
-	return renderFile(fm, cmd.Body)
-}
-
-// GenerateOCCommandVariant produces an OC command .md from a parsed canonical command.
-// Includes shared fields (description, argument-hint) plus opencode specific fields.
-func GenerateOCCommandVariant(cmd *ParsedCommand) (string, error) {
-	fm := make(map[string]interface{})
-	if cmd.Frontmatter.Description != "" {
-		fm["description"] = cmd.Frontmatter.Description
-	}
-	if cmd.Frontmatter.ArgumentHint != "" {
-		fm["argument-hint"] = cmd.Frontmatter.ArgumentHint
-	}
-	for k, v := range cmd.Frontmatter.OpenCode {
 		fm[k] = v
 	}
 	return renderFile(fm, cmd.Body)

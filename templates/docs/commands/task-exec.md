@@ -5,8 +5,6 @@ argument-hint: "<task-uuid or description>"
 claude-code:
   allowed-tools:
     - Bash
-opencode: {}
----
 
 # Task Execute
 

@@ -106,46 +106,6 @@ func TestDeployRules_DryRun(t *testing.T) {
 	}
 }
 
-func TestCleanRules(t *testing.T) {
-	src := t.TempDir()
-	dest := t.TempDir()
-
-	// Create a valid rule
-	skillDir := filepath.Join(src, "valid-rule")
-	mustMkdirAll(t, skillDir)
-	mustWriteFile(t, filepath.Join(skillDir, "RULE.md"), []byte("valid"))
-
-	// Deploy the valid rule
-	if _, err := DeployRulesTo([]string{src}, dest, false); err != nil {
-		t.Fatalf("DeployRulesTo: %v", err)
-	}
-
-	// Add a stale rule file manually
-	mustWriteFile(t, filepath.Join(dest, "stale-rule.md"), []byte("stale"))
-
-	removed, err := CleanRulesIn([]string{src}, dest, false)
-	if err != nil {
-		t.Fatalf("CleanRulesIn: %v", err)
-	}
-
-	if len(removed) != 1 {
-		t.Fatalf("expected 1 removed, got %d", len(removed))
-	}
-	if !strings.HasSuffix(removed[0], "stale-rule.md") {
-		t.Errorf("expected stale-rule.md removed, got %s", removed[0])
-	}
-
-	// Verify stale file is gone
-	if _, err := os.Stat(filepath.Join(dest, "stale-rule.md")); !os.IsNotExist(err) {
-		t.Error("stale rule should have been removed")
-	}
-
-	// Verify valid file still exists
-	if _, err := os.Stat(filepath.Join(dest, "valid-rule.md")); err != nil {
-		t.Error("valid rule should still exist")
-	}
-}
-
 func TestDeployCodexRules(t *testing.T) {
 	src := t.TempDir()
 	agentsPath := filepath.Join(t.TempDir(), "AGENTS.md")

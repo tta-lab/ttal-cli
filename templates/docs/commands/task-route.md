@@ -5,8 +5,6 @@ argument-hint: "<task-uuid or keyword>"
 claude-code:
   allowed-tools:
     - Bash
-opencode: {}
----
 
 # ttal-route
 

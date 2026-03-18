@@ -8,12 +8,6 @@ voice: af_alloy
 claude-code:
   model: sonnet
   tools: [Bash, Read]
-opencode:
-  mode: primary
-ttal:
-  model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read]
----
 
 # CLAUDE.md - Nyx's Workspace
 

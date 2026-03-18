@@ -6,9 +6,6 @@ role: reviewer
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Agent]
-opencode:
-  mode: primary
----
 
 # PR Review Lead
 

@@ -157,60 +157,6 @@ func TestDeployCodexAgentsDryRun(t *testing.T) {
 	}
 }
 
-func TestCleanCodexAgents(t *testing.T) {
-	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
-
-	agentsDir := filepath.Join(tmpHome, ".codex", "agents")
-	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a managed agent that should be kept
-	keepContent := "# " + codexManagedMarker + " = true\nmodel = \"gpt-5.2-codex\"\n"
-	if err := os.WriteFile(filepath.Join(agentsDir, "keep-agent.toml"), []byte(keepContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a managed agent that should be removed (stale)
-	staleContent := "# " + codexManagedMarker + " = true\nmodel = \"gpt-5.2-codex\"\n"
-	if err := os.WriteFile(filepath.Join(agentsDir, "stale-agent.toml"), []byte(staleContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a user-created agent (no marker)
-	userContent := "model = \"gpt-5.2-codex\"\n"
-	if err := os.WriteFile(filepath.Join(agentsDir, "user-agent.toml"), []byte(userContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	validNames := map[string]bool{"keep-agent": true}
-
-	removed, err := CleanCodexAgents(validNames, false)
-	if err != nil {
-		t.Fatalf("CleanCodexAgents: %v", err)
-	}
-
-	if len(removed) != 1 {
-		t.Fatalf("expected 1 removed, got %d: %v", len(removed), removed)
-	}
-
-	// Stale managed file should be removed
-	if _, err := os.Stat(filepath.Join(agentsDir, "stale-agent.toml")); !os.IsNotExist(err) {
-		t.Error("stale managed file should be removed")
-	}
-
-	// User file should remain
-	if _, err := os.Stat(filepath.Join(agentsDir, "user-agent.toml")); err != nil {
-		t.Error("user-created file should not be removed")
-	}
-
-	// Keep file should remain
-	if _, err := os.Stat(filepath.Join(agentsDir, "keep-agent.toml")); err != nil {
-		t.Error("valid managed file should not be removed")
-	}
-}
-
 func TestDeployAgentsWithCodex(t *testing.T) {
 	srcDir := t.TempDir()
 	agentContent := `---
@@ -219,9 +165,6 @@ description: A test bot
 
 claude-code:
   model: haiku
-
-opencode:
-  model: anthropic/claude-haiku-4-5-20251001
 
 codex:
   model: gpt-5.2-codex
@@ -269,77 +212,6 @@ You are a test bot.
 	}
 	if !strings.Contains(string(configContent), "multi_agent = true") {
 		t.Error("config.toml should enable multi_agent")
-	}
-}
-
-func TestCleanCodexAgentsPreservesUserConfigEntries(t *testing.T) {
-	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
-
-	codexDir := filepath.Join(tmpHome, ".codex")
-	agentsDir := filepath.Join(codexDir, "agents")
-	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a managed agent that is stale (not in validNames)
-	staleManagedContent := "# " + codexManagedMarker + " = true\nmodel = \"gpt-5.2-codex\"\n"
-	stalePath := filepath.Join(agentsDir, "stale-managed.toml")
-	if err := os.WriteFile(stalePath, []byte(staleManagedContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a user agent (not managed, not in validNames)
-	userAgentContent := "model = \"gpt-5.2-codex\"\ndeveloper_instructions = \"Custom\"\n"
-	if err := os.WriteFile(filepath.Join(agentsDir, "user-custom.toml"), []byte(userAgentContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create config.toml with both entries
-	configContent := `[features]
-multi_agent = true
-
-[agents.stale-managed]
-config_file = "./agents/stale-managed.toml"
-description = "Stale managed agent"
-
-[agents.user-custom]
-config_file = "./agents/user-custom.toml"
-description = "User custom agent"
-`
-	configPath := filepath.Join(codexDir, "config.toml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	validNames := map[string]bool{} // no valid names — both are stale
-	removed, err := CleanCodexAgents(validNames, false)
-	if err != nil {
-		t.Fatalf("CleanCodexAgents: %v", err)
-	}
-
-	// Only the managed agent file should be removed
-	if len(removed) != 1 {
-		t.Fatalf("expected 1 removed file, got %d: %v", len(removed), removed)
-	}
-
-	// User agent file should still exist
-	if _, err := os.Stat(filepath.Join(agentsDir, "user-custom.toml")); err != nil {
-		t.Error("user-custom.toml should not be removed")
-	}
-
-	// Verify config.toml: user-custom entry preserved, stale-managed entry removed
-	updatedConfig, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("reading updated config.toml: %v", err)
-	}
-	configStr := string(updatedConfig)
-
-	if strings.Contains(configStr, "[agents.stale-managed]") {
-		t.Error("stale-managed entry should be removed from config.toml")
-	}
-	if !strings.Contains(configStr, "[agents.user-custom]") {
-		t.Error("user-custom entry should be preserved in config.toml")
 	}
 }
 

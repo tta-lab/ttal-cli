@@ -4,8 +4,6 @@ description: "Refresh context window — agent writes handoff and restarts"
 claude-code:
   allowed-tools:
     - Bash
-opencode: {}
----
 
 # Breathe — Session Handoff
 

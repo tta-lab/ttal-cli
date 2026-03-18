@@ -6,8 +6,6 @@ claude-code:
   allowed-tools:
     - Bash
     - Read
-opencode: {}
----
 
 # Task Create
 

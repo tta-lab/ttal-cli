@@ -22,12 +22,6 @@ claude-code:
     - Glob
     - Grep
     - Read
-opencode:
-  mode: subagent
-ttal:
-  model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep]
----
 
 ## Environment
 

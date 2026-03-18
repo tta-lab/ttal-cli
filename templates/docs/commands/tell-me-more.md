@@ -3,8 +3,6 @@ name: tell-me-more
 description: "Elaborate on a concept just mentioned — explain from knowledge, not search"
 argument-hint: "[topic]"
 claude-code: {}
-opencode: {}
----
 
 # Tell Me More
 
