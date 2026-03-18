@@ -16,7 +16,7 @@ type CommandResult struct {
 	CCDest     string
 	OCDest     string
 	CodexDest  string
-	AgentsDest string // .agents/skills deployment
+	SkillsDest string // .agents/skills deployment
 }
 
 // DeployCommands reads canonical command .md files from the given paths and deploys
@@ -121,8 +121,8 @@ func deployOneCommand(
 	codexDest := filepath.Join(codexSkillDir, "SKILL.md")
 
 	// .agents/skills: same layout as CC
-	agentsSkillDir := filepath.Join(agentsSkillsDir, cmd.Frontmatter.Name)
-	agentsDest := filepath.Join(agentsSkillDir, "SKILL.md")
+	skillsSkillDir := filepath.Join(agentsSkillsDir, cmd.Frontmatter.Name)
+	skillsDest := filepath.Join(skillsSkillDir, "SKILL.md")
 
 	result := CommandResult{
 		Source:     srcPath,
@@ -130,7 +130,7 @@ func deployOneCommand(
 		CCDest:     ccDest,
 		OCDest:     ocDest,
 		CodexDest:  codexDest,
-		AgentsDest: agentsDest,
+		SkillsDest: skillsDest,
 	}
 
 	if dryRun {
@@ -159,11 +159,11 @@ func deployOneCommand(
 	}
 
 	// .agents/skills (reuse CC variant)
-	if err := os.MkdirAll(agentsSkillDir, 0o755); err != nil {
-		return CommandResult{}, fmt.Errorf("creating .agents/skills dir %s: %w", agentsSkillDir, err)
+	if err := os.MkdirAll(skillsSkillDir, 0o755); err != nil {
+		return CommandResult{}, fmt.Errorf("creating .agents/skills dir %s: %w", skillsSkillDir, err)
 	}
-	if err := os.WriteFile(agentsDest, []byte(ccContent), 0o644); err != nil {
-		return CommandResult{}, fmt.Errorf("writing .agents/skills command %s: %w", agentsDest, err)
+	if err := os.WriteFile(skillsDest, []byte(ccContent), 0o644); err != nil {
+		return CommandResult{}, fmt.Errorf("writing .agents/skills command %s: %w", skillsDest, err)
 	}
 
 	return result, nil

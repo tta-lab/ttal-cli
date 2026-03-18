@@ -17,7 +17,7 @@ type AgentResult struct {
 	CCDest     string
 	OCDest     string // Deprecated: kept for sync compatibility
 	CodexDest  string
-	AgentsDest string // .agents/skills deployment
+	SkillsDest string // .agents/skills deployment
 }
 
 // DeployAgents reads canonical agent .md files from the given paths and deploys
@@ -138,8 +138,8 @@ func deployOneAgent(
 	codexDest := filepath.Join(codexDir, agent.Frontmatter.Name+".toml")
 
 	// .agents/skills: skill directory with SKILL.md
-	agentsSkillDir := filepath.Join(agentsSkillsDir, agent.Frontmatter.Name)
-	agentsDest := filepath.Join(agentsSkillDir, "SKILL.md")
+	skillsSkillDir := filepath.Join(agentsSkillsDir, agent.Frontmatter.Name)
+	skillsDest := filepath.Join(skillsSkillDir, "SKILL.md")
 
 	result := AgentResult{
 		Source:     srcPath,
@@ -147,7 +147,7 @@ func deployOneAgent(
 		CCDest:     ccDest,
 		OCDest:     ocDest,
 		CodexDest:  codexDest,
-		AgentsDest: agentsDest,
+		SkillsDest: skillsDest,
 	}
 
 	if dryRun {
@@ -163,11 +163,11 @@ func deployOneAgent(
 	// Codex .toml files are written by DeployCodexAgents to avoid duplicate writes
 
 	// .agents/skills: create skill directory with SKILL.md inside
-	if err := os.MkdirAll(agentsSkillDir, 0o755); err != nil {
-		return AgentResult{}, nil, fmt.Errorf("creating .agents/skills dir %s: %w", agentsSkillDir, err)
+	if err := os.MkdirAll(skillsSkillDir, 0o755); err != nil {
+		return AgentResult{}, nil, fmt.Errorf("creating .agents/skills dir %s: %w", skillsSkillDir, err)
 	}
-	if err := os.WriteFile(agentsDest, []byte(ccContent), 0o644); err != nil {
-		return AgentResult{}, nil, fmt.Errorf("writing .agents/skills agent %s: %w", agentsDest, err)
+	if err := os.WriteFile(skillsDest, []byte(ccContent), 0o644); err != nil {
+		return AgentResult{}, nil, fmt.Errorf("writing .agents/skills agent %s: %w", skillsDest, err)
 	}
 
 	return result, agent, nil
