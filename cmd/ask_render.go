@@ -44,6 +44,7 @@ func renderCommandResult(output string, exitCode int) {
 }
 
 // renderRetry prints a styled retry notice to stderr.
+// It serves as the OnRetry callback for logos.Callbacks.
 func renderRetry(reason string, step int) {
 	fmt.Fprintf(os.Stderr, "\n%s\n", askRetryStyle.Render(
 		fmt.Sprintf("  ↺ retry (step %d: %s)", step, reason)))
