@@ -317,6 +317,12 @@ func runAskAgent(opts askOpts) error {
 
 	result, err := logos.Run(context.Background(), cfg, nil, opts.question, logos.Callbacks{
 		OnDelta: func(text string) { fmt.Print(text) },
+		OnCommandStart: func(command string) {
+			renderCommandStart(command)
+		},
+		OnCommandResult: func(command, output string, exitCode int) {
+			renderCommandResult(output, exitCode)
+		},
 	})
 	return flushAgentResult(result, err)
 }
