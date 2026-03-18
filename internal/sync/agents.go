@@ -12,17 +12,15 @@ import (
 
 // AgentResult tracks a single agent deployment for reporting.
 type AgentResult struct {
-	Source     string
-	Name       string
-	CCDest     string
-	OCDest     string // Deprecated: kept for sync compatibility
-	CodexDest  string
-	SkillsDest string // .agents/skills deployment
+	Source    string
+	Name      string
+	CCDest    string
+	OCDest    string // Deprecated: kept for sync compatibility
+	CodexDest string
 }
 
 // DeployAgents reads canonical agent .md files from the given paths and deploys
 // runtime-specific variants to Claude Code, OpenCode, and Codex agent directories.
-// Also deploys to .agents/skills for unified skills support.
 func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -32,7 +30,6 @@ func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 	ccDir := filepath.Join(home, ".claude", "agents")
 	ocDir := filepath.Join(home, ".config", "opencode", "agents")
 	codexDir := filepath.Join(home, ".codex", "agents")
-	agentsSkillsDir := filepath.Join(home, ".agents", "skills")
 
 	if !dryRun {
 		if err := os.MkdirAll(ccDir, 0o755); err != nil {
@@ -44,16 +41,13 @@ func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 		if err := os.MkdirAll(codexDir, 0o755); err != nil {
 			return nil, fmt.Errorf("creating Codex agents dir: %w", err)
 		}
-		if err := os.MkdirAll(agentsSkillsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating .agents/skills dir: %w", err)
-		}
 	}
 
 	var results []AgentResult
 	var allAgents []*ParsedAgent
 
 	for _, rawPath := range subagentsPaths {
-		deployed, agents, err := deployAgentsFromDir(rawPath, ccDir, ocDir, codexDir, agentsSkillsDir, dryRun)
+		deployed, agents, err := deployAgentsFromDir(rawPath, ccDir, ocDir, codexDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -71,10 +65,7 @@ func DeployAgents(subagentsPaths []string, dryRun bool) ([]AgentResult, error) {
 	return results, nil
 }
 
-func deployAgentsFromDir(
-	rawPath, ccDir, ocDir, codexDir, agentsSkillsDir string,
-	dryRun bool,
-) ([]AgentResult, []*ParsedAgent, error) {
+func deployAgentsFromDir(rawPath, ccDir, ocDir, codexDir string, dryRun bool) ([]AgentResult, []*ParsedAgent, error) {
 	dir := config.ExpandHome(rawPath)
 
 	entries, err := os.ReadDir(dir)
@@ -99,7 +90,7 @@ func deployAgentsFromDir(
 			continue
 		}
 
-		r, agent, err := deployOneAgent(filepath.Join(dir, entry.Name()), ccDir, ocDir, codexDir, agentsSkillsDir, dryRun)
+		r, agent, err := deployOneAgent(filepath.Join(dir, entry.Name()), ccDir, ocDir, codexDir, dryRun)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -109,10 +100,7 @@ func deployAgentsFromDir(
 	return results, agents, nil
 }
 
-func deployOneAgent(
-	srcPath, ccDir, ocDir, codexDir, agentsSkillsDir string,
-	dryRun bool,
-) (AgentResult, *ParsedAgent, error) {
+func deployOneAgent(srcPath, ccDir, ocDir, codexDir string, dryRun bool) (AgentResult, *ParsedAgent, error) {
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
 		return AgentResult{}, nil, fmt.Errorf("reading %s: %w", srcPath, err)
@@ -137,17 +125,12 @@ func deployOneAgent(
 	ocDest := filepath.Join(ocDir, agent.Frontmatter.Name+".md")
 	codexDest := filepath.Join(codexDir, agent.Frontmatter.Name+".toml")
 
-	// .agents/skills: skill directory with SKILL.md
-	skillsSkillDir := filepath.Join(agentsSkillsDir, agent.Frontmatter.Name)
-	skillsDest := filepath.Join(skillsSkillDir, "SKILL.md")
-
 	result := AgentResult{
-		Source:     srcPath,
-		Name:       agent.Frontmatter.Name,
-		CCDest:     ccDest,
-		OCDest:     ocDest,
-		CodexDest:  codexDest,
-		SkillsDest: skillsDest,
+		Source:    srcPath,
+		Name:      agent.Frontmatter.Name,
+		CCDest:    ccDest,
+		OCDest:    ocDest,
+		CodexDest: codexDest,
 	}
 
 	if dryRun {
@@ -161,14 +144,6 @@ func deployOneAgent(
 		return AgentResult{}, nil, fmt.Errorf("writing OC agent %s: %w", ocDest, err)
 	}
 	// Codex .toml files are written by DeployCodexAgents to avoid duplicate writes
-
-	// .agents/skills: create skill directory with SKILL.md inside
-	if err := os.MkdirAll(skillsSkillDir, 0o755); err != nil {
-		return AgentResult{}, nil, fmt.Errorf("creating .agents/skills dir %s: %w", skillsSkillDir, err)
-	}
-	if err := os.WriteFile(skillsDest, []byte(ccContent), 0o644); err != nil {
-		return AgentResult{}, nil, fmt.Errorf("writing .agents/skills agent %s: %w", skillsDest, err)
-	}
 
 	return result, agent, nil
 }
@@ -207,14 +182,6 @@ func CleanAgents(subagentsPaths []string, dryRun bool) ([]string, error) {
 		return nil, fmt.Errorf("codex agent cleanup failed: %w", err)
 	}
 	removed = append(removed, codexCleaned...)
-
-	// Clean stale .agents/skills agent skills
-	agentsSkillsDir := filepath.Join(home, ".agents", "skills")
-	agentsCleaned, err := cleanManagedAgentSkills(agentsSkillsDir, validNames, dryRun)
-	if err != nil {
-		return nil, err
-	}
-	removed = append(removed, agentsCleaned...)
 
 	return removed, nil
 }
@@ -284,49 +251,6 @@ func cleanManagedAgentsInDir(dir string, validNames map[string]bool, dryRun bool
 		}
 	}
 
-	return removed, nil
-}
-
-// cleanManagedAgentSkills removes .agents/skills agent directories that were deployed from agents.
-//
-//nolint:dupl
-func cleanManagedAgentSkills(skillsDir string, validNames map[string]bool, dryRun bool) ([]string, error) {
-	entries, err := os.ReadDir(skillsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	removed := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if validNames[name] {
-			continue
-		}
-		skillMD := filepath.Join(skillsDir, name, "SKILL.md")
-		content, err := os.ReadFile(skillMD)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return nil, fmt.Errorf("reading %s during cleanup: %w", skillMD, err)
-		}
-		if !strings.Contains(string(content), ManagedMarkerField) {
-			continue
-		}
-		path := filepath.Join(skillsDir, name)
-		removed = append(removed, path)
-		if !dryRun {
-			if err := os.RemoveAll(path); err != nil {
-				return nil, fmt.Errorf("removing stale agent skill %s: %w", path, err)
-			}
-		}
-	}
 	return removed, nil
 }
 
