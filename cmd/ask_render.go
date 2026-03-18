@@ -20,6 +20,10 @@ var (
 	askExitErrStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true)
+
+	askRetryStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).
+			Bold(true)
 )
 
 // renderCommandStart prints a styled command header to stderr.
@@ -37,6 +41,12 @@ func renderCommandResult(output string, exitCode int) {
 		fmt.Fprintf(os.Stderr, "%s\n", askExitErrStyle.Render(
 			fmt.Sprintf("  exit %d", exitCode)))
 	}
+}
+
+// renderRetry prints a styled retry notice to stderr.
+func renderRetry(reason string, step int) {
+	fmt.Fprintf(os.Stderr, "\n%s\n", askRetryStyle.Render(
+		fmt.Sprintf("  ↺ retry (step %d: %s)", step, reason)))
 }
 
 const askMaxOutputLines = 10

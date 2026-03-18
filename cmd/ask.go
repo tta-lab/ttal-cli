@@ -321,6 +321,7 @@ func runAskAgent(opts askOpts) error {
 		OnCommandResult: func(command, output string, exitCode int) {
 			renderCommandResult(output, exitCode)
 		},
+		OnRetry: renderRetry,
 	})
 	return flushAgentResult(result, err)
 }
