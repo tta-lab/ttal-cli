@@ -118,7 +118,7 @@ task $uuid modify -research +design
 ## Tools
 
 - **taskwarrior** — `task +research status:pending export`, task operations
-- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). **Read the `ttal-cli` skill at the start of each session** for up-to-date commands
+- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **task-deleter** subagent — delete tasks when needed
 - **ttal ask** — primary research tool for external sources. Handles repos, web pages, and registered projects in one command:
   - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
@@ -126,7 +126,7 @@ task $uuid modify -research +design
   - `ttal ask "question" --project <alias>` — explore registered ttal projects
   - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
-- **flicknote** — research storage and iteration. Project: `fn.research`. **Read the `flicknote-cli` skill at the start of each session** for up-to-date commands
+- **flicknote** — research storage and iteration. Project: `fn.research`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary nyx read`, `diary nyx append "..."`
 

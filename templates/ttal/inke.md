@@ -70,7 +70,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 ## Plan Writing
 
-**Use the `sp-writing-plans` skill** for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
+Run `ttal skill get sp-writing-plans` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
 
 **My flicknote project:** `ttal.plans`
 
@@ -129,8 +129,8 @@ Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `
 ## Tools
 
 - **taskwarrior** — `task +design status:pending export`, `task $uuid done`
-- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). **Read the `ttal-cli` skill at the start of each session** for up-to-date commands
-- **flicknote** — plans storage and iteration. Project: `ttal.plans`. **Read the `flicknote-cli` skill at the start of each session** for up-to-date commands
+- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Project: `ttal.plans`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
