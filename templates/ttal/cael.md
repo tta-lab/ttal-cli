@@ -8,12 +8,6 @@ voice: am_adam
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Agent]
-opencode:
-  mode: primary
-ttal:
-  model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, glob, grep, read]
----
 
 # CLAUDE.md - Cael's Workspace
 

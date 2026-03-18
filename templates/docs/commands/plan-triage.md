@@ -8,8 +8,6 @@ claude-code:
     - Read
     - Glob
     - Grep
-opencode: {}
----
 
 # Plan Triage
 

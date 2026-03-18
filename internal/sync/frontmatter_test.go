@@ -22,10 +22,6 @@ description: Mechanical taskwarrior task creation
 claude-code:
   model: haiku
   tools: ["Bash", "Read"]
-
-opencode:
-  model: anthropic/claude-haiku-4-5-20251001
-  mode: subagent
 ---
 
 System prompt body here.
@@ -36,10 +32,6 @@ System prompt body here.
 				ClaudeCode: map[string]interface{}{
 					"model": "haiku",
 					"tools": []interface{}{"Bash", "Read"},
-				},
-				OpenCode: map[string]interface{}{
-					"model": "anthropic/claude-haiku-4-5-20251001",
-					"mode":  "subagent",
 				},
 			},
 			body: "System prompt body here.",
@@ -108,9 +100,6 @@ Just a body.
 			if tt.want.ClaudeCode != nil && got.Frontmatter.ClaudeCode == nil {
 				t.Error("expected ClaudeCode to be non-nil")
 			}
-			if tt.want.OpenCode != nil && got.Frontmatter.OpenCode == nil {
-				t.Error("expected OpenCode to be non-nil")
-			}
 		})
 	}
 }
@@ -122,9 +111,6 @@ func TestGenerateCCVariant(t *testing.T) {
 			Description: "Test description",
 			ClaudeCode: map[string]interface{}{
 				"model": "haiku",
-			},
-			OpenCode: map[string]interface{}{
-				"model": "anthropic/claude-haiku-4-5-20251001",
 			},
 		},
 		Body: "Prompt body.\n",
@@ -144,45 +130,8 @@ func TestGenerateCCVariant(t *testing.T) {
 	if !strings.Contains(result, "model: haiku") {
 		t.Error("CC variant should contain CC model")
 	}
-	if strings.Contains(result, "anthropic/claude-haiku") {
-		t.Error("CC variant should NOT contain OC model")
-	}
 	if !strings.Contains(result, "Prompt body.") {
 		t.Error("CC variant should contain body")
-	}
-}
-
-func TestGenerateOCVariant(t *testing.T) {
-	agent := &ParsedAgent{
-		Frontmatter: AgentFrontmatter{
-			Name:        "test-agent",
-			Description: "Test description",
-			ClaudeCode: map[string]interface{}{
-				"model": "haiku",
-			},
-			OpenCode: map[string]interface{}{
-				"model": "anthropic/claude-haiku-4-5-20251001",
-			},
-		},
-		Body: "Prompt body.\n",
-	}
-
-	result, err := GenerateOCVariant(agent)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !strings.Contains(result, "name: test-agent") {
-		t.Error("OC variant should contain name")
-	}
-	if !strings.Contains(result, "anthropic/claude-haiku") {
-		t.Error("OC variant should contain OC model")
-	}
-	if strings.Contains(result, "model: haiku\n") {
-		t.Error("OC variant should NOT contain CC-only model")
-	}
-	if !strings.Contains(result, "Prompt body.") {
-		t.Error("OC variant should contain body")
 	}
 }
 
@@ -201,13 +150,5 @@ func TestGenerateVariantNoRuntimeBlock(t *testing.T) {
 	}
 	if !strings.Contains(cc, "name: minimal") {
 		t.Error("CC variant should still contain shared name")
-	}
-
-	oc, err := GenerateOCVariant(agent)
-	if err != nil {
-		t.Fatalf("OC variant: %v", err)
-	}
-	if !strings.Contains(oc, "name: minimal") {
-		t.Error("OC variant should still contain shared name")
 	}
 }

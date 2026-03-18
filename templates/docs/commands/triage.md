@@ -11,8 +11,6 @@ claude-code:
     - Edit
     - Write
     - Task
-opencode: {}
----
 
 # Triage
 

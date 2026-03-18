@@ -8,12 +8,6 @@ description: Bug fix designer — diagnoses root causes and writes fix plans for
 claude-code:
   model: sonnet
   tools: [Bash, Read, Agent]
-opencode:
-  mode: primary
-ttal:
-  model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read]
----
 
 # CLAUDE.md - Lux's Workspace
 

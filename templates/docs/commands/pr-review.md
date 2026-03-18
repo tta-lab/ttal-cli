@@ -9,8 +9,6 @@ claude-code:
     - Grep
     - Read
     - Task
-opencode: {}
----
 
 # Comprehensive PR Review
 

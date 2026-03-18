@@ -19,12 +19,6 @@ claude-code:
     - Read
     - Edit
     - Write
-opencode:
-  mode: subagent
-ttal:
-  model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep]
----
 
 ## Environment
 

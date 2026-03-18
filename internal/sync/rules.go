@@ -96,53 +96,6 @@ func deployRulesFromDir(sourceDir, rulesDir string, dryRun bool) ([]RuleResult, 
 	return results, nil
 }
 
-// CleanRules removes rule files from a rules directory that don't correspond
-// to any RULE.md found in the configured rules_paths.
-func CleanRules(rulesPaths []string, dryRun bool) ([]string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	rulesDir := filepath.Join(home, ".claude", "rules")
-	return CleanRulesIn(rulesPaths, rulesDir, dryRun)
-}
-
-// CleanRulesIn removes rule files from rulesDir that don't correspond
-// to any RULE.md found in the configured rules_paths.
-func CleanRulesIn(rulesPaths []string, rulesDir string, dryRun bool) ([]string, error) {
-	entries, err := os.ReadDir(rulesDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	// Build set of valid rule names from current deployment.
-	current, _ := DeployRulesTo(rulesPaths, rulesDir, true) // dry-run to discover
-	valid := make(map[string]bool)
-	for _, r := range current {
-		valid[r.Name] = true
-	}
-
-	removed := make([]string, 0, len(entries))
-	for _, e := range entries {
-		name := strings.TrimSuffix(e.Name(), ".md")
-		if name == e.Name() {
-			continue // not a .md file
-		}
-		if valid[name] {
-			continue
-		}
-		path := filepath.Join(rulesDir, e.Name())
-		removed = append(removed, path)
-		if !dryRun {
-			os.Remove(path)
-		}
-	}
-	return removed, nil
-}
-
 const (
 	codexRulesMarkerStart = "<!-- ttal-rules-start -->"
 	codexRulesMarkerEnd   = "<!-- ttal-rules-end -->"

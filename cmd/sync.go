@@ -14,7 +14,6 @@ import (
 
 var (
 	syncDryRun bool
-	syncClean  bool
 )
 
 var syncCmd = &cobra.Command{
@@ -30,10 +29,12 @@ Subagents are split into runtime-specific variants:
 Skills are deployed:
   ~/.claude/skills/{name}/ → source directory (CC)
   ~/.codex/skills/{name}/  → source directory (Codex)
+  ~/.agents/skills/{name}/  → source directory (unified)
 
 Commands are deployed as written files (variant generation):
   Claude Code → ~/.claude/skills/{name}/SKILL.md
   Codex       → ~/.codex/skills/{name}/SKILL.md
+  Unified     → ~/.agents/skills/{name}/SKILL.md
 
 Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
@@ -70,15 +71,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		commandCount := 0
 		ruleCount := 0
 
-		// Build combined agentPaths for CleanAgents (needs both sources)
-		teamPath := cfg.TeamPath()
-		agentPaths := make([]string, len(syncCfg.SubagentsPaths))
-		copy(agentPaths, syncCfg.SubagentsPaths)
-		if teamPath != "" {
-			agentPaths = append(agentPaths, teamPath)
-		}
-
-		if len(agentPaths) > 0 {
+		if len(syncCfg.SubagentsPaths) > 0 || cfg.TeamPath() != "" {
 			if syncDryRun {
 				fmt.Println("Syncing agents (dry run)...")
 			} else {
@@ -96,6 +89,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 
 			// Deploy team agents (from team_path) — denied as subagents
+			teamPath := cfg.TeamPath()
 			if teamPath != "" {
 				teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
 				if err != nil {
@@ -119,16 +113,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 					}
 				}
 			}
-
-			if syncClean {
-				removed, err := sync.CleanAgents(agentPaths, syncDryRun)
-				if err != nil {
-					return fmt.Errorf("agent cleanup failed: %w", err)
-				}
-				for _, path := range removed {
-					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
-				}
-			}
 		}
 
 		if len(syncCfg.SkillsPaths) > 0 {
@@ -148,18 +132,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.Dest))
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
+				fmt.Printf("    → %s (.agents)\n", shortenHome(r.AgentsSkillsDest))
 			}
 			skillCount = countUniqueSkills(results)
-
-			if syncClean {
-				removed, err := sync.CleanSkills(syncCfg.SkillsPaths, syncDryRun)
-				if err != nil {
-					return fmt.Errorf("skill cleanup failed: %w", err)
-				}
-				for _, path := range removed {
-					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
-				}
-			}
 		}
 
 		if len(syncCfg.CommandsPaths) > 0 {
@@ -179,18 +154,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
 				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
+				fmt.Printf("    → %s (.agents)\n", shortenHome(r.AgentsSkillsDest))
 			}
 			commandCount = len(results)
-
-			if syncClean {
-				removed, err := sync.CleanCommands(syncCfg.CommandsPaths, syncDryRun)
-				if err != nil {
-					return fmt.Errorf("command cleanup failed: %w", err)
-				}
-				for _, path := range removed {
-					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
-				}
-			}
 		}
 
 		if len(syncCfg.RulesPaths) > 0 {
@@ -212,16 +178,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 			if err := sync.DeployCodexRules(rules, syncDryRun); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: codex rules: %v\n", err)
-			}
-
-			if syncClean {
-				removed, err := sync.CleanRules(syncCfg.RulesPaths, syncDryRun)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "warning: rule cleanup: %v\n", err)
-				}
-				for _, path := range removed {
-					fmt.Printf("  Removed stale: %s\n", shortenHome(path))
-				}
 			}
 		}
 
@@ -316,7 +272,6 @@ func init() {
 	rootCmd.AddCommand(syncCmd)
 	syncCmd.AddCommand(syncSetupCmd)
 	syncCmd.Flags().BoolVar(&syncDryRun, "dry-run", false, "Show what would be deployed without doing it")
-	syncCmd.Flags().BoolVar(&syncClean, "clean", false, "Remove deployed agents/skills that no longer exist in source")
 }
 
 // shortenHome replaces home directory prefix with ~ for display.
