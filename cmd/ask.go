@@ -40,6 +40,7 @@ var askFlags struct {
 	url       string
 	web       bool
 	human     bool
+	save      bool
 	options   []string
 	maxSteps  int
 	maxTokens int
@@ -146,6 +147,7 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
 		label:        "ask --project " + alias,
+		save:         askFlags.save,
 	})
 }
 
@@ -173,6 +175,7 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
 		label:        "ask --repo " + repoRef,
+		save:         askFlags.save,
 	})
 }
 
@@ -189,6 +192,7 @@ func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int
 		maxTokens:   maxTokens,
 		emoji:       "🔭",
 		label:       "ask --url",
+		save:        askFlags.save,
 	})
 }
 
@@ -204,6 +208,7 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error 
 		maxTokens:   maxTokens,
 		emoji:       "🔭",
 		label:       "ask --web",
+		save:        askFlags.save,
 	})
 }
 
@@ -230,6 +235,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		maxTokens:    maxTokens,
 		emoji:        "🔭",
 		label:        "ask",
+		save:         askFlags.save,
 	})
 }
 
@@ -247,6 +253,7 @@ type askOpts struct {
 	maxTokens    int
 	emoji        string // optional display emoji shown before output
 	label        string // display name shown in header (defaults to "ask")
+	save         bool   // if true, pipe final answer to flicknote add
 }
 
 // runAskAgent builds and runs a logos agent loop for the ask command.
@@ -323,7 +330,43 @@ func runAskAgent(opts askOpts) error {
 		},
 		OnRetry: renderRetry,
 	})
-	return flushAgentResult(result, err)
+	flushErr := flushAgentResult(result, err)
+
+	// Only save on success — if agent hit max-steps or errored, skip save.
+	if opts.save && flushErr == nil {
+		if saveErr := saveAskResult(result); saveErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to save to flicknote: %v\n", saveErr)
+		}
+	}
+
+	return flushErr
+}
+
+// saveAskResult pipes the agent's final answer to flicknote add.
+func saveAskResult(result *logos.RunResult) error {
+	if result == nil {
+		return nil
+	}
+	var finalAnswer string
+	for i := len(result.Steps) - 1; i >= 0; i-- {
+		if result.Steps[i].Role == logos.StepRoleAssistant {
+			finalAnswer = result.Steps[i].Content
+			break
+		}
+	}
+	if finalAnswer == "" {
+		return nil
+	}
+
+	cmd := exec.Command("flicknote", "add")
+	cmd.Stdin = strings.NewReader(finalAnswer)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "%s", string(out))
+	return nil
 }
 
 // resolveRepoRef converts a repo reference to a clone URL and local path.
@@ -499,6 +542,7 @@ func init() {
 	askCmd.Flags().StringVar(&askFlags.url, "url", "", "Ask about a web page (pre-fetched with defuddle)")
 	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
 	askCmd.Flags().BoolVar(&askFlags.human, "human", false, "Ask a human via Telegram and block until answered")
+	askCmd.Flags().BoolVar(&askFlags.save, "save", false, "Save the final answer to flicknote")
 	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)") //nolint:lll
 	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                      //nolint:lll
 	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")        //nolint:lll
