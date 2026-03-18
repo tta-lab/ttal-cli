@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -28,18 +29,22 @@ func TestTruncateOutput(t *testing.T) {
 	})
 
 	t.Run("over limit truncates with count", func(t *testing.T) {
-		lines := make([]string, 15)
+		extra := 5
+		totalLines := askMaxOutputLines + extra
+		lines := make([]string, totalLines)
 		for i := range lines {
 			lines[i] = "line"
 		}
 		input := strings.Join(lines, "\n")
 		result := truncateOutput(input)
-		if !strings.Contains(result, "... (5 more lines)") {
-			t.Errorf("expected truncation message, got %q", result)
+		want := fmt.Sprintf("... (%d more lines)", extra)
+		if !strings.Contains(result, want) {
+			t.Errorf("expected truncation message %q, got %q", want, result)
 		}
 		resultLines := strings.Split(result, "\n")
-		if len(resultLines) != 11 { // 10 lines + 1 truncation message
-			t.Errorf("expected 11 lines, got %d", len(resultLines))
+		wantLineCount := askMaxOutputLines + 1 // truncated lines + suffix
+		if len(resultLines) != wantLineCount {
+			t.Errorf("expected %d lines, got %d", wantLineCount, len(resultLines))
 		}
 	})
 
@@ -71,9 +76,13 @@ func TestTruncateOutput(t *testing.T) {
 	})
 }
 
-func captureStderr(f func()) string {
+func captureStderr(t *testing.T, f func()) string {
+	t.Helper()
 	origStderr := os.Stderr
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal("os.Pipe:", err)
+	}
 	os.Stderr = w
 
 	f()
@@ -81,12 +90,26 @@ func captureStderr(f func()) string {
 	w.Close()
 	os.Stderr = origStderr
 	var buf bytes.Buffer
-	io.Copy(&buf, r) //nolint:errcheck
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatal("io.Copy from stderr pipe:", err)
+	}
 	return buf.String()
 }
 
+func TestRenderCommandStart(t *testing.T) {
+	out := captureStderr(t, func() {
+		renderCommandStart("ls -la")
+	})
+	if !strings.Contains(out, "$ ") {
+		t.Errorf("expected '$ ' in output, got %q", out)
+	}
+	if !strings.Contains(out, "ls -la") {
+		t.Errorf("expected command in output, got %q", out)
+	}
+}
+
 func TestRenderCommandResult_NonZeroExit(t *testing.T) {
-	out := captureStderr(func() {
+	out := captureStderr(t, func() {
 		renderCommandResult("some output", 1)
 	})
 	if !strings.Contains(out, "exit 1") {
@@ -98,7 +121,7 @@ func TestRenderCommandResult_NonZeroExit(t *testing.T) {
 }
 
 func TestRenderCommandResult_ZeroExit(t *testing.T) {
-	out := captureStderr(func() {
+	out := captureStderr(t, func() {
 		renderCommandResult("some output", 0)
 	})
 	if strings.Contains(out, "exit") {
@@ -110,7 +133,7 @@ func TestRenderCommandResult_ZeroExit(t *testing.T) {
 }
 
 func TestRenderCommandResult_EmptyOutput(t *testing.T) {
-	out := captureStderr(func() {
+	out := captureStderr(t, func() {
 		renderCommandResult("", 0)
 	})
 	if strings.TrimSpace(out) != "" {
@@ -119,7 +142,7 @@ func TestRenderCommandResult_EmptyOutput(t *testing.T) {
 }
 
 func TestRenderCommandResult_EmptyOutputNonZeroExit(t *testing.T) {
-	out := captureStderr(func() {
+	out := captureStderr(t, func() {
 		renderCommandResult("", 2)
 	})
 	if !strings.Contains(out, "exit 2") {
