@@ -11,15 +11,17 @@ import (
 
 // CommandResult tracks a single command deployment for reporting.
 type CommandResult struct {
-	Source    string
-	Name      string
-	CCDest    string
-	OCDest    string
-	CodexDest string
+	Source     string
+	Name       string
+	CCDest     string
+	OCDest     string
+	CodexDest  string
+	AgentsDest string // .agents/skills deployment
 }
 
 // DeployCommands reads canonical command .md files from the given paths and deploys
 // runtime-specific variants to Claude Code (as skills) and OpenCode (as commands).
+// Also deploys to .agents/skills for unified skills support.
 func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -29,9 +31,10 @@ func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error
 	ccSkillsDir := filepath.Join(home, ".claude", "skills")
 	ocCmdsDir := filepath.Join(home, ".config", "opencode", "commands")
 	codexSkillsDir := filepath.Join(home, ".codex", "skills")
+	agentsSkillsDir := filepath.Join(home, ".agents", "skills")
 
 	if !dryRun {
-		for _, d := range []string{ccSkillsDir, ocCmdsDir, codexSkillsDir} {
+		for _, d := range []string{ccSkillsDir, ocCmdsDir, codexSkillsDir, agentsSkillsDir} {
 			if err := os.MkdirAll(d, 0o755); err != nil {
 				return nil, fmt.Errorf("creating dir %s: %w", d, err)
 			}
@@ -40,7 +43,7 @@ func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error
 
 	var results []CommandResult
 	for _, rawPath := range commandsPaths {
-		deployed, err := deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir, codexSkillsDir, dryRun)
+		deployed, err := deployCommandsFromDir(rawPath, ccSkillsDir, ocCmdsDir, codexSkillsDir, agentsSkillsDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +53,8 @@ func DeployCommands(commandsPaths []string, dryRun bool) ([]CommandResult, error
 }
 
 func deployCommandsFromDir(
-	rawPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dryRun bool,
+	rawPath, ccSkillsDir, ocCmdsDir, codexSkillsDir, agentsSkillsDir string,
+	dryRun bool,
 ) ([]CommandResult, error) {
 	dir := config.ExpandHome(rawPath)
 
@@ -68,7 +72,11 @@ func deployCommandsFromDir(
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
-		r, err := deployOneCommand(filepath.Join(dir, entry.Name()), ccSkillsDir, ocCmdsDir, codexSkillsDir, dryRun)
+		r, err := deployOneCommand(
+			filepath.Join(dir, entry.Name()),
+			ccSkillsDir, ocCmdsDir, codexSkillsDir, agentsSkillsDir,
+			dryRun,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +85,10 @@ func deployCommandsFromDir(
 	return results, nil
 }
 
-func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dryRun bool) (CommandResult, error) {
+func deployOneCommand(
+	srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir, agentsSkillsDir string,
+	dryRun bool,
+) (CommandResult, error) {
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("reading %s: %w", srcPath, err)
@@ -109,12 +120,17 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dr
 	codexSkillDir := filepath.Join(codexSkillsDir, cmd.Frontmatter.Name)
 	codexDest := filepath.Join(codexSkillDir, "SKILL.md")
 
+	// .agents/skills: same layout as CC
+	agentsSkillDir := filepath.Join(agentsSkillsDir, cmd.Frontmatter.Name)
+	agentsDest := filepath.Join(agentsSkillDir, "SKILL.md")
+
 	result := CommandResult{
-		Source:    srcPath,
-		Name:      cmd.Frontmatter.Name,
-		CCDest:    ccDest,
-		OCDest:    ocDest,
-		CodexDest: codexDest,
+		Source:     srcPath,
+		Name:       cmd.Frontmatter.Name,
+		CCDest:     ccDest,
+		OCDest:     ocDest,
+		CodexDest:  codexDest,
+		AgentsDest: agentsDest,
 	}
 
 	if dryRun {
@@ -140,6 +156,14 @@ func deployOneCommand(srcPath, ccSkillsDir, ocCmdsDir, codexSkillsDir string, dr
 	}
 	if err := os.WriteFile(codexDest, []byte(ccContent), 0o644); err != nil {
 		return CommandResult{}, fmt.Errorf("writing Codex command %s: %w", codexDest, err)
+	}
+
+	// .agents/skills (reuse CC variant)
+	if err := os.MkdirAll(agentsSkillDir, 0o755); err != nil {
+		return CommandResult{}, fmt.Errorf("creating .agents/skills dir %s: %w", agentsSkillDir, err)
+	}
+	if err := os.WriteFile(agentsDest, []byte(ccContent), 0o644); err != nil {
+		return CommandResult{}, fmt.Errorf("writing .agents/skills command %s: %w", agentsDest, err)
 	}
 
 	return result, nil
@@ -180,6 +204,13 @@ func CleanCommands(commandsPaths []string, dryRun bool) ([]string, error) {
 	}
 	removed = append(removed, codexRemoved...)
 
+	agentsSkillsDir := filepath.Join(home, ".agents", "skills")
+	agentsRemoved, err := cleanManagedCommandSkills(agentsSkillsDir, validNames, dryRun)
+	if err != nil {
+		return nil, err
+	}
+	removed = append(removed, agentsRemoved...)
+
 	return removed, nil
 }
 
@@ -214,6 +245,8 @@ func collectValidCommandNames(commandsPaths []string) (map[string]bool, error) {
 }
 
 // cleanManagedCommandSkills removes CC skill directories that were deployed from commands.
+//
+//nolint:dupl
 func cleanManagedCommandSkills(skillsDir string, validNames map[string]bool, dryRun bool) ([]string, error) {
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
