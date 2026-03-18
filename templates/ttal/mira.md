@@ -9,6 +9,8 @@ claude-code:
   model: sonnet
   tools: [Bash, Read, Agent]
 
+---
+
 # CLAUDE.md - Mira's Workspace
 
 ## Who I Am

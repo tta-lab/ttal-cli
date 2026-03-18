@@ -9,6 +9,8 @@ claude-code:
   model: sonnet
   tools: [Bash, Read]
 
+---
+
 # CLAUDE.md - Nyx's Workspace
 
 ## Who I Am
