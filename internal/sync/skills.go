@@ -11,14 +11,15 @@ import (
 
 // SkillResult tracks a single skill deployment for reporting.
 type SkillResult struct {
-	Source    string
-	Name      string
-	Dest      string // CC destination (~/.claude/skills/)
-	CodexDest string // Codex destination (~/.codex/skills/)
+	Source     string
+	Name       string
+	Dest       string // CC destination (~/.claude/skills/)
+	CodexDest  string // Codex destination (~/.codex/skills/)
+	SkillsDest string // .agents/skills destination
 }
 
 // DeploySkills copies skill directories (those containing SKILL.md) to
-// ~/.claude/skills/ (CC) and ~/.codex/skills/ (Codex).
+// ~/.claude/skills/ (CC), ~/.codex/skills/ (Codex), and ~/.agents/skills (unified).
 func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -27,11 +28,12 @@ func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 
 	ccDir := filepath.Join(home, ".claude", "skills")
 	codexDir := filepath.Join(home, ".codex", "skills")
+	agentsSkillsDir := filepath.Join(home, ".agents", "skills")
 
 	var results []SkillResult
 
 	for _, rawPath := range skillsPaths {
-		deployed, err := deploySkillsFromDir(rawPath, ccDir, codexDir, dryRun)
+		deployed, err := deploySkillsFromDir(rawPath, ccDir, codexDir, agentsSkillsDir, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -42,20 +44,24 @@ func DeploySkills(skillsPaths []string, dryRun bool) ([]SkillResult, error) {
 }
 
 // deployFlatSkill deploys a flat .md file as a skill by creating subdirs with SKILL.md.
-func deployFlatSkill(srcPath, ccDest, codexDest string, dryRun bool) ([]SkillResult, error) {
+func deployFlatSkill(
+	srcPath, ccDest, codexDest, agentsDest string,
+	dryRun bool,
+) ([]SkillResult, error) {
 	name := strings.TrimSuffix(filepath.Base(srcPath), ".md")
 	result := SkillResult{
-		Source:    srcPath,
-		Name:      name,
-		Dest:      ccDest,
-		CodexDest: codexDest,
+		Source:     srcPath,
+		Name:       name,
+		Dest:       ccDest,
+		CodexDest:  codexDest,
+		SkillsDest: agentsDest,
 	}
 
 	if dryRun {
 		return []SkillResult{result}, nil
 	}
 
-	for _, d := range []string{ccDest, codexDest} {
+	for _, d := range []string{ccDest, codexDest, agentsDest} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return nil, fmt.Errorf("creating skill dir %s: %w", d, err)
 		}
@@ -70,7 +76,10 @@ func deployFlatSkill(srcPath, ccDest, codexDest string, dryRun bool) ([]SkillRes
 	return []SkillResult{result}, nil
 }
 
-func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillResult, error) {
+func deploySkillsFromDir(
+	rawPath, ccDir, codexDir, agentsSkillsDir string,
+	dryRun bool,
+) ([]SkillResult, error) {
 	dir := config.ExpandHome(rawPath)
 
 	entries, err := os.ReadDir(dir)
@@ -83,7 +92,7 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 	}
 
 	if !dryRun {
-		for _, d := range []string{ccDir, codexDir} {
+		for _, d := range []string{ccDir, codexDir, agentsSkillsDir} {
 			if err := os.MkdirAll(d, 0o755); err != nil {
 				return nil, fmt.Errorf("creating skills dir %s: %w", d, err)
 			}
@@ -98,7 +107,8 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 				srcPath := filepath.Join(dir, entry.Name())
 				ccDest := filepath.Join(ccDir, strings.TrimSuffix(entry.Name(), ".md"))
 				codexDest := filepath.Join(codexDir, strings.TrimSuffix(entry.Name(), ".md"))
-				deployed, err := deployFlatSkill(srcPath, ccDest, codexDest, dryRun)
+				agentsDest := filepath.Join(agentsSkillsDir, strings.TrimSuffix(entry.Name(), ".md"))
+				deployed, err := deployFlatSkill(srcPath, ccDest, codexDest, agentsDest, dryRun)
 				if err != nil {
 					return nil, err
 				}
@@ -115,11 +125,13 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 
 		ccDest := filepath.Join(ccDir, entry.Name())
 		codexDest := filepath.Join(codexDir, entry.Name())
+		agentsDest := filepath.Join(agentsSkillsDir, entry.Name())
 		results = append(results, SkillResult{
-			Source:    skillDir,
-			Name:      entry.Name(),
-			Dest:      ccDest,
-			CodexDest: codexDest,
+			Source:     skillDir,
+			Name:       entry.Name(),
+			Dest:       ccDest,
+			CodexDest:  codexDest,
+			SkillsDest: agentsDest,
 		})
 
 		if dryRun {
@@ -130,6 +142,9 @@ func deploySkillsFromDir(rawPath, ccDir, codexDir string, dryRun bool) ([]SkillR
 			return nil, err
 		}
 		if err := deploySkill(skillDir, codexDest); err != nil {
+			return nil, err
+		}
+		if err := deploySkill(skillDir, agentsDest); err != nil {
 			return nil, err
 		}
 	}
@@ -187,6 +202,7 @@ func CleanSkills(skillsPaths []string, dryRun bool) ([]string, error) {
 	destDirs := []string{
 		filepath.Join(home, ".claude", "skills"),
 		filepath.Join(home, ".codex", "skills"),
+		filepath.Join(home, ".agents", "skills"),
 	}
 
 	var removed []string
