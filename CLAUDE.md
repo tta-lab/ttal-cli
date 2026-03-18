@@ -254,7 +254,7 @@ Generate a template: `ttal doctor --fix`
 
 ```
 ~/.config/ttal/
-  ├── .env                    - Secrets (bot tokens, API keys) — injected at spawn time
+  ├── .env                    - Secrets (bot tokens, API keys)
   ├── config.toml             - Global ttal configuration
   ├── projects.toml           - Active/archived project registry (default team)
   ├── {team}-projects.toml    - Per-team project registry (e.g. guion-projects.toml)
