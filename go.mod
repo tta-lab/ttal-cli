@@ -20,7 +20,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tta-lab/logos v0.4.1
+	github.com/tta-lab/logos v0.4.2
 	go.woodpecker-ci.org/woodpecker/v3 v3.13.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/text v0.35.0
