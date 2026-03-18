@@ -278,3 +278,73 @@ func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 		t.Error("body should equal full content when no frontmatter")
 	}
 }
+
+func TestParseFrontmatter_CRLF(t *testing.T) {
+	content := []byte("---\r\nname: my-skill\r\ndescription: Useful thing\r\n---\r\n# Body\r\n")
+	name, desc, body := skill.ParseFrontmatter(content)
+	if name != "my-skill" {
+		t.Errorf("expected name my-skill, got %q", name)
+	}
+	if desc != "Useful thing" {
+		t.Errorf("expected description Useful thing, got %q", desc)
+	}
+	if string(body) != "# Body\r\n" {
+		t.Errorf("unexpected body: %q", string(body))
+	}
+}
+
+func TestParseFrontmatter_NoTrailingNewline(t *testing.T) {
+	// Frontmatter with no trailing newline after closing ---
+	content := []byte("---\nname: skill\n---")
+	_, _, body := skill.ParseFrontmatter(content)
+	// Body should be empty (not a panic or partial content)
+	if len(body) != 0 {
+		t.Errorf("expected empty body, got %q", string(body))
+	}
+}
+
+func TestParseFrontmatter_Unterminated(t *testing.T) {
+	content := []byte("---\nname: skill\nno closing delimiter\n")
+	name, desc, body := skill.ParseFrontmatter(content)
+	// Unterminated frontmatter returns full content unchanged
+	if name != "" || desc != "" {
+		t.Errorf("expected empty name/desc for unterminated, got %q/%q", name, desc)
+	}
+	if string(body) != string(content) {
+		t.Error("body should equal full content for unterminated frontmatter")
+	}
+}
+
+func TestRemove_NotFound(t *testing.T) {
+	path := writeTOML(t, sampleTOML)
+	r, _ := skill.Load(path)
+
+	_, _, err := r.Remove("nonexistent")
+	if err == nil {
+		t.Error("expected error when removing nonexistent skill")
+	}
+}
+
+func TestReverseLookup_PrefixMatch(t *testing.T) {
+	// Skills with IDs longer than 8 chars should still match on 8-char prefix
+	tomlContent := `
+[skills.breathe]
+id = "a1b2c3d4e5f6"
+category = "command"
+description = "Refresh"
+`
+	path := writeTOML(t, tomlContent)
+	r, _ := skill.Load(path)
+
+	// Full ID match
+	s, ok := r.ReverseLookup("a1b2c3d4e5f6")
+	if !ok || s.Name != skillBreathe {
+		t.Errorf("expected breathe on full ID match, got %v, %v", s, ok)
+	}
+
+	// Prefix match
+	s, ok = r.ReverseLookup("a1b2c3d4")
+	if !ok || s.Name != skillBreathe {
+		t.Errorf("expected breathe on prefix match, got %v, %v", s, ok)
+	}
+}

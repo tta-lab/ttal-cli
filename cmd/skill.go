@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -157,6 +158,30 @@ func loadRegistry() (*skill.Registry, error) {
 	return skill.Load(skill.DefaultPath())
 }
 
+// buildSkillTable returns a lipgloss table with skill styling.
+// dimCols lists column indices that should receive dim styling.
+func buildSkillTable(headers []string, rows [][]string, dimCols ...int) *table.Table {
+	dimColSet := make(map[int]bool, len(dimCols))
+	for _, c := range dimCols {
+		dimColSet[c] = true
+	}
+	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
+	return table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return headerStyle
+			}
+			if dimColSet[col] {
+				return dimStyle
+			}
+			return cellStyle
+		}).
+		Headers(headers...).
+		Rows(rows...)
+}
+
 func runSkillList(listAll bool) error {
 	r, err := loadRegistry()
 	if err != nil {
@@ -176,50 +201,20 @@ func runSkillList(listAll bool) error {
 		return nil
 	}
 
-	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
-
 	showCategory := listAll || agentName == ""
 
 	var rows [][]string
-	for _, s := range skills {
-		if showCategory {
+	if showCategory {
+		for _, s := range skills {
 			rows = append(rows, []string{s.Name, s.Category, s.Description})
-		} else {
+		}
+		fmt.Println(buildSkillTable([]string{"Name", "Category", "Description"}, rows, 1))
+	} else {
+		for _, s := range skills {
 			rows = append(rows, []string{s.Name, s.Description})
 		}
+		fmt.Println(buildSkillTable([]string{"Name", "Description"}, rows))
 	}
-
-	var t *table.Table
-	if showCategory {
-		t = table.New().
-			Border(lipgloss.RoundedBorder()).
-			BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
-			StyleFunc(func(row, col int) lipgloss.Style {
-				if row == table.HeaderRow {
-					return headerStyle
-				}
-				if col == 1 {
-					return dimStyle
-				}
-				return cellStyle
-			}).
-			Headers("Name", "Category", "Description").
-			Rows(rows...)
-	} else {
-		t = table.New().
-			Border(lipgloss.RoundedBorder()).
-			BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
-			StyleFunc(func(row, col int) lipgloss.Style {
-				if row == table.HeaderRow {
-					return headerStyle
-				}
-				return cellStyle
-			}).
-			Headers("Name", "Description").
-			Rows(rows...)
-	}
-
-	fmt.Println(t)
 	return nil
 }
 
@@ -337,29 +332,12 @@ func runSkillFind(keywords []string, findAll bool) error {
 		}
 	}
 
-	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
-
 	var rows [][]string
 	for _, res := range sorted {
 		rows = append(rows, []string{res.s.Name, res.s.Category, string(res.source), res.s.Description})
 	}
 
-	t := table.New().
-		Border(lipgloss.RoundedBorder()).
-		BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == table.HeaderRow {
-				return headerStyle
-			}
-			if col == 1 || col == 2 {
-				return dimStyle
-			}
-			return cellStyle
-		}).
-		Headers("Name", "Category", "Match", "Description").
-		Rows(rows...)
-
-	fmt.Println(t)
+	fmt.Println(buildSkillTable([]string{"Name", "Category", "Match", "Description"}, rows, 1, 2))
 	return nil
 }
 
@@ -406,14 +384,12 @@ func runSkillAddFile(name, filePath, category, description string, force bool) e
 
 	fmName, fmDesc, body := skill.ParseFrontmatter(content)
 
-	if name == "" {
-		name = fmName
-	}
 	if description == "" {
 		description = fmDesc
 	}
-	if name == "" {
-		return fmt.Errorf("skill name required (provide as argument or set 'name:' in frontmatter)")
+	// Prefer frontmatter name if provided; name is always set (cobra MinimumNArgs(1) guarantees it)
+	if fmName != "" {
+		name = fmName
 	}
 
 	// Upload body (frontmatter stripped) to flicknote
@@ -476,21 +452,31 @@ type migrateEntry struct {
 	id       string
 }
 
-// collectSkillEntries scans a skills directory for SKILL.md dirs and flat .md files.
-func collectSkillEntries(dir string) ([]migrateEntry, error) {
-	dirEntries, err := os.ReadDir(dir)
+// readMigrateDir opens dir for migration scanning. Returns nil entries (not error) if the dir
+// doesn't exist — a warning is printed to stderr. Returns an error only on real I/O failures.
+func readMigrateDir(dir string) ([]os.DirEntry, error) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: skills path not found: %s\n", dir)
+			fmt.Fprintf(os.Stderr, "warning: path not found: %s\n", dir)
 			return nil, nil
 		}
-		return nil, fmt.Errorf("reading skills dir %s: %w", dir, err)
+		return nil, fmt.Errorf("reading dir %s: %w", dir, err)
+	}
+	return entries, nil
+}
+
+// collectSkillEntries scans a skills directory for SKILL.md dirs and flat .md files.
+func collectSkillEntries(dir string) ([]migrateEntry, error) {
+	dirEntries, err := readMigrateDir(dir)
+	if err != nil || dirEntries == nil {
+		return nil, err
 	}
 
 	var entries []migrateEntry
 	for _, entry := range dirEntries {
 		if entry.IsDir() {
-			skillMD := fmt.Sprintf("%s/%s/SKILL.md", dir, entry.Name())
+			skillMD := filepath.Join(dir, entry.Name(), "SKILL.md")
 			if _, err := os.Stat(skillMD); err != nil {
 				continue
 			}
@@ -503,7 +489,7 @@ func collectSkillEntries(dir string) ([]migrateEntry, error) {
 			name := strings.TrimSuffix(entry.Name(), ".md")
 			entries = append(entries, migrateEntry{
 				name:     name,
-				filePath: fmt.Sprintf("%s/%s", dir, entry.Name()),
+				filePath: filepath.Join(dir, entry.Name()),
 				category: "reference",
 			})
 		}
@@ -513,13 +499,9 @@ func collectSkillEntries(dir string) ([]migrateEntry, error) {
 
 // collectCommandEntries scans a commands directory for flat .md files.
 func collectCommandEntries(dir string) ([]migrateEntry, error) {
-	dirEntries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: commands path not found: %s\n", dir)
-			return nil, nil
-		}
-		return nil, fmt.Errorf("reading commands dir %s: %w", dir, err)
+	dirEntries, err := readMigrateDir(dir)
+	if err != nil || dirEntries == nil {
+		return nil, err
 	}
 
 	var entries []migrateEntry
@@ -530,7 +512,7 @@ func collectCommandEntries(dir string) ([]migrateEntry, error) {
 		name := strings.TrimSuffix(entry.Name(), ".md")
 		entries = append(entries, migrateEntry{
 			name:     name,
-			filePath: fmt.Sprintf("%s/%s", dir, entry.Name()),
+			filePath: filepath.Join(dir, entry.Name()),
 			category: "command",
 		})
 	}
@@ -566,6 +548,7 @@ func processEntry(r *skill.Registry, e *migrateEntry, apply, force bool) {
 	name := e.name
 	if fmName != "" {
 		name = fmName
+		e.name = name // keep table output and registry key in sync
 	}
 
 	cmd := exec.Command("flicknote", "add", "--project", "ttal.skills")
@@ -630,29 +613,12 @@ func runSkillMigrate(apply, force bool) error {
 		processEntry(r, &entries[i], apply, force)
 	}
 
-	dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
-
 	var rows [][]string
 	for _, e := range entries {
 		rows = append(rows, []string{e.name, e.category, e.id, e.status})
 	}
 
-	t := table.New().
-		Border(lipgloss.RoundedBorder()).
-		BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == table.HeaderRow {
-				return headerStyle
-			}
-			if col == 1 || col == 2 {
-				return dimStyle
-			}
-			return cellStyle
-		}).
-		Headers("Name", "Category", "Flicknote ID", "Status").
-		Rows(rows...)
-
-	fmt.Println(t)
+	fmt.Println(buildSkillTable([]string{"Name", "Category", "Flicknote ID", "Status"}, rows, 1, 2))
 
 	if !apply {
 		fmt.Println("\nDry run — use --apply to upload and register.")

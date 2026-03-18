@@ -1,7 +1,6 @@
 package skill
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -193,7 +192,7 @@ func (r *Registry) Validate() []string {
 // ReverseLookup finds a skill by flicknote ID prefix (8-char hex).
 func (r *Registry) ReverseLookup(flicknoteID string) (*Skill, bool) {
 	for _, s := range r.skills {
-		if strings.HasPrefix(s.FlicknoteID, flicknoteID) || s.FlicknoteID == flicknoteID {
+		if strings.HasPrefix(s.FlicknoteID, flicknoteID) {
 			sc := s
 			return &sc, true
 		}
@@ -222,67 +221,40 @@ func (r *Registry) save() error {
 // and returns the body content with frontmatter stripped.
 // Used by `add --file` and `migrate` to auto-populate skill metadata
 // and upload only the body to flicknote (no frontmatter pollution).
+//
+// Single-pass over bytes.Split lines so bodyStart tracks real byte offsets.
+// Handles both LF and CRLF line endings correctly.
 func ParseFrontmatter(content []byte) (name, description string, body []byte) {
-	scanner := bufio.NewScanner(bytes.NewReader(content))
+	lines := bytes.Split(content, []byte("\n"))
 
-	if !scanner.Scan() || strings.TrimSpace(scanner.Text()) != frontmatterDelimiter {
+	if len(lines) == 0 || strings.TrimSpace(string(lines[0])) != frontmatterDelimiter {
 		return "", "", content
 	}
 
 	fm := make(map[string]string)
-	var afterFM int
-	found := false
+	consumed := len(lines[0]) + 1 // opening --- line + \n
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.TrimSpace(line) == frontmatterDelimiter {
-			found = true
-			break
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+		lineLen := len(line) + 1 // +1 for the \n separator (handles CRLF: \r stays in len)
+		trimmed := strings.TrimSpace(string(line))
+
+		if trimmed == frontmatterDelimiter {
+			consumed += lineLen
+			if consumed > len(content) {
+				return fm["name"], fm["description"], []byte{}
+			}
+			return fm["name"], fm["description"], content[consumed:]
 		}
-		if idx := strings.Index(line, ":"); idx > 0 {
-			key := strings.TrimSpace(line[:idx])
-			val := strings.TrimSpace(line[idx+1:])
+
+		if idx := bytes.IndexByte(line, ':'); idx > 0 {
+			key := strings.TrimSpace(string(line[:idx]))
+			val := strings.TrimSpace(string(line[idx+1:]))
 			val = strings.Trim(val, "\"'")
 			fm[key] = val
 		}
+		consumed += lineLen
 	}
 
-	if !found {
-		return "", "", content
-	}
-
-	// Calculate byte offset after the closing ---
-	// We need to find where the body starts
-	lines := bytes.Split(content, []byte("\n"))
-	inFM := false
-	closedFM := false
-	_ = afterFM
-	bodyStart := 0
-	consumed := 0
-
-	for _, line := range lines {
-		lineLen := len(line) + 1 // +1 for \n
-		trimmed := strings.TrimSpace(string(line))
-
-		if !inFM && trimmed == frontmatterDelimiter {
-			inFM = true
-			consumed += lineLen
-			continue
-		}
-		if inFM && trimmed == frontmatterDelimiter {
-			closedFM = true
-			consumed += lineLen
-			bodyStart = consumed
-			break
-		}
-		if inFM {
-			consumed += lineLen
-		}
-	}
-
-	if !closedFM {
-		return "", "", content
-	}
-
-	return fm["name"], fm["description"], content[bodyStart:]
+	return "", "", content // unterminated frontmatter
 }
