@@ -92,12 +92,14 @@ func TestBuildPRStatusLines_AllFailing(t *testing.T) {
 	}
 }
 
-func TestBuildPRStatusLines_AllPending(t *testing.T) {
+func TestBuildPRStatusLines_HasStatusesButNoFailures(t *testing.T) {
+	// diagnosePRMergeFailure intercepts the all-pending case before calling buildPRStatusLines,
+	// so buildPRStatusLines is only called with failing=0,pending=0 when all checks are
+	// success/neutral (not truly pending). Passing a pending status here simulates a
+	// success-only slice from the caller's perspective — the statuses slice isn't filtered.
 	statuses := []*gitprovider.CommitStatus{
 		{Context: "test/unit", State: gitprovider.StatePending},
 	}
-	// No failing, 1 pending — diagnosePRMergeFailure handles pending before buildPRStatusLines,
-	// but buildPRStatusLines with failing=0, pending=0 covers the no-checks case.
 	result := buildPRStatusLines(statuses, 0, 0)
 	if !strings.Contains(result, "All CI checks passed") {
 		t.Errorf("expected 'All CI checks passed', got: %s", result)

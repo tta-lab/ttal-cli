@@ -454,3 +454,113 @@ func TestHTTPPRCIFailureDetails_HandlerError(t *testing.T) {
 		t.Fatalf("expected 500, got %d", w.Code)
 	}
 }
+
+// Smoke tests for remaining PR routes — verify router wiring and error→500 contract.
+
+func TestHTTPPRModify_Smoke(t *testing.T) {
+	var received PRModifyRequest
+	h := testHandlers(nil)
+	h.prModify = func(req PRModifyRequest) PRResponse {
+		received = req
+		return PRResponse{OK: true}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(PRModifyRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1, Title: "new"})
+	req := httptest.NewRequest(http.MethodPost, "/pr/modify", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if received.Title != "new" {
+		t.Errorf("expected Title=new, got %q", received.Title)
+	}
+}
+
+func TestHTTPPRMerge_Smoke(t *testing.T) {
+	h := testHandlers(nil)
+	h.prMerge = func(req PRMergeRequest) PRResponse { return PRResponse{OK: true} }
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(PRMergeRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1})
+	req := httptest.NewRequest(http.MethodPost, "/pr/merge", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHTTPPRMerge_HandlerError(t *testing.T) {
+	h := testHandlers(nil)
+	h.prMerge = func(req PRMergeRequest) PRResponse { return PRResponse{OK: false, Error: "not mergeable"} }
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(PRMergeRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1})
+	req := httptest.NewRequest(http.MethodPost, "/pr/merge", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
+	}
+}
+
+func TestHTTPPRCheckMergeable_Smoke(t *testing.T) {
+	h := testHandlers(nil)
+	h.prCheckMergeable = func(req PRCheckMergeableRequest) PRResponse {
+		return PRResponse{OK: true, HeadSHA: "abc123"}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(PRCheckMergeableRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1})
+	req := httptest.NewRequest(http.MethodPost, "/pr/check-mergeable", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHTTPPRCommentCreate_Smoke(t *testing.T) {
+	h := testHandlers(nil)
+	h.prCommentCreate = func(req PRCommentCreateRequest) PRResponse { return PRResponse{OK: true} }
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(PRCommentCreateRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1, Body: "LGTM"})
+	req := httptest.NewRequest(http.MethodPost, "/pr/comment/create", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHTTPPRCommentList_Smoke(t *testing.T) {
+	h := testHandlers(nil)
+	h.prCommentList = func(req PRCommentListRequest) PRResponse {
+		return PRResponse{OK: true, Comments: []PRCommentItem{{User: "neil", Body: "LGTM"}}}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(PRCommentListRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1})
+	req := httptest.NewRequest(http.MethodPost, "/pr/comment/list", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp PRResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Comments) != 1 || resp.Comments[0].User != "neil" {
+		t.Errorf("unexpected comments: %+v", resp.Comments)
+	}
+}
