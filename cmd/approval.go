@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"html"
 	"os"
 
 	"github.com/tta-lab/ttal-cli/internal/daemon"
@@ -22,11 +21,7 @@ func requireHumanApproval(action, details string) error {
 		return nil // human caller — no gate needed
 	}
 
-	question := fmt.Sprintf("🔒 <b>%s</b> requests approval to <b>%s</b>:\n\n%s",
-		html.EscapeString(agentName),
-		html.EscapeString(action),
-		html.EscapeString(details),
-	)
+	question := fmt.Sprintf("🔒 %s requests approval to %s:\n\n%s", agentName, action, details)
 	options := []string{"✅ Approve", "❌ Reject"}
 
 	req := daemon.AskHumanRequest{

@@ -326,7 +326,7 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
 func buildAskHumanMessage(
 	displayName, question string, options []string, shortID string,
 ) (string, *models.InlineKeyboardMarkup) {
-	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", html.EscapeString(displayName), question)
+	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", html.EscapeString(displayName), html.EscapeString(question))
 
 	if len(options) == 0 {
 		text += "\n\n💬 Reply to this message with your answer."
