@@ -25,20 +25,27 @@ func ResolveContext() (*Context, error) {
 	return resolveFromTask(jobID)
 }
 
-func resolveFromTask(jobID string) (*Context, error) {
+// resolveTaskInfo is shared setup for resolveFromTask and resolveFromTaskWithoutProvider.
+func resolveTaskInfo(jobID string) (*taskwarrior.Task, *gitprovider.RepoInfo, error) {
 	task, err := resolveTask(jobID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	projectPath, err := project.ResolveProjectPathOrError(task.Project)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+		return nil, nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+	}
+	return task, info, nil
+}
+
+func resolveFromTask(jobID string) (*Context, error) {
+	task, info, err := resolveTaskInfo(jobID)
+	if err != nil {
+		return nil, err
 	}
 
 	provider, err := gitprovider.NewProvider(info)
@@ -77,6 +84,50 @@ func resolveFromCwd() (*Context, error) {
 		Repo:     info.Repo,
 		Provider: provider,
 		Info:     info,
+	}, nil
+}
+
+// ResolveContextWithoutProvider resolves task metadata and git repo info
+// without creating an authenticated provider. Used by CLI commands that
+// proxy API calls through the daemon.
+func ResolveContextWithoutProvider() (*Context, error) {
+	jobID := os.Getenv("TTAL_JOB_ID")
+	if jobID == "" {
+		return resolveFromCwdWithoutProvider()
+	}
+	return resolveFromTaskWithoutProvider(jobID)
+}
+
+func resolveFromTaskWithoutProvider(jobID string) (*Context, error) {
+	task, info, err := resolveTaskInfo(jobID)
+	if err != nil {
+		return nil, err
+	}
+	return &Context{
+		Task:  task,
+		Owner: info.Owner,
+		Repo:  info.Repo,
+		Info:  info,
+		// Provider is nil — API calls go through daemon
+	}, nil
+}
+
+func resolveFromCwdWithoutProvider() (*Context, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine working directory: %w", err)
+	}
+
+	info, err := gitprovider.DetectProvider(cwd)
+	if err != nil {
+		return nil, fmt.Errorf("not in a git repo with a recognized remote: %w", err)
+	}
+
+	return &Context{
+		Task:  &taskwarrior.Task{},
+		Owner: info.Owner,
+		Repo:  info.Repo,
+		Info:  info,
 	}, nil
 }
 

@@ -80,6 +80,143 @@ type StatusResponse struct {
 	Error  string               `json:"error,omitempty"`
 }
 
+// PRCreateRequest asks the daemon to create a PR via the authenticated provider.
+type PRCreateRequest struct {
+	ProviderType string `json:"provider_type"` // "forgejo" or "github"
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Head         string `json:"head"` // source branch
+	Base         string `json:"base"` // target branch
+	Title        string `json:"title"`
+	Body         string `json:"body"`
+}
+
+// PRModifyRequest asks the daemon to edit a PR title/body.
+type PRModifyRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+	Title        string `json:"title,omitempty"`
+	Body         string `json:"body,omitempty"`
+}
+
+// PRMergeRequest asks the daemon to squash-merge a PR.
+type PRMergeRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+	DeleteBranch bool   `json:"delete_branch"`
+}
+
+// PRCheckMergeableRequest asks the daemon to check if a PR is mergeable.
+type PRCheckMergeableRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+}
+
+// PRCommentCreateRequest asks the daemon to post a comment on a PR.
+type PRCommentCreateRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+	Body         string `json:"body"`
+}
+
+// PRCommentListRequest asks the daemon to list comments on a PR.
+type PRCommentListRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+}
+
+// PRGetPRRequest asks the daemon to fetch a PR (for HeadSHA resolution in CI commands).
+type PRGetPRRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+}
+
+// PRGetCombinedStatusRequest asks the daemon to fetch CI status for a commit.
+type PRGetCombinedStatusRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	SHA          string `json:"sha"`
+}
+
+// PRGetCIFailureDetailsRequest asks the daemon to fetch CI failure details.
+type PRGetCIFailureDetailsRequest struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	SHA          string `json:"sha"`
+}
+
+// PRResponse is the daemon's response for PR operations.
+type PRResponse struct {
+	OK       bool            `json:"ok"`
+	Error    string          `json:"error,omitempty"`
+	PRURL    string          `json:"pr_url,omitempty"`
+	PRIndex  int64           `json:"pr_index,omitempty"`
+	HeadSHA  string          `json:"head_sha,omitempty"`
+	Comments []PRCommentItem `json:"comments,omitempty"`
+}
+
+// PRCommentItem is a single comment in a PRResponse.
+type PRCommentItem struct {
+	User      string `json:"user"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+	HTMLURL   string `json:"html_url"`
+}
+
+// PRGetPRResponse is the daemon's response for GetPR.
+type PRGetPRResponse struct {
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+	HeadSHA   string `json:"head_sha,omitempty"`
+	Merged    bool   `json:"merged,omitempty"`
+	Mergeable bool   `json:"mergeable,omitempty"`
+}
+
+// PRCIStatusResponse is the daemon's response for GetCombinedStatus.
+type PRCIStatusResponse struct {
+	OK       bool         `json:"ok"`
+	Error    string       `json:"error,omitempty"`
+	State    string       `json:"state,omitempty"`
+	Statuses []PRCIStatus `json:"statuses,omitempty"`
+}
+
+// PRCIStatus is a single CI check status.
+type PRCIStatus struct {
+	Context     string `json:"context"`
+	State       string `json:"state"`
+	Description string `json:"description"`
+	TargetURL   string `json:"target_url"`
+}
+
+// PRCIFailureDetailsResponse is the daemon's response for GetCIFailureDetails.
+type PRCIFailureDetailsResponse struct {
+	OK      bool                `json:"ok"`
+	Error   string              `json:"error,omitempty"`
+	Details []PRCIFailureDetail `json:"details,omitempty"`
+}
+
+// PRCIFailureDetail is a single CI failure entry.
+type PRCIFailureDetail struct {
+	JobName      string `json:"job_name"`
+	WorkflowName string `json:"workflow_name"`
+	HTMLURL      string `json:"html_url"`
+	LogTail      string `json:"log_tail"`
+}
+
 // BreatheRequest asks the daemon to restart an agent with a fresh context window.
 type BreatheRequest struct {
 	Team    string `json:"team,omitempty"` // defaults to "default"
@@ -96,6 +233,16 @@ type httpHandlers struct {
 	taskComplete func(TaskCompleteRequest) SendResponse
 	breathe      func(BreatheRequest) SendResponse
 	askHuman     http.HandlerFunc
+	// PR operations (daemon-proxied for token isolation)
+	prCreate              func(PRCreateRequest) PRResponse
+	prModify              func(PRModifyRequest) PRResponse
+	prMerge               func(PRMergeRequest) PRResponse
+	prCheckMergeable      func(PRCheckMergeableRequest) PRResponse
+	prCommentCreate       func(PRCommentCreateRequest) PRResponse
+	prCommentList         func(PRCommentListRequest) PRResponse
+	prGetPR               func(PRGetPRRequest) PRGetPRResponse
+	prGetCombinedStatus   func(PRGetCombinedStatusRequest) PRCIStatusResponse
+	prGetCIFailureDetails func(PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse
 }
 
 // newDaemonRouter creates the chi router with all daemon routes.
@@ -111,6 +258,16 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
 	})
+	// PR routes (proxied through daemon for token isolation)
+	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
+	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
+	r.Post("/pr/merge", handleHTTPPR("prMerge", handlers.prMerge))
+	r.Post("/pr/check-mergeable", handleHTTPPR("prCheckMergeable", handlers.prCheckMergeable))
+	r.Post("/pr/comment/create", handleHTTPPR("prCommentCreate", handlers.prCommentCreate))
+	r.Post("/pr/comment/list", handleHTTPPR("prCommentList", handlers.prCommentList))
+	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
+	r.Post("/pr/ci/status", handleHTTPPRCIStatus(handlers))
+	r.Post("/pr/ci/failure-details", handleHTTPPRCIFailureDetails(handlers))
 	return r
 }
 
@@ -205,6 +362,140 @@ func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
 
 func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
 	return handleHTTPWithResponse("breathe", handlers.breathe)
+}
+
+// prOKStatus maps an OK flag to an HTTP status code.
+func prOKStatus(ok bool) int {
+	if ok {
+		return http.StatusOK
+	}
+	return http.StatusInternalServerError
+}
+
+// handleHTTPPR creates a typed HTTP handler for PR operations returning PRResponse.
+func handleHTTPPR[Req any](name string, fn func(Req) PRResponse) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req Req
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				PRResponse{OK: false, Error: "invalid " + name + " JSON: " + err.Error()})
+			return
+		}
+		result := fn(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
+	}
+}
+
+func handleHTTPPRGetPR(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req PRGetPRRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				PRGetPRResponse{OK: false, Error: "invalid prGetPR JSON: " + err.Error()})
+			return
+		}
+		result := handlers.prGetPR(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
+	}
+}
+
+func handleHTTPPRCIStatus(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req PRGetCombinedStatusRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				PRCIStatusResponse{OK: false, Error: "invalid prGetCombinedStatus JSON: " + err.Error()})
+			return
+		}
+		result := handlers.prGetCombinedStatus(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
+	}
+}
+
+func handleHTTPPRCIFailureDetails(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req PRGetCIFailureDetailsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				PRCIFailureDetailsResponse{OK: false, Error: "invalid prGetCIFailureDetails JSON: " + err.Error()})
+			return
+		}
+		result := handlers.prGetCIFailureDetails(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
+	}
+}
+
+// prCall is the generic helper for PR operations returning PRResponse.
+func prCall[Req any](path string, req Req) (PRResponse, error) {
+	return prCallTyped(path, req, func(r PRResponse) string { return r.Error })
+}
+
+// prCallTyped is the generic helper for PR operations returning a typed response.
+// getErr extracts the error string from the response type for error propagation.
+func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return *new(Resp), fmt.Errorf("marshal PR request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+path, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return *new(Resp), fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
+	}
+	defer resp.Body.Close()
+	var result Resp
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return *new(Resp), fmt.Errorf("decode PR response: %w", err)
+	}
+	if errMsg := getErr(result); errMsg != "" {
+		return result, fmt.Errorf("%s", errMsg) //nolint:err113
+	}
+	return result, nil
+}
+
+// PRCreate asks the daemon to create a PR via the authenticated provider.
+func PRCreate(req PRCreateRequest) (PRResponse, error) {
+	return prCall("/pr/create", req)
+}
+
+// PRModify asks the daemon to edit a PR title/body.
+func PRModify(req PRModifyRequest) (PRResponse, error) {
+	return prCall("/pr/modify", req)
+}
+
+// PRMerge asks the daemon to squash-merge a PR.
+func PRMerge(req PRMergeRequest) (PRResponse, error) {
+	return prCall("/pr/merge", req)
+}
+
+// PRCheckMergeable asks the daemon to check if a PR is mergeable.
+func PRCheckMergeable(req PRCheckMergeableRequest) (PRResponse, error) {
+	return prCall("/pr/check-mergeable", req)
+}
+
+// PRCommentCreate asks the daemon to post a comment on a PR.
+func PRCommentCreate(req PRCommentCreateRequest) (PRResponse, error) {
+	return prCall("/pr/comment/create", req)
+}
+
+// PRCommentList asks the daemon to list comments on a PR.
+func PRCommentList(req PRCommentListRequest) (PRResponse, error) {
+	return prCall("/pr/comment/list", req)
+}
+
+// PRGetPR asks the daemon to fetch a PR.
+func PRGetPR(req PRGetPRRequest) (PRGetPRResponse, error) {
+	return prCallTyped("/pr/get", req, func(r PRGetPRResponse) string { return r.Error })
+}
+
+// PRGetCombinedStatus asks the daemon to fetch CI status for a commit.
+func PRGetCombinedStatus(req PRGetCombinedStatusRequest) (PRCIStatusResponse, error) {
+	return prCallTyped("/pr/ci/status", req, func(r PRCIStatusResponse) string { return r.Error })
+}
+
+// PRGetCIFailureDetails asks the daemon to fetch CI failure details.
+func PRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) (PRCIFailureDetailsResponse, error) {
+	return prCallTyped("/pr/ci/failure-details", req, func(r PRCIFailureDetailsResponse) string { return r.Error })
 }
 
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {

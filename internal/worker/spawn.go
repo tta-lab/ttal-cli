@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/env"
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
@@ -322,12 +323,16 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 		setEnv("TASKRC", taskrc)
 	}
 
-	// Inject all .env secrets at session level (inherited by all windows).
+	// Inject allowlisted .env vars at session level (inherited by all windows).
+	// Secrets (tokens) are blocked — authenticated operations go through the daemon.
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
-		return fmt.Errorf("worker will launch without API secrets: %w", err)
+		return fmt.Errorf("failed to load .env for worker session: %w", err)
 	}
 	for k, v := range dotEnv {
+		if !env.IsAllowedForSession(k) {
+			continue // not on allowlist — daemon handles these
+		}
 		setEnv(k, v)
 	}
 

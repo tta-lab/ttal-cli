@@ -142,7 +142,16 @@ func Run() error {
 		breathe: func(req BreatheRequest) SendResponse {
 			return handleBreathe(shellCfg, frontends, req)
 		},
-		askHuman: askHumanHandler,
+		askHuman:              askHumanHandler,
+		prCreate:              handlePRCreate,
+		prModify:              handlePRModify,
+		prMerge:               handlePRMerge,
+		prCheckMergeable:      handlePRCheckMergeable,
+		prCommentCreate:       handlePRCommentCreate,
+		prCommentList:         handlePRCommentList,
+		prGetPR:               handlePRGetPR,
+		prGetCombinedStatus:   handlePRGetCombinedStatus,
+		prGetCIFailureDetails: handlePRGetCIFailureDetails,
 	})
 	if err != nil {
 		close(done)

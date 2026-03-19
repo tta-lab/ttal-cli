@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -26,10 +27,7 @@ var prCmd = &cobra.Command{
 Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
 Provider is auto-detected from git remote URL (github.com → GitHub, else → Forgejo).
 
-Environment:
-  GITHUB_TOKEN    GitHub API token (required for GitHub repos)
-  FORGEJO_URL     Forgejo instance URL (required for Forgejo repos)
-  FORGEJO_TOKEN   Forgejo API token (required for Forgejo repos)`,
+All authenticated API calls are proxied through the daemon for token isolation.`,
 }
 
 var prCreateCmd = &cobra.Command{
@@ -43,29 +41,55 @@ Examples:
   ttal pr create "fix: resolve timeout bug" --body "Fixes #42"`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
+		}
+
+		if ctx.Task.Branch == "" {
+			return fmt.Errorf(
+				"task has no branch UDA set — run from a worktree with a branch, or set it: task %s modify branch:<name>",
+				ctx.Task.UUID,
+			)
 		}
 
 		title := strings.Join(args, " ")
 		body, _ := cmd.Flags().GetString("body")
 
-		result, err := pr.Create(ctx, title, body)
+		base := ctx.Info.DefaultBranch
+		if base == "" {
+			base = "main"
+		}
+
+		resp, err := daemon.PRCreate(daemon.PRCreateRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			Head:         ctx.Task.Branch,
+			Base:         base,
+			Title:        title,
+			Body:         body,
+		})
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("PR #%d created: %s\n", result.Index, result.HTMLURL)
-		fmt.Printf("  %s → %s\n", result.Head, result.Base)
+		fmt.Printf("PR #%d created: %s\n", resp.PRIndex, resp.PRURL)
+		fmt.Printf("  %s → %s\n", ctx.Task.Branch, base)
 		fmt.Println()
 
-		// Notify lifecycle agent
-		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, result.HTMLURL))
+		// Store PRID in taskwarrior
+		if ctx.Task.UUID != "" {
+			if err := taskwarrior.SetPRID(ctx.Task.UUID, strconv.FormatInt(resp.PRIndex, 10)); err != nil {
+				fmt.Printf("warning: PR created but failed to update task: %v\n", err)
+			}
+		}
 
-		// Update ctx with newly created PR index so SpawnReviewer can use it.
-		// pr.Create stores it in taskwarrior, but ctx.Task is a stale snapshot.
-		ctx.Task.PRID = strconv.FormatInt(result.Index, 10)
+		// Update ctx.Task.PRID for SpawnReviewer
+		ctx.Task.PRID = strconv.FormatInt(resp.PRIndex, 10)
+
+		// Notify lifecycle agent
+		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, resp.PRURL))
 
 		// Auto-spawn reviewer
 		sessionName, sessionErr := review.ResolveSessionName()
@@ -102,7 +126,7 @@ Examples:
   ttal pr modify --title "new title"
   ttal pr modify --body "updated description"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
 		}
@@ -114,12 +138,24 @@ Examples:
 			return fmt.Errorf("specify --title, --body, or both\n\n  Example: ttal pr modify --title \"new title\" --body \"updated description\"") //nolint:lll
 		}
 
-		result, err := pr.Modify(ctx, title, body)
+		index, err := pr.PRIndex(ctx)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("PR #%d updated: %s\n", result.Index, result.HTMLURL)
+		resp, err := daemon.PRModify(daemon.PRModifyRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			Index:        index,
+			Title:        title,
+			Body:         body,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("PR #%d updated: %s\n", resp.PRIndex, resp.PRURL)
 		return nil
 	},
 }
@@ -134,15 +170,27 @@ Examples:
   ttal pr merge
   ttal pr merge --keep-branch`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
 		}
 
+		// Parse PRID and check LGTM gate locally (no provider needed)
+		info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
+		if err != nil {
+			return err
+		}
+		if !info.LGTM {
+			return fmt.Errorf(
+				"PR #%d has not been approved by reviewer — merge blocked\n"+
+					"  Reviewer must post LGTM comment or use: ttal pr comment create --lgtm \"approved\"",
+				info.Index,
+			)
+		}
+
 		keepBranch, _ := cmd.Flags().GetBool("keep-branch")
 
-		// Check for uncommitted changes before merging — clean worktree
-		// ensures the daemon cleanup can remove the worktree without issues
+		// Check for uncommitted changes before merging
 		statusOut, statusErr := exec.Command("git", "status", "--porcelain").Output()
 		if statusErr != nil {
 			return fmt.Errorf("failed to check worktree status: %w", statusErr)
@@ -153,13 +201,18 @@ Examples:
 
 		prURL := pr.BuildPRURL(ctx)
 
-		// Check mergeability before deciding mode — both modes need this.
-		if err := pr.CheckMergeable(ctx); err != nil {
+		// Check mergeability via daemon
+		if _, err := daemon.PRCheckMergeable(daemon.PRCheckMergeableRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			Index:        info.Index,
+		}); err != nil {
 			worker.NotifyTelegram(fmt.Sprintf("⏳ PR not mergeable: %s\n%s\n%v", ctx.Task.Description, prURL, err))
 			return err
 		}
 
-		// Resolve merge mode from config (team > global > "auto").
+		// Resolve merge mode from config (team > global > "auto")
 		mergeMode := config.MergeModeAuto
 		cfg, cfgErr := config.Load()
 		if cfgErr != nil {
@@ -169,13 +222,19 @@ Examples:
 		}
 
 		if mergeMode == config.MergeModeManual {
-			// Manual mode: notify instead of merging. Human decides.
 			worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s\n%s", ctx.Task.Description, prURL))
 			fmt.Printf("PR #%s is mergeable (manual mode — notification sent)\n", ctx.Task.PRID)
 			return nil
 		}
 
-		if err := pr.Merge(ctx, !keepBranch); err != nil {
+		// Merge via daemon
+		if _, err = daemon.PRMerge(daemon.PRMergeRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			Index:        info.Index,
+			DeleteBranch: !keepBranch,
+		}); err != nil {
 			return err
 		}
 
@@ -219,7 +278,7 @@ Examples:
   ttal pr comment create --no-review "Triage complete, merging"
   echo "comment" | ttal pr comment create`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
 		}
@@ -239,12 +298,18 @@ Examples:
 			return err
 		}
 
-		comment, err := ctx.Provider.CreateComment(ctx.Owner, ctx.Repo, index, body)
+		resp, err := daemon.PRCommentCreate(daemon.PRCommentCreateRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			Index:        index,
+			Body:         body,
+		})
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Comment added to PR: %s\n", comment.HTMLURL)
+		fmt.Printf("Comment added to PR: %s\n", resp.PRURL)
 
 		// Determine if this comment signals LGTM (reviewer only)
 		lgtmFlag, err := cmd.Flags().GetBool("lgtm")
@@ -361,7 +426,7 @@ Examples:
   ttal pr review --full  # force full re-review (not delta)
   ttal pr review --force # kill and respawn reviewer window`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
 		}
@@ -394,7 +459,7 @@ var prCommentListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List comments on the PR",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
 		}
@@ -404,18 +469,23 @@ var prCommentListCmd = &cobra.Command{
 			return err
 		}
 
-		comments, err := ctx.Provider.ListComments(ctx.Owner, ctx.Repo, index)
+		resp, err := daemon.PRCommentList(daemon.PRCommentListRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			Index:        index,
+		})
 		if err != nil {
 			return err
 		}
 
-		if len(comments) == 0 {
+		if len(resp.Comments) == 0 {
 			fmt.Println("No comments on this PR.")
 			return nil
 		}
 
-		for _, c := range comments {
-			fmt.Printf("--- %s (%s) ---\n%s\n\n", c.User, c.CreatedAt.Format("2006-01-02 15:04"), c.Body)
+		for _, c := range resp.Comments {
+			fmt.Printf("--- %s (%s) ---\n%s\n\n", c.User, c.CreatedAt, c.Body)
 		}
 
 		return nil

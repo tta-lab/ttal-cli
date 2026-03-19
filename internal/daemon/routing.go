@@ -9,6 +9,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -205,13 +206,17 @@ func resolveAgentModel(team, agent string) breatheAgentModel {
 	return info
 }
 
-// injectSecretsToSession loads .env and injects each key into the tmux session environment.
+// injectSecretsToSession loads .env and injects allowlisted vars into the tmux session environment.
+// Secrets (tokens) are blocked — authenticated operations go through the daemon.
 func injectSecretsToSession(sessionName string) {
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
 		log.Printf("[breathe] warning: .env load failed, secrets may be missing: %v", err)
 	}
 	for k, v := range dotEnv {
+		if !env.IsAllowedForSession(k) {
+			continue
+		}
 		if err := tmux.SetEnv(sessionName, k, v); err != nil {
 			log.Printf("[breathe] warning: failed to inject %s into session %s: %v", k, sessionName, err)
 		}

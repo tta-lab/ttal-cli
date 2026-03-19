@@ -8,7 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/tui"
 )
 
@@ -25,17 +24,8 @@ Running ttal with no subcommand launches the interactive TUI.`,
 		_, err := p.Run()
 		return err
 	},
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Load .env as fallback for tokens not already in the environment
-		if dotEnv, err := config.LoadDotEnv(); err == nil {
-			for k, v := range dotEnv {
-				if os.Getenv(k) == "" {
-					_ = os.Setenv(k, v)
-				}
-			}
-		}
-		return nil
-	},
+	// PersistentPreRunE removed — .env is loaded only by commands that need it
+	// (ttal ask, ttal daemon). Daemon proxies authenticated operations.
 }
 
 func init() {

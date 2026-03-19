@@ -68,6 +68,14 @@ Examples:
   ttal ask "what API endpoints are available?" --url https://docs.example.com # specific URL
   ttal ask "what is the latest Go generics syntax?" --web                     # web search only`,
 	Args: cobra.ExactArgs(1),
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// ttal ask needs MINIMAX_API_KEY and BRAVE_API_KEY for subagent.
+		// Load .env as fallback for tokens not already in the environment.
+		if err := config.InjectDotEnvFallback(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
+		}
+		return nil
+	},
 	RunE: runAsk,
 }
 
