@@ -6,7 +6,6 @@ flicknote_project: ttal.research
 role: researcher
 voice: af_bella
 claude-code:
-  model: sonnet
   tools: [Bash, Read]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

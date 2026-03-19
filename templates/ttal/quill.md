@@ -5,7 +5,6 @@ emoji: 🐦‍⬛
 role: designer
 description: Skill design partner — helps create well-designed, shareable Claude Code skills
 claude-code:
-  model: sonnet
   tools: [Bash, Glob, Grep, Read, Write, Edit, Agent]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

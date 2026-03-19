@@ -6,7 +6,6 @@ flicknote_project: fn.audits
 role: auditor
 voice: af_alloy
 claude-code:
-  model: sonnet
   tools: [Bash, Read]
 ---
 

@@ -5,7 +5,6 @@ description: Task orchestrator — creates, routes, and manages work via taskwar
 role: manager
 voice: af_jessica
 claude-code:
-  model: sonnet
   tools: [Bash, Glob, Grep, Read]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

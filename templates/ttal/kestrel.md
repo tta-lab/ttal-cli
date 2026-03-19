@@ -6,7 +6,6 @@ flicknote_project: ttal.fixes
 role: fixer
 voice: af_river
 claude-code:
-  model: sonnet
   tools: [Bash, Read, Agent]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

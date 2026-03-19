@@ -6,7 +6,6 @@ flicknote_project: fn.plans
 role: designer
 voice: af_nicole
 claude-code:
-  model: sonnet
   tools: [Bash, Glob, Grep, Read, Agent]
 ---
 

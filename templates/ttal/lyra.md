@@ -5,7 +5,6 @@ emoji: 🦎
 role: communicator
 description: Communications writer — polishes outward-facing text, adapts tone per platform
 claude-code:
-  model: sonnet
   tools: [Bash, Glob, Grep, Read, Write, Edit]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
