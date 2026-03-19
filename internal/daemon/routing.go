@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -218,12 +219,19 @@ func injectSecretsToSession(sessionName string) {
 }
 
 // buildCCRestartCmd returns the claude --resume command for a breathe restart.
+// trigger, if non-empty, is appended as a positional arg after --.
+// When trigger is empty (self-breathe), no -- separator is added.
 // Extracted for unit testing.
-func buildCCRestartCmd(sessionID, model, agent string) string {
-	return fmt.Sprintf(
+func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
+	cmd := fmt.Sprintf(
 		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
 		sessionID, model, agent,
 	)
+	if trigger != "" {
+		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
+		cmd += fmt.Sprintf(" -- '%s'", escaped)
+	}
+	return cmd
 }
 
 // handleBreathe restarts an agent's CC session with a handoff prompt.
@@ -265,7 +273,27 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, cwd)
 	}
 
-	// 4. Write synthetic JSONL session (BEFORE killing anything)
+	// 4. Check for staged routing request BEFORE writing session
+	routeReq, err := route.Consume(req.Agent)
+	if err != nil {
+		log.Printf("[breathe] warning: failed to read routing file for %s: %v", req.Agent, err)
+	}
+
+	// Compose handoff — append routing context if present
+	composedHandoff := req.Handoff
+	trigger := ""
+	if routeReq != nil {
+		if routeReq.RolePrompt != "" {
+			composedHandoff += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
+		}
+		if routeReq.Message != "" {
+			composedHandoff += "\n\n" + routeReq.Message
+		}
+		trigger = routeReq.Trigger
+		log.Printf("[breathe] routing %s to task %s (routed by %s)", req.Agent, routeReq.TaskUUID, routeReq.RoutedBy)
+	}
+
+	// 5. Write synthetic JSONL session (BEFORE killing anything)
 	projectDir, err := breathe.CCProjectDir(cwd)
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("resolve CC project dir: %v", err)}
@@ -274,13 +302,13 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		CWD:       cwd,
 		CCVersion: am.ccVersion,
 		GitBranch: gitBranch,
-		Handoff:   req.Handoff,
+		Handoff:   composedHandoff,
 	})
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("write session: %v", err)}
 	}
 
-	// 5. Update status file with new session ID
+	// 6. Update status file with new session ID
 	if err := status.WriteAgent(team, status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           newSessionID,
@@ -294,14 +322,14 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 6. Build restart command
-	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent)
+	// 7. Build restart command
+	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
 	fullCmd := shellCfg.BuildEnvShellCommand([]string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
 	}, ccCmd)
 
-	// 7. Inject .env secrets and respawn
+	// 8. Inject .env secrets and respawn
 	injectSecretsToSession(sessionName)
 	log.Printf("[breathe] %s: restarting with session %s (model: %s)", req.Agent, newSessionID, am.model)
 	if err := tmux.RespawnWindow(sessionName, windowName, cwd, fullCmd); err != nil {
@@ -310,7 +338,7 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 
 	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
 
-	// 8. Notify via frontend
+	// 9. Notify via frontend
 	sendBreatheNotification(context.Background(), frontends[team], req.Agent, team)
 
 	return SendResponse{OK: true}

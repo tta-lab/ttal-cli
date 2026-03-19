@@ -66,7 +66,7 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 
 // TestBuildCCRestartCmd verifies that --agent flag is present and correctly interpolated.
 func TestBuildCCRestartCmd(t *testing.T) {
-	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel")
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "")
 
 	if !strings.Contains(cmd, "--resume session-abc") {
 		t.Errorf("missing --resume flag: %q", cmd)
@@ -79,6 +79,24 @@ func TestBuildCCRestartCmd(t *testing.T) {
 	}
 	if !strings.Contains(cmd, "--dangerously-skip-permissions") {
 		t.Errorf("missing --dangerously-skip-permissions flag: %q", cmd)
+	}
+	// Empty trigger should produce no -- separator
+	if strings.Contains(cmd, "-- ") {
+		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
+	}
+}
+
+func TestBuildCCRestartCmdWithTrigger(t *testing.T) {
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "New task: design auth. Run: ttal task get abc12345")
+	if !strings.Contains(cmd, "-- 'New task:") {
+		t.Errorf("missing trigger with -- separator: %q", cmd)
+	}
+}
+
+func TestBuildCCRestartCmdEmptyTrigger(t *testing.T) {
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "")
+	if strings.Contains(cmd, "-- ") {
+		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
 	}
 }
 
@@ -160,7 +178,7 @@ func TestSendBreatheNotification(t *testing.T) {
 
 // TestBuildCCRestartCmdAgentInterpolation verifies agent name is not swapped with session/model.
 func TestBuildCCRestartCmdAgentInterpolation(t *testing.T) {
-	cmd := buildCCRestartCmd("my-session", "opus", "athena")
+	cmd := buildCCRestartCmd("my-session", "opus", "athena", "")
 	if !strings.Contains(cmd, "--agent athena") {
 		t.Errorf("agent name not correctly interpolated, got: %q", cmd)
 	}
