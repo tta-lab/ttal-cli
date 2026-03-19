@@ -65,72 +65,20 @@ func TestBuildEnvParts_NoTaskRC(t *testing.T) {
 	}
 }
 
-func TestBuildLaunchCmd(t *testing.T) {
+func TestWriteSessionPrompt_MissingExecutePrompt(t *testing.T) {
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
-	envParts := []string{"TTAL_JOB_ID=test-id"}
+	task := &taskwarrior.Task{
+		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
+		Description: "test task",
+	}
+	// Empty config has no execute prompt configured
 	shellCfg := &config.Config{}
-
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", envParts, shellCfg, "sonnet")
-	if err != nil {
-		t.Fatalf("buildLaunchCmd returned error: %v", err)
-	}
-
-	if !strings.Contains(cmd, "claude") {
-		t.Error("CC command should contain 'claude'")
-	}
-	if !strings.Contains(cmd, "--model sonnet") {
-		t.Error("CC command should use sonnet model by default")
-	}
-	if !strings.Contains(cmd, "--dangerously-skip-permissions") {
-		t.Error("CC command should include yolo flag")
-	}
-	if !strings.Contains(cmd, "gatekeeper") {
-		t.Error("CC command should use gatekeeper wrapper")
-	}
-	if strings.Contains(cmd, "--agent") {
-		t.Error("coder CC command should NOT contain --agent flag")
-	}
-}
-
-func TestBuildLaunchCmd_OpusModel(t *testing.T) {
-	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
-	shellCfg := &config.Config{}
-
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "opus")
-	if err != nil {
-		t.Fatalf("buildLaunchCmd returned error: %v", err)
-	}
-	if !strings.Contains(cmd, "--model opus") {
-		t.Errorf("CC command should use opus model, got: %s", cmd)
-	}
-}
-
-func TestBuildLaunchCmd_Codex(t *testing.T) {
-	cfg := SpawnConfig{Runtime: runtime.Codex}
-	shellCfg := &config.Config{}
-	cmd, err := buildLaunchCmd(cfg, "/usr/bin/ttal", "/tmp/task.txt", nil, shellCfg, "sonnet")
-	if err != nil {
-		t.Fatalf("buildLaunchCmd returned error: %v", err)
-	}
-	if !strings.Contains(cmd, "codex --yolo --") {
-		t.Errorf("Codex command should contain 'codex --yolo --', got: %s", cmd)
-	}
-}
-
-func TestBuildLaunchCmd_RejectsUnsupportedRuntime(t *testing.T) {
-	_, err := buildLaunchCmd(
-		SpawnConfig{Runtime: "unknown"},
-		"/usr/bin/ttal",
-		"/tmp/task.txt",
-		nil,
-		&config.Config{},
-		"sonnet",
-	)
+	_, err := writeSessionPrompt(task, cfg, shellCfg)
 	if err == nil {
-		t.Fatal("expected error for unsupported worker runtime")
+		t.Fatal("expected error when execute prompt not configured")
 	}
-	if !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("expected unsupported runtime error, got: %v", err)
+	if !strings.Contains(err.Error(), "execute prompt not configured") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 

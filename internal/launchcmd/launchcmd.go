@@ -35,6 +35,15 @@ func BuildResumeCommand(ttalBin, sessionID string, rt runtime.Runtime, model, ag
 	}
 }
 
+// BuildCodexGatekeeperCommand builds a gatekeeper-wrapped codex command
+// using the legacy task-file pattern. Claude Code uses BuildResumeCommand instead.
+// This will be removed when Codex supports JSONL resume (#321).
+func BuildCodexGatekeeperCommand(ttalBin, taskFile string) (string, error) {
+	return fmt.Sprintf(
+		"%s worker gatekeeper --task-file %s -- codex --yolo --",
+		ttalBin, taskFile), nil
+}
+
 func BuildGatekeeperCommand(ttalBin, taskFile string, rt runtime.Runtime, model, agent string) (string, error) {
 	if model == "" {
 		model = "sonnet"

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	git "github.com/tta-lab/ttal-cli/internal/git"
@@ -212,17 +213,48 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	taskFile, err := writeTaskFile(task, cfg, shellCfg)
-	if err != nil {
-		return err
-	}
-
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
 	model := resolveModel(task, shellCfg)
-	shellCmd, err := buildLaunchCmd(cfg, ttalBin, taskFile, envParts, shellCfg, model)
-	if err != nil {
-		return err
+
+	var shellCmd string
+
+	if cfg.Runtime == runtime.Codex {
+		// Codex workers stay on the old task-file path until #321
+		taskFile, err := writeTaskFile(task, cfg, shellCfg)
+		if err != nil {
+			return err
+		}
+		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, taskFile)
+		if err != nil {
+			return err
+		}
+		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
+	} else {
+		// Claude Code: JSONL session + trigger
+		systemPrompt, err := writeSessionPrompt(task, cfg, shellCfg)
+		if err != nil {
+			return err
+		}
+
+		projectDir, err := breathe.CCProjectDir(workDir)
+		if err != nil {
+			return fmt.Errorf("resolve CC project dir: %w", err)
+		}
+		sessionID, err := breathe.WriteSyntheticSession(projectDir, breathe.SessionConfig{
+			CWD:       workDir,
+			GitBranch: branch,
+			Handoff:   systemPrompt,
+		})
+		if err != nil {
+			return fmt.Errorf("write worker session: %w", err)
+		}
+
+		resumeCmd, err := launchcmd.BuildResumeCommand(ttalBin, sessionID, cfg.Runtime, model, "", "Begin implementation.")
+		if err != nil {
+			return err
+		}
+		shellCmd = shellCfg.BuildEnvShellCommand(envParts, resumeCmd)
 	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
@@ -274,20 +306,6 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	return parts
 }
 
-func buildLaunchCmd(
-	cfg SpawnConfig,
-	ttalBin, taskFile string,
-	envParts []string,
-	shellCfg *config.Config,
-	model string,
-) (string, error) {
-	cmd, err := launchcmd.BuildGatekeeperCommand(ttalBin, taskFile, cfg.Runtime, model, "")
-	if err != nil {
-		return "", err
-	}
-	return shellCfg.BuildEnvShellCommand(envParts, cmd), nil
-}
-
 func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) error {
 	setEnv := func(key, val string) {
 		if err := tmux.SetEnv(sessionName, key, val); err != nil {
@@ -319,13 +337,9 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 	return nil
 }
 
-func writeTaskFile(
-	task *taskwarrior.Task, cfg SpawnConfig,
-	shellCfg *config.Config,
-) (string, error) {
-	var b strings.Builder
-
-	// Execute prompt from config (skill invocation)
+// writeSessionPrompt builds the system prompt for a CC worker session.
+// This content goes into the synthetic JSONL session.
+func writeSessionPrompt(task *taskwarrior.Task, cfg SpawnConfig, shellCfg *config.Config) (string, error) {
 	shortID := task.UUID
 	if len(shortID) > 8 {
 		shortID = shortID[:8]
@@ -334,14 +348,22 @@ func writeTaskFile(
 	if executePrompt == "" {
 		return "", fmt.Errorf("execute prompt not configured: add [prompts] execute = \"...\" to config.toml")
 	}
-	b.WriteString(executePrompt)
-	b.WriteString("\n\n")
+	return executePrompt, nil
+}
+
+// writeTaskFile writes the system prompt to a temp file for Codex workers.
+// Codex does not support JSONL resume (#321), so it uses the legacy task-file pattern.
+func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, shellCfg *config.Config) (string, error) {
+	prompt, err := writeSessionPrompt(task, cfg, shellCfg)
+	if err != nil {
+		return "", err
+	}
 
 	taskFile, err := os.CreateTemp("", "claude-task-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create task file: %w", err)
 	}
-	if _, err := taskFile.WriteString(b.String()); err != nil {
+	if _, err := taskFile.WriteString(prompt); err != nil {
 		_ = taskFile.Close()
 		return "", fmt.Errorf("failed to write task file: %w", err)
 	}
