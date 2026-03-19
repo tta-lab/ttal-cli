@@ -538,6 +538,10 @@ const (
 	AskDefaultMaxSteps = 100
 	// AskDefaultMaxTokens is the default for ttal ask / subagent run commands.
 	AskDefaultMaxTokens = 131072
+	// AskOutputVerbose selects streaming output mode for ttal ask.
+	AskOutputVerbose = "verbose"
+	// AskOutputQuiet selects quiet output mode for ttal ask (no streaming, final text only).
+	AskOutputQuiet = "quiet"
 )
 
 // AskReferencesPath returns the resolved path for cloned reference repos.
@@ -576,22 +580,22 @@ func (c *Config) AskMaxTokens() int {
 	return AskDefaultMaxTokens
 }
 
-// AskOutput returns the resolved output mode for ttal ask: "verbose" or "quiet".
+// AskOutput returns the resolved output mode for ttal ask: AskOutputVerbose or AskOutputQuiet.
 // Agents (TTAL_AGENT_NAME set) default to quiet; humans default to verbose.
 // Precedence: flag (handled by caller) > agent detection > config > default.
 func (c *Config) AskOutput() string {
 	// Agent context: default quiet, opt-in verbose
 	if os.Getenv("TTAL_AGENT_NAME") != "" {
-		if c.Ask.AgentOutput == "verbose" {
-			return "verbose"
+		if c.Ask.AgentOutput == AskOutputVerbose {
+			return AskOutputVerbose
 		}
-		return "quiet"
+		return AskOutputQuiet
 	}
 	// Human context: default verbose, opt-in quiet
-	if c.Ask.Output == "quiet" {
-		return "quiet"
+	if c.Ask.Output == AskOutputQuiet {
+		return AskOutputQuiet
 	}
-	return "verbose"
+	return AskOutputVerbose
 }
 
 const DefaultShell = "zsh"

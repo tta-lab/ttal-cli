@@ -71,27 +71,31 @@ Examples:
 	RunE: runAsk,
 }
 
+// countAskSourceFlags returns the number of mutually exclusive source flags set.
+func countAskSourceFlags() int {
+	count := 0
+	if askFlags.project != "" {
+		count++
+	}
+	if askFlags.repo != "" {
+		count++
+	}
+	if askFlags.url != "" {
+		count++
+	}
+	if askFlags.web {
+		count++
+	}
+	if askFlags.human {
+		count++
+	}
+	return count
+}
+
 func runAsk(cmd *cobra.Command, args []string) error {
 	question := args[0]
 
-	flagsSet := 0
-	if askFlags.project != "" {
-		flagsSet++
-	}
-	if askFlags.repo != "" {
-		flagsSet++
-	}
-	if askFlags.url != "" {
-		flagsSet++
-	}
-	if askFlags.web {
-		flagsSet++
-	}
-	if askFlags.human {
-		flagsSet++
-	}
-
-	if flagsSet > 1 {
+	if countAskSourceFlags() > 1 {
 		return fmt.Errorf("only one of --project, --repo, --url, --web, or --human may be specified at a time\n\n  Example: ttal ask \"question\" --project ttal") //nolint:lll
 	}
 
@@ -113,7 +117,7 @@ func runAsk(cmd *cobra.Command, args []string) error {
 	maxSteps, maxTokens := resolveLimits(cmd, cfg, askFlags.maxSteps, askFlags.maxTokens)
 
 	// Resolve quiet: --quiet flag takes priority, then config (which checks TTAL_AGENT_NAME).
-	quiet := askFlags.quiet || cfg.AskOutput() == "quiet"
+	quiet := askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet
 
 	switch {
 	case askFlags.project != "":
@@ -333,33 +337,12 @@ func runAskAgent(opts askOpts) error {
 		AllowedPaths: allowedPaths,
 	}
 
-	var callbacks logos.Callbacks
-	var sp *spinner
-	if opts.quiet {
-		// Quiet mode: suppress all streaming. Show spinner on TTY stderr for feedback.
-		if isTerminal(os.Stderr) {
-			sp = startSpinner()
-		}
-		// callbacks stays zero-value — all nil
-	} else {
-		callbacks = logos.Callbacks{
-			OnDelta:        func(text string) { fmt.Print(text) },
-			OnCommandStart: renderCommandStart,
-			OnCommandResult: func(command, output string, exitCode int) {
-				renderCommandResult(output, exitCode)
-			},
-			OnRetry: renderRetry,
-		}
-	}
-
+	callbacks, sp := buildAskCallbacks(opts.quiet)
 	result, err := logos.Run(context.Background(), cfg, nil, opts.question, callbacks)
+	sp.Stop()
 
-	if sp != nil {
-		sp.Stop()
-	}
-
-	if opts.quiet && result != nil && result.Response != "" {
-		fmt.Print(result.Response)
+	if opts.quiet {
+		printQuietResponse(result)
 	}
 
 	flushErr := flushAgentResult(result, err)
@@ -586,6 +569,35 @@ func init() {
 	rootCmd.AddCommand(askCmd)
 }
 
+// buildAskCallbacks returns the logos callbacks and an optional spinner for the given mode.
+// In quiet mode all callbacks are nil and a spinner is started on TTY stderr.
+// In verbose mode the full streaming callbacks are wired and spinner is nil.
+func buildAskCallbacks(quiet bool) (logos.Callbacks, *spinner) {
+	if quiet {
+		var sp *spinner
+		if isTerminal(os.Stderr) {
+			sp = startSpinner()
+		}
+		return logos.Callbacks{}, sp
+	}
+	return logos.Callbacks{
+		OnDelta:        func(text string) { fmt.Print(text) },
+		OnCommandStart: renderCommandStart,
+		OnCommandResult: func(command, output string, exitCode int) {
+			renderCommandResult(output, exitCode)
+		},
+		OnRetry: renderRetry,
+	}, nil
+}
+
+// printQuietResponse prints result.Response to stdout when it contains text.
+// Used by quiet mode to emit accumulated assistant prose after the run completes.
+func printQuietResponse(result *logos.RunResult) {
+	if result != nil && result.Response != "" {
+		fmt.Print(result.Response)
+	}
+}
+
 // isTerminal reports whether f is connected to a terminal.
 func isTerminal(f *os.File) bool {
 	fi, err := f.Stat()
@@ -622,6 +634,9 @@ func startSpinner() *spinner {
 }
 
 func (s *spinner) Stop() {
+	if s == nil {
+		return
+	}
 	select {
 	case <-s.done:
 		// already stopped
