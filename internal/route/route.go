@@ -59,7 +59,9 @@ func Consume(agentName string) (*Request, error) {
 		}
 		return nil, fmt.Errorf("read routing file: %w", err)
 	}
-	os.Remove(path) // consumed
+	if err := os.Remove(path); err != nil {
+		return nil, fmt.Errorf("remove routing file (would cause re-delivery): %w", err)
+	}
 	var req Request
 	if err := json.Unmarshal(data, &req); err != nil {
 		return nil, fmt.Errorf("parse routing file: %w", err)

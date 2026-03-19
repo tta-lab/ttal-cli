@@ -9,6 +9,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/route"
 )
 
 func TestHandleBreatheValidation(t *testing.T) {
@@ -173,6 +174,108 @@ func TestSendBreatheNotification(t *testing.T) {
 		m := &mockFrontend{textErr: fmt.Errorf("telegram down")}
 		// Must not panic or return an error — errors are logged only.
 		sendBreatheNotification(context.Background(), m, "kestrel", "default")
+	})
+}
+
+func TestBuildCCRestartCmdApostropheEscaping(t *testing.T) {
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "it's a test")
+	if !strings.Contains(cmd, "it'\\''s a test") {
+		t.Errorf("apostrophe not escaped correctly: %q", cmd)
+	}
+}
+
+// TestComposeHandoff covers all 4 branches of composeHandoff:
+// no file, role prompt only, message only, and both.
+func TestComposeHandoff(t *testing.T) {
+	base := "# Base Handoff\n\nContext here."
+
+	t.Run("no routing file returns base handoff unchanged", func(t *testing.T) {
+		handoff, trigger, err := composeHandoff("test-composehandoff-no-route-xyz", base)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if handoff != base {
+			t.Errorf("expected base handoff unchanged, got %q", handoff)
+		}
+		if trigger != "" {
+			t.Errorf("expected empty trigger, got %q", trigger)
+		}
+	})
+
+	t.Run("role prompt only appended with section header", func(t *testing.T) {
+		agent := "test-composehandoff-roleprompt-xyz"
+		if err := route.Stage(agent, route.Request{
+			TaskUUID:   "task-abc",
+			RolePrompt: "Build the auth module.",
+			Trigger:    "auth task ready",
+		}); err != nil {
+			t.Fatalf("stage failed: %v", err)
+		}
+		handoff, trigger, err := composeHandoff(agent, base)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(handoff, "## New Task Assignment") {
+			t.Errorf("expected section header in handoff: %q", handoff)
+		}
+		if !strings.Contains(handoff, "Build the auth module.") {
+			t.Errorf("expected role prompt in handoff: %q", handoff)
+		}
+		if trigger != "auth task ready" {
+			t.Errorf("expected trigger %q, got %q", "auth task ready", trigger)
+		}
+	})
+
+	t.Run("message only appended without section header", func(t *testing.T) {
+		agent := "test-composehandoff-message-xyz"
+		if err := route.Stage(agent, route.Request{
+			TaskUUID: "task-def",
+			Message:  "Extra context for you.",
+			Trigger:  "msg trigger",
+		}); err != nil {
+			t.Fatalf("stage failed: %v", err)
+		}
+		handoff, trigger, err := composeHandoff(agent, base)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if strings.Contains(handoff, "## New Task Assignment") {
+			t.Errorf("should not have section header when no role prompt: %q", handoff)
+		}
+		if !strings.Contains(handoff, "Extra context for you.") {
+			t.Errorf("expected message in handoff: %q", handoff)
+		}
+		if trigger != "msg trigger" {
+			t.Errorf("expected trigger %q, got %q", "msg trigger", trigger)
+		}
+	})
+
+	t.Run("both role prompt and message appended", func(t *testing.T) {
+		agent := "test-composehandoff-both-xyz"
+		if err := route.Stage(agent, route.Request{
+			TaskUUID:   "task-ghi",
+			RolePrompt: "Design the API.",
+			Message:    "See ticket #42.",
+			Trigger:    "design task",
+		}); err != nil {
+			t.Fatalf("stage failed: %v", err)
+		}
+		handoff, trigger, err := composeHandoff(agent, base)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(handoff, "## New Task Assignment") {
+			t.Errorf("expected section header: %q", handoff)
+		}
+		if !strings.Contains(handoff, "Design the API.") {
+			t.Errorf("expected role prompt: %q", handoff)
+		}
+		if !strings.Contains(handoff, "See ticket #42.") {
+			t.Errorf("expected message: %q", handoff)
+		}
+		if trigger != "design task" {
+			t.Errorf("expected trigger %q, got %q", "design task", trigger)
+		}
 	})
 }
 

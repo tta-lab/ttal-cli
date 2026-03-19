@@ -236,13 +236,15 @@ func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
 
 // composeHandoff merges the agent's base handoff with any staged routing request.
 // Returns the composed handoff and the trigger string (empty for self-breathe).
-func composeHandoff(agentName, baseHandoff string) (handoff, trigger string) {
+// Returns an error if a routing file exists but cannot be consumed — the caller
+// should abort rather than deliver a degraded breathe with no task context.
+func composeHandoff(agentName, baseHandoff string) (handoff, trigger string, err error) {
 	routeReq, err := route.Consume(agentName)
 	if err != nil {
-		log.Printf("[breathe] warning: failed to read routing file for %s: %v", agentName, err)
+		return "", "", fmt.Errorf("consume routing file for %s: %w", agentName, err)
 	}
 	if routeReq == nil {
-		return baseHandoff, ""
+		return baseHandoff, "", nil
 	}
 	composed := baseHandoff
 	if routeReq.RolePrompt != "" {
@@ -252,7 +254,7 @@ func composeHandoff(agentName, baseHandoff string) (handoff, trigger string) {
 		composed += "\n\n" + routeReq.Message
 	}
 	log.Printf("[breathe] routing %s to task %s (routed by %s)", agentName, routeReq.TaskUUID, routeReq.RoutedBy)
-	return composed, routeReq.Trigger
+	return composed, routeReq.Trigger, nil
 }
 
 // handleBreathe restarts an agent's CC session with a handoff prompt.
@@ -295,7 +297,10 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 	}
 
 	// 4. Check for staged routing request and compose handoff
-	composedHandoff, trigger := composeHandoff(req.Agent, req.Handoff)
+	composedHandoff, trigger, err := composeHandoff(req.Agent, req.Handoff)
+	if err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("compose handoff: %v", err)}
+	}
 
 	// 5. Write synthetic JSONL session (BEFORE killing anything)
 	projectDir, err := breathe.CCProjectDir(cwd)

@@ -218,6 +218,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	model := resolveModel(task, shellCfg)
 
 	var shellCmd string
+	var ccSessionPath string // non-empty for CC workers; cleaned up if tmux.NewSession fails
 
 	if cfg.Runtime == runtime.Codex {
 		// Codex workers stay on the old task-file path until #321
@@ -236,30 +237,26 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		if err != nil {
 			return err
 		}
-
-		projectDir, err := breathe.CCProjectDir(workDir)
-		if err != nil {
-			return fmt.Errorf("resolve CC project dir: %w", err)
-		}
-		sessionID, err := breathe.WriteSyntheticSession(projectDir, breathe.SessionConfig{
-			CWD:       workDir,
-			GitBranch: branch,
-			Handoff:   systemPrompt,
-		})
-		if err != nil {
-			return fmt.Errorf("write worker session: %w", err)
-		}
-
-		resumeCmd, err := launchcmd.BuildResumeCommand(ttalBin, sessionID, cfg.Runtime, model, "", "Begin implementation.")
+		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
+			ttalBin, workDir, breathe.SessionConfig{
+				CWD:       workDir,
+				GitBranch: branch,
+				Handoff:   systemPrompt,
+			}, model, "", "Begin implementation.",
+		)
 		if err != nil {
 			return err
 		}
+		ccSessionPath = sessionPath
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, resumeCmd)
 	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
 	if err := tmux.NewSession(sessionName, "worker", workDir, shellCmd); err != nil {
+		if ccSessionPath != "" {
+			os.Remove(ccSessionPath)
+		}
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 

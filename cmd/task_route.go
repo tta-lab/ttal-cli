@@ -150,7 +150,7 @@ func routeTaskToAgent(
 
 	if shouldBreathe(agentRole, noBreathe) {
 		trigger := fmt.Sprintf("New task routed to you: %s\nTask UUID: %s\nRun: ttal task get %s",
-			task.Description, task.UUID, uuid)
+			task.Description, uuid, uuid)
 
 		projectPath := projectPkg.ResolveProjectPath(task.Project)
 		if err := route.Stage(agentName, route.Request{

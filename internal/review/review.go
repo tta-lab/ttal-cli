@@ -48,6 +48,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 
 	var shellCmd string
 
+	envParts := []string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
+	var ccSessionPath string // non-empty for CC reviewers; cleaned up if tmux.NewWindow fails
+
 	if reviewerRT == runtime.Codex {
 		// Codex reviewers stay on the old task-file path until #321
 		promptFile, err := writePromptFile(systemPrompt)
@@ -58,37 +61,27 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		if err != nil {
 			return err
 		}
-		shellCmd = cfg.BuildEnvShellCommand(
-			[]string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)},
-			codexCmd,
-		)
+		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: JSONL session + trigger
-		projectDir, err := breathe.CCProjectDir(workDir)
-		if err != nil {
-			return fmt.Errorf("resolve CC project dir: %w", err)
-		}
-		sessionID, err := breathe.WriteSyntheticSession(projectDir, breathe.SessionConfig{
-			CWD:       workDir,
-			GitBranch: ctx.Task.Branch,
-			Handoff:   systemPrompt,
-		})
-		if err != nil {
-			return fmt.Errorf("write reviewer session: %w", err)
-		}
-		resumeCmd, err := launchcmd.BuildResumeCommand(
-			ttalBin, sessionID, reviewerRT, model, "pr-review-lead", "Review the PR.",
+		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
+			ttalBin, workDir, breathe.SessionConfig{
+				CWD:       workDir,
+				GitBranch: ctx.Task.Branch,
+				Handoff:   systemPrompt,
+			}, model, "pr-review-lead", "Review the PR.",
 		)
 		if err != nil {
 			return err
 		}
-		shellCmd = cfg.BuildEnvShellCommand(
-			[]string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)},
-			resumeCmd,
-		)
+		ccSessionPath = sessionPath
+		shellCmd = cfg.BuildEnvShellCommand(envParts, resumeCmd)
 	}
 
 	if err := tmux.NewWindow(sessionName, windowName, workDir, shellCmd); err != nil {
+		if ccSessionPath != "" {
+			os.Remove(ccSessionPath)
+		}
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 

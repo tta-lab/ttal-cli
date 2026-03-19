@@ -51,6 +51,18 @@ func TestBuildResumeCommandCodexUnsupported(t *testing.T) {
 	}
 }
 
+func TestBuildResumeCommandApostropheEscaping(t *testing.T) {
+	got, err := BuildResumeCommand(
+		"/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "sonnet", "", "it's a test",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "it'\\''s a test") {
+		t.Errorf("apostrophe not escaped correctly: %q", got)
+	}
+}
+
 func TestBuildCodexGatekeeperCommand(t *testing.T) {
 	got, err := BuildCodexGatekeeperCommand("ttal", "/tmp/task.txt")
 	if err != nil {
