@@ -220,6 +220,7 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 		text, markup := buildAskHumanMessage(displayName, req.Question, req.Options, shortID)
 		msgID, err := sendAskHumanMessage(botToken, chatID, text, markup)
 		if err != nil {
+			log.Printf("[ask-human] failed to send message (display=%s): %v", displayName, err)
 			writeAskHumanJSON(w, http.StatusInternalServerError, askHumanHTTPResponse{
 				OK: false, Error: "failed to send Telegram message: " + err.Error(),
 			})
