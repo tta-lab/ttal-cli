@@ -1,72 +1,45 @@
 package review
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
-func TestBuildReviewerRuntimeCmd(t *testing.T) {
-	ccBase := "ttal worker gatekeeper --task-file /tmp/prompt.txt -- claude"
-	codexBase := "ttal worker gatekeeper --task-file /tmp/prompt.txt -- codex"
-
-	tests := []struct {
-		name  string
-		rt    runtime.Runtime
-		model string
-		want  string
-		err   bool
-	}{
-		{
-			name:  "claude-code uses sonnet by default",
-			rt:    runtime.ClaudeCode,
-			model: "sonnet",
-			want:  ccBase + " --model sonnet --dangerously-skip-permissions --agent pr-review-lead --",
-		},
-		{
-			name:  "claude-code with opus model",
-			rt:    runtime.ClaudeCode,
-			model: "opus",
-			want:  ccBase + " --model opus --dangerously-skip-permissions --agent pr-review-lead --",
-		},
-		{
-			name:  "codex ignores model",
-			rt:    runtime.Codex,
-			model: "sonnet",
-			want:  codexBase + " --yolo --",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildReviewerRuntimeCmd("ttal", "/tmp/prompt.txt", tt.rt, tt.model)
-			if tt.err {
-				if err == nil {
-					t.Fatalf("expected error, got command: %s", got)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Fatalf("unexpected command\nwant: %s\n got: %s", tt.want, got)
-			}
-		})
-	}
-}
-
-func TestBuildReviewerRuntimeCmd_InterpolatesPaths(t *testing.T) {
-	ttalBin := "/usr/local/bin/ttal"
-	promptFile := "/tmp/review-123.txt"
-	got, err := buildReviewerRuntimeCmd(ttalBin, promptFile, runtime.ClaudeCode, "sonnet")
+// TestCodexReviewerCmd verifies the Codex reviewer still uses the legacy task-file path.
+func TestCodexReviewerCmd(t *testing.T) {
+	got, err := launchcmd.BuildCodexGatekeeperCommand("ttal", "/tmp/prompt.txt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	wantPrefix := fmt.Sprintf("%s worker gatekeeper --task-file %s", ttalBin, promptFile)
-	if !strings.HasPrefix(got, wantPrefix) {
-		t.Fatalf("command should start with %q, got %q", wantPrefix, got)
+	if !strings.Contains(got, "codex --yolo --") {
+		t.Errorf("Codex command should contain 'codex --yolo --', got: %s", got)
+	}
+	if !strings.Contains(got, "--task-file /tmp/prompt.txt") {
+		t.Errorf("Codex command should contain --task-file, got: %s", got)
+	}
+}
+
+// TestCCReviewerCmd verifies the CC reviewer uses BuildResumeCommand with --resume and --agent.
+func TestCCReviewerCmd(t *testing.T) {
+	got, err := launchcmd.BuildResumeCommand(
+		"ttal", "session-xyz", runtime.ClaudeCode, "sonnet", "pr-review-lead", "Review the PR.",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "--resume session-xyz") {
+		t.Errorf("CC command should use --resume, got: %s", got)
+	}
+	if !strings.Contains(got, "--agent pr-review-lead") {
+		t.Errorf("CC command should pass --agent pr-review-lead, got: %s", got)
+	}
+	if !strings.Contains(got, "Review the PR.") {
+		t.Errorf("CC command should contain trigger, got: %s", got)
+	}
+	if strings.Contains(got, "--task-file") {
+		t.Errorf("CC command should NOT use --task-file, got: %s", got)
 	}
 }
