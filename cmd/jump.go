@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -11,8 +11,8 @@ import (
 )
 
 // Shell functions installed via --init. command ttal prevents alias recursion.
-// Fish note: "or return 1" MUST be on its own line — set always exits 0, so
-// the or clause checks the command substitution's exit code, not set's.
+// Fish: "or return 1" MUST be on its own line — in Fish, "or" chains the exit
+// code of the command substitution inside set, not set itself.
 const jumpFuncZsh = `t() {
   local dir
   dir="$(command ttal jump "$@")" && cd "$dir"
@@ -79,10 +79,13 @@ func runJump(cmd *cobra.Command, args []string) error {
 	}
 
 	// 2. Try bare repo name in references directory.
-	refsPath := jumpDefaultRefsPath()
-	if cfg, cfgErr := config.Load(); cfgErr == nil {
-		refsPath = cfg.AskReferencesPath()
+	// AskReferencesPath handles the default (~/.ttal/references/) on a zero-value Config,
+	// so this works even when config.toml doesn't exist.
+	cfg, cfgErr := config.Load()
+	if cfgErr != nil && !errors.Is(cfgErr, os.ErrNotExist) {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: config load failed, using default references path: %v\n", cfgErr)
 	}
+	refsPath := cfg.AskReferencesPath()
 
 	repoPath, repoErr := findClonedRepo(target, refsPath)
 	if repoErr == nil {
@@ -90,16 +93,11 @@ func runJump(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Surface repo lookup failure to help debug references path issues.
+	fmt.Fprintf(cmd.ErrOrStderr(), "note: repo lookup also failed: %v\n", repoErr)
+
 	// Return the project error — more actionable than the repo error.
 	return err
-}
-
-func jumpDefaultRefsPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join("~", ".ttal", "references")
-	}
-	return filepath.Join(home, ".ttal", "references")
 }
 
 func init() {
