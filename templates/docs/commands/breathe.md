@@ -75,3 +75,26 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 4. A new CC session starts with `--resume` on the synthetic session
 5. You wake up in a fresh context window with the handoff as context
 6. Continue from where you left off
+
+## Auto-Breathe on Route
+
+When a task is routed via `ttal task route`, the agent is asked to breathe
+so they start fresh. The router stages routing params to
+`~/.ttal/routing/<agent>.json`, then sends a message asking the agent to
+`/breathe`. The daemon composes the restart:
+
+- **System prompt (JSONL):** agent's handoff + role prompt from routing file
+- **Trigger (positional arg):** task assignment that kicks the agent into action
+
+Managers are exempt — they keep persistent sessions.
+
+To skip: `ttal task route <uuid> --to <agent> --no-breathe`
+
+## Unified Spawn Pattern
+
+All spawns (workers, reviewers, route-breathe) now use the same pattern:
+
+1. Write system prompt into synthetic JSONL session
+2. Launch `claude --resume <session-id> -- "<trigger>"`
+
+The system prompt carries context; the trigger kicks off action.
