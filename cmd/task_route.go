@@ -243,17 +243,7 @@ func spawnWorkerForTask(taskUUID string) error {
 		fmt.Fprintf(os.Stderr, "Project: %s\n", projectPath)
 	}
 
-	// Extract plan flicknote hex from annotations, if present.
-	planID := "none"
-	for _, ann := range task.Annotations {
-		if !strings.Contains(ann.Description, "plan: flicknote/") {
-			continue
-		}
-		if m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description); len(m) > 0 {
-			planID = m[1]
-			break
-		}
-	}
+	planID := extractPlanFlicknoteID(task.Annotations, cfg.Flicknote.InlineProjects)
 
 	// Agent sessions require human approval before spawning workers.
 	if err := requireHumanApproval(
@@ -289,6 +279,27 @@ func spawnWorkerForTask(taskUUID string) error {
 	}
 
 	return nil
+}
+
+// extractPlanFlicknoteID scans annotations for a hex ID whose flicknote project
+// matches inlineProjects (e.g. contains "plan" or "fix"). Returns "none" if not found.
+// Uses ShouldInlineNote — same logic as FormatPrompt — so any annotation format works.
+func extractPlanFlicknoteID(annotations []taskwarrior.Annotation, inlineProjects []string) string {
+	for _, ann := range annotations {
+		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
+		if len(m) == 0 {
+			continue
+		}
+		note := taskwarrior.ReadFlicknoteJSON(m[1])
+		if note == nil {
+			fmt.Fprintf(os.Stderr, "warning: flicknote %s could not be loaded\n", m[1])
+			continue
+		}
+		if taskwarrior.ShouldInlineNote(note, inlineProjects) {
+			return m[1]
+		}
+	}
+	return "none"
 }
 
 // startTaskSafe starts a taskwarrior task, ignoring "already active" errors.
