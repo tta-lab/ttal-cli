@@ -13,12 +13,13 @@ import (
 
 // GatekeeperConfig holds configuration for the gatekeeper process.
 type GatekeeperConfig struct {
+	// TaskFile is used only for Codex workers until #321 (Codex JSONL resume support).
+	// CC workers deliver prompts via synthetic JSONL sessions (claude --resume).
 	TaskFile string
 	Command  []string
 }
 
 // Gatekeeper runs a child command with deadman's switch behavior:
-// - Reads task file and appends content to child args
 // - Starts child in its own process group
 // - Monitors for parent death (orphaning)
 // - Handles signals (SIGTERM, SIGINT, SIGHUP) by killing child
@@ -31,7 +32,7 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	args := make([]string, len(cfg.Command))
 	copy(args, cfg.Command)
 
-	// Append task file content to command args
+	// Append task file content to command args (Codex only — CC uses JSONL sessions).
 	if cfg.TaskFile != "" {
 		content, err := os.ReadFile(cfg.TaskFile)
 		if err != nil {
