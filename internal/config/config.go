@@ -50,6 +50,11 @@ type AskConfig struct {
 	MaxSteps int `toml:"max_steps"`
 	// Maximum output tokens per step (default: 131072)
 	MaxTokens int `toml:"max_tokens"`
+	// Output verbosity for human CLI use: "verbose" (default) or "quiet"
+	Output string `toml:"output" jsonschema:"enum=verbose,enum=quiet"`
+	// Output verbosity for agent sessions (TTAL_AGENT_NAME set).
+	// Default is quiet. Set to "verbose" to see streaming in agent sessions.
+	AgentOutput string `toml:"agent_output" jsonschema:"enum=verbose,enum=quiet"`
 }
 
 // FlicknoteConfig holds flicknote-related settings.
@@ -533,6 +538,10 @@ const (
 	AskDefaultMaxSteps = 100
 	// AskDefaultMaxTokens is the default for ttal ask / subagent run commands.
 	AskDefaultMaxTokens = 131072
+	// AskOutputVerbose selects streaming output mode for ttal ask.
+	AskOutputVerbose = "verbose"
+	// AskOutputQuiet selects quiet output mode for ttal ask (no streaming, final text only).
+	AskOutputQuiet = "quiet"
 )
 
 // AskReferencesPath returns the resolved path for cloned reference repos.
@@ -569,6 +578,24 @@ func (c *Config) AskMaxTokens() int {
 		return c.Ask.MaxTokens
 	}
 	return AskDefaultMaxTokens
+}
+
+// AskOutput returns the resolved output mode for ttal ask: AskOutputVerbose or AskOutputQuiet.
+// Agents (TTAL_AGENT_NAME set) default to quiet; humans default to verbose.
+// Precedence: flag (handled by caller) > agent detection > config > default.
+func (c *Config) AskOutput() string {
+	// Agent context: default quiet, opt-in verbose
+	if os.Getenv("TTAL_AGENT_NAME") != "" {
+		if c.Ask.AgentOutput == AskOutputVerbose {
+			return AskOutputVerbose
+		}
+		return AskOutputQuiet
+	}
+	// Human context: default verbose, opt-in quiet
+	if c.Ask.Output == AskOutputQuiet {
+		return AskOutputQuiet
+	}
+	return AskOutputVerbose
 }
 
 const DefaultShell = "zsh"

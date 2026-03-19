@@ -42,6 +42,7 @@ var askFlags struct {
 	web       bool
 	human     bool
 	save      bool
+	quiet     bool
 	options   []string
 	maxSteps  int
 	maxTokens int
@@ -70,27 +71,31 @@ Examples:
 	RunE: runAsk,
 }
 
+// countAskSourceFlags returns the number of mutually exclusive source flags set.
+func countAskSourceFlags() int {
+	count := 0
+	if askFlags.project != "" {
+		count++
+	}
+	if askFlags.repo != "" {
+		count++
+	}
+	if askFlags.url != "" {
+		count++
+	}
+	if askFlags.web {
+		count++
+	}
+	if askFlags.human {
+		count++
+	}
+	return count
+}
+
 func runAsk(cmd *cobra.Command, args []string) error {
 	question := args[0]
 
-	flagsSet := 0
-	if askFlags.project != "" {
-		flagsSet++
-	}
-	if askFlags.repo != "" {
-		flagsSet++
-	}
-	if askFlags.url != "" {
-		flagsSet++
-	}
-	if askFlags.web {
-		flagsSet++
-	}
-	if askFlags.human {
-		flagsSet++
-	}
-
-	if flagsSet > 1 {
+	if countAskSourceFlags() > 1 {
 		return fmt.Errorf("only one of --project, --repo, --url, --web, or --human may be specified at a time\n\n  Example: ttal ask \"question\" --project ttal") //nolint:lll
 	}
 
@@ -149,6 +154,7 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		emoji:        "🔭",
 		label:        "ask --project " + alias,
 		save:         askFlags.save,
+		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -177,6 +183,7 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		emoji:        "🔭",
 		label:        "ask --repo " + repoRef,
 		save:         askFlags.save,
+		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -194,6 +201,7 @@ func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int
 		emoji:       "🔭",
 		label:       "ask --url",
 		save:        askFlags.save,
+		quiet:       askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -210,6 +218,7 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error 
 		emoji:       "🔭",
 		label:       "ask --web",
 		save:        askFlags.save,
+		quiet:       askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -237,6 +246,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		emoji:        "🔭",
 		label:        "ask",
 		save:         askFlags.save,
+		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -255,6 +265,7 @@ type askOpts struct {
 	emoji        string // optional display emoji shown before output
 	label        string // display name shown in header (defaults to "ask")
 	save         bool   // if true, pipe final answer to flicknote add
+	quiet        bool   // if true, suppress streaming and print result.Response after completion
 }
 
 // runAskAgent builds and runs a logos agent loop for the ask command.
@@ -323,14 +334,14 @@ func runAskAgent(opts askOpts) error {
 		AllowedPaths: allowedPaths,
 	}
 
-	result, err := logos.Run(context.Background(), cfg, nil, opts.question, logos.Callbacks{
-		OnDelta:        func(text string) { fmt.Print(text) },
-		OnCommandStart: renderCommandStart,
-		OnCommandResult: func(command, output string, exitCode int) {
-			renderCommandResult(output, exitCode)
-		},
-		OnRetry: renderRetry,
-	})
+	callbacks, sp := buildAskCallbacks(opts.quiet)
+	defer sp.Stop()
+	result, err := logos.Run(context.Background(), cfg, nil, opts.question, callbacks)
+
+	if opts.quiet && err == nil {
+		printQuietResponse(result)
+	}
+
 	flushErr := flushAgentResult(result, err)
 
 	// Only save on success — if agent hit max-steps or errored, skip save.
@@ -547,11 +558,88 @@ func init() {
 	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
 	askCmd.Flags().BoolVar(&askFlags.human, "human", false, "Ask a human via Telegram and block until answered")
 	askCmd.Flags().BoolVar(&askFlags.save, "save", false, "Save the final answer to flicknote (best-effort; failures are logged to stderr)") //nolint:lll
-	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)")            //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                                 //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")                   //nolint:lll
+	askCmd.Flags().BoolVar(&askFlags.quiet, "quiet", false, "Show only assistant text (no streaming, no command traces)")
+	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)") //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                      //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")        //nolint:lll
 
 	rootCmd.AddCommand(askCmd)
+}
+
+// buildAskCallbacks returns the logos callbacks and an optional spinner for the given mode.
+// In quiet mode all callbacks are nil and a spinner is started on TTY stderr.
+// In verbose mode the full streaming callbacks are wired and spinner is nil.
+func buildAskCallbacks(quiet bool) (logos.Callbacks, *spinner) {
+	if quiet {
+		var sp *spinner
+		if isTerminal(os.Stderr) {
+			sp = startSpinner()
+		}
+		return logos.Callbacks{}, sp
+	}
+	return logos.Callbacks{
+		OnDelta:        func(text string) { fmt.Print(text) },
+		OnCommandStart: renderCommandStart,
+		OnCommandResult: func(command, output string, exitCode int) {
+			renderCommandResult(output, exitCode)
+		},
+		OnRetry: renderRetry,
+	}, nil
+}
+
+// printQuietResponse prints result.Response to stdout when it contains text.
+// Used by quiet mode to emit accumulated assistant prose after the run completes.
+func printQuietResponse(result *logos.RunResult) {
+	if result != nil && result.Response != "" {
+		fmt.Print(result.Response)
+	}
+}
+
+// isTerminal reports whether f is connected to a terminal.
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+// spinner displays an animated spinner on stderr while the agent runs in quiet mode.
+type spinner struct {
+	done chan struct{}
+}
+
+func startSpinner() *spinner {
+	s := &spinner{done: make(chan struct{})}
+	go func() {
+		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		i := 0
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.done:
+				fmt.Fprintf(os.Stderr, "\r\033[K") // clear spinner line
+				return
+			case <-ticker.C:
+				fmt.Fprintf(os.Stderr, "\r%s thinking...", frames[i%len(frames)])
+				i++
+			}
+		}
+	}()
+	return s
+}
+
+func (s *spinner) Stop() {
+	if s == nil {
+		return
+	}
+	select {
+	case <-s.done:
+		// already stopped
+	default:
+		close(s.done)
+	}
 }
 
 // askLogTarget returns the usage log target string based on active ask flags.
