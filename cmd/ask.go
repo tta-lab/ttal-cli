@@ -116,25 +116,22 @@ func runAsk(cmd *cobra.Command, args []string) error {
 
 	maxSteps, maxTokens := resolveLimits(cmd, cfg, askFlags.maxSteps, askFlags.maxTokens)
 
-	// Resolve quiet: --quiet flag takes priority, then config (which checks TTAL_AGENT_NAME).
-	quiet := askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet
-
 	switch {
 	case askFlags.project != "":
-		return askProject(question, askFlags.project, cfg, maxSteps, maxTokens, quiet)
+		return askProject(question, askFlags.project, cfg, maxSteps, maxTokens)
 	case askFlags.repo != "":
-		return askRepo(question, askFlags.repo, cfg, maxSteps, maxTokens, quiet)
+		return askRepo(question, askFlags.repo, cfg, maxSteps, maxTokens)
 	case askFlags.web:
-		return askWeb(question, cfg, maxSteps, maxTokens, quiet)
+		return askWeb(question, cfg, maxSteps, maxTokens)
 	case askFlags.url != "":
-		return askURL(question, askFlags.url, cfg, maxSteps, maxTokens, quiet)
+		return askURL(question, askFlags.url, cfg, maxSteps, maxTokens)
 	default:
-		return askGeneral(question, cfg, maxSteps, maxTokens, quiet)
+		return askGeneral(question, cfg, maxSteps, maxTokens)
 	}
 }
 
 // askProject asks about a registered ttal project.
-func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
+func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
 	projectPath, err := project.GetProjectPath(alias)
 	if err != nil {
 		return err
@@ -157,12 +154,12 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		emoji:        "🔭",
 		label:        "ask --project " + alias,
 		save:         askFlags.save,
-		quiet:        quiet,
+		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askRepo asks about an open-source repository (auto-clone/pull).
-func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
+func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
 	referencesPath := cfg.AskReferencesPath()
 	cloneURL, localPath, err := resolveRepoRef(repoRef, referencesPath)
 	if err != nil {
@@ -186,12 +183,12 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		emoji:        "🔭",
 		label:        "ask --repo " + repoRef,
 		save:         askFlags.save,
-		quiet:        quiet,
+		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askURL asks about a web page using temenos for pre-fetching.
-func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
+func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:    fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
 		systemExtra: strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
@@ -204,12 +201,12 @@ func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int
 		emoji:       "🔭",
 		label:       "ask --url",
 		save:        askFlags.save,
-		quiet:       quiet,
+		quiet:       askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askWeb searches the web to answer a question.
-func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
+func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:    question,
 		systemExtra: strings.ReplaceAll(askWebPrompt, "{query}", question),
@@ -221,12 +218,12 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int, quiet 
 		emoji:       "🔭",
 		label:       "ask --web",
 		save:        askFlags.save,
-		quiet:       quiet,
+		quiet:       askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askGeneral asks about the current working directory with both filesystem and web tools.
-func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
+func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
 	if !strings.Contains(askGeneralPrompt, "{cwd}") {
 		return fmt.Errorf("general.md prompt is missing {cwd} placeholder")
 	}
@@ -249,7 +246,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int, qu
 		emoji:        "🔭",
 		label:        "ask",
 		save:         askFlags.save,
-		quiet:        quiet,
+		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -338,10 +335,10 @@ func runAskAgent(opts askOpts) error {
 	}
 
 	callbacks, sp := buildAskCallbacks(opts.quiet)
+	defer sp.Stop()
 	result, err := logos.Run(context.Background(), cfg, nil, opts.question, callbacks)
-	sp.Stop()
 
-	if opts.quiet {
+	if opts.quiet && err == nil {
 		printQuietResponse(result)
 	}
 
