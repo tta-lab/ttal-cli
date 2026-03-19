@@ -244,12 +244,16 @@ func spawnWorkerForTask(taskUUID string) error {
 	}
 
 	// Extract plan flicknote hex from annotations, if present.
+	// Use ShouldInlineNote to match any annotation containing a hex ID whose
+	// flicknote project name contains "plan" or "fix" — same logic as FormatPrompt.
 	planID := "none"
 	for _, ann := range task.Annotations {
-		if !strings.Contains(ann.Description, "plan: flicknote/") {
+		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
+		if len(m) == 0 {
 			continue
 		}
-		if m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description); len(m) > 0 {
+		note := taskwarrior.ReadFlicknoteJSON(m[1])
+		if note != nil && taskwarrior.ShouldInlineNote(note, cfg.Flicknote.InlineProjects) {
 			planID = m[1]
 			break
 		}
