@@ -1,10 +1,53 @@
 package launchcmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
+
+func TestBuildResumeCommand(t *testing.T) {
+	cmd, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "sonnet", "kestrel", "Review the PR.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "--resume session-abc") {
+		t.Errorf("missing --resume: %q", cmd)
+	}
+	if !strings.Contains(cmd, "--agent kestrel") {
+		t.Errorf("missing --agent: %q", cmd)
+	}
+	if !strings.Contains(cmd, "-- 'Review the PR.'") {
+		t.Errorf("missing trigger: %q", cmd)
+	}
+}
+
+func TestBuildResumeCommandNoTrigger(t *testing.T) {
+	cmd, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(cmd, "-- '") {
+		t.Errorf("should not have trigger when empty: %q", cmd)
+	}
+	if strings.Contains(cmd, "--agent") {
+		t.Errorf("should not have --agent when empty: %q", cmd)
+	}
+	if !strings.Contains(cmd, "--model sonnet") {
+		t.Errorf("model should default to sonnet: %q", cmd)
+	}
+}
+
+func TestBuildResumeCommandCodexUnsupported(t *testing.T) {
+	_, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.Codex, "", "", "")
+	if err == nil {
+		t.Fatal("expected error for Codex runtime")
+	}
+	if !strings.Contains(err.Error(), "#321") {
+		t.Errorf("error should reference tracking issue: %v", err)
+	}
+}
 
 func TestBuildGatekeeperCommand(t *testing.T) {
 	ccBase := "ttal worker gatekeeper --task-file /tmp/task.txt -- claude"
