@@ -23,6 +23,9 @@ func TestIsAllowedForSession(t *testing.T) {
 		"KESTREL_BOT_TOKEN", "ATHENA_BOT_TOKEN",
 		"ANTHROPIC_API_KEY",
 		"SOME_RANDOM_SECRET",
+		// Credentials with TTAL_ prefix must be blocked — prefix allowlist is for
+		// runtime metadata only (TTAL_TEAM, TTAL_JOB_ID), not git tokens.
+		"TTAL_FORGEJO_TOKEN", "TTAL_GITHUB_TOKEN",
 	}
 	for _, k := range blocked {
 		if IsAllowedForSession(k) {

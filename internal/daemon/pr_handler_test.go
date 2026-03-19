@@ -1,6 +1,11 @@
 package daemon
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+)
 
 func TestHandlePRCreateMissingFields(t *testing.T) {
 	// Missing provider type should fail at provider creation
@@ -70,5 +75,83 @@ func TestHandlePRGetCIFailureDetailsMissingProvider(t *testing.T) {
 	resp := handlePRGetCIFailureDetails(PRGetCIFailureDetailsRequest{Owner: "o", Repo: "r", SHA: "abc"})
 	if resp.OK {
 		t.Error("expected error for missing provider_type")
+	}
+}
+
+func TestBuildPRStatusLines_AllFailing(t *testing.T) {
+	statuses := []*gitprovider.CommitStatus{
+		{Context: "test/unit", State: gitprovider.StateFailure, Description: "5 failures"},
+		{Context: "test/lint", State: gitprovider.StateError, Description: "lint error"},
+	}
+	result := buildPRStatusLines(statuses, 2, 0)
+	if !strings.Contains(result, "2 CI check(s) failed") {
+		t.Errorf("expected failure count, got: %s", result)
+	}
+	if !strings.Contains(result, "test/unit") || !strings.Contains(result, "test/lint") {
+		t.Errorf("expected check names in output, got: %s", result)
+	}
+}
+
+func TestBuildPRStatusLines_AllPending(t *testing.T) {
+	statuses := []*gitprovider.CommitStatus{
+		{Context: "test/unit", State: gitprovider.StatePending},
+	}
+	// No failing, 1 pending — diagnosePRMergeFailure handles pending before buildPRStatusLines,
+	// but buildPRStatusLines with failing=0, pending=0 covers the no-checks case.
+	result := buildPRStatusLines(statuses, 0, 0)
+	if !strings.Contains(result, "All CI checks passed") {
+		t.Errorf("expected 'All CI checks passed', got: %s", result)
+	}
+}
+
+func TestBuildPRStatusLines_NoChecks(t *testing.T) {
+	result := buildPRStatusLines(nil, 0, 0)
+	if !strings.Contains(result, "No CI checks found") {
+		t.Errorf("expected 'No CI checks found', got: %s", result)
+	}
+}
+
+func TestBuildPRStatusLines_MixedFailingAndPending(t *testing.T) {
+	statuses := []*gitprovider.CommitStatus{
+		{Context: "test/unit", State: gitprovider.StateFailure, Description: "failed"},
+		{Context: "test/e2e", State: gitprovider.StatePending},
+	}
+	result := buildPRStatusLines(statuses, 1, 1)
+	if !strings.Contains(result, "1 CI check(s) failed") {
+		t.Errorf("expected failure count, got: %s", result)
+	}
+	if !strings.Contains(result, "still pending") {
+		t.Errorf("expected pending note, got: %s", result)
+	}
+}
+
+func TestBuildPRStatusLines_WithTargetURL(t *testing.T) {
+	statuses := []*gitprovider.CommitStatus{
+		{
+			Context:     "test/unit",
+			State:       gitprovider.StateFailure,
+			Description: "failed",
+			TargetURL:   "https://ci.example.com/build/42",
+		},
+	}
+	result := buildPRStatusLines(statuses, 1, 0)
+	if !strings.Contains(result, "https://ci.example.com/build/42") {
+		t.Errorf("expected target URL in output, got: %s", result)
+	}
+}
+
+func TestCountPRCheckStates(t *testing.T) {
+	statuses := []*gitprovider.CommitStatus{
+		{State: gitprovider.StateFailure},
+		{State: gitprovider.StateError},
+		{State: gitprovider.StatePending},
+		{State: gitprovider.StateSuccess},
+	}
+	failing, pending := countPRCheckStates(statuses)
+	if failing != 2 {
+		t.Errorf("expected 2 failing, got %d", failing)
+	}
+	if pending != 1 {
+		t.Errorf("expected 1 pending, got %d", pending)
 	}
 }

@@ -25,20 +25,27 @@ func ResolveContext() (*Context, error) {
 	return resolveFromTask(jobID)
 }
 
-func resolveFromTask(jobID string) (*Context, error) {
+// resolveTaskInfo is shared setup for resolveFromTask and resolveFromTaskWithoutProvider.
+func resolveTaskInfo(jobID string) (*taskwarrior.Task, *gitprovider.RepoInfo, error) {
 	task, err := resolveTask(jobID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	projectPath, err := project.ResolveProjectPathOrError(task.Project)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+		return nil, nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+	}
+	return task, info, nil
+}
+
+func resolveFromTask(jobID string) (*Context, error) {
+	task, info, err := resolveTaskInfo(jobID)
+	if err != nil {
+		return nil, err
 	}
 
 	provider, err := gitprovider.NewProvider(info)
@@ -92,21 +99,10 @@ func ResolveContextWithoutProvider() (*Context, error) {
 }
 
 func resolveFromTaskWithoutProvider(jobID string) (*Context, error) {
-	task, err := resolveTask(jobID)
+	task, info, err := resolveTaskInfo(jobID)
 	if err != nil {
 		return nil, err
 	}
-
-	projectPath, err := project.ResolveProjectPathOrError(task.Project)
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := gitprovider.DetectProvider(projectPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
-	}
-
 	return &Context{
 		Task:  task,
 		Owner: info.Owner,

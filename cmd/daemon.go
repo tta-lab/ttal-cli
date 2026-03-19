@@ -21,12 +21,8 @@ JSONL watching, and worker cleanup.`,
 		// Daemon commands need full .env access:
 		// - `run`: daemon startup loads its own, but PersistentPreRunE covers edge cases
 		// - `install`: bakes env vars into launchd plist
-		if dotEnv, err := config.LoadDotEnv(); err == nil {
-			for k, v := range dotEnv {
-				if os.Getenv(k) == "" {
-					_ = os.Setenv(k, v)
-				}
-			}
+		if err := config.InjectDotEnvFallback(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
 		}
 		return nil
 	},

@@ -36,6 +36,22 @@ func LoadDotEnv() (map[string]string, error) {
 	return env, nil
 }
 
+// InjectDotEnvFallback loads ~/.config/ttal/.env and sets any key that is not
+// already present in the environment. Returns an error if the file cannot be
+// read (callers typically print a warning and continue).
+func InjectDotEnvFallback() error {
+	dotEnv, err := LoadDotEnv()
+	if err != nil {
+		return err
+	}
+	for k, v := range dotEnv {
+		if os.Getenv(k) == "" {
+			_ = os.Setenv(k, v)
+		}
+	}
+	return nil
+}
+
 // DotEnvParts loads .env and returns "KEY=VALUE" strings suitable for
 // appending to an environment variable slice. All errors (missing file,
 // parse failures, unreadable path) are silently ignored — returns nil.

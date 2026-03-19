@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -76,7 +76,7 @@ func resolveCISHA(ctx *pr.Context) (string, error) {
 	if ctx.Task.PRID != "" {
 		idx, err := pr.PRIndex(ctx)
 		if err != nil {
-			log.Printf("[pr ci] could not resolve PR index: %v — falling back to local HEAD", err)
+			fmt.Fprintf(os.Stderr, "warning: [pr ci] could not resolve PR index: %v — falling back to local HEAD\n", err)
 		} else {
 			resp, err := daemon.PRGetPR(daemon.PRGetPRRequest{
 				ProviderType: string(ctx.Info.Provider),
@@ -88,7 +88,8 @@ func resolveCISHA(ctx *pr.Context) (string, error) {
 				return resp.HeadSHA, nil
 			}
 			if err != nil {
-				log.Printf("[pr ci] could not fetch PR #%d from daemon: %v — falling back to local HEAD", idx, err)
+				fmt.Fprintf(os.Stderr,
+					"warning: [pr ci] could not fetch PR #%d from daemon: %v — falling back to local HEAD\n", idx, err)
 			}
 		}
 	}

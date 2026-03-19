@@ -70,12 +70,8 @@ Examples:
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// ttal ask needs MINIMAX_API_KEY and BRAVE_API_KEY for subagent.
 		// Load .env as fallback for tokens not already in the environment.
-		if dotEnv, err := config.LoadDotEnv(); err == nil {
-			for k, v := range dotEnv {
-				if os.Getenv(k) == "" {
-					_ = os.Setenv(k, v)
-				}
-			}
+		if err := config.InjectDotEnvFallback(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
 		}
 		return nil
 	},

@@ -364,6 +364,14 @@ func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
 	return handleHTTPWithResponse("breathe", handlers.breathe)
 }
 
+// prOKStatus maps an OK flag to an HTTP status code.
+func prOKStatus(ok bool) int {
+	if ok {
+		return http.StatusOK
+	}
+	return http.StatusInternalServerError
+}
+
 // handleHTTPPR creates a typed HTTP handler for PR operations returning PRResponse.
 func handleHTTPPR[Req any](name string, fn func(Req) PRResponse) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -374,11 +382,7 @@ func handleHTTPPR[Req any](name string, fn func(Req) PRResponse) http.HandlerFun
 			return
 		}
 		result := fn(req)
-		code := http.StatusOK
-		if !result.OK {
-			code = http.StatusInternalServerError
-		}
-		writeHTTPJSON(w, code, result)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
 	}
 }
 
@@ -390,7 +394,8 @@ func handleHTTPPRGetPR(handlers httpHandlers) http.HandlerFunc {
 				PRGetPRResponse{OK: false, Error: "invalid prGetPR JSON: " + err.Error()})
 			return
 		}
-		writeHTTPJSON(w, http.StatusOK, handlers.prGetPR(req))
+		result := handlers.prGetPR(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
 	}
 }
 
@@ -402,7 +407,8 @@ func handleHTTPPRCIStatus(handlers httpHandlers) http.HandlerFunc {
 				PRCIStatusResponse{OK: false, Error: "invalid prGetCombinedStatus JSON: " + err.Error()})
 			return
 		}
-		writeHTTPJSON(w, http.StatusOK, handlers.prGetCombinedStatus(req))
+		result := handlers.prGetCombinedStatus(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
 	}
 }
 
@@ -414,28 +420,35 @@ func handleHTTPPRCIFailureDetails(handlers httpHandlers) http.HandlerFunc {
 				PRCIFailureDetailsResponse{OK: false, Error: "invalid prGetCIFailureDetails JSON: " + err.Error()})
 			return
 		}
-		writeHTTPJSON(w, http.StatusOK, handlers.prGetCIFailureDetails(req))
+		result := handlers.prGetCIFailureDetails(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
 	}
 }
 
 // prCall is the generic helper for PR operations returning PRResponse.
 func prCall[Req any](path string, req Req) (PRResponse, error) {
+	return prCallTyped(path, req, func(r PRResponse) string { return r.Error })
+}
+
+// prCallTyped is the generic helper for PR operations returning a typed response.
+// getErr extracts the error string from the response type for error propagation.
+func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
-		return PRResponse{}, fmt.Errorf("marshal PR request: %w", err)
+		return *new(Resp), fmt.Errorf("marshal PR request: %w", err)
 	}
 	client := daemonHTTPClient()
 	resp, err := client.Post(daemonBaseURL+path, "application/json", bytes.NewReader(body))
 	if err != nil {
-		return PRResponse{}, fmt.Errorf("daemon not running — ttal pr requires the daemon for secure token handling: %w", err)
+		return *new(Resp), fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
 	}
 	defer resp.Body.Close()
-	var result PRResponse
+	var result Resp
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return PRResponse{}, fmt.Errorf("decode PR response: %w", err)
+		return *new(Resp), fmt.Errorf("decode PR response: %w", err)
 	}
-	if !result.OK {
-		return result, fmt.Errorf("%s", result.Error)
+	if errMsg := getErr(result); errMsg != "" {
+		return result, fmt.Errorf("%s", errMsg) //nolint:err113
 	}
 	return result, nil
 }
@@ -472,68 +485,17 @@ func PRCommentList(req PRCommentListRequest) (PRResponse, error) {
 
 // PRGetPR asks the daemon to fetch a PR.
 func PRGetPR(req PRGetPRRequest) (PRGetPRResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return PRGetPRResponse{}, fmt.Errorf("marshal PR request: %w", err)
-	}
-	client := daemonHTTPClient()
-	resp, err := client.Post(daemonBaseURL+"/pr/get", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return PRGetPRResponse{}, fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
-	}
-	defer resp.Body.Close()
-	var result PRGetPRResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return PRGetPRResponse{}, fmt.Errorf("decode PR response: %w", err)
-	}
-	if result.Error != "" {
-		return result, fmt.Errorf("%s", result.Error)
-	}
-	return result, nil
+	return prCallTyped("/pr/get", req, func(r PRGetPRResponse) string { return r.Error })
 }
 
 // PRGetCombinedStatus asks the daemon to fetch CI status for a commit.
 func PRGetCombinedStatus(req PRGetCombinedStatusRequest) (PRCIStatusResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return PRCIStatusResponse{}, fmt.Errorf("marshal PR request: %w", err)
-	}
-	client := daemonHTTPClient()
-	resp, err := client.Post(daemonBaseURL+"/pr/ci/status", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return PRCIStatusResponse{}, fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
-	}
-	defer resp.Body.Close()
-	var result PRCIStatusResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return PRCIStatusResponse{}, fmt.Errorf("decode PR response: %w", err)
-	}
-	if result.Error != "" {
-		return result, fmt.Errorf("%s", result.Error)
-	}
-	return result, nil
+	return prCallTyped("/pr/ci/status", req, func(r PRCIStatusResponse) string { return r.Error })
 }
 
 // PRGetCIFailureDetails asks the daemon to fetch CI failure details.
 func PRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) (PRCIFailureDetailsResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return PRCIFailureDetailsResponse{}, fmt.Errorf("marshal PR request: %w", err)
-	}
-	client := daemonHTTPClient()
-	resp, err := client.Post(daemonBaseURL+"/pr/ci/failure-details", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return PRCIFailureDetailsResponse{}, fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
-	}
-	defer resp.Body.Close()
-	var result PRCIFailureDetailsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return PRCIFailureDetailsResponse{}, fmt.Errorf("decode PR response: %w", err)
-	}
-	if result.Error != "" {
-		return result, fmt.Errorf("%s", result.Error)
-	}
-	return result, nil
+	return prCallTyped("/pr/ci/failure-details", req, func(r PRCIFailureDetailsResponse) string { return r.Error })
 }
 
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {
