@@ -619,7 +619,7 @@ func AskHuman(req AskHumanRequest) (AskHumanResponse, error) {
 
 	var result AskHumanResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return AskHumanResponse{}, fmt.Errorf("invalid response from daemon: %w", err)
+		return AskHumanResponse{}, fmt.Errorf("invalid response from daemon (HTTP %d): %w", resp.StatusCode, err)
 	}
 	if result.Error != "" {
 		return AskHumanResponse{}, fmt.Errorf("daemon error: %s", result.Error)
