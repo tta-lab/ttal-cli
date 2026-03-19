@@ -291,7 +291,11 @@ func extractPlanFlicknoteID(annotations []taskwarrior.Annotation, inlineProjects
 			continue
 		}
 		note := taskwarrior.ReadFlicknoteJSON(m[1])
-		if note != nil && taskwarrior.ShouldInlineNote(note, inlineProjects) {
+		if note == nil {
+			fmt.Fprintf(os.Stderr, "warning: flicknote %s could not be loaded\n", m[1])
+			continue
+		}
+		if taskwarrior.ShouldInlineNote(note, inlineProjects) {
 			return m[1]
 		}
 	}
