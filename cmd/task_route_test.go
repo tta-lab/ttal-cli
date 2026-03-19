@@ -1,6 +1,9 @@
 package cmd
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestShouldBreathe(t *testing.T) {
 	tests := []struct {
@@ -52,4 +55,30 @@ func TestBuildRoutingRecord(t *testing.T) {
 				tt.from, tt.to, tt.message, got, tt.want)
 		}
 	}
+}
+func TestBuildBreatheMsg(t *testing.T) {
+	t.Run("empty sender produces plain /breathe", func(t *testing.T) {
+		got := buildBreatheMsg("")
+		if got != "/breathe" {
+			t.Errorf("expected %q, got %q", "/breathe", got)
+		}
+		if strings.Contains(got, "agent from") {
+			t.Errorf("empty sender should not include sender prefix: %q", got)
+		}
+	})
+
+	t.Run("with sender produces prefixed /breathe", func(t *testing.T) {
+		got := buildBreatheMsg("yuki")
+		want := "[agent from:yuki] /breathe"
+		if got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("message does not mention new task or routing", func(t *testing.T) {
+		got := buildBreatheMsg("yuki")
+		if strings.Contains(got, "new task") || strings.Contains(got, "routed") {
+			t.Errorf("breathe message should not leak next-session context: %q", got)
+		}
+	})
 }

@@ -303,3 +303,73 @@ func TestBuildCCRestartCmdAgentInterpolation(t *testing.T) {
 		t.Errorf("model leaked into --agent slot: %q", cmd)
 	}
 }
+
+// writeFakeDiary writes a fake diary shell script to tmpDir and returns the path.
+// mode controls behavior: "ok" = successful append+read, "fail-append" = append fails,
+// "empty-read" = append succeeds but read returns empty output.
+func writeFakeDiary(t *testing.T, tmpDir, mode, readOutput string) {
+	t.Helper()
+	var script string
+	switch mode {
+	case "ok":
+		// Append: consume stdin and succeed. Read: print readOutput.
+		script = "#!/bin/sh\n" +
+			"if [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi\n" +
+			"if [ \"$2\" = \"read\" ]; then printf '%s' '" + readOutput + "'; exit 0; fi\n" +
+			"exit 1\n"
+	case "fail-append":
+		script = "#!/bin/sh\necho 'text required for append command' >&2; exit 1\n"
+	case "empty-read":
+		script = "#!/bin/sh\n" +
+			"if [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi\n" +
+			"if [ \"$2\" = \"read\" ]; then exit 0; fi\n" +
+			"exit 1\n"
+	}
+	diaryPath := filepath.Join(tmpDir, "diary")
+	if err := os.WriteFile(diaryPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake diary: %v", err)
+	}
+}
+
+func TestDiaryEnrichHandoff(t *testing.T) {
+	const original = "# Handoff\n\nDid some work."
+
+	t.Run("diary not on PATH returns original handoff", func(t *testing.T) {
+		t.Setenv("PATH", "/nonexistent-path-xyz")
+		got := diaryEnrichHandoff("kestrel", original)
+		if got != original {
+			t.Errorf("expected original handoff, got %q", got)
+		}
+	})
+
+	t.Run("diary append fails returns original handoff", func(t *testing.T) {
+		tmp := t.TempDir()
+		writeFakeDiary(t, tmp, "fail-append", "")
+		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
+		got := diaryEnrichHandoff("kestrel", original)
+		if got != original {
+			t.Errorf("expected original handoff on append failure, got %q", got)
+		}
+	})
+
+	t.Run("diary read returns empty falls back to original handoff", func(t *testing.T) {
+		tmp := t.TempDir()
+		writeFakeDiary(t, tmp, "empty-read", "")
+		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
+		got := diaryEnrichHandoff("kestrel", original)
+		if got != original {
+			t.Errorf("expected original handoff on empty read, got %q", got)
+		}
+	})
+
+	t.Run("diary available returns enriched handoff from read", func(t *testing.T) {
+		tmp := t.TempDir()
+		enriched := "# Today\\nHandoff + reflection"
+		writeFakeDiary(t, tmp, "ok", enriched)
+		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
+		got := diaryEnrichHandoff("kestrel", original)
+		if got != enriched {
+			t.Errorf("expected enriched handoff %q, got %q", enriched, got)
+		}
+	})
+}

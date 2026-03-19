@@ -1,9 +1,11 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -301,13 +303,16 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, cwd)
 	}
 
-	// 4. Check for staged routing request and compose handoff
-	composedHandoff, trigger, err := composeHandoff(req.Agent, req.Handoff)
+	// 4. Persist handoff to diary and enrich with today's diary content
+	handoff := diaryEnrichHandoff(req.Agent, req.Handoff)
+
+	// 5. Check for staged routing request and compose handoff
+	composedHandoff, trigger, err := composeHandoff(req.Agent, handoff)
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("compose handoff: %v", err)}
 	}
 
-	// 5. Write synthetic JSONL session (BEFORE killing anything)
+	// 6. Write synthetic JSONL session (BEFORE killing anything)
 	projectDir, err := breathe.CCProjectDir(cwd)
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("resolve CC project dir: %v", err)}
@@ -322,7 +327,7 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		return SendResponse{OK: false, Error: fmt.Sprintf("write session: %v", err)}
 	}
 
-	// 6. Update status file with new session ID
+	// 7. Update status file with new session ID
 	if err := status.WriteAgent(team, status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           newSessionID,
@@ -336,14 +341,14 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 7. Build restart command
+	// 8. Build restart command
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
 	fullCmd := shellCfg.BuildEnvShellCommand([]string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
 	}, ccCmd)
 
-	// 8. Inject .env secrets and respawn
+	// 9. Inject .env secrets and respawn
 	injectSecretsToSession(sessionName)
 	log.Printf("[breathe] %s: restarting with session %s (model: %s)", req.Agent, newSessionID, am.model)
 	if err := tmux.RespawnWindow(sessionName, windowName, cwd, fullCmd); err != nil {
@@ -368,6 +373,36 @@ func sendBreatheNotification(ctx context.Context, fe frontend.Frontend, agent, t
 	if err := fe.SendText(ctx, agent, "🫧 Deep breath. Fresh eyes."); err != nil {
 		log.Printf("[breathe] %s: warning: failed to send notification: %v", agent, err)
 	}
+}
+
+// diaryEnrichHandoff persists the handoff to the agent's diary and returns
+// today's diary entry as the enriched handoff. Both operations are additive —
+// if the diary binary is not found or any command fails, the original handoff
+// is returned unchanged.
+func diaryEnrichHandoff(agent, handoff string) string {
+	diaryPath, err := exec.LookPath("diary")
+	if err != nil {
+		log.Printf("[breathe] %s: diary binary not found — skipping diary persistence", agent)
+		return handoff
+	}
+
+	// Append handoff to today's diary entry.
+	appendCmd := exec.Command(diaryPath, agent, "append")
+	appendCmd.Stdin = bytes.NewBufferString(handoff)
+	if out, err := appendCmd.CombinedOutput(); err != nil {
+		log.Printf("[breathe] %s: diary append failed — %v: %s", agent, err, strings.TrimSpace(string(out)))
+		return handoff
+	}
+
+	// Read today's diary entry to use as the enriched handoff.
+	readCmd := exec.Command(diaryPath, agent, "read")
+	out, err := readCmd.Output()
+	if err != nil || len(bytes.TrimSpace(out)) == 0 {
+		log.Printf("[breathe] %s: diary read failed or empty — using original handoff", agent)
+		return handoff
+	}
+
+	return string(out)
 }
 
 // handleStatusUpdate writes agent context status to the status directory.

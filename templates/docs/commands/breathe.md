@@ -70,11 +70,14 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 ## What Happens After
 
 1. The daemon receives your handoff
-2. Writes a synthetic JSONL session with your handoff as the first message
-3. Your CC session is killed
-4. A new CC session starts with `--resume` on the synthetic session
-5. You wake up in a fresh context window with the handoff as context
-6. Continue from where you left off
+2. Daemon persists your handoff to diary, then reads today's diary entry (handoff + any earlier entries today) as enriched context
+3. Writes a synthetic JSONL session with the enriched handoff as the first message
+4. Your CC session is killed
+5. A new CC session starts with `--resume` on the synthetic session
+6. You wake up in a fresh context window with the handoff as context
+7. Continue from where you left off
+
+Your handoff is saved in diary — it persists across sessions.
 
 ## Auto-Breathe on Route
 
