@@ -113,7 +113,9 @@ func buildRoutingRecord(from, to, message string) string {
 
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.
 // noBreathe skips the auto-breathe; agentRole is used to exempt managers.
-func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string, noBreathe bool, agentRole string) error {
+func routeTaskToAgent(
+	agentName, taskUUID, roleTag, rolePrompt, message string, noBreathe bool, agentRole string,
+) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -164,7 +166,8 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string, 
 		}
 
 		breatheMsg := fmt.Sprintf(
-			"[agent from:%s] A new task has been routed to you. Please run /breathe to start working on it with a fresh context.",
+			"[agent from:%s] A new task has been routed to you. "+
+				"Please run /breathe to start working on it with a fresh context.",
 			sender,
 		)
 		if err := daemon.Send(daemon.SendRequest{

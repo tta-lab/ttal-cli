@@ -76,7 +76,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		if err != nil {
 			return fmt.Errorf("write reviewer session: %w", err)
 		}
-		resumeCmd, err := launchcmd.BuildResumeCommand(ttalBin, sessionID, reviewerRT, model, "pr-review-lead", "Review the PR.")
+		resumeCmd, err := launchcmd.BuildResumeCommand(
+			ttalBin, sessionID, reviewerRT, model, "pr-review-lead", "Review the PR.",
+		)
 		if err != nil {
 			return err
 		}
