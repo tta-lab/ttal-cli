@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
@@ -15,6 +17,19 @@ var daemonCmd = &cobra.Command{
 	Short: "Bidirectional agent communication daemon",
 	Long: `Run the ttal daemon — manages Telegram polling, HTTP server,
 JSONL watching, and worker cleanup.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Daemon commands need full .env access:
+		// - `run`: daemon startup loads its own, but PersistentPreRunE covers edge cases
+		// - `install`: bakes env vars into launchd plist
+		if dotEnv, err := config.LoadDotEnv(); err == nil {
+			for k, v := range dotEnv {
+				if os.Getenv(k) == "" {
+					_ = os.Setenv(k, v)
+				}
+			}
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return daemon.Run()
 	},
