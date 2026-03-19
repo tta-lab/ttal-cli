@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/usage"
@@ -76,7 +78,8 @@ Examples:
 			return err
 		}
 
-		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt, routeMessage)
+		noBreathe, _ := cmd.Flags().GetBool("no-breathe")
+		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt, routeMessage, noBreathe, role)
 	},
 }
 
@@ -84,6 +87,13 @@ func init() {
 	taskRouteCmd.Flags().StringVar(&routeToAgent, "to", "", "Agent name to route to (required)")
 	_ = taskRouteCmd.MarkFlagRequired("to")
 	taskRouteCmd.Flags().StringVar(&routeMessage, "message", "", "Optional context appended to the routing prompt")
+	taskRouteCmd.Flags().Bool("no-breathe", false, "Route without breathing the agent")
+}
+
+// shouldBreathe reports whether the agent should be breathed on route.
+// Managers are exempt from auto-breathe; the --no-breathe flag overrides for all roles.
+func shouldBreathe(agentRole string, noBreathe bool) bool {
+	return !noBreathe && agentRole != "manager"
 }
 
 // buildRoutingRecord constructs the routing annotation for the task audit trail.
@@ -102,7 +112,8 @@ func buildRoutingRecord(from, to, message string) string {
 }
 
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.
-func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) error {
+// noBreathe skips the auto-breathe; agentRole is used to exempt managers.
+func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string, noBreathe bool, agentRole string) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
 	}
@@ -134,12 +145,47 @@ func routeTaskToAgent(agentName, taskUUID, roleTag, rolePrompt, message string) 
 	}
 
 	sender := os.Getenv("TTAL_AGENT_NAME")
-	if err := daemon.Send(daemon.SendRequest{
-		From:    sender,
-		To:      agentName,
-		Message: msg,
-	}); err != nil {
-		return err
+
+	if shouldBreathe(agentRole, noBreathe) {
+		trigger := fmt.Sprintf("New task routed to you: %s\nTask UUID: %s\nRun: ttal task get %s",
+			task.Description, task.UUID, uuid)
+
+		projectPath := projectPkg.ResolveProjectPath(task.Project)
+		if err := route.Stage(agentName, route.Request{
+			TaskUUID:    task.UUID,
+			RolePrompt:  rolePrompt,
+			Trigger:     trigger,
+			ProjectPath: projectPath,
+			RoutedBy:    sender,
+			Message:     message,
+			Team:        os.Getenv("TTAL_TEAM"),
+		}); err != nil {
+			return fmt.Errorf("stage routing file: %w", err)
+		}
+
+		breatheMsg := fmt.Sprintf(
+			"[agent from:%s] A new task has been routed to you. Please run /breathe to start working on it with a fresh context.",
+			sender,
+		)
+		if err := daemon.Send(daemon.SendRequest{
+			From:    sender,
+			To:      agentName,
+			Message: breatheMsg,
+		}); err != nil {
+			// Cleanup on failure
+			if _, consumeErr := route.Consume(agentName); consumeErr != nil {
+				log.Printf("[route] warning: failed to clean up routing file for %s: %v", agentName, consumeErr)
+			}
+			return fmt.Errorf("send breathe to %s: %w", agentName, err)
+		}
+	} else {
+		if err := daemon.Send(daemon.SendRequest{
+			From:    sender,
+			To:      agentName,
+			Message: msg,
+		}); err != nil {
+			return err
+		}
 	}
 
 	record := buildRoutingRecord(sender, agentName, message)
