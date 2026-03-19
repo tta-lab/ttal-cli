@@ -80,6 +80,61 @@ func resolveFromCwd() (*Context, error) {
 	}, nil
 }
 
+// ResolveContextWithoutProvider resolves task metadata and git repo info
+// without creating an authenticated provider. Used by CLI commands that
+// proxy API calls through the daemon.
+func ResolveContextWithoutProvider() (*Context, error) {
+	jobID := os.Getenv("TTAL_JOB_ID")
+	if jobID == "" {
+		return resolveFromCwdWithoutProvider()
+	}
+	return resolveFromTaskWithoutProvider(jobID)
+}
+
+func resolveFromTaskWithoutProvider(jobID string) (*Context, error) {
+	task, err := resolveTask(jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	projectPath, err := project.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+	}
+
+	return &Context{
+		Task:  task,
+		Owner: info.Owner,
+		Repo:  info.Repo,
+		Info:  info,
+		// Provider is nil — API calls go through daemon
+	}, nil
+}
+
+func resolveFromCwdWithoutProvider() (*Context, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine working directory: %w", err)
+	}
+
+	info, err := gitprovider.DetectProvider(cwd)
+	if err != nil {
+		return nil, fmt.Errorf("not in a git repo with a recognized remote: %w", err)
+	}
+
+	return &Context{
+		Task:  &taskwarrior.Task{},
+		Owner: info.Owner,
+		Repo:  info.Repo,
+		Info:  info,
+	}, nil
+}
+
 // resolveTask finds the task from TTAL_JOB_ID.
 func resolveTask(jobID string) (*taskwarrior.Task, error) {
 	// Try pending (active worker), then completed (just finished)
