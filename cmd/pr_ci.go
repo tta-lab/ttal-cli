@@ -11,6 +11,13 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pr"
 )
 
+const (
+	ciStateFailure = "failure"
+	ciStateError   = "error"
+	ciStatePending = "pending"
+	ciIconCheck    = "✓"
+)
+
 var prCIShowLog bool
 
 var prCICmd = &cobra.Command{
@@ -151,12 +158,12 @@ func formatDaemonCIState(state string) string {
 	switch state {
 	case "success":
 		return "passed"
-	case "failure":
+	case ciStateFailure:
 		return "failed"
-	case "error":
-		return "error"
-	case "pending":
-		return "pending"
+	case ciStateError:
+		return ciStateError
+	case ciStatePending:
+		return ciStatePending
 	default:
 		return state
 	}
@@ -165,10 +172,10 @@ func formatDaemonCIState(state string) string {
 func daemonCIStateIcon(state string) string {
 	switch state {
 	case "success":
-		return "✓"
-	case "failure", "error":
+		return ciIconCheck
+	case ciStateFailure, ciStateError:
 		return "✗"
-	case "pending":
+	case ciStatePending:
 		return "·"
 	default:
 		return "?"
@@ -176,5 +183,5 @@ func daemonCIStateIcon(state string) string {
 }
 
 func hasDaemonCIFailures(resp daemon.PRCIStatusResponse) bool {
-	return resp.State == "failure" || resp.State == "error"
+	return resp.State == ciStateFailure || resp.State == ciStateError
 }

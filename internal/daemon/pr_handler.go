@@ -160,7 +160,9 @@ func handlePRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) PRCIFailureDe
 }
 
 // diagnosePRMergeFailure queries CI status and returns a human-readable explanation.
-func diagnosePRMergeFailure(provider gitprovider.Provider, owner, repo string, fetchedPR *gitprovider.PullRequest) string {
+func diagnosePRMergeFailure(
+	provider gitprovider.Provider, owner, repo string, fetchedPR *gitprovider.PullRequest,
+) string {
 	const possibleCauses = "Possible causes: merge conflicts or branch protection rules."
 	if fetchedPR.HeadSHA == "" {
 		return "  Could not determine HEAD SHA to check CI status.\n  " + possibleCauses
