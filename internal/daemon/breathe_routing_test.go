@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -200,6 +202,11 @@ func TestComposeHandoffNoFile(t *testing.T) {
 }
 
 func TestComposeHandoffRolePromptOnly(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, ".ttal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	agent := "test-composehandoff-roleprompt-xyz"
 	if err := route.Stage(agent, route.Request{
 		TaskUUID:   "task-abc",
@@ -224,6 +231,11 @@ func TestComposeHandoffRolePromptOnly(t *testing.T) {
 }
 
 func TestComposeHandoffMessageOnly(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, ".ttal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	agent := "test-composehandoff-message-xyz"
 	if err := route.Stage(agent, route.Request{
 		TaskUUID: "task-def",
@@ -248,6 +260,11 @@ func TestComposeHandoffMessageOnly(t *testing.T) {
 }
 
 func TestComposeHandoffBoth(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, ".ttal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	agent := "test-composehandoff-both-xyz"
 	if err := route.Stage(agent, route.Request{
 		TaskUUID:   "task-ghi",
