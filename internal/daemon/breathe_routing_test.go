@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/route"
 )
 
 func TestHandleBreatheValidation(t *testing.T) {
@@ -66,7 +69,7 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 
 // TestBuildCCRestartCmd verifies that --agent flag is present and correctly interpolated.
 func TestBuildCCRestartCmd(t *testing.T) {
-	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel")
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "")
 
 	if !strings.Contains(cmd, "--resume session-abc") {
 		t.Errorf("missing --resume flag: %q", cmd)
@@ -79,6 +82,24 @@ func TestBuildCCRestartCmd(t *testing.T) {
 	}
 	if !strings.Contains(cmd, "--dangerously-skip-permissions") {
 		t.Errorf("missing --dangerously-skip-permissions flag: %q", cmd)
+	}
+	// Empty trigger should produce no -- separator
+	if strings.Contains(cmd, "-- ") {
+		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
+	}
+}
+
+func TestBuildCCRestartCmdWithTrigger(t *testing.T) {
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "New task: design auth. Run: ttal task get abc12345")
+	if !strings.Contains(cmd, "-- 'New task:") {
+		t.Errorf("missing trigger with -- separator: %q", cmd)
+	}
+}
+
+func TestBuildCCRestartCmdEmptyTrigger(t *testing.T) {
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "")
+	if strings.Contains(cmd, "-- ") {
+		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
 	}
 }
 
@@ -158,9 +179,122 @@ func TestSendBreatheNotification(t *testing.T) {
 	})
 }
 
+func TestBuildCCRestartCmdApostropheEscaping(t *testing.T) {
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "it's a test")
+	if !strings.Contains(cmd, "it'\\''s a test") {
+		t.Errorf("apostrophe not escaped correctly: %q", cmd)
+	}
+}
+
+const composeHandoffBase = "# Base Handoff\n\nContext here."
+
+func TestComposeHandoffNoFile(t *testing.T) {
+	handoff, trigger, err := composeHandoff("test-composehandoff-no-route-xyz", composeHandoffBase)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if handoff != composeHandoffBase {
+		t.Errorf("expected base handoff unchanged, got %q", handoff)
+	}
+	if trigger != "" {
+		t.Errorf("expected empty trigger, got %q", trigger)
+	}
+}
+
+func TestComposeHandoffRolePromptOnly(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, ".ttal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agent := "test-composehandoff-roleprompt-xyz"
+	if err := route.Stage(agent, route.Request{
+		TaskUUID:   "task-abc",
+		RolePrompt: "Build the auth module.",
+		Trigger:    "auth task ready",
+	}); err != nil {
+		t.Fatalf("stage failed: %v", err)
+	}
+	handoff, trigger, err := composeHandoff(agent, composeHandoffBase)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(handoff, "## New Task Assignment") {
+		t.Errorf("expected section header in handoff: %q", handoff)
+	}
+	if !strings.Contains(handoff, "Build the auth module.") {
+		t.Errorf("expected role prompt in handoff: %q", handoff)
+	}
+	if trigger != "auth task ready" {
+		t.Errorf("expected trigger %q, got %q", "auth task ready", trigger)
+	}
+}
+
+func TestComposeHandoffMessageOnly(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, ".ttal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agent := "test-composehandoff-message-xyz"
+	if err := route.Stage(agent, route.Request{
+		TaskUUID: "task-def",
+		Message:  "Extra context for you.",
+		Trigger:  "msg trigger",
+	}); err != nil {
+		t.Fatalf("stage failed: %v", err)
+	}
+	handoff, trigger, err := composeHandoff(agent, composeHandoffBase)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(handoff, "## New Task Assignment") {
+		t.Errorf("should not have section header when no role prompt: %q", handoff)
+	}
+	if !strings.Contains(handoff, "Extra context for you.") {
+		t.Errorf("expected message in handoff: %q", handoff)
+	}
+	if trigger != "msg trigger" {
+		t.Errorf("expected trigger %q, got %q", "msg trigger", trigger)
+	}
+}
+
+func TestComposeHandoffBoth(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, ".ttal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agent := "test-composehandoff-both-xyz"
+	if err := route.Stage(agent, route.Request{
+		TaskUUID:   "task-ghi",
+		RolePrompt: "Design the API.",
+		Message:    "See ticket #42.",
+		Trigger:    "design task",
+	}); err != nil {
+		t.Fatalf("stage failed: %v", err)
+	}
+	handoff, trigger, err := composeHandoff(agent, composeHandoffBase)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(handoff, "## New Task Assignment") {
+		t.Errorf("expected section header: %q", handoff)
+	}
+	if !strings.Contains(handoff, "Design the API.") {
+		t.Errorf("expected role prompt: %q", handoff)
+	}
+	if !strings.Contains(handoff, "See ticket #42.") {
+		t.Errorf("expected message: %q", handoff)
+	}
+	if trigger != "design task" {
+		t.Errorf("expected trigger %q, got %q", "design task", trigger)
+	}
+}
+
 // TestBuildCCRestartCmdAgentInterpolation verifies agent name is not swapped with session/model.
 func TestBuildCCRestartCmdAgentInterpolation(t *testing.T) {
-	cmd := buildCCRestartCmd("my-session", "opus", "athena")
+	cmd := buildCCRestartCmd("my-session", "opus", "athena", "")
 	if !strings.Contains(cmd, "--agent athena") {
 		t.Errorf("agent name not correctly interpolated, got: %q", cmd)
 	}

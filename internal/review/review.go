@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
@@ -28,15 +29,11 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 	prIndex := prInfo.Index
 
 	reviewerRT := cfg.ReviewerRuntime()
+	model := cfg.ReviewerModel()
 
-	prompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT)
-	if prompt == "" {
+	systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT)
+	if systemPrompt == "" {
 		return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
-	}
-
-	promptFile, err := writePromptFile(prompt)
-	if err != nil {
-		return err
 	}
 
 	ttalBin, err := os.Executable()
@@ -44,20 +41,47 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	reviewerCmd, err := buildReviewerRuntimeCmd(ttalBin, promptFile, reviewerRT, cfg.ReviewerModel())
-	if err != nil {
-		return err
-	}
-
-	envParts := []string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
-	shellCmd := cfg.BuildEnvShellCommand(envParts, reviewerCmd)
-
 	workDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	var shellCmd string
+
+	envParts := []string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
+	var ccSessionPath string // non-empty for CC reviewers; cleaned up if tmux.NewWindow fails
+
+	if reviewerRT == runtime.Codex {
+		// Codex reviewers stay on the old task-file path until #321
+		promptFile, err := writePromptFile(systemPrompt)
+		if err != nil {
+			return err
+		}
+		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, promptFile)
+		if err != nil {
+			return err
+		}
+		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
+	} else {
+		// Claude Code: JSONL session + trigger
+		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
+			ttalBin, workDir, breathe.SessionConfig{
+				CWD:       workDir,
+				GitBranch: ctx.Task.Branch,
+				Handoff:   systemPrompt,
+			}, model, "pr-review-lead", "Review the PR.",
+		)
+		if err != nil {
+			return err
+		}
+		ccSessionPath = sessionPath
+		shellCmd = cfg.BuildEnvShellCommand(envParts, resumeCmd)
+	}
+
 	if err := tmux.NewWindow(sessionName, windowName, workDir, shellCmd); err != nil {
+		if ccSessionPath != "" {
+			os.Remove(ccSessionPath)
+		}
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 
@@ -118,10 +142,6 @@ func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt 
 		"{{branch}}", ctx.Task.Branch,
 	)
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
-}
-
-func buildReviewerRuntimeCmd(ttalBin, promptFile string, rt runtime.Runtime, model string) (string, error) {
-	return launchcmd.BuildGatekeeperCommand(ttalBin, promptFile, rt, model, "pr-review-lead")
 }
 
 func writePromptFile(prompt string) (string, error) {

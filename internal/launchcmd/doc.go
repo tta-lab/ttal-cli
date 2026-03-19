@@ -1,7 +1,7 @@
-// Package launchcmd builds the shell command used to launch a worker session.
+// Package launchcmd builds the shell command used to launch a worker or reviewer session.
 //
-// BuildGatekeeperCommand constructs the full invocation string for a given
-// runtime (ClaudeCode, Codex), embedding the ttal gatekeeper
-// wrapper so the worker's lifecycle is managed before handing off to the
-// AI runtime binary. Used by both the manager-plane worker spawner and the worker-plane reviewer.
+// BuildResumeCommand constructs a gatekeeper-wrapped claude --resume invocation
+// for Claude Code workers and reviewers (JSONL session pattern).
+// BuildCodexGatekeeperCommand constructs the legacy gatekeeper-wrapped codex
+// invocation for Codex workers until #321 (Codex JSONL resume support) lands.
 package launchcmd
