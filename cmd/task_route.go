@@ -243,15 +243,29 @@ func spawnWorkerForTask(taskUUID string) error {
 		fmt.Fprintf(os.Stderr, "Project: %s\n", projectPath)
 	}
 
+	// Extract plan flicknote hex from annotations, if present.
+	planID := "none"
+	for _, ann := range task.Annotations {
+		if !strings.Contains(ann.Description, "plan: flicknote/") {
+			continue
+		}
+		if m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description); len(m) > 0 {
+			planID = m[1]
+			break
+		}
+	}
+
 	// Agent sessions require human approval before spawning workers.
 	if err := requireHumanApproval(
 		"task execute",
 		fmt.Sprintf("Spawn worker to execute task\n\n"+
 			"📋 Task: %s\n"+
+			"🆔 Task ID: %s\n"+
+			"📝 Plan: %s\n"+
 			"📂 Project: %s\n"+
 			"🔧 Worker: %s\n"+
 			"🌿 Branch: worker/%s",
-			task.Description, projectPath, workerName, workerName),
+			task.Description, task.SessionID(), planID, projectPath, workerName, workerName),
 	); err != nil {
 		return err
 	}
