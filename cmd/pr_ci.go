@@ -3,12 +3,11 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 )
 
@@ -28,27 +27,35 @@ Examples:
   ttal pr ci          # show CI status summary
   ttal pr ci --log    # show status + failure logs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContext()
+		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
 			return err
 		}
 
-		sha, err := resolveHEADSHA(ctx)
+		// Resolve HEAD SHA — prefer PR's head SHA from API, fall back to local git
+		sha, err := resolveCISHA(ctx)
 		if err != nil {
 			return err
 		}
 
-		cs, err := ctx.Provider.GetCombinedStatus(ctx.Owner, ctx.Repo, sha)
+		// Get combined CI status via daemon
+		statusResp, err := daemon.PRGetCombinedStatus(daemon.PRGetCombinedStatusRequest{
+			ProviderType: string(ctx.Info.Provider),
+			Owner:        ctx.Owner,
+			Repo:         ctx.Repo,
+			SHA:          sha,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to get CI status: %w", err)
 		}
 
-		printCIStatus(cs, sha)
+		printDaemonCIStatus(statusResp, sha)
 
-		if prCIShowLog && hasCIFailures(cs) {
+		if prCIShowLog && hasDaemonCIFailures(statusResp) {
 			fmt.Println()
-			if err := printFailureLogs(ctx, sha); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not fetch failure logs (WOODPECKER_URL/WOODPECKER_TOKEN set?): %v\n", err)
+			if err := printDaemonFailureLogs(ctx, sha); err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"warning: could not fetch failure logs: %v\n", err)
 			}
 		}
 
@@ -56,19 +63,25 @@ Examples:
 	},
 }
 
-// resolveHEADSHA gets the SHA to check. Prefers the PR's head SHA (from API),
+// resolveCISHA gets the SHA to check. Prefers the PR's head SHA (from API),
 // falls back to local git HEAD.
-func resolveHEADSHA(ctx *pr.Context) (string, error) {
+func resolveCISHA(ctx *pr.Context) (string, error) {
 	if ctx.Task.PRID != "" {
 		idx, err := pr.PRIndex(ctx)
 		if err != nil {
 			log.Printf("[pr ci] could not resolve PR index: %v — falling back to local HEAD", err)
 		} else {
-			fetchedPR, err := ctx.Provider.GetPR(ctx.Owner, ctx.Repo, idx)
+			resp, err := daemon.PRGetPR(daemon.PRGetPRRequest{
+				ProviderType: string(ctx.Info.Provider),
+				Owner:        ctx.Owner,
+				Repo:         ctx.Repo,
+				Index:        idx,
+			})
+			if err == nil && resp.HeadSHA != "" {
+				return resp.HeadSHA, nil
+			}
 			if err != nil {
-				log.Printf("[pr ci] could not fetch PR #%d from API: %v — falling back to local HEAD", idx, err)
-			} else if fetchedPR.HeadSHA != "" {
-				return fetchedPR.HeadSHA, nil
+				log.Printf("[pr ci] could not fetch PR #%d from daemon: %v — falling back to local HEAD", idx, err)
 			}
 		}
 	}
@@ -80,20 +93,20 @@ func resolveHEADSHA(ctx *pr.Context) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func printCIStatus(cs *gitprovider.CombinedStatus, sha string) {
+func printDaemonCIStatus(resp daemon.PRCIStatusResponse, sha string) {
 	shortSHA := sha
 	if len(shortSHA) > 8 {
 		shortSHA = shortSHA[:8]
 	}
-	fmt.Printf("CI Status for %s: %s\n", shortSHA, formatCIState(cs.State))
+	fmt.Printf("CI Status for %s: %s\n", shortSHA, formatDaemonCIState(resp.State))
 
-	if len(cs.Statuses) == 0 {
+	if len(resp.Statuses) == 0 {
 		fmt.Println("  No checks found.")
 		return
 	}
 
-	for _, s := range cs.Statuses {
-		icon := ciStateIcon(s.State)
+	for _, s := range resp.Statuses {
+		icon := daemonCIStateIcon(s.State)
 		fmt.Printf("  %s %s", icon, s.Context)
 		if s.Description != "" && s.Description != s.State {
 			fmt.Printf(" — %s", s.Description)
@@ -102,19 +115,24 @@ func printCIStatus(cs *gitprovider.CombinedStatus, sha string) {
 	}
 }
 
-func printFailureLogs(ctx *pr.Context, sha string) error {
-	failures, err := ctx.Provider.GetCIFailureDetails(ctx.Owner, ctx.Repo, sha)
+func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
+	detailResp, err := daemon.PRGetCIFailureDetails(daemon.PRGetCIFailureDetailsRequest{
+		ProviderType: string(ctx.Info.Provider),
+		Owner:        ctx.Owner,
+		Repo:         ctx.Repo,
+		SHA:          sha,
+	})
 	if err != nil {
 		return err
 	}
 
-	if len(failures) == 0 {
+	if len(detailResp.Details) == 0 {
 		fmt.Println("No failure details available.")
 		return nil
 	}
 
 	fmt.Println("Failure Details:")
-	for _, f := range failures {
+	for _, f := range detailResp.Details {
 		fmt.Printf("\n  Workflow: %s\n  Job: %s\n", f.WorkflowName, f.JobName)
 		if f.HTMLURL != "" {
 			fmt.Printf("  URL: %s\n", f.HTMLURL)
@@ -129,36 +147,34 @@ func printFailureLogs(ctx *pr.Context, sha string) error {
 	return nil
 }
 
-func formatCIState(state string) string {
+func formatDaemonCIState(state string) string {
 	switch state {
-	case gitprovider.StateSuccess:
+	case "success":
 		return "passed"
-	case gitprovider.StateFailure:
+	case "failure":
 		return "failed"
-	case gitprovider.StateError:
+	case "error":
 		return "error"
-	case gitprovider.StatePending:
+	case "pending":
 		return "pending"
 	default:
 		return state
 	}
 }
 
-const ciIconSuccess = "✓"
-
-func ciStateIcon(state string) string {
+func daemonCIStateIcon(state string) string {
 	switch state {
-	case gitprovider.StateSuccess:
-		return ciIconSuccess
-	case gitprovider.StateFailure, gitprovider.StateError:
+	case "success":
+		return "✓"
+	case "failure", "error":
 		return "✗"
-	case gitprovider.StatePending:
+	case "pending":
 		return "·"
 	default:
 		return "?"
 	}
 }
 
-func hasCIFailures(cs *gitprovider.CombinedStatus) bool {
-	return cs.State == gitprovider.StateFailure || cs.State == gitprovider.StateError
+func hasDaemonCIFailures(resp daemon.PRCIStatusResponse) bool {
+	return resp.State == "failure" || resp.State == "error"
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 )
 
@@ -16,7 +17,7 @@ func TestPRCICommandExists(t *testing.T) {
 	}
 }
 
-func TestHasCIFailures(t *testing.T) {
+func TestHasDaemonCIFailures(t *testing.T) {
 	tests := []struct {
 		state    string
 		expected bool
@@ -28,14 +29,14 @@ func TestHasCIFailures(t *testing.T) {
 		{"unknown", false},
 	}
 	for _, tt := range tests {
-		cs := &gitprovider.CombinedStatus{State: tt.state}
-		if got := hasCIFailures(cs); got != tt.expected {
-			t.Errorf("hasCIFailures(%q) = %v, want %v", tt.state, got, tt.expected)
+		resp := daemon.PRCIStatusResponse{State: tt.state}
+		if got := hasDaemonCIFailures(resp); got != tt.expected {
+			t.Errorf("hasDaemonCIFailures(%q) = %v, want %v", tt.state, got, tt.expected)
 		}
 	}
 }
 
-func TestFormatCIState(t *testing.T) {
+func TestFormatDaemonCIState(t *testing.T) {
 	tests := []struct {
 		state    string
 		expected string
@@ -47,26 +48,26 @@ func TestFormatCIState(t *testing.T) {
 		{"unknown-state", "unknown-state"},
 	}
 	for _, tt := range tests {
-		if got := formatCIState(tt.state); got != tt.expected {
-			t.Errorf("formatCIState(%q) = %q, want %q", tt.state, got, tt.expected)
+		if got := formatDaemonCIState(tt.state); got != tt.expected {
+			t.Errorf("formatDaemonCIState(%q) = %q, want %q", tt.state, got, tt.expected)
 		}
 	}
 }
 
-func TestCIStateIcon(t *testing.T) {
+func TestDaemonCIStateIcon(t *testing.T) {
 	tests := []struct {
 		state    string
 		expected string
 	}{
-		{gitprovider.StateSuccess, ciIconSuccess},
+		{gitprovider.StateSuccess, "✓"},
 		{gitprovider.StateFailure, "✗"},
 		{gitprovider.StateError, "✗"},
 		{gitprovider.StatePending, "·"},
 		{"unknown", "?"},
 	}
 	for _, tt := range tests {
-		if got := ciStateIcon(tt.state); got != tt.expected {
-			t.Errorf("ciStateIcon(%q) = %q, want %q", tt.state, got, tt.expected)
+		if got := daemonCIStateIcon(tt.state); got != tt.expected {
+			t.Errorf("daemonCIStateIcon(%q) = %q, want %q", tt.state, got, tt.expected)
 		}
 	}
 }
