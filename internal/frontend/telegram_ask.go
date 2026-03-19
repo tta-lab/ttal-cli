@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"strings"
@@ -325,7 +326,7 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
 func buildAskHumanMessage(
 	displayName, question string, options []string, shortID string,
 ) (string, *models.InlineKeyboardMarkup) {
-	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", displayName, question)
+	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", html.EscapeString(displayName), html.EscapeString(question))
 
 	if len(options) == 0 {
 		text += "\n\n💬 Reply to this message with your answer."
@@ -470,7 +471,7 @@ func handleAskHumanCallback(
 	msgID := e.msgID
 	origText := e.origText // capture before deliverAnswer removes the entry
 	if ahs.deliverAnswer(shortID, answer) {
-		answeredText := capText(origText, fmt.Sprintf("→ <b>%s</b>", answer))
+		answeredText := capText(origText, fmt.Sprintf("→ <b>%s</b>", html.EscapeString(answer)))
 		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:    chatID,
 			MessageID: msgID,
@@ -505,7 +506,7 @@ func interceptedAsHumanAnswer(msg *models.Message, ahs *askHumanStore) bool {
 	}
 
 	if ahs.deliverAnswer(shortID, text) {
-		answeredText := capText(e.origText, fmt.Sprintf("→ 💬 <b>%s</b>", text))
+		answeredText := capText(e.origText, fmt.Sprintf("→ 💬 <b>%s</b>", html.EscapeString(text)))
 		editAskHumanMessage(e.botToken, e.chatID, e.msgID, answeredText)
 		return true
 	}

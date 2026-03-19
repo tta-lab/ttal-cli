@@ -227,6 +227,8 @@ Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
    - Symptom: Ignores team TASKRC, no timeout, no `rc.verbose:nothing`
    - Fix: Always use the `internal/taskwarrior` package. If a helper doesn't exist (e.g. `StartTask`), add it there first — don't inline raw exec calls in `cmd/` or other packages.
 
+3. **Unescaped HTML in Telegram messages** — When constructing HTML-formatted Telegram messages (`ParseModeHTML`), all dynamic/user-controlled strings must be wrapped with `html.EscapeString()` before embedding. Characters like `<`, `>`, `&` in task descriptions or user input will cause Telegram's HTML parser to reject the message. Escape at the caller side (where the HTML template is constructed), not in the transport layer.
+
 ## Agent Loop Design Principles
 
 1. **Boundaries are structural.** Enforce limits in code, not prompts. Prompt rules are suggestions models can ignore — `maxSteps`, retry caps, and degenerate-loop detection are walls they cannot. Every prompt-level rule that matters (e.g. "one command per turn") needs a corresponding runtime guard.
