@@ -42,6 +42,7 @@ var askFlags struct {
 	web       bool
 	human     bool
 	save      bool
+	quiet     bool
 	options   []string
 	maxSteps  int
 	maxTokens int
@@ -111,22 +112,25 @@ func runAsk(cmd *cobra.Command, args []string) error {
 
 	maxSteps, maxTokens := resolveLimits(cmd, cfg, askFlags.maxSteps, askFlags.maxTokens)
 
+	// Resolve quiet: --quiet flag takes priority, then config (which checks TTAL_AGENT_NAME).
+	quiet := askFlags.quiet || cfg.AskOutput() == "quiet"
+
 	switch {
 	case askFlags.project != "":
-		return askProject(question, askFlags.project, cfg, maxSteps, maxTokens)
+		return askProject(question, askFlags.project, cfg, maxSteps, maxTokens, quiet)
 	case askFlags.repo != "":
-		return askRepo(question, askFlags.repo, cfg, maxSteps, maxTokens)
+		return askRepo(question, askFlags.repo, cfg, maxSteps, maxTokens, quiet)
 	case askFlags.web:
-		return askWeb(question, cfg, maxSteps, maxTokens)
+		return askWeb(question, cfg, maxSteps, maxTokens, quiet)
 	case askFlags.url != "":
-		return askURL(question, askFlags.url, cfg, maxSteps, maxTokens)
+		return askURL(question, askFlags.url, cfg, maxSteps, maxTokens, quiet)
 	default:
-		return askGeneral(question, cfg, maxSteps, maxTokens)
+		return askGeneral(question, cfg, maxSteps, maxTokens, quiet)
 	}
 }
 
 // askProject asks about a registered ttal project.
-func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
 	projectPath, err := project.GetProjectPath(alias)
 	if err != nil {
 		return err
@@ -149,11 +153,12 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		emoji:        "🔭",
 		label:        "ask --project " + alias,
 		save:         askFlags.save,
+		quiet:        quiet,
 	})
 }
 
 // askRepo asks about an open-source repository (auto-clone/pull).
-func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
 	referencesPath := cfg.AskReferencesPath()
 	cloneURL, localPath, err := resolveRepoRef(repoRef, referencesPath)
 	if err != nil {
@@ -177,11 +182,12 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		emoji:        "🔭",
 		label:        "ask --repo " + repoRef,
 		save:         askFlags.save,
+		quiet:        quiet,
 	})
 }
 
 // askURL asks about a web page using temenos for pre-fetching.
-func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
 	return runAskAgent(askOpts{
 		question:    fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
 		systemExtra: strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
@@ -194,11 +200,12 @@ func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int
 		emoji:       "🔭",
 		label:       "ask --url",
 		save:        askFlags.save,
+		quiet:       quiet,
 	})
 }
 
 // askWeb searches the web to answer a question.
-func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
 	return runAskAgent(askOpts{
 		question:    question,
 		systemExtra: strings.ReplaceAll(askWebPrompt, "{query}", question),
@@ -210,11 +217,12 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error 
 		emoji:       "🔭",
 		label:       "ask --web",
 		save:        askFlags.save,
+		quiet:       quiet,
 	})
 }
 
 // askGeneral asks about the current working directory with both filesystem and web tools.
-func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int, quiet bool) error {
 	if !strings.Contains(askGeneralPrompt, "{cwd}") {
 		return fmt.Errorf("general.md prompt is missing {cwd} placeholder")
 	}
@@ -237,6 +245,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		emoji:        "🔭",
 		label:        "ask",
 		save:         askFlags.save,
+		quiet:        quiet,
 	})
 }
 
@@ -255,6 +264,7 @@ type askOpts struct {
 	emoji        string // optional display emoji shown before output
 	label        string // display name shown in header (defaults to "ask")
 	save         bool   // if true, pipe final answer to flicknote add
+	quiet        bool   // if true, suppress streaming and print result.Response after completion
 }
 
 // runAskAgent builds and runs a logos agent loop for the ask command.
@@ -323,14 +333,35 @@ func runAskAgent(opts askOpts) error {
 		AllowedPaths: allowedPaths,
 	}
 
-	result, err := logos.Run(context.Background(), cfg, nil, opts.question, logos.Callbacks{
-		OnDelta:        func(text string) { fmt.Print(text) },
-		OnCommandStart: renderCommandStart,
-		OnCommandResult: func(command, output string, exitCode int) {
-			renderCommandResult(output, exitCode)
-		},
-		OnRetry: renderRetry,
-	})
+	var callbacks logos.Callbacks
+	var sp *spinner
+	if opts.quiet {
+		// Quiet mode: suppress all streaming. Show spinner on TTY stderr for feedback.
+		if isTerminal(os.Stderr) {
+			sp = startSpinner()
+		}
+		// callbacks stays zero-value — all nil
+	} else {
+		callbacks = logos.Callbacks{
+			OnDelta:        func(text string) { fmt.Print(text) },
+			OnCommandStart: renderCommandStart,
+			OnCommandResult: func(command, output string, exitCode int) {
+				renderCommandResult(output, exitCode)
+			},
+			OnRetry: renderRetry,
+		}
+	}
+
+	result, err := logos.Run(context.Background(), cfg, nil, opts.question, callbacks)
+
+	if sp != nil {
+		sp.Stop()
+	}
+
+	if opts.quiet && result != nil && result.Response != "" {
+		fmt.Print(result.Response)
+	}
+
 	flushErr := flushAgentResult(result, err)
 
 	// Only save on success — if agent hit max-steps or errored, skip save.
@@ -547,11 +578,56 @@ func init() {
 	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
 	askCmd.Flags().BoolVar(&askFlags.human, "human", false, "Ask a human via Telegram and block until answered")
 	askCmd.Flags().BoolVar(&askFlags.save, "save", false, "Save the final answer to flicknote (best-effort; failures are logged to stderr)") //nolint:lll
-	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)")            //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                                 //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")                   //nolint:lll
+	askCmd.Flags().BoolVar(&askFlags.quiet, "quiet", false, "Show only assistant text (no streaming, no command traces)")
+	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)") //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                      //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")        //nolint:lll
 
 	rootCmd.AddCommand(askCmd)
+}
+
+// isTerminal reports whether f is connected to a terminal.
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+// spinner displays an animated spinner on stderr while the agent runs in quiet mode.
+type spinner struct {
+	done chan struct{}
+}
+
+func startSpinner() *spinner {
+	s := &spinner{done: make(chan struct{})}
+	go func() {
+		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		i := 0
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.done:
+				fmt.Fprintf(os.Stderr, "\r\033[K") // clear spinner line
+				return
+			case <-ticker.C:
+				fmt.Fprintf(os.Stderr, "\r%s thinking...", frames[i%len(frames)])
+				i++
+			}
+		}
+	}()
+	return s
+}
+
+func (s *spinner) Stop() {
+	select {
+	case <-s.done:
+		// already stopped
+	default:
+		close(s.done)
+	}
 }
 
 // askLogTarget returns the usage log target string based on active ask flags.

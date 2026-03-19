@@ -66,6 +66,22 @@
         "max_tokens": {
           "type": "integer",
           "description": "Maximum output tokens per step (default: 131072)"
+        },
+        "output": {
+          "type": "string",
+          "enum": [
+            "verbose",
+            "quiet"
+          ],
+          "description": "Output verbosity for human CLI use: \"verbose\" (default) or \"quiet\""
+        },
+        "agent_output": {
+          "type": "string",
+          "enum": [
+            "verbose",
+            "quiet"
+          ],
+          "description": "Output verbosity for agent sessions (TTAL_AGENT_NAME set).\nDefault is quiet. Set to \"verbose\" to see streaming in agent sessions."
         }
       },
       "additionalProperties": false,
