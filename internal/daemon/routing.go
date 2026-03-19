@@ -234,6 +234,27 @@ func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
 	return cmd
 }
 
+// composeHandoff merges the agent's base handoff with any staged routing request.
+// Returns the composed handoff and the trigger string (empty for self-breathe).
+func composeHandoff(agentName, baseHandoff string) (handoff, trigger string) {
+	routeReq, err := route.Consume(agentName)
+	if err != nil {
+		log.Printf("[breathe] warning: failed to read routing file for %s: %v", agentName, err)
+	}
+	if routeReq == nil {
+		return baseHandoff, ""
+	}
+	composed := baseHandoff
+	if routeReq.RolePrompt != "" {
+		composed += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
+	}
+	if routeReq.Message != "" {
+		composed += "\n\n" + routeReq.Message
+	}
+	log.Printf("[breathe] routing %s to task %s (routed by %s)", agentName, routeReq.TaskUUID, routeReq.RoutedBy)
+	return composed, routeReq.Trigger
+}
+
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
 // frontends is the full team→frontend map; team resolution happens inside.
@@ -273,25 +294,8 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, cwd)
 	}
 
-	// 4. Check for staged routing request BEFORE writing session
-	routeReq, err := route.Consume(req.Agent)
-	if err != nil {
-		log.Printf("[breathe] warning: failed to read routing file for %s: %v", req.Agent, err)
-	}
-
-	// Compose handoff — append routing context if present
-	composedHandoff := req.Handoff
-	trigger := ""
-	if routeReq != nil {
-		if routeReq.RolePrompt != "" {
-			composedHandoff += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
-		}
-		if routeReq.Message != "" {
-			composedHandoff += "\n\n" + routeReq.Message
-		}
-		trigger = routeReq.Trigger
-		log.Printf("[breathe] routing %s to task %s (routed by %s)", req.Agent, routeReq.TaskUUID, routeReq.RoutedBy)
-	}
+	// 4. Check for staged routing request and compose handoff
+	composedHandoff, trigger := composeHandoff(req.Agent, req.Handoff)
 
 	// 5. Write synthetic JSONL session (BEFORE killing anything)
 	projectDir, err := breathe.CCProjectDir(cwd)
