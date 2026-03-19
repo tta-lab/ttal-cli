@@ -6,7 +6,6 @@ role: fixer
 flicknote_project: fn.fixes
 description: Bug fix designer — diagnoses root causes and writes fix plans for workers to execute
 claude-code:
-  model: sonnet
   tools: [Bash, Read, Agent]
 
 ---

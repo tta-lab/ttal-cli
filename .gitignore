@@ -53,15 +53,5 @@ gui/frontend/node_modules/
 # OS
 .DS_Store
 Thumbs.db
-.worktrees
-containers/base/base
-containers/base/*.tar
-containers/worker-go/worker-go
-containers/worker-go/*.tar
-containers/worker-node/worker-node
-containers/worker-node/*.tar
-containers/worker-rust/worker-rust
-containers/worker-rust/*.tar
-containers/worker-devops/worker-devops
-containers/worker-devops/*.tar
 .claude/settings.local.json
+

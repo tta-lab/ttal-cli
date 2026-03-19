@@ -6,7 +6,6 @@ flicknote_project: ttal.plans
 role: designer
 voice: af_nova
 claude-code:
-  model: sonnet
   tools: [Bash, Read, Agent]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
