@@ -148,7 +148,7 @@ task +audit status:pending export
 # ttal ask "audit question" --project <alias> — primary scanning tool
 # Use Read for deep inspection of specific files flagged by ttal ask
 
-# 5. Write findings — run 'ttal skill get flicknote-cli' for commands
+# 5. Write findings — run 'ttal skill get flicknote' for commands
 # flicknote add 'audit report' --project fn.audits
 # Title is auto-generated. Returns hex ID for task annotation
 
@@ -179,7 +179,7 @@ task +audit status:pending export
   - `ttal ask "question" --url https://example.com` — explore web pages
   - `ttal ask "question" --web` — search the web
 - **Read** — deep inspection of specific files when ttal ask flags something worth examining closely
-- **flicknote** — audit report storage. Project: `fn.audits`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **flicknote** — audit report storage. Project: `fn.audits`. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary nyx read`, `diary nyx append "..."`
 

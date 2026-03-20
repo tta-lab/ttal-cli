@@ -198,8 +198,8 @@ task <uuid> annotate 'Plan (inline): 1. Remove dep from package.json 2. Update i
 **Large tasks (architecture decisions, multi-file refactors, trade-off analysis needed):** Use flicknote plans — save to flicknote, annotate task with hex ID.
 
 ```bash
-# Plans are stored centrally in ttal.plans (Inke's convention — all agents share this bucket)
-flicknote add 'full plan content' --project ttal.plans
+# All plans go to the "plans" flicknote project
+flicknote add 'full plan content' --project plans
 task <uuid> annotate 'Plan: flicknote <hex-id>'
 ```
 

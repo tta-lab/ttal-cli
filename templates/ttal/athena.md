@@ -129,7 +129,7 @@ task $uuid modify -research +design
   - `ttal ask "question" --project <alias>` — explore registered ttal projects
   - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
-- **flicknote** — research storage and iteration. Project: `ttal.research`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **flicknote** — research storage and iteration. Project: `ttal.research`. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary athena read`, `diary athena append "..."`
 

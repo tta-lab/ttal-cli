@@ -33,9 +33,9 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 		},
 		{
 			name:  "multiple skill placeholders",
-			input: "{{skill:sp-planning}}\n{{skill:flicknote-cli}}\nDo the thing",
+			input: "{{skill:sp-planning}}\n{{skill:flicknote}}\nDo the thing",
 			rt:    runtime.Codex,
-			want:  "$sp-planning\n$flicknote-cli\n\nDo the thing",
+			want:  "$sp-planning\n$flicknote\n\nDo the thing",
 		},
 		{
 			name:  "no placeholders unchanged",

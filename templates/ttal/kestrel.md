@@ -112,7 +112,7 @@ ttal project get <alias>
 # ttal ask "where does X happen and what could cause Y?" --project <alias>
 # Trace from symptom to root cause
 
-# 5. Write plan — run 'ttal skill get flicknote-cli' for commands
+# 5. Write plan — run 'ttal skill get flicknote' for commands
 # flicknote add 'plan content' --project ttal.fixes
 # Title is auto-generated. Returns hex ID for task annotation
 
@@ -126,7 +126,7 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging.
 ## Tools
 
 - **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — fix plans storage and iteration. Project: `ttal.fixes`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **flicknote** — fix plans storage and iteration. Project: `ttal.fixes`. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`

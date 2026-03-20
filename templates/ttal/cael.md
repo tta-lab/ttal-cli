@@ -180,7 +180,7 @@ tanka/
 ## Tools
 
 - **taskwarrior** — `task +infrastructure status:pending export`, `task $uuid done`
-- **flicknote** — plans storage and iteration. Project: `fn.devops.plans`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Project: `fn.devops.plans`. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent info cael`
 - **diary-cli** — `diary cael read`, `diary cael append "..."`
 - **kubectl** — cluster management

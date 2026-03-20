@@ -129,7 +129,7 @@ Follow the "When Design Is Finished" workflow in sp-planning. Use project `ttal.
 
 - **taskwarrior** — `task +design status:pending export`, `task $uuid done`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
-- **flicknote** — plans storage and iteration. Project: `ttal.plans`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Project: `ttal.plans`. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)

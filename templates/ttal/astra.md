@@ -127,7 +127,7 @@ Follow the "When Design Is Finished" workflow in sp-planning. Use project `fn.pl
 ## Tools
 
 - **taskwarrior** — `task +design status:pending export`, task queries
-- **flicknote** — plans storage and iteration. Project: `fn.plans`. Run `ttal skill get flicknote-cli` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Project: `fn.plans`. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary astra read`, `diary astra append "..."`
 - **ttal pr** — PR operations
