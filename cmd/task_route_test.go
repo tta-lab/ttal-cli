@@ -53,3 +53,19 @@ func TestBuildRoutingRecord(t *testing.T) {
 		}
 	}
 }
+func TestBuildBreatheTrigger(t *testing.T) {
+	t.Run("empty sender produces plain /breathe", func(t *testing.T) {
+		got := buildBreatheTrigger("")
+		if got != "/breathe" {
+			t.Errorf("expected %q, got %q", "/breathe", got)
+		}
+	})
+
+	t.Run("with sender produces prefixed /breathe", func(t *testing.T) {
+		got := buildBreatheTrigger("yuki")
+		want := "[agent from:yuki] /breathe"
+		if got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+	})
+}
