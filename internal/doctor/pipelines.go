@@ -2,7 +2,7 @@ package doctor
 
 // defaultPipelinesContent is the starter pipelines.toml written by ttal doctor --fix.
 // It defines standard/bugfix/hotfix pipelines for the common ttal workflow.
-const defaultPipelinesContent = `# Pipeline definitions for ttal task advance.
+const defaultPipelinesContent = `# Pipeline definitions for ttal task go.
 # Each pipeline defines a sequence of stages with role-based assignment and gates.
 # Tasks are matched to pipelines by their tags.
 

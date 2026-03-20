@@ -9,8 +9,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-var taskAdvanceCmd = &cobra.Command{
-	Use:   "advance <uuid>",
+var taskGoCmd = &cobra.Command{
+	Use:   "go <uuid>",
 	Short: "Advance a task to the next pipeline stage",
 	Long: `Advance a task through its pipeline stages based on pipelines.toml configuration.
 
@@ -21,8 +21,8 @@ is determined by the task's pipeline stage definition.
 Human gate stages block until Telegram approval is received.
 
 Examples:
-  ttal task advance abc12345
-  ttal task advance abc12345-1234-1234-1234-123456789abc`,
+  ttal task go abc12345
+  ttal task go abc12345-1234-1234-1234-123456789abc`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		uuid := args[0]

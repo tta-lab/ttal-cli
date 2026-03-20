@@ -100,7 +100,7 @@ cmd/             - CLI commands (cobra)
   ├── worker.go  - ttal worker close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
   ├── task.go    - ttal task get/find (taskwarrior queries)
-  └── advance.go - ttal task advance (pipeline stage engine)
+  └── go.go      - ttal task go (pipeline stage engine)
 
 internal/
   ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
@@ -127,7 +127,7 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` | tmux send-keys | `handleTo` |
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
-| `ttal task advance <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
+| `ttal task go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields

@@ -24,7 +24,7 @@ func Session(uuid string) error {
 	if !tmux.SessionExists(sessionName) {
 		return fmt.Errorf("no worker session assigned to this task\n\n"+
 			"  To spawn a worker for this task:\n"+
-			"  ttal task advance %s", uuid)
+			"  ttal task go %s", uuid)
 	}
 
 	tmuxBin, err := lookPath("tmux")
