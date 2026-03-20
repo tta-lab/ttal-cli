@@ -30,7 +30,7 @@ func advanceTask(uuid string) tea.Cmd {
 		if err != nil {
 			return actionResultMsg{err: fmt.Errorf("advance %s: %s", short, strings.TrimSpace(string(out)))}
 		}
-		return actionResultMsg{message: fmt.Sprintf("Advanced %s", short), refresh: true}
+		return actionResultMsg{message: strings.TrimSpace(string(out)), refresh: true}
 	}
 }
 
