@@ -360,7 +360,7 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 	case keyOpenPR:
 		return openPR(t.UUID)
 	case keyOpenSession:
-		return openSession(t)
+		return openSession(t, m.cfg)
 	case keyOpenTerm:
 		return openTerm(t)
 	case keyOpenEditor:
