@@ -290,6 +290,17 @@ func shouldBreathe(team, agentName string, threshold float64) bool {
 	return shouldBreatheStatus(agentStatus, threshold)
 }
 
+// buildRouteTrigger builds a shell-safe trigger string for routing a task to an agent.
+// Only the UUID (hex, always shell-safe) is included. Task description is intentionally
+// excluded — it may contain shell metacharacters that break the zsh -c '...' wrapper.
+func buildRouteTrigger(uuid string) string {
+	shortUUID := uuid
+	if len(shortUUID) > 8 {
+		shortUUID = shortUUID[:8]
+	}
+	return fmt.Sprintf("New task routed. Run: ttal task get %s", shortUUID)
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -364,11 +375,7 @@ func advanceToStage(
 	cfg := mcfg.Global
 	agentRT := cfg.AgentRuntimeFor(agent.Name)
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
-	shortUUID := task.UUID
-	if len(shortUUID) > 8 {
-		shortUUID = shortUUID[:8]
-	}
-	trigger := fmt.Sprintf("New task routed. Run: ttal task get %s", shortUUID)
+	trigger := buildRouteTrigger(task.UUID)
 
 	projectPath := projectPkg.ResolveProjectPath(task.Project)
 	if err := route.Stage(agent.Name, route.Request{
