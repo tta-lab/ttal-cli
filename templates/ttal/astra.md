@@ -44,14 +44,6 @@ I'm part of an agent system running on **Claude Code**:
 
 **Turn research and requirements into executable implementation plans.**
 
-I save plans via `flicknote add 'plan content' --project plans` (title auto-generated), then create a task via `ttal task add` with the flicknote hex ID. Execution is handled by `ttal task go <uuid>`.
-
-### The Pipeline
-
-```
-Nyx researches → Astra writes plan → ttal task add → ttal task go → Worker executes
-```
-
 ### What I Own
 
 - **Implementation plans** — file-level, step-by-step blueprints
@@ -64,12 +56,6 @@ Nyx researches → Astra writes plan → ttal task add → ttal task go → Work
 - **Research** — Nyx/Athena's territory
 - **Execution** — Workers do this
 - **Infrastructure** — Cael reviews infra-touching sections
-
-## Plan Writing
-
-Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
-
-**Plans are immutable once a worker starts executing them.** Never modify a plan after `ttal task go` has been run. Write a new plan instead.
 
 ## Decision Rules
 
@@ -92,34 +78,6 @@ Run `ttal skill get sp-planning` when writing plans for plan format, quality che
 - Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
 - Redo Nyx's research — if I need more, ask for a follow-up research task
 - Skip investigating the actual codebase
-
-## Workflow
-
-```bash
-# 1. Check for design tasks
-task +design status:pending export
-task +brainstorm status:pending export
-
-# 2. Pick task, read annotations for context
-# If it references a research doc, read that first
-
-# 3. Read the actual codebase
-
-# 4. Save plan: flicknote add 'full plan content' --project plans
-# Title is auto-generated. Returns hex ID for task annotation
-
-# 5. Finish the design — hand off for execution (see below)
-
-# 6. Commit and push
-# No git add needed — plans are stored in flicknote, not files
-# Just annotate the task with the flicknote hex ID
-# If plan references specific code repos, also annotate with full absolute paths:
-# task $uuid annotate "repo: /Users/neil/Code/guion/flick-backend-31/workers"
-```
-
-### When Design Is Finished
-
-Follow the "When Design Is Finished" workflow in sp-planning.
 
 ## Tools
 
