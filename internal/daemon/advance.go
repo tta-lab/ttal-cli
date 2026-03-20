@@ -368,8 +368,7 @@ func advanceToStage(
 	if len(shortUUID) > 8 {
 		shortUUID = shortUUID[:8]
 	}
-	trigger := fmt.Sprintf("New task routed to you: %s\nTask UUID: %s\nRun: ttal task get %s",
-		task.Description, shortUUID, shortUUID)
+	trigger := fmt.Sprintf("New task routed. Run: ttal task get %s", shortUUID)
 
 	projectPath := projectPkg.ResolveProjectPath(task.Project)
 	if err := route.Stage(agent.Name, route.Request{
