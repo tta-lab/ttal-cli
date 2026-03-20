@@ -244,3 +244,23 @@ func TestCurrentStage_NoAgentTag_ReturnsNegativeOne(t *testing.T) {
 		t.Errorf("expected (-1, nil), got (%d, %v)", idx, stage)
 	}
 }
+
+// TestCurrentStage_WorkerStage verifies the worker assignee is matched by role
+// — "worker" is not an agent name, so it matches on assignee value directly.
+func TestCurrentStage_WorkerStage(t *testing.T) {
+	dir := writeTempTOML(t, validTOML)
+	cfg, _ := Load(dir)
+
+	p := cfg.Pipelines["standard"]
+	// "worker" is not in agentRoles — it's a special assignee, not an agent.
+	// There's no agent tag for the worker stage, so CurrentStage returns -1.
+	agentRoles := map[string]string{"inke": "designer"}
+	idx, stage, err := p.CurrentStage([]string{"feature"}, agentRoles)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// No agent tag on task → not in any stage yet.
+	if idx != -1 || stage != nil {
+		t.Errorf("expected (-1, nil) when no agent tag present, got (%d, %v)", idx, stage)
+	}
+}

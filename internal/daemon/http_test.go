@@ -42,6 +42,9 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		prGetCIFailureDetails: func(req PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
 			return PRCIFailureDetailsResponse{OK: true}
 		},
+		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
+			writeHTTPJSON(w, http.StatusOK, AdvanceResponse{Status: AdvanceStatusNoPipeline, Message: "not configured in test"})
+		},
 	}
 }
 
