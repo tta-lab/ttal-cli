@@ -116,7 +116,7 @@ type Config struct {
 	resolvedProjectsPath     string
 	resolvedTaskSyncURL      string
 	resolvedEmojiReactions   bool
-	resolvedBreatheThreshold float64
+	resolvedBreatheThreshold float64 // resolved from *float64, default defaultBreatheThreshold
 	resolvedRoles            *RolesConfig
 }
 
@@ -164,8 +164,9 @@ type TeamConfig struct {
 	User UserConfig `toml:"user"` //nolint:lll
 	// Matrix-specific configuration (only used when frontend = "matrix")
 	Matrix *MatrixTeamConfig `toml:"matrix"`
-	// Context usage threshold (%) below which auto-breathe is skipped (default: 40)
-	BreatheThreshold float64 `toml:"breathe_threshold"` //nolint:lll
+	// Context usage threshold (%) below which auto-breathe is skipped (default: 40).
+	// Use a pointer so that an explicit 0 (always breathe) is not silently promoted to 40.
+	BreatheThreshold *float64 `toml:"breathe_threshold"` //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -396,10 +397,11 @@ func (c *Config) TaskSyncURL() string {
 }
 
 const (
-	DefaultTeamName = "default"
-	DefaultModel    = "sonnet"
-	MergeModeAuto   = "auto"
-	MergeModeManual = "manual"
+	DefaultTeamName         = "default"
+	DefaultModel            = "sonnet"
+	MergeModeAuto           = "auto"
+	MergeModeManual         = "manual"
+	defaultBreatheThreshold = 40.0 // % context usage below which auto-breathe is skipped
 )
 
 // checkTeamLicense loads the license and checks if the team count is within limits.
@@ -781,10 +783,10 @@ func (c *Config) resolve() error {
 	c.resolvedEmojiReactions = resolveEmojiReactions(team)
 
 	// Breathe threshold: % context usage below which auto-breathe is skipped (default: 40).
-	if team.BreatheThreshold == 0 {
-		c.resolvedBreatheThreshold = 40
+	if team.BreatheThreshold != nil {
+		c.resolvedBreatheThreshold = *team.BreatheThreshold
 	} else {
-		c.resolvedBreatheThreshold = team.BreatheThreshold
+		c.resolvedBreatheThreshold = defaultBreatheThreshold
 	}
 
 	// Default flicknote inline projects to ["plan"] if not configured.

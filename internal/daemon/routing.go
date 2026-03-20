@@ -196,7 +196,10 @@ type breatheAgentModel struct {
 
 // resolveAgentModel reads the current model/CC version from the agent's status file.
 func resolveAgentModel(team, agent string) breatheAgentModel {
-	s, _ := status.ReadAgent(team, agent)
+	s, err := status.ReadAgent(team, agent)
+	if err != nil {
+		log.Printf("[breathe] %s: warning: could not read status file, using default model: %v", agent, err)
+	}
 	info := breatheAgentModel{model: "sonnet"}
 	if s != nil {
 		if s.ModelID != "" {

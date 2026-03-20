@@ -93,6 +93,15 @@ func init() {
 	taskRouteCmd.Flags().Bool("no-breathe", false, "Route without breathing the agent")
 }
 
+// resolveTeamName returns the active team name from the TTAL_TEAM env var,
+// falling back to defaultTeam when the env var is unset.
+func resolveTeamName() string {
+	if team := os.Getenv("TTAL_TEAM"); team != "" {
+		return team
+	}
+	return defaultTeam
+}
+
 // shouldBreathe reports whether the agent should be breathed on route.
 // Managers are exempt from auto-breathe; the --no-breathe flag overrides for all roles.
 // When the agent's status file is missing or stale, it defaults to true (breathe to be safe).
@@ -100,12 +109,13 @@ func shouldBreathe(agentName, agentRole string, noBreathe bool, threshold float6
 	if noBreathe || agentRole == "manager" {
 		return false
 	}
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = defaultTeam
-	}
+	team := resolveTeamName()
 	agentStatus, err := status.ReadAgent(team, agentName)
-	if err != nil || agentStatus == nil || agentStatus.IsStale(5*time.Minute) {
+	if err != nil {
+		log.Printf("[route] warning: could not read status for %s/%s, defaulting to breathe: %v", team, agentName, err)
+		return true
+	}
+	if agentStatus == nil || agentStatus.IsStale(5*time.Minute) {
 		return true
 	}
 	return agentStatus.ContextUsedPct >= threshold
@@ -333,9 +343,5 @@ func detectSpawner() string {
 	if agent == "" {
 		return ""
 	}
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = defaultTeam
-	}
-	return team + ":" + agent
+	return resolveTeamName() + ":" + agent
 }
