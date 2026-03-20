@@ -31,7 +31,7 @@ func TestHandleBreatheValidation(t *testing.T) {
 		{
 			name:    "session not found (valid agent + handoff but no tmux)",
 			req:     BreatheRequest{Agent: "nonexistent-test-agent-xyz", Handoff: "# Handoff\n\nNext steps: continue"},
-			wantErr: "not found",
+			wantErr: "cannot resolve agent workspace path",
 		},
 	}
 
@@ -51,13 +51,14 @@ func TestHandleBreatheValidation(t *testing.T) {
 func TestHandleBreatheTeamDefault(t *testing.T) {
 	shellCfg := &config.Config{}
 
-	// team="" should default without panicking — it will fail at session check
+	// team="" should default without panicking — it will fail at CWD fallback
+	// (shellCfg has no resolved team path, so AgentPath returns "").
 	resp := handleBreathe(shellCfg, BreatheRequest{
 		Team:    "",
 		Agent:   "nonexistent-test-agent-xyz",
 		Handoff: "# Handoff",
 	})
-	// Should fail at session check, not at team validation
+	// Should fail at CWD fallback, not at team validation
 	if resp.OK {
 		t.Fatalf("expected OK=false (no tmux session), got OK=true")
 	}
