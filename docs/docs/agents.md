@@ -42,7 +42,6 @@ All frontmatter fields are optional:
 | `emoji` | Display emoji | `🦅`, `🐱` |
 | `description` | Short role summary | `Task orchestration and planning` |
 | `role` | Role key matching `[role]` in `roles.toml` | `manager`, `designer` |
-| `flicknote_project` | Default flicknote project (injected as `$FLICKNOTE_PROJECT`) | `ttal.plans` |
 
 Agent `.md` frontmatter is the single source of truth for agent identity and per-agent config.
 Operational config (prompts, heartbeat) lives in `~/.config/ttal/roles.toml` per role.
@@ -84,7 +83,6 @@ Update frontmatter fields with `field:value` syntax:
 ```bash
 ttal agent modify kestrel voice:af_heart
 ttal agent modify kestrel emoji:🦅 description:'Worker lifecycle'
-ttal agent modify kestrel flicknote_project:ttal.fixes
 ```
 
 ## One bot per agent
