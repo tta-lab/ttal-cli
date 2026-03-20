@@ -27,7 +27,11 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 	// Compute branch at runtime — falls back to stored UDA for backward compat.
 	gitBranch, err := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
 	if err != nil {
-		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", ctx.Task.UUID[:8], err)
+		shortUUID := ctx.Task.UUID
+		if len(shortUUID) > 8 {
+			shortUUID = shortUUID[:8]
+		}
+		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", shortUUID, err)
 	}
 	if gitBranch == "" {
 		gitBranch = ctx.Task.Branch
