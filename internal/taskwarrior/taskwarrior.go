@@ -151,6 +151,16 @@ func slugify(input string, maxLen int) string {
 	return result
 }
 
+// HasTag returns true if tags contains the given tag.
+func HasTag(tags []string, tag string) bool {
+	for _, t := range tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
 // HasTag returns true if the task has the given tag.
 func (t *Task) HasTag(tag string) bool {
 	for _, tt := range t.Tags {
@@ -250,43 +260,19 @@ func SetSpawner(uuid, spawner string) error {
 // PRIDInfo holds parsed pr_id UDA data.
 type PRIDInfo struct {
 	Index int64
-	LGTM  bool
-	Raw   string
 }
 
-// ParsePRID parses a pr_id UDA value. Accepts "123" or "123:lgtm".
+// ParsePRID parses a pr_id UDA value. Strips legacy ":lgtm" suffix for backward compat.
 func ParsePRID(raw string) (PRIDInfo, error) {
 	if raw == "" {
 		return PRIDInfo{}, fmt.Errorf("empty pr_id")
 	}
-	info := PRIDInfo{Raw: raw}
-	numStr := raw
-	if strings.HasSuffix(raw, ":lgtm") {
-		info.LGTM = true
-		numStr = strings.TrimSuffix(raw, ":lgtm")
-	}
-	index, err := strconv.ParseInt(numStr, 10, 64)
+	clean := strings.TrimSuffix(raw, ":lgtm")
+	index, err := strconv.ParseInt(clean, 10, 64)
 	if err != nil {
 		return PRIDInfo{}, fmt.Errorf("invalid pr_id %q: %w", raw, err)
 	}
-	info.Index = index
-	return info, nil
-}
-
-// SetPRLGTM appends :lgtm to the task's pr_id UDA.
-// If already has :lgtm, this is a no-op.
-func SetPRLGTM(uuid string) error {
-	task, err := ExportTask(uuid)
-	if err != nil {
-		return fmt.Errorf("failed to read task %s: %w", uuid, err)
-	}
-	if task.PRID == "" {
-		return fmt.Errorf("task %s has no pr_id", uuid)
-	}
-	if strings.HasSuffix(task.PRID, ":lgtm") {
-		return nil // already approved
-	}
-	return SetPRID(uuid, task.PRID+":lgtm")
+	return PRIDInfo{Index: index}, nil
 }
 
 // SetPRID sets the pr_id UDA on a task.

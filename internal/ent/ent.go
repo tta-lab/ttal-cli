@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/tta-lab/ttal-cli/internal/ent/attachment"
+	"github.com/tta-lab/ttal-cli/internal/ent/comment"
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
 	"github.com/tta-lab/ttal-cli/internal/ent/reaction"
 	"github.com/tta-lab/ttal-cli/internal/ent/toolusage"
@@ -77,6 +78,7 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			attachment.Table: attachment.ValidColumn,
+			comment.Table:    comment.ValidColumn,
 			message.Table:    message.ValidColumn,
 			reaction.Table:   reaction.ValidColumn,
 			toolusage.Table:  toolusage.ValidColumn,

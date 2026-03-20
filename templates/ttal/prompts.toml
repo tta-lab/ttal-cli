@@ -9,11 +9,11 @@ IMPORTANT: Always use `ttal pr` for PR operations (create, modify, comment) — 
 triage = """\
 {{skill:triage}}
 PR review posted.{{review-file}} Read it, assess and fix issues.
-Post your triage update with ttal pr comment create when done.
+Post your triage update with ttal comment add when done.
 
 For multiline comments, use heredoc:
 ```
-cat <<'EOF' | ttal pr comment create
+cat <<'EOF' | ttal comment add
 ## Triage Update
 ### Fixed
 - [x] Issue — fix details
@@ -28,11 +28,11 @@ review = """\
 Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
 
 Scope: ONLY changes in this PR diff, not the entire codebase.
-Post your review with: ttal pr comment create "<markdown>"
+Post your review with: ttal comment add "<markdown>"
 
 For multiline comments, use heredoc:
 ```
-cat <<'EOF' | ttal pr comment create
+cat <<'EOF' | ttal comment add
 ## Review
 ### Critical Issues
 - None
@@ -40,19 +40,18 @@ cat <<'EOF' | ttal pr comment create
 - [file:line] Description
 ### VERDICT: LGTM
 EOF
-```
-NEVER use --no-review flag when posting comments."""
+```"""
 
 re_review = """\
 {{skill:pr-review}}
 Worker has pushed fixes addressing your review.{{coder-comment}}
 Re-review the changes: {{review-scope}}
 
-Post updated review with: ttal pr comment create "<markdown>" (NEVER use --no-review)
+Post updated review with: ttal comment add "<markdown>"
 
 For multiline comments, use heredoc:
 ```
-cat <<'EOF' | ttal pr comment create
+cat <<'EOF' | ttal comment add
 ## Re-review
 ### Fixed
 - [x] Issue from previous review

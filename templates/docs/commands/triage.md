@@ -22,10 +22,10 @@ Triage PR review comments: assess each one, fix what's actionable, then post a s
 ### Input
 
 If the reviewer notification includes a file path (e.g., `/tmp/ttal-review-XXXXX.md`),
-read it first — it contains the full review. Skip `ttal pr comment list` for this review
+read it first — it contains the full review. Skip `ttal comment list` for this review
 round since you already have the content.
 
-If no file path was provided, fall back to `ttal pr comment list`.
+If no file path was provided, fall back to `ttal comment list`.
 
 Read all review comments and categorize them.
 
@@ -86,8 +86,8 @@ Post a status update to the PR with what's done, what's remaining, and what you'
 ### Gather Evidence
 
 ```bash
-# View PR comments
-ttal pr comment list
+# View comments
+ttal comment list
 
 # Check what's changed since review
 git log --oneline origin/main..HEAD
@@ -98,21 +98,13 @@ For each item, verify against code: search for implementations, check tests, con
 
 ### Post Update
 
-**After fixing NEEDS_WORK items** — post **without** `--no-review` to trigger re-review:
+Post your triage update to trigger re-review:
 
 ```bash
-ttal pr comment create "<markdown>"
+ttal comment add "<markdown>"
 ```
 
 This tells the reviewer "I've addressed your feedback, please look again."
-
-**After LGTM with no remaining issues** — use `--no-review` to avoid a pointless review loop:
-
-```bash
-ttal pr comment create --no-review "<markdown>"
-```
-
-**Rule of thumb:** If you fixed things and want confirmation, omit `--no-review`. Only use `--no-review` when the review is already passing and you're posting a status note before merging.
 
 Format:
 

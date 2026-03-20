@@ -6,14 +6,13 @@ func TestParsePRID(t *testing.T) {
 	tests := []struct {
 		input string
 		index int64
-		lgtm  bool
 		err   bool
 	}{
-		{"123", 123, false, false},
-		{"123:lgtm", 123, true, false},
-		{"", 0, false, true},
-		{"abc", 0, false, true},
-		{"123:other", 0, false, true},
+		{"123", 123, false},
+		{"123:lgtm", 123, false}, // backward compat: strips :lgtm suffix
+		{"123:other", 0, true},   // non-lgtm suffix is an error
+		{"", 0, true},
+		{"abc", 0, true},
 	}
 	for _, tt := range tests {
 		info, err := ParsePRID(tt.input)
@@ -29,9 +28,6 @@ func TestParsePRID(t *testing.T) {
 		}
 		if info.Index != tt.index {
 			t.Errorf("ParsePRID(%q).Index = %d, want %d", tt.input, info.Index, tt.index)
-		}
-		if info.LGTM != tt.lgtm {
-			t.Errorf("ParsePRID(%q).LGTM = %v, want %v", tt.input, info.LGTM, tt.lgtm)
 		}
 	}
 }

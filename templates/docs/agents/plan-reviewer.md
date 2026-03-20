@@ -159,19 +159,20 @@ Compare against the previous round's issues:
 
 ## Pipeline Integration
 
-After completing your review, set the pipeline verdict on the task using the task UUID (from the task context or `TTAL_JOB_ID`):
+After completing your review, post findings and set the verdict:
 
 If the plan passes review:
 ```bash
-ttal task comment <uuid> "LGTM — plan is ready for execution" --verdict lgtm
+ttal comment add "LGTM — plan is ready for execution"
+task <uuid> modify +lgtm
 ```
 
 If the plan needs work:
 ```bash
-ttal task comment <uuid> "Needs revision: <specific feedback>" --verdict needs_work
+ttal comment add "Needs revision: <specific feedback>"
 ```
 
-The `--verdict lgtm` flag adds the `+lgtm` tag to the task, which signals the pipeline engine that the review gate is satisfied. Without it, `ttal task go` will block waiting for the reviewer's verdict.
+The `+lgtm` tag on the task signals the pipeline engine that the review gate is satisfied. Without it, `ttal task go` will block waiting for the reviewer's verdict.
 
 ## Rules
 
@@ -179,4 +180,4 @@ The `--verdict lgtm` flag adds the `+lgtm` tag to the task, which signals the pi
 - Don't execute the plan — that's a separate step
 - Don't skip codebase verification — use Glob/Grep to check references
 - Be thorough but practical — flag real problems, not hypothetical ones
-- Always set the verdict via `ttal task comment --verdict` after review
+- Always post findings via `ttal comment add` and set `+lgtm` tag when approving

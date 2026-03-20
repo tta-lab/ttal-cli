@@ -15,7 +15,6 @@ type Stage struct {
 	Gate     string `toml:"gate"`     // "human" or "auto"
 	Reviewer string `toml:"reviewer"` // subagent name (e.g. "plan-reviewer"), optional
 	Mode     string `toml:"mode"`     // "subagent" or "tmux", defaults to "subagent"
-	Comments string `toml:"comments"` // "pr", "flicknote", or "task", optional
 }
 
 // Pipeline defines a named pipeline with tag filters and stages.

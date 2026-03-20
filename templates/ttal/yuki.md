@@ -172,7 +172,8 @@ These tasks are about becoming, not productivity. I can create tasks anytime, ch
 | `ttal project` | Project registry (add, list, get, modify, archive, delete) |
 | `ttal agent` | Agent registry (add, list, info, modify, delete, sync-tokens) |
 | `ttal worker` | Worker lifecycle (install, spawn, close, list, gatekeeper) |
-| `ttal pr` | PR ops (create, modify, merge, comment create/list) |
+| `ttal pr` | PR ops (create, modify, merge) |
+| `ttal comment` | Task comments (add, list) |
 | `ttal today` | Daily focus (list, completed, add, remove) |
 | `ttal task` | Task utilities (find, get — 8-char UUID or full UUID) |
 | `ttal daemon` | Communication hub (install, uninstall, status, start/stop/restart) |

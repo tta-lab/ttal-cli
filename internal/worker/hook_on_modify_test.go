@@ -137,10 +137,10 @@ func TestValidateTaskCompletion_PROpen(t *testing.T) {
 }
 
 func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
-	task := makeTask("7:lgtm", "testproj")
+	task := makeTask("7", "testproj")
 	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
 	checker := func(projectPath, prID string) (bool, string, error) {
-		if prID != "7:lgtm" {
+		if prID != "7" {
 			return false, "", errors.New("unexpected prID: " + prID)
 		}
 		return true, "fix: lgtm title", nil
@@ -155,7 +155,7 @@ func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
 }
 
 func TestValidateTaskCompletion_PROpenWithLGTM(t *testing.T) {
-	task := makeTask("7:lgtm", "testproj")
+	task := makeTask("7", "testproj")
 	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
 	checker := func(_, _ string) (bool, string, error) { return false, "", nil }
 	_, err := validateTaskCompletion(task, checker, resolver)
@@ -164,5 +164,80 @@ func TestValidateTaskCompletion_PROpenWithLGTM(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "#7") {
 		t.Errorf("expected error to contain '#7', got: %v", err)
+	}
+}
+
+func makeLGTMTask(tags []string) hookTask {
+	t := hookTask{}
+	t["uuid"] = "test-uuid"
+	t["status"] = "pending"
+	if len(tags) > 0 {
+		tagSlice := make([]interface{}, len(tags))
+		for i, tag := range tags {
+			tagSlice[i] = tag
+		}
+		t["tags"] = tagSlice
+	}
+	return t
+}
+
+func TestCheckLGTMGuard(t *testing.T) {
+	tests := []struct {
+		name     string
+		original []string
+		modified []string
+		role     string
+		wantErr  bool
+	}{
+		{
+			name:     "reviewer can add lgtm",
+			original: nil,
+			modified: []string{"lgtm"},
+			role:     "reviewer",
+			wantErr:  false,
+		},
+		{
+			name:     "coder cannot add lgtm",
+			original: nil,
+			modified: []string{"lgtm"},
+			role:     "coder",
+			wantErr:  true,
+		},
+		{
+			name:     "empty role cannot add lgtm",
+			original: nil,
+			modified: []string{"lgtm"},
+			role:     "",
+			wantErr:  true,
+		},
+		{
+			name:     "lgtm already present is not blocked",
+			original: []string{"lgtm"},
+			modified: []string{"lgtm"},
+			role:     "coder",
+			wantErr:  false,
+		},
+		{
+			name:     "unrelated tag change not blocked",
+			original: nil,
+			modified: []string{"urgent"},
+			role:     "coder",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("TTAL_ROLE", tt.role)
+			orig := makeLGTMTask(tt.original)
+			mod := makeLGTMTask(tt.modified)
+			err := checkLGTMGuard(orig, mod)
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

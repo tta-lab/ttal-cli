@@ -139,16 +139,17 @@ After subagents complete, summarize:
 
 ## Pipeline Integration
 
-After completing your review, set the pipeline verdict on the task using the task UUID:
+After completing your review, post findings and set the verdict:
 
 If the PR passes review (LGTM):
 ```bash
-ttal task comment <uuid> "LGTM — implementation is solid" --verdict lgtm
+ttal comment add "LGTM — implementation is solid"
+task <uuid> modify +lgtm
 ```
 
 If the PR needs work:
 ```bash
-ttal task comment <uuid> "Needs work: <specific issues>" --verdict needs_work
+ttal comment add "Needs work: <specific issues>"
 ```
 
-The `--verdict lgtm` flag adds the `+lgtm` tag, signaling the pipeline that the implement stage review gate is satisfied and the task can advance.
+The `+lgtm` tag signals the pipeline that the implement stage review gate is satisfied and the task can advance.
