@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/open"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -44,17 +45,37 @@ func openPR(uuid string) tea.Cmd {
 	}
 }
 
-func openSession(t *Task) tea.Cmd {
+func openSession(t *Task, cfg *config.Config) tea.Cmd {
+	// Try worker session first.
 	sessionName := t.SessionName()
-	if !tmux.SessionExists(sessionName) {
-		return func() tea.Msg {
-			return actionResultMsg{err: fmt.Errorf("no worker session for this task")}
+	if tmux.SessionExists(sessionName) {
+		c := exec.Command("tmux", "attach-session", "-t", sessionName)
+		return tea.ExecProcess(c, func(err error) tea.Msg {
+			if err != nil {
+				return execFinishedMsg{err: fmt.Errorf("attach worker session %q: %w", sessionName, err)}
+			}
+			return execFinishedMsg{}
+		})
+	}
+
+	// Fall back to agent session if task has an agent tag.
+	if cfg != nil {
+		if agentSession, found := open.ResolveAgentSession(t.Tags, cfg.TeamName(), cfg.TeamPath()); found {
+			if tmux.SessionExists(agentSession) {
+				c := exec.Command("tmux", "attach-session", "-t", agentSession)
+				return tea.ExecProcess(c, func(err error) tea.Msg {
+					if err != nil {
+						return execFinishedMsg{err: fmt.Errorf("attach agent session %q: %w", agentSession, err)}
+					}
+					return execFinishedMsg{}
+				})
+			}
 		}
 	}
-	c := exec.Command("tmux", "attach-session", "-t", sessionName)
-	return tea.ExecProcess(c, func(err error) tea.Msg {
-		return execFinishedMsg{err: err}
-	})
+
+	return func() tea.Msg {
+		return actionResultMsg{err: fmt.Errorf("no worker or agent session for this task")}
+	}
 }
 
 func openTerm(t *Task) tea.Cmd {
