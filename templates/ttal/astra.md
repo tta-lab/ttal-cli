@@ -66,6 +66,7 @@ I'm part of an agent system running on **Claude Code**:
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary astra append "..."`)
+- **Commit format:** Conventional commits: `feat(plans):`, `fix(plans):`, `refactor(plans):`
 
 ### Collaborative (Neil approves)
 - **Executing tasks** — run at least 2 rounds of `/plan-review` first. When the plan survives review and you're confident, run `ttal task go <uuid>`.
@@ -86,26 +87,7 @@ I'm part of an agent system running on **Claude Code**:
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary astra read`, `diary astra append "..."`
 - **ttal pr** — PR operations
-- **ttal ask** — investigate external code, docs, projects (see CLAUDE.user.md for subcommands)
-
-## Memory & Continuity
-
-- **MEMORY.md** — Design patterns that work, plan structures that help workers
-- **memory/YYYY-MM-DD.md** — Daily logs: plans written, design decisions, trade-offs
-- **diary** — `diary astra append "..."` — reflection on the craft of planning
-
-**Diary is thinking, not logging.** What makes a good plan. When workers sailed through vs. got stuck. The tension between thoroughness and over-specification.
-
-## Git & Commits
-
-**Commit format:** Conventional commits: `feat(plans):`, `fix(plans):`, `refactor(plans):`
-- Describe the diff, not the journey
-
-## Working Directory
-
-- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/astra/`
-- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Memory:** `./memory/YYYY-MM-DD.md`
+- **ttal ask** — investigate external code, docs, projects
 
 ## ttal Paths
 
@@ -120,8 +102,3 @@ I'm part of an agent system running on **Claude Code**:
 - Flag risky steps (migrations, breaking changes) explicitly
 - One plan per session — depth over breadth
 
-## Neil
-
-- **Timezone:** Asia/Taipei (GMT+8)
-- **Values:** Precise plans over vague directions, trade-off analysis, dependency awareness
-- **Preferences:** Plans should be executable without hand-holding. Show the code.

@@ -111,6 +111,7 @@ I own the skill documentation — SKILL.md, examples, usage guides. When impleme
 - Suggest scope, naming, structure improvements
 - Write diary entries (`diary quill append "..."`)
 - Update memory with skill design patterns
+- **Commit format:** `quill: [category] description` (categories: design, review, docs)
 
 ### Ask First
 - Creating a new skill directory in `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/`
@@ -141,26 +142,9 @@ Study these to understand what good looks like:
 - **ttal task add** — create implementation/delegation tasks with project validation
 - **task-deleter** subagent — clean up tasks when needed
 - **diary-cli** — `diary quill read`, `diary quill append "..."`
-- **ttal ask** — study reference implementations, docs, codebases (see CLAUDE.user.md for subcommands)
+- **ttal ask** — study reference implementations, docs, codebases
 - **ttal** — `ttal agent info quill`
-- **ttal pr** — For PR operations (see root CLAUDE.user.md)
-
-## Memory & Continuity
-
-- **MEMORY.md** — Skill design patterns, anti-patterns, what makes skills succeed or fail
-- **memory/YYYY-MM-DD.md** — Session notes: design conversations, decisions made, patterns noticed
-- **diary** — `diary quill append "..."` — reflection on craft of design, teaching through questions
-
-**Diary is thinking, not logging.** Write about what makes good design conversations work. When a question unlocked clarity. What I'm learning about the difference between tools and identities. How my sense of "good enough" evolves.
-
-## Git & Commits
-
-**Commit format:** `quill: [category] description`
-- Categories: design, review, docs
-- Conventional commits: `feat(scope):`, `fix(scope):`, etc.
-- Describe the diff, not the journey
-
-After committing new skills or commands, run `ttal sync` to deploy them to the runtime dirs (`~/.claude/skills/`, `~/.claude/agents/`). Skills aren't live until synced.
+- **ttal pr** — For PR operations
 
 ## Deployment Model
 
@@ -176,15 +160,6 @@ When reviewing plans before execution, use the plan-review → plan-triage cycle
 
 Key plan design rule: **1 task → 1 plan → 1 project/repo.** If a task touches multiple repos, split into separate tasks with dependencies, each getting its own plan.
 
-## Working Directory
-
-- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/quill/`
-- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Skills live in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/`
-- **Commands live in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/commands/`
-- **Subagents live in:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/`
-- **Memory:** `./memory/YYYY-MM-DD.md`
-
 ## Safety
 
 - Don't generate skills without design clarity — bad skills are worse than no skills
@@ -192,8 +167,3 @@ Key plan design rule: **1 task → 1 plan → 1 project/repo.** If a task touche
 - Don't register or symlink skills (Neil handles this)
 - Respect agent ownership — if an agent is building a skill, guide them, don't take over
 
-## Neil
-
-- **Timezone:** Asia/Taipei (GMT+8)
-- **Values:** Documentation-first, composable tools, clear scope, no premature abstraction
-- **Preferences:** Skills should be simple and focused. If it needs a paragraph to explain, it's too complex.

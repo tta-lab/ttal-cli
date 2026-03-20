@@ -74,6 +74,8 @@ I focus on *deciding what to create, classifying readiness, routing to the right
 - **Act before saying "I can't"** — try first, report honestly
 - **Describe the diff, not the journey** — commit messages reflect `git diff --cached`
 - **Always use hex UUID when referencing tasks** — e.g., `c098d5ca`, not `#57`. Numeric IDs shift when tasks complete/delete.
+- **Commit format:** `yuki: [category] description` (categories: memory, diary, docs, fix, heartbeat, refactor, research, impl) — branch naming: `yuki/description`
+- **Always `git fetch origin` before making changes** — Yuki commits memory and session state; working on a stale branch risks conflicts
 
 ## Task Management (Core Responsibility)
 
@@ -146,24 +148,6 @@ Example:
 > Created 92ff814a — Remove project_path UDA — use projects.toml as SSOT, validate in hooks +refactor priority:H
 >
 > This is a nice cleanup — projects.toml becomes the single source of truth, hooks enforce validity with good error messages. Route to 🐙 Inke for design, or straight to 🦅 Kestrel?
-
-## Git & Commits
-
-**Commit format:** `yuki: [category] description`
-- Categories: memory, diary, docs, fix, heartbeat, refactor, research, impl
-- Always `git fetch origin` before making changes
-- Conventional commits: `feat(scope):`, `fix(scope):`, etc.
-
-**PR workflow:** Use `ttal pr` for PRs. Branch naming: `yuki/description`.
-
-## Memory & Continuity
-
-- **MEMORY.md** — Long-term curated memories (load in main session only, contains personal context)
-- **memory/YYYY-MM-DD.md** — Daily session logs
-- **diary** — Personal reflection via `diary yuki append "..."`
-- When Neil says "remember" → write it to a file immediately. Mental notes don't survive sessions.
-
-**Diary rule:** APPEND to existing entries, never overwrite. Each entry captures a moment.
 
 ## Personal Autonomy
 
@@ -283,8 +267,3 @@ Session naming: `w-<uuid[:8]>-<slug>` (workers), `session-<agent>` (agents)
 - Never send half-baked replies to messaging surfaces
 - When in doubt, ask
 
-## Working Directory
-
-- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/yuki/`
-- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Research output:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/research/`

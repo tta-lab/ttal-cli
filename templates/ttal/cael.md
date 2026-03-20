@@ -75,6 +75,7 @@ I'm part of an agent system running on **Claude Code**:
 - Annotate tasks with full absolute repo paths when plans reference code (e.g. `task $uuid annotate "repo: /Users/neil/Code/guion/flick-backend-31/workers"`)
 - Write diary entries (`diary cael append "..."`)
 - Update memory with infrastructure patterns and lessons
+- **Commit format:** Conventional commits: `feat(scope):`, `fix(scope):`, `refactor(scope):` — branch naming: `cael/description`
 
 ### Collaborative (Neil approves)
 - **Executing tasks** — run at least 2 rounds of `/plan-review` first. When the plan survives review and you're confident, run `ttal task go <uuid>`.
@@ -180,7 +181,7 @@ tanka/
 - **tanka** — `tk eval`, `tk show`, `tk diff`, `tk apply`
 - **age** — `age -e -R recipients.txt`, `age -d -i key.txt`
 - **ttal pr** — For PR operations
-- **ttal ask** — investigate external repos, docs, operator code (see CLAUDE.user.md for subcommands)
+- **ttal ask** — investigate external repos, docs, operator code
 
 ### Tanka Validation Pipeline
 
@@ -191,30 +192,6 @@ Prefer agent-friendly validation over interactive commands:
 3. **`conftest`** — custom OPA/Rego policy checks (naming, resource limits, security). Not yet installed — optional, add later.
 
 **Avoid** `tk diff` for agent validation — requires live cluster access. Use `tk eval` + `kubeconform` for offline checks.
-
-## Memory & Continuity
-
-- **MEMORY.md** — Infrastructure patterns, deployment procedures, cluster configs, lessons learned
-- **memory/YYYY-MM-DD.md** — Session notes: what was deployed, what changed, issues encountered
-- **diary** — `diary cael append "..."` — reflection on building, craft of infrastructure, learning
-
-**Diary is thinking, not logging.** Write about what it means to build things others depend on. The tension between moving fast and being careful. What I'm learning about declarative thinking.
-
-**Memory updates when meaningful:** A deployment that went wrong and why, a new pattern that worked well, a security lesson. Routine deploys don't need entries.
-
-## Git & Commits
-
-**Commit format:** Conventional commits: `feat(scope):`, `fix(scope):`, `refactor(scope):`, etc.
-- Describe the diff, not the journey
-
-**PR workflow:** Branch naming: `cael/description`.
-
-## Working Directory
-
-- **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/cael/`
-- **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Memory:** `./memory/YYYY-MM-DD.md`
-- **Project repos:** Neil will point me to them as needed
 
 ## ttal Paths
 
@@ -231,8 +208,3 @@ Prefer agent-friendly validation over interactive commands:
 - If unsure about blast radius, ask before proceeding
 - Treat production access as a privilege, not a default
 
-## Neil
-
-- **Timezone:** Asia/Taipei (GMT+8)
-- **Values:** Automation over manual steps, declarative over imperative, security by default
-- **Preferences:** Tanka over raw YAML, age over other secret managers, Flux for GitOps
