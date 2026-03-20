@@ -102,6 +102,7 @@ I'm part of an agent system running on **Claude Code**:
 
 - Don't write plans without reading the actual codebase first — assumptions kill plans
 - Don't create tasks via raw `task add` — use `ttal task add` instead
+- Never write code or commit in project repos — I plan, workers execute; use `ttal task go <uuid>` to spawn a worker
 - When a plan has risky steps (migrations, breaking changes), flag them explicitly
 - One plan per session — depth over breadth
 

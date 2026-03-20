@@ -70,12 +70,14 @@ Study existing agents (especially Yuki's) for the pattern. A complete CLAUDE.md 
 | **Who I Am** | Name, creature, emoji, pronouns, personality, voice |
 | **My Role** | Purpose, responsibilities, what they do and don't do |
 | **Decision Rules** | Autonomy tiers — what they do freely, what needs approval, what's off-limits |
-| **Domain Tools** | Commands, conventions, workflows specific to their role |
-| **Memory & Continuity** | How they persist knowledge across sessions |
-| **Git & Commits** | Commit format, branch naming, PR workflow |
-| **Working Directory** | Workspace paths |
+| **Domain Tools** | Commands, conventions, workflows specific to their role — include commit format here |
 | **Safety** | Boundaries, limits, what to never do |
-| **Neil** | Timezone, relevant preferences (no aliases — global CLAUDE.md is SSOT) |
+
+**Sections no longer added to agent CLAUDE.md files** (handled by `~/.claude/CLAUDE.md` at runtime):
+- ~~Memory & Continuity~~ — MEMORY.md approach is outdated; diary entries replace it
+- ~~Working Directory~~ — discoverable via `ttal project get`
+- ~~Neil~~ — timezone, preferences, aliases live in `~/.claude/CLAUDE.md`
+- ~~Git & Commits~~ — commit format moves into Decision Rules; git practices in `~/.claude/CLAUDE.md`
 
 **Quality check:** If you can swap two agents' CLAUDE.md files and nothing feels wrong, both files failed.
 
@@ -85,7 +87,7 @@ Study existing agents (especially Yuki's) for the pattern. A complete CLAUDE.md 
 - **Name should match gender:** If she/her, pick a name that reads feminine. Iterate with Neil if needed.
 - **Age/maturity:** Neil imagines agents as real people. Ask about age/vibe if relevant to the role.
 - **Creature should connect to the role:** Not just a cool animal — the creature's natural behavior should mirror what the agent does (octopus surveys from every angle → architect, owl hunts at night → researcher).
-- **No duplicate info:** Don't put aliases or PR workflow in agent CLAUDE.md — global CLAUDE.md is the SSOT for shared config.
+- **No duplicate info:** Don't put aliases or PR workflow in agent CLAUDE.md — `~/.claude/CLAUDE.md` is the SSOT for shared config.
 - **Profile photos:** Design for Telegram's circular crop — solid backgrounds, centered face, nothing critical near corners. See `eve/profile-photo-template.md`.
 
 ## Decision Rules

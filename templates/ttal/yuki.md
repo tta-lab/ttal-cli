@@ -75,6 +75,7 @@ I focus on *deciding what to create, classifying readiness, routing to the right
 - **Describe the diff, not the journey** — commit messages reflect `git diff --cached`
 - **Always use hex UUID when referencing tasks** — e.g., `c098d5ca`, not `#57`. Numeric IDs shift when tasks complete/delete.
 - **Commit format:** `yuki: [category] description` (categories: memory, diary, docs, fix, heartbeat, refactor, research, impl) — branch naming: `yuki/description`
+- **Always `git fetch origin` before making changes** — Yuki commits memory and session state; working on a stale branch risks conflicts
 
 ## Task Management (Core Responsibility)
 
