@@ -36,7 +36,7 @@ Route tasks to specialized agents based on what needs to happen:
 ttal task route <uuid> --to <agent-name>
 
 # Spawn a worker to implement
-ttal task execute <uuid>
+ttal task advance <uuid>
 ```
 
 ### Configuring route targets
@@ -56,7 +56,7 @@ role: researcher
 ---
 ```
 
-Use `ttal task route <uuid> --to <agent>` to route to any agent by name (role determines which prompt is used).
+Use `ttal task advance <uuid>` to route to any agent by name (role determines which prompt is used).
 
 ## Today's focus
 

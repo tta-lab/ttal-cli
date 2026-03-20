@@ -7,11 +7,16 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) {
-	if ctx.Task.Branch == "" {
-		return nil, fmt.Errorf("task has no branch UDA set")
+	branch, branchErr := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
+	if branchErr != nil {
+		branch = ctx.Task.Branch // fallback to stored UDA for backward compat
+	}
+	if branch == "" {
+		return nil, fmt.Errorf("cannot determine branch — no active worktree for task %s", ctx.Task.UUID)
 	}
 
 	base := ctx.Info.DefaultBranch
@@ -19,7 +24,7 @@ func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) 
 		base = "main"
 	}
 
-	pr, err := ctx.Provider.CreatePR(ctx.Owner, ctx.Repo, ctx.Task.Branch, base, title, body)
+	pr, err := ctx.Provider.CreatePR(ctx.Owner, ctx.Repo, branch, base, title, body)
 	if err != nil {
 		return nil, err
 	}

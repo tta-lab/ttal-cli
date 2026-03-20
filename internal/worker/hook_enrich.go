@@ -3,12 +3,10 @@ package worker
 import (
 	"fmt"
 
-	"github.com/tta-lab/ttal-cli/internal/enrichment"
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
-// enrichInline validates the project alias and generates a branch.
-// Sets branch in-place so writeTask outputs the enriched version.
+// enrichInline validates the project alias.
 // Returns an error if the project alias is not registered.
 // resolver may be nil, in which case project.ResolveProjectPath is used.
 // Error messages always come from project.ResolveProjectPathOrError so
@@ -33,16 +31,5 @@ func enrichInline(task hookTask, resolver pathResolver) error {
 		return fmt.Errorf("project %q not found in projects.toml", projectAlias)
 	}
 
-	branch := enrichment.GenerateBranch(task.Description())
-	if branch == "" {
-		hookLogFile(fmt.Sprintf("enrich-inline: could not generate branch for %s: %q", task.UUID(), task.Description()))
-		hookLog("ENRICH", task.UUID(), task.Description(), "branch", "(none)")
-		return nil
-	}
-
-	branchWithPrefix := "worker/" + branch
-	task["branch"] = branchWithPrefix
-
-	hookLog("ENRICH", task.UUID(), task.Description(), "branch", branchWithPrefix)
 	return nil
 }

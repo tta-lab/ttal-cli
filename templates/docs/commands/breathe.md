@@ -91,7 +91,7 @@ so they start fresh. The router stages routing params to
 
 Managers are exempt — they keep persistent sessions.
 
-To skip: `ttal task route <uuid> --to <agent> --no-breathe`
+To skip: `ttal task advance <uuid> --no-breathe`
 
 ## Unified Spawn Pattern
 

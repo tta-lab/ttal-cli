@@ -1268,6 +1268,9 @@ func defaultDataDir() string {
 	return filepath.Join(home, ".ttal")
 }
 
+// DefaultConfigDir returns the path to the ttal configuration directory (~/.config/ttal).
+func DefaultConfigDir() string { return defaultConfigDir() }
+
 func defaultConfigDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

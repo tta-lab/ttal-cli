@@ -234,6 +234,8 @@ type httpHandlers struct {
 	taskComplete func(TaskCompleteRequest) SendResponse
 	breathe      func(BreatheRequest) SendResponse
 	askHuman     http.HandlerFunc
+	// Pipeline advance (may block on human gates)
+	pipelineAdvance http.HandlerFunc
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -256,6 +258,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
 	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
+	r.Post("/pipeline/advance", handlers.pipelineAdvance)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
 	})

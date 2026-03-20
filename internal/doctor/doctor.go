@@ -95,6 +95,7 @@ func Run(fix bool) *Report {
 	r.Sections = append(r.Sections, checkMatrix(fix))
 	r.Sections = append(r.Sections, checkCCIntegration(fix))
 	r.Sections = append(r.Sections, checkHooks(fix))
+	r.Sections = append(r.Sections, checkPipelines(fix))
 	return r
 }
 
@@ -487,7 +488,7 @@ func checkUDAs(section *Section, taskrcTtalPath string) {
 		section.add(LevelError, ".taskrc.ttal", fmt.Sprintf("cannot read: %v", err))
 		return
 	}
-	for _, uda := range []string{"branch", "pr_id", "spawner"} {
+	for _, uda := range []string{"pr_id", "spawner"} {
 		if strings.Contains(string(ttalContent), "uda."+uda+".type") {
 			section.add(LevelOK, uda, "UDA "+uda+" defined")
 		} else {
@@ -548,9 +549,6 @@ func checkTaskrcInclude(section *Section, taskrc, content, inc string, fix bool)
 }
 
 const taskrcTtalContent = `# TTAL Worker UDAs
-uda.branch.type=string
-uda.branch.label=Branch
-
 uda.pr_id.type=string
 uda.pr_id.label=PR ID
 
@@ -984,4 +982,15 @@ func checkFlicknoteHooks(section *Section, fix bool) {
 			section.add(LevelWarn, h.File, fmt.Sprintf("installed flicknote hook: %s", hookPath))
 		}
 	}
+}
+
+// --- Pipelines ---
+
+func checkPipelines(fix bool) Section {
+	section := Section{Name: "Pipelines"}
+	configDir := config.DefaultConfigDir()
+	pipelinesPath := filepath.Join(configDir, "pipelines.toml")
+	ensureCompanionFile(&section, pipelinesPath, "pipelines.toml",
+		"pipelines.toml exists", "created default pipelines.toml", defaultPipelinesContent, fix)
+	return section
 }

@@ -34,7 +34,7 @@ Plan: ~/clawd/docs/plans/2026-03-01-auth-implementation.md
 ### 3. Execute
 
 ```bash
-ttal task execute <uuid>
+ttal task advance <uuid>
 ```
 
 This spawns a worker in a tmux session with a git worktree. The worker receives the full task context — including the research findings and implementation plan, automatically inlined from annotations.
@@ -78,7 +78,7 @@ Inke (the design agent) reads Athena's research, writes an implementation plan w
 ### Step 4: Execute
 
 ```bash
-ttal task execute <uuid>
+ttal task advance <uuid>
 ```
 
 A worker spawns with full context: the task description, Athena's research, and Inke's plan — all inlined in the prompt. The worker follows the plan, implements the feature, creates a PR.

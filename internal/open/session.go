@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // Session attaches to the tmux session associated with a task.
@@ -19,11 +20,11 @@ func Session(uuid string) error {
 		return err
 	}
 
-	sessionID := task.SessionName()
-	if task.Branch == "" {
+	sessionName := task.SessionName()
+	if !tmux.SessionExists(sessionName) {
 		return fmt.Errorf("no worker session assigned to this task\n\n"+
 			"  To spawn a worker for this task:\n"+
-			"  ttal task execute %s", uuid)
+			"  ttal task advance %s", uuid)
 	}
 
 	tmuxBin, err := lookPath("tmux")
@@ -32,6 +33,6 @@ func Session(uuid string) error {
 	}
 
 	return syscall.Exec(tmuxBin, []string{
-		"tmux", "attach-session", "-t", sessionID,
+		"tmux", "attach-session", "-t", sessionName,
 	}, os.Environ())
 }

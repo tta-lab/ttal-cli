@@ -32,16 +32,13 @@ ttal task find <keyword> --completed   # search completed tasks
 
 `ttal task get` inlines markdown files from annotations matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns — useful for feeding full context to agents.
 
-## Route tasks
+## Advance tasks through the pipeline
 
-Route tasks to the right agent instead of doing everything yourself.
+Move a task to the next pipeline stage (routes to agent or spawns worker based on config).
 
 ```bash
-ttal task route <uuid> --to <agent>              # route to agent for design/research/brainstorm
-ttal task route <uuid> --to <agent> --message "context"  # add context
-ttal task execute <uuid>                         # spawn a worker
+ttal task advance <uuid>                         # advance to next pipeline stage
 ```
 
 **When to use:**
-- `ttal task route` — task needs design, research, or brainstorming
-- `ttal task execute` — task has a plan/design doc annotated and is ready to implement. Spawns a worker in its own tmux session + git worktree.
+- `ttal task advance` — moves the task through the configured pipeline: routes to the right agent for design/review stages, or spawns a worker for implementation stages. Gate type (auto/human) is determined by the pipeline config.

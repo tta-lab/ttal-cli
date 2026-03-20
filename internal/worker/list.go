@@ -7,6 +7,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/tta-lab/ttal-cli/internal/enrichment"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -47,7 +48,7 @@ func List() error {
 	if len(tasks) == 0 {
 		fmt.Println("No active workers")
 		fmt.Println("\nTo spawn a worker:")
-		fmt.Println("  ttal task execute <uuid>")
+		fmt.Println("  ttal task advance <uuid>")
 		return nil
 	}
 
@@ -146,6 +147,9 @@ func printWorkerTable(workers []WorkerInfo) {
 		pr := formatPRCell(t.PRID)
 
 		branch := t.Branch
+		if branch == "" {
+			branch = enrichment.GenerateBranch(t.Description)
+		}
 		if branch == "" {
 			branch = "-"
 		}

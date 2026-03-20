@@ -37,7 +37,7 @@ ttal task route abc12345 --to athena
 ttal task route abc12345 --to inke
 
 # Execute — worker spawns in its own worktree, follows the plan, opens a PR
-ttal task execute abc12345
+ttal task advance abc12345
 
 # Meanwhile, you're on your phone
 # Review agents post verdicts, worker triages feedback, you merge from Telegram

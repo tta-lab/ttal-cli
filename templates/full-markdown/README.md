@@ -23,7 +23,7 @@ task add "Build feature X" +research
   → task moves to +design
   → designer writes plan to docs/plans/
   → you approve
-  → manager spawns a worker: ttal task execute <uuid>
+  → manager spawns a worker: ttal task advance <uuid>
   → worker executes, creates PR
   → reviewer checks PR, worker triages feedback
 

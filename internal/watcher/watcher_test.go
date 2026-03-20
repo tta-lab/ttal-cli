@@ -111,9 +111,9 @@ func TestExtractToolUse(t *testing.T) {
 			wantTool: "flicknote:write",
 		},
 		{
-			name: "Bash with ttal task route",
+			name: "Bash with ttal task advance",
 			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_9","input":{"command":"ttal task route abc123 --to inke"}}]}}`,
+				`[{"type":"tool_use","name":"Bash","id":"tu_9","input":{"command":"ttal task advance abc12345"}}]}}`,
 			wantTool: "ttal:route",
 		},
 		{
