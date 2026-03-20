@@ -78,6 +78,7 @@ var keyMap = map[string]keyAction{
 	"pgup":   keyPageUp,
 	"ctrl+d": keyHalfPageDown,
 	"ctrl+u": keyHalfPageUp,
+	"home":   keyTop,
 	"G":      keyBottom,
 }
 
@@ -93,7 +94,8 @@ const helpText = `Key Bindings:
   j/k, Up/Down   Navigate tasks
   Enter           Task detail
   Esc             Back / close overlay
-  G               Bottom (Home goes to top)
+  Home            Top
+  G               Bottom
   Ctrl+D/U        Half page down/up
 
   g               Advance task (go — pipeline stage)
