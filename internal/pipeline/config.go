@@ -95,16 +95,35 @@ func (p *Pipeline) CurrentStage(taskTags []string, agentRoles map[string]string)
 		tagSet[t] = true
 	}
 
-	for agentName, role := range agentRoles {
-		if !tagSet[agentName] {
+	// Collect all matching stages to detect ambiguity.
+	type match struct {
+		idx   int
+		stage *Stage
+		agent string
+	}
+	var matches []match
+	for _, agentName := range taskTags {
+		role, ok := agentRoles[agentName]
+		if !ok {
 			continue
 		}
-		// Find the stage with this role as assignee
 		for i := range p.Stages {
 			if p.Stages[i].Assignee == role {
-				return i, &p.Stages[i], nil
+				matches = append(matches, match{i, &p.Stages[i], agentName})
+				break
 			}
 		}
+	}
+
+	if len(matches) > 1 {
+		agents := make([]string, len(matches))
+		for i, m := range matches {
+			agents[i] = m.agent
+		}
+		return -1, nil, fmt.Errorf("ambiguous stage: multiple agent tags found %v — remove extra tags", agents)
+	}
+	if len(matches) == 1 {
+		return matches[0].idx, matches[0].stage, nil
 	}
 
 	return -1, nil, nil

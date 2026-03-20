@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -24,7 +25,10 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 	}
 
 	// Compute branch at runtime — falls back to stored UDA for backward compat.
-	gitBranch, _ := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
+	gitBranch, err := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
+	if err != nil {
+		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", ctx.Task.UUID[:8], err)
+	}
 	if gitBranch == "" {
 		gitBranch = ctx.Task.Branch
 	}

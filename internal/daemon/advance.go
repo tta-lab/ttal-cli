@@ -1,13 +1,13 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -52,7 +52,7 @@ func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
 	}
 
 	client := daemonHTTPClientLong(askHumanClientTimeout)
-	resp, err := client.Post(daemonBaseURL+"/pipeline/advance", "application/json", strings.NewReader(string(body)))
+	resp, err := client.Post(daemonBaseURL+"/pipeline/advance", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return AdvanceResponse{}, fmt.Errorf("daemon not running: %w", err)
 	}
@@ -148,7 +148,11 @@ func buildAgentRoles(teamPath string) map[string]string {
 	if teamPath == "" {
 		return agentRoles
 	}
-	agents, _ := agentfs.Discover(teamPath)
+	agents, err := agentfs.Discover(teamPath)
+	if err != nil {
+		log.Printf("[advance] warning: discover agents in %s: %v", teamPath, err)
+		return agentRoles
+	}
 	for _, a := range agents {
 		agentRoles[a.Name] = a.Role
 	}
@@ -339,8 +343,12 @@ func advanceToStage(
 	cfg := mcfg.Global
 	agentRT := cfg.AgentRuntimeFor(agent.Name)
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
+	shortUUID := task.UUID
+	if len(shortUUID) > 8 {
+		shortUUID = shortUUID[:8]
+	}
 	trigger := fmt.Sprintf("New task routed to you: %s\nTask UUID: %s\nRun: ttal task get %s",
-		task.Description, task.UUID[:8], task.UUID[:8])
+		task.Description, shortUUID, shortUUID)
 
 	projectPath := projectPkg.ResolveProjectPath(task.Project)
 	if err := route.Stage(agent.Name, route.Request{
@@ -424,9 +432,11 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 		return nil, fmt.Errorf("no agent with role %q found", role)
 	}
 
+	var queryErrors []string
 	for i := range agents {
 		count, err := taskwarrior.CountTasks(fmt.Sprintf("+%s", agents[i].Name), "+ACTIVE")
 		if err != nil {
+			queryErrors = append(queryErrors, fmt.Sprintf("%s: %v", agents[i].Name, err))
 			continue
 		}
 		if count == 0 {
@@ -437,6 +447,9 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 	names := make([]string, len(agents))
 	for i, a := range agents {
 		names[i] = a.Name
+	}
+	if len(queryErrors) > 0 {
+		return nil, fmt.Errorf("taskwarrior query failed for role %q agents: %v", role, queryErrors)
 	}
 	return nil, fmt.Errorf("all agents with role %q are busy: %v", role, names)
 }

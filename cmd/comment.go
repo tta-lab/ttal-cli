@@ -65,14 +65,20 @@ Examples:
 
 		agentRoles := make(map[string]string)
 		if teamPath != "" {
-			agents, _ := agentfs.Discover(teamPath)
+			agents, err := agentfs.Discover(teamPath)
+			if err != nil {
+				return fmt.Errorf("discover agents in %s: %w", teamPath, err)
+			}
 			for _, a := range agents {
 				agentRoles[a.Name] = a.Role
 			}
 		}
 
 		configDir := config.DefaultConfigDir()
-		pipelineCfg, _ := pipeline.Load(configDir) // best-effort; fallback to task backend
+		pipelineCfg, err := pipeline.Load(configDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml: %v\n", err)
+		}
 
 		backend := resolveCommentBackend(task, pipelineCfg, agentRoles)
 
