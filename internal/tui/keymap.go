@@ -11,8 +11,7 @@ const (
 	keyDown
 	keyEnter
 	keyEsc
-	keyExecute
-	keyRoute
+	keyAdvance
 	keyOpenPR
 	keyOpenSession
 	keyOpenTerm
@@ -54,8 +53,7 @@ var keyMap = map[string]keyAction{
 	"down":   keyDown,
 	"enter":  keyEnter,
 	"esc":    keyEsc,
-	"x":      keyExecute,
-	"r":      keyRoute,
+	"g":      keyAdvance,
 	"p":      keyOpenPR,
 	"s":      keyOpenSession,
 	"o":      keyOpenTerm,
@@ -80,7 +78,6 @@ var keyMap = map[string]keyAction{
 	"pgup":   keyPageUp,
 	"ctrl+d": keyHalfPageDown,
 	"ctrl+u": keyHalfPageUp,
-	"g":      keyTop,
 	"G":      keyBottom,
 }
 
@@ -96,11 +93,10 @@ const helpText = `Key Bindings:
   j/k, Up/Down   Navigate tasks
   Enter           Task detail
   Esc             Back / close overlay
-  g/G             Top / bottom
+  G               Bottom (Home goes to top)
   Ctrl+D/U        Half page down/up
 
-  x               Execute (spawn worker)
-  r               Route to manager (or pick agent if no manager configured)
+  g               Advance task (go — pipeline stage)
   d               Mark task done
   m               Modify task
   A               Annotate task

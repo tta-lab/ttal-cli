@@ -32,7 +32,7 @@ func (m Model) viewTaskDetail() string {
 
 	b.WriteString("\n")
 	b.WriteString(styleDim.Render(
-		"  x:execute  r:route  d:done  m:modify  A:annotate  o:PR  s:session  a:today  Esc:back"))
+		"  g:advance  d:done  m:modify  A:annotate  o:PR  s:session  a:today  Esc:back"))
 
 	return m.padToHeight(b.String()) + m.viewStatusBar()
 }
