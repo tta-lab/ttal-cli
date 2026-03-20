@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	entcomment "github.com/tta-lab/ttal-cli/internal/ent/comment"
 )
@@ -51,7 +52,8 @@ func (s *Service) CurrentRound(ctx context.Context, target, team string) (int, e
 			entcomment.Target(target),
 			entcomment.Team(team),
 		).
-		Order(entcomment.ByRound()).
+		Order(entcomment.ByRound(sql.OrderDesc())).
+		Limit(1).
 		All(ctx)
 	if err != nil {
 		return 0, err
@@ -59,5 +61,5 @@ func (s *Service) CurrentRound(ctx context.Context, target, team string) (int, e
 	if len(comments) == 0 {
 		return 0, nil
 	}
-	return comments[len(comments)-1].Round, nil
+	return comments[0].Round, nil
 }

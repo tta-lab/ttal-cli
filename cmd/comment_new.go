@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -35,7 +37,10 @@ func resolveCurrentTask() (string, error) {
 	}
 	if agent := os.Getenv("TTAL_AGENT_NAME"); agent != "" {
 		tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", "+"+agent)
-		if err != nil || len(tasks) == 0 {
+		if err != nil {
+			return "", fmt.Errorf("taskwarrior query failed: %w", err)
+		}
+		if len(tasks) == 0 {
 			return "", fmt.Errorf("no active task with +%s tag", agent)
 		}
 		if len(tasks) > 1 {
@@ -109,11 +114,17 @@ Examples:
 		// Forge side-effect: if worker plane and task has pr_id, also post to forge
 		if os.Getenv("TTAL_JOB_ID") != "" {
 			task, taskErr := taskwarrior.ExportTask(taskUUID)
-			if taskErr == nil && task.PRID != "" {
+			if taskErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: forge comment skipped: export task: %v\n", taskErr)
+			} else if task.PRID != "" {
 				prCtx, ctxErr := pr.ResolveContextWithoutProvider()
-				if ctxErr == nil {
+				if ctxErr != nil {
+					fmt.Fprintf(os.Stderr, "warning: forge comment skipped: resolve context: %v\n", ctxErr)
+				} else {
 					idx, idxErr := pr.PRIndex(prCtx)
-					if idxErr == nil {
+					if idxErr != nil {
+						fmt.Fprintf(os.Stderr, "warning: forge comment skipped: PR index: %v\n", idxErr)
+					} else {
 						_, prErr := daemon.PRCommentCreate(daemon.PRCommentCreateRequest{
 							ProviderType: string(prCtx.Info.Provider),
 							Owner:        prCtx.Owner,
@@ -196,54 +207,74 @@ var commentListCmd = &cobra.Command{
 
 // notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_ROLE.
 func notifyCounterpart(body string) {
-	role := tmux.Role()
 	sessionName, err := review.ResolveSessionName()
 	if err != nil || sessionName == "" {
 		return
 	}
-
 	cfg, rt := loadConfigAndCoderRuntime()
 
-	switch role {
+	switch tmux.Role() {
 	case "reviewer":
-		// Reviewer posting → notify coder window
-		coderWindow, cwErr := tmux.FirstWindowExcept(sessionName, "review")
-		if cwErr != nil || coderWindow == "" {
-			return
-		}
-		reviewFile, _ := writeReviewFile(body)
-		reviewRef := ""
-		if reviewFile != "" {
-			reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
-		}
-		tmpl := cfg.Prompt("triage")
-		if tmpl == "" {
-			return
-		}
-		replacer := strings.NewReplacer("{{review-file}}", reviewRef)
-		notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
-		_ = tmux.SendKeys(sessionName, coderWindow, notification)
-
+		notifyReviewer(sessionName, body, cfg, rt)
 	case "coder":
-		// Coder posting → trigger re-review
-		if tmux.WindowExists(sessionName, "review") {
-			_ = review.RequestReReview(sessionName, false, body, cfg)
-		}
-
+		notifyCoder(sessionName, body, cfg)
 	case "plan-reviewer":
-		// Plan reviewer → notify designer window
-		designerWindow, err := tmux.FirstWindowExcept(sessionName, "plan-review")
-		if err != nil || designerWindow == "" {
-			return
-		}
-		_ = tmux.SendKeys(sessionName, designerWindow, body)
-
+		notifyPlanReviewer(sessionName, body)
 	case "designer":
-		// Designer posting → re-trigger plan review
-		if tmux.WindowExists(sessionName, "plan-review") {
-			_ = tmux.SendKeys(sessionName, "plan-review",
-				"Plan has been revised. Re-review and post findings via ttal comment add.")
-		}
+		notifyDesigner(sessionName)
+	}
+}
+
+func notifyReviewer(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
+	coderWindow, err := tmux.FirstWindowExcept(sessionName, "review")
+	if err != nil || coderWindow == "" {
+		return
+	}
+	reviewFile, err := writeReviewFile(body)
+	if err != nil {
+		log.Printf("warning: failed to write review file: %v", err)
+	}
+	reviewRef := ""
+	if reviewFile != "" {
+		reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
+	}
+	tmpl := cfg.Prompt("triage")
+	if tmpl == "" {
+		return
+	}
+	replacer := strings.NewReplacer("{{review-file}}", reviewRef)
+	notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
+	if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
+		log.Printf("warning: notify coder failed: %v", err)
+	}
+}
+
+func notifyCoder(sessionName, body string, cfg *config.Config) {
+	if !tmux.WindowExists(sessionName, "review") {
+		return
+	}
+	if err := review.RequestReReview(sessionName, false, body, cfg); err != nil {
+		log.Printf("warning: re-review request failed: %v", err)
+	}
+}
+
+func notifyPlanReviewer(sessionName, body string) {
+	designerWindow, err := tmux.FirstWindowExcept(sessionName, "plan-review")
+	if err != nil || designerWindow == "" {
+		return
+	}
+	if err := tmux.SendKeys(sessionName, designerWindow, body); err != nil {
+		log.Printf("warning: notify designer failed: %v", err)
+	}
+}
+
+func notifyDesigner(sessionName string) {
+	if !tmux.WindowExists(sessionName, "plan-review") {
+		return
+	}
+	if err := tmux.SendKeys(sessionName, "plan-review",
+		"Plan has been revised. Re-review and post findings via ttal comment add."); err != nil {
+		log.Printf("warning: notify plan-review failed: %v", err)
 	}
 }
 

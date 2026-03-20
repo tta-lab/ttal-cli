@@ -2,7 +2,6 @@ package pr
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -89,7 +88,7 @@ func CheckMergeable(ctx *Context) error {
 
 func Merge(ctx *Context, deleteAfterMerge bool) error {
 	// Gate: reviewer must have approved via +lgtm tag
-	if !slices.Contains(ctx.Task.Tags, "lgtm") {
+	if !ctx.Task.HasTag("lgtm") {
 		return fmt.Errorf(
 			"PR not approved — reviewer must: task %s modify +lgtm",
 			ctx.Task.UUID,

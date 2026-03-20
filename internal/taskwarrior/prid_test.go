@@ -10,6 +10,7 @@ func TestParsePRID(t *testing.T) {
 	}{
 		{"123", 123, false},
 		{"123:lgtm", 123, false}, // backward compat: strips :lgtm suffix
+		{"123:other", 0, true},   // non-lgtm suffix is an error
 		{"", 0, true},
 		{"abc", 0, true},
 	}

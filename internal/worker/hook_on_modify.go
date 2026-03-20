@@ -70,15 +70,14 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 
 // checkLGTMGuard rejects +lgtm tag additions from non-reviewer roles.
 func checkLGTMGuard(original, modified hookTask) error {
-	origTags := original.Tags()
-	modTags := modified.Tags()
-	if !slices.Contains(origTags, "lgtm") && slices.Contains(modTags, "lgtm") {
-		role := os.Getenv("TTAL_ROLE")
-		if role != "reviewer" {
-			return fmt.Errorf("only reviewers can set +lgtm (current role: %s)", role)
-		}
+	lgtmAdded := !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm")
+	if !lgtmAdded {
+		return nil
 	}
-	return nil
+	if os.Getenv("TTAL_ROLE") == "reviewer" {
+		return nil
+	}
+	return fmt.Errorf("only reviewers can set +lgtm (current role: %s)", os.Getenv("TTAL_ROLE"))
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
@@ -96,7 +95,10 @@ func HookOnModify() {
 	if err := checkLGTMGuard(original, modified); err != nil {
 		hookLogFile("LGTM guard: " + err.Error())
 		fmt.Fprintln(os.Stderr, err.Error())
-		rawOriginal, _ := json.Marshal(original)
+		rawOriginal, marshalErr := json.Marshal(original)
+		if marshalErr != nil || len(rawOriginal) == 0 {
+			os.Exit(1)
+		}
 		fmt.Println(string(rawOriginal))
 		os.Exit(0)
 	}

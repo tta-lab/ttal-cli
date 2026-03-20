@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -181,7 +180,7 @@ Examples:
 		}
 
 		// Check LGTM gate via +lgtm tag
-		if !slices.Contains(ctx.Task.Tags, "lgtm") {
+		if !ctx.Task.HasTag("lgtm") {
 			return fmt.Errorf(
 				"PR not approved — reviewer must: task %s modify +lgtm",
 				ctx.Task.UUID,
