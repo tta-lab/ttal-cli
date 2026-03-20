@@ -46,9 +46,14 @@ Examples:
 			return err
 		}
 
-		if ctx.Task.Branch == "" {
+		branch, branchErr := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
+		if branchErr != nil {
+			// Fall back to stored branch UDA for backward compatibility
+			branch = ctx.Task.Branch
+		}
+		if branch == "" {
 			return fmt.Errorf(
-				"task has no branch UDA set — run from a worktree with a branch, or set it: task %s modify branch:<name>",
+				"cannot determine branch — run from an active worktree: task %s",
 				ctx.Task.UUID,
 			)
 		}
@@ -65,7 +70,7 @@ Examples:
 			ProviderType: string(ctx.Info.Provider),
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
-			Head:         ctx.Task.Branch,
+			Head:         branch,
 			Base:         base,
 			Title:        title,
 			Body:         body,
@@ -75,7 +80,7 @@ Examples:
 		}
 
 		fmt.Printf("PR #%d created: %s\n", resp.PRIndex, resp.PRURL)
-		fmt.Printf("  %s → %s\n", ctx.Task.Branch, base)
+		fmt.Printf("  %s → %s\n", branch, base)
 		fmt.Println()
 
 		// Store PRID in taskwarrior

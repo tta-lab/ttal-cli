@@ -212,7 +212,7 @@ func ValidateUUID(s string) error {
 	return nil
 }
 
-// VerifyRequiredUDAs checks that the branch UDA is configured in taskwarrior.
+// VerifyRequiredUDAs checks that required UDAs are configured in taskwarrior.
 func VerifyRequiredUDAs() error {
 	out, err := runTask("show")
 	if err != nil {
@@ -220,7 +220,7 @@ func VerifyRequiredUDAs() error {
 			"  This prevents creating orphaned sessions that aren't tracked.", err)}
 	}
 
-	required := []string{"branch"}
+	required := []string{"pr_id", "spawner"}
 	var missing []string
 	for _, uda := range required {
 		if !strings.Contains(out, fmt.Sprintf("uda.%s.", uda)) {

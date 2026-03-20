@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // runTtalCommand runs a ttal subcommand and returns combined output.
@@ -58,12 +59,12 @@ func openPR(uuid string) tea.Cmd {
 }
 
 func openSession(t *Task) tea.Cmd {
-	if t.Branch == "" {
+	sessionName := t.SessionName()
+	if !tmux.SessionExists(sessionName) {
 		return func() tea.Msg {
 			return actionResultMsg{err: fmt.Errorf("no worker session for this task")}
 		}
 	}
-	sessionName := t.SessionName()
 	c := exec.Command("tmux", "attach-session", "-t", sessionName)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return execFinishedMsg{err: err}

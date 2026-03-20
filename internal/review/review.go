@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 const windowName = "review"
@@ -20,6 +21,12 @@ const windowName = "review"
 func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
+	}
+
+	// Compute branch at runtime — falls back to stored UDA for backward compat.
+	gitBranch, _ := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
+	if gitBranch == "" {
+		gitBranch = ctx.Task.Branch
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
@@ -31,7 +38,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 	reviewerRT := cfg.ReviewerRuntime()
 	model := cfg.ReviewerModel()
 
-	systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT)
+	systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
 	if systemPrompt == "" {
 		return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
 	}
@@ -67,7 +74,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
 			ttalBin, workDir, breathe.SessionConfig{
 				CWD:       workDir,
-				GitBranch: ctx.Task.Branch,
+				GitBranch: gitBranch,
 				Handoff:   systemPrompt,
 			}, model, "pr-review-lead", "Review the PR.",
 		)
@@ -132,14 +139,14 @@ func RequestReReview(sessionName string, full bool, coderComment string, cfg *co
 	return tmux.SendKeys(sessionName, windowName, msg)
 }
 
-func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt runtime.Runtime) string {
+func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt runtime.Runtime, branch string) string {
 	tmpl := cfg.Prompt("review")
 	replacer := strings.NewReplacer(
 		"{{pr-number}}", fmt.Sprintf("%d", prIndex),
 		"{{pr-title}}", ctx.Task.Description,
 		"{{owner}}", ctx.Owner,
 		"{{repo}}", ctx.Repo,
-		"{{branch}}", ctx.Task.Branch,
+		"{{branch}}", branch,
 	)
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 }

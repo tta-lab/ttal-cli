@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/tta-lab/ttal-cli/internal/enrichment"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -49,8 +50,12 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	if t.Urgency != 0 {
 		field(b, "Urg:", "   ", fmt.Sprintf("%.1f", t.Urgency))
 	}
-	if t.Branch != "" {
-		field(b, "Branch:", " ", t.Branch)
+	displayBranch := t.Branch
+	if displayBranch == "" {
+		displayBranch = enrichment.GenerateBranch(t.Description)
+	}
+	if displayBranch != "" {
+		field(b, "Branch:", " ", displayBranch)
 	}
 	if path := project.ResolveProjectPath(t.Project); path != "" {
 		field(b, "Path:", "   ", path)

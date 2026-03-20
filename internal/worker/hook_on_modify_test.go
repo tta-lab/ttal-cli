@@ -32,12 +32,9 @@ func TestEnrichInline_RegisteredProject(t *testing.T) {
 	if err := enrichInline(task, resolver); err != nil {
 		t.Errorf("expected nil for registered project, got: %v", err)
 	}
-	branch, ok := task["branch"].(string)
-	if !ok || branch == "" {
-		t.Error("expected branch to be set after enrichInline")
-	}
-	if !strings.HasPrefix(branch, "worker/") {
-		t.Errorf("expected branch to have worker/ prefix, got: %q", branch)
+	// Branch is no longer set by enrichInline — it's computed at runtime.
+	if task["branch"] != nil {
+		t.Error("branch should not be set by enrichInline (computed at runtime)")
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 func PR(uuid string) error {
@@ -23,8 +24,9 @@ func PR(uuid string) error {
 
 	if task.PRID == "" {
 		msg := "no PR associated with this task"
-		if task.Branch != "" {
-			msg += fmt.Sprintf("\n\n  Worker session '%s' is active but hasn't created a PR yet.", task.SessionName())
+		sessionName := task.SessionName()
+		if tmux.SessionExists(sessionName) {
+			msg += fmt.Sprintf("\n\n  Worker session '%s' is active but hasn't created a PR yet.", sessionName)
 		} else {
 			msg += "\n\n  No worker is currently working on this task."
 		}

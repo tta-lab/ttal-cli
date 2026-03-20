@@ -57,13 +57,14 @@ func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 
 	sessionName := task.SessionName()
 
-	branch := task.Branch
-	if branch == "" {
-		return &CloseResult{Error: true, Status: "Task missing required UDA: branch"}, fmt.Errorf("missing branch UDA")
-	}
-
 	// Derive work_dir from task UUID and project alias
 	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+
+	// Compute branch at runtime from the worktree (no branch UDA needed)
+	branch := gitutil.BranchName(workDir)
+	if branch == "" {
+		return &CloseResult{Error: true, Status: "No active worktree found for this task"}, fmt.Errorf("no worktree branch found at %s", workDir)
+	}
 
 	// Use team-aware resolution so the daemon (which caches config via sync.Once at startup)
 	// reads the correct team's projects.toml rather than its own.
