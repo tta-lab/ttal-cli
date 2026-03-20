@@ -254,6 +254,7 @@ func init() {
 	taskCmd.AddCommand(taskAddCmd)
 	taskCmd.AddCommand(taskRouteCmd)
 	taskCmd.AddCommand(taskExecuteCmd)
+	taskCmd.AddCommand(taskAdvanceCmd)
 	taskCmd.AddCommand(taskHeatmapCmd)
 
 	taskFindCmd.Flags().BoolVar(&findCompleted, "completed", false, "Show completed tasks instead of pending")

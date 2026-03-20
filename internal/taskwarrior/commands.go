@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -63,6 +64,40 @@ func MarkWaiting(uuid string) error {
 		return fmt.Errorf("failed to mark task %s as waiting: %w", uuid, err)
 	}
 	return nil
+}
+
+// StopTask stops an active task.
+func StopTask(uuid string) error {
+	_, err := runTask(uuid, "stop")
+	if err != nil {
+		return fmt.Errorf("failed to stop task %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// ModifyTags adds or removes tags from a task.
+// Tags should be in "+tagname" or "-tagname" format.
+func ModifyTags(uuid string, tags ...string) error {
+	args := append([]string{uuid, "modify"}, tags...)
+	_, err := runTask(args...)
+	if err != nil {
+		return fmt.Errorf("failed to modify tags on task %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// CountTasks returns the count of tasks matching the given filters.
+func CountTasks(filters ...string) (int, error) {
+	args := append(filters, "count")
+	out, err := runTask(args...)
+	if err != nil {
+		return 0, fmt.Errorf("task count: %w", err)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return 0, fmt.Errorf("task count: parse %q: %w", strings.TrimSpace(out), err)
+	}
+	return n, nil
 }
 
 func parseCreatedUUID(output string) (string, error) {
