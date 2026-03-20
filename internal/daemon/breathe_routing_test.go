@@ -114,8 +114,8 @@ func TestBuildCCRestartCmd(t *testing.T) {
 }
 
 func TestBuildCCRestartCmdWithTrigger(t *testing.T) {
-	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "New task: design auth. Run: ttal task get abc12345")
-	if !strings.Contains(cmd, "-- 'New task:") {
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "New task routed. Run: ttal task get abc12345")
+	if !strings.Contains(cmd, "-- 'New task routed. Run: ttal task get abc12345'") {
 		t.Errorf("missing trigger with -- separator: %q", cmd)
 	}
 }

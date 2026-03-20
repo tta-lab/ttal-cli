@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -107,6 +108,38 @@ func TestAdvanceRoute_InvalidJSON(t *testing.T) {
 	}
 	if resp.Status != AdvanceStatusError {
 		t.Errorf("expected status %q, got %q", AdvanceStatusError, resp.Status)
+	}
+}
+
+// TestBuildRouteTrigger_NeverContainsDescription guards against re-introducing task.Description
+// into the trigger. Descriptions can contain shell metacharacters (<, >, |, $, ?) that break
+// the zsh -c '...' wrapper used to deliver the trigger to agent sessions.
+func TestBuildRouteTrigger_NeverContainsDescription(t *testing.T) {
+	uuid := "abc12345-1234-1234-1234-123456789abc"
+	trigger := buildRouteTrigger(uuid)
+
+	// Must contain the short UUID.
+	if !strings.Contains(trigger, "abc12345") {
+		t.Errorf("trigger missing UUID: %q", trigger)
+	}
+
+	// Must be a single line (no newlines that could smuggle description content).
+	if strings.Contains(trigger, "\n") {
+		t.Errorf("trigger must be single-line, got: %q", trigger)
+	}
+
+	// Must not contain any user-controlled text — only the fixed template and UUID.
+	metacharDescriptions := []string{
+		"test <foo> bar",
+		"worker/<slug>?",
+		"it's a task; rm -rf /",
+		"pipe | me",
+		"$HOME backdoor",
+	}
+	for _, desc := range metacharDescriptions {
+		if strings.Contains(trigger, desc) {
+			t.Errorf("trigger must not contain description %q: %q", desc, trigger)
+		}
 	}
 }
 
