@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -432,14 +433,46 @@ func prCall[Req any](path string, req Req) (PRResponse, error) {
 
 // prCallTyped is the generic helper for PR operations returning a typed response.
 // getErr extracts the error string from the response type for error propagation.
+// Uses a 30-second timeout (vs the default 5s) since PR operations involve network
+// API calls. Makes up to 3 attempts (2 retries) with exponential backoff for transient
+// connection errors (e.g. daemon restart), but not for timeout errors (daemon running but slow).
 func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return *new(Resp), fmt.Errorf("marshal PR request: %w", err)
 	}
-	client := daemonHTTPClient()
-	resp, err := client.Post(daemonBaseURL+path, "application/json", bytes.NewReader(body))
+
+	client := daemonHTTPClientLong(prClientTimeout)
+
+	// Retry with backoff for transient connection errors (e.g. daemon restart).
+	// Only retry on dial/connection errors — NOT on timeouts, which indicate
+	// the daemon is running but slow (retrying would triple the wait time).
+	var resp *http.Response
+	backoff := 1 * time.Second
+	const maxRetries = 3
+	for attempt := range maxRetries {
+		resp, err = client.Post(daemonBaseURL+path, "application/json", bytes.NewReader(body))
+		if err == nil {
+			break
+		}
+		// Don't retry timeout errors — the daemon is running but slow.
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			break
+		}
+		// Last attempt — don't sleep, just exit with the error.
+		if attempt == maxRetries-1 {
+			break
+		}
+		time.Sleep(backoff)
+		backoff *= 2
+	}
 	if err != nil {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			return *new(Resp), fmt.Errorf(
+				"PR operation timed out after %s — daemon is running but slow: %w", prClientTimeout, err)
+		}
 		return *new(Resp), fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
 	}
 	defer resp.Body.Close()
@@ -596,6 +629,11 @@ func Send(req SendRequest) error {
 	}
 	return nil
 }
+
+// prClientTimeout is the total request timeout for PR operations.
+// PR creation involves a network API call to Forgejo/GitHub which can take
+// several seconds, so we use a generous timeout to avoid spurious failures.
+const prClientTimeout = 30 * time.Second
 
 // askHumanClientTimeout is the total request timeout for /ask/human.
 // 30 seconds longer than the daemon's 5-minute question timeout to allow the
