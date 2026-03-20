@@ -8,6 +8,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -16,6 +17,7 @@ import (
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -269,6 +271,25 @@ func processStageAdvance(
 	}
 }
 
+// shouldBreatheStatus is the pure logic: returns true when the agent should be breathed.
+// Stale (>5min) or nil status defaults to true (breathe when uncertain).
+func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) bool {
+	if agentStatus == nil || agentStatus.IsStale(5*time.Minute) {
+		return true
+	}
+	return agentStatus.ContextUsedPct >= threshold
+}
+
+// shouldBreathe reads the agent's status file and decides whether to breathe.
+func shouldBreathe(team, agentName string, threshold float64) bool {
+	agentStatus, err := status.ReadAgent(team, agentName)
+	if err != nil {
+		log.Printf("[advance] warning: could not read status for %s/%s, defaulting to breathe: %v", team, agentName, err)
+		return true
+	}
+	return shouldBreatheStatus(agentStatus, threshold)
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -366,20 +387,24 @@ func advanceToStage(
 		return err
 	}
 
-	if err := Send(SendRequest{
-		From:    "system",
-		To:      agent.Name,
-		Message: "/breathe",
-	}); err != nil {
-		// Cleanup route file on failure.
-		if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
-			log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
+	if shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
+		if err := Send(SendRequest{
+			From:    "system",
+			To:      agent.Name,
+			Message: "/breathe",
+		}); err != nil {
+			// Cleanup route file on failure.
+			if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
+				log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
+			}
+			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+				Status:  AdvanceStatusError,
+				Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
+			})
+			return err
 		}
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
-		})
-		return err
+	} else {
+		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
 	}
 
 	record := fmt.Sprintf("advanced: %s → %s (stage: %s)", callerAgent, agent.Name, stage.Name)

@@ -5,10 +5,37 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/route"
+	"github.com/tta-lab/ttal-cli/internal/status"
 )
+
+func TestShouldBreatheStatus(t *testing.T) {
+	tests := []struct {
+		name      string
+		status    *status.AgentStatus
+		threshold float64
+		want      bool
+	}{
+		{"below threshold", &status.AgentStatus{ContextUsedPct: 10, UpdatedAt: time.Now()}, 40, false},
+		{"at threshold", &status.AgentStatus{ContextUsedPct: 40, UpdatedAt: time.Now()}, 40, true},
+		{"above threshold", &status.AgentStatus{ContextUsedPct: 75, UpdatedAt: time.Now()}, 40, true},
+		{"zero ctx", &status.AgentStatus{ContextUsedPct: 0, UpdatedAt: time.Now()}, 40, false},
+		{"stale status", &status.AgentStatus{ContextUsedPct: 10, UpdatedAt: time.Now().Add(-10 * time.Minute)}, 40, true},
+		{"nil status", nil, 40, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldBreatheStatus(tt.status, tt.threshold)
+			if got != tt.want {
+				t.Errorf("shouldBreatheStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestHandleBreatheValidation(t *testing.T) {
 	shellCfg := &config.Config{}
