@@ -152,21 +152,6 @@ Examples:
 	},
 }
 
-var taskExecuteCmd = &cobra.Command{
-	Use:   "execute <uuid>",
-	Short: "Spawn a worker for a task",
-	Long: `Spawn a worker to execute a task. Resolves runtime from task tags
-or team's worker_runtime config. Creates a git worktree and tmux session.
-
-Human CLI: prints the resolved project path as a preview, then spawns immediately.
-Agent session (TTAL_AGENT_NAME set): sends an approval request to the human via
-Telegram/Matrix and blocks until approved.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return spawnWorkerForTask(args[0])
-	},
-}
-
 var taskAddCmd = &cobra.Command{
 	Use:   "add <description>",
 	Short: "Create a task with project validation",
@@ -252,8 +237,6 @@ func init() {
 	taskCmd.AddCommand(taskGetCmd)
 	taskCmd.AddCommand(taskFindCmd)
 	taskCmd.AddCommand(taskAddCmd)
-	taskCmd.AddCommand(taskRouteCmd)
-	taskCmd.AddCommand(taskExecuteCmd)
 	taskCmd.AddCommand(taskAdvanceCmd)
 	taskCmd.AddCommand(taskCommentCmd)
 	taskCmd.AddCommand(taskHeatmapCmd)
