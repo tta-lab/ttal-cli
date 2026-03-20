@@ -111,9 +111,9 @@ func buildRoutingRecord(from, to, message string) string {
 	return fmt.Sprintf("routed: %s → %s", sender, to)
 }
 
-// buildBreatheMsg returns the message injected into the agent's old session to
+// buildBreatheTrigger returns the message injected into the agent's old session to
 // trigger a handoff. The sender prefix is omitted when sender is empty.
-func buildBreatheMsg(sender string) string {
+func buildBreatheTrigger(sender string) string {
 	if sender != "" {
 		return fmt.Sprintf("[agent from:%s] /breathe", sender)
 	}
@@ -174,7 +174,7 @@ func routeTaskToAgent(
 			return fmt.Errorf("stage routing file: %w", err)
 		}
 
-		breatheMsg := buildBreatheMsg(sender)
+		breatheMsg := buildBreatheTrigger(sender)
 		if err := daemon.Send(daemon.SendRequest{
 			From:    sender,
 			To:      agentName,

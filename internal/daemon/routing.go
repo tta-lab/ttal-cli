@@ -304,7 +304,8 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 	}
 
 	// 4. Persist handoff to diary and enrich with today's diary content
-	handoff := diaryEnrichHandoff(req.Agent, req.Handoff)
+	diaryAppendHandoff(req.Agent, req.Handoff)
+	handoff := diaryReadToday(req.Agent, req.Handoff)
 
 	// 5. Check for staged routing request and compose handoff
 	composedHandoff, trigger, err := composeHandoff(req.Agent, handoff)
@@ -375,30 +376,42 @@ func sendBreatheNotification(ctx context.Context, fe frontend.Frontend, agent, t
 	}
 }
 
-// diaryEnrichHandoff persists the handoff to the agent's diary and returns
-// today's diary entry as the enriched handoff. Both operations are additive —
-// if the diary binary is not found or any command fails, the original handoff
-// is returned unchanged.
-func diaryEnrichHandoff(agent, handoff string) string {
+// diaryAppendHandoff persists the handoff to the agent's diary. It is a
+// best-effort side effect — if the diary binary is not found or the append
+// fails, a warning is logged and the caller continues unchanged.
+func diaryAppendHandoff(agent, handoff string) {
 	diaryPath, err := exec.LookPath("diary")
 	if err != nil {
 		log.Printf("[breathe] %s: diary binary not found — skipping diary persistence", agent)
-		return handoff
+		return
 	}
 
-	// Append handoff to today's diary entry.
-	appendCmd := exec.Command(diaryPath, agent, "append")
-	appendCmd.Stdin = bytes.NewBufferString(handoff)
-	if out, err := appendCmd.CombinedOutput(); err != nil {
+	cmd := exec.Command(diaryPath, agent, "append")
+	cmd.Stdin = bytes.NewBufferString(handoff)
+	if out, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("[breathe] %s: diary append failed — %v: %s", agent, err, strings.TrimSpace(string(out)))
+		return
+	}
+	log.Printf("[breathe] %s: diary handoff persisted", agent)
+}
+
+// diaryReadToday returns today's diary entry for the agent. If the diary
+// binary is missing, the read fails, or the entry is empty (normal on the
+// first breathe of the day), the original handoff is returned unchanged.
+func diaryReadToday(agent, handoff string) string {
+	diaryPath, err := exec.LookPath("diary")
+	if err != nil {
 		return handoff
 	}
 
-	// Read today's diary entry to use as the enriched handoff.
-	readCmd := exec.Command(diaryPath, agent, "read")
-	out, err := readCmd.Output()
-	if err != nil || len(bytes.TrimSpace(out)) == 0 {
-		log.Printf("[breathe] %s: diary read failed or empty — using original handoff", agent)
+	cmd := exec.Command(diaryPath, agent, "read")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[breathe] %s: diary read failed — %v: %s", agent, err, strings.TrimSpace(string(out)))
+		return handoff
+	}
+	if len(bytes.TrimSpace(out)) == 0 {
+		log.Printf("[breathe] %s: diary entry empty today — using original handoff", agent)
 		return handoff
 	}
 
