@@ -470,7 +470,8 @@ func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) stri
 	if err != nil {
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
-			return *new(Resp), fmt.Errorf("PR operation timed out after %s — daemon is running but slow: %w", prClientTimeout, err)
+			return *new(Resp), fmt.Errorf(
+				"PR operation timed out after %s — daemon is running but slow: %w", prClientTimeout, err)
 		}
 		return *new(Resp), fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
 	}
