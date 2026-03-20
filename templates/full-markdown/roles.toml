@@ -12,8 +12,7 @@ prompt = """Write an implementation plan for this task.
 Read the task first: ttal task get {{task-id}}
 
 Save plan to: docs/plans/YYYY-MM-DD-<topic>.md in the project repo.
-When done: task {{task-id}} annotate 'Plan: docs/plans/<filename>.md'
-Then tag-swap: task {{task-id}} modify -brainstorm -design +planned"""
+When done: task {{task-id}} annotate 'Plan: docs/plans/<filename>.md'"""
 
 [researcher]
 prompt = """Research this topic thoroughly.
@@ -27,5 +26,4 @@ prompt = """Diagnose this bug and write a fix plan.
 Read the task first: ttal task get {{task-id}}
 
 Save findings to: docs/fixes/YYYY-MM-DD-<topic>.md in the project repo.
-When done: task {{task-id}} annotate 'Fix: docs/fixes/<filename>.md'
-Tag as planned: task {{task-id}} modify -bugfix +planned"""
+When done: task {{task-id}} annotate 'Fix: docs/fixes/<filename>.md'"""

@@ -65,13 +65,10 @@ task +research status:pending export
 flicknote add 'your research findings content' --project research --task $uuid
 # Title is auto-generated. Returns a hex ID — annotate task with it
 
-# 5. Hand off to design phase (NEVER mark done)
-task $uuid modify -research +design
+# 5. Pipeline handles handoff — task flows to next stage automatically
 ```
 
-**When research is complete:** Change tags from `+research` to `+design` — this hands off to Inke for the design phase. **Never mark research tasks as done** (`task $uuid done`). The task stays open and moves through the pipeline.
-
-**Status values:** `complete` (annotate + modify tags to +design), `partial` (annotate, keep +research pending), `failed` (manual annotate, keep +research pending)
+**Status values:** `complete` (annotated with findings), `partial` (annotate what you have, keep pending), `failed` (annotate why, keep pending)
 
 **Repo path annotations:** When research references specific code repos, annotate the task with their full absolute paths (e.g. `task $uuid annotate "repo: /Users/neil/Code/guion/flick-backend-31/workers"`). Workers need exact paths to find the code.
 

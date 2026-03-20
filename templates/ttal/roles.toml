@@ -10,8 +10,7 @@ Read the task first: ttal task get {{task-id}}
 
 Storage: Save the plan via flicknote add 'content' --project plans
 Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'
-Then tag-swap: task {{task-id}} modify -brainstorm -design -research +planned"""
+When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [researcher]
 prompt = """{{skill:sp-research}}
@@ -30,8 +29,7 @@ Diagnose this bug and write a fix plan.
 Read the task first: ttal task get {{task-id}}
 
 Storage: Save findings via flicknote add 'content' --project fixes
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'
-Tag as planned: task {{task-id}} modify -bugfix +planned"""
+When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [manager]
 prompt = """{{skill:task-route}}
