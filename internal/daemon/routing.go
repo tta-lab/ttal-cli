@@ -309,6 +309,8 @@ func resolveBrCWD(sessionName, windowName, agent string, cfg *config.Config) (st
 		cwd, err = tmux.GetPaneCwd(sessionName, windowName)
 		if err != nil {
 			log.Printf("[breathe] %s: pane CWD unavailable (%v), falling back to agent path", agent, err)
+		} else if cwd == "" {
+			log.Printf("[breathe] %s: live session returned empty pane CWD, falling back to agent path", agent)
 		}
 	}
 	if cwd == "" {
@@ -427,7 +429,9 @@ func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
 		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
 	}
 	agentInfo, err := agentfs.Get(cfg.TeamPath(), agent)
-	if err == nil && agentInfo.FlicknoteProject != "" {
+	if err != nil {
+		log.Printf("[breathe] %s: could not read agent config, FLICKNOTE_PROJECT omitted: %v", agent, err)
+	} else if agentInfo.FlicknoteProject != "" {
 		vars = append(vars, fmt.Sprintf("FLICKNOTE_PROJECT=%s", agentInfo.FlicknoteProject))
 	}
 	vars = append(vars, config.DotEnvParts()...)

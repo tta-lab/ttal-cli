@@ -29,7 +29,7 @@ func TestHandleBreatheValidation(t *testing.T) {
 			wantErr: "empty handoff prompt",
 		},
 		{
-			name:    "session not found (valid agent + handoff but no tmux)",
+			name:    "no tmux + empty team path falls back to agent path error",
 			req:     BreatheRequest{Agent: "nonexistent-test-agent-xyz", Handoff: "# Handoff\n\nNext steps: continue"},
 			wantErr: "cannot resolve agent workspace path",
 		},
@@ -41,8 +41,8 @@ func TestHandleBreatheValidation(t *testing.T) {
 			if resp.OK {
 				t.Fatalf("expected OK=false, got OK=true")
 			}
-			if tt.wantErr != "" && resp.Error == "" {
-				t.Errorf("expected error containing %q, got empty", tt.wantErr)
+			if tt.wantErr != "" && !strings.Contains(resp.Error, tt.wantErr) {
+				t.Errorf("expected error containing %q, got %q", tt.wantErr, resp.Error)
 			}
 		})
 	}
@@ -351,6 +351,96 @@ func TestDiaryReadToday(t *testing.T) {
 		got := diaryReadToday("kestrel", original)
 		if got != enriched {
 			t.Errorf("expected enriched handoff %q, got %q", enriched, got)
+		}
+	})
+}
+
+// loadConfigWithTeamPath writes a minimal config.toml to a temp HOME and loads it.
+// Used to test code paths that require a resolved team path.
+func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	toml := "[teams.default]\nteam_path = \"" + teamPath + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+	return cfg
+}
+
+func TestResolveBrCWD(t *testing.T) {
+	t.Run("dead session + empty team path returns error", func(t *testing.T) {
+		cfg := &config.Config{}
+		_, _, err := resolveBrCWD("nonexistent-session-xyz", "nonexistent-agent-xyz", "nonexistent-agent-xyz", cfg)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "cannot resolve agent workspace path") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("dead session + configured team path returns agent path", func(t *testing.T) {
+		tmp := t.TempDir()
+		cfg := loadConfigWithTeamPath(t, tmp)
+		agent := "testagent"
+		cwd, sessionAlive, err := resolveBrCWD("nonexistent-session-xyz", agent, agent, cfg)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if sessionAlive {
+			t.Errorf("expected sessionAlive=false for nonexistent session")
+		}
+		want := filepath.Join(tmp, agent)
+		if cwd != want {
+			t.Errorf("cwd = %q, want %q", cwd, want)
+		}
+	})
+}
+
+func TestBuildBreatheEnv(t *testing.T) {
+	t.Run("empty config returns identity vars only", func(t *testing.T) {
+		cfg := &config.Config{}
+		vars := buildBreatheEnv("kestrel", "default", cfg)
+		hasAgent := strings.Contains(strings.Join(vars, "\n"), "TTAL_AGENT_NAME=kestrel")
+		hasTeam := strings.Contains(strings.Join(vars, "\n"), "TTAL_TEAM=default")
+		if !hasAgent {
+			t.Errorf("TTAL_AGENT_NAME missing from %v", vars)
+		}
+		if !hasTeam {
+			t.Errorf("TTAL_TEAM missing from %v", vars)
+		}
+	})
+
+	t.Run("config with taskrc includes TASKRC var", func(t *testing.T) {
+		tmp := t.TempDir()
+		taskrc := filepath.Join(tmp, "taskrc")
+		// Write a minimal config with both team_path and taskrc.
+		cfgDir := filepath.Join(tmp, ".config", "ttal")
+		if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		tomlContent := "[teams.default]\nteam_path = \"" + tmp + "\"\ntaskrc = \"" + taskrc + "\"\n"
+		if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(tomlContent), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		t.Setenv("HOME", tmp)
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatalf("config.Load: %v", err)
+		}
+		vars := buildBreatheEnv("kestrel", "default", cfg)
+		joined := strings.Join(vars, "\n")
+		if !strings.Contains(joined, "TASKRC="+taskrc) {
+			t.Errorf("TASKRC missing or wrong in %v", vars)
 		}
 	})
 }
