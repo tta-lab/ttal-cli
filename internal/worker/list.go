@@ -96,7 +96,7 @@ func categorizeWorkers(tasks []taskwarrior.Task) []WorkerInfo {
 	return workers
 }
 
-func formatPRCell(prid string) string {
+func formatPRCell(prid string, tags []string) string {
 	if prid == "" {
 		return "-"
 	}
@@ -104,7 +104,7 @@ func formatPRCell(prid string) string {
 	if err != nil {
 		return "#" + prid
 	}
-	if info.LGTM {
+	if taskwarrior.HasTag(tags, "lgtm") {
 		return fmt.Sprintf("#%d ✓", info.Index)
 	}
 	return fmt.Sprintf("#%d", info.Index)
@@ -144,7 +144,7 @@ func printWorkerTable(workers []WorkerInfo) {
 	for _, info := range workers {
 		t := info.Task
 
-		pr := formatPRCell(t.PRID)
+		pr := formatPRCell(t.PRID, t.Tags)
 
 		branch := t.Branch
 		if branch == "" {

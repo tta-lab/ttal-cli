@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -67,6 +68,19 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 	resp.Body.Close() //nolint:errcheck // fire-and-forget
 }
 
+// checkLGTMGuard rejects +lgtm tag additions from non-reviewer roles.
+func checkLGTMGuard(original, modified hookTask) error {
+	origTags := original.Tags()
+	modTags := modified.Tags()
+	if !slices.Contains(origTags, "lgtm") && slices.Contains(modTags, "lgtm") {
+		role := os.Getenv("TTAL_ROLE")
+		if role != "reviewer" {
+			return fmt.Errorf("only reviewers can set +lgtm (current role: %s)", role)
+		}
+	}
+	return nil
+}
+
 // HookOnModify is the main taskwarrior on-modify hook entry point.
 func HookOnModify() {
 	original, modified, rawModified, err := readHookInput()
@@ -75,6 +89,15 @@ func HookOnModify() {
 		if len(rawModified) > 0 {
 			fmt.Println(string(rawModified))
 		}
+		os.Exit(0)
+	}
+
+	// Guard: only reviewers can set +lgtm
+	if err := checkLGTMGuard(original, modified); err != nil {
+		hookLogFile("LGTM guard: " + err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
+		rawOriginal, _ := json.Marshal(original)
+		fmt.Println(string(rawOriginal))
 		os.Exit(0)
 	}
 

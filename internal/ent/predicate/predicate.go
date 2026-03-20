@@ -9,6 +9,9 @@ import (
 // Attachment is the predicate function for attachment builders.
 type Attachment func(*sql.Selector)
 
+// Comment is the predicate function for comment builders.
+type Comment func(*sql.Selector)
+
 // Message is the predicate function for message builders.
 type Message func(*sql.Selector)
 

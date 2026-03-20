@@ -72,6 +72,11 @@ func exportTasks(args ...string) ([]Task, error) {
 	return tasks, nil
 }
 
+// ExportTasksByFilter runs a task export with the given filter args.
+func ExportTasksByFilter(args ...string) ([]Task, error) {
+	return exportTasks(append(args, "export")...)
+}
+
 func ListTasksWithPR() ([]Task, error) {
 	tasks, err := exportTasks("+ACTIVE", "pr_id.isnt:", "export")
 	if err != nil {

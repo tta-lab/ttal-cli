@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// Attachment is the client for interacting with the Attachment builders.
 	Attachment *AttachmentClient
+	// Comment is the client for interacting with the Comment builders.
+	Comment *CommentClient
 	// Message is the client for interacting with the Message builders.
 	Message *MessageClient
 	// Reaction is the client for interacting with the Reaction builders.
@@ -152,6 +154,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Attachment = NewAttachmentClient(tx.config)
+	tx.Comment = NewCommentClient(tx.config)
 	tx.Message = NewMessageClient(tx.config)
 	tx.Reaction = NewReactionClient(tx.config)
 	tx.ToolUsage = NewToolUsageClient(tx.config)

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
+	"github.com/tta-lab/ttal-cli/internal/comment"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
@@ -70,6 +71,7 @@ func Run() error {
 		return fmt.Errorf("migrate message schema: %w", err)
 	}
 	msgSvc := message.NewService(entClient)
+	commentSvc := comment.NewService(entClient)
 
 	log.Printf("[daemon] starting — http=%s teams=%d",
 		sockPath, len(mcfg.Teams))
@@ -145,6 +147,12 @@ func Run() error {
 		askHuman: askHumanHandler,
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
+		},
+		commentAdd: func(req CommentAddRequest) CommentAddResponse {
+			return handleCommentAdd(commentSvc, mcfg.DefaultTeamName(), req)
+		},
+		commentList: func(req CommentListRequest) CommentListResponse {
+			return handleCommentList(commentSvc, mcfg.DefaultTeamName(), req)
 		},
 		prCreate:              handlePRCreate,
 		prModify:              handlePRModify,

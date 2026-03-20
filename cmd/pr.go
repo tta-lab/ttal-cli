@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -180,16 +180,11 @@ Examples:
 			return err
 		}
 
-		// Parse PRID and check LGTM gate locally (no provider needed)
-		info, err := taskwarrior.ParsePRID(ctx.Task.PRID)
-		if err != nil {
-			return err
-		}
-		if !info.LGTM {
+		// Check LGTM gate via +lgtm tag
+		if !slices.Contains(ctx.Task.Tags, "lgtm") {
 			return fmt.Errorf(
-				"PR #%d has not been approved by reviewer — merge blocked\n"+
-					"  Reviewer must post LGTM comment or use: ttal pr comment create --lgtm \"approved\"",
-				info.Index,
+				"PR not approved — reviewer must: task %s modify +lgtm",
+				ctx.Task.UUID,
 			)
 		}
 
@@ -204,6 +199,11 @@ Examples:
 			return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
 		}
 
+		prIndex, err := pr.PRIndex(ctx)
+		if err != nil {
+			return err
+		}
+
 		prURL := pr.BuildPRURL(ctx)
 
 		// Check mergeability via daemon
@@ -211,7 +211,7 @@ Examples:
 			ProviderType: string(ctx.Info.Provider),
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
-			Index:        info.Index,
+			Index:        prIndex,
 		}); err != nil {
 			worker.NotifyTelegram(fmt.Sprintf("⏳ PR not mergeable: %s\n%s\n%v", ctx.Task.Description, prURL, err))
 			return err
@@ -237,7 +237,7 @@ Examples:
 			ProviderType: string(ctx.Info.Provider),
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
-			Index:        info.Index,
+			Index:        prIndex,
 			DeleteBranch: !keepBranch,
 		}); err != nil {
 			return err
@@ -256,150 +256,6 @@ Examples:
 					err, ctx.Task.SessionName())
 			} else {
 				fmt.Println("  Cleanup requested (daemon will close session + worktree)")
-			}
-		}
-
-		return nil
-	},
-}
-
-var prCommentPRIndex int64
-
-var prCommentCmd = &cobra.Command{
-	Use:   "comment",
-	Short: "Manage PR comments",
-}
-
-var prCommentCreateCmd = &cobra.Command{
-	Use:   "create [body]",
-	Short: "Add a comment to the PR",
-	Long: `Adds a comment to the PR associated with the current task.
-
-Use --no-review to skip auto-triggering a re-review (e.g. after LGTM,
-when posting a final triage update before merging).
-
-Examples:
-  ttal pr comment create "LGTM, ready to merge"
-  ttal pr comment create --no-review "Triage complete, merging"
-  echo "comment" | ttal pr comment create`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
-		if err != nil {
-			return err
-		}
-
-		// Read body from stdin if no args provided
-		body := strings.Join(args, " ")
-		if body == "" {
-			bodyBytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("failed to read stdin: %w", err)
-			}
-			body = strings.TrimSpace(string(bodyBytes))
-		}
-
-		index, err := resolveCommentIndex(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := daemon.PRCommentCreate(daemon.PRCommentCreateRequest{
-			ProviderType: string(ctx.Info.Provider),
-			Owner:        ctx.Owner,
-			Repo:         ctx.Repo,
-			Index:        index,
-			Body:         body,
-		})
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("Comment added to PR: %s\n", resp.PRURL)
-
-		// Determine if this comment signals LGTM (reviewer only)
-		lgtmFlag, err := cmd.Flags().GetBool("lgtm")
-		if err != nil {
-			return fmt.Errorf("internal: --lgtm flag: %w", err)
-		}
-		role := tmux.Role()
-		isReviewer := role == "reviewer"
-
-		if isReviewer && ctx.Task.UUID != "" {
-			bodyLGTM := isLGTMBody(body)
-			if lgtmFlag || bodyLGTM {
-				if err := taskwarrior.SetPRLGTM(ctx.Task.UUID); err != nil {
-					return fmt.Errorf(
-						"comment posted but LGTM gate not set: %w\n"+
-							"  Retry: ttal pr comment create --lgtm \"approved\"",
-						err,
-					)
-				}
-				fmt.Println("  ✓ PR approved (pr_id updated with :lgtm)")
-			}
-		}
-		if lgtmFlag && !isReviewer {
-			fmt.Fprintf(os.Stderr,
-				"warning: --lgtm flag ignored — only reviewers can approve PRs (current role: %s)\n",
-				role)
-		}
-
-		// Route based on TTAL_ROLE (set by worker/reviewer spawn).
-		// Reviewer → notify coder window. Coder → trigger re-review.
-		sessionName, sessionErr := review.ResolveSessionName()
-		if sessionErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
-		}
-		if sessionName != "" && role == "reviewer" {
-			// Reviewer posting → notify the coder window
-			coderWindow, cwErr := tmux.FirstWindowExcept(sessionName, "review")
-			if cwErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to find coder window: %v\n", cwErr)
-			}
-			if coderWindow != "" {
-				// Write review comment to temp file for direct delivery to worker
-				reviewFile, fileErr := writeReviewFile(body)
-				if fileErr != nil {
-					fmt.Fprintf(os.Stderr, "warning: failed to write review file: %v\n", fileErr)
-				}
-
-				cfg, rt := loadConfigAndCoderRuntime()
-				reviewRef := ""
-				if reviewFile != "" {
-					reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
-				}
-				tmpl := cfg.Prompt("triage")
-				if tmpl == "" {
-					fmt.Println("triage prompt not configured, skipping notification")
-				} else {
-					replacer := strings.NewReplacer("{{review-file}}", reviewRef)
-					notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
-
-					if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: failed to notify coder window: %v\n", err)
-					}
-				}
-			}
-		}
-
-		// Auto-trigger re-review when coder posts a comment (triage done).
-		noReview, _ := cmd.Flags().GetBool("no-review")
-		if sessionName != "" && role == "coder" {
-			if noReview {
-				fmt.Println("  --no-review: reviewer will NOT be notified by this comment")
-			} else {
-				cfg, _ := loadConfigAndCoderRuntime()
-				if tmux.WindowExists(sessionName, "review") {
-					fmt.Println("  Triggering re-review...")
-					if err := review.RequestReReview(sessionName, false, body, cfg); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
-					}
-				} else {
-					// Reviewer window gone (crashed or closed) — respawn it
-					fmt.Println("  Reviewer not running, spawning...")
-					if err := review.SpawnReviewer(sessionName, ctx, cfg); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
-					}
-				}
 			}
 		}
 
@@ -460,56 +316,6 @@ Examples:
 	},
 }
 
-var prCommentListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List comments on the PR",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
-		if err != nil {
-			return err
-		}
-
-		index, err := resolveCommentIndex(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := daemon.PRCommentList(daemon.PRCommentListRequest{
-			ProviderType: string(ctx.Info.Provider),
-			Owner:        ctx.Owner,
-			Repo:         ctx.Repo,
-			Index:        index,
-		})
-		if err != nil {
-			return err
-		}
-
-		if len(resp.Comments) == 0 {
-			fmt.Println("No comments on this PR.")
-			return nil
-		}
-
-		for _, c := range resp.Comments {
-			fmt.Printf("--- %s (%s) ---\n%s\n\n", c.User, c.CreatedAt, c.Body)
-		}
-
-		return nil
-	},
-}
-
-// resolveCommentIndex returns the PR index to use for comment operations.
-// It prefers the --pr flag value; falls back to the task's pr_id UDA.
-func resolveCommentIndex(ctx *pr.Context) (int64, error) {
-	if prCommentPRIndex > 0 {
-		return prCommentPRIndex, nil
-	}
-	idx, err := pr.PRIndex(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("no PR specified (use --pr <number> or run from a worker session): %w", err)
-	}
-	return idx, nil
-}
-
 func writeReviewFile(body string) (string, error) {
 	f, err := os.CreateTemp("", "ttal-review-*.md")
 	if err != nil {
@@ -545,13 +351,6 @@ func loadConfigAndCoderRuntime() (*config.Config, runtime.Runtime) {
 	return cfg, resolveCoderRuntime()
 }
 
-// isLGTMBody returns true if the comment body signals reviewer approval.
-// Matches "LGTM" or "LOOKS GOOD" case-insensitively anywhere in the body.
-func isLGTMBody(body string) bool {
-	upper := strings.ToUpper(body)
-	return strings.Contains(upper, "LGTM") || strings.Contains(upper, "LOOKS GOOD")
-}
-
 func init() {
 	rootCmd.AddCommand(prCmd)
 
@@ -564,20 +363,11 @@ func init() {
 	prReviewCmd.Flags().BoolVar(&reviewForce, "force", false, "Kill and respawn reviewer window")
 	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
 
-	prCommentCmd.PersistentFlags().Int64Var(&prCommentPRIndex, "pr", 0, "PR number (required outside worker sessions)")
-
-	prCommentCreateCmd.Flags().Bool("no-review", false, "Skip auto-triggering re-review after posting")
-	prCommentCreateCmd.Flags().Bool("lgtm", false, "Mark PR as approved (reviewer only)")
-
 	prCICmd.Flags().BoolVar(&prCIShowLog, "log", false, "Include failure details and log tails")
 
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)
 	prCmd.AddCommand(prMergeCmd)
 	prCmd.AddCommand(prReviewCmd)
-	prCmd.AddCommand(prCommentCmd)
 	prCmd.AddCommand(prCICmd)
-
-	prCommentCmd.AddCommand(prCommentCreateCmd)
-	prCommentCmd.AddCommand(prCommentListCmd)
 }

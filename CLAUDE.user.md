@@ -48,8 +48,9 @@ ttal task go <uuid>    # spawns a worker in isolated worktree
 
 ## GitHub & Forgejo
 
-- **Use `ttal pr` for all PR operations** — creation, modification, merging, commenting. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
-  - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal pr merge` / `ttal pr comment create "msg"`
+- **Use `ttal pr` for PR operations** — creation, modification, merging. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
+  - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal pr merge`
+- **Use `ttal comment` for task comments**: `ttal comment add "msg"` / `ttal comment list`
 
 ## Git Best Practices
 
@@ -185,7 +186,7 @@ ka = keep it as-is
 ssot = single source of truth
 cpr = create pr
 anno = annotate (task annotation)
-post = post updates with `ttal pr comment create`
+post = post updates with `ttal comment add`
 
 
 <!-- ttal-rules-start -->
@@ -217,14 +218,14 @@ ttal task go <uuid>                    # advance task through pipeline stage
 ttal pr create "title" --body "description"
 ttal pr modify --title "new" --body "new"
 ttal pr merge                          # squash merge
-ttal pr comment create "markdown"
-ttal pr comment list
+ttal comment add "markdown"
+ttal comment list
 ```
 
 For multiline comments with special characters, use heredoc:
 
 ```bash
-cat <<'EOF' | ttal pr comment create
+cat <<'EOF' | ttal comment add
 ## Review
 **LGTM**
 EOF

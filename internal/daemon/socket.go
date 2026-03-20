@@ -225,6 +225,41 @@ type BreatheRequest struct {
 	Handoff string `json:"handoff"`        // handoff prompt content
 }
 
+// CommentAddRequest asks the daemon to add a comment to a task.
+type CommentAddRequest struct {
+	Target string `json:"target"` // taskwarrior task UUID
+	Author string `json:"author"`
+	Body   string `json:"body"`
+}
+
+// CommentAddResponse is the daemon's response for a comment add.
+type CommentAddResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+	ID    string `json:"id,omitempty"`
+	Round int    `json:"round,omitempty"`
+}
+
+// CommentEntry is a single comment in a CommentListResponse.
+type CommentEntry struct {
+	Author    string `json:"author"`
+	Body      string `json:"body"`
+	Round     int    `json:"round"`
+	CreatedAt string `json:"created_at"`
+}
+
+// CommentListRequest asks the daemon to list comments on a task.
+type CommentListRequest struct {
+	Target string `json:"target"` // taskwarrior task UUID
+}
+
+// CommentListResponse is the daemon's response for a comment list.
+type CommentListResponse struct {
+	OK       bool           `json:"ok"`
+	Error    string         `json:"error,omitempty"`
+	Comments []CommentEntry `json:"comments,omitempty"`
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -236,6 +271,9 @@ type httpHandlers struct {
 	askHuman     http.HandlerFunc
 	// Pipeline advance (may block on human gates)
 	pipelineAdvance http.HandlerFunc
+	// Comment operations (stored in ttal DB)
+	commentAdd  func(CommentAddRequest) CommentAddResponse
+	commentList func(CommentListRequest) CommentListResponse
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -262,6 +300,9 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
 	})
+	// Comment routes (stored in ttal DB)
+	r.Post("/comment/add", handleHTTPCommentAdd(handlers))
+	r.Post("/comment/list", handleHTTPCommentList(handlers))
 	// PR routes (proxied through daemon for token isolation)
 	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
 	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
@@ -366,6 +407,40 @@ func handleHTTPTaskComplete(handlers httpHandlers) http.HandlerFunc {
 
 func handleHTTPBreathe(handlers httpHandlers) http.HandlerFunc {
 	return handleHTTPWithResponse("breathe", handlers.breathe)
+}
+
+func handleHTTPCommentAdd(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req CommentAddRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				CommentAddResponse{OK: false, Error: "invalid commentAdd JSON: " + err.Error()})
+			return
+		}
+		result := handlers.commentAdd(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
+}
+
+func handleHTTPCommentList(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req CommentListRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				CommentListResponse{OK: false, Error: "invalid commentList JSON: " + err.Error()})
+			return
+		}
+		result := handlers.commentList(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
 }
 
 // prOKStatus maps an OK flag to an HTTP status code.
@@ -532,6 +607,50 @@ func PRGetCombinedStatus(req PRGetCombinedStatusRequest) (PRCIStatusResponse, er
 // PRGetCIFailureDetails asks the daemon to fetch CI failure details.
 func PRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) (PRCIFailureDetailsResponse, error) {
 	return prCallTyped("/pr/ci/failure-details", req, func(r PRCIFailureDetailsResponse) string { return r.Error })
+}
+
+// CommentAdd asks the daemon to add a comment to a task.
+func CommentAdd(req CommentAddRequest) (CommentAddResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return CommentAddResponse{}, fmt.Errorf("marshal comment add request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/comment/add", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return CommentAddResponse{}, fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result CommentAddResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return CommentAddResponse{}, fmt.Errorf("decode comment add response: %w", err)
+	}
+	if !result.OK {
+		return result, fmt.Errorf("%s", result.Error) //nolint:err113
+	}
+	return result, nil
+}
+
+// CommentList asks the daemon to list comments on a task.
+func CommentList(req CommentListRequest) (CommentListResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return CommentListResponse{}, fmt.Errorf("marshal comment list request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/comment/list", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return CommentListResponse{}, fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result CommentListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return CommentListResponse{}, fmt.Errorf("decode comment list response: %w", err)
+	}
+	if !result.OK {
+		return result, fmt.Errorf("%s", result.Error) //nolint:err113
+	}
+	return result, nil
 }
 
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {

@@ -173,21 +173,25 @@ func TestMergeLGTMGate(t *testing.T) {
 	tests := []struct {
 		name        string
 		prid        string
+		tags        []string
 		errContains string
 	}{
 		{
-			name:        "blocked without lgtm",
+			name:        "blocked without lgtm tag",
 			prid:        "123",
-			errContains: "has not been approved by reviewer",
+			tags:        nil,
+			errContains: "PR not approved",
 		},
 		{
 			name:        "empty pr_id returns error",
 			prid:        "",
-			errContains: "empty pr_id",
+			tags:        []string{"lgtm"},
+			errContains: "no PR associated",
 		},
 		{
-			name:        "passes gate with lgtm suffix",
-			prid:        "123:lgtm",
+			name:        "passes gate with lgtm tag",
+			prid:        "123",
+			tags:        []string{"lgtm"},
 			errContains: "", // no error from gate; CheckMergeable succeeds with mergeable PR
 		},
 	}
@@ -195,7 +199,7 @@ func TestMergeLGTMGate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &Context{
-				Task:     &taskwarrior.Task{PRID: tt.prid},
+				Task:     &taskwarrior.Task{PRID: tt.prid, Tags: tt.tags},
 				Owner:    "owner",
 				Repo:     "repo",
 				Provider: mergeableProvider,

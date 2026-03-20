@@ -53,7 +53,7 @@ The reviewer is advisory only — they post a verdict but never merge:
 1. **Reviewer** posts `VERDICT: LGTM` or `VERDICT: NEEDS_WORK`
 2. **Worker** triages the review — even with LGTM, there may be non-blocking issues
 3. **Worker** fixes actionable issues, pushes updates
-4. **Worker** posts a triage summary via `ttal pr comment create`
+4. **Worker** posts a triage summary via `ttal comment add`
 
 ## Merging
 
@@ -67,14 +67,14 @@ ttal pr merge --keep-branch
 
 After merge, `ttal pr merge` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.
 
-## Managing PR comments
+## Managing comments
 
 ```bash
 # Add a comment
-ttal pr comment create "Fixed the auth timeout. Ready for re-review."
+ttal comment add "Fixed the auth timeout. Ready for re-review."
 
 # List comments
-ttal pr comment list
+ttal comment list
 ```
 
 ## Approving from Telegram

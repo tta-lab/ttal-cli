@@ -17,14 +17,12 @@ assignee = "designer"
 gate = "human"
 reviewer = "plan-reviewer"
 mode = "subagent"
-comments = "task"
 
 [[standard.stages]]
 name = "Implement"
 assignee = "worker"
 gate = "auto"
 mode = "subagent"
-comments = "pr"
 
 [bugfix]
 description = "Fix → Implement"

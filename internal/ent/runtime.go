@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tta-lab/ttal-cli/internal/ent/attachment"
+	"github.com/tta-lab/ttal-cli/internal/ent/comment"
 	"github.com/tta-lab/ttal-cli/internal/ent/message"
 	"github.com/tta-lab/ttal-cli/internal/ent/reaction"
 	"github.com/tta-lab/ttal-cli/internal/ent/schema"
@@ -39,6 +40,32 @@ func init() {
 	attachmentDescID := attachmentFields[0].Descriptor()
 	// attachment.DefaultID holds the default value on creation for the id field.
 	attachment.DefaultID = attachmentDescID.Default.(func() uuid.UUID)
+	commentFields := schema.Comment{}.Fields()
+	_ = commentFields
+	// commentDescTarget is the schema descriptor for target field.
+	commentDescTarget := commentFields[1].Descriptor()
+	// comment.TargetValidator is a validator for the "target" field. It is called by the builders before save.
+	comment.TargetValidator = commentDescTarget.Validators[0].(func(string) error)
+	// commentDescAuthor is the schema descriptor for author field.
+	commentDescAuthor := commentFields[2].Descriptor()
+	// comment.AuthorValidator is a validator for the "author" field. It is called by the builders before save.
+	comment.AuthorValidator = commentDescAuthor.Validators[0].(func(string) error)
+	// commentDescRound is the schema descriptor for round field.
+	commentDescRound := commentFields[4].Descriptor()
+	// comment.RoundValidator is a validator for the "round" field. It is called by the builders before save.
+	comment.RoundValidator = commentDescRound.Validators[0].(func(int) error)
+	// commentDescTeam is the schema descriptor for team field.
+	commentDescTeam := commentFields[5].Descriptor()
+	// comment.TeamValidator is a validator for the "team" field. It is called by the builders before save.
+	comment.TeamValidator = commentDescTeam.Validators[0].(func(string) error)
+	// commentDescCreatedAt is the schema descriptor for created_at field.
+	commentDescCreatedAt := commentFields[6].Descriptor()
+	// comment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	comment.DefaultCreatedAt = commentDescCreatedAt.Default.(func() time.Time)
+	// commentDescID is the schema descriptor for id field.
+	commentDescID := commentFields[0].Descriptor()
+	// comment.DefaultID holds the default value on creation for the id field.
+	comment.DefaultID = commentDescID.Default.(func() uuid.UUID)
 	messageFields := schema.Message{}.Fields()
 	_ = messageFields
 	// messageDescSender is the schema descriptor for sender field.

@@ -32,9 +32,9 @@ ttal pr merge --keep-branch
 
 Squash-merges the PR. Fails with a clear error if checks are failing or there are conflicts.
 
-## Comment on a PR
+## Comment on a task
 
 ```bash
-ttal pr comment create "LGTM — no critical issues"
-ttal pr comment list
+ttal comment add "LGTM — no critical issues"
+ttal comment list
 ```

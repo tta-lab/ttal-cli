@@ -122,7 +122,7 @@ Research task {{task-id}} thoroughly:
 triage = """\
 {{skill:triage}}
 PR review posted.{{review-file}} Read it, assess and fix issues.
-Post your triage update with ttal pr comment create when done."""
+Post your triage update with ttal comment add when done."""
 ```
 
 ### Custom review prompt
@@ -132,7 +132,7 @@ Post your triage update with ttal pr comment create when done."""
 review = """\
 You are reviewing PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}}.
 1. Run {{skill:pr-review}} to review the diff
-2. Post findings with ttal pr comment create
+2. Post findings with ttal comment add
 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK"""
 ```
 
