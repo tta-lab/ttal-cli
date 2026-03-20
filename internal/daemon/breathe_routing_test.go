@@ -1,16 +1,12 @@
 package daemon
 
 import (
-	"context"
-	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/route"
 )
 
@@ -41,7 +37,7 @@ func TestHandleBreatheValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := handleBreathe(shellCfg, nil, tt.req)
+			resp := handleBreathe(shellCfg, tt.req)
 			if resp.OK {
 				t.Fatalf("expected OK=false, got OK=true")
 			}
@@ -56,7 +52,7 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 	shellCfg := &config.Config{}
 
 	// team="" should default without panicking — it will fail at session check
-	resp := handleBreathe(shellCfg, nil, BreatheRequest{
+	resp := handleBreathe(shellCfg, BreatheRequest{
 		Team:    "",
 		Agent:   "nonexistent-test-agent-xyz",
 		Handoff: "# Handoff",
@@ -101,82 +97,6 @@ func TestBuildCCRestartCmdEmptyTrigger(t *testing.T) {
 	if strings.Contains(cmd, "-- ") {
 		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
 	}
-}
-
-// mockFrontend is a minimal frontend.Frontend for testing notification calls.
-type mockFrontend struct {
-	texts        []sentText
-	textErr      error
-	notifyCalled int
-}
-
-type sentText struct {
-	agent string
-	text  string
-}
-
-func (m *mockFrontend) SendText(_ context.Context, agent, text string) error {
-	m.texts = append(m.texts, sentText{agent: agent, text: text})
-	return m.textErr
-}
-
-// Implement remaining interface methods as no-ops.
-func (m *mockFrontend) Start(_ context.Context) error { return nil }
-func (m *mockFrontend) Stop(_ context.Context) error  { return nil }
-func (m *mockFrontend) SendNotification(_ context.Context, _ string) error {
-	m.notifyCalled++
-	return nil
-}
-func (m *mockFrontend) SendVoice(_ context.Context, _ string, _ []byte) error   { return nil }
-func (m *mockFrontend) SetReaction(_ context.Context, _ string, _ string) error { return nil }
-func (m *mockFrontend) AskHuman(_ context.Context, _, _ string, _ []string) (string, bool, error) {
-	return "", false, nil
-}
-func (m *mockFrontend) ClearTracking(_ context.Context, _ string) error { return nil }
-func (m *mockFrontend) RegisterCommands(_ []frontend.Command) error     { return nil }
-func (m *mockFrontend) AskHumanHTTPHandler() http.HandlerFunc           { return nil }
-
-// TestSendBreatheNotification verifies that SendText is called with the agent's channel
-// and the correct message, that a nil frontend is handled without panic, and that errors
-// do not surface (they are logged only).
-func TestSendBreatheNotification(t *testing.T) {
-	t.Run("calls SendText with agent and correct message", func(t *testing.T) {
-		m := &mockFrontend{}
-		sendBreatheNotification(context.Background(), m, "kestrel", "default")
-		if len(m.texts) != 1 {
-			t.Fatalf("expected 1 SendText call, got %d", len(m.texts))
-		}
-		if m.texts[0].agent != "kestrel" {
-			t.Errorf("expected agent %q, got %q", "kestrel", m.texts[0].agent)
-		}
-		if m.texts[0].text != "🫧 Deep breath. Fresh eyes." {
-			t.Errorf("unexpected notification text: %q", m.texts[0].text)
-		}
-		if m.notifyCalled != 0 {
-			t.Errorf("SendNotification should not be called, got %d calls", m.notifyCalled)
-		}
-	})
-
-	t.Run("routes to correct agent channel for different agents", func(t *testing.T) {
-		m := &mockFrontend{}
-		sendBreatheNotification(context.Background(), m, "athena", "default")
-		if len(m.texts) != 1 {
-			t.Fatalf("expected 1 SendText call, got %d", len(m.texts))
-		}
-		if m.texts[0].agent != "athena" {
-			t.Errorf("expected agent %q, got %q", "athena", m.texts[0].agent)
-		}
-	})
-
-	t.Run("nil frontend does not panic", func(t *testing.T) {
-		sendBreatheNotification(context.Background(), nil, "kestrel", "default")
-	})
-
-	t.Run("notification error does not propagate", func(t *testing.T) {
-		m := &mockFrontend{textErr: fmt.Errorf("telegram down")}
-		// Must not panic or return an error — errors are logged only.
-		sendBreatheNotification(context.Background(), m, "kestrel", "default")
-	})
 }
 
 func TestBuildCCRestartCmdApostropheEscaping(t *testing.T) {

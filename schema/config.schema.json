@@ -299,6 +299,10 @@
             "additionalProperties": false,
             "type": "object",
             "description": "Matrix-specific configuration (only used when frontend = \"matrix\")"
+          },
+          "breathe_threshold": {
+            "type": "number",
+            "description": "Context usage threshold (%) below which auto-breathe is skipped (default: 40)"
           }
         },
         "additionalProperties": false,

@@ -101,22 +101,23 @@ type Config struct {
 	User UserConfig `toml:"user"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir         string
-	resolvedTaskRC          string
-	resolvedTaskData        string
-	resolvedTeamName        string
-	resolvedAgentRuntime    string
-	resolvedWorkerRuntime   string
-	resolvedReviewerRuntime string
-	resolvedAgentModel      string
-	resolvedWorkerModel     string
-	resolvedReviewerModel   string
-	resolvedMergeMode       string
-	resolvedTeamPath        string
-	resolvedProjectsPath    string
-	resolvedTaskSyncURL     string
-	resolvedEmojiReactions  bool
-	resolvedRoles           *RolesConfig
+	resolvedDataDir          string
+	resolvedTaskRC           string
+	resolvedTaskData         string
+	resolvedTeamName         string
+	resolvedAgentRuntime     string
+	resolvedWorkerRuntime    string
+	resolvedReviewerRuntime  string
+	resolvedAgentModel       string
+	resolvedWorkerModel      string
+	resolvedReviewerModel    string
+	resolvedMergeMode        string
+	resolvedTeamPath         string
+	resolvedProjectsPath     string
+	resolvedTaskSyncURL      string
+	resolvedEmojiReactions   bool
+	resolvedBreatheThreshold float64
+	resolvedRoles            *RolesConfig
 }
 
 // TeamConfig holds per-team configuration.
@@ -163,6 +164,8 @@ type TeamConfig struct {
 	User UserConfig `toml:"user"` //nolint:lll
 	// Matrix-specific configuration (only used when frontend = "matrix")
 	Matrix *MatrixTeamConfig `toml:"matrix"`
+	// Context usage threshold (%) below which auto-breathe is skipped (default: 40)
+	BreatheThreshold float64 `toml:"breathe_threshold"` //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -420,6 +423,11 @@ func (c *Config) GetMergeMode() string {
 // EmojiReactions returns whether emoji reactions on Telegram tool messages are enabled (default: false).
 func (c *Config) EmojiReactions() bool {
 	return c.resolvedEmojiReactions
+}
+
+// BreatheThreshold returns the context usage % below which auto-breathe is skipped.
+func (c *Config) BreatheThreshold() float64 {
+	return c.resolvedBreatheThreshold
 }
 
 // workerPromptKeys are worker-plane keys that must not inherit roles.toml[default].
@@ -771,6 +779,13 @@ func (c *Config) resolve() error {
 
 	// Emoji reactions: from team config (defaults to false).
 	c.resolvedEmojiReactions = resolveEmojiReactions(team)
+
+	// Breathe threshold: % context usage below which auto-breathe is skipped (default: 40).
+	if team.BreatheThreshold == 0 {
+		c.resolvedBreatheThreshold = 40
+	} else {
+		c.resolvedBreatheThreshold = team.BreatheThreshold
+	}
 
 	// Default flicknote inline projects to ["plan"] if not configured.
 	if len(c.Flicknote.InlineProjects) == 0 {
