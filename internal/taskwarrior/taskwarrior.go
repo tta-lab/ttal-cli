@@ -59,7 +59,6 @@ type Task struct {
 	Start       string       `json:"start,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
 	Scheduled   string       `json:"scheduled,omitempty"`
-	Branch      string       `json:"branch"`
 	PRID        string       `json:"pr_id,omitempty"`
 	Spawner     string       `json:"spawner,omitempty"`
 }
@@ -74,7 +73,9 @@ func (t *Task) SessionID() string {
 }
 
 // SessionName returns a human-readable session name: w-{uuid[:8]}-{slug}.
-// Slug is derived from branch (preferred) or task description (fallback).
+// Slug is always derived from the task description, which is immutable and
+// stable across the task lifetime. This ensures open/attach commands always
+// find the session regardless of when they run relative to UDA writes.
 //
 // Worker sessions use this format to be identifiable at a glance:
 //
@@ -85,12 +86,7 @@ func (t *Task) SessionID() string {
 func (t *Task) SessionName() string {
 	prefix := "w-" + t.SessionID() + "-" // "w-e9d4b7c1-" = 11 chars
 
-	source := t.Branch
-	if source == "" {
-		source = t.Description
-	}
-
-	slug := slugify(source, 64)
+	slug := slugify(t.Description, 64)
 	if slug == "" {
 		return "w-" + t.SessionID()
 	}
@@ -239,17 +235,6 @@ func VerifyRequiredUDAs() error {
 		return fmt.Errorf("%s", msg)
 	}
 
-	return nil
-}
-
-// UpdateWorkerMetadata sets the branch UDA on a task.
-func UpdateWorkerMetadata(uuid, branch string) error {
-	_, err := runTask(uuid, "modify",
-		fmt.Sprintf("branch:%s", branch),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to assign worker metadata to task %s: %w", uuid, err)
-	}
 	return nil
 }
 

@@ -13,7 +13,7 @@ import (
 func Create(ctx *Context, title, body string) (*gitprovider.PullRequest, error) {
 	branch, branchErr := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
 	if branchErr != nil {
-		branch = ctx.Task.Branch // fallback to stored UDA for backward compat
+		branch = ""
 	}
 	if branch == "" {
 		return nil, fmt.Errorf("cannot determine branch — no active worktree for task %s", ctx.Task.UUID)

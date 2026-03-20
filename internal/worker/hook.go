@@ -57,11 +57,6 @@ func (t hookTask) Project() string {
 	return v
 }
 
-func (t hookTask) Branch() string {
-	v, _ := t["branch"].(string)
-	return v
-}
-
 func (t hookTask) PRID() string {
 	v, _ := t["pr_id"].(string)
 	return v

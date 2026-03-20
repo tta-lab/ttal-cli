@@ -271,13 +271,6 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		}
 	}
 
-	if err := taskwarrior.UpdateWorkerMetadata(task.UUID, branch); err != nil {
-		return fmt.Errorf("session created but task tracking failed\n"+
-			"  Session: %s\n"+
-			"  To attach: tmux attach -t %s\n\n"+
-			"  %w", sessionName, sessionName, err)
-	}
-
 	fmt.Printf("\nWorker '%s' spawned successfully\n", cfg.Name)
 	fmt.Printf("  Session: %s\n", sessionName)
 	fmt.Printf("  Work dir: %s\n", workDir)

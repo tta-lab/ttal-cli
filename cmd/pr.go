@@ -48,8 +48,7 @@ Examples:
 
 		branch, branchErr := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
 		if branchErr != nil {
-			// Fall back to stored branch UDA for backward compatibility
-			branch = ctx.Task.Branch
+			branch = ""
 		}
 		if branch == "" {
 			return fmt.Errorf(
@@ -249,14 +248,12 @@ Examples:
 		}
 
 		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
-		if ctx.Task.Branch != "" {
-			if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
-				fmt.Fprintf(os.Stderr,
-					"warning: cleanup request failed: %v\n  run: ttal worker close %s\n",
-					err, ctx.Task.SessionName())
-			} else {
-				fmt.Println("  Cleanup requested (daemon will close session + worktree)")
-			}
+		if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
+			fmt.Fprintf(os.Stderr,
+				"warning: cleanup request failed: %v\n  run: ttal worker close %s\n",
+				err, ctx.Task.SessionName())
+		} else {
+			fmt.Println("  Cleanup requested (daemon will close session + worktree)")
 		}
 
 		return nil

@@ -24,7 +24,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
 
-	// Compute branch at runtime — falls back to stored UDA for backward compat.
+	// Compute branch at runtime from the worktree — soft failure, review can proceed with empty branch.
 	gitBranch, err := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
 	if err != nil {
 		shortUUID := ctx.Task.UUID
@@ -32,9 +32,6 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 			shortUUID = shortUUID[:8]
 		}
 		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", shortUUID, err)
-	}
-	if gitBranch == "" {
-		gitBranch = ctx.Task.Branch
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
