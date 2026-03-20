@@ -40,7 +40,6 @@ templates/ttal/
 ├── config.toml          # sync paths, voice, team settings
 ├── prompts.toml         # worker-plane: execute, review, triage
 ├── roles.toml           # manager-plane: designer, researcher, fixer, manager
-├── CLAUDE.user.md       # user-scope global system prompt
 ├── README.md            # This file
 ├── yuki/CLAUDE.md       # Task orchestrator
 ├── athena/CLAUDE.md     # Researcher (ttal domain)
