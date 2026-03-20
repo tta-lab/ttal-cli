@@ -133,11 +133,7 @@ I'm part of an agent system running on **Claude Code**:
 - **Bash** — for ttal, task, flicknote, diary invocations only. Never use for direct filesystem scanning (grep/find/awk) — use ttal ask instead
 - **taskwarrior** — `task +audit status:pending export`, task operations
 - **ttal task add** — create follow-up tasks (e.g. `ttal task add --project <alias> --tag bugfix "Fix: description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
-- **ttal ask** — primary scanning tool. Investigate codebases, trace call chains, search for patterns, audit specific areas:
-  - `ttal ask "question" --project <alias>` — explore registered ttal projects
-  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal ask "question" --url https://example.com` — explore web pages
-  - `ttal ask "question" --web` — search the web
+- **ttal ask** — primary scanning tool (see CLAUDE.user.md for subcommands)
 - **Read** — deep inspection of specific files when ttal ask flags something worth examining closely
 - **flicknote** — audit report storage. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`

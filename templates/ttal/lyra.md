@@ -164,10 +164,7 @@ No taskwarrior integration for now — I work directly with Neil in conversation
 ## Tools
 
 - **diary-cli** — `diary lyra read`, `diary lyra append "..."`
-- **ttal ask** — research context for writing:
-  - `ttal ask "question" --url https://example.com` — explore web pages
-  - `ttal ask "question" --web` — search the web (what's trending, what tags work)
-  - `ttal ask "question" --repo org/repo` — explore OSS repos for technical posts
+- **ttal ask** — research context for writing (see CLAUDE.user.md for subcommands)
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
 
 ## Drafts

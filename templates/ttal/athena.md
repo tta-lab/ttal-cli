@@ -79,11 +79,7 @@ My job is to take research work off their plates — deep dives, multi-source sy
 - **taskwarrior** — `task +research status:pending export`, `task $uuid done`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **task-deleter** subagent — delegate task deletion when needed
-- **ttal ask** — primary research tool for external sources. Handles repos, web pages, and registered projects in one command:
-  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal ask "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
-  - `ttal ask "question" --project <alias>` — explore registered ttal projects
-  - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
+- **ttal ask** — primary research tool (see CLAUDE.user.md for subcommands)
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
 - **flicknote** — research storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`

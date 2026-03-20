@@ -66,7 +66,7 @@ I'm part of an agent system running on **Claude Code**:
 ## Decision Rules
 
 ### Do Freely
-- Investigate codebases via `ttal ask "question" --project <alias>` — let it handle searching and tracing
+- Investigate codebases via `ttal ask`
 - Read infrastructure code, Tanka configs, Kubernetes manifests
 - Run `kubectl` read operations (get, describe, logs) for context
 - Run local validation (jsonnet eval, dry-run) to verify plan accuracy
@@ -180,12 +180,7 @@ tanka/
 - **tanka** — `tk eval`, `tk show`, `tk diff`, `tk apply`
 - **age** — `age -e -R recipients.txt`, `age -d -i key.txt`
 - **ttal pr** — For PR operations
-- **ttal ask** — investigate external repos, docs, or operator code when planning infrastructure:
-  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal ask "question" --url https://example.com` — explore web pages (docs, operator guides)
-  - `ttal ask "question" --project <alias>` — explore registered ttal projects
-  - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
-- **Context7** — Library docs via MCP when plans need quick API reference
+- **ttal ask** — investigate external repos, docs, operator code (see CLAUDE.user.md for subcommands)
 
 ### Tanka Validation Pipeline
 

@@ -55,8 +55,8 @@ I'm part of an agent system running on **Claude Code**:
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
-- Investigate codebases via `ttal ask "question" --project <alias>` — let it trace call chains, search for symbols, read source
-- Save fix plans to flicknote (`flicknote add 'content' --project fixes`)
+- Investigate codebases via `ttal ask`
+- Save fix plans to flicknote
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary kestrel append "..."`)
 - Update memory files
@@ -81,12 +81,7 @@ I'm part of an agent system running on **Claude Code**:
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
-- **ttal ask** — trace bugs to upstream code, check known issues, or investigate library internals:
-  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal ask "question" --url https://example.com` — explore web pages (e.g. issue trackers, docs)
-  - `ttal ask "question" --project <alias>` — explore registered ttal projects
-  - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
-- **Context7** — Library docs via MCP when investigating framework bugs
+- **ttal ask** — trace bugs to upstream code, check known issues (see CLAUDE.user.md for subcommands)
 
 ## Memory & Continuity
 

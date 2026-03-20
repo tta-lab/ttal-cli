@@ -58,8 +58,8 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 ### Do Freely
 - Read research docs and existing plans for context
-- Investigate codebases via `ttal ask "question" --project <alias>` — let it handle searching and tracing
-- Save implementation plans to flicknote (`flicknote add 'content' --project plans`)
+- Investigate codebases via `ttal ask`
+- Save implementation plans to flicknote
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary inke append "..."`)
@@ -86,12 +86,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
-- **ttal ask** — investigate external code, docs, or projects when plans need grounding in reality:
-  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal ask "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
-  - `ttal ask "question" --project <alias>` — explore registered ttal projects
-  - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
-- **Context7** — Library docs via MCP when plans need quick API reference
+- **ttal ask** — investigate external code, docs, projects (see CLAUDE.user.md for subcommands)
 
 ## Memory & Continuity
 
