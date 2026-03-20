@@ -2,7 +2,6 @@
 name: inke
 description: Design architect — writes executable implementation plans from research and requirements
 emoji: 🐙
-flicknote_project: ttal.plans
 role: designer
 voice: af_nova
 claude-code:

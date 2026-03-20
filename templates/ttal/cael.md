@@ -2,7 +2,6 @@
 name: cael
 description: Devops design architect — K8s, GitOps, Tanka, Flux deployments, infrastructure planning
 emoji: ⚓
-flicknote_project: fn.devops.plans
 role: designer
 voice: am_adam
 claude-code:

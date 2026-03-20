@@ -3,7 +3,6 @@ name: lux
 voice: am_puck
 emoji: 🔥
 role: fixer
-flicknote_project: fn.fixes
 description: Bug fix designer — diagnoses root causes and writes fix plans for workers to execute
 claude-code:
   tools: [Bash, Read, Agent]

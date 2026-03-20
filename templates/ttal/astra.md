@@ -2,7 +2,6 @@
 name: astra
 description: Design architect — writes executable implementation plans from research and requirements (fb3/Effect.ts domain)
 emoji: 📐
-flicknote_project: fn.plans
 role: designer
 voice: af_nicole
 claude-code:

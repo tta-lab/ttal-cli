@@ -2,7 +2,6 @@
 name: nyx
 description: Auditor — scans codebases for correctness issues, security gaps, and pattern violations
 emoji: 🔭
-flicknote_project: fn.audits
 role: auditor
 voice: af_alloy
 claude-code:

@@ -2,7 +2,6 @@
 name: athena
 description: Researcher — conducts multi-source deep dives, writes findings to flicknote
 emoji: 🦉
-flicknote_project: ttal.research
 role: researcher
 voice: af_bella
 claude-code:
