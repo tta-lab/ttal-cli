@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -73,14 +72,6 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
-	// Read flicknote_project from CLAUDE.md frontmatter
-	if team, ok := mcfg.Teams[teamName]; ok && team.TeamPath != "" {
-		info, err := agentfs.GetFromPath(filepath.Join(team.TeamPath, agentName))
-		if err == nil && info.FlicknoteProject != "" {
-			env = append(env, fmt.Sprintf("FLICKNOTE_PROJECT=%s", info.FlicknoteProject))
-		}
-	}
-
 	// Inject all secrets from .env
 	env = append(env, config.DotEnvParts()...)
 

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
@@ -392,7 +391,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 8. Build restart command with full env (secrets, TASKRC, FLICKNOTE_PROJECT).
+	// 8. Build restart command with full env (secrets, TASKRC).
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
 	agentEnv := buildBreatheEnv(req.Agent, team, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
@@ -419,7 +418,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildAgentEnv: agent identity, TASKRC, FLICKNOTE_PROJECT, and .env secrets.
+// Mirrors buildAgentEnv: agent identity, TASKRC, and .env secrets.
 func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
@@ -427,12 +426,6 @@ func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
 	}
 	if taskRC := cfg.TaskRC(); taskRC != "" {
 		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
-	}
-	agentInfo, err := agentfs.Get(cfg.TeamPath(), agent)
-	if err != nil {
-		log.Printf("[breathe] %s: could not read agent config, FLICKNOTE_PROJECT omitted: %v", agent, err)
-	} else if agentInfo.FlicknoteProject != "" {
-		vars = append(vars, fmt.Sprintf("FLICKNOTE_PROJECT=%s", agentInfo.FlicknoteProject))
 	}
 	vars = append(vars, config.DotEnvParts()...)
 	return vars

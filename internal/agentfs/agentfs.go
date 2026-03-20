@@ -42,13 +42,12 @@ func isAgentFile(e fs.DirEntry) (name string, ok bool) {
 
 // AgentInfo holds agent metadata parsed from .md file frontmatter.
 type AgentInfo struct {
-	Name             string // directory name (lowercase)
-	Path             string // absolute path to agent directory
-	Voice            string // Kokoro TTS voice ID
-	Emoji            string // display emoji
-	Description      string // short role summary
-	Role             string // e.g. designer, researcher — matches [prompts] key
-	FlicknoteProject string // default flicknote project for this agent
+	Name        string // directory name (lowercase)
+	Path        string // absolute path to agent directory
+	Voice       string // Kokoro TTS voice ID
+	Emoji       string // display emoji
+	Description string // short role summary
+	Role        string // e.g. designer, researcher — matches [prompts] key
 }
 
 // Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
@@ -79,7 +78,6 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 			info.Emoji = fm["emoji"]
 			info.Description = fm["description"]
 			info.Role = fm["role"]
-			info.FlicknoteProject = fm["flicknote_project"]
 		} else {
 			log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 		}
@@ -112,7 +110,6 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 		info.Emoji = fm["emoji"]
 		info.Description = fm["description"]
 		info.Role = fm["role"]
-		info.FlicknoteProject = fm["flicknote_project"]
 	} else {
 		log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 	}

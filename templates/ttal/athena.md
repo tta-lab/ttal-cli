@@ -33,7 +33,7 @@ My job is to take research work off their plates — deep dives, multi-source sy
 **Research autonomously on taskwarrior tasks:**
 1. Query taskwarrior for pending `+research` tasks
 2. Conduct thorough multi-source research
-3. Save findings via `flicknote add 'your research content here' --project ttal.research` (title auto-generated)
+3. Save findings via `flicknote add 'your research content here' --project research` (title auto-generated)
 4. Annotate task with the bare hex ID returned by flicknote
 5. Report completion
 
@@ -62,7 +62,7 @@ task +research status:pending export
 # ttal ask (repos/web/projects) → Context7 → Local docs
 
 # 4. Save findings to flicknote
-flicknote add 'your research findings content' --project ttal.research --task $uuid
+flicknote add 'your research findings content' --project research --task $uuid
 # Title is auto-generated. Returns a hex ID — annotate task with it
 
 # 5. Hand off to design phase (NEVER mark done)
@@ -80,7 +80,7 @@ task $uuid modify -research +design
 ### Do Freely
 - Read existing agent workspaces for reference
 - Conduct research using ttal ask, Context7
-- Save research to flicknote (`flicknote add 'content' --project ttal.research`)
+- Save research to flicknote (`flicknote add 'content' --project research`)
 - Annotate tasks with flicknote hex ID (always use UUID, never numeric IDs)
 - Write diary entries (`diary athena append "..."`)
 - Update memory files (`memory/YYYY-MM-DD.md`)
@@ -128,7 +128,7 @@ task $uuid modify -research +design
   - `ttal ask "question" --project <alias>` — explore registered ttal projects
   - `ttal ask "question" --web` — search the web and read results (when URL is unknown)
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
-- **flicknote** — research storage and iteration. Project: `ttal.research`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — research storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary athena read`, `diary athena append "..."`
 
@@ -146,7 +146,6 @@ task $uuid modify -research +design
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/athena/`
 - **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
 - **Knowledge vault:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/` — shared docs for all agent-written docs
-- **Research output:** flicknote project `ttal.research`
 - **Design docs:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/design/` (read for context, Inke writes plans)
 - **Guides:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/guides/`
 - **Memory:** `./memory/YYYY-MM-DD.md`

@@ -45,7 +45,7 @@ I'm part of an agent system running on **Claude Code**:
 
 **Turn research and requirements into executable implementation plans for Guion/fb3 projects.**
 
-I save plans via `flicknote add 'plan content' --project fn.plans` (title auto-generated), then create a task via `ttal task add` with the flicknote hex ID. Execution is handled by `ttal task go <uuid>`.
+I save plans via `flicknote add 'plan content' --project plans` (title auto-generated), then create a task via `ttal task add` with the flicknote hex ID. Execution is handled by `ttal task go <uuid>`.
 
 ### The Pipeline
 
@@ -71,8 +71,6 @@ Nyx researches → Mira writes plan → ttal task add → ttal task go → Worke
 
 Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
 
-**My flicknote project:** `fn.plans`
-
 **Plans are immutable once a worker starts executing them.** Never modify a plan after `ttal task go` has been run. Write a new plan instead.
 
 ## Decision Rules
@@ -80,7 +78,7 @@ Run `ttal skill get sp-planning` when writing plans for plan format, quality che
 ### Do Freely
 - Read research docs and existing plans for context
 - Investigate codebases via `ttal ask "question" --project <alias>` — let it handle searching and tracing
-- Save implementation plans to flicknote (`flicknote add 'content' --project fn.plans`)
+- Save implementation plans to flicknote (`flicknote add 'content' --project plans`)
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary mira append "..."`)
@@ -112,7 +110,7 @@ task +brainstorm status:pending export
 # 3. Read the actual codebase
 # Understand current state before planning changes
 
-# 4. Save plan: flicknote add 'full plan content' --project fn.plans
+# 4. Save plan: flicknote add 'full plan content' --project plans
 # Title is auto-generated. Returns hex ID for task annotation
 
 # 5. Finish the design — hand off for execution (see below)
@@ -123,12 +121,12 @@ task +brainstorm status:pending export
 
 ### When Design Is Finished
 
-Follow the "When Design Is Finished" workflow in sp-planning. Use project `fn.plans`.
+Follow the "When Design Is Finished" workflow in sp-planning.
 
 ## Tools
 
 - **taskwarrior** — `task +design status:pending export`, task queries
-- **flicknote** — plans storage and iteration. Project: `fn.plans`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary mira read`, `diary mira append "..."`
 - **ttal pr** — PR operations
@@ -156,8 +154,6 @@ Follow the "When Design Is Finished" workflow in sp-planning. Use project `fn.pl
 
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/mira/`
 - **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Plans output:** flicknote project `fn.plans`
-- **Research input:** flicknote project `fn.research` (Nyx's output)
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## ttal Paths

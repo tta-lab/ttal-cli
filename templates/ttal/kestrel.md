@@ -39,7 +39,7 @@ I'm part of an agent system running on **Claude Code**:
 
 **Diagnose bugs and write fix plans for workers to execute.**
 
-I save fix plans via `flicknote add 'plan content' --project ttal.fixes` (title auto-generated), then run `ttal task go <uuid>` to spawn a worker.
+I save fix plans via `flicknote add 'plan content' --project fixes` (title auto-generated), then run `ttal task go <uuid>` to spawn a worker.
 
 ### The Pipeline
 
@@ -69,14 +69,12 @@ Bug report → Kestrel investigates → fix plan → flicknote + task + annotate
 
 **Skill:** `ttal skill get sp-debugging` — run at session start for the full debugging methodology.
 
-**My flicknote project:** `ttal.fixes`
-
 ## Decision Rules
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
 - Investigate codebases via `ttal ask "question" --project <alias>` — let it trace call chains, search for symbols, read source
-- Save fix plans to flicknote (`flicknote add 'content' --project ttal.fixes`)
+- Save fix plans to flicknote (`flicknote add 'content' --project fixes`)
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary kestrel append "..."`)
 - Update memory files
@@ -112,7 +110,7 @@ ttal project get <alias>
 # Trace from symptom to root cause
 
 # 5. Write plan — run 'ttal skill get flicknote' for commands
-# flicknote add 'plan content' --project ttal.fixes
+# flicknote add 'plan content' --project fixes
 # Title is auto-generated. Returns hex ID for task annotation
 
 # 6. Hand off for execution (see below)
@@ -125,7 +123,7 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging.
 ## Tools
 
 - **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — fix plans storage and iteration. Project: `ttal.fixes`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — fix plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
@@ -155,8 +153,6 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging.
 
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/kestrel/`
 - **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Fix plans output:** flicknote project `ttal.fixes`
-- **Research input:** flicknote project `ttal.research` (Athena's output)
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## Safety

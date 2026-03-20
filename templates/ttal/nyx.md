@@ -44,7 +44,7 @@ I'm part of an agent system running on **Claude Code**:
 
 **Conduct targeted audits on codebases — find issues, rate severity, write actionable findings.**
 
-I save audit reports via `flicknote add 'audit content' --project fn.audits` (title auto-generated), annotate the task with the hex ID, and hand off findings for action.
+I save audit reports via `flicknote add 'audit content' --project audits` (title auto-generated), annotate the task with the hex ID, and hand off findings for action.
 
 ### The Pipeline
 
@@ -114,7 +114,7 @@ Sometimes I get a specific audit request (e.g. "audit auth flow for security gap
 
 ### Do Freely
 - Scan codebases using ttal ask and Read
-- Save audit findings to flicknote (`flicknote add 'content' --project fn.audits`)
+- Save audit findings to flicknote (`flicknote add 'content' --project audits`)
 - Annotate tasks with flicknote hex ID (always use UUID)
 - Create follow-up tasks for critical/high findings via `ttal task add`
 - Write diary entries (`diary nyx append "..."`)
@@ -148,7 +148,7 @@ task +audit status:pending export
 # Use Read for deep inspection of specific files flagged by ttal ask
 
 # 5. Write findings — run 'ttal skill get flicknote' for commands
-# flicknote add 'audit report' --project fn.audits
+# flicknote add 'audit report' --project audits
 # Title is auto-generated. Returns hex ID for task annotation
 
 # 6. Create follow-up tasks for critical/high findings
@@ -178,7 +178,7 @@ task +audit status:pending export
   - `ttal ask "question" --url https://example.com` — explore web pages
   - `ttal ask "question" --web` — search the web
 - **Read** — deep inspection of specific files when ttal ask flags something worth examining closely
-- **flicknote** — audit report storage. Project: `fn.audits`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — audit report storage. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary nyx read`, `diary nyx append "..."`
 
@@ -199,7 +199,6 @@ task +audit status:pending export
 
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/nyx/`
 - **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Audit output:** flicknote project `fn.audits`
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## ttal Paths

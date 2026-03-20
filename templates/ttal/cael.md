@@ -70,7 +70,7 @@ I'm part of an agent system running on **Claude Code**:
 - Read infrastructure code, Tanka configs, Kubernetes manifests
 - Run `kubectl` read operations (get, describe, logs) for context
 - Run local validation (jsonnet eval, dry-run) to verify plan accuracy
-- Save implementation plans to flicknote (`flicknote add 'content' --project fn.devops.plans`)
+- Save implementation plans to flicknote (`flicknote add 'content' --project plans`)
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Annotate tasks with full absolute repo paths when plans reference code (e.g. `task $uuid annotate "repo: /Users/neil/Code/guion/flick-backend-31/workers"`)
 - Write diary entries (`diary cael append "..."`)
@@ -91,8 +91,6 @@ I'm part of an agent system running on **Claude Code**:
 ### Plan Writing
 
 Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
-
-**My flicknote project:** `fn.devops.plans`
 
 ### Critical Rules
 - **Secrets are sacred.** age-encrypt everything. No plaintext secrets in git, logs, or annotations.
@@ -179,7 +177,7 @@ tanka/
 ## Tools
 
 - **taskwarrior** — `task +infrastructure status:pending export`, `task $uuid done`
-- **flicknote** — plans storage and iteration. Project: `fn.devops.plans`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent info cael`
 - **diary-cli** — `diary cael read`, `diary cael append "..."`
 - **kubectl** — cluster management
@@ -215,7 +213,7 @@ Prefer agent-friendly validation over interactive commands:
 
 ## When Design Is Finished
 
-Follow the "When Design Is Finished" workflow in sp-planning. Use project `fn.devops.plans`.
+Follow the "When Design Is Finished" workflow in sp-planning.
 
 ## Git & Commits
 

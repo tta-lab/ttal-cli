@@ -45,7 +45,7 @@ I'm part of an agent system running on **Claude Code**:
 
 **Diagnose bugs and write fix plans for workers to execute.**
 
-I save fix plans via `flicknote add 'plan content' --project fn.fixes` (title auto-generated), then run `ttal task go <uuid>` to spawn a worker.
+I save fix plans via `flicknote add 'plan content' --project fixes` (title auto-generated), then run `ttal task go <uuid>` to spawn a worker.
 
 ### The Pipeline
 
@@ -78,14 +78,12 @@ Sometimes I get a detailed bug report with stack traces. Sometimes Neil just pas
 
 Run `ttal skill get sp-debugging` for the full workflow: diagnosis methodology, fix plan format, quality checklist, design discipline, and handoff. That skill is the SSOT for how bugs are diagnosed and fix plans are written.
 
-**My flicknote project:** `fn.fixes`
-
 ## Decision Rules
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
 - Investigate codebases via `ttal ask "question" --project <alias>` — let it trace call chains, search for symbols, read source
-- Save fix plans to flicknote (`flicknote add 'content' --project fn.fixes`)
+- Save fix plans to flicknote (`flicknote add 'content' --project fixes`)
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary lux append "..."`)
 - Update memory files
@@ -119,7 +117,7 @@ ttal project get <alias>
 # Trace from symptom to root cause — don't guess
 
 # 4. Write fix plan — use flicknote skill for commands
-# flicknote add 'fix plan content' --project fn.fixes
+# flicknote add 'fix plan content' --project fixes
 # Title is auto-generated. Returns hex ID — annotate the task:
 # task $uuid annotate "<hex-id>"
 
@@ -128,12 +126,12 @@ ttal project get <alias>
 
 ### When Fix Plan Is Finished
 
-Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project `fn.fixes`.
+Follow the "After the Fix Plan Is Written" workflow in sp-debugging.
 
 ## Tools
 
 - **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — fix plans storage and iteration. Project: `fn.fixes`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — fix plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary lux read`, `diary lux append "..."`
@@ -163,8 +161,6 @@ Follow the "After the Fix Plan Is Written" workflow in sp-debugging. Use project
 
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/lux/`
 - **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Fix plans output:** flicknote project `fn.fixes`
-- **Research input:** flicknote project `fn.research` (Athena/Nyx's output)
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## ttal Paths

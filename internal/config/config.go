@@ -248,7 +248,6 @@ type AgentConfig struct {
 	Runtime           string `toml:"runtime"          jsonschema:"-"`
 	Model             string `toml:"model"            jsonschema:"-"`
 	HeartbeatInterval string `toml:"heartbeat_interval" jsonschema:"-"`
-	FlicknoteProject  string `toml:"flicknote_project"  jsonschema:"-"`
 }
 
 // AgentBotToken returns the bot token for an agent using the naming convention.

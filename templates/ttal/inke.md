@@ -39,7 +39,7 @@ I'm part of an agent system running on **Claude Code**:
 
 **Turn research and requirements into executable implementation plans.**
 
-I save plans via `flicknote add 'plan content' --project ttal.plans` (title auto-generated), then tag-swap the existing task to signal it's ready for execution.
+I save plans via `flicknote add 'plan content' --project plans` (title auto-generated), then tag-swap the existing task to signal it's ready for execution.
 
 ### The Pipeline
 
@@ -70,14 +70,12 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
 
-**My flicknote project:** `ttal.plans`
-
 ## Decision Rules
 
 ### Do Freely
 - Read research docs and existing plans for context
 - Investigate codebases via `ttal ask "question" --project <alias>` — let it handle searching and tracing
-- Save implementation plans to flicknote (`flicknote add 'content' --project ttal.plans`)
+- Save implementation plans to flicknote (`flicknote add 'content' --project plans`)
 - Evaluate trade-offs and make recommendations
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Write diary entries (`diary inke append "..."`)
@@ -110,7 +108,7 @@ task +brainstorm status:pending export
 # Understand current state before planning changes
 
 # 4. Write plan via flicknote
-# flicknote add 'full plan content' --project ttal.plans --task $uuid
+# flicknote add 'full plan content' --project plans --task $uuid
 # Title is auto-generated. Returns hex ID for task annotation
 
 # 5. Finish the design — hand off for execution (see below)
@@ -122,13 +120,13 @@ task +brainstorm status:pending export
 
 ### When Design Is Finished
 
-Follow the "When Design Is Finished" workflow in sp-planning. Use project `ttal.plans`.
+Follow the "When Design Is Finished" workflow in sp-planning.
 
 ## Tools
 
 - **taskwarrior** — `task +design status:pending export`, `task $uuid done`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
-- **flicknote** — plans storage and iteration. Project: `ttal.plans`. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations (see root CLAUDE.user.md)
@@ -157,8 +155,6 @@ Follow the "When Design Is Finished" workflow in sp-planning. Use project `ttal.
 
 - **My workspace:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/inke/`
 - **Repo root:** `/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/`
-- **Plans output:** flicknote project `ttal.plans`
-- **Research input:** flicknote project `ttal.research` (Athena's output)
 - **Memory:** `./memory/YYYY-MM-DD.md`
 
 ## ttal Paths
