@@ -434,8 +434,8 @@ func prCall[Req any](path string, req Req) (PRResponse, error) {
 // prCallTyped is the generic helper for PR operations returning a typed response.
 // getErr extracts the error string from the response type for error propagation.
 // Uses a 30-second timeout (vs the default 5s) since PR operations involve network
-// API calls. Retries up to 3 times with exponential backoff for transient connection
-// errors (e.g. daemon restart), but not for timeout errors (daemon running but slow).
+// API calls. Makes up to 3 attempts (2 retries) with exponential backoff for transient
+// connection errors (e.g. daemon restart), but not for timeout errors (daemon running but slow).
 func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -468,6 +468,10 @@ func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) stri
 		backoff *= 2
 	}
 	if err != nil {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			return *new(Resp), fmt.Errorf("PR operation timed out after %s — daemon is running but slow: %w", prClientTimeout, err)
+		}
 		return *new(Resp), fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
 	}
 	defer resp.Body.Close()
