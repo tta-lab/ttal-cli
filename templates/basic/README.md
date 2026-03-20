@@ -17,7 +17,7 @@ A minimal ttal setup with two agents: one manages tasks, one designs implementat
 
 ```
 You create a task
-  → manager routes it: ttal task design <uuid>
+  → manager advances it: ttal task go <uuid>
   → designer writes an implementation plan
   → you approve
   → manager spawns a worker: ttal task go <uuid>
