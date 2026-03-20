@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
@@ -296,6 +297,32 @@ func composeHandoff(agentName, baseHandoff string) (handoff, trigger string, err
 	return composed, routeReq.Trigger, nil
 }
 
+// resolveBrCWD returns the agent's working directory for a breathe restart.
+// It prefers the live pane CWD; if the session is dead or pane CWD is unavailable,
+// it falls back to the registered agent workspace path from config.
+// Returns sessionAlive so the caller can skip KillSession on a dead session.
+func resolveBrCWD(sessionName, windowName, agent string, cfg *config.Config) (string, bool, error) {
+	var cwd string
+	sessionAlive := tmux.SessionExists(sessionName)
+	if sessionAlive {
+		var err error
+		cwd, err = tmux.GetPaneCwd(sessionName, windowName)
+		if err != nil {
+			log.Printf("[breathe] %s: pane CWD unavailable (%v), falling back to agent path", agent, err)
+		} else if cwd == "" {
+			log.Printf("[breathe] %s: live session returned empty pane CWD, falling back to agent path", agent)
+		}
+	}
+	if cwd == "" {
+		cwd = cfg.AgentPath(agent)
+		if cwd == "" {
+			return "", sessionAlive, fmt.Errorf("cannot resolve agent workspace path — team path not configured")
+		}
+		log.Printf("[breathe] %s: using registered agent path as CWD: %s", agent, cwd)
+	}
+	return cwd, sessionAlive, nil
+}
+
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
 func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
@@ -313,18 +340,10 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	sessionName := config.AgentSessionName(team, req.Agent)
 	windowName := req.Agent
 
-	// 1. Verify session exists BEFORE doing anything
-	if !tmux.SessionExists(sessionName) {
-		return SendResponse{OK: false, Error: fmt.Sprintf("session %q not found", sessionName)}
-	}
-
-	// 2. Get agent's CWD from tmux pane
-	cwd, err := tmux.GetPaneCwd(sessionName, windowName)
+	// 1-2. Resolve CWD: live pane preferred, registered agent path as fallback.
+	cwd, sessionAlive, err := resolveBrCWD(sessionName, windowName, req.Agent, shellCfg)
 	if err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("get cwd: %v", err)}
-	}
-	if cwd == "" {
-		return SendResponse{OK: false, Error: "pane CWD is empty — pane may have exited"}
+		return SendResponse{OK: false, Error: err.Error()}
 	}
 
 	// 3. Get model, CC version, and git branch
@@ -373,23 +392,50 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 8. Build restart command
+	// 8. Build restart command with full env (secrets, TASKRC, FLICKNOTE_PROJECT).
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	fullCmd := shellCfg.BuildEnvShellCommand([]string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", req.Agent),
-		fmt.Sprintf("TTAL_TEAM=%s", team),
-	}, ccCmd)
+	agentEnv := buildBreatheEnv(req.Agent, team, shellCfg)
+	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
-	// 9. Inject .env secrets and respawn
-	injectSecretsToSession(sessionName)
-	log.Printf("[breathe] %s: restarting with session %s (model: %s)", req.Agent, newSessionID, am.model)
-	if err := tmux.RespawnWindow(sessionName, windowName, cwd, fullCmd); err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("respawn: %v", err)}
+	// 9. Kill session + create new — avoids race condition where CC exits
+	// before RespawnWindow can catch the dying process.
+	log.Printf("[breathe] %s: killing session for restart with session %s (model: %s)", req.Agent, newSessionID, am.model)
+	if sessionAlive {
+		if err := tmux.KillSession(sessionName); err != nil {
+			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
+		}
 	}
+
+	if err := tmux.NewSession(sessionName, windowName, cwd, fullCmd); err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
+	}
+
+	// Inject secrets into tmux session env for future commands.
+	injectSecretsToSession(sessionName)
 
 	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
 
 	return SendResponse{OK: true}
+}
+
+// buildBreatheEnv returns the env var list for a breathe restart command.
+// Mirrors buildAgentEnv: agent identity, TASKRC, FLICKNOTE_PROJECT, and .env secrets.
+func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
+	vars := []string{
+		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
+		fmt.Sprintf("TTAL_TEAM=%s", team),
+	}
+	if taskRC := cfg.TaskRC(); taskRC != "" {
+		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
+	}
+	agentInfo, err := agentfs.Get(cfg.TeamPath(), agent)
+	if err != nil {
+		log.Printf("[breathe] %s: could not read agent config, FLICKNOTE_PROJECT omitted: %v", agent, err)
+	} else if agentInfo.FlicknoteProject != "" {
+		vars = append(vars, fmt.Sprintf("FLICKNOTE_PROJECT=%s", agentInfo.FlicknoteProject))
+	}
+	vars = append(vars, config.DotEnvParts()...)
+	return vars
 }
 
 // diaryAppendHandoff persists the handoff to the agent's diary. It is a
