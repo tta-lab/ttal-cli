@@ -24,7 +24,11 @@ import (
 const workerWindow = "worker"
 
 // persistMsg persists a message and logs a warning if it fails.
+// msgSvc may be nil in tests — the call is a no-op in that case.
 func persistMsg(msgSvc *message.Service, p message.CreateParams) {
+	if msgSvc == nil {
+		return
+	}
 	if _, err := msgSvc.Create(context.Background(), p); err != nil {
 		log.Printf("[daemon] message persist failed (sender=%s): %v", p.Sender, err)
 	}
@@ -37,9 +41,13 @@ func handleSend(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
+	// Ordering matters: "system" check must follow To=="human" (system never sends to human)
+	// and precede the generic From+To agent-to-agent case (system is not a named agent).
 	switch {
 	case req.From != "" && req.To == "human":
 		return handleFrom(mcfg, frontends, msgSvc, req)
+	case req.From == "system" && req.To != "":
+		return handleSystemToAgent(mcfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
 		return handleAgentToAgent(mcfg, registry, frontends, msgSvc, req)
 	case req.From != "":
@@ -93,9 +101,30 @@ func handleTo(
 			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
 		}, req.Message)
 	}
+	// Human-originated: no runtime attribution (humans don't have a runtime entry).
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI,
+	})
+	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
+}
+
+// handleSystemToAgent delivers a system-originated message to an agent as bare text.
+// No [agent from:] prefix is added — used for automated triggers like /breathe
+// where CC must receive raw text to recognize it as a skill trigger.
+func handleSystemToAgent(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, req SendRequest,
+) error {
+	ta := resolveAgent(mcfg, req.Team, req.To)
+	if ta == nil {
+		return fmt.Errorf("unknown agent: %s", req.To)
+	}
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.To)
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: "system", Recipient: req.To, Content: req.Message,
+		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
 }

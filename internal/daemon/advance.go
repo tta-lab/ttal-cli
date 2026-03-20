@@ -366,14 +366,10 @@ func advanceToStage(
 		return err
 	}
 
-	breatheMsg := "/breathe"
-	if callerAgent != "" {
-		breatheMsg = fmt.Sprintf("[agent from:%s] /breathe", callerAgent)
-	}
 	if err := Send(SendRequest{
-		From:    callerAgent,
+		From:    "system",
 		To:      agent.Name,
-		Message: breatheMsg,
+		Message: "/breathe",
 	}); err != nil {
 		// Cleanup route file on failure.
 		if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
