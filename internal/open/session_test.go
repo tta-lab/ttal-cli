@@ -4,15 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func TestResolveAgentSession(t *testing.T) {
-	// Create a temp team dir with a stub agent .md file for positive tests.
+	// Create a temp team dir with stub agent .md files for positive tests.
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "astra.md"), []byte("---\nrole: designer\n---\n"), 0o644); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"astra", "inke"} {
+		if err := os.WriteFile(filepath.Join(teamDir, name+".md"), []byte("---\nrole: designer\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	tests := []struct {
@@ -48,11 +48,21 @@ func TestResolveAgentSession(t *testing.T) {
 			wantFound: true,
 		},
 		{
+			// Two valid agent tags: first in slice order wins (astra before inke).
 			name:      "agent tag first match wins",
-			tags:      []string{"astra", "feature"},
+			tags:      []string{"astra", "inke"},
 			teamName:  "guion",
 			teamPath:  teamDir,
 			wantName:  "ttal-guion-astra",
+			wantFound: true,
+		},
+		{
+			// Reversed order: inke now comes first.
+			name:      "agent tag first match wins reversed",
+			tags:      []string{"inke", "astra"},
+			teamName:  "guion",
+			teamPath:  teamDir,
+			wantName:  "ttal-guion-inke",
 			wantFound: true,
 		},
 		{
@@ -67,8 +77,7 @@ func TestResolveAgentSession(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			task := &taskwarrior.Task{Tags: tt.tags}
-			name, found := resolveAgentSession(task, tt.teamName, tt.teamPath)
+			name, found := ResolveAgentSession(tt.tags, tt.teamName, tt.teamPath)
 			if found != tt.wantFound {
 				t.Errorf("found = %v, want %v", found, tt.wantFound)
 			}
