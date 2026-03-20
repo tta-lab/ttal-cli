@@ -196,7 +196,10 @@ type breatheAgentModel struct {
 
 // resolveAgentModel reads the current model/CC version from the agent's status file.
 func resolveAgentModel(team, agent string) breatheAgentModel {
-	s, _ := status.ReadAgent(team, agent)
+	s, err := status.ReadAgent(team, agent)
+	if err != nil {
+		log.Printf("[breathe] %s: warning: could not read status file, using default model: %v", agent, err)
+	}
 	info := breatheAgentModel{model: "sonnet"}
 	if s != nil {
 		if s.ModelID != "" {
@@ -266,8 +269,7 @@ func composeHandoff(agentName, baseHandoff string) (handoff, trigger string, err
 
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
-// frontends is the full team→frontend map; team resolution happens inside.
-func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Frontend, req BreatheRequest) SendResponse {
+func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	team := req.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -358,22 +360,7 @@ func handleBreathe(shellCfg *config.Config, frontends map[string]frontend.Fronte
 
 	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
 
-	// 9. Notify via frontend
-	sendBreatheNotification(context.Background(), frontends[team], req.Agent, team)
-
 	return SendResponse{OK: true}
-}
-
-// sendBreatheNotification sends the post-breathe notification through the agent's own channel.
-// Extracted for unit testing. A nil frontend is valid — logs and skips.
-func sendBreatheNotification(ctx context.Context, fe frontend.Frontend, agent, team string) {
-	if fe == nil {
-		log.Printf("[breathe] %s: no frontend for team %q — notification skipped", agent, team)
-		return
-	}
-	if err := fe.SendText(ctx, agent, "🫧 Deep breath. Fresh eyes."); err != nil {
-		log.Printf("[breathe] %s: warning: failed to send notification: %v", agent, err)
-	}
 }
 
 // diaryAppendHandoff persists the handoff to the agent's diary. It is a

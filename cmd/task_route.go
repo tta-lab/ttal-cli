@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -12,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/route"
+	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/usage"
@@ -79,7 +81,8 @@ Examples:
 		}
 
 		noBreathe, _ := cmd.Flags().GetBool("no-breathe")
-		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt, routeMessage, noBreathe, role)
+		breathe := shouldBreathe(routeToAgent, agent.Role, noBreathe, cfg.BreatheThreshold())
+		return routeTaskToAgent(routeToAgent, uuid, "task "+role, prompt, routeMessage, !breathe)
 	},
 }
 
@@ -90,10 +93,32 @@ func init() {
 	taskRouteCmd.Flags().Bool("no-breathe", false, "Route without breathing the agent")
 }
 
+// resolveTeamName returns the active team name from the TTAL_TEAM env var,
+// falling back to defaultTeam when the env var is unset.
+func resolveTeamName() string {
+	if team := os.Getenv("TTAL_TEAM"); team != "" {
+		return team
+	}
+	return defaultTeam
+}
+
 // shouldBreathe reports whether the agent should be breathed on route.
 // Managers are exempt from auto-breathe; the --no-breathe flag overrides for all roles.
-func shouldBreathe(agentRole string, noBreathe bool) bool {
-	return !noBreathe && agentRole != "manager"
+// When the agent's status file is missing or stale, it defaults to true (breathe to be safe).
+func shouldBreathe(agentName, agentRole string, noBreathe bool, threshold float64) bool {
+	if noBreathe || agentRole == "manager" {
+		return false
+	}
+	team := resolveTeamName()
+	agentStatus, err := status.ReadAgent(team, agentName)
+	if err != nil {
+		log.Printf("[route] warning: could not read status for %s/%s, defaulting to breathe: %v", team, agentName, err)
+		return true
+	}
+	if agentStatus == nil || agentStatus.IsStale(5*time.Minute) {
+		return true
+	}
+	return agentStatus.ContextUsedPct >= threshold
 }
 
 // buildRoutingRecord constructs the routing annotation for the task audit trail.
@@ -111,19 +136,10 @@ func buildRoutingRecord(from, to, message string) string {
 	return fmt.Sprintf("routed: %s → %s", sender, to)
 }
 
-// buildBreatheTrigger returns the message injected into the agent's old session to
-// trigger a handoff. The sender prefix is omitted when sender is empty.
-func buildBreatheTrigger(sender string) string {
-	if sender != "" {
-		return fmt.Sprintf("[agent from:%s] /breathe", sender)
-	}
-	return "/breathe"
-}
-
 // routeTaskToAgent sends a task assignment message to a named agent via the daemon.
-// noBreathe skips the auto-breathe; agentRole is used to exempt managers.
+// noBreathe skips the auto-breathe.
 func routeTaskToAgent(
-	agentName, taskUUID, roleTag, rolePrompt, message string, noBreathe bool, agentRole string,
+	agentName, taskUUID, roleTag, rolePrompt, message string, noBreathe bool,
 ) error {
 	if err := taskwarrior.ValidateUUID(taskUUID); err != nil {
 		return err
@@ -157,7 +173,7 @@ func routeTaskToAgent(
 
 	sender := os.Getenv("TTAL_AGENT_NAME")
 
-	if shouldBreathe(agentRole, noBreathe) {
+	if !noBreathe {
 		trigger := fmt.Sprintf("New task routed to you: %s\nTask UUID: %s\nRun: ttal task get %s",
 			task.Description, uuid, uuid)
 
@@ -174,7 +190,7 @@ func routeTaskToAgent(
 			return fmt.Errorf("stage routing file: %w", err)
 		}
 
-		breatheMsg := buildBreatheTrigger(sender)
+		breatheMsg := "/breathe"
 		if err := daemon.Send(daemon.SendRequest{
 			From:    sender,
 			To:      agentName,
@@ -327,9 +343,5 @@ func detectSpawner() string {
 	if agent == "" {
 		return ""
 	}
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = defaultTeam
-	}
-	return team + ":" + agent
+	return resolveTeamName() + ":" + agent
 }

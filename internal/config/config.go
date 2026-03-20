@@ -101,22 +101,23 @@ type Config struct {
 	User UserConfig `toml:"user"`
 
 	// Resolved at load time, not from TOML.
-	resolvedDataDir         string
-	resolvedTaskRC          string
-	resolvedTaskData        string
-	resolvedTeamName        string
-	resolvedAgentRuntime    string
-	resolvedWorkerRuntime   string
-	resolvedReviewerRuntime string
-	resolvedAgentModel      string
-	resolvedWorkerModel     string
-	resolvedReviewerModel   string
-	resolvedMergeMode       string
-	resolvedTeamPath        string
-	resolvedProjectsPath    string
-	resolvedTaskSyncURL     string
-	resolvedEmojiReactions  bool
-	resolvedRoles           *RolesConfig
+	resolvedDataDir          string
+	resolvedTaskRC           string
+	resolvedTaskData         string
+	resolvedTeamName         string
+	resolvedAgentRuntime     string
+	resolvedWorkerRuntime    string
+	resolvedReviewerRuntime  string
+	resolvedAgentModel       string
+	resolvedWorkerModel      string
+	resolvedReviewerModel    string
+	resolvedMergeMode        string
+	resolvedTeamPath         string
+	resolvedProjectsPath     string
+	resolvedTaskSyncURL      string
+	resolvedEmojiReactions   bool
+	resolvedBreatheThreshold float64 // resolved from *float64, default defaultBreatheThreshold
+	resolvedRoles            *RolesConfig
 }
 
 // TeamConfig holds per-team configuration.
@@ -163,6 +164,9 @@ type TeamConfig struct {
 	User UserConfig `toml:"user"` //nolint:lll
 	// Matrix-specific configuration (only used when frontend = "matrix")
 	Matrix *MatrixTeamConfig `toml:"matrix"`
+	// Context usage threshold (%) below which auto-breathe is skipped (default: 40).
+	// Use a pointer so that an explicit 0 (always breathe) is not silently promoted to 40.
+	BreatheThreshold *float64 `toml:"breathe_threshold"` //nolint:lll
 }
 
 // SyncConfig holds paths for subagent, skill, command, and rule deployment.
@@ -393,10 +397,11 @@ func (c *Config) TaskSyncURL() string {
 }
 
 const (
-	DefaultTeamName = "default"
-	DefaultModel    = "sonnet"
-	MergeModeAuto   = "auto"
-	MergeModeManual = "manual"
+	DefaultTeamName         = "default"
+	DefaultModel            = "sonnet"
+	MergeModeAuto           = "auto"
+	MergeModeManual         = "manual"
+	defaultBreatheThreshold = 40.0 // % context usage below which auto-breathe is skipped
 )
 
 // checkTeamLicense loads the license and checks if the team count is within limits.
@@ -420,6 +425,11 @@ func (c *Config) GetMergeMode() string {
 // EmojiReactions returns whether emoji reactions on Telegram tool messages are enabled (default: false).
 func (c *Config) EmojiReactions() bool {
 	return c.resolvedEmojiReactions
+}
+
+// BreatheThreshold returns the context usage % below which auto-breathe is skipped.
+func (c *Config) BreatheThreshold() float64 {
+	return c.resolvedBreatheThreshold
 }
 
 // workerPromptKeys are worker-plane keys that must not inherit roles.toml[default].
@@ -771,6 +781,13 @@ func (c *Config) resolve() error {
 
 	// Emoji reactions: from team config (defaults to false).
 	c.resolvedEmojiReactions = resolveEmojiReactions(team)
+
+	// Breathe threshold: % context usage below which auto-breathe is skipped (default: 40).
+	if team.BreatheThreshold != nil {
+		c.resolvedBreatheThreshold = *team.BreatheThreshold
+	} else {
+		c.resolvedBreatheThreshold = defaultBreatheThreshold
+	}
 
 	// Default flicknote inline projects to ["plan"] if not configured.
 	if len(c.Flicknote.InlineProjects) == 0 {
