@@ -1,17 +1,19 @@
 ---
-name: sp-writing-plans
-description: Use when you have a spec or requirements for a multi-step task, before touching code
+name: sp-planning
+description: Full planning process — explore reality, design, write plan, validate — before touching code
 ---
 
-# Writing Plans
+# Planning
 
 ## Overview
 
-Write comprehensive implementation plans assuming the worker has zero context for our codebase. Document everything they need: which files to touch, before/after code, build/test commands, commit messages. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Plan by understanding reality first, then designing, then writing. Bad plans come from designers who don't read the codebase first.
 
-Assume the worker is a skilled developer, but knows almost nothing about our toolset or problem domain.
+Assume the worker is a skilled developer, but knows almost nothing about our toolset or problem domain. Document everything they need: which files to touch, before/after code, build/test commands, commit messages. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
 
-**Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
+**Announce at start:** "I'm using the planning skill to create the implementation plan."
+
+**First action:** Run `ttal project list` to identify the target project before writing anything.
 
 ## Designer Rules
 
@@ -55,13 +57,44 @@ Example: "Add auth to API and update frontend to use it" → split into:
 - Task has no project field and plan doesn't state one → ask before writing
 - Plan's target repo doesn't match the task's project field → reconcile before proceeding
 
+## Phase 1: Explore Reality
+
+**BEFORE writing ANY plan, understand what exists.** Don't design in the abstract — read the code.
+
+1. **Read existing code** — find and read the files/modules the task would touch. Understand current patterns, naming conventions, architecture.
+2. **Identify constraints** — what does the existing code assume? What interfaces, types, configs are already in place?
+3. **Check prior art** — has this been attempted before? Search flicknote (`flicknote find <keywords>`) and completed tasks (`ttal task find <keywords> --completed`) for related work.
+4. **Map dependencies** — what must exist before this works? What other modules, services, configs does this touch?
+
+**Output:** A mental model of the current state. If something surprises you, note it — surprises in Phase 1 prevent disasters in implementation.
+
+### Red Flags — STOP and Investigate
+
+- You're planning changes to code you haven't read → read it first
+- The task assumes a structure that doesn't exist → flag it
+- You find recent changes that conflict with the task's assumptions → reconcile before planning
+
+## Phase 2: Design
+
+With reality understood, now design the solution:
+
+1. **Define exit criteria** — what does "done" look like? How does the worker know they've succeeded? Be specific: "all tests pass" is not enough — which tests, what behavior.
+2. **Define anti-goals** — what is this plan NOT doing? Prevents scope creep during implementation.
+3. **Evaluate scope** — can this be split into smaller PRs? Plans touching 40+ files are red flags. Prefer incremental delivery.
+4. **Choose the approach** — given what you found in Phase 1, what's the simplest path? Consider alternatives briefly, pick one, justify it.
+5. **Identify test strategy** — unit, integration, manual? Workers shouldn't have to decide this.
+
 ## Design Discipline
 
 - **Look for abstractions before patching:** When fixing a bug, ask "what are the right primitives?" not just "how do I fix this case?"
 - **Treat justified duplication as a smell:** If you catch yourself saying "this duplication is fine because X is rare," that's a signal to refactor, not rationalize
 - **Design at structure level, not code level:** Before adding new behavior, question whether the existing structure supports it cleanly. Refactor first if needed.
 
-## Plan Quality Checklist
+## Phase 3: Write the Plan
+
+Now write. Everything below this point is about plan format and quality.
+
+### Plan Quality Checklist
 
 Every task in the plan MUST have:
 
@@ -74,7 +107,7 @@ Every task in the plan MUST have:
 
 If a task fails this checklist, it's not ready.
 
-## Plan Document Header
+### Plan Document Header
 
 Every plan MUST start with:
 
@@ -85,12 +118,13 @@ Every plan MUST start with:
 
 **Project:** [ttal project alias — e.g. `ttal-cli`]
 **Goal:** [One sentence describing what this builds]
+**Anti-goals:** [What this plan is NOT doing — or "None"]
 **Depends on:** [Other plans/tasks, or "None"]
 
 ---
 ```
 
-## Task Structure
+### Task Structure
 
 ```markdown
 ## Task N: [Component Name]
@@ -134,7 +168,7 @@ feat(scope): add specific feature
 \`\`\`
 ```
 
-## Bite-Sized Task Granularity
+### Bite-Sized Task Granularity
 
 Each step is one action (2-5 minutes):
 - "Write the failing test" — step
@@ -142,6 +176,15 @@ Each step is one action (2-5 minutes):
 - "Implement the minimal code to make the test pass" — step
 - "Run the tests and make sure they pass" — step
 - "Commit" — step
+
+## Phase 4: Validate
+
+Before declaring the plan done, check it against reality:
+
+1. **Does the plan account for what you found in Phase 1?** — constraints, existing patterns, dependencies
+2. **Are the file paths real?** — verify every path in the plan exists (or is clearly marked as "Create")
+3. **Is the scope reasonable?** — if it's more than ~5 tasks, consider splitting into phases
+4. **Would a worker need to ask questions?** — if yes, the plan isn't ready
 
 ## Inline Plans vs Flicknote Plans
 
@@ -173,6 +216,7 @@ task <uuid> annotate 'Plan: flicknote <hex-id>'
 
 ## Remember
 
+- Explore reality before designing — read the code first
 - Exact file paths always
 - Complete code in plan (not "add validation")
 - Exact commands with expected output

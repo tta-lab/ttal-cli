@@ -6,7 +6,7 @@ This directory contains skills, subagents, and commands that `ttal sync` deploys
 
 ```
 docs/
-├── skills/       # Methodology skills (sp-writing-plans, sp-tdd, etc.)
+├── skills/       # Methodology skills (sp-planning, sp-tdd, etc.)
 ├── agents/       # Subagent definitions (pr-reviewers, task-creator, etc.)
 └── commands/     # Slash commands (pr-review, triage, etc.)
 ```
@@ -38,7 +38,7 @@ Create a new directory in `docs/skills/` with a `SKILL.md` file. See existing sk
 ### Skills
 | Skill | Purpose |
 |-------|---------|
-| sp-writing-plans | Write detailed implementation plans |
+| sp-planning | Write detailed implementation plans |
 | sp-executing-plans | Execute plans step by step |
 | sp-research | Structured research methodology |
 | sp-brainstorming | Collaborative idea exploration and design |

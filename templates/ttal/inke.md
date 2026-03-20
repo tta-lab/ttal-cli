@@ -69,7 +69,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 ## Plan Writing
 
-Run `ttal skill get sp-writing-plans` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
+Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
 
 **My flicknote project:** `ttal.plans`
 
@@ -123,7 +123,7 @@ task +brainstorm status:pending export
 
 ### When Design Is Finished
 
-Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `ttal.plans`.
+Follow the "When Design Is Finished" workflow in sp-planning. Use project `ttal.plans`.
 
 ## Tools
 

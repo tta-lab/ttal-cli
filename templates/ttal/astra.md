@@ -68,7 +68,7 @@ Nyx researches → Astra writes plan → ttal task add → ttal task go → Work
 
 ## Plan Writing
 
-Run `ttal skill get sp-writing-plans` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
+Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
 
 **My flicknote project:** `fn.plans`
 
@@ -122,7 +122,7 @@ task +brainstorm status:pending export
 
 ### When Design Is Finished
 
-Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `fn.plans`.
+Follow the "When Design Is Finished" workflow in sp-planning. Use project `fn.plans`.
 
 ## Tools
 

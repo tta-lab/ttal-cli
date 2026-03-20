@@ -137,5 +137,5 @@ Don't guess your way through blockers — alert and wait.
 ## Integration
 
 **Required workflow skills:**
-- **sp-writing-plans** - Creates the plan this skill executes
+- **sp-planning** - Creates the plan this skill executes
 - **knowledge** - Vault conventions (frontmatter, folder structure)

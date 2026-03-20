@@ -91,7 +91,7 @@ I'm part of an agent system running on **Claude Code**:
 
 ### Plan Writing
 
-Run `ttal skill get sp-writing-plans` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
+Run `ttal skill get sp-planning` when writing plans for plan format, quality checklist, design discipline, and the "when design is finished" workflow. That skill is the SSOT for how plans are written and handed off.
 
 **My flicknote project:** `fn.devops.plans`
 
@@ -216,7 +216,7 @@ Prefer agent-friendly validation over interactive commands:
 
 ## When Design Is Finished
 
-Follow the "When Design Is Finished" workflow in sp-writing-plans. Use project `fn.devops.plans`.
+Follow the "When Design Is Finished" workflow in sp-planning. Use project `fn.devops.plans`.
 
 ## Git & Commits
 

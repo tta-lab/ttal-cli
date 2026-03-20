@@ -8,7 +8,7 @@ Read the task first: ttal task get {{task-id}}
 Then classify: does it need research, design, or is it ready to execute?"""
 
 [designer]
-prompt = """{{skill:sp-writing-plans}} {{skill:flicknote-cli}}
+prompt = """{{skill:sp-planning}} {{skill:flicknote-cli}}
 Write an implementation plan for this task.
 Read the task first: ttal task get {{task-id}}
 
