@@ -40,6 +40,8 @@ func handleSend(
 	switch {
 	case req.From != "" && req.To == "human":
 		return handleFrom(mcfg, frontends, msgSvc, req)
+	case req.From == "system" && req.To != "":
+		return handleSystemToAgent(mcfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
 		return handleAgentToAgent(mcfg, registry, frontends, msgSvc, req)
 	case req.From != "":
@@ -95,6 +97,25 @@ func handleTo(
 	}
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
+		Team: ta.TeamName, Channel: message.ChannelCLI,
+	})
+	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
+}
+
+// handleSystemToAgent delivers a system-originated message to an agent as bare text.
+// No [agent from:] prefix is added — used for automated triggers like /breathe
+// where CC must receive raw text to recognize it as a skill trigger.
+func handleSystemToAgent(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, req SendRequest,
+) error {
+	ta := resolveAgent(mcfg, req.Team, req.To)
+	if ta == nil {
+		return fmt.Errorf("unknown agent: %s", req.To)
+	}
+	persistMsg(msgSvc, message.CreateParams{
+		Sender: "system", Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI,
 	})
 	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
