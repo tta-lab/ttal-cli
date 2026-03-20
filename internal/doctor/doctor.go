@@ -95,6 +95,7 @@ func Run(fix bool) *Report {
 	r.Sections = append(r.Sections, checkMatrix(fix))
 	r.Sections = append(r.Sections, checkCCIntegration(fix))
 	r.Sections = append(r.Sections, checkHooks(fix))
+	r.Sections = append(r.Sections, checkPipelines(fix))
 	return r
 }
 
@@ -981,4 +982,15 @@ func checkFlicknoteHooks(section *Section, fix bool) {
 			section.add(LevelWarn, h.File, fmt.Sprintf("installed flicknote hook: %s", hookPath))
 		}
 	}
+}
+
+// --- Pipelines ---
+
+func checkPipelines(fix bool) Section {
+	section := Section{Name: "Pipelines"}
+	configDir := config.DefaultConfigDir()
+	pipelinesPath := filepath.Join(configDir, "pipelines.toml")
+	ensureCompanionFile(&section, pipelinesPath, "pipelines.toml",
+		"pipelines.toml exists", "created default pipelines.toml", defaultPipelinesContent, fix)
+	return section
 }
