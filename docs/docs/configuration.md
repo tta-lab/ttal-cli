@@ -52,7 +52,7 @@ that contains a `CLAUDE.md` file is treated as an agent.
 ```
 
 Agent configuration lives in two places:
-- **CLAUDE.md frontmatter** — identity (role, emoji, voice, description, flicknote_project)
+- **CLAUDE.md frontmatter** — identity (role, emoji, voice, description)
 - **roles.toml** — operational config per role (prompts, heartbeat_interval)
 
 Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/ttal/.env`.
@@ -90,7 +90,6 @@ description: Task orchestrator — creates and routes work
 emoji: 🐱
 role: manager
 voice: af_heart
-flicknote_project: ttal.plans
 ---
 ```
 
@@ -100,7 +99,6 @@ flicknote_project: ttal.plans
 | `emoji` | string | Display emoji |
 | `role` | string | Role key that maps to `[role]` in roles.toml |
 | `voice` | string | Kokoro TTS voice ID (e.g. `af_heart`) |
-| `flicknote_project` | string | Default flicknote project (injected as `$FLICKNOTE_PROJECT`) |
 
 ## roles.toml fields
 

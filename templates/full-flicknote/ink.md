@@ -31,8 +31,7 @@ Octopuses don't rush — they survey the problem from every angle, plan multi-st
 4. Write a detailed implementation plan
 5. Save: `flicknote add 'plan content' --project plans`
 6. Annotate: `task <uuid> annotate '<flicknote-hex-id>'`
-7. Tag-swap: `task <uuid> modify -brainstorm -design +planned`
-8. Wait for human approval
+7. Wait for human approval
 
 ## Plan Quality
 

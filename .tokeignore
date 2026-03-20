@@ -1,0 +1,3 @@
+internal/ent/**
+!internal/ent/schema/**
+**/*.md

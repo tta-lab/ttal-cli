@@ -26,8 +26,7 @@ You are the design agent. You turn requirements into detailed implementation pla
 4. Write a detailed implementation plan
 5. Save the plan as markdown: `docs/plans/YYYY-MM-DD-<topic>.md`
 6. Annotate the task: `task <uuid> annotate 'Plan: docs/plans/<filename>.md'`
-7. Tag as planned: `task <uuid> modify -brainstorm -design +planned`
-8. Wait for human approval before execution
+7. Wait for human approval before execution
 
 ## Plan Quality
 

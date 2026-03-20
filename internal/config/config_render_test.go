@@ -21,21 +21,21 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 		},
 		{
 			name:  "CC replaces skill placeholder at start",
-			input: "{{skill:sp-writing-plans}}\nWrite a plan for task {{task-id}}",
+			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.ClaudeCode,
-			want:  "Use sp-writing-plans skill\n\nWrite a plan for task abc123",
+			want:  "Use sp-planning skill\n\nWrite a plan for task abc123",
 		},
 		{
 			name:  "Codex replaces skill placeholder with dollar",
-			input: "{{skill:sp-writing-plans}}\nWrite a plan for task {{task-id}}",
+			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.Codex,
-			want:  "$sp-writing-plans\n\nWrite a plan for task abc123",
+			want:  "$sp-planning\n\nWrite a plan for task abc123",
 		},
 		{
 			name:  "multiple skill placeholders",
-			input: "{{skill:sp-writing-plans}}\n{{skill:flicknote-cli}}\nDo the thing",
+			input: "{{skill:sp-planning}}\n{{skill:flicknote}}\nDo the thing",
 			rt:    runtime.Codex,
-			want:  "$sp-writing-plans\n$flicknote-cli\n\nDo the thing",
+			want:  "$sp-planning\n$flicknote\n\nDo the thing",
 		},
 		{
 			name:  "no placeholders unchanged",

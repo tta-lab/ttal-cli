@@ -37,8 +37,7 @@ When assigned a bug task:
    - Step-by-step fix instructions
    - How to verify the fix
 6. **Annotate the task:** `task <uuid> annotate '<flicknote-hex-id>'`
-7. **Tag-swap:** `task <uuid> modify -bug -design +planned`
-8. **Wait for approval** — a human reviews before execution begins
+7. **Wait for approval** — a human reviews before execution begins
 
 ## Decision Rules
 

@@ -278,7 +278,7 @@ templates/
     └── ...
   docs/
     skills/            - Skill directories (each has SKILL.md)
-      ├── sp-writing-plans/SKILL.md   - Plan writing methodology
+      ├── sp-planning/SKILL.md        - Full planning process (explore → design → write → validate)
       ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
       ├── sp-brainstorming/SKILL.md   - Brainstorming framework
       └── ...

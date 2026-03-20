@@ -63,8 +63,7 @@ Not every section is required — skip what doesn't apply. But **Question**, **F
 
 1. **Save findings** — use the storage method configured for your team
 2. **Annotate the task** — reference the saved findings so others can find them
-3. **Hand off to design:** `task <uuid> modify -research +design` — moves task to the design phase
-4. **Never mark done** — research tasks stay open and flow through the pipeline
+3. **Pipeline handles handoff** — the task flows to the next stage automatically
 
 If research is **partial** (ran out of time/tokens), annotate what you have and keep the task as `+research` pending.
 
