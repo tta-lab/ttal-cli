@@ -145,7 +145,7 @@ Examples:
 		fmt.Println(tbl)
 		plural := "tasks"
 		if len(tasks) == 1 {
-			plural = "task"
+			plural = "task" //nolint:goconst
 		}
 		fmt.Printf("\n%d %s\n", len(tasks), plural)
 		return nil

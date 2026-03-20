@@ -13,6 +13,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+const backendTask = "task"
+
 var (
 	commentVerdict string
 	commentList    bool
@@ -75,7 +77,7 @@ Examples:
 		backend := resolveCommentBackend(task, pipelineCfg, agentRoles)
 
 		if commentList {
-			return listComments(uuid, task, backend, cfg)
+			return listComments(uuid, backend)
 		}
 
 		var message string
@@ -86,7 +88,7 @@ Examples:
 			return fmt.Errorf("message is required (or use --list to show comments)")
 		}
 
-		if err := postComment(uuid, task, message, backend, cfg); err != nil {
+		if err := postComment(uuid, message, backend); err != nil {
 			return err
 		}
 
@@ -105,27 +107,27 @@ Examples:
 // based on the task's current pipeline stage configuration.
 func resolveCommentBackend(task *taskwarrior.Task, pipelineCfg *pipeline.Config, agentRoles map[string]string) string {
 	if pipelineCfg == nil {
-		return "task"
+		return backendTask
 	}
 	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
 	if err != nil || p == nil {
-		return "task"
+		return backendTask
 	}
 	_, stage, err := p.CurrentStage(task.Tags, agentRoles)
 	if err != nil || stage == nil {
-		return "task"
+		return backendTask
 	}
 	if stage.Comments != "" {
 		return stage.Comments
 	}
-	return "task"
+	return backendTask
 }
 
 // postComment routes the comment to the appropriate backend.
-func postComment(uuid string, task *taskwarrior.Task, message, backend string, cfg *config.Config) error {
+func postComment(uuid string, message, backend string) error {
 	switch backend {
 	case "pr":
-		return postPRComment(task, message)
+		return postPRComment(message)
 	case "flicknote":
 		return fmt.Errorf("flicknote comment backend not yet supported — use task annotations")
 	default:
@@ -138,7 +140,7 @@ func postComment(uuid string, task *taskwarrior.Task, message, backend string, c
 }
 
 // postPRComment resolves the PR context for the task and posts a comment.
-func postPRComment(task *taskwarrior.Task, message string) error {
+func postPRComment(message string) error {
 	ctx, err := pr.ResolveContextWithoutProvider()
 	if err != nil {
 		return fmt.Errorf("PR comment: resolve context: %w", err)
@@ -165,7 +167,7 @@ func postPRComment(task *taskwarrior.Task, message string) error {
 }
 
 // listComments lists comments from the appropriate backend.
-func listComments(uuid string, task *taskwarrior.Task, backend string, cfg *config.Config) error {
+func listComments(uuid string, backend string) error {
 	switch backend {
 	case "pr":
 		ctx, err := pr.ResolveContextWithoutProvider()

@@ -63,7 +63,8 @@ func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 	// Compute branch at runtime from the worktree (no branch UDA needed)
 	branch := gitutil.BranchName(workDir)
 	if branch == "" {
-		return &CloseResult{Error: true, Status: "No active worktree found for this task"}, fmt.Errorf("no worktree branch found at %s", workDir)
+		return &CloseResult{Error: true, Status: "No active worktree found for this task"},
+			fmt.Errorf("no worktree branch found at %s", workDir)
 	}
 
 	// Use team-aware resolution so the daemon (which caches config via sync.Once at startup)

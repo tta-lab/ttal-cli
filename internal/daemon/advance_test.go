@@ -112,7 +112,7 @@ func TestAdvanceRoute_InvalidJSON(t *testing.T) {
 
 // TestFindIdleAgent_NoAgentsForRole tests the error case when no agents have the role.
 func TestFindIdleAgent_NoAgentsForRole(t *testing.T) {
-	_, err := findIdleAgent("", "nonexistent-role", nil)
+	_, err := findIdleAgent("", "nonexistent-role")
 	if err == nil {
 		t.Error("expected error for nonexistent role, got nil")
 	}

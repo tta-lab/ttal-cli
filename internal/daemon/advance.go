@@ -81,19 +81,12 @@ func handlePipelineAdvance(
 		return
 	}
 
-	// Resolve team — fall back to default if caller didn't set TTAL_TEAM.
 	team := req.Team
 	if team == "" {
 		team = mcfg.DefaultTeamName()
 	}
+	teamPath := resolveTeamPath(mcfg, team)
 
-	resolvedTeam := mcfg.Teams[team]
-	teamPath := ""
-	if resolvedTeam != nil {
-		teamPath = resolvedTeam.TeamPath
-	}
-
-	// Export task.
 	task, err := taskwarrior.ExportTask(req.TaskUUID)
 	if err != nil {
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
@@ -111,44 +104,13 @@ func handlePipelineAdvance(
 		return
 	}
 
-	// Load pipeline config.
-	configDir := config.DefaultConfigDir()
-	pipelineCfg, err := pipeline.Load(configDir)
-	if err != nil {
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "load pipeline config: " + err.Error(),
-		})
+	p, ok := matchTaskPipeline(w, task.Tags)
+	if !ok {
 		return
 	}
 
-	// Match task to pipeline.
-	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
-	if err != nil {
-		writeHTTPJSON(w, http.StatusBadRequest, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "pipeline conflict: " + err.Error(),
-		})
-		return
-	}
-	if p == nil {
-		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-			Status:  AdvanceStatusNoPipeline,
-			Message: "no pipeline matches this task's tags — add a pipeline tag (e.g. +feature)",
-		})
-		return
-	}
+	agentRoles := buildAgentRoles(teamPath)
 
-	// Build agent roles map.
-	agentRoles := make(map[string]string)
-	if teamPath != "" {
-		agents, _ := agentfs.Discover(teamPath)
-		for _, a := range agents {
-			agentRoles[a.Name] = a.Role
-		}
-	}
-
-	// Determine current stage.
 	idx, stage, err := p.CurrentStage(task.Tags, agentRoles)
 	if err != nil {
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
@@ -161,24 +123,98 @@ func handlePipelineAdvance(
 	if idx == -1 {
 		// First advance — route to stage 0.
 		firstStage := &p.Stages[0]
-		if err := advanceToStage(r.Context(), w, fe, mcfg, task, 0, firstStage, req.AgentName, team, workerRuntime, teamPath, agentRoles); err != nil {
+		if err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, team, workerRuntime, teamPath); err != nil {
 			log.Printf("[advance] first stage error: %v", err)
 		}
 		return
 	}
 
-	// Stage is active — check reviewer gate before advancing.
+	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
+		req.AgentName, team, workerRuntime, teamPath, agentRoles)
+}
+
+// resolveTeamPath returns the filesystem path for the given team name.
+func resolveTeamPath(mcfg *config.DaemonConfig, team string) string {
+	resolvedTeam := mcfg.Teams[team]
+	if resolvedTeam == nil {
+		return ""
+	}
+	return resolvedTeam.TeamPath
+}
+
+// buildAgentRoles discovers agents from the team path and returns a name→role map.
+func buildAgentRoles(teamPath string) map[string]string {
+	agentRoles := make(map[string]string)
+	if teamPath == "" {
+		return agentRoles
+	}
+	agents, _ := agentfs.Discover(teamPath)
+	for _, a := range agents {
+		agentRoles[a.Name] = a.Role
+	}
+	return agentRoles
+}
+
+// matchTaskPipeline loads pipeline config and matches it against the task tags.
+// Returns (pipeline, true) on success; writes the HTTP error response and returns (nil, false) on failure.
+func matchTaskPipeline(w http.ResponseWriter, taskTags []string) (*pipeline.Pipeline, bool) {
+	configDir := config.DefaultConfigDir()
+	pipelineCfg, err := pipeline.Load(configDir)
+	if err != nil {
+		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+			Status:  AdvanceStatusError,
+			Message: "load pipeline config: " + err.Error(),
+		})
+		return nil, false
+	}
+
+	_, p, err := pipelineCfg.MatchPipeline(taskTags)
+	if err != nil {
+		writeHTTPJSON(w, http.StatusBadRequest, AdvanceResponse{
+			Status:  AdvanceStatusError,
+			Message: "pipeline conflict: " + err.Error(),
+		})
+		return nil, false
+	}
+	if p == nil {
+		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+			Status:  AdvanceStatusNoPipeline,
+			Message: "no pipeline matches this task's tags — add a pipeline tag (e.g. +feature)",
+		})
+		return nil, false
+	}
+	return p, true
+}
+
+// processStageAdvance handles gate checks and advancement for an already-active stage.
+func processStageAdvance(
+	ctx context.Context,
+	w http.ResponseWriter,
+	fe frontend.Frontend,
+	mcfg *config.DaemonConfig,
+	task *taskwarrior.Task,
+	p *pipeline.Pipeline,
+	idx int,
+	stage *pipeline.Stage,
+	callerAgent, team, workerRuntime, teamPath string,
+	agentRoles map[string]string,
+) {
+	// Check reviewer gate before advancing.
 	if stage.Reviewer != "" && !hasTag(task.Tags, "lgtm") {
+		msg := fmt.Sprintf(
+			"Run reviewer (%s) and set verdict with: ttal task comment <uuid> \"message\" --verdict lgtm",
+			stage.Reviewer,
+		)
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusNeedsLGTM,
-			Message: fmt.Sprintf("Run reviewer (%s) and set verdict with: ttal task comment <uuid> \"message\" --verdict lgtm", stage.Reviewer),
+			Message: msg,
 		})
 		return
 	}
 
 	// Check human gate.
 	if stage.Gate == "human" {
-		approved, err := askHumanGate(r.Context(), fe, req.AgentName, task, stage)
+		approved, err := askHumanGate(ctx, fe, callerAgent, task, stage)
 		if err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,
@@ -195,12 +231,11 @@ func handlePipelineAdvance(
 		}
 	}
 
-	// Advance to next stage.
+	// Stop task and clean up tags from current stage.
 	if err := taskwarrior.StopTask(task.UUID); err != nil {
 		log.Printf("[advance] warning: stop task: %v", err)
 	}
 
-	// Remove old agent tag and lgtm tag.
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
 	removeTags := []string{"-lgtm"}
 	if oldAgentName != "" {
@@ -210,6 +245,7 @@ func handlePipelineAdvance(
 		log.Printf("[advance] warning: remove tags: %v", err)
 	}
 
+	// Advance to next stage.
 	nextIdx := idx + 1
 	if nextIdx >= len(p.Stages) {
 		// Pipeline complete.
@@ -224,23 +260,19 @@ func handlePipelineAdvance(
 	}
 
 	nextStage := &p.Stages[nextIdx]
-	if err := advanceToStage(r.Context(), w, fe, mcfg, task, nextIdx, nextStage, req.AgentName, team, workerRuntime, teamPath, agentRoles); err != nil {
+	if err := advanceToStage(w, mcfg, task, nextStage, callerAgent, team, workerRuntime, teamPath); err != nil {
 		log.Printf("[advance] next stage error: %v", err)
 	}
 }
 
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
-	ctx context.Context,
 	w http.ResponseWriter,
-	fe frontend.Frontend,
 	mcfg *config.DaemonConfig,
 	task *taskwarrior.Task,
-	idx int,
 	stage *pipeline.Stage,
 	callerAgent, team, workerRuntime string,
 	teamPath string,
-	agentRoles map[string]string,
 ) error {
 	if stage.Assignee == "worker" {
 		// Worker stage: start task and spawn.
@@ -287,7 +319,7 @@ func advanceToStage(
 	}
 
 	// Agent stage: find idle agent with the required role and route to them.
-	agent, err := findIdleAgent(teamPath, stage.Assignee, agentRoles)
+	agent, err := findIdleAgent(teamPath, stage.Assignee)
 	if err != nil {
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
@@ -360,8 +392,12 @@ func advanceToStage(
 
 // askHumanGate sends a Telegram approval request and blocks until answered.
 // Returns true if approved, false if rejected or timed out.
-func askHumanGate(ctx context.Context, fe frontend.Frontend, agentName string, task *taskwarrior.Task, stage *pipeline.Stage) (bool, error) {
-	question := fmt.Sprintf("🔒 Advance task through <b>%s</b> gate?\n\n📋 Task: %s\n🎯 Stage: %s",
+func askHumanGate(
+	ctx context.Context, fe frontend.Frontend, agentName string,
+	task *taskwarrior.Task, stage *pipeline.Stage,
+) (bool, error) {
+	question := fmt.Sprintf(
+		"🔒 Advance task through <b>%s</b> gate?\n\n📋 Task: %s\n🎯 Stage: %s",
 		stage.Gate,
 		html.EscapeString(task.Description),
 		html.EscapeString(stage.Name),
@@ -379,7 +415,7 @@ func askHumanGate(ctx context.Context, fe frontend.Frontend, agentName string, t
 
 // findIdleAgent finds the first idle agent with the given role.
 // An agent is idle if they have no started pending tasks with their name as a tag.
-func findIdleAgent(teamPath, role string, agentRoles map[string]string) (*agentfs.AgentInfo, error) {
+func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 	agents, err := agentfs.FindByRole(teamPath, role)
 	if err != nil {
 		return nil, err
