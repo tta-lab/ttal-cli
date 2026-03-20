@@ -30,14 +30,8 @@ All automatic. All in your terminal.
 # Create a task
 ttal task add --project myapp "Add JWT authentication to the API"
 
-# Route to researcher — she investigates options, writes findings
-ttal task route abc12345 --to athena
-
-# Route to designer — he reads research, writes the implementation plan
-ttal task route abc12345 --to inke
-
-# Execute — worker spawns in its own worktree, follows the plan, opens a PR
-ttal task advance abc12345
+# Advance — routes to researcher, designer, or spawns worker based on pipeline stage
+ttal task go abc12345
 
 # Meanwhile, you're on your phone
 # Review agents post verdicts, worker triages feedback, you merge from Telegram

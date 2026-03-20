@@ -10,7 +10,6 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -38,7 +37,6 @@ type Model struct {
 	// Data
 	tasks    []Task
 	filtered []Task
-	agents   []agentfs.AgentInfo
 	cfg      *config.Config
 	projects []string
 	tags     []string
@@ -48,10 +46,6 @@ type Model struct {
 	selectedUUID string // UUID of task under cursor, survives refresh
 	offset       int
 	searchInput  textinput.Model
-
-	// Route input
-	routeInput   textinput.Model
-	routeMatches []agentfs.AgentInfo
 
 	// Text input for overlays
 	modifyInput   textinput.Model
@@ -90,7 +84,6 @@ func NewModel() Model {
 		loading:        true,
 		offset:         0,
 		searchInput:    newTextInput("project:x +tag priority:H"),
-		routeInput:     newTextInput("agent name..."),
 		modifyInput:    newTextInput("+tag project:x priority:H"),
 		annotateInput:  newTextInput("annotation text"),
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
@@ -132,7 +125,6 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "Config error: " + msg.err.Error()
 		}
 		m.cfg = msg.cfg
-		m.agents = msg.agents
 		m.projects = msg.projects
 		m.tags = msg.tags
 		if msg.cfg != nil {
@@ -189,9 +181,6 @@ func (m *Model) handlePaste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		m.updateModifyMatches(m.projects, m.tags)
 	case stateAnnotate:
 		m.annotateInput, cmd = m.annotateInput.Update(msg)
-	case stateRouteInput:
-		m.routeInput, cmd = m.routeInput.Update(msg)
-		m.updateRouteMatches()
 	}
 	return m, cmd
 }
@@ -209,7 +198,7 @@ func (m Model) View() tea.View {
 		content = m.viewTaskList()
 	case stateTaskDetail:
 		content = m.viewTaskDetail()
-	case stateRouteInput, stateModify, stateAnnotate, stateConfirmDelete:
+	case stateModify, stateAnnotate, stateConfirmDelete:
 		content = m.viewTaskList() // show list behind overlay
 	case stateHelp:
 		content = m.viewHelp()
@@ -219,8 +208,6 @@ func (m Model) View() tea.View {
 
 	// Overlays
 	switch m.state {
-	case stateRouteInput:
-		content = m.viewRouteOverlay(content)
 	case stateModify:
 		content = m.viewModifyOverlay(content)
 	case stateAnnotate:
@@ -238,8 +225,6 @@ func (m Model) View() tea.View {
 
 func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.state {
-	case stateRouteInput:
-		return m.handleRouteKey(msg)
 	case stateSearch:
 		return m.handleSearchKey(msg)
 	case stateModify:
@@ -322,22 +307,6 @@ func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
 
 	// Global actions
 	switch action {
-	case keyRoute:
-		if len(m.filtered) > 0 {
-			t := m.selectedTask()
-			if t == nil {
-				break
-			}
-			// Auto-route to manager if one is configured
-			if manager := findAgentByRole(m.agents, "manager"); manager != nil {
-				return m, routeTask(t.UUID, manager.Name)
-			}
-			// Fallback: manual agent picker when no manager is configured
-			m.state = stateRouteInput
-			m.routeInput.SetValue("")
-			m.updateRouteMatches()
-			return m, m.routeInput.Focus()
-		}
 	case keyFilterNext:
 		m.filter = m.filter.Next()
 		m.cursor = 0
@@ -378,8 +347,8 @@ func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
 		return cmd
 	}
 	switch action {
-	case keyExecute:
-		return executeTask(t.UUID)
+	case keyAdvance:
+		return advanceTask(t.UUID)
 	case keyAddToday:
 		return addToToday(t.UUID)
 	case keyRemoveToday:
@@ -597,51 +566,6 @@ func (m *Model) handleAnnotateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) handleRouteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	s := msg.String()
-	switch s {
-	case keyNameEnter:
-		m.routeInput.Blur()
-		if len(m.routeMatches) > 0 {
-			agent := m.routeMatches[0]
-			t := m.selectedTask()
-			if t != nil && agent.Role != "" {
-				m.state = stateTaskList
-				return m, routeTask(t.UUID, agent.Name)
-			}
-			if agent.Role == "" {
-				m.statusMsg = "Agent " + agent.Name + " has no role"
-			}
-		}
-		m.state = stateTaskList
-	case keyNameEsc:
-		m.routeInput.Blur()
-		m.state = stateTaskList
-	case keyNameTab:
-		if len(m.routeMatches) > 0 {
-			m.routeInput.SetValue(m.routeMatches[0].Name)
-			m.routeInput.CursorEnd()
-			m.updateRouteMatches()
-		}
-	default:
-		var cmd tea.Cmd
-		m.routeInput, cmd = m.routeInput.Update(msg)
-		m.updateRouteMatches()
-		return m, cmd
-	}
-	return m, nil
-}
-
-func (m *Model) updateRouteMatches() {
-	q := strings.ToLower(m.routeInput.Value())
-	m.routeMatches = nil
-	for _, a := range m.agents {
-		if q == "" || strings.Contains(strings.ToLower(a.Name), q) {
-			m.routeMatches = append(m.routeMatches, a)
-		}
-	}
-}
-
 func (m *Model) selectedTask() *Task {
 	if m.cursor >= 0 && m.cursor < len(m.filtered) {
 		return &m.filtered[m.cursor]
@@ -759,7 +683,6 @@ type autocompleteLoadedMsg struct {
 
 type configLoadedMsg struct {
 	cfg      *config.Config
-	agents   []agentfs.AgentInfo
 	projects []string
 	tags     []string
 	err      error
@@ -788,10 +711,6 @@ func loadConfig() tea.Cmd {
 		if err != nil {
 			return configLoadedMsg{err: fmt.Errorf("load config: %w", err)}
 		}
-		agents, err := agentfs.Discover(cfg.TeamPath())
-		if err != nil {
-			log.Printf("failed to discover agents: %v", err)
-		}
 
 		projects, err := taskwarrior.GetProjects()
 		if err != nil {
@@ -802,7 +721,7 @@ func loadConfig() tea.Cmd {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}
 
-		return configLoadedMsg{cfg: cfg, agents: agents, projects: projects, tags: tags}
+		return configLoadedMsg{cfg: cfg, projects: projects, tags: tags}
 	}
 }
 
@@ -856,14 +775,4 @@ func loadTasks(filter filterMode, search string) tea.Cmd {
 
 		return tasksLoadedMsg{tasks: tasks}
 	}
-}
-
-// findAgentByRole returns the first agent with the given role, or nil.
-func findAgentByRole(agents []agentfs.AgentInfo, role string) *agentfs.AgentInfo {
-	for i := range agents {
-		if agents[i].Role == role {
-			return &agents[i]
-		}
-	}
-	return nil
 }

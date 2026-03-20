@@ -10,7 +10,7 @@ Workers are isolated coding sessions. Each worker runs in its own tmux session w
 The primary way to spawn a worker is through task execution:
 
 ```bash
-ttal task advance <uuid>
+ttal task go <uuid>
 ```
 
 This reads the task's metadata (project path, branch name) and spawns a worker with the right context.
@@ -100,7 +100,7 @@ This processes any pending cleanup request files that the daemon hasn't handled 
 Spawn a worker to implement a task:
 
 ```bash
-ttal task advance <uuid>
+ttal task go <uuid>
 ```
 
 Without `--yes`, shows the project path and prompts for confirmation.

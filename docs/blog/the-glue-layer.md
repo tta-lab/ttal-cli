@@ -66,7 +66,7 @@ The key components:
 |-----------|--------------|
 | **Daemon** | Long-running process; handles socket connections, Telegram, fsnotify watchers |
 | **on-add-ttal hook** | Fires when a task is created; enriches with project path and branch |
-| **Worker spawn** | `ttal task advance <uuid>` → tmux session + git worktree + coding agent |
+| **Worker spawn** | `ttal task go <uuid>` → tmux session + git worktree + coding agent |
 | **Cleanup watcher** | Watches for worker completion; closes session, removes worktree, marks task done |
 | **ttal send** | Agent-to-agent messaging via daemon socket |
 
@@ -88,7 +88,7 @@ The manager/worker distinction survived the migration. It's too useful to abando
 │  └─────────────┘  └─────────────┘  └────────┬────────┘  │
 │                                             │           │
 └─────────────────────────────────────────────┼───────────┘
-                                              │ ttal task execute
+                                              │ ttal task go
                                               ▼
 ┌─────────────────────────────────────────────────────────┐
 │              Worker Plane (tmux + worktree)              │
@@ -128,7 +128,7 @@ This means the stack doesn't break when a new coding agent appears. Swap the run
 ## The Full Loop
 
 ```
-You: ttal task advance a1b2c3d4
+You: ttal task go a1b2c3d4
   ↓
 ttal daemon: reads task, resolves project path
   ↓

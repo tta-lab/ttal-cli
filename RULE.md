@@ -14,8 +14,7 @@ ttal task add --project <alias> "description" --tag <tag> --priority M --annotat
 ttal task get <uuid>                    # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
 ttal task find <keyword> --completed    # search completed tasks
-ttal task route <uuid> --to <agent>    # route to a specific agent (legacy — prefer advance)
-ttal task advance <uuid>               # advance task through pipeline stage
+ttal task go <uuid>                    # advance task through pipeline stage
 ```
 
 ## PRs

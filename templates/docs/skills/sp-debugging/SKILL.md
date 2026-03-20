@@ -186,7 +186,7 @@ task <uuid> annotate 'Fix plan: flicknote <hex-id>'
 3. **Annotate the task** with plan reference (inline or flicknote hex ID)
 4. **Tag as planned:** `task <uuid> modify -bugfix +planned`
 5. **Review:** Run at least 1 round of `/plan-review <flicknote-id>`. Revise if needed.
-6. **Execute:** When the plan passes review, run `ttal task advance <uuid>` to spawn a worker.
+6. **Execute:** When the plan passes review, run `ttal task go <uuid>` to spawn a worker.
 
 ## Red Flags — STOP and Return to Phase 1
 

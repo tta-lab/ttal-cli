@@ -26,57 +26,6 @@ func (m Model) viewTextInputOverlay(background, title, prompt string, input text
 	return m.placeOverlay(background, overlay)
 }
 
-func (m Model) viewRouteOverlay(background string) string {
-	var b strings.Builder
-
-	b.WriteString(styleTitle.Render("Route to Agent"))
-	b.WriteString("\n\n")
-	b.WriteString("  ")
-	b.WriteString(m.routeInput.View())
-	b.WriteString("\n\n")
-
-	if len(m.routeMatches) == 0 {
-		b.WriteString(styleDim.Render("  No matching agents"))
-	} else {
-		for i, a := range m.routeMatches {
-			prefix := "  "
-			if i == 0 {
-				prefix = "> "
-			}
-			emoji := a.Emoji
-			if emoji == "" {
-				emoji = " "
-			}
-			var line string
-			if a.Role != "" {
-				role := styleDim.Render("(" + a.Role + ")")
-				line = fmt.Sprintf("%s%s %s %s", prefix, emoji, a.Name, role)
-			} else {
-				line = fmt.Sprintf("%s%s %s %s", prefix, emoji, a.Name, styleDim.Render("(no role)"))
-			}
-			if i == 0 {
-				line = styleSelected.Render(line)
-			} else if a.Role == "" {
-				line = styleDim.Render(line)
-			}
-			b.WriteString(line + "\n")
-			if i >= 9 {
-				b.WriteString(styleDim.Render(fmt.Sprintf("  ... and %d more", len(m.routeMatches)-10)))
-				break
-			}
-		}
-	}
-
-	b.WriteString("\n")
-	b.WriteString(styleDim.Render("  Enter:select  Tab:complete  Esc:cancel"))
-
-	overlay := styleOverlay.
-		Width(50).
-		Render(b.String())
-
-	return m.placeOverlay(background, overlay)
-}
-
 func (m Model) viewSearchOverlay(background string) string {
 	return m.viewModifyMatchesOverlay(
 		background, "Search Tasks",

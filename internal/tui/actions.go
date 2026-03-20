@@ -20,31 +20,17 @@ func runTtalCommand(args ...string) ([]byte, error) {
 	return exec.Command("ttal", args...).CombinedOutput()
 }
 
-func executeTask(uuid string) tea.Cmd {
+func advanceTask(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		out, err := runTtalCommand("task", "execute", uuid)
+		out, err := runTtalCommand("task", "go", uuid)
 		short := uuid
 		if len(short) > 8 {
 			short = short[:8]
 		}
 		if err != nil {
-			return actionResultMsg{err: fmt.Errorf("execute %s: %s", short, strings.TrimSpace(string(out)))}
+			return actionResultMsg{err: fmt.Errorf("advance %s: %s", short, strings.TrimSpace(string(out)))}
 		}
-		return actionResultMsg{message: fmt.Sprintf("Worker spawned for %s", short), refresh: true}
-	}
-}
-
-func routeTask(uuid, agentName string) tea.Cmd {
-	return func() tea.Msg {
-		out, err := runTtalCommand("task", "route", uuid, "--to", agentName)
-		short := uuid
-		if len(short) > 8 {
-			short = short[:8]
-		}
-		if err != nil {
-			return actionResultMsg{err: fmt.Errorf("route %s to %s: %s", short, agentName, strings.TrimSpace(string(out)))}
-		}
-		return actionResultMsg{message: fmt.Sprintf("Routed %s to %s", short, agentName)}
+		return actionResultMsg{message: fmt.Sprintf("Advanced %s", short), refresh: true}
 	}
 }
 

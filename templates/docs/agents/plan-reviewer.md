@@ -171,7 +171,7 @@ If the plan needs work:
 ttal task comment <uuid> "Needs revision: <specific feedback>" --verdict needs_work
 ```
 
-The `--verdict lgtm` flag adds the `+lgtm` tag to the task, which signals the pipeline engine that the review gate is satisfied. Without it, `ttal task advance` will block waiting for the reviewer's verdict.
+The `--verdict lgtm` flag adds the `+lgtm` tag to the task, which signals the pipeline engine that the review gate is satisfied. Without it, `ttal task go` will block waiting for the reviewer's verdict.
 
 ## Rules
 

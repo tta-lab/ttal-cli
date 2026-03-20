@@ -32,11 +32,8 @@ Accepts 8-character UUID prefixes or full UUIDs.
 Route tasks to specialized agents based on what needs to happen:
 
 ```bash
-# Route to a specific agent by name
-ttal task route <uuid> --to <agent-name>
-
-# Spawn a worker to implement
-ttal task advance <uuid>
+# Advance to next pipeline stage (routes to agent or spawns worker)
+ttal task go <uuid>
 ```
 
 ### Configuring route targets
@@ -56,7 +53,7 @@ role: researcher
 ---
 ```
 
-Use `ttal task advance <uuid>` to route to any agent by name (role determines which prompt is used).
+Use `ttal task go <uuid>` to route to any agent by name (role determines which prompt is used).
 
 ## Today's focus
 

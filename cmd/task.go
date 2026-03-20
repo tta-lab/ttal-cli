@@ -237,7 +237,7 @@ func init() {
 	taskCmd.AddCommand(taskGetCmd)
 	taskCmd.AddCommand(taskFindCmd)
 	taskCmd.AddCommand(taskAddCmd)
-	taskCmd.AddCommand(taskAdvanceCmd)
+	taskCmd.AddCommand(taskGoCmd)
 	taskCmd.AddCommand(taskCommentCmd)
 	taskCmd.AddCommand(taskHeatmapCmd)
 
