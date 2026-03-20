@@ -50,10 +50,7 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	if t.Urgency != 0 {
 		field(b, "Urg:", "   ", fmt.Sprintf("%.1f", t.Urgency))
 	}
-	displayBranch := t.Branch
-	if displayBranch == "" {
-		displayBranch = enrichment.GenerateBranch(t.Description)
-	}
+	displayBranch := enrichment.GenerateBranch(t.Description)
 	if displayBranch != "" {
 		field(b, "Branch:", " ", displayBranch)
 	}

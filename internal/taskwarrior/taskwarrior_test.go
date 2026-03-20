@@ -57,52 +57,29 @@ func TestSlugify(t *testing.T) {
 
 func TestSessionName(t *testing.T) {
 	tests := []struct {
-		name   string
-		branch string
-		desc   string
-		want   string
+		name string
+		desc string
+		want string
 	}{
 		{
-			"branch preferred over description",
-			"feat/fix-auth-flow",
-			"some description",
-			"w-e9d4b7c1-fix-auth-flow",
-		},
-		{
-			"worker branch prefix stripped",
-			"worker/molt",
-			"molt description",
-			"w-e9d4b7c1-molt",
-		},
-		{
-			"description fallback",
-			"",
+			"description used for slug",
 			"feat(doctor): add ttal doctor command scaffold",
 			"w-e9d4b7c1-add-ttal-doctor-command-scaffold",
 		},
 		{
-			"no branch no description",
-			"",
+			"empty description",
 			"",
 			"w-e9d4b7c1",
 		},
 		{
-			"long branch name preserved",
-			"feat/this-is-a-very-long-branch-name-that-should-be-truncated",
-			"",
-			"w-e9d4b7c1-this-is-a-very-long-branch-name-that-should-be-truncated",
+			"description is stable regardless of branch state",
+			"fix: ttal open session fails with no worker session",
+			"w-e9d4b7c1-ttal-open-session-fails-with-no-worker-session",
 		},
 		{
-			"long description preserved",
-			"",
-			"deploy secrets-ui to local k3s with cloudflare tunnel",
-			"w-e9d4b7c1-deploy-secrets-ui-to-local-k3s-with-cloudflare-tunnel",
-		},
-		{
-			"slug truncated at 64 chars",
-			"feat/implement-very-long-feature-name-that-exceeds-sixty-four-characters-and-should-be-truncated",
-			"",
-			"w-e9d4b7c1-implement-very-long-feature-name-that-exceeds-sixty-four",
+			"long description truncated at 64 chars",
+			"deploy secrets-ui to local k3s with cloudflare tunnel and extra words that push past limit",
+			"w-e9d4b7c1-deploy-secrets-ui-to-local-k3s-with-cloudflare-tunnel-and-extra",
 		},
 	}
 
@@ -110,14 +87,12 @@ func TestSessionName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &Task{
 				UUID:        testUUID,
-				Branch:      tt.branch,
 				Description: tt.desc,
 			}
 			got := task.SessionName()
 			if got != tt.want {
 				t.Errorf("SessionName() = %q, want %q", got, tt.want)
 			}
-			// Session names should be reasonable length
 			if len(got) > 80 {
 				t.Errorf("SessionName() length %d exceeds 80", len(got))
 			}

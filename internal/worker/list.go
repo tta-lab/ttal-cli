@@ -146,7 +146,7 @@ func printWorkerTable(workers []WorkerInfo) {
 
 		pr := formatPRCell(t.PRID)
 
-		branch := t.Branch
+		branch, _ := WorktreeBranch(t.UUID, t.Project)
 		if branch == "" {
 			branch = enrichment.GenerateBranch(t.Description)
 		}

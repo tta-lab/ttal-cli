@@ -243,13 +243,5 @@ func resolveWorkDir(t *Task, projectPath string) string {
 		}
 	}
 
-	if t.Branch != "" {
-		name := strings.TrimPrefix(t.Branch, "worker/")
-		worktreeRoot := config.EnsureWorktreeRoot()
-		dir := filepath.Join(worktreeRoot, name)
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
-			return dir
-		}
-	}
 	return projectPath
 }
