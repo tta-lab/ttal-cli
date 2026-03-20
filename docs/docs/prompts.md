@@ -53,19 +53,19 @@ as all runtimes require skill invocations at the start of the message.
 
 ### `execute`
 
-The execute prompt is prepended to the worker's spawn prompt. When you run `ttal task execute <uuid>`, the worker receives this prompt followed by the task context (description, annotations, inlined docs).
+The execute prompt is prepended to the worker's spawn prompt. When you run `ttal task advance <uuid>`, the worker receives this prompt followed by the task context (description, annotations, inlined docs).
 
 Default: invokes the executing-plans skill to implement the task step by step.
 
 ### `designer`
 
-Controls what gets sent when you run `ttal task route <uuid> --to <agent>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
+Controls what gets sent when you run `ttal task advance <uuid>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
 
 Default: asks the agent to write a plan document and annotate the task with its path.
 
 ### `researcher`
 
-Controls what gets sent when you run `ttal task route <uuid> --to <agent>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
+Controls what gets sent when you run `ttal task advance <uuid>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
 
 Default: asks the agent to research the topic and annotate the task with the findings path.
 

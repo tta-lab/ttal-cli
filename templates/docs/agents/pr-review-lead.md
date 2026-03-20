@@ -135,3 +135,20 @@ After subagents complete, summarize:
 - **Address critical first**: Fix high-priority issues before lower priority
 - **Re-run after fixes**: Verify issues are resolved
 - **Stay in context**: Users can ask follow-ups like "explain issue #3" or "re-run after I fix X"
+
+
+## Pipeline Integration
+
+After completing your review, set the pipeline verdict on the task using the task UUID:
+
+If the PR passes review (LGTM):
+```bash
+ttal task comment <uuid> "LGTM — implementation is solid" --verdict lgtm
+```
+
+If the PR needs work:
+```bash
+ttal task comment <uuid> "Needs work: <specific issues>" --verdict needs_work
+```
+
+The `--verdict lgtm` flag adds the `+lgtm` tag, signaling the pipeline that the implement stage review gate is satisfied and the task can advance.

@@ -24,7 +24,7 @@ When a new task comes in:
 1. Read it: `ttal task get <uuid>`
 2. Decide what it needs:
    - Needs a plan? → `ttal task design <uuid>`
-   - Ready to execute? → `ttal task execute <uuid>` (only after human approval)
+   - Ready to execute? → `ttal task advance <uuid>` (only after human approval)
 3. Track progress and report status
 
 When the human asks "what's happening?":

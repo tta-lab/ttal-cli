@@ -20,7 +20,7 @@ You create a task
   → manager routes it: ttal task design <uuid>
   → designer writes an implementation plan
   → you approve
-  → manager spawns a worker: ttal task execute <uuid>
+  → manager spawns a worker: ttal task advance <uuid>
   → worker executes the plan, creates a PR
 ```
 

@@ -61,11 +61,11 @@ func refineBashTool(input json.RawMessage) string {
 	switch {
 	case strings.HasPrefix(cmd, "ttal send "):
 		return "ttal:send"
-	case strings.HasPrefix(cmd, "ttal task route "),
+	case strings.HasPrefix(cmd, "ttal task advance "),
 		strings.HasPrefix(cmd, "ttal task design "),
 		strings.HasPrefix(cmd, "ttal task research "):
-		// ttal task execute is intentionally excluded: it spawns a worker
-		// via the daemon and produces no direct Telegram output of its own.
+		// ttal task advance may block on Telegram approval gate; the daemon
+		// handles output. No direct Telegram output from the CLI side.
 		return "ttal:route"
 	case strings.HasPrefix(cmd, "flicknote add "),
 		strings.HasPrefix(cmd, "flicknote replace "),
