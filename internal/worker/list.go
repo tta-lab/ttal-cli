@@ -146,6 +146,7 @@ func printWorkerTable(workers []WorkerInfo) {
 
 		pr := formatPRCell(t.PRID)
 
+		// display only — falls back to generated name when no live worktree exists
 		branch, _ := WorktreeBranch(t.UUID, t.Project)
 		if branch == "" {
 			branch = enrichment.GenerateBranch(t.Description)
