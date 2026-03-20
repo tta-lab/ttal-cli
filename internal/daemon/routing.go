@@ -114,9 +114,10 @@ func handleSystemToAgent(
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.To)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: "system", Recipient: req.To, Content: req.Message,
-		Team: ta.TeamName, Channel: message.ChannelCLI,
+		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
 }
