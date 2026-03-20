@@ -169,7 +169,7 @@ task <uuid> annotate 'Plan: flicknote <hex-id>'
 3. **Annotate the task** with plan reference (inline or flicknote hex ID)
 4. **Tag as planned:** `task <uuid> modify +planned`
 5. **Review:** Run at least 2 rounds of `/plan-review <flicknote-id>`. Revise until the plan passes.
-6. **Execute:** When the plan survives review, run `ttal task advance <uuid>` to spawn a worker.
+6. **Execute:** When the plan survives review, run `ttal task go <uuid>` to spawn a worker.
 
 ## Remember
 

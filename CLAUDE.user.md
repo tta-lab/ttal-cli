@@ -43,7 +43,7 @@ Workers automatically look for flicknote notes in projects named `*plan*` or `*f
 
 ### Step 3: Execute
 ```bash
-ttal task execute <uuid>    # spawns a worker in isolated worktree
+ttal task go <uuid>    # spawns a worker in isolated worktree
 ```
 
 ## GitHub & Forgejo
@@ -126,13 +126,11 @@ ttal task get <uuid>         # get formatted task prompt
 Route tasks to the right agent instead of doing everything yourself.
 
 ```bash
-ttal task route <uuid> --to <agent>    # route to agent for design/research/brainstorm
-ttal task execute <uuid>               # spawn a worker to implement the task
+ttal task go <uuid>    # advance task through pipeline stage (route to agent or spawn worker)
 ```
 
 **When to use:**
-- `ttal task route` — task needs design, research, or brainstorming. Use `/task-route` command to classify readiness and pick the right agent.
-- `ttal task execute` — task has a plan/design doc annotated and is ready to implement. Spawns a Claude Code worker in its own tmux session + git worktree.
+- `ttal task go` — advances the task to the next pipeline stage. Routes to the right agent (design/research) or spawns a worker, based on `pipelines.toml`.
 
 ### Ask
 
@@ -210,8 +208,7 @@ ttal task add --project <alias> "description" --tag <tag> --priority M --annotat
 ttal task get <uuid>                    # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
 ttal task find <keyword> --completed    # search completed tasks
-ttal task route <uuid> --to <agent>    # route to a specific agent
-ttal task execute <uuid>               # spawn worker
+ttal task go <uuid>                    # advance task through pipeline stage
 ```
 
 ## PRs

@@ -51,7 +51,7 @@ This creates a concrete constraint on design: ttal must be ergonomic for both hu
 
 ```bash
 # An agent running ttal to spawn another agent's work
-ttal task advance a1b2c3d4
+ttal task go a1b2c3d4
 
 # An agent querying its own task queue
 ttal task find refactor --completed

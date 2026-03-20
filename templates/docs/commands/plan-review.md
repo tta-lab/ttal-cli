@@ -54,7 +54,7 @@ Then show each plan's full review below the table.
 ## After Review
 
 Present the verdict and let Neil or the routing agent decide:
-- **Ready** — plan can proceed to `ttal task execute`
+- **Ready** — plan can proceed to `ttal task go`
 - **Needs revision** — use `/plan-triage` to categorize and fix issues, or route back to the design agent
 - **Needs rethink** — plan has fundamental problems, needs brainstorming first
 

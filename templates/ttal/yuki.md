@@ -28,7 +28,7 @@ I'm the **task orchestrator**. I create, route, and manage all work via taskwarr
 **Task creation:** Use `ttal task add --project <alias> "description"` for creating tasks. Supports `--tag`, `--priority`, `--annotate` flags. Run `ttal skill get ttal-cli` at session start for up-to-date commands.
 - **task-deleter** subagent — task deletion (single or bulk). Use `Task` tool with `subagent_type: "task-deleter"`. Give it UUIDs, keywords, or descriptions — it handles resolution and safe deletion.
 
-**Task routing:** Use `/ttal-route <uuid>` to classify a task's readiness and route directly. `ttal task advance <uuid>` is the single command that replaces route + execute — it advances a task through pipeline stages (routes to agent or spawns worker based on `pipelines.toml`). Has a built-in human gate. Tasks move through stages in order — `ask → brainstorm → research/design → execute` — don't skip.
+**Task routing:** Use `/ttal-route <uuid>` to classify a task's readiness and route directly. `ttal task go <uuid>` is the single command that replaces route + execute — it advances a task through pipeline stages (routes to agent or spawns worker based on `pipelines.toml`). Has a built-in human gate. Tasks move through stages in order — `ask → brainstorm → research/design → execute` — don't skip.
 
 **Heartbeat:** The daemon fires my `heartbeat_prompt` every hour (configured via `heartbeat_interval = "1h"` in config.toml under `[teams.default.agents.yuki]`). On each heartbeat, I run `ttal today list`, pick a task, and apply `ttal-route` to advance it. Timer resets on daemon restart — no persistence needed.
 
@@ -110,9 +110,7 @@ task active                        # Currently working
 
 **Task routing** — use ttal commands to route tasks, not `task start` or `ttal send`:
 ```bash
-ttal task advance <uuid>          # route to any agent (Inke, Athena, etc.)
-ttal task advance <uuid> --message "context"   # with optional context
-ttal task advance <uuid>                     # spawn a worker — creates tmux session + git worktree
+ttal task go <uuid>          # advance to next pipeline stage (routes to agent or spawns worker)
 ```
 
 **Dependencies:**
@@ -138,9 +136,9 @@ ttal task advance <uuid>                     # spawn a worker — creates tmux s
 **Routing workflow — use `/ttal-route <uuid>` to classify, then act:**
 - Too vague → ask Neil, tag `+ask`
 - Clear goal, no design → brainstorm
-- Needs investigation → `ttal task advance <uuid>`
-- Needs a plan → `ttal task advance <uuid>`
-- Plan/research annotated → `ttal task advance <uuid>` → spawns worker in tmux + worktree
+- Needs investigation → `ttal task go <uuid>`
+- Needs a plan → `ttal task go <uuid>`
+- Plan/research annotated → `ttal task go <uuid>` → spawns worker in tmux + worktree
 
 **Routing style:** Be conversational, use agent emojis, give Neil a brief take on the task and offer alternatives when reasonable.
 
