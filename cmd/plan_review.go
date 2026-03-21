@@ -4,8 +4,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/planreview"
 	"github.com/tta-lab/ttal-cli/internal/review"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -39,9 +42,30 @@ Examples:
 			return planreview.RequestReReview(sessionName, uuid, cfg)
 		}
 
+		reviewerName := resolvePlanReviewerName(uuid)
+
 		fmt.Println("Spawning plan reviewer...")
-		return planreview.SpawnPlanReviewer(sessionName, uuid, cfg)
+		return planreview.SpawnPlanReviewer(sessionName, uuid, reviewerName, cfg)
 	},
+}
+
+// resolvePlanReviewerName resolves the reviewer agent name from pipeline config.
+// Tries designer then fixer assignee roles; falls back to "plan-review-lead".
+func resolvePlanReviewerName(taskUUID string) string {
+	task, err := taskwarrior.ExportTask(taskUUID)
+	if err != nil {
+		return "plan-review-lead"
+	}
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		return "plan-review-lead"
+	}
+	for _, role := range []string{"designer", "fixer"} {
+		if name := pipelineCfg.ReviewerForStage(task.Tags, role); name != "" {
+			return name
+		}
+	}
+	return "plan-review-lead"
 }
 
 func init() {

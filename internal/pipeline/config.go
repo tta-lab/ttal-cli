@@ -79,6 +79,22 @@ func (c *Config) MatchPipeline(taskTags []string) (string, *Pipeline, error) {
 	}
 }
 
+// ReviewerForStage returns the Reviewer field of the first stage whose Assignee
+// matches assigneeRole in the pipeline matching taskTags.
+// Returns "" if no pipeline matches or no stage has the given assignee.
+func (c *Config) ReviewerForStage(taskTags []string, assigneeRole string) string {
+	_, p, err := c.MatchPipeline(taskTags)
+	if err != nil || p == nil {
+		return ""
+	}
+	for _, s := range p.Stages {
+		if s.Assignee == assigneeRole {
+			return s.Reviewer
+		}
+	}
+	return ""
+}
+
 // CurrentStage determines which pipeline stage is currently active by finding
 // which agent name tag is present on the task and mapping it to a stage via role.
 //

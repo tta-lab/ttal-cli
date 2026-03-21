@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -107,7 +108,8 @@ Examples:
 				}
 			} else {
 				fmt.Println("  Spawning reviewer...")
-				if err := review.SpawnReviewer(sessionName, ctx, cfg); err != nil {
+				reviewerName := resolvePRReviewerName(ctx.Task.Tags)
+				if err := review.SpawnReviewer(sessionName, ctx, reviewerName, cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}
@@ -305,7 +307,8 @@ Examples:
 			return review.RequestReReview(sessionName, reviewFull, "", cfg)
 		}
 
-		return review.SpawnReviewer(sessionName, ctx, cfg)
+		reviewerName := resolvePRReviewerName(ctx.Task.Tags)
+		return review.SpawnReviewer(sessionName, ctx, reviewerName, cfg)
 	},
 }
 
@@ -320,6 +323,19 @@ func writeReviewFile(body string) (string, error) {
 	}
 	_ = f.Close()
 	return f.Name(), nil
+}
+
+// resolvePRReviewerName resolves the PR reviewer agent name from pipeline config.
+// Falls back to "pr-review-lead" if no pipeline matches or no reviewer is configured.
+func resolvePRReviewerName(taskTags []string) string {
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		return "pr-review-lead"
+	}
+	if name := pipelineCfg.ReviewerForStage(taskTags, "worker"); name != "" {
+		return name
+	}
+	return "pr-review-lead"
 }
 
 // resolveCoderRuntime returns the coder's runtime from TTAL_RUNTIME env var,

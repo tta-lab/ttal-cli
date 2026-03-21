@@ -17,12 +17,12 @@ const windowName = "plan-review"
 // buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ExportTaskBySessionID.
 // TTAL_TEAM is forwarded when set, so the reviewer uses the correct team project registry.
-func buildPlanReviewerEnvParts(taskUUID string, rt runtime.Runtime) ([]string, error) {
+func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Runtime) ([]string, error) {
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
 	parts := []string{
-		"TTAL_AGENT_NAME=plan-reviewer",
+		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
@@ -33,7 +33,7 @@ func buildPlanReviewerEnvParts(taskUUID string, rt runtime.Runtime) ([]string, e
 }
 
 // SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
-func SpawnPlanReviewer(sessionName string, taskUUID string, cfg *config.Config) error {
+func SpawnPlanReviewer(sessionName string, taskUUID string, reviewerName string, cfg *config.Config) error {
 	reviewerRT := cfg.ReviewerRuntime()
 	model := cfg.ReviewerModel()
 
@@ -52,7 +52,7 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, cfg *config.Config) 
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	envParts, err := buildPlanReviewerEnvParts(taskUUID, reviewerRT)
+	envParts, err := buildPlanReviewerEnvParts(taskUUID, reviewerName, reviewerRT)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, cfg *config.Config) 
 			ttalBin, workDir, breathe.SessionConfig{
 				CWD:     workDir,
 				Handoff: systemPrompt,
-			}, model, "plan-review-lead", "Review the plan.",
+			}, model, reviewerName, "Review the plan.",
 		)
 		if err != nil {
 			return err

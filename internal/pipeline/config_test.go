@@ -183,6 +183,49 @@ func TestMatchPipeline_EmptyTags(t *testing.T) {
 	}
 }
 
+func TestReviewerForStage_ReturnsConfigured(t *testing.T) {
+	dir := writeTempTOML(t, validTOML)
+	cfg, _ := Load(dir)
+
+	// validTOML has standard.stages[0] with assignee=designer and reviewer=plan-reviewer
+	name := cfg.ReviewerForStage([]string{"feature"}, "designer")
+	if name != "plan-reviewer" {
+		t.Errorf("expected 'plan-reviewer', got %q", name)
+	}
+}
+
+func TestReviewerForStage_NoPipelineMatch(t *testing.T) {
+	dir := writeTempTOML(t, validTOML)
+	cfg, _ := Load(dir)
+
+	name := cfg.ReviewerForStage([]string{"unrelated"}, "designer")
+	if name != "" {
+		t.Errorf("expected empty string for no pipeline match, got %q", name)
+	}
+}
+
+func TestReviewerForStage_EmptyReviewerField(t *testing.T) {
+	dir := writeTempTOML(t, validTOML)
+	cfg, _ := Load(dir)
+
+	// validTOML standard.stages[1] has assignee=worker and no reviewer
+	name := cfg.ReviewerForStage([]string{"feature"}, "worker")
+	if name != "" {
+		t.Errorf("expected empty string for stage with no reviewer, got %q", name)
+	}
+}
+
+func TestReviewerForStage_NoMatchingAssignee(t *testing.T) {
+	dir := writeTempTOML(t, validTOML)
+	cfg, _ := Load(dir)
+
+	// standard pipeline matches "feature" but has no "researcher" assignee
+	name := cfg.ReviewerForStage([]string{"feature"}, "researcher")
+	if name != "" {
+		t.Errorf("expected empty string for no matching assignee, got %q", name)
+	}
+}
+
 func TestCurrentStage_FindsCorrectStage(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
 	cfg, _ := Load(dir)
