@@ -46,29 +46,39 @@ func HookOnAdd() {
 				fmt.Fprintln(os.Stderr, "pipeline conflict: "+matchErr.Error())
 				os.Exit(1)
 			}
-
-			// Auto-advance past stage 0 when creating agent's role matches the first stage assignee.
-			// Prevents double-routing: if a designer creates a +feature task, they're already on it.
-			if p != nil && len(p.Stages) > 0 {
-				agentName := os.Getenv("TTAL_AGENT_NAME")
-				if agentName != "" {
-					teamPath := resolveTeamPathForHook()
-					if teamPath != "" {
-						if agent, err := agentfs.Get(teamPath, agentName); err == nil {
-							if agent.Role == p.Stages[0].Assignee {
-								task.SetTag(agentName)
-								task.SetStart()
-								hookLog("PIPELINE-SKIP", task.UUID(), task.Description(),
-									"agent", agentName, "role", agent.Role, "stage", p.Stages[0].Name)
-							}
-						}
-					}
-				}
-			}
+			tryAutoAdvanceStage0(task, p)
 		}
 	}
 
 	writeTask(task)
+}
+
+// tryAutoAdvanceStage0 auto-advances past stage 0 when the creating agent's role matches
+// the first stage assignee, preventing double-routing back to the same agent.
+func tryAutoAdvanceStage0(task hookTask, p *pipeline.Pipeline) {
+	if p == nil || len(p.Stages) == 0 {
+		return
+	}
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+	if agentName == "" {
+		return
+	}
+	teamPath := resolveTeamPathForHook()
+	if teamPath == "" {
+		return
+	}
+	agent, err := agentfs.Get(teamPath, agentName)
+	if err != nil {
+		hookLogFile("WARN: could not resolve agent for stage-0 skip: " + err.Error())
+		return
+	}
+	if agent.Role != p.Stages[0].Assignee {
+		return
+	}
+	task.SetTag(agentName)
+	task.SetStart()
+	hookLog("PIPELINE-SKIP", task.UUID(), task.Description(),
+		"agent", agentName, "role", agent.Role, "stage", p.Stages[0].Name)
 }
 
 // resolveTeamPathForHook resolves the team path from config for use in hooks.
@@ -76,6 +86,7 @@ func HookOnAdd() {
 func resolveTeamPathForHook() string {
 	cfg, err := config.Load()
 	if err != nil {
+		hookLogFile("WARN: could not load config for stage-0 skip: " + err.Error())
 		return ""
 	}
 	return cfg.TeamPath()

@@ -99,7 +99,10 @@ func TestOnAddPipeline_NoPipelinesFile_Passes(t *testing.T) {
 	}
 }
 
-func TestOnAddPipelineSkip_RoleMatch(t *testing.T) {
+// TestAgentRole_FixerMatchesBugfixStage0 verifies that agentfs.Get resolves the correct
+// role for an agent and that SetTag/SetStart mutate hookTask as expected.
+// These are unit tests for the helpers used by tryAutoAdvanceStage0.
+func TestAgentRole_FixerMatchesBugfixStage0(t *testing.T) {
 	teamDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
 		t.Fatalf("write agent file: %v", err)
@@ -147,7 +150,10 @@ gate = "human"
 	}
 }
 
-func TestOnAddPipelineSkip_RoleMismatch(t *testing.T) {
+// TestAgentRole_OrchestratorDoesNotMatchFixer verifies that agentfs.Get resolves
+// "orchestrator" role for yuki, which does not match the "fixer" assignee at stage 0.
+// Documents the role-mismatch guard condition — task should not be mutated in this case.
+func TestAgentRole_OrchestratorDoesNotMatchFixer(t *testing.T) {
 	teamDir := t.TempDir()
 	agentContent := []byte("---\nrole: orchestrator\n---\n")
 	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), agentContent, 0o644); err != nil {

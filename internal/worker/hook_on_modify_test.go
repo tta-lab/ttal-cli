@@ -218,6 +218,13 @@ func TestCheckLGTMGuard(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "plan-reviewer cannot add lgtm",
+			original: nil,
+			modified: []string{"lgtm"},
+			role:     "plan-reviewer",
+			wantErr:  true,
+		},
+		{
 			name:     "unrelated tag change not blocked",
 			original: nil,
 			modified: []string{"urgent"},

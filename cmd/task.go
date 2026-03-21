@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -50,24 +49,9 @@ Examples:
   ttal task get | ttal send --to eve --stdin`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		uuid := os.Getenv("TTAL_JOB_ID")
-		if uuid == "" {
-			agentName := os.Getenv("TTAL_AGENT_NAME")
-			if agentName == "" {
-				return fmt.Errorf("neither TTAL_JOB_ID nor TTAL_AGENT_NAME is set\n\n" +
-					"Run from a worker or agent session")
-			}
-			tasks, err := taskwarrior.ExportTasksByFilter("+"+agentName, "+ACTIVE", "status:pending")
-			if err != nil {
-				return fmt.Errorf("query active tasks for %s: %w", agentName, err)
-			}
-			if len(tasks) == 0 {
-				return fmt.Errorf("no active task found for agent %s", agentName)
-			}
-			if len(tasks) > 1 {
-				return fmt.Errorf("multiple active tasks found for agent %s — expected exactly one", agentName)
-			}
-			uuid = tasks[0].UUID
+		uuid, err := resolveCurrentTask()
+		if err != nil {
+			return err
 		}
 		if err := taskwarrior.ValidateUUID(uuid); err != nil {
 			return err
