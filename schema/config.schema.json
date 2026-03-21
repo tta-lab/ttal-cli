@@ -217,6 +217,15 @@
             ],
             "description": "PR merge mode override for this team"
           },
+          "comment_sync": {
+            "type": "string",
+            "enum": [
+              "none",
+              "pr"
+            ],
+            "description": "Comment sync mode: \"none\" (DB only) or \"pr\" (mirror to PR). Default: \"pr\".",
+            "default": "pr"
+          },
           "voice_language": {
             "type": "string",
             "description": "ISO 639-1 language code for Whisper (default: en; auto for auto-detect)"
