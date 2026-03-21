@@ -70,6 +70,29 @@ func TestCommentGetSubcmdExists(t *testing.T) {
 	}
 }
 
+// TestNotifyCounterpart_NoTmux_NoPanic verifies notifyCounterpart exits cleanly
+// for each agent role when no tmux session is available.
+// No-panic guards only — routing is not verified without a live tmux session.
+func TestNotifyCounterpart_NoTmux_NoPanic(t *testing.T) {
+	tests := []struct {
+		name      string
+		agentName string
+	}{
+		{"coder: no panic when no tmux session", "coder"},
+		{"plan-review-lead: no panic when no tmux session", "plan-review-lead"},
+		{"pr-review-lead: no panic when no tmux session", "pr-review-lead"},
+		{"manager agent: no panic when no tmux session", "kestrel"},
+		{"empty agent name: no panic when no tmux session", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("TTAL_AGENT_NAME", tt.agentName)
+			// Should return early (no tmux session) without panicking.
+			notifyCounterpart("test body")
+		})
+	}
+}
+
 func TestResolveCurrentTask_NoEnv_ReturnsError(t *testing.T) {
 	_ = os.Unsetenv("TTAL_JOB_ID")
 	_ = os.Unsetenv("TTAL_AGENT_NAME")
