@@ -244,9 +244,13 @@ func processStageAdvance(
 		return
 	}
 
-	// Check human gate.
-	if stage.Gate == "human" {
-		approved, err := askHumanGate(ctx, fe, callerAgent, task, stage)
+	// Check human gate — skip when human-initiated (empty callerAgent = human already approved).
+	if stage.Gate == "human" && callerAgent != "" {
+		nextStageName := "Complete"
+		if idx+1 < len(p.Stages) {
+			nextStageName = p.Stages[idx+1].Name
+		}
+		approved, err := askHumanGate(ctx, fe, callerAgent, task, stage, nextStageName)
 		if err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,
@@ -467,11 +471,11 @@ func advanceToStage(
 // Returns true if approved, false if rejected or timed out.
 func askHumanGate(
 	ctx context.Context, fe frontend.Frontend, agentName string,
-	task *taskwarrior.Task, stage *pipeline.Stage,
+	task *taskwarrior.Task, stage *pipeline.Stage, nextStageName string,
 ) (bool, error) {
 	question := fmt.Sprintf(
-		"🔒 Advance task through <b>%s</b> gate?\n\n📋 Task: %s\n🎯 Stage: %s",
-		stage.Gate,
+		"🔒 Go to <b>%s</b>?\n\n📋 Task: %s\n📍 Current: %s",
+		html.EscapeString(nextStageName),
 		html.EscapeString(task.Description),
 		html.EscapeString(stage.Name),
 	)
