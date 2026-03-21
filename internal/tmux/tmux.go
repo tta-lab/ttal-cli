@@ -254,14 +254,6 @@ func CurrentWindow() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// Role returns the TTAL_ROLE of this process ("coder", "reviewer", or "").
-// Set by worker spawn (TTAL_ROLE=coder) and reviewer spawn (TTAL_ROLE=reviewer).
-// Avoids querying tmux for window names, which can return the active tab
-// instead of the pane's actual window.
-func Role() string {
-	return os.Getenv("TTAL_ROLE")
-}
-
 // GetPaneCwd returns the current working directory of the pane in the given session:window.
 func GetPaneCwd(session, window string) (string, error) {
 	target := session
