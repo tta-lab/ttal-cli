@@ -10,7 +10,7 @@ The typical ttal workflow follows three phases: research the problem, design the
 ### 1. Research
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 The research agent investigates the problem, explores options, and writes a findings document. It then annotates the task:
@@ -22,7 +22,7 @@ Research: ~/clawd/docs/research/2026-03-01-auth-options.md
 ### 2. Design
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 The design agent reads the task (including the research findings via the annotation), writes an implementation plan, and annotates the task:
@@ -34,7 +34,7 @@ Plan: ~/clawd/docs/plans/2026-03-01-auth-implementation.md
 ### 3. Execute
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 This spawns a worker in a tmux session with a git worktree. The worker receives the full task context — including the research findings and implementation plan, automatically inlined from annotations.
@@ -62,7 +62,7 @@ ttal task add --project myapp "Add JWT authentication to the API"
 ### Step 2: Research
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 Athena (the research agent) investigates JWT libraries, compares options, and writes findings.
@@ -70,7 +70,7 @@ Athena (the research agent) investigates JWT libraries, compares options, and wr
 ### Step 3: Design
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 Inke (the design agent) reads Athena's research, writes an implementation plan with specific files to modify, and annotates the task.
@@ -78,7 +78,7 @@ Inke (the design agent) reads Athena's research, writes an implementation plan w
 ### Step 4: Execute
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 A worker spawns with full context: the task description, Athena's research, and Inke's plan — all inlined in the prompt. The worker follows the plan, implements the feature, creates a PR.
@@ -91,6 +91,6 @@ The PR goes through automated review (6 specialized review agents), the worker t
 
 Not every task needs all three phases:
 
-- **Simple bug fix** — skip research and design, go straight to `ttal task go`
-- **Well-understood feature** — skip research, go straight to design stage with `ttal task go <uuid>`, then execute
+- **Simple bug fix** — skip research and design, go straight to `ttal go`
+- **Well-understood feature** — skip research, go straight to design stage with `ttal go <uuid>`, then execute
 - **Exploratory work** — research only, then decide next steps based on findings

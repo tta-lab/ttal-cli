@@ -10,7 +10,7 @@ Workers are isolated coding sessions. Each worker runs in its own tmux session w
 The primary way to spawn a worker is through task execution:
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 This reads the task's metadata (project path, branch name) and spawns a worker with the right context.
@@ -82,7 +82,7 @@ Force close dumps the session state and cleans up regardless of PR status.
 
 After a PR is merged, the typical cleanup flow is:
 
-1. Run `ttal pr merge` from the worker session
+1. Run `ttal go <uuid>` from the worker session
 2. This drops a cleanup request file to `~/.ttal/cleanup/`
 3. The daemon picks it up via fsnotify
 4. Daemon runs: close tmux session → remove worktree → mark task done
@@ -100,7 +100,7 @@ This processes any pending cleanup request files that the daemon hasn't handled 
 Spawn a worker to implement a task:
 
 ```bash
-ttal task go <uuid>
+ttal go <uuid>
 ```
 
 Without `--yes`, shows the project path and prompts for confirmation.

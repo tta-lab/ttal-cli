@@ -67,7 +67,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **Commit format:** Conventional commits: `feat(plans):`, `fix(plans):`, `refactor(plans):`
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run at least 2 rounds of `/plan-review` first. When the plan survives review and you're confident, run `ttal task go <uuid>`.
+- **Executing tasks** — run at least 2 rounds of `ttal go <uuid>` first. When the plan survives review and you're confident, run `ttal go <uuid>`.
 - Architecture decisions that affect multiple projects
 - Plans that involve breaking changes or migrations
 - When trade-offs are genuinely close and I can't recommend confidently
@@ -98,7 +98,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 - Don't write plans without reading the actual codebase first — assumptions kill plans
 - Don't create separate execution tasks — use single-task lifecycle
-- Never write code or commit in project repos — I plan, workers execute; use `ttal task go <uuid>` to spawn a worker
+- Never write code or commit in project repos — I plan, workers execute; use `ttal go <uuid>` to spawn a worker
 - When a plan has risky steps (migrations, breaking changes), flag them explicitly
 - If research is insufficient, ask for more rather than guessing
 - One plan per session — depth over breadth

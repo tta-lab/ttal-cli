@@ -42,9 +42,9 @@ as all runtimes require skill invocations at the start of the message.
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `designer` | `ttal task go <uuid>` (agent with `role: designer`) | `{{task-id}}`, `{{skill:name}}` |
-| `researcher` | `ttal task go <uuid>` (agent with `role: researcher`) | `{{task-id}}`, `{{skill:name}}` |
-| `execute` | `ttal task go` | `{{task-id}}`, `{{skill:name}}` |
+| `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}`, `{{skill:name}}` |
+| `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}`, `{{skill:name}}` |
+| `execute` | `ttal go` | `{{task-id}}`, `{{skill:name}}` |
 | `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
 | `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}`, `{{skill:name}}` |
@@ -53,19 +53,19 @@ as all runtimes require skill invocations at the start of the message.
 
 ### `execute`
 
-The execute prompt is prepended to the worker's spawn prompt. When you run `ttal task go <uuid>`, the worker receives this prompt followed by the task context (description, annotations, inlined docs).
+The execute prompt is prepended to the worker's spawn prompt. When you run `ttal go <uuid>`, the worker receives this prompt followed by the task context (description, annotations, inlined docs).
 
 Default: invokes the executing-plans skill to implement the task step by step.
 
 ### `designer`
 
-Controls what gets sent when you run `ttal task go <uuid>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
+Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
 
 Default: asks the agent to write a plan document and annotate the task with its path.
 
 ### `researcher`
 
-Controls what gets sent when you run `ttal task go <uuid>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
+Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
 
 Default: asks the agent to research the topic and annotate the task with the findings path.
 

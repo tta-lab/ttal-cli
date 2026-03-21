@@ -8,7 +8,7 @@ triage = """\
 {{skill:triage}}
 PR review posted. {{review-file}} Read it, assess and fix issues.
 Post your triage update with ttal comment add when done.
-If verdict is LGTM and no remaining issues, merge with: ttal pr merge"""
+If verdict is LGTM and no remaining issues, merge with: ttal go <uuid>"""
 
 review = """\
 {{skill:pr-review}}

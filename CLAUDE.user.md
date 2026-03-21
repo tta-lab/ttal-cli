@@ -43,13 +43,13 @@ Workers automatically look for flicknote notes in projects named `*plan*` or `*f
 
 ### Step 3: Execute
 ```bash
-ttal task go <uuid>    # spawns a worker in isolated worktree
+ttal go <uuid>    # spawns a worker in isolated worktree
 ```
 
 ## GitHub & Forgejo
 
 - **Use `ttal pr` for PR operations** — creation, modification, merging. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
-  - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal pr merge`
+  - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal go <uuid>`
 - **Use `ttal comment` for task comments**: `ttal comment add "msg"` / `ttal comment list`
 
 ## Comments & Reviews
@@ -146,11 +146,11 @@ ttal task get <uuid>         # get formatted task prompt
 Route tasks to the right agent instead of doing everything yourself.
 
 ```bash
-ttal task go <uuid>    # advance task through pipeline stage (route to agent or spawn worker)
+ttal go <uuid>    # advance task through pipeline stage (route to agent or spawn worker)
 ```
 
 **When to use:**
-- `ttal task go` — advances the task to the next pipeline stage. Routes to the right agent (design/research) or spawns a worker, based on `pipelines.toml`.
+- `ttal go` — advances the task to the next pipeline stage. Routes to the right agent (design/research) or spawns a worker, based on `pipelines.toml`.
 
 ### Ask
 
@@ -227,7 +227,7 @@ ttal task add --project <alias> "description" --tag <tag> --priority M --annotat
 ttal task get <uuid>                    # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
 ttal task find <keyword> --completed    # search completed tasks
-ttal task go <uuid>                    # advance task through pipeline stage
+ttal go <uuid>                    # advance task through pipeline stage
 ```
 
 ## PRs
@@ -235,7 +235,7 @@ ttal task go <uuid>                    # advance task through pipeline stage
 ```bash
 ttal pr create "title" --body "description"
 ttal pr modify --title "new" --body "new"
-ttal pr merge                          # squash merge
+ttal go <uuid>                          # squash merge
 ```
 
 ## Projects & Agents

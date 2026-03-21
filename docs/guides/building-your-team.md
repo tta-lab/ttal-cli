@@ -15,7 +15,7 @@ The simplest setup. One persistent agent handles orchestration, and workers are 
 ttal agent add kestrel --role orchestrator
 ```
 
-Kestrel manages your tasks, responds to Telegram messages, and spawns workers when you run `ttal task go`. Each worker is isolated in its own tmux session and git worktree.
+Kestrel manages your tasks, responds to Telegram messages, and spawns workers when you run `ttal go`. Each worker is isolated in its own tmux session and git worktree.
 
 **Best for:** Individual developers who want mobile access and task-driven workflows.
 
@@ -36,7 +36,7 @@ ttal agent modify inke role:designer
 ttal agent modify athena role:researcher
 ```
 
-Now `ttal task go <uuid>` advances the task through pipeline stages: routes to Athena (researcher) or Inke (designer) for early stages, and spawns a worker for implementation.
+Now `ttal go <uuid>` advances the task through pipeline stages: routes to Athena (researcher) or Inke (designer) for early stages, and spawns a worker for implementation.
 
 **Best for:** Complex projects where tasks benefit from investigation and planning before implementation.
 

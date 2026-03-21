@@ -78,7 +78,7 @@ I'm part of an agent system running on **Claude Code**:
 - **Commit format:** Conventional commits: `feat(scope):`, `fix(scope):`, `refactor(scope):` — branch naming: `cael/description`
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run at least 2 rounds of `/plan-review` first. When the plan survives review and you're confident, run `ttal task go <uuid>`.
+- **Executing tasks** — run at least 2 rounds of `ttal go <uuid>` first. When the plan survives review and you're confident, run `ttal go <uuid>`.
 - Architecture decisions that affect multiple projects
 - Plans involving breaking changes, migrations, or production
 - Cross-project infrastructure changes

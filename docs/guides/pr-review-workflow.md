@@ -16,7 +16,7 @@ ttal pr create "feat: add auth"
     ↓
 Worker triages review feedback
     ↓
-ttal pr merge (or approve from Telegram)
+ttal go <uuid> (or approve from Telegram)
 ```
 
 ## Creating PRs
@@ -59,13 +59,13 @@ The reviewer is advisory only — they post a verdict but never merge:
 
 ```bash
 # Squash-merge the PR (deletes branch by default)
-ttal pr merge
+ttal go <uuid>
 
 # Keep the branch after merge
-ttal pr merge --keep-branch
+ttal go <uuid> --keep-branch
 ```
 
-After merge, `ttal pr merge` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.
+After merge, `ttal go <uuid>` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.
 
 ## Managing comments
 

@@ -25,12 +25,8 @@ ttal pr modify --body "updated description"
 
 ## Merge a PR (squash)
 
-```bash
-ttal pr merge
-ttal pr merge --keep-branch
-```
-
-Squash-merges the PR. Fails with a clear error if checks are failing or there are conflicts.
+Merging is handled automatically by `ttal go <uuid>` when `+lgtm` is set on the task.
+The daemon squash-merges the PR and requests cleanup — no separate merge command needed.
 
 ## Comment on a task
 

@@ -22,7 +22,7 @@ You already have the plan and its review issues in context. No need to search or
 /plan-triage
 ```
 
-Run this after `/plan-review` has identified issues. The plans and issues are already in your conversation context.
+Run this after `ttal go <uuid>` has identified issues. The plans and issues are already in your conversation context.
 
 ## Phase 1: Categorize
 
