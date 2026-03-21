@@ -243,15 +243,16 @@ func TestCurrentStage_NoAgentTag_ReturnsNegativeOne(t *testing.T) {
 	}
 }
 
-// TestCurrentStage_WorkerStage verifies the worker assignee is matched by role
-// — "worker" is not an agent name, so it matches on assignee value directly.
+// TestCurrentStage_WorkerStage verifies that without a +worker tag,
+// the worker stage is not detected — only the explicit +worker tag
+// (added by advanceToStage) makes the stage visible to CurrentStage.
 func TestCurrentStage_WorkerStage(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	// "worker" is not in agentRoles — it's a special assignee, not an agent.
-	// There's no agent tag for the worker stage, so CurrentStage returns -1.
+	// Without +worker tag, CurrentStage can't detect the worker stage.
+	// The +worker tag is added by advanceToStage when spawning a worker.
 	agentRoles := map[string]string{"inke": "designer"}
 	idx, stage, err := p.CurrentStage([]string{"feature"}, agentRoles)
 	if err != nil {
@@ -260,5 +261,43 @@ func TestCurrentStage_WorkerStage(t *testing.T) {
 	// No agent tag on task → not in any stage yet.
 	if idx != -1 || stage != nil {
 		t.Errorf("expected (-1, nil) when no agent tag present, got (%d, %v)", idx, stage)
+	}
+}
+
+func TestCurrentStage_WorkerTag(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Plan", Assignee: "designer", Gate: "human"},
+			{Name: "Implement", Assignee: "worker", Gate: "auto"},
+		},
+	}
+	agentRoles := map[string]string{"inke": "designer"}
+
+	// +worker tag should match the Implement stage.
+	idx, stage, err := p.CurrentStage([]string{"feature", "worker"}, agentRoles)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != 1 {
+		t.Errorf("expected stage index 1, got %d", idx)
+	}
+	if stage.Name != "Implement" {
+		t.Errorf("expected stage 'Implement', got %q", stage.Name)
+	}
+}
+
+func TestCurrentStage_WorkerAndAgentTag_Ambiguity(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Plan", Assignee: "designer", Gate: "human"},
+			{Name: "Implement", Assignee: "worker", Gate: "auto"},
+		},
+	}
+	agentRoles := map[string]string{"inke": "designer"}
+
+	// Both +inke and +worker → ambiguity error.
+	_, _, err := p.CurrentStage([]string{"feature", "inke", "worker"}, agentRoles)
+	if err == nil {
+		t.Fatal("expected ambiguity error, got nil")
 	}
 }
