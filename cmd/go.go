@@ -14,7 +14,7 @@ import (
 )
 
 var goCmd = &cobra.Command{
-	Use:   "go <uuid>",
+	Use:   "go [uuid]",
 	Short: "Advance a task to the next pipeline stage",
 	Long: `Advance a task through its pipeline stages based on pipelines.toml configuration.
 
@@ -24,12 +24,26 @@ is determined by the task's pipeline stage definition.
 
 Human gate stages block until Telegram approval is received.
 
+If no UUID is provided, resolves the current task from:
+  - TTAL_JOB_ID (worker sessions)
+  - TTAL_AGENT_NAME (manager sessions — active task with matching tag)
+
 Examples:
   ttal go abc12345
-  ttal go abc12345-1234-1234-1234-123456789abc`,
-	Args: cobra.ExactArgs(1),
+  ttal go abc12345-1234-1234-1234-123456789abc
+  ttal go`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		uuid := args[0]
+		var uuid string
+		if len(args) > 0 {
+			uuid = args[0]
+		} else {
+			resolved, err := resolveCurrentTask()
+			if err != nil {
+				return fmt.Errorf("no UUID provided and auto-resolve failed: %w", err)
+			}
+			uuid = resolved
+		}
 		if err := taskwarrior.ValidateUUID(uuid); err != nil {
 			return err
 		}

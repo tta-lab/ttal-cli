@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -35,12 +36,13 @@ func formatCommentTime(raw string) string {
 // Manager plane: TTAL_AGENT_NAME → active task with +<agent> tag.
 func resolveCurrentTask() (string, error) {
 	if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
-		task, err := taskwarrior.ExportTaskBySessionID(jobID, "pending")
-		if err != nil {
-			task, err = taskwarrior.ExportTaskBySessionID(jobID, "completed")
-		}
-		if err != nil {
-			return "", fmt.Errorf("no task for job ID %q: %w", jobID, err)
+		task, pendingErr := taskwarrior.ExportTaskBySessionID(jobID, "pending")
+		if pendingErr != nil {
+			var completedErr error
+			task, completedErr = taskwarrior.ExportTaskBySessionID(jobID, "completed")
+			if completedErr != nil {
+				return "", fmt.Errorf("no task for job ID %q (pending: %v; completed: %w)", jobID, pendingErr, completedErr)
+			}
 		}
 		return task.UUID, nil
 	}
@@ -208,7 +210,7 @@ Task is auto-resolved from TTAL_JOB_ID (worker) or TTAL_AGENT_NAME (manager).
 The on-modify hook validates that only reviewers can set +lgtm.
 The hook is a global taskwarrior hook (installed via ttal doctor --fix),
 not worker-specific — it fires on ALL task modifications and checks
-TTAL_AGENT_NAME == "reviewer".
+TTAL_AGENT_NAME matches a pipeline reviewer configured in pipelines.toml.
 
 Examples:
   ttal comment lgtm`,
@@ -295,17 +297,33 @@ func notifyCounterpart(body string) {
 	if sessionName == "" {
 		return
 	}
-	switch os.Getenv("TTAL_AGENT_NAME") {
-	case "reviewer":
-		cfg, rt := loadConfigAndCoderRuntime()
-		notifyCoder(sessionName, body, cfg, rt)
-	case "coder":
+
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+
+	// "coder" is a fixed system identity set by worker spawn (internal/worker/spawn.go),
+	// not a pipeline-configured agent name — always notify the reviewer window.
+	if agentName == "coder" {
 		cfg, _ := loadConfigAndCoderRuntime()
 		notifyReviewer(sessionName, body, cfg)
-	case "plan-reviewer":
+		return
+	}
+
+	// Check if this agent is a reviewer — route based on what stage type they review.
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		log.Printf("warn: notifyCounterpart: load pipelines: %v", err)
+		notifyPlanReviewer(sessionName)
+		return
+	}
+
+	switch pipelineCfg.ReviewerNotifyTarget(agentName) {
+	case pipeline.NotifyTargetCoder:
+		cfg, rt := loadConfigAndCoderRuntime()
+		notifyCoder(sessionName, body, cfg, rt)
+	case pipeline.NotifyTargetDesigner:
 		notifyDesigner(sessionName, body)
 	default:
-		// Manager agents (kestrel, inke, etc.) notify plan-reviewer if window exists
+		// Manager agents notify plan-reviewer if window exists
 		notifyPlanReviewer(sessionName)
 	}
 }

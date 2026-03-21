@@ -95,6 +95,37 @@ func (c *Config) ReviewerForStage(taskTags []string, assigneeRole string) string
 	return ""
 }
 
+// NotifyTarget represents the notification counterpart for a reviewer agent.
+type NotifyTarget int
+
+const (
+	NotifyTargetNone     NotifyTarget = iota
+	NotifyTargetCoder                 // reviewer reviews worker stages → notify coder
+	NotifyTargetDesigner              // reviewer reviews non-worker stages → notify designer
+)
+
+// ReviewerNotifyTarget scans all pipelines to determine what notification
+// target an agent maps to based on the stage type they review.
+// Returns NotifyTargetCoder if the agent is a reviewer for a "worker" stage.
+// Returns NotifyTargetDesigner if the agent is a reviewer for any other stage.
+// Returns NotifyTargetNone if the agent is not a reviewer in any pipeline.
+// If the agent reviews both worker and non-worker stages, NotifyTargetCoder wins.
+func (c *Config) ReviewerNotifyTarget(agentName string) NotifyTarget {
+	target := NotifyTargetNone
+	for _, p := range c.Pipelines {
+		for _, s := range p.Stages {
+			if s.Reviewer != agentName {
+				continue
+			}
+			if s.Assignee == "worker" {
+				return NotifyTargetCoder // most specific — return immediately
+			}
+			target = NotifyTargetDesigner
+		}
+	}
+	return target
+}
+
 // CurrentStage determines which pipeline stage is currently active by finding
 // which agent name tag is present on the task and mapping it to a stage via role.
 //

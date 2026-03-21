@@ -226,6 +226,84 @@ func TestReviewerForStage_NoMatchingAssignee(t *testing.T) {
 	}
 }
 
+func TestReviewerNotifyTarget(t *testing.T) {
+	const toml = `
+[standard]
+description = "Plan → Implement"
+tags = ["feature"]
+
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+reviewer = "plan-review-lead"
+
+[[standard.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	dir := writeTempTOML(t, toml)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		agentName string
+		want      NotifyTarget
+	}{
+		{"worker stage reviewer → coder", "pr-review-lead", NotifyTargetCoder},
+		{"non-worker stage reviewer → designer", "plan-review-lead", NotifyTargetDesigner},
+		{"not a reviewer → none", "kestrel", NotifyTargetNone},
+		{"empty agent name → none", "", NotifyTargetNone},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cfg.ReviewerNotifyTarget(tt.agentName)
+			if got != tt.want {
+				t.Errorf("ReviewerNotifyTarget(%q) = %v, want %v", tt.agentName, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReviewerNotifyTarget_WorkerWins(t *testing.T) {
+	// Agent reviews both worker and non-worker stages → NotifyTargetCoder wins.
+	const toml = `
+[p1]
+description = "Pipeline 1"
+tags = ["t1"]
+
+[[p1.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+reviewer = "multi-reviewer"
+
+[p2]
+description = "Pipeline 2"
+tags = ["t2"]
+
+[[p2.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "multi-reviewer"
+`
+	dir := writeTempTOML(t, toml)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+	got := cfg.ReviewerNotifyTarget("multi-reviewer")
+	if got != NotifyTargetCoder {
+		t.Errorf("expected NotifyTargetCoder when agent reviews both, got %v", got)
+	}
+}
+
 func TestCurrentStage_FindsCorrectStage(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
 	cfg, _ := Load(dir)
