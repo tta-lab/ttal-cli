@@ -1,7 +1,10 @@
 package frontend
 
 import (
+	"context"
 	"testing"
+
+	"github.com/go-telegram/bot/models"
 )
 
 func TestBuildFullCommand(t *testing.T) {
@@ -52,3 +55,83 @@ func TestBuildFullCommand(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleInboundMessage_BashMode verifies that messages starting with "! " are delivered
+// directly to the agent without the [telegram from:] wrapper.
+func TestHandleInboundMessage_BashMode(t *testing.T) {
+	tests := []struct {
+		name         string
+		text         string
+		overrideText *string
+		replyTo      *models.Message
+		want         string
+	}{
+		{
+			name: "bash mode",
+			text: "! ls",
+			want: "! ls",
+		},
+		{
+			name: "normal text",
+			text: "hello",
+			want: "[telegram from:testuser] hello",
+		},
+		{
+			name: "no space not bash mode",
+			text: "!nospace",
+			want: "[telegram from:testuser] !nospace",
+		},
+		{
+			// TrimSpace strips the trailing space, so "! " → "!" which is NOT bash mode.
+			name: "prefix only is not bash mode after trim",
+			text: "! ",
+			want: "[telegram from:testuser] !",
+		},
+		{
+			name:         "overrideText bash mode",
+			text:         "@bot ! ls",
+			overrideText: strPtr("! ls"),
+			want:         "! ls",
+		},
+		{
+			name:    "reply context dropped for bash mode",
+			text:    "! ls",
+			replyTo: &models.Message{Text: "previous message"},
+			want:    "! ls",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fe := &TelegramFrontend{
+				cfg: TelegramConfig{
+					UserNameFn: func() string { return "testuser" },
+				},
+				mt: newMessageTracker(),
+			}
+
+			var got string
+			onMessage := func(agentName, text string) { got = text }
+
+			msg := &models.Message{
+				ID:             1,
+				Text:           tt.text,
+				ReplyToMessage: tt.replyTo,
+				From:           &models.User{Username: "testuser"},
+				Chat:           models.Chat{ID: 123},
+			}
+
+			fe.handleInboundMessage(
+				context.Background(), nil, msg,
+				"testteam", "testagent", "test-token", "123",
+				onMessage, tt.overrideText,
+			)
+
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func strPtr(s string) *string { return &s }

@@ -423,6 +423,57 @@ func TestMatrixFrontend_ClearTracking(t *testing.T) {
 	}
 }
 
+// TestDeliverInboundMessage_BashMode verifies that messages starting with "! " are delivered
+// directly to the agent without the [matrix from:] wrapper.
+func TestDeliverInboundMessage_BashMode(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "bash mode",
+			body: "! ls",
+			want: "! ls",
+		},
+		{
+			name: "normal text",
+			body: "hello",
+			want: "[matrix from:neil] hello",
+		},
+		{
+			name: "no space not bash mode",
+			body: "!nospace",
+			want: "[matrix from:neil] !nospace",
+		},
+		{
+			name: "prefix only empty command",
+			body: "! ",
+			want: "! ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			fe := &MatrixFrontend{
+				cfg: MatrixConfig{
+					TeamName:   "testteam",
+					UserNameFn: func() string { return testUserName },
+					OnMessage:  func(_, agentName, text string) { got = text },
+				},
+				lastEventID: make(map[string]id.EventID),
+			}
+
+			fe.deliverInboundMessage(context.Background(), "testagent", tt.body)
+
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestMatrixTeamConfig_Validate verifies Validate() catches missing homeserver and mismatched notify config.
 func TestMatrixTeamConfig_Validate(t *testing.T) {
 	tests := []struct {
