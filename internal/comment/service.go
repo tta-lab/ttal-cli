@@ -45,6 +45,18 @@ func (s *Service) List(ctx context.Context, target, team string) ([]*ent.Comment
 		All(ctx)
 }
 
+// GetByRound returns comments for target+team filtered to a specific round.
+func (s *Service) GetByRound(ctx context.Context, target, team string, round int) ([]*ent.Comment, error) {
+	return s.client.Comment.Query().
+		Where(
+			entcomment.Target(target),
+			entcomment.Team(team),
+			entcomment.Round(round),
+		).
+		Order(entcomment.ByCreatedAt()).
+		All(ctx)
+}
+
 // CurrentRound returns the latest round number for target+team (0 if none).
 func (s *Service) CurrentRound(ctx context.Context, target, team string) (int, error) {
 	comments, err := s.client.Comment.Query().
