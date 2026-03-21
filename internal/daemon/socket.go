@@ -234,6 +234,20 @@ type CommentListResponse struct {
 	Comments []CommentEntry `json:"comments,omitempty"`
 }
 
+// CommentGetRequest asks the daemon to get comments for a specific round.
+// Team is omitted — daemon injects from mcfg.DefaultTeamName(), consistent with CommentListRequest.
+type CommentGetRequest struct {
+	Target string `json:"target"` // taskwarrior task UUID
+	Round  int    `json:"round"`
+}
+
+// CommentGetResponse is the daemon's response for a comment get.
+type CommentGetResponse struct {
+	OK       bool           `json:"ok"`
+	Error    string         `json:"error,omitempty"`
+	Comments []CommentEntry `json:"comments,omitempty"`
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -248,6 +262,7 @@ type httpHandlers struct {
 	// Comment operations (stored in ttal DB)
 	commentAdd  func(CommentAddRequest) CommentAddResponse
 	commentList func(CommentListRequest) CommentListResponse
+	commentGet  func(CommentGetRequest) CommentGetResponse
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -275,6 +290,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// Comment routes (stored in ttal DB)
 	r.Post("/comment/add", handleHTTPCommentAdd(handlers))
 	r.Post("/comment/list", handleHTTPCommentList(handlers))
+	r.Post("/comment/get", handleHTTPCommentGet(handlers))
 	// PR routes (proxied through daemon for token isolation)
 	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
 	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
@@ -405,6 +421,23 @@ func handleHTTPCommentList(handlers httpHandlers) http.HandlerFunc {
 			return
 		}
 		result := handlers.commentList(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
+}
+
+func handleHTTPCommentGet(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req CommentGetRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				CommentGetResponse{OK: false, Error: "invalid commentGet JSON: " + err.Error()})
+			return
+		}
+		result := handlers.commentGet(req)
 		code := http.StatusOK
 		if !result.OK {
 			code = http.StatusInternalServerError
@@ -584,6 +617,28 @@ func CommentAdd(req CommentAddRequest) (CommentAddResponse, error) {
 	var result CommentAddResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return CommentAddResponse{}, fmt.Errorf("decode comment add response: %w", err)
+	}
+	if !result.OK {
+		return result, fmt.Errorf("%s", result.Error) //nolint:err113
+	}
+	return result, nil
+}
+
+// CommentGet asks the daemon for comments at a specific round.
+func CommentGet(req CommentGetRequest) (CommentGetResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return CommentGetResponse{}, fmt.Errorf("marshal comment get request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/comment/get", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return CommentGetResponse{}, fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result CommentGetResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return CommentGetResponse{}, fmt.Errorf("decode comment get response: %w", err)
 	}
 	if !result.OK {
 		return result, fmt.Errorf("%s", result.Error) //nolint:err113

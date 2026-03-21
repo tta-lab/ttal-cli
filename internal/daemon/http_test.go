@@ -43,6 +43,15 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			writeHTTPJSON(w, http.StatusOK, AdvanceResponse{Status: AdvanceStatusNoPipeline, Message: "not configured in test"})
 		},
+		commentAdd: func(req CommentAddRequest) CommentAddResponse {
+			return CommentAddResponse{OK: true, Round: 1}
+		},
+		commentList: func(req CommentListRequest) CommentListResponse {
+			return CommentListResponse{OK: true}
+		},
+		commentGet: func(req CommentGetRequest) CommentGetResponse {
+			return CommentGetResponse{OK: true}
+		},
 	}
 }
 
@@ -507,6 +516,62 @@ func TestHTTPPRMerge_HandlerError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", w.Code)
+	}
+}
+
+// Comment get route tests
+
+func TestHTTPCommentGet(t *testing.T) {
+	var received CommentGetRequest
+	h := testHandlers(nil)
+	h.commentGet = func(req CommentGetRequest) CommentGetResponse {
+		received = req
+		return CommentGetResponse{OK: true, Comments: []CommentEntry{
+			{Author: "reviewer", Body: "looks good", Round: 2, CreatedAt: "2026-03-21T00:00:00Z"},
+		}}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(CommentGetRequest{Target: "abc-123", Round: 2})
+	req := httptest.NewRequest(http.MethodPost, "/comment/get", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if received.Target != "abc-123" {
+		t.Errorf("expected Target=abc-123, got %q", received.Target)
+	}
+	if received.Round != 2 {
+		t.Errorf("expected Round=2, got %d", received.Round)
+	}
+}
+
+func TestHTTPCommentGet_HandlerError(t *testing.T) {
+	h := testHandlers(nil)
+	h.commentGet = func(req CommentGetRequest) CommentGetResponse {
+		return CommentGetResponse{OK: false, Error: "db error"}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(CommentGetRequest{Target: "abc-123", Round: 1})
+	req := httptest.NewRequest(http.MethodPost, "/comment/get", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
+	}
+}
+
+func TestHTTPCommentGet_BadJSON(t *testing.T) {
+	r := newDaemonRouter(testHandlers(nil))
+	req := httptest.NewRequest(http.MethodPost, "/comment/get", bytes.NewReader([]byte("not json")))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
 	}
 }
 
