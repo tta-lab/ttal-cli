@@ -128,8 +128,7 @@ func handlePipelineAdvance(
 	if idx == -1 {
 		// First advance — route to stage 0.
 		firstStage := &p.Stages[0]
-		startRecord := fmt.Sprintf("pipeline:started stage:%s completed:%s",
-			firstStage.Name, time.Now().UTC().Format(time.RFC3339))
+		startRecord := fmt.Sprintf("pipeline:started stage:%s completed:%s", firstStage.Name, nowUTC())
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
@@ -200,16 +199,20 @@ func matchTaskPipeline(w http.ResponseWriter, taskTags []string) (*pipeline.Pipe
 	return p, true
 }
 
+// nowUTC returns the current UTC time formatted as RFC3339.
+func nowUTC() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
 // annotateStageCompletion writes an audit annotation recording who completed the stage.
 func annotateStageCompletion(uuid, stageName, assignee, agentName string) {
 	completedBy := agentName
-	if completedBy == "" {
-		completedBy = "unknown"
-	}
 	if assignee == workerStage {
 		completedBy = workerStage
+	} else if completedBy == "" {
+		completedBy = "unknown"
 	}
-	record := fmt.Sprintf("stage:%s by:%s completed:%s", stageName, completedBy, time.Now().UTC().Format(time.RFC3339))
+	record := fmt.Sprintf("stage:%s by:%s completed:%s", stageName, completedBy, nowUTC())
 	if err := taskwarrior.AnnotateTask(uuid, record); err != nil {
 		log.Printf("[advance] warning: annotate stage completion: %v", err)
 	}
@@ -343,8 +346,12 @@ func advanceToStage(
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
 		}
-		if err := taskwarrior.ModifyTags(task.UUID, "+worker"); err != nil {
-			log.Printf("[advance] warning: add worker tag: %v", err)
+		if err := taskwarrior.ModifyTags(task.UUID, "+"+workerStage); err != nil {
+			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+				Status:  AdvanceStatusError,
+				Message: fmt.Sprintf("add worker tag: %v", err),
+			})
+			return err
 		}
 
 		projectPath, err := projectPkg.ResolveProjectPathOrError(task.Project)
