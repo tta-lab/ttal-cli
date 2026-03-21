@@ -125,7 +125,8 @@ func handlePipelineAdvance(
 	if idx == -1 {
 		// First advance — route to stage 0.
 		firstStage := &p.Stages[0]
-		startRecord := fmt.Sprintf("pipeline:started stage:%s completed:%s", firstStage.Name, time.Now().UTC().Format(time.RFC3339))
+		startRecord := fmt.Sprintf("pipeline:started stage:%s completed:%s",
+			firstStage.Name, time.Now().UTC().Format(time.RFC3339))
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
