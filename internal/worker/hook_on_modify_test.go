@@ -218,6 +218,13 @@ func TestCheckLGTMGuard(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "plan-reviewer cannot add lgtm",
+			original: nil,
+			modified: []string{"lgtm"},
+			role:     "plan-reviewer",
+			wantErr:  true,
+		},
+		{
 			name:     "unrelated tag change not blocked",
 			original: nil,
 			modified: []string{"urgent"},
@@ -228,7 +235,7 @@ func TestCheckLGTMGuard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("TTAL_ROLE", tt.role)
+			t.Setenv("TTAL_AGENT_NAME", tt.role)
 			orig := makeLGTMTask(tt.original)
 			mod := makeLGTMTask(tt.modified)
 			err := checkLGTMGuard(orig, mod)

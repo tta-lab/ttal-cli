@@ -6,23 +6,21 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/planreview"
 	"github.com/tta-lab/ttal-cli/internal/review"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 var planReviewCmd = &cobra.Command{
-	Use:   "review <uuid>",
+	Use:   "review",
 	Short: "Spawn a plan reviewer, or re-review if already running",
-	Long: `Spawn a plan-reviewer tmux window for the given task, or trigger re-review if
-the window already exists.
+	Long: `Spawn a plan-reviewer tmux window for the active task, or trigger re-review if
+the window already exists. The task UUID is auto-resolved from session context.
 
 Examples:
-  ttal plan review abc12345
-  ttal plan review abc12345-full-uuid-here`,
-	Args: cobra.ExactArgs(1),
+  ttal plan review`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		uuid := args[0]
-		if err := taskwarrior.ValidateUUID(uuid); err != nil {
+		uuid, err := resolveCurrentTask()
+		if err != nil {
 			return err
 		}
 

@@ -34,7 +34,7 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, cfg *config.Config) 
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	envParts := []string{"TTAL_ROLE=plan-reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
+	envParts := []string{"TTAL_AGENT_NAME=plan-reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
 	var ccSessionPath string
 
 	var shellCmd string

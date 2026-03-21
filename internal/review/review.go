@@ -60,7 +60,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 
 	var shellCmd string
 
-	envParts := []string{"TTAL_ROLE=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
+	envParts := []string{"TTAL_AGENT_NAME=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
 	var ccSessionPath string // non-empty for CC reviewers; cleaned up if tmux.NewWindow fails
 
 	if reviewerRT == runtime.Codex {

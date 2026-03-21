@@ -68,16 +68,17 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 	resp.Body.Close() //nolint:errcheck // fire-and-forget
 }
 
-// checkLGTMGuard rejects +lgtm tag additions from non-reviewer roles.
+// checkLGTMGuard rejects +lgtm tag additions from non-reviewer agents.
+// Only the "reviewer" agent (code reviewer) may set +lgtm — plan-reviewer is excluded.
 func checkLGTMGuard(original, modified hookTask) error {
 	lgtmAdded := !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm")
 	if !lgtmAdded {
 		return nil
 	}
-	if os.Getenv("TTAL_ROLE") == "reviewer" {
+	if os.Getenv("TTAL_AGENT_NAME") == "reviewer" {
 		return nil
 	}
-	return fmt.Errorf("only reviewers can set +lgtm (current role: %s)", os.Getenv("TTAL_ROLE"))
+	return fmt.Errorf("only reviewers can set +lgtm (current agent: %s)", os.Getenv("TTAL_AGENT_NAME"))
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.

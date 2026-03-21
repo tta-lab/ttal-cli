@@ -56,9 +56,6 @@ func resolveAuthor() string {
 	if agent := os.Getenv("TTAL_AGENT_NAME"); agent != "" {
 		return agent
 	}
-	if role := os.Getenv("TTAL_ROLE"); role != "" {
-		return role
-	}
 	return "unknown"
 }
 
@@ -205,7 +202,7 @@ var commentListCmd = &cobra.Command{
 	},
 }
 
-// notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_ROLE.
+// notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_AGENT_NAME.
 func notifyCounterpart(body string) {
 	sessionName, err := review.ResolveSessionName()
 	if err != nil || sessionName == "" {
@@ -213,7 +210,7 @@ func notifyCounterpart(body string) {
 	}
 	cfg, rt := loadConfigAndCoderRuntime()
 
-	switch tmux.Role() {
+	switch os.Getenv("TTAL_AGENT_NAME") {
 	case "reviewer":
 		notifyReviewer(sessionName, body, cfg, rt)
 	case "coder":

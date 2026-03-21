@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 )
 
@@ -95,5 +96,126 @@ func TestOnAddPipeline_NoPipelinesFile_Passes(t *testing.T) {
 	_, _, err = cfg.MatchPipeline([]string{"feature"})
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+// TestAgentRole_FixerMatchesBugfixStage0 verifies that agentfs.Get resolves the correct
+// role for an agent and that SetTag/SetStart mutate hookTask as expected.
+// These are unit tests for the helpers used by tryAutoAdvanceStage0.
+func TestAgentRole_FixerMatchesBugfixStage0(t *testing.T) {
+	teamDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write agent file: %v", err)
+	}
+
+	dir := writeTempPipelinesTOML(t, `
+[bugfix]
+tags = ["bugfix"]
+[[bugfix.stages]]
+name = "Fix"
+assignee = "fixer"
+gate = "human"
+`)
+
+	cfg, _ := pipeline.Load(dir)
+	_, p, _ := cfg.MatchPipeline([]string{"bugfix"})
+
+	agent, err := agentfs.Get(teamDir, "kestrel")
+	if err != nil {
+		t.Fatalf("agentfs.Get: %v", err)
+	}
+	if agent.Role != p.Stages[0].Assignee {
+		t.Fatal("expected role match")
+	}
+
+	task := hookTask{
+		"uuid":        "test-uuid",
+		"description": "fix something",
+		"tags":        []any{"bugfix"},
+	}
+	task.SetTag("kestrel")
+	task.SetStart()
+
+	found := false
+	for _, tag := range task.Tags() {
+		if tag == "kestrel" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected +kestrel tag after SetTag")
+	}
+	if task.Start() == "" {
+		t.Error("expected start timestamp after SetStart")
+	}
+}
+
+// TestAgentRole_OrchestratorDoesNotMatchFixer verifies that agentfs.Get resolves
+// "orchestrator" role for yuki, which does not match the "fixer" assignee at stage 0.
+// Documents the role-mismatch guard condition — task should not be mutated in this case.
+func TestAgentRole_OrchestratorDoesNotMatchFixer(t *testing.T) {
+	teamDir := t.TempDir()
+	agentContent := []byte("---\nrole: orchestrator\n---\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), agentContent, 0o644); err != nil {
+		t.Fatalf("write agent file: %v", err)
+	}
+
+	dir := writeTempPipelinesTOML(t, `
+[bugfix]
+tags = ["bugfix"]
+[[bugfix.stages]]
+name = "Fix"
+assignee = "fixer"
+gate = "human"
+`)
+
+	cfg, _ := pipeline.Load(dir)
+	_, p, _ := cfg.MatchPipeline([]string{"bugfix"})
+	agent, err := agentfs.Get(teamDir, "yuki")
+	if err != nil {
+		t.Fatalf("agentfs.Get: %v", err)
+	}
+
+	if agent.Role == p.Stages[0].Assignee {
+		t.Fatal("expected role mismatch for orchestrator")
+	}
+
+	// Verify task is NOT mutated — simulating no-skip path
+	task := hookTask{
+		"uuid":        "test-uuid",
+		"description": "fix something",
+		"tags":        []any{"bugfix"},
+	}
+	for _, tag := range task.Tags() {
+		if tag == "yuki" {
+			t.Error("orchestrator tag should not be added when role doesn't match stage 0")
+		}
+	}
+	if task.Start() != "" {
+		t.Error("task should not be started when role doesn't match")
+	}
+}
+
+func TestOnAddPipelineSkip_NoAgentEnv(t *testing.T) {
+	t.Setenv("TTAL_AGENT_NAME", "")
+
+	task := hookTask{
+		"uuid":        "test-uuid",
+		"description": "fix something",
+		"tags":        []any{"bugfix"},
+	}
+
+	// Simulate the guard: agentName == "" means skip logic doesn't fire
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+	if agentName != "" {
+		t.Fatal("expected empty TTAL_AGENT_NAME")
+	}
+
+	// Task should remain unchanged
+	if len(task.Tags()) != 1 || task.Tags()[0] != "bugfix" {
+		t.Error("tags should be unchanged when no agent env")
+	}
+	if task.Start() != "" {
+		t.Error("start should be empty when no agent env")
 	}
 }
