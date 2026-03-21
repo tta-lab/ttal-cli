@@ -183,67 +183,79 @@ func makeLGTMTask(tags []string) hookTask {
 
 func TestCheckLGTMGuard(t *testing.T) {
 	tests := []struct {
-		name     string
-		original []string
-		modified []string
-		role     string
-		wantErr  bool
+		name             string
+		original         []string
+		modified         []string
+		agentName        string
+		allowedReviewers []string
+		wantErr          bool
 	}{
 		{
-			name:     "reviewer can add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "reviewer",
-			wantErr:  false,
+			name:             "plan-review-lead can add lgtm when listed as reviewer",
+			modified:         []string{"lgtm"},
+			agentName:        "plan-review-lead",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          false,
 		},
 		{
-			name:     "coder cannot add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "coder",
-			wantErr:  true,
+			name:             "pr-review-lead can add lgtm when listed as reviewer",
+			modified:         []string{"lgtm"},
+			agentName:        "pr-review-lead",
+			allowedReviewers: []string{"pr-review-lead"},
+			wantErr:          false,
 		},
 		{
-			name:     "empty role cannot add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "",
-			wantErr:  true,
+			name:             "coder cannot add lgtm",
+			modified:         []string{"lgtm"},
+			agentName:        "coder",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          true,
 		},
 		{
-			name:     "lgtm already present is not blocked",
-			original: []string{"lgtm"},
-			modified: []string{"lgtm"},
-			role:     "coder",
-			wantErr:  false,
+			name:             "empty agent cannot add lgtm",
+			modified:         []string{"lgtm"},
+			agentName:        "",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          true,
 		},
 		{
-			name:     "plan-reviewer cannot add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "plan-reviewer",
-			wantErr:  true,
+			name:             "lgtm already present is not blocked",
+			original:         []string{"lgtm"},
+			modified:         []string{"lgtm"},
+			agentName:        "coder",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          false,
 		},
 		{
-			name:     "unrelated tag change not blocked",
-			original: nil,
-			modified: []string{"urgent"},
-			role:     "coder",
-			wantErr:  false,
+			name:             "no pipeline (nil reviewers) rejects everyone",
+			modified:         []string{"lgtm"},
+			agentName:        "plan-review-lead",
+			allowedReviewers: nil,
+			wantErr:          true,
+		},
+		{
+			name:             "unrelated tag change not blocked",
+			modified:         []string{"urgent"},
+			agentName:        "coder",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          false,
+		},
+		{
+			name:             "multiple reviewers across stages both allowed",
+			modified:         []string{"lgtm"},
+			agentName:        "pr-review-lead",
+			allowedReviewers: []string{"plan-review-lead", "pr-review-lead"},
+			wantErr:          false,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("TTAL_AGENT_NAME", tt.role)
+			t.Setenv("TTAL_AGENT_NAME", tt.agentName)
 			orig := makeLGTMTask(tt.original)
 			mod := makeLGTMTask(tt.modified)
-			err := checkLGTMGuard(orig, mod)
-			if tt.wantErr && err == nil {
-				t.Error("expected error, got nil")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("unexpected error: %v", err)
+			err := checkLGTMGuard(orig, mod, tt.allowedReviewers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkLGTMGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -68,20 +69,41 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 	resp.Body.Close() //nolint:errcheck // fire-and-forget
 }
 
-// checkLGTMGuard rejects +lgtm tag additions from non-reviewer agents.
-// Only the "reviewer" agent (code reviewer) may set +lgtm — plan-reviewer is excluded.
-func checkLGTMGuard(original, modified hookTask) error {
+// resolveAllowedReviewers loads the pipeline config and collects all reviewer
+// agent names from stages matching the task's tags.
+// Returns nil if no pipeline matches (guard will reject all agents).
+func resolveAllowedReviewers(task hookTask) []string {
+	configDir := config.DefaultConfigDir()
+	pipelineCfg, err := pipeline.Load(configDir)
+	if err != nil || pipelineCfg == nil {
+		return nil
+	}
+	_, p, err := pipelineCfg.MatchPipeline(task.Tags())
+	if err != nil || p == nil {
+		return nil
+	}
+	var reviewers []string
+	for _, stage := range p.Stages {
+		if stage.Reviewer != "" {
+			reviewers = append(reviewers, stage.Reviewer)
+		}
+	}
+	return reviewers
+}
+
+// checkLGTMGuard rejects +lgtm tag additions from agents not listed as pipeline reviewers.
+// allowedReviewers is collected from the pipeline stages' Reviewer fields.
+// If allowedReviewers is nil (no pipeline found), all agents are rejected.
+func checkLGTMGuard(original, modified hookTask, allowedReviewers []string) error {
 	lgtmAdded := !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm")
 	if !lgtmAdded {
 		return nil
 	}
-	if os.Getenv("TTAL_AGENT_NAME") == "reviewer" {
+	agent := os.Getenv("TTAL_AGENT_NAME")
+	if slices.Contains(allowedReviewers, agent) {
 		return nil
 	}
-	return fmt.Errorf(
-		"blocked: only the code reviewer can set +lgtm (current agent: %s). Use ttal comment add to request approval",
-		os.Getenv("TTAL_AGENT_NAME"),
-	)
+	return fmt.Errorf("only pipeline reviewers can set +lgtm (current agent: %s, allowed: %v)", agent, allowedReviewers)
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
@@ -97,8 +119,13 @@ func HookOnModify() {
 		os.Exit(0)
 	}
 
-	// Guard: only reviewers can set +lgtm. Exit 1 so taskwarrior aborts the modification.
-	if err := checkLGTMGuard(original, modified); err != nil {
+	// Guard: only pipeline reviewers can set +lgtm.
+	// Resolve reviewers lazily — only load pipeline config when +lgtm is being added.
+	var allowedReviewers []string
+	if !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm") {
+		allowedReviewers = resolveAllowedReviewers(modified)
+	}
+	if err := checkLGTMGuard(original, modified, allowedReviewers); err != nil {
 		hookLogFile("LGTM guard: " + err.Error())
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
