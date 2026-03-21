@@ -114,6 +114,16 @@ func (p *Pipeline) CurrentStage(taskTags []string, agentRoles map[string]string)
 		}
 	}
 
+	// Check for +worker tag (worker stages don't have agent names in agentRoles).
+	if tagSet["worker"] {
+		for i := range p.Stages {
+			if p.Stages[i].Assignee == "worker" {
+				matches = append(matches, match{i, &p.Stages[i], "worker"})
+				break
+			}
+		}
+	}
+
 	if len(matches) > 1 {
 		agents := make([]string, len(matches))
 		for i, m := range matches {
