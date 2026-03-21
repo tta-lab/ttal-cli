@@ -52,3 +52,20 @@ func TestResolveCurrentTask_NoEnv_ReturnsError(t *testing.T) {
 		t.Error("expected error when no env vars set")
 	}
 }
+
+func TestResolveCurrentTask_WithJobID_AttemptsLookup(t *testing.T) {
+	// When TTAL_JOB_ID is set, resolveCurrentTask should attempt the taskwarrior
+	// lookup and return an error (since no real task exists in test env) — not the
+	// "no env vars" error. This confirms the TTAL_JOB_ID branch is taken.
+	t.Setenv("TTAL_JOB_ID", "f9a917aa")
+	_ = os.Unsetenv("TTAL_AGENT_NAME")
+	_, err := resolveCurrentTask()
+	if err == nil {
+		// In a real env with a matching task this would succeed — both outcomes are valid.
+		return
+	}
+	// The error should be about the job ID lookup, not "no TTAL_JOB_ID or TTAL_AGENT_NAME set".
+	if err.Error() == "no TTAL_JOB_ID or TTAL_AGENT_NAME set — cannot resolve task" {
+		t.Errorf("TTAL_JOB_ID branch was not taken: %v", err)
+	}
+}
