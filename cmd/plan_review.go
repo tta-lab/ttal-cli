@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -56,10 +57,12 @@ const defaultPlanReviewerName = "plan-review-lead"
 func resolvePlanReviewerName(taskUUID string) string {
 	task, err := taskwarrior.ExportTask(taskUUID)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not export task %s — falling back to %s: %v\n", taskUUID, defaultPlanReviewerName, err)
 		return defaultPlanReviewerName
 	}
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to %s: %v\n", defaultPlanReviewerName, err)
 		return defaultPlanReviewerName
 	}
 	for _, role := range []string{"designer", "fixer"} {

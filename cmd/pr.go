@@ -330,6 +330,7 @@ func writeReviewFile(body string) (string, error) {
 func resolvePRReviewerName(taskTags []string) string {
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to pr-review-lead: %v\n", err)
 		return "pr-review-lead"
 	}
 	if name := pipelineCfg.ReviewerForStage(taskTags, "worker"); name != "" {
