@@ -53,7 +53,8 @@ var keyMap = map[string]keyAction{
 	"down":   keyDown,
 	"enter":  keyEnter,
 	"esc":    keyEsc,
-	"g":      keyAdvance,
+	"g":      keyTop,
+	"ctrl+g": keyAdvance,
 	"p":      keyOpenPR,
 	"s":      keyOpenSession,
 	"o":      keyOpenTerm,
@@ -94,11 +95,11 @@ const helpText = `Key Bindings:
   j/k, Up/Down   Navigate tasks
   Enter           Task detail
   Esc             Back / close overlay
-  Home            Top
+  g, Home         Top
   G               Bottom
   Ctrl+D/U        Half page down/up
 
-  g               Advance task (go — pipeline stage)
+  Ctrl+G          Advance task (go — pipeline stage)
   d               Mark task done
   m               Modify task
   A               Annotate task
