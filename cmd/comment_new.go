@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -210,6 +211,54 @@ Examples:
 	},
 }
 
+var commentGetCmd = &cobra.Command{
+	Use:   "get <round>",
+	Short: "Get comments for a specific review round",
+	Long: `Retrieve the full comment body for a specific review round.
+Task is auto-resolved from TTAL_JOB_ID (worker) or TTAL_AGENT_NAME (manager).
+
+Examples:
+  ttal comment get 1
+  ttal comment get 2`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		round, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("round must be a number: %w", err)
+		}
+		if round < 1 {
+			return fmt.Errorf("round must be >= 1")
+		}
+
+		taskUUID, err := resolveCurrentTask()
+		if err != nil {
+			return err
+		}
+
+		resp, err := daemon.CommentGet(daemon.CommentGetRequest{
+			Target: taskUUID,
+			Round:  round,
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(resp.Comments) == 0 {
+			fmt.Printf("No comments for round %d.\n", round)
+			return nil
+		}
+
+		for _, c := range resp.Comments {
+			ts := c.CreatedAt
+			if t, err := time.Parse(time.RFC3339, c.CreatedAt); err == nil {
+				ts = t.Format("2006-01-02 15:04")
+			}
+			fmt.Printf("— %s (%s):\n\n%s\n\n", c.Author, ts, c.Body)
+		}
+		return nil
+	},
+}
+
 // notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_AGENT_NAME.
 func notifyCounterpart(body string) {
 	sessionName, err := review.ResolveSessionName()
@@ -288,4 +337,5 @@ func init() {
 	newCommentCmd.AddCommand(commentAddCmd)
 	newCommentCmd.AddCommand(commentListCmd)
 	newCommentCmd.AddCommand(commentLgtmCmd)
+	newCommentCmd.AddCommand(commentGetCmd)
 }

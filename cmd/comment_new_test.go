@@ -57,6 +57,19 @@ func TestCommentLgtmSubcmdExists(t *testing.T) {
 	}
 }
 
+func TestCommentGetSubcmdExists(t *testing.T) {
+	var found bool
+	for _, sub := range newCommentCmd.Commands() {
+		if sub.Name() == "get" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("ttal comment get subcommand not found")
+	}
+}
+
 func TestResolveCurrentTask_NoEnv_ReturnsError(t *testing.T) {
 	_ = os.Unsetenv("TTAL_JOB_ID")
 	_ = os.Unsetenv("TTAL_AGENT_NAME")
