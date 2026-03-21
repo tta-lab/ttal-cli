@@ -178,12 +178,12 @@ func notifyCounterpart(body string) {
 	if err != nil || sessionName == "" {
 		return
 	}
-	cfg, rt := loadConfigAndCoderRuntime()
-
 	switch os.Getenv("TTAL_AGENT_NAME") {
 	case "reviewer":
+		cfg, rt := loadConfigAndCoderRuntime()
 		notifyCoder(sessionName, body, cfg, rt)
 	case "coder":
+		cfg, _ := loadConfigAndCoderRuntime()
 		notifyReviewer(sessionName, body, cfg)
 	case "plan-reviewer":
 		notifyDesigner(sessionName, body)
@@ -198,6 +198,10 @@ func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtim
 	if err != nil || coderWindow == "" {
 		return
 	}
+	tmpl := cfg.Prompt("triage")
+	if tmpl == "" {
+		return
+	}
 	reviewFile, err := writeReviewFile(body)
 	if err != nil {
 		log.Printf("warning: failed to write review file: %v", err)
@@ -205,10 +209,6 @@ func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtim
 	reviewRef := ""
 	if reviewFile != "" {
 		reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
-	}
-	tmpl := cfg.Prompt("triage")
-	if tmpl == "" {
-		return
 	}
 	replacer := strings.NewReplacer("{{review-file}}", reviewRef)
 	notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
