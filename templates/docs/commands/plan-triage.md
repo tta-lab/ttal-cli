@@ -104,6 +104,25 @@ For each fix:
 - **Needs Revision** — has `[ASK]` items that need Neil's input before proceeding
 - **Needs Rethink** — fundamental problems that small fixes can't address
 
+### Post the Report
+
+Post the triage report via `ttal comment add` so the plan-reviewer can see it and trigger re-review:
+
+```bash
+ttal comment add "<triage report markdown>"
+```
+
+Or via heredoc for multiline:
+
+```bash
+cat <<'TRIAGE' | ttal comment add
+## Plan Triage: <plan title>
+...
+TRIAGE
+```
+
+This is required — don't just output the report inline. The comment system is how the review loop communicates.
+
 ## Turns
 
 Triage is iterative. After Neil answers `[ASK]` items or a designer revises:
