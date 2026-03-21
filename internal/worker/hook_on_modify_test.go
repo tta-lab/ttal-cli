@@ -2,6 +2,9 @@ package worker
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -251,11 +254,99 @@ func TestCheckLGTMGuard(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("TTAL_AGENT_NAME", tt.agentName)
-			orig := makeLGTMTask(tt.original)
-			mod := makeLGTMTask(tt.modified)
-			err := checkLGTMGuard(orig, mod, tt.allowedReviewers)
+			lgtmAdded := !slices.Contains(tt.original, "lgtm") && slices.Contains(tt.modified, "lgtm")
+			err := checkLGTMGuard(lgtmAdded, tt.allowedReviewers)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkLGTMGuard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func writeTempPipelines(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pipelines.toml"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write pipelines.toml: %v", err)
+	}
+	return dir
+}
+
+func TestResolveAllowedReviewers(t *testing.T) {
+	const pipelinesWithReviewers = `
+[standard]
+tags = ["feature"]
+
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+reviewer = "plan-review-lead"
+
+[[standard.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	const pipelinesNoReviewer = `
+[hotfix]
+tags = ["hotfix"]
+
+[[hotfix.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+`
+
+	tests := []struct {
+		name       string
+		toml       string
+		taskTags   []string
+		wantResult []string
+	}{
+		{
+			name:       "matched pipeline collects all stage reviewers",
+			toml:       pipelinesWithReviewers,
+			taskTags:   []string{"feature"},
+			wantResult: []string{"plan-review-lead", "pr-review-lead"},
+		},
+		{
+			name:       "no pipeline match returns nil",
+			toml:       pipelinesWithReviewers,
+			taskTags:   []string{"unrelated"},
+			wantResult: nil,
+		},
+		{
+			name:       "pipeline with no reviewer fields returns nil",
+			toml:       pipelinesNoReviewer,
+			taskTags:   []string{"hotfix"},
+			wantResult: nil,
+		},
+		{
+			name:       "missing pipelines.toml returns nil",
+			toml:       "", // empty dir — no file written
+			taskTags:   []string{"feature"},
+			wantResult: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var dir string
+			if tt.toml != "" {
+				dir = writeTempPipelines(t, tt.toml)
+			} else {
+				dir = t.TempDir() // no pipelines.toml
+			}
+			task := makeLGTMTask(tt.taskTags)
+			got := resolveAllowedReviewers(task, dir)
+			if len(got) != len(tt.wantResult) {
+				t.Fatalf("resolveAllowedReviewers() = %v, want %v", got, tt.wantResult)
+			}
+			for i, r := range tt.wantResult {
+				if got[i] != r {
+					t.Errorf("resolveAllowedReviewers()[%d] = %q, want %q", i, got[i], r)
+				}
 			}
 		})
 	}

@@ -69,11 +69,10 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 	resp.Body.Close() //nolint:errcheck // fire-and-forget
 }
 
-// resolveAllowedReviewers loads the pipeline config and collects all reviewer
-// agent names from stages matching the task's tags.
+// resolveAllowedReviewers loads the pipeline config from configDir and collects
+// all reviewer agent names from stages matching the task's tags.
 // Returns nil if no pipeline matches (guard will reject all agents).
-func resolveAllowedReviewers(task hookTask) []string {
-	configDir := config.DefaultConfigDir()
+func resolveAllowedReviewers(task hookTask, configDir string) []string {
 	pipelineCfg, err := pipeline.Load(configDir)
 	if err != nil || pipelineCfg == nil {
 		return nil
@@ -92,10 +91,10 @@ func resolveAllowedReviewers(task hookTask) []string {
 }
 
 // checkLGTMGuard rejects +lgtm tag additions from agents not listed as pipeline reviewers.
+// lgtmAdded must be pre-computed by the caller to avoid duplicating the predicate.
 // allowedReviewers is collected from the pipeline stages' Reviewer fields.
 // If allowedReviewers is nil (no pipeline found), all agents are rejected.
-func checkLGTMGuard(original, modified hookTask, allowedReviewers []string) error {
-	lgtmAdded := !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm")
+func checkLGTMGuard(lgtmAdded bool, allowedReviewers []string) error {
 	if !lgtmAdded {
 		return nil
 	}
@@ -120,12 +119,13 @@ func HookOnModify() {
 	}
 
 	// Guard: only pipeline reviewers can set +lgtm.
-	// Resolve reviewers lazily — only load pipeline config when +lgtm is being added.
+	// Compute lgtmAdded once — used to gate the pipeline load and passed to the guard.
+	lgtmAdded := !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm")
 	var allowedReviewers []string
-	if !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm") {
-		allowedReviewers = resolveAllowedReviewers(modified)
+	if lgtmAdded {
+		allowedReviewers = resolveAllowedReviewers(modified, config.DefaultConfigDir())
 	}
-	if err := checkLGTMGuard(original, modified, allowedReviewers); err != nil {
+	if err := checkLGTMGuard(lgtmAdded, allowedReviewers); err != nil {
 		hookLogFile("LGTM guard: " + err.Error())
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
