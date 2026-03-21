@@ -10,7 +10,7 @@ import (
 // DenyPrimaryAgentsAsSubagents reads ~/.claude/settings.json and ensures
 // Agent(<name>) deny entries exist for all deployed agents, preventing CC
 // from spawning them directly as subagents. All agent routing must go
-// through ttal task go.
+// through ttal go.
 //
 // Additive only — appends new entries at the end of the deny list,
 // never removes or reorders existing entries. Returns list of newly added entry names.

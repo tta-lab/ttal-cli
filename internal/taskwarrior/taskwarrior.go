@@ -192,7 +192,7 @@ func ValidateUUID(s string) error {
 		return userError("# prefix format is no longer supported\n\n"+
 			"  You provided: %s\n\n"+
 			"  Remove the # prefix:\n"+
-			"  ttal task go %s", s, remaining)
+			"  ttal go %s", s, remaining)
 	}
 
 	// Reject short numeric IDs (taskwarrior task numbers like "42", "123")
@@ -205,7 +205,7 @@ func ValidateUUID(s string) error {
 			"  # Get UUID for task #%s:\n"+
 			"  task %s export | jq -r '.[0].uuid'\n\n"+
 			"  # Then use the UUID:\n"+
-			"  ttal task go <uuid>", s, s, s)
+			"  ttal go <uuid>", s, s, s)
 	}
 
 	if !uuidPattern.MatchString(s) && !uuidPrefixPattern.MatchString(s) {

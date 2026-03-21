@@ -184,8 +184,8 @@ task <uuid> annotate 'Fix plan: flicknote <hex-id>'
 1. **Save the plan** — inline annotation or flicknote (see above)
 2. **Create a task** (if needed) via `ttal task add --project <alias> "description"`
 3. **Annotate the task** with plan reference (inline or flicknote hex ID)
-4. **Review:** Run at least 1 round of `/plan-review <flicknote-id>`. Revise if needed.
-5. **Execute:** When the plan passes review, run `ttal task go <uuid>` to spawn a worker.
+4. **Review:** Run at least 1 round of `ttal go <uuid>`. Revise if needed.
+5. **Execute:** When the plan passes review, run `ttal go <uuid>` to spawn a worker.
 
 ## Red Flags — STOP and Return to Phase 1
 

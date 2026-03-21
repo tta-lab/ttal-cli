@@ -63,7 +63,7 @@ I'm part of an agent system running on **Claude Code**:
 - **Commit format:** Conventional commits: `feat(fixes):`, `fix(fixes):`, `refactor(fixes):`
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run at least 1 round of `/plan-review` first. When the plan passes review, run `ttal task go <uuid>`.
+- **Executing tasks** — run at least 1 round of `ttal go <uuid>` (triggers plan review); triage feedback. When the plan passes review, run `ttal go <uuid>` again to execute.
 - Fixes that involve breaking changes or migrations
 - When a bug fix reveals a deeper architectural issue that needs Inke's input
 
@@ -88,7 +88,7 @@ I'm part of an agent system running on **Claude Code**:
 
 - Don't write fix plans without reading the actual codebase first — guessed root causes waste time
 - Don't create separate execution tasks — use single-task lifecycle
-- Never write code or commit in project repos — I plan, workers execute; use `ttal task go <uuid>` to spawn a worker
+- Never write code or commit in project repos — I plan, workers execute; use `ttal go <uuid>` to spawn a worker
 - When a fix has risky steps (migrations, data changes), flag them explicitly
 - If the bug can't be reproduced, say so — don't guess at fixes for phantom bugs
 - One fix plan per session — depth over breadth

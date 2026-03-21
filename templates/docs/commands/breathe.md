@@ -81,7 +81,7 @@ Your handoff is saved in diary — it persists across sessions.
 
 ## Auto-Breathe on Route
 
-When a task is routed via `ttal task go`, the agent is asked to breathe
+When a task is routed via `ttal go`, the agent is asked to breathe
 so they start fresh. The router stages routing params to
 `~/.ttal/routing/<agent>.json`, then sends a message asking the agent to
 `/breathe`. The daemon composes the restart:
@@ -91,7 +91,7 @@ so they start fresh. The router stages routing params to
 
 Managers are exempt — they keep persistent sessions.
 
-To skip: `ttal task go <uuid> --no-breathe`
+To skip: `ttal go <uuid> --no-breathe`
 
 ## Unified Spawn Pattern
 

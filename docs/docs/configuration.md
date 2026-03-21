@@ -133,7 +133,7 @@ re_review = "{{skill:pr-review}}\nRe-review the fixes: {{review-scope}}"
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `execute` | `ttal task go` | `{{task-id}}`, `{{skill:name}}` |
+| `execute` | `ttal go` | `{{task-id}}`, `{{skill:name}}` |
 | `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
 | `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}`, `{{skill:name}}` |

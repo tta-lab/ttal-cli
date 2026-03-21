@@ -13,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/route"
@@ -31,9 +32,11 @@ type AdvanceRequest struct {
 
 // AdvanceResponse is the response body for POST /pipeline/advance.
 type AdvanceResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
-	Stage   string `json:"stage"` // new stage name if advanced
+	Status   string `json:"status"`
+	Message  string `json:"message"`
+	Stage    string `json:"stage"`              // new stage name if advanced
+	Reviewer string `json:"reviewer,omitempty"` // reviewer agent name if NeedsLGTM
+	Assignee string `json:"assignee,omitempty"` // stage assignee if NeedsLGTM
 }
 
 // Advance status constants.
@@ -231,47 +234,85 @@ func processStageAdvance(
 	callerAgent, team, workerRuntime, teamPath string,
 	agentRoles map[string]string,
 ) {
-	// Check reviewer gate before advancing.
-	if stage.Reviewer != "" && !hasTag(task.Tags, "lgtm") {
-		msg := fmt.Sprintf(
-			"Run reviewer (%s) and set verdict with: ttal comment lgtm",
-			stage.Reviewer,
-		)
-		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-			Status:  AdvanceStatusNeedsLGTM,
-			Message: msg,
-		})
+	if checkReviewerGate(w, task, stage) {
+		return
+	}
+	if checkHumanGate(ctx, w, fe, p, idx, callerAgent, task, stage) {
 		return
 	}
 
-	// Check human gate — skip when human-initiated (empty callerAgent = human already approved).
-	if stage.Gate == "human" && callerAgent != "" {
-		nextStageName := "Complete"
-		if idx+1 < len(p.Stages) {
-			nextStageName = p.Stages[idx+1].Name
-		}
-		approved, err := askHumanGate(ctx, fe, callerAgent, task, stage, nextStageName)
-		if err != nil {
-			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-				Status:  AdvanceStatusError,
-				Message: "gate error: " + err.Error(),
-			})
-			return
-		}
-		if !approved {
-			writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-				Status:  AdvanceStatusRejected,
-				Message: "advance rejected by human",
-			})
+	cleanupStageTags(task, stage, agentRoles)
+
+	if stage.Assignee == workerStage && task.PRID != "" {
+		if done := handleWorkerPRMerge(w, task); done {
 			return
 		}
 	}
 
-	// Stop task and clean up tags from current stage.
+	nextIdx := idx + 1
+	if nextIdx >= len(p.Stages) {
+		handlePipelineComplete(w, task, stage)
+		return
+	}
+
+	if err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, team, workerRuntime, teamPath); err != nil {
+		log.Printf("[advance] next stage error: %v", err)
+	}
+}
+
+// checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
+// Returns true when the response has been written (caller should return).
+func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) bool {
+	if stage.Reviewer == "" || hasTag(task.Tags, "lgtm") {
+		return false
+	}
+	msg := fmt.Sprintf("Run reviewer (%s) and set verdict with: ttal comment lgtm", stage.Reviewer)
+	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+		Status:   AdvanceStatusNeedsLGTM,
+		Message:  msg,
+		Reviewer: stage.Reviewer,
+		Assignee: stage.Assignee,
+	})
+	return true
+}
+
+// checkHumanGate prompts for human approval when the stage has a human gate.
+// Returns true when the response has been written (caller should return).
+func checkHumanGate(
+	ctx context.Context, w http.ResponseWriter, fe frontend.Frontend,
+	p *pipeline.Pipeline, idx int, callerAgent string,
+	task *taskwarrior.Task, stage *pipeline.Stage,
+) bool {
+	if stage.Gate != "human" || callerAgent == "" {
+		return false
+	}
+	nextStageName := "Complete"
+	if idx+1 < len(p.Stages) {
+		nextStageName = p.Stages[idx+1].Name
+	}
+	approved, err := askHumanGate(ctx, fe, callerAgent, task, stage, nextStageName)
+	if err != nil {
+		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+			Status:  AdvanceStatusError,
+			Message: "gate error: " + err.Error(),
+		})
+		return true
+	}
+	if !approved {
+		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+			Status:  AdvanceStatusRejected,
+			Message: "advance rejected by human",
+		})
+		return true
+	}
+	return false
+}
+
+// cleanupStageTags stops the task and removes stage-specific tags.
+func cleanupStageTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
 	if err := taskwarrior.StopTask(task.UUID); err != nil {
 		log.Printf("[advance] warning: stop task: %v", err)
 	}
-
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
 	annotateStageCompletion(task.UUID, stage.Name, stage.Assignee, oldAgentName)
 
@@ -285,25 +326,26 @@ func processStageAdvance(
 	if err := taskwarrior.ModifyTags(task.UUID, removeTags...); err != nil {
 		log.Printf("[advance] warning: remove tags: %v", err)
 	}
+}
 
-	// Advance to next stage.
-	nextIdx := idx + 1
-	if nextIdx >= len(p.Stages) {
-		// Pipeline complete.
-		if err := taskwarrior.MarkDone(task.UUID); err != nil {
-			log.Printf("[advance] warning: mark done: %v", err)
-		}
+// handlePipelineComplete writes the pipeline-complete response.
+// For worker+PR stages the cleanup handler owns MarkDone; for others it marks done inline.
+func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) {
+	if stage.Assignee == workerStage && task.PRID != "" {
+		// Worker+PR: cleanup handler calls MarkDone after session teardown.
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusComplete,
-			Message: "pipeline complete — task marked done",
+			Message: "pipeline complete — cleanup in progress",
 		})
 		return
 	}
-
-	nextStage := &p.Stages[nextIdx]
-	if err := advanceToStage(w, mcfg, task, nextStage, callerAgent, team, workerRuntime, teamPath); err != nil {
-		log.Printf("[advance] next stage error: %v", err)
+	if err := taskwarrior.MarkDone(task.UUID); err != nil {
+		log.Printf("[advance] warning: mark done: %v", err)
 	}
+	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+		Status:  AdvanceStatusComplete,
+		Message: "pipeline complete — task marked done",
+	})
 }
 
 // shouldBreatheStatus is the pure logic: returns true when the agent should be breathed.
@@ -541,4 +583,79 @@ func findAgentTag(tags []string, agentRoles map[string]string) string {
 		}
 	}
 	return ""
+}
+
+// handleWorkerPRMerge merges the worker PR and requests cleanup.
+// Returns true when the HTTP response has been written (caller should return).
+func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
+	cfg, cfgErr := config.Load()
+	if cfgErr != nil {
+		log.Printf("[advance] warning: could not load config, defaulting to auto-merge: %v", cfgErr)
+	}
+	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
+		worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
+		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+			Status:  AdvanceStatusNeedsLGTM,
+			Message: "Manual merge mode — PR ready for human merge",
+		})
+		return true
+	}
+
+	if err := mergeWorkerPR(task); err != nil {
+		log.Printf("[advance] PR merge failed: %v", err)
+		worker.NotifyTelegram(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
+		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+			Status:  AdvanceStatusError,
+			Message: "merge PR: " + err.Error(),
+		})
+		return true
+	}
+
+	if err := worker.RequestCleanup(task.SessionName(), task.UUID); err != nil {
+		log.Printf("[advance] warning: cleanup request failed: %v", err)
+	}
+	return false
+}
+
+// mergeWorkerPR merges the PR associated with the task using the git provider.
+// It is called directly (not via daemon HTTP client) to avoid a daemon-calls-itself loopback.
+func mergeWorkerPR(task *taskwarrior.Task) error {
+	projectPath := projectPkg.ResolveProjectPath(task.Project)
+	if projectPath == "" {
+		return fmt.Errorf("cannot resolve project path for %q", task.Project)
+	}
+
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return fmt.Errorf("detect git provider: %w", err)
+	}
+
+	provider, err := gitprovider.NewProvider(info)
+	if err != nil {
+		return fmt.Errorf("create provider: %w", err)
+	}
+
+	prInfo, err := taskwarrior.ParsePRID(task.PRID)
+	if err != nil {
+		return fmt.Errorf("parse pr_id: %w", err)
+	}
+
+	fetchedPR, err := provider.GetPR(info.Owner, info.Repo, prInfo.Index)
+	if err != nil {
+		return fmt.Errorf("get PR: %w", err)
+	}
+	if fetchedPR.Merged {
+		log.Printf("[advance] PR #%d already merged, skipping", prInfo.Index)
+		return nil
+	}
+	if !fetchedPR.Mergeable {
+		return fmt.Errorf("PR #%d is not mergeable", prInfo.Index)
+	}
+
+	if err := provider.MergePR(info.Owner, info.Repo, prInfo.Index, true); err != nil {
+		return fmt.Errorf("merge PR #%d: %w", prInfo.Index, err)
+	}
+
+	log.Printf("[advance] PR #%d merged (squash)", prInfo.Index)
+	return nil
 }

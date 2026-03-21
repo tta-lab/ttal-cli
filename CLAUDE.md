@@ -96,11 +96,11 @@ cmd/             - CLI commands (cobra)
   ├── agent.go   - Agent CRUD commands
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
-  ├── pr.go      - ttal pr create/modify/merge/comment
+  ├── pr.go      - ttal pr create/modify/comment
   ├── worker.go  - ttal worker close/list
   ├── today.go   - ttal today list/completed/add/remove (daily focus)
   ├── task.go    - ttal task get/find (taskwarrior queries)
-  └── go.go      - ttal task go (pipeline stage engine)
+  └── go.go      - ttal go (pipeline stage engine)
 
 internal/
   ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
@@ -127,7 +127,7 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` | tmux send-keys | `handleTo` |
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
-| `ttal task go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
+| `ttal go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
@@ -139,10 +139,10 @@ offsets, and sends assistant text blocks to Telegram via the daemon's send callb
 normal text — the watcher handles routing to Telegram automatically.
 
 The reviewer is advisory only — posts `VERDICT: LGTM` or `VERDICT: NEEDS_WORK` but never merges.
-Even with LGTM, the coder triages remaining non-blocking issues before merging. The coder
-runs `ttal pr merge` after triage, which drops a cleanup request file to `~/.ttal/cleanup/`.
-The daemon picks it up via fsnotify and handles the full lifecycle: close session, remove
-worktree, mark task done.
+Even with LGTM, the coder triages remaining non-blocking issues before running `ttal go <uuid>`.
+When `ttal go <uuid>` is run with `+lgtm` set, the daemon merges the PR (squash) and drops a
+cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up via fsnotify and handles the
+full lifecycle: close session, remove worktree, mark task done.
 `ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
 
 ### Modify Command Syntax
@@ -284,7 +284,6 @@ templates/
       └── ...
     commands/          - Command .md files (flat, deployed as skills)
       ├── task-route.md     - Task routing decision tree
-      ├── plan-review.md    - Plan review via subagent
       ├── breathe.md        - Context window refresh
       └── ...
     agents/            - Subagent definitions (→ ~/.claude/agents/)

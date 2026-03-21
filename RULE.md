@@ -14,7 +14,7 @@ ttal task add --project <alias> "description" --tag <tag> --priority M --annotat
 ttal task get <uuid>                    # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
 ttal task find <keyword> --completed    # search completed tasks
-ttal task go <uuid>                    # advance task through pipeline stage
+ttal go <uuid>                    # advance task through pipeline stage
 ```
 
 ## PRs
@@ -22,7 +22,7 @@ ttal task go <uuid>                    # advance task through pipeline stage
 ```bash
 ttal pr create "title" --body "description"
 ttal pr modify --title "new" --body "new"
-ttal pr merge                          # squash merge
+ttal go <uuid>                          # squash merge
 ```
 
 

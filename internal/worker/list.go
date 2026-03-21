@@ -48,7 +48,7 @@ func List() error {
 	if len(tasks) == 0 {
 		fmt.Println("No active workers")
 		fmt.Println("\nTo spawn a worker:")
-		fmt.Println("  ttal task go <uuid>")
+		fmt.Println("  ttal go <uuid>")
 		return nil
 	}
 

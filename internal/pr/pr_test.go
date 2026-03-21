@@ -102,7 +102,7 @@ func TestDiagnoseMergeFailure(t *testing.T) {
 			},
 			contains: []string{
 				"CI checks still running (2 pending)",
-				"sleep 30 && ttal pr merge",
+				"sleep 30 && ttal go",
 			},
 		},
 		{

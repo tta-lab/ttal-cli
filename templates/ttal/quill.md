@@ -154,7 +154,7 @@ Both **skills** (`templates/docs/skills/`) and **commands** (`templates/docs/com
 
 When reviewing plans before execution, use the plan-review → plan-triage cycle:
 
-1. **`/plan-review <flicknote-id>`** — spawns plan-reviewer subagent to find issues
+1. **`ttal go <uuid>`** — spawns plan-reviewer subagent to find issues
 2. **`/plan-triage`** — categorize issues as FIX/FALSE POSITIVE/DEFER/ASK, fix actionable ones
 3. **Re-review** if needed — resume the same subagent for round tracking
 
