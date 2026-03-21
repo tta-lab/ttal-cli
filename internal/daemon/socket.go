@@ -204,6 +204,11 @@ type CommentAddRequest struct {
 	Target string `json:"target"` // taskwarrior task UUID
 	Author string `json:"author"`
 	Body   string `json:"body"`
+	// Optional PR context for mirroring to remote PR
+	ProviderType string `json:"provider_type,omitempty"`
+	Owner        string `json:"owner,omitempty"`
+	Repo         string `json:"repo,omitempty"`
+	PRIndex      int64  `json:"pr_index,omitempty"`
 }
 
 // CommentAddResponse is the daemon's response for a comment add.

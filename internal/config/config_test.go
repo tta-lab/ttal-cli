@@ -680,3 +680,42 @@ func TestConfigHeartbeatPromptNilGuard(t *testing.T) {
 		t.Errorf("HeartbeatPrompt for unknown agent = %q, want empty", got)
 	}
 }
+
+func TestCommentSyncResolution(t *testing.T) {
+	tests := []struct {
+		name        string
+		commentSync string
+		want        string // expected value in ResolvedTeam
+	}{
+		{
+			name:        "empty propagates as empty (daemon defaults to pr)",
+			commentSync: "",
+			want:        "",
+		},
+		{
+			name:        "none propagates as none",
+			commentSync: "none",
+			want:        "none",
+		},
+		{
+			name:        "pr propagates as pr",
+			commentSync: "pr",
+			want:        "pr",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			team := TeamConfig{
+				TeamPath:    "/tmp/test",
+				CommentSync: tt.commentSync,
+			}
+			rt, err := resolveTeam("test", team, nil, map[string]TeamConfig{"test": team})
+			if err != nil {
+				t.Fatalf("resolveTeam() error: %v", err)
+			}
+			if rt.CommentSync != tt.want {
+				t.Errorf("CommentSync = %q, want %q", rt.CommentSync, tt.want)
+			}
+		})
+	}
+}

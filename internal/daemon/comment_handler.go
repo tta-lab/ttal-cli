@@ -2,11 +2,13 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/comment"
 	"github.com/tta-lab/ttal-cli/internal/ent"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 )
 
 // toCommentEntries converts ent comment records to wire-format entries.
@@ -23,16 +25,40 @@ func toCommentEntries(comments []*ent.Comment) []CommentEntry {
 	return entries
 }
 
-func handleCommentAdd(svc *comment.Service, team string, req CommentAddRequest) CommentAddResponse {
+func handleCommentAdd(svc *comment.Service, team, commentSync string, req CommentAddRequest) CommentAddResponse {
 	c, err := svc.Add(context.Background(), req.Target, req.Author, req.Body, team)
 	if err != nil {
 		log.Printf("[daemon] comment add failed: %v", err)
 		return CommentAddResponse{OK: false, Error: err.Error()}
 	}
+
+	if commentSync == "pr" && req.PRIndex > 0 {
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[daemon] mirror comment to PR: panic: %v", r)
+				}
+			}()
+			mirrorCommentToPR(req, c.Round)
+		}()
+	}
+
 	return CommentAddResponse{
 		OK:    true,
 		ID:    c.ID.String(),
 		Round: c.Round,
+	}
+}
+
+func mirrorCommentToPR(req CommentAddRequest, round int) {
+	provider, err := gitprovider.NewProviderByName(req.ProviderType)
+	if err != nil {
+		log.Printf("[daemon] mirror comment to PR: create provider: %v", err)
+		return
+	}
+	body := fmt.Sprintf("**%s** (round %d):\n\n%s", req.Author, round, req.Body)
+	if _, err := provider.CreateComment(req.Owner, req.Repo, req.PRIndex, body); err != nil {
+		log.Printf("[daemon] mirror comment to PR #%d: %v", req.PRIndex, err)
 	}
 }
 

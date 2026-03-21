@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -105,10 +106,28 @@ Examples:
 
 		author := resolveAuthor()
 
+		// Attempt to populate PR context for mirroring (worker plane only).
+		var providerType, owner, repo string
+		var prIndex int64
+		if os.Getenv("TTAL_JOB_ID") != "" {
+			if ctx, err := pr.ResolveContextWithoutProvider(); err == nil {
+				if idx, err := pr.PRIndex(ctx); err == nil {
+					providerType = string(ctx.Info.Provider)
+					owner = ctx.Owner
+					repo = ctx.Repo
+					prIndex = idx
+				}
+			}
+		}
+
 		resp, err := daemon.CommentAdd(daemon.CommentAddRequest{
-			Target: taskUUID,
-			Author: author,
-			Body:   body,
+			Target:       taskUUID,
+			Author:       author,
+			Body:         body,
+			ProviderType: providerType,
+			Owner:        owner,
+			Repo:         repo,
+			PRIndex:      prIndex,
 		})
 		if err != nil {
 			return err

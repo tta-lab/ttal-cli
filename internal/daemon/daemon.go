@@ -131,6 +131,13 @@ func Run() error {
 		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
 	}
 
+	// Resolve comment sync from team config (default: "pr").
+	defaultTeamName := mcfg.DefaultTeamName()
+	commentSync := "pr"
+	if rt, ok := mcfg.Teams[defaultTeamName]; ok && rt.CommentSync != "" {
+		commentSync = rt.CommentSync
+	}
+
 	askHumanHandler := defaultFE.AskHumanHTTPHandler()
 
 	srv, err := listenHTTP(sockPath, httpHandlers{
@@ -149,7 +156,7 @@ func Run() error {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
 		},
 		commentAdd: func(req CommentAddRequest) CommentAddResponse {
-			return handleCommentAdd(commentSvc, mcfg.DefaultTeamName(), req)
+			return handleCommentAdd(commentSvc, defaultTeamName, commentSync, req)
 		},
 		commentList: func(req CommentListRequest) CommentListResponse {
 			return handleCommentList(commentSvc, mcfg.DefaultTeamName(), req)

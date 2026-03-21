@@ -148,6 +148,8 @@ type TeamConfig struct {
 	ReviewerModel string `toml:"reviewer_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// PR merge mode override for this team
 	MergeMode string `toml:"merge_mode" jsonschema:"enum=auto,enum=manual"` //nolint:lll
+	// Comment sync mode: "none" (DB only) or "pr" (mirror to PR). Default: "pr".
+	CommentSync string `toml:"comment_sync" jsonschema:"enum=none,enum=pr,default=pr"` //nolint:lll
 	// ISO 639-1 language code for Whisper (default: en; auto for auto-detect)
 	VoiceLanguage string `toml:"voice_language"` //nolint:lll
 	// Per-agent credentials for this team
@@ -886,6 +888,7 @@ type ResolvedTeam struct {
 	WorkerModel       string
 	ReviewerModel     string
 	MergeMode         string
+	CommentSync       string
 	Voice             VoiceConfig
 	EmojiReactions    bool
 	UserName          string            // human identity for this team
@@ -1045,6 +1048,7 @@ func resolveTeam(
 		WorkerModel:       team.WorkerModel,
 		ReviewerModel:     team.ReviewerModel,
 		MergeMode:         team.MergeMode,
+		CommentSync:       team.CommentSync,
 		Voice: VoiceConfig{
 			Vocabulary: mergedVocab,
 			Language:   lang,
