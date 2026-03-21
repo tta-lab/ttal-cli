@@ -93,5 +93,6 @@ func TestHandleCommentAdd_SyncPR_WithPRIndex_MirrorAttempted(t *testing.T) {
 		t.Errorf("want round 1, got %d", resp.Round)
 	}
 	// Allow goroutine to run and log its error (provider creation fails in test env).
+	// This is a best-effort check: the goal is "no panic", not deterministic coverage.
 	time.Sleep(50 * time.Millisecond)
 }

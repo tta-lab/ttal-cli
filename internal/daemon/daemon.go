@@ -131,12 +131,8 @@ func Run() error {
 		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
 	}
 
-	// Resolve comment sync from team config (default: "pr").
 	defaultTeamName := mcfg.DefaultTeamName()
-	commentSync := "pr"
-	if rt, ok := mcfg.Teams[defaultTeamName]; ok && rt.CommentSync != "" {
-		commentSync = rt.CommentSync
-	}
+	commentSync := resolveCommentSync(mcfg, defaultTeamName)
 
 	askHumanHandler := defaultFE.AskHumanHTTPHandler()
 
@@ -398,6 +394,14 @@ func registerFrontendCommands(frontends map[string]frontend.Frontend, cmds []Bot
 
 // startFrontends calls Start for every frontend.
 // StartNotificationPoller is called internally by TelegramFrontend.Start.
+// resolveCommentSync returns the comment sync mode for the given team ("pr" by default).
+func resolveCommentSync(mcfg *config.DaemonConfig, teamName string) string {
+	if rt, ok := mcfg.Teams[teamName]; ok && rt.CommentSync != "" {
+		return rt.CommentSync
+	}
+	return "pr"
+}
+
 func startFrontends(ctx context.Context, done chan struct{}, frontends map[string]frontend.Frontend) error {
 	for teamName, fe := range frontends {
 		if err := fe.Start(ctx); err != nil {
