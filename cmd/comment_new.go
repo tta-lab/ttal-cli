@@ -187,7 +187,8 @@ func notifyCounterpart(body string) {
 		notifyCoder(sessionName, body, cfg)
 	case "plan-reviewer":
 		notifyPlanReviewer(sessionName, body)
-	case "designer":
+	default:
+		// Manager agents (kestrel, inke, etc.) notify plan-reviewer if window exists
 		notifyDesigner(sessionName)
 	}
 }

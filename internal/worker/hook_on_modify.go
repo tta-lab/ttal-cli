@@ -78,13 +78,18 @@ func checkLGTMGuard(original, modified hookTask) error {
 	if os.Getenv("TTAL_AGENT_NAME") == "reviewer" {
 		return nil
 	}
-	return fmt.Errorf("only reviewers can set +lgtm (current agent: %s)", os.Getenv("TTAL_AGENT_NAME"))
+	return fmt.Errorf(
+		"blocked: only the code reviewer can set +lgtm (current agent: %s). Use ttal comment add to request approval",
+		os.Getenv("TTAL_AGENT_NAME"),
+	)
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
 func HookOnModify() {
 	original, modified, rawModified, err := readHookInput()
 	if err != nil {
+		// Parse-error fallback: echo modified JSON back so taskwarrior can still write the task.
+		// This is intentional — do not convert to exit 1 here; malformed input should not block writes.
 		hookLogFile("ERROR in on-modify: " + err.Error())
 		if len(rawModified) > 0 {
 			fmt.Println(string(rawModified))
@@ -92,16 +97,11 @@ func HookOnModify() {
 		os.Exit(0)
 	}
 
-	// Guard: only reviewers can set +lgtm
+	// Guard: only reviewers can set +lgtm. Exit 1 so taskwarrior aborts the modification.
 	if err := checkLGTMGuard(original, modified); err != nil {
 		hookLogFile("LGTM guard: " + err.Error())
 		fmt.Fprintln(os.Stderr, err.Error())
-		rawOriginal, marshalErr := json.Marshal(original)
-		if marshalErr != nil || len(rawOriginal) == 0 {
-			os.Exit(1)
-		}
-		fmt.Println(string(rawOriginal))
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	// Check if task is being completed
