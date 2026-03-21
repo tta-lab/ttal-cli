@@ -61,10 +61,7 @@ func refineBashTool(input json.RawMessage) string {
 	switch {
 	case strings.HasPrefix(cmd, "ttal send "):
 		return "ttal:send"
-	case strings.HasPrefix(cmd, "ttal task go "),
-		strings.HasPrefix(cmd, "ttal task design "),
-		strings.HasPrefix(cmd, "ttal task research "),
-		strings.HasPrefix(cmd, "ttal go "):
+	case strings.HasPrefix(cmd, "ttal go "):
 		// ttal go may block on Telegram approval gate; the daemon
 		// handles output. No direct Telegram output from the CLI side.
 		return "ttal:route"

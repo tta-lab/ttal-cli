@@ -31,7 +31,7 @@ All automatic. All in your terminal.
 ttal task add --project myapp "Add JWT authentication to the API"
 
 # Advance — routes to researcher, designer, or spawns worker based on pipeline stage
-ttal task go abc12345
+ttal go abc12345
 
 # Meanwhile, you're on your phone
 # Review agents post verdicts, worker triages feedback, you merge from Telegram

@@ -23,7 +23,7 @@ func runTtalCommand(args ...string) ([]byte, error) {
 
 func advanceTask(uuid string) tea.Cmd {
 	return func() tea.Msg {
-		out, err := runTtalCommand("task", "go", uuid)
+		out, err := runTtalCommand("go", uuid)
 		short := uuid
 		if len(short) > 8 {
 			short = short[:8]

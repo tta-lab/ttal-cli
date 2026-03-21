@@ -111,12 +111,6 @@ func TestExtractToolUse(t *testing.T) {
 			wantTool: "flicknote:write",
 		},
 		{
-			name: "Bash with ttal task go",
-			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_9","input":{"command":"ttal task go abc12345"}}]}}`,
-			wantTool: "ttal:route",
-		},
-		{
 			name: "Bash with ttal go",
 			line: `{"type":"assistant","message":{"content":` +
 				`[{"type":"tool_use","name":"Bash","id":"tu_9b","input":{"command":"ttal go abc12345"}}]}}`,
@@ -127,18 +121,6 @@ func TestExtractToolUse(t *testing.T) {
 			line: `{"type":"assistant","message":{"content":` +
 				`[{"type":"tool_use","name":"Bash","id":"tu_10","input":{"command":"git status"}}]}}`,
 			wantTool: "Bash",
-		},
-		{
-			name: "Bash with ttal task design",
-			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_11","input":{"command":"ttal task design abc123"}}]}}`,
-			wantTool: "ttal:route",
-		},
-		{
-			name: "Bash with ttal task research",
-			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_12","input":{"command":"ttal task research abc123"}}]}}`,
-			wantTool: "ttal:route",
 		},
 		{
 			name: "Bash with bare flicknote list",
