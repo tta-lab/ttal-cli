@@ -35,7 +35,7 @@ func Attach(input string) error {
 
 	sessionName := config.AgentSessionName(teamName, agent)
 	if !tmux.SessionExists(sessionName) {
-		return fmt.Errorf("session %q not found — start with: ttal team start", sessionName)
+		return fmt.Errorf("session %q not found — start the daemon with: ttal daemon start", sessionName)
 	}
 
 	tmuxBin, err := exec.LookPath("tmux")
