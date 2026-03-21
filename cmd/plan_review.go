@@ -49,23 +49,25 @@ Examples:
 	},
 }
 
+const defaultPlanReviewerName = "plan-review-lead"
+
 // resolvePlanReviewerName resolves the reviewer agent name from pipeline config.
-// Tries designer then fixer assignee roles; falls back to "plan-review-lead".
+// Tries designer then fixer assignee roles; falls back to defaultPlanReviewerName.
 func resolvePlanReviewerName(taskUUID string) string {
 	task, err := taskwarrior.ExportTask(taskUUID)
 	if err != nil {
-		return "plan-review-lead"
+		return defaultPlanReviewerName
 	}
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
-		return "plan-review-lead"
+		return defaultPlanReviewerName
 	}
 	for _, role := range []string{"designer", "fixer"} {
 		if name := pipelineCfg.ReviewerForStage(task.Tags, role); name != "" {
 			return name
 		}
 	}
-	return "plan-review-lead"
+	return defaultPlanReviewerName
 }
 
 func init() {

@@ -8,6 +8,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
+const testUUIDLong = "abcd1234-0000-0000-0000-000000000000"
+
 func TestBuildPlanReviewerEnvParts_ContainsJobID(t *testing.T) {
 	uuid := "f9a917aa-fc67-4aab-b398-18480e58ce86"
 	parts, err := buildPlanReviewerEnvParts(uuid, "plan-review-lead", runtime.ClaudeCode)
@@ -27,7 +29,7 @@ func TestBuildPlanReviewerEnvParts_ContainsJobID(t *testing.T) {
 
 func TestBuildPlanReviewerEnvParts_IncludesTeamWhenSet(t *testing.T) {
 	t.Setenv("TTAL_TEAM", "guion")
-	uuid := "abcd1234-0000-0000-0000-000000000000"
+	uuid := testUUIDLong
 	parts, err := buildPlanReviewerEnvParts(uuid, "plan-review-lead", runtime.ClaudeCode)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -45,7 +47,7 @@ func TestBuildPlanReviewerEnvParts_IncludesTeamWhenSet(t *testing.T) {
 
 func TestBuildPlanReviewerEnvParts_OmitsTeamWhenEmpty(t *testing.T) {
 	_ = os.Unsetenv("TTAL_TEAM")
-	uuid := "abcd1234-0000-0000-0000-000000000000"
+	uuid := testUUIDLong
 	parts, err := buildPlanReviewerEnvParts(uuid, "plan-review-lead", runtime.ClaudeCode)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -65,7 +67,7 @@ func TestBuildPlanReviewerEnvParts_ShortUUIDReturnsError(t *testing.T) {
 }
 
 func TestBuildPlanReviewerEnvParts_AgentNamePassthrough(t *testing.T) {
-	uuid := "abcd1234-0000-0000-0000-000000000000"
+	uuid := testUUIDLong
 	parts, err := buildPlanReviewerEnvParts(uuid, "custom-reviewer", runtime.ClaudeCode)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
