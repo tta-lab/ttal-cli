@@ -5,7 +5,7 @@ emoji: 🐙
 role: designer
 voice: af_nova
 claude-code:
-  tools: [Bash, Read, Agent]
+  tools: [Bash, Read]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, read]
