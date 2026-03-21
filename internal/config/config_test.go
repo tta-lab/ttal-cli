@@ -632,6 +632,28 @@ func TestRolesConfigHeartbeatPrompt(t *testing.T) {
 	}
 }
 
+func TestPromptPlanReview(t *testing.T) {
+	cfg := &Config{
+		Prompts: PromptsConfig{
+			PlanReview:   "review plan {{task-id}}",
+			PlanReReview: "re-review plan {{task-id}}",
+		},
+	}
+	if got := cfg.Prompt("plan_review"); got != "review plan {{task-id}}" {
+		t.Errorf("Prompt(plan_review) = %q, want %q", got, "review plan {{task-id}}")
+	}
+	if got := cfg.Prompt("plan_re_review"); got != "re-review plan {{task-id}}" {
+		t.Errorf("Prompt(plan_re_review) = %q, want %q", got, "re-review plan {{task-id}}")
+	}
+	if !cfg.hasAnyPromptConfigured() {
+		t.Error("hasAnyPromptConfigured() = false when PlanReview is set, want true")
+	}
+	cfgPlanOnly := &Config{Prompts: PromptsConfig{PlanReview: "x"}}
+	if !cfgPlanOnly.hasAnyPromptConfigured() {
+		t.Error("hasAnyPromptConfigured() = false when only PlanReview is set, want true")
+	}
+}
+
 func TestConfigHeartbeatPromptNilGuard(t *testing.T) {
 	// resolvedRoles == nil (e.g. no roles.toml)
 	cfg := &Config{}

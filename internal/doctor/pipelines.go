@@ -15,16 +15,12 @@ name = "Plan"
 assignee = "designer"
 gate = "human"
 reviewer = "plan-review-lead"
-mode = "subagent"
-comments = "task"
 
 [[standard.stages]]
 name = "Implement"
 assignee = "worker"
 gate = "auto"
 reviewer = "pr-review-lead"
-mode = "subagent"
-comments = "pr"
 
 [bugfix]
 description = "Fix → Implement"
@@ -35,16 +31,12 @@ name = "Fix"
 assignee = "fixer"
 gate = "human"
 reviewer = "plan-review-lead"
-mode = "subagent"
-comments = "task"
 
 [[bugfix.stages]]
 name = "Implement"
 assignee = "worker"
 gate = "auto"
 reviewer = "pr-review-lead"
-mode = "subagent"
-comments = "pr"
 
 [hotfix]
 description = "Straight to implement"
@@ -55,6 +47,4 @@ name = "Implement"
 assignee = "worker"
 gate = "auto"
 reviewer = "pr-review-lead"
-mode = "subagent"
-comments = "pr"
 `

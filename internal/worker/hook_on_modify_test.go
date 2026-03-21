@@ -2,6 +2,9 @@ package worker
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -183,67 +186,167 @@ func makeLGTMTask(tags []string) hookTask {
 
 func TestCheckLGTMGuard(t *testing.T) {
 	tests := []struct {
-		name     string
-		original []string
-		modified []string
-		role     string
-		wantErr  bool
+		name             string
+		original         []string
+		modified         []string
+		agentName        string
+		allowedReviewers []string
+		wantErr          bool
 	}{
 		{
-			name:     "reviewer can add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "reviewer",
-			wantErr:  false,
+			name:             "plan-review-lead can add lgtm when listed as reviewer",
+			modified:         []string{"lgtm"},
+			agentName:        "plan-review-lead",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          false,
 		},
 		{
-			name:     "coder cannot add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "coder",
-			wantErr:  true,
+			name:             "pr-review-lead can add lgtm when listed as reviewer",
+			modified:         []string{"lgtm"},
+			agentName:        "pr-review-lead",
+			allowedReviewers: []string{"pr-review-lead"},
+			wantErr:          false,
 		},
 		{
-			name:     "empty role cannot add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "",
-			wantErr:  true,
+			name:             "coder cannot add lgtm",
+			modified:         []string{"lgtm"},
+			agentName:        "coder",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          true,
 		},
 		{
-			name:     "lgtm already present is not blocked",
-			original: []string{"lgtm"},
-			modified: []string{"lgtm"},
-			role:     "coder",
-			wantErr:  false,
+			name:             "empty agent cannot add lgtm",
+			modified:         []string{"lgtm"},
+			agentName:        "",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          true,
 		},
 		{
-			name:     "plan-reviewer cannot add lgtm",
-			original: nil,
-			modified: []string{"lgtm"},
-			role:     "plan-reviewer",
-			wantErr:  true,
+			name:             "lgtm already present is not blocked",
+			original:         []string{"lgtm"},
+			modified:         []string{"lgtm"},
+			agentName:        "coder",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          false,
 		},
 		{
-			name:     "unrelated tag change not blocked",
-			original: nil,
-			modified: []string{"urgent"},
-			role:     "coder",
-			wantErr:  false,
+			name:             "no pipeline (nil reviewers) rejects everyone",
+			modified:         []string{"lgtm"},
+			agentName:        "plan-review-lead",
+			allowedReviewers: nil,
+			wantErr:          true,
+		},
+		{
+			name:             "unrelated tag change not blocked",
+			modified:         []string{"urgent"},
+			agentName:        "coder",
+			allowedReviewers: []string{"plan-review-lead"},
+			wantErr:          false,
+		},
+		{
+			name:             "multiple reviewers across stages both allowed",
+			modified:         []string{"lgtm"},
+			agentName:        "pr-review-lead",
+			allowedReviewers: []string{"plan-review-lead", "pr-review-lead"},
+			wantErr:          false,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("TTAL_AGENT_NAME", tt.role)
-			orig := makeLGTMTask(tt.original)
-			mod := makeLGTMTask(tt.modified)
-			err := checkLGTMGuard(orig, mod)
-			if tt.wantErr && err == nil {
-				t.Error("expected error, got nil")
+			t.Setenv("TTAL_AGENT_NAME", tt.agentName)
+			lgtmAdded := !slices.Contains(tt.original, "lgtm") && slices.Contains(tt.modified, "lgtm")
+			err := checkLGTMGuard(lgtmAdded, tt.allowedReviewers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkLGTMGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("unexpected error: %v", err)
+		})
+	}
+}
+
+func writeTempPipelines(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pipelines.toml"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write pipelines.toml: %v", err)
+	}
+	return dir
+}
+
+func TestResolveAllowedReviewers(t *testing.T) {
+	const pipelinesWithReviewers = `
+[standard]
+tags = ["feature"]
+
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+reviewer = "plan-review-lead"
+
+[[standard.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	const pipelinesNoReviewer = `
+[hotfix]
+tags = ["hotfix"]
+
+[[hotfix.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+`
+
+	tests := []struct {
+		name       string
+		toml       string
+		taskTags   []string
+		wantResult []string
+	}{
+		{
+			name:       "matched pipeline collects all stage reviewers",
+			toml:       pipelinesWithReviewers,
+			taskTags:   []string{"feature"},
+			wantResult: []string{"plan-review-lead", "pr-review-lead"},
+		},
+		{
+			name:       "no pipeline match returns nil",
+			toml:       pipelinesWithReviewers,
+			taskTags:   []string{"unrelated"},
+			wantResult: nil,
+		},
+		{
+			name:       "pipeline with no reviewer fields returns nil",
+			toml:       pipelinesNoReviewer,
+			taskTags:   []string{"hotfix"},
+			wantResult: nil,
+		},
+		{
+			name:       "missing pipelines.toml returns nil",
+			toml:       "", // empty dir — no file written
+			taskTags:   []string{"feature"},
+			wantResult: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var dir string
+			if tt.toml != "" {
+				dir = writeTempPipelines(t, tt.toml)
+			} else {
+				dir = t.TempDir() // no pipelines.toml
+			}
+			task := makeLGTMTask(tt.taskTags)
+			got := resolveAllowedReviewers(task, dir)
+			if len(got) != len(tt.wantResult) {
+				t.Fatalf("resolveAllowedReviewers() = %v, want %v", got, tt.wantResult)
+			}
+			for i, r := range tt.wantResult {
+				if got[i] != r {
+					t.Errorf("resolveAllowedReviewers()[%d] = %q, want %q", i, got[i], r)
+				}
 			}
 		})
 	}

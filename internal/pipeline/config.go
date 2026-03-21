@@ -13,8 +13,7 @@ type Stage struct {
 	Name     string `toml:"name"`
 	Assignee string `toml:"assignee"` // role from roles.toml (e.g. "designer") or "worker" (special)
 	Gate     string `toml:"gate"`     // "human" or "auto"
-	Reviewer string `toml:"reviewer"` // subagent name (e.g. "plan-reviewer"), optional
-	Mode     string `toml:"mode"`     // "subagent" or "tmux", defaults to "subagent"
+	Reviewer string `toml:"reviewer"` // reviewer agent name (e.g. "plan-review-lead"), optional
 }
 
 // Pipeline defines a named pipeline with tag filters and stages.
@@ -157,11 +156,6 @@ func (c *Config) validate() error {
 			}
 			if s.Gate != "human" && s.Gate != "auto" {
 				return fmt.Errorf("pipeline %q stage %q: gate must be \"human\" or \"auto\", got %q", name, s.Name, s.Gate)
-			}
-			if s.Mode == "" {
-				p.Stages[i].Mode = "subagent"
-			} else if s.Mode != "subagent" && s.Mode != "tmux" {
-				return fmt.Errorf("pipeline %q stage %q: mode must be \"subagent\" or \"tmux\", got %q", name, s.Name, s.Mode)
 			}
 		}
 		c.Pipelines[name] = p // write back — Go maps return value copies

@@ -18,14 +18,12 @@ import (
 // Supports {{task-id}} and {{skill:name}} template variables.
 // Role-based keys (designer, researcher) come from roles.toml, not config.toml.
 type PromptsConfig struct {
-	// Prompt prefix for worker spawn
-	Execute string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
-	// Prompt sent to coder after PR review. Supports {{review-file}}
-	Triage string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"` //nolint:lll
-	// Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}
-	Review string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
-	// Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}
-	ReReview string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"` //nolint:lll
+	Execute      string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
+	Triage       string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                             //nolint:lll
+	Review       string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"` //nolint:lll
+	ReReview     string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
+	PlanReview   string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}} {{skill:plan-review}}"`                      //nolint:lll
+	PlanReReview string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                        //nolint:lll
 }
 
 // AgentSessionName returns the tmux session name for an agent.
@@ -435,10 +433,12 @@ func (c *Config) BreatheThreshold() float64 {
 // The default manager-plane prompt must not bleed into worker prompts.
 // Keep in sync with PromptsConfig fields and the promptsMap in Prompt() below.
 var workerPromptKeys = map[string]bool{
-	"execute":   true,
-	"review":    true,
-	"re_review": true,
-	"triage":    true,
+	"execute":        true,
+	"review":         true,
+	"re_review":      true,
+	"triage":         true,
+	"plan_review":    true,
+	"plan_re_review": true,
 }
 
 // Prompt returns the prompt template for a given key.
@@ -461,10 +461,12 @@ func (c *Config) Prompt(key string) string {
 
 	if c.hasAnyPromptConfigured() {
 		promptsMap := map[string]string{
-			"execute":   c.Prompts.Execute,
-			"triage":    c.Prompts.Triage,
-			"review":    c.Prompts.Review,
-			"re_review": c.Prompts.ReReview,
+			"execute":        c.Prompts.Execute,
+			"triage":         c.Prompts.Triage,
+			"review":         c.Prompts.Review,
+			"re_review":      c.Prompts.ReReview,
+			"plan_review":    c.Prompts.PlanReview,
+			"plan_re_review": c.Prompts.PlanReReview,
 		}
 		if prompt, ok := promptsMap[key]; ok {
 			return prompt
@@ -491,7 +493,8 @@ func (c *Config) HeartbeatPrompt(agentName string) string {
 
 func (c *Config) hasAnyPromptConfigured() bool {
 	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
-		c.Prompts.Review != "" || c.Prompts.ReReview != ""
+		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
+		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != ""
 }
 
 // RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.
