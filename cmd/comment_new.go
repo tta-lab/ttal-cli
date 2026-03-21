@@ -182,18 +182,18 @@ func notifyCounterpart(body string) {
 
 	switch os.Getenv("TTAL_AGENT_NAME") {
 	case "reviewer":
-		notifyReviewer(sessionName, body, cfg, rt)
+		notifyCoder(sessionName, body, cfg, rt)
 	case "coder":
-		notifyCoder(sessionName, body, cfg)
+		notifyReviewer(sessionName, body, cfg)
 	case "plan-reviewer":
-		notifyPlanReviewer(sessionName, body)
+		notifyDesigner(sessionName, body)
 	default:
 		// Manager agents (kestrel, inke, etc.) notify plan-reviewer if window exists
-		notifyDesigner(sessionName)
+		notifyPlanReviewer(sessionName)
 	}
 }
 
-func notifyReviewer(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
+func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
 	coderWindow, err := tmux.FirstWindowExcept(sessionName, "review")
 	if err != nil || coderWindow == "" {
 		return
@@ -217,7 +217,7 @@ func notifyReviewer(sessionName, body string, cfg *config.Config, rt runtime.Run
 	}
 }
 
-func notifyCoder(sessionName, body string, cfg *config.Config) {
+func notifyReviewer(sessionName, body string, cfg *config.Config) {
 	if !tmux.WindowExists(sessionName, "review") {
 		return
 	}
@@ -226,7 +226,7 @@ func notifyCoder(sessionName, body string, cfg *config.Config) {
 	}
 }
 
-func notifyPlanReviewer(sessionName, body string) {
+func notifyDesigner(sessionName, body string) {
 	designerWindow, err := tmux.FirstWindowExcept(sessionName, "plan-review")
 	if err != nil || designerWindow == "" {
 		return
@@ -236,7 +236,7 @@ func notifyPlanReviewer(sessionName, body string) {
 	}
 }
 
-func notifyDesigner(sessionName string) {
+func notifyPlanReviewer(sessionName string) {
 	if !tmux.WindowExists(sessionName, "plan-review") {
 		return
 	}
