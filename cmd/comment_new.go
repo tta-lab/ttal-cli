@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
+
+// formatCommentTime parses an RFC3339 timestamp and returns a short display format.
+func formatCommentTime(raw string) string {
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.Format("2006-01-02 15:04")
+	}
+	return raw
+}
 
 // resolveCurrentTask returns the task UUID for the current context.
 // Worker plane: TTAL_JOB_ID → session lookup.
@@ -136,10 +145,7 @@ var commentListCmd = &cobra.Command{
 		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 		rows := make([][]string, 0, len(resp.Comments))
 		for _, c := range resp.Comments {
-			ts := c.CreatedAt
-			if t, err := time.Parse(time.RFC3339, c.CreatedAt); err == nil {
-				ts = t.Format("2006-01-02 15:04")
-			}
+			ts := formatCommentTime(c.CreatedAt)
 			body := c.Body
 			if len(body) > 80 {
 				body = body[:77] + "..."
@@ -172,10 +178,100 @@ var commentListCmd = &cobra.Command{
 	},
 }
 
+var commentLgtmCmd = &cobra.Command{
+	Use:   "lgtm",
+	Short: "Approve the current task with +lgtm tag and audit trace",
+	Long: `Add +lgtm tag to the current task and create an annotation trace.
+Task is auto-resolved from TTAL_JOB_ID (worker) or TTAL_AGENT_NAME (manager).
+
+The on-modify hook validates that only reviewers can set +lgtm.
+The hook is a global taskwarrior hook (installed via ttal doctor --fix),
+not worker-specific — it fires on ALL task modifications and checks
+TTAL_AGENT_NAME == "reviewer".
+
+Examples:
+  ttal comment lgtm`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		taskUUID, err := resolveCurrentTask()
+		if err != nil {
+			return err
+		}
+
+		author := os.Getenv("TTAL_AGENT_NAME")
+		if author == "" {
+			return fmt.Errorf("TTAL_AGENT_NAME not set — cannot record lgtm attribution")
+		}
+
+		// Add +lgtm tag (on-modify hook enforces reviewer-only guard)
+		if err := taskwarrior.ModifyTags(taskUUID, "+lgtm"); err != nil {
+			return fmt.Errorf("failed to add +lgtm: %w", err)
+		}
+
+		// Add annotation trace
+		trace := fmt.Sprintf("lgtm: %s at %s", author, time.Now().UTC().Format(time.RFC3339))
+		if err := taskwarrior.AnnotateTask(taskUUID, trace); err != nil {
+			log.Printf("+lgtm tag was set but annotation failed — safe to re-run ttal comment lgtm: %v", err)
+			return fmt.Errorf("failed to annotate lgtm trace (+lgtm already set, safe to retry): %w", err)
+		}
+
+		fmt.Printf("LGTM approved by %s\n", author)
+		return nil
+	},
+}
+
+var commentGetCmd = &cobra.Command{
+	Use:   "get <round>",
+	Short: "Get comments for a specific review round",
+	Long: `Retrieve the full comment body for a specific review round.
+Task is auto-resolved from TTAL_JOB_ID (worker) or TTAL_AGENT_NAME (manager).
+
+Examples:
+  ttal comment get 1
+  ttal comment get 2`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		round, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("round must be a number: %w", err)
+		}
+		if round < 1 {
+			return fmt.Errorf("round must be >= 1")
+		}
+
+		taskUUID, err := resolveCurrentTask()
+		if err != nil {
+			return err
+		}
+
+		resp, err := daemon.CommentGet(daemon.CommentGetRequest{
+			Target: taskUUID,
+			Round:  round,
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(resp.Comments) == 0 {
+			fmt.Printf("No comments for round %d.\n", round)
+			return nil
+		}
+
+		for _, c := range resp.Comments {
+			fmt.Printf("— %s (%s):\n\n%s\n\n", c.Author, formatCommentTime(c.CreatedAt), c.Body)
+		}
+		return nil
+	},
+}
+
 // notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_AGENT_NAME.
 func notifyCounterpart(body string) {
 	sessionName, err := review.ResolveSessionName()
-	if err != nil || sessionName == "" {
+	if err != nil {
+		log.Printf("debug: notifyCounterpart: resolve session: %v", err)
+		return
+	}
+	if sessionName == "" {
 		return
 	}
 	switch os.Getenv("TTAL_AGENT_NAME") {
@@ -250,4 +346,6 @@ func init() {
 	rootCmd.AddCommand(newCommentCmd)
 	newCommentCmd.AddCommand(commentAddCmd)
 	newCommentCmd.AddCommand(commentListCmd)
+	newCommentCmd.AddCommand(commentLgtmCmd)
+	newCommentCmd.AddCommand(commentGetCmd)
 }

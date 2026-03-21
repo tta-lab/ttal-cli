@@ -154,6 +154,9 @@ func Run() error {
 		commentList: func(req CommentListRequest) CommentListResponse {
 			return handleCommentList(commentSvc, mcfg.DefaultTeamName(), req)
 		},
+		commentGet: func(req CommentGetRequest) CommentGetResponse {
+			return handleCommentGet(commentSvc, mcfg.DefaultTeamName(), req)
+		},
 		prCreate:              handlePRCreate,
 		prModify:              handlePRModify,
 		prMerge:               handlePRMerge,
