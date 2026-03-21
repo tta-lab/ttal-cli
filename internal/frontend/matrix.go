@@ -220,6 +220,12 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 			log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
 		}
 	}
+	// Bash mode: "! " prefix sends directly to CC without [matrix from:] wrapper.
+	if strings.HasPrefix(body, bashModePrefix) {
+		f.cfg.OnMessage(f.cfg.TeamName, agentName, body)
+		return
+	}
+
 	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, body)
 	f.cfg.OnMessage(f.cfg.TeamName, agentName, formatted)
 }
