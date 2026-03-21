@@ -117,6 +117,12 @@ func TestExtractToolUse(t *testing.T) {
 			wantTool: "ttal:route",
 		},
 		{
+			name: "Bash with ttal go",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_9b","input":{"command":"ttal go abc12345"}}]}}`,
+			wantTool: "ttal:route",
+		},
+		{
 			name: "Bash with unknown command",
 			line: `{"type":"assistant","message":{"content":` +
 				`[{"type":"tool_use","name":"Bash","id":"tu_10","input":{"command":"git status"}}]}}`,

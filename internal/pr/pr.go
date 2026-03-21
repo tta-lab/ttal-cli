@@ -120,7 +120,7 @@ func diagnoseMergeFailure(ctx *Context, pr *gitprovider.PullRequest) string {
 
 	// When checks are still running and none have failed, give an actionable retry message.
 	if pending > 0 && failing == 0 {
-		return fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal pr merge", pending)
+		return fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal go <uuid>", pending)
 	}
 
 	return buildStatusLines(cs.Statuses, failing, pending)

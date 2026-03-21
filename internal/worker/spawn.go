@@ -29,7 +29,7 @@ type SpawnConfig struct {
 	Worktree bool
 	Force    bool
 	Runtime  runtime.Runtime
-	Spawner  string // team:agent format, set by ttal task go
+	Spawner  string // team:agent format, set by ttal go
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,

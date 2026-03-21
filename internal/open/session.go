@@ -48,7 +48,7 @@ func Session(uuid string) error {
 
 	return fmt.Errorf("no worker or agent session for this task\n\n"+
 		"  To spawn a worker:\n"+
-		"  ttal task go %s", uuid)
+		"  ttal go %s", uuid)
 }
 
 // ResolveAgentSession checks if any of the given tags match a known agent name.

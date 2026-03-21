@@ -13,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/route"
@@ -31,9 +32,11 @@ type AdvanceRequest struct {
 
 // AdvanceResponse is the response body for POST /pipeline/advance.
 type AdvanceResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
-	Stage   string `json:"stage"` // new stage name if advanced
+	Status   string `json:"status"`
+	Message  string `json:"message"`
+	Stage    string `json:"stage"`              // new stage name if advanced
+	Reviewer string `json:"reviewer,omitempty"` // reviewer agent name if NeedsLGTM
+	Assignee string `json:"assignee,omitempty"` // stage assignee if NeedsLGTM
 }
 
 // Advance status constants.
@@ -238,8 +241,10 @@ func processStageAdvance(
 			stage.Reviewer,
 		)
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-			Status:  AdvanceStatusNeedsLGTM,
-			Message: msg,
+			Status:   AdvanceStatusNeedsLGTM,
+			Message:  msg,
+			Reviewer: stage.Reviewer,
+			Assignee: stage.Assignee,
 		})
 		return
 	}
@@ -286,9 +291,24 @@ func processStageAdvance(
 		log.Printf("[advance] warning: remove tags: %v", err)
 	}
 
+	// Worker stage with +lgtm: merge PR before advancing.
+	if stage.Assignee == workerStage && task.PRID != "" {
+		if done := handleWorkerPRMerge(w, task); done {
+			return
+		}
+	}
+
 	// Advance to next stage.
 	nextIdx := idx + 1
 	if nextIdx >= len(p.Stages) {
+		// Worker+PR: cleanup handler calls MarkDone after session teardown.
+		if stage.Assignee == workerStage && task.PRID != "" {
+			writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+				Status:  AdvanceStatusComplete,
+				Message: "pipeline complete — cleanup in progress",
+			})
+			return
+		}
 		// Pipeline complete.
 		if err := taskwarrior.MarkDone(task.UUID); err != nil {
 			log.Printf("[advance] warning: mark done: %v", err)
@@ -541,4 +561,76 @@ func findAgentTag(tags []string, agentRoles map[string]string) string {
 		}
 	}
 	return ""
+}
+
+// handleWorkerPRMerge merges the worker PR and requests cleanup.
+// Returns true when the HTTP response has been written (caller should return).
+func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
+	cfg, cfgErr := config.Load()
+	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
+		worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
+		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+			Status:  AdvanceStatusNeedsLGTM,
+			Message: "Manual merge mode — PR ready for human merge",
+		})
+		return true
+	}
+
+	if err := mergeWorkerPR(task); err != nil {
+		log.Printf("[advance] PR merge failed: %v", err)
+		worker.NotifyTelegram(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
+		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+			Status:  AdvanceStatusError,
+			Message: "merge PR: " + err.Error(),
+		})
+		return true
+	}
+
+	if err := worker.RequestCleanup(task.SessionName(), task.UUID); err != nil {
+		log.Printf("[advance] warning: cleanup request failed: %v", err)
+	}
+	return false
+}
+
+// mergeWorkerPR merges the PR associated with the task using the git provider.
+// It is called directly (not via daemon HTTP client) to avoid a daemon-calls-itself loopback.
+func mergeWorkerPR(task *taskwarrior.Task) error {
+	projectPath := projectPkg.ResolveProjectPath(task.Project)
+	if projectPath == "" {
+		return fmt.Errorf("cannot resolve project path for %q", task.Project)
+	}
+
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return fmt.Errorf("detect git provider: %w", err)
+	}
+
+	provider, err := gitprovider.NewProvider(info)
+	if err != nil {
+		return fmt.Errorf("create provider: %w", err)
+	}
+
+	prInfo, err := taskwarrior.ParsePRID(task.PRID)
+	if err != nil {
+		return fmt.Errorf("parse pr_id: %w", err)
+	}
+
+	fetchedPR, err := provider.GetPR(info.Owner, info.Repo, prInfo.Index)
+	if err != nil {
+		return fmt.Errorf("get PR: %w", err)
+	}
+	if fetchedPR.Merged {
+		log.Printf("[advance] PR #%d already merged, skipping", prInfo.Index)
+		return nil
+	}
+	if !fetchedPR.Mergeable {
+		return fmt.Errorf("PR #%d is not mergeable", prInfo.Index)
+	}
+
+	if err := provider.MergePR(info.Owner, info.Repo, prInfo.Index, true); err != nil {
+		return fmt.Errorf("merge PR #%d: %w", prInfo.Index, err)
+	}
+
+	log.Printf("[advance] PR #%d merged (squash)", prInfo.Index)
+	return nil
 }

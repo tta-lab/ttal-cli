@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -115,7 +114,7 @@ Examples:
 			}
 		} else {
 			fmt.Println("  To request a code review:")
-			fmt.Println("    ttal pr review")
+			fmt.Println("    ttal go <uuid>")
 		}
 
 		return nil
@@ -162,153 +161,6 @@ Examples:
 
 		fmt.Printf("PR #%d updated: %s\n", resp.PRIndex, resp.PRURL)
 		return nil
-	},
-}
-
-var prMergeCmd = &cobra.Command{
-	Use:   "merge",
-	Short: "Squash-merge the PR",
-	Long: `Squash-merges the PR associated with the current task.
-Fails with a clear error if the PR is not mergeable (conflicts, failing checks).
-
-Examples:
-  ttal pr merge
-  ttal pr merge --keep-branch`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
-		if err != nil {
-			return err
-		}
-
-		// Check LGTM gate via +lgtm tag
-		if !ctx.Task.HasTag("lgtm") {
-			return fmt.Errorf("PR not approved — reviewer must run: ttal comment lgtm")
-		}
-
-		keepBranch, _ := cmd.Flags().GetBool("keep-branch")
-
-		// Check for uncommitted changes before merging
-		statusOut, statusErr := exec.Command("git", "status", "--porcelain").Output()
-		if statusErr != nil {
-			return fmt.Errorf("failed to check worktree status: %w", statusErr)
-		}
-		if strings.TrimSpace(string(statusOut)) != "" {
-			return fmt.Errorf("worktree has uncommitted changes — commit or stash before merging")
-		}
-
-		prIndex, err := pr.PRIndex(ctx)
-		if err != nil {
-			return err
-		}
-
-		prURL := pr.BuildPRURL(ctx)
-
-		// Check mergeability via daemon
-		if _, err := daemon.PRCheckMergeable(daemon.PRCheckMergeableRequest{
-			ProviderType: string(ctx.Info.Provider),
-			Owner:        ctx.Owner,
-			Repo:         ctx.Repo,
-			Index:        prIndex,
-		}); err != nil {
-			worker.NotifyTelegram(fmt.Sprintf("⏳ PR not mergeable: %s\n%s\n%v", ctx.Task.Description, prURL, err))
-			return err
-		}
-
-		// Resolve merge mode from config (team > global > "auto")
-		mergeMode := config.MergeModeAuto
-		cfg, cfgErr := config.Load()
-		if cfgErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not load config, defaulting to auto merge: %v\n", cfgErr)
-		} else {
-			mergeMode = cfg.GetMergeMode()
-		}
-
-		if mergeMode == config.MergeModeManual {
-			worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s\n%s", ctx.Task.Description, prURL))
-			fmt.Printf("PR #%s is mergeable (manual mode — notification sent)\n", ctx.Task.PRID)
-			return nil
-		}
-
-		// Merge via daemon
-		if _, err = daemon.PRMerge(daemon.PRMergeRequest{
-			ProviderType: string(ctx.Info.Provider),
-			Owner:        ctx.Owner,
-			Repo:         ctx.Repo,
-			Index:        prIndex,
-			DeleteBranch: !keepBranch,
-		}); err != nil {
-			return err
-		}
-
-		fmt.Printf("PR #%s merged (squash)\n", ctx.Task.PRID)
-		if !keepBranch {
-			fmt.Println("  Branch deleted")
-		}
-
-		// Fire-and-forget: request daemon cleanup (session + worktree + task done)
-		if err := worker.RequestCleanup(ctx.Task.SessionName(), ctx.Task.UUID); err != nil {
-			fmt.Fprintf(os.Stderr,
-				"warning: cleanup request failed: %v\n  run: ttal worker close %s\n",
-				err, ctx.Task.SessionName())
-		} else {
-			fmt.Println("  Cleanup requested (daemon will close session + worktree)")
-		}
-
-		return nil
-	},
-}
-
-var (
-	reviewForce bool
-	reviewFull  bool
-)
-
-var prReviewCmd = &cobra.Command{
-	Use:   "review",
-	Short: "Spawn a reviewer to review the current PR",
-	Long: `Manually spawn or re-trigger a PR reviewer.
-
-In normal flow, reviews are triggered automatically:
-- On PR create: reviewer spawns automatically
-- On worker comment: re-review triggers automatically
-
-Use this command when you need to:
-- Respawn a crashed reviewer (--force)
-- Force a full re-review instead of delta (--full)
-- Manually trigger a review in non-standard situations
-
-Examples:
-  ttal pr review         # spawn reviewer (or re-review if window exists)
-  ttal pr review --full  # force full re-review (not delta)
-  ttal pr review --force # kill and respawn reviewer window`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
-		if err != nil {
-			return err
-		}
-
-		sessionName, err := review.ResolveSessionName()
-		if err != nil {
-			return fmt.Errorf("failed to detect tmux session: %w", err)
-		}
-		if sessionName == "" {
-			return fmt.Errorf("must be run inside a tmux session (this command is for worker sessions)")
-		}
-
-		if reviewForce && tmux.WindowExists(sessionName, "review") {
-			if err := tmux.KillWindow(sessionName, "review"); err != nil {
-				return fmt.Errorf("failed to kill reviewer window: %w", err)
-			}
-			fmt.Println("Killed existing reviewer window")
-		}
-
-		cfg, _ := loadConfigAndCoderRuntime()
-		if tmux.WindowExists(sessionName, "review") {
-			return review.RequestReReview(sessionName, reviewFull, "", cfg)
-		}
-
-		reviewerName := resolvePRReviewerName(ctx.Task.Tags)
-		return review.SpawnReviewer(sessionName, ctx, reviewerName, cfg)
 	},
 }
 
@@ -368,16 +220,9 @@ func init() {
 	prModifyCmd.Flags().String("title", "", "New PR title")
 	prModifyCmd.Flags().String("body", "", "New PR body")
 
-	prMergeCmd.Flags().Bool("keep-branch", false, "Don't delete the branch after merge")
-
-	prReviewCmd.Flags().BoolVar(&reviewForce, "force", false, "Kill and respawn reviewer window")
-	prReviewCmd.Flags().BoolVar(&reviewFull, "full", false, "Request full re-review (not delta)")
-
 	prCICmd.Flags().BoolVar(&prCIShowLog, "log", false, "Include failure details and log tails")
 
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)
-	prCmd.AddCommand(prMergeCmd)
-	prCmd.AddCommand(prReviewCmd)
 	prCmd.AddCommand(prCICmd)
 }

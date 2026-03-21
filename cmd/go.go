@@ -6,10 +6,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/planreview"
+	"github.com/tta-lab/ttal-cli/internal/pr"
+	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
-var taskGoCmd = &cobra.Command{
+var goCmd = &cobra.Command{
 	Use:   "go <uuid>",
 	Short: "Advance a task to the next pipeline stage",
 	Long: `Advance a task through its pipeline stages based on pipelines.toml configuration.
@@ -21,8 +25,8 @@ is determined by the task's pipeline stage definition.
 Human gate stages block until Telegram approval is received.
 
 Examples:
-  ttal task go abc12345
-  ttal task go abc12345-1234-1234-1234-123456789abc`,
+  ttal go abc12345
+  ttal go abc12345-1234-1234-1234-123456789abc`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		uuid := args[0]
@@ -48,6 +52,11 @@ Examples:
 			fmt.Printf("No pipeline: %s\n", resp.Message)
 		case daemon.AdvanceStatusNeedsLGTM:
 			fmt.Printf("Blocked: %s\n", resp.Message)
+			if resp.Reviewer != "" {
+				if err := spawnOrRetriggerReviewer(uuid, resp.Reviewer, resp.Assignee); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: reviewer spawn failed: %v\n", err)
+				}
+			}
 		case daemon.AdvanceStatusRejected:
 			return fmt.Errorf("rejected: %s", resp.Message)
 		case daemon.AdvanceStatusComplete:
@@ -59,4 +68,42 @@ Examples:
 		}
 		return nil
 	},
+}
+
+// spawnOrRetriggerReviewer spawns or re-triggers a reviewer based on the stage assignee.
+// For worker stages it spawns a PR reviewer; for other stages it spawns a plan reviewer.
+func spawnOrRetriggerReviewer(taskUUID, reviewerAgent, assignee string) error {
+	sessionName, err := review.ResolveSessionName()
+	if err != nil {
+		return fmt.Errorf("resolve tmux session: %w", err)
+	}
+	if sessionName == "" {
+		fmt.Println("Not in a tmux session — run from a tmux session to auto-spawn reviewer")
+		return nil
+	}
+	cfg, _ := loadConfigAndCoderRuntime()
+
+	if assignee == "worker" {
+		if tmux.WindowExists(sessionName, "review") {
+			fmt.Println("Reviewer already running, sending re-review request...")
+			return review.RequestReReview(sessionName, false, "", cfg)
+		}
+		fmt.Println("Spawning PR reviewer...")
+		ctx, err := pr.ResolveContextWithoutProvider()
+		if err != nil {
+			return fmt.Errorf("resolve PR context: %w", err)
+		}
+		return review.SpawnReviewer(sessionName, ctx, reviewerAgent, cfg)
+	}
+
+	if tmux.WindowExists(sessionName, "plan-review") {
+		fmt.Println("Plan reviewer already running, sending re-review request...")
+		return planreview.RequestReReview(sessionName, taskUUID, cfg)
+	}
+	fmt.Println("Spawning plan reviewer...")
+	return planreview.SpawnPlanReviewer(sessionName, taskUUID, reviewerAgent, cfg)
+}
+
+func init() {
+	rootCmd.AddCommand(goCmd)
 }

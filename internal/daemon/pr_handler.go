@@ -140,7 +140,7 @@ func diagnosePRMergeFailure(
 	}
 	failing, pending := countPRCheckStates(cs.Statuses)
 	if pending > 0 && failing == 0 {
-		return fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal pr merge", pending)
+		return fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal go <uuid>", pending)
 	}
 	return buildPRStatusLines(cs.Statuses, failing, pending)
 }
