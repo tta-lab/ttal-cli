@@ -332,6 +332,9 @@ func advanceToStage(
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
 		}
+		if err := taskwarrior.ModifyTags(task.UUID, "+worker"); err != nil {
+			log.Printf("[advance] warning: add worker tag: %v", err)
+		}
 
 		projectPath, err := projectPkg.ResolveProjectPathOrError(task.Project)
 		if err != nil {
