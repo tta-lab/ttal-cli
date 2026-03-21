@@ -149,7 +149,8 @@ gate = "human"
 
 func TestOnAddPipelineSkip_RoleMismatch(t *testing.T) {
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: orchestrator\n---\n"), 0o644); err != nil {
+	agentContent := []byte("---\nrole: orchestrator\n---\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), agentContent, 0o644); err != nil {
 		t.Fatalf("write agent file: %v", err)
 	}
 
