@@ -172,6 +172,44 @@ var commentListCmd = &cobra.Command{
 	},
 }
 
+var commentLgtmCmd = &cobra.Command{
+	Use:   "lgtm",
+	Short: "Approve the current task with +lgtm tag and audit trace",
+	Long: `Add +lgtm tag to the current task and create an annotation trace.
+Task is auto-resolved from TTAL_JOB_ID (worker) or TTAL_AGENT_NAME (manager).
+
+The on-modify hook validates that only reviewers can set +lgtm.
+The hook is a global taskwarrior hook (installed via ttal doctor --fix),
+not worker-specific — it fires on ALL task modifications and checks
+TTAL_AGENT_NAME == "reviewer".
+
+Examples:
+  ttal comment lgtm`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		taskUUID, err := resolveCurrentTask()
+		if err != nil {
+			return err
+		}
+
+		author := resolveAuthor()
+
+		// Add +lgtm tag (on-modify hook enforces reviewer-only guard)
+		if err := taskwarrior.ModifyTags(taskUUID, "+lgtm"); err != nil {
+			return fmt.Errorf("failed to add +lgtm: %w", err)
+		}
+
+		// Add annotation trace
+		trace := fmt.Sprintf("lgtm: %s at %s", author, time.Now().UTC().Format(time.RFC3339))
+		if err := taskwarrior.AnnotateTask(taskUUID, trace); err != nil {
+			return fmt.Errorf("failed to annotate lgtm trace: %w", err)
+		}
+
+		fmt.Printf("LGTM approved by %s\n", author)
+		return nil
+	},
+}
+
 // notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_AGENT_NAME.
 func notifyCounterpart(body string) {
 	sessionName, err := review.ResolveSessionName()
@@ -249,4 +287,5 @@ func init() {
 	rootCmd.AddCommand(newCommentCmd)
 	newCommentCmd.AddCommand(commentAddCmd)
 	newCommentCmd.AddCommand(commentListCmd)
+	newCommentCmd.AddCommand(commentLgtmCmd)
 }
