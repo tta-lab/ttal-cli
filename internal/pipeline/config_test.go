@@ -16,13 +16,11 @@ name = "Plan"
 assignee = "designer"
 gate = "human"
 reviewer = "plan-reviewer"
-mode = "subagent"
 
 [[standard.stages]]
 name = "Implement"
 assignee = "worker"
 gate = "auto"
-mode = "subagent"
 
 [bugfix]
 description = "Fix → Implement"
@@ -32,7 +30,6 @@ tags = ["bugfix"]
 name = "Fix"
 assignee = "fixer"
 gate = "human"
-mode = "subagent"
 `
 
 func writeTempTOML(t *testing.T, content string) string {
@@ -71,28 +68,6 @@ func TestLoad_MissingFile_ReturnsEmpty(t *testing.T) {
 	}
 	if len(cfg.Pipelines) != 0 {
 		t.Errorf("expected empty pipelines, got %d", len(cfg.Pipelines))
-	}
-}
-
-func TestLoad_ModeDefaultsToSubagent(t *testing.T) {
-	const noModeTOML = `
-[hotfix]
-tags = ["hotfix"]
-
-[[hotfix.stages]]
-name = "Implement"
-assignee = "worker"
-gate = "auto"
-`
-	dir := writeTempTOML(t, noModeTOML)
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatalf("Load error: %v", err)
-	}
-	stage := cfg.Pipelines["hotfix"].Stages[0]
-	const wantMode = "subagent"
-	if stage.Mode != wantMode {
-		t.Errorf("expected mode %q, got %q", wantMode, stage.Mode)
 	}
 }
 
