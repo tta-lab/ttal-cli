@@ -261,6 +261,9 @@ func processStageAdvance(
 	if oldAgentName != "" {
 		removeTags = append(removeTags, "-"+oldAgentName)
 	}
+	if hasTag(task.Tags, "worker") {
+		removeTags = append(removeTags, "-worker")
+	}
 	if err := taskwarrior.ModifyTags(task.UUID, removeTags...); err != nil {
 		log.Printf("[advance] warning: remove tags: %v", err)
 	}
