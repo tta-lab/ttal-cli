@@ -36,12 +36,13 @@ func formatCommentTime(raw string) string {
 // Manager plane: TTAL_AGENT_NAME → active task with +<agent> tag.
 func resolveCurrentTask() (string, error) {
 	if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
-		task, err := taskwarrior.ExportTaskBySessionID(jobID, "pending")
-		if err != nil {
-			task, err = taskwarrior.ExportTaskBySessionID(jobID, "completed")
-		}
-		if err != nil {
-			return "", fmt.Errorf("no task for job ID %q: %w", jobID, err)
+		task, pendingErr := taskwarrior.ExportTaskBySessionID(jobID, "pending")
+		if pendingErr != nil {
+			var completedErr error
+			task, completedErr = taskwarrior.ExportTaskBySessionID(jobID, "completed")
+			if completedErr != nil {
+				return "", fmt.Errorf("no task for job ID %q (pending: %v; completed: %w)", jobID, pendingErr, completedErr)
+			}
 		}
 		return task.UUID, nil
 	}
@@ -310,7 +311,7 @@ func notifyCounterpart(body string) {
 	// Check if this agent is a reviewer — route based on what stage type they review.
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
-		log.Printf("debug: notifyCounterpart: load pipelines: %v", err)
+		log.Printf("warn: notifyCounterpart: load pipelines: %v", err)
 		notifyPlanReviewer(sessionName)
 		return
 	}
