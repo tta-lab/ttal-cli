@@ -78,7 +78,10 @@ func checkLGTMGuard(original, modified hookTask) error {
 	if os.Getenv("TTAL_AGENT_NAME") == "reviewer" {
 		return nil
 	}
-	return fmt.Errorf("blocked: only the code reviewer can set +lgtm (current agent: %s). Use ttal comment add to request approval", os.Getenv("TTAL_AGENT_NAME"))
+	return fmt.Errorf(
+		"blocked: only the code reviewer can set +lgtm (current agent: %s). Use ttal comment add to request approval",
+		os.Getenv("TTAL_AGENT_NAME"),
+	)
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
