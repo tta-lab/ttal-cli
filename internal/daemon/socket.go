@@ -119,23 +119,6 @@ type PRCheckMergeableRequest struct {
 	Index        int64  `json:"index"`
 }
 
-// PRCommentCreateRequest asks the daemon to post a comment on a PR.
-type PRCommentCreateRequest struct {
-	ProviderType string `json:"provider_type"`
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	Index        int64  `json:"index"`
-	Body         string `json:"body"`
-}
-
-// PRCommentListRequest asks the daemon to list comments on a PR.
-type PRCommentListRequest struct {
-	ProviderType string `json:"provider_type"`
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	Index        int64  `json:"index"`
-}
-
 // PRGetPRRequest asks the daemon to fetch a PR (for HeadSHA resolution in CI commands).
 type PRGetPRRequest struct {
 	ProviderType string `json:"provider_type"`
@@ -162,20 +145,11 @@ type PRGetCIFailureDetailsRequest struct {
 
 // PRResponse is the daemon's response for PR operations.
 type PRResponse struct {
-	OK       bool            `json:"ok"`
-	Error    string          `json:"error,omitempty"`
-	PRURL    string          `json:"pr_url,omitempty"`
-	PRIndex  int64           `json:"pr_index,omitempty"`
-	HeadSHA  string          `json:"head_sha,omitempty"`
-	Comments []PRCommentItem `json:"comments,omitempty"`
-}
-
-// PRCommentItem is a single comment in a PRResponse.
-type PRCommentItem struct {
-	User      string `json:"user"`
-	Body      string `json:"body"`
-	CreatedAt string `json:"created_at"`
-	HTMLURL   string `json:"html_url"`
+	OK      bool   `json:"ok"`
+	Error   string `json:"error,omitempty"`
+	PRURL   string `json:"pr_url,omitempty"`
+	PRIndex int64  `json:"pr_index,omitempty"`
+	HeadSHA string `json:"head_sha,omitempty"`
 }
 
 // PRGetPRResponse is the daemon's response for GetPR.
@@ -279,8 +253,6 @@ type httpHandlers struct {
 	prModify              func(PRModifyRequest) PRResponse
 	prMerge               func(PRMergeRequest) PRResponse
 	prCheckMergeable      func(PRCheckMergeableRequest) PRResponse
-	prCommentCreate       func(PRCommentCreateRequest) PRResponse
-	prCommentList         func(PRCommentListRequest) PRResponse
 	prGetPR               func(PRGetPRRequest) PRGetPRResponse
 	prGetCombinedStatus   func(PRGetCombinedStatusRequest) PRCIStatusResponse
 	prGetCIFailureDetails func(PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse
@@ -308,8 +280,6 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
 	r.Post("/pr/merge", handleHTTPPR("prMerge", handlers.prMerge))
 	r.Post("/pr/check-mergeable", handleHTTPPR("prCheckMergeable", handlers.prCheckMergeable))
-	r.Post("/pr/comment/create", handleHTTPPR("prCommentCreate", handlers.prCommentCreate))
-	r.Post("/pr/comment/list", handleHTTPPR("prCommentList", handlers.prCommentList))
 	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
 	r.Post("/pr/ci/status", handleHTTPPRCIStatus(handlers))
 	r.Post("/pr/ci/failure-details", handleHTTPPRCIFailureDetails(handlers))
@@ -582,16 +552,6 @@ func PRMerge(req PRMergeRequest) (PRResponse, error) {
 // PRCheckMergeable asks the daemon to check if a PR is mergeable.
 func PRCheckMergeable(req PRCheckMergeableRequest) (PRResponse, error) {
 	return prCall("/pr/check-mergeable", req)
-}
-
-// PRCommentCreate asks the daemon to post a comment on a PR.
-func PRCommentCreate(req PRCommentCreateRequest) (PRResponse, error) {
-	return prCall("/pr/comment/create", req)
-}
-
-// PRCommentList asks the daemon to list comments on a PR.
-func PRCommentList(req PRCommentListRequest) (PRResponse, error) {
-	return prCall("/pr/comment/list", req)
 }
 
 // PRGetPR asks the daemon to fetch a PR.

@@ -14,7 +14,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/format"
-	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -107,35 +106,6 @@ Examples:
 		}
 
 		fmt.Printf("Comment added (round %d)\n", resp.Round)
-
-		// Forge side-effect: if worker plane and task has pr_id, also post to forge
-		if os.Getenv("TTAL_JOB_ID") != "" {
-			task, taskErr := taskwarrior.ExportTask(taskUUID)
-			if taskErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: forge comment skipped: export task: %v\n", taskErr)
-			} else if task.PRID != "" {
-				prCtx, ctxErr := pr.ResolveContextWithoutProvider()
-				if ctxErr != nil {
-					fmt.Fprintf(os.Stderr, "warning: forge comment skipped: resolve context: %v\n", ctxErr)
-				} else {
-					idx, idxErr := pr.PRIndex(prCtx)
-					if idxErr != nil {
-						fmt.Fprintf(os.Stderr, "warning: forge comment skipped: PR index: %v\n", idxErr)
-					} else {
-						_, prErr := daemon.PRCommentCreate(daemon.PRCommentCreateRequest{
-							ProviderType: string(prCtx.Info.Provider),
-							Owner:        prCtx.Owner,
-							Repo:         prCtx.Repo,
-							Index:        idx,
-							Body:         body,
-						})
-						if prErr != nil {
-							fmt.Fprintf(os.Stderr, "warning: forge comment failed: %v\n", prErr)
-						}
-					}
-				}
-			}
-		}
 
 		// Notify counterpart window
 		notifyCounterpart(body)

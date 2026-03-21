@@ -23,19 +23,8 @@ ttal task go <uuid>                    # advance task through pipeline stage
 ttal pr create "title" --body "description"
 ttal pr modify --title "new" --body "new"
 ttal pr merge                          # squash merge
-ttal pr comment create "markdown"
-ttal pr comment list
 ```
 
-For multiline comments with special characters, use heredoc:
-
-```bash
-cat <<'EOF' | ttal pr comment create
-## Review
-
-**LGTM**
-EOF
-```
 
 ## Projects & Agents
 

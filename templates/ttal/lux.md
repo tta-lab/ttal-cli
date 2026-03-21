@@ -5,7 +5,7 @@ emoji: 🔥
 role: fixer
 description: Bug fix designer — diagnoses root causes and writes fix plans for workers to execute
 claude-code:
-  tools: [Bash, Read, Agent]
+  tools: [Bash, Read]
 
 ---
 

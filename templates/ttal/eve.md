@@ -5,7 +5,7 @@ emoji: 🦘
 role: creator
 description: Agent creator — designs new agent identities, handles respawn updates across the team
 claude-code:
-  tools: [Bash, Glob, Grep, Read, Write, Edit, Agent]
+  tools: [Bash, Glob, Grep, Read, Write, Edit]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, read, glob, grep, write, edit]

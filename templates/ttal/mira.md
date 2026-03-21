@@ -5,7 +5,7 @@ emoji: 🧭
 role: designer
 description: Design architect — writes executable implementation plans for Guion/fb3 projects
 claude-code:
-  tools: [Bash, Read, Agent]
+  tools: [Bash, Read]
 
 ---
 

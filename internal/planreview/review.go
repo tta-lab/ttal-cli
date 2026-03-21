@@ -53,7 +53,7 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, cfg *config.Config) 
 			ttalBin, workDir, breathe.SessionConfig{
 				CWD:     workDir,
 				Handoff: systemPrompt,
-			}, model, "plan-reviewer", "Review the plan.",
+			}, model, "plan-review-lead", "Review the plan.",
 		)
 		if err != nil {
 			return err

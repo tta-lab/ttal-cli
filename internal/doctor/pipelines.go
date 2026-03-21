@@ -14,7 +14,7 @@ tags = ["feature", "refactor"]
 name = "Plan"
 assignee = "designer"
 gate = "human"
-reviewer = "plan-reviewer"
+reviewer = "plan-review-lead"
 mode = "subagent"
 comments = "task"
 
@@ -34,7 +34,7 @@ tags = ["bugfix"]
 name = "Fix"
 assignee = "fixer"
 gate = "human"
-reviewer = "plan-reviewer"
+reviewer = "plan-review-lead"
 mode = "subagent"
 comments = "task"
 

@@ -5,7 +5,7 @@ emoji: 📐
 role: designer
 voice: af_nicole
 claude-code:
-  tools: [Bash, Glob, Grep, Read, Agent]
+  tools: [Bash, Glob, Grep, Read]
 ---
 
 # CLAUDE.md - Astra's Workspace

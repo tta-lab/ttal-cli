@@ -87,6 +87,8 @@ After subagents complete, summarize:
 4. Re-run review after fixes
 ```
 
+**Post this summary via `ttal comment add`** — this is how the review loop communicates with the coder. Don't just output it inline.
+
 ## Subagent Descriptions
 
 **pr-code-reviewer**:

@@ -5,7 +5,7 @@ emoji: ⚓
 role: designer
 voice: am_adam
 claude-code:
-  tools: [Bash, Glob, Grep, Read, Agent]
+  tools: [Bash, Glob, Grep, Read]
 
 ---
 

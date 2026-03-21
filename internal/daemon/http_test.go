@@ -31,8 +31,6 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		prModify:         func(req PRModifyRequest) PRResponse { return PRResponse{OK: true} },
 		prMerge:          func(req PRMergeRequest) PRResponse { return PRResponse{OK: true} },
 		prCheckMergeable: func(req PRCheckMergeableRequest) PRResponse { return PRResponse{OK: true} },
-		prCommentCreate:  func(req PRCommentCreateRequest) PRResponse { return PRResponse{OK: true} },
-		prCommentList:    func(req PRCommentListRequest) PRResponse { return PRResponse{OK: true} },
 		prGetPR: func(req PRGetPRRequest) PRGetPRResponse {
 			return PRGetPRResponse{OK: true}
 		},
@@ -526,44 +524,5 @@ func TestHTTPPRCheckMergeable_Smoke(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestHTTPPRCommentCreate_Smoke(t *testing.T) {
-	h := testHandlers(nil)
-	h.prCommentCreate = func(req PRCommentCreateRequest) PRResponse { return PRResponse{OK: true} }
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRCommentCreateRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1, Body: "LGTM"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/comment/create", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestHTTPPRCommentList_Smoke(t *testing.T) {
-	h := testHandlers(nil)
-	h.prCommentList = func(req PRCommentListRequest) PRResponse {
-		return PRResponse{OK: true, Comments: []PRCommentItem{{User: "neil", Body: "LGTM"}}}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRCommentListRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1})
-	req := httptest.NewRequest(http.MethodPost, "/pr/comment/list", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-	var resp PRResponse
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(resp.Comments) != 1 || resp.Comments[0].User != "neil" {
-		t.Errorf("unexpected comments: %+v", resp.Comments)
 	}
 }

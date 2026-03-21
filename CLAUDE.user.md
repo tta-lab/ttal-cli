@@ -52,6 +52,25 @@ ttal task go <uuid>    # spawns a worker in isolated worktree
   - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal pr merge`
 - **Use `ttal comment` for task comments**: `ttal comment add "msg"` / `ttal comment list`
 
+## Comments & Reviews
+
+`ttal comment add` is the unified tool for posting review findings, triage reports, and verdicts — for both plan review and PR review loops. Always post reports via `ttal comment add`, not inline output.
+
+```bash
+ttal comment add "review findings"
+ttal comment list
+task <uuid> modify +lgtm   # set pipeline gate after LGTM
+```
+
+For multiline reports, use heredoc:
+
+```bash
+cat <<'REVIEW' | ttal comment add
+## Plan Review: My Feature
+**Verdict:** Ready
+REVIEW
+```
+
 ## Git Best Practices
 
 - Always describe what's in git diff --cached, not your editing journey.
@@ -160,7 +179,6 @@ ttal voice speak "text" --voice af_heart  # specific voice
 ```bash
 ttal sync                    # deploy skills + subagents to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
-ttal sync --clean            # remove stale deployments
 ```
 Sources: `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/` → `~/.claude/skills/`, `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/` → `~/.claude/agents/`
 
@@ -218,17 +236,6 @@ ttal task go <uuid>                    # advance task through pipeline stage
 ttal pr create "title" --body "description"
 ttal pr modify --title "new" --body "new"
 ttal pr merge                          # squash merge
-ttal comment add "markdown"
-ttal comment list
-```
-
-For multiline comments with special characters, use heredoc:
-
-```bash
-cat <<'EOF' | ttal comment add
-## Review
-**LGTM**
-EOF
 ```
 
 ## Projects & Agents
