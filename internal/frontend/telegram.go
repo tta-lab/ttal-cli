@@ -40,6 +40,10 @@ const (
 	replyContextEllipsisLen = 3
 )
 
+// bashModePrefix is the prefix that triggers CC bash mode delivery.
+// Messages starting with this are sent directly without the [telegram/matrix from:] wrapper.
+const bashModePrefix = "! "
+
 // pollerTarget groups agent info for Telegram poller dispatch by chat ID.
 type pollerTarget struct {
 	teamName  string
@@ -543,6 +547,13 @@ func (f *TelegramFrontend) handleInboundMessage(
 		text = strings.TrimSpace(msg.Text)
 	}
 	f.persistInbound(senderName, agentName, teamName, text)
+
+	// Bash mode: "! " prefix sends directly to CC without [telegram from:] wrapper.
+	if strings.HasPrefix(text, bashModePrefix) {
+		onMessage(agentName, text)
+		return
+	}
+
 	onMessage(agentName, formatInboundMessage(senderName, replyCtx+text))
 }
 
