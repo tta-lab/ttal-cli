@@ -18,8 +18,21 @@ import (
 
 const windowName = "review"
 
+// buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
+// TTAL_TEAM is forwarded when set, so the reviewer uses the correct team project registry.
+func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
+	parts := []string{
+		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
+	}
+	if team := os.Getenv("TTAL_TEAM"); team != "" {
+		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
+	}
+	return parts
+}
+
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
-func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) error {
+func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg *config.Config) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
@@ -60,7 +73,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 
 	var shellCmd string
 
-	envParts := []string{"TTAL_AGENT_NAME=reviewer", fmt.Sprintf("TTAL_RUNTIME=%s", reviewerRT)}
+	envParts := buildReviewerEnvParts(reviewerName, reviewerRT)
 	var ccSessionPath string // non-empty for CC reviewers; cleaned up if tmux.NewWindow fails
 
 	if reviewerRT == runtime.Codex {
@@ -81,7 +94,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, cfg *config.Config) erro
 				CWD:       workDir,
 				GitBranch: gitBranch,
 				Handoff:   systemPrompt,
-			}, model, "pr-review-lead", "Review the PR.",
+			}, model, reviewerName, "Review the PR.",
 		)
 		if err != nil {
 			return err

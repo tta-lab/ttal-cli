@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/planreview"
 	"github.com/tta-lab/ttal-cli/internal/review"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -39,9 +43,36 @@ Examples:
 			return planreview.RequestReReview(sessionName, uuid, cfg)
 		}
 
+		reviewerName := resolvePlanReviewerName(uuid)
+
 		fmt.Println("Spawning plan reviewer...")
-		return planreview.SpawnPlanReviewer(sessionName, uuid, cfg)
+		return planreview.SpawnPlanReviewer(sessionName, uuid, reviewerName, cfg)
 	},
+}
+
+const defaultPlanReviewerName = "plan-review-lead"
+
+// resolvePlanReviewerName resolves the reviewer agent name from pipeline config.
+// Tries designer then fixer assignee roles; falls back to defaultPlanReviewerName.
+func resolvePlanReviewerName(taskUUID string) string {
+	task, err := taskwarrior.ExportTask(taskUUID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not export task %s — falling back to %s: %v\n",
+			taskUUID, defaultPlanReviewerName, err)
+		return defaultPlanReviewerName
+	}
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to %s: %v\n",
+			defaultPlanReviewerName, err)
+		return defaultPlanReviewerName
+	}
+	for _, role := range []string{"designer", "fixer"} {
+		if name := pipelineCfg.ReviewerForStage(task.Tags, role); name != "" {
+			return name
+		}
+	}
+	return defaultPlanReviewerName
 }
 
 func init() {
