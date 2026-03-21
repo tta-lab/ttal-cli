@@ -45,7 +45,7 @@ func TestDefaultPipelinesContent_HasExpectedPipelines(t *testing.T) {
 }
 
 func TestDefaultPipelinesContent_ReviewerNames(t *testing.T) {
-	for _, reviewer := range []string{"plan-reviewer", "pr-review-lead"} {
+	for _, reviewer := range []string{"plan-review-lead", "pr-review-lead"} {
 		if !strings.Contains(defaultPipelinesContent, reviewer) {
 			t.Errorf("expected reviewer %q in default pipelines content", reviewer)
 		}

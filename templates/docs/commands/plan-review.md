@@ -6,7 +6,7 @@ argument-hint: "<task-uuid>"
 
 # Plan Review
 
-Spawn a plan-reviewer tmux window for the given task:
+Spawn a plan-review-lead tmux window for the given task:
 
 ```bash
 ttal plan review <uuid>
