@@ -89,10 +89,7 @@ func CheckMergeable(ctx *Context) error {
 func Merge(ctx *Context, deleteAfterMerge bool) error {
 	// Gate: reviewer must have approved via +lgtm tag
 	if !ctx.Task.HasTag("lgtm") {
-		return fmt.Errorf(
-			"PR not approved — reviewer must: task %s modify +lgtm",
-			ctx.Task.UUID,
-		)
+		return fmt.Errorf("PR not approved — reviewer must run: ttal comment lgtm")
 	}
 
 	index, err := prIndex(ctx)

@@ -180,10 +180,7 @@ Examples:
 
 		// Check LGTM gate via +lgtm tag
 		if !ctx.Task.HasTag("lgtm") {
-			return fmt.Errorf(
-				"PR not approved — reviewer must: task %s modify +lgtm",
-				ctx.Task.UUID,
-			)
+			return fmt.Errorf("PR not approved — reviewer must run: ttal comment lgtm")
 		}
 
 		keepBranch, _ := cmd.Flags().GetBool("keep-branch")

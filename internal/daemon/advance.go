@@ -234,7 +234,7 @@ func processStageAdvance(
 	// Check reviewer gate before advancing.
 	if stage.Reviewer != "" && !hasTag(task.Tags, "lgtm") {
 		msg := fmt.Sprintf(
-			"Run reviewer (%s) and set verdict with: ttal comment add \"LGTM\" and task <uuid> modify +lgtm",
+			"Run reviewer (%s) and set verdict with: ttal comment lgtm",
 			stage.Reviewer,
 		)
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
