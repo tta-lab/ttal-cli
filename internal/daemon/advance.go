@@ -46,6 +46,9 @@ const (
 	AdvanceStatusComplete   = "complete"
 )
 
+// workerStage is the pipeline stage assignee value that identifies a worker stage.
+const workerStage = "worker"
+
 // AdvanceClient sends an advance request to the daemon and blocks until response.
 func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
 	body, err := json.Marshal(req)
@@ -197,6 +200,21 @@ func matchTaskPipeline(w http.ResponseWriter, taskTags []string) (*pipeline.Pipe
 	return p, true
 }
 
+// annotateStageCompletion writes an audit annotation recording who completed the stage.
+func annotateStageCompletion(uuid, stageName, assignee, agentName string) {
+	completedBy := agentName
+	if completedBy == "" {
+		completedBy = "unknown"
+	}
+	if assignee == workerStage {
+		completedBy = workerStage
+	}
+	record := fmt.Sprintf("stage:%s by:%s completed:%s", stageName, completedBy, time.Now().UTC().Format(time.RFC3339))
+	if err := taskwarrior.AnnotateTask(uuid, record); err != nil {
+		log.Printf("[advance] warning: annotate stage completion: %v", err)
+	}
+}
+
 // processStageAdvance handles gate checks and advancement for an already-active stage.
 func processStageAdvance(
 	ctx context.Context,
@@ -248,26 +266,14 @@ func processStageAdvance(
 	}
 
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
-
-	// Record stage completion for audit trail.
-	completedBy := oldAgentName
-	if completedBy == "" {
-		completedBy = "unknown"
-	}
-	if stage.Assignee == "worker" {
-		completedBy = "worker"
-	}
-	record := fmt.Sprintf("stage:%s by:%s completed:%s", stage.Name, completedBy, time.Now().UTC().Format(time.RFC3339))
-	if err := taskwarrior.AnnotateTask(task.UUID, record); err != nil {
-		log.Printf("[advance] warning: annotate stage completion: %v", err)
-	}
+	annotateStageCompletion(task.UUID, stage.Name, stage.Assignee, oldAgentName)
 
 	removeTags := []string{"-lgtm"}
 	if oldAgentName != "" {
 		removeTags = append(removeTags, "-"+oldAgentName)
 	}
-	if hasTag(task.Tags, "worker") {
-		removeTags = append(removeTags, "-worker")
+	if hasTag(task.Tags, workerStage) {
+		removeTags = append(removeTags, "-"+workerStage)
 	}
 	if err := taskwarrior.ModifyTags(task.UUID, removeTags...); err != nil {
 		log.Printf("[advance] warning: remove tags: %v", err)
@@ -332,7 +338,7 @@ func advanceToStage(
 	callerAgent, team, workerRuntime string,
 	teamPath string,
 ) error {
-	if stage.Assignee == "worker" {
+	if stage.Assignee == workerStage {
 		// Worker stage: start task and spawn.
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
