@@ -158,8 +158,6 @@ func Run() error {
 		prModify:              handlePRModify,
 		prMerge:               handlePRMerge,
 		prCheckMergeable:      handlePRCheckMergeable,
-		prCommentCreate:       handlePRCommentCreate,
-		prCommentList:         handlePRCommentList,
 		prGetPR:               handlePRGetPR,
 		prGetCombinedStatus:   handlePRGetCombinedStatus,
 		prGetCIFailureDetails: handlePRGetCIFailureDetails,

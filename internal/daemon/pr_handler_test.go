@@ -37,19 +37,6 @@ func TestHandlePRMergeDeleteBranch(t *testing.T) {
 	}
 }
 
-func TestHandlePRCommentListFormatting(t *testing.T) {
-	// Verify PRCommentItem structure is populated correctly.
-	cr := PRCommentItem{
-		User:      "neil",
-		Body:      "LGTM",
-		CreatedAt: "2026-03-18 12:00",
-		HTMLURL:   "https://example.com/pr/1#comment-1",
-	}
-	if cr.User != "neil" || cr.Body != "LGTM" {
-		t.Error("PRCommentItem fields not populated correctly")
-	}
-}
-
 func TestHandlePRCheckMergeableMissingProvider(t *testing.T) {
 	resp := handlePRCheckMergeable(PRCheckMergeableRequest{Owner: "o", Repo: "r", Index: 1})
 	if resp.OK {

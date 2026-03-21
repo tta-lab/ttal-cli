@@ -72,39 +72,6 @@ func handlePRCheckMergeable(req PRCheckMergeableRequest) PRResponse {
 	return PRResponse{OK: true, HeadSHA: fetchedPR.HeadSHA}
 }
 
-func handlePRCommentCreate(req PRCommentCreateRequest) PRResponse {
-	provider, err := gitprovider.NewProviderByName(req.ProviderType)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
-	}
-	comment, err := provider.CreateComment(req.Owner, req.Repo, req.Index, req.Body)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("create comment: %v", err)}
-	}
-	return PRResponse{OK: true, PRURL: comment.HTMLURL}
-}
-
-func handlePRCommentList(req PRCommentListRequest) PRResponse {
-	provider, err := gitprovider.NewProviderByName(req.ProviderType)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
-	}
-	comments, err := provider.ListComments(req.Owner, req.Repo, req.Index)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("list comments: %v", err)}
-	}
-	result := make([]PRCommentItem, len(comments))
-	for i, c := range comments {
-		result[i] = PRCommentItem{
-			User:      c.User,
-			Body:      c.Body,
-			CreatedAt: c.CreatedAt.Format("2006-01-02 15:04"),
-			HTMLURL:   c.HTMLURL,
-		}
-	}
-	return PRResponse{OK: true, Comments: result}
-}
-
 func handlePRGetPR(req PRGetPRRequest) PRGetPRResponse {
 	provider, err := gitprovider.NewProviderByName(req.ProviderType)
 	if err != nil {
