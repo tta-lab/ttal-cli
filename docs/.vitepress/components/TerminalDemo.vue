@@ -33,7 +33,7 @@
       <div class="terminal-line spacer"></div>
       <div class="terminal-line">
         <span class="prompt">$</span>
-        <span class="cmd"> ttal go <uuid></span>
+        <span class="cmd"> ttal go abc12345</span>
       </div>
       <div class="terminal-line output">  PR <span class="hl-cyan">#47</span> merged <span class="hl-gray">(squash)</span></div>
       <div class="terminal-line output">  <span class="hl-green">✓</span> Worker cleaned up</div>

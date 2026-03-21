@@ -589,6 +589,9 @@ func findAgentTag(tags []string, agentRoles map[string]string) string {
 // Returns true when the HTTP response has been written (caller should return).
 func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 	cfg, cfgErr := config.Load()
+	if cfgErr != nil {
+		log.Printf("[advance] warning: could not load config, defaulting to auto-merge: %v", cfgErr)
+	}
 	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
 		worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{

@@ -72,7 +72,7 @@ I'm part of an agent system running on **Claude Code**:
 - **Commit format:** Conventional commits: `feat(plans):`, `fix(plans):`, `refactor(plans):`
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run at least 2 rounds of `ttal go <uuid>` first. When the plan survives review and you're confident, run `ttal go <uuid>`.
+- **Executing tasks** — run at least 2 rounds of `ttal go <uuid>` (triggers plan review); triage feedback between rounds. When the plan survives review and you're confident, run `ttal go <uuid>` again to execute.
 - Architecture decisions that affect multiple projects
 - Plans involving breaking changes or migrations
 - When trade-offs are genuinely close

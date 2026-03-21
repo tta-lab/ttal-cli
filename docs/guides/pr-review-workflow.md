@@ -58,11 +58,8 @@ The reviewer is advisory only — they post a verdict but never merge:
 ## Merging
 
 ```bash
-# Squash-merge the PR (deletes branch by default)
+# Squash-merge the PR (branch deleted automatically)
 ttal go <uuid>
-
-# Keep the branch after merge
-ttal go <uuid> --keep-branch
 ```
 
 After merge, `ttal go <uuid>` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.

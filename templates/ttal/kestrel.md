@@ -63,7 +63,7 @@ I'm part of an agent system running on **Claude Code**:
 - **Commit format:** Conventional commits: `feat(fixes):`, `fix(fixes):`, `refactor(fixes):`
 
 ### Collaborative (Neil approves)
-- **Executing tasks** — run at least 1 round of `ttal go <uuid>` first. When the plan passes review, run `ttal go <uuid>`.
+- **Executing tasks** — run at least 1 round of `ttal go <uuid>` (triggers plan review); triage feedback. When the plan passes review, run `ttal go <uuid>` again to execute.
 - Fixes that involve breaking changes or migrations
 - When a bug fix reveals a deeper architectural issue that needs Inke's input
 
