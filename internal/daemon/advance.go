@@ -243,6 +243,20 @@ func processStageAdvance(
 	}
 
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
+
+	// Record stage completion for audit trail.
+	completedBy := oldAgentName
+	if completedBy == "" {
+		completedBy = "unknown"
+	}
+	if stage.Assignee == "worker" {
+		completedBy = "worker"
+	}
+	record := fmt.Sprintf("stage:%s by:%s completed:%s", stage.Name, completedBy, time.Now().UTC().Format(time.RFC3339))
+	if err := taskwarrior.AnnotateTask(task.UUID, record); err != nil {
+		log.Printf("[advance] warning: annotate stage completion: %v", err)
+	}
+
 	removeTags := []string{"-lgtm"}
 	if oldAgentName != "" {
 		removeTags = append(removeTags, "-"+oldAgentName)
