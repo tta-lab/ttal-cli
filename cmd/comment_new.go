@@ -21,6 +21,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+// formatCommentTime parses an RFC3339 timestamp and returns a short display format.
+func formatCommentTime(raw string) string {
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.Format("2006-01-02 15:04")
+	}
+	return raw
+}
+
 // resolveCurrentTask returns the task UUID for the current context.
 // Worker plane: TTAL_JOB_ID → session lookup.
 // Manager plane: TTAL_AGENT_NAME → active task with +<agent> tag.
@@ -137,10 +145,7 @@ var commentListCmd = &cobra.Command{
 		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 		rows := make([][]string, 0, len(resp.Comments))
 		for _, c := range resp.Comments {
-			ts := c.CreatedAt
-			if t, err := time.Parse(time.RFC3339, c.CreatedAt); err == nil {
-				ts = t.Format("2006-01-02 15:04")
-			}
+			ts := formatCommentTime(c.CreatedAt)
 			body := c.Body
 			if len(body) > 80 {
 				body = body[:77] + "..."
@@ -193,7 +198,10 @@ Examples:
 			return err
 		}
 
-		author := resolveAuthor()
+		author := os.Getenv("TTAL_AGENT_NAME")
+		if author == "" {
+			return fmt.Errorf("TTAL_AGENT_NAME not set — cannot record lgtm attribution")
+		}
 
 		// Add +lgtm tag (on-modify hook enforces reviewer-only guard)
 		if err := taskwarrior.ModifyTags(taskUUID, "+lgtm"); err != nil {
@@ -203,7 +211,8 @@ Examples:
 		// Add annotation trace
 		trace := fmt.Sprintf("lgtm: %s at %s", author, time.Now().UTC().Format(time.RFC3339))
 		if err := taskwarrior.AnnotateTask(taskUUID, trace); err != nil {
-			return fmt.Errorf("failed to annotate lgtm trace: %w", err)
+			log.Printf("+lgtm tag was set but annotation failed — safe to re-run ttal comment lgtm: %v", err)
+			return fmt.Errorf("failed to annotate lgtm trace (+lgtm already set, safe to retry): %w", err)
 		}
 
 		fmt.Printf("LGTM approved by %s\n", author)
@@ -249,11 +258,7 @@ Examples:
 		}
 
 		for _, c := range resp.Comments {
-			ts := c.CreatedAt
-			if t, err := time.Parse(time.RFC3339, c.CreatedAt); err == nil {
-				ts = t.Format("2006-01-02 15:04")
-			}
-			fmt.Printf("— %s (%s):\n\n%s\n\n", c.Author, ts, c.Body)
+			fmt.Printf("— %s (%s):\n\n%s\n\n", c.Author, formatCommentTime(c.CreatedAt), c.Body)
 		}
 		return nil
 	},
@@ -262,7 +267,11 @@ Examples:
 // notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_AGENT_NAME.
 func notifyCounterpart(body string) {
 	sessionName, err := review.ResolveSessionName()
-	if err != nil || sessionName == "" {
+	if err != nil {
+		log.Printf("debug: notifyCounterpart: resolve session: %v", err)
+		return
+	}
+	if sessionName == "" {
 		return
 	}
 	cfg, rt := loadConfigAndCoderRuntime()

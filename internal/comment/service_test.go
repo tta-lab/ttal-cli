@@ -120,6 +120,49 @@ func TestService_GetByRound(t *testing.T) {
 	}
 }
 
+func TestService_GetByRound_ZeroRound(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	if _, err := svc.Add(ctx, "target-1", "author", "msg", "team"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	// round=0 should return empty, not the first comment
+	comments, err := svc.GetByRound(ctx, "target-1", "team", 0)
+	if err != nil {
+		t.Fatalf("GetByRound(0): %v", err)
+	}
+	if len(comments) != 0 {
+		t.Errorf("want 0 comments for round 0, got %d", len(comments))
+	}
+}
+
+func TestService_GetByRound_CrossTeamIsolation(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	// Add a comment for team-A at round 1
+	if _, err := svc.Add(ctx, "target-1", "author", "team-a comment", "team-a"); err != nil {
+		t.Fatalf("Add team-a: %v", err)
+	}
+	// Add a comment for team-B at round 1
+	if _, err := svc.Add(ctx, "target-1", "author", "team-b comment", "team-b"); err != nil {
+		t.Fatalf("Add team-b: %v", err)
+	}
+
+	comments, err := svc.GetByRound(ctx, "target-1", "team-a", 1)
+	if err != nil {
+		t.Fatalf("GetByRound team-a: %v", err)
+	}
+	if len(comments) != 1 {
+		t.Fatalf("want 1 comment for team-a, got %d", len(comments))
+	}
+	if comments[0].Body != "team-a comment" {
+		t.Errorf("cross-team leak: got %q, want team-a comment", comments[0].Body)
+	}
+}
+
 func TestService_CurrentRound_EmptyReturnsZero(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()

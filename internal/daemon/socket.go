@@ -636,6 +636,9 @@ func CommentGet(req CommentGetRequest) (CommentGetResponse, error) {
 		return CommentGetResponse{}, fmt.Errorf("daemon not running: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return CommentGetResponse{}, fmt.Errorf("daemon returned HTTP %d", resp.StatusCode)
+	}
 	var result CommentGetResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return CommentGetResponse{}, fmt.Errorf("decode comment get response: %w", err)

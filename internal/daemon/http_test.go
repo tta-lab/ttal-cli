@@ -546,6 +546,16 @@ func TestHTTPCommentGet(t *testing.T) {
 	if received.Round != 2 {
 		t.Errorf("expected Round=2, got %d", received.Round)
 	}
+	var resp CommentGetResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Comments) != 1 {
+		t.Fatalf("want 1 comment, got %d", len(resp.Comments))
+	}
+	if resp.Comments[0].Author != "reviewer" || resp.Comments[0].Body != "looks good" || resp.Comments[0].Round != 2 {
+		t.Errorf("unexpected comment: %+v", resp.Comments[0])
+	}
 }
 
 func TestHTTPCommentGet_HandlerError(t *testing.T) {
@@ -562,6 +572,30 @@ func TestHTTPCommentGet_HandlerError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", w.Code)
+	}
+}
+
+func TestHTTPCommentGet_ZeroRound(t *testing.T) {
+	h := testHandlers(nil)
+	h.commentGet = func(req CommentGetRequest) CommentGetResponse {
+		return handleCommentGet(nil, "team", req)
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(CommentGetRequest{Target: "abc-123", Round: 0})
+	req := httptest.NewRequest(http.MethodPost, "/comment/get", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for round=0, got %d", w.Code)
+	}
+	var resp CommentGetResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Error != "round must be >= 1" {
+		t.Errorf("expected round validation error, got %q", resp.Error)
 	}
 }
 
