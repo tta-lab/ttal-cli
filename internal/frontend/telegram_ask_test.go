@@ -261,10 +261,11 @@ func TestHTTPAskHuman_MissingAgentAndSession(t *testing.T) {
 	}
 }
 
+const testGateQuestion = "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
+
 func TestBuildAskHumanMessage_HTMLPreserved(t *testing.T) {
 	// Pre-escaped HTML from askHumanGate — tags should render, not be double-escaped
-	question := "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
-	text, _ := buildAskHumanMessage("lux", question, []string{"✅ Approve", "❌ Reject"}, "ah000001")
+	text, _ := buildAskHumanMessage("lux", testGateQuestion, []string{"✅ Approve", "❌ Reject"}, "ah000001")
 
 	if strings.Contains(text, "&lt;b&gt;") {
 		t.Error("HTML tags should not be double-escaped")
@@ -287,8 +288,7 @@ func TestBuildAskHumanMessage_RawInputPassesThrough(t *testing.T) {
 }
 
 func TestBuildApprovalText_Approve(t *testing.T) {
-	question := "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
-	result := buildApprovalText(question, "ignored origText", true)
+	result := buildApprovalText(testGateQuestion, "ignored origText", true)
 
 	if !strings.HasPrefix(result, "✅ <b>Approved</b>\n") {
 		t.Error("expected ✅ Approved header")
@@ -305,8 +305,7 @@ func TestBuildApprovalText_Approve(t *testing.T) {
 }
 
 func TestBuildApprovalText_Reject(t *testing.T) {
-	question := "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
-	result := buildApprovalText(question, "ignored origText", false)
+	result := buildApprovalText(testGateQuestion, "ignored origText", false)
 
 	if !strings.HasPrefix(result, "❌ <b>Rejected</b>\n") {
 		t.Error("expected ❌ Rejected header")
