@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/planreview"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -315,15 +316,16 @@ func notifyCounterpart(body string) {
 		return
 	}
 
+	cfg, rt := loadConfigAndCoderRuntime()
+
 	// Check if this agent is a reviewer — route based on what stage type they review.
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		log.Printf("warn: notifyCounterpart: load pipelines: %v", err)
-		notifyPlanReviewer(sessionName)
+		notifyPlanReviewer(sessionName, body, cfg)
 		return
 	}
 
-	cfg, rt := loadConfigAndCoderRuntime()
 	switch pipelineCfg.ReviewerNotifyTarget(agentName) {
 	case pipeline.NotifyTargetCoder:
 		notifyCoder(sessionName, body, cfg, rt)
@@ -331,7 +333,7 @@ func notifyCounterpart(body string) {
 		notifyDesigner(sessionName, body, cfg, rt)
 	default:
 		// Manager agents notify plan-reviewer if window exists
-		notifyPlanReviewer(sessionName)
+		notifyPlanReviewer(sessionName, body, cfg)
 	}
 }
 
@@ -360,7 +362,7 @@ func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtim
 	}
 	notification, ok := renderTriageNotification(body, tmpl, rt)
 	if !ok {
-		notification = body
+		return
 	}
 	if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 		log.Printf("warning: notify coder failed: %v", err)
@@ -383,27 +385,23 @@ func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Run
 	}
 	tmpl := cfg.Prompt("plan_triage")
 	if tmpl == "" {
-		log.Printf("debug: plan_triage prompt not configured, falling back to raw body")
-		if err := tmux.SendKeys(sessionName, designerWindow, body); err != nil {
-			log.Printf("warning: notify designer failed: %v", err)
-		}
+		log.Printf("warning: plan_triage prompt not configured — skipping notification")
 		return
 	}
 	notification, ok := renderTriageNotification(body, tmpl, rt)
 	if !ok {
-		notification = body
+		return
 	}
 	if err := tmux.SendKeys(sessionName, designerWindow, notification); err != nil {
 		log.Printf("warning: notify designer failed: %v", err)
 	}
 }
 
-func notifyPlanReviewer(sessionName string) {
+func notifyPlanReviewer(sessionName, body string, cfg *config.Config) {
 	if !tmux.WindowExists(sessionName, "plan-review") {
 		return
 	}
-	if err := tmux.SendKeys(sessionName, "plan-review",
-		"Plan has been revised. Re-review and post findings via ttal comment add."); err != nil {
+	if err := planreview.RequestReReview(sessionName, body, cfg); err != nil {
 		log.Printf("warning: notify plan-review failed: %v", err)
 	}
 }

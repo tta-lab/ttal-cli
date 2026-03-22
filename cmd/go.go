@@ -112,7 +112,7 @@ func spawnOrRetriggerReviewer(taskUUID, reviewerAgent, assignee string) error {
 
 	if tmux.WindowExists(sessionName, "plan-review") {
 		fmt.Println("Plan reviewer already running, sending re-review request...")
-		return planreview.RequestReReview(sessionName, taskUUID, cfg)
+		return planreview.RequestReReview(sessionName, "", cfg)
 	}
 	fmt.Println("Spawning plan reviewer...")
 	return planreview.SpawnPlanReviewer(sessionName, taskUUID, reviewerAgent, cfg)
