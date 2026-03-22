@@ -111,7 +111,7 @@ If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
 """
 
 plan_triage = """\
-{{skill:triage}}
+{{skill:plan-triage}}
 Plan review posted.{{review-file}} Read it, assess and fix issues in the plan.
 Post your triage update with ttal comment add when done.
 

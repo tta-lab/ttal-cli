@@ -1,13 +1,13 @@
 [default]
 prompt = """Read the task and do your best based on the context.
-ttal task get {{task-id}}"""
+ttal task get"""
 
 [designer]
 session_mode = "task-scoped"
 prompt = """{{skill:sp-planning}}
 {{skill:flicknote}}
 Write an implementation plan for this task.
-Read the task first: ttal task get {{task-id}}
+Read the task first: ttal task get
 
 Storage: Save the plan via flicknote add 'content' --project plans
 Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
@@ -17,7 +17,7 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 prompt = """{{skill:sp-research}}
 {{skill:flicknote}}
 Research this topic thoroughly.
-Read the task first: ttal task get {{task-id}}
+Read the task first: ttal task get
 
 Storage: Save findings via flicknote add 'content' --project research
 Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content', flicknote replace <id> --section <section-id>
@@ -28,27 +28,15 @@ session_mode = "task-scoped"
 prompt = """{{skill:sp-debugging}}
 {{skill:flicknote}}
 Diagnose this bug and write a fix plan.
-Read the task first: ttal task get {{task-id}}
+Read the task first: ttal task get
 
 Storage: Save findings via flicknote add 'content' --project fixes
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
-[manager]
-prompt = """
-Read the task first: ttal task get {{task-id}}
-Then classify and route it."""
-
-# heartbeat_interval = "1h"
-
-heartbeat_prompt = """{{skill:task-route}}
-Pick a task from today's list and make progress.
-Run: ttal today list and pick one.
-Then apply the routing framework to decide: ask / brainstorm / research / design / execute."""
-
 [communicator]
 prompt = """{{skill:flicknote}}
 Draft outward-facing communication for this task.
-Read the task first: ttal task get {{task-id}}
+Read the task first: ttal task get
 
 Write clear, warm, professional text. Match the tone to the audience and context.
 Storage: Save the draft via flicknote add 'content' --project comms
@@ -58,7 +46,7 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 prompt = """{{skill:sp-planning}}
 {{skill:flicknote}}
 Write a devops/infrastructure implementation plan for this task.
-Read the task first: ttal task get {{task-id}}
+Read the task first: ttal task get
 
 Storage: Save the plan via flicknote add 'content' --project plans
 Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
