@@ -476,17 +476,24 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	injectSecretsToSession(plan.newSessionName)
 
 	// Start task-scoped file watcher after breathe rotation into a ts-* session.
-	if routeReq != nil && routeReq.TaskScoped {
-		if onTaskScopedSpawn != nil {
-			onTaskScopedSpawn(team, req.Agent, newSessionID, plan.cwd)
-		} else {
-			log.Printf("[taskscoped] warning: onTaskScopedSpawn not set — file watcher skipped for %s", req.Agent)
-		}
-	}
+	maybeStartTaskScopedWatch(routeReq, team, req.Agent, newSessionID, plan.cwd)
 
 	log.Printf("[breathe] %s: fresh breath taken (session: %s)", req.Agent, plan.newSessionName)
 
 	return SendResponse{OK: true}
+}
+
+// maybeStartTaskScopedWatch calls onTaskScopedSpawn if the route is task-scoped.
+// Extracted to reduce cyclomatic complexity of handleBreathe.
+func maybeStartTaskScopedWatch(routeReq *route.Request, team, agent, sessionID, cwd string) {
+	if routeReq == nil || !routeReq.TaskScoped {
+		return
+	}
+	if onTaskScopedSpawn != nil {
+		onTaskScopedSpawn(team, agent, sessionID, cwd)
+	} else {
+		log.Printf("[taskscoped] warning: onTaskScopedSpawn not set — file watcher skipped for %s", agent)
+	}
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
