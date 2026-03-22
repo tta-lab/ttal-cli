@@ -40,6 +40,10 @@ Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
   Codex       → inlined into ~/.codex/AGENTS.md
 
+Config TOMLs are deployed from team_path:
+  prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
+  config.toml is NOT synced (machine-specific settings).
+
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
   subagents_paths = ["~/clawd/docs/agents"]
@@ -53,9 +57,11 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		syncCfg := cfg.Sync
+		teamPath := cfg.TeamPath()
 
 		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
-			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 && syncCfg.GlobalPromptPath == ""
+			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 &&
+			syncCfg.GlobalPromptPath == "" && teamPath == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
@@ -66,17 +72,14 @@ Configure source paths in ~/.config/ttal/config.toml:
 				"  rules_paths = [\"~/path/to/rules\"]")
 		}
 
+		configCount := 0
 		agentCount := 0
 		skillCount := 0
 		commandCount := 0
 		ruleCount := 0
 
-		if len(syncCfg.SubagentsPaths) > 0 || cfg.TeamPath() != "" {
-			if syncDryRun {
-				fmt.Println("Syncing agents (dry run)...")
-			} else {
-				fmt.Println("Syncing agents...")
-			}
+		if len(syncCfg.SubagentsPaths) > 0 || teamPath != "" {
+			printSyncHeader("agents", syncDryRun)
 
 			// Deploy subagents (from subagents_paths) — NOT denied
 			if len(syncCfg.SubagentsPaths) > 0 {
@@ -89,7 +92,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 
 			// Deploy team agents (from team_path) — denied as subagents
-			teamPath := cfg.TeamPath()
 			if teamPath != "" {
 				teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
 				if err != nil {
@@ -115,13 +117,22 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
-		if len(syncCfg.SkillsPaths) > 0 {
-			fmt.Println()
-			if syncDryRun {
-				fmt.Println("Syncing skills (dry run)...")
-			} else {
-				fmt.Println("Syncing skills...")
+		// Deploy config TOMLs from team_path to ~/.config/ttal/
+		if teamPath != "" {
+			printSyncHeader("configs", syncDryRun)
+
+			configResults, err := sync.DeployConfigs(teamPath, config.DefaultConfigDir(), syncDryRun)
+			if err != nil {
+				return fmt.Errorf("config sync failed: %w", err)
 			}
+			for _, r := range configResults {
+				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+			}
+			configCount = len(configResults)
+		}
+
+		if len(syncCfg.SkillsPaths) > 0 {
+			printSyncHeader("skills", syncDryRun)
 
 			results, err := sync.DeploySkills(syncCfg.SkillsPaths, syncDryRun)
 			if err != nil {
@@ -138,12 +149,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		if len(syncCfg.CommandsPaths) > 0 {
-			fmt.Println()
-			if syncDryRun {
-				fmt.Println("Syncing commands (dry run)...")
-			} else {
-				fmt.Println("Syncing commands...")
-			}
+			printSyncHeader("commands", syncDryRun)
 
 			results, err := sync.DeployCommands(syncCfg.CommandsPaths, syncDryRun)
 			if err != nil {
@@ -160,12 +166,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		if len(syncCfg.RulesPaths) > 0 {
-			fmt.Println()
-			if syncDryRun {
-				fmt.Println("Syncing rules (dry run)...")
-			} else {
-				fmt.Println("Syncing rules...")
-			}
+			printSyncHeader("rules", syncDryRun)
 
 			rules, err := sync.DeployRules(syncCfg.RulesPaths, syncDryRun)
 			if err != nil {
@@ -182,12 +183,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		if syncCfg.GlobalPromptPath != "" {
-			fmt.Println()
-			if syncDryRun {
-				fmt.Println("Syncing global prompt (dry run)...")
-			} else {
-				fmt.Println("Syncing global prompt...")
-			}
+			printSyncHeader("global prompt", syncDryRun)
 
 			results, err := sync.DeployGlobalPrompt(syncCfg.GlobalPromptPath, syncDryRun)
 			if err != nil {
@@ -204,8 +200,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d agents, %d skills, %d commands, %d rules.%s\n",
-			agentCount, skillCount, commandCount, ruleCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d agents, %d skills, %d commands, %d rules.%s\n",
+			configCount, agentCount, skillCount, commandCount, ruleCount, suffix)
 		return nil
 	},
 }
@@ -285,6 +281,16 @@ func shortenHome(path string) string {
 		return "~" + abs[len(home):]
 	}
 	return path
+}
+
+// printSyncHeader prints a blank line followed by a section header for a sync phase.
+func printSyncHeader(label string, dryRun bool) {
+	fmt.Println()
+	if dryRun {
+		fmt.Printf("Syncing %s (dry run)...\n", label)
+	} else {
+		fmt.Printf("Syncing %s...\n", label)
+	}
 }
 
 func printAgentResults(results []sync.AgentResult) {

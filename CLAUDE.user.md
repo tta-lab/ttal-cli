@@ -175,12 +175,13 @@ ttal voice speak "text"      # TTS → Telegram voice message
 ttal voice speak "text" --voice af_heart  # specific voice
 ```
 
-### Sync (deploy skills & subagents)
+### Sync (deploy skills, subagents & config)
 ```bash
-ttal sync                    # deploy skills + subagents to runtime dirs
+ttal sync                    # deploy skills + subagents + config TOMLs to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
 Sources: `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/` → `~/.claude/skills/`, `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/` → `~/.claude/agents/`
+Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
 
 ## Learning & Knowledge
 
