@@ -3,6 +3,7 @@ package tmux
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -178,6 +179,27 @@ func ListSessions() ([]string, error) {
 		}
 	}
 	return sessions, nil
+}
+
+// FindSessionByPrefix returns the first tmux session matching prefix + suffix pattern.
+// Returns "" if no match. Logs a warning if multiple matches found.
+func FindSessionByPrefix(prefix, suffix string) string {
+	sessions, err := ListSessions()
+	if err != nil || sessions == nil {
+		return ""
+	}
+	var found string
+	for _, s := range sessions {
+		if strings.HasPrefix(s, prefix) && strings.HasSuffix(s, suffix) {
+			if found != "" {
+				log.Printf("[tmux] warning: multiple sessions matching %s*%s: %s, %s", prefix, suffix, found, s)
+			}
+			if found == "" {
+				found = s
+			}
+		}
+	}
+	return found
 }
 
 // SendRawKey sends a special key (e.g. "Escape", "C-c") to a tmux pane
