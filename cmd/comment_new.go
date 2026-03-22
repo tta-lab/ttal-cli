@@ -302,6 +302,9 @@ Examples:
 
 // isReviewer checks whether the given agent name is a reviewer in any pipeline.
 func isReviewer(agentName string) bool {
+	if agentName == "" || agentName == "unknown" {
+		return false
+	}
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		return false
