@@ -53,9 +53,11 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		syncCfg := cfg.Sync
+		teamPath := cfg.TeamPath()
 
 		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
-			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 && syncCfg.GlobalPromptPath == ""
+			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 &&
+			syncCfg.GlobalPromptPath == "" && teamPath == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
@@ -66,6 +68,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 				"  rules_paths = [\"~/path/to/rules\"]")
 		}
 
+		configCount := 0
 		agentCount := 0
 		skillCount := 0
 		commandCount := 0
@@ -89,7 +92,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 
 			// Deploy team agents (from team_path) — denied as subagents
-			teamPath := cfg.TeamPath()
 			if teamPath != "" {
 				teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
 				if err != nil {
@@ -113,6 +115,25 @@ Configure source paths in ~/.config/ttal/config.toml:
 					}
 				}
 			}
+		}
+
+		// Deploy config TOMLs from team_path to ~/.config/ttal/
+		if teamPath != "" {
+			fmt.Println()
+			if syncDryRun {
+				fmt.Println("Syncing configs (dry run)...")
+			} else {
+				fmt.Println("Syncing configs...")
+			}
+
+			configResults, err := sync.DeployConfigs(teamPath, config.DefaultConfigDir(), syncDryRun)
+			if err != nil {
+				return fmt.Errorf("config sync failed: %w", err)
+			}
+			for _, r := range configResults {
+				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+			}
+			configCount = len(configResults)
 		}
 
 		if len(syncCfg.SkillsPaths) > 0 {
@@ -204,8 +225,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d agents, %d skills, %d commands, %d rules.%s\n",
-			agentCount, skillCount, commandCount, ruleCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d agents, %d skills, %d commands, %d rules.%s\n",
+			configCount, agentCount, skillCount, commandCount, ruleCount, suffix)
 		return nil
 	},
 }
