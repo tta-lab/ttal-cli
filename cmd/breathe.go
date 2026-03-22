@@ -59,9 +59,11 @@ func runBreathe(_ *cobra.Command, args []string) error {
 	}
 
 	if err := daemon.Breathe(daemon.BreatheRequest{
-		Team:    team,
-		Agent:   agent,
-		Handoff: handoff,
+		Team:        team,
+		Agent:       agent,
+		Handoff:     handoff,
+		SessionName: os.Getenv("TTAL_SESSION_NAME"),
+		JobID:       os.Getenv("TTAL_JOB_ID"),
 	}); err != nil {
 		return err
 	}

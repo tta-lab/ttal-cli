@@ -194,9 +194,11 @@ type PRCIFailureDetail struct {
 
 // BreatheRequest asks the daemon to restart an agent with a fresh context window.
 type BreatheRequest struct {
-	Team    string `json:"team,omitempty"` // defaults to "default"
-	Agent   string `json:"agent"`          // agent name
-	Handoff string `json:"handoff"`        // handoff prompt content
+	Team        string `json:"team,omitempty"`         // defaults to "default"
+	Agent       string `json:"agent"`                  // agent name
+	Handoff     string `json:"handoff"`                // handoff prompt content
+	SessionName string `json:"session_name,omitempty"` // current session name (task-scoped agents)
+	JobID       string `json:"job_id,omitempty"`       // TTAL_JOB_ID (task-scoped agents)
 }
 
 // CommentAddRequest asks the daemon to add a comment to a task.
