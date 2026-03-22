@@ -13,12 +13,14 @@ type RolesConfig struct {
 	Roles              map[string]string `toml:"-"`
 	HeartbeatPrompts   map[string]string `toml:"-"`
 	HeartbeatIntervals map[string]string `toml:"-"` // per-role heartbeat interval (e.g. "1h")
+	SessionModes       map[string]string `toml:"-"` // "persistent" (default) or "task-scoped"
 }
 
 func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 	r.Roles = make(map[string]string)
 	r.HeartbeatPrompts = make(map[string]string)
 	r.HeartbeatIntervals = make(map[string]string)
+	r.SessionModes = make(map[string]string)
 	if m, ok := data.(map[string]interface{}); ok {
 		for role, v := range m {
 			section, ok := v.(map[string]interface{})
@@ -37,6 +39,9 @@ func (r *RolesConfig) UnmarshalTOML(data interface{}) error {
 			if hi, ok := section["heartbeat_interval"].(string); ok && hi != "" {
 				r.HeartbeatIntervals[role] = hi
 			}
+			if sm, ok := section["session_mode"].(string); ok && sm != "" {
+				r.SessionModes[role] = sm
+			}
 		}
 	}
 	return nil
@@ -49,6 +54,14 @@ func (r *RolesConfig) HeartbeatIntervalForRole(role string) string {
 		return ""
 	}
 	return r.HeartbeatIntervals[role]
+}
+
+// IsTaskScoped returns true if the given role uses task-scoped sessions.
+func (r *RolesConfig) IsTaskScoped(role string) bool {
+	if r == nil || r.SessionModes == nil {
+		return false
+	}
+	return r.SessionModes[role] == "task-scoped"
 }
 
 func LoadRoles() (*RolesConfig, error) {
