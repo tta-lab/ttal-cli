@@ -95,16 +95,33 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, reviewerName string,
 }
 
 // RequestReReview sends a re-review message to the existing plan-review window.
-func RequestReReview(sessionName string, taskUUID string, cfg *config.Config) error {
+// designerComment is the triage body from the designer; if non-empty it is written
+// to a temp file and its path is injected via {{designer-comment}}.
+func RequestReReview(sessionName string, designerComment string, cfg *config.Config) error {
+	var commentRef string
+	if designerComment != "" {
+		f, err := os.CreateTemp("", "ttal-designer-comment-*.md")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to create designer comment temp file: %v\n", err)
+		} else {
+			_, writeErr := f.WriteString(designerComment)
+			_ = f.Close()
+			if writeErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to write designer comment temp file: %v\n", writeErr)
+			} else {
+				commentRef = fmt.Sprintf("\nDesigner's triage: %s", f.Name())
+			}
+		}
+	}
+
 	tmpl := cfg.Prompt("plan_re_review")
 	if tmpl == "" {
 		return tmux.SendKeys(sessionName, windowName,
-			fmt.Sprintf("Plan has been revised. Re-review task %s and post findings via ttal comment add.", taskUUID))
+			"Plan has been revised. Re-review and post findings via ttal comment add.")
 	}
 
 	replacer := strings.NewReplacer(
-		"{{task-id}}", taskUUID,
-		"{{previous-findings}}", "",
+		"{{designer-comment}}", commentRef,
 	)
 	msg := config.RenderTemplate(replacer.Replace(tmpl), "", cfg.ReviewerRuntime())
 	return tmux.SendKeys(sessionName, windowName, msg)

@@ -89,7 +89,7 @@ If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
 
 plan_re_review = """\
 The designer has updated the plan for the task based on your previous review.
-
+{{designer-comment}}
 Run `ttal task get` (no extra params) to see the updated plan.
 Check whether the issues you raised have been addressed.
 
