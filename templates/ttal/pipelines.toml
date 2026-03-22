@@ -87,3 +87,19 @@ name = "Implement"
 assignee = "worker"
 gate = "auto"
 reviewer = "pr-review-lead"
+
+[devops]
+description = "DevOps Plan → Implement"
+tags = ["devops"]
+
+[[devops.stages]]
+name = "Plan"
+assignee = "devops"
+gate = "human"
+reviewer = "plan-review-lead"
+
+[[devops.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"

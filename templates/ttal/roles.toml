@@ -51,3 +51,13 @@ Read the task first: ttal task get {{task-id}}
 Write clear, warm, professional text. Match the tone to the audience and context.
 Storage: Save the draft via flicknote add 'content' --project comms
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+
+[devops]
+prompt = """{{skill:sp-planning}}
+{{skill:flicknote}}
+Write a devops/infrastructure implementation plan for this task.
+Read the task first: ttal task get {{task-id}}
+
+Storage: Save the plan via flicknote add 'content' --project plans
+Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
+When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
