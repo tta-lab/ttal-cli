@@ -680,6 +680,7 @@ func TestPromptPlanReview(t *testing.T) {
 		Prompts: PromptsConfig{
 			PlanReview:   "review plan {{task-id}}",
 			PlanReReview: "re-review plan {{task-id}}",
+			PlanTriage:   "triage plan",
 		},
 	}
 	if got := cfg.Prompt("plan_review"); got != "review plan {{task-id}}" {
@@ -688,12 +689,19 @@ func TestPromptPlanReview(t *testing.T) {
 	if got := cfg.Prompt("plan_re_review"); got != "re-review plan {{task-id}}" {
 		t.Errorf("Prompt(plan_re_review) = %q, want %q", got, "re-review plan {{task-id}}")
 	}
+	if got := cfg.Prompt("plan_triage"); got != "triage plan" {
+		t.Errorf("Prompt(plan_triage) = %q, want %q", got, "triage plan")
+	}
 	if !cfg.hasAnyPromptConfigured() {
 		t.Error("hasAnyPromptConfigured() = false when PlanReview is set, want true")
 	}
 	cfgPlanOnly := &Config{Prompts: PromptsConfig{PlanReview: "x"}}
 	if !cfgPlanOnly.hasAnyPromptConfigured() {
 		t.Error("hasAnyPromptConfigured() = false when only PlanReview is set, want true")
+	}
+	cfgTriageOnly := &Config{Prompts: PromptsConfig{PlanTriage: "x"}}
+	if !cfgTriageOnly.hasAnyPromptConfigured() {
+		t.Error("hasAnyPromptConfigured() = false when only PlanTriage is set, want true")
 	}
 }
 

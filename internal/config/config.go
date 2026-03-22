@@ -24,6 +24,7 @@ type PromptsConfig struct {
 	ReReview     string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`          //nolint:lll
 	PlanReview   string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}} {{skill:plan-review}}"`                      //nolint:lll
 	PlanReReview string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                        //nolint:lll
+	PlanTriage   string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                   //nolint:lll
 }
 
 // AgentSessionName returns the tmux session name for an agent.
@@ -441,6 +442,7 @@ var workerPromptKeys = map[string]bool{
 	"triage":         true,
 	"plan_review":    true,
 	"plan_re_review": true,
+	"plan_triage":    true,
 }
 
 // Prompt returns the prompt template for a given key.
@@ -469,6 +471,7 @@ func (c *Config) Prompt(key string) string {
 			"re_review":      c.Prompts.ReReview,
 			"plan_review":    c.Prompts.PlanReview,
 			"plan_re_review": c.Prompts.PlanReReview,
+			"plan_triage":    c.Prompts.PlanTriage,
 		}
 		if prompt, ok := promptsMap[key]; ok {
 			return prompt
@@ -504,7 +507,8 @@ func (c *Config) IsTaskScopedRole(role string) bool {
 func (c *Config) hasAnyPromptConfigured() bool {
 	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
-		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != ""
+		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != "" ||
+		c.Prompts.PlanTriage != ""
 }
 
 // RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.

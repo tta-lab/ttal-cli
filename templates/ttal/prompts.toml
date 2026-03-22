@@ -109,3 +109,20 @@ EOF
 If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
 
 """
+
+plan_triage = """\
+{{skill:triage}}
+Plan review posted.{{review-file}} Read it, assess and fix issues in the plan.
+Post your triage update with ttal comment add when done.
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Plan Triage
+### Fixed
+- [x] Issue — fix details
+### Remaining
+- [ ] Issue
+EOF
+```
+If verdict is LGTM and no remaining issues, advance with: ttal go"""

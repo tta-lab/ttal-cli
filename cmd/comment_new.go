@@ -321,7 +321,8 @@ func notifyCounterpart(body string) {
 		cfg, rt := loadConfigAndCoderRuntime()
 		notifyCoder(sessionName, body, cfg, rt)
 	case pipeline.NotifyTargetDesigner:
-		notifyDesigner(sessionName, body)
+		cfg, rt := loadConfigAndCoderRuntime()
+		notifyDesigner(sessionName, body, cfg, rt)
 	default:
 		// Manager agents notify plan-reviewer if window exists
 		notifyPlanReviewer(sessionName)
@@ -361,12 +362,30 @@ func notifyReviewer(sessionName, body string, cfg *config.Config) {
 	}
 }
 
-func notifyDesigner(sessionName, body string) {
+func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
 	designerWindow, err := tmux.FirstWindowExcept(sessionName, "plan-review")
 	if err != nil || designerWindow == "" {
 		return
 	}
-	if err := tmux.SendKeys(sessionName, designerWindow, body); err != nil {
+	tmpl := cfg.Prompt("plan_triage")
+	if tmpl == "" {
+		// Fallback: send raw body if no template configured
+		if err := tmux.SendKeys(sessionName, designerWindow, body); err != nil {
+			log.Printf("warning: notify designer failed: %v", err)
+		}
+		return
+	}
+	reviewFile, err := writeReviewFile(body)
+	if err != nil {
+		log.Printf("warning: failed to write review file: %v", err)
+	}
+	reviewRef := ""
+	if reviewFile != "" {
+		reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
+	}
+	replacer := strings.NewReplacer("{{review-file}}", reviewRef)
+	notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
+	if err := tmux.SendKeys(sessionName, designerWindow, notification); err != nil {
 		log.Printf("warning: notify designer failed: %v", err)
 	}
 }
