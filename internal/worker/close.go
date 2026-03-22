@@ -94,6 +94,9 @@ func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 			}, fmt.Errorf("cleanup failed: %w", err)
 		}
 		if task.UUID != "" {
+			// Force close bypasses the normal pipeline completion path, so +pipeline-done
+			// is not set. If the on-modify hook blocks completion (pipeline task without
+			// +pipeline-done), run: task <uuid> modify +pipeline-done && task <uuid> done
 			if err := taskwarrior.MarkDone(task.UUID); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 			}

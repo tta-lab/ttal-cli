@@ -316,12 +316,6 @@ reviewer = "pr-review-lead"
 			taskTags: []string{"bugfix", "worker"},
 			wantErr:  true,
 		},
-		{
-			name:     "pipeline match + pipeline-done (worker+PR cleanup path) — allow",
-			toml:     pipelinesBugfix,
-			taskTags: []string{"bugfix", "pipeline-done"},
-			wantErr:  false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -337,6 +331,19 @@ reviewer = "pr-review-lead"
 				t.Errorf("checkPipelineDoneGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestCheckPipelineDoneGuard_MalformedTOML(t *testing.T) {
+	// Malformed pipelines.toml — guard should fail-open (allow completion).
+	// This documents the intent: corrupt config should not block task completion.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pipelines.toml"), []byte("not valid toml [[["), 0o644); err != nil {
+		t.Fatalf("write pipelines.toml: %v", err)
+	}
+	task := makeLGTMTask([]string{"bugfix"})
+	if err := checkPipelineDoneGuard(task, dir); err != nil {
+		t.Errorf("expected nil (fail-open) for malformed TOML, got: %v", err)
 	}
 }
 

@@ -328,13 +328,19 @@ func cleanupStageTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles 
 	}
 }
 
+// markPipelineDone adds the +pipeline-done tag so the on-modify hook allows task completion.
+func markPipelineDone(uuid string) {
+	if err := taskwarrior.ModifyTags(uuid, "+pipeline-done"); err != nil {
+		log.Printf("[advance] warning: add pipeline-done tag: %v", err)
+	}
+}
+
 // handlePipelineComplete writes the pipeline-complete response.
 // For worker+PR stages the cleanup handler owns MarkDone; for others it marks done inline.
 func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) {
 	// Mark pipeline as fully completed — on-modify hook uses this to gate task done.
-	if err := taskwarrior.ModifyTags(task.UUID, "+pipeline-done"); err != nil {
-		log.Printf("[advance] warning: add pipeline-done tag: %v", err)
-	}
+	// For worker+PR at the last stage, handleWorkerPRMerge already set this tag (idempotent).
+	markPipelineDone(task.UUID)
 
 	if stage.Assignee == workerStage && task.PRID != "" {
 		// Worker+PR: cleanup handler calls MarkDone after session teardown.
@@ -617,9 +623,8 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 	}
 
 	// Add pipeline-done before cleanup — on-modify hook uses this to gate task done.
-	if err := taskwarrior.ModifyTags(task.UUID, "+pipeline-done"); err != nil {
-		log.Printf("[advance] warning: add pipeline-done tag: %v", err)
-	}
+	// For worker+PR at the last stage, handlePipelineComplete will also set this (idempotent).
+	markPipelineDone(task.UUID)
 
 	if err := worker.RequestCleanup(task.SessionName(), task.UUID); err != nil {
 		log.Printf("[advance] warning: cleanup request failed: %v", err)
