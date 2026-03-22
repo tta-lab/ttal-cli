@@ -64,7 +64,9 @@ func showStatus() error {
 
 	// Cache roles for task-scoped detection.
 	roleMap := make(map[string]string)
-	if agents, err := agentfs.Discover(cfg.TeamPath()); err == nil {
+	if agents, err := agentfs.Discover(cfg.TeamPath()); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot discover agent roles in %s: %v\n", cfg.TeamPath(), err)
+	} else {
 		for _, a := range agents {
 			roleMap[a.Name] = a.Role
 		}

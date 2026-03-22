@@ -3,7 +3,7 @@ package daemon
 import "testing"
 
 func TestBuildTaskScopedEnv(t *testing.T) {
-	env := buildTaskScopedEnv("astra", "default", "1d87b1a8", "ts-1d87b1a8-astra", nil)
+	env := buildTaskScopedEnv("astra", "default", "1d87b1a8", "ts-1d87b1a8-astra", "")
 	want := map[string]bool{
 		"TTAL_AGENT_NAME=astra":               true,
 		"TTAL_TEAM=default":                   true,

@@ -343,25 +343,20 @@ func resolveBreatheSessions(
 	}, nil
 }
 
-// buildTaskScopedRotationEnv builds env vars for a task-scoped rotation breathe.
-func buildTaskScopedRotationEnv(
+// selectBreatheEnv returns the correct env vars for the breathe restart command.
+// For task-scoped rotation (routeReq with ProjectPath) it calls buildTaskScopedEnv;
+// for persistent-agent breathe it falls back to buildBreatheEnv.
+func selectBreatheEnv(
 	agent, team, newSessionName string, routeReq *route.Request, shellCfg *config.Config,
 ) []string {
+	if routeReq == nil || routeReq.ProjectPath == "" {
+		return buildBreatheEnv(agent, team, shellCfg)
+	}
 	jobID := routeReq.TaskUUID
 	if len(jobID) > 8 {
 		jobID = jobID[:8]
 	}
-	vars := []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
-		fmt.Sprintf("TTAL_TEAM=%s", team),
-		fmt.Sprintf("TTAL_JOB_ID=%s", jobID),
-		fmt.Sprintf("TTAL_SESSION_NAME=%s", newSessionName),
-		"TTAL_SESSION_MODE=task-scoped",
-	}
-	if taskRC := shellCfg.TaskRC(); taskRC != "" {
-		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
-	}
-	return append(vars, config.DotEnvParts()...)
+	return buildTaskScopedEnv(agent, team, jobID, newSessionName, shellCfg.TaskRC())
 }
 
 // composeRouteHandoff merges a base handoff with a route request's role prompt and message.
@@ -451,12 +446,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// 8. Build restart command with env.
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	var agentEnv []string
-	if routeReq != nil && routeReq.ProjectPath != "" {
-		agentEnv = buildTaskScopedRotationEnv(req.Agent, team, plan.newSessionName, routeReq, shellCfg)
-	} else {
-		agentEnv = buildBreatheEnv(req.Agent, team, shellCfg)
-	}
+	agentEnv := selectBreatheEnv(req.Agent, team, plan.newSessionName, routeReq, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
 	// 9. Kill old session, create new.

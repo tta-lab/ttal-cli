@@ -284,6 +284,13 @@ func TestDaemonConfigWorkerModelForTeam(t *testing.T) {
 	}
 }
 
+func TestDaemonConfigIsTaskScopedRoleNilGuard(t *testing.T) {
+	var nilMcfg *DaemonConfig
+	if nilMcfg.IsTaskScopedRole("designer") {
+		t.Error("nil DaemonConfig.IsTaskScopedRole should return false")
+	}
+}
+
 func TestGetMergeMode(t *testing.T) {
 	tests := []struct {
 		name string

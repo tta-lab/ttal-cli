@@ -53,7 +53,13 @@ func spawnTaskScopedAgent(
 		sessionID, model, agent.Name,
 	)
 
-	env := buildTaskScopedEnv(agent.Name, team, task.SessionID(), sessionName, mcfg)
+	taskRC := ""
+	if mcfg != nil {
+		if t, ok := mcfg.Teams[team]; ok {
+			taskRC = t.TaskRC
+		}
+	}
+	env := buildTaskScopedEnv(agent.Name, team, task.SessionID(), sessionName, taskRC)
 	envStr := ""
 	if len(env) > 0 {
 		envStr = fmt.Sprintf("env %s ", strings.Join(env, " "))
@@ -78,7 +84,9 @@ func spawnTaskScopedAgent(
 	for _, e := range env {
 		parts := strings.SplitN(e, "=", 2)
 		if len(parts) == 2 {
-			_ = tmux.SetEnv(sessionName, parts[0], parts[1])
+			if err := tmux.SetEnv(sessionName, parts[0], parts[1]); err != nil {
+				log.Printf("[taskscoped] warning: SetEnv %s failed for session %s: %v", parts[0], sessionName, err)
+			}
 		}
 	}
 
@@ -88,7 +96,8 @@ func spawnTaskScopedAgent(
 
 // buildTaskScopedEnv returns env vars for a task-scoped agent session.
 // TTAL_JOB_ID is consumed by resolveCurrentTask() for ttal task get, ttal go, ttal comment.
-func buildTaskScopedEnv(agentName, team, jobID, sessionName string, mcfg *config.DaemonConfig) []string {
+// taskRC is the optional path to the team's taskrc file (empty string = omit TASKRC).
+func buildTaskScopedEnv(agentName, team, jobID, sessionName, taskRC string) []string {
 	env := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_TEAM=%s", team),
@@ -96,10 +105,8 @@ func buildTaskScopedEnv(agentName, team, jobID, sessionName string, mcfg *config
 		fmt.Sprintf("TTAL_SESSION_NAME=%s", sessionName),
 		"TTAL_SESSION_MODE=task-scoped",
 	}
-	if mcfg != nil {
-		if t, ok := mcfg.Teams[team]; ok && t.TaskRC != "" {
-			env = append(env, fmt.Sprintf("TASKRC=%s", t.TaskRC))
-		}
+	if taskRC != "" {
+		env = append(env, fmt.Sprintf("TASKRC=%s", taskRC))
 	}
 	env = append(env, config.DotEnvParts()...)
 	return env
