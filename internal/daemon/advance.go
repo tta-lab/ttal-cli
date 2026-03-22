@@ -562,12 +562,12 @@ func askHumanGate(
 	task *taskwarrior.Task, stage *pipeline.Stage, nextStageName string,
 ) (bool, error) {
 	question := fmt.Sprintf(
-		"🔒 Go to <b>%s</b>?\n\n📋 Task: %s\n📍 Current: %s",
+		"🔒 Go to <b>%s</b>\n\n📋 Task: %s\n📍 Current: %s",
 		html.EscapeString(nextStageName),
 		html.EscapeString(task.Description),
 		html.EscapeString(stage.Name),
 	)
-	options := []string{"✅ Approve", "❌ Reject"}
+	options := []string{frontend.GateOptionApprove, frontend.GateOptionReject}
 	answer, skipped, err := fe.AskHuman(ctx, agentName, question, options)
 	if err != nil {
 		return false, err
@@ -575,7 +575,7 @@ func askHumanGate(
 	if skipped {
 		return false, nil
 	}
-	return answer == "✅ Approve", nil
+	return answer == frontend.GateOptionApprove, nil
 }
 
 // findIdleAgent finds the first idle agent with the given role.

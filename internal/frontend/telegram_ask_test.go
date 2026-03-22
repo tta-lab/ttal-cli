@@ -3,6 +3,8 @@ package frontend
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -256,5 +258,86 @@ func TestHTTPAskHuman_MissingAgentAndSession(t *testing.T) {
 	}
 	if resp.OK {
 		t.Error("expected OK=false")
+	}
+}
+
+const testGateQuestion = "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
+
+func TestBuildAskHumanMessage_HTMLPreserved(t *testing.T) {
+	// Pre-escaped HTML from askHumanGate — tags should render, not be double-escaped
+	text, _ := buildAskHumanMessage("lux", testGateQuestion, []string{"✅ Approve", "❌ Reject"}, "ah000001")
+
+	if strings.Contains(text, "&lt;b&gt;") {
+		t.Error("HTML tags should not be double-escaped")
+	}
+	if !strings.Contains(text, "<b>Implement</b>") {
+		t.Error("expected HTML tags preserved in output")
+	}
+}
+
+func TestBuildAskHumanMessage_RawInputPassesThrough(t *testing.T) {
+	// After removing internal escaping, raw input passes through as-is.
+	// This verifies the caller is responsible for escaping.
+	raw := "<script>alert('xss')</script>"
+	text, _ := buildAskHumanMessage("worker", raw, nil, "ah000001")
+
+	// buildAskHumanMessage does NOT escape — raw tags pass through
+	if !strings.Contains(text, "<script>") {
+		t.Error("expected raw input to pass through unescaped (caller's responsibility)")
+	}
+}
+
+func TestBuildApprovalText_Approve(t *testing.T) {
+	result := buildApprovalText(testGateQuestion, "ignored origText", true)
+
+	if !strings.HasPrefix(result, "✅ <b>Approved</b>\n") {
+		t.Error("expected ✅ Approved header")
+	}
+	if strings.Contains(result, "❓") {
+		t.Error("should not contain question mark emoji")
+	}
+	if strings.Contains(result, "asks:") {
+		t.Error("should not contain agent asks prefix")
+	}
+	if !strings.Contains(result, "🔒 Go to <b>Implement</b>") {
+		t.Error("expected question content preserved")
+	}
+}
+
+func TestBuildApprovalText_Reject(t *testing.T) {
+	result := buildApprovalText(testGateQuestion, "ignored origText", false)
+
+	if !strings.HasPrefix(result, "❌ <b>Rejected</b>\n") {
+		t.Error("expected ❌ Rejected header")
+	}
+	if !strings.Contains(result, "🔒 Go to <b>Implement</b>") {
+		t.Error("expected question content preserved")
+	}
+}
+
+func TestBuildApprovalText_EmptyQuestionFallback(t *testing.T) {
+	// Backwards compat: in-flight entries created before this change have no question field
+	origText := "❓ <b>lux</b> asks:\n🔒 Go to <b>Implement</b>"
+	result := buildApprovalText("", origText, true)
+
+	if !strings.HasPrefix(result, "✅ <b>Approved</b>\n") {
+		t.Error("expected ✅ Approved header even with fallback")
+	}
+	if !strings.Contains(result, origText) {
+		t.Error("expected origText used as fallback content")
+	}
+}
+
+func TestApprovalDefaultBranch_NonGateAnswer(t *testing.T) {
+	// Non-gate answers should use capText append, not approval format
+	origText := "❓ <b>worker</b> asks:\nWhich approach?"
+	answer := "Option A"
+	result := capText(origText, fmt.Sprintf("→ <b>%s</b>", html.EscapeString(answer)))
+
+	if !strings.Contains(result, "❓") {
+		t.Error("non-gate answers should keep original question text")
+	}
+	if !strings.Contains(result, "→ <b>Option A</b>") {
+		t.Error("expected appended answer")
 	}
 }
