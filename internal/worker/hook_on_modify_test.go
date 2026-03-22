@@ -263,6 +263,83 @@ func TestCheckLGTMGuard(t *testing.T) {
 	}
 }
 
+func TestCheckPipelineDoneGuard(t *testing.T) {
+	const pipelinesBugfix = `
+[bugfix]
+tags = ["bugfix"]
+
+[[bugfix.stages]]
+name = "Fix"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+
+[[bugfix.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	tests := []struct {
+		name     string
+		toml     string
+		taskTags []string
+		wantErr  bool
+	}{
+		{
+			name:     "no pipeline match — allow",
+			toml:     pipelinesBugfix,
+			taskTags: []string{"unrelated"},
+			wantErr:  false,
+		},
+		{
+			name:     "pipeline match + pipeline-done — allow",
+			toml:     pipelinesBugfix,
+			taskTags: []string{"bugfix", "pipeline-done"},
+			wantErr:  false,
+		},
+		{
+			name:     "pipeline match + no pipeline-done — block",
+			toml:     pipelinesBugfix,
+			taskTags: []string{"bugfix"},
+			wantErr:  true,
+		},
+		{
+			name:     "no pipeline config — allow",
+			toml:     "", // empty dir, no pipelines.toml
+			taskTags: []string{"bugfix"},
+			wantErr:  false,
+		},
+		{
+			name:     "multi-stage pipeline no pipeline-done — block",
+			toml:     pipelinesBugfix,
+			taskTags: []string{"bugfix", "worker"},
+			wantErr:  true,
+		},
+		{
+			name:     "pipeline match + pipeline-done (worker+PR cleanup path) — allow",
+			toml:     pipelinesBugfix,
+			taskTags: []string{"bugfix", "pipeline-done"},
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var dir string
+			if tt.toml != "" {
+				dir = writeTempPipelines(t, tt.toml)
+			} else {
+				dir = t.TempDir() // no pipelines.toml
+			}
+			task := makeLGTMTask(tt.taskTags)
+			err := checkPipelineDoneGuard(task, dir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkPipelineDoneGuard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func writeTempPipelines(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
