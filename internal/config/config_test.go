@@ -284,6 +284,13 @@ func TestDaemonConfigWorkerModelForTeam(t *testing.T) {
 	}
 }
 
+func TestDaemonConfigIsTaskScopedRoleNilGuard(t *testing.T) {
+	var nilMcfg *DaemonConfig
+	if nilMcfg.IsTaskScopedRole("designer") {
+		t.Error("nil DaemonConfig.IsTaskScopedRole should return false")
+	}
+}
+
 func TestGetMergeMode(t *testing.T) {
 	tests := []struct {
 		name string
@@ -629,6 +636,42 @@ func TestRolesConfigHeartbeatPrompt(t *testing.T) {
 	}
 	if got := r.HeartbeatPrompts["inke"]; got != "" {
 		t.Errorf("HeartbeatPrompts[inke] = %q, want empty", got)
+	}
+}
+
+func TestRolesConfigSessionMode(t *testing.T) {
+	data := map[string]interface{}{
+		"designer": map[string]interface{}{
+			"prompt":       "design things",
+			"session_mode": "task-scoped",
+		},
+		"manager": map[string]interface{}{
+			"prompt": "manage things",
+		},
+		"researcher": map[string]interface{}{
+			"prompt":       "research things",
+			"session_mode": "task-scoped",
+		},
+	}
+	var cfg RolesConfig
+	if err := cfg.UnmarshalTOML(data); err != nil {
+		t.Fatalf("UnmarshalTOML: %v", err)
+	}
+	if !cfg.IsTaskScoped("designer") {
+		t.Error("expected designer to be task-scoped")
+	}
+	if !cfg.IsTaskScoped("researcher") {
+		t.Error("expected researcher to be task-scoped")
+	}
+	if cfg.IsTaskScoped("manager") {
+		t.Error("expected manager to not be task-scoped")
+	}
+	if cfg.IsTaskScoped("unknown") {
+		t.Error("expected unknown to not be task-scoped")
+	}
+	var nilR *RolesConfig
+	if nilR.IsTaskScoped("designer") {
+		t.Error("nil receiver should return false")
 	}
 }
 

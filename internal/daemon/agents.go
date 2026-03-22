@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -19,12 +20,34 @@ import (
 
 // initAdapters starts all agent sessions in parallel via tmux.
 // Config-driven: iterates all teams, no DB required.
+// Task-scoped agents are skipped — they are spawned on demand, not at startup.
 func initAdapters(mcfg *config.DaemonConfig) {
 	ensureLocalAgentTrust(mcfg)
 
-	// Spawn per-agent sessions in parallel
+	// Cache role lookups per team path to avoid redundant agentfs.Discover calls.
+	roleCache := make(map[string]map[string]string)
+
 	var wg sync.WaitGroup
 	for _, ta := range mcfg.AllAgents() {
+		if _, ok := roleCache[ta.TeamPath]; !ok {
+			roles := make(map[string]string)
+			if agents, err := agentfs.Discover(ta.TeamPath); err != nil {
+				log.Printf("[daemon] ERROR: cannot discover agents in %s: %v"+
+					" — task-scoped detection disabled for this team", ta.TeamPath, err)
+			} else {
+				for _, a := range agents {
+					roles[a.Name] = a.Role
+				}
+			}
+			roleCache[ta.TeamPath] = roles
+		}
+		role := roleCache[ta.TeamPath][ta.AgentName]
+
+		if mcfg.IsTaskScopedRole(role) {
+			log.Printf("[daemon] skipping task-scoped agent %s (role: %s, spawned on demand)", ta.AgentName, role)
+			continue
+		}
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

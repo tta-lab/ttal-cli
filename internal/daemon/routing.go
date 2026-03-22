@@ -273,29 +273,6 @@ func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
 	return cmd
 }
 
-// composeHandoff merges the agent's base handoff with any staged routing request.
-// Returns the composed handoff and the trigger string (empty for self-breathe).
-// Returns an error if a routing file exists but cannot be consumed — the caller
-// should abort rather than deliver a degraded breathe with no task context.
-func composeHandoff(agentName, baseHandoff string) (handoff, trigger string, err error) {
-	routeReq, err := route.Consume(agentName)
-	if err != nil {
-		return "", "", fmt.Errorf("consume routing file for %s: %w", agentName, err)
-	}
-	if routeReq == nil {
-		return baseHandoff, "", nil
-	}
-	composed := baseHandoff
-	if routeReq.RolePrompt != "" {
-		composed += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
-	}
-	if routeReq.Message != "" {
-		composed += "\n\n" + routeReq.Message
-	}
-	log.Printf("[breathe] routing %s to task %s (routed by %s)", agentName, routeReq.TaskUUID, routeReq.RoutedBy)
-	return composed, routeReq.Trigger, nil
-}
-
 // resolveBrCWD returns the agent's working directory for a breathe restart.
 // It prefers the live pane CWD; if the session is dead or pane CWD is unavailable,
 // it falls back to the registered agent workspace path from config.
@@ -322,6 +299,82 @@ func resolveBrCWD(sessionName, windowName, agent string, cfg *config.Config) (st
 	return cwd, sessionAlive, nil
 }
 
+// breatheSessionPlan holds the resolved session names and CWD for a breathe operation.
+type breatheSessionPlan struct {
+	oldSessionName string
+	newSessionName string
+	windowName     string
+	cwd            string
+}
+
+// resolveBreatheSessions determines old/new session names and CWD based on whether this
+// is a task-scoped rotation (routeReq has ProjectPath) or a persistent-agent breathe.
+func resolveBreatheSessions(
+	req BreatheRequest, team string, routeReq *route.Request, shellCfg *config.Config,
+) (breatheSessionPlan, error) {
+	if routeReq != nil && routeReq.ProjectPath != "" {
+		taskSID := routeReq.TaskUUID
+		if len(taskSID) > 8 {
+			taskSID = taskSID[:8]
+		}
+		newName := "ts-" + taskSID + "-" + req.Agent
+		oldName := req.SessionName
+		if oldName == "" {
+			oldName = config.AgentSessionName(team, req.Agent)
+		}
+		ensureTaskScopedTrust(routeReq.ProjectPath)
+		return breatheSessionPlan{
+			oldSessionName: oldName,
+			newSessionName: newName,
+			windowName:     req.Agent,
+			cwd:            routeReq.ProjectPath,
+		}, nil
+	}
+	persistName := config.AgentSessionName(team, req.Agent)
+	cwd, _, err := resolveBrCWD(persistName, req.Agent, req.Agent, shellCfg)
+	if err != nil {
+		return breatheSessionPlan{}, err
+	}
+	return breatheSessionPlan{
+		oldSessionName: persistName,
+		newSessionName: persistName,
+		windowName:     req.Agent,
+		cwd:            cwd,
+	}, nil
+}
+
+// selectBreatheEnv returns the correct env vars for the breathe restart command.
+// For task-scoped rotation (routeReq with ProjectPath) it calls buildTaskScopedEnv;
+// for persistent-agent breathe it falls back to buildBreatheEnv.
+func selectBreatheEnv(
+	agent, team, newSessionName string, routeReq *route.Request, shellCfg *config.Config,
+) []string {
+	if routeReq == nil || routeReq.ProjectPath == "" {
+		return buildBreatheEnv(agent, team, shellCfg)
+	}
+	jobID := routeReq.TaskUUID
+	if len(jobID) > 8 {
+		jobID = jobID[:8]
+	}
+	return buildTaskScopedEnv(agent, team, jobID, newSessionName, shellCfg.TaskRC())
+}
+
+// composeRouteHandoff merges a base handoff with a route request's role prompt and message.
+func composeRouteHandoff(base string, routeReq *route.Request, agent string) (handoff, trigger string) {
+	if routeReq == nil {
+		return base, ""
+	}
+	composed := base
+	if routeReq.RolePrompt != "" {
+		composed += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
+	}
+	if routeReq.Message != "" {
+		composed += "\n\n" + routeReq.Message
+	}
+	log.Printf("[breathe] routing %s to task %s (routed by %s)", agent, routeReq.TaskUUID, routeReq.RoutedBy)
+	return composed, routeReq.Trigger
+}
+
 // handleBreathe restarts an agent's CC session with a handoff prompt.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
 func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
@@ -336,39 +389,39 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		return SendResponse{OK: false, Error: "empty handoff prompt"}
 	}
 
-	sessionName := config.AgentSessionName(team, req.Agent)
-	windowName := req.Agent
+	// 1. Consume route file EARLY to determine if this is a task-scoped rotation.
+	routeReq, err := route.Consume(req.Agent)
+	if err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("consume routing file: %v", err)}
+	}
 
-	// 1-2. Resolve CWD: live pane preferred, registered agent path as fallback.
-	cwd, sessionAlive, err := resolveBrCWD(sessionName, windowName, req.Agent, shellCfg)
+	// 2. Resolve session names and CWD.
+	plan, err := resolveBreatheSessions(req, team, routeReq, shellCfg)
 	if err != nil {
 		return SendResponse{OK: false, Error: err.Error()}
 	}
 
-	// 3. Get model, CC version, and git branch
+	// 3. Get model, CC version, and git branch.
 	am := resolveAgentModel(team, req.Agent)
-	gitBranch := gitutil.BranchName(cwd)
+	gitBranch := gitutil.BranchName(plan.cwd)
 	if gitBranch == "" {
-		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, cwd)
+		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, plan.cwd)
 	}
 
-	// 4. Persist handoff to diary and enrich with today's diary content
+	// 4. Persist handoff to diary and enrich with today's diary content.
 	diaryAppendHandoff(req.Agent, req.Handoff)
 	handoff := diaryReadToday(req.Agent, req.Handoff)
 
-	// 5. Check for staged routing request and compose handoff
-	composedHandoff, trigger, err := composeHandoff(req.Agent, handoff)
-	if err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("compose handoff: %v", err)}
-	}
+	// 5. Compose handoff with route context (route already consumed in step 1).
+	composedHandoff, trigger := composeRouteHandoff(handoff, routeReq, req.Agent)
 
-	// 6. Write synthetic JSONL session (BEFORE killing anything)
-	projectDir, err := breathe.CCProjectDir(cwd)
+	// 6. Write synthetic JSONL session (BEFORE killing anything).
+	projectDir, err := breathe.CCProjectDir(plan.cwd)
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("resolve CC project dir: %v", err)}
 	}
 	newSessionID, err := breathe.WriteSyntheticSession(projectDir, breathe.SessionConfig{
-		CWD:       cwd,
+		CWD:       plan.cwd,
 		CCVersion: am.ccVersion,
 		GitBranch: gitBranch,
 		Handoff:   composedHandoff,
@@ -377,7 +430,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		return SendResponse{OK: false, Error: fmt.Sprintf("write session: %v", err)}
 	}
 
-	// 7. Update status file with new session ID
+	// 7. Update status file with new session ID.
 	if err := status.WriteAgent(team, status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           newSessionID,
@@ -391,28 +444,27 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 8. Build restart command with full env (secrets, TASKRC).
+	// 8. Build restart command with env.
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	agentEnv := buildBreatheEnv(req.Agent, team, shellCfg)
+	agentEnv := selectBreatheEnv(req.Agent, team, plan.newSessionName, routeReq, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
-	// 9. Kill session + create new — avoids race condition where CC exits
-	// before RespawnWindow can catch the dying process.
-	log.Printf("[breathe] %s: killing session for restart with session %s (model: %s)", req.Agent, newSessionID, am.model)
-	if sessionAlive {
-		if err := tmux.KillSession(sessionName); err != nil {
+	// 9. Kill old session, create new.
+	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
+	if tmux.SessionExists(plan.oldSessionName) {
+		if err := tmux.KillSession(plan.oldSessionName); err != nil {
 			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
 		}
 	}
 
-	if err := tmux.NewSession(sessionName, windowName, cwd, fullCmd); err != nil {
+	if err := tmux.NewSession(plan.newSessionName, plan.windowName, plan.cwd, fullCmd); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 
 	// Inject secrets into tmux session env for future commands.
-	injectSecretsToSession(sessionName)
+	injectSecretsToSession(plan.newSessionName)
 
-	log.Printf("[breathe] %s: fresh breath taken", req.Agent)
+	log.Printf("[breathe] %s: fresh breath taken (session: %s)", req.Agent, plan.newSessionName)
 
 	return SendResponse{OK: true}
 }

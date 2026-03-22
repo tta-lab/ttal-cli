@@ -30,6 +30,11 @@ func deliverToAgent(
 	// Fallback: tmux for CC agents, frontend notification for others
 	rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
 	if rt == runtime.ClaudeCode {
+		// Prefer task-scoped session if one exists.
+		if tsSession := tmux.FindSessionByPrefix("ts-", "-"+agentName); tsSession != "" {
+			return tmux.SendKeys(tsSession, agentName, text)
+		}
+		// Fall back to persistent session.
 		session := config.AgentSessionName(teamName, agentName)
 		return tmux.SendKeys(session, agentName, text)
 	}
