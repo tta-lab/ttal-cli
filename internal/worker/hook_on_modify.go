@@ -105,15 +105,15 @@ func resolveAllowedReviewers(task hookTask, configDir string) []string {
 }
 
 // checkPipelineDoneGuard blocks task completion when the task matches a pipeline
-// but doesn't have the +pipeline-done tag. The tag is set by ttal go when the
+// but doesn't have the +pipeline_done tag. The tag is set by ttal go when the
 // pipeline reaches final completion.
 // configDir may be empty — defaults to config.DefaultConfigDir().
 func checkPipelineDoneGuard(task hookTask, configDir string) error {
 	if matchedPipeline(task, configDir) == nil {
 		return nil // no pipeline config or no matching pipeline → allow completion
 	}
-	// Task matches a pipeline — require +pipeline-done tag.
-	if slices.Contains(task.Tags(), "pipeline-done") {
+	// Task matches a pipeline — require +pipeline_done tag.
+	if slices.Contains(task.Tags(), "pipeline_done") {
 		return nil
 	}
 	return fmt.Errorf("cannot complete task: pipeline not finished. Use `ttal go <uuid>` to advance through stages")

@@ -293,13 +293,13 @@ reviewer = "pr-review-lead"
 			wantErr:  false,
 		},
 		{
-			name:     "pipeline match + pipeline-done — allow",
+			name:     "pipeline match + pipeline_done — allow",
 			toml:     pipelinesBugfix,
-			taskTags: []string{"bugfix", "pipeline-done"},
+			taskTags: []string{"bugfix", "pipeline_done"},
 			wantErr:  false,
 		},
 		{
-			name:     "pipeline match + no pipeline-done — block",
+			name:     "pipeline match + no pipeline_done — block",
 			toml:     pipelinesBugfix,
 			taskTags: []string{"bugfix"},
 			wantErr:  true,
@@ -311,7 +311,7 @@ reviewer = "pr-review-lead"
 			wantErr:  false,
 		},
 		{
-			name:     "multi-stage pipeline no pipeline-done — block",
+			name:     "multi-stage pipeline no pipeline_done — block",
 			toml:     pipelinesBugfix,
 			taskTags: []string{"bugfix", "worker"},
 			wantErr:  true,
