@@ -21,6 +21,7 @@ type Request struct {
 	RolePrompt  string    `json:"role_prompt"`
 	Trigger     string    `json:"trigger"`
 	ProjectPath string    `json:"project_path,omitempty"`
+	TaskScoped  bool      `json:"task_scoped,omitempty"`
 	RoutedBy    string    `json:"routed_by,omitempty"`
 	Message     string    `json:"message,omitempty"`
 	Team        string    `json:"team,omitempty"`

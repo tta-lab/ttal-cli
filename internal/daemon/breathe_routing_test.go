@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/status"
 )
 
@@ -363,4 +364,74 @@ func TestBuildBreatheEnv(t *testing.T) {
 			t.Errorf("TASKRC missing or wrong in %v", vars)
 		}
 	})
+}
+
+// TestResolveBreatheSessions verifies session name construction and condition branching.
+// Uses nonexistent session names so resolveBrCWD falls back to team path (no tmux needed).
+func TestResolveBreatheSessions(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := loadConfigWithTeamPath(t, tmp)
+	const agent = "astra"
+	const team = "default"
+	const taskUUID = "fe10b6bf-1234-5678-abcd-000000000000"
+
+	tests := []struct {
+		name           string
+		req            BreatheRequest
+		routeReq       *route.Request
+		wantOldSession string
+		wantNewSession string
+	}{
+		{
+			name:           "nil routeReq (self-breathe) → persistent session",
+			req:            BreatheRequest{Agent: agent, Team: team, SessionName: ""},
+			routeReq:       nil,
+			wantOldSession: "ttal-default-" + agent,
+			wantNewSession: "ttal-default-" + agent,
+		},
+		{
+			name: "TaskScoped=true → ts-* session",
+			req:  BreatheRequest{Agent: agent, Team: team, SessionName: ""},
+			routeReq: &route.Request{
+				TaskScoped:  true,
+				ProjectPath: "/some/project",
+				TaskUUID:    taskUUID,
+			},
+			wantOldSession: "ttal-default-" + agent,
+			wantNewSession: "ts-fe10b6bf-" + agent,
+		},
+		{
+			name: "ProjectPath set but NOT TaskScoped → persistent session",
+			req:  BreatheRequest{Agent: agent, Team: team, SessionName: ""},
+			routeReq: &route.Request{
+				TaskScoped:  false,
+				ProjectPath: "/some/project",
+				TaskUUID:    taskUUID,
+			},
+			wantOldSession: "ttal-default-" + agent,
+			wantNewSession: "ttal-default-" + agent,
+		},
+		{
+			name:           "ts→persistent graduation: req.SessionName set, nil routeReq",
+			req:            BreatheRequest{Agent: agent, Team: team, SessionName: "ts-fe10b6bf-" + agent},
+			routeReq:       nil,
+			wantOldSession: "ts-fe10b6bf-" + agent,
+			wantNewSession: "ttal-default-" + agent,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan, err := resolveBreatheSessions(tt.req, team, tt.routeReq, cfg)
+			if err != nil {
+				t.Fatalf("resolveBreatheSessions error: %v", err)
+			}
+			if plan.oldSessionName != tt.wantOldSession {
+				t.Errorf("oldSessionName = %q, want %q", plan.oldSessionName, tt.wantOldSession)
+			}
+			if plan.newSessionName != tt.wantNewSession {
+				t.Errorf("newSessionName = %q, want %q", plan.newSessionName, tt.wantNewSession)
+			}
+		})
+	}
 }

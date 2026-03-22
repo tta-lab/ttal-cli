@@ -312,7 +312,7 @@ type breatheSessionPlan struct {
 func resolveBreatheSessions(
 	req BreatheRequest, team string, routeReq *route.Request, shellCfg *config.Config,
 ) (breatheSessionPlan, error) {
-	if routeReq != nil && routeReq.ProjectPath != "" {
+	if routeReq != nil && routeReq.TaskScoped {
 		taskSID := routeReq.TaskUUID
 		if len(taskSID) > 8 {
 			taskSID = taskSID[:8]
@@ -330,13 +330,24 @@ func resolveBreatheSessions(
 			cwd:            routeReq.ProjectPath,
 		}, nil
 	}
+	// Persistent path (also handles ts→persistent graduation when no new route).
 	persistName := config.AgentSessionName(team, req.Agent)
-	cwd, _, err := resolveBrCWD(persistName, req.Agent, req.Agent, shellCfg)
+	// Use the live session for CWD resolution (may be ts-* if graduating).
+	cwdSession := persistName
+	if req.SessionName != "" {
+		cwdSession = req.SessionName
+	}
+	cwd, _, err := resolveBrCWD(cwdSession, req.Agent, req.Agent, shellCfg)
 	if err != nil {
 		return breatheSessionPlan{}, err
 	}
+	// Kill the actual running session (ts-* or persistent).
+	oldName := persistName
+	if req.SessionName != "" {
+		oldName = req.SessionName
+	}
 	return breatheSessionPlan{
-		oldSessionName: persistName,
+		oldSessionName: oldName,
 		newSessionName: persistName,
 		windowName:     req.Agent,
 		cwd:            cwd,
@@ -349,7 +360,7 @@ func resolveBreatheSessions(
 func selectBreatheEnv(
 	agent, team, newSessionName string, routeReq *route.Request, shellCfg *config.Config,
 ) []string {
-	if routeReq == nil || routeReq.ProjectPath == "" {
+	if routeReq == nil || !routeReq.TaskScoped {
 		return buildBreatheEnv(agent, team, shellCfg)
 	}
 	jobID := routeReq.TaskUUID
@@ -463,6 +474,15 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// Inject secrets into tmux session env for future commands.
 	injectSecretsToSession(plan.newSessionName)
+
+	// Start task-scoped file watcher after breathe rotation into a ts-* session.
+	if routeReq != nil && routeReq.TaskScoped {
+		if onTaskScopedSpawn != nil {
+			onTaskScopedSpawn(team, req.Agent, newSessionID, plan.cwd)
+		} else {
+			log.Printf("[taskscoped] warning: onTaskScopedSpawn not set — file watcher skipped for %s", req.Agent)
+		}
+	}
 
 	log.Printf("[breathe] %s: fresh breath taken (session: %s)", req.Agent, plan.newSessionName)
 
