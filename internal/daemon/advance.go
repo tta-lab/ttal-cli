@@ -338,10 +338,10 @@ func cleanupStageTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles 
 	}
 }
 
-// markPipelineDone adds the +pipeline-done tag so the on-modify hook allows task completion.
+// markPipelineDone adds the +pipeline_done tag so the on-modify hook allows task completion.
 func markPipelineDone(uuid string) {
-	if err := taskwarrior.ModifyTags(uuid, "+pipeline-done"); err != nil {
-		log.Printf("[advance] warning: add pipeline-done tag: %v", err)
+	if err := taskwarrior.ModifyTags(uuid, "+pipeline_done"); err != nil {
+		log.Printf("[advance] warning: add pipeline_done tag: %v", err)
 	}
 }
 
@@ -758,7 +758,7 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		return true
 	}
 
-	// Add pipeline-done before cleanup — on-modify hook uses this to gate task done.
+	// Add pipeline_done before cleanup — on-modify hook uses this to gate task done.
 	// For worker+PR at the last stage, handlePipelineComplete will also set this (idempotent).
 	markPipelineDone(task.UUID)
 
