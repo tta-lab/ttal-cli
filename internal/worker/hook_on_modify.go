@@ -69,16 +69,30 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 	resp.Body.Close() //nolint:errcheck // fire-and-forget
 }
 
-// resolveAllowedReviewers loads the pipeline config from configDir and collects
-// all reviewer agent names from stages matching the task's tags.
-// Returns nil if no pipeline matches (guard will reject all agents).
-func resolveAllowedReviewers(task hookTask, configDir string) []string {
+// matchedPipeline loads pipeline config and returns the pipeline matched by the task's tags.
+// Returns nil (no error) when no config exists or no pipeline matches — callers treat nil as "no gate".
+// configDir may be empty — defaults to config.DefaultConfigDir().
+func matchedPipeline(task hookTask, configDir string) *pipeline.Pipeline {
+	if configDir == "" {
+		configDir = config.DefaultConfigDir()
+	}
 	pipelineCfg, err := pipeline.Load(configDir)
 	if err != nil || pipelineCfg == nil {
 		return nil
 	}
 	_, p, err := pipelineCfg.MatchPipeline(task.Tags())
-	if err != nil || p == nil {
+	if err != nil {
+		return nil
+	}
+	return p
+}
+
+// resolveAllowedReviewers loads the pipeline config from configDir and collects
+// all reviewer agent names from stages matching the task's tags.
+// Returns nil if no pipeline matches (guard will reject all agents).
+func resolveAllowedReviewers(task hookTask, configDir string) []string {
+	p := matchedPipeline(task, configDir)
+	if p == nil {
 		return nil
 	}
 	var reviewers []string
@@ -88,6 +102,21 @@ func resolveAllowedReviewers(task hookTask, configDir string) []string {
 		}
 	}
 	return reviewers
+}
+
+// checkPipelineDoneGuard blocks task completion when the task matches a pipeline
+// but doesn't have the +pipeline-done tag. The tag is set by ttal go when the
+// pipeline reaches final completion.
+// configDir may be empty — defaults to config.DefaultConfigDir().
+func checkPipelineDoneGuard(task hookTask, configDir string) error {
+	if matchedPipeline(task, configDir) == nil {
+		return nil // no pipeline config or no matching pipeline → allow completion
+	}
+	// Task matches a pipeline — require +pipeline-done tag.
+	if slices.Contains(task.Tags(), "pipeline-done") {
+		return nil
+	}
+	return fmt.Errorf("cannot complete task: pipeline not finished. Use `ttal go <uuid>` to advance through stages")
 }
 
 // checkLGTMGuard rejects +lgtm tag additions from agents not listed as pipeline reviewers.
@@ -133,6 +162,13 @@ func HookOnModify() {
 
 	// Check if task is being completed
 	if modified.Status() == taskStatusCompleted && original.Status() != taskStatusCompleted {
+		// Block completion if pipeline stages are incomplete.
+		if err := checkPipelineDoneGuard(modified, ""); err != nil {
+			hookLogFile("pipeline guard: " + err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+
 		prTitle, err := validateTaskCompletion(modified, nil, nil)
 		if err != nil {
 			hookLogFile("ERROR: " + err.Error())
