@@ -9,7 +9,7 @@ Write an implementation plan for this task.
 Read the task first: ttal task get {{task-id}}
 
 Storage: Save the plan via flicknote add 'content' --project plans
-Iterate with: flicknote get <id> --tree, flicknote edit <id> --section <n>
+Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [researcher]
@@ -19,7 +19,7 @@ Research this topic thoroughly.
 Read the task first: ttal task get {{task-id}}
 
 Storage: Save findings via flicknote add 'content' --project research
-Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content', flicknote edit <id> --section <n>
+Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content', flicknote replace <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [fixer]

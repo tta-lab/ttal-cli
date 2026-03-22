@@ -137,6 +137,48 @@ func TestDeployConfigs_OverwritesExistingFiles(t *testing.T) {
 	}
 }
 
+func TestDeployConfigs_CreatesConfigDirIfMissing(t *testing.T) {
+	teamPath := t.TempDir()
+	configDir := t.TempDir() + "/nonexistent/nested"
+
+	if err := os.WriteFile(filepath.Join(teamPath, "roles.toml"), []byte("# roles"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := DeployConfigs(teamPath, configDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if _, err := os.Stat(filepath.Join(configDir, "roles.toml")); err != nil {
+		t.Errorf("expected roles.toml to exist in created configDir: %v", err)
+	}
+}
+
+func TestDeployConfigs_DryRunDoesNotCreateConfigDir(t *testing.T) {
+	teamPath := t.TempDir()
+	configDir := t.TempDir() + "/nonexistent"
+
+	for _, name := range configFiles {
+		if err := os.WriteFile(filepath.Join(teamPath, name), []byte("# "+name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	results, err := DeployConfigs(teamPath, configDir, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != len(configFiles) {
+		t.Fatalf("expected %d results in dry run, got %d", len(configFiles), len(results))
+	}
+	if _, err := os.Stat(configDir); !os.IsNotExist(err) {
+		t.Error("dry run should not create configDir")
+	}
+}
+
 func TestDeployConfigs_Idempotent(t *testing.T) {
 	teamPath := t.TempDir()
 	configDir := t.TempDir()
