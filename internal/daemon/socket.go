@@ -255,6 +255,13 @@ type CommentGetResponse struct {
 	Comments []CommentEntry `json:"comments,omitempty"`
 }
 
+// CloseWindowRequest asks the daemon to close a tmux window.
+// Used by ttal comment lgtm to auto-close the reviewer's window after LGTM.
+type CloseWindowRequest struct {
+	Session string `json:"session"` // tmux session name
+	Window  string `json:"window"`  // tmux window name ("review" or "plan-review")
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -270,6 +277,8 @@ type httpHandlers struct {
 	commentAdd  func(CommentAddRequest) CommentAddResponse
 	commentList func(CommentListRequest) CommentListResponse
 	commentGet  func(CommentGetRequest) CommentGetResponse
+	// Window lifecycle
+	closeWindow func(CloseWindowRequest) SendResponse
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -298,6 +307,8 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/comment/add", handleHTTPCommentAdd(handlers))
 	r.Post("/comment/list", handleHTTPCommentList(handlers))
 	r.Post("/comment/get", handleHTTPCommentGet(handlers))
+	// Window lifecycle
+	r.Post("/window/close", handleHTTPCloseWindow(handlers))
 	// PR routes (proxied through daemon for token isolation)
 	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
 	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
@@ -451,6 +462,10 @@ func handleHTTPCommentGet(handlers httpHandlers) http.HandlerFunc {
 		}
 		writeHTTPJSON(w, code, result)
 	}
+}
+
+func handleHTTPCloseWindow(handlers httpHandlers) http.HandlerFunc {
+	return handleHTTPWithResponse("closeWindow", handlers.closeWindow)
 }
 
 // prOKStatus maps an OK flag to an HTTP status code.
@@ -676,6 +691,29 @@ func CommentList(req CommentListRequest) (CommentListResponse, error) {
 		return result, fmt.Errorf("%s", result.Error) //nolint:err113
 	}
 	return result, nil
+}
+
+// CloseWindow asks the daemon to close a tmux window.
+// Fire-and-forget: errors are returned but callers should treat them as non-fatal.
+func CloseWindow(req CloseWindowRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal close window request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/window/close", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("decode close window response: %w", err)
+	}
+	if !result.OK {
+		return fmt.Errorf("close window: %s", result.Error) //nolint:err113
+	}
+	return nil
 }
 
 func writeHTTPJSON(w http.ResponseWriter, statusCode int, v interface{}) {
