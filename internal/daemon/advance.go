@@ -277,7 +277,7 @@ func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pip
 	if stage.Reviewer == "" || hasTag(task.Tags, "lgtm") {
 		return false
 	}
-	msg := fmt.Sprintf("Run reviewer (%s) and set verdict with: ttal comment lgtm", stage.Reviewer)
+	msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict", stage.Reviewer)
 	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 		Status:   AdvanceStatusNeedsLGTM,
 		Message:  msg,

@@ -140,6 +140,11 @@ Examples:
 
 		fmt.Printf("Comment added (round %d)\n", resp.Round)
 
+		// Show lgtm hint only to reviewers — they're the ones who should run it.
+		if isReviewer(author) {
+			fmt.Println("When ready to approve: ttal comment lgtm")
+		}
+
 		// Notify counterpart window
 		notifyCounterpart(body)
 
@@ -293,6 +298,18 @@ Examples:
 		}
 		return nil
 	},
+}
+
+// isReviewer checks whether the given agent name is a reviewer in any pipeline.
+func isReviewer(agentName string) bool {
+	if agentName == "" || agentName == "unknown" {
+		return false
+	}
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		return false
+	}
+	return pipelineCfg.ReviewerNotifyTarget(agentName) != pipeline.NotifyTargetNone
 }
 
 // notifyCounterpart sends a tmux notification to the counterpart window based on TTAL_AGENT_NAME.

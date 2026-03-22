@@ -79,6 +79,14 @@ func TestResolveCurrentTask_NoEnv_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestIsReviewer_NoConfig_ReturnsFalse(t *testing.T) {
+	// With no pipeline config, isReviewer should return false (not panic).
+	result := isReviewer("nonexistent-agent")
+	if result {
+		t.Error("expected isReviewer to return false when pipeline config is unavailable")
+	}
+}
+
 func TestResolveCurrentTask_WithJobID_AttemptsLookup(t *testing.T) {
 	// When TTAL_JOB_ID is set, resolveCurrentTask should attempt the taskwarrior
 	// lookup and return an error (since no real task exists in test env) — not the
