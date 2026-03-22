@@ -119,13 +119,20 @@ func handlePipelineAdvance(
 
 	agentRoles := buildAgentRoles(teamPath)
 
-	idx, stage, err := p.CurrentStage(task.Tags, agentRoles)
-	if err != nil {
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "determine stage: " + err.Error(),
-		})
-		return
+	// Only resolve current stage when task is active (started).
+	// When not active, agent tags are routing hints, not stage assignments.
+	idx := -1
+	var stage *pipeline.Stage
+	if task.Start != "" {
+		var err error
+		idx, stage, err = p.CurrentStage(task.Tags, agentRoles)
+		if err != nil {
+			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+				Status:  AdvanceStatusError,
+				Message: "determine stage: " + err.Error(),
+			})
+			return
+		}
 	}
 
 	if idx == -1 {
@@ -135,7 +142,8 @@ func handlePipelineAdvance(
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
-		if err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, team, workerRuntime, teamPath); err != nil {
+		err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, team, workerRuntime, teamPath, agentRoles)
+		if err != nil {
 			log.Printf("[advance] first stage error: %v", err)
 		}
 		return
@@ -255,7 +263,8 @@ func processStageAdvance(
 		return
 	}
 
-	if err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, team, workerRuntime, teamPath); err != nil {
+	err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, team, workerRuntime, teamPath, agentRoles)
+	if err != nil {
 		log.Printf("[advance] next stage error: %v", err)
 	}
 }
@@ -378,6 +387,58 @@ func buildRouteTrigger(uuid string) string {
 	return fmt.Sprintf("New task routed. Run: ttal task get %s", shortUUID)
 }
 
+// countTasksFn is the function used to count active tasks. Package-level var for test injection.
+var countTasksFn = taskwarrior.CountTasks
+
+// resolveHintedAgent checks task tags for a routing hint — a tag matching a known
+// agent name with the required role. Returns the agent if found and idle, nil otherwise.
+//
+// Return contract: nil means "no usable hint" — caller MUST fall back to findIdleAgent.
+// Busy agents return nil (soft fallback with log warning), never an error.
+//
+// If multiple tags match agents with the required role, the first match wins.
+// Tag ordering in taskwarrior is not guaranteed, so tasks should have at most
+// one agent hint tag per role.
+func resolveHintedAgent(
+	teamPath string, taskTags []string, requiredRole string, agentRoles map[string]string,
+) *agentfs.AgentInfo {
+	for _, tag := range taskTags {
+		role, isAgent := agentRoles[tag]
+		if !isAgent || role != requiredRole {
+			continue
+		}
+		// Found a hint tag — resolve full agent info.
+		agent, err := agentfs.Get(teamPath, tag)
+		if err != nil {
+			log.Printf("[advance] warning: resolve hinted agent %s: %v", tag, err)
+			return nil
+		}
+		// Check idle/busy.
+		count, err := countTasksFn(fmt.Sprintf("+%s", tag), "+ACTIVE")
+		if err != nil {
+			log.Printf("[advance] warning: check idle for hinted agent %s: %v", tag, err)
+			return nil
+		}
+		if count > 0 {
+			log.Printf("[advance] hinted agent %s is busy (%d active tasks), falling back to role-based routing", tag, count)
+			return nil
+		}
+		log.Printf("[advance] routing to hinted agent %s (role: %s)", tag, requiredRole)
+		return agent
+	}
+	return nil
+}
+
+// resolveStageAgent returns the agent to route to: hinted agent if idle, else any idle agent with the role.
+func resolveStageAgent(
+	teamPath string, taskTags []string, assignee string, agentRoles map[string]string,
+) (*agentfs.AgentInfo, error) {
+	if hinted := resolveHintedAgent(teamPath, taskTags, assignee, agentRoles); hinted != nil {
+		return hinted, nil
+	}
+	return findIdleAgent(teamPath, assignee)
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -386,6 +447,7 @@ func advanceToStage(
 	stage *pipeline.Stage,
 	callerAgent, team, workerRuntime string,
 	teamPath string,
+	agentRoles map[string]string,
 ) error {
 	if stage.Assignee == workerStage {
 		// Worker stage: start task and spawn.
@@ -438,8 +500,8 @@ func advanceToStage(
 		return nil
 	}
 
-	// Agent stage: find idle agent with the required role and route to them.
-	agent, err := findIdleAgent(teamPath, stage.Assignee)
+	// Agent stage: check for routing hint, then fall back to role-based routing.
+	agent, err := resolveStageAgent(teamPath, task.Tags, stage.Assignee, agentRoles)
 	if err != nil {
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
