@@ -1,4 +1,4 @@
-// Package sync deploys skills and subagent definitions to runtime directories.
+// Package sync deploys skills, subagent definitions, and config TOMLs to runtime directories.
 //
 // It reads canonical agent Markdown files and skill directories from configured
 // source paths, generates runtime-specific variants (Claude Code, Codex),

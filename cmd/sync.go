@@ -40,6 +40,10 @@ Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
   Codex       → inlined into ~/.codex/AGENTS.md
 
+Config TOMLs are deployed from team_path:
+  prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
+  config.toml is NOT synced (machine-specific settings).
+
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
   subagents_paths = ["~/clawd/docs/agents"]

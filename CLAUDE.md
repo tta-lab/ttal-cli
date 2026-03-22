@@ -306,6 +306,7 @@ skills/                - ttal CLI reference skills (flat .md files)
 | Commands (slash commands) | `templates/docs/commands/` | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
 | Subagents | `templates/docs/agents/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
 | Agent identities | `templates/ttal/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
+| Config TOMLs | `templates/ttal/` | `.toml` files | `~/.config/ttal/` |
 | CLI reference skills | `skills/` (repo root) | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
 
 ## Additional Documentation
