@@ -37,7 +37,8 @@ type AdvanceResponse struct {
 	Message  string `json:"message"`
 	Stage    string `json:"stage"`              // new stage name if advanced
 	Reviewer string `json:"reviewer,omitempty"` // reviewer agent name if NeedsLGTM
-	Assignee string `json:"assignee,omitempty"` // stage assignee if NeedsLGTM
+	Assignee string `json:"assignee,omitempty"` // stage assignee role (e.g. "designer", "worker")
+	Agent    string `json:"agent,omitempty"`    // resolved agent name (e.g. "mira", "kestrel")
 }
 
 // Advance status constants.
@@ -506,8 +507,9 @@ func advanceToStage(
 		}
 
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-			Status: AdvanceStatusAdvanced,
-			Stage:  stage.Name,
+			Status:   AdvanceStatusAdvanced,
+			Stage:    stage.Name,
+			Assignee: workerStage,
 		})
 		return nil
 	}
@@ -549,8 +551,10 @@ func advanceToStage(
 	}
 
 	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-		Status: AdvanceStatusAdvanced,
-		Stage:  stage.Name,
+		Status:   AdvanceStatusAdvanced,
+		Stage:    stage.Name,
+		Assignee: stage.Assignee,
+		Agent:    agent.Name,
 	})
 	return nil
 }

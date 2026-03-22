@@ -61,7 +61,13 @@ Examples:
 
 		switch resp.Status {
 		case daemon.AdvanceStatusAdvanced:
-			fmt.Printf("Advanced to stage: %s\n", resp.Stage)
+			if resp.Agent != "" {
+				fmt.Printf("Advanced to stage: %s (%s)\n", resp.Stage, resp.Agent)
+			} else if resp.Assignee != "" {
+				fmt.Printf("Advanced to stage: %s [%s]\n", resp.Stage, resp.Assignee)
+			} else {
+				fmt.Printf("Advanced to stage: %s\n", resp.Stage)
+			}
 		case daemon.AdvanceStatusNoPipeline:
 			fmt.Printf("No pipeline: %s\n", resp.Message)
 		case daemon.AdvanceStatusNeedsLGTM:
