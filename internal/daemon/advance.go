@@ -20,6 +20,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
@@ -517,46 +518,99 @@ func advanceToStage(
 		log.Printf("[advance] warning: start task for agent: %v", err)
 	}
 
-	// Build role prompt and route to agent.
 	cfg := mcfg.Global
 	agentRT := cfg.AgentRuntimeFor(agent.Name)
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
-	trigger := buildRouteTrigger(task.UUID)
 
-	projectPath := projectPkg.ResolveProjectPath(task.Project)
-	if err := route.Stage(agent.Name, route.Request{
-		TaskUUID:    task.UUID,
-		RolePrompt:  rolePrompt,
-		Trigger:     trigger,
-		ProjectPath: projectPath,
-		RoutedBy:    callerAgent,
-		Team:        team,
-	}); err != nil {
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "stage route: " + err.Error(),
-		})
-		return err
-	}
+	if mcfg.IsTaskScopedRole(agent.Role) {
+		projectPath := projectPkg.ResolveProjectPath(task.Project)
+		if projectPath == "" {
+			writeHTTPJSON(w, http.StatusBadRequest, AdvanceResponse{
+				Status:  AdvanceStatusError,
+				Message: fmt.Sprintf("resolve project %q for task-scoped agent", task.Project),
+			})
+			return fmt.Errorf("cannot resolve project for task-scoped agent")
+		}
 
-	if shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
-		if err := Send(SendRequest{
-			From:    "system",
-			To:      agent.Name,
-			Message: "/breathe",
-		}); err != nil {
-			// Cleanup route file on failure.
-			if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
-				log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
+		// Check if agent has an existing ts-* session (idle from previous task).
+		existingSession := tmux.FindSessionByPrefix("ts-", "-"+agent.Name)
+
+		if existingSession != "" {
+			// ROTATION: route file + /breathe → agent handoffs → new session in project dir.
+			if err := route.Stage(agent.Name, route.Request{
+				TaskUUID:    task.UUID,
+				RolePrompt:  rolePrompt,
+				ProjectPath: projectPath,
+				RoutedBy:    callerAgent,
+				Team:        team,
+			}); err != nil {
+				writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+					Status:  AdvanceStatusError,
+					Message: "stage route: " + err.Error(),
+				})
+				return err
 			}
+			if err := Send(SendRequest{
+				From:    "system",
+				To:      agent.Name,
+				Message: "/breathe",
+			}); err != nil {
+				if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
+					log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
+				}
+				writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+					Status:  AdvanceStatusError,
+					Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
+				})
+				return err
+			}
+		} else {
+			// FIRST SPAWN: no prior session — spawn fresh with diary memory.
+			if err := spawnTaskScopedAgent(mcfg, task, agent, rolePrompt, projectPath, team); err != nil {
+				writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+					Status:  AdvanceStatusError,
+					Message: "spawn task-scoped agent: " + err.Error(),
+				})
+				return err
+			}
+		}
+	} else {
+		// PERSISTENT AGENT: existing breathe routing (unchanged).
+		trigger := buildRouteTrigger(task.UUID)
+		projectPath := projectPkg.ResolveProjectPath(task.Project)
+		if err := route.Stage(agent.Name, route.Request{
+			TaskUUID:    task.UUID,
+			RolePrompt:  rolePrompt,
+			Trigger:     trigger,
+			ProjectPath: projectPath,
+			RoutedBy:    callerAgent,
+			Team:        team,
+		}); err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,
-				Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
+				Message: "stage route: " + err.Error(),
 			})
 			return err
 		}
-	} else {
-		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
+
+		if shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
+			if err := Send(SendRequest{
+				From:    "system",
+				To:      agent.Name,
+				Message: "/breathe",
+			}); err != nil {
+				if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
+					log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
+				}
+				writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+					Status:  AdvanceStatusError,
+					Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
+				})
+				return err
+			}
+		} else {
+			log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
+		}
 	}
 
 	record := fmt.Sprintf("advanced: %s → %s (stage: %s)", callerAgent, agent.Name, stage.Name)
