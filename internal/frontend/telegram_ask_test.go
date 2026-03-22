@@ -261,7 +261,7 @@ func TestHTTPAskHuman_MissingAgentAndSession(t *testing.T) {
 	}
 }
 
-const testGateQuestion = "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
+const testGateQuestion = "🔒 Go to <b>Implement</b>\n\n📋 fix something\n📁 ttal · <code>a1b2c3d4</code>"
 
 func TestBuildAskHumanMessage_HTMLPreserved(t *testing.T) {
 	// Pre-escaped HTML from askHumanGate — tags should render, not be double-escaped

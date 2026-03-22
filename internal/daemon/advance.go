@@ -562,10 +562,11 @@ func askHumanGate(
 	task *taskwarrior.Task, stage *pipeline.Stage, nextStageName string,
 ) (bool, error) {
 	question := fmt.Sprintf(
-		"🔒 Go to <b>%s</b>\n\n📋 Task: %s\n📍 Current: %s",
+		"🔒 Go to <b>%s</b>\n\n📋 %s\n📁 %s · <code>%s</code>",
 		html.EscapeString(nextStageName),
 		html.EscapeString(task.Description),
-		html.EscapeString(stage.Name),
+		html.EscapeString(task.Project),
+		html.EscapeString(task.SessionID()),
 	)
 	options := []string{frontend.GateOptionApprove, frontend.GateOptionReject}
 	answer, skipped, err := fe.AskHuman(ctx, agentName, question, options)
