@@ -316,17 +316,30 @@ func notifyCounterpart(body string) {
 		return
 	}
 
+	cfg, rt := loadConfigAndCoderRuntime()
 	switch pipelineCfg.ReviewerNotifyTarget(agentName) {
 	case pipeline.NotifyTargetCoder:
-		cfg, rt := loadConfigAndCoderRuntime()
 		notifyCoder(sessionName, body, cfg, rt)
 	case pipeline.NotifyTargetDesigner:
-		cfg, rt := loadConfigAndCoderRuntime()
 		notifyDesigner(sessionName, body, cfg, rt)
 	default:
 		// Manager agents notify plan-reviewer if window exists
 		notifyPlanReviewer(sessionName)
 	}
+}
+
+// renderTriageNotification writes the review body to a temp file, substitutes
+// {{review-file}} in tmpl, and renders the result. Returns (notification, ok) —
+// ok=false means writeReviewFile failed and the caller should fall back to raw body.
+func renderTriageNotification(body, tmpl string, rt runtime.Runtime) (string, bool) {
+	reviewFile, err := writeReviewFile(body)
+	if err != nil {
+		log.Printf("warning: failed to write review file, falling back to raw body: %v", err)
+		return "", false
+	}
+	reviewRef := fmt.Sprintf(" Full review at %s —", reviewFile)
+	replacer := strings.NewReplacer("{{review-file}}", reviewRef)
+	return config.RenderTemplate(replacer.Replace(tmpl), "", rt), true
 }
 
 func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
@@ -338,16 +351,10 @@ func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtim
 	if tmpl == "" {
 		return
 	}
-	reviewFile, err := writeReviewFile(body)
-	if err != nil {
-		log.Printf("warning: failed to write review file: %v", err)
+	notification, ok := renderTriageNotification(body, tmpl, rt)
+	if !ok {
+		notification = body
 	}
-	reviewRef := ""
-	if reviewFile != "" {
-		reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
-	}
-	replacer := strings.NewReplacer("{{review-file}}", reviewRef)
-	notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 	if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
 		log.Printf("warning: notify coder failed: %v", err)
 	}
@@ -369,22 +376,16 @@ func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Run
 	}
 	tmpl := cfg.Prompt("plan_triage")
 	if tmpl == "" {
-		// Fallback: send raw body if no template configured
+		log.Printf("debug: plan_triage prompt not configured, falling back to raw body")
 		if err := tmux.SendKeys(sessionName, designerWindow, body); err != nil {
 			log.Printf("warning: notify designer failed: %v", err)
 		}
 		return
 	}
-	reviewFile, err := writeReviewFile(body)
-	if err != nil {
-		log.Printf("warning: failed to write review file: %v", err)
+	notification, ok := renderTriageNotification(body, tmpl, rt)
+	if !ok {
+		notification = body
 	}
-	reviewRef := ""
-	if reviewFile != "" {
-		reviewRef = fmt.Sprintf(" Full review at %s —", reviewFile)
-	}
-	replacer := strings.NewReplacer("{{review-file}}", reviewRef)
-	notification := config.RenderTemplate(replacer.Replace(tmpl), "", rt)
 	if err := tmux.SendKeys(sessionName, designerWindow, notification); err != nil {
 		log.Printf("warning: notify designer failed: %v", err)
 	}
