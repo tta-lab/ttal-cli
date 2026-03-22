@@ -241,7 +241,10 @@ Examples:
 		fmt.Printf("LGTM approved by %s\n", author)
 
 		// Notify counterpart window (same mechanism as comment add)
-		lgtmBody := fmt.Sprintf("VERDICT: LGTM — approved by %s. Triage any remaining non-blocking issues, then run `ttal go` to advance.", author)
+		lgtmBody := fmt.Sprintf(
+			"VERDICT: LGTM — approved by %s. Triage any remaining non-blocking issues, then run `ttal go` to advance.",
+			author,
+		)
 		notifyCounterpart(lgtmBody)
 		return nil
 	},
