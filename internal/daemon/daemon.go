@@ -163,6 +163,7 @@ func Run() error {
 		commentGet: func(req CommentGetRequest) CommentGetResponse {
 			return handleCommentGet(commentSvc, mcfg.DefaultTeamName(), req)
 		},
+		closeWindow:           handleCloseWindow,
 		prCreate:              handlePRCreate,
 		prModify:              handlePRModify,
 		prMerge:               handlePRMerge,

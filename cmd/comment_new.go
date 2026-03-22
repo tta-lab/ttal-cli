@@ -252,6 +252,20 @@ Examples:
 			author,
 		)
 		notifyCounterpart(lgtmBody)
+
+		// Auto-close the reviewer window — job is done.
+		// Delegates to the daemon so the kill happens out-of-process
+		// (avoids SIGHUP to the calling CLI).
+		if session, err := tmux.CurrentSession(); err == nil && session != "" {
+			if window, err := tmux.CurrentWindow(); err == nil && window != "" {
+				if err := daemon.CloseWindow(daemon.CloseWindowRequest{
+					Session: session,
+					Window:  window,
+				}); err != nil {
+					log.Printf("debug: auto-close reviewer window: %v", err)
+				}
+			}
+		}
 		return nil
 	},
 }

@@ -3,6 +3,8 @@ package cmd
 import (
 	"os"
 	"testing"
+
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
 func TestCommentCmdExists(t *testing.T) {
@@ -101,5 +103,16 @@ func TestResolveCurrentTask_WithJobID_AttemptsLookup(t *testing.T) {
 	// The error should be about the job ID lookup, not "no TTAL_JOB_ID or TTAL_AGENT_NAME set".
 	if err.Error() == "no TTAL_JOB_ID or TTAL_AGENT_NAME set — cannot resolve task" {
 		t.Errorf("TTAL_JOB_ID branch was not taken: %v", err)
+	}
+}
+
+func TestCloseWindowRequestType(t *testing.T) {
+	// Compile-time check that the request type exists and has expected fields.
+	req := daemon.CloseWindowRequest{
+		Session: "test-session",
+		Window:  "review",
+	}
+	if req.Session == "" || req.Window == "" {
+		t.Error("CloseWindowRequest fields should not be empty")
 	}
 }
