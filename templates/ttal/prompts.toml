@@ -4,7 +4,8 @@ write this plan task-by-task.
 Follow each task in order: read the plan, make changes, verify, commit.
 
 IMPORTANT: Use `ttal task get` (no extra params) to get task details including the plan.
-IMPORTANT: Always use `ttal pr` for PR operations (create, modify, comment) — never use `gh` or `tea`, even if the repo is on GitHub."""
+IMPORTANT: Always use `ttal pr` for PR operations (create, modify) — never use `gh` or `tea`, even if the repo is on GitHub.
+IMPORTANT: Use `ttal go` (no extra params) to finalize your work when you finish triage and got lgtm from reviewer"""
 
 triage = """\
 {{skill:triage}}
@@ -21,10 +22,9 @@ cat <<'EOF' | ttal comment add
 - [ ] Issue
 EOF
 ```
-If verdict is LGTM and no remaining issues, merge with: ttal go <uuid>"""
+If verdict is LGTM and no remaining issues, merge with: ttal go"""
 
 review = """\
-{{skill:pr-review}}
 Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
 
 Scope: ONLY changes in this PR diff, not the entire codebase.
@@ -40,10 +40,11 @@ cat <<'EOF' | ttal comment add
 - [file:line] Description
 ### VERDICT: LGTM
 EOF
-```"""
+```
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+"""
 
 re_review = """\
-{{skill:pr-review}}
 Worker has pushed fixes addressing your review.{{coder-comment}}
 Re-review the changes: {{review-scope}}
 
@@ -59,4 +60,52 @@ cat <<'EOF' | ttal comment add
 - [ ] New issue
 ### VERDICT: LGTM
 EOF
+
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
 ```"""
+
+plan_review = """\
+Review the plan.
+
+Run `ttal task get` (no extra params) to see the full task and plan.
+Investigate the codebase as needed to verify assumptions.
+
+Post your review with: ttal comment add "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Plan Review
+### Critical Issues
+- None
+### Important Issues
+- [file:line] Description
+### VERDICT: LGTM
+EOF
+```
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+
+"""
+
+plan_re_review = """\
+The designer has updated the plan for the task based on your previous review.
+
+Run `ttal task get` (no extra params) to see the updated plan.
+Check whether the issues you raised have been addressed.
+
+Post your updated review with: ttal comment add "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Plan Re-review
+### Resolved
+- [x] Issue from previous review
+### Remaining
+- [ ] Unresolved issue
+### VERDICT: LGTM
+EOF
+```
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+
+"""
