@@ -120,7 +120,7 @@ func buildAgentRow(cfg *config.Config, teamName, name string, roleMap map[string
 		row.active = true
 		count, err := taskwarrior.CountTasks(fmt.Sprintf("+%s", name), "+ACTIVE")
 		if err == nil && count > 0 {
-			row.health = "✓"
+			row.health = ciIconCheck
 			row.updated = "busy"
 		} else {
 			row.health = "●"
