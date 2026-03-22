@@ -650,6 +650,7 @@ func rotateTaskScopedSession(
 		TaskUUID:    task.UUID,
 		RolePrompt:  rolePrompt,
 		ProjectPath: projectPath,
+		TaskScoped:  true,
 		RoutedBy:    callerAgent,
 		Team:        team,
 	}); err != nil {

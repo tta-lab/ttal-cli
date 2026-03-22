@@ -91,6 +91,12 @@ func spawnTaskScopedAgent(
 	}
 
 	log.Printf("[taskscoped] %s spawned in session %s", agent.Name, sessionName)
+
+	if onTaskScopedSpawn != nil {
+		onTaskScopedSpawn(team, agent.Name, sessionID, projectPath)
+	} else {
+		log.Printf("[taskscoped] warning: onTaskScopedSpawn not set — file watcher skipped for %s", agent.Name)
+	}
 	return nil
 }
 

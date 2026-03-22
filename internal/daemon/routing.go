@@ -308,11 +308,11 @@ type breatheSessionPlan struct {
 }
 
 // resolveBreatheSessions determines old/new session names and CWD based on whether this
-// is a task-scoped rotation (routeReq has ProjectPath) or a persistent-agent breathe.
+// is a task-scoped rotation (routeReq.TaskScoped is true) or a persistent-agent breathe.
 func resolveBreatheSessions(
 	req BreatheRequest, team string, routeReq *route.Request, shellCfg *config.Config,
 ) (breatheSessionPlan, error) {
-	if routeReq != nil && routeReq.ProjectPath != "" {
+	if routeReq != nil && routeReq.TaskScoped {
 		taskSID := routeReq.TaskUUID
 		if len(taskSID) > 8 {
 			taskSID = taskSID[:8]
@@ -330,13 +330,24 @@ func resolveBreatheSessions(
 			cwd:            routeReq.ProjectPath,
 		}, nil
 	}
+	// Persistent path (also handles ts→persistent graduation when no new route).
 	persistName := config.AgentSessionName(team, req.Agent)
-	cwd, _, err := resolveBrCWD(persistName, req.Agent, req.Agent, shellCfg)
+	// Use the live session for CWD resolution (may be ts-* if graduating).
+	cwdSession := persistName
+	if req.SessionName != "" {
+		cwdSession = req.SessionName
+	}
+	cwd, _, err := resolveBrCWD(cwdSession, req.Agent, req.Agent, shellCfg)
 	if err != nil {
 		return breatheSessionPlan{}, err
 	}
+	// Kill the actual running session (ts-* or persistent).
+	oldName := persistName
+	if req.SessionName != "" {
+		oldName = req.SessionName
+	}
 	return breatheSessionPlan{
-		oldSessionName: persistName,
+		oldSessionName: oldName,
 		newSessionName: persistName,
 		windowName:     req.Agent,
 		cwd:            cwd,
@@ -344,12 +355,12 @@ func resolveBreatheSessions(
 }
 
 // selectBreatheEnv returns the correct env vars for the breathe restart command.
-// For task-scoped rotation (routeReq with ProjectPath) it calls buildTaskScopedEnv;
+// For task-scoped rotation (routeReq.TaskScoped is true) it calls buildTaskScopedEnv;
 // for persistent-agent breathe it falls back to buildBreatheEnv.
 func selectBreatheEnv(
 	agent, team, newSessionName string, routeReq *route.Request, shellCfg *config.Config,
 ) []string {
-	if routeReq == nil || routeReq.ProjectPath == "" {
+	if routeReq == nil || !routeReq.TaskScoped {
 		return buildBreatheEnv(agent, team, shellCfg)
 	}
 	jobID := routeReq.TaskUUID
@@ -464,9 +475,25 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	// Inject secrets into tmux session env for future commands.
 	injectSecretsToSession(plan.newSessionName)
 
+	// Start task-scoped file watcher after breathe rotation into a ts-* session.
+	maybeStartTaskScopedWatch(routeReq, team, req.Agent, newSessionID, plan.cwd)
+
 	log.Printf("[breathe] %s: fresh breath taken (session: %s)", req.Agent, plan.newSessionName)
 
 	return SendResponse{OK: true}
+}
+
+// maybeStartTaskScopedWatch calls onTaskScopedSpawn if the route is task-scoped.
+// Extracted to reduce cyclomatic complexity of handleBreathe.
+func maybeStartTaskScopedWatch(routeReq *route.Request, team, agent, sessionID, cwd string) {
+	if routeReq == nil || !routeReq.TaskScoped {
+		return
+	}
+	if onTaskScopedSpawn != nil {
+		onTaskScopedSpawn(team, agent, sessionID, cwd)
+	} else {
+		log.Printf("[taskscoped] warning: onTaskScopedSpawn not set — file watcher skipped for %s", agent)
+	}
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
