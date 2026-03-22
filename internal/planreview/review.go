@@ -100,6 +100,8 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, reviewerName string,
 func RequestReReview(sessionName string, designerComment string, cfg *config.Config) error {
 	var commentRef string
 	if designerComment != "" {
+		// Temp file is intentionally not deleted — the reviewer reads it at their
+		// own pace and OS /tmp cleanup handles eventual removal (mirrors PR loop pattern).
 		f, err := os.CreateTemp("", "ttal-designer-comment-*.md")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to create designer comment temp file: %v\n", err)
