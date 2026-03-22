@@ -3,7 +3,6 @@ prompt = """Read the task and do your best based on the context.
 ttal task get"""
 
 [designer]
-session_mode = "task-scoped"
 prompt = """{{skill:sp-planning}}
 {{skill:flicknote}}
 Write an implementation plan for this task.
@@ -24,7 +23,6 @@ Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content', f
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [fixer]
-session_mode = "task-scoped"
 prompt = """{{skill:sp-debugging}}
 {{skill:flicknote}}
 Diagnose this bug and write a fix plan.
