@@ -3,6 +3,8 @@ package frontend
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -258,3 +260,32 @@ func TestHTTPAskHuman_MissingAgentAndSession(t *testing.T) {
 		t.Error("expected OK=false")
 	}
 }
+
+func TestBuildAskHumanMessage_HTMLPreserved(t *testing.T) {
+	// Pre-escaped HTML from askHumanGate — tags should render, not be double-escaped
+	question := "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
+	text, _ := buildAskHumanMessage("lux", question, []string{"✅ Approve", "❌ Reject"}, "ah000001")
+
+	if strings.Contains(text, "&lt;b&gt;") {
+		t.Error("HTML tags should not be double-escaped")
+	}
+	if !strings.Contains(text, "<b>Implement</b>") {
+		t.Error("expected HTML tags preserved in output")
+	}
+}
+
+func TestBuildAskHumanMessage_RawInputPassesThrough(t *testing.T) {
+	// After removing internal escaping, raw input passes through as-is.
+	// This verifies the caller is responsible for escaping.
+	raw := "<script>alert('xss')</script>"
+	text, _ := buildAskHumanMessage("worker", raw, nil, "ah000001")
+
+	// buildAskHumanMessage does NOT escape — raw tags pass through
+	if !strings.Contains(text, "<script>") {
+		t.Error("expected raw input to pass through unescaped (caller's responsibility)")
+	}
+}
+
+// Ensure fmt and html are used — referenced in Task 2 tests below.
+var _ = fmt.Sprintf
+var _ = html.EscapeString

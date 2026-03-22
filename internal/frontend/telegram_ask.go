@@ -218,7 +218,8 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 		shortID := store.nextShortID()
 		noOptions := len(req.Options) == 0
 
-		text, markup := buildAskHumanMessage(displayName, req.Question, req.Options, shortID)
+		escapedQuestion := html.EscapeString(req.Question)
+		text, markup := buildAskHumanMessage(displayName, escapedQuestion, req.Options, shortID)
 		msgID, err := sendAskHumanMessage(botToken, chatID, text, markup)
 		if err != nil {
 			log.Printf("[ask-human] failed to send message (display=%s): %v", displayName, err)
@@ -323,10 +324,14 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
 }
 
 // buildAskHumanMessage builds the message text and optional inline keyboard.
+// NOTE: question is NOT escaped here — callers are responsible for passing safe HTML.
+// askHumanGate passes pre-built HTML (already field-escaped).
+// handleHTTPAskHuman escapes req.Question before calling this function.
+// Do NOT add html.EscapeString(question) back — it would double-escape gate questions.
 func buildAskHumanMessage(
 	displayName, question string, options []string, shortID string,
 ) (string, *models.InlineKeyboardMarkup) {
-	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", html.EscapeString(displayName), html.EscapeString(question))
+	text := fmt.Sprintf("❓ <b>%s</b> asks:\n%s", html.EscapeString(displayName), question)
 
 	if len(options) == 0 {
 		text += "\n\n💬 Reply to this message with your answer."
