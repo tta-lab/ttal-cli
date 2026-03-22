@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	taskScopedWatchers   = make(map[string]chan struct{}) // agentName → done channel
+	taskScopedWatchers   = make(map[string]chan struct{}) // teamName/agentName → done channel
 	taskScopedWatchersMu sync.Mutex
 )
 
@@ -31,10 +31,11 @@ func startTaskScopedFileWatch(
 	msgSvc *message.Service,
 	teamName, agentName, sessionID, workDir string,
 ) {
+	watcherKey := teamName + "/" + agentName
 	taskScopedWatchersMu.Lock()
-	if oldDone, ok := taskScopedWatchers[agentName]; ok {
+	if oldDone, ok := taskScopedWatchers[watcherKey]; ok {
 		close(oldDone)
-		delete(taskScopedWatchers, agentName)
+		delete(taskScopedWatchers, watcherKey)
 	}
 	taskScopedWatchersMu.Unlock()
 
@@ -69,7 +70,7 @@ func startTaskScopedFileWatch(
 	})
 
 	taskScopedWatchersMu.Lock()
-	taskScopedWatchers[agentName] = done
+	taskScopedWatchers[watcherKey] = done
 	taskScopedWatchersMu.Unlock()
 
 	go fw.Run(done)

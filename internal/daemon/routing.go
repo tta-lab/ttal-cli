@@ -308,7 +308,7 @@ type breatheSessionPlan struct {
 }
 
 // resolveBreatheSessions determines old/new session names and CWD based on whether this
-// is a task-scoped rotation (routeReq has ProjectPath) or a persistent-agent breathe.
+// is a task-scoped rotation (routeReq.TaskScoped is true) or a persistent-agent breathe.
 func resolveBreatheSessions(
 	req BreatheRequest, team string, routeReq *route.Request, shellCfg *config.Config,
 ) (breatheSessionPlan, error) {
@@ -355,7 +355,7 @@ func resolveBreatheSessions(
 }
 
 // selectBreatheEnv returns the correct env vars for the breathe restart command.
-// For task-scoped rotation (routeReq with ProjectPath) it calls buildTaskScopedEnv;
+// For task-scoped rotation (routeReq.TaskScoped is true) it calls buildTaskScopedEnv;
 // for persistent-agent breathe it falls back to buildBreatheEnv.
 func selectBreatheEnv(
 	agent, team, newSessionName string, routeReq *route.Request, shellCfg *config.Config,

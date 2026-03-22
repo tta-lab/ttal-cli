@@ -34,12 +34,8 @@ func TestFileWatcherOnlyTargetFile(t *testing.T) {
 		t.Fatalf("write other file: %v", err)
 	}
 
-	time.Sleep(50 * time.Millisecond)
-	if len(received) != 0 {
-		t.Errorf("expected no events from other file, got %v", received)
-	}
-
-	// Write to the target file — should be picked up.
+	// Write to the target file immediately after; then poll for the target event.
+	// We verify isolation by asserting exactly one event (target only) at the end.
 	if err := os.WriteFile(targetFile, []byte(assistantLine), 0o644); err != nil {
 		t.Fatalf("write target file: %v", err)
 	}
@@ -49,6 +45,8 @@ func TestFileWatcherOnlyTargetFile(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
+	// Exactly one event: the target file's text. If the other file leaked through,
+	// we'd get 2 events.
 	if len(received) != 1 || received[0] != "hello from target" {
 		t.Errorf("expected [\"hello from target\"], got %v", received)
 	}

@@ -63,7 +63,7 @@ func (w *FileWatcher) Run(done <-chan struct{}) {
 			if !ok {
 				return
 			}
-			if !event.Has(fsnotify.Write) {
+			if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Create) {
 				continue
 			}
 			// Only process writes to our specific file.
