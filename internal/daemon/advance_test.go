@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+const testAgentInke = "inke"
 
 // TestAdvanceRoute_NoPipelineConfigured tests the /pipeline/advance route
 // when no pipelines.toml is configured (uses testHandlers stub).
@@ -52,7 +56,7 @@ func TestAdvanceRoute_CustomHandler(t *testing.T) {
 	r := newDaemonRouter(h)
 	body, _ := json.Marshal(AdvanceRequest{
 		TaskUUID:  "abc12345-1234-1234-1234-123456789abc",
-		AgentName: "inke",
+		AgentName: testAgentInke,
 		Team:      "default",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/pipeline/advance", bytes.NewReader(body))
@@ -73,8 +77,8 @@ func TestAdvanceRoute_CustomHandler(t *testing.T) {
 	if resp.Stage != "Plan" {
 		t.Errorf("expected stage 'Plan', got %q", resp.Stage)
 	}
-	if gotReq.AgentName != "inke" {
-		t.Errorf("expected agent 'inke', got %q", gotReq.AgentName)
+	if gotReq.AgentName != testAgentInke {
+		t.Errorf("expected agent %q, got %q", testAgentInke, gotReq.AgentName)
 	}
 }
 
@@ -153,7 +157,7 @@ func TestFindIdleAgent_NoAgentsForRole(t *testing.T) {
 
 // TestHasTag verifies the hasTag helper.
 func TestHasTag(t *testing.T) {
-	tags := []string{"feature", "lgtm", "inke"}
+	tags := []string{"feature", "lgtm", testAgentInke}
 
 	if !hasTag(tags, "lgtm") {
 		t.Error("expected hasTag to find 'lgtm'")
@@ -166,16 +170,86 @@ func TestHasTag(t *testing.T) {
 	}
 }
 
+// TestResolveHintedAgent_HappyPath verifies that a matching idle agent is returned.
+func TestResolveHintedAgent_HappyPath(t *testing.T) {
+	dir := t.TempDir()
+	agentMD := "---\nrole: designer\n---\n# Inke\n"
+	if err := os.WriteFile(filepath.Join(dir, testAgentInke+".md"), []byte(agentMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	agentRoles := map[string]string{testAgentInke: "designer"}
+
+	orig := countTasksFn
+	countTasksFn = func(filters ...string) (int, error) { return 0, nil }
+	defer func() { countTasksFn = orig }()
+
+	got := resolveHintedAgent(dir, []string{"brainstorm", testAgentInke}, "designer", agentRoles)
+	if got == nil {
+		t.Fatal("expected hinted agent, got nil")
+	}
+	if got.Name != testAgentInke {
+		t.Errorf("expected agent name %q, got %q", testAgentInke, got.Name)
+	}
+}
+
+// TestResolveHintedAgent_BusyFallback verifies nil is returned when hinted agent is busy.
+func TestResolveHintedAgent_BusyFallback(t *testing.T) {
+	dir := t.TempDir()
+	agentMD := "---\nrole: designer\n---\n# Inke\n"
+	if err := os.WriteFile(filepath.Join(dir, testAgentInke+".md"), []byte(agentMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	agentRoles := map[string]string{testAgentInke: "designer"}
+
+	orig := countTasksFn
+	countTasksFn = func(filters ...string) (int, error) { return 1, nil }
+	defer func() { countTasksFn = orig }()
+
+	got := resolveHintedAgent(dir, []string{"brainstorm", testAgentInke}, "designer", agentRoles)
+	if got != nil {
+		t.Errorf("expected nil for busy agent, got %v", got)
+	}
+}
+
+// TestResolveHintedAgent_WrongRole verifies hints are ignored when role doesn't match.
+func TestResolveHintedAgent_WrongRole(t *testing.T) {
+	dir := t.TempDir()
+	agentRoles := map[string]string{"athena": "researcher"}
+	got := resolveHintedAgent(dir, []string{"brainstorm", "athena"}, "designer", agentRoles)
+	if got != nil {
+		t.Errorf("expected nil for wrong-role hint, got %v", got)
+	}
+}
+
+// TestResolveHintedAgent_NoHintTag verifies nil when no tag matches an agent.
+func TestResolveHintedAgent_NoHintTag(t *testing.T) {
+	dir := t.TempDir()
+	agentRoles := map[string]string{testAgentInke: "designer"}
+	got := resolveHintedAgent(dir, []string{"brainstorm", "feature"}, "designer", agentRoles)
+	if got != nil {
+		t.Errorf("expected nil when no hint tag, got %v", got)
+	}
+}
+
+// TestResolveHintedAgent_EmptyTeamPath verifies graceful nil return.
+func TestResolveHintedAgent_EmptyTeamPath(t *testing.T) {
+	agentRoles := map[string]string{testAgentInke: "designer"}
+	got := resolveHintedAgent("", []string{testAgentInke}, "designer", agentRoles)
+	if got != nil {
+		t.Errorf("expected nil for empty teamPath, got %v", got)
+	}
+}
+
 // TestFindAgentTag verifies the findAgentTag helper.
 func TestFindAgentTag(t *testing.T) {
 	agentRoles := map[string]string{
-		"inke":   "designer",
-		"athena": "researcher",
+		testAgentInke: "designer",
+		"athena":      "researcher",
 	}
 
-	got := findAgentTag([]string{"feature", "inke", "lgtm"}, agentRoles)
-	if got != "inke" {
-		t.Errorf("expected 'inke', got %q", got)
+	got := findAgentTag([]string{"feature", testAgentInke, "lgtm"}, agentRoles)
+	if got != testAgentInke {
+		t.Errorf("expected %q, got %q", testAgentInke, got)
 	}
 
 	got = findAgentTag([]string{"feature", "lgtm"}, agentRoles)
