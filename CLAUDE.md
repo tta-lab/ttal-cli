@@ -228,6 +228,8 @@ Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
 
 3. **Unescaped HTML in Telegram messages** — When constructing HTML-formatted Telegram messages (`ParseModeHTML`), all dynamic/user-controlled strings must be wrapped with `html.EscapeString()` before embedding. Characters like `<`, `>`, `&` in task descriptions or user input will cause Telegram's HTML parser to reject the message. Escape at the caller side (where the HTML template is constructed), not in the transport layer.
 
+4. **Hyphens in taskwarrior tags** — Tags must be alphanumeric + underscores only. Hyphens are parsed as argument separators: `+my-tag` becomes `+my` (add "my") and `-tag` (remove "tag"). Always use underscores: `+my_tag`.
+
 ## Agent Loop Design Principles
 
 1. **Boundaries are structural.** Enforce limits in code, not prompts. Prompt rules are suggestions models can ignore — `maxSteps`, retry caps, and degenerate-loop detection are walls they cannot. Every prompt-level rule that matters (e.g. "one command per turn") needs a corresponding runtime guard.
