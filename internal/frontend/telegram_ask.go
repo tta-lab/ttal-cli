@@ -21,6 +21,12 @@ import (
 
 const askHumanTimeout = 5 * time.Minute
 
+// Gate option labels — used in askHumanGate (advance.go) and handleAskHumanCallback.
+const (
+	GateOptionApprove = "✅ Approve"
+	GateOptionReject  = "❌ Reject"
+)
+
 // askHumanEntry holds state for one pending ask-human question.
 type askHumanEntry struct {
 	ch       chan askHumanResult
@@ -29,6 +35,7 @@ type askHumanEntry struct {
 	chatID   int64
 	msgID    int
 	origText string // original HTML message text — preserved for appending answers
+	question string // question HTML without the ❓ asks: wrapper, used to rebuild message on approval/rejection
 }
 
 // askHumanResult is the internal result type for an ask-human operation.
@@ -149,6 +156,20 @@ func capText(origText, suffix string) string {
 	return string(runes) + "…\n\n" + suffix
 }
 
+// buildApprovalText rebuilds the message for gate approval/rejection.
+// Returns the header (✅ Approved / ❌ Rejected) followed by the raw question.
+// Falls back to origText if question is empty (backwards compat with in-flight entries).
+func buildApprovalText(question, origText string, isApprove bool) string {
+	content := question
+	if content == "" {
+		content = origText // backwards compat: entries created before this change have no question field
+	}
+	if isApprove {
+		return fmt.Sprintf("✅ <b>Approved</b>\n%s", content)
+	}
+	return fmt.Sprintf("❌ <b>Rejected</b>\n%s", content)
+}
+
 // AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
 // daemon.go wires this into httpHandlers.askHuman.
 func (f *TelegramFrontend) AskHumanHTTPHandler() http.HandlerFunc {
@@ -181,7 +202,15 @@ func (f *TelegramFrontend) AskHuman(
 	}
 
 	ch := make(chan askHumanResult, 1)
-	entry := &askHumanEntry{ch: ch, options: options, botToken: botToken, chatID: chatID, msgID: msgID, origText: text}
+	entry := &askHumanEntry{
+		ch:       ch,
+		options:  options,
+		botToken: botToken,
+		chatID:   chatID,
+		msgID:    msgID,
+		origText: text,
+		question: question,
+	}
 	f.ahs.store(entry, shortID, noOptions)
 
 	go func() {
@@ -237,6 +266,7 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 			chatID:   chatID,
 			msgID:    msgID,
 			origText: text,
+			question: escapedQuestion,
 		}
 		store.store(entry, shortID, noOptions)
 
@@ -475,8 +505,19 @@ func handleAskHumanCallback(
 	chatID := e.chatID
 	msgID := e.msgID
 	origText := e.origText // capture before deliverAnswer removes the entry
+	question := e.question
 	if ahs.deliverAnswer(shortID, answer) {
-		answeredText := capText(origText, fmt.Sprintf("→ <b>%s</b>", html.EscapeString(answer)))
+		var answeredText string
+		switch answer {
+		case GateOptionApprove:
+			answeredText = buildApprovalText(question, origText, true)
+		case GateOptionReject:
+			answeredText = buildApprovalText(question, origText, false)
+		default:
+			// Non-gate answers: append the chosen option to the original question text.
+			// This preserves the ❓ asks: format for regular ask-human questions.
+			answeredText = capText(origText, fmt.Sprintf("→ <b>%s</b>", html.EscapeString(answer)))
+		}
 		_, _ = b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:    chatID,
 			MessageID: msgID,

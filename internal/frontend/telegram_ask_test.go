@@ -286,6 +286,59 @@ func TestBuildAskHumanMessage_RawInputPassesThrough(t *testing.T) {
 	}
 }
 
-// Ensure fmt and html are used — referenced in Task 2 tests below.
-var _ = fmt.Sprintf
-var _ = html.EscapeString
+func TestBuildApprovalText_Approve(t *testing.T) {
+	question := "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
+	result := buildApprovalText(question, "ignored origText", true)
+
+	if !strings.HasPrefix(result, "✅ <b>Approved</b>\n") {
+		t.Error("expected ✅ Approved header")
+	}
+	if strings.Contains(result, "❓") {
+		t.Error("should not contain question mark emoji")
+	}
+	if strings.Contains(result, "asks:") {
+		t.Error("should not contain agent asks prefix")
+	}
+	if !strings.Contains(result, "🔒 Go to <b>Implement</b>") {
+		t.Error("expected question content preserved")
+	}
+}
+
+func TestBuildApprovalText_Reject(t *testing.T) {
+	question := "🔒 Go to <b>Implement</b>\n\n📋 Task: fix something\n📍 Current: Plan"
+	result := buildApprovalText(question, "ignored origText", false)
+
+	if !strings.HasPrefix(result, "❌ <b>Rejected</b>\n") {
+		t.Error("expected ❌ Rejected header")
+	}
+	if !strings.Contains(result, "🔒 Go to <b>Implement</b>") {
+		t.Error("expected question content preserved")
+	}
+}
+
+func TestBuildApprovalText_EmptyQuestionFallback(t *testing.T) {
+	// Backwards compat: in-flight entries created before this change have no question field
+	origText := "❓ <b>lux</b> asks:\n🔒 Go to <b>Implement</b>"
+	result := buildApprovalText("", origText, true)
+
+	if !strings.HasPrefix(result, "✅ <b>Approved</b>\n") {
+		t.Error("expected ✅ Approved header even with fallback")
+	}
+	if !strings.Contains(result, origText) {
+		t.Error("expected origText used as fallback content")
+	}
+}
+
+func TestApprovalDefaultBranch_NonGateAnswer(t *testing.T) {
+	// Non-gate answers should use capText append, not approval format
+	origText := "❓ <b>worker</b> asks:\nWhich approach?"
+	answer := "Option A"
+	result := capText(origText, fmt.Sprintf("→ <b>%s</b>", html.EscapeString(answer)))
+
+	if !strings.Contains(result, "❓") {
+		t.Error("non-gate answers should keep original question text")
+	}
+	if !strings.Contains(result, "→ <b>Option A</b>") {
+		t.Error("expected appended answer")
+	}
+}
