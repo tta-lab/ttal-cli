@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const testFallbackReviewer = "pr-review-lead"
+
 const resolveTestPipelines = `
 [standard]
 description = "Plan → Implement"
@@ -35,16 +37,16 @@ func writeResolvePipelinesDir(t *testing.T) string {
 
 func TestResolveReviewerWindowForDir_FoundInPipeline(t *testing.T) {
 	dir := writeResolvePipelinesDir(t)
-	got := resolveReviewerWindowForDir(dir, []string{"feature"}, "coder", "pr-review-lead")
-	if got != "pr-review-lead" {
+	got := resolveReviewerWindowForDir(dir, []string{"feature"}, "coder", testFallbackReviewer)
+	if got != testFallbackReviewer {
 		t.Errorf("expected pr-review-lead, got %q", got)
 	}
 }
 
 func TestResolveReviewerWindowForDir_NoPipelineMatch_ReturnsFallback(t *testing.T) {
 	dir := writeResolvePipelinesDir(t)
-	got := resolveReviewerWindowForDir(dir, []string{"unrelated"}, "coder", "pr-review-lead")
-	if got != "pr-review-lead" {
+	got := resolveReviewerWindowForDir(dir, []string{"unrelated"}, "coder", testFallbackReviewer)
+	if got != testFallbackReviewer {
 		t.Errorf("expected fallback pr-review-lead, got %q", got)
 	}
 }
@@ -65,15 +67,15 @@ gate = "auto"
 	if err := os.WriteFile(filepath.Join(dir, "pipelines.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got := resolveReviewerWindowForDir(dir, []string{"noreview"}, "coder", "pr-review-lead")
-	if got != "pr-review-lead" {
+	got := resolveReviewerWindowForDir(dir, []string{"noreview"}, "coder", testFallbackReviewer)
+	if got != testFallbackReviewer {
 		t.Errorf("expected fallback pr-review-lead, got %q", got)
 	}
 }
 
 func TestResolveReviewerWindowForDir_LoadFailure_ReturnsFallback(t *testing.T) {
-	got := resolveReviewerWindowForDir("/nonexistent/path", []string{"feature"}, "coder", "pr-review-lead")
-	if got != "pr-review-lead" {
+	got := resolveReviewerWindowForDir("/nonexistent/path", []string{"feature"}, "coder", testFallbackReviewer)
+	if got != testFallbackReviewer {
 		t.Errorf("expected fallback on load failure, got %q", got)
 	}
 }
