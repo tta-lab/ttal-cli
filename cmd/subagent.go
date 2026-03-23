@@ -159,7 +159,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 
 // deriveCommands maps frontmatter tool names to logos CommandDoc entries.
 // If tools is empty, defaults to all commands (full access).
-// Output order is always canonical (url, web, rg) regardless of input order.
+// Output order is always canonical (url, web, rg, src) regardless of input order.
 func deriveCommands(toolNames []string) []logos.CommandDoc {
 	if len(toolNames) == 0 {
 		return allCommands()

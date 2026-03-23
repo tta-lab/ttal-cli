@@ -2,7 +2,7 @@ package cmd
 
 import "github.com/tta-lab/logos"
 
-// Command documentation for Organon tools available in the temenos sandbox.
+// Command documentation for Organon CLI tools exposed in logos agent loops.
 // These are passed to logos.BuildSystemPrompt via PromptData.Commands.
 
 var urlCommandDoc = logos.CommandDoc{
@@ -78,5 +78,5 @@ func networkCommands() []logos.CommandDoc {
 
 // allCommands returns CommandDocs for modes with both filesystem and network access.
 func allCommands() []logos.CommandDoc {
-	return []logos.CommandDoc{urlCommandDoc, webCommandDoc, rgCommandDoc, srcCommandDoc}
+	return append(networkCommands(), rgCommandDoc, srcCommandDoc)
 }

@@ -18,10 +18,10 @@ Use `$ url` to retrieve the page content:
 $ url {rawURL}
 ```
 
-If the page is large, you'll get a heading tree first. Use it to identify which sections are relevant, then extract them with `--section`:
+If the page is large, you'll get a heading tree first. Use it to identify which sections are relevant, then extract them with `-s`:
 
 ```
-$ url {rawURL} --section <id>
+$ url {rawURL} -s <id>
 ```
 
 ### Step 2: Find the answer
