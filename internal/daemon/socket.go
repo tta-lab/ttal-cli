@@ -258,7 +258,7 @@ type CommentGetResponse struct {
 // Used by ttal comment lgtm to auto-close the reviewer's window after LGTM.
 type CloseWindowRequest struct {
 	Session string `json:"session"` // tmux session name
-	Window  string `json:"window"`  // tmux window name ("review" or "plan-review")
+	Window  string `json:"window"`  // tmux window name (reviewer agent name from pipelines.toml)
 }
 
 // httpHandlers groups all handler functions for the HTTP server.

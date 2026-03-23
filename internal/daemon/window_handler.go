@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -12,11 +14,12 @@ import (
 // The delay allows the HTTP response to reach the caller before the window (and
 // the caller's process) is terminated.
 func handleCloseWindow(req CloseWindowRequest) SendResponse {
-	// Safety: only allow closing known reviewer window names.
-	switch req.Window {
-	case "review", "plan-review":
-		// ok
-	default:
+	return handleCloseWindowWithConfigDir(req, config.DefaultConfigDir())
+}
+
+func handleCloseWindowWithConfigDir(req CloseWindowRequest, configDir string) SendResponse {
+	// Safety: only allow closing known reviewer windows (from pipelines.toml).
+	if !isKnownReviewerWindow(req.Window, configDir) {
 		return SendResponse{OK: false, Error: fmt.Sprintf("refused to close unknown window %q", req.Window)}
 	}
 
@@ -39,4 +42,14 @@ func handleCloseWindow(req CloseWindowRequest) SendResponse {
 	}()
 
 	return SendResponse{OK: true}
+}
+
+// isKnownReviewerWindow returns true if name is configured as a reviewer in any pipeline stage.
+func isKnownReviewerWindow(name, configDir string) bool {
+	pipelineCfg, err := pipeline.Load(configDir)
+	if err != nil {
+		log.Printf("[daemon] close-window: could not load pipelines — refusing %q", name)
+		return false
+	}
+	return pipelineCfg.HasReviewer(name)
 }

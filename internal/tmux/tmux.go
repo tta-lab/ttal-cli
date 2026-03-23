@@ -107,9 +107,9 @@ func WindowExists(session, window string) bool {
 	return false
 }
 
-// FirstWindowExcept returns the first window in a session whose name is not in the
-// exclusion list. Returns "" with nil error if no matching window is found.
-func FirstWindowExcept(session string, exclude ...string) (string, error) {
+// FirstWindow returns the name of the first window in a session.
+// Returns "" with nil error if the session has no windows.
+func FirstWindow(session string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
@@ -118,19 +118,11 @@ func FirstWindowExcept(session string, exclude ...string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("tmux list-windows for %q: %w", session, err)
 	}
-
-	skip := make(map[string]bool, len(exclude))
-	for _, e := range exclude {
-		skip[e] = true
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		return "", nil
 	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		name := strings.TrimSpace(line)
-		if name != "" && !skip[name] {
-			return name, nil
-		}
-	}
-	return "", nil
+	return strings.TrimSpace(lines[0]), nil
 }
 
 // KillWindow kills a specific window in a session.

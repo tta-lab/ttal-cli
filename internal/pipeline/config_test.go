@@ -19,7 +19,7 @@ reviewer = "plan-reviewer"
 
 [[standard.stages]]
 name = "Implement"
-assignee = "worker"
+assignee = "coder"
 gate = "auto"
 
 [bugfix]
@@ -208,8 +208,8 @@ func TestReviewerForStage_EmptyReviewerField(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
 	cfg, _ := Load(dir)
 
-	// validTOML standard.stages[1] has assignee=worker and no reviewer
-	name := cfg.ReviewerForStage([]string{"feature"}, "worker")
+	// validTOML standard.stages[1] has assignee=coder and no reviewer
+	name := cfg.ReviewerForStage([]string{"feature"}, "coder")
 	if name != "" {
 		t.Errorf("expected empty string for stage with no reviewer, got %q", name)
 	}
@@ -223,6 +223,47 @@ func TestReviewerForStage_NoMatchingAssignee(t *testing.T) {
 	name := cfg.ReviewerForStage([]string{"feature"}, "researcher")
 	if name != "" {
 		t.Errorf("expected empty string for no matching assignee, got %q", name)
+	}
+}
+
+func TestHasReviewer(t *testing.T) {
+	const toml = `
+[standard]
+description = "Plan → Implement"
+tags = ["feature"]
+
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+reviewer = "plan-review-lead"
+
+[[standard.stages]]
+name = "Implement"
+assignee = "coder"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	dir := writeTempTOML(t, toml)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	tests := []struct {
+		agentName string
+		want      bool
+	}{
+		{"pr-review-lead", true},
+		{"plan-review-lead", true},
+		{"unknown", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		got := cfg.HasReviewer(tt.agentName)
+		if got != tt.want {
+			t.Errorf("HasReviewer(%q) = %v, want %v", tt.agentName, got, tt.want)
+		}
 	}
 }
 
@@ -240,7 +281,7 @@ reviewer = "plan-review-lead"
 
 [[standard.stages]]
 name = "Implement"
-assignee = "worker"
+assignee = "coder"
 gate = "auto"
 reviewer = "pr-review-lead"
 `
@@ -289,7 +330,7 @@ tags = ["t2"]
 
 [[p2.stages]]
 name = "Implement"
-assignee = "worker"
+assignee = "coder"
 gate = "auto"
 reviewer = "multi-reviewer"
 `
@@ -339,8 +380,8 @@ func TestCurrentStage_NoAgentTag_ReturnsNegativeOne(t *testing.T) {
 	}
 }
 
-// TestCurrentStage_WorkerStage verifies that without a +worker tag,
-// the worker stage is not detected — only the explicit +worker tag
+// TestCurrentStage_WorkerStage verifies that without a +coder tag,
+// the coder stage is not detected — only the explicit +coder tag
 // (added by advanceToStage) makes the stage visible to CurrentStage.
 func TestCurrentStage_WorkerStage(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
@@ -364,13 +405,13 @@ func TestCurrentStage_WorkerTag(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "worker", Gate: "auto"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
 		},
 	}
 	agentRoles := map[string]string{"inke": "designer"}
 
-	// +worker tag should match the Implement stage.
-	idx, stage, err := p.CurrentStage([]string{"feature", "worker"}, agentRoles)
+	// +coder tag should match the Implement stage.
+	idx, stage, err := p.CurrentStage([]string{"feature", "coder"}, agentRoles)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -386,13 +427,13 @@ func TestCurrentStage_WorkerAndAgentTag_Ambiguity(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "worker", Gate: "auto"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
 		},
 	}
 	agentRoles := map[string]string{"inke": "designer"}
 
-	// Both +inke and +worker → ambiguity error.
-	_, _, err := p.CurrentStage([]string{"feature", "inke", "worker"}, agentRoles)
+	// Both +inke and +coder → ambiguity error.
+	_, _, err := p.CurrentStage([]string{"feature", "inke", "coder"}, agentRoles)
 	if err == nil {
 		t.Fatal("expected ambiguity error, got nil")
 	}

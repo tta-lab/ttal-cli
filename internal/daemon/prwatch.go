@@ -342,18 +342,8 @@ func checkMergeConflict(
 
 // deliverToWorkerSession sends a message to the coder window of a worker tmux session.
 func deliverToWorkerSession(sessionName, msg string) {
-	coderWindow, err := tmux.FirstWindowExcept(sessionName, "review")
-	if err != nil {
-		log.Printf("[prwatch] failed to find coder window in %s: %v", sessionName, err)
-		return
-	}
-	if coderWindow == "" {
-		log.Printf("[prwatch] no coder window found in %s", sessionName)
-		return
-	}
-
-	if err := tmux.SendKeys(sessionName, coderWindow, msg); err != nil {
-		log.Printf("[prwatch] SendKeys failed for %s:%s: %v", sessionName, coderWindow, err)
+	if err := tmux.SendKeys(sessionName, "coder", msg); err != nil {
+		log.Printf("[prwatch] SendKeys failed for %s:coder: %v", sessionName, err)
 	}
 }
 

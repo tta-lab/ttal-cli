@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -100,14 +99,14 @@ Examples:
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
 		} else if sessionName != "" {
 			cfg, _ := loadConfigAndCoderRuntime()
-			if tmux.WindowExists(sessionName, "review") {
+			reviewerName := resolvePRReviewerName(ctx.Task.Tags)
+			if tmux.WindowExists(sessionName, reviewerName) {
 				fmt.Println("  Reviewer already running, sending review request...")
-				if err := review.RequestReReview(sessionName, false, "", cfg); err != nil {
+				if err := review.RequestReReview(sessionName, reviewerName, false, "", cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
 				}
 			} else {
 				fmt.Println("  Spawning reviewer...")
-				reviewerName := resolvePRReviewerName(ctx.Task.Tags)
 				if err := review.SpawnReviewer(sessionName, ctx, reviewerName, cfg); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
@@ -180,15 +179,7 @@ func writeReviewFile(body string) (string, error) {
 // resolvePRReviewerName resolves the PR reviewer agent name from pipeline config.
 // Falls back to "pr-review-lead" if no pipeline matches or no reviewer is configured.
 func resolvePRReviewerName(taskTags []string) string {
-	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to pr-review-lead: %v\n", err)
-		return "pr-review-lead"
-	}
-	if name := pipelineCfg.ReviewerForStage(taskTags, "worker"); name != "" {
-		return name
-	}
-	return "pr-review-lead"
+	return resolveReviewerWindow(taskTags, "coder", "pr-review-lead")
 }
 
 // resolveCoderRuntime returns the coder's runtime from TTAL_RUNTIME env var,

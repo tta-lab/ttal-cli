@@ -11,7 +11,7 @@ import (
 // Stage defines a single stage in a pipeline.
 type Stage struct {
 	Name     string `toml:"name"`
-	Assignee string `toml:"assignee"` // role from roles.toml (e.g. "designer") or "worker" (special)
+	Assignee string `toml:"assignee"` // role from roles.toml (e.g. "designer") or "coder" (special)
 	Gate     string `toml:"gate"`     // "human" or "auto"
 	Reviewer string `toml:"reviewer"` // reviewer agent name (e.g. "plan-review-lead"), optional
 }
@@ -100,16 +100,16 @@ type NotifyTarget int
 
 const (
 	NotifyTargetNone     NotifyTarget = iota
-	NotifyTargetCoder                 // reviewer reviews worker stages → notify coder
-	NotifyTargetDesigner              // reviewer reviews non-worker stages → notify designer
+	NotifyTargetCoder                 // reviewer reviews coder stages → notify coder
+	NotifyTargetDesigner              // reviewer reviews non-coder stages → notify designer
 )
 
 // ReviewerNotifyTarget scans all pipelines to determine what notification
 // target an agent maps to based on the stage type they review.
-// Returns NotifyTargetCoder if the agent is a reviewer for a "worker" stage.
+// Returns NotifyTargetCoder if the agent is a reviewer for a "coder" stage.
 // Returns NotifyTargetDesigner if the agent is a reviewer for any other stage.
 // Returns NotifyTargetNone if the agent is not a reviewer in any pipeline.
-// If the agent reviews both worker and non-worker stages, NotifyTargetCoder wins.
+// If the agent reviews both coder and non-coder stages, NotifyTargetCoder wins.
 func (c *Config) ReviewerNotifyTarget(agentName string) NotifyTarget {
 	target := NotifyTargetNone
 	for _, p := range c.Pipelines {
@@ -117,13 +117,25 @@ func (c *Config) ReviewerNotifyTarget(agentName string) NotifyTarget {
 			if s.Reviewer != agentName {
 				continue
 			}
-			if s.Assignee == "worker" {
+			if s.Assignee == "coder" {
 				return NotifyTargetCoder // most specific — return immediately
 			}
 			target = NotifyTargetDesigner
 		}
 	}
 	return target
+}
+
+// HasReviewer returns true if agentName is configured as a reviewer in any pipeline stage.
+func (c *Config) HasReviewer(agentName string) bool {
+	for _, p := range c.Pipelines {
+		for _, s := range p.Stages {
+			if s.Reviewer == agentName {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // CurrentStage determines which pipeline stage is currently active by finding
@@ -160,11 +172,11 @@ func (p *Pipeline) CurrentStage(taskTags []string, agentRoles map[string]string)
 		}
 	}
 
-	// Check for +worker tag (worker stages don't have agent names in agentRoles).
-	if tagSet["worker"] {
+	// Check for +coder tag (coder stages don't have agent names in agentRoles).
+	if tagSet["coder"] {
 		for i := range p.Stages {
-			if p.Stages[i].Assignee == "worker" {
-				matches = append(matches, match{i, &p.Stages[i], "worker"})
+			if p.Stages[i].Assignee == "coder" {
+				matches = append(matches, match{i, &p.Stages[i], "coder"})
 				break
 			}
 		}
