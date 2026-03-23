@@ -496,14 +496,6 @@ func (c *Config) HeartbeatPrompt(agentName string) string {
 	return c.resolvedRoles.HeartbeatPrompts[agentName]
 }
 
-// IsTaskScopedRole returns true if the given role uses task-scoped sessions.
-func (c *Config) IsTaskScopedRole(role string) bool {
-	if c.resolvedRoles == nil {
-		return false
-	}
-	return c.resolvedRoles.IsTaskScoped(role)
-}
-
 func (c *Config) hasAnyPromptConfigured() bool {
 	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
@@ -922,14 +914,6 @@ func (m *DaemonConfig) DefaultTeamName() string {
 		return m.Global.DefaultTeam
 	}
 	return DefaultTeamName
-}
-
-// IsTaskScopedRole delegates to Global config.
-func (m *DaemonConfig) IsTaskScopedRole(role string) bool {
-	if m == nil || m.Global == nil {
-		return false
-	}
-	return m.Global.IsTaskScopedRole(role)
 }
 
 // TeamAgent pairs an agent with its team context.
