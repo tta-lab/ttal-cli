@@ -12,7 +12,7 @@ ttal lets you customize the prompts sent to agents when routing tasks. This cont
 Create `~/.config/ttal/prompts.toml` with your prompt templates:
 
 ```toml
-execute = "{{skill:sp-executing-plans}}"
+execute = "Implement this task. The plan is in your task context."
 triage = "{{skill:triage}}\nPR review posted. Read {{review-file}}, assess and fix issues."
 review = "You are reviewing PR #{{pr-number}} in {{owner}}/{{repo}}."
 re_review = "Re-review scope: {{review-scope}}"
@@ -55,7 +55,7 @@ as all runtimes require skill invocations at the start of the message.
 
 The execute prompt is prepended to the worker's spawn prompt. When you run `ttal go <uuid>`, the worker receives this prompt followed by the task context (description, annotations, inlined docs).
 
-Default: invokes the executing-plans skill to implement the task step by step.
+Default: instructs the coder agent to implement the task using the plan from the task context.
 
 ### `designer`
 
@@ -97,7 +97,6 @@ This would use test-driven development for all workers instead of the default pl
 ```toml
 # ~/.config/ttal/prompts.toml
 execute = """\
-{{skill:sp-executing-plans}}
 Always run `make ci` before committing.
 Use conventional commit messages."""
 ```

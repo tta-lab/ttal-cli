@@ -114,7 +114,7 @@ Every plan MUST start with:
 ```markdown
 # Plan: [Feature Name]
 
-> **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
+> **For Claude:** Workers implement this plan using the coder agent identity.
 
 **Project:** [ttal project alias — e.g. `ttal-cli`]
 **Goal:** [One sentence describing what this builds]

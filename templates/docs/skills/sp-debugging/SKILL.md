@@ -91,7 +91,7 @@ Once root cause is confirmed, write the fix plan.
 ```markdown
 # Fix: [Bug Title]
 
-> **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
+> **For Claude:** Workers implement this plan using the coder agent identity.
 
 ## Symptom
 [What the user/system sees — error messages, unexpected behavior]
