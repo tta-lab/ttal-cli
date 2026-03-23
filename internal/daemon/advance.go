@@ -466,10 +466,10 @@ func advanceToStage(
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
 		}
-		if err := taskwarrior.ModifyTags(task.UUID, "+"+workerStage); err != nil {
+		if err := taskwarrior.ModifyTags(task.UUID, "+"+stage.StageTag()); err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,
-				Message: fmt.Sprintf("add worker tag: %v", err),
+				Message: fmt.Sprintf("add stage tag: %v", err),
 			})
 			return err
 		}
@@ -525,6 +525,9 @@ func advanceToStage(
 
 	if err := taskwarrior.ModifyTags(task.UUID, "+"+agent.Name); err != nil {
 		log.Printf("[advance] warning: add agent tag: %v", err)
+	}
+	if err := taskwarrior.ModifyTags(task.UUID, "+"+stage.StageTag()); err != nil {
+		log.Printf("[advance] warning: add stage tag: %v", err)
 	}
 	if err := taskwarrior.StartTask(task.UUID); err != nil {
 		log.Printf("[advance] warning: start task for agent: %v", err)
