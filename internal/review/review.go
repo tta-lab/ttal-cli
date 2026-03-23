@@ -16,8 +16,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
-const windowName = "review"
-
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 // TTAL_TEAM is forwarded when set, so the reviewer uses the correct team project registry.
 func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
@@ -103,14 +101,14 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		shellCmd = cfg.BuildEnvShellCommand(envParts, resumeCmd)
 	}
 
-	if err := tmux.NewWindow(sessionName, windowName, workDir, shellCmd); err != nil {
+	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		if ccSessionPath != "" {
 			os.Remove(ccSessionPath)
 		}
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 
-	fmt.Println("Reviewer spawned in 'review' window")
+	fmt.Printf("Reviewer spawned in '%s' window\n", reviewerName)
 	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prIndex, ctx.Owner, ctx.Repo)
 	return nil
 }
@@ -121,7 +119,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 // coderComment, if non-empty, is best-effort written to a temp file.
 // If write succeeds, its path is included in the message so the reviewer
 // can read the coder's triage update.
-func RequestReReview(sessionName string, full bool, coderComment string, cfg *config.Config) error {
+func RequestReReview(sessionName, reviewerName string, full bool, coderComment string, cfg *config.Config) error {
 	var commentRef string
 	if coderComment != "" {
 		f, err := os.CreateTemp("", "ttal-coder-comment-*.md")
@@ -154,7 +152,7 @@ func RequestReReview(sessionName string, full bool, coderComment string, cfg *co
 	msg := config.RenderTemplate(replacer.Replace(tmpl), "", cfg.ReviewerRuntime())
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
-	return tmux.SendKeys(sessionName, windowName, msg)
+	return tmux.SendKeys(sessionName, reviewerName, msg)
 }
 
 func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt runtime.Runtime, branch string) string {

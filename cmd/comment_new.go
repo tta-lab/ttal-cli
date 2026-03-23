@@ -343,7 +343,9 @@ func notifyCounterpart(body string) {
 	// not a pipeline-configured agent name — always notify the reviewer window.
 	if agentName == "coder" {
 		cfg, _ := loadConfigAndCoderRuntime()
-		notifyReviewer(sessionName, body, cfg)
+		taskTags := resolveTaskTags()
+		reviewerWindow := resolveReviewerWindow(taskTags, "coder", "pr-review-lead")
+		notifyReviewer(sessionName, body, cfg, reviewerWindow)
 		return
 	}
 
@@ -353,7 +355,9 @@ func notifyCounterpart(body string) {
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		log.Printf("warn: notifyCounterpart: load pipelines: %v", err)
-		notifyPlanReviewer(sessionName, body, cfg)
+		taskTags := resolveTaskTags()
+		reviewerWindow := resolveReviewerWindow(taskTags, "designer", "plan-review-lead")
+		notifyPlanReviewer(sessionName, body, cfg, reviewerWindow)
 		return
 	}
 
@@ -364,7 +368,9 @@ func notifyCounterpart(body string) {
 		notifyDesigner(sessionName, body, cfg, rt)
 	default:
 		// Manager agents notify plan-reviewer if window exists
-		notifyPlanReviewer(sessionName, body, cfg)
+		taskTags := resolveTaskTags()
+		reviewerWindow := resolveReviewerWindow(taskTags, "designer", "plan-review-lead")
+		notifyPlanReviewer(sessionName, body, cfg, reviewerWindow)
 	}
 }
 
@@ -383,10 +389,6 @@ func renderTriageNotification(body, tmpl string, rt runtime.Runtime) (string, bo
 }
 
 func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
-	coderWindow, err := tmux.FirstWindowExcept(sessionName, "review")
-	if err != nil || coderWindow == "" {
-		return
-	}
 	tmpl := cfg.Prompt("triage")
 	if tmpl == "" {
 		return
@@ -395,23 +397,26 @@ func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtim
 	if !ok {
 		return
 	}
-	if err := tmux.SendKeys(sessionName, coderWindow, notification); err != nil {
+	if err := tmux.SendKeys(sessionName, coderWindowName, notification); err != nil {
 		log.Printf("warning: notify coder failed: %v", err)
 	}
 }
 
-func notifyReviewer(sessionName, body string, cfg *config.Config) {
-	if !tmux.WindowExists(sessionName, "review") {
+func notifyReviewer(sessionName, body string, cfg *config.Config, reviewerWindow string) {
+	if !tmux.WindowExists(sessionName, reviewerWindow) {
 		return
 	}
-	if err := review.RequestReReview(sessionName, false, body, cfg); err != nil {
+	if err := review.RequestReReview(sessionName, reviewerWindow, false, body, cfg); err != nil {
 		log.Printf("warning: re-review request failed: %v", err)
 	}
 }
 
 func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
-	designerWindow, err := tmux.FirstWindowExcept(sessionName, "plan-review")
+	designerWindow, err := tmux.FirstWindow(sessionName)
 	if err != nil || designerWindow == "" {
+		if err != nil {
+			log.Printf("warning: could not find designer window in %s: %v", sessionName, err)
+		}
 		return
 	}
 	tmpl := cfg.Prompt("plan_triage")
@@ -428,11 +433,11 @@ func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Run
 	}
 }
 
-func notifyPlanReviewer(sessionName, body string, cfg *config.Config) {
-	if !tmux.WindowExists(sessionName, "plan-review") {
+func notifyPlanReviewer(sessionName, body string, cfg *config.Config, reviewerWindow string) {
+	if !tmux.WindowExists(sessionName, reviewerWindow) {
 		return
 	}
-	if err := planreview.RequestReReview(sessionName, body, cfg); err != nil {
+	if err := planreview.RequestReReview(sessionName, reviewerWindow, body, cfg); err != nil {
 		log.Printf("warning: notify plan-review failed: %v", err)
 	}
 }

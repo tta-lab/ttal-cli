@@ -12,8 +12,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
-const windowName = "plan-review"
-
 // buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ExportTaskBySessionID.
 // TTAL_TEAM is forwarded when set, so the reviewer uses the correct team project registry.
@@ -83,21 +81,21 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, reviewerName string,
 		shellCmd = cfg.BuildEnvShellCommand(envParts, resumeCmd)
 	}
 
-	if err := tmux.NewWindow(sessionName, windowName, workDir, shellCmd); err != nil {
+	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		if ccSessionPath != "" {
 			os.Remove(ccSessionPath)
 		}
 		return fmt.Errorf("failed to create plan-review window: %w", err)
 	}
 
-	fmt.Printf("Plan reviewer spawned in '%s' window\n", windowName)
+	fmt.Printf("Plan reviewer spawned in '%s' window\n", reviewerName)
 	return nil
 }
 
 // RequestReReview sends a re-review message to the existing plan-review window.
 // designerComment is the triage body from the designer; if non-empty it is written
 // to a temp file and its path is injected via {{designer-comment}}.
-func RequestReReview(sessionName string, designerComment string, cfg *config.Config) error {
+func RequestReReview(sessionName, reviewerName string, designerComment string, cfg *config.Config) error {
 	var commentRef string
 	if designerComment != "" {
 		// Temp file is intentionally not deleted — the reviewer reads it at their
@@ -118,7 +116,7 @@ func RequestReReview(sessionName string, designerComment string, cfg *config.Con
 
 	tmpl := cfg.Prompt("plan_re_review")
 	if tmpl == "" {
-		return tmux.SendKeys(sessionName, windowName,
+		return tmux.SendKeys(sessionName, reviewerName,
 			"Plan has been revised. Re-review and post findings via ttal comment add.")
 	}
 
@@ -126,7 +124,7 @@ func RequestReReview(sessionName string, designerComment string, cfg *config.Con
 		"{{designer-comment}}", commentRef,
 	)
 	msg := config.RenderTemplate(replacer.Replace(tmpl), "", cfg.ReviewerRuntime())
-	return tmux.SendKeys(sessionName, windowName, msg)
+	return tmux.SendKeys(sessionName, reviewerName, msg)
 }
 
 func buildPlanReviewerPrompt(cfg *config.Config, taskUUID string, rt runtime.Runtime) string {

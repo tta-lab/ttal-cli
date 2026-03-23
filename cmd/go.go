@@ -104,9 +104,9 @@ func spawnOrRetriggerReviewer(taskUUID, reviewerAgent, assignee string) error {
 	cfg, _ := loadConfigAndCoderRuntime()
 
 	if assignee == "coder" {
-		if tmux.WindowExists(sessionName, "review") {
+		if tmux.WindowExists(sessionName, reviewerAgent) {
 			fmt.Println("Reviewer already running, sending re-review request...")
-			return review.RequestReReview(sessionName, false, "", cfg)
+			return review.RequestReReview(sessionName, reviewerAgent, false, "", cfg)
 		}
 		fmt.Println("Spawning PR reviewer...")
 		ctx, err := pr.ResolveContextWithoutProvider()
@@ -116,9 +116,9 @@ func spawnOrRetriggerReviewer(taskUUID, reviewerAgent, assignee string) error {
 		return review.SpawnReviewer(sessionName, ctx, reviewerAgent, cfg)
 	}
 
-	if tmux.WindowExists(sessionName, "plan-review") {
+	if tmux.WindowExists(sessionName, reviewerAgent) {
 		fmt.Println("Plan reviewer already running, sending re-review request...")
-		return planreview.RequestReReview(sessionName, "", cfg)
+		return planreview.RequestReReview(sessionName, reviewerAgent, "", cfg)
 	}
 	fmt.Println("Spawning plan reviewer...")
 	return planreview.SpawnPlanReviewer(sessionName, taskUUID, reviewerAgent, cfg)
