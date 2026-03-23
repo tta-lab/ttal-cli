@@ -218,7 +218,7 @@ func (w *Watcher) processLines(data []byte, agent AgentInfo) int {
 			}
 		}
 
-		if text := extractAssistantText(line); text != "" {
+		if text := extractAssistantText(line); text != "" && !isNoisyText(text) {
 			w.send(agent.TeamName, agent.AgentName, text)
 		}
 	}
