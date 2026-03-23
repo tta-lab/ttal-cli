@@ -338,12 +338,12 @@ func notifyCounterpart(body string) {
 	}
 
 	agentName := os.Getenv("TTAL_AGENT_NAME")
+	taskTags := resolveTaskTags()
 
 	// "coder" is a fixed system identity set by worker spawn (internal/worker/spawn.go),
 	// not a pipeline-configured agent name — always notify the reviewer window.
 	if agentName == "coder" {
 		cfg, _ := loadConfigAndCoderRuntime()
-		taskTags := resolveTaskTags()
 		reviewerWindow := resolveReviewerWindow(taskTags, "coder", "pr-review-lead")
 		notifyReviewer(sessionName, body, cfg, reviewerWindow)
 		return
@@ -355,9 +355,9 @@ func notifyCounterpart(body string) {
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		log.Printf("warn: notifyCounterpart: load pipelines: %v", err)
-		taskTags := resolveTaskTags()
-		reviewerWindow := resolveReviewerWindow(taskTags, "designer", "plan-review-lead")
-		notifyPlanReviewer(sessionName, body, cfg, reviewerWindow)
+		// Pipeline unavailable — fall back to plan-review-lead directly; don't re-invoke
+		// resolveReviewerWindow which would attempt another failing pipeline.Load.
+		notifyPlanReviewer(sessionName, body, cfg, "plan-review-lead")
 		return
 	}
 
@@ -367,8 +367,7 @@ func notifyCounterpart(body string) {
 	case pipeline.NotifyTargetDesigner:
 		notifyDesigner(sessionName, body, cfg, rt)
 	default:
-		// Manager agents notify plan-reviewer if window exists
-		taskTags := resolveTaskTags()
+		// Manager agents notify plan-reviewer if window exists.
 		reviewerWindow := resolveReviewerWindow(taskTags, "designer", "plan-review-lead")
 		notifyPlanReviewer(sessionName, body, cfg, reviewerWindow)
 	}
@@ -389,6 +388,9 @@ func renderTriageNotification(body, tmpl string, rt runtime.Runtime) (string, bo
 }
 
 func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
+	if !tmux.WindowExists(sessionName, coderWindowName) {
+		return
+	}
 	tmpl := cfg.Prompt("triage")
 	if tmpl == "" {
 		return
@@ -412,6 +414,9 @@ func notifyReviewer(sessionName, body string, cfg *config.Config, reviewerWindow
 }
 
 func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
+	// Designer/planner is always the first window — it is created at session spawn time
+	// (internal/daemon/advance.go via tmux.NewSession) before any reviewer window is
+	// added later (tmux.NewWindow appends). FirstWindow is safe without exclusion.
 	designerWindow, err := tmux.FirstWindow(sessionName)
 	if err != nil || designerWindow == "" {
 		if err != nil {

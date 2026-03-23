@@ -31,7 +31,13 @@ func resolveTaskTags() []string {
 // resolveReviewerWindow returns the reviewer agent name (= window name) for a
 // given pipeline assignee role and task tags. Falls back to fallback.
 func resolveReviewerWindow(taskTags []string, assigneeRole, fallback string) string {
-	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	return resolveReviewerWindowForDir(config.DefaultConfigDir(), taskTags, assigneeRole, fallback)
+}
+
+// resolveReviewerWindowForDir is the testable form of resolveReviewerWindow,
+// accepting an explicit config directory (matching the handleCloseWindowWithConfigDir pattern).
+func resolveReviewerWindowForDir(configDir string, taskTags []string, assigneeRole, fallback string) string {
+	pipelineCfg, err := pipeline.Load(configDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to %s: %v\n", fallback, err)
 		return fallback

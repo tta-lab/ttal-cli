@@ -101,7 +101,7 @@ type NotifyTarget int
 const (
 	NotifyTargetNone     NotifyTarget = iota
 	NotifyTargetCoder                 // reviewer reviews coder stages → notify coder
-	NotifyTargetDesigner              // reviewer reviews non-worker stages → notify designer
+	NotifyTargetDesigner              // reviewer reviews non-coder stages → notify designer
 )
 
 // ReviewerNotifyTarget scans all pipelines to determine what notification
