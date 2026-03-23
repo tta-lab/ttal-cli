@@ -6,6 +6,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
@@ -13,6 +14,19 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
+
+// refreshInterval is how often the TUI polls taskwarrior for updates.
+const refreshInterval = 500 * time.Millisecond
+
+// refreshTickMsg signals that it's time to poll taskwarrior for updates.
+type refreshTickMsg struct{}
+
+// scheduleRefresh returns a Cmd that sends a refreshTickMsg after refreshInterval.
+func scheduleRefresh() tea.Cmd {
+	return tea.Tick(refreshInterval, func(time.Time) tea.Msg {
+		return refreshTickMsg{}
+	})
+}
 
 // overlayHandled is returned by handleOverlayAction to signal that an action
 // was handled (state changed) but no async Cmd needs to run.
@@ -92,7 +106,7 @@ func NewModel() Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(loadConfig(), loadTasks(filterPending, ""), m.loadingSpinner.Tick)
+	return tea.Batch(loadConfig(), loadTasks(filterPending, ""), m.loadingSpinner.Tick, scheduleRefresh())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -110,6 +124,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
 		return m, cmd
+	case refreshTickMsg:
+		// Only auto-refresh when the task list is visible (not in overlays, detail, help, or heatmap)
+		if m.state != stateTaskList {
+			return m, scheduleRefresh()
+		}
+		return m, tea.Batch(loadTasks(m.filter, m.searchInput.Value()), scheduleRefresh())
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	case tea.PasteMsg:
