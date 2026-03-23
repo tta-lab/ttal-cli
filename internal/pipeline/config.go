@@ -161,59 +161,39 @@ func (c *Config) HasReviewer(agentName string) bool {
 	return false
 }
 
-// CurrentStage determines which pipeline stage is currently active by finding
-// which agent name tag is present on the task and mapping it to a stage via role.
+// CurrentStage determines which pipeline stage is currently active by looking
+// for monotonic stage tags. Each stage adds +<stagename> on entry and
+// +<stagename>_lgtm on reviewer approval. The active stage is the latest
+// stage tag without a corresponding _lgtm tag.
 //
-// agentRoles maps agent names to their roles (e.g. {"inke": "designer", "athena": "researcher"}).
+// agentRoles is accepted for backward compatibility but ignored.
 // taskTags is the list of tags on the task.
 //
 // Returns (stageIndex, *Stage, nil) if a stage is found.
-// Returns (-1, nil, nil) if no agent tag matches any stage — task not started.
+// Returns (-1, nil, nil) if no stage tag matches — task not started.
 func (p *Pipeline) CurrentStage(taskTags []string, agentRoles map[string]string) (int, *Stage, error) {
 	tagSet := make(map[string]bool, len(taskTags))
 	for _, t := range taskTags {
 		tagSet[t] = true
 	}
 
-	// Collect all matching stages to detect ambiguity.
-	type match struct {
-		idx   int
-		stage *Stage
-		agent string
-	}
-	var matches []match
-	for _, agentName := range taskTags {
-		role, ok := agentRoles[agentName]
-		if !ok {
+	lastEnteredIdx := -1
+	var lastEnteredStage *Stage
+
+	for i := range p.Stages {
+		stageTag := p.Stages[i].StageTag()
+		if !tagSet[stageTag] {
 			continue
 		}
-		for i := range p.Stages {
-			if p.Stages[i].Assignee == role {
-				matches = append(matches, match{i, &p.Stages[i], agentName})
-				break
-			}
+		lastEnteredIdx = i
+		lastEnteredStage = &p.Stages[i]
+		if !tagSet[p.Stages[i].StageLGTMTag()] {
+			return i, &p.Stages[i], nil
 		}
 	}
 
-	// Check for +coder tag (coder stages don't have agent names in agentRoles).
-	if tagSet["coder"] {
-		for i := range p.Stages {
-			if p.Stages[i].Assignee == "coder" {
-				matches = append(matches, match{i, &p.Stages[i], "coder"})
-				break
-			}
-		}
-	}
-
-	if len(matches) > 1 {
-		agents := make([]string, len(matches))
-		for i, m := range matches {
-			agents[i] = m.agent
-		}
-		return -1, nil, fmt.Errorf("ambiguous stage: multiple agent tags found %v — remove extra tags", agents)
-	}
-	if len(matches) == 1 {
-		return matches[0].idx, matches[0].stage, nil
+	if lastEnteredIdx >= 0 {
+		return lastEnteredIdx, lastEnteredStage, nil
 	}
 
 	return -1, nil, nil

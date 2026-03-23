@@ -412,17 +412,12 @@ func TestCurrentStage_FindsCorrectStage(t *testing.T) {
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	agentRoles := map[string]string{"inke": "designer", "athena": "researcher"}
-
-	idx, stage, err := p.CurrentStage([]string{"feature", "inke"}, agentRoles)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if idx != 0 {
-		t.Errorf("expected stage index 0, got %d", idx)
-	}
-	if stage == nil || stage.Name != "Plan" {
-		t.Errorf("expected stage 'Plan', got %v", stage)
+	if idx != 0 || stage == nil || stage.Name != "Plan" {
+		t.Errorf("expected stage 0 (Plan), got %d (%v)", idx, stage)
 	}
 }
 
@@ -431,9 +426,7 @@ func TestCurrentStage_NoAgentTag_ReturnsNegativeOne(t *testing.T) {
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	agentRoles := map[string]string{"inke": "designer"}
-
-	idx, stage, err := p.CurrentStage([]string{"feature"}, agentRoles)
+	idx, stage, err := p.CurrentStage([]string{"feature"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -442,24 +435,17 @@ func TestCurrentStage_NoAgentTag_ReturnsNegativeOne(t *testing.T) {
 	}
 }
 
-// TestCurrentStage_WorkerStage verifies that without a +coder tag,
-// the coder stage is not detected — only the explicit +coder tag
-// (added by advanceToStage) makes the stage visible to CurrentStage.
 func TestCurrentStage_WorkerStage(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	// Without +worker tag, CurrentStage can't detect the worker stage.
-	// The +worker tag is added by advanceToStage when spawning a worker.
-	agentRoles := map[string]string{"inke": "designer"}
-	idx, stage, err := p.CurrentStage([]string{"feature"}, agentRoles)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// No agent tag on task → not in any stage yet.
-	if idx != -1 || stage != nil {
-		t.Errorf("expected (-1, nil) when no agent tag present, got (%d, %v)", idx, stage)
+	if idx != 1 || stage == nil || stage.Name != "Implement" {
+		t.Errorf("expected (1, Implement), got (%d, %v)", idx, stage)
 	}
 }
 
@@ -470,33 +456,75 @@ func TestCurrentStage_WorkerTag(t *testing.T) {
 			{Name: "Implement", Assignee: "coder", Gate: "auto"},
 		},
 	}
-	agentRoles := map[string]string{"inke": "designer"}
-
-	// +coder tag should match the Implement stage.
-	idx, stage, err := p.CurrentStage([]string{"feature", "coder"}, agentRoles)
+	idx, stage, err := p.CurrentStage([]string{"feature", "implement"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if idx != 1 {
-		t.Errorf("expected stage index 1, got %d", idx)
-	}
-	if stage.Name != "Implement" {
-		t.Errorf("expected stage 'Implement', got %q", stage.Name)
+	if idx != 1 || stage.Name != "Implement" {
+		t.Errorf("expected stage 1 (Implement), got %d (%q)", idx, stage.Name)
 	}
 }
 
-func TestCurrentStage_WorkerAndAgentTag_Ambiguity(t *testing.T) {
+func TestCurrentStage_StageTag(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
 			{Name: "Implement", Assignee: "coder", Gate: "auto"},
 		},
 	}
-	agentRoles := map[string]string{"inke": "designer"}
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != 0 || stage.Name != "Plan" {
+		t.Errorf("expected stage 0 (Plan), got %d (%v)", idx, stage)
+	}
+}
 
-	// Both +inke and +coder → ambiguity error.
-	_, _, err := p.CurrentStage([]string{"feature", "inke", "coder"}, agentRoles)
-	if err == nil {
-		t.Fatal("expected ambiguity error, got nil")
+func TestCurrentStage_StageTagWithLGTM_SkipsToNext(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Plan", Assignee: "designer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != 1 || stage.Name != "Implement" {
+		t.Errorf("expected stage 1 (Implement), got %d (%v)", idx, stage)
+	}
+}
+
+func TestCurrentStage_AllStagesCompleted(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Plan", Assignee: "designer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement", "implement_lgtm"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != 1 || stage.Name != "Implement" {
+		t.Errorf("expected last stage (1, Implement), got %d (%v)", idx, stage)
+	}
+}
+
+func TestCurrentStage_NoStageTag(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Plan", Assignee: "designer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	idx, stage, err := p.CurrentStage([]string{"feature"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != -1 || stage != nil {
+		t.Errorf("expected (-1, nil), got (%d, %v)", idx, stage)
 	}
 }
