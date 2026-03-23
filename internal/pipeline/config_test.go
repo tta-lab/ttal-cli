@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const stageImplement = "Implement"
+
 const validTOML = `
 [standard]
 description = "Plan → Implement"
@@ -353,7 +355,7 @@ func TestStageTag(t *testing.T) {
 }
 
 func TestStageLGTMTag(t *testing.T) {
-	s := Stage{Name: "Implement"}
+	s := Stage{Name: stageImplement}
 	if got := s.StageLGTMTag(); got != "implement_lgtm" {
 		t.Errorf("StageLGTMTag() = %q, want %q", got, "implement_lgtm")
 	}
@@ -444,7 +446,7 @@ func TestCurrentStage_WorkerStage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if idx != 1 || stage == nil || stage.Name != "Implement" {
+	if idx != 1 || stage == nil || stage.Name != stageImplement {
 		t.Errorf("expected (1, Implement), got (%d, %v)", idx, stage)
 	}
 }
@@ -453,14 +455,14 @@ func TestCurrentStage_WorkerTag(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
 	idx, stage, err := p.CurrentStage([]string{"feature", "implement"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if idx != 1 || stage.Name != "Implement" {
+	if idx != 1 || stage.Name != stageImplement {
 		t.Errorf("expected stage 1 (Implement), got %d (%q)", idx, stage.Name)
 	}
 }
@@ -469,7 +471,7 @@ func TestCurrentStage_StageTag(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
 	idx, stage, err := p.CurrentStage([]string{"feature", "plan"}, nil)
@@ -485,14 +487,14 @@ func TestCurrentStage_StageTagWithLGTM_SkipsToNext(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
 	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if idx != 1 || stage.Name != "Implement" {
+	if idx != 1 || stage.Name != stageImplement {
 		t.Errorf("expected stage 1 (Implement), got %d (%v)", idx, stage)
 	}
 }
@@ -501,14 +503,14 @@ func TestCurrentStage_AllStagesCompleted(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
 	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement", "implement_lgtm"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if idx != 1 || stage.Name != "Implement" {
+	if idx != 1 || stage.Name != stageImplement {
 		t.Errorf("expected last stage (1, Implement), got %d (%v)", idx, stage)
 	}
 }
@@ -517,7 +519,7 @@ func TestCurrentStage_NoStageTag(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{
 			{Name: "Plan", Assignee: "designer", Gate: "human"},
-			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
 	idx, stage, err := p.CurrentStage([]string{"feature"}, nil)

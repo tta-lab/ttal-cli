@@ -141,7 +141,10 @@ func checkPipelineDoneGuard(task hookTask, configDir string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("cannot complete task: pipeline not finished (need +%s). Use `ttal go <uuid>` to advance through stages", lastStage.StageLGTMTag())
+	return fmt.Errorf(
+		"cannot complete task: pipeline not finished (need +%s). Use `ttal go <uuid>` to advance through stages",
+		lastStage.StageLGTMTag(),
+	)
 }
 
 // checkLGTMGuard rejects _lgtm tag additions from agents not listed as pipeline reviewers.
@@ -156,7 +159,10 @@ func checkLGTMGuard(addedLgtmTag string, allowedReviewers []string) error {
 	if slices.Contains(allowedReviewers, agent) {
 		return nil
 	}
-	return fmt.Errorf("only pipeline reviewers can set +%s (current agent: %s, allowed: %v)", addedLgtmTag, agent, allowedReviewers)
+	return fmt.Errorf(
+		"only pipeline reviewers can set +%s (current agent: %s, allowed: %v)",
+		addedLgtmTag, agent, allowedReviewers,
+	)
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.

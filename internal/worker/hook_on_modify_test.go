@@ -197,7 +197,11 @@ func TestCheckLGTMGuard(t *testing.T) {
 		{"empty agent cannot add lgtm", "plan_lgtm", "", []string{"plan-review-lead"}, true},
 		{"no lgtm tag added — not blocked", "", "coder", []string{"plan-review-lead"}, false},
 		{"no pipeline (nil reviewers) rejects everyone", "plan_lgtm", "plan-review-lead", nil, true},
-		{"multiple reviewers both allowed", "implement_lgtm", "pr-review-lead", []string{"plan-review-lead", "pr-review-lead"}, false},
+		{
+			"multiple reviewers both allowed",
+			"implement_lgtm", "pr-review-lead",
+			[]string{"plan-review-lead", "pr-review-lead"}, false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -234,7 +238,12 @@ reviewer = "pr-review-lead"
 		wantErr  bool
 	}{
 		{"no pipeline match — allow", pipelinesBugfix, []string{"unrelated"}, false},
-		{"last stage lgtm — allow", pipelinesBugfix, []string{"bugfix", "fix", "fix_lgtm", "implement", "implement_lgtm"}, false},
+		{
+			"last stage lgtm — allow",
+			pipelinesBugfix,
+			[]string{"bugfix", "fix", "fix_lgtm", "implement", "implement_lgtm"},
+			false,
+		},
 		{"no last stage lgtm — block", pipelinesBugfix, []string{"bugfix"}, true},
 		{"no pipeline config — allow", "", []string{"bugfix"}, false},
 		{"first stage done but last not — block", pipelinesBugfix, []string{"bugfix", "fix", "fix_lgtm", "implement"}, true},

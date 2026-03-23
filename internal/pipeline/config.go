@@ -221,7 +221,10 @@ func (c *Config) validate() error {
 			}
 			// Stage names must be valid taskwarrior tags (alphanumeric + underscore only).
 			if !validStageNamePattern.MatchString(s.Name) {
-				return fmt.Errorf("pipeline %q stage %q: name must be alphanumeric (a-z, A-Z, 0-9, _) — no spaces or hyphens", name, s.Name)
+				return fmt.Errorf(
+					"pipeline %q stage %q: name must be alphanumeric (a-z, A-Z, 0-9, _) — no spaces or hyphens",
+					name, s.Name,
+				)
 			}
 		}
 		c.Pipelines[name] = p // write back — Go maps return value copies
