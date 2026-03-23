@@ -11,7 +11,7 @@ ttal send --to <uuid> "message"        # send to worker session (8+ hex chars)
 
 ```bash
 ttal task add --project <alias> "description" --tag <tag> --priority M --annotate "note"
-ttal task get <uuid>                    # rich prompt with inlined docs
+ttal task get                           # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
 ttal task find <keyword> --completed    # search completed tasks
 ttal go <uuid>                    # advance task through pipeline stage

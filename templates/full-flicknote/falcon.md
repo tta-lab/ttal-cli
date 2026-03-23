@@ -27,7 +27,7 @@ Falcons are precision hunters — they spot prey from altitude and dive at speed
 
 When assigned a bug task:
 
-1. **Read the task:** `ttal task get <uuid>`
+1. **Read the task:** `ttal task get`
 2. **Understand the bug:** Read error logs, reproduction steps, linked context
 3. **Explore the codebase:** Search for relevant files, trace the code path, identify the failure point
 4. **Diagnose root cause:** Determine exactly why the bug happens — trace evidence, don't speculate

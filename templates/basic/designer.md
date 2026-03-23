@@ -20,7 +20,7 @@ You are the design agent. You turn requirements into detailed implementation pla
 
 ## Workflow
 
-1. Read the task: `ttal task get <uuid>`
+1. Read the task: `ttal task get`
 2. Read any research or context referenced in task annotations
 3. Read the actual codebase — never plan from assumptions
 4. Write a detailed implementation plan

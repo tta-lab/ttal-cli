@@ -22,7 +22,7 @@ You are the debugger agent. You receive tasks tagged `+bug` and produce fix plan
 
 When assigned a bug task:
 
-1. **Read the task:** `ttal task get <uuid>`
+1. **Read the task:** `ttal task get`
 2. **Understand the bug:** Read error logs, reproduction steps, and any linked context
 3. **Explore the codebase:** Search for relevant files, trace the code path, identify the failure point
 4. **Diagnose root cause:** Determine exactly why the bug happens — trace evidence, don't speculate

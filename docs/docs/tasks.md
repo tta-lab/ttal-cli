@@ -18,14 +18,14 @@ ttal task find auth --completed
 ## Getting task details
 
 ```bash
-ttal task get <uuid>
+ttal task get
 ```
 
 This exports a task as a rich prompt, suitable for piping to agents. It includes:
 - Task description and annotations
 - Inlined content from annotation paths matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns
 
-Accepts 8-character UUID prefixes or full UUIDs.
+The UUID is auto-resolved from `$TTAL_JOB_ID` (worker sessions) or `$TTAL_AGENT_NAME` (agent sessions) — no parameter needed.
 
 ## Task routing
 

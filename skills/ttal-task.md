@@ -23,8 +23,7 @@ ttal task add --project ttal "Fix auth bug" --tag bugfix --tag urgent --priority
 ## Search and export tasks
 
 ```bash
-ttal task get <uuid>                    # export task as rich prompt (inlines referenced docs)
-ttal task get                           # uses $TTAL_JOB_ID env var
+ttal task get                           # auto-resolves from $TTAL_JOB_ID (worker) or $TTAL_AGENT_NAME (agent)
 ttal task find <keyword>               # search pending tasks (OR, case-insensitive)
 ttal task find <keyword1> <keyword2>   # multiple keywords use OR logic
 ttal task find <keyword> --completed   # search completed tasks

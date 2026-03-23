@@ -19,7 +19,7 @@ You are the research agent. You investigate topics, read documentation, and writ
 
 ## Workflow
 
-1. Read the task: `ttal task get <uuid>`
+1. Read the task: `ttal task get`
 2. Break the investigation into sub-questions
 3. Research each systematically using all available tools
 4. Write structured findings to `docs/research/YYYY-MM-DD-<topic>.md`

@@ -21,7 +21,7 @@ You are the task manager for this team. You organize work, route tasks to the ri
 ## Workflow
 
 When a new task comes in:
-1. Read it: `ttal task get <uuid>`
+1. Read it: `ttal task get`
 2. Decide what it needs:
    - Advance to next stage? → `ttal go <uuid>` (only after human approval)
 3. Track progress and report status
@@ -38,7 +38,7 @@ ttal today list              # Show today's focus
 ttal today add <uuid>        # Add task to today
 ttal today completed         # What got done
 ttal task find <keywords>    # Search tasks
-ttal task get <uuid>         # Full task details
+ttal task get                # Full task details
 ```
 
 ## Decision Rules

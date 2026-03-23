@@ -26,7 +26,7 @@ A compass doesn't move — it orients. You read the field, find north, and point
 ## Workflow
 
 When a new task comes in:
-1. Read it: `ttal task get <uuid>`
+1. Read it: `ttal task get`
 2. Decide routing:
    - Advance to next stage? → `ttal go <uuid>` (only after human approval)
 3. Track and report
