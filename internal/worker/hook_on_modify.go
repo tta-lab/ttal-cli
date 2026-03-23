@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -104,34 +105,58 @@ func resolveAllowedReviewers(task hookTask, configDir string) []string {
 	return reviewers
 }
 
-// checkPipelineDoneGuard blocks task completion when the task matches a pipeline
-// but doesn't have the +pipeline_done tag. The tag is set by ttal go when the
-// pipeline reaches final completion.
-// configDir may be empty — defaults to config.DefaultConfigDir().
-func checkPipelineDoneGuard(task hookTask, configDir string) error {
-	if matchedPipeline(task, configDir) == nil {
-		return nil // no pipeline config or no matching pipeline → allow completion
+// lgtmTagAdded returns the _lgtm tag that was added (empty if none).
+func lgtmTagAdded(originalTags, modifiedTags []string) string {
+	origSet := make(map[string]bool, len(originalTags))
+	for _, t := range originalTags {
+		origSet[t] = true
 	}
-	// Task matches a pipeline — require +pipeline_done tag.
-	if slices.Contains(task.Tags(), "pipeline_done") {
-		return nil
+	for _, t := range modifiedTags {
+		if strings.HasSuffix(t, "_lgtm") && !origSet[t] {
+			return t
+		}
 	}
-	return fmt.Errorf("cannot complete task: pipeline not finished. Use `ttal go <uuid>` to advance through stages")
+	return ""
 }
 
-// checkLGTMGuard rejects +lgtm tag additions from agents not listed as pipeline reviewers.
-// lgtmAdded must be pre-computed by the caller to avoid duplicating the predicate.
+// checkPipelineDoneGuard blocks task completion when the task matches a pipeline
+// but the last stage hasn't been approved. Pipeline completion is determined by
+// the presence of +<laststage>_lgtm tag.
+// configDir may be empty — defaults to config.DefaultConfigDir().
+func checkPipelineDoneGuard(task hookTask, configDir string) error {
+	p := matchedPipeline(task, configDir)
+	if p == nil {
+		return nil
+	}
+	lastStage := p.LastStage()
+	if lastStage == nil {
+		return nil
+	}
+	if slices.Contains(task.Tags(), lastStage.StageLGTMTag()) {
+		return nil
+	}
+	// Allow completion if last stage has no reviewer (e.g. research, audit pipelines).
+	if lastStage.Reviewer == "" {
+		if slices.Contains(task.Tags(), lastStage.StageTag()) {
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot complete task: pipeline not finished (need +%s). Use `ttal go <uuid>` to advance through stages", lastStage.StageLGTMTag())
+}
+
+// checkLGTMGuard rejects _lgtm tag additions from agents not listed as pipeline reviewers.
+// addedLgtmTag must be pre-computed by the caller to avoid duplicating the predicate.
 // allowedReviewers is collected from the pipeline stages' Reviewer fields.
 // If allowedReviewers is nil (no pipeline found), all agents are rejected.
-func checkLGTMGuard(lgtmAdded bool, allowedReviewers []string) error {
-	if !lgtmAdded {
+func checkLGTMGuard(addedLgtmTag string, allowedReviewers []string) error {
+	if addedLgtmTag == "" {
 		return nil
 	}
 	agent := os.Getenv("TTAL_AGENT_NAME")
 	if slices.Contains(allowedReviewers, agent) {
 		return nil
 	}
-	return fmt.Errorf("only pipeline reviewers can set +lgtm (current agent: %s, allowed: %v)", agent, allowedReviewers)
+	return fmt.Errorf("only pipeline reviewers can set +%s (current agent: %s, allowed: %v)", addedLgtmTag, agent, allowedReviewers)
 }
 
 // HookOnModify is the main taskwarrior on-modify hook entry point.
@@ -147,14 +172,14 @@ func HookOnModify() {
 		os.Exit(0)
 	}
 
-	// Guard: only pipeline reviewers can set +lgtm.
-	// Compute lgtmAdded once — used to gate the pipeline load and passed to the guard.
-	lgtmAdded := !slices.Contains(original.Tags(), "lgtm") && slices.Contains(modified.Tags(), "lgtm")
+	// Guard: only pipeline reviewers can set _lgtm tags.
+	// Compute addedLgtmTag once — used to gate the pipeline load and passed to the guard.
+	addedLgtmTag := lgtmTagAdded(original.Tags(), modified.Tags())
 	var allowedReviewers []string
-	if lgtmAdded {
+	if addedLgtmTag != "" {
 		allowedReviewers = resolveAllowedReviewers(modified, config.DefaultConfigDir())
 	}
-	if err := checkLGTMGuard(lgtmAdded, allowedReviewers); err != nil {
+	if err := checkLGTMGuard(addedLgtmTag, allowedReviewers); err != nil {
 		hookLogFile("LGTM guard: " + err.Error())
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
