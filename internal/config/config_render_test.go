@@ -23,7 +23,7 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			name:  "CC replaces skill placeholder at start",
 			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.ClaudeCode,
-			want:  "Use sp-planning skill\n\nWrite a plan for task abc123",
+			want:  "run ttal skill get sp-planning\n\nWrite a plan for task abc123",
 		},
 		{
 			name:  "Codex replaces skill placeholder with dollar",
@@ -59,7 +59,7 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			name:  "skill placeholder in middle of text",
 			input: "Start {{skill:triage}} middle end",
 			rt:    runtime.ClaudeCode,
-			want:  "Use triage skill\n\nStart  middle end",
+			want:  "run ttal skill get triage\n\nStart  middle end",
 		},
 		{
 			name:  "skill placeholder at end of text",
