@@ -1,6 +1,5 @@
 execute = """\
-{{skill:sp-executing-plans}}
-write this plan task-by-task.
+Implement this task. The plan is in your task context.
 Follow each task in order: read the plan, make changes, verify, commit.
 
 IMPORTANT: Use `ttal task get` (no extra params) to get task details including the plan.
