@@ -2,10 +2,13 @@ package pr
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -86,9 +89,33 @@ func CheckMergeable(ctx *Context) error {
 	return nil
 }
 
+// mergeApproved returns true when the task has the last stage's lgtm tag set.
+// Falls back to HasAnyLGTMTag when pipeline config is unavailable, so manual
+// flows (no pipelines.toml, task with no pipeline tag) are not blocked.
+func mergeApproved(taskTags []string) bool {
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		log.Printf("pr: merge gate: could not load pipeline config, falling back to HasAnyLGTMTag: %v", err)
+		return taskwarrior.HasAnyLGTMTag(taskTags)
+	}
+	_, p, err := pipelineCfg.MatchPipeline(taskTags)
+	if err != nil || p == nil {
+		// No pipeline match — fall back so non-pipeline tasks can still merge.
+		return taskwarrior.HasAnyLGTMTag(taskTags)
+	}
+	lastStage := p.LastStage()
+	if lastStage == nil {
+		return taskwarrior.HasAnyLGTMTag(taskTags)
+	}
+	return taskwarrior.HasTag(taskTags, lastStage.StageLGTMTag())
+}
+
 func Merge(ctx *Context, deleteAfterMerge bool) error {
-	// Gate: reviewer must have approved via a stage-specific lgtm tag
-	if !taskwarrior.HasAnyLGTMTag(ctx.Task.Tags) {
+	// Gate: reviewer must have approved the current (last) stage specifically.
+	// Load pipeline config to find the last stage's lgtm tag. If the config
+	// can't be loaded or the task has no pipeline, fall back to HasAnyLGTMTag
+	// to avoid blocking manual flows.
+	if !mergeApproved(ctx.Task.Tags) {
 		return fmt.Errorf("PR not approved — reviewer must run: ttal comment lgtm")
 	}
 

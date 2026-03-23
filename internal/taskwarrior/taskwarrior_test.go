@@ -317,3 +317,45 @@ func TestExtractSessionID(t *testing.T) {
 		})
 	}
 }
+
+func TestIsLGTMTag(t *testing.T) {
+	tests := []struct {
+		tag  string
+		want bool
+	}{
+		{"plan_lgtm", true},
+		{"implement_lgtm", true},
+		{"_lgtm", true},
+		{"lgtm", false}, // no underscore prefix — not a stage lgtm tag
+		{"feature", false},
+		{"", false},
+		{"plan_lgtm_extra", false}, // does not end with _lgtm
+	}
+	for _, tt := range tests {
+		if got := IsLGTMTag(tt.tag); got != tt.want {
+			t.Errorf("IsLGTMTag(%q) = %v, want %v", tt.tag, got, tt.want)
+		}
+	}
+}
+
+func TestHasAnyLGTMTag(t *testing.T) {
+	tests := []struct {
+		name string
+		tags []string
+		want bool
+	}{
+		{"empty slice", []string{}, false},
+		{"bare lgtm — not a stage tag", []string{"lgtm"}, false},
+		{"plan_lgtm present", []string{"feature", "plan_lgtm"}, true},
+		{"implement_lgtm present", []string{"plan_lgtm", "implement_lgtm"}, true},
+		{"only unrelated tags", []string{"feature", "urgent"}, false},
+		{"mixed — one lgtm tag", []string{"feature", "plan", "plan_lgtm"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := HasAnyLGTMTag(tt.tags); got != tt.want {
+				t.Errorf("HasAnyLGTMTag(%v) = %v, want %v", tt.tags, got, tt.want)
+			}
+		})
+	}
+}

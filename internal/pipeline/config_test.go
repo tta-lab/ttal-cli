@@ -414,7 +414,7 @@ func TestCurrentStage_FindsCorrectStage(t *testing.T) {
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	idx, stage, err := p.CurrentStage([]string{"feature", "plan"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestCurrentStage_NoAgentTag_ReturnsNegativeOne(t *testing.T) {
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	idx, stage, err := p.CurrentStage([]string{"feature"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestCurrentStage_WorkerStage(t *testing.T) {
 	cfg, _ := Load(dir)
 
 	p := cfg.Pipelines["standard"]
-	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestCurrentStage_WorkerTag(t *testing.T) {
 			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
-	idx, stage, err := p.CurrentStage([]string{"feature", "implement"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature", "implement"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestCurrentStage_StageTag(t *testing.T) {
 			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
-	idx, stage, err := p.CurrentStage([]string{"feature", "plan"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -490,7 +490,7 @@ func TestCurrentStage_StageTagWithLGTM_SkipsToNext(t *testing.T) {
 			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
-	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -506,7 +506,7 @@ func TestCurrentStage_AllStagesCompleted(t *testing.T) {
 			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
-	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement", "implement_lgtm"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature", "plan", "plan_lgtm", "implement", "implement_lgtm"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -522,7 +522,7 @@ func TestCurrentStage_NoStageTag(t *testing.T) {
 			{Name: stageImplement, Assignee: "coder", Gate: "auto"},
 		},
 	}
-	idx, stage, err := p.CurrentStage([]string{"feature"}, nil)
+	idx, stage, err := p.CurrentStage([]string{"feature"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

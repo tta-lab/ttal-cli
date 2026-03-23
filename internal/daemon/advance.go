@@ -126,7 +126,7 @@ func handlePipelineAdvance(
 	var stage *pipeline.Stage
 	if task.Start != "" {
 		var err error
-		idx, stage, err = p.CurrentStage(task.Tags, agentRoles)
+		idx, stage, err = p.CurrentStage(task.Tags)
 		if err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,

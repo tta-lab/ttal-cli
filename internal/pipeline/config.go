@@ -35,7 +35,7 @@ func (s *Stage) StageTag() string {
 
 // StageLGTMTag returns the lgtm tag for this stage (<stagename>_lgtm).
 func (s *Stage) StageLGTMTag() string {
-	return strings.ToLower(s.Name) + "_lgtm"
+	return s.StageTag() + "_lgtm"
 }
 
 // LastStage returns the final stage in the pipeline.
@@ -166,12 +166,11 @@ func (c *Config) HasReviewer(agentName string) bool {
 // +<stagename>_lgtm on reviewer approval. The active stage is the latest
 // stage tag without a corresponding _lgtm tag.
 //
-// agentRoles is accepted for backward compatibility but ignored.
 // taskTags is the list of tags on the task.
 //
 // Returns (stageIndex, *Stage, nil) if a stage is found.
 // Returns (-1, nil, nil) if no stage tag matches — task not started.
-func (p *Pipeline) CurrentStage(taskTags []string, agentRoles map[string]string) (int, *Stage, error) {
+func (p *Pipeline) CurrentStage(taskTags []string) (int, *Stage, error) {
 	tagSet := make(map[string]bool, len(taskTags))
 	for _, t := range taskTags {
 		tagSet[t] = true

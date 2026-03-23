@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -112,7 +111,7 @@ func lgtmTagAdded(originalTags, modifiedTags []string) string {
 		origSet[t] = true
 	}
 	for _, t := range modifiedTags {
-		if strings.HasSuffix(t, "_lgtm") && !origSet[t] {
+		if taskwarrior.IsLGTMTag(t) && !origSet[t] {
 			return t
 		}
 	}

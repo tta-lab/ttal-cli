@@ -248,7 +248,7 @@ Examples:
 		if p == nil {
 			return fmt.Errorf("no pipeline matches this task — cannot determine stage for lgtm")
 		}
-		idx, stage, err := p.CurrentStage(task.Tags, nil)
+		idx, stage, err := p.CurrentStage(task.Tags)
 		if err != nil {
 			return fmt.Errorf("determine current stage: %w", err)
 		}

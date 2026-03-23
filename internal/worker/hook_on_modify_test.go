@@ -231,6 +231,16 @@ assignee = "worker"
 gate = "auto"
 reviewer = "pr-review-lead"
 `
+	// Pipeline with no reviewer on the last stage (e.g. research/audit flows).
+	const pipelinesNoReviewer = `
+[hotfix]
+tags = ["hotfix"]
+
+[[hotfix.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+`
 	tests := []struct {
 		name     string
 		toml     string
@@ -247,6 +257,10 @@ reviewer = "pr-review-lead"
 		{"no last stage lgtm — block", pipelinesBugfix, []string{"bugfix"}, true},
 		{"no pipeline config — allow", "", []string{"bugfix"}, false},
 		{"first stage done but last not — block", pipelinesBugfix, []string{"bugfix", "fix", "fix_lgtm", "implement"}, true},
+		// No-reviewer last stage: stage entry tag is sufficient for completion.
+		{"no-reviewer last stage with entry tag — allow", pipelinesNoReviewer, []string{"hotfix", "implement"}, false},
+		// No-reviewer last stage without entry tag — pipeline not reached yet, block.
+		{"no-reviewer last stage without entry tag — block", pipelinesNoReviewer, []string{"hotfix"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

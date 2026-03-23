@@ -161,10 +161,15 @@ func HasTag(tags []string, tag string) bool {
 	return false
 }
 
-// HasAnyLGTMTag returns true if any tag in the slice ends with "_lgtm".
+// IsLGTMTag reports whether tag is a stage-specific lgtm tag (ends with "_lgtm").
+func IsLGTMTag(tag string) bool {
+	return strings.HasSuffix(tag, "_lgtm")
+}
+
+// HasAnyLGTMTag returns true if any tag in the slice is a stage lgtm tag.
 func HasAnyLGTMTag(tags []string) bool {
 	for _, t := range tags {
-		if strings.HasSuffix(t, "_lgtm") {
+		if IsLGTMTag(t) {
 			return true
 		}
 	}
