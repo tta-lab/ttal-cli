@@ -104,7 +104,7 @@ func formatPRCell(prid string, tags []string) string {
 	if err != nil {
 		return "#" + prid
 	}
-	if taskwarrior.HasTag(tags, "lgtm") {
+	if taskwarrior.HasAnyLGTMTag(tags) {
 		return fmt.Sprintf("#%d ✓", info.Index)
 	}
 	return fmt.Sprintf("#%d", info.Index)

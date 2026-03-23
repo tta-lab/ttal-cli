@@ -87,8 +87,8 @@ func CheckMergeable(ctx *Context) error {
 }
 
 func Merge(ctx *Context, deleteAfterMerge bool) error {
-	// Gate: reviewer must have approved via +lgtm tag
-	if !ctx.Task.HasTag("lgtm") {
+	// Gate: reviewer must have approved via a stage-specific lgtm tag
+	if !taskwarrior.HasAnyLGTMTag(ctx.Task.Tags) {
 		return fmt.Errorf("PR not approved — reviewer must run: ttal comment lgtm")
 	}
 

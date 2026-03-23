@@ -60,7 +60,7 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	if t.PRID != "" {
 		info, err := taskwarrior.ParsePRID(t.PRID)
 		if err == nil {
-			if taskwarrior.HasTag(t.Tags, "lgtm") {
+			if taskwarrior.HasAnyLGTMTag(t.Tags) {
 				field(b, "PR:", "    ", fmt.Sprintf("#%d ✓", info.Index))
 			} else {
 				field(b, "PR:", "    ", fmt.Sprintf("#%d", info.Index))

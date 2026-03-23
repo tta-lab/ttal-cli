@@ -161,6 +161,16 @@ func HasTag(tags []string, tag string) bool {
 	return false
 }
 
+// HasAnyLGTMTag returns true if any tag in the slice ends with "_lgtm".
+func HasAnyLGTMTag(tags []string) bool {
+	for _, t := range tags {
+		if strings.HasSuffix(t, "_lgtm") {
+			return true
+		}
+	}
+	return false
+}
+
 // HasTag returns true if the task has the given tag.
 func (t *Task) HasTag(tag string) bool {
 	for _, tt := range t.Tags {
