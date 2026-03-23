@@ -369,7 +369,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		return SendResponse{OK: false, Error: "empty handoff prompt"}
 	}
 
-	// 1. Consume route file EARLY to determine if this is a task-scoped rotation.
+	// 1. Consume route file EARLY to get routing context for handoff composition.
 	routeReq, err := route.Consume(req.Agent)
 	if err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("consume routing file: %v", err)}
