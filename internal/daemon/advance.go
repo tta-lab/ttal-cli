@@ -52,7 +52,7 @@ const (
 )
 
 // workerStage is the pipeline stage assignee value that identifies a worker stage.
-const workerStage = "worker"
+const workerStage = "coder"
 
 // AdvanceClient sends an advance request to the daemon and blocks until response.
 func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {

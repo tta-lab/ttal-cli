@@ -103,7 +103,7 @@ func spawnOrRetriggerReviewer(taskUUID, reviewerAgent, assignee string) error {
 	}
 	cfg, _ := loadConfigAndCoderRuntime()
 
-	if assignee == "worker" {
+	if assignee == "coder" {
 		if tmux.WindowExists(sessionName, "review") {
 			fmt.Println("Reviewer already running, sending re-review request...")
 			return review.RequestReReview(sessionName, false, "", cfg)

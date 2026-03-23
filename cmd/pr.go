@@ -185,7 +185,7 @@ func resolvePRReviewerName(taskTags []string) string {
 		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to pr-review-lead: %v\n", err)
 		return "pr-review-lead"
 	}
-	if name := pipelineCfg.ReviewerForStage(taskTags, "worker"); name != "" {
+	if name := pipelineCfg.ReviewerForStage(taskTags, "coder"); name != "" {
 		return name
 	}
 	return "pr-review-lead"

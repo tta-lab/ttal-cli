@@ -18,7 +18,7 @@ reviewer = "plan-review-lead"
 
 [[standard.stages]]
 name = "Implement"
-assignee = "worker"
+assignee = "coder"
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -34,7 +34,7 @@ reviewer = "plan-review-lead"
 
 [[bugfix.stages]]
 name = "Implement"
-assignee = "worker"
+assignee = "coder"
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -44,7 +44,7 @@ tags = ["hotfix"]
 
 [[hotfix.stages]]
 name = "Implement"
-assignee = "worker"
+assignee = "coder"
 gate = "auto"
 reviewer = "pr-review-lead"
 `
