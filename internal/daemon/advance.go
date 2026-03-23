@@ -273,7 +273,10 @@ func processStageAdvance(
 // checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
 // Returns true when the response has been written (caller should return).
 func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) bool {
-	if stage.Reviewer == "" || hasTag(task.Tags, "lgtm") {
+	if stage.Reviewer == "" {
+		return false
+	}
+	if hasTag(task.Tags, stage.StageLGTMTag()) {
 		return false
 	}
 	msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict", stage.Reviewer)
