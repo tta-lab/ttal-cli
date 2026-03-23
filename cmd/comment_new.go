@@ -449,18 +449,22 @@ func notifyPlanReviewer(sessionName, body string, cfg *config.Config, reviewerWi
 // duplicating the triage notification already sent by ttal comment add.
 func notifyLgtm(reviewer string) {
 	sessionName, err := review.ResolveSessionName()
-	if err != nil || sessionName == "" {
-		if err != nil {
-			log.Printf("debug: notifyLgtm: resolve session: %v", err)
-		}
+	if err != nil {
+		log.Printf("warning: notifyLgtm: resolve session: %v", err)
+		return
+	}
+	if sessionName == "" {
+		log.Printf("debug: notifyLgtm: not inside tmux — skipping designer notification")
 		return
 	}
 
 	designerWindow, err := tmux.FirstWindow(sessionName)
-	if err != nil || designerWindow == "" {
-		if err != nil {
-			log.Printf("warning: notifyLgtm: could not find designer window in %s: %v", sessionName, err)
-		}
+	if err != nil {
+		log.Printf("warning: notifyLgtm: could not find designer window in %s: %v", sessionName, err)
+		return
+	}
+	if designerWindow == "" {
+		log.Printf("warning: notifyLgtm: session %s has no windows — designer notification skipped", sessionName)
 		return
 	}
 
