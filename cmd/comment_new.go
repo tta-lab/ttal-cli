@@ -246,12 +246,9 @@ Examples:
 
 		fmt.Printf("LGTM approved by %s\n", author)
 
-		// Notify counterpart window (same mechanism as comment add)
-		lgtmBody := fmt.Sprintf(
-			"VERDICT: LGTM — approved by %s. Triage any remaining non-blocking issues, then run `ttal go` to advance.",
-			author,
-		)
-		notifyCounterpart(lgtmBody)
+		// Notify designer directly — skip notifyCounterpart to avoid re-triggering the
+		// full plan_triage template (which was already sent by `ttal comment add`).
+		notifyLgtm(author)
 
 		// Auto-close the reviewer window — job is done.
 		// Delegates to the daemon so the kill happens out-of-process
@@ -444,6 +441,35 @@ func notifyPlanReviewer(sessionName, body string, cfg *config.Config, reviewerWi
 	}
 	if err := planreview.RequestReReview(sessionName, reviewerWindow, body, cfg); err != nil {
 		log.Printf("warning: notify plan-review failed: %v", err)
+	}
+}
+
+// notifyLgtm sends a simple LGTM approval message to the designer window.
+// Unlike notifyCounterpart, this skips the plan_triage template to avoid
+// duplicating the triage notification already sent by ttal comment add.
+func notifyLgtm(reviewer string) {
+	sessionName, err := review.ResolveSessionName()
+	if err != nil || sessionName == "" {
+		if err != nil {
+			log.Printf("debug: notifyLgtm: resolve session: %v", err)
+		}
+		return
+	}
+
+	designerWindow, err := tmux.FirstWindow(sessionName)
+	if err != nil || designerWindow == "" {
+		if err != nil {
+			log.Printf("warning: notifyLgtm: could not find designer window in %s: %v", sessionName, err)
+		}
+		return
+	}
+
+	msg := fmt.Sprintf(
+		"VERDICT: LGTM given by %s. When you finish triaging the last review comment, advance with: ttal go",
+		reviewer,
+	)
+	if err := tmux.SendKeys(sessionName, designerWindow, msg); err != nil {
+		log.Printf("warning: notifyLgtm: send failed: %v", err)
 	}
 }
 
