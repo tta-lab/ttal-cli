@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
+
+// validStageNamePattern matches stage names that produce valid taskwarrior tags.
+var validStageNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 
 // Stage defines a single stage in a pipeline.
 type Stage struct {
@@ -21,6 +26,24 @@ type Pipeline struct {
 	Description string   `toml:"description"`
 	Tags        []string `toml:"tags"` // task tags that select this pipeline
 	Stages      []Stage  `toml:"stages"`
+}
+
+// StageTag returns the lowercased stage name used as a taskwarrior tag.
+func (s *Stage) StageTag() string {
+	return strings.ToLower(s.Name)
+}
+
+// StageLGTMTag returns the lgtm tag for this stage (<stagename>_lgtm).
+func (s *Stage) StageLGTMTag() string {
+	return strings.ToLower(s.Name) + "_lgtm"
+}
+
+// LastStage returns the final stage in the pipeline.
+func (p *Pipeline) LastStage() *Stage {
+	if len(p.Stages) == 0 {
+		return nil
+	}
+	return &p.Stages[len(p.Stages)-1]
 }
 
 // Config holds all pipeline definitions.
@@ -215,6 +238,10 @@ func (c *Config) validate() error {
 			}
 			if s.Gate != "human" && s.Gate != "auto" {
 				return fmt.Errorf("pipeline %q stage %q: gate must be \"human\" or \"auto\", got %q", name, s.Name, s.Gate)
+			}
+			// Stage names must be valid taskwarrior tags (alphanumeric + underscore only).
+			if !validStageNamePattern.MatchString(s.Name) {
+				return fmt.Errorf("pipeline %q stage %q: name must be alphanumeric (a-z, A-Z, 0-9, _) — no spaces or hyphens", name, s.Name)
 			}
 		}
 		c.Pipelines[name] = p // write back — Go maps return value copies

@@ -345,6 +345,68 @@ reviewer = "multi-reviewer"
 	}
 }
 
+func TestStageTag(t *testing.T) {
+	s := Stage{Name: "Plan"}
+	if got := s.StageTag(); got != "plan" {
+		t.Errorf("StageTag() = %q, want %q", got, "plan")
+	}
+}
+
+func TestStageLGTMTag(t *testing.T) {
+	s := Stage{Name: "Implement"}
+	if got := s.StageLGTMTag(); got != "implement_lgtm" {
+		t.Errorf("StageLGTMTag() = %q, want %q", got, "implement_lgtm")
+	}
+}
+
+func TestLastStage(t *testing.T) {
+	p := Pipeline{Stages: []Stage{{Name: "A"}, {Name: "B"}}}
+	if got := p.LastStage(); got.Name != "B" {
+		t.Errorf("LastStage() = %q, want %q", got.Name, "B")
+	}
+}
+
+func TestLastStage_Empty(t *testing.T) {
+	p := Pipeline{}
+	if got := p.LastStage(); got != nil {
+		t.Errorf("LastStage() = %v, want nil", got)
+	}
+}
+
+func TestValidate_StageNameWithSpace(t *testing.T) {
+	const toml = `
+[bad]
+tags = ["bad"]
+
+[[bad.stages]]
+name = "Code Review"
+assignee = "designer"
+gate = "human"
+`
+	dir := writeTempTOML(t, toml)
+	_, err := Load(dir)
+	if err == nil {
+		t.Fatal("expected error for stage name with space")
+	}
+}
+
+func TestValidate_StageNameWithHyphen(t *testing.T) {
+	const toml = `
+[bad]
+tags = ["bad"]
+
+[[bad.stages]]
+name = "code-review"
+assignee = "designer"
+gate = "human"
+`
+	dir := writeTempTOML(t, toml)
+	_, err := Load(dir)
+	if err == nil {
+		t.Fatal("expected error for stage name with hyphen")
+	}
+}
+
 func TestCurrentStage_FindsCorrectStage(t *testing.T) {
 	dir := writeTempTOML(t, validTOML)
 	cfg, _ := Load(dir)
