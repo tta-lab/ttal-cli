@@ -250,7 +250,7 @@ func processStageAdvance(
 		return
 	}
 
-	cleanupStageTags(task, stage, agentRoles)
+	cleanupAssigneeTags(task, stage, agentRoles)
 
 	if stage.Assignee == workerStage && task.PRID != "" {
 		if done := handleWorkerPRMerge(w, task); done {
@@ -321,23 +321,17 @@ func checkHumanGate(
 	return false
 }
 
-// cleanupStageTags stops the task and removes stage-specific tags.
-func cleanupStageTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
-	if err := taskwarrior.StopTask(task.UUID); err != nil {
-		log.Printf("[advance] warning: stop task: %v", err)
-	}
+// cleanupAssigneeTags removes the agent assignee tag to free the agent for other tasks.
+// Stage tags are monotonic (never removed). Task is NOT stopped — it stays active
+// throughout the pipeline lifecycle. Worker stages have no agent tag to remove.
+func cleanupAssigneeTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
 	annotateStageCompletion(task.UUID, stage.Name, stage.Assignee, oldAgentName)
 
-	removeTags := []string{"-lgtm"}
 	if oldAgentName != "" {
-		removeTags = append(removeTags, "-"+oldAgentName)
-	}
-	if hasTag(task.Tags, workerStage) {
-		removeTags = append(removeTags, "-"+workerStage)
-	}
-	if err := taskwarrior.ModifyTags(task.UUID, removeTags...); err != nil {
-		log.Printf("[advance] warning: remove tags: %v", err)
+		if err := taskwarrior.ModifyTags(task.UUID, "-"+oldAgentName); err != nil {
+			log.Printf("[advance] warning: remove agent tag: %v", err)
+		}
 	}
 }
 
