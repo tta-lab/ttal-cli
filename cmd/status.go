@@ -11,7 +11,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/status"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -62,19 +61,9 @@ func showStatus() error {
 	teamName := cfg.TeamName()
 	names, _ := agentfs.DiscoverAgents(cfg.TeamPath())
 
-	// Cache roles for task-scoped detection.
-	roleMap := make(map[string]string)
-	if agents, err := agentfs.Discover(cfg.TeamPath()); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot discover agent roles in %s: %v\n", cfg.TeamPath(), err)
-	} else {
-		for _, a := range agents {
-			roleMap[a.Name] = a.Role
-		}
-	}
-
 	rows := make([]agentRow, 0, len(names))
 	for _, name := range names {
-		rows = append(rows, buildAgentRow(cfg, teamName, name, roleMap))
+		rows = append(rows, buildAgentRow(cfg, teamName, name))
 	}
 
 	sortAgentRows(rows)
@@ -106,7 +95,7 @@ func showStatus() error {
 	return nil
 }
 
-func buildAgentRow(cfg *config.Config, teamName, name string, roleMap map[string]string) agentRow {
+func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
 	rt := cfg.AgentRuntimeFor(name)
 	s, _ := status.ReadAgent(teamName, name)
 
@@ -114,33 +103,6 @@ func buildAgentRow(cfg *config.Config, teamName, name string, roleMap map[string
 		name:    name,
 		runtime: string(rt),
 		ctxPct:  -1,
-	}
-
-	// Check for task-scoped session.
-	if tsSession := tmux.FindSessionByPrefix("ts-", "-"+name); tsSession != "" {
-		row.runtime = "task-scoped"
-		row.active = true
-		count, err := taskwarrior.CountTasks(fmt.Sprintf("+%s", name), "+ACTIVE")
-		if err == nil && count > 0 {
-			row.health = ciIconCheck
-			row.updated = "busy"
-		} else {
-			row.health = "●"
-			row.updated = "idle"
-		}
-		if s != nil && !s.IsStale(staleThreshold) {
-			row.ctxPct = s.ContextUsedPct
-			row.model = shortModel(s.ModelName)
-		}
-		return row
-	}
-
-	// Check if this is a task-scoped role with no session (never spawned).
-	if role := roleMap[name]; cfg.IsTaskScopedRole(role) {
-		row.health = "○"
-		row.runtime = "task-scoped"
-		row.updated = "not spawned"
-		return row
 	}
 
 	sessionName := config.AgentSessionName(teamName, name)

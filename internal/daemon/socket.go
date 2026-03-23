@@ -197,8 +197,7 @@ type BreatheRequest struct {
 	Team        string `json:"team,omitempty"`         // defaults to "default"
 	Agent       string `json:"agent"`                  // agent name
 	Handoff     string `json:"handoff"`                // handoff prompt content
-	SessionName string `json:"session_name,omitempty"` // current session name (task-scoped agents)
-	JobID       string `json:"job_id,omitempty"`       // TTAL_JOB_ID (task-scoped agents)
+	SessionName string `json:"session_name,omitempty"` // current tmux session name (if known)
 }
 
 // CommentAddRequest asks the daemon to add a comment to a task.

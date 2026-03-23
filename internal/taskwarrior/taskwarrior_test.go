@@ -306,8 +306,6 @@ func TestExtractSessionID(t *testing.T) {
 		{"new format no slug", "w-e9d4b7c1", "e9d4b7c1"},
 		{"old format bare uuid", "e9d4b7c1", "e9d4b7c1"},
 		{"empty string", "", ""},
-		{"task-scoped format", "ts-e9d4b7c1-astra", "e9d4b7c1"},
-		{"task-scoped no agent", "ts-e9d4b7c1", "e9d4b7c1"},
 	}
 
 	for _, tt := range tests {
@@ -317,13 +315,5 @@ func TestExtractSessionID(t *testing.T) {
 				t.Errorf("ExtractSessionID(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestTaskScopedSessionName(t *testing.T) {
-	task := Task{UUID: "e9d4b7c1-1234-5678-9abc-def012345678"}
-	got := task.TaskScopedSessionName("astra")
-	if got != "ts-e9d4b7c1-astra" {
-		t.Errorf("TaskScopedSessionName() = %q, want ts-e9d4b7c1-astra", got)
 	}
 }
