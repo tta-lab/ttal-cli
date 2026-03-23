@@ -94,21 +94,9 @@ func (t *Task) SessionName() string {
 	return prefix + slug
 }
 
-// TaskScopedSessionName returns the tmux session name for a task-scoped agent:
-// ts-{uuid[:8]}-{agentName} (e.g. ts-1d87b1a8-astra).
-func (t *Task) TaskScopedSessionName(agentName string) string {
-	return "ts-" + t.SessionID() + "-" + agentName
-}
-
 // ExtractSessionID extracts the UUID[:8] from a session name.
-// Handles ts-UUID[:8]-agent (task-scoped), w-UUID[:8]-slug (worker), and bare UUID[:8].
+// Handles w-UUID[:8]-slug (worker) and bare UUID[:8].
 func ExtractSessionID(sessionName string) string {
-	if strings.HasPrefix(sessionName, "ts-") {
-		parts := strings.SplitN(sessionName[3:], "-", 2)
-		if len(parts) > 0 {
-			return parts[0]
-		}
-	}
 	if strings.HasPrefix(sessionName, "w-") {
 		parts := strings.SplitN(sessionName[2:], "-", 2)
 		if len(parts) > 0 {
