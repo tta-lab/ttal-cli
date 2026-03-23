@@ -243,7 +243,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 				CWD:       workDir,
 				GitBranch: branch,
 				Handoff:   systemPrompt,
-			}, model, "coder", "Begin implementation.",
+			}, model, CoderAgentName, "Begin implementation.",
 		)
 		if err != nil {
 			return err
@@ -254,7 +254,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, "coder", workDir, shellCmd); err != nil {
+	if err := tmux.NewSession(sessionName, CoderAgentName, workDir, shellCmd); err != nil {
 		if ccSessionPath != "" {
 			os.Remove(ccSessionPath)
 		}

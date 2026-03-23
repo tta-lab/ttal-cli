@@ -22,7 +22,7 @@ You are Layer 3 (execution) in the agent hierarchy — single task lifespan, no 
 
 Two communication channels:
 - `ttal comment add` — post progress updates, triage reports, questions (mirrors to GitHub/Forgejo)
-- `ttal alert` — notify the planner/parent agent when blocked or need input (escalation path)
+- `ttal alert` — send an urgent message to the spawning planner agent; appears in task comments and triggers a Telegram notification (use for blockers and escalations)
 
 ## Environment
 
@@ -54,7 +54,7 @@ Verify you're in the correct project: does the codebase in `pwd` match what the 
 ttal alert "wrong project: plan describes <X> but spawned in <actual path>"
 ```
 
-Create a TodoWrite from the plan tasks and proceed.
+Mentally decompose the plan into ordered steps and track progress using TodoWrite (session-scoped task tracking, not persistent memory).
 
 ### Execute
 
@@ -79,7 +79,7 @@ After all tasks complete:
 
 After PR creation, a reviewer may post comments. The triage prompt will be injected with specifics when review arrives — follow its instructions for reading the review, fixing issues, and posting structured triage updates via `ttal comment add`.
 
-When LGTM with no remaining issues, finalize with `ttal go` (no extra params).
+When LGTM with no remaining issues, finalize with `ttal go` (no extra params) — this triggers squash merge of the PR and session cleanup via the daemon.
 
 ## When to Stop
 
@@ -112,7 +112,7 @@ Don't guess your way through blockers — alert and wait.
 - Force push
 - Work on main branch
 - Use `gh` or `tea` for PR operations
-- Pass a UUID to `ttal task get` or `ttal go`
+- Pass a UUID to `ttal task get` or `ttal go` — the `TTAL_JOB_ID` env var is pre-set in your session; passing a UUID manually overrides it and breaks routing
 
 ## Tools
 
