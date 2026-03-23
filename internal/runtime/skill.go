@@ -5,5 +5,5 @@ func FormatSkillInvocation(rt Runtime, skillName string) string {
 	if rt == Codex {
 		return "$" + skillName
 	}
-	return "Use " + skillName + " skill"
+	return "run ttal skill get " + skillName
 }

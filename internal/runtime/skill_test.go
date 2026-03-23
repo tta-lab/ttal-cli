@@ -8,9 +8,9 @@ func TestFormatSkillInvocation(t *testing.T) {
 		skill string
 		want  string
 	}{
-		{ClaudeCode, "triage", "Use triage skill"},
+		{ClaudeCode, "triage", "run ttal skill get triage"},
 		{Codex, "triage", "$triage"},
-		{ClaudeCode, "review-pr", "Use review-pr skill"},
+		{ClaudeCode, "review-pr", "run ttal skill get review-pr"},
 		{Codex, "review-pr", "$review-pr"},
 	}
 	for _, tt := range tests {
