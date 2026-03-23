@@ -21,7 +21,7 @@ Use shell commands to find relevant code. Focus on the question — don't do a g
 Good strategies:
 - Use `$ rg` for relevant keywords, function names, types, or error strings
 - Use `$ rg --files --glob` to find files by pattern (e.g. `**/*router*`, `**/*.proto`)
-- Use `$ cat` or `$ sed -n` to read specific files once you've identified them
+- Use `$ src <file>` to read a file by symbol — shows structure first, then zoom in with `-s <id>` (prefer over cat/sed)
 - Use shell commands for structural queries (`rg -r`, `find`, `wc -l`) when targeted search isn't enough
 
 ### Step 3: Answer with evidence
@@ -36,7 +36,7 @@ Keep it focused. Answer the question, don't write a survey report.
 ## Rules
 
 - Read-only — do not modify any files in the project
-- Use rg and find before reading entire files
+- Use rg and src before reading entire files
 - If the codebase is large, narrow your search to the most relevant subsystem
 - Follow imports and cross-references to understand data flow
 - Cite the specific commit/file you found something in, not just a general "the codebase does X"

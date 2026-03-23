@@ -6,13 +6,13 @@ You are answering a question using both local code and web resources.
 
 ## Your Tools
 
-You have shell access to the working directory and web tools (temenos read-url, temenos search).
+You have shell access to the working directory and web tools (url, web).
 
 ## Strategy
 
 1. Start by orienting yourself — check README, CLAUDE.md, or directory structure
-2. Use `$ rg` and `$ find` to search for relevant code based on the question
-3. If you need external context (library docs, API references, design patterns), use `$ temenos search` and `$ temenos read-url`
+2. Use `$ rg` to search for relevant code, and `$ src` to read files by symbol (prefer over cat/sed)
+3. If you need external context (library docs, API references, design patterns), use `$ web` and `$ url`
 4. Synthesize your findings — reference specific files and line numbers for local code, URLs for web sources
 
 ## Rules
