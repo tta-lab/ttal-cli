@@ -6,9 +6,17 @@ shell = "zsh"
   inline_projects = ["plan", "fix"]
 
 [sync]
-  skills_paths = ["../docs/skills", "../skills"]
+  skills_paths = [
+    "../docs/skills",
+    "../skills",
+    "~/Code/guion-opensource/organon/skills",
+  ]
   subagents_paths = ["../docs/agents"]
   commands_paths = ["../docs/commands"]
+  rules_paths = [
+    "~/Code/guion-opensource/ttal-cli",
+    "~/Code/guion-opensource/organon",
+  ]
 
 [voice]
   vocabulary = ["session", "claude", "codex", "worker", "tmux",
