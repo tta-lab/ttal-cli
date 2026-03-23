@@ -39,10 +39,6 @@ func Session(uuid string) error {
 		return fmt.Errorf("could not load config for agent session lookup: %w", err)
 	}
 	if err == nil {
-		// Try task-scoped session (ts-{uuid[:8]}-{agent}) before persistent.
-		if tsSession, found := ResolveTaskScopedSession(task.SessionID(), task.Tags, cfg.TeamPath()); found {
-			return attachToSession(tsSession)
-		}
 		if agentSession, found := ResolveAgentSession(task.Tags, cfg.TeamName(), cfg.TeamPath()); found {
 			if tmux.SessionExists(agentSession) {
 				return attachToSession(agentSession)
@@ -53,33 +49,6 @@ func Session(uuid string) error {
 	return fmt.Errorf("no worker or agent session for this task\n\n"+
 		"  To spawn a worker:\n"+
 		"  ttal go %s", uuid)
-}
-
-// ResolveTaskScopedSession checks if any agent-matching tag has a running
-// task-scoped tmux session: ts-{sessionID}-{agentName}.
-// Returns the session name and true if found, ("", false) otherwise.
-func ResolveTaskScopedSession(sessionID string, tags []string, teamPath string) (string, bool) {
-	for _, name := range taskScopedSessionNames(sessionID, tags, teamPath) {
-		if tmux.SessionExists(name) {
-			return name, true
-		}
-	}
-	return "", false
-}
-
-// taskScopedSessionNames returns the candidate ts-* session names for the given tags.
-// Pure function: no tmux calls, safe to test.
-func taskScopedSessionNames(sessionID string, tags []string, teamPath string) []string {
-	if teamPath == "" {
-		return nil
-	}
-	var names []string
-	for _, tag := range tags {
-		if agentfs.HasAgent(teamPath, tag) {
-			names = append(names, "ts-"+sessionID+"-"+tag)
-		}
-	}
-	return names
 }
 
 // ResolveAgentSession checks if any of the given tags match a known agent name.

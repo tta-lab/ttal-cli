@@ -35,12 +35,7 @@ func Attach(input string) error {
 
 	sessionName := config.AgentSessionName(teamName, agent)
 	if !tmux.SessionExists(sessionName) {
-		// Try task-scoped session (ts-{uuid[:8]}-{agent}) as fallback.
-		if tsSession := tmux.FindSessionByPrefix("ts-", "-"+agent); tsSession != "" {
-			sessionName = tsSession
-		} else {
-			return fmt.Errorf("session %q not found — start the daemon with: ttal daemon start", sessionName)
-		}
+		return fmt.Errorf("session %q not found — start the daemon with: ttal daemon start", sessionName)
 	}
 
 	tmuxBin, err := exec.LookPath("tmux")
