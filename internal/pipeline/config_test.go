@@ -226,6 +226,47 @@ func TestReviewerForStage_NoMatchingAssignee(t *testing.T) {
 	}
 }
 
+func TestHasReviewer(t *testing.T) {
+	const toml = `
+[standard]
+description = "Plan → Implement"
+tags = ["feature"]
+
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+reviewer = "plan-review-lead"
+
+[[standard.stages]]
+name = "Implement"
+assignee = "coder"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	dir := writeTempTOML(t, toml)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	tests := []struct {
+		agentName string
+		want      bool
+	}{
+		{"pr-review-lead", true},
+		{"plan-review-lead", true},
+		{"unknown", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		got := cfg.HasReviewer(tt.agentName)
+		if got != tt.want {
+			t.Errorf("HasReviewer(%q) = %v, want %v", tt.agentName, got, tt.want)
+		}
+	}
+}
+
 func TestReviewerNotifyTarget(t *testing.T) {
 	const toml = `
 [standard]

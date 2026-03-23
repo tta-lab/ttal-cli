@@ -126,6 +126,18 @@ func (c *Config) ReviewerNotifyTarget(agentName string) NotifyTarget {
 	return target
 }
 
+// HasReviewer returns true if agentName is configured as a reviewer in any pipeline stage.
+func (c *Config) HasReviewer(agentName string) bool {
+	for _, p := range c.Pipelines {
+		for _, s := range p.Stages {
+			if s.Reviewer == agentName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // CurrentStage determines which pipeline stage is currently active by finding
 // which agent name tag is present on the task and mapping it to a stage via role.
 //
