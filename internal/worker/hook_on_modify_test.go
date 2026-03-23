@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -187,75 +186,27 @@ func makeLGTMTask(tags []string) hookTask {
 func TestCheckLGTMGuard(t *testing.T) {
 	tests := []struct {
 		name             string
-		original         []string
-		modified         []string
+		addedLgtmTag     string
 		agentName        string
 		allowedReviewers []string
 		wantErr          bool
 	}{
+		{"plan-review-lead can add plan_lgtm", "plan_lgtm", "plan-review-lead", []string{"plan-review-lead"}, false},
+		{"pr-review-lead can add implement_lgtm", "implement_lgtm", "pr-review-lead", []string{"pr-review-lead"}, false},
+		{"coder cannot add plan_lgtm", "plan_lgtm", "coder", []string{"plan-review-lead"}, true},
+		{"empty agent cannot add lgtm", "plan_lgtm", "", []string{"plan-review-lead"}, true},
+		{"no lgtm tag added — not blocked", "", "coder", []string{"plan-review-lead"}, false},
+		{"no pipeline (nil reviewers) rejects everyone", "plan_lgtm", "plan-review-lead", nil, true},
 		{
-			name:             "plan-review-lead can add lgtm when listed as reviewer",
-			modified:         []string{"lgtm"},
-			agentName:        "plan-review-lead",
-			allowedReviewers: []string{"plan-review-lead"},
-			wantErr:          false,
-		},
-		{
-			name:             "pr-review-lead can add lgtm when listed as reviewer",
-			modified:         []string{"lgtm"},
-			agentName:        "pr-review-lead",
-			allowedReviewers: []string{"pr-review-lead"},
-			wantErr:          false,
-		},
-		{
-			name:             "coder cannot add lgtm",
-			modified:         []string{"lgtm"},
-			agentName:        "coder",
-			allowedReviewers: []string{"plan-review-lead"},
-			wantErr:          true,
-		},
-		{
-			name:             "empty agent cannot add lgtm",
-			modified:         []string{"lgtm"},
-			agentName:        "",
-			allowedReviewers: []string{"plan-review-lead"},
-			wantErr:          true,
-		},
-		{
-			name:             "lgtm already present is not blocked",
-			original:         []string{"lgtm"},
-			modified:         []string{"lgtm"},
-			agentName:        "coder",
-			allowedReviewers: []string{"plan-review-lead"},
-			wantErr:          false,
-		},
-		{
-			name:             "no pipeline (nil reviewers) rejects everyone",
-			modified:         []string{"lgtm"},
-			agentName:        "plan-review-lead",
-			allowedReviewers: nil,
-			wantErr:          true,
-		},
-		{
-			name:             "unrelated tag change not blocked",
-			modified:         []string{"urgent"},
-			agentName:        "coder",
-			allowedReviewers: []string{"plan-review-lead"},
-			wantErr:          false,
-		},
-		{
-			name:             "multiple reviewers across stages both allowed",
-			modified:         []string{"lgtm"},
-			agentName:        "pr-review-lead",
-			allowedReviewers: []string{"plan-review-lead", "pr-review-lead"},
-			wantErr:          false,
+			"multiple reviewers both allowed",
+			"implement_lgtm", "pr-review-lead",
+			[]string{"plan-review-lead", "pr-review-lead"}, false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("TTAL_AGENT_NAME", tt.agentName)
-			lgtmAdded := !slices.Contains(tt.original, "lgtm") && slices.Contains(tt.modified, "lgtm")
-			err := checkLGTMGuard(lgtmAdded, tt.allowedReviewers)
+			err := checkLGTMGuard(tt.addedLgtmTag, tt.allowedReviewers)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkLGTMGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -280,42 +231,36 @@ assignee = "worker"
 gate = "auto"
 reviewer = "pr-review-lead"
 `
+	// Pipeline with no reviewer on the last stage (e.g. research/audit flows).
+	const pipelinesNoReviewer = `
+[hotfix]
+tags = ["hotfix"]
+
+[[hotfix.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+`
 	tests := []struct {
 		name     string
 		toml     string
 		taskTags []string
 		wantErr  bool
 	}{
+		{"no pipeline match — allow", pipelinesBugfix, []string{"unrelated"}, false},
 		{
-			name:     "no pipeline match — allow",
-			toml:     pipelinesBugfix,
-			taskTags: []string{"unrelated"},
-			wantErr:  false,
+			"last stage lgtm — allow",
+			pipelinesBugfix,
+			[]string{"bugfix", "fix", "fix_lgtm", "implement", "implement_lgtm"},
+			false,
 		},
-		{
-			name:     "pipeline match + pipeline_done — allow",
-			toml:     pipelinesBugfix,
-			taskTags: []string{"bugfix", "pipeline_done"},
-			wantErr:  false,
-		},
-		{
-			name:     "pipeline match + no pipeline_done — block",
-			toml:     pipelinesBugfix,
-			taskTags: []string{"bugfix"},
-			wantErr:  true,
-		},
-		{
-			name:     "no pipeline config — allow",
-			toml:     "", // empty dir, no pipelines.toml
-			taskTags: []string{"bugfix"},
-			wantErr:  false,
-		},
-		{
-			name:     "multi-stage pipeline no pipeline_done — block",
-			toml:     pipelinesBugfix,
-			taskTags: []string{"bugfix", "worker"},
-			wantErr:  true,
-		},
+		{"no last stage lgtm — block", pipelinesBugfix, []string{"bugfix"}, true},
+		{"no pipeline config — allow", "", []string{"bugfix"}, false},
+		{"first stage done but last not — block", pipelinesBugfix, []string{"bugfix", "fix", "fix_lgtm", "implement"}, true},
+		// No-reviewer last stage: stage entry tag is sufficient for completion.
+		{"no-reviewer last stage with entry tag — allow", pipelinesNoReviewer, []string{"hotfix", "implement"}, false},
+		// No-reviewer last stage without entry tag — pipeline not reached yet, block.
+		{"no-reviewer last stage without entry tag — block", pipelinesNoReviewer, []string{"hotfix"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -323,12 +268,35 @@ reviewer = "pr-review-lead"
 			if tt.toml != "" {
 				dir = writeTempPipelines(t, tt.toml)
 			} else {
-				dir = t.TempDir() // no pipelines.toml
+				dir = t.TempDir()
 			}
 			task := makeLGTMTask(tt.taskTags)
 			err := checkPipelineDoneGuard(task, dir)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkPipelineDoneGuard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestLgtmTagAdded(t *testing.T) {
+	tests := []struct {
+		name     string
+		original []string
+		modified []string
+		want     string
+	}{
+		{"no lgtm tag", []string{"feature"}, []string{"feature"}, ""},
+		{"plan_lgtm added", []string{"feature"}, []string{"feature", "plan_lgtm"}, "plan_lgtm"},
+		{"plan_lgtm already present", []string{"plan_lgtm"}, []string{"plan_lgtm"}, ""},
+		{"implement_lgtm added", []string{"plan_lgtm"}, []string{"plan_lgtm", "implement_lgtm"}, "implement_lgtm"},
+		{"non-lgtm tag added", []string{}, []string{"urgent"}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := lgtmTagAdded(tt.original, tt.modified)
+			if got != tt.want {
+				t.Errorf("lgtmTagAdded() = %q, want %q", got, tt.want)
 			}
 		})
 	}

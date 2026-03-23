@@ -126,7 +126,7 @@ func handlePipelineAdvance(
 	var stage *pipeline.Stage
 	if task.Start != "" {
 		var err error
-		idx, stage, err = p.CurrentStage(task.Tags, agentRoles)
+		idx, stage, err = p.CurrentStage(task.Tags)
 		if err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,
@@ -250,7 +250,7 @@ func processStageAdvance(
 		return
 	}
 
-	cleanupStageTags(task, stage, agentRoles)
+	cleanupAssigneeTags(task, stage, agentRoles)
 
 	if stage.Assignee == workerStage && task.PRID != "" {
 		if done := handleWorkerPRMerge(w, task); done {
@@ -273,7 +273,10 @@ func processStageAdvance(
 // checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
 // Returns true when the response has been written (caller should return).
 func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) bool {
-	if stage.Reviewer == "" || hasTag(task.Tags, "lgtm") {
+	if stage.Reviewer == "" {
+		return false
+	}
+	if hasTag(task.Tags, stage.StageLGTMTag()) {
 		return false
 	}
 	msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict", stage.Reviewer)
@@ -318,40 +321,23 @@ func checkHumanGate(
 	return false
 }
 
-// cleanupStageTags stops the task and removes stage-specific tags.
-func cleanupStageTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
-	if err := taskwarrior.StopTask(task.UUID); err != nil {
-		log.Printf("[advance] warning: stop task: %v", err)
-	}
+// cleanupAssigneeTags removes the agent assignee tag to free the agent for other tasks.
+// Stage tags are monotonic (never removed). Task is NOT stopped — it stays active
+// throughout the pipeline lifecycle. Worker stages have no agent tag to remove.
+func cleanupAssigneeTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
 	annotateStageCompletion(task.UUID, stage.Name, stage.Assignee, oldAgentName)
 
-	removeTags := []string{"-lgtm"}
 	if oldAgentName != "" {
-		removeTags = append(removeTags, "-"+oldAgentName)
-	}
-	if hasTag(task.Tags, workerStage) {
-		removeTags = append(removeTags, "-"+workerStage)
-	}
-	if err := taskwarrior.ModifyTags(task.UUID, removeTags...); err != nil {
-		log.Printf("[advance] warning: remove tags: %v", err)
-	}
-}
-
-// markPipelineDone adds the +pipeline_done tag so the on-modify hook allows task completion.
-func markPipelineDone(uuid string) {
-	if err := taskwarrior.ModifyTags(uuid, "+pipeline_done"); err != nil {
-		log.Printf("[advance] warning: add pipeline_done tag: %v", err)
+		if err := taskwarrior.ModifyTags(task.UUID, "-"+oldAgentName); err != nil {
+			log.Printf("[advance] warning: remove agent tag: %v", err)
+		}
 	}
 }
 
 // handlePipelineComplete writes the pipeline-complete response.
 // For worker+PR stages the cleanup handler owns MarkDone; for others it marks done inline.
 func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) {
-	// Mark pipeline as fully completed — on-modify hook uses this to gate task done.
-	// For worker+PR at the last stage, handleWorkerPRMerge already set this tag (idempotent).
-	markPipelineDone(task.UUID)
-
 	if stage.Assignee == workerStage && task.PRID != "" {
 		// Worker+PR: cleanup handler calls MarkDone after session teardown.
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
@@ -466,10 +452,10 @@ func advanceToStage(
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
 		}
-		if err := taskwarrior.ModifyTags(task.UUID, "+"+workerStage); err != nil {
+		if err := taskwarrior.ModifyTags(task.UUID, "+"+stage.StageTag()); err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 				Status:  AdvanceStatusError,
-				Message: fmt.Sprintf("add worker tag: %v", err),
+				Message: fmt.Sprintf("add stage tag: %v", err),
 			})
 			return err
 		}
@@ -525,6 +511,9 @@ func advanceToStage(
 
 	if err := taskwarrior.ModifyTags(task.UUID, "+"+agent.Name); err != nil {
 		log.Printf("[advance] warning: add agent tag: %v", err)
+	}
+	if err := taskwarrior.ModifyTags(task.UUID, "+"+stage.StageTag()); err != nil {
+		log.Printf("[advance] warning: add stage tag: %v", err)
 	}
 	if err := taskwarrior.StartTask(task.UUID); err != nil {
 		log.Printf("[advance] warning: start task for agent: %v", err)
@@ -693,10 +682,6 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		})
 		return true
 	}
-
-	// Add pipeline_done before cleanup — on-modify hook uses this to gate task done.
-	// For worker+PR at the last stage, handlePipelineComplete will also set this (idempotent).
-	markPipelineDone(task.UUID)
 
 	if err := worker.RequestCleanup(task.SessionName(), task.UUID); err != nil {
 		log.Printf("[advance] warning: cleanup request failed: %v", err)

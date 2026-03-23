@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
+
+// validStageNamePattern matches stage names that produce valid taskwarrior tags.
+var validStageNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 
 // Stage defines a single stage in a pipeline.
 type Stage struct {
@@ -21,6 +26,24 @@ type Pipeline struct {
 	Description string   `toml:"description"`
 	Tags        []string `toml:"tags"` // task tags that select this pipeline
 	Stages      []Stage  `toml:"stages"`
+}
+
+// StageTag returns the lowercased stage name used as a taskwarrior tag.
+func (s *Stage) StageTag() string {
+	return strings.ToLower(s.Name)
+}
+
+// StageLGTMTag returns the lgtm tag for this stage (<stagename>_lgtm).
+func (s *Stage) StageLGTMTag() string {
+	return s.StageTag() + "_lgtm"
+}
+
+// LastStage returns the final stage in the pipeline.
+func (p *Pipeline) LastStage() *Stage {
+	if len(p.Stages) == 0 {
+		return nil
+	}
+	return &p.Stages[len(p.Stages)-1]
 }
 
 // Config holds all pipeline definitions.
@@ -138,59 +161,38 @@ func (c *Config) HasReviewer(agentName string) bool {
 	return false
 }
 
-// CurrentStage determines which pipeline stage is currently active by finding
-// which agent name tag is present on the task and mapping it to a stage via role.
+// CurrentStage determines which pipeline stage is currently active by looking
+// for monotonic stage tags. Each stage adds +<stagename> on entry and
+// +<stagename>_lgtm on reviewer approval. The active stage is the latest
+// stage tag without a corresponding _lgtm tag.
 //
-// agentRoles maps agent names to their roles (e.g. {"inke": "designer", "athena": "researcher"}).
 // taskTags is the list of tags on the task.
 //
 // Returns (stageIndex, *Stage, nil) if a stage is found.
-// Returns (-1, nil, nil) if no agent tag matches any stage — task not started.
-func (p *Pipeline) CurrentStage(taskTags []string, agentRoles map[string]string) (int, *Stage, error) {
+// Returns (-1, nil, nil) if no stage tag matches — task not started.
+func (p *Pipeline) CurrentStage(taskTags []string) (int, *Stage, error) {
 	tagSet := make(map[string]bool, len(taskTags))
 	for _, t := range taskTags {
 		tagSet[t] = true
 	}
 
-	// Collect all matching stages to detect ambiguity.
-	type match struct {
-		idx   int
-		stage *Stage
-		agent string
-	}
-	var matches []match
-	for _, agentName := range taskTags {
-		role, ok := agentRoles[agentName]
-		if !ok {
+	lastEnteredIdx := -1
+	var lastEnteredStage *Stage
+
+	for i := range p.Stages {
+		stageTag := p.Stages[i].StageTag()
+		if !tagSet[stageTag] {
 			continue
 		}
-		for i := range p.Stages {
-			if p.Stages[i].Assignee == role {
-				matches = append(matches, match{i, &p.Stages[i], agentName})
-				break
-			}
+		lastEnteredIdx = i
+		lastEnteredStage = &p.Stages[i]
+		if !tagSet[p.Stages[i].StageLGTMTag()] {
+			return i, &p.Stages[i], nil
 		}
 	}
 
-	// Check for +coder tag (coder stages don't have agent names in agentRoles).
-	if tagSet["coder"] {
-		for i := range p.Stages {
-			if p.Stages[i].Assignee == "coder" {
-				matches = append(matches, match{i, &p.Stages[i], "coder"})
-				break
-			}
-		}
-	}
-
-	if len(matches) > 1 {
-		agents := make([]string, len(matches))
-		for i, m := range matches {
-			agents[i] = m.agent
-		}
-		return -1, nil, fmt.Errorf("ambiguous stage: multiple agent tags found %v — remove extra tags", agents)
-	}
-	if len(matches) == 1 {
-		return matches[0].idx, matches[0].stage, nil
+	if lastEnteredIdx >= 0 {
+		return lastEnteredIdx, lastEnteredStage, nil
 	}
 
 	return -1, nil, nil
@@ -215,6 +217,13 @@ func (c *Config) validate() error {
 			}
 			if s.Gate != "human" && s.Gate != "auto" {
 				return fmt.Errorf("pipeline %q stage %q: gate must be \"human\" or \"auto\", got %q", name, s.Name, s.Gate)
+			}
+			// Stage names must be valid taskwarrior tags (alphanumeric + underscore only).
+			if !validStageNamePattern.MatchString(s.Name) {
+				return fmt.Errorf(
+					"pipeline %q stage %q: name must be alphanumeric (a-z, A-Z, 0-9, _) — no spaces or hyphens",
+					name, s.Name,
+				)
 			}
 		}
 		c.Pipelines[name] = p // write back — Go maps return value copies

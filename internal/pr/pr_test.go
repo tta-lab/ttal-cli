@@ -185,13 +185,13 @@ func TestMergeLGTMGate(t *testing.T) {
 		{
 			name:        "empty pr_id returns error",
 			prid:        "",
-			tags:        []string{"lgtm"},
+			tags:        []string{"implement_lgtm"},
 			errContains: "no PR associated",
 		},
 		{
-			name:        "passes gate with lgtm tag",
+			name:        "passes gate with stage lgtm tag",
 			prid:        "123",
-			tags:        []string{"lgtm"},
+			tags:        []string{"implement_lgtm"},
 			errContains: "", // no error from gate; CheckMergeable succeeds with mergeable PR
 		},
 	}

@@ -209,11 +209,11 @@ var commentListCmd = &cobra.Command{
 
 var commentLgtmCmd = &cobra.Command{
 	Use:   "lgtm",
-	Short: "Approve the current task with +lgtm tag and audit trace",
-	Long: `Add +lgtm tag to the current task and create an annotation trace.
+	Short: "Approve the current task with a stage-specific lgtm tag and audit trace",
+	Long: `Add +<stagename>_lgtm tag to the current task and create an annotation trace.
 Task is auto-resolved from TTAL_JOB_ID (worker) or TTAL_AGENT_NAME (manager).
 
-The on-modify hook validates that only reviewers can set +lgtm.
+The on-modify hook validates that only reviewers can set _lgtm tags.
 The hook is a global taskwarrior hook (installed via ttal doctor --fix),
 not worker-specific — it fires on ALL task modifications and checks
 TTAL_AGENT_NAME matches a pipeline reviewer configured in pipelines.toml.
@@ -232,22 +232,46 @@ Examples:
 			return fmt.Errorf("TTAL_AGENT_NAME not set — cannot record lgtm attribution")
 		}
 
-		// Add +lgtm tag (on-modify hook enforces reviewer-only guard)
-		if err := taskwarrior.ModifyTags(taskUUID, "+lgtm"); err != nil {
-			return fmt.Errorf("failed to add +lgtm: %w", err)
+		// Resolve the active stage to build the stage-specific lgtm tag.
+		task, err := taskwarrior.ExportTask(taskUUID)
+		if err != nil {
+			return fmt.Errorf("export task: %w", err)
+		}
+		pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+		if err != nil {
+			return fmt.Errorf("load pipeline config: %w", err)
+		}
+		_, p, err := pipelineCfg.MatchPipeline(task.Tags)
+		if err != nil {
+			return fmt.Errorf("match pipeline: %w", err)
+		}
+		if p == nil {
+			return fmt.Errorf("no pipeline matches this task — cannot determine stage for lgtm")
+		}
+		idx, stage, err := p.CurrentStage(task.Tags)
+		if err != nil {
+			return fmt.Errorf("determine current stage: %w", err)
+		}
+		if idx == -1 || stage == nil {
+			return fmt.Errorf("no active stage found — task may not have started")
+		}
+
+		lgtmTag := stage.StageLGTMTag()
+
+		// Add stage-specific lgtm tag (on-modify hook enforces reviewer-only guard)
+		if err := taskwarrior.ModifyTags(taskUUID, "+"+lgtmTag); err != nil {
+			return fmt.Errorf("failed to add +%s: %w", lgtmTag, err)
 		}
 
 		// Add annotation trace
-		trace := fmt.Sprintf("lgtm: %s at %s", author, time.Now().UTC().Format(time.RFC3339))
+		trace := fmt.Sprintf("lgtm: %s stage:%s at %s", author, stage.Name, time.Now().UTC().Format(time.RFC3339))
 		if err := taskwarrior.AnnotateTask(taskUUID, trace); err != nil {
-			log.Printf("+lgtm tag was set but annotation failed — safe to re-run ttal comment lgtm: %v", err)
-			return fmt.Errorf("failed to annotate lgtm trace (+lgtm already set, safe to retry): %w", err)
+			log.Printf("+%s tag was set but annotation failed — safe to re-run ttal comment lgtm: %v", lgtmTag, err)
+			return fmt.Errorf("failed to annotate lgtm trace (+%s already set, safe to retry): %w", lgtmTag, err)
 		}
 
-		fmt.Printf("LGTM approved by %s\n", author)
+		fmt.Printf("LGTM approved by %s (stage: %s)\n", author, stage.Name)
 
-		// Notify designer directly — skip notifyCounterpart to avoid re-triggering the
-		// full plan_triage template (which was already sent by `ttal comment add`).
 		notifyLgtm(author)
 
 		// Auto-close the reviewer window — job is done.
