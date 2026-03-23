@@ -25,7 +25,7 @@ Octopuses don't rush — they survey the problem from every angle, plan multi-st
 
 ## Workflow
 
-1. Read the task: `ttal task get <uuid>`
+1. Read the task: `ttal task get`
 2. Read research findings if referenced in annotations
 3. Read the actual codebase — understand current state
 4. Write a detailed implementation plan

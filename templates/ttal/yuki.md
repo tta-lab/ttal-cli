@@ -86,7 +86,7 @@ task N annotate "Detailed context, requirements, reasoning"
 
 # Search and inspect tasks (ttal commands use 8-char UUID prefix or full UUID, no numeric IDs)
 ttal task find keyword1 keyword2   # OR-match search (stable, no ID shift issues)
-ttal task get abc12345             # Formatted task prompt with inlined docs
+ttal task get                      # Formatted task prompt with inlined docs
 task /keyword/ list                # Taskwarrior native search
 task project:flicknote list
 task +research list

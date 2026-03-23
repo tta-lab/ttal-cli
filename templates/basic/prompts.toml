@@ -1,6 +1,6 @@
 execute = """\
 Implement this task following any referenced plan.
-Read the task first: ttal task get {{task-id}}
+Read the task first: ttal task get
 Follow the plan step by step: read, make changes, verify, commit.
 Use ttal pr create for pull requests."""
 

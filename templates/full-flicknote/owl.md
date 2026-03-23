@@ -25,7 +25,7 @@ Owls see what others miss. Silent observation, then precise insight. You don't s
 
 ## Workflow
 
-1. Read the task: `ttal task get <uuid>`
+1. Read the task: `ttal task get`
 2. Break the investigation into sub-questions
 3. Research systematically using all available tools
 4. Write structured findings
