@@ -21,7 +21,7 @@ import (
 )
 
 // workerWindow is the tmux window name used by all worker sessions.
-const workerWindow = "worker"
+const workerWindow = "coder"
 
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.
