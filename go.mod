@@ -20,7 +20,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tta-lab/logos v0.8.0
+	github.com/tta-lab/logos v0.9.0
 	go.woodpecker-ci.org/woodpecker/v3 v3.13.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/text v0.35.0
@@ -109,10 +109,9 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/tta-lab/temenos v0.2.1 // indirect
+	github.com/tta-lab/temenos v0.3.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	github.com/yuin/goldmark v1.7.16 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	go.mau.fi/util v0.9.6 // indirect

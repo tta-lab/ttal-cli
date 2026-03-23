@@ -25,7 +25,7 @@ Focus on the question — don't read everything.
 Good strategies:
 - Use `$ rg` for function names, types, interfaces, or error messages from the question
 - Use `$ rg --files --glob` to find relevant files by pattern
-- Use `$ cat` to read key files after locating them
+- Use `$ src <file>` to read key files after locating them — shows symbol structure, then zoom in with `-s <id>` (prefer over cat)
 - Use shell commands for cross-cutting queries (e.g. `$ rg -n "func.*Handler"`)
 
 Follow imports and internal references to trace data flow across packages.
@@ -42,7 +42,7 @@ Keep it focused. Answer the question asked, not adjacent things you noticed.
 ## Rules
 
 - Read-only — do not modify files in the repository
-- Use rg and find before reading entire files
+- Use rg and src before reading entire files
 - For large repos, narrow to the most relevant subsystem first
 - If the question mentions a specific feature, search for its test files — tests often reveal intent clearly
 - Short names (e.g. a function name) can appear in many places — search for the most specific term first

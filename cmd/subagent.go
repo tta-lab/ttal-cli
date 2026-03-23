@@ -104,15 +104,14 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get working directory: %w", err)
 	}
 
-	// Derive capability switches from frontmatter tools list.
-	network, readFS := deriveCapabilities(agent.Frontmatter.Ttal.Tools)
+	// Derive command list from frontmatter tools list.
+	commands := deriveCommands(agent.Frontmatter.Ttal.Tools)
 
 	promptData := logos.PromptData{
 		WorkingDir: cwd,
 		Platform:   runtime.GOOS,
 		Date:       time.Now().Format("2006-01-02"),
-		Network:    network,
-		ReadFS:     readFS,
+		Commands:   commands,
 	}
 	systemPrompt, err := logos.BuildSystemPrompt(promptData)
 	if err != nil {
@@ -158,23 +157,42 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	return flushAgentResult(result, err)
 }
 
-// deriveCapabilities maps frontmatter tool names to logos capability switches.
-// If tools is empty, defaults to both capabilities enabled (full access).
-func deriveCapabilities(toolNames []string) (network, readFS bool) {
+// deriveCommands maps frontmatter tool names to logos CommandDoc entries.
+// If tools is empty, defaults to all commands (full access).
+// Output order is always canonical (url, web, rg, src) regardless of input order.
+func deriveCommands(toolNames []string) []logos.CommandDoc {
 	if len(toolNames) == 0 {
-		return true, true // default: full access
+		return allCommands()
 	}
+	var hasURL, hasWeb, hasRG, hasSrc bool
 	for _, t := range toolNames {
 		switch t {
-		case "read_url", "search_web":
-			network = true
+		case "read_url":
+			hasURL = true
+		case "search_web":
+			hasWeb = true
 		case "bash", "read", "read_md", "glob", "grep":
-			readFS = true
+			hasRG = true
+		case "read_src":
+			hasSrc = true
 		default:
 			fmt.Fprintf(os.Stderr, "warning: unrecognised tool %q in agent frontmatter — ignored\n", t)
 		}
 	}
-	return network, readFS
+	var cmds []logos.CommandDoc
+	if hasURL {
+		cmds = append(cmds, urlCommandDoc)
+	}
+	if hasWeb {
+		cmds = append(cmds, webCommandDoc)
+	}
+	if hasRG {
+		cmds = append(cmds, rgCommandDoc)
+	}
+	if hasSrc {
+		cmds = append(cmds, srcCommandDoc)
+	}
+	return cmds
 }
 
 func listSubagents(_ *cobra.Command, _ []string) error {

@@ -154,8 +154,7 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		systemExtra:  strings.ReplaceAll(askProjectPrompt, "{projectPath}", projectPath),
 		workingDir:   projectPath,
 		allowedPaths: []string{projectPath},
-		network:      true,
-		readFS:       true,
+		commands:     allCommands(),
 		model:        cfg.AskModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
@@ -183,8 +182,7 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		systemExtra:  strings.ReplaceAll(askRepoPrompt, "{localPath}", localPath),
 		workingDir:   localPath,
 		allowedPaths: []string{localPath},
-		network:      true,
-		readFS:       true,
+		commands:     allCommands(),
 		model:        cfg.AskModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
@@ -195,13 +193,12 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 	})
 }
 
-// askURL asks about a web page using temenos for pre-fetching.
+// askURL asks about a web page using url for pre-fetching.
 func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:    fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
 		systemExtra: strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
-		network:     true,
-		readFS:      false,
+		commands:    networkCommands(),
 		preWarmURL:  rawURL,
 		model:       cfg.AskModel(),
 		maxSteps:    maxSteps,
@@ -218,8 +215,7 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error 
 	return runAskAgent(askOpts{
 		question:    question,
 		systemExtra: strings.ReplaceAll(askWebPrompt, "{query}", question),
-		network:     true,
-		readFS:      false,
+		commands:    networkCommands(),
 		model:       cfg.AskModel(),
 		maxSteps:    maxSteps,
 		maxTokens:   maxTokens,
@@ -246,8 +242,7 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		systemExtra:  strings.ReplaceAll(askGeneralPrompt, "{cwd}", cwd),
 		workingDir:   cwd,
 		allowedPaths: []string{cwd},
-		network:      true,
-		readFS:       true,
+		commands:     allCommands(),
 		model:        cfg.AskModel(),
 		maxSteps:     maxSteps,
 		maxTokens:    maxTokens,
@@ -261,13 +256,12 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 // askOpts holds parameters for running the ask subagent.
 type askOpts struct {
 	question     string
-	systemExtra  string   // mode-specific system prompt addition
-	workingDir   string   // working dir shown in system prompt (also used for PromptData)
-	allowedPaths []string // nil = no filesystem access
-	network      bool     // include read-url + search in prompt
-	readFS       bool     // include rg + read-only filesystem guidance in prompt
-	preWarmURL   string   // if set, pre-fetch via temenos before agent loop
-	model        string   // model string (e.g. "claude-sonnet-4-6")
+	systemExtra  string             // mode-specific system prompt addition
+	workingDir   string             // working dir shown in system prompt (also used for PromptData)
+	allowedPaths []string           // nil = no filesystem access
+	commands     []logos.CommandDoc // which commands to document in system prompt
+	preWarmURL   string             // if set, pre-fetch via url before agent loop
+	model        string             // model string (e.g. "claude-sonnet-4-6")
 	maxSteps     int
 	maxTokens    int
 	emoji        string // optional display emoji shown before output
@@ -295,8 +289,7 @@ func runAskAgent(opts askOpts) error {
 		WorkingDir: cwd,
 		Platform:   runtime.GOOS,
 		Date:       time.Now().Format("2006-01-02"),
-		Network:    opts.network,
-		ReadFS:     opts.readFS,
+		Commands:   opts.commands,
 	}
 	systemPrompt, err := logos.BuildSystemPrompt(promptData)
 	if err != nil {
@@ -316,7 +309,7 @@ func runAskAgent(opts askOpts) error {
 		fmt.Fprintf(os.Stderr, "Fetching %s...\n", opts.preWarmURL)
 		quotedURL := "'" + strings.ReplaceAll(opts.preWarmURL, "'", "'\\''") + "'"
 		resp, err := tc.Run(context.Background(), logos.RunRequest{
-			Command: "temenos read-url " + quotedURL,
+			Command: "url " + quotedURL,
 		})
 		if err != nil {
 			return fmt.Errorf("pre-fetch %s: %w", opts.preWarmURL, err)
