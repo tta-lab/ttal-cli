@@ -117,9 +117,6 @@ func Run() error {
 	startPRWatcher(mcfg, frontends, done)
 	startReminderPoller(mcfg, frontends, done)
 	startWatcher(mcfg, frontends, msgSvc, done)
-	onTaskScopedSpawn = func(teamName, agentName, sessionID, workDir string) {
-		startTaskScopedFileWatch(mcfg, frontends, msgSvc, teamName, agentName, sessionID, workDir)
-	}
 
 	shellCfg, err := config.Load()
 	if err != nil {

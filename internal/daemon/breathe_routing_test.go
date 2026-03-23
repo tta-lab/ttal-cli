@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/status"
 )
 
@@ -373,56 +372,30 @@ func TestResolveBreatheSessions(t *testing.T) {
 	cfg := loadConfigWithTeamPath(t, tmp)
 	const agent = "astra"
 	const team = "default"
-	const taskUUID = "fe10b6bf-1234-5678-abcd-000000000000"
 
 	tests := []struct {
 		name           string
 		req            BreatheRequest
-		routeReq       *route.Request
 		wantOldSession string
 		wantNewSession string
 	}{
 		{
-			name:           "nil routeReq (self-breathe) → persistent session",
+			name:           "self-breathe → persistent session",
 			req:            BreatheRequest{Agent: agent, Team: team, SessionName: ""},
-			routeReq:       nil,
 			wantOldSession: "ttal-default-" + agent,
 			wantNewSession: "ttal-default-" + agent,
 		},
 		{
-			name: "TaskScoped=true → ts-* session",
-			req:  BreatheRequest{Agent: agent, Team: team, SessionName: ""},
-			routeReq: &route.Request{
-				TaskScoped:  true,
-				ProjectPath: "/some/project",
-				TaskUUID:    taskUUID,
-			},
-			wantOldSession: "ttal-default-" + agent,
-			wantNewSession: "ts-fe10b6bf-" + agent,
-		},
-		{
-			name: "ProjectPath set but NOT TaskScoped → persistent session",
-			req:  BreatheRequest{Agent: agent, Team: team, SessionName: ""},
-			routeReq: &route.Request{
-				TaskScoped:  false,
-				ProjectPath: "/some/project",
-				TaskUUID:    taskUUID,
-			},
-			wantOldSession: "ttal-default-" + agent,
-			wantNewSession: "ttal-default-" + agent,
-		},
-		{
-			name:           "ts→persistent graduation: req.SessionName set, nil routeReq",
-			req:            BreatheRequest{Agent: agent, Team: team, SessionName: "ts-fe10b6bf-" + agent},
-			routeReq:       nil,
-			wantOldSession: "ts-fe10b6bf-" + agent,
+			name:           "session name override → use as old session, restart as persistent",
+			req:            BreatheRequest{Agent: agent, Team: team, SessionName: "custom-session-" + agent},
+			wantOldSession: "custom-session-" + agent,
 			wantNewSession: "ttal-default-" + agent,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			plan, err := resolveBreatheSessions(tt.req, team, tt.routeReq, cfg)
+			plan, err := resolveBreatheSessions(tt.req, team, cfg)
 			if err != nil {
 				t.Fatalf("resolveBreatheSessions error: %v", err)
 			}

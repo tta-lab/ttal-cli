@@ -53,7 +53,7 @@ func TestFileWatcherOnlyTargetFile(t *testing.T) {
 }
 
 // TestFileWatcherEncodedPathConstruction verifies the JSONL file path is built correctly
-// from workDir + sessionID (the pattern used in startTaskScopedFileWatch).
+// from workDir + sessionID (the pattern used for per-session JSONL watching).
 func TestFileWatcherEncodedPathConstruction(t *testing.T) {
 	home := t.TempDir()
 	workDir := "/Users/neil/Code/myproject"

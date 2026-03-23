@@ -20,7 +20,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
@@ -535,14 +534,8 @@ func advanceToStage(
 	agentRT := cfg.AgentRuntimeFor(agent.Name)
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
 
-	if mcfg.IsTaskScopedRole(agent.Role) {
-		if err := routeToTaskScopedAgent(w, mcfg, task, agent, rolePrompt, callerAgent, team); err != nil {
-			return err
-		}
-	} else {
-		if err := routeToPersistentAgent(w, cfg, task, agent, rolePrompt, callerAgent, team); err != nil {
-			return err
-		}
+	if err := routeToPersistentAgent(w, cfg, task, agent, rolePrompt, callerAgent, team); err != nil {
+		return err
 	}
 
 	record := fmt.Sprintf("advanced: %s → %s (stage: %s)", callerAgent, agent.Name, stage.Name)
@@ -614,68 +607,6 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 		return nil, fmt.Errorf("taskwarrior query failed for role %q agents: %v", role, queryErrors)
 	}
 	return nil, fmt.Errorf("all agents with role %q are busy: %v", role, names)
-}
-
-// routeToTaskScopedAgent routes a task to a task-scoped agent.
-// If an idle ts-* session exists, it sends a breathe rotation. Otherwise it spawns a fresh session.
-func routeToTaskScopedAgent(
-	w http.ResponseWriter, mcfg *config.DaemonConfig,
-	task *taskwarrior.Task, agent *agentfs.AgentInfo,
-	rolePrompt, callerAgent, team string,
-) error {
-	projectPath := projectPkg.ResolveProjectPath(task.Project)
-	if projectPath == "" {
-		writeHTTPJSON(w, http.StatusBadRequest, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: fmt.Sprintf("resolve project %q for task-scoped agent", task.Project),
-		})
-		return fmt.Errorf("cannot resolve project for task-scoped agent")
-	}
-
-	if existingSession := tmux.FindSessionByPrefix("ts-", "-"+agent.Name); existingSession != "" {
-		return rotateTaskScopedSession(w, task, agent, rolePrompt, callerAgent, team, projectPath)
-	}
-	if err := spawnTaskScopedAgent(mcfg, task, agent, rolePrompt, projectPath, team); err != nil {
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "spawn task-scoped agent: " + err.Error(),
-		})
-		return err
-	}
-	return nil
-}
-
-// rotateTaskScopedSession stages a route file and triggers breathe rotation for an idle ts-* session.
-func rotateTaskScopedSession(
-	w http.ResponseWriter,
-	task *taskwarrior.Task, agent *agentfs.AgentInfo,
-	rolePrompt, callerAgent, team, projectPath string,
-) error {
-	if err := route.Stage(agent.Name, route.Request{
-		TaskUUID:    task.UUID,
-		RolePrompt:  rolePrompt,
-		ProjectPath: projectPath,
-		TaskScoped:  true,
-		RoutedBy:    callerAgent,
-		Team:        team,
-	}); err != nil {
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "stage route: " + err.Error(),
-		})
-		return err
-	}
-	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "/breathe"}); err != nil {
-		if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
-			log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
-		}
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
-		})
-		return err
-	}
-	return nil
 }
 
 // routeToPersistentAgent stages a route file and optionally breathes a persistent agent.
