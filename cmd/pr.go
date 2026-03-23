@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -180,15 +179,7 @@ func writeReviewFile(body string) (string, error) {
 // resolvePRReviewerName resolves the PR reviewer agent name from pipeline config.
 // Falls back to "pr-review-lead" if no pipeline matches or no reviewer is configured.
 func resolvePRReviewerName(taskTags []string) string {
-	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load pipelines.toml — falling back to pr-review-lead: %v\n", err)
-		return "pr-review-lead"
-	}
-	if name := pipelineCfg.ReviewerForStage(taskTags, "coder"); name != "" {
-		return name
-	}
-	return "pr-review-lead"
+	return resolveReviewerWindow(taskTags, "coder", "pr-review-lead")
 }
 
 // resolveCoderRuntime returns the coder's runtime from TTAL_RUNTIME env var,

@@ -108,6 +108,24 @@ func WindowExists(session, window string) bool {
 	return false
 }
 
+// FirstWindow returns the name of the first window in a session.
+// Returns "" with nil error if the session has no windows.
+func FirstWindow(session string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", "list-windows", "-t", session, "-F", "#{window_name}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("tmux list-windows for %q: %w", session, err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		return "", nil
+	}
+	return strings.TrimSpace(lines[0]), nil
+}
+
 // FirstWindowExcept returns the first window in a session whose name is not in the
 // exclusion list. Returns "" with nil error if no matching window is found.
 func FirstWindowExcept(session string, exclude ...string) (string, error) {
