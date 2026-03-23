@@ -125,7 +125,7 @@ prompt = "..."
 Worker-plane prompt templates live in `~/.config/ttal/prompts.toml`:
 
 ```toml
-execute = "{{skill:sp-executing-plans}}\nwrite this plan task-by-task."
+execute = "Implement this task. The plan is in your task context.\nFollow each task in order: read the plan, make changes, verify, commit."
 triage = "{{skill:triage}}\nPR review posted.{{review-file}} Read it and fix issues."
 review = "{{skill:pr-review}}\nReview PR #{{pr-number}}."
 re_review = "{{skill:pr-review}}\nRe-review the fixes: {{review-scope}}"

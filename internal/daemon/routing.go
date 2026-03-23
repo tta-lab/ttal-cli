@@ -18,10 +18,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // workerWindow is the tmux window name used by all worker sessions.
-const workerWindow = "worker"
+const workerWindow = worker.CoderAgentName
 
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.

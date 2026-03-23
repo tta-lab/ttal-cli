@@ -63,9 +63,9 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 		},
 		{
 			name:  "skill placeholder at end of text",
-			input: "Some text {{skill:sp-executing-plans}}",
+			input: "Some text {{skill:triage}}",
 			rt:    runtime.Codex,
-			want:  "$sp-executing-plans\n\nSome text ",
+			want:  "$triage\n\nSome text ",
 		},
 	}
 	for _, tt := range tests {

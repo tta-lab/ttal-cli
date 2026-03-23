@@ -243,7 +243,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 				CWD:       workDir,
 				GitBranch: branch,
 				Handoff:   systemPrompt,
-			}, model, "", "Begin implementation.",
+			}, model, CoderAgentName, "Begin implementation.",
 		)
 		if err != nil {
 			return err
@@ -254,7 +254,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, "worker", workDir, shellCmd); err != nil {
+	if err := tmux.NewSession(sessionName, CoderAgentName, workDir, shellCmd); err != nil {
 		if ccSessionPath != "" {
 			os.Remove(ccSessionPath)
 		}
@@ -283,7 +283,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 // buildEnvParts returns the shared env vars for any runtime.
 func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []string {
 	parts := []string{
-		"TTAL_AGENT_NAME=coder",
+		"TTAL_AGENT_NAME=" + CoderAgentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}

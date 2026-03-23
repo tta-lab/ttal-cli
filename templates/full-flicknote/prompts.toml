@@ -1,5 +1,4 @@
 execute = """\
-{{skill:sp-executing-plans}}
 Implement this task following the referenced plan.
 Follow each task in order: read the plan, make changes, verify, commit.
 Use ttal pr create for pull requests."""

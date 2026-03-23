@@ -39,7 +39,6 @@ Create a new directory in `docs/skills/` with a `SKILL.md` file. See existing sk
 | Skill | Purpose |
 |-------|---------|
 | sp-planning | Write detailed implementation plans |
-| sp-executing-plans | Execute plans step by step |
 | sp-research | Structured research methodology |
 | sp-brainstorming | Collaborative idea exploration and design |
 | sp-tdd | Test-driven development workflow |

@@ -12,9 +12,6 @@ func TestFormatSkillInvocation(t *testing.T) {
 		{Codex, "triage", "$triage"},
 		{ClaudeCode, "review-pr", "Use review-pr skill"},
 		{Codex, "review-pr", "$review-pr"},
-		// sp- skills should also work
-		{ClaudeCode, "sp-executing-plans", "Use sp-executing-plans skill"},
-		{Codex, "sp-executing-plans", "$sp-executing-plans"},
 	}
 	for _, tt := range tests {
 		got := FormatSkillInvocation(tt.rt, tt.skill)
