@@ -153,6 +153,30 @@ func TestExtractToolUse(t *testing.T) {
 	}
 }
 
+func TestIsNoisyText(t *testing.T) {
+	tests := []struct {
+		name  string
+		text  string
+		noisy bool
+	}{
+		{"exact phrase", "No response requested", true},
+		{"with period", "No response requested.", true},
+		{"lowercase", "no response requested", true},
+		{"with extra whitespace", "  No response requested.  ", true},
+		{"meaningful text", "Task complete!", false},
+		{"empty string", "", false},
+		{"partial match", "No response requested but also something else", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isNoisyText(tt.text)
+			if got != tt.noisy {
+				t.Errorf("isNoisyText(%q) = %v, want %v", tt.text, got, tt.noisy)
+			}
+		})
+	}
+}
+
 func TestExtractAssistantText(t *testing.T) {
 	tests := []struct {
 		name string
@@ -207,5 +231,25 @@ func TestExtractAssistantText(t *testing.T) {
 				t.Errorf("extractAssistantText() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestProcessLinesFiltersNoisyText(t *testing.T) {
+	noisyLine := `{"type":"assistant","message":{"content":[{"type":"text","text":"No response requested."}]}}` + "\n"
+	meaningfulLine := `{"type":"assistant","message":{"content":[{"type":"text","text":"Task complete!"}]}}` + "\n"
+
+	var sent []string
+	w := &Watcher{
+		send: func(_, _, text string) { sent = append(sent, text) },
+	}
+
+	w.processLines([]byte(noisyLine), AgentInfo{TeamName: "t", AgentName: "a"})
+	if len(sent) != 0 {
+		t.Errorf("noisy text should be suppressed, got %v", sent)
+	}
+
+	w.processLines([]byte(meaningfulLine), AgentInfo{TeamName: "t", AgentName: "a"})
+	if len(sent) != 1 || sent[0] != "Task complete!" {
+		t.Errorf("meaningful text should be forwarded, got %v", sent)
 	}
 }

@@ -108,6 +108,25 @@ func extractToolUse(line []byte) string {
 	return ""
 }
 
+// noisyPhrases is a list of exact texts (case-insensitive) that are CC
+// internal status messages rather than meaningful agent output.  These should
+// be suppressed before forwarding text to Telegram.
+var noisyPhrases = []string{
+	"no response requested",
+}
+
+// isNoisyText reports whether text is a known CC noise phrase that should be
+// suppressed before forwarding to Telegram.
+func isNoisyText(text string) bool {
+	lower := strings.ToLower(strings.TrimRight(strings.TrimSpace(text), "."))
+	for _, phrase := range noisyPhrases {
+		if lower == phrase {
+			return true
+		}
+	}
+	return false
+}
+
 // extractAssistantText parses a JSONL line and returns the assistant text
 // if it's a type=assistant entry with text content blocks. Returns "" otherwise.
 func extractAssistantText(line []byte) string {
