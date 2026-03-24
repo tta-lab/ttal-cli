@@ -329,14 +329,10 @@ func TestResolveBrCWD(t *testing.T) {
 func TestBuildBreatheEnv(t *testing.T) {
 	t.Run("empty config returns identity vars only", func(t *testing.T) {
 		cfg := &config.Config{}
-		vars := buildBreatheEnv("kestrel", "default", cfg)
+		vars := buildBreatheEnv("kestrel", cfg)
 		hasAgent := strings.Contains(strings.Join(vars, "\n"), "TTAL_AGENT_NAME=kestrel")
-		hasTeam := strings.Contains(strings.Join(vars, "\n"), "TTAL_TEAM=default")
 		if !hasAgent {
 			t.Errorf("TTAL_AGENT_NAME missing from %v", vars)
-		}
-		if !hasTeam {
-			t.Errorf("TTAL_TEAM missing from %v", vars)
 		}
 	})
 
@@ -357,7 +353,7 @@ func TestBuildBreatheEnv(t *testing.T) {
 		if err != nil {
 			t.Fatalf("config.Load: %v", err)
 		}
-		vars := buildBreatheEnv("kestrel", "default", cfg)
+		vars := buildBreatheEnv("kestrel", cfg)
 		joined := strings.Join(vars, "\n")
 		if !strings.Contains(joined, "TASKRC="+taskrc) {
 			t.Errorf("TASKRC missing or wrong in %v", vars)

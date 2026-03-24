@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"os"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/daemon"
@@ -73,8 +72,8 @@ func TestCommentGetSubcmdExists(t *testing.T) {
 }
 
 func TestResolveCurrentTask_NoEnv_ReturnsError(t *testing.T) {
-	_ = os.Unsetenv("TTAL_JOB_ID")
-	_ = os.Unsetenv("TTAL_AGENT_NAME")
+	t.Setenv("TTAL_JOB_ID", "")
+	t.Setenv("TTAL_AGENT_NAME", "")
 	_, err := resolveCurrentTask()
 	if err == nil {
 		t.Error("expected error when no env vars set")
@@ -94,7 +93,7 @@ func TestResolveCurrentTask_WithJobID_AttemptsLookup(t *testing.T) {
 	// lookup and return an error (since no real task exists in test env) — not the
 	// "no env vars" error. This confirms the TTAL_JOB_ID branch is taken.
 	t.Setenv("TTAL_JOB_ID", "f9a917aa")
-	_ = os.Unsetenv("TTAL_AGENT_NAME")
+	t.Setenv("TTAL_AGENT_NAME", "")
 	_, err := resolveCurrentTask()
 	if err == nil {
 		// In a real env with a matching task this would succeed — both outcomes are valid.

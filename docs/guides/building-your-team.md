@@ -100,8 +100,6 @@ Each team has its own:
 - Bot tokens
 - Data directory
 
-Switch teams with `TTAL_TEAM=work ttal today list`.
-
 ## When to split into multiple teams
 
 **Keep one team when:**

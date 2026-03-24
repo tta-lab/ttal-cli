@@ -16,19 +16,13 @@ const (
 )
 
 // hookShim generates a bash hook script that delegates to ttal.
-// It bakes in "export TTAL_TEAM=<team>" so hooks work correctly even when
-// triggered from tools without TTAL_TEAM in env (e.g. taskwarrior-tui).
-func hookShim(hookCmd, teamName string) string {
-	var envLine string
-	if teamName != "" {
-		envLine = fmt.Sprintf("\nexport TTAL_TEAM=%q", teamName)
-	}
+func hookShim(hookCmd string) string {
 	return fmt.Sprintf(`#!/bin/bash
 # Taskwarrior hook — delegates to ttal.
 # Installed by: ttal doctor --fix
-%s
+
 exec ttal worker hook %s
-`, envLine, hookCmd)
+`, hookCmd)
 }
 
 // Install sets up the taskwarrior hooks (on-add and on-modify).
@@ -56,7 +50,7 @@ func Install() error {
 	}
 	fmt.Println()
 
-	if err := InstallHooks(hookDir, teamName); err != nil {
+	if err := InstallHooks(hookDir); err != nil {
 		return fmt.Errorf("hook install failed: %w", err)
 	}
 
@@ -89,7 +83,7 @@ func Uninstall() error {
 }
 
 // InstallHooks writes taskwarrior hook scripts to the given directory.
-func InstallHooks(hookDir, teamName string) error {
+func InstallHooks(hookDir string) error {
 	if err := os.MkdirAll(hookDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}
@@ -106,14 +100,14 @@ func InstallHooks(hookDir, teamName string) error {
 
 	// Install on-modify hook
 	onModifyPath := filepath.Join(hookDir, onModifyHookName)
-	if err := os.WriteFile(onModifyPath, []byte(hookShim("on-modify", teamName)), 0o755); err != nil {
+	if err := os.WriteFile(onModifyPath, []byte(hookShim("on-modify")), 0o755); err != nil {
 		return err
 	}
 	fmt.Printf("Taskwarrior hook: %s\n", onModifyPath)
 
 	// Install on-add hook
 	onAddPath := filepath.Join(hookDir, onAddHookName)
-	if err := os.WriteFile(onAddPath, []byte(hookShim("on-add", teamName)), 0o755); err != nil {
+	if err := os.WriteFile(onAddPath, []byte(hookShim("on-add")), 0o755); err != nil {
 		return err
 	}
 	fmt.Printf("Taskwarrior hook: %s\n", onAddPath)

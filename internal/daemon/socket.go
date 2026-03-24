@@ -48,7 +48,6 @@ type StatusUpdateRequest struct {
 //	From + To:       agent → agent via tmux with attribution
 //
 // Team disambiguates when agent names collide across teams.
-// Auto-populated from TTAL_TEAM env if unset.
 type SendRequest struct {
 	From    string `json:"from,omitempty"`
 	To      string `json:"to,omitempty"`
@@ -794,10 +793,9 @@ func daemonHTTPClientLong(timeout time.Duration) *http.Client {
 
 // Send connects to the daemon socket and sends a message via HTTP.
 // Returns an error if the daemon is not running or if delivery fails.
-// Auto-populates Team from TTAL_TEAM env if not set.
 func Send(req SendRequest) error {
 	if req.Team == "" {
-		req.Team = os.Getenv("TTAL_TEAM")
+		req.Team = config.DefaultTeamName
 	}
 
 	body, err := json.Marshal(req)
@@ -894,7 +892,7 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 // CC session with a fresh context window and the provided handoff prompt.
 func Breathe(req BreatheRequest) error {
 	if req.Team == "" {
-		req.Team = os.Getenv("TTAL_TEAM")
+		req.Team = config.DefaultTeamName
 	}
 	body, err := json.Marshal(req)
 	if err != nil {

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"time"
 
@@ -17,21 +16,14 @@ import (
 const staleThreshold = 5 * time.Minute
 
 var statusCmd = &cobra.Command{
-	Use:   "status [team-name]",
+	Use:   "status",
 	Short: "Show agent status and context usage",
 	Long: `Shows all agents in the active team with session health and context usage.
 
-Without team name: uses TTAL_TEAM env or default_team from config.
-With team name: shows that team's status.
-
 Examples:
-  ttal status              # active team
-  ttal status guion        # specific team`,
-	Args: cobra.MaximumNArgs(1),
+  ttal status`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 1 {
-			_ = os.Setenv("TTAL_TEAM", args[0])
-		}
 		return showStatus()
 	},
 }

@@ -4,7 +4,7 @@ import "testing"
 
 func TestIsAllowedForSession(t *testing.T) {
 	allowed := []string{
-		"TTAL_TEAM", "TTAL_JOB_ID", "TTAL_AGENT_NAME",
+		"TTAL_JOB_ID", "TTAL_AGENT_NAME",
 		"TASKRC",
 		"FORGEJO_URL",
 		"MINIMAX_API_KEY", "MINIMAX_API_URL",
@@ -24,7 +24,7 @@ func TestIsAllowedForSession(t *testing.T) {
 		"ANTHROPIC_API_KEY",
 		"SOME_RANDOM_SECRET",
 		// Credentials with TTAL_ prefix must be blocked — prefix allowlist is for
-		// runtime metadata only (TTAL_TEAM, TTAL_JOB_ID), not git tokens.
+		// runtime metadata only (TTAL_JOB_ID, TTAL_AGENT_NAME), not git tokens.
 		"TTAL_FORGEJO_TOKEN", "TTAL_GITHUB_TOKEN",
 	}
 	for _, k := range blocked {

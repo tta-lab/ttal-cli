@@ -66,7 +66,6 @@ func initSingleAdapter(
 func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
 	env := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
-		fmt.Sprintf("TTAL_TEAM=%s", teamName),
 	}
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))

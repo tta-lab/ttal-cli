@@ -122,7 +122,7 @@
     },
     "default_team": {
       "type": "string",
-      "description": "Active team when TTAL_TEAM env is not set"
+      "description": "Active team — falls back to \"default\" if unset"
     },
     "teams": {
       "additionalProperties": {

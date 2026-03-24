@@ -70,10 +70,7 @@ func runStatusline(cmd *cobra.Command, args []string) error {
 
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	if agentName != "" {
-		team := os.Getenv("TTAL_TEAM")
-		if team == "" {
-			team = config.DefaultTeamName
-		}
+		team := config.DefaultTeamName
 		s := status.AgentStatus{
 			Agent:               agentName,
 			ContextUsedPct:      input.ContextWindow.UsedPercentage,

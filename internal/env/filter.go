@@ -12,7 +12,7 @@ func IsAllowedForSession(key string) bool {
 	if strings.HasSuffix(key, "_TOKEN") || strings.HasSuffix(key, "_SECRET") || strings.HasSuffix(key, "_PASSWORD") {
 		return false
 	}
-	// ttal runtime vars (TTAL_TEAM, TTAL_JOB_ID, etc.)
+	// ttal runtime vars (TTAL_JOB_ID, TTAL_AGENT_NAME, etc.)
 	if strings.HasPrefix(key, "TTAL_") {
 		return true
 	}

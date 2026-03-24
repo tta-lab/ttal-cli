@@ -335,8 +335,8 @@ func resolveBreatheSessions(
 }
 
 // selectBreatheEnv returns the env vars for the breathe restart command.
-func selectBreatheEnv(agent, team string, shellCfg *config.Config) []string {
-	return buildBreatheEnv(agent, team, shellCfg)
+func selectBreatheEnv(agent string, shellCfg *config.Config) []string {
+	return buildBreatheEnv(agent, shellCfg)
 }
 
 // composeRouteHandoff merges a base handoff with a route request's role prompt and message.
@@ -426,7 +426,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// 8. Build restart command with env.
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	agentEnv := selectBreatheEnv(req.Agent, team, shellCfg)
+	agentEnv := selectBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
 	// 9. Kill old session, create new.
@@ -451,10 +451,9 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
 // Mirrors buildAgentEnv: agent identity, TASKRC, and .env secrets.
-func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
+func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
-		fmt.Sprintf("TTAL_TEAM=%s", team),
 	}
 	if taskRC := cfg.TaskRC(); taskRC != "" {
 		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))

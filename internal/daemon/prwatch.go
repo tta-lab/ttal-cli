@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -73,52 +72,23 @@ func scanForPRTasks(
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
-	seenUUIDs := make(map[string]bool)
-	allSucceeded := true
-
-	for teamName := range mcfg.Teams {
-		seen := scanTeamWithEnv(frontends, teamName, mu, active, done)
-		if seen == nil {
-			// Team scan failed — skip pruning this round to avoid orphaning
-			// goroutines whose UUIDs would be absent from an error-empty result.
-			allSucceeded = false
-			continue
-		}
-		for uuid := range seen {
-			seenUUIDs[uuid] = true
-		}
-	}
-
-	if !allSucceeded {
+	teamName := mcfg.DefaultTeamName()
+	seen := scanTeam(frontends, teamName, mu, active, done)
+	if seen == nil {
+		// Scan failed — skip pruning this round to avoid orphaning
+		// goroutines whose UUIDs would be absent from an error-empty result.
 		return
 	}
 
-	// Prune UUIDs from active that no longer appear in any team's task list.
+	// Prune UUIDs from active that no longer appear in the task list.
 	// These are tasks that were merged/closed and have since been marked done.
 	mu.Lock()
 	for uuid := range active {
-		if !seenUUIDs[uuid] {
+		if !seen[uuid] {
 			delete(active, uuid)
 		}
 	}
 	mu.Unlock()
-}
-
-// scanTeamWithEnv sets TTAL_TEAM for non-default teams and delegates to scanTeam.
-// Returns nil on taskwarrior error so the caller can skip the pruning pass.
-func scanTeamWithEnv(
-	frontends map[string]frontend.Frontend,
-	teamName string,
-	mu *sync.Mutex, active map[string]bool,
-	done <-chan struct{},
-) map[string]bool {
-	if teamName == config.DefaultTeamName {
-		return scanTeam(frontends, teamName, mu, active, done)
-	}
-	prev := os.Getenv("TTAL_TEAM")
-	_ = os.Setenv("TTAL_TEAM", teamName)
-	defer func() { _ = os.Setenv("TTAL_TEAM", prev) }()
-	return scanTeam(frontends, teamName, mu, active, done)
 }
 
 func scanTeam(

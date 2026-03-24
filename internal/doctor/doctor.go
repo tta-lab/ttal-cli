@@ -835,19 +835,12 @@ func checkHooks(fix bool) Section {
 }
 
 func checkTaskwarriorHooks(section *Section, fix bool) {
-	cfg, err := config.Load()
-	if err != nil {
-		section.add(LevelWarn, "tw-hooks", fmt.Sprintf("cannot load config: %v", err))
-		return
-	}
-
 	taskDataDir, err := taskwarrior.ResolveDataLocation()
 	if err != nil {
 		section.add(LevelWarn, "tw-hooks", fmt.Sprintf("taskwarrior data dir not found (%v) — skipping hook check", err))
 		return
 	}
 	hookDir := filepath.Join(taskDataDir, "hooks")
-	teamName := cfg.TeamName()
 
 	allPresent := true
 	for _, name := range []string{"on-add-ttal", "on-modify-ttal"} {
@@ -868,7 +861,7 @@ func checkTaskwarriorHooks(section *Section, fix bool) {
 		return
 	}
 
-	if err := worker.InstallHooks(hookDir, teamName); err != nil {
+	if err := worker.InstallHooks(hookDir); err != nil {
 		section.add(LevelError, "tw-hooks",
 			fmt.Sprintf("failed to install taskwarrior hooks: %v", err))
 		return

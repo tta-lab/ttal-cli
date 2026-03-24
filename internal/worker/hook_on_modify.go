@@ -33,14 +33,10 @@ type taskCompletePayload struct {
 // notifyTaskComplete sends a taskComplete HTTP request to the daemon.
 // Fire-and-forget: daemon unreachable silently skipped so task completion never blocks.
 func notifyTaskComplete(task hookTask, prTitle string) {
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = "default"
-	}
 	msg := taskCompletePayload{
 		Type:     "taskComplete",
 		TaskUUID: task.UUID(),
-		Team:     team,
+		Team:     config.DefaultTeamName,
 		Spawner:  task.Spawner(),
 		Desc:     task.Description(),
 		PRID:     task.PRID(),

@@ -191,7 +191,7 @@ These tasks are about becoming, not productivity. I can create tasks anytime, ch
 
 ### Config (`~/.config/ttal/config.toml`)
 
-Team-aware layout with resolution: `TTAL_TEAM` env → `default_team` → `"default"` fallback.
+Team-aware layout with resolution: `default_team` → `"default"` fallback.
 
 ```toml
 default_team = "clawd"

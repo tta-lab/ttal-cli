@@ -17,16 +17,11 @@ import (
 )
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
-// TTAL_TEAM is forwarded when set, so the reviewer uses the correct team project registry.
 func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
-	parts := []string{
+	return []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
-	if team := os.Getenv("TTAL_TEAM"); team != "" {
-		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
-	}
-	return parts
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.

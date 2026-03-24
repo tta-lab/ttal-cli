@@ -51,7 +51,6 @@ Examples:
 		req := daemon.AdvanceRequest{
 			TaskUUID:  uuid,
 			AgentName: os.Getenv("TTAL_AGENT_NAME"),
-			Team:      os.Getenv("TTAL_TEAM"),
 		}
 
 		resp, err := daemon.AdvanceClient(req)

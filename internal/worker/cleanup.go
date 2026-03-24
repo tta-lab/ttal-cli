@@ -17,7 +17,6 @@ const cleanupDir = "cleanup"
 type CleanupRequest struct {
 	SessionID string    `json:"session_id"`
 	TaskUUID  string    `json:"task_uuid"`
-	Team      string    `json:"team,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -33,7 +32,6 @@ func RequestCleanup(sessionID, taskUUID string) error {
 	req := CleanupRequest{
 		SessionID: sessionID,
 		TaskUUID:  taskUUID,
-		Team:      os.Getenv("TTAL_TEAM"),
 		CreatedAt: time.Now(),
 	}
 
@@ -55,21 +53,6 @@ func CleanupDir() (string, error) {
 // removes the request file. Returns error for callers that need it (CLI).
 // The force parameter controls whether worker.Close uses force mode.
 func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
-	// Set TTAL_TEAM so taskwarrior.resolveTaskRC() (via config.Load()) picks
-	// up the correct team taskrc for this request — config.Load() reads the
-	// env fresh each call, so this must be set before any taskwarrior calls.
-	// Restore the previous value on return to avoid polluting subsequent
-	// cleanup calls in the daemon (e.g. a default-team request after a
-	// named-team request would otherwise inherit the wrong TTAL_TEAM).
-	if req.Team != "" {
-		if prev, ok := os.LookupEnv("TTAL_TEAM"); ok {
-			defer os.Setenv("TTAL_TEAM", prev) //nolint:errcheck
-		} else {
-			defer os.Unsetenv("TTAL_TEAM") //nolint:errcheck
-		}
-		os.Setenv("TTAL_TEAM", req.Team) //nolint:errcheck
-	}
-
 	if req.SessionID == "" {
 		if req.TaskUUID != "" {
 			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
@@ -79,7 +62,7 @@ func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
 		return os.Remove(path)
 	}
 
-	if _, err := Close(req.SessionID, force, req.Team); err != nil {
+	if _, err := Close(req.SessionID, force); err != nil {
 		return fmt.Errorf("close failed for %s: %w", req.SessionID, err)
 	}
 
@@ -99,7 +82,7 @@ func RunCleanup(path string, force bool) error {
 		return fmt.Errorf("invalid JSON in %s: %w", path, err)
 	}
 
-	fmt.Printf("Processing cleanup: session=%s task=%s team=%s\n", req.SessionID, req.TaskUUID, req.Team)
+	fmt.Printf("Processing cleanup: session=%s task=%s\n", req.SessionID, req.TaskUUID)
 
 	if err := ExecuteCleanup(req, path, force); err != nil {
 		return err
