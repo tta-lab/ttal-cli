@@ -110,7 +110,7 @@ Examples:
 		author := resolveAuthor()
 
 		// Attempt to populate PR context for mirroring (worker plane only).
-		var providerType, owner, repo string
+		var providerType, owner, repo, projectAlias string
 		var prIndex int64
 		if os.Getenv("TTAL_JOB_ID") != "" {
 			if ctx, err := pr.ResolveContextWithoutProvider(); err != nil {
@@ -122,6 +122,7 @@ Examples:
 				owner = ctx.Owner
 				repo = ctx.Repo
 				prIndex = idx
+				projectAlias = ctx.Task.Project
 			}
 		}
 
@@ -133,6 +134,7 @@ Examples:
 			Owner:        owner,
 			Repo:         repo,
 			PRIndex:      prIndex,
+			ProjectAlias: projectAlias,
 		})
 		if err != nil {
 			return err

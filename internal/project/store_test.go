@@ -395,6 +395,91 @@ path = "/path/fb/tk"
 	}
 }
 
+func TestStoreGitHubTokenEnvRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+	s := NewStore(path)
+
+	if err := s.Add("guion", "Guion", "/path/guion"); err != nil {
+		t.Fatalf("Add() error: %v", err)
+	}
+	if err := s.Modify("guion", map[string]string{"github_token_env": testTokenEnvVar}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	// Reload via fresh store — catches serialization bugs that in-memory tests miss
+	s2 := NewStore(path)
+	p, err := s2.Get("guion")
+	if err != nil {
+		t.Fatalf("Get() after reload error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("Get() returned nil after reload")
+	}
+	if p.GitHubTokenEnv != testTokenEnvVar {
+		t.Errorf("GitHubTokenEnv = %q, want %q", p.GitHubTokenEnv, testTokenEnvVar)
+	}
+}
+
+func TestStoreGitHubTokenEnvPreservation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+	s := NewStore(path)
+
+	// Add project A with github_token_env
+	if err := s.Add("guion", "Guion", "/path/guion"); err != nil {
+		t.Fatalf("Add(guion) error: %v", err)
+	}
+	if err := s.Modify("guion", map[string]string{"github_token_env": testTokenEnvVar}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	// Adding project B triggers save()
+	if err := s.Add("other", "Other", "/path/other"); err != nil {
+		t.Fatalf("Add(other) error: %v", err)
+	}
+
+	// Reload via fresh store — guion's github_token_env must still be set
+	s2 := NewStore(path)
+	p, err := s2.Get("guion")
+	if err != nil {
+		t.Fatalf("Get() error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("Get() returned nil")
+	}
+	if p.GitHubTokenEnv != testTokenEnvVar {
+		t.Errorf("GitHubTokenEnv = %q after second project added, want %q", p.GitHubTokenEnv, testTokenEnvVar)
+	}
+}
+
+func TestStoreFlattenDoesNotTreatGitHubTokenEnvAsSubProject(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+
+	tomlContent := "[guion]\nname = \"Guion\"\npath = \"/path/guion\"\ngithub_token_env = \"" + testTokenEnvVar + "\"\n"
+	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
+		t.Fatalf("writing test TOML: %v", err)
+	}
+
+	s := NewStore(path)
+	projects, err := s.List(false)
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	// Should be exactly 1 project — github_token_env must not be treated as sub-project
+	if len(projects) != 1 {
+		aliases := make([]string, len(projects))
+		for i, p := range projects {
+			aliases[i] = p.Alias
+		}
+		t.Fatalf("List() returned %d projects, want 1: %v", len(projects), aliases)
+	}
+	if projects[0].GitHubTokenEnv != testTokenEnvVar {
+		t.Errorf("GitHubTokenEnv = %q, want %q", projects[0].GitHubTokenEnv, testTokenEnvVar)
+	}
+}
+
 func TestStoreExists(t *testing.T) {
 	s := newTestStore(t)
 	mustAdd(t, s, "active", "Active", "")

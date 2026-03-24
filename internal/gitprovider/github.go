@@ -13,14 +13,22 @@ type GitHubProvider struct {
 	client *github.Client
 }
 
-func NewGitHubProvider() (Provider, error) {
-	token := os.Getenv("GITHUB_TOKEN")
+// NewGitHubProviderWithToken creates a GitHub provider with an explicit token.
+// If token is empty, falls back to the GITHUB_TOKEN environment variable.
+func NewGitHubProviderWithToken(token string) (Provider, error) {
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
 	if token == "" {
 		return nil, fmt.Errorf("GITHUB_TOKEN environment variable is required")
 	}
 
 	client := github.NewClient(nil).WithAuthToken(token)
 	return &GitHubProvider{client: client}, nil
+}
+
+func NewGitHubProvider() (Provider, error) {
+	return NewGitHubProviderWithToken("")
 }
 
 func (p *GitHubProvider) Name() string { return "github" }

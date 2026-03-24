@@ -153,6 +153,82 @@ func formatProjectNotFoundError(alias string, store *Store) error {
 	return fmt.Errorf("%s", msg)
 }
 
+// ResolveProject looks up a project by taskwarrior project name using hierarchical resolution.
+// Returns the full Project struct (not just path). Returns nil if no match found.
+//
+// Resolution order (same as ResolveProjectPath):
+//  1. Hierarchical candidates: "ttal.pr" → try "ttal.pr", then "ttal"
+//  2. Contains fallback: "ttal-cli" matches alias "ttal"
+//  3. Single-project shortcut
+func ResolveProject(projectName string) *Project {
+	return resolveProjectWithStore(projectName, NewStore(config.ResolveProjectsPath()))
+}
+
+// ResolveProjectForTeam is like ResolveProject but reads from the specified team's store.
+func ResolveProjectForTeam(projectName, team string) *Project {
+	if team == "" {
+		return ResolveProject(projectName)
+	}
+	return resolveProjectWithStore(projectName, NewStore(config.ResolveProjectsPathForTeam(team)))
+}
+
+func resolveProjectWithStore(projectName string, store *Store) *Project {
+	if projectName != "" {
+		// Hierarchical candidates: "ttal.pr" → try "ttal.pr", then "ttal"
+		candidates := []string{projectName}
+		parts := strings.Split(projectName, ".")
+		for i := len(parts) - 1; i >= 1; i-- {
+			candidates = append(candidates, strings.Join(parts[:i], "."))
+		}
+
+		for _, candidate := range candidates {
+			proj, err := store.Get(candidate)
+			if err != nil {
+				continue
+			}
+			if proj != nil && proj.Path != "" {
+				return proj
+			}
+		}
+	}
+
+	// Contains fallback
+	allProjects, err := store.List(false)
+	if err != nil {
+		return nil
+	}
+
+	if projectName != "" {
+		if p := matchProjectByContains(projectName, allProjects); p != nil {
+			return p
+		}
+	}
+
+	// Single-project shortcut
+	if len(allProjects) == 1 && allProjects[0].Path != "" {
+		return &allProjects[0]
+	}
+
+	return nil
+}
+
+// matchProjectByContains finds a project whose alias is contained within the input name.
+// Returns the full Project struct only if exactly one project matches (no ambiguity).
+// Empty aliases are skipped to avoid false matches (strings.Contains(s, "") is always true).
+func matchProjectByContains(name string, projects []Project) *Project {
+	var matches []Project
+	lower := strings.ToLower(name)
+	for _, p := range projects {
+		if p.Path != "" && p.Alias != "" && strings.Contains(lower, strings.ToLower(p.Alias)) {
+			matches = append(matches, p)
+		}
+	}
+	if len(matches) == 1 {
+		return &matches[0]
+	}
+	return nil
+}
+
 // matchByContains finds a project whose alias is contained within the input name.
 // Returns the project path only if exactly one project matches (no ambiguity).
 // Empty aliases are skipped to avoid false matches (strings.Contains(s, "") is always true).

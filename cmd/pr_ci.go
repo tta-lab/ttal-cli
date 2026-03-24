@@ -51,6 +51,7 @@ Examples:
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
 			SHA:          sha,
+			ProjectAlias: ctx.Task.Project,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get CI status: %w", err)
@@ -83,6 +84,7 @@ func resolveCISHA(ctx *pr.Context) (string, error) {
 				Owner:        ctx.Owner,
 				Repo:         ctx.Repo,
 				Index:        idx,
+				ProjectAlias: ctx.Task.Project,
 			})
 			if err == nil && resp.HeadSHA != "" {
 				return resp.HeadSHA, nil
@@ -129,6 +131,7 @@ func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
 		Owner:        ctx.Owner,
 		Repo:         ctx.Repo,
 		SHA:          sha,
+		ProjectAlias: ctx.Task.Project,
 	})
 	if err != nil {
 		return err
