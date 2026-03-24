@@ -450,7 +450,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildAgentEnv: agent identity, TASKRC, and .env secrets.
+// Mirrors buildAgentEnv: agent identity, TASKRC, and allowlisted .env secrets.
 func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
@@ -458,7 +458,15 @@ func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	if taskRC := cfg.TaskRC(); taskRC != "" {
 		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
 	}
-	vars = append(vars, config.DotEnvParts()...)
+	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
+	dotEnv, err := config.LoadDotEnv()
+	if err == nil {
+		for k, v := range dotEnv {
+			if env.IsAllowedForSession(k) {
+				vars = append(vars, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
+	}
 	return vars
 }
 
