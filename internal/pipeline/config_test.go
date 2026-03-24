@@ -3,6 +3,7 @@ package pipeline
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +43,42 @@ func writeTempTOML(t *testing.T, content string) string {
 		t.Fatalf("write temp toml: %v", err)
 	}
 	return dir
+}
+
+func TestSummary_ValidConfig(t *testing.T) {
+	dir := writeTempTOML(t, validTOML)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+	summary := cfg.Summary()
+	if !strings.Contains(summary, "standard") {
+		t.Errorf("summary missing 'standard': %s", summary)
+	}
+	if !strings.Contains(summary, "bugfix") {
+		t.Errorf("summary missing 'bugfix': %s", summary)
+	}
+	if !strings.Contains(summary, "+feature") {
+		t.Errorf("summary missing '+feature': %s", summary)
+	}
+}
+
+const wantEmptySummary = "(no pipelines configured)"
+
+func TestSummary_Empty(t *testing.T) {
+	cfg := &Config{Pipelines: make(map[string]Pipeline)}
+	summary := cfg.Summary()
+	if summary != wantEmptySummary {
+		t.Errorf("expected empty summary message, got: %s", summary)
+	}
+}
+
+func TestSummary_NilMap(t *testing.T) {
+	cfg := &Config{}
+	summary := cfg.Summary()
+	if summary != wantEmptySummary {
+		t.Errorf("expected empty summary for nil map, got: %s", summary)
+	}
 }
 
 func TestLoad_ValidConfig(t *testing.T) {
