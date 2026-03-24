@@ -148,24 +148,36 @@ func detectProviderFromHost(host string) ProviderType {
 	return ProviderForgejo
 }
 
-func NewProviderByName(name string) (Provider, error) {
+// NewProviderByNameWithToken creates a provider by name with an optional GitHub token override.
+// Forgejo ignores the githubToken parameter.
+func NewProviderByNameWithToken(name, githubToken string) (Provider, error) {
 	switch ProviderType(name) {
 	case ProviderForgejo:
 		return NewForgejoProvider()
 	case ProviderGitHub:
-		return NewGitHubProvider()
+		return NewGitHubProviderWithToken(githubToken)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
 }
 
-func NewProvider(info *RepoInfo) (Provider, error) {
+func NewProviderByName(name string) (Provider, error) {
+	return NewProviderByNameWithToken(name, "")
+}
+
+// NewProviderWithToken creates a provider from RepoInfo with an optional GitHub token override.
+// Forgejo ignores the githubToken parameter.
+func NewProviderWithToken(info *RepoInfo, githubToken string) (Provider, error) {
 	switch info.Provider {
 	case ProviderGitHub:
-		return NewGitHubProvider()
+		return NewGitHubProviderWithToken(githubToken)
 	case ProviderForgejo:
 		return NewForgejoProvider()
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", info.Provider)
 	}
+}
+
+func NewProvider(info *RepoInfo) (Provider, error) {
+	return NewProviderWithToken(info, "")
 }
