@@ -16,7 +16,6 @@ import (
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
-	projectpkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -319,15 +318,6 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 			continue // not on allowlist — daemon handles these
 		}
 		setEnv(k, v)
-	}
-
-	// Inject per-project GITHUB_TOKEN for git push authentication on GitHub HTTPS remotes.
-	// This bypasses the IsAllowedForSession *_TOKEN filter intentionally:
-	// - PR API operations still go through the daemon (no change)
-	// - git push / gh CLI need the token directly in the worker's env
-	// - The token source is explicit per-project config in projects.toml, not generic passthrough
-	if ghToken := projectpkg.ResolveGitHubToken(task.Project); ghToken != "" {
-		setEnv("GITHUB_TOKEN", ghToken)
 	}
 
 	return nil
