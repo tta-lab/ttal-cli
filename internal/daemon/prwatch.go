@@ -215,7 +215,7 @@ func pollPR(
 	target prWatchTarget,
 	frontends map[string]frontend.Frontend, done <-chan struct{},
 ) bool {
-	token := project.ResolveGitHubToken(target.ProjectAlias)
+	token := project.ResolveGitHubTokenForTeam(target.ProjectAlias, target.Team)
 	provider, err := gitprovider.NewProviderByNameWithToken(target.Provider, token)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
