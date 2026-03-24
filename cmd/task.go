@@ -60,6 +60,13 @@ Examples:
 		if err != nil {
 			return err
 		}
+
+		if task.Project != "" {
+			if proj := projectPkg.ResolveProject(task.Project); proj != nil {
+				fmt.Printf("Project: %s — %s\nPath: %s\n\n", proj.Alias, proj.Name, proj.Path)
+			}
+		}
+
 		fmt.Print(task.FormatPrompt())
 		return nil
 	},
