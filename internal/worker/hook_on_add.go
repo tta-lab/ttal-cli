@@ -89,7 +89,7 @@ func tryAutoAdvanceStage0(task hookTask, p *pipeline.Pipeline, teamPath string) 
 func resolveTeamPathForHook() string {
 	cfg, err := config.Load()
 	if err != nil {
-		hookLogFile("WARN: could not load config for stage-0 skip: " + err.Error())
+		hookLogFile("WARN: could not load config for stage-0 enter: " + err.Error())
 		return ""
 	}
 	return cfg.TeamPath()
