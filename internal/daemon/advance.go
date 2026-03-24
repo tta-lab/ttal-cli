@@ -199,9 +199,10 @@ func matchTaskPipeline(w http.ResponseWriter, taskTags []string) (*pipeline.Pipe
 		return nil, false
 	}
 	if p == nil {
+		msg := "no pipeline matches this task's tags — add a pipeline tag\n\nAvailable pipelines:\n" + pipelineCfg.Summary()
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusNoPipeline,
-			Message: "no pipeline matches this task's tags — add a pipeline tag (e.g. +feature)",
+			Message: msg,
 		})
 		return nil, false
 	}

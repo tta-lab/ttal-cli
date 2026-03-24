@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -49,6 +50,26 @@ func (p *Pipeline) LastStage() *Stage {
 // Config holds all pipeline definitions.
 type Config struct {
 	Pipelines map[string]Pipeline
+}
+
+// Summary returns a formatted string listing all pipelines and their tags.
+// Used in error messages to help agents pick the right pipeline tag.
+func (c *Config) Summary() string {
+	if len(c.Pipelines) == 0 {
+		return "(no pipelines configured)"
+	}
+	names := make([]string, 0, len(c.Pipelines))
+	for name := range c.Pipelines {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var lines []string
+	for _, name := range names {
+		p := c.Pipelines[name]
+		lines = append(lines, fmt.Sprintf("  %s: +%s", name, strings.Join(p.Tags, ", +")))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Load reads pipelines.toml from the ttal config directory.
