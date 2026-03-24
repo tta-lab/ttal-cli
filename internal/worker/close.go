@@ -130,7 +130,11 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	return closeWithPR(task.UUID, task.PRID, task.Project, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
+	return closeWithPR(
+		task.UUID, task.PRID, task.Project,
+		gitRoot, sessionName, workDir, branch,
+		worktreeExists, task.Annotations,
+	)
 }
 
 // closeWithoutProject handles cleanup when the project alias can't be resolved in projects.toml.
