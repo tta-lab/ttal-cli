@@ -17,7 +17,6 @@ const cleanupDir = "cleanup"
 type CleanupRequest struct {
 	SessionID string    `json:"session_id"`
 	TaskUUID  string    `json:"task_uuid"`
-	Team      string    `json:"team,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -63,7 +62,7 @@ func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
 		return os.Remove(path)
 	}
 
-	if _, err := Close(req.SessionID, force, req.Team); err != nil {
+	if _, err := Close(req.SessionID, force); err != nil {
 		return fmt.Errorf("close failed for %s: %w", req.SessionID, err)
 	}
 
@@ -83,7 +82,7 @@ func RunCleanup(path string, force bool) error {
 		return fmt.Errorf("invalid JSON in %s: %w", path, err)
 	}
 
-	fmt.Printf("Processing cleanup: session=%s task=%s team=%s\n", req.SessionID, req.TaskUUID, req.Team)
+	fmt.Printf("Processing cleanup: session=%s task=%s\n", req.SessionID, req.TaskUUID)
 
 	if err := ExecuteCleanup(req, path, force); err != nil {
 		return err

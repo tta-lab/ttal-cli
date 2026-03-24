@@ -36,7 +36,7 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 	msg := taskCompletePayload{
 		Type:     "taskComplete",
 		TaskUUID: task.UUID(),
-		Team:     "default",
+		Team:     config.DefaultTeamName,
 		Spawner:  task.Spawner(),
 		Desc:     task.Description(),
 		PRID:     task.PRID(),

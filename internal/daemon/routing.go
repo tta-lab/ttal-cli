@@ -335,7 +335,7 @@ func resolveBreatheSessions(
 }
 
 // selectBreatheEnv returns the env vars for the breathe restart command.
-func selectBreatheEnv(agent, _ string, shellCfg *config.Config) []string {
+func selectBreatheEnv(agent string, shellCfg *config.Config) []string {
 	return buildBreatheEnv(agent, shellCfg)
 }
 
@@ -426,7 +426,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// 8. Build restart command with env.
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	agentEnv := selectBreatheEnv(req.Agent, team, shellCfg)
+	agentEnv := selectBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
 	// 9. Kill old session, create new.

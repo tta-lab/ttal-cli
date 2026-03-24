@@ -50,7 +50,7 @@ func Install() error {
 	}
 	fmt.Println()
 
-	if err := InstallHooks(hookDir, teamName); err != nil {
+	if err := InstallHooks(hookDir); err != nil {
 		return fmt.Errorf("hook install failed: %w", err)
 	}
 
@@ -83,7 +83,7 @@ func Uninstall() error {
 }
 
 // InstallHooks writes taskwarrior hook scripts to the given directory.
-func InstallHooks(hookDir, teamName string) error {
+func InstallHooks(hookDir string) error {
 	if err := os.MkdirAll(hookDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}

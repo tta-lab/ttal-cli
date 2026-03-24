@@ -27,7 +27,7 @@ import (
 type AdvanceRequest struct {
 	TaskUUID  string `json:"task_uuid"`
 	AgentName string `json:"agent_name"` // from TTAL_AGENT_NAME env in caller session
-	Team      string `json:"team"`       // retained for backward compat with in-flight requests
+	Team      string `json:"team"`       // TODO: remove after in-flight request compat window (~2026 Q3)
 }
 
 // AdvanceResponse is the response body for POST /pipeline/advance.

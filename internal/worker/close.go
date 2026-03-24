@@ -31,15 +31,13 @@ type CloseResult struct {
 }
 
 // Close handles worker cleanup with smart or force mode.
-// team is the TTAL team name from the cleanup request; pass "" when calling
-// from the CLI (uses the active team from config).
 //
 // Exit semantics (reflected in the returned error and CloseResult):
 //
 //	nil error + Cleaned=true  → cleaned up successfully (exit 0)
 //	ErrNeedsDecision          → needs manual decision (exit 1)
 //	other error               → script/worker error (exit 2)
-func Close(sessionID string, force bool, team string) (*CloseResult, error) {
+func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Find the task by UUID prefix (try completed first, then pending)
 	// Handle both old (bare UUID[:8]) and new (w-UUID[:8]-slug) formats
 	sid := taskwarrior.ExtractSessionID(sessionID)
@@ -67,9 +65,7 @@ func Close(sessionID string, force bool, team string) (*CloseResult, error) {
 			fmt.Errorf("no worktree branch found at %s", workDir)
 	}
 
-	// Use team-aware resolution so the daemon (which caches config via sync.Once at startup)
-	// reads the correct team's projects.toml rather than its own.
-	projectPath := project.ResolveProjectPathForTeam(task.Project, team)
+	projectPath := project.ResolveProjectPath(task.Project)
 	if projectPath == "" {
 		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml\n", task.Project)
 		return closeWithoutProject(task, sessionName, workDir)

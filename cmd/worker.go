@@ -38,7 +38,7 @@ Example:
   ttal worker close a7f3d2b9 --force`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		result, err := worker.Close(args[0], closeForce, "")
+		result, err := worker.Close(args[0], closeForce)
 		if result != nil {
 			worker.PrintResult(result)
 		}

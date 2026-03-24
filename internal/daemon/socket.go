@@ -795,7 +795,7 @@ func daemonHTTPClientLong(timeout time.Duration) *http.Client {
 // Returns an error if the daemon is not running or if delivery fails.
 func Send(req SendRequest) error {
 	if req.Team == "" {
-		req.Team = "default"
+		req.Team = config.DefaultTeamName
 	}
 
 	body, err := json.Marshal(req)
@@ -892,7 +892,7 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 // CC session with a fresh context window and the provided handoff prompt.
 func Breathe(req BreatheRequest) error {
 	if req.Team == "" {
-		req.Team = "default"
+		req.Team = config.DefaultTeamName
 	}
 	body, err := json.Marshal(req)
 	if err != nil {

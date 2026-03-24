@@ -94,7 +94,7 @@ func processCleanupFile(path string) {
 		return
 	}
 
-	log.Printf("[cleanup] processing: session=%s task=%s team=%s", req.SessionID, req.TaskUUID, req.Team)
+	log.Printf("[cleanup] processing: session=%s task=%s", req.SessionID, req.TaskUUID)
 
 	if err := worker.ExecuteCleanup(req, path, false); err != nil {
 		log.Printf("[cleanup] failed for %s: %v", req.SessionID, err)
