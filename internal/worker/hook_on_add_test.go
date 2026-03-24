@@ -138,7 +138,8 @@ gate = "human"
 
 func TestTryAutoAdvanceStage0_OrchestratorNoMatch(t *testing.T) {
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: orchestrator\n---\n"), 0o644); err != nil {
+	content := []byte("---\nrole: orchestrator\n---\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), content, 0o644); err != nil {
 		t.Fatalf("write agent file: %v", err)
 	}
 	t.Setenv("TTAL_AGENT_NAME", "yuki")
