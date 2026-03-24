@@ -28,15 +28,16 @@ const (
 
 // prWatchTarget holds derived info for a PR being polled.
 type prWatchTarget struct {
-	TaskUUID    string
-	SessionName string
-	Team        string
-	Owner       string
-	Repo        string
-	PRIndex     int64
-	Description string
-	Provider    string
-	Spawner     string
+	TaskUUID     string
+	SessionName  string
+	Team         string
+	Owner        string
+	Repo         string
+	PRIndex      int64
+	Description  string
+	Provider     string
+	Spawner      string
+	ProjectAlias string
 }
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
@@ -172,15 +173,16 @@ func scanTeam(
 		}
 
 		target := prWatchTarget{
-			TaskUUID:    task.UUID,
-			SessionName: sessionName,
-			Team:        teamName,
-			Owner:       info.Owner,
-			Repo:        info.Repo,
-			PRIndex:     prIndex,
-			Description: task.Description,
-			Provider:    string(info.Provider),
-			Spawner:     task.Spawner,
+			TaskUUID:     task.UUID,
+			SessionName:  sessionName,
+			Team:         teamName,
+			Owner:        info.Owner,
+			Repo:         info.Repo,
+			PRIndex:      prIndex,
+			Description:  task.Description,
+			Provider:     string(info.Provider),
+			Spawner:      task.Spawner,
+			ProjectAlias: task.Project,
 		}
 
 		mu.Lock()
@@ -213,7 +215,8 @@ func pollPR(
 	target prWatchTarget,
 	frontends map[string]frontend.Frontend, done <-chan struct{},
 ) bool {
-	provider, err := gitprovider.NewProviderByName(target.Provider)
+	token := project.ResolveGitHubToken(target.ProjectAlias)
+	provider, err := gitprovider.NewProviderByNameWithToken(target.Provider, token)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
 		return false

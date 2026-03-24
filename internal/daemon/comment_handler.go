@@ -9,6 +9,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/comment"
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 // toCommentEntries converts ent comment records to wire-format entries.
@@ -51,7 +52,8 @@ func handleCommentAdd(svc *comment.Service, team, commentSync string, req Commen
 }
 
 func mirrorCommentToPR(req CommentAddRequest, round int) {
-	provider, err := gitprovider.NewProviderByName(req.ProviderType)
+	token := project.ResolveGitHubToken(req.ProjectAlias)
+	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
 	if err != nil {
 		log.Printf("[daemon] mirror comment to PR: create provider: %v", err)
 		return

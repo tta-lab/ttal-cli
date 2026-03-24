@@ -702,7 +702,8 @@ func mergeWorkerPR(task *taskwarrior.Task) error {
 		return fmt.Errorf("detect git provider: %w", err)
 	}
 
-	provider, err := gitprovider.NewProvider(info)
+	token := projectPkg.ResolveGitHubToken(task.Project)
+	provider, err := gitprovider.NewProviderWithToken(info, token)
 	if err != nil {
 		return fmt.Errorf("create provider: %w", err)
 	}

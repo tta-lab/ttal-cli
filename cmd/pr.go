@@ -71,6 +71,7 @@ Examples:
 			Base:         base,
 			Title:        title,
 			Body:         body,
+			ProjectAlias: ctx.Task.Project,
 		})
 		if err != nil {
 			return err
@@ -153,6 +154,7 @@ Examples:
 			Index:        index,
 			Title:        title,
 			Body:         body,
+			ProjectAlias: ctx.Task.Project,
 		})
 		if err != nil {
 			return err

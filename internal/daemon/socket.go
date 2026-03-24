@@ -90,6 +90,7 @@ type PRCreateRequest struct {
 	Base         string `json:"base"` // target branch
 	Title        string `json:"title"`
 	Body         string `json:"body"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRModifyRequest asks the daemon to edit a PR title/body.
@@ -100,6 +101,7 @@ type PRModifyRequest struct {
 	Index        int64  `json:"index"`
 	Title        string `json:"title,omitempty"`
 	Body         string `json:"body,omitempty"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRMergeRequest asks the daemon to squash-merge a PR.
@@ -109,6 +111,7 @@ type PRMergeRequest struct {
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
 	DeleteBranch bool   `json:"delete_branch"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRCheckMergeableRequest asks the daemon to check if a PR is mergeable.
@@ -117,6 +120,7 @@ type PRCheckMergeableRequest struct {
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRGetPRRequest asks the daemon to fetch a PR (for HeadSHA resolution in CI commands).
@@ -125,6 +129,7 @@ type PRGetPRRequest struct {
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRGetCombinedStatusRequest asks the daemon to fetch CI status for a commit.
@@ -133,6 +138,7 @@ type PRGetCombinedStatusRequest struct {
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	SHA          string `json:"sha"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRGetCIFailureDetailsRequest asks the daemon to fetch CI failure details.
@@ -141,6 +147,7 @@ type PRGetCIFailureDetailsRequest struct {
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	SHA          string `json:"sha"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // PRResponse is the daemon's response for PR operations.
@@ -210,6 +217,7 @@ type CommentAddRequest struct {
 	Owner        string `json:"owner,omitempty"`
 	Repo         string `json:"repo,omitempty"`
 	PRIndex      int64  `json:"pr_index,omitempty"`
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // CommentAddResponse is the daemon's response for a comment add.
