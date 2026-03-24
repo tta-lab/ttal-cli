@@ -10,81 +10,10 @@ import (
 )
 
 type Context struct {
-	Task     *taskwarrior.Task
-	Owner    string
-	Repo     string
-	Provider gitprovider.Provider
-	Info     *gitprovider.RepoInfo
-}
-
-func ResolveContext() (*Context, error) {
-	jobID := os.Getenv("TTAL_JOB_ID")
-	if jobID == "" {
-		return resolveFromCwd()
-	}
-	return resolveFromTask(jobID)
-}
-
-// resolveTaskInfo is shared setup for resolveFromTask and resolveFromTaskWithoutProvider.
-func resolveTaskInfo(jobID string) (*taskwarrior.Task, *gitprovider.RepoInfo, error) {
-	task, err := resolveTask(jobID)
-	if err != nil {
-		return nil, nil, err
-	}
-	projectPath, err := project.ResolveProjectPathOrError(task.Project)
-	if err != nil {
-		return nil, nil, err
-	}
-	info, err := gitprovider.DetectProvider(projectPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
-	}
-	return task, info, nil
-}
-
-func resolveFromTask(jobID string) (*Context, error) {
-	task, info, err := resolveTaskInfo(jobID)
-	if err != nil {
-		return nil, err
-	}
-
-	provider, err := gitprovider.NewProvider(info)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create provider client: %w", err)
-	}
-
-	return &Context{
-		Task:     task,
-		Owner:    info.Owner,
-		Repo:     info.Repo,
-		Provider: provider,
-		Info:     info,
-	}, nil
-}
-
-func resolveFromCwd() (*Context, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("cannot determine working directory: %w", err)
-	}
-
-	info, err := gitprovider.DetectProvider(cwd)
-	if err != nil {
-		return nil, fmt.Errorf("not in a git repo with a recognized remote: %w", err)
-	}
-
-	provider, err := gitprovider.NewProvider(info)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create provider client: %w", err)
-	}
-
-	return &Context{
-		Task:     &taskwarrior.Task{},
-		Owner:    info.Owner,
-		Repo:     info.Repo,
-		Provider: provider,
-		Info:     info,
-	}, nil
+	Task  *taskwarrior.Task
+	Owner string
+	Repo  string
+	Info  *gitprovider.RepoInfo
 }
 
 // ResolveContextWithoutProvider resolves task metadata and git repo info
@@ -129,6 +58,23 @@ func resolveFromCwdWithoutProvider() (*Context, error) {
 		Repo:  info.Repo,
 		Info:  info,
 	}, nil
+}
+
+// resolveTaskInfo is shared setup for resolveFromTaskWithoutProvider.
+func resolveTaskInfo(jobID string) (*taskwarrior.Task, *gitprovider.RepoInfo, error) {
+	task, err := resolveTask(jobID)
+	if err != nil {
+		return nil, nil, err
+	}
+	projectPath, err := project.ResolveProjectPathOrError(task.Project)
+	if err != nil {
+		return nil, nil, err
+	}
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+	}
+	return task, info, nil
 }
 
 // resolveTask finds the task from TTAL_JOB_ID.
