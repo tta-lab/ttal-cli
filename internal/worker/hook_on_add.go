@@ -46,16 +46,19 @@ func HookOnAdd() {
 				fmt.Fprintln(os.Stderr, "pipeline conflict: "+matchErr.Error())
 				os.Exit(1)
 			}
-			tryAutoAdvanceStage0(task, p)
+			teamPath := resolveTeamPathForHook()
+			tryAutoAdvanceStage0(task, p, teamPath)
 		}
 	}
 
 	writeTask(task)
 }
 
-// tryAutoAdvanceStage0 auto-advances past stage 0 when the creating agent's role matches
-// the first stage assignee, preventing double-routing back to the same agent.
-func tryAutoAdvanceStage0(task hookTask, p *pipeline.Pipeline) {
+// tryAutoAdvanceStage0 enters stage 0 when the creating agent's role matches
+// the first stage assignee. Sets agent tag, stage tag, and start — so
+// processStageAdvance handles gates and advancement on the next ttal go call.
+// Gates (reviewer, human) still apply at stage 0 — this does not bypass them.
+func tryAutoAdvanceStage0(task hookTask, p *pipeline.Pipeline, teamPath string) {
 	if p == nil || len(p.Stages) == 0 {
 		return
 	}
@@ -63,21 +66,21 @@ func tryAutoAdvanceStage0(task hookTask, p *pipeline.Pipeline) {
 	if agentName == "" {
 		return
 	}
-	teamPath := resolveTeamPathForHook()
 	if teamPath == "" {
 		return
 	}
 	agent, err := agentfs.Get(teamPath, agentName)
 	if err != nil {
-		hookLogFile("WARN: could not resolve agent for stage-0 skip: " + err.Error())
+		hookLogFile("WARN: could not resolve agent for stage-0 enter: " + err.Error())
 		return
 	}
 	if agent.Role != p.Stages[0].Assignee {
 		return
 	}
 	task.SetTag(agentName)
+	task.SetTag(p.Stages[0].StageTag())
 	task.SetStart()
-	hookLog("PIPELINE-SKIP", task.UUID(), task.Description(),
+	hookLog("PIPELINE-ENTER", task.UUID(), task.Description(),
 		"agent", agentName, "role", agent.Role, "stage", p.Stages[0].Name)
 }
 
@@ -86,7 +89,7 @@ func tryAutoAdvanceStage0(task hookTask, p *pipeline.Pipeline) {
 func resolveTeamPathForHook() string {
 	cfg, err := config.Load()
 	if err != nil {
-		hookLogFile("WARN: could not load config for stage-0 skip: " + err.Error())
+		hookLogFile("WARN: could not load config for stage-0 enter: " + err.Error())
 		return ""
 	}
 	return cfg.TeamPath()
