@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -38,13 +37,7 @@ Example:
 
 		dimColor, headerStyle, cellStyle, _ := format.TableStyles()
 
-		// Sort pipeline names for stable output.
-		names := make([]string, 0, len(cfg.Pipelines))
-		for name := range cfg.Pipelines {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-
+		names := cfg.SortedNames()
 		rows := make([][]string, 0, len(names))
 		for _, name := range names {
 			p := cfg.Pipelines[name]
@@ -91,13 +84,7 @@ Example:
 		name := args[0]
 		p, ok := cfg.Pipelines[name]
 		if !ok {
-			// List available pipeline names for helpful error.
-			names := make([]string, 0, len(cfg.Pipelines))
-			for n := range cfg.Pipelines {
-				names = append(names, n)
-			}
-			sort.Strings(names)
-			return fmt.Errorf("pipeline %q not found\n\nAvailable: %s", name, strings.Join(names, ", "))
+			return fmt.Errorf("pipeline %q not found\n\nAvailable: %s", name, strings.Join(cfg.SortedNames(), ", "))
 		}
 
 		fmt.Printf("%s — %s\n", name, p.Description)

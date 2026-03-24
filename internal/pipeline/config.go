@@ -52,21 +52,30 @@ type Config struct {
 	Pipelines map[string]Pipeline
 }
 
+// SortedNames returns pipeline names in alphabetical order.
+func (c *Config) SortedNames() []string {
+	names := make([]string, 0, len(c.Pipelines))
+	for name := range c.Pipelines {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // Summary returns a formatted string listing all pipelines and their tags.
 // Used in error messages to help agents pick the right pipeline tag.
 func (c *Config) Summary() string {
 	if len(c.Pipelines) == 0 {
 		return "(no pipelines configured)"
 	}
-	names := make([]string, 0, len(c.Pipelines))
-	for name := range c.Pipelines {
-		names = append(names, name)
-	}
-	sort.Strings(names)
 
 	var lines []string
-	for _, name := range names {
+	for _, name := range c.SortedNames() {
 		p := c.Pipelines[name]
+		if len(p.Tags) == 0 {
+			lines = append(lines, fmt.Sprintf("  %s: (no tags)", name))
+			continue
+		}
 		lines = append(lines, fmt.Sprintf("  %s: +%s", name, strings.Join(p.Tags, ", +")))
 	}
 	return strings.Join(lines, "\n")
