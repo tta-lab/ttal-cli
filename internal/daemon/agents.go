@@ -72,14 +72,7 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
-	dotEnv, err := config.LoadDotEnv()
-	if err == nil {
-		for k, v := range dotEnv {
-			if envpkg.IsAllowedForSession(k) {
-				env = append(env, fmt.Sprintf("%s=%s", k, v))
-			}
-		}
-	}
+	env = append(env, envpkg.AllowedDotEnvParts()...)
 
 	return env
 }

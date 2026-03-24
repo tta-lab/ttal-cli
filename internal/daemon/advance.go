@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -717,11 +717,11 @@ func mergeWorkerPR(task *taskwarrior.Task) error {
 	if !resp.OK {
 		// handlePRMerge treats "already merged" as an error, but for
 		// pipeline advancement it's a no-op success.
-		if strings.Contains(resp.Error, "already merged") {
+		if resp.AlreadyMerged {
 			log.Printf("[advance] PR #%d already merged, skipping", prInfo.Index)
 			return nil
 		}
-		return fmt.Errorf("%s", resp.Error)
+		return errors.New(resp.Error)
 	}
 
 	log.Printf("[advance] PR #%d merged (squash)", prInfo.Index)

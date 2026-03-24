@@ -459,14 +459,7 @@ func buildBreatheEnv(agent string, cfg *config.Config) []string {
 		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
-	dotEnv, err := config.LoadDotEnv()
-	if err == nil {
-		for k, v := range dotEnv {
-			if env.IsAllowedForSession(k) {
-				vars = append(vars, fmt.Sprintf("%s=%s", k, v))
-			}
-		}
-	}
+	vars = append(vars, env.AllowedDotEnvParts()...)
 	return vars
 }
 

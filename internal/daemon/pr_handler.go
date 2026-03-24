@@ -45,7 +45,7 @@ func handlePRMerge(req PRMergeRequest) PRResponse {
 		return PRResponse{OK: false, Error: fmt.Sprintf("get PR: %v", err)}
 	}
 	if fetchedPR.Merged {
-		return PRResponse{OK: false, Error: fmt.Sprintf("PR #%d is already merged", req.Index)}
+		return PRResponse{OK: false, AlreadyMerged: true, Error: fmt.Sprintf("PR #%d is already merged", req.Index)}
 	}
 	if !fetchedPR.Mergeable {
 		reason := diagnosePRMergeFailure(provider, req.Owner, req.Repo, fetchedPR)

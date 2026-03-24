@@ -270,12 +270,13 @@ func defaultPRMergedChecker(projectAlias, projectPath, prID string) (bool, strin
 		return false, "", fmt.Errorf("cannot verify PR #%d: marshal: %w", prInfo.Index, err)
 	}
 
+	const prCheckTimeout = 5 * time.Second
 	sockPath := config.SocketPath()
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: prCheckTimeout,
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.DialTimeout("unix", sockPath, 5*time.Second)
+				return net.DialTimeout("unix", sockPath, prCheckTimeout)
 			},
 		},
 	}
