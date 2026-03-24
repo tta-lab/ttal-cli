@@ -288,9 +288,6 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
-	if team := os.Getenv("TTAL_TEAM"); team != "" {
-		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
-	}
 	if taskrc != "" {
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
@@ -306,12 +303,6 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 	}
 
 	setEnv("TTAL_JOB_ID", task.SessionID())
-
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = "default"
-	}
-	setEnv("TTAL_TEAM", team)
 
 	if taskrc != "" {
 		setEnv("TASKRC", taskrc)

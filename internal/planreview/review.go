@@ -14,7 +14,6 @@ import (
 
 // buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ExportTaskBySessionID.
-// TTAL_TEAM is forwarded when set, so the reviewer uses the correct team project registry.
 func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Runtime) ([]string, error) {
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
@@ -23,9 +22,6 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
-	if team := os.Getenv("TTAL_TEAM"); team != "" {
-		parts = append(parts, fmt.Sprintf("TTAL_TEAM=%s", team))
 	}
 	return parts, nil
 }
