@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.1
-	charm.land/fantasy v0.15.0
+	charm.land/fantasy v0.16.0
 	charm.land/lipgloss/v2 v2.0.0
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
 	entgo.io/ent v0.14.5
@@ -20,7 +20,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tta-lab/logos v0.9.0
+	github.com/tta-lab/logos v1.0.0
 	go.woodpecker-ci.org/woodpecker/v3 v3.13.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/text v0.35.0
