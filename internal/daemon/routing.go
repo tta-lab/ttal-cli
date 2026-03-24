@@ -335,8 +335,8 @@ func resolveBreatheSessions(
 }
 
 // selectBreatheEnv returns the env vars for the breathe restart command.
-func selectBreatheEnv(agent, team string, shellCfg *config.Config) []string {
-	return buildBreatheEnv(agent, team, shellCfg)
+func selectBreatheEnv(agent, _ string, shellCfg *config.Config) []string {
+	return buildBreatheEnv(agent, shellCfg)
 }
 
 // composeRouteHandoff merges a base handoff with a route request's role prompt and message.
@@ -451,7 +451,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
 // Mirrors buildAgentEnv: agent identity, TASKRC, and .env secrets.
-func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
+func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
 	}

@@ -304,7 +304,6 @@ func TestGetMergeMode(t *testing.T) {
 }
 
 func TestMergeModeResolution(t *testing.T) {
-	t.Setenv("TTAL_TEAM", "")
 	tests := []struct {
 		name    string
 		cfg     *Config
@@ -401,7 +400,6 @@ func TestFlatConfigRejected(t *testing.T) {
 }
 
 func TestConventionBasedPaths(t *testing.T) {
-	t.Setenv("TTAL_TEAM", "")
 	defDataDir := defaultDataDir()
 	defTaskRC := defaultTaskRC()
 
@@ -533,7 +531,6 @@ func TestAgentPath(t *testing.T) {
 }
 
 func TestAgentPathFromResolve(t *testing.T) {
-	t.Setenv("TTAL_TEAM", "")
 	cfg := &Config{
 		DefaultTeam: "test",
 		Teams: map[string]TeamConfig{
