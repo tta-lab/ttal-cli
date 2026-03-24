@@ -403,7 +403,7 @@ func TestStoreGitHubTokenEnvRoundTrip(t *testing.T) {
 	if err := s.Add("guion", "Guion", "/path/guion"); err != nil {
 		t.Fatalf("Add() error: %v", err)
 	}
-	if err := s.Modify("guion", map[string]string{"github_token_env": "GUION_GITHUB_TOKEN"}); err != nil {
+	if err := s.Modify("guion", map[string]string{"github_token_env": testTokenEnvVar}); err != nil {
 		t.Fatalf("Modify() error: %v", err)
 	}
 
@@ -416,8 +416,8 @@ func TestStoreGitHubTokenEnvRoundTrip(t *testing.T) {
 	if p == nil {
 		t.Fatal("Get() returned nil after reload")
 	}
-	if p.GitHubTokenEnv != "GUION_GITHUB_TOKEN" {
-		t.Errorf("GitHubTokenEnv = %q, want %q", p.GitHubTokenEnv, "GUION_GITHUB_TOKEN")
+	if p.GitHubTokenEnv != testTokenEnvVar {
+		t.Errorf("GitHubTokenEnv = %q, want %q", p.GitHubTokenEnv, testTokenEnvVar)
 	}
 }
 
@@ -430,7 +430,7 @@ func TestStoreGitHubTokenEnvPreservation(t *testing.T) {
 	if err := s.Add("guion", "Guion", "/path/guion"); err != nil {
 		t.Fatalf("Add(guion) error: %v", err)
 	}
-	if err := s.Modify("guion", map[string]string{"github_token_env": "GUION_GITHUB_TOKEN"}); err != nil {
+	if err := s.Modify("guion", map[string]string{"github_token_env": testTokenEnvVar}); err != nil {
 		t.Fatalf("Modify() error: %v", err)
 	}
 
@@ -448,8 +448,8 @@ func TestStoreGitHubTokenEnvPreservation(t *testing.T) {
 	if p == nil {
 		t.Fatal("Get() returned nil")
 	}
-	if p.GitHubTokenEnv != "GUION_GITHUB_TOKEN" {
-		t.Errorf("GitHubTokenEnv = %q after second project added, want %q", p.GitHubTokenEnv, "GUION_GITHUB_TOKEN")
+	if p.GitHubTokenEnv != testTokenEnvVar {
+		t.Errorf("GitHubTokenEnv = %q after second project added, want %q", p.GitHubTokenEnv, testTokenEnvVar)
 	}
 }
 
@@ -457,11 +457,7 @@ func TestStoreFlattenDoesNotTreatGitHubTokenEnvAsSubProject(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "projects.toml")
 
-	tomlContent := `[guion]
-name = "Guion"
-path = "/path/guion"
-github_token_env = "GUION_GITHUB_TOKEN"
-`
+	tomlContent := "[guion]\nname = \"Guion\"\npath = \"/path/guion\"\ngithub_token_env = \"" + testTokenEnvVar + "\"\n"
 	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
 		t.Fatalf("writing test TOML: %v", err)
 	}
@@ -479,8 +475,8 @@ github_token_env = "GUION_GITHUB_TOKEN"
 		}
 		t.Fatalf("List() returned %d projects, want 1: %v", len(projects), aliases)
 	}
-	if projects[0].GitHubTokenEnv != "GUION_GITHUB_TOKEN" {
-		t.Errorf("GitHubTokenEnv = %q, want %q", projects[0].GitHubTokenEnv, "GUION_GITHUB_TOKEN")
+	if projects[0].GitHubTokenEnv != testTokenEnvVar {
+		t.Errorf("GitHubTokenEnv = %q, want %q", projects[0].GitHubTokenEnv, testTokenEnvVar)
 	}
 }
 
