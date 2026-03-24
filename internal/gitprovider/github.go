@@ -27,10 +27,6 @@ func NewGitHubProviderWithToken(token string) (Provider, error) {
 	return &GitHubProvider{client: client}, nil
 }
 
-func NewGitHubProvider() (Provider, error) {
-	return NewGitHubProviderWithToken("")
-}
-
 func (p *GitHubProvider) Name() string { return "github" }
 
 func (p *GitHubProvider) CreatePR(owner, repo, head, base, title, body string) (*PullRequest, error) {

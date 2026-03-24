@@ -161,10 +161,6 @@ func NewProviderByNameWithToken(name, githubToken string) (Provider, error) {
 	}
 }
 
-func NewProviderByName(name string) (Provider, error) {
-	return NewProviderByNameWithToken(name, "")
-}
-
 // NewProviderWithToken creates a provider from RepoInfo with an optional GitHub token override.
 // Forgejo ignores the githubToken parameter.
 func NewProviderWithToken(info *RepoInfo, githubToken string) (Provider, error) {
@@ -176,8 +172,4 @@ func NewProviderWithToken(info *RepoInfo, githubToken string) (Provider, error) 
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", info.Provider)
 	}
-}
-
-func NewProvider(info *RepoInfo) (Provider, error) {
-	return NewProviderWithToken(info, "")
 }
