@@ -454,7 +454,6 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 func buildBreatheEnv(agent, team string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
-		fmt.Sprintf("TTAL_TEAM=%s", team),
 	}
 	if taskRC := cfg.TaskRC(); taskRC != "" {
 		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))

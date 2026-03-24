@@ -94,7 +94,7 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 }
 
 // parseSpawner splits a "team:agent" string.
-// Returns empty team when no colon is present — daemon.Send auto-fills Team from TTAL_TEAM.
+// Returns empty team when no colon is present — daemon.Send defaults to "default" team.
 func parseSpawner(s string) (team, agent string) {
 	parts := strings.SplitN(s, ":", 2)
 	if len(parts) == 2 {

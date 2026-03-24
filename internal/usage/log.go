@@ -19,10 +19,7 @@ func LogWith(command, subcommand, target string) {
 	if agent == "" {
 		return
 	}
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = "default"
-	}
+	team := "default"
 
 	client, err := open()
 	if err != nil {

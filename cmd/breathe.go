@@ -37,11 +37,6 @@ func runBreathe(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("TTAL_AGENT_NAME not set — ttal breathe must be called from within an agent session")
 	}
 
-	team := os.Getenv("TTAL_TEAM")
-	if team == "" {
-		team = config.DefaultTeamName
-	}
-
 	// Read handoff: positional args or stdin
 	var handoff string
 	if len(args) > 0 {
@@ -59,7 +54,7 @@ func runBreathe(_ *cobra.Command, args []string) error {
 	}
 
 	if err := daemon.Breathe(daemon.BreatheRequest{
-		Team:        team,
+		Team:        config.DefaultTeamName,
 		Agent:       agent,
 		Handoff:     handoff,
 		SessionName: os.Getenv("TTAL_SESSION_NAME"),

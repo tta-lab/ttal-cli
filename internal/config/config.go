@@ -712,11 +712,8 @@ func (c *Config) resolve() error {
 		return err
 	}
 
-	// Resolve active team: TTAL_TEAM env > default_team > "default"
-	teamName := os.Getenv("TTAL_TEAM")
-	if teamName == "" {
-		teamName = c.DefaultTeam
-	}
+	// Resolve active team: default_team > "default"
+	teamName := c.DefaultTeam
 	if teamName == "" {
 		teamName = DefaultTeamName
 	}
