@@ -165,6 +165,7 @@ type PRGetPRResponse struct {
 	HeadSHA   string `json:"head_sha,omitempty"`
 	Merged    bool   `json:"merged,omitempty"`
 	Mergeable bool   `json:"mergeable,omitempty"`
+	Title     string `json:"title,omitempty"`
 }
 
 // PRCIStatusResponse is the daemon's response for GetCombinedStatus.
