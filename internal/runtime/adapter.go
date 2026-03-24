@@ -64,5 +64,5 @@ type AdapterConfig struct {
 	AgentName string
 	WorkDir   string   // Agent workspace directory
 	Model     string   // Model override
-	Env       []string // Additional env vars (TTAL_AGENT_NAME, TTAL_TEAM, etc.)
+	Env       []string // Additional env vars (TTAL_AGENT_NAME, TASKRC, etc.)
 }

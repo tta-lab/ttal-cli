@@ -189,17 +189,10 @@ KESTREL_BOT_TOKEN=bot123:ABC
 ATLAS_BOT_TOKEN=bot456:DEF
 ```
 
-Switch teams with the `TTAL_TEAM` environment variable:
-
-```bash
-TTAL_TEAM=work ttal today list
-```
-
 ## Environment variables
 
 | Variable | Description |
 |----------|-------------|
-| `TTAL_TEAM` | Override the default team |
 | `TTAL_AGENT_NAME` | Set automatically in agent sessions — identifies the current agent |
 | `TTAL_JOB_ID` | Set automatically in worker sessions — task UUID prefix |
 | `FORGEJO_URL` | Forgejo instance URL (for PR commands) |

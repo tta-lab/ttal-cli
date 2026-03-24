@@ -92,7 +92,7 @@ type Config struct {
 	// Global voice settings (vocabulary, language)
 	Voice VoiceConfig `toml:"voice"`
 
-	// Active team when TTAL_TEAM env is not set
+	// Active team — falls back to "default" if unset
 	DefaultTeam string `toml:"default_team"` //nolint:lll
 	// Per-team configuration sections
 	Teams map[string]TeamConfig `toml:"teams"`
