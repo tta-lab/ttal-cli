@@ -8,6 +8,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -686,8 +687,8 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 	return false
 }
 
-// mergeWorkerPR merges the PR associated with the task using the git provider.
-// It is called directly (not via daemon HTTP client) to avoid a daemon-calls-itself loopback.
+// mergeWorkerPR merges the PR associated with the task.
+// Delegates to handlePRMerge (a plain function call, not an HTTP loopback).
 func mergeWorkerPR(task *taskwarrior.Task) error {
 	projectPath := projectPkg.ResolveProjectPath(task.Project)
 	if projectPath == "" {
@@ -699,31 +700,28 @@ func mergeWorkerPR(task *taskwarrior.Task) error {
 		return fmt.Errorf("detect git provider: %w", err)
 	}
 
-	token := projectPkg.ResolveGitHubToken(task.Project)
-	provider, err := gitprovider.NewProviderWithToken(info, token)
-	if err != nil {
-		return fmt.Errorf("create provider: %w", err)
-	}
-
 	prInfo, err := taskwarrior.ParsePRID(task.PRID)
 	if err != nil {
 		return fmt.Errorf("parse pr_id: %w", err)
 	}
 
-	fetchedPR, err := provider.GetPR(info.Owner, info.Repo, prInfo.Index)
-	if err != nil {
-		return fmt.Errorf("get PR: %w", err)
-	}
-	if fetchedPR.Merged {
-		log.Printf("[advance] PR #%d already merged, skipping", prInfo.Index)
-		return nil
-	}
-	if !fetchedPR.Mergeable {
-		return fmt.Errorf("PR #%d is not mergeable", prInfo.Index)
-	}
+	resp := handlePRMerge(PRMergeRequest{
+		ProviderType: string(info.Provider),
+		Owner:        info.Owner,
+		Repo:         info.Repo,
+		Index:        prInfo.Index,
+		DeleteBranch: true,
+		ProjectAlias: task.Project,
+	})
 
-	if err := provider.MergePR(info.Owner, info.Repo, prInfo.Index, true); err != nil {
-		return fmt.Errorf("merge PR #%d: %w", prInfo.Index, err)
+	if !resp.OK {
+		// handlePRMerge treats "already merged" as an error, but for
+		// pipeline advancement it's a no-op success.
+		if strings.Contains(resp.Error, "already merged") {
+			log.Printf("[advance] PR #%d already merged, skipping", prInfo.Index)
+			return nil
+		}
+		return fmt.Errorf("%s", resp.Error)
 	}
 
 	log.Printf("[advance] PR #%d merged (squash)", prInfo.Index)
