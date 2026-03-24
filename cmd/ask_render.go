@@ -86,10 +86,8 @@ func renderCmdBlock(content string) {
 			continue
 		}
 		// Strip the § prefix for display, show as "$ command"
-		if strings.HasPrefix(trimmed, "§ ") {
-			trimmed = trimmed[len("§ "):]
-		}
-		fmt.Fprintf(os.Stderr, "\n%s\n", askCmdStyle.Render("  $ "+trimmed))
+		trimmed = strings.TrimPrefix(trimmed, "§ ")
+		renderCommandStart(trimmed)
 	}
 }
 
