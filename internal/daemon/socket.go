@@ -151,11 +151,12 @@ type PRGetCIFailureDetailsRequest struct {
 
 // PRResponse is the daemon's response for PR operations.
 type PRResponse struct {
-	OK      bool   `json:"ok"`
-	Error   string `json:"error,omitempty"`
-	PRURL   string `json:"pr_url,omitempty"`
-	PRIndex int64  `json:"pr_index,omitempty"`
-	HeadSHA string `json:"head_sha,omitempty"`
+	OK            bool   `json:"ok"`
+	Error         string `json:"error,omitempty"`
+	PRURL         string `json:"pr_url,omitempty"`
+	PRIndex       int64  `json:"pr_index,omitempty"`
+	HeadSHA       string `json:"head_sha,omitempty"`
+	AlreadyMerged bool   `json:"already_merged,omitempty"`
 }
 
 // PRGetPRResponse is the daemon's response for GetPR.
@@ -165,6 +166,7 @@ type PRGetPRResponse struct {
 	HeadSHA   string `json:"head_sha,omitempty"`
 	Merged    bool   `json:"merged,omitempty"`
 	Mergeable bool   `json:"mergeable,omitempty"`
+	Title     string `json:"title,omitempty"`
 }
 
 // PRCIStatusResponse is the daemon's response for GetCombinedStatus.

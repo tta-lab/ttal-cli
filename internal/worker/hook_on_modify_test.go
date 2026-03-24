@@ -75,7 +75,7 @@ func TestValidateTaskCompletion_NoPRID(t *testing.T) {
 	task := makeTask("", "")
 	// No pr_id — should allow completion immediately without calling checker.
 	checkerCalled := false
-	checker := func(_, _ string) (bool, string, error) {
+	checker := func(_, _, _ string) (bool, string, error) {
 		checkerCalled = true
 		return false, "", nil
 	}
@@ -91,7 +91,7 @@ func TestValidateTaskCompletion_PRIDButNoProject(t *testing.T) {
 	task := makeTask("42", "")
 	// Has pr_id but no project — should return an error before calling checker.
 	checkerCalled := false
-	checker := func(_, _ string) (bool, string, error) {
+	checker := func(_, _, _ string) (bool, string, error) {
 		checkerCalled = true
 		return false, "", nil
 	}
@@ -108,7 +108,10 @@ func TestValidateTaskCompletion_PRIDButNoProject(t *testing.T) {
 func TestValidateTaskCompletion_PRMerged(t *testing.T) {
 	task := makeTask("7", "testproj")
 	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
-	checker := func(projectPath, prID string) (bool, string, error) {
+	checker := func(projectAlias, projectPath, prID string) (bool, string, error) {
+		if projectAlias != "testproj" {
+			return false, "", errors.New("unexpected projectAlias: " + projectAlias)
+		}
 		if projectPath != "/some/project" {
 			return false, "", errors.New("unexpected projectPath: " + projectPath)
 		}
@@ -129,7 +132,7 @@ func TestValidateTaskCompletion_PRMerged(t *testing.T) {
 func TestValidateTaskCompletion_PROpen(t *testing.T) {
 	task := makeTask("7", "testproj")
 	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
-	checker := func(_, _ string) (bool, string, error) {
+	checker := func(_, _, _ string) (bool, string, error) {
 		return false, "", nil // not merged
 	}
 	_, err := validateTaskCompletion(task, checker, resolver)
@@ -141,7 +144,7 @@ func TestValidateTaskCompletion_PROpen(t *testing.T) {
 func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
 	task := makeTask("7", "testproj")
 	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
-	checker := func(projectPath, prID string) (bool, string, error) {
+	checker := func(_, _, prID string) (bool, string, error) {
 		if prID != "7" {
 			return false, "", errors.New("unexpected prID: " + prID)
 		}
@@ -159,7 +162,7 @@ func TestValidateTaskCompletion_PRMergedWithLGTM(t *testing.T) {
 func TestValidateTaskCompletion_PROpenWithLGTM(t *testing.T) {
 	task := makeTask("7", "testproj")
 	resolver := mockResolver(map[string]string{"testproj": "/some/project"})
-	checker := func(_, _ string) (bool, string, error) { return false, "", nil }
+	checker := func(_, _, _ string) (bool, string, error) { return false, "", nil }
 	_, err := validateTaskCompletion(task, checker, resolver)
 	if err == nil {
 		t.Fatal("expected error for unmerged PR")

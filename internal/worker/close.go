@@ -130,7 +130,11 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		}, ErrNeedsDecision
 	}
 
-	return closeWithPR(task.UUID, task.PRID, gitRoot, sessionName, workDir, branch, worktreeExists, task.Annotations)
+	return closeWithPR(
+		task.UUID, task.PRID, task.Project,
+		gitRoot, sessionName, workDir, branch,
+		worktreeExists, task.Annotations,
+	)
 }
 
 // closeWithoutProject handles cleanup when the project alias can't be resolved in projects.toml.
@@ -160,7 +164,7 @@ func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*
 
 // closeWithPR handles the smart-close path when a PR exists.
 func closeWithPR(
-	taskUUID, prIDStr, gitRoot, sessionName, workDir, branch string,
+	taskUUID, prIDStr, projectAlias, gitRoot, sessionName, workDir, branch string,
 	worktreeExists bool, annotations []taskwarrior.Annotation,
 ) (*CloseResult, error) {
 	pridInfo, err := taskwarrior.ParsePRID(prIDStr)
@@ -174,7 +178,8 @@ func closeWithPR(
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not detect repo info: %v", err)}, err
 	}
 
-	provider, err := gitprovider.NewProvider(repoInfo)
+	token := project.ResolveGitHubToken(projectAlias)
+	provider, err := gitprovider.NewProviderWithToken(repoInfo, token)
 	if err != nil {
 		return &CloseResult{Error: true, Status: fmt.Sprintf("Could not create provider: %v", err)}, err
 	}

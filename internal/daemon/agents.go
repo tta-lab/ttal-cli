@@ -11,6 +11,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	envpkg "github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -70,8 +71,8 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
 		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
-	// Inject all secrets from .env
-	env = append(env, config.DotEnvParts()...)
+	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
+	env = append(env, envpkg.AllowedDotEnvParts()...)
 
 	return env
 }

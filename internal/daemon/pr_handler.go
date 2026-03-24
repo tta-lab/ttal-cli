@@ -45,7 +45,7 @@ func handlePRMerge(req PRMergeRequest) PRResponse {
 		return PRResponse{OK: false, Error: fmt.Sprintf("get PR: %v", err)}
 	}
 	if fetchedPR.Merged {
-		return PRResponse{OK: false, Error: fmt.Sprintf("PR #%d is already merged", req.Index)}
+		return PRResponse{OK: false, AlreadyMerged: true, Error: fmt.Sprintf("PR #%d is already merged", req.Index)}
 	}
 	if !fetchedPR.Mergeable {
 		reason := diagnosePRMergeFailure(provider, req.Owner, req.Repo, fetchedPR)
@@ -87,7 +87,11 @@ func handlePRGetPR(req PRGetPRRequest) PRGetPRResponse {
 	if err != nil {
 		return PRGetPRResponse{OK: false, Error: fmt.Sprintf("get PR: %v", err)}
 	}
-	return PRGetPRResponse{OK: true, HeadSHA: fetchedPR.HeadSHA, Merged: fetchedPR.Merged, Mergeable: fetchedPR.Mergeable}
+	return PRGetPRResponse{
+		OK: true, HeadSHA: fetchedPR.HeadSHA,
+		Merged: fetchedPR.Merged, Mergeable: fetchedPR.Mergeable,
+		Title: fetchedPR.Title,
+	}
 }
 
 func handlePRGetCombinedStatus(req PRGetCombinedStatusRequest) PRCIStatusResponse {

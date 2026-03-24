@@ -218,16 +218,36 @@ func HookOnModify() {
 }
 
 // prMergedChecker checks whether a PR is merged and returns its title.
-// It receives the project path and PR ID string and returns (merged bool, title string, err error).
+// It receives the project alias, project path, and PR ID string.
 // Injected for testability; production code uses defaultPRMergedChecker.
-type prMergedChecker func(projectPath, prID string) (merged bool, title string, err error)
+type prMergedChecker func(projectAlias, projectPath, prID string) (merged bool, title string, err error)
 
 // pathResolver resolves a project alias to a filesystem path.
 // Injected for testability; production code uses project.ResolveProjectPath.
 type pathResolver func(projectName string) string
 
+// prGetPRPayload mirrors daemon.PRGetPRRequest for socket serialization.
+// Defined here to avoid a worker→daemon circular import.
+type prGetPRPayload struct {
+	ProviderType string `json:"provider_type"`
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Index        int64  `json:"index"`
+	ProjectAlias string `json:"project_alias,omitempty"`
+}
+
+// prGetPRResult mirrors daemon.PRGetPRResponse for socket deserialization.
+// Defined here to avoid a worker→daemon circular import.
+type prGetPRResult struct {
+	OK     bool   `json:"ok"`
+	Error  string `json:"error,omitempty"`
+	Merged bool   `json:"merged,omitempty"`
+	Title  string `json:"title,omitempty"`
+}
+
 // defaultPRMergedChecker is the real implementation used in production.
-func defaultPRMergedChecker(projectPath, prID string) (bool, string, error) {
+// Proxies through the daemon's POST /pr/get endpoint so per-project tokens are resolved centrally.
+func defaultPRMergedChecker(projectAlias, projectPath, prID string) (bool, string, error) {
 	prInfo, err := taskwarrior.ParsePRID(prID)
 	if err != nil {
 		return false, "", fmt.Errorf("cannot verify PR %q: %w", prID, err)
@@ -238,17 +258,43 @@ func defaultPRMergedChecker(projectPath, prID string) (bool, string, error) {
 		return false, "", fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
 	}
 
-	provider, err := gitprovider.NewProvider(info)
+	payload := prGetPRPayload{
+		ProviderType: string(info.Provider),
+		Owner:        info.Owner,
+		Repo:         info.Repo,
+		Index:        prInfo.Index,
+		ProjectAlias: projectAlias,
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return false, "", fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
+		return false, "", fmt.Errorf("cannot verify PR #%d: marshal: %w", prInfo.Index, err)
 	}
 
-	pr, err := provider.GetPR(info.Owner, info.Repo, prInfo.Index)
+	const prCheckTimeout = 5 * time.Second
+	sockPath := config.SocketPath()
+	client := &http.Client{
+		Timeout: prCheckTimeout,
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, prCheckTimeout)
+			},
+		},
+	}
+	httpResp, err := client.Post("http://daemon/pr/get", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return false, "", fmt.Errorf("cannot verify PR #%d: %w", prInfo.Index, err)
+		return false, "", fmt.Errorf("cannot verify PR #%d: daemon unreachable: %w", prInfo.Index, err)
+	}
+	defer httpResp.Body.Close() //nolint:errcheck
+
+	var result prGetPRResult
+	if err := json.NewDecoder(httpResp.Body).Decode(&result); err != nil {
+		return false, "", fmt.Errorf("cannot verify PR #%d: decode response: %w", prInfo.Index, err)
+	}
+	if !result.OK {
+		return false, "", fmt.Errorf("cannot verify PR #%d: %s", prInfo.Index, result.Error)
 	}
 
-	return pr.Merged, pr.Title, nil
+	return result.Merged, result.Title, nil
 }
 
 // validateTaskCompletion checks if a task can be completed.
@@ -282,7 +328,7 @@ func validateTaskCompletion(
 		checker = defaultPRMergedChecker
 	}
 
-	merged, title, err := checker(projectPath, prID)
+	merged, title, err := checker(modified.Project(), projectPath, prID)
 	if err != nil {
 		return "", err
 	}

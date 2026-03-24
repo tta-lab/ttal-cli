@@ -1,6 +1,9 @@
 package daemon
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -142,5 +145,44 @@ func TestCountPRCheckStates(t *testing.T) {
 	}
 	if pending != 1 {
 		t.Errorf("expected 1 pending, got %d", pending)
+	}
+}
+
+// TestHandlePRMerge_AlreadyMerged verifies that handlePRMerge sets AlreadyMerged=true
+// when the provider reports the PR is already merged. This is a structured field check
+// that replaced the fragile strings.Contains("already merged") approach in mergeWorkerPR.
+func TestHandlePRMerge_AlreadyMerged(t *testing.T) {
+	// Minimal Forgejo API mock that handles version discovery and returns a merged PR.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/version"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"version": "1.21.0"})
+		default:
+			// GET /api/v1/repos/o/r/pulls/42 — return a merged PR
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"number": 42,
+				"merged": true,
+				"state":  "closed",
+			})
+		}
+	}))
+	defer srv.Close()
+
+	t.Setenv("FORGEJO_URL", srv.URL)
+	t.Setenv("FORGEJO_TOKEN", "test-token")
+
+	resp := handlePRMerge(PRMergeRequest{
+		ProviderType: "forgejo",
+		Owner:        "o",
+		Repo:         "r",
+		Index:        42,
+	})
+
+	if resp.OK {
+		t.Error("expected not-OK for already merged PR")
+	}
+	if !resp.AlreadyMerged {
+		t.Errorf("expected AlreadyMerged=true, got false; error: %s", resp.Error)
 	}
 }
