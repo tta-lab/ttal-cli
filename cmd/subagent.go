@@ -152,7 +152,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	}
 
 	result, err := logos.Run(context.Background(), cfg, nil, prompt, logos.Callbacks{
-		OnDelta: func(text string) { fmt.Print(text) },
+		OnDelta: renderDelta,
 	})
 	return flushAgentResult(result, err)
 }

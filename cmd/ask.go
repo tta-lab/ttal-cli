@@ -579,7 +579,7 @@ func buildAskCallbacks(quiet bool) (logos.Callbacks, *spinner) {
 		return logos.Callbacks{}, sp
 	}
 	return logos.Callbacks{
-		OnDelta:        func(text string) { fmt.Print(text) },
+		OnDelta:        renderDelta,
 		OnCommandStart: renderCommandStart,
 		OnCommandResult: func(command, output string, exitCode int) {
 			renderCommandResult(output, exitCode)
