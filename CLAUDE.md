@@ -261,7 +261,7 @@ Generate a template: `ttal doctor --fix`
   ├── config.toml             - Global ttal configuration
   ├── projects.toml           - Active/archived project registry (default team)
   ├── {team}-projects.toml    - Per-team project registry (e.g. guion-projects.toml)
-  ├── roles.toml              - Agent role definitions (manager, designer, etc.)
+  ├── roles.toml              - Agent role prompt templates (instructional text, no skills)
   ├── prompts.toml            - Prompt templates for agent operations
   └── license                 - License key
 ```

@@ -15,13 +15,15 @@ All ttal configuration lives in `~/.config/ttal/`:
 ~/.config/ttal/
 ├── config.toml     — structure + settings (teams, sync, flicknote, voice)
 ├── prompts.toml    — worker-plane prompt templates (execute, review, triage, re_review)
-├── roles.toml      — manager-plane per-role prompts + heartbeat config
+├── roles.toml      — manager-plane per-role prompt templates (instructional text, no skills)
+├── pipelines.toml  — pipeline stage definitions with gates, reviewers, and skills
 ├── projects.toml   — project registry
 └── .env            — secrets (bot tokens, API keys)
 ```
 
 **Boundary:** `prompts.toml` holds worker-plane templates (spawned workers and reviewers).
 `roles.toml` holds manager-plane per-role templates (long-running agents for task routing).
+Skills are configured per-stage in `pipelines.toml`, not per-role in `roles.toml`.
 
 ## Basic structure
 
@@ -119,6 +121,32 @@ prompt = "..."
 | `prompt` | string | Routing prompt template for this role |
 | `heartbeat_interval` | string | How often to send the heartbeat prompt (e.g. `"1h"`, `"30m"`) |
 | `heartbeat_prompt` | string | Prompt delivered on each heartbeat tick |
+
+## pipelines.toml fields
+
+Per-pipeline stage config lives in `~/.config/ttal/pipelines.toml`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Stage name (alphanumeric + underscore, used as taskwarrior tag) |
+| `assignee` | string | Role from roles.toml (e.g. "designer") or "coder" for worker stages |
+| `gate` | string | "human" (requires Telegram approval) or "auto" |
+| `reviewer` | string | Reviewer agent name (optional) |
+| `skills` | string[] | Skill names loaded via `ttal skill get` at stage entry (optional) |
+
+### Stage Skills
+
+Stages can declare skills loaded at task routing time:
+
+```toml
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+skills = ["sp-planning", "flicknote"]
+```
+
+When a task advances to this stage, skill invocations are prepended to the role prompt. This ties skills to what the agent is doing (stage), not who they are (role) — the same agent can use different skills at different stages.
 
 ## prompts.toml fields
 
