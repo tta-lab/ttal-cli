@@ -132,15 +132,23 @@ func handleSystemToAgent(
 
 // handleAgentToAgent delivers a message from one agent to another.
 // Falls back to worker session delivery when the recipient is a hex UUID.
+// The sender may also be a worker hex UUID (e.g. from ttal alert in a worker session).
 func handleAgentToAgent(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
 	fromTA := resolveAgent(mcfg, req.Team, req.From)
-	if fromTA == nil {
-		return fmt.Errorf("unknown agent: %s", req.From)
+	senderTeam := req.Team
+	if senderTeam == "" {
+		senderTeam = config.DefaultTeamName
 	}
+	if fromTA != nil {
+		senderTeam = fromTA.TeamName
+	} else if _, err := resolveWorker(req.From); err != nil {
+		return fmt.Errorf("unknown agent or worker: %s", req.From)
+	}
+
 	toTA := resolveAgent(mcfg, req.Team, req.To)
 	msg := formatAgentMessage(req.From, req.Message)
 	if toTA == nil {
@@ -148,17 +156,17 @@ func handleAgentToAgent(
 		if err != nil {
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
-		rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
+		rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
 		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
 		return dispatchToWorker(msgSvc, session, message.CreateParams{
 			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
-			Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 		}, msg)
 	}
-	rt := mcfg.AgentRuntimeForTeam(fromTA.TeamName, req.From)
+	rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
-		Team: fromTA.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 	return deliverToAgent(registry, mcfg, frontends, toTA.TeamName, req.To, msg)
