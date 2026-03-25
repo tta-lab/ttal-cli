@@ -48,9 +48,9 @@ func TestBuildFullCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildFullCommand(tt.cmdName, tt.messageText)
+			got := buildSlashCommand(tt.cmdName, tt.messageText)
 			if got != tt.want {
-				t.Errorf("buildFullCommand(%q, %q) = %q, want %q", tt.cmdName, tt.messageText, got, tt.want)
+				t.Errorf("buildSlashCommand(%q, %q) = %q, want %q", tt.cmdName, tt.messageText, got, tt.want)
 			}
 		})
 	}

@@ -686,7 +686,7 @@ func routeToPersistentAgent(
 		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
 		return nil
 	}
-	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "/breathe"}); err != nil {
+	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
 		if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
 			log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
 		}

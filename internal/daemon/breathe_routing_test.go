@@ -145,7 +145,7 @@ func TestHandleSendSystemRouting(t *testing.T) {
 	// handleAgentToAgent it would also resolve the *From* agent and return
 	// "unknown agent: system" (failing on sender lookup, not recipient).
 	mcfg := &config.DaemonConfig{}
-	req := SendRequest{From: "system", To: "athena", Message: "/breathe"}
+	req := SendRequest{From: "system", To: "athena", Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."} //nolint:lll
 	err := handleSend(mcfg, nil, nil, nil, req)
 	if err == nil {
 		t.Fatal("expected error for unknown agent, got nil")
