@@ -291,6 +291,9 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 
+	// Temenos MCP sandbox config — workers get write access to cwd (worktree)
+	parts = append(parts, env.WorkerTemenosEnv()...)
+
 	return parts
 }
 
