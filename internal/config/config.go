@@ -170,14 +170,10 @@ type TeamConfig struct {
 	BreatheThreshold *float64 `toml:"breathe_threshold"` //nolint:lll
 }
 
-// SyncConfig holds paths for subagent, skill, command, and rule deployment.
+// SyncConfig holds paths for subagent and rule deployment.
 type SyncConfig struct {
 	// Directories for subagent definitions
 	SubagentsPaths []string `toml:"subagents_paths"`
-	// Directories for skill definitions
-	SkillsPaths []string `toml:"skills_paths"`
-	// Directories for command definitions
-	CommandsPaths []string `toml:"commands_paths"`
 	// Directories for RULE.md files
 	RulesPaths []string `toml:"rules_paths"`
 	// Path to global CLAUDE.md prompt

@@ -19,20 +19,6 @@
           "type": "array",
           "description": "Directories for subagent definitions"
         },
-        "skills_paths": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Directories for skill definitions"
-        },
-        "commands_paths": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Directories for command definitions"
-        },
         "rules_paths": {
           "items": {
             "type": "string"
