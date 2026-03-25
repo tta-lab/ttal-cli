@@ -139,14 +139,20 @@ func handleAgentToAgent(
 	msgSvc *message.Service, req SendRequest,
 ) error {
 	fromTA := resolveAgent(mcfg, req.Team, req.From)
+	if fromTA == nil {
+		if _, err := resolveWorker(req.From); err != nil {
+			// session string discarded — only validating that the hex ID resolves
+			return fmt.Errorf("unknown agent or worker: %s", req.From)
+		}
+	}
 	senderTeam := req.Team
 	if senderTeam == "" {
 		senderTeam = config.DefaultTeamName
 	}
 	if fromTA != nil {
 		senderTeam = fromTA.TeamName
-	} else if _, err := resolveWorker(req.From); err != nil {
-		return fmt.Errorf("unknown agent or worker: %s", req.From)
+	} else if senderTeam == config.DefaultTeamName && req.Team == "" {
+		log.Printf("[daemon] worker sender %s: team unknown, attributing to default team", req.From)
 	}
 
 	toTA := resolveAgent(mcfg, req.Team, req.To)

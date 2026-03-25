@@ -24,12 +24,27 @@ func TestHandleAgentToAgentUnknownSender(t *testing.T) {
 		wantErr string
 	}{
 		{
+			// Non-hex string: fails resolveWorker's character check before any tmux call.
 			name:    "non-hex from is rejected",
 			from:    "not-a-worker",
 			wantErr: "unknown agent or worker",
 		},
 		{
-			name:    "valid hex from with no live tmux session is rejected",
+			// Short hex (< 8 chars): fails resolveWorker's length check before any tmux call.
+			name:    "short hex from is rejected",
+			from:    "abc123",
+			wantErr: "unknown agent or worker",
+		},
+		{
+			// Non-hex 8-char string: fails resolveWorker's character loop before any tmux call.
+			name:    "non-hex 8-char from is rejected",
+			from:    "gggggggg",
+			wantErr: "unknown agent or worker",
+		},
+		{
+			// Valid hex format but no matching tmux session — hits ListSessions which errors
+			// when no tmux server is running (expected in CI).
+			name:    "valid hex from with no tmux server is rejected",
 			from:    "aabbccdd",
 			wantErr: "unknown agent or worker",
 		},
