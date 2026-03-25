@@ -275,6 +275,7 @@ The repo contains the **single source of truth** for agent definitions, skills, 
 ```
 templates/
   ttal/                - Agent identity files (frontmatter + CLAUDE.md)
+    ├── CLAUDE.user.md - Global prompt (→ ~/.claude/CLAUDE.md via sync)
     ├── yuki.md        - Each agent's full identity, role, decision rules
     ├── kestrel.md
     └── ...
@@ -304,12 +305,15 @@ skills/                - ttal CLI reference skills (flat .md files)
 
 | Type | Location | Format | Deploys to |
 |------|----------|--------|------------|
+| Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `~/.claude/CLAUDE.md` |
 | Skills (methodology) | `templates/docs/skills/` | Directory with `SKILL.md` | `~/.claude/skills/{name}/` |
 | Commands (slash commands) | `templates/docs/commands/` | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
 | Subagents | `templates/docs/agents/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
 | Agent identities | `templates/ttal/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
 | Config TOMLs | `templates/ttal/` | `.toml` files | `~/.config/ttal/` |
 | CLI reference skills | `skills/` (repo root) | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
+
+**Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
 
 ## Additional Documentation
 
