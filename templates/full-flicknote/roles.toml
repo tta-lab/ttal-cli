@@ -3,8 +3,7 @@ prompt = """Read the task and do your best based on the context.
 ttal task get"""
 
 [designer]
-prompt = """{{skill:sp-planning}} {{skill:flicknote}}
-Write an implementation plan for this task.
+prompt = """Write an implementation plan for this task.
 Read the task first: ttal task get
 
 Storage: Save the plan via flicknote add 'content' --project plans
@@ -12,8 +11,7 @@ Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <secti
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [researcher]
-prompt = """{{skill:sp-research}} {{skill:flicknote}}
-Research this topic thoroughly.
+prompt = """Research this topic thoroughly.
 Read the task first: ttal task get
 
 Storage: Save findings via flicknote add 'content' --project research
@@ -21,8 +19,7 @@ Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content'
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [fixer]
-prompt = """{{skill:sp-debugging}} {{skill:flicknote}}
-Diagnose this bug and write a fix plan.
+prompt = """Diagnose this bug and write a fix plan.
 Read the task first: ttal task get
 
 Storage: Save findings via flicknote add 'content' --project fixes

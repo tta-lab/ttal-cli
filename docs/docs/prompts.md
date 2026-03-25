@@ -38,12 +38,15 @@ correct invocation syntax based on the target agent's runtime:
 Skill references should appear at the **beginning** of the prompt (first line),
 as all runtimes require skill invocations at the start of the message.
 
+> **Note:** `{{skill:name}}` placeholders are used in worker-plane prompts (`prompts.toml`) only.
+> Manager-plane agents receive skills via the `skills` field in `pipelines.toml` stage config.
+
 ## Available Prompt Keys
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}`, `{{skill:name}}` |
-| `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}`, `{{skill:name}}` |
+| `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}` |
+| `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}` |
 | `execute` | `ttal go` | `{{task-id}}`, `{{skill:name}}` |
 | `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |

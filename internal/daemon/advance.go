@@ -9,6 +9,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -402,6 +403,19 @@ func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage
 	})
 }
 
+// prependStageSkills prepends skill invocations from stage config to a role prompt.
+// Returns the prompt unchanged when skills is empty.
+func prependStageSkills(rolePrompt string, skills []string, rt runtime.Runtime) string {
+	if len(skills) == 0 {
+		return rolePrompt
+	}
+	lines := make([]string, len(skills))
+	for i, s := range skills {
+		lines[i] = runtime.FormatSkillInvocation(rt, s)
+	}
+	return strings.Join(lines, "\n") + "\n\n" + rolePrompt
+}
+
 // shouldBreatheStatus is the pure logic: returns true when the agent should be breathed.
 // Stale (>5min) or nil status defaults to true (breathe when uncertain).
 func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) bool {
@@ -569,6 +583,7 @@ func advanceToStage(
 	cfg := mcfg.Global
 	agentRT := cfg.AgentRuntimeFor(agent.Name)
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
+	rolePrompt = prependStageSkills(rolePrompt, stage.Skills, agentRT)
 
 	if err := routeToPersistentAgent(w, cfg, task, agent, rolePrompt, callerAgent, team); err != nil {
 		return err
