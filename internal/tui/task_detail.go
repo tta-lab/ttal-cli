@@ -23,7 +23,6 @@ func (m Model) viewTaskDetail() string {
 
 	// Core fields
 	field(&b, "UUID:", "  ", t.UUID)
-	field(&b, "ID:", "    ", fmt.Sprintf("%d", t.ID))
 	field(&b, "Desc:", "  ", t.Description)
 	field(&b, "Status:", " ", t.Status)
 

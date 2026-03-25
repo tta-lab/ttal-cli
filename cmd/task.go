@@ -114,7 +114,6 @@ Examples:
 				uuid = uuid[:8]
 			}
 			rows = append(rows, []string{
-				fmt.Sprintf("%d", t.ID),
 				uuid,
 				t.Status,
 				t.Project,
@@ -131,13 +130,13 @@ Examples:
 					return headerStyle
 				}
 				switch col {
-				case 0, 1, 2:
+				case 0, 1:
 					return dimStyle
 				default:
 					return cellStyle
 				}
 			}).
-			Headers("ID", "UUID", "Status", "Project", "Tags", "Description").
+			Headers("ID", "Status", "Project", "Tags", "Description").
 			Rows(rows...)
 
 		fmt.Println(tbl)

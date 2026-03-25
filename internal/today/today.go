@@ -82,7 +82,6 @@ func List() error {
 			}
 		}
 		rows = append(rows, []string{
-			fmt.Sprintf("%d", t.ID),
 			t.ShortUUID(),
 			fmt.Sprintf("%.1f", t.Urgency),
 			t.Project,
@@ -99,15 +98,15 @@ func List() error {
 			if row == table.HeaderRow {
 				return headerStyle
 			}
-			// Dim the metadata columns (ID, UUID, Urg, Due)
+			// Dim the metadata columns (ID [hex], Urg, Due)
 			switch col {
-			case 0, 1, 2, 5:
+			case 0, 1, 4:
 				return dimStyle
 			default:
 				return cellStyle
 			}
 		}).
-		Headers("ID", "UUID", "Urg", "Project", "Tags", "Due", "Description").
+		Headers("ID", "Urg", "Project", "Tags", "Due", "Description").
 		Rows(rows...)
 
 	fmt.Println(t)
@@ -160,7 +159,7 @@ func Completed() error {
 			}
 			return cellStyle
 		}).
-		Headers("UUID", "Project", "Tags", "Description").
+		Headers("ID", "Project", "Tags", "Description").
 		Rows(rows...)
 
 	fmt.Println(t)
