@@ -10,7 +10,7 @@ import (
 )
 
 // handleTaskComplete processes a taskComplete HTTP request and delivers
-// task-done notifications to manager agents, optionally the spawner, and frontend.
+// task-done notifications to manager agents and frontend.
 func handleTaskComplete(
 	req TaskCompleteRequest, mcfg *config.DaemonConfig,
 	registry *adapterRegistry, frontends map[string]frontend.Frontend,
@@ -39,19 +39,12 @@ func handleTaskComplete(
 	target := prWatchTarget{
 		TaskUUID:    req.TaskUUID,
 		Team:        req.Team,
-		Spawner:     req.Spawner,
 		Description: desc,
 		PRIndex:     prIndex,
 	}
 
 	notifyManagerAgents(mcfg, registry, frontends, target)
-	if req.Spawner != "" {
-		notifySpawnerMerged(mcfg, registry, frontends, target)
-		log.Printf("[taskComplete] notified managers + spawner %q for task %s",
-			req.Spawner, shortSHA(req.TaskUUID))
-	} else {
-		log.Printf("[taskComplete] notified managers for task %s", shortSHA(req.TaskUUID))
-	}
+	log.Printf("[taskComplete] notified managers for task %s", shortSHA(req.TaskUUID))
 	// Only notify Telegram if there was a PR — plain task completions are silent.
 	if req.PRID != "" {
 		notifyTelegramTaskDone(frontends, target)
