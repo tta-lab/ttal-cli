@@ -376,7 +376,7 @@ func notifySpawnerMerged(
 }
 
 // notifyManagerAgents delivers a task-done notification to manager agents in the task's
-// owning team only. Skips any agent that is the same as the spawner (already notified).
+// owning team only.
 func notifyManagerAgents(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, target prWatchTarget,
@@ -403,11 +403,6 @@ func notifyManagerAgents(
 	}
 	msg := formatTaskDoneMsg(target)
 	for _, agent := range managers {
-		// Skip if this agent is the same as the spawner (already notified by notifySpawnerMerged)
-		spawnerKey := teamName + ":" + agent.Name
-		if spawnerKey == target.Spawner {
-			continue
-		}
 		if err := deliverToAgent(registry, mcfg, frontends, teamName, agent.Name, msg); err != nil {
 			log.Printf("[prwatch] notifyManagerAgents: deliver to %s/%s: %v", teamName, agent.Name, err)
 		}
