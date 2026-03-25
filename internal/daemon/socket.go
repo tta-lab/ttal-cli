@@ -6,15 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/status"
 )
@@ -287,6 +290,8 @@ type httpHandlers struct {
 	commentGet  func(CommentGetRequest) CommentGetResponse
 	// Window lifecycle
 	closeWindow func(CloseWindowRequest) SendResponse
+	// Ask agent loop (runs logos server-side, streams NDJSON)
+	askHandler http.HandlerFunc
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -307,6 +312,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
 	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
+	r.Post("/ask", handlers.askHandler)
 	r.Post("/pipeline/advance", handlers.pipelineAdvance)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
@@ -858,6 +864,80 @@ func AskHuman(req AskHumanRequest) (AskHumanResponse, error) {
 		return AskHumanResponse{}, fmt.Errorf("daemon returned failure without details")
 	}
 	return result, nil
+}
+
+// daemonHTTPClientStreaming returns an http.Client with no total timeout,
+// suitable for long-running streaming responses like /ask.
+// Lifecycle is controlled by context cancellation (e.g. Ctrl-C → SIGINT).
+// The DialContext timeout still applies to the initial connection.
+func daemonHTTPClientStreaming() *http.Client {
+	sockPath, _ := SocketPath()
+	return &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, socketTimeout)
+			},
+		},
+	}
+}
+
+// AskAgent sends an ask request to the daemon and streams NDJSON events via the callback.
+// Blocks until the stream completes (done or error terminal event received).
+//
+// Uses no total deadline since agent loops run for many minutes.
+// The NDJSON stream keeps the connection alive — idle timeouts aren't a concern.
+// Lifecycle is controlled by context cancellation (e.g. Ctrl-C → SIGINT).
+func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal ask request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		daemonBaseURL+"/ask", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := daemonHTTPClientStreaming().Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("daemon not running — ttal ask requires the daemon: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// Read up to 512 bytes and try JSON first, then fall back to raw text.
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		var errResp SendResponse
+		if json.Unmarshal(raw, &errResp) == nil && errResp.Error != "" {
+			return fmt.Errorf("daemon: %s", errResp.Error)
+		}
+		if len(raw) > 0 {
+			return fmt.Errorf("daemon returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		}
+		return fmt.Errorf("daemon returned HTTP %d", resp.StatusCode)
+	}
+
+	// Track whether a terminal event was received.
+	// If the daemon crashes mid-stream, dec.More() returns false without
+	// a done/error event — we must distinguish this from a clean finish.
+	var terminated bool
+	dec := json.NewDecoder(resp.Body)
+	for dec.More() {
+		var event ask.Event
+		if err := dec.Decode(&event); err != nil {
+			return fmt.Errorf("decode ask event: %w", err)
+		}
+		onEvent(event)
+		if event.Type == ask.EventDone || event.Type == ask.EventError {
+			terminated = true
+		}
+	}
+	if !terminated {
+		return fmt.Errorf("stream ended without terminal event (daemon may have crashed)")
+	}
+	return nil
 }
 
 // QueryStatus connects to the daemon and queries agent status via HTTP.

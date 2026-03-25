@@ -18,10 +18,7 @@ func IsAllowedForSession(key string) bool {
 	}
 	switch key {
 	case "TASKRC", // taskwarrior config
-		"FORGEJO_URL",     // PR URL construction (not a credential)
-		"MINIMAX_API_KEY", // ttal ask — LLM provider
-		"MINIMAX_API_URL", // ttal ask — LLM endpoint
-		"BRAVE_API_KEY":   // ttal ask — web search
+		"FORGEJO_URL": // PR URL construction (not a credential)
 		return true
 	}
 	return false

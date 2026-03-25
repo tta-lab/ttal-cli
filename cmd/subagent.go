@@ -8,10 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/fantasy"
-	"charm.land/fantasy/providers/anthropic"
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/logos"
+	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	internalsync "github.com/tta-lab/ttal-cli/internal/sync"
 )
@@ -94,7 +93,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("agent %q has no model in ttal: frontmatter", name)
 	}
 
-	provider, modelID, err := buildSubagentProvider(model)
+	provider, modelID, err := ask.BuildProvider(model)
 	if err != nil {
 		return fmt.Errorf("build provider: %w", err)
 	}
@@ -121,7 +120,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		systemPrompt += "\n\n" + agent.Body
 	}
 
-	tc, err := newTemenosClient(context.Background())
+	tc, err := ask.NewTemenosClient(context.Background())
 	if err != nil {
 		return err
 	}
@@ -162,7 +161,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 // Output order is always canonical (url, web, rg, src) regardless of input order.
 func deriveCommands(toolNames []string) []logos.CommandDoc {
 	if len(toolNames) == 0 {
-		return allCommands()
+		return ask.AllCommands()
 	}
 	var hasURL, hasWeb, hasRG, hasSrc bool
 	for _, t := range toolNames {
@@ -181,16 +180,16 @@ func deriveCommands(toolNames []string) []logos.CommandDoc {
 	}
 	var cmds []logos.CommandDoc
 	if hasURL {
-		cmds = append(cmds, urlCommandDoc)
+		cmds = append(cmds, ask.URLCommandDoc)
 	}
 	if hasWeb {
-		cmds = append(cmds, webCommandDoc)
+		cmds = append(cmds, ask.WebCommandDoc)
 	}
 	if hasRG {
-		cmds = append(cmds, rgCommandDoc)
+		cmds = append(cmds, ask.RGCommandDoc)
 	}
 	if hasSrc {
-		cmds = append(cmds, srcCommandDoc)
+		cmds = append(cmds, ask.SrcCommandDoc)
 	}
 	return cmds
 }
@@ -261,37 +260,6 @@ func firstLine(s string) string {
 		}
 	}
 	return ""
-}
-
-// buildSubagentProvider creates a fantasy.Provider and resolved model ID from a model string.
-// Model format: "provider/model-id" or bare model ID (defaults to anthropic).
-// Currently supports: "minimax/" prefix (→ anthropic-compat via MINIMAX_API_URL/MINIMAX_API_KEY)
-// and bare model IDs (→ anthropic via ANTHROPIC_API_KEY).
-func buildSubagentProvider(model string) (fantasy.Provider, string, error) {
-	switch {
-	case strings.HasPrefix(model, "minimax/"):
-		baseURL := os.Getenv("MINIMAX_API_URL")
-		apiKey := os.Getenv("MINIMAX_API_KEY")
-		if baseURL == "" || apiKey == "" {
-			return nil, "", fmt.Errorf("minimax/ model requires MINIMAX_API_URL and MINIMAX_API_KEY env vars")
-		}
-		modelID := strings.TrimPrefix(model, "minimax/")
-		p, err := anthropic.New(anthropic.WithBaseURL(baseURL), anthropic.WithAPIKey(apiKey))
-		if err != nil {
-			return nil, "", fmt.Errorf("minimax provider (%s): %w", modelID, err)
-		}
-		return p, modelID, nil
-	default:
-		apiKey := os.Getenv("ANTHROPIC_API_KEY")
-		if apiKey == "" {
-			return nil, "", fmt.Errorf("ANTHROPIC_API_KEY is not set")
-		}
-		p, err := anthropic.New(anthropic.WithAPIKey(apiKey))
-		if err != nil {
-			return nil, "", fmt.Errorf("anthropic provider (%s): %w", model, err)
-		}
-		return p, model, nil
-	}
 }
 
 // resolveLimits returns effective max steps and max tokens.

@@ -1,11 +1,12 @@
-package cmd
+package ask
 
 import "github.com/tta-lab/logos"
 
 // Command documentation for Organon CLI tools exposed in logos agent loops.
 // These are passed to logos.BuildSystemPrompt via PromptData.Commands.
 
-var urlCommandDoc = logos.CommandDoc{
+// URLCommandDoc documents the url command (fetch a web page as markdown).
+var URLCommandDoc = logos.CommandDoc{
 	Name:    "url",
 	Summary: "Fetch a web page as markdown",
 	Help: `Flags:
@@ -22,7 +23,8 @@ Examples:
   url https://example.com --full`,
 }
 
-var webCommandDoc = logos.CommandDoc{
+// WebCommandDoc documents the web command (search the web).
+var WebCommandDoc = logos.CommandDoc{
 	Name:    "web",
 	Summary: "Search the web",
 	Help: `Flags:
@@ -35,7 +37,8 @@ Examples:
   web "RFC 7231 HTTP semantics" -n 5`,
 }
 
-var rgCommandDoc = logos.CommandDoc{
+// RGCommandDoc documents the rg command (search file contents).
+var RGCommandDoc = logos.CommandDoc{
 	Name:    "rg",
 	Summary: "Search file contents (ripgrep)",
 	Help: `Common flags:
@@ -51,7 +54,8 @@ List files:
 rg respects .gitignore by default. Fast, recursive.`,
 }
 
-var srcCommandDoc = logos.CommandDoc{
+// SrcCommandDoc documents the src command (symbol-aware source reader).
+var SrcCommandDoc = logos.CommandDoc{
 	Name:    "src",
 	Summary: "Symbol-aware source reader and editor",
 	Help: `Usage:
@@ -71,12 +75,12 @@ Examples:
   src docs/architecture.md --tree`,
 }
 
-// networkCommands returns CommandDocs for network-only modes (--url, --web).
-func networkCommands() []logos.CommandDoc {
-	return []logos.CommandDoc{urlCommandDoc, webCommandDoc}
+// NetworkCommands returns CommandDocs for network-only modes (--url, --web).
+func NetworkCommands() []logos.CommandDoc {
+	return []logos.CommandDoc{URLCommandDoc, WebCommandDoc}
 }
 
-// allCommands returns CommandDocs for modes with both filesystem and network access.
-func allCommands() []logos.CommandDoc {
-	return append(networkCommands(), rgCommandDoc, srcCommandDoc)
+// AllCommands returns CommandDocs for modes with both filesystem and network access.
+func AllCommands() []logos.CommandDoc {
+	return append(NetworkCommands(), RGCommandDoc, SrcCommandDoc)
 }

@@ -2,38 +2,19 @@ package cmd
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/logos"
+	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
-
-//go:embed ask_prompts/project.md
-var askProjectPrompt string
-
-//go:embed ask_prompts/repo.md
-var askRepoPrompt string
-
-//go:embed ask_prompts/url.md
-var askURLPrompt string
-
-//go:embed ask_prompts/web.md
-var askWebPrompt string
-
-//go:embed ask_prompts/general.md
-var askGeneralPrompt string
 
 var askFlags struct {
 	project   string
@@ -68,14 +49,6 @@ Examples:
   ttal ask "what API endpoints are available?" --url https://docs.example.com # specific URL
   ttal ask "what is the latest Go generics syntax?" --web                     # web search only`,
 	Args: cobra.ExactArgs(1),
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		// ttal ask needs MINIMAX_API_KEY and BRAVE_API_KEY for subagent.
-		// Load .env as fallback for tokens not already in the environment.
-		if err := config.InjectDotEnvFallback(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
-		}
-		return nil
-	},
 	RunE: runAsk,
 }
 
@@ -140,137 +113,99 @@ func runAsk(cmd *cobra.Command, args []string) error {
 
 // askProject asks about a registered ttal project.
 func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
-	projectPath, err := project.GetProjectPath(alias)
-	if err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(projectPath); err != nil {
-		return fmt.Errorf("project path %q does not exist on disk: %w", projectPath, err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemExtra:  strings.ReplaceAll(askProjectPrompt, "{projectPath}", projectPath),
-		workingDir:   projectPath,
-		allowedPaths: []string{projectPath},
-		commands:     allCommands(),
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --project " + alias,
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeProject,
+		project:   alias,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --project " + alias,
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askRepo asks about an open-source repository (auto-clone/pull).
 func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
-	referencesPath := cfg.AskReferencesPath()
-	cloneURL, localPath, err := resolveRepoRef(repoRef, referencesPath)
-	if err != nil {
-		return err
-	}
-
-	if err := ensureRepo(cloneURL, localPath); err != nil {
-		return err
-	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemExtra:  strings.ReplaceAll(askRepoPrompt, "{localPath}", localPath),
-		workingDir:   localPath,
-		allowedPaths: []string{localPath},
-		commands:     allCommands(),
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --repo " + repoRef,
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeRepo,
+		repo:      repoRef,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --repo " + repoRef,
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askURL asks about a web page using url for pre-fetching.
 func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
-		question:    fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
-		systemExtra: strings.ReplaceAll(askURLPrompt, "{rawURL}", rawURL),
-		commands:    networkCommands(),
-		preWarmURL:  rawURL,
-		model:       cfg.AskModel(),
-		maxSteps:    maxSteps,
-		maxTokens:   maxTokens,
-		emoji:       "🔭",
-		label:       "ask --url",
-		save:        askFlags.save,
-		quiet:       askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeURL,
+		rawURL:    rawURL,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --url",
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askWeb searches the web to answer a question.
 func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
-		question:    question,
-		systemExtra: strings.ReplaceAll(askWebPrompt, "{query}", question),
-		commands:    networkCommands(),
-		model:       cfg.AskModel(),
-		maxSteps:    maxSteps,
-		maxTokens:   maxTokens,
-		emoji:       "🔭",
-		label:       "ask --web",
-		save:        askFlags.save,
-		quiet:       askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeWeb,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --web",
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askGeneral asks about the current working directory with both filesystem and web tools.
 func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
-	if !strings.Contains(askGeneralPrompt, "{cwd}") {
-		return fmt.Errorf("general.md prompt is missing {cwd} placeholder")
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get working directory: %w", err)
 	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemExtra:  strings.ReplaceAll(askGeneralPrompt, "{cwd}", cwd),
-		workingDir:   cwd,
-		allowedPaths: []string{cwd},
-		commands:     allCommands(),
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask",
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:   question,
+		mode:       ask.ModeGeneral,
+		workingDir: cwd,
+		maxSteps:   maxSteps,
+		maxTokens:  maxTokens,
+		emoji:      "🔭",
+		label:      "ask",
+		save:       askFlags.save,
+		quiet:      askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
-// askOpts holds parameters for running the ask subagent.
+// askOpts holds parameters for running the ask agent via the daemon.
 type askOpts struct {
-	question     string
-	systemExtra  string             // mode-specific system prompt addition
-	workingDir   string             // working dir shown in system prompt (also used for PromptData)
-	allowedPaths []string           // nil = no filesystem access
-	commands     []logos.CommandDoc // which commands to document in system prompt
-	preWarmURL   string             // if set, pre-fetch via url before agent loop
-	model        string             // model string (e.g. "claude-sonnet-4-6")
-	maxSteps     int
-	maxTokens    int
-	emoji        string // optional display emoji shown before output
-	label        string // display name shown in header (defaults to "ask")
-	save         bool   // if true, pipe final answer to flicknote add
-	quiet        bool   // if true, suppress streaming and print result.Response after completion
+	question   string
+	mode       ask.Mode
+	project    string // alias (project mode)
+	repo       string // ref (repo mode)
+	rawURL     string // URL (url mode)
+	workingDir string // CWD (general mode)
+	maxSteps   int
+	maxTokens  int
+	emoji      string // optional display emoji shown before output
+	label      string // display name shown in header (defaults to "ask")
+	save       bool   // if true, pipe final answer to flicknote add
+	quiet      bool   // if true, suppress streaming and print result after completion
 }
 
-// runAskAgent builds and runs a logos agent loop for the ask command.
+// runAskAgent sends an ask request to the daemon and streams results to the terminal.
 func runAskAgent(opts askOpts) error {
 	label := opts.label
 	if label == "" {
@@ -278,101 +213,72 @@ func runAskAgent(opts askOpts) error {
 	}
 	printAgentHeader(opts.emoji, label)
 
-	provider, modelID, err := buildSubagentProvider(opts.model)
-	if err != nil {
-		return fmt.Errorf("build provider: %w", err)
+	// Build daemon request
+	req := ask.Request{
+		Question:   opts.question,
+		Mode:       opts.mode,
+		Project:    opts.project,
+		Repo:       opts.repo,
+		URL:        opts.rawURL,
+		MaxSteps:   opts.maxSteps,
+		MaxTokens:  opts.maxTokens,
+		Save:       opts.save,
+		Quiet:      opts.quiet,
+		WorkingDir: opts.workingDir,
 	}
 
-	cwd := opts.workingDir
+	var finalResponse string
+	var agentErr string
 
-	promptData := logos.PromptData{
-		WorkingDir: cwd,
-		Platform:   runtime.GOOS,
-		Date:       time.Now().Format("2006-01-02"),
-		Commands:   opts.commands,
-	}
-	systemPrompt, err := logos.BuildSystemPrompt(promptData)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-	if opts.systemExtra != "" {
-		systemPrompt += "\n\n" + opts.systemExtra
-	}
-
-	tc, err := newTemenosClient(context.Background())
-	if err != nil {
-		return err
-	}
-
-	// Pre-warm URL cache if requested (used by --url mode).
-	if opts.preWarmURL != "" {
-		fmt.Fprintf(os.Stderr, "Fetching %s...\n", opts.preWarmURL)
-		quotedURL := "'" + strings.ReplaceAll(opts.preWarmURL, "'", "'\\''") + "'"
-		resp, err := tc.Run(context.Background(), logos.RunRequest{
-			Command: "url " + quotedURL,
-		})
-		if err != nil {
-			return fmt.Errorf("pre-fetch %s: %w", opts.preWarmURL, err)
-		}
-		if resp.ExitCode != 0 {
-			return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
-				opts.preWarmURL, resp.ExitCode, strings.TrimSpace(resp.Stderr))
-		}
-	}
-
-	var allowedPaths []logos.AllowedPath
-	for _, p := range opts.allowedPaths {
-		allowedPaths = append(allowedPaths, logos.AllowedPath{Path: p, ReadOnly: true})
-	}
-
-	cfg := logos.Config{
-		Provider:     provider,
-		Model:        modelID,
-		SystemPrompt: systemPrompt,
-		MaxSteps:     opts.maxSteps,
-		MaxTokens:    opts.maxTokens,
-		Temenos:      tc,
-		AllowedPaths: allowedPaths,
-	}
-
-	callbacks, sp := buildAskCallbacks(opts.quiet)
+	eventHandler, sp := buildAskEventCallbacks(opts.quiet)
 	defer sp.Stop()
-	result, err := logos.Run(context.Background(), cfg, nil, opts.question, callbacks)
 
-	if opts.quiet && err == nil {
-		printQuietResponse(result)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := daemon.AskAgent(ctx, req, func(event ask.Event) {
+		eventHandler(event)
+		switch event.Type {
+		case ask.EventDone:
+			finalResponse = event.Response
+		case ask.EventError:
+			agentErr = event.Message
+		}
+	})
+	if err != nil {
+		return err // transport/daemon error
 	}
 
-	flushErr := flushAgentResult(result, err)
+	if opts.quiet && finalResponse != "" {
+		fmt.Print(finalResponse)
+		// Ensure trailing newline in quiet mode (verbose mode already streams deltas with newlines).
+		if !strings.HasSuffix(finalResponse, "\n") {
+			fmt.Println()
+		}
+	}
 
-	// Only save on success — if agent hit max-steps or errored, skip save.
-	if opts.save && flushErr == nil {
-		if saveErr := saveAskResult(result); saveErr != nil {
+	if agentErr != "" {
+		return fmt.Errorf("agent: %s", agentErr)
+	}
+
+	// Save to flicknote if requested.
+	// done.Response is the full accumulated assistant text.
+	if opts.save && finalResponse != "" {
+		if saveErr := saveAskResponse(finalResponse); saveErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to save to flicknote: %v\n", saveErr)
 		}
 	}
 
-	return flushErr
+	return nil
 }
 
-// saveAskResult pipes the agent's final answer to flicknote add.
-func saveAskResult(result *logos.RunResult) error {
-	if result == nil {
+// saveAskResponse pipes the agent's final answer to flicknote add.
+func saveAskResponse(response string) error {
+	if response == "" {
 		return nil
 	}
-	var finalAnswer string
-	for i := len(result.Steps) - 1; i >= 0; i-- {
-		if result.Steps[i].Role == logos.StepRoleAssistant {
-			finalAnswer = result.Steps[i].Content
-			break
-		}
-	}
-	if finalAnswer == "" {
-		return fmt.Errorf("no assistant content found in result, nothing saved")
-	}
-
 	cmd := exec.Command("flicknote", "add")
-	cmd.Stdin = strings.NewReader(finalAnswer)
+	cmd.Stdin = strings.NewReader(response)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -383,173 +289,6 @@ func saveAskResult(result *logos.RunResult) error {
 	}
 	fmt.Fprintf(os.Stdout, "%s", string(out))
 	return nil
-}
-
-// resolveRepoRef converts a repo reference to a clone URL and local path.
-// Supports full URLs, "org/repo" shorthands (→ GitHub), and bare repo names
-// for repos that are already cloned locally in the references directory.
-func resolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err error) {
-	if strings.HasPrefix(ref, "https://") || strings.HasPrefix(ref, "http://") {
-		u, parseErr := url.Parse(ref)
-		if parseErr != nil {
-			return "", "", fmt.Errorf("invalid URL: %w", parseErr)
-		}
-		repoPath := strings.TrimPrefix(u.Path, "/")
-		repoPath = strings.TrimSuffix(repoPath, "/")
-		repoPath = strings.TrimSuffix(repoPath, ".git")
-		localPath = filepath.Join(referencesPath, u.Host, repoPath)
-		cloneURL = ref
-	} else if strings.Contains(ref, "/") {
-		// Shorthand: must be "org/repo" format (exactly one slash)
-		ref = strings.TrimSuffix(ref, "/")
-		ref = strings.TrimSuffix(ref, ".git")
-		parts := strings.Split(ref, "/")
-		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			return "", "", fmt.Errorf(
-				"invalid repo shorthand %q: expected \"org/repo\" (e.g. woodpecker-ci/woodpecker) or a full URL",
-				ref,
-			)
-		}
-		cloneURL = "https://github.com/" + ref
-		localPath = filepath.Join(referencesPath, "github.com", ref)
-	} else {
-		// Bare name: scan already-cloned repos for a match.
-		// Only works for repos that are already cloned locally.
-		localPath, err = findClonedRepo(ref, referencesPath)
-		if err != nil {
-			return "", "", err
-		}
-		// Derive cloneURL from local path for ensureRepo's git-pull path.
-		// Note: bare-name repos are always already cloned, so ensureRepo will
-		// only use this for "git pull", never "git clone".
-		rel, relErr := filepath.Rel(referencesPath, localPath)
-		if relErr != nil {
-			return "", "", fmt.Errorf("computing repo clone URL from %s: %w", localPath, relErr)
-		}
-		cloneURL = "https://" + rel
-	}
-	return cloneURL, localPath, nil
-}
-
-// scanHostDir scans host/org/repo under hostPath, collecting paths where the
-// final directory component equals name.
-func scanHostDir(name, hostPath string) []string {
-	var matches []string
-	orgs, err := os.ReadDir(hostPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", hostPath, err)
-		return nil
-	}
-	for _, org := range orgs {
-		if !org.IsDir() {
-			continue
-		}
-		orgPath := filepath.Join(hostPath, org.Name())
-		repos, err := os.ReadDir(orgPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", orgPath, err)
-			continue
-		}
-		for _, repo := range repos {
-			if repo.IsDir() && repo.Name() == name {
-				matches = append(matches, filepath.Join(orgPath, repo.Name()))
-			}
-		}
-	}
-	return matches
-}
-
-// findClonedRepo scans the references directory for an already-cloned repo
-// matching the bare name (case-sensitive). Returns the local path if exactly
-// one match is found. Errors with disambiguation list on multiple matches.
-func findClonedRepo(name, referencesPath string) (string, error) {
-	var matches []string
-
-	hosts, err := os.ReadDir(referencesPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf(
-				"repo %q not found as org/repo; references directory does not exist at %s",
-				name, referencesPath,
-			)
-		}
-		return "", fmt.Errorf(
-			"repo %q not found as org/repo; could not read references directory %s: %w",
-			name, referencesPath, err,
-		)
-	}
-
-	for _, host := range hosts {
-		if !host.IsDir() {
-			continue
-		}
-		hostPath := filepath.Join(referencesPath, host.Name())
-		matches = append(matches, scanHostDir(name, hostPath)...)
-	}
-
-	switch len(matches) {
-	case 0:
-		return "", fmt.Errorf(
-			"repo %q not found locally; use org/repo format (e.g. charmbracelet/%s) to clone it",
-			name, name,
-		)
-	case 1:
-		return matches[0], nil
-	default:
-		var options []string
-		for _, m := range matches {
-			rel, relErr := filepath.Rel(referencesPath, m)
-			if relErr != nil {
-				options = append(options, m) // fallback to absolute path
-				continue
-			}
-			parts := strings.SplitN(rel, string(filepath.Separator), 2)
-			if len(parts) == 2 {
-				options = append(options, parts[1])
-			} else {
-				options = append(options, rel)
-			}
-		}
-		return "", fmt.Errorf(
-			"ambiguous repo name %q matches multiple repos:\n  %s\n\nSpecify org/repo to disambiguate",
-			name, strings.Join(options, "\n  "),
-		)
-	}
-}
-
-const repoOpTimeout = 5 * time.Minute
-
-// ensureRepo clones the repo if it doesn't exist, or pulls if it does.
-func ensureRepo(cloneURL, localPath string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), repoOpTimeout)
-	defer cancel()
-
-	if dirExists(localPath) {
-		fmt.Fprintf(os.Stderr, "Updating %s...\n", filepath.Base(localPath))
-		cmd := exec.CommandContext(ctx, "git", "-C", localPath, "pull", "--ff-only")
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("git pull failed in %s: %w", localPath, err)
-		}
-		return nil
-	}
-
-	fmt.Fprintf(os.Stderr, "Cloning %s...\n", cloneURL)
-	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
-		return fmt.Errorf("create parent directory: %w", err)
-	}
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", cloneURL, localPath)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git clone %s into %s: %w", cloneURL, localPath, err)
-	}
-	return nil
-}
-
-// dirExists reports whether path is an existing directory.
-func dirExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
 }
 
 func init() {
@@ -567,33 +306,31 @@ func init() {
 	rootCmd.AddCommand(askCmd)
 }
 
-// buildAskCallbacks returns the logos callbacks and an optional spinner for the given mode.
-// In quiet mode all callbacks are nil and a spinner is started on TTY stderr.
+// buildAskEventCallbacks returns an event handler and optional spinner for the given mode.
+// In quiet mode all streaming events are suppressed and a spinner is started on TTY stderr.
 // In verbose mode the full streaming callbacks are wired and spinner is nil.
-func buildAskCallbacks(quiet bool) (logos.Callbacks, *spinner) {
+func buildAskEventCallbacks(quiet bool) (func(ask.Event), *spinner) {
 	if quiet {
 		var sp *spinner
 		if isTerminal(os.Stderr) {
 			sp = startSpinner()
 		}
-		return logos.Callbacks{}, sp
+		return func(ask.Event) {}, sp
 	}
-	return logos.Callbacks{
-		OnDelta:        renderDelta,
-		OnCommandStart: renderCommandStart,
-		OnCommandResult: func(command, output string, exitCode int) {
-			renderCommandResult(output, exitCode)
-		},
-		OnRetry: renderRetry,
+	return func(e ask.Event) {
+		switch e.Type {
+		case ask.EventDelta:
+			renderDelta(e.Text)
+		case ask.EventCommandStart:
+			renderCommandStart(e.Command)
+		case ask.EventCommandResult:
+			renderCommandResult(e.Output, e.ExitCode)
+		case ask.EventRetry:
+			renderRetry(e.Reason, e.Step)
+		case ask.EventStatus:
+			fmt.Fprintf(os.Stderr, "%s\n", e.Message)
+		}
 	}, nil
-}
-
-// printQuietResponse prints result.Response to stdout when it contains text.
-// Used by quiet mode to emit accumulated assistant prose after the run completes.
-func printQuietResponse(result *logos.RunResult) {
-	if result != nil && result.Response != "" {
-		fmt.Print(result.Response)
-	}
 }
 
 // isTerminal reports whether f is connected to a terminal.
