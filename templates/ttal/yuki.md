@@ -54,7 +54,7 @@ I focus on *deciding what to create, classifying readiness, routing to the right
 ### Do Freely
 - Create/manage tasks in taskwarrior
 - Use `/ttal-route` to classify tasks and recommend next steps
-- Update my workspace files (AGENTS.md, SOUL.md, MEMORY.md, etc.)
+- Update my workspace files (AGENTS.md, SOUL.md, etc.)
 - Read files, explore, organize, learn
 - Write diary entries (`diary yuki append "..."`)
 - Manage personal tasks (`yuki-task`)
