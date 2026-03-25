@@ -53,10 +53,14 @@ func initSingleAdapter(
 			return
 		}
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-		env := buildAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+		agentEnv, err := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+		if err != nil {
+			log.Printf("[daemon] failed to build env for %s: %v", ta.AgentName, err)
+			return
+		}
 		shell := mcfg.Global.GetShell()
 		ensureProjectDir(agentPath)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, env, shell); err != nil {
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, agentEnv, shell); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
@@ -69,11 +73,17 @@ func initSingleAdapter(
 // Used to build TEMENOS_PATHS for manager sessions — managers need read access
 // to all projects for code investigation.
 func collectProjectPaths(mcfg *config.DaemonConfig) []string {
+	return gatherProjectPaths(mcfg, config.ResolveProjectsPathForTeam)
+}
+
+// gatherProjectPaths is the testable core of collectProjectPaths.
+// storePathFn maps a team name to the projects.toml path for that team.
+func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) string) []string {
 	seen := make(map[string]bool)
 	var paths []string
 
 	for teamName := range mcfg.Teams {
-		projectsPath := config.ResolveProjectsPathForTeam(teamName)
+		projectsPath := storePathFn(teamName)
 		store := project.NewStore(projectsPath)
 		projects, err := store.List(false)
 		if err != nil {
@@ -92,22 +102,26 @@ func collectProjectPaths(mcfg *config.DaemonConfig) []string {
 	return paths
 }
 
-// buildAgentEnv returns env vars for an agent adapter.
-func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
-	env := []string{
+// buildManagerAgentEnv returns env vars for a manager agent session.
+func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) ([]string, error) {
+	agentEnv := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
 	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
-		env = append(env, fmt.Sprintf("TASKRC=%s", team.TaskRC))
+		agentEnv = append(agentEnv, fmt.Sprintf("TASKRC=%s", team.TaskRC))
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
-	env = append(env, envpkg.AllowedDotEnvParts()...)
+	agentEnv = append(agentEnv, envpkg.AllowedDotEnvParts()...)
 
 	// Temenos MCP sandbox config — managers get read-only cwd, read access to all projects
 	projectPaths := collectProjectPaths(mcfg)
-	env = append(env, envpkg.ManagerTemenosEnv(projectPaths)...)
+	temenosEnv, err := envpkg.ManagerTemenosEnv(projectPaths)
+	if err != nil {
+		return nil, fmt.Errorf("build temenos env for manager %s: %w", agentName, err)
+	}
+	agentEnv = append(agentEnv, temenosEnv...)
 
-	return env
+	return agentEnv, nil
 }
 
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json

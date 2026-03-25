@@ -19,7 +19,10 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
-	temenosEnv := env.ReviewerTemenosEnv()
+	temenosEnv, err := env.ReviewerTemenosEnv()
+	if err != nil {
+		return nil, fmt.Errorf("build temenos env for plan reviewer: %w", err)
+	}
 	parts := make([]string, 0, 3+len(temenosEnv))
 	parts = append(parts,
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),

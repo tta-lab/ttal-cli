@@ -9,7 +9,7 @@ import (
 
 // AllowedDotEnvParts loads ~/.config/ttal/.env and returns KEY=VALUE strings
 // for vars that pass IsAllowedForSession. Logs a warning if .env fails to load.
-// Used by both buildAgentEnv and buildBreatheEnv to avoid duplicating the
+// Used by both buildManagerAgentEnv and buildBreatheEnv to avoid duplicating the
 // filter loop and the silent-error decision.
 func AllowedDotEnvParts() []string {
 	dotEnv, err := config.LoadDotEnv()
