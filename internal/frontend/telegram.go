@@ -611,13 +611,13 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 
 	b.RegisterHandlerMatchFunc(matchCommand("new"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
-			fullCmd := buildFullCommand("new", update.Message.Text)
+			fullCmd := buildSlashCommand("new", update.Message.Text)
 			sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "Sent /new — starting fresh conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("compact"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
-			fullCmd := buildFullCommand("compact", update.Message.Text)
+			fullCmd := buildSlashCommand("compact", update.Message.Text)
 			sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "Sent /compact — compacting conversation")
 		})
 
@@ -770,7 +770,7 @@ func joinArgs(args []string, separator string) string {
 	return separator + strings.Join(args, " ")
 }
 
-func buildFullCommand(cmdName, messageText string) string {
+func buildSlashCommand(cmdName, messageText string) string {
 	args := parseCommandArgs(messageText)
 	return "/" + cmdName + joinArgs(args, " ")
 }

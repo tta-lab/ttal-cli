@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -470,6 +471,9 @@ type importEntry struct {
 func scanFolder(dir, categoryOverride string) ([]importEntry, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("folder not found: %s", dir)
+		}
 		return nil, fmt.Errorf("reading dir %s: %w", dir, err)
 	}
 
@@ -507,7 +511,7 @@ func scanFolder(dir, categoryOverride string) ([]importEntry, error) {
 
 // uploadAndRegister uploads one entry to flicknote and registers it, setting e.status and e.id.
 func uploadAndRegister(r *skill.Registry, e *importEntry, apply, force bool) {
-	existing, _ := r.Get(e.name)
+	existing, _ := r.Get(e.name) // not-found is expected; only real registry errors would matter here
 
 	if existing != nil && !force {
 		e.status = "skipped (exists)"
@@ -538,7 +542,12 @@ func uploadAndRegister(r *skill.Registry, e *importEntry, apply, force bool) {
 	cmd.Stdin = bytes.NewReader(body)
 	output, err := cmd.Output()
 	if err != nil {
-		e.status = fmt.Sprintf("upload error: %v", err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			e.status = fmt.Sprintf("upload error: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		} else {
+			e.status = fmt.Sprintf("upload error: %v", err)
+		}
 		return
 	}
 

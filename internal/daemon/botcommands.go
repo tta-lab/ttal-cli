@@ -35,7 +35,7 @@ var registeredCommands = []BotCommand{
 func DiscoverCommands() []BotCommand {
 	r, err := skill.Load(skill.DefaultPath())
 	if err != nil {
-		log.Printf("[commands] warning: cannot load skill registry: %v", err)
+		log.Printf("[commands] ERROR: cannot load skill registry — dynamic commands unavailable: %v", err)
 		return nil
 	}
 	return discoverCommandsFromRegistry(r)
