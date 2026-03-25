@@ -1,6 +1,7 @@
 # Pipeline definitions for ttal task advance.
 # Each pipeline defines a sequence of stages with role-based assignment and gates.
 # Tasks are matched to pipelines by their tags.
+# Skills are loaded per-stage via ttal skill get <name>.
 
 [standard]
 description = "Plan → Implement"
@@ -11,6 +12,7 @@ name = "Plan"
 assignee = "designer"
 gate = "human"
 reviewer = "plan-review-lead"
+skills = ["sp-planning", "flicknote"]
 
 [[standard.stages]]
 name = "Implement"
@@ -27,6 +29,7 @@ name = "Fix"
 assignee = "fixer"
 gate = "human"
 reviewer = "plan-review-lead"
+skills = ["sp-debugging", "flicknote"]
 
 [[bugfix.stages]]
 name = "Implement"
@@ -53,6 +56,7 @@ tags = ["research"]
 name = "Research"
 assignee = "researcher"
 gate = "auto"
+skills = ["sp-research", "flicknote"]
 
 [audit]
 description = "Audit only"
@@ -71,6 +75,7 @@ tags = ["comm"]
 name = "Draft"
 assignee = "communicator"
 gate = "human"
+skills = ["flicknote"]
 
 [brainstorm]
 description = "Brainstorm → Implement"
@@ -81,6 +86,7 @@ name = "Brainstorm"
 assignee = "designer"
 gate = "human"
 reviewer = "plan-review-lead"
+skills = ["sp-brainstorming", "flicknote"]
 
 [[brainstorm.stages]]
 name = "Implement"
@@ -97,6 +103,7 @@ name = "Plan"
 assignee = "devops"
 gate = "human"
 reviewer = "plan-review-lead"
+skills = ["sp-planning", "flicknote"]
 
 [[devops.stages]]
 name = "Implement"
