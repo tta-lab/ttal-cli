@@ -147,7 +147,8 @@ func Run() error {
 		breathe: func(req BreatheRequest) SendResponse {
 			return handleBreathe(shellCfg, req)
 		},
-		askHuman: askHumanHandler,
+		askHuman:   askHumanHandler,
+		askHandler: handleAsk(shellCfg),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
 		},

@@ -287,6 +287,8 @@ type httpHandlers struct {
 	commentGet  func(CommentGetRequest) CommentGetResponse
 	// Window lifecycle
 	closeWindow func(CloseWindowRequest) SendResponse
+	// Ask agent loop (runs logos server-side, streams NDJSON)
+	askHandler http.HandlerFunc
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -307,6 +309,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/task/complete", handleHTTPTaskComplete(handlers))
 	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
+	r.Post("/ask", handlers.askHandler)
 	r.Post("/pipeline/advance", handlers.pipelineAdvance)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
