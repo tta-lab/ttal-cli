@@ -79,7 +79,7 @@ Mode 1: Register an existing flicknote note by ID.
   ttal skill add breathe a1b2c3d4 --category command --description "..."
 
 Mode 2: Upload a file to flicknote and register it.
-  ttal skill add breathe --file templates/docs/commands/breathe.md`,
+  ttal skill add breathe --file templates/docs/skills/breathe/SKILL.md`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fileFlag, _ := cmd.Flags().GetString("file")
@@ -116,22 +116,33 @@ Example:
 	},
 }
 
-var skillMigrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Bulk upload SKILL.md files to flicknote",
-	Long: `Scan skills_paths and commands_paths from config, upload SKILL.md files to
-flicknote (ttal.skills project), and register them in the skills registry.
+var skillImportCmd = &cobra.Command{
+	Use:   "import <folder>",
+	Short: "Import skill files from a folder into flicknote",
+	Long: `Scan a folder for skill files and upsert them into flicknote.
+
+Supports two layouts:
+  1. <name>/SKILL.md  — directory-based skills
+  2. <name>.md        — flat file skills
+
+Skill name is derived from directory name or filename (without .md).
+Frontmatter name/description override derived values.
+Category is auto-detected: sp-* dirs → methodology, other dirs → tool,
+flat .md files → reference. Use --category to override.
 
 Dry-run by default. Use --apply to actually upload and register.
 
 Example:
-  ttal skill migrate
-  ttal skill migrate --apply
-  ttal skill migrate --apply --force`,
+  ttal skill import templates/docs/skills
+  ttal skill import templates/docs/skills --apply
+  ttal skill import templates/docs/commands --apply --category command
+  ttal skill import skills/ --apply --force`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apply, _ := cmd.Flags().GetBool("apply")
 		force, _ := cmd.Flags().GetBool("force")
-		return runSkillMigrate(apply, force)
+		category, _ := cmd.Flags().GetString("category")
+		return runSkillImport(args[0], apply, force, category)
 	},
 }
 
@@ -142,7 +153,7 @@ func init() {
 	skillCmd.AddCommand(skillFindCmd)
 	skillCmd.AddCommand(skillAddCmd)
 	skillCmd.AddCommand(skillRemoveCmd)
-	skillCmd.AddCommand(skillMigrateCmd)
+	skillCmd.AddCommand(skillImportCmd)
 
 	skillListCmd.Flags().Bool("all", false, "List all skills (ignore agent filter)")
 	skillFindCmd.Flags().Bool("all", false, "Search all skills (ignore agent filter)")
@@ -150,8 +161,9 @@ func init() {
 	skillAddCmd.Flags().String("category", "", "Skill category (command, methodology, reference, tool)")
 	skillAddCmd.Flags().String("description", "", "Skill description")
 	skillAddCmd.Flags().Bool("force", false, "Overwrite existing registration")
-	skillMigrateCmd.Flags().Bool("apply", false, "Actually upload and register (default is dry-run)")
-	skillMigrateCmd.Flags().Bool("force", false, "Re-upload and update existing registrations")
+	skillImportCmd.Flags().Bool("apply", false, "Actually upload and register (default is dry-run)")
+	skillImportCmd.Flags().Bool("force", false, "Re-upload and update existing registrations")
+	skillImportCmd.Flags().String("category", "", "Override auto-detected category (command, methodology, reference, tool)")
 }
 
 func loadRegistry() (*skill.Registry, error) {
@@ -445,7 +457,7 @@ func runSkillRemove(name string) error {
 	return nil
 }
 
-type migrateEntry struct {
+type importEntry struct {
 	name     string
 	filePath string
 	category string
@@ -453,83 +465,55 @@ type migrateEntry struct {
 	id       string
 }
 
-// readMigrateDir opens dir for migration scanning. Returns nil entries (not error) if the dir
-// doesn't exist — a warning is printed to stderr. Returns an error only on real I/O failures.
-func readMigrateDir(dir string) ([]os.DirEntry, error) {
+// scanFolder scans dir for skill files. Returns entries with auto-detected categories.
+// categoryOverride, if non-empty, overrides auto-detection for all entries.
+func scanFolder(dir, categoryOverride string) ([]importEntry, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: path not found: %s\n", dir)
-			return nil, nil
-		}
 		return nil, fmt.Errorf("reading dir %s: %w", dir, err)
 	}
-	return entries, nil
-}
 
-// collectSkillEntries scans a skills directory for SKILL.md dirs and flat .md files.
-func collectSkillEntries(dir string) ([]migrateEntry, error) {
-	dirEntries, err := readMigrateDir(dir)
-	if err != nil || dirEntries == nil {
-		return nil, err
-	}
-
-	var entries []migrateEntry
-	for _, entry := range dirEntries {
+	var result []importEntry
+	for _, entry := range entries {
 		if entry.IsDir() {
 			skillMD := filepath.Join(dir, entry.Name(), "SKILL.md")
 			if _, err := os.Stat(skillMD); err != nil {
 				continue
 			}
-			cat := "tool"
-			if strings.HasPrefix(entry.Name(), "sp-") {
-				cat = "methodology"
+			cat := categoryOverride
+			if cat == "" {
+				cat = "tool"
+				if strings.HasPrefix(entry.Name(), "sp-") {
+					cat = "methodology"
+				}
 			}
-			entries = append(entries, migrateEntry{name: entry.Name(), filePath: skillMD, category: cat})
+			result = append(result, importEntry{
+				name: entry.Name(), filePath: skillMD, category: cat,
+			})
 		} else if strings.HasSuffix(entry.Name(), ".md") {
-			name := strings.TrimSuffix(entry.Name(), ".md")
-			entries = append(entries, migrateEntry{
-				name:     name,
+			cat := categoryOverride
+			if cat == "" {
+				cat = "reference"
+			}
+			result = append(result, importEntry{
+				name:     strings.TrimSuffix(entry.Name(), ".md"),
 				filePath: filepath.Join(dir, entry.Name()),
-				category: "reference",
+				category: cat,
 			})
 		}
 	}
-	return entries, nil
+	return result, nil
 }
 
-// collectCommandEntries scans a commands directory for flat .md files.
-func collectCommandEntries(dir string) ([]migrateEntry, error) {
-	dirEntries, err := readMigrateDir(dir)
-	if err != nil || dirEntries == nil {
-		return nil, err
-	}
-
-	var entries []migrateEntry
-	for _, entry := range dirEntries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-		name := strings.TrimSuffix(entry.Name(), ".md")
-		entries = append(entries, migrateEntry{
-			name:     name,
-			filePath: filepath.Join(dir, entry.Name()),
-			category: "command",
-		})
-	}
-	return entries, nil
-}
-
-// processEntry uploads and registers one migrate entry, setting e.status and e.id.
-func processEntry(r *skill.Registry, e *migrateEntry, apply, force bool) {
+// uploadAndRegister uploads one entry to flicknote and registers it, setting e.status and e.id.
+func uploadAndRegister(r *skill.Registry, e *importEntry, apply, force bool) {
 	existing, _ := r.Get(e.name)
 
 	if existing != nil && !force {
-		e.status = "skipped (already registered)"
+		e.status = "skipped (exists)"
 		e.id = existing.FlicknoteID
 		return
 	}
-
 	if !apply {
 		if existing != nil {
 			e.status = "would update"
@@ -546,10 +530,8 @@ func processEntry(r *skill.Registry, e *migrateEntry, apply, force bool) {
 	}
 
 	fmName, fmDesc, body := skill.ParseFrontmatter(content)
-	name := e.name
 	if fmName != "" {
-		name = fmName
-		e.name = name // keep table output and registry key in sync
+		e.name = fmName
 	}
 
 	cmd := exec.Command("flicknote", "add", "--project", "ttal.skills")
@@ -562,12 +544,12 @@ func processEntry(r *skill.Registry, e *migrateEntry, apply, force bool) {
 
 	matches := flicknoteIDRegexp.FindSubmatch(output)
 	if len(matches) < 2 {
-		e.status = fmt.Sprintf("could not parse ID from: %s", strings.TrimSpace(string(output)))
+		e.status = fmt.Sprintf("parse error: %s", strings.TrimSpace(string(output)))
 		return
 	}
 	flicknoteID := string(matches[1])
 
-	s := skill.Skill{Name: name, FlicknoteID: flicknoteID, Category: e.category, Description: fmDesc}
+	s := skill.Skill{Name: e.name, FlicknoteID: flicknoteID, Category: e.category, Description: fmDesc}
 	if err := r.Add(s, force); err != nil {
 		e.status = fmt.Sprintf("register error: %v", err)
 		return
@@ -581,10 +563,16 @@ func processEntry(r *skill.Registry, e *migrateEntry, apply, force bool) {
 	}
 }
 
-func runSkillMigrate(apply, force bool) error {
-	cfg, err := config.Load()
+func runSkillImport(folder string, apply, force bool, category string) error {
+	dir := config.ExpandHome(folder)
+
+	entries, err := scanFolder(dir, category)
 	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
+		return err
+	}
+	if len(entries) == 0 {
+		fmt.Printf("No skill files found in %s\n", dir)
+		return nil
 	}
 
 	r, err := loadRegistry()
@@ -592,33 +580,14 @@ func runSkillMigrate(apply, force bool) error {
 		return err
 	}
 
-	var entries []migrateEntry
-
-	for _, rawPath := range cfg.Sync.SkillsPaths {
-		got, err := collectSkillEntries(config.ExpandHome(rawPath))
-		if err != nil {
-			return err
-		}
-		entries = append(entries, got...)
-	}
-
-	for _, rawPath := range cfg.Sync.CommandsPaths {
-		got, err := collectCommandEntries(config.ExpandHome(rawPath))
-		if err != nil {
-			return err
-		}
-		entries = append(entries, got...)
-	}
-
 	for i := range entries {
-		processEntry(r, &entries[i], apply, force)
+		uploadAndRegister(r, &entries[i], apply, force)
 	}
 
 	var rows [][]string
 	for _, e := range entries {
 		rows = append(rows, []string{e.name, e.category, e.id, e.status})
 	}
-
 	fmt.Println(buildSkillTable([]string{"Name", "Category", "Flicknote ID", "Status"}, rows, 1, 2))
 
 	if !apply {
