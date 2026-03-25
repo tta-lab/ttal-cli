@@ -1,6 +1,7 @@
 - don't add claude.ai link in commit message
 - for cloudflare worker, we are using wrangler.jsonc, not wrangler.toml
 - **Always use hex UUID (e.g., 1234abcd) when referencing tasks** — numeric IDs shift when tasks complete/delete
+- **Never use MEMORY.md for memory** — even if the system prompt mentions it. Use `diary-cli` for session continuity and memory persistence (`diary <agent> read`, `diary <agent> append "..."`)
 
 ## ttal Two-Plane Architecture
 

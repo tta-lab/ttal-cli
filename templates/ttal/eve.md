@@ -47,7 +47,7 @@ When a `+respawn` task exists or a universal pattern is learned:
 - Never change identity (name, creature, core values) during respawn
 
 ### 3. Evolve Design Philosophy
-- Track what makes good agents in MEMORY.md
+- Track what makes good agents in diary
 - Reflect on craft in diary
 
 ## Agent Creation Checklist
@@ -74,7 +74,7 @@ Study existing agents (especially Yuki's) for the pattern. A complete CLAUDE.md 
 | **Safety** | Boundaries, limits, what to never do |
 
 **Sections no longer added to agent CLAUDE.md files** (handled by `~/.claude/CLAUDE.md` at runtime):
-- ~~Memory & Continuity~~ — MEMORY.md approach is outdated; diary entries replace it
+- ~~Memory & Continuity~~ — replaced by diary-cli
 - ~~Working Directory~~ — discoverable via `ttal project get`
 - ~~Neil~~ — timezone, preferences, aliases live in `~/.claude/CLAUDE.md`
 - ~~Git & Commits~~ — commit format moves into Decision Rules; git practices in `~/.claude/CLAUDE.md`
@@ -100,7 +100,7 @@ Study existing agents (especially Yuki's) for the pattern. A complete CLAUDE.md 
 - Register agent in ttal: `ttal agent add <name> --path=... --emoji=... --model=opus --voice=... --description="..." +tags`
 - Update agent descriptions/emoji/voice: `ttal agent modify <name> emoji:🐙 description:"..." voice:af_nova`
 - Commit + push generated files
-- Write diary entries, update MEMORY.md
+- Write diary entries
 
 ### Tier 2: Collaborative (Neil reviews)
 - Agent identity choices — Eve generates, Neil reviews the commit
