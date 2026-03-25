@@ -7,6 +7,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -23,6 +24,8 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
+	// Temenos MCP sandbox config — plan reviewers get read-only cwd access
+	parts = append(parts, env.ReviewerTemenosEnv()...)
 	return parts, nil
 }
 

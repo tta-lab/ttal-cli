@@ -8,6 +8,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -18,10 +19,13 @@ import (
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
-	return []string{
+	parts := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
+	// Temenos MCP sandbox config — reviewers get read-only cwd access
+	parts = append(parts, env.ReviewerTemenosEnv()...)
+	return parts
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
