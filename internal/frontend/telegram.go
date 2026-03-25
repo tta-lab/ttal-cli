@@ -637,8 +637,8 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 		}
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
-				fullCmd := buildFullCommand(origName, update.Message.Text)
-				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "")
+				skillCmd := buildSkillGetCommand(origName, update.Message.Text)
+				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, skillCmd, "")
 			})
 	}
 }
@@ -773,6 +773,18 @@ func joinArgs(args []string, separator string) string {
 func buildFullCommand(cmdName, messageText string) string {
 	args := parseCommandArgs(messageText)
 	return "/" + cmdName + joinArgs(args, " ")
+}
+
+// buildSkillGetCommand builds a `run ttal skill get <name>` command for dynamic skills.
+// Any trailing arguments from the message are appended after the skill name,
+// separated by a newline so the agent sees them as follow-up context.
+func buildSkillGetCommand(skillName, messageText string) string {
+	args := parseCommandArgs(messageText)
+	cmd := "run ttal skill get " + skillName
+	if len(args) > 0 {
+		cmd += "\n" + strings.Join(args, " ")
+	}
+	return cmd
 }
 
 func isStaticCommand(name string) bool {

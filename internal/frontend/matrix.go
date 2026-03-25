@@ -473,8 +473,8 @@ func (f *MatrixFrontend) handleMatrixCommand(
 	default:
 		origName := f.resolveSkillCommand(cmd)
 		if origName != "" {
-			fullCmd := buildFullCommand(origName, text)
-			sendKeysToAgentWithReply(f.cfg.TeamName, agentName, fullCmd, "", replyFn)
+			skillCmd := buildSkillGetCommand(origName, text)
+			sendKeysToAgentWithReply(f.cfg.TeamName, agentName, skillCmd, "", replyFn)
 		}
 		// Unknown commands are silently ignored (same as Telegram default handler)
 	}
