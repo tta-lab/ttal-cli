@@ -322,8 +322,7 @@ func checkCallerPastStage(
 	if callerIdx >= currentIdx {
 		return false
 	}
-	// If the current stage already has LGTM, the pipeline is fully completed.
-	// Let processStageAdvance → handlePipelineComplete handle it.
+	// The current stage is already approved — let processStageAdvance → handlePipelineComplete handle it.
 	if hasTag(taskTags, p.Stages[currentIdx].StageLGTMTag()) {
 		return false
 	}

@@ -380,6 +380,29 @@ func TestCheckCallerPastStage_AllowedPipelineFullyCompleted(t *testing.T) {
 	}
 }
 
+// TestCheckCallerPastStage_AllowedMidPipelineLGTM verifies bypass for a 3-stage pipeline
+// where the current (middle) stage already has its LGTM tag but is not the last stage.
+// The fixer whose stage (0) is behind the current stage (1) must NOT be rejected —
+// the LGTM on the middle stage means processStageAdvance should advance to the next stage.
+func TestCheckCallerPastStage_AllowedMidPipelineLGTM(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Review", Assignee: "reviewer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// Fixer (stage 0) calls ttal go; task is at stage 1 (Review) with review_lgtm set.
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	taskTags := []string{"bugfix", "fix", "fix_lgtm", "review", "review_lgtm"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", taskTags)
+	if rejected {
+		t.Error("should NOT reject when current stage already has LGTM (mid-pipeline bypass)")
+	}
+}
+
 // TestFindAgentTag verifies the findAgentTag helper.
 func TestFindAgentTag(t *testing.T) {
 	agentRoles := map[string]string{
