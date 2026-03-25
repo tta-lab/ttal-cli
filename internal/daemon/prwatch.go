@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ type prWatchTarget struct {
 	PRIndex      int64
 	Description  string
 	Provider     string
+	Spawner      string
 	ProjectAlias string
 }
 
@@ -149,6 +151,7 @@ func scanTeam(
 			PRIndex:      prIndex,
 			Description:  task.Description,
 			Provider:     string(info.Provider),
+			Spawner:      task.Spawner,
 			ProjectAlias: task.Project,
 		}
 
@@ -352,8 +355,28 @@ func formatTaskDoneMsg(target prWatchTarget) string {
 		shortSHA(target.TaskUUID), target.Description)
 }
 
+// notifySpawnerMerged delivers a PR-merged message to the spawning agent.
+func notifySpawnerMerged(
+	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend, target prWatchTarget,
+) {
+	if target.Spawner == "" {
+		return
+	}
+	parts := strings.SplitN(target.Spawner, ":", 2)
+	if len(parts) != 2 {
+		log.Printf("[prwatch] notifySpawnerMerged: malformed spawner %q (want team:agent) — notification dropped",
+			target.Spawner)
+		return
+	}
+	teamName, agentName := parts[0], parts[1]
+	if err := deliverToAgent(registry, mcfg, frontends, teamName, agentName, formatTaskDoneMsg(target)); err != nil {
+		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
+	}
+}
+
 // notifyManagerAgents delivers a task-done notification to manager agents in the task's
-// owning team only.
+// owning team only. Skips any agent that is the same as the spawner (already notified).
 func notifyManagerAgents(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, target prWatchTarget,
@@ -380,6 +403,11 @@ func notifyManagerAgents(
 	}
 	msg := formatTaskDoneMsg(target)
 	for _, agent := range managers {
+		// Skip if this agent is the same as the spawner (already notified by notifySpawnerMerged)
+		spawnerKey := teamName + ":" + agent.Name
+		if spawnerKey == target.Spawner {
+			continue
+		}
 		if err := deliverToAgent(registry, mcfg, frontends, teamName, agent.Name, msg); err != nil {
 			log.Printf("[prwatch] notifyManagerAgents: deliver to %s/%s: %v", teamName, agent.Name, err)
 		}
