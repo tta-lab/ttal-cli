@@ -77,3 +77,20 @@ func TestRenderPipelineGraph_NoReviewer(t *testing.T) {
 		t.Errorf("should not have reviewer suffix: %s", out)
 	}
 }
+
+func TestRenderPipelineGraph_WithSkills(t *testing.T) {
+	p := pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Plan", Assignee: "designer", Gate: "human", Skills: []string{"sp-planning", "flicknote"}},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	out := captureStdout(t, func() { renderPipelineGraph(p) })
+	if !strings.Contains(out, "(sp-planning, flicknote)") {
+		t.Errorf("expected skills in parentheses in output: %s", out)
+	}
+	// Coder stage has no skills — no trailing parentheses after [coder].
+	if strings.Contains(out, "[coder] (") {
+		t.Errorf("coder stage should not show skills: %s", out)
+	}
+}
