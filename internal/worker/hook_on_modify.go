@@ -24,6 +24,7 @@ type taskCompletePayload struct {
 	Type     string `json:"type"`
 	TaskUUID string `json:"task_uuid"`
 	Team     string `json:"team,omitempty"`
+	Spawner  string `json:"spawner,omitempty"`
 	Desc     string `json:"desc,omitempty"`
 	PRID     string `json:"pr_id,omitempty"`
 	PRTitle  string `json:"pr_title,omitempty"`
@@ -36,6 +37,7 @@ func notifyTaskComplete(task hookTask, prTitle string) {
 		Type:     "taskComplete",
 		TaskUUID: task.UUID(),
 		Team:     config.DefaultTeamName,
+		Spawner:  task.Spawner(),
 		Desc:     task.Description(),
 		PRID:     task.PRID(),
 		PRTitle:  prTitle,
