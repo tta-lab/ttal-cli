@@ -7,6 +7,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -18,11 +19,18 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
-	parts := []string{
+	temenosEnv, err := env.ReviewerTemenosEnv()
+	if err != nil {
+		return nil, fmt.Errorf("build temenos env for plan reviewer: %w", err)
+	}
+	parts := make([]string, 0, 3+len(temenosEnv))
+	parts = append(parts,
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
+	)
+	// Temenos MCP sandbox config — plan reviewers get read-only cwd access
+	parts = append(parts, temenosEnv...)
 	return parts, nil
 }
 

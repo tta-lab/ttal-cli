@@ -464,7 +464,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildAgentEnv: agent identity, TASKRC, and allowlisted .env secrets.
+// Mirrors buildManagerAgentEnv: agent identity, TASKRC, and allowlisted .env secrets.
 func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
