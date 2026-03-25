@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/logos"
+	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/usage"
@@ -278,7 +279,7 @@ func runAskAgent(opts askOpts) error {
 	}
 	printAgentHeader(opts.emoji, label)
 
-	provider, modelID, err := buildSubagentProvider(opts.model)
+	provider, modelID, err := ask.BuildProvider(opts.model)
 	if err != nil {
 		return fmt.Errorf("build provider: %w", err)
 	}
@@ -299,7 +300,7 @@ func runAskAgent(opts askOpts) error {
 		systemPrompt += "\n\n" + opts.systemExtra
 	}
 
-	tc, err := newTemenosClient(context.Background())
+	tc, err := ask.NewTemenosClient(context.Background())
 	if err != nil {
 		return err
 	}
