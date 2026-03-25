@@ -552,6 +552,70 @@ func TestCurrentStage_AllStagesCompleted(t *testing.T) {
 	}
 }
 
+func TestStageIndexForRole_Found(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	idx := p.StageIndexForRole("fixer")
+	if idx != 0 {
+		t.Errorf("expected 0, got %d", idx)
+	}
+}
+
+func TestStageIndexForRole_LastMatch(t *testing.T) {
+	// If a role appears in multiple stages, return the LAST (highest) index
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Draft", Assignee: "designer", Gate: "human"},
+			{Name: "Review", Assignee: "coder", Gate: "auto"},
+			{Name: "Polish", Assignee: "designer", Gate: "human"},
+		},
+	}
+	idx := p.StageIndexForRole("designer")
+	if idx != 2 {
+		t.Errorf("expected 2 (last designer stage), got %d", idx)
+	}
+}
+
+func TestStageIndexForRole_NotFound(t *testing.T) {
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+		},
+	}
+	idx := p.StageIndexForRole("researcher")
+	if idx != -1 {
+		t.Errorf("expected -1, got %d", idx)
+	}
+}
+
+func TestStageIndexForRole_Empty(t *testing.T) {
+	p := Pipeline{}
+	idx := p.StageIndexForRole("fixer")
+	if idx != -1 {
+		t.Errorf("expected -1, got %d", idx)
+	}
+}
+
+func TestStageIndexForRole_EmptyRoleString(t *testing.T) {
+	// An empty role string must not match a stage with an empty Assignee field,
+	// because agentfs could theoretically produce an empty role and we must not
+	// incorrectly reject the advance in that case.
+	p := Pipeline{
+		Stages: []Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+		},
+	}
+	// StageIndexForRole("") returns -1 because no stage has Assignee == "".
+	idx := p.StageIndexForRole("")
+	if idx != -1 {
+		t.Errorf("expected -1 for empty role, got %d", idx)
+	}
+}
+
 func TestCurrentStage_NoStageTag(t *testing.T) {
 	p := Pipeline{
 		Stages: []Stage{

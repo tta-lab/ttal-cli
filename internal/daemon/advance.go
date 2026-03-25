@@ -148,6 +148,11 @@ func handlePipelineAdvance(
 		return
 	}
 
+	// Guard: reject manager-plane agents whose stage is already complete.
+	if checkCallerPastStage(w, p, idx, req.AgentName, agentRoles, task.UUID, task.Tags) {
+		return
+	}
+
 	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
 		req.AgentName, team, workerRuntime, teamPath, agentRoles)
 }
@@ -284,6 +289,49 @@ func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pip
 		Message:  msg,
 		Reviewer: stage.Reviewer,
 		Assignee: stage.Assignee,
+	})
+	return true
+}
+
+// checkCallerPastStage rejects manager-plane agents whose role belongs to an earlier
+// pipeline stage than the task's current stage. Workers (empty callerAgent) and agents
+// whose role is not in the pipeline (e.g., orchestrators) are allowed through.
+// Skips the guard when the current stage already has its _lgtm tag — that means the
+// pipeline is fully completed and processStageAdvance should handle completion.
+// Returns true when the response has been written (caller should return).
+func checkCallerPastStage(
+	w http.ResponseWriter,
+	p *pipeline.Pipeline,
+	currentIdx int,
+	callerAgent string,
+	agentRoles map[string]string,
+	taskUUID string,
+	taskTags []string,
+) bool {
+	if callerAgent == "" {
+		return false
+	}
+	callerRole, ok := agentRoles[callerAgent]
+	if !ok {
+		return false
+	}
+	callerIdx := p.StageIndexForRole(callerRole)
+	if callerIdx < 0 {
+		return false
+	}
+	if callerIdx >= currentIdx {
+		return false
+	}
+	// The current stage is already approved — let processStageAdvance → handlePipelineComplete handle it.
+	if hasTag(taskTags, p.Stages[currentIdx].StageLGTMTag()) {
+		return false
+	}
+	callerStageName := p.Stages[callerIdx].Name
+	currentStageName := p.Stages[currentIdx].Name
+	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+		Status: AdvanceStatusRejected,
+		Message: fmt.Sprintf("Task %s is already at stage %s — your stage (%s) is complete. No action needed.",
+			taskUUID, currentStageName, callerStageName),
 	})
 	return true
 }

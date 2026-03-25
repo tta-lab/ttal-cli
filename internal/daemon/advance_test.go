@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 )
 
 const testAgentInke = "inke"
@@ -237,6 +239,167 @@ func TestResolveHintedAgent_EmptyTeamPath(t *testing.T) {
 	got := resolveHintedAgent("", []string{testAgentInke}, "designer", agentRoles)
 	if got != nil {
 		t.Errorf("expected nil for empty teamPath, got %v", got)
+	}
+}
+
+// TestCheckCallerPastStage_Rejected verifies rejection when caller's stage is already past.
+func TestCheckCallerPastStage_Rejected(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// Caller is "kestrel" with role "fixer" (stage 0), task is at stage 1 (Implement)
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	if !rejected {
+		t.Error("expected rejection when caller's stage is past")
+	}
+
+	var resp AdvanceResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Status != AdvanceStatusRejected {
+		t.Errorf("expected status %q, got %q", AdvanceStatusRejected, resp.Status)
+	}
+	if !strings.Contains(resp.Message, "Fix") {
+		t.Errorf("message should mention caller's stage name: %q", resp.Message)
+	}
+	if !strings.Contains(resp.Message, "Implement") {
+		t.Errorf("message should mention current stage name: %q", resp.Message)
+	}
+}
+
+// TestCheckCallerPastStage_AllowedSameStage verifies no rejection when caller is at their own stage.
+func TestCheckCallerPastStage_AllowedSameStage(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 0, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	if rejected {
+		t.Error("should NOT reject when caller is at their own stage")
+	}
+}
+
+// TestCheckCallerPastStage_AllowedNoAgent verifies no rejection when callerAgent is empty (worker/CLI).
+func TestCheckCallerPastStage_AllowedNoAgent(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+		},
+	}
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 0, "", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	if rejected {
+		t.Error("should NOT reject when callerAgent is empty (worker/CLI)")
+	}
+}
+
+// TestCheckCallerPastStage_AllowedRoleNotInPipeline verifies no rejection when caller has no pipeline stage.
+func TestCheckCallerPastStage_AllowedRoleNotInPipeline(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// Yuki is orchestrator — no matching pipeline stage
+	agentRoles := map[string]string{"yuki": "orchestrator"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "yuki", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	if rejected {
+		t.Error("should NOT reject when caller's role has no pipeline stage")
+	}
+}
+
+// TestCheckCallerPastStage_AllowedAgentNotInRoles verifies no rejection when caller is not in agentRoles.
+func TestCheckCallerPastStage_AllowedAgentNotInRoles(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+		},
+	}
+	agentRoles := map[string]string{}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 0, "unknown", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	if rejected {
+		t.Error("should NOT reject when caller is not in agentRoles")
+	}
+}
+
+// TestCheckCallerPastStage_AllowedFutureStage verifies no rejection when caller's stage is in the future.
+func TestCheckCallerPastStage_AllowedFutureStage(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// Caller role "coder" is at stage 1, task is currently at stage 0 (Fix)
+	agentRoles := map[string]string{"worker-agent": "coder"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 0, "worker-agent", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	if rejected {
+		t.Error("should NOT reject when caller's stage is in the future")
+	}
+}
+
+// TestCheckCallerPastStage_AllowedPipelineFullyCompleted verifies no rejection when all stages have LGTM.
+func TestCheckCallerPastStage_AllowedPipelineFullyCompleted(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// All stages have LGTM — CurrentStage returns last stage (idx=1).
+	// A fixer calling ttal go should NOT be rejected — let processStageAdvance
+	// handle pipeline completion via handlePipelineComplete.
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	taskTags := []string{"bugfix", "fix", "fix_lgtm", "implement", "implement_lgtm"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", taskTags)
+	if rejected {
+		t.Error("should NOT reject when pipeline is fully completed (all stages have LGTM)")
+	}
+}
+
+// TestCheckCallerPastStage_AllowedMidPipelineLGTM verifies bypass for a 3-stage pipeline
+// where the current (middle) stage already has its LGTM tag but is not the last stage.
+// The fixer whose stage (0) is behind the current stage (1) must NOT be rejected —
+// the LGTM on the middle stage means processStageAdvance should advance to the next stage.
+func TestCheckCallerPastStage_AllowedMidPipelineLGTM(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Review", Assignee: "reviewer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// Fixer (stage 0) calls ttal go; task is at stage 1 (Review) with review_lgtm set.
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	taskTags := []string{"bugfix", "fix", "fix_lgtm", "review", "review_lgtm"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", taskTags)
+	if rejected {
+		t.Error("should NOT reject when current stage already has LGTM (mid-pipeline bypass)")
 	}
 }
 

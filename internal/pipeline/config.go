@@ -47,6 +47,21 @@ func (p *Pipeline) LastStage() *Stage {
 	return &p.Stages[len(p.Stages)-1]
 }
 
+// StageIndexForRole returns the highest stage index whose Assignee matches the given role.
+// "Highest" is intentional: the guard fires only when all stages for this role are behind
+// the task's current stage. Using the last match ensures a role that spans multiple stages
+// is not rejected until the task has passed every stage it owns.
+// Returns -1 if no stage matches.
+func (p *Pipeline) StageIndexForRole(role string) int {
+	last := -1
+	for i, s := range p.Stages {
+		if s.Assignee == role {
+			last = i
+		}
+	}
+	return last
+}
+
 // Config holds all pipeline definitions.
 type Config struct {
 	Pipelines map[string]Pipeline
