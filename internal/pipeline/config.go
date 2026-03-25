@@ -47,6 +47,18 @@ func (p *Pipeline) LastStage() *Stage {
 	return &p.Stages[len(p.Stages)-1]
 }
 
+// StageIndexForRole returns the highest stage index whose Assignee matches the given role.
+// Returns -1 if no stage matches.
+func (p *Pipeline) StageIndexForRole(role string) int {
+	last := -1
+	for i, s := range p.Stages {
+		if s.Assignee == role {
+			last = i
+		}
+	}
+	return last
+}
+
 // Config holds all pipeline definitions.
 type Config struct {
 	Pipelines map[string]Pipeline
