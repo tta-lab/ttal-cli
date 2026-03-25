@@ -41,6 +41,15 @@ const (
 	ModeGeneral Mode = "general"
 )
 
+// Valid reports whether m is a known ask mode.
+func (m Mode) Valid() bool {
+	switch m {
+	case ModeProject, ModeRepo, ModeURL, ModeWeb, ModeGeneral:
+		return true
+	}
+	return false
+}
+
 // ModeParams holds mode-specific parameters for prompt building.
 type ModeParams struct {
 	WorkingDir    string // CWD or project path
@@ -88,9 +97,6 @@ func BuildSystemPromptForMode(mode Mode, params ModeParams) (string, []logos.Com
 		commands = NetworkCommands()
 		promptData.Commands = commands
 	case ModeGeneral:
-		if !strings.Contains(generalPrompt, "{cwd}") {
-			return "", nil, fmt.Errorf("general.md prompt is missing {cwd} placeholder")
-		}
 		extra = strings.ReplaceAll(generalPrompt, "{cwd}", params.WorkingDir)
 		commands = AllCommands()
 		promptData.Commands = commands

@@ -3,6 +3,7 @@ package ask
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -31,7 +32,7 @@ type EventFunc func(Event)
 // RunAsk executes the ask agent loop server-side.
 // cfg is the loaded ttal config (daemon has this).
 func RunAsk(ctx context.Context, req Request, cfg *config.Config, emit EventFunc) error {
-	params, err := resolveParams(req, cfg, emit)
+	params, err := resolveParams(ctx, req, cfg, emit)
 	if err != nil {
 		return fmt.Errorf("resolve params: %w", err)
 	}
@@ -85,6 +86,7 @@ func RunAsk(ctx context.Context, req Request, cfg *config.Config, emit EventFunc
 		if strings.Contains(errMsg, "max steps") {
 			errMsg += "\n\nTip: increase the limit with --max-steps"
 		}
+		log.Printf("[ask] logos.Run error: %v", err)
 		emit(Event{Type: EventError, Message: errMsg})
 		return nil // error already emitted as event
 	}
@@ -152,7 +154,7 @@ func buildLogosCallbacks(emit EventFunc) logos.Callbacks {
 
 // resolveParams converts the request mode + params into ModeParams for prompt building.
 // The emit callback is used to send status events (e.g. "Cloning repo...").
-func resolveParams(req Request, cfg *config.Config, emit EventFunc) (ModeParams, error) {
+func resolveParams(ctx context.Context, req Request, cfg *config.Config, emit EventFunc) (ModeParams, error) {
 	params := ModeParams{
 		WorkingDir: req.WorkingDir,
 		Question:   req.Question,
@@ -163,7 +165,7 @@ func resolveParams(req Request, cfg *config.Config, emit EventFunc) (ModeParams,
 	case ModeProject:
 		return resolveProjectParams(req, params)
 	case ModeRepo:
-		return resolveRepoParams(req, cfg, params, emit)
+		return resolveRepoParams(ctx, req, cfg, params, emit)
 	case ModeURL:
 		if req.URL == "" {
 			return params, fmt.Errorf("--url required")
@@ -197,7 +199,7 @@ func resolveProjectParams(req Request, params ModeParams) (ModeParams, error) {
 	return params, nil
 }
 
-func resolveRepoParams(req Request, cfg *config.Config, params ModeParams, emit EventFunc) (ModeParams, error) {
+func resolveRepoParams(ctx context.Context, req Request, cfg *config.Config, params ModeParams, emit EventFunc) (ModeParams, error) {
 	if req.Repo == "" {
 		return params, fmt.Errorf("--repo reference required")
 	}
@@ -206,7 +208,7 @@ func resolveRepoParams(req Request, cfg *config.Config, params ModeParams, emit 
 		return params, err
 	}
 	emit(Event{Type: EventStatus, Message: "Updating " + req.Repo + "..."})
-	if err := EnsureRepo(cloneURL, localPath); err != nil {
+	if err := EnsureRepo(ctx, cloneURL, localPath); err != nil {
 		return params, err
 	}
 	params.RepoLocalPath = localPath

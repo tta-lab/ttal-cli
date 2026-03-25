@@ -251,11 +251,10 @@ func runAskAgent(opts askOpts) error {
 
 	if opts.quiet && finalResponse != "" {
 		fmt.Print(finalResponse)
-	}
-
-	// Ensure trailing newline
-	if finalResponse != "" && !strings.HasSuffix(finalResponse, "\n") {
-		fmt.Println()
+		// Ensure trailing newline in quiet mode (verbose mode already streams deltas with newlines).
+		if !strings.HasSuffix(finalResponse, "\n") {
+			fmt.Println()
+		}
 	}
 
 	if agentErr != "" {

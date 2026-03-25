@@ -60,8 +60,9 @@ func ResolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 }
 
 // EnsureRepo clones the repo if it doesn't exist, or pulls if it does.
-func EnsureRepo(cloneURL, localPath string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), repoOpTimeout)
+// The provided context is respected for cancellation; repoOpTimeout is applied as a deadline.
+func EnsureRepo(ctx context.Context, cloneURL, localPath string) error {
+	ctx, cancel := context.WithTimeout(ctx, repoOpTimeout)
 	defer cancel()
 
 	if dirExists(localPath) {

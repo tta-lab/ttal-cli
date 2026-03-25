@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -864,8 +866,23 @@ func AskHuman(req AskHumanRequest) (AskHumanResponse, error) {
 	return result, nil
 }
 
+// daemonHTTPClientStreaming returns an http.Client with no total timeout,
+// suitable for long-running streaming responses like /ask.
+// Lifecycle is controlled by context cancellation (e.g. Ctrl-C → SIGINT).
+// The DialContext timeout still applies to the initial connection.
+func daemonHTTPClientStreaming() *http.Client {
+	sockPath, _ := SocketPath()
+	return &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sockPath, socketTimeout)
+			},
+		},
+	}
+}
+
 // AskAgent sends an ask request to the daemon and streams NDJSON events via the callback.
-// Blocks until the stream completes (done/error event received).
+// Blocks until the stream completes (done or error terminal event received).
 //
 // Uses no total deadline since agent loops run for many minutes.
 // The NDJSON stream keeps the connection alive — idle timeouts aren't a concern.
@@ -876,18 +893,6 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 		return fmt.Errorf("marshal ask request: %w", err)
 	}
 
-	// No total timeout — streaming responses can run for the duration of the
-	// agent loop (100 steps × LLM calls + tool execution). Context cancellation
-	// handles lifecycle. DialContext timeout still applies to the initial connect.
-	sockPath, _ := SocketPath()
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.DialTimeout("unix", sockPath, socketTimeout)
-			},
-		},
-	}
-
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		daemonBaseURL+"/ask", bytes.NewReader(body))
 	if err != nil {
@@ -895,20 +900,29 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(httpReq)
+	resp, err := daemonHTTPClientStreaming().Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("daemon not running — ttal ask requires the daemon: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		// Read up to 512 bytes and try JSON first, then fall back to raw text.
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		var errResp SendResponse
-		if json.NewDecoder(resp.Body).Decode(&errResp) == nil && errResp.Error != "" {
+		if json.Unmarshal(raw, &errResp) == nil && errResp.Error != "" {
 			return fmt.Errorf("daemon: %s", errResp.Error)
+		}
+		if len(raw) > 0 {
+			return fmt.Errorf("daemon returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 		}
 		return fmt.Errorf("daemon returned HTTP %d", resp.StatusCode)
 	}
 
+	// Track whether a terminal event was received.
+	// If the daemon crashes mid-stream, dec.More() returns false without
+	// a done/error event — we must distinguish this from a clean finish.
+	var terminated bool
 	dec := json.NewDecoder(resp.Body)
 	for dec.More() {
 		var event ask.Event
@@ -916,6 +930,12 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 			return fmt.Errorf("decode ask event: %w", err)
 		}
 		onEvent(event)
+		if event.Type == ask.EventDone || event.Type == ask.EventError {
+			terminated = true
+		}
+	}
+	if !terminated {
+		return fmt.Errorf("stream ended without terminal event (daemon may have crashed)")
 	}
 	return nil
 }
