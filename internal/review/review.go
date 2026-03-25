@@ -19,12 +19,14 @@ import (
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
-	parts := []string{
+	temenosEnv := env.ReviewerTemenosEnv()
+	parts := make([]string, 0, 2+len(temenosEnv))
+	parts = append(parts,
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
+	)
 	// Temenos MCP sandbox config — reviewers get read-only cwd access
-	parts = append(parts, env.ReviewerTemenosEnv()...)
+	parts = append(parts, temenosEnv...)
 	return parts
 }
 

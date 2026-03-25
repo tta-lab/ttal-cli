@@ -19,13 +19,15 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
-	parts := []string{
+	temenosEnv := env.ReviewerTemenosEnv()
+	parts := make([]string, 0, 3+len(temenosEnv))
+	parts = append(parts,
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
+	)
 	// Temenos MCP sandbox config — plan reviewers get read-only cwd access
-	parts = append(parts, env.ReviewerTemenosEnv()...)
+	parts = append(parts, temenosEnv...)
 	return parts, nil
 }
 
