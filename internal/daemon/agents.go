@@ -6,12 +6,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	envpkg "github.com/tta-lab/ttal-cli/internal/env"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -63,6 +65,33 @@ func initSingleAdapter(
 	}
 }
 
+// collectProjectPaths loads all active project paths across all teams.
+// Used to build TEMENOS_PATHS for manager sessions — managers need read access
+// to all projects for code investigation.
+func collectProjectPaths(mcfg *config.DaemonConfig) []string {
+	seen := make(map[string]bool)
+	var paths []string
+
+	for teamName := range mcfg.Teams {
+		projectsPath := config.ResolveProjectsPathForTeam(teamName)
+		store := project.NewStore(projectsPath)
+		projects, err := store.List(false)
+		if err != nil {
+			log.Printf("[daemon] warning: failed to load projects for team %s: %v", teamName, err)
+			continue
+		}
+		for _, p := range projects {
+			if p.Path != "" && !seen[p.Path] {
+				seen[p.Path] = true
+				paths = append(paths, p.Path)
+			}
+		}
+	}
+
+	sort.Strings(paths)
+	return paths
+}
+
 // buildAgentEnv returns env vars for an agent adapter.
 func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
 	env := []string{
@@ -73,6 +102,10 @@ func buildAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []stri
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
 	env = append(env, envpkg.AllowedDotEnvParts()...)
+
+	// Temenos MCP sandbox config — managers get read-only cwd, read access to all projects
+	projectPaths := collectProjectPaths(mcfg)
+	env = append(env, envpkg.ManagerTemenosEnv(projectPaths)...)
 
 	return env
 }
