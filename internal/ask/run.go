@@ -199,7 +199,9 @@ func resolveProjectParams(req Request, params ModeParams) (ModeParams, error) {
 	return params, nil
 }
 
-func resolveRepoParams(ctx context.Context, req Request, cfg *config.Config, params ModeParams, emit EventFunc) (ModeParams, error) {
+func resolveRepoParams(
+	ctx context.Context, req Request, cfg *config.Config, params ModeParams, emit EventFunc,
+) (ModeParams, error) {
 	if req.Repo == "" {
 		return params, fmt.Errorf("--repo reference required")
 	}

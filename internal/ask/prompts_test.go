@@ -7,7 +7,8 @@ import (
 
 func TestGeneralPromptHasPlaceholder(t *testing.T) {
 	if !strings.Contains(generalPrompt, "{cwd}") {
-		t.Error("general.md prompt is missing {cwd} placeholder — BuildSystemPromptForMode will silently omit the working directory")
+		t.Error("general.md prompt is missing {cwd} placeholder — " +
+			"BuildSystemPromptForMode will silently omit the working directory")
 	}
 }
 
