@@ -82,7 +82,7 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 	message += fmt.Sprintf("\n\nReply to this worker: ttal send --to %s \"your message\"", sessionID)
 
 	if sendErr := daemon.Send(daemon.SendRequest{
-		From:    os.Getenv("TTAL_AGENT_NAME"),
+		From:    sessionID,
 		To:      agent,
 		Team:    team,
 		Message: message,
