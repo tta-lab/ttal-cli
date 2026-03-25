@@ -95,7 +95,7 @@ func Run() error {
 	startupWg.Add(1)
 	go func() {
 		defer startupWg.Done()
-		discovered = DiscoverCommands(mcfg.Global.Sync.CommandsPaths)
+		discovered = DiscoverCommands()
 	}()
 
 	startupWg.Wait()

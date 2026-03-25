@@ -2,12 +2,9 @@ package daemon
 
 import (
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
-	"gopkg.in/yaml.v3"
+	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 // sanitizeCommandName replaces hyphens with underscores to comply with
@@ -34,61 +31,34 @@ var registeredCommands = []BotCommand{
 	{Command: "help", Description: "List available commands"},
 }
 
-// DiscoverCommands reads canonical command .md files from configured paths
-// and returns BotCommand entries for registration.
-func DiscoverCommands(commandsPaths []string) []BotCommand {
-	var discovered []BotCommand
-	for _, rawPath := range commandsPaths {
-		dir := config.ExpandHome(rawPath)
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			log.Printf("[commands] warning: cannot read commands_path %q: %v", rawPath, err)
-			continue
-		}
-		for _, entry := range entries {
-			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-				continue
-			}
-			content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-			if err != nil {
-				continue
-			}
-			name, desc := parseCommandFrontmatter(content)
-			if name == "" {
-				continue
-			}
-			sanitized := sanitizeCommandName(name)
-			if isStaticBotCommand(sanitized) {
-				continue
-			}
-			discovered = append(discovered, BotCommand{
-				Command:      sanitized,
-				Description:  truncateDescription(desc),
-				OriginalName: name,
-			})
-		}
+// DiscoverCommands reads command-category skills from the default skill registry.
+func DiscoverCommands() []BotCommand {
+	r, err := skill.Load(skill.DefaultPath())
+	if err != nil {
+		log.Printf("[commands] warning: cannot load skill registry: %v", err)
+		return nil
 	}
-	return discovered
+	return discoverCommandsFromRegistry(r)
 }
 
-func parseCommandFrontmatter(content []byte) (string, string) {
-	s := string(content)
-	if !strings.HasPrefix(strings.TrimSpace(s), "---") {
-		return "", ""
+// discoverCommandsFromRegistry extracts command-category skills as BotCommands.
+func discoverCommandsFromRegistry(r *skill.Registry) []BotCommand {
+	var discovered []BotCommand
+	for _, s := range r.List() {
+		if s.Category != "command" {
+			continue
+		}
+		sanitized := sanitizeCommandName(s.Name)
+		if isStaticBotCommand(sanitized) {
+			continue
+		}
+		discovered = append(discovered, BotCommand{
+			Command:      sanitized,
+			Description:  truncateDescription(s.Description),
+			OriginalName: s.Name,
+		})
 	}
-	rest := s[strings.Index(s, "---")+3:]
-	idx := strings.Index(rest, "\n---")
-	if idx < 0 {
-		return "", ""
-	}
-	var fm struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-	}
-	if err := yaml.Unmarshal([]byte(rest[:idx]), &fm); err != nil {
-		return "", ""
-	}
-	return fm.Name, fm.Description
+	return discovered
 }
 
 // isStaticBotCommand checks whether name matches a built-in command.

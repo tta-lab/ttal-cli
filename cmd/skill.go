@@ -163,7 +163,7 @@ func init() {
 	skillAddCmd.Flags().Bool("force", false, "Overwrite existing registration")
 	skillImportCmd.Flags().Bool("apply", false, "Actually upload and register (default is dry-run)")
 	skillImportCmd.Flags().Bool("force", false, "Re-upload and update existing registrations")
-	skillImportCmd.Flags().String("category", "", "Override auto-detected category (command, methodology, reference, tool)")
+	skillImportCmd.Flags().String("category", "", "Override auto-detected category (command, methodology, reference, tool)") //nolint:lll
 }
 
 func loadRegistry() (*skill.Registry, error) {
