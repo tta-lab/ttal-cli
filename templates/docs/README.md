@@ -1,6 +1,6 @@
 # Agent Resources
 
-This directory contains skills, subagents, and commands that `ttal sync` deploys to your agent runtimes.
+This directory contains skills, subagents, and commands used with ttal.
 
 ## Structure
 
@@ -8,15 +8,15 @@ This directory contains skills, subagents, and commands that `ttal sync` deploys
 docs/
 ├── skills/       # Methodology skills (sp-planning, sp-tdd, etc.)
 ├── agents/       # Subagent definitions (pr-reviewers, task-creator, etc.)
-└── commands/     # Slash commands (pr-review, triage, etc.)
+└── commands/     # Static commands (tell-me-more, update-claude-md)
 ```
 
 ## How it works
 
-Run `ttal sync` to deploy these to your agent runtime (Claude Code or Codex):
+**Subagents** are deployed via `ttal sync`:
 
 ```bash
-ttal sync            # Deploy to runtime
+ttal sync            # Deploy subagents and rules to runtime
 ttal sync --dry-run  # Preview what would be deployed
 ```
 
@@ -24,14 +24,20 @@ Your `config.toml` `[sync]` section tells ttal where to find these:
 
 ```toml
 [sync]
-  skills_paths = ["./docs/skills"]
   subagents_paths = ["./docs/agents"]
-  commands_paths = ["./docs/commands"]
+```
+
+**Skills** are stored in flicknote. Use `ttal skill import` to upload:
+
+```bash
+ttal skill import docs/skills --apply
+ttal skill import docs/commands --apply --category command
 ```
 
 ## Adding custom skills
 
 Create a new directory in `docs/skills/` with a `SKILL.md` file. See existing skills for the format.
+Then import: `ttal skill import docs/skills --apply`
 
 ## Included
 
@@ -58,14 +64,6 @@ Create a new directory in `docs/skills/` with a `SKILL.md` file. See existing sk
 | pr-silent-failure-hunter | Find suppressed errors |
 | pr-test-analyzer | Review test coverage |
 | pr-type-design-analyzer | Analyze type design quality |
-
-### Commands
-| Command | Purpose |
-|---------|---------|
-| pr-review | Comprehensive PR review |
-| triage | Triage PR review comments |
-| task-create | Create tasks from plans |
-| tell-me-more | Elaborate on a concept |
 
 ## Acknowledgments
 

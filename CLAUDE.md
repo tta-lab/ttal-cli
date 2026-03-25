@@ -268,7 +268,7 @@ Generate a template: `ttal doctor --fix`
 
 ## Templates & Skills (SSOT)
 
-The repo contains the **single source of truth** for agent definitions, skills, commands, and subagents. `ttal sync` deploys them to `~/.claude/skills/`, `~/.claude/agents/`, etc. **Edit here, not in `~/.claude/`** — runtime copies are overwritten by `ttal sync`.
+The repo contains the **single source of truth** for agent definitions, skills, and subagents. `ttal sync` deploys subagents and rules to `~/.claude/agents/`, etc. Skills are stored in flicknote — use `ttal skill import <folder>` to upload them. **Edit here, not in `~/.claude/`** — runtime copies are overwritten by `ttal sync`.
 
 ### Source Directories
 
@@ -285,35 +285,28 @@ templates/
       ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
       ├── sp-brainstorming/SKILL.md   - Brainstorming framework
       └── ...
-    commands/          - Command .md files (flat, deployed as skills)
-      ├── task-route.md     - Task routing decision tree
-      ├── breathe.md        - Context window refresh
+    commands/          - Static command .md files (flat)
+      ├── tell-me-more.md  - Elaborate on a concept
       └── ...
     agents/            - Subagent definitions (→ ~/.claude/agents/)
       ├── plan-reviewer.md
       ├── pr-code-reviewer.md
       └── ...
-
-skills/                - ttal CLI reference skills (flat .md files)
-  ├── ttal-pr.md       - PR operations reference
-  ├── ttal-task.md     - Task management reference
-  ├── ttal-agent.md    - Agent commands reference
-  └── ...
 ```
 
 ### What Goes Where
 
-| Type | Location | Format | Deploys to |
-|------|----------|--------|------------|
-| Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `~/.claude/CLAUDE.md` |
-| Skills (methodology) | `templates/docs/skills/` | Directory with `SKILL.md` | `~/.claude/skills/{name}/` |
-| Commands (slash commands) | `templates/docs/commands/` | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
-| Subagents | `templates/docs/agents/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
-| Agent identities | `templates/ttal/` | Flat `.md` file | `~/.claude/agents/{name}.md` |
-| Config TOMLs | `templates/ttal/` | `.toml` files | `~/.config/ttal/` |
-| CLI reference skills | `skills/` (repo root) | Flat `.md` file | `~/.claude/skills/{name}/SKILL.md` |
+| Type | Location | Format | How to deploy |
+|------|----------|--------|---------------|
+| Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `ttal sync` → `~/.claude/CLAUDE.md` |
+| Skills (methodology) | `templates/docs/skills/` | Directory with `SKILL.md` | `ttal skill import templates/docs/skills --apply` |
+| Subagents | `templates/docs/agents/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
+| Agent identities | `templates/ttal/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
+| Config TOMLs | `templates/ttal/` | `.toml` files | `ttal sync` → `~/.config/ttal/` |
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
+
+**Skills:** Skills live in flicknote and are accessed at runtime via `ttal skill get`. Import from source with `ttal skill import templates/docs/skills --apply`. Dynamic commands also use flicknote — trigger via Telegram sends `run ttal skill get <name>` to the agent.
 
 ## Additional Documentation
 

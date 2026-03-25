@@ -175,13 +175,19 @@ ttal voice speak "text"      # TTS → Telegram voice message
 ttal voice speak "text" --voice af_heart  # specific voice
 ```
 
-### Sync (deploy skills, subagents & config)
+### Sync (deploy subagents & config)
 ```bash
-ttal sync                    # deploy skills + subagents + config TOMLs to runtime dirs
+ttal sync                    # deploy subagents + config TOMLs to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
-Sources: `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/` → `~/.claude/skills/`, `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/` → `~/.claude/agents/`
+Sources: `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/agents/` → `~/.claude/agents/`
 Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
+
+Skills are stored in flicknote and accessed at runtime via `ttal skill get <name>`. To import skill files:
+```bash
+ttal skill import templates/docs/skills --apply
+ttal skill import templates/docs/commands --apply --category command
+```
 
 ### Tool Usage
 - **Never use `run_in_background` for `ttal go`** — it completes in seconds and backgrounding causes output read races (agent reads output before it's written)

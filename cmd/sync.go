@@ -18,23 +18,13 @@ var (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Deploy subagents and skills to runtime directories",
-	Long: `Reads canonical subagent .md files, skill directories, command .md files,
-and RULE.md cheat sheets, then deploys them to runtime directories.
+	Short: "Deploy subagents and rules to runtime directories",
+	Long: `Reads canonical subagent .md files and RULE.md cheat sheets,
+then deploys them to runtime directories.
 
 Subagents are split into runtime-specific variants:
   Claude Code → ~/.claude/agents/{name}.md
   Codex       → ~/.codex/agents/{name}.toml + ~/.codex/config.toml
-
-Skills are deployed:
-  ~/.claude/skills/{name}/ → source directory (CC)
-  ~/.codex/skills/{name}/  → source directory (Codex)
-  ~/.agents/skills/{name}/  → source directory (unified)
-
-Commands are deployed as written files (variant generation):
-  Claude Code → ~/.claude/skills/{name}/SKILL.md
-  Codex       → ~/.codex/skills/{name}/SKILL.md
-  Unified     → ~/.agents/skills/{name}/SKILL.md
 
 Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
@@ -44,11 +34,12 @@ Config TOMLs are deployed from team_path:
   prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
   config.toml is NOT synced (machine-specific settings).
 
+Skills are stored in flicknote. Use 'ttal skill import <folder>' to upload
+skill files and register them in the skill registry.
+
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
   subagents_paths = ["~/clawd/docs/agents"]
-  skills_paths = ["~/clawd/docs/skills"]
-  commands_paths = ["~/clawd/docs/commands"]
   rules_paths = ["~/clawd/docs/skills", "~/Code/my-project"]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
@@ -59,23 +50,18 @@ Configure source paths in ~/.config/ttal/config.toml:
 		syncCfg := cfg.Sync
 		teamPath := cfg.TeamPath()
 
-		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.SkillsPaths) == 0 &&
-			len(syncCfg.CommandsPaths) == 0 && len(syncCfg.RulesPaths) == 0 &&
+		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.RulesPaths) == 0 &&
 			syncCfg.GlobalPromptPath == "" && teamPath == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
 				"  [sync]\n" +
 				"  subagents_paths = [\"~/path/to/agents\"]\n" +
-				"  skills_paths = [\"~/path/to/skills\"]\n" +
-				"  commands_paths = [\"~/path/to/commands\"]\n" +
 				"  rules_paths = [\"~/path/to/rules\"]")
 		}
 
 		configCount := 0
 		agentCount := 0
-		skillCount := 0
-		commandCount := 0
 		ruleCount := 0
 
 		if len(syncCfg.SubagentsPaths) > 0 || teamPath != "" {
@@ -131,40 +117,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 			configCount = len(configResults)
 		}
 
-		if len(syncCfg.SkillsPaths) > 0 {
-			printSyncHeader("skills", syncDryRun)
-
-			results, err := sync.DeploySkills(syncCfg.SkillsPaths, syncDryRun)
-			if err != nil {
-				return fmt.Errorf("skill sync failed: %w", err)
-			}
-
-			for _, r := range results {
-				fmt.Printf("  %s\n", shortenHome(r.Source))
-				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.Dest))
-				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
-				fmt.Printf("    → %s (.agents)\n", shortenHome(r.AgentsSkillsDest))
-			}
-			skillCount = countUniqueSkills(results)
-		}
-
-		if len(syncCfg.CommandsPaths) > 0 {
-			printSyncHeader("commands", syncDryRun)
-
-			results, err := sync.DeployCommands(syncCfg.CommandsPaths, syncDryRun)
-			if err != nil {
-				return fmt.Errorf("command sync failed: %w", err)
-			}
-
-			for _, r := range results {
-				fmt.Printf("  %s\n", shortenHome(r.Source))
-				fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-				fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
-				fmt.Printf("    → %s (.agents)\n", shortenHome(r.AgentsSkillsDest))
-			}
-			commandCount = len(results)
-		}
-
 		if len(syncCfg.RulesPaths) > 0 {
 			printSyncHeader("rules", syncDryRun)
 
@@ -200,8 +152,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d configs, %d agents, %d skills, %d commands, %d rules.%s\n",
-			configCount, agentCount, skillCount, commandCount, ruleCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d agents, %d rules.%s\n",
+			configCount, agentCount, ruleCount, suffix)
 		return nil
 	},
 }
@@ -299,12 +251,4 @@ func printAgentResults(results []sync.AgentResult) {
 		fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
 		fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 	}
-}
-
-func countUniqueSkills(results []sync.SkillResult) int {
-	seen := make(map[string]struct{}, len(results))
-	for _, r := range results {
-		seen[r.Name] = struct{}{}
-	}
-	return len(seen)
 }
