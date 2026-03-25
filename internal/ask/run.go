@@ -31,60 +31,29 @@ type EventFunc func(Event)
 // RunAsk executes the ask agent loop server-side.
 // cfg is the loaded ttal config (daemon has this).
 func RunAsk(ctx context.Context, req Request, cfg *config.Config, emit EventFunc) error {
-	// Resolve mode params
 	params, err := resolveParams(req, cfg, emit)
 	if err != nil {
 		return fmt.Errorf("resolve params: %w", err)
 	}
 
-	// Build system prompt
 	systemPrompt, _, err := BuildSystemPromptForMode(req.Mode, params)
 	if err != nil {
 		return fmt.Errorf("build system prompt: %w", err)
 	}
 
-	// Build provider (uses env vars the daemon already has loaded via .env)
-	model := cfg.AskModel()
-	provider, modelID, err := BuildProvider(model)
+	provider, modelID, err := BuildProvider(cfg.AskModel())
 	if err != nil {
 		return fmt.Errorf("build provider: %w", err)
 	}
 
-	// Connect to temenos
 	tc, err := NewTemenosClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Pre-warm URL if needed (uses tc.Run — single command, same as current cmd/ask.go)
-	if req.Mode == ModeURL && req.URL != "" {
-		emit(Event{Type: EventStatus, Message: "Fetching " + req.URL + "..."})
-		quotedURL := "'" + strings.ReplaceAll(req.URL, "'", "'\\''") + "'"
-		resp, err := tc.Run(ctx, logos.RunRequest{
-			Command: "url " + quotedURL,
-		})
-		if err != nil {
-			return fmt.Errorf("pre-fetch %s: %w", req.URL, err)
-		}
-		if resp.ExitCode != 0 {
-			return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
-				req.URL, resp.ExitCode, strings.TrimSpace(resp.Stderr))
-		}
+	if err := preWarmURL(ctx, tc, req, emit); err != nil {
+		return err
 	}
-
-	// Build allowed paths
-	var allowedPaths []logos.AllowedPath
-	switch req.Mode {
-	case ModeProject:
-		allowedPaths = []logos.AllowedPath{{Path: params.ProjectPath, ReadOnly: true}}
-	case ModeRepo:
-		allowedPaths = []logos.AllowedPath{{Path: params.RepoLocalPath, ReadOnly: true}}
-	case ModeGeneral:
-		if params.WorkingDir != "" {
-			allowedPaths = []logos.AllowedPath{{Path: params.WorkingDir, ReadOnly: true}}
-		}
-	}
-	// url and web modes have no filesystem access (allowedPaths stays nil)
 
 	maxSteps := req.MaxSteps
 	if maxSteps == 0 {
@@ -102,32 +71,15 @@ func RunAsk(ctx context.Context, req Request, cfg *config.Config, emit EventFunc
 		MaxSteps:     maxSteps,
 		MaxTokens:    maxTokens,
 		Temenos:      tc,
-		AllowedPaths: allowedPaths,
+		AllowedPaths: buildAllowedPaths(req.Mode, params),
 	}
 
-	// Wire logos callbacks to Event emissions
-	cbs := logos.Callbacks{
-		OnDelta: func(text string) {
-			emit(Event{Type: EventDelta, Text: text})
-		},
-		OnCommandStart: func(command string) {
-			emit(Event{Type: EventCommandStart, Command: command})
-		},
-		OnCommandResult: func(command, output string, exitCode int) {
-			emit(Event{Type: EventCommandResult, Command: command, Output: output, ExitCode: exitCode})
-		},
-		OnRetry: func(reason string, step int) {
-			emit(Event{Type: EventRetry, Reason: reason, Step: step})
-		},
-	}
-
-	// Adjust question for URL mode (same as current cmd/ask.go)
 	question := req.Question
 	if req.Mode == ModeURL && req.URL != "" {
 		question = fmt.Sprintf("URL: %s\n\nQuestion: %s", req.URL, req.Question)
 	}
 
-	result, err := logos.Run(ctx, logosCfg, nil, question, cbs)
+	result, err := logos.Run(ctx, logosCfg, nil, question, buildLogosCallbacks(emit))
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "max steps") {
@@ -145,6 +97,59 @@ func RunAsk(ctx context.Context, req Request, cfg *config.Config, emit EventFunc
 	return nil
 }
 
+// preWarmURL pre-fetches the URL via temenos before running the agent loop.
+// Only active for ModeURL when a URL is provided.
+func preWarmURL(ctx context.Context, tc logos.CommandRunner, req Request, emit EventFunc) error {
+	if req.Mode != ModeURL || req.URL == "" {
+		return nil
+	}
+	emit(Event{Type: EventStatus, Message: "Fetching " + req.URL + "..."})
+	quotedURL := "'" + strings.ReplaceAll(req.URL, "'", "'\\''") + "'"
+	resp, err := tc.Run(ctx, logos.RunRequest{Command: "url " + quotedURL})
+	if err != nil {
+		return fmt.Errorf("pre-fetch %s: %w", req.URL, err)
+	}
+	if resp.ExitCode != 0 {
+		return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
+			req.URL, resp.ExitCode, strings.TrimSpace(resp.Stderr))
+	}
+	return nil
+}
+
+// buildAllowedPaths returns the filesystem paths the agent may read.
+// URL and web modes have no filesystem access (returns nil).
+func buildAllowedPaths(mode Mode, params ModeParams) []logos.AllowedPath {
+	switch mode {
+	case ModeProject:
+		return []logos.AllowedPath{{Path: params.ProjectPath, ReadOnly: true}}
+	case ModeRepo:
+		return []logos.AllowedPath{{Path: params.RepoLocalPath, ReadOnly: true}}
+	case ModeGeneral:
+		if params.WorkingDir != "" {
+			return []logos.AllowedPath{{Path: params.WorkingDir, ReadOnly: true}}
+		}
+	}
+	return nil
+}
+
+// buildLogosCallbacks wires logos callbacks to NDJSON event emissions.
+func buildLogosCallbacks(emit EventFunc) logos.Callbacks {
+	return logos.Callbacks{
+		OnDelta: func(text string) {
+			emit(Event{Type: EventDelta, Text: text})
+		},
+		OnCommandStart: func(command string) {
+			emit(Event{Type: EventCommandStart, Command: command})
+		},
+		OnCommandResult: func(command, output string, exitCode int) {
+			emit(Event{Type: EventCommandResult, Command: command, Output: output, ExitCode: exitCode})
+		},
+		OnRetry: func(reason string, step int) {
+			emit(Event{Type: EventRetry, Reason: reason, Step: step})
+		},
+	}
+}
+
 // resolveParams converts the request mode + params into ModeParams for prompt building.
 // The emit callback is used to send status events (e.g. "Cloning repo...").
 func resolveParams(req Request, cfg *config.Config, emit EventFunc) (ModeParams, error) {
@@ -156,51 +161,55 @@ func resolveParams(req Request, cfg *config.Config, emit EventFunc) (ModeParams,
 
 	switch req.Mode {
 	case ModeProject:
-		if req.Project == "" {
-			return params, fmt.Errorf("--project alias required")
-		}
-		projectPath, err := project.GetProjectPath(req.Project)
-		if err != nil {
-			return params, err
-		}
-		if _, err := os.Stat(projectPath); err != nil {
-			return params, fmt.Errorf("project path %q does not exist: %w", projectPath, err)
-		}
-		params.ProjectPath = projectPath
-		params.WorkingDir = projectPath
-
+		return resolveProjectParams(req, params)
 	case ModeRepo:
-		if req.Repo == "" {
-			return params, fmt.Errorf("--repo reference required")
-		}
-		referencesPath := cfg.AskReferencesPath()
-		cloneURL, localPath, err := ResolveRepoRef(req.Repo, referencesPath)
-		if err != nil {
-			return params, err
-		}
-		emit(Event{Type: EventStatus, Message: "Updating " + req.Repo + "..."})
-		if err := EnsureRepo(cloneURL, localPath); err != nil {
-			return params, err
-		}
-		params.RepoLocalPath = localPath
-		params.WorkingDir = localPath
-
+		return resolveRepoParams(req, cfg, params, emit)
 	case ModeURL:
 		if req.URL == "" {
 			return params, fmt.Errorf("--url required")
 		}
-
 	case ModeWeb:
 		// No resolution needed
-
 	case ModeGeneral:
 		if params.WorkingDir == "" {
 			return params, fmt.Errorf("working_dir required for general mode")
 		}
-
 	default:
 		return params, fmt.Errorf("unknown mode: %s", req.Mode)
 	}
 
+	return params, nil
+}
+
+func resolveProjectParams(req Request, params ModeParams) (ModeParams, error) {
+	if req.Project == "" {
+		return params, fmt.Errorf("--project alias required")
+	}
+	projectPath, err := project.GetProjectPath(req.Project)
+	if err != nil {
+		return params, err
+	}
+	if _, err := os.Stat(projectPath); err != nil {
+		return params, fmt.Errorf("project path %q does not exist: %w", projectPath, err)
+	}
+	params.ProjectPath = projectPath
+	params.WorkingDir = projectPath
+	return params, nil
+}
+
+func resolveRepoParams(req Request, cfg *config.Config, params ModeParams, emit EventFunc) (ModeParams, error) {
+	if req.Repo == "" {
+		return params, fmt.Errorf("--repo reference required")
+	}
+	cloneURL, localPath, err := ResolveRepoRef(req.Repo, cfg.AskReferencesPath())
+	if err != nil {
+		return params, err
+	}
+	emit(Event{Type: EventStatus, Message: "Updating " + req.Repo + "..."})
+	if err := EnsureRepo(cloneURL, localPath); err != nil {
+		return params, err
+	}
+	params.RepoLocalPath = localPath
+	params.WorkingDir = localPath
 	return params, nil
 }
