@@ -161,7 +161,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 // Output order is always canonical (url, web, rg, src) regardless of input order.
 func deriveCommands(toolNames []string) []logos.CommandDoc {
 	if len(toolNames) == 0 {
-		return allCommands()
+		return ask.AllCommands()
 	}
 	var hasURL, hasWeb, hasRG, hasSrc bool
 	for _, t := range toolNames {

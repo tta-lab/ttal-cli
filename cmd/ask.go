@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/logos"
 	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
@@ -50,14 +49,6 @@ Examples:
   ttal ask "what API endpoints are available?" --url https://docs.example.com # specific URL
   ttal ask "what is the latest Go generics syntax?" --web                     # web search only`,
 	Args: cobra.ExactArgs(1),
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		// ttal ask needs MINIMAX_API_KEY and BRAVE_API_KEY for subagent.
-		// Load .env as fallback for tokens not already in the environment.
-		if err := config.InjectDotEnvFallback(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
-		}
-		return nil
-	},
 	RunE: runAsk,
 }
 
@@ -122,117 +113,60 @@ func runAsk(cmd *cobra.Command, args []string) error {
 
 // askProject asks about a registered ttal project.
 func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
-	projectPath, err := project.GetProjectPath(alias)
-	if err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(projectPath); err != nil {
-		return fmt.Errorf("project path %q does not exist on disk: %w", projectPath, err)
-	}
-
-	params := ask.ModeParams{
-		WorkingDir:  projectPath,
-		ProjectPath: projectPath,
-	}
-	systemPrompt, _, err := ask.BuildSystemPromptForMode(ask.ModeProject, params)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemPrompt: systemPrompt,
-		allowedPaths: []string{projectPath},
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --project " + alias,
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeProject,
+		project:   alias,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --project " + alias,
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askRepo asks about an open-source repository (auto-clone/pull).
 func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
-	referencesPath := cfg.AskReferencesPath()
-	cloneURL, localPath, err := ask.ResolveRepoRef(repoRef, referencesPath)
-	if err != nil {
-		return err
-	}
-
-	if err := ask.EnsureRepo(cloneURL, localPath); err != nil {
-		return err
-	}
-
-	params := ask.ModeParams{
-		WorkingDir:    localPath,
-		RepoLocalPath: localPath,
-	}
-	systemPrompt, _, err := ask.BuildSystemPromptForMode(ask.ModeRepo, params)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemPrompt: systemPrompt,
-		allowedPaths: []string{localPath},
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --repo " + repoRef,
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeRepo,
+		repo:      repoRef,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --repo " + repoRef,
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askURL asks about a web page using url for pre-fetching.
 func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
-	params := ask.ModeParams{
-		RawURL: rawURL,
-	}
-	systemPrompt, _, err := ask.BuildSystemPromptForMode(ask.ModeURL, params)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     fmt.Sprintf("URL: %s\n\nQuestion: %s", rawURL, question),
-		systemPrompt: systemPrompt,
-		preWarmURL:   rawURL,
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --url",
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeURL,
+		rawURL:    rawURL,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --url",
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
 // askWeb searches the web to answer a question.
 func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
-	params := ask.ModeParams{
-		Question: question,
-	}
-	systemPrompt, _, err := ask.BuildSystemPromptForMode(ask.ModeWeb, params)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemPrompt: systemPrompt,
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask --web",
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:  question,
+		mode:      ask.ModeWeb,
+		maxSteps:  maxSteps,
+		maxTokens: maxTokens,
+		emoji:     "🔭",
+		label:     "ask --web",
+		save:      askFlags.save,
+		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -242,46 +176,36 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 	if err != nil {
 		return fmt.Errorf("get working directory: %w", err)
 	}
-
-	params := ask.ModeParams{
-		WorkingDir: cwd,
-		Question:   question,
-	}
-	systemPrompt, _, err := ask.BuildSystemPromptForMode(ask.ModeGeneral, params)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-
 	return runAskAgent(askOpts{
-		question:     question,
-		systemPrompt: systemPrompt,
-		allowedPaths: []string{cwd},
-		model:        cfg.AskModel(),
-		maxSteps:     maxSteps,
-		maxTokens:    maxTokens,
-		emoji:        "🔭",
-		label:        "ask",
-		save:         askFlags.save,
-		quiet:        askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
+		question:   question,
+		mode:       ask.ModeGeneral,
+		workingDir: cwd,
+		maxSteps:   maxSteps,
+		maxTokens:  maxTokens,
+		emoji:      "🔭",
+		label:      "ask",
+		save:       askFlags.save,
+		quiet:      askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
-// askOpts holds parameters for running the ask subagent.
+// askOpts holds parameters for running the ask agent via the daemon.
 type askOpts struct {
-	question     string
-	systemPrompt string   // full system prompt (pre-built by mode functions)
-	allowedPaths []string // nil = no filesystem access
-	preWarmURL   string   // if set, pre-fetch via url before agent loop
-	model        string   // model string (e.g. "claude-sonnet-4-6")
-	maxSteps     int
-	maxTokens    int
-	emoji        string // optional display emoji shown before output
-	label        string // display name shown in header (defaults to "ask")
-	save         bool   // if true, pipe final answer to flicknote add
-	quiet        bool   // if true, suppress streaming and print result.Response after completion
+	question   string
+	mode       ask.Mode
+	project    string // alias (project mode)
+	repo       string // ref (repo mode)
+	rawURL     string // URL (url mode)
+	workingDir string // CWD (general mode)
+	maxSteps   int
+	maxTokens  int
+	emoji      string // optional display emoji shown before output
+	label      string // display name shown in header (defaults to "ask")
+	save       bool   // if true, pipe final answer to flicknote add
+	quiet      bool   // if true, suppress streaming and print result after completion
 }
 
-// runAskAgent builds and runs a logos agent loop for the ask command.
+// runAskAgent sends an ask request to the daemon and streams results to the terminal.
 func runAskAgent(opts askOpts) error {
 	label := opts.label
 	if label == "" {
@@ -289,85 +213,73 @@ func runAskAgent(opts askOpts) error {
 	}
 	printAgentHeader(opts.emoji, label)
 
-	provider, modelID, err := ask.BuildProvider(opts.model)
-	if err != nil {
-		return fmt.Errorf("build provider: %w", err)
+	// Build daemon request
+	req := ask.Request{
+		Question:   opts.question,
+		Mode:       opts.mode,
+		Project:    opts.project,
+		Repo:       opts.repo,
+		URL:        opts.rawURL,
+		MaxSteps:   opts.maxSteps,
+		MaxTokens:  opts.maxTokens,
+		Save:       opts.save,
+		Quiet:      opts.quiet,
+		WorkingDir: opts.workingDir,
 	}
 
-	tc, err := ask.NewTemenosClient(context.Background())
-	if err != nil {
-		return err
-	}
+	var finalResponse string
+	var agentErr string
 
-	// Pre-warm URL cache if requested (used by --url mode).
-	if opts.preWarmURL != "" {
-		fmt.Fprintf(os.Stderr, "Fetching %s...\n", opts.preWarmURL)
-		quotedURL := "'" + strings.ReplaceAll(opts.preWarmURL, "'", "'\\''") + "'"
-		resp, err := tc.Run(context.Background(), logos.RunRequest{
-			Command: "url " + quotedURL,
-		})
-		if err != nil {
-			return fmt.Errorf("pre-fetch %s: %w", opts.preWarmURL, err)
-		}
-		if resp.ExitCode != 0 {
-			return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
-				opts.preWarmURL, resp.ExitCode, strings.TrimSpace(resp.Stderr))
-		}
-	}
-
-	var allowedPaths []logos.AllowedPath
-	for _, p := range opts.allowedPaths {
-		allowedPaths = append(allowedPaths, logos.AllowedPath{Path: p, ReadOnly: true})
-	}
-
-	cfg := logos.Config{
-		Provider:     provider,
-		Model:        modelID,
-		SystemPrompt: opts.systemPrompt,
-		MaxSteps:     opts.maxSteps,
-		MaxTokens:    opts.maxTokens,
-		Temenos:      tc,
-		AllowedPaths: allowedPaths,
-	}
-
-	callbacks, sp := buildAskCallbacks(opts.quiet)
+	eventHandler, sp := buildAskEventCallbacks(opts.quiet)
 	defer sp.Stop()
-	result, err := logos.Run(context.Background(), cfg, nil, opts.question, callbacks)
 
-	if opts.quiet && err == nil {
-		printQuietResponse(result)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := daemon.AskAgent(ctx, req, func(event ask.Event) {
+		eventHandler(event)
+		switch event.Type {
+		case ask.EventDone:
+			finalResponse = event.Response
+		case ask.EventError:
+			agentErr = event.Message
+		}
+	})
+	if err != nil {
+		return err // transport/daemon error
 	}
 
-	flushErr := flushAgentResult(result, err)
+	if opts.quiet && finalResponse != "" {
+		fmt.Print(finalResponse)
+	}
 
-	// Only save on success — if agent hit max-steps or errored, skip save.
-	if opts.save && flushErr == nil {
-		if saveErr := saveAskResult(result); saveErr != nil {
+	// Ensure trailing newline
+	if finalResponse != "" && !strings.HasSuffix(finalResponse, "\n") {
+		fmt.Println()
+	}
+
+	if agentErr != "" {
+		return fmt.Errorf("agent: %s", agentErr)
+	}
+
+	// Save to flicknote if requested.
+	// done.Response is the full accumulated assistant text.
+	if opts.save && finalResponse != "" {
+		if saveErr := saveAskResponse(finalResponse); saveErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to save to flicknote: %v\n", saveErr)
 		}
 	}
 
-	return flushErr
+	return nil
 }
 
-// saveAskResult pipes the agent's final answer to flicknote add.
-func saveAskResult(result *logos.RunResult) error {
-	if result == nil {
+// saveAskResponse pipes the agent's final answer to flicknote add.
+func saveAskResponse(response string) error {
+	if response == "" {
 		return nil
 	}
-	var finalAnswer string
-	for i := len(result.Steps) - 1; i >= 0; i-- {
-		if result.Steps[i].Role == logos.StepRoleAssistant {
-			finalAnswer = result.Steps[i].Content
-			break
-		}
-	}
-	if finalAnswer == "" {
-		return fmt.Errorf("no assistant content found in result, nothing saved")
-	}
-
 	cmd := exec.Command("flicknote", "add")
-	cmd.Stdin = strings.NewReader(finalAnswer)
+	cmd.Stdin = strings.NewReader(response)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -395,33 +307,31 @@ func init() {
 	rootCmd.AddCommand(askCmd)
 }
 
-// buildAskCallbacks returns the logos callbacks and an optional spinner for the given mode.
-// In quiet mode all callbacks are nil and a spinner is started on TTY stderr.
+// buildAskEventCallbacks returns an event handler and optional spinner for the given mode.
+// In quiet mode all streaming events are suppressed and a spinner is started on TTY stderr.
 // In verbose mode the full streaming callbacks are wired and spinner is nil.
-func buildAskCallbacks(quiet bool) (logos.Callbacks, *spinner) {
+func buildAskEventCallbacks(quiet bool) (func(ask.Event), *spinner) {
 	if quiet {
 		var sp *spinner
 		if isTerminal(os.Stderr) {
 			sp = startSpinner()
 		}
-		return logos.Callbacks{}, sp
+		return func(ask.Event) {}, sp
 	}
-	return logos.Callbacks{
-		OnDelta:        renderDelta,
-		OnCommandStart: renderCommandStart,
-		OnCommandResult: func(command, output string, exitCode int) {
-			renderCommandResult(output, exitCode)
-		},
-		OnRetry: renderRetry,
+	return func(e ask.Event) {
+		switch e.Type {
+		case ask.EventDelta:
+			renderDelta(e.Text)
+		case ask.EventCommandStart:
+			renderCommandStart(e.Command)
+		case ask.EventCommandResult:
+			renderCommandResult(e.Output, e.ExitCode)
+		case ask.EventRetry:
+			renderRetry(e.Reason, e.Step)
+		case ask.EventStatus:
+			fmt.Fprintf(os.Stderr, "%s\n", e.Message)
+		}
 	}, nil
-}
-
-// printQuietResponse prints result.Response to stdout when it contains text.
-// Used by quiet mode to emit accumulated assistant prose after the run completes.
-func printQuietResponse(result *logos.RunResult) {
-	if result != nil && result.Response != "" {
-		fmt.Print(result.Response)
-	}
 }
 
 // isTerminal reports whether f is connected to a terminal.
