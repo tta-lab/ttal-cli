@@ -102,6 +102,10 @@ Example:
 // Reviewer info is shown inline when present:
 //
 //	Plan [designer] ──human/plan-review-lead──▸ Implement [coder]
+//
+// Skills are shown in parentheses when present:
+//
+//	Plan [designer] (sp-planning, flicknote) ──human/plan-review-lead──▸ Implement [coder]
 func renderPipelineGraph(p pipeline.Pipeline) {
 	for i, s := range p.Stages {
 		if i > 0 {
@@ -114,6 +118,9 @@ func renderPipelineGraph(p pipeline.Pipeline) {
 			fmt.Printf(" ──%s──▸ ", label)
 		}
 		fmt.Printf("%s [%s]", s.Name, s.Assignee)
+		if len(s.Skills) > 0 {
+			fmt.Printf(" (%s)", strings.Join(s.Skills, ", "))
+		}
 	}
 	fmt.Println()
 }
