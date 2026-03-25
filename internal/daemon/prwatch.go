@@ -34,7 +34,6 @@ type prWatchTarget struct {
 	PRIndex      int64
 	Description  string
 	Provider     string
-	Spawner      string
 	ProjectAlias string
 }
 
@@ -150,7 +149,6 @@ func scanTeam(
 			PRIndex:      prIndex,
 			Description:  task.Description,
 			Provider:     string(info.Provider),
-			Spawner:      task.Spawner,
 			ProjectAlias: task.Project,
 		}
 
