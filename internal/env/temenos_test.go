@@ -24,7 +24,7 @@ func TestSharedTemenosPaths(t *testing.T) {
 }
 
 func TestWorkerTemenosEnv(t *testing.T) {
-	env, err := WorkerTemenosEnv()
+	env, err := WorkerTemenosEnv(nil)
 	require.NoError(t, err)
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=true", env[0])
@@ -35,8 +35,20 @@ func TestWorkerTemenosEnv(t *testing.T) {
 	assert.Len(t, parts, 5)
 }
 
+func TestWorkerTemenosEnvWithExtraPaths(t *testing.T) {
+	env, err := WorkerTemenosEnv([]string{"/tmp/project-a", "/tmp/refs"})
+	require.NoError(t, err)
+	require.Len(t, env, 3)
+	assert.Equal(t, "TEMENOS_WRITE=true", env[0])
+	assert.Contains(t, env[1], "/tmp/project-a:ro")
+	assert.Contains(t, env[1], "/tmp/refs:ro")
+	// Verify 5 shared + 2 extra paths = 7 total
+	parts := strings.Split(strings.TrimPrefix(env[1], "TEMENOS_PATHS="), ",")
+	assert.Len(t, parts, 7)
+}
+
 func TestReviewerTemenosEnv(t *testing.T) {
-	env, err := ReviewerTemenosEnv()
+	env, err := ReviewerTemenosEnv(nil)
 	require.NoError(t, err)
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=false", env[0])

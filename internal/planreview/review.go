@@ -19,7 +19,8 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
-	temenosEnv, err := env.ReviewerTemenosEnv()
+	readOnlyPaths := env.CollectReadOnlyPaths()
+	temenosEnv, err := env.ReviewerTemenosEnv(readOnlyPaths)
 	if err != nil {
 		return nil, fmt.Errorf("build temenos env for plan reviewer: %w", err)
 	}
@@ -29,7 +30,7 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	)
-	// Temenos MCP sandbox config — plan reviewers get read-only cwd access
+	// Temenos MCP sandbox config — plan reviewers get read-only cwd access plus project paths
 	parts = append(parts, temenosEnv...)
 	return parts, nil
 }

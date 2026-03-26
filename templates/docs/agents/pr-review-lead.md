@@ -5,7 +5,7 @@ description: "PR review orchestrator — coordinates 7 specialized subagents for
 role: reviewer
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Agent]
+  tools: [mcp__temenos_bash, mcp__context7_resolve-library-id, mcp__context7_query-docs, Agent]
 ---
 
 # PR Review Lead

@@ -8,6 +8,18 @@
 
 **Worker Plane** — Short-lived coders/reviewers. Spawned on demand per task, isolated in git worktrees within tmux sessions. Run in parallel, implement → review → merge → done.
 
+## Tool Access
+
+All agents use **temenos MCP** for file and command operations — built-in CC tools (Bash, Read, Write, Edit, Grep, Glob) are restricted via agent `tools:` frontmatter.
+
+**Available tools:**
+- `mcp__temenos_bash` — sandboxed shell execution via temenos daemon
+- `mcp__context7_resolve-library-id` — look up library documentation IDs
+- `mcp__context7_query-docs` — fetch library documentation and examples
+- `Agent` — spawn subagents (orchestrators and lead reviewers only)
+
+**Sandbox paths:** temenos restricts file access to registered project paths, shared data dirs (`.ttal`, `.task`, `.diary`, flicknote), config directory (read-only), and ask references directory. Workers get write access to their worktree cwd; managers and reviewers are read-only.
+
 ## Workflow & Planning
 
 **Don't use plan mode for planning tasks** - Use brainstorming skill or writeplan skill instead

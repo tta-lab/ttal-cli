@@ -294,8 +294,10 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) ([
 		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 
-	// Temenos MCP sandbox config — workers get write access to cwd (worktree)
-	temenosEnv, err := env.WorkerTemenosEnv()
+	// Temenos MCP sandbox config — workers get write access to cwd (worktree),
+	// plus read-only access to all registered project paths and references.
+	readOnlyPaths := env.CollectReadOnlyPaths()
+	temenosEnv, err := env.WorkerTemenosEnv(readOnlyPaths)
 	if err != nil {
 		return nil, fmt.Errorf("build temenos env for worker: %w", err)
 	}

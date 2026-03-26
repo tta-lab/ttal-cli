@@ -2,9 +2,14 @@ package env
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 // sharedTemenosPaths returns the base allowed paths shared by all session types.
@@ -48,15 +53,17 @@ func buildTemenosEnv(write bool, extraPaths []string) ([]string, error) {
 }
 
 // WorkerTemenosEnv returns TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts for worker sessions.
-// Workers get write access to cwd (worktree) via TEMENOS_WRITE=true.
-func WorkerTemenosEnv() ([]string, error) {
-	return buildTemenosEnv(true, nil)
+// Workers get write access to cwd (worktree) via TEMENOS_WRITE=true,
+// plus read-only access to extraReadOnlyPaths (project paths, references).
+func WorkerTemenosEnv(extraReadOnlyPaths []string) ([]string, error) {
+	return buildTemenosEnv(true, extraReadOnlyPaths)
 }
 
 // ReviewerTemenosEnv returns TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts for reviewer sessions.
-// Reviewers get read-only access to cwd (worktree) via TEMENOS_WRITE=false.
-func ReviewerTemenosEnv() ([]string, error) {
-	return buildTemenosEnv(false, nil)
+// Reviewers get read-only cwd via TEMENOS_WRITE=false,
+// plus read-only access to extraReadOnlyPaths (project paths, references).
+func ReviewerTemenosEnv(extraReadOnlyPaths []string) ([]string, error) {
+	return buildTemenosEnv(false, extraReadOnlyPaths)
 }
 
 // ManagerTemenosEnv returns TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts for manager sessions.
@@ -64,4 +71,49 @@ func ReviewerTemenosEnv() ([]string, error) {
 // for code investigation.
 func ManagerTemenosEnv(projectPaths []string) ([]string, error) {
 	return buildTemenosEnv(false, projectPaths)
+}
+
+// CollectReadOnlyPaths returns all registered project paths plus the ask
+// references_path for use as read-only TEMENOS_PATHS entries.
+// Loads project store and config. Non-fatal on errors — returns what it can.
+// Only includes references_path if the directory actually exists on disk
+// (AskReferencesPath always returns a default even on fresh installs).
+func CollectReadOnlyPaths() []string {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("[env] warning: failed to load config for read-only paths: %v", err)
+		return nil
+	}
+
+	storePath := config.ResolveProjectsPath()
+	store := project.NewStore(storePath)
+	projects, err := store.List(false)
+	if err != nil {
+		log.Printf("[env] warning: failed to load projects for TEMENOS_PATHS: %v", err)
+	}
+
+	seen := make(map[string]bool)
+	var paths []string
+	for _, p := range projects {
+		if p.Path != "" && !seen[p.Path] {
+			seen[p.Path] = true
+			paths = append(paths, p.Path)
+		}
+	}
+
+	// AskReferencesPath() always returns a non-empty default (~/.ttal/references/).
+	// Only add it if the directory actually exists — avoids temenos rejecting
+	// non-existent paths on fresh installs.
+	// Note: the default path (~/.ttal/references/) is already covered by
+	// sharedTemenosPaths() which includes ~/.ttal:rw. This explicit addition
+	// matters when the user configures a custom references_path outside ~/.ttal.
+	refsPath := cfg.AskReferencesPath()
+	if refsPath != "" && !seen[refsPath] {
+		if _, statErr := os.Stat(refsPath); statErr == nil {
+			paths = append(paths, refsPath)
+		}
+	}
+
+	sort.Strings(paths)
+	return paths
 }

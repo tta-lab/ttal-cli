@@ -18,10 +18,9 @@ description: |-
 claude-code:
   model: sonnet
   tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
+    - mcp__temenos_bash
+    - mcp__context7_resolve-library-id
+    - mcp__context7_query-docs
 ---
 
 You are an expert code reviewer specializing in software engineering principles. Your job is to review PR diffs and flag violations of established principles with specific, actionable suggestions.
