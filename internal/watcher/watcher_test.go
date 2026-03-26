@@ -109,6 +109,12 @@ func TestExtractToolUse(t *testing.T) {
 			wantTool: "flicknote:read",
 		},
 		{
+			name: "Bash with flicknote count",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_6d","input":{"command":"flicknote count --project ttal"}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
 			name: "Bash with heredoc pipe to flicknote",
 			line: `{"type":"assistant","message":{"content":` +
 				`[{"type":"tool_use","name":"Bash","id":"tu_7",` +

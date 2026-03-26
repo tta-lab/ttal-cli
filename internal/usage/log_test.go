@@ -16,5 +16,5 @@ func TestLogWith_AcceptsArbitraryCommand(t *testing.T) {
 	// the silent-skip path handles multiple callers without panicking.
 	t.Setenv("TTAL_AGENT_NAME", "")
 	LogWith("flicknote", "add", "note-abc")
-	LogWith("flicknote", "replace", "note-xyz")
+	LogWith("flicknote", "modify", "note-xyz")
 }
