@@ -29,6 +29,7 @@ var registeredCommands = []BotCommand{
 	{Command: "wait", Description: "Interrupt the agent (send Escape)"},
 	{Command: "restart", Description: "Restart the daemon"},
 	{Command: "help", Description: "List available commands"},
+	{Command: "save", Description: "Save agent's last message to FlickNote"},
 }
 
 // DiscoverCommands reads command-category skills from the default skill registry.

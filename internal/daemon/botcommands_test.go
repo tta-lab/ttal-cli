@@ -42,6 +42,7 @@ func TestIsStaticCommand(t *testing.T) {
 		{"compact", true},
 		{"wait", true},
 		{"help", true},
+		{"save", true},
 		{"review_pr", false},
 		{"unknown", false},
 		{"", false},
