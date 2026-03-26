@@ -289,11 +289,11 @@ func archiveTaskPlans(annotations []taskwarrior.Annotation) {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cmd := exec.CommandContext(ctx, "flicknote", "archive", hexID)
+		cmd := exec.CommandContext(ctx, "flicknote", "delete", hexID)
 		if err := cmd.Run(); err != nil {
-			log.Printf("[archive] warning: failed to archive flicknote %s: %v", hexID, err)
+			log.Printf("[archive] warning: failed to delete flicknote %s: %v", hexID, err)
 		} else {
-			log.Printf("[archive] archived plan note: %s", hexID)
+			log.Printf("[archive] deleted plan note: %s", hexID)
 		}
 		cancel()
 	}
