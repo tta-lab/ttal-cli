@@ -5,7 +5,7 @@ emoji: 🧭
 role: designer
 description: Design architect — writes executable implementation plans for Guion/fb3 projects
 claude-code:
-  tools: [mcp__temenos_bash, mcp__context7_resolve-library-id, mcp__context7_query-docs]
+  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 
 ---
 
