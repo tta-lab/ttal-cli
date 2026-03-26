@@ -744,7 +744,9 @@ func (f *TelegramFrontend) handleSaveCommand(teamName, agentName, botToken, chat
 		return
 	}
 
-	msg, err := f.cfg.MsgSvc.LatestFrom(context.Background(), agentName, teamName)
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer dbCancel()
+	msg, err := f.cfg.MsgSvc.LatestFrom(dbCtx, agentName, teamName)
 	if err != nil {
 		replyTelegram(botToken, chatID, "Error reading last message: "+err.Error())
 		return
@@ -760,7 +762,9 @@ func (f *TelegramFrontend) handleSaveCommand(teamName, agentName, botToken, chat
 		project = args[0]
 	}
 
-	cmd := exec.Command("flicknote", "add", "--project", project)
+	flickCtx, flickCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer flickCancel()
+	cmd := exec.CommandContext(flickCtx, "flicknote", "add", "--project", project)
 	cmd.Stdin = strings.NewReader(msg.Content)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -167,7 +167,7 @@ func TestLatestFrom(t *testing.T) {
 		Team: "default", Channel: message.ChannelWatcher,
 	})
 	require.NoError(t, err)
-	time.Sleep(time.Millisecond) // ensure distinct created_at for ordering
+	time.Sleep(10 * time.Millisecond) // ensure distinct created_at for ordering
 	_, err = svc.Create(ctx, message.CreateParams{
 		Sender: "astra", Recipient: "neil", Content: "second message",
 		Team: "default", Channel: message.ChannelWatcher,
