@@ -180,7 +180,7 @@ func deriveCommands(toolNames []string) []logos.CommandDoc {
 	}
 	var cmds []logos.CommandDoc
 	if hasURL {
-		cmds = append(cmds, ask.URLCommandDoc)
+		cmds = append(cmds, ask.FetchCommandDoc)
 	}
 	if hasWeb {
 		cmds = append(cmds, ask.WebCommandDoc)
