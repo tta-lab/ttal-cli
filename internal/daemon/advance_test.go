@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const testAgentInke = "inke"
@@ -456,6 +458,110 @@ func TestPrependStageSkills(t *testing.T) {
 				t.Errorf("prependStageSkills() =\n%q\nwant:\n%q", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestHandleWorkerPRMerge_DirtyWorktree verifies that handleWorkerPRMerge returns
+// AdvanceStatusRejected when the worktree has uncommitted changes.
+func TestHandleWorkerPRMerge_DirtyWorktree(t *testing.T) {
+	root := t.TempDir()
+	orig := worktreeRootFn
+	worktreeRootFn = func() string { return root }
+	defer func() { worktreeRootFn = orig }()
+
+	// Create a dirty git repo at the expected worktree path.
+	worktreeDir := filepath.Join(root, "abcd1234-myproj")
+	setupDirtyRepo(t, worktreeDir)
+
+	task := &taskwarrior.Task{
+		UUID:        "abcd1234-0000-0000-0000-000000000000",
+		Project:     "myproj",
+		Description: "test task",
+	}
+
+	w := httptest.NewRecorder()
+	done := handleWorkerPRMerge(w, task)
+
+	if !done {
+		t.Fatal("expected handleWorkerPRMerge to return true (response written)")
+	}
+	if w.Code != http.StatusConflict {
+		t.Errorf("expected status 409, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp AdvanceResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != AdvanceStatusRejected {
+		t.Errorf("expected status %q, got %q", AdvanceStatusRejected, resp.Status)
+	}
+	if !strings.Contains(resp.Message, "uncommitted changes") {
+		t.Errorf("expected message about uncommitted changes, got %q", resp.Message)
+	}
+}
+
+// TestHandleWorkerPRMerge_MissingWorktree verifies that handleWorkerPRMerge proceeds
+// (does not block) when the worktree directory does not exist (guard is skipped on error).
+func TestHandleWorkerPRMerge_MissingWorktree(t *testing.T) {
+	root := t.TempDir()
+	orig := worktreeRootFn
+	worktreeRootFn = func() string { return root }
+	defer func() { worktreeRootFn = orig }()
+
+	// No worktree dir created — IsWorktreeClean will return an error, guard is skipped.
+	task := &taskwarrior.Task{
+		UUID:        "abcd1234-0000-0000-0000-000000000000",
+		Project:     "myproj",
+		Description: "test task",
+	}
+
+	w := httptest.NewRecorder()
+	// mergeWorkerPR will fail (no config), but what matters is it's called (not rejected early).
+	// We just verify we don't get a Rejected status.
+	handleWorkerPRMerge(w, task)
+
+	if w.Code == http.StatusConflict {
+		t.Errorf("expected guard to be skipped for missing worktree, but got 409 Conflict")
+	}
+	var resp AdvanceResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status == AdvanceStatusRejected {
+		t.Errorf("expected guard skipped for missing worktree, but got status %q", resp.Status)
+	}
+}
+
+// setupDirtyRepo initialises a git repo in dir, makes an initial commit,
+// then modifies a tracked file without staging — leaving the worktree dirty.
+func setupDirtyRepo(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, "git", "-C", dir, "init")
+	runGit(t, "git", "-C", dir, "config", "user.email", "test@test.com")
+	runGit(t, "git", "-C", dir, "config", "user.name", "Test")
+	// Create and commit a file.
+	tracked := filepath.Join(dir, "tracked.txt")
+	if err := os.WriteFile(tracked, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, "git", "-C", dir, "add", ".")
+	runGit(t, "git", "-C", dir, "commit", "-m", "initial")
+	// Modify without staging — makes the worktree dirty.
+	if err := os.WriteFile(tracked, []byte("modified"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// runGit runs a git command for test setup, fatal on failure.
+func runGit(t *testing.T, args ...string) {
+	t.Helper()
+	//nolint:gosec // test helper only
+	cmd := exec.Command(args[0], args[1:]...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git command %v failed: %v\n%s", args, err, out)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/route"
@@ -449,6 +451,10 @@ func buildRouteTrigger(uuid string) string {
 // countTasksFn is the function used to count active tasks. Package-level var for test injection.
 var countTasksFn = taskwarrior.CountTasks
 
+// worktreeRootFn is the function used to resolve the worktrees root directory.
+// Package-level var for test injection.
+var worktreeRootFn = config.WorktreesRoot
+
 // resolveHintedAgent checks task tags for a routing hint — a tag matching a known
 // agent name with the required role. Returns the agent if found and idle, nil otherwise.
 //
@@ -733,6 +739,25 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 			Message: "Manual merge mode — PR ready for human merge",
 		})
 		return true
+	}
+
+	// Block merge if worktree has uncommitted changes.
+	if len(task.UUID) >= 8 {
+		worktreeDir := filepath.Join(worktreeRootFn(),
+			fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+		clean, err := gitutil.IsWorktreeClean(worktreeDir)
+		if err != nil {
+			log.Printf("[advance] skipping dirty check for %s: %v", worktreeDir, err)
+		} else if !clean {
+			msg := fmt.Sprintf("worktree has uncommitted changes — commit or discard before merging (%s)", worktreeDir)
+			log.Printf("[advance] blocked merge: %s", msg)
+			worker.NotifyTelegram(fmt.Sprintf("⚠️ Merge blocked for %s: uncommitted changes in worktree", task.Description))
+			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
+				Status:  AdvanceStatusRejected,
+				Message: msg,
+			})
+			return true
+		}
 	}
 
 	if err := mergeWorkerPR(task); err != nil {
