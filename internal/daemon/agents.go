@@ -123,10 +123,7 @@ func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig)
 			}
 		}
 	}
-	temenosEnv, err := envpkg.ManagerTemenosEnv(projectPaths)
-	if err != nil {
-		return nil, fmt.Errorf("build temenos env for manager %s: %w", agentName, err)
-	}
+	temenosEnv := envpkg.ManagerTemenosEnv(projectPaths)
 	agentEnv = append(agentEnv, temenosEnv...)
 
 	return agentEnv, nil

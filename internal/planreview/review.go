@@ -20,10 +20,7 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
 	readOnlyPaths := env.CollectReadOnlyPaths()
-	temenosEnv, err := env.ReviewerTemenosEnv(readOnlyPaths)
-	if err != nil {
-		return nil, fmt.Errorf("build temenos env for plan reviewer: %w", err)
-	}
+	temenosEnv := env.ReviewerTemenosEnv(readOnlyPaths)
 	parts := make([]string, 0, 3+len(temenosEnv))
 	parts = append(parts,
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),

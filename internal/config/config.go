@@ -1284,6 +1284,7 @@ func defaultConfigDir() string {
 	}
 	return filepath.Join(home, ".config", "ttal")
 }
+
 func defaultTaskRC() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

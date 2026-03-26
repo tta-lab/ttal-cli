@@ -14,7 +14,7 @@ import (
 // buildTemenosEnv assembles TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts.
 // plane is "worker" or "manager" — selects which sandbox.toml section to merge.
 // extraPaths are appended as :ro entries after sandbox paths.
-func buildTemenosEnv(write bool, plane string, extraPaths []string) ([]string, error) {
+func buildTemenosEnv(write bool, plane string, extraPaths []string) []string {
 	sandbox := config.LoadSandbox().PathsForPlane(plane)
 	paths := make([]string, 0, len(sandbox)+len(extraPaths))
 	paths = append(paths, sandbox...)
@@ -29,33 +29,39 @@ func buildTemenosEnv(write bool, plane string, extraPaths []string) ([]string, e
 		"TEMENOS_WRITE=" + writeStr,
 		fmt.Sprintf("TEMENOS_PATHS=%s", strings.Join(paths, ",")),
 		"ENABLE_TOOL_SEARCH=false",
-	}, nil
+	}
 }
 
 // WorkerTemenosEnv returns TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts for worker sessions.
 // Workers get write access to cwd (worktree) via TEMENOS_WRITE=true,
 // plus read-only access to extraReadOnlyPaths (project paths, references).
-func WorkerTemenosEnv(extraReadOnlyPaths []string) ([]string, error) {
+func WorkerTemenosEnv(extraReadOnlyPaths []string) []string {
 	return buildTemenosEnv(true, "worker", extraReadOnlyPaths)
 }
 
 // ReviewerTemenosEnv returns TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts for reviewer sessions.
 // Reviewers get read-only cwd via TEMENOS_WRITE=false,
 // plus read-only access to extraReadOnlyPaths (project paths, references).
-func ReviewerTemenosEnv(extraReadOnlyPaths []string) ([]string, error) {
+func ReviewerTemenosEnv(extraReadOnlyPaths []string) []string {
 	return buildTemenosEnv(false, "worker", extraReadOnlyPaths)
 }
 
 // ManagerTemenosEnv returns TEMENOS_WRITE, TEMENOS_PATHS, and ENABLE_TOOL_SEARCH env parts for manager sessions.
 // Managers get read-only cwd (TEMENOS_WRITE=false) plus all project paths as :ro
 // for code investigation.
-func ManagerTemenosEnv(projectPaths []string) ([]string, error) {
+func ManagerTemenosEnv(projectPaths []string) []string {
 	return buildTemenosEnv(false, "manager", projectPaths)
 }
 
 // CollectReadOnlyPaths returns all registered project paths plus the ask
 // references_path for use as read-only TEMENOS_PATHS entries.
 // Loads project store and config. Non-fatal on errors — returns what it can.
+//
+// refsPath is added here (not in sandbox.toml) because it is user-configurable
+// at runtime and may point to an arbitrary directory outside any statically-known
+// sandbox path. The static sandbox.toml covers well-known tool dirs; dynamic
+// per-user paths are injected at spawn time via this function.
+//
 // Only includes references_path if the directory actually exists on disk
 // (AskReferencesPath always returns a default even on fresh installs).
 func CollectReadOnlyPaths() []string {

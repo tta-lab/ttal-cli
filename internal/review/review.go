@@ -20,10 +20,7 @@ import (
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 func buildReviewerEnvParts(agentName string, rt runtime.Runtime) ([]string, error) {
 	readOnlyPaths := env.CollectReadOnlyPaths()
-	temenosEnv, err := env.ReviewerTemenosEnv(readOnlyPaths)
-	if err != nil {
-		return nil, fmt.Errorf("build temenos env for reviewer: %w", err)
-	}
+	temenosEnv := env.ReviewerTemenosEnv(readOnlyPaths)
 	parts := make([]string, 0, 2+len(temenosEnv))
 	parts = append(parts,
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),

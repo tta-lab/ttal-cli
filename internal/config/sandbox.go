@@ -27,13 +27,23 @@ type SandboxPlane struct {
 // Filtering allows listing both macOS and Linux variants in sandbox.toml —
 // only paths present on disk are included.
 func (c *SandboxConfig) PathsForPlane(plane string) []string {
-	raw := append(c.Shared.ExtraPaths, c.planeSection(plane).ExtraPaths...)
-	home, _ := os.UserHomeDir()
+	var planeExtra []string
+	switch plane {
+	case "worker":
+		planeExtra = c.Worker.ExtraPaths
+	case "manager":
+		planeExtra = c.Manager.ExtraPaths
+	}
+
+	// Pre-allocate a fresh slice to avoid mutating c.Shared.ExtraPaths backing array
+	// when the TOML decoder left spare capacity (classic Go append aliasing trap).
+	raw := make([]string, 0, len(c.Shared.ExtraPaths)+len(planeExtra))
+	raw = append(raw, c.Shared.ExtraPaths...)
+	raw = append(raw, planeExtra...)
+
 	result := make([]string, 0, len(raw))
 	for _, p := range raw {
-		if len(p) >= 1 && p[0] == '~' {
-			p = home + p[1:]
-		}
+		p = expandHome(p)
 		// strip :ro/:rw suffix to stat the bare path
 		bare := strings.TrimSuffix(strings.TrimSuffix(p, ":rw"), ":ro")
 		if _, err := os.Stat(bare); err != nil {
@@ -44,27 +54,20 @@ func (c *SandboxConfig) PathsForPlane(plane string) []string {
 	return result
 }
 
-func (c *SandboxConfig) planeSection(plane string) SandboxPlane {
-	switch plane {
-	case "worker":
-		return c.Worker
-	case "manager":
-		return c.Manager
-	default:
-		return SandboxPlane{}
-	}
-}
-
 // LoadSandbox loads sandbox.toml from the default config dir.
 // Returns an empty config (no extra paths) if the file doesn't exist — non-fatal.
 func LoadSandbox() *SandboxConfig {
 	path := filepath.Join(DefaultConfigDir(), "sandbox.toml")
-	var cfg SandboxConfig
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return &cfg
+	if _, err := os.Stat(path); err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("[config] warning: cannot stat sandbox.toml: %v", err)
+		}
+		return &SandboxConfig{}
 	}
+	var cfg SandboxConfig
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		log.Printf("[config] warning: failed to load sandbox.toml: %v", err)
+		return &SandboxConfig{}
 	}
 	return &cfg
 }
