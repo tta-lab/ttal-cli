@@ -894,14 +894,14 @@ var flicknoteHooks = []struct {
 	{"on-archive", `#!/bin/sh
 # FlickNote hook — logs usage to ttal worklog.
 # Installed by: ttal doctor --fix
-# Logs both archive and unarchive as "archive".
-ttal usage log flicknote archive 2>/dev/null
+# Logs both delete and restore as delete.
+ttal usage log flicknote delete 2>/dev/null
 exit 0
 `},
 	{"on-get", `#!/bin/sh
 # FlickNote hook — logs usage to ttal worklog.
 # Installed by: ttal doctor --fix
-ttal usage log flicknote get 2>/dev/null
+ttal usage log flicknote detail 2>/dev/null
 exit 0
 `},
 }
