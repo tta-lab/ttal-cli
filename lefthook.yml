@@ -3,12 +3,12 @@ pre-commit:
   jobs:
     - name: fmt check
       glob: "*.go"
-      run: gofmt -w -s . && git diff --exit-code --quiet -- '*.go'
+      run: make fmt && git diff --exit-code --quiet -- '*.go'
 
     - name: vet
       glob: "*.go"
-      run: GOCACHE=~/.ttal/go-build TMPDIR=~/.ttal/tmp go vet ./...
+      run: make vet
 
     - name: lint
       glob: "*.go"
-      run: GOCACHE=~/.ttal/go-build TMPDIR=~/.ttal/tmp golangci-lint run ./...
+      run: make lint

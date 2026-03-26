@@ -1275,13 +1275,15 @@ func defaultDataDir() string {
 func DefaultConfigDir() string { return defaultConfigDir() }
 
 func defaultConfigDir() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "ttal")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
 	}
 	return filepath.Join(home, ".config", "ttal")
 }
-
 func defaultTaskRC() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
