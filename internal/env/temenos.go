@@ -26,6 +26,9 @@ func sharedTemenosPaths() ([]string, error) {
 		filepath.Join(home, ".diary") + ":rw",
 		filepath.Join(home, ".local", "share", "flicknote") + ":rw",
 		filepath.Join(home, ".config", "ttal") + ":ro",
+		filepath.Join(home, ".config", "git") + ":ro",
+		filepath.Join(home, ".gitconfig") + ":ro",
+		filepath.Join(home, ".taskrc") + ":ro",
 	}, nil
 }
 
