@@ -455,6 +455,10 @@ var countTasksFn = taskwarrior.CountTasks
 // Package-level var for test injection.
 var worktreeRootFn = config.WorktreesRoot
 
+// notifyTelegramFn is the function used to send Telegram notifications.
+// Package-level var for test injection.
+var notifyTelegramFn = worker.NotifyTelegram
+
 // resolveHintedAgent checks task tags for a routing hint — a tag matching a known
 // agent name with the required role. Returns the agent if found and idle, nil otherwise.
 //
@@ -733,7 +737,7 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		log.Printf("[advance] warning: could not load config, defaulting to auto-merge: %v", cfgErr)
 	}
 	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
-		worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
+		notifyTelegramFn(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusNeedsLGTM,
 			Message: "Manual merge mode — PR ready for human merge",
@@ -751,7 +755,7 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		} else if !clean {
 			msg := fmt.Sprintf("worktree has uncommitted changes — commit or discard before merging (%s)", worktreeDir)
 			log.Printf("[advance] blocked merge: %s", msg)
-			worker.NotifyTelegram(fmt.Sprintf("⚠️ Merge blocked for %s: uncommitted changes in worktree", task.Description))
+			notifyTelegramFn(fmt.Sprintf("⚠️ Merge blocked for %s: uncommitted changes in worktree", task.Description))
 			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
 				Status:  AdvanceStatusRejected,
 				Message: msg,
@@ -762,7 +766,7 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 
 	if err := mergeWorkerPR(task); err != nil {
 		log.Printf("[advance] PR merge failed: %v", err)
-		worker.NotifyTelegram(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
+		notifyTelegramFn(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
 			Message: "merge PR: " + err.Error(),

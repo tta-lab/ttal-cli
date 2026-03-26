@@ -465,9 +465,13 @@ func TestPrependStageSkills(t *testing.T) {
 // AdvanceStatusRejected when the worktree has uncommitted changes.
 func TestHandleWorkerPRMerge_DirtyWorktree(t *testing.T) {
 	root := t.TempDir()
-	orig := worktreeRootFn
+	origRoot := worktreeRootFn
 	worktreeRootFn = func() string { return root }
-	defer func() { worktreeRootFn = orig }()
+	defer func() { worktreeRootFn = origRoot }()
+
+	origNotify := notifyTelegramFn
+	notifyTelegramFn = func(string) {}
+	defer func() { notifyTelegramFn = origNotify }()
 
 	// Create a dirty git repo at the expected worktree path.
 	worktreeDir := filepath.Join(root, "abcd1234-myproj")
@@ -504,9 +508,13 @@ func TestHandleWorkerPRMerge_DirtyWorktree(t *testing.T) {
 // (does not block) when the worktree directory does not exist (guard is skipped on error).
 func TestHandleWorkerPRMerge_MissingWorktree(t *testing.T) {
 	root := t.TempDir()
-	orig := worktreeRootFn
+	origRoot := worktreeRootFn
 	worktreeRootFn = func() string { return root }
-	defer func() { worktreeRootFn = orig }()
+	defer func() { worktreeRootFn = origRoot }()
+
+	origNotify := notifyTelegramFn
+	notifyTelegramFn = func(string) {}
+	defer func() { notifyTelegramFn = origNotify }()
 
 	// No worktree dir created — IsWorktreeClean will return an error, guard is skipped.
 	task := &taskwarrior.Task{
