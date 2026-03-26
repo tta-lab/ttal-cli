@@ -3,6 +3,7 @@ package message_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/stretchr/testify/require"
@@ -147,6 +148,49 @@ func TestListAgentFeed(t *testing.T) {
 	require.Len(t, feed, 1)
 	require.Equal(t, "athena", feed[0].Sender)
 	require.Equal(t, "yuki", feed[0].Recipient)
+}
+
+func TestLatestFrom(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	// Seed a human→agent message (should NOT be returned)
+	_, err := svc.Create(ctx, message.CreateParams{
+		Sender: "neil", Recipient: "astra", Content: "hello astra",
+		Team: "default", Channel: message.ChannelTelegram,
+	})
+	require.NoError(t, err)
+
+	// Agent watcher messages (the ones /save targets)
+	_, err = svc.Create(ctx, message.CreateParams{
+		Sender: "astra", Recipient: "neil", Content: "first message",
+		Team: "default", Channel: message.ChannelWatcher,
+	})
+	require.NoError(t, err)
+	time.Sleep(10 * time.Millisecond) // ensure distinct created_at for ordering
+	_, err = svc.Create(ctx, message.CreateParams{
+		Sender: "astra", Recipient: "neil", Content: "second message",
+		Team: "default", Channel: message.ChannelWatcher,
+	})
+	require.NoError(t, err)
+
+	// Different agent
+	_, err = svc.Create(ctx, message.CreateParams{
+		Sender: "kestrel", Recipient: "neil", Content: "kestrel message",
+		Team: "default", Channel: message.ChannelWatcher,
+	})
+	require.NoError(t, err)
+
+	// Should return astra's latest watcher message
+	msg, err := svc.LatestFrom(ctx, "astra", "default")
+	require.NoError(t, err)
+	require.NotNil(t, msg)
+	require.Equal(t, "second message", msg.Content)
+
+	// Non-existent agent should return nil, nil
+	msg, err = svc.LatestFrom(ctx, "nonexistent", "default")
+	require.NoError(t, err)
+	require.Nil(t, msg)
 }
 
 func TestAddAttachment(t *testing.T) {

@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -626,6 +628,12 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 			sendEscToAgent(teamName, agentName, botToken, chatIDStr)
 		})
 
+	b.RegisterHandlerMatchFunc(matchCommand("save"),
+		func(_ context.Context, _ *bot.Bot, update *models.Update) {
+			args := parseCommandArgs(update.Message.Text)
+			f.handleSaveCommand(teamName, agentName, botToken, chatIDStr, args)
+		})
+
 	for _, cmd := range f.allCommands {
 		if isStaticCommand(cmd.Name) {
 			continue
@@ -727,6 +735,57 @@ func (f *TelegramFrontend) handleUsageCommand(botToken, chatID string) {
 	replyTelegram(botToken, chatID, msg)
 }
 
+// flicknoteIDPattern extracts the note ID from flicknote add output.
+var flicknoteIDPattern = regexp.MustCompile(`Created note ([0-9a-f]+)`)
+
+func (f *TelegramFrontend) handleSaveCommand(teamName, agentName, botToken, chatID string, args []string) {
+	if f.cfg.MsgSvc == nil {
+		replyTelegram(botToken, chatID, "Error: message service not available")
+		return
+	}
+
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer dbCancel()
+	msg, err := f.cfg.MsgSvc.LatestFrom(dbCtx, agentName, teamName)
+	if err != nil {
+		replyTelegram(botToken, chatID, "Error reading last message: "+err.Error())
+		return
+	}
+	if msg == nil {
+		replyTelegram(botToken, chatID, "No messages from "+agentName+" to save")
+		return
+	}
+
+	// Default project is "saved"; /save <project> overrides it
+	project := "saved"
+	if len(args) > 0 {
+		project = args[0]
+	}
+
+	flickCtx, flickCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer flickCancel()
+	cmd := exec.CommandContext(flickCtx, "flicknote", "add", "--project", project)
+	cmd.Stdin = strings.NewReader(msg.Content)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		replyTelegram(botToken, chatID, fmt.Sprintf("flicknote add failed: %v\n%s", err, string(out)))
+		return
+	}
+
+	// Extract note ID from output (e.g. "Created note c9b5979b in project ...")
+	outStr := strings.TrimSpace(string(out))
+	noteID := ""
+	if m := flicknoteIDPattern.FindStringSubmatch(outStr); len(m) > 1 {
+		noteID = m[1]
+	}
+
+	if noteID != "" {
+		replyTelegram(botToken, chatID, fmt.Sprintf("💾 Saved to flicknote/%s (project: %s)", noteID, project))
+	} else {
+		replyTelegram(botToken, chatID, fmt.Sprintf("💾 Saved to flicknote (project: %s)\n%s", project, outStr))
+	}
+}
+
 // --- Package-level helpers ---
 
 func replyTelegram(botToken, chatID, text string) {
@@ -788,7 +847,7 @@ func buildSkillGetCommand(skillName, messageText string) string {
 }
 
 func isStaticCommand(name string) bool {
-	static := []string{"status", "usage", "new", "compact", "wait", "restart", "help"}
+	static := []string{"status", "usage", "new", "compact", "wait", "restart", "help", "save"}
 	for _, s := range static {
 		if s == name {
 			return true

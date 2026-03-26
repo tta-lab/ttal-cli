@@ -139,6 +139,25 @@ func (s *Service) ListAgentFeed(ctx context.Context, userName string, limit, off
 		All(ctx)
 }
 
+// LatestFrom returns the most recent watcher message sent by the given agent in the given team.
+// Only returns ChannelWatcher messages (agent → human via CC JSONL bridge).
+// Returns (nil, nil) if no message is found.
+func (s *Service) LatestFrom(ctx context.Context, sender, team string) (*ent.Message, error) {
+	msg, err := s.client.Message.Query().
+		Where(
+			entmessage.SenderEQ(sender),
+			entmessage.TeamEQ(team),
+			entmessage.ChannelEQ(entmessage.ChannelWatcher),
+		).
+		Order(ent.Desc(entmessage.FieldCreatedAt)).
+		Limit(1).
+		First(ctx)
+	if ent.IsNotFound(err) {
+		return nil, nil
+	}
+	return msg, err
+}
+
 // AddReaction attaches an emoji reaction to a message.
 func (s *Service) AddReaction(ctx context.Context, messageID uuid.UUID, emoji, from string) (*ent.Reaction, error) {
 	return s.client.Reaction.Create().
