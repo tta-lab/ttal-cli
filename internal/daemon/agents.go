@@ -114,7 +114,15 @@ func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig)
 	agentEnv = append(agentEnv, envpkg.AllowedDotEnvParts()...)
 
 	// Temenos MCP sandbox config — managers get read-only cwd, read access to all projects
+	// and the ask references_path.
 	projectPaths := collectProjectPaths(mcfg)
+	if cfg, cfgErr := config.Load(); cfgErr == nil {
+		if rp := cfg.AskReferencesPath(); rp != "" {
+			if _, statErr := os.Stat(rp); statErr == nil {
+				projectPaths = append(projectPaths, rp)
+			}
+		}
+	}
 	temenosEnv, err := envpkg.ManagerTemenosEnv(projectPaths)
 	if err != nil {
 		return nil, fmt.Errorf("build temenos env for manager %s: %w", agentName, err)
