@@ -285,35 +285,37 @@ Some content with **markdown** and $variables
 EOF
 ```
 
-## List
+## List & Find
 
 ```bash
 flicknote list --project <name>
-flicknote list --search "keyword"
+flicknote find "keyword"
+flicknote find "keyword1" "keyword2"    # OR match
 flicknote list --json
 ```
 
 ## Read
 
 ```bash
-flicknote get <id>
-flicknote get <id> --tree                     # heading structure
-flicknote get <id> --section "Section Name"
-flicknote get <id> --json
+flicknote detail <id>
+flicknote detail <id> --tree                  # heading structure with section IDs
+flicknote detail <id> --section <section-id>  # use ID from --tree output
+flicknote detail <id> --json
+flicknote content <id>                        # content-only with section IDs
 ```
 
-## Replace / Append
+## Edit
 
 ```bash
-echo "new content" | flicknote replace <id>
-echo "new content" | flicknote replace <id> --section "Name"
+echo "new content" | flicknote modify <id>
+echo "new content" | flicknote modify <id> --section <section-id>
 echo "more content" | flicknote append <id>
 ```
 
 For multiline content with special characters, use heredoc:
 
 ```bash
-cat <<'EOF' | flicknote replace <id>
+cat <<'EOF' | flicknote modify <id>
 # Updated Note
 Content with **markdown** and $variables
 EOF
@@ -322,18 +324,18 @@ EOF
 ## Section Operations
 
 ```bash
-flicknote remove <id> --section "Name"
-flicknote rename <id> --section "Old" "New"
-echo "content" | flicknote insert <id> --before "Section"
-echo "content" | flicknote insert <id> --after "Section"
+flicknote delete <id> --section <section-id>
+flicknote rename <id> --section <section-id> "New Name"
+echo "content" | flicknote insert <id> --before <section-id>
+echo "content" | flicknote insert <id> --after <section-id>
 ```
 
-## Archive
+## Delete
 
 ```bash
-flicknote archive <id>
+flicknote delete <id>
 ```
 
-Never pipe flicknote content through sed/awk — use replace/insert instead.
+Never pipe flicknote content through sed/awk — use modify/insert instead.
 
 <!-- ttal-rules-end -->
