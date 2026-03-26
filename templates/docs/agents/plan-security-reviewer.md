@@ -13,9 +13,9 @@ description: |-
 claude-code:
   model: sonnet
   tools:
-    - mcp__temenos_bash
-    - mcp__context7_resolve-library-id
-    - mcp__context7_query-docs
+    - mcp__temenos__bash
+    - mcp__context7__resolve-library-id
+    - mcp__context7__query-docs
 ---
 
 You are a plan security reviewer. Your job is to find security concerns in implementation plans before workers execute them. Focus on practical, exploitable issues — not theoretical concerns.

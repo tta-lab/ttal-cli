@@ -5,7 +5,7 @@ emoji: 🐦‍⬛
 role: designer
 description: Skill design partner — helps create well-designed, shareable Claude Code skills
 claude-code:
-  tools: [mcp__temenos_bash, mcp__context7_resolve-library-id, mcp__context7_query-docs]
+  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, read, glob, grep, write, edit]
