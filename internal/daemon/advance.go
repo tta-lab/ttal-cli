@@ -9,6 +9,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/route"
@@ -449,6 +451,14 @@ func buildRouteTrigger(uuid string) string {
 // countTasksFn is the function used to count active tasks. Package-level var for test injection.
 var countTasksFn = taskwarrior.CountTasks
 
+// worktreePathFn is the function used to resolve the worktree directory for a task.
+// Package-level var for test injection.
+var worktreePathFn = worker.WorktreePath
+
+// notifyTelegramFn is the function used to send Telegram notifications.
+// Package-level var for test injection.
+var notifyTelegramFn = worker.NotifyTelegram
+
 // resolveHintedAgent checks task tags for a routing hint — a tag matching a known
 // agent name with the required role. Returns the agent if found and idle, nil otherwise.
 //
@@ -727,7 +737,7 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		log.Printf("[advance] warning: could not load config, defaulting to auto-merge: %v", cfgErr)
 	}
 	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
-		worker.NotifyTelegram(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
+		notifyTelegramFn(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusNeedsLGTM,
 			Message: "Manual merge mode — PR ready for human merge",
@@ -735,9 +745,36 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		return true
 	}
 
+	// Block merge if worktree has uncommitted changes.
+	if worktreeDir, err := worktreePathFn(task.UUID, task.Project); err == nil {
+		if _, statErr := os.Stat(worktreeDir); os.IsNotExist(statErr) {
+			// Worktree already removed — skip guard, let merge proceed.
+			log.Printf("[advance] worktree absent, skipping dirty check: %s", worktreeDir)
+		} else if clean, gitErr := gitutil.IsWorktreeClean(worktreeDir); gitErr != nil {
+			// Directory exists but git status failed (locked repo, timeout, etc.) — block to be safe.
+			msg := fmt.Sprintf("dirty check failed for worktree %s: %v", worktreeDir, gitErr)
+			log.Printf("[advance] blocked merge: %s", msg)
+			notifyTelegramFn(fmt.Sprintf("⚠️ Merge blocked for %s: could not verify worktree state", task.Description))
+			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
+				Status:  AdvanceStatusRejected,
+				Message: msg,
+			})
+			return true
+		} else if !clean {
+			msg := fmt.Sprintf("worktree has uncommitted changes — commit or discard before merging (%s)", worktreeDir)
+			log.Printf("[advance] blocked merge: %s", msg)
+			notifyTelegramFn(fmt.Sprintf("⚠️ Merge blocked for %s: uncommitted changes in worktree", task.Description))
+			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
+				Status:  AdvanceStatusRejected,
+				Message: msg,
+			})
+			return true
+		}
+	}
+
 	if err := mergeWorkerPR(task); err != nil {
 		log.Printf("[advance] PR merge failed: %v", err)
-		worker.NotifyTelegram(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
+		notifyTelegramFn(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
 			Message: "merge PR: " + err.Error(),
