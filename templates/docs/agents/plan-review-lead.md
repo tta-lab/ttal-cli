@@ -17,9 +17,9 @@ description: |-
 claude-code:
   model: sonnet
   tools:
-    - mcp__temenos_bash
-    - mcp__context7_resolve-library-id
-    - mcp__context7_query-docs
+    - mcp__temenos__bash
+    - mcp__context7__resolve-library-id
+    - mcp__context7__query-docs
     - Agent
 ---
 
