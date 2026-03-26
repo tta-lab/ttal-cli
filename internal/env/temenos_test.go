@@ -20,6 +20,7 @@ func TestSharedTemenosPaths(t *testing.T) {
 	assert.Contains(t, paths, filepath.Join(home, ".diary")+":rw")
 	assert.Contains(t, paths, filepath.Join(home, ".local", "share", "flicknote")+":rw")
 	assert.Contains(t, paths, filepath.Join(home, ".config", "ttal")+":ro")
+	assert.Contains(t, paths, filepath.Join(home, ".config", "flicknote")+":ro")
 	assert.Contains(t, paths, filepath.Join(home, ".config", "git")+":ro")
 	assert.Contains(t, paths, filepath.Join(home, ".gitconfig")+":ro")
 	assert.Contains(t, paths, filepath.Join(home, ".taskrc")+":ro")
