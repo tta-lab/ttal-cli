@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -22,18 +23,25 @@ type SandboxPlane struct {
 }
 
 // PathsForPlane returns shared paths merged with the given plane's paths,
-// with ~ expanded to the home directory.
+// with ~ expanded and non-existent paths filtered out.
+// Filtering allows listing both macOS and Linux variants in sandbox.toml —
+// only paths present on disk are included.
 func (c *SandboxConfig) PathsForPlane(plane string) []string {
 	raw := append(c.Shared.ExtraPaths, c.planeSection(plane).ExtraPaths...)
 	home, _ := os.UserHomeDir()
-	expanded := make([]string, 0, len(raw))
+	result := make([]string, 0, len(raw))
 	for _, p := range raw {
 		if len(p) >= 1 && p[0] == '~' {
 			p = home + p[1:]
 		}
-		expanded = append(expanded, p)
+		// strip :ro/:rw suffix to stat the bare path
+		bare := strings.TrimSuffix(strings.TrimSuffix(p, ":rw"), ":ro")
+		if _, err := os.Stat(bare); err != nil {
+			continue // skip non-existent paths silently
+		}
+		result = append(result, p)
 	}
-	return expanded
+	return result
 }
 
 func (c *SandboxConfig) planeSection(plane string) SandboxPlane {
