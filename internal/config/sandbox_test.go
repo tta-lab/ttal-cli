@@ -51,7 +51,8 @@ func TestPathsForPlane_TildeExpansion(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
 	paths := cfg.PathsForPlane("shared")
-	// ~ expands and home dir exists, so it must appear in results.
+	// PathsForPlane filters non-existent paths via os.Stat, so this test
+	// implicitly depends on ~/.ttal existing on disk — any active ttal user will have it.
 	assert.Contains(t, paths, home+"/.ttal:rw")
 }
 
