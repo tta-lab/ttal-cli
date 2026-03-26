@@ -24,8 +24,8 @@ Plans and research are stored in [FlickNote](https://flicknote.app/) — an AI-n
 
 ```
 flicknote add 'plan content' --project plans    # Save a plan
-flicknote get <hex-id>                           # Read it back
-flicknote get <hex-id> --tree                    # See structure
+flicknote detail <hex-id>                         # Read it back
+flicknote detail <hex-id> --tree                 # See structure
 ```
 
 ## Quick start

@@ -64,7 +64,7 @@ Address all `[FIX]` items directly in the plan using flicknote:
 
 ```bash
 # Update a section
-echo "updated content" | flicknote replace <id> --section <section-id>
+echo "updated content" | flicknote modify <id> --section <section-id>
 
 # Append missing steps
 echo "new content" | flicknote append <id>
