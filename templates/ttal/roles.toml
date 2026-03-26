@@ -7,7 +7,7 @@ prompt = """Write an implementation plan for this task.
 Read the task first: ttal task get
 
 Storage: Save the plan via flicknote add 'content' --project plans
-Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
+Iterate with: flicknote detail <id> --tree, flicknote modify <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [researcher]
@@ -15,7 +15,7 @@ prompt = """Research this topic thoroughly.
 Read the task first: ttal task get
 
 Storage: Save findings via flicknote add 'content' --project research
-Iterate with: flicknote get <id> --tree, flicknote append <id> 'more content', flicknote replace <id> --section <section-id>
+Iterate with: flicknote detail <id> --tree, flicknote append <id> 'more content', flicknote modify <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [fixer]
@@ -38,5 +38,5 @@ prompt = """Write a devops/infrastructure implementation plan for this task.
 Read the task first: ttal task get
 
 Storage: Save the plan via flicknote add 'content' --project plans
-Iterate with: flicknote get <id> --tree, flicknote replace <id> --section <section-id>
+Iterate with: flicknote detail <id> --tree, flicknote modify <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""

@@ -47,7 +47,7 @@ Worktree rules:
 
 **Always use `ttal task get` with no extra params** — the env var `TTAL_JOB_ID` handles UUID resolution automatically. Never pass a UUID manually.
 
-Read the plan from flicknote: `flicknote get <hex-id>` — the hex ID is in the task annotations.
+Read the plan from flicknote: `flicknote detail <hex-id>` — the hex ID is in the task annotations.
 
 Verify you're in the correct project: does the codebase in `pwd` match what the plan describes? If not:
 ```bash
@@ -121,4 +121,4 @@ Don't guess your way through blockers — alert and wait.
 - `ttal comment add` — post progress, triage updates (mirrors to GitHub/Forgejo)
 - `ttal alert` — escalate blockers to the planner/parent agent
 - `ttal go` — finalize after LGTM (**no extra params**)
-- `flicknote get <id>` — read plan from flicknote
+- `flicknote detail <id>` — read plan from flicknote

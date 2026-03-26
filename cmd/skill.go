@@ -242,7 +242,7 @@ func runSkillGet(name string) error {
 		return err
 	}
 
-	cmd := exec.Command("flicknote", "get", s.FlicknoteID)
+	cmd := exec.Command("flicknote", "content", s.FlicknoteID)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -356,13 +356,13 @@ func runSkillFind(keywords []string, findAll bool) error {
 
 func runSkillAddID(name, flicknoteID, category, description string, force bool) error {
 	// Validate that the flicknote ID exists
-	if err := exec.Command("flicknote", "get", "--json", flicknoteID).Run(); err != nil {
+	if err := exec.Command("flicknote", "detail", "--json", flicknoteID).Run(); err != nil {
 		return fmt.Errorf("flicknote ID %q not found or inaccessible: %w", flicknoteID, err)
 	}
 
 	// Auto-populate description from frontmatter if not provided
 	if description == "" {
-		out, err := exec.Command("flicknote", "get", flicknoteID).Output()
+		out, err := exec.Command("flicknote", "content", flicknoteID).Output()
 		if err == nil {
 			_, desc, _ := skill.ParseFrontmatter(out)
 			description = desc

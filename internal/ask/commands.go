@@ -5,10 +5,10 @@ import "github.com/tta-lab/logos"
 // Command documentation for Organon CLI tools exposed in logos agent loops.
 // These are passed to logos.BuildSystemPrompt via PromptData.Commands.
 
-// URLCommandDoc documents the url command (fetch a web page as markdown).
-var URLCommandDoc = logos.CommandDoc{
-	Name:    "url",
-	Summary: "Fetch a web page as markdown",
+// FetchCommandDoc documents the web fetch command (fetch a web page as markdown).
+var FetchCommandDoc = logos.CommandDoc{
+	Name:    "web fetch",
+	Summary: "Fetch and read a web page as markdown",
 	Help: `Flags:
   --tree           Show heading tree with section IDs
   -s ID            Read section by ID (2-char base62)
@@ -18,14 +18,14 @@ var URLCommandDoc = logos.CommandDoc{
 Long pages (>5000 chars) auto-show a heading tree. Use -s to read specific sections.
 
 Examples:
-  url https://docs.example.com/api
-  url https://docs.example.com/api -s cD
-  url https://example.com --full`,
+  web fetch https://docs.example.com/api
+  web fetch https://docs.example.com/api -s cD
+  web fetch https://example.com --full`,
 }
 
-// WebCommandDoc documents the web command (search the web).
+// WebCommandDoc documents the web search command (search the web).
 var WebCommandDoc = logos.CommandDoc{
-	Name:    "web",
+	Name:    "web search",
 	Summary: "Search the web",
 	Help: `Flags:
   -n N / --max N   Maximum results (default 10, max 20)
@@ -33,8 +33,8 @@ var WebCommandDoc = logos.CommandDoc{
 Uses Brave Search API when BRAVE_API_KEY is set, falls back to DuckDuckGo.
 
 Examples:
-  web "golang context timeout patterns"
-  web "RFC 7231 HTTP semantics" -n 5`,
+  web search "golang context timeout patterns"
+  web search "RFC 7231 HTTP semantics" -n 5`,
 }
 
 // RGCommandDoc documents the rg command (search file contents).
@@ -77,7 +77,7 @@ Examples:
 
 // NetworkCommands returns CommandDocs for network-only modes (--url, --web).
 func NetworkCommands() []logos.CommandDoc {
-	return []logos.CommandDoc{URLCommandDoc, WebCommandDoc}
+	return []logos.CommandDoc{FetchCommandDoc, WebCommandDoc}
 }
 
 // AllCommands returns CommandDocs for modes with both filesystem and network access.

@@ -91,9 +91,27 @@ func TestExtractToolUse(t *testing.T) {
 			wantTool: "ttal:send",
 		},
 		{
-			name: "Bash with flicknote get",
+			name: "Bash with flicknote detail",
 			line: `{"type":"assistant","message":{"content":` +
-				`[{"type":"tool_use","name":"Bash","id":"tu_6","input":{"command":"flicknote get abc123"}}]}}`,
+				`[{"type":"tool_use","name":"Bash","id":"tu_6","input":{"command":"flicknote detail abc123"}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
+			name: "Bash with flicknote content",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_6b","input":{"command":"flicknote content abc123"}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
+			name: "Bash with flicknote find",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_6c","input":{"command":"flicknote find \"keyword\""}}]}}`,
+			wantTool: "flicknote:read",
+		},
+		{
+			name: "Bash with flicknote count",
+			line: `{"type":"assistant","message":{"content":` +
+				`[{"type":"tool_use","name":"Bash","id":"tu_6d","input":{"command":"flicknote count --project ttal"}}]}}`,
 			wantTool: "flicknote:read",
 		},
 		{
@@ -104,10 +122,10 @@ func TestExtractToolUse(t *testing.T) {
 			wantTool: "flicknote:write",
 		},
 		{
-			name: "Bash with echo pipe to flicknote replace",
+			name: "Bash with echo pipe to flicknote modify",
 			line: `{"type":"assistant","message":{"content":` +
 				`[{"type":"tool_use","name":"Bash","id":"tu_8",` +
-				`"input":{"command":"echo \"new content\" | flicknote replace abc123"}}]}}`,
+				`"input":{"command":"echo \"new content\" | flicknote modify abc123"}}]}}`,
 			wantTool: "flicknote:write",
 		},
 		{

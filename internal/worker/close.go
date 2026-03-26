@@ -98,7 +98,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 			}
 		}
 		pullMainBranch(gitRoot)
-		archiveTaskPlans(task.Annotations)
+		deleteTaskPlans(task.Annotations)
 		return &CloseResult{
 			Cleaned:   true,
 			Forced:    true,
@@ -155,7 +155,7 @@ func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*
 	if err := taskwarrior.MarkDone(task.UUID); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 	}
-	archiveTaskPlans(task.Annotations)
+	deleteTaskPlans(task.Annotations)
 	return &CloseResult{
 		Cleaned: true,
 		Status:  fmt.Sprintf("Worker cleaned up (project %q unresolvable — skipped PR check and git cleanup)", task.Project),
@@ -225,7 +225,7 @@ func closeWithPR(
 			}
 		}
 		pullMainBranch(gitRoot)
-		archiveTaskPlans(annotations)
+		deleteTaskPlans(annotations)
 		return &CloseResult{
 			Cleaned: true,
 			Status:  "Worker cleaned up (PR merged, worktree clean)",
@@ -262,10 +262,10 @@ func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
 }
 
-// archiveTaskPlans archives flicknote plan/design notes referenced in a task's
+// deleteTaskPlans deletes flicknote plan/design notes referenced in a task's
 // annotations. Best-effort: failures are logged but never returned.
 // Called after successful cleanup so plan notes don't linger after PR merges.
-func archiveTaskPlans(annotations []taskwarrior.Annotation) {
+func deleteTaskPlans(annotations []taskwarrior.Annotation) {
 	if len(annotations) == 0 {
 		return
 	}
@@ -289,11 +289,11 @@ func archiveTaskPlans(annotations []taskwarrior.Annotation) {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cmd := exec.CommandContext(ctx, "flicknote", "archive", hexID)
+		cmd := exec.CommandContext(ctx, "flicknote", "delete", hexID)
 		if err := cmd.Run(); err != nil {
-			log.Printf("[archive] warning: failed to archive flicknote %s: %v", hexID, err)
+			log.Printf("[archive] warning: failed to delete flicknote %s: %v", hexID, err)
 		} else {
-			log.Printf("[archive] archived plan note: %s", hexID)
+			log.Printf("[archive] deleted plan note: %s", hexID)
 		}
 		cancel()
 	}

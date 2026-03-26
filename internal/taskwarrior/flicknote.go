@@ -32,16 +32,16 @@ func ReadFlicknoteJSON(id string) *FlicknoteNote {
 	ctx, cancel := context.WithTimeout(context.Background(), flicknoteTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "flicknote", "get", "--json", id)
+	cmd := exec.CommandContext(ctx, "flicknote", "detail", "--json", id)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("flicknote get %s failed: %v", id, err)
+		log.Printf("flicknote detail %s failed: %v", id, err)
 		return nil
 	}
 
 	var note FlicknoteNote
 	if err := json.Unmarshal(out, &note); err != nil {
-		log.Printf("flicknote get %s: failed to parse JSON: %v", id, err)
+		log.Printf("flicknote detail %s: failed to parse JSON: %v", id, err)
 		return nil
 	}
 	return &note

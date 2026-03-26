@@ -66,16 +66,18 @@ func refineBashTool(input json.RawMessage) string {
 		// handles output. No direct Telegram output from the CLI side.
 		return "ttal:route"
 	case strings.HasPrefix(cmd, "flicknote add "),
-		strings.HasPrefix(cmd, "flicknote replace "),
+		strings.HasPrefix(cmd, "flicknote modify "),
 		strings.HasPrefix(cmd, "flicknote append "),
 		strings.HasPrefix(cmd, "flicknote insert "),
-		strings.HasPrefix(cmd, "flicknote remove "),
-		strings.HasPrefix(cmd, "flicknote rename "),
-		strings.HasPrefix(cmd, "flicknote archive "):
+		strings.HasPrefix(cmd, "flicknote delete "),
+		strings.HasPrefix(cmd, "flicknote rename "):
 		return "flicknote:write"
-	case strings.HasPrefix(cmd, "flicknote get "),
+	case strings.HasPrefix(cmd, "flicknote detail "),
+		strings.HasPrefix(cmd, "flicknote content "),
 		cmd == "flicknote list",
-		strings.HasPrefix(cmd, "flicknote list "):
+		strings.HasPrefix(cmd, "flicknote list "),
+		strings.HasPrefix(cmd, "flicknote find "),
+		strings.HasPrefix(cmd, "flicknote count"):
 		return "flicknote:read"
 	default:
 		return toolBash

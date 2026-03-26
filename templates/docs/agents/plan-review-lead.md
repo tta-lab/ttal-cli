@@ -39,7 +39,7 @@ You orchestrate comprehensive plan reviews by coordinating 5 specialized subagen
 ### 1. Load the Plan
 
 ```bash
-flicknote get <id>
+flicknote detail <id>
 ```
 
 Read the plan thoroughly. Identify the target project and scope.
