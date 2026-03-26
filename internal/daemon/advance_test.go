@@ -461,21 +461,26 @@ func TestPrependStageSkills(t *testing.T) {
 	}
 }
 
+// stubWorktreePathAndNotify overrides worktreePathFn and notifyTelegramFn for testing.
+// Returns a cleanup function that restores the originals.
+func stubWorktreePathAndNotify(t *testing.T, worktreeDir string) func() {
+	t.Helper()
+	origPath := worktreePathFn
+	worktreePathFn = func(_, _ string) (string, error) { return worktreeDir, nil }
+	origNotify := notifyTelegramFn
+	notifyTelegramFn = func(string) {}
+	return func() {
+		worktreePathFn = origPath
+		notifyTelegramFn = origNotify
+	}
+}
+
 // TestHandleWorkerPRMerge_DirtyWorktree verifies that handleWorkerPRMerge returns
 // AdvanceStatusRejected when the worktree has uncommitted changes.
 func TestHandleWorkerPRMerge_DirtyWorktree(t *testing.T) {
-	root := t.TempDir()
-	origRoot := worktreeRootFn
-	worktreeRootFn = func() string { return root }
-	defer func() { worktreeRootFn = origRoot }()
-
-	origNotify := notifyTelegramFn
-	notifyTelegramFn = func(string) {}
-	defer func() { notifyTelegramFn = origNotify }()
-
-	// Create a dirty git repo at the expected worktree path.
-	worktreeDir := filepath.Join(root, "abcd1234-myproj")
+	worktreeDir := filepath.Join(t.TempDir(), "abcd1234-myproj")
 	setupDirtyRepo(t, worktreeDir)
+	defer stubWorktreePathAndNotify(t, worktreeDir)()
 
 	task := &taskwarrior.Task{
 		UUID:        "abcd1234-0000-0000-0000-000000000000",
@@ -504,19 +509,16 @@ func TestHandleWorkerPRMerge_DirtyWorktree(t *testing.T) {
 	}
 }
 
-// TestHandleWorkerPRMerge_MissingWorktree verifies that handleWorkerPRMerge proceeds
-// (does not block) when the worktree directory does not exist (guard is skipped on error).
-func TestHandleWorkerPRMerge_MissingWorktree(t *testing.T) {
-	root := t.TempDir()
-	origRoot := worktreeRootFn
-	worktreeRootFn = func() string { return root }
-	defer func() { worktreeRootFn = origRoot }()
+// TestHandleWorkerPRMerge_CleanWorktree verifies that handleWorkerPRMerge proceeds
+// to the merge attempt when the worktree is clean.
+func TestHandleWorkerPRMerge_CleanWorktree(t *testing.T) {
+	worktreeDir := filepath.Join(t.TempDir(), "abcd1234-myproj")
+	setupDirtyRepo(t, worktreeDir)
+	// Stage and commit the modification so the worktree is clean.
+	runGit(t, "git", "-C", worktreeDir, "add", ".")
+	runGit(t, "git", "-C", worktreeDir, "commit", "-m", "clean")
+	defer stubWorktreePathAndNotify(t, worktreeDir)()
 
-	origNotify := notifyTelegramFn
-	notifyTelegramFn = func(string) {}
-	defer func() { notifyTelegramFn = origNotify }()
-
-	// No worktree dir created — IsWorktreeClean will return an error, guard is skipped.
 	task := &taskwarrior.Task{
 		UUID:        "abcd1234-0000-0000-0000-000000000000",
 		Project:     "myproj",
@@ -524,19 +526,47 @@ func TestHandleWorkerPRMerge_MissingWorktree(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	// mergeWorkerPR will fail (no config), but what matters is it's called (not rejected early).
-	// We just verify we don't get a Rejected status.
 	handleWorkerPRMerge(w, task)
 
-	if w.Code == http.StatusConflict {
-		t.Errorf("expected guard to be skipped for missing worktree, but got 409 Conflict")
+	// Guard should not block — merge proceeds and fails with an error (no real project config).
+	var resp AdvanceResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
 	}
+	if resp.Status == AdvanceStatusRejected {
+		t.Errorf("clean worktree should not be blocked, got status %q: %s", resp.Status, resp.Message)
+	}
+	if resp.Status != AdvanceStatusError {
+		t.Errorf("expected merge to be attempted (AdvanceStatusError from missing config), got %q", resp.Status)
+	}
+}
+
+// TestHandleWorkerPRMerge_MissingWorktree verifies that handleWorkerPRMerge proceeds
+// when the worktree directory does not exist (already cleaned up).
+func TestHandleWorkerPRMerge_MissingWorktree(t *testing.T) {
+	// Point to a non-existent dir — guard skips, merge is attempted.
+	missingDir := filepath.Join(t.TempDir(), "abcd1234-myproj")
+	defer stubWorktreePathAndNotify(t, missingDir)()
+
+	task := &taskwarrior.Task{
+		UUID:        "abcd1234-0000-0000-0000-000000000000",
+		Project:     "myproj",
+		Description: "test task",
+	}
+
+	w := httptest.NewRecorder()
+	handleWorkerPRMerge(w, task)
+
+	// Guard is skipped for absent dir — merge proceeds and fails with an error (no real project config).
 	var resp AdvanceResponse
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	if resp.Status == AdvanceStatusRejected {
 		t.Errorf("expected guard skipped for missing worktree, but got status %q", resp.Status)
+	}
+	if resp.Status != AdvanceStatusError {
+		t.Errorf("expected merge to be attempted (AdvanceStatusError from missing config), got %q", resp.Status)
 	}
 }
 

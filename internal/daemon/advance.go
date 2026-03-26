@@ -9,7 +9,7 @@ import (
 	"html"
 	"log"
 	"net/http"
-	"path/filepath"
+	"os"
 	"strings"
 	"time"
 
@@ -451,9 +451,9 @@ func buildRouteTrigger(uuid string) string {
 // countTasksFn is the function used to count active tasks. Package-level var for test injection.
 var countTasksFn = taskwarrior.CountTasks
 
-// worktreeRootFn is the function used to resolve the worktrees root directory.
+// worktreePathFn is the function used to resolve the worktree directory for a task.
 // Package-level var for test injection.
-var worktreeRootFn = config.WorktreesRoot
+var worktreePathFn = worker.WorktreePath
 
 // notifyTelegramFn is the function used to send Telegram notifications.
 // Package-level var for test injection.
@@ -746,12 +746,20 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 	}
 
 	// Block merge if worktree has uncommitted changes.
-	if len(task.UUID) >= 8 {
-		worktreeDir := filepath.Join(worktreeRootFn(),
-			fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
-		clean, err := gitutil.IsWorktreeClean(worktreeDir)
-		if err != nil {
-			log.Printf("[advance] skipping dirty check for %s: %v", worktreeDir, err)
+	if worktreeDir, err := worktreePathFn(task.UUID, task.Project); err == nil {
+		if _, statErr := os.Stat(worktreeDir); os.IsNotExist(statErr) {
+			// Worktree already removed — skip guard, let merge proceed.
+			log.Printf("[advance] worktree absent, skipping dirty check: %s", worktreeDir)
+		} else if clean, gitErr := gitutil.IsWorktreeClean(worktreeDir); gitErr != nil {
+			// Directory exists but git status failed (locked repo, timeout, etc.) — block to be safe.
+			msg := fmt.Sprintf("dirty check failed for worktree %s: %v", worktreeDir, gitErr)
+			log.Printf("[advance] blocked merge: %s", msg)
+			notifyTelegramFn(fmt.Sprintf("⚠️ Merge blocked for %s: could not verify worktree state", task.Description))
+			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
+				Status:  AdvanceStatusRejected,
+				Message: msg,
+			})
+			return true
 		} else if !clean {
 			msg := fmt.Sprintf("worktree has uncommitted changes — commit or discard before merging (%s)", worktreeDir)
 			log.Printf("[advance] blocked merge: %s", msg)
