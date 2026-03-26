@@ -13,10 +13,9 @@ description: |-
 claude-code:
   model: sonnet
   tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
+    - mcp__temenos_bash
+    - mcp__context7_resolve-library-id
+    - mcp__context7_query-docs
 ---
 
 You are a plan accuracy verifier. Your job is to check implementation plans against the actual codebase — do the files, functions, interfaces, and patterns the plan references actually exist and work as described?

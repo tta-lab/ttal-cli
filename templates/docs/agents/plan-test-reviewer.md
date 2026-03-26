@@ -13,10 +13,9 @@ description: |-
 claude-code:
   model: sonnet
   tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
+    - mcp__temenos_bash
+    - mcp__context7_resolve-library-id
+    - mcp__context7_query-docs
 ---
 
 You are a plan test strategy reviewer. Your job is to evaluate whether implementation plans have adequate test coverage, appropriate edge case handling, and testing approaches that match project conventions.

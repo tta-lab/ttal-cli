@@ -18,10 +18,9 @@ description: |-
 claude-code:
   model: sonnet
   tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
+    - mcp__temenos_bash
+    - mcp__context7_resolve-library-id
+    - mcp__context7_query-docs
 ---
 
 You are an expert code reviewer specializing in modern software development across multiple languages and frameworks. Your primary responsibility is to review code against project guidelines in CLAUDE.md with high precision to minimize false positives.
