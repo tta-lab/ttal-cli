@@ -45,15 +45,19 @@ func TestPathsForPlane_UnknownPlane(t *testing.T) {
 }
 
 func TestPathsForPlane_TildeExpansion(t *testing.T) {
+	// Point HOME at a temp dir so ~ expansion resolves to a path we control,
+	// and the subdir we create is guaranteed to pass PathsForPlane's os.Stat filter
+	// on any machine (including CI runners where ~/.ttal doesn't exist).
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	subDir := filepath.Join(tmpHome, "mydata")
+	require.NoError(t, os.Mkdir(subDir, 0o755))
+
 	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"~/.ttal:rw"}},
+		Shared: SandboxPlane{ExtraPaths: []string{"~/mydata:rw"}},
 	}
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
 	paths := cfg.PathsForPlane("shared")
-	// PathsForPlane filters non-existent paths via os.Stat, so this test
-	// implicitly depends on ~/.ttal existing on disk — any active ttal user will have it.
-	assert.Contains(t, paths, home+"/.ttal:rw")
+	assert.Contains(t, paths, subDir+":rw")
 }
 
 func TestPathsForPlane_NonExistentFiltered(t *testing.T) {
