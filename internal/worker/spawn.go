@@ -215,10 +215,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
-	envParts, err := buildEnvParts(task, cfg.Runtime, taskrc)
-	if err != nil {
-		return fmt.Errorf("build worker env: %w", err)
-	}
+	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
 	model := resolveModel(task, shellCfg)
 
 	var shellCmd string
@@ -284,7 +281,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) ([]string, error) {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []string {
 	parts := []string{
 		"TTAL_AGENT_NAME=" + CoderAgentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
@@ -300,7 +297,7 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) ([
 	temenosEnv := env.WorkerTemenosEnv(readOnlyPaths)
 	parts = append(parts, temenosEnv...)
 
-	return parts, nil
+	return parts
 }
 
 func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) error {

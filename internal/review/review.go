@@ -18,7 +18,7 @@ import (
 )
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
-func buildReviewerEnvParts(agentName string, rt runtime.Runtime) ([]string, error) {
+func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
 	readOnlyPaths := env.CollectReadOnlyPaths()
 	temenosEnv := env.ReviewerTemenosEnv(readOnlyPaths)
 	parts := make([]string, 0, 2+len(temenosEnv))
@@ -28,7 +28,7 @@ func buildReviewerEnvParts(agentName string, rt runtime.Runtime) ([]string, erro
 	)
 	// Temenos MCP sandbox config — reviewers get read-only cwd access plus project paths
 	parts = append(parts, temenosEnv...)
-	return parts, nil
+	return parts
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
@@ -73,10 +73,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 
 	var shellCmd string
 
-	envParts, err := buildReviewerEnvParts(reviewerName, reviewerRT)
-	if err != nil {
-		return fmt.Errorf("build reviewer env: %w", err)
-	}
+	envParts := buildReviewerEnvParts(reviewerName, reviewerRT)
 	var ccSessionPath string // non-empty for CC reviewers; cleaned up if tmux.NewWindow fails
 
 	if reviewerRT == runtime.Codex {

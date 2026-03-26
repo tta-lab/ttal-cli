@@ -7,10 +7,7 @@ import (
 )
 
 func TestBuildReviewerEnvParts_AgentName(t *testing.T) {
-	parts, err := buildReviewerEnvParts("pr-review-lead", runtime.ClaudeCode)
-	if err != nil {
-		t.Fatalf("buildReviewerEnvParts() error: %v", err)
-	}
+	parts := buildReviewerEnvParts("pr-review-lead", runtime.ClaudeCode)
 	var found bool
 	for _, p := range parts {
 		if p == "TTAL_AGENT_NAME=pr-review-lead" {
