@@ -17,6 +17,11 @@ func daemonSockExpanded(t *testing.T) string {
 	return filepath.Join(home, ".ttal", "daemon.sock")
 }
 
+// tmuxSockExpected returns the expected tmux socket path for the current process.
+func tmuxSockExpected() string {
+	return tmuxSocketPath()
+}
+
 // assertSocketPresent fails the test if target is not found in sockets.
 func assertSocketPresent(t *testing.T, sockets []interface{}, target string) {
 	t.Helper()
@@ -336,6 +341,16 @@ func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 
 	assertSocketPresent(t, sockets, daemonSockExpanded(t))
 	assertSocketPresent(t, sockets, extra)
+}
+
+func TestBuildSandboxSection_TmuxSocketIncluded(t *testing.T) {
+	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+
+	net := section["network"].(map[string]interface{})
+	sockets := net["allowUnixSockets"].([]interface{})
+
+	assertSocketPresent(t, sockets, daemonSockExpanded(t))
+	assertSocketPresent(t, sockets, tmuxSockExpected())
 }
 
 func TestBuildSandboxSection_AllowedDomains(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -124,12 +125,22 @@ func buildDenyReadPaths(sandbox *config.SandboxConfig) []string {
 // Always whitelisted so that ttal send/go work in all agent sessions.
 const daemonSocketPath = "~/.ttal/daemon.sock"
 
+// tmuxSocketPath returns the tmux default socket path for the current user.
+// macOS uses /private/tmp/tmux-<uid>/default; Linux uses /tmp/tmux-<uid>/default.
+func tmuxSocketPath() string {
+	uid := os.Getuid()
+	if runtime.GOOS == "darwin" {
+		return fmt.Sprintf("/private/tmp/tmux-%d/default", uid)
+	}
+	return fmt.Sprintf("/tmp/tmux-%d/default", uid)
+}
+
 // buildSandboxSection constructs the full sandbox object for settings.json.
 // failIfUnavailable and allowUnsandboxedCommands are hardcoded secure defaults.
 // autoAllowBashIfSandboxed is written only when explicitly set (non-nil).
 // allowRead, denyWrite, allowedDomains are omitted when empty.
 // existingSockets are user-defined unix sockets from a prior settings.json; they
-// are preserved and our daemonSocketPath is appended (deduplicated).
+// are preserved and our daemonSocketPath and tmuxSocketPath are appended (deduplicated).
 func buildSandboxSection(allowWrite, denyWrite, denyRead, allowRead, allowedDomains []string, autoAllowBash *bool, existingSockets []string) map[string]interface{} {
 	toIfaceSlice := func(ss []string) []interface{} {
 		out := make([]interface{}, len(ss))
@@ -139,10 +150,11 @@ func buildSandboxSection(allowWrite, denyWrite, denyRead, allowRead, allowedDoma
 		return out
 	}
 
-	// Merge daemon socket with any existing user sockets — deduplicated, daemon first.
+	// Merge daemon + tmux sockets with any existing user sockets — deduplicated, daemon first.
 	daemonSock := expandHomePath(daemonSocketPath)
-	seen := map[string]bool{daemonSock: true}
-	sockets := []interface{}{daemonSock}
+	tmuxSock := tmuxSocketPath()
+	seen := map[string]bool{daemonSock: true, tmuxSock: true}
+	sockets := []interface{}{daemonSock, tmuxSock}
 	for _, s := range existingSockets {
 		if !seen[s] {
 			seen[s] = true
