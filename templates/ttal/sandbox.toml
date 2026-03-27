@@ -74,6 +74,8 @@ allowedDomains = [
   "crates.io", "*.crates.io",
   # npm
   "registry.npmjs.org",
+  # Python/pip
+  "pypi.org", "files.pythonhosted.org",
   # JSON schema validation (settings.json $schema references)
   "json.schemastore.org",
 ]
