@@ -71,7 +71,7 @@ allowedDomains = [
   # Go modules
   "proxy.golang.org", "sum.golang.org", "pkg.go.dev",
   # Rust/Cargo
-  "crates.io", "static.crates.io",
+  "crates.io", "*.crates.io",
   # npm
   "registry.npmjs.org",
 ]
