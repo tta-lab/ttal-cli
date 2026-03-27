@@ -24,13 +24,13 @@ func writeSandboxConfig(t *testing.T, content string) string {
 }
 
 // writeProjectsConfig writes a projects.toml in the given config dir.
-func writeProjectsConfig(t *testing.T, cfgDir string, content string) {
+func writeProjectsConfig(t *testing.T, cfgDir string) {
 	t.Helper()
 	ttalDir := filepath.Join(cfgDir, "ttal")
 	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(ttalDir, "projects.toml"), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ttalDir, "projects.toml"), nil, 0o644); err != nil {
 		t.Fatalf("write projects.toml: %v", err)
 	}
 }
@@ -46,7 +46,7 @@ extra_paths = ["/tmp/worker:rw"]
 [manager]
 extra_paths = []
 `)
-	writeProjectsConfig(t, dir, "")
+	writeProjectsConfig(t, dir)
 
 	// Use temp settings.json path.
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
@@ -79,7 +79,7 @@ extra_paths = []
 
 func TestSyncSandbox_DenyRead(t *testing.T) {
 	dir := writeSandboxConfig(t, "[shared]\nextra_paths = []")
-	writeProjectsConfig(t, dir, "")
+	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 	result, err := syncSandbox(false, settingsPath)
@@ -118,7 +118,7 @@ extra_paths = []
 [manager]
 extra_paths = []
 `)
-	writeProjectsConfig(t, dir, "")
+	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), ".claude", "settings.json")
 	_, err := syncSandbox(false, settingsPath)
@@ -168,7 +168,7 @@ extra_paths = []
 
 func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 	dir := writeSandboxConfig(t, "[shared]\nextra_paths = []")
-	writeProjectsConfig(t, dir, "")
+	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 
@@ -219,7 +219,7 @@ extra_paths = []
 [manager]
 extra_paths = []
 `)
-	writeProjectsConfig(t, dir, "")
+	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 	result, err := syncSandbox(false, settingsPath)
