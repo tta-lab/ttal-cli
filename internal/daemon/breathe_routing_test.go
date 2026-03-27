@@ -336,18 +336,15 @@ func TestBuildBreatheEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("includes temenos env vars", func(t *testing.T) {
+	t.Run("no TEMENOS vars in env", func(t *testing.T) {
 		cfg := &config.Config{}
 		vars := buildBreatheEnv("kestrel", cfg)
 		joined := strings.Join(vars, "\n")
-		if !strings.Contains(joined, "TEMENOS_WRITE=false") {
-			t.Errorf("TEMENOS_WRITE=false missing from %v", vars)
+		if strings.Contains(joined, "TEMENOS_WRITE=") {
+			t.Errorf("TEMENOS_WRITE should not appear in env: %v", vars)
 		}
-		if !strings.Contains(joined, "TEMENOS_PATHS=") {
-			t.Errorf("TEMENOS_PATHS missing from %v", vars)
-		}
-		if !strings.Contains(joined, "ENABLE_TOOL_SEARCH=false") {
-			t.Errorf("ENABLE_TOOL_SEARCH=false missing from %v", vars)
+		if strings.Contains(joined, "TEMENOS_PATHS=") {
+			t.Errorf("TEMENOS_PATHS should not appear in env: %v", vars)
 		}
 	})
 
