@@ -340,14 +340,14 @@ func TestBuildBreatheEnv(t *testing.T) {
 		cfg := &config.Config{}
 		vars := buildBreatheEnv("kestrel", cfg)
 		joined := strings.Join(vars, "\n")
-		if !strings.Contains(joined, "TEMENOS_WRITE=") {
-			t.Errorf("TEMENOS_WRITE missing from %v", vars)
+		if !strings.Contains(joined, "TEMENOS_WRITE=false") {
+			t.Errorf("TEMENOS_WRITE=false missing from %v", vars)
 		}
 		if !strings.Contains(joined, "TEMENOS_PATHS=") {
 			t.Errorf("TEMENOS_PATHS missing from %v", vars)
 		}
-		if !strings.Contains(joined, "ENABLE_TOOL_SEARCH=") {
-			t.Errorf("ENABLE_TOOL_SEARCH missing from %v", vars)
+		if !strings.Contains(joined, "ENABLE_TOOL_SEARCH=false") {
+			t.Errorf("ENABLE_TOOL_SEARCH=false missing from %v", vars)
 		}
 	})
 

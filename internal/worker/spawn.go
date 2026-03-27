@@ -300,8 +300,8 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc, workDir s
 
 	// Linked worktrees need write access to the main repo's .git directory
 	// for git commit/push operations (worktree .git is a file pointing there).
-	if workDir != "" && gitutil.IsWorktreeLinked(workDir) {
-		if commonDir := gitutil.GitCommonDir(workDir); commonDir != "" {
+	if workDir != "" {
+		if commonDir := gitutil.LinkedWorktreeCommonDir(workDir); commonDir != "" {
 			temenosEnv = env.AppendTemenosPath(temenosEnv, commonDir+":rw")
 		}
 	}
