@@ -66,6 +66,8 @@ allowedDomains = [
   # Code hosting
   "github.com", "*.github.com",
   "*.guion.io",
+  # Anthropic / Claude Code docs
+  "*.claude.com",
   # Go modules
   "proxy.golang.org", "sum.golang.org", "pkg.go.dev",
   # Rust/Cargo
