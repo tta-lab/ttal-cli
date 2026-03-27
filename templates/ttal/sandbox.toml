@@ -1,23 +1,21 @@
 # sandbox.toml — CC native sandbox configuration
 # Deployed to ~/.config/ttal/sandbox.toml via `ttal sync`.
 #
-# Top-level fields activate and enforce the sandbox for the Bash tool.
-# [network] configures allowed network access (unix sockets, etc.).
+# enabled — controls whether ttal sync writes sandbox enforcement to settings.json.
+# When true, the sandbox is activated with secure defaults (failIfUnavailable=true,
+# allowUnsandboxedCommands=false, daemon socket allowed).
+# When false, ttal sync skips the sandbox section entirely.
+#
+# All enforcement settings are hardcoded in sync — they are not configurable here.
+#
 # [shared] paths are added to all planes.
 # [worker] paths are added to worker and reviewer sessions.
 # [manager] paths are added to manager sessions.
 #
-# Paths support ~ expansion and must include a :ro or :rw suffix.
-# Note: :ro paths are not enforced by CC native sandbox (reads are allowed
-# by default). Only denyRead (hardcoded in sync) restricts reading secrets.
 # :rw paths become allowWrite entries in settings.json.
+# :ro paths are legacy (not enforced by CC sandbox; only denyRead restricts reads).
 
 enabled = true
-fail_if_unavailable = true
-allow_unsandboxed_commands = false
-
-[network]
-allow_unix_sockets = ["~/.ttal/daemon.sock"]
 
 [shared]
 extra_paths = [

@@ -9,23 +9,18 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// SandboxConfig holds enforcement flags, network config, and per-plane extra paths
-// loaded from sandbox.toml. Consumed by sync.SyncSandbox to build the full
-// sandbox section in ~/.claude/settings.json.
+// SandboxConfig holds per-plane extra paths loaded from sandbox.toml.
+// Consumed by sync.SyncSandbox to build the sandbox section in ~/.claude/settings.json.
 // Paths support ~ expansion and must include a :ro or :rw suffix.
+//
+// Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
+// All enforcement settings (failIfUnavailable, allowUnsandboxedCommands, network) are
+// hardcoded secure defaults in sync — they are not configurable via sandbox.toml.
 type SandboxConfig struct {
-	Enabled                  bool           `toml:"enabled"`
-	FailIfUnavailable        bool           `toml:"fail_if_unavailable"`
-	AllowUnsandboxedCommands bool           `toml:"allow_unsandboxed_commands"`
-	Network                  SandboxNetwork `toml:"network"`
-	Shared                   SandboxPlane   `toml:"shared"`
-	Worker                   SandboxPlane   `toml:"worker"`
-	Manager                  SandboxPlane   `toml:"manager"`
-}
-
-// SandboxNetwork holds network-level sandbox config (unix socket allowlist).
-type SandboxNetwork struct {
-	AllowUnixSockets []string `toml:"allow_unix_sockets"`
+	Enabled bool         `toml:"enabled"`
+	Shared  SandboxPlane `toml:"shared"`
+	Worker  SandboxPlane `toml:"worker"`
+	Manager SandboxPlane `toml:"manager"`
 }
 
 // SandboxPlane holds extra paths for one plane.

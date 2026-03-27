@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 // writeSandboxConfig writes a sandbox.toml in a temp XDG_CONFIG_HOME dir.
@@ -39,6 +37,8 @@ func writeProjectsConfig(t *testing.T, cfgDir string) {
 
 func TestSyncSandbox_DryRun(t *testing.T) {
 	dir := writeSandboxConfig(t, `
+enabled = true
+
 [shared]
 extra_paths = ["/tmp:rw", "/usr/local:ro"]
 
@@ -80,7 +80,7 @@ extra_paths = []
 }
 
 func TestSyncSandbox_DenyRead(t *testing.T) {
-	dir := writeSandboxConfig(t, "[shared]\nextra_paths = []")
+	dir := writeSandboxConfig(t, "enabled = true\n[shared]\nextra_paths = []")
 	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
@@ -113,6 +113,8 @@ func TestSyncSandbox_DenyRead(t *testing.T) {
 
 func TestSyncSandbox_WritesSettingsJSON(t *testing.T) {
 	dir := writeSandboxConfig(t, `
+enabled = true
+
 [shared]
 extra_paths = ["/tmp:rw"]
 [worker]
@@ -169,7 +171,7 @@ extra_paths = []
 }
 
 func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
-	dir := writeSandboxConfig(t, "[shared]\nextra_paths = []")
+	dir := writeSandboxConfig(t, "enabled = true\n[shared]\nextra_paths = []")
 	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
@@ -213,15 +215,7 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 
 func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	cfg := &config.SandboxConfig{
-		Enabled:                  true,
-		FailIfUnavailable:        true,
-		AllowUnsandboxedCommands: false,
-		Network: config.SandboxNetwork{
-			AllowUnixSockets: []string{"~/.ttal/daemon.sock"},
-		},
-	}
-	section := buildSandboxSection(cfg, []string{"/tmp"}, []string{home + "/.config/ttal/.env"})
+	section := buildSandboxSection([]string{"/tmp"}, []string{home + "/.config/ttal/.env"}, nil)
 
 	if section["enabled"] != true {
 		t.Error("expected enabled=true")
@@ -233,7 +227,7 @@ func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 		t.Error("expected allowUnsandboxedCommands=false")
 	}
 
-	// Assert network with expanded socket path (not ~).
+	// Assert daemon socket is present and expanded.
 	net, ok := section["network"].(map[string]interface{})
 	if !ok {
 		t.Fatal("expected network section in sandbox")
@@ -242,26 +236,78 @@ func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 	if !ok {
 		t.Fatal("expected allowUnixSockets in network")
 	}
-	expected := home + "/.ttal/daemon.sock"
-	if len(sockets) != 1 || sockets[0] != expected {
-		t.Errorf("expected socket %s, got %v", expected, sockets)
+	daemonSock := home + "/.ttal/daemon.sock"
+	found := false
+	for _, s := range sockets {
+		if s == daemonSock {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected daemon socket %s in sockets, got %v", daemonSock, sockets)
+	}
+}
+
+func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	extra := "/run/user/1000/custom.sock"
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, []string{extra})
+
+	net := section["network"].(map[string]interface{})
+	sockets := net["allowUnixSockets"].([]interface{})
+
+	// Daemon socket and user socket both present, no duplicates.
+	daemonSock := home + "/.ttal/daemon.sock"
+	foundDaemon, foundExtra := false, false
+	for _, s := range sockets {
+		switch s {
+		case daemonSock:
+			foundDaemon = true
+		case extra:
+			foundExtra = true
+		}
+	}
+	if !foundDaemon {
+		t.Errorf("expected daemon socket in sockets, got %v", sockets)
+	}
+	if !foundExtra {
+		t.Errorf("expected existing socket %s preserved, got %v", extra, sockets)
+	}
+}
+
+func TestSyncSandbox_Disabled(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = false
+
+[shared]
+extra_paths = ["~/.ttal:rw"]
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	result, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Result should be empty — sandbox sync skipped entirely.
+	if len(result.AllowWritePaths) != 0 {
+		t.Errorf("expected empty AllowWritePaths when disabled, got %v", result.AllowWritePaths)
+	}
+	// settings.json must not be written.
+	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+		t.Error("settings.json should not be written when sandbox is disabled")
 	}
 }
 
 func TestSyncSandbox_EnforcementFields(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
-fail_if_unavailable = true
-allow_unsandboxed_commands = false
-
-[network]
-allow_unix_sockets = ["~/.ttal/daemon.sock"]
 
 [shared]
 extra_paths = ["~/.ttal:rw"]
 `)
 	writeProjectsConfig(t, dir)
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	settingsPath := filepath.Join(dir, "settings.json")
 
 	_, err := syncSandbox(false, settingsPath)
 	if err != nil {
@@ -288,24 +334,75 @@ extra_paths = ["~/.ttal:rw"]
 		t.Error("expected allowUnsandboxedCommands=false")
 	}
 
+	// Daemon socket must be present.
 	home, _ := os.UserHomeDir()
-	net, ok := sandbox["network"].(map[string]interface{})
-	if !ok {
-		t.Fatal("expected network section in sandbox output")
-	}
-	sockets, ok := net["allowUnixSockets"].([]interface{})
-	if !ok {
-		t.Fatal("expected allowUnixSockets in network")
-	}
+	net := sandbox["network"].(map[string]interface{})
+	sockets := net["allowUnixSockets"].([]interface{})
 	expected := home + "/.ttal/daemon.sock"
-	if len(sockets) != 1 || sockets[0] != expected {
-		t.Errorf("expected socket %s, got %v", expected, sockets)
+	found := false
+	for _, s := range sockets {
+		if s == expected {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected daemon socket %s in sockets, got %v", expected, sockets)
+	}
+}
+
+func TestSyncSandbox_PreservesExistingSockets(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+
+[shared]
+extra_paths = []
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	// Pre-populate settings.json with a custom socket.
+	customSock := "/run/user/1000/custom.sock"
+	initial := `{"sandbox": {"network": {"allowUnixSockets": ["` + customSock + `"]}}}`
+	if err := os.WriteFile(settingsPath, []byte(initial), 0o644); err != nil {
+		t.Fatalf("write initial settings: %v", err)
+	}
+
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	_ = json.Unmarshal(data, &settings)
+	sandbox := settings["sandbox"].(map[string]interface{})
+	net := sandbox["network"].(map[string]interface{})
+	sockets := net["allowUnixSockets"].([]interface{})
+
+	home, _ := os.UserHomeDir()
+	daemonSock := home + "/.ttal/daemon.sock"
+	foundDaemon, foundCustom := false, false
+	for _, s := range sockets {
+		switch s {
+		case daemonSock:
+			foundDaemon = true
+		case customSock:
+			foundCustom = true
+		}
+	}
+	if !foundDaemon {
+		t.Errorf("expected daemon socket in output sockets, got %v", sockets)
+	}
+	if !foundCustom {
+		t.Errorf("expected custom socket %s preserved, got %v", customSock, sockets)
 	}
 }
 
 func TestSyncSandbox_NonExistentPathsIncluded(t *testing.T) {
 	// Non-existent paths should appear in allowWrite — settings.json is declarative.
 	dir := writeSandboxConfig(t, `
+enabled = true
+
 [shared]
 extra_paths = ["/nonexistent/path/that/doesnt/exist:rw"]
 [worker]

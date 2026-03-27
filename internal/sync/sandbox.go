@@ -45,6 +45,10 @@ func SyncSandbox(dryRun bool) (SandboxResult, error) {
 
 func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 	sandbox := config.LoadSandbox()
+	if !sandbox.Enabled {
+		return SandboxResult{}, nil
+	}
+
 	allowWrite, gitDirCount := buildAllowWritePaths(sandbox)
 	denyRead := buildDenyReadPaths()
 
@@ -63,8 +67,9 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 		return result, err
 	}
 
-	// Replace sandbox section entirely — ttal owns this section.
-	settings["sandbox"] = buildSandboxSection(sandbox, allowWrite, denyRead)
+	// Replace sandbox section, preserving any existing user unix sockets.
+	existingSockets := extractExistingSockets(settings)
+	settings["sandbox"] = buildSandboxSection(allowWrite, denyRead, existingSockets)
 
 	// Append Read deny entries for secrets (additive, preserve existing).
 	perms, denySlice, err := extractPermsDenyList(settings)
@@ -124,9 +129,16 @@ func buildDenyReadPaths() []string {
 	return paths
 }
 
-// buildSandboxSection constructs the full sandbox object for settings.json,
-// including enforcement flags, network config, and filesystem paths.
-func buildSandboxSection(cfg *config.SandboxConfig, allowWrite, denyRead []string) map[string]interface{} {
+// daemonSocketPath is the unix socket used for agent↔daemon communication.
+// Always whitelisted so that ttal send/go work in all agent sessions.
+const daemonSocketPath = "~/.ttal/daemon.sock"
+
+// buildSandboxSection constructs the full sandbox object for settings.json.
+// Enforcement settings (failIfUnavailable, allowUnsandboxedCommands) are hardcoded
+// secure defaults — they are not user-configurable.
+// existingSockets are user-defined unix sockets from a prior settings.json; they
+// are preserved and our daemonSocketPath is appended (deduplicated).
+func buildSandboxSection(allowWrite, denyRead []string, existingSockets []string) map[string]interface{} {
 	aw := make([]interface{}, len(allowWrite))
 	for i, p := range allowWrite {
 		aw[i] = p
@@ -136,28 +148,53 @@ func buildSandboxSection(cfg *config.SandboxConfig, allowWrite, denyRead []strin
 		dr[i] = p
 	}
 
-	section := map[string]interface{}{
-		"enabled":                  cfg.Enabled,
-		"failIfUnavailable":        cfg.FailIfUnavailable,
-		"allowUnsandboxedCommands": cfg.AllowUnsandboxedCommands,
+	// Merge daemon socket with any existing user sockets — deduplicated, daemon first.
+	daemonSock := expandHomePath(daemonSocketPath)
+	seen := map[string]bool{daemonSock: true}
+	sockets := []interface{}{daemonSock}
+	for _, s := range existingSockets {
+		if !seen[s] {
+			seen[s] = true
+			sockets = append(sockets, s)
+		}
+	}
+
+	return map[string]interface{}{
+		"enabled":                  true,
+		"failIfUnavailable":        true,
+		"allowUnsandboxedCommands": false,
+		"network": map[string]interface{}{
+			"allowUnixSockets": sockets,
+		},
 		"filesystem": map[string]interface{}{
 			"allowWrite": aw,
 			"denyRead":   dr,
 		},
 	}
+}
 
-	// Network — expand ~ in socket paths; only include if non-empty.
-	if len(cfg.Network.AllowUnixSockets) > 0 {
-		sockets := make([]interface{}, len(cfg.Network.AllowUnixSockets))
-		for i, s := range cfg.Network.AllowUnixSockets {
-			sockets[i] = expandHomePath(s)
-		}
-		section["network"] = map[string]interface{}{
-			"allowUnixSockets": sockets,
+// extractExistingSockets reads network.allowUnixSockets from the existing sandbox
+// section of settings, so they can be preserved when the section is rewritten.
+func extractExistingSockets(settings map[string]interface{}) []string {
+	sandbox, ok := settings["sandbox"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	network, ok := sandbox["network"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	raw, ok := network["allowUnixSockets"].([]interface{})
+	if !ok {
+		return nil
+	}
+	sockets := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			sockets = append(sockets, s)
 		}
 	}
-
-	return section
+	return sockets
 }
 
 // appendSecretDenyEntries appends Read(<path>) entries to the deny list for each
