@@ -274,6 +274,7 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 
+	// Pre-populate settings.json with existing deny entries.
 	initial := `{"permissions": {"deny": ["Agent(kestrel)", "Agent(mira)"]}}`
 	if err := os.WriteFile(settingsPath, []byte(initial), 0o644); err != nil {
 		t.Fatalf("write initial settings: %v", err)
@@ -453,6 +454,7 @@ denyRead = []
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
 
+	// Pre-populate settings.json with a custom socket.
 	customSock := "/run/user/1000/custom.sock"
 	initial := `{"sandbox": {"network": {"allowUnixSockets": ["` + customSock + `"]}}}`
 	if err := os.WriteFile(settingsPath, []byte(initial), 0o644); err != nil {
@@ -475,6 +477,8 @@ denyRead = []
 	assertSocketPresent(t, sockets, customSock)
 }
 
+// TestSyncSandbox_NonExistentPathsIncluded asserts that non-existent paths still appear
+// in allowWrite — settings.json is declarative config, not filtered by what's on disk.
 func TestSyncSandbox_NonExistentPathsIncluded(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
@@ -501,6 +505,8 @@ denyRead = []
 	}
 }
 
+// TestSyncSandbox_MissingConfigFileSkipsEnforcement asserts that when sandbox.toml
+// is absent (fresh install), syncSandbox returns empty and does not write settings.json.
 func TestSyncSandbox_MissingConfigFileSkipsEnforcement(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
@@ -525,6 +531,9 @@ func TestSyncSandbox_MissingConfigFileSkipsEnforcement(t *testing.T) {
 	}
 }
 
+// TestSyncSandbox_DisabledLeavesExistingSettingsUnchanged verifies that when sandbox
+// is disabled and settings.json already contains sandbox enforcement from a previous run,
+// the file is left untouched (stale enforcement remains — caller is responsible for cleanup).
 func TestSyncSandbox_DisabledLeavesExistingSettingsUnchanged(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = false
@@ -533,6 +542,7 @@ allowWrite = []
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
 
+	// Pre-populate with active enforcement from a previous sync.
 	prior := `{"sandbox":{"enabled":true,"failIfUnavailable":true}}`
 	if err := os.WriteFile(settingsPath, []byte(prior), 0o644); err != nil {
 		t.Fatalf("write prior settings: %v", err)
@@ -549,6 +559,8 @@ allowWrite = []
 	}
 }
 
+// TestSyncSandbox_ParseErrorReturnsError verifies that a corrupt sandbox.toml propagates
+// an error rather than silently disabling enforcement (security-relevant).
 func TestSyncSandbox_ParseErrorReturnsError(t *testing.T) {
 	dir := writeSandboxConfig(t, `this is not valid toml !!!`)
 	writeProjectsConfig(t, dir)
@@ -560,6 +572,8 @@ func TestSyncSandbox_ParseErrorReturnsError(t *testing.T) {
 	}
 }
 
+// TestSyncSandbox_DaemonSocketDeduplication verifies that running ttal sync twice
+// does not produce duplicate daemon socket entries in network.allowUnixSockets.
 func TestSyncSandbox_DaemonSocketDeduplication(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
@@ -569,9 +583,11 @@ denyRead = []
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
 
+	// First sync.
 	if _, err := syncSandbox(false, settingsPath); err != nil {
 		t.Fatalf("first syncSandbox: %v", err)
 	}
+	// Second sync — daemon socket already present in settings.json.
 	if _, err := syncSandbox(false, settingsPath); err != nil {
 		t.Fatalf("second syncSandbox: %v", err)
 	}
@@ -597,6 +613,8 @@ denyRead = []
 	}
 }
 
+// TestSyncSandbox_AllowedDomainsWrittenToSettings verifies that allowedDomains from
+// sandbox.toml appear in settings.json network section.
 func TestSyncSandbox_AllowedDomainsWrittenToSettings(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
