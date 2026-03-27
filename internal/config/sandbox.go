@@ -5,64 +5,60 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
-// SandboxConfig holds per-plane extra paths loaded from sandbox.toml.
+// SandboxConfig holds sandbox path configuration loaded from sandbox.toml.
 // Consumed by sync.SyncSandbox to build the sandbox section in ~/.claude/settings.json.
-// Paths support ~ expansion and must include a :ro or :rw suffix.
+//
+// AllowWrite — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
+// DenyRead   — paths Claude may not read (maps to sandbox.filesystem.denyRead and permissions.deny).
+// AllowRead  — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
+// Network    — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
 // Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
-// All enforcement settings (failIfUnavailable, allowUnsandboxedCommands, network) are
+// All enforcement settings (failIfUnavailable, allowUnsandboxedCommands) are
 // hardcoded secure defaults in sync — they are not configurable via sandbox.toml.
 type SandboxConfig struct {
-	Enabled bool         `toml:"enabled"`
-	Shared  SandboxPlane `toml:"shared"`
-	Worker  SandboxPlane `toml:"worker"`
-	Manager SandboxPlane `toml:"manager"`
+	Enabled    bool          `toml:"enabled"`
+	AllowWrite []string      `toml:"allowWrite"`
+	DenyRead   []string      `toml:"denyRead"`
+	AllowRead  []string      `toml:"allowRead"`
+	Network    NetworkConfig `toml:"network"`
 }
 
-// SandboxPlane holds extra paths for one plane.
-type SandboxPlane struct {
-	ExtraPaths []string `toml:"extra_paths"`
+// NetworkConfig holds network access settings for the sandbox.
+type NetworkConfig struct {
+	AllowedDomains []string `toml:"allowedDomains"`
 }
 
-// PathsForPlane returns shared paths merged with the given plane's paths,
-// with ~ expanded and non-existent paths filtered out.
-// Filtering allows listing both macOS and Linux variants in sandbox.toml —
-// only paths present on disk are included.
-func (c *SandboxConfig) PathsForPlane(plane string) []string {
-	var planeExtra []string
-	switch plane {
-	case "worker":
-		planeExtra = c.Worker.ExtraPaths
-	case "manager":
-		planeExtra = c.Manager.ExtraPaths
-	}
+// ExpandedAllowWrite returns the AllowWrite paths with ~ expanded.
+func (c *SandboxConfig) ExpandedAllowWrite() []string {
+	return expandPaths(c.AllowWrite)
+}
 
-	// Pre-allocate a fresh slice to avoid mutating c.Shared.ExtraPaths backing array
-	// when the TOML decoder left spare capacity (classic Go append aliasing trap).
-	raw := make([]string, 0, len(c.Shared.ExtraPaths)+len(planeExtra))
-	raw = append(raw, c.Shared.ExtraPaths...)
-	raw = append(raw, planeExtra...)
+// ExpandedDenyRead returns the DenyRead paths with ~ expanded.
+func (c *SandboxConfig) ExpandedDenyRead() []string {
+	return expandPaths(c.DenyRead)
+}
 
-	result := make([]string, 0, len(raw))
-	for _, p := range raw {
-		p = expandHome(p)
-		// strip :ro/:rw suffix to stat the bare path
-		bare := strings.TrimSuffix(strings.TrimSuffix(p, ":rw"), ":ro")
-		if _, err := os.Stat(bare); err != nil {
-			continue // skip non-existent paths silently
-		}
-		result = append(result, p)
+// ExpandedAllowRead returns the AllowRead paths with ~ expanded.
+func (c *SandboxConfig) ExpandedAllowRead() []string {
+	return expandPaths(c.AllowRead)
+}
+
+// expandPaths expands ~ in each path and returns the result.
+func expandPaths(paths []string) []string {
+	result := make([]string, 0, len(paths))
+	for _, p := range paths {
+		result = append(result, expandHome(p))
 	}
 	return result
 }
 
 // LoadSandbox loads sandbox.toml from the default config dir.
-// Returns an empty config (no extra paths) if the file doesn't exist — non-fatal.
+// Returns an empty config (no paths) if the file doesn't exist — non-fatal.
 // Parse errors are logged as warnings and return an empty config.
 // Use LoadSandboxWithError when parse failures must be surfaced (e.g. security-critical paths).
 func LoadSandbox() *SandboxConfig {

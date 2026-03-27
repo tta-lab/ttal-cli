@@ -18,61 +18,13 @@ func writeSandboxTOML(t *testing.T, content string) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 }
 
-func TestPathsForPlane_AliasingIsSafe(t *testing.T) {
-	// Calling PathsForPlane twice on the same SandboxConfig must not bleed
-	// plane paths into the shared section (the classic Go append aliasing trap).
-	cfg := &SandboxConfig{
-		Shared:  SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-		Worker:  SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-		Manager: SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-	}
-
-	worker := cfg.PathsForPlane("worker")
-	manager := cfg.PathsForPlane("manager")
-
-	// Both calls should return the same length (shared + one plane path).
-	assert.Equal(t, len(worker), len(manager), "second call should not see paths from first call")
-}
-
-func TestPathsForPlane_UnknownPlane(t *testing.T) {
-	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-	}
-	paths := cfg.PathsForPlane("nonexistent")
-	// Unknown plane falls back to shared only (no panic, no extra paths).
-	assert.Len(t, paths, 1)
-	assert.Equal(t, "/tmp:rw", paths[0])
-}
-
-func TestPathsForPlane_TildeExpansion(t *testing.T) {
-	// Point HOME at a temp dir so ~ expansion resolves to a path we control,
-	// and the subdir we create is guaranteed to pass PathsForPlane's os.Stat filter
-	// on any machine (including CI runners where ~/.ttal doesn't exist).
-	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
-	subDir := filepath.Join(tmpHome, "mydata")
-	require.NoError(t, os.Mkdir(subDir, 0o755))
-
-	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"~/mydata:rw"}},
-	}
-	paths := cfg.PathsForPlane("shared")
-	assert.Contains(t, paths, subDir+":rw")
-}
-
-func TestPathsForPlane_NonExistentFiltered(t *testing.T) {
-	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"/does/not/exist:ro"}},
-	}
-	paths := cfg.PathsForPlane("shared")
-	assert.Empty(t, paths, "non-existent paths must be filtered out")
-}
-
 func TestLoadSandbox_FileNotExist(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cfg := LoadSandbox()
 	assert.NotNil(t, cfg)
-	assert.Empty(t, cfg.Shared.ExtraPaths)
+	assert.Empty(t, cfg.AllowWrite)
+	assert.Empty(t, cfg.DenyRead)
+	assert.Empty(t, cfg.AllowRead)
 }
 
 func TestLoadSandbox_MalformedTOML(t *testing.T) {
@@ -80,26 +32,47 @@ func TestLoadSandbox_MalformedTOML(t *testing.T) {
 	cfg := LoadSandbox()
 	// Must return clean zero value, not a partially-decoded config.
 	assert.NotNil(t, cfg)
-	assert.Empty(t, cfg.Shared.ExtraPaths)
-	assert.Empty(t, cfg.Worker.ExtraPaths)
-	assert.Empty(t, cfg.Manager.ExtraPaths)
+	assert.Empty(t, cfg.AllowWrite)
+	assert.Empty(t, cfg.DenyRead)
+	assert.Empty(t, cfg.AllowRead)
 }
 
 func TestLoadSandbox_ValidTOML(t *testing.T) {
 	writeSandboxTOML(t, `
-[shared]
-extra_paths = ["/tmp:rw"]
+enabled = true
+allowWrite = ["/tmp"]
+denyRead = ["~/.config/ttal/.env"]
+allowRead = []
 
-[worker]
-extra_paths = ["/tmp:ro"]
-
-[manager]
-extra_paths = []
+[network]
+allowedDomains = ["github.com", "*.guion.io"]
 `)
 	cfg := LoadSandbox()
 	require.NotNil(t, cfg)
-	assert.Equal(t, []string{"/tmp:rw"}, cfg.Shared.ExtraPaths)
-	assert.Equal(t, []string{"/tmp:ro"}, cfg.Worker.ExtraPaths)
+	assert.True(t, cfg.Enabled)
+	assert.Equal(t, []string{"/tmp"}, cfg.AllowWrite)
+	assert.Equal(t, []string{"~/.config/ttal/.env"}, cfg.DenyRead)
+	assert.Equal(t, []string{"github.com", "*.guion.io"}, cfg.Network.AllowedDomains)
+}
+
+func TestLoadSandbox_ExpandedPaths(t *testing.T) {
+	// Point HOME at a temp dir so ~ expansion resolves to a path we control.
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	writeSandboxTOML(t, `
+enabled = true
+allowWrite = ["~/mydata"]
+denyRead = ["~/.config/ttal/.env"]
+`)
+	cfg := LoadSandbox()
+	require.NotNil(t, cfg)
+
+	expanded := cfg.ExpandedAllowWrite()
+	assert.Contains(t, expanded, filepath.Join(tmpHome, "mydata"))
+
+	expandedDeny := cfg.ExpandedDenyRead()
+	assert.Contains(t, expandedDeny, filepath.Join(tmpHome, ".config/ttal/.env"))
 }
 
 func TestDefaultConfigDir_XGDBranch(t *testing.T) {

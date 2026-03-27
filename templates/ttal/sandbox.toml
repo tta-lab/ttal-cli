@@ -6,45 +6,41 @@
 # allowUnsandboxedCommands=false, daemon socket allowed).
 # When false, ttal sync skips the sandbox section entirely.
 #
-# All enforcement settings are hardcoded in sync — they are not configurable here.
+# allowWrite — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
+# denyRead   — paths Claude may not read (maps to sandbox.filesystem.denyRead and
+#              permissions.deny Read() entries). Deny specific files, not whole dirs.
+# allowRead  — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
 #
-# [shared] paths are added to all planes.
-# [worker] paths are added to worker and reviewer sessions.
-# [manager] paths are added to manager sessions.
-#
-# :rw paths become allowWrite entries in settings.json.
-# :ro paths are legacy (not enforced by CC sandbox; only denyRead restricts reads).
+# [network]
+# allowedDomains — external domains Claude may contact (maps to sandbox.network.allowedDomains).
 
 enabled = true
 
-[shared]
-extra_paths = [
-  "~/.ttal:rw",                              # ttal data dir (tasks, daemon state)
-  "~/.task:rw",                              # taskwarrior data (SQLite WAL needs :rw)
-  "~/.diary:rw",                             # diary data
-  "~/.local/share/flicknote:rw",             # flicknote SQLite database
-  "~/.config/ttal:ro",                       # ttal config (sandbox.toml, projects.toml, etc.)
-  "~/.config/flicknote:ro",                  # flicknote config
-  "~/.config/git:ro",                        # git config
-  "~/.gitconfig:ro",                         # git config (home dir variant)
-  "~/.taskrc:ro",                            # taskwarrior config
-  "/Library/Developer/CommandLineTools:ro",  # macOS: xcrun shim resolves make/clang from here
-  "/private/var/folders:rw",                 # macOS TMPDIR — used by Go, Rust, and most build tools
-  "/tmp:rw",                                 # Linux TMPDIR
+allowWrite = [
+  "~/.ttal",                             # ttal data dir (tasks, daemon state)
+  "~/.task",                             # taskwarrior data (SQLite WAL needs write)
+  "~/.diary",                            # diary data
+  "~/.local/share/flicknote",            # flicknote SQLite database
+  "/private/var/folders",                # macOS TMPDIR — used by Go, Rust, and most build tools
+  "/tmp",                                # Linux TMPDIR
+  "~/Library/Caches/go-build",          # macOS: Go build cache
+  "~/Library/Caches/golangci-lint",     # macOS: golangci-lint analysis cache
+  "~/Library/Caches/cargo",             # macOS: Rust incremental build cache
+  "~/.cache/go/build",                   # Linux: Go build cache
+  "~/.cache/golangci-lint",             # Linux: golangci-lint analysis cache
+  "~/.cache/cargo",                      # Linux: Rust incremental build cache
+  "~/.npm/_logs",                        # npm log directory
 ]
 
-[worker]
-extra_paths = [
-  "~/.cargo/registry:ro",                    # Rust crate registry cache
-  "~/.cargo/git:ro",                         # Rust git-sourced dependency cache
-  "~/.rustup:ro",                            # Rust toolchain (rustc, cargo binaries)
-  "~/Library/Caches/go-build:rw",            # macOS: Go build cache
-  "~/Library/Caches/golangci-lint:rw",       # macOS: golangci-lint analysis cache
-  "~/Library/Caches/cargo:rw",               # macOS: Rust incremental build cache
-  "~/.cache/go/build:rw",                    # Linux: Go build cache
-  "~/.cache/golangci-lint:rw",               # Linux: golangci-lint analysis cache
-  "~/.cache/cargo:rw",                       # Linux: Rust incremental build cache
+# Deny specific secret files — not whole directories that git/ssh needs.
+denyRead = [
+  "~/.config/ttal/.env",                 # ttal secrets
+  "~/.ssh/id_ed25519",                   # SSH private key (deny key, not whole dir)
+  "~/.aws/credentials",                  # AWS credentials
+  "~/.kube/config",                      # Kubernetes config
 ]
 
-[manager]
-extra_paths = []
+allowRead = []
+
+[network]
+allowedDomains = ["github.com", "*.github.com", "*.guion.io"]

@@ -74,14 +74,8 @@ func TestSyncSandbox_DryRun(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
 
-[shared]
-extra_paths = ["/tmp:rw", "/usr/local:ro"]
-
-[worker]
-extra_paths = ["/tmp/worker:rw"]
-
-[manager]
-extra_paths = []
+allowWrite = ["/tmp", "/tmp/worker", "/usr/local"]
+denyRead = []
 `)
 	writeProjectsConfig(t, dir)
 
@@ -97,7 +91,7 @@ extra_paths = []
 		t.Error("dry-run should not write settings.json")
 	}
 
-	// /tmp:rw and /tmp/worker:rw should be in allowWrite.
+	// /tmp and /tmp/worker should be in allowWrite.
 	found := make(map[string]bool)
 	for _, p := range result.AllowWritePaths {
 		found[p] = true
@@ -108,14 +102,22 @@ extra_paths = []
 	if !found["/tmp/worker"] {
 		t.Errorf("expected /tmp/worker in allowWrite, got %v", result.AllowWritePaths)
 	}
-	// /usr/local:ro should NOT be in allowWrite
-	if found["/usr/local"] {
-		t.Errorf("expected /usr/local (ro) NOT in allowWrite, but found it")
+	if !found["/usr/local"] {
+		t.Errorf("expected /usr/local in allowWrite (all allowWrite entries included), got %v", result.AllowWritePaths)
 	}
 }
 
 func TestSyncSandbox_DenyRead(t *testing.T) {
-	dir := writeSandboxConfig(t, "enabled = true\n[shared]\nextra_paths = []")
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = [
+  "~/.config/ttal/.env",
+  "~/.ssh/id_ed25519",
+  "~/.aws/credentials",
+  "~/.kube/config",
+]
+`)
 	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
@@ -124,7 +126,7 @@ func TestSyncSandbox_DenyRead(t *testing.T) {
 		t.Fatalf("syncSandbox: %v", err)
 	}
 
-	// denyRead must contain all secret paths.
+	// denyRead must contain all configured secret paths.
 	found := make(map[string]bool)
 	for _, p := range result.DenyReadPaths {
 		found[p] = true
@@ -133,9 +135,7 @@ func TestSyncSandbox_DenyRead(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	expected := []string{
 		filepath.Join(home, ".config/ttal/.env"),
-		filepath.Join(home, ".ssh"),
-		filepath.Join(home, ".gnupg"),
-		filepath.Join(home, ".netrc"),
+		filepath.Join(home, ".ssh/id_ed25519"),
 		filepath.Join(home, ".aws/credentials"),
 		filepath.Join(home, ".kube/config"),
 	}
@@ -144,18 +144,19 @@ func TestSyncSandbox_DenyRead(t *testing.T) {
 			t.Errorf("expected %s in denyRead, got %v", p, result.DenyReadPaths)
 		}
 	}
+
+	// ~/.ssh (whole dir) must NOT be in denyRead — we deny specific key files, not the dir.
+	sshDir := filepath.Join(home, ".ssh")
+	if found[sshDir] {
+		t.Errorf("expected whole .ssh dir NOT in denyRead (deny specific keys instead)")
+	}
 }
 
 func TestSyncSandbox_WritesSettingsJSON(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
-
-[shared]
-extra_paths = ["/tmp:rw"]
-[worker]
-extra_paths = []
-[manager]
-extra_paths = []
+allowWrite = ["/tmp"]
+denyRead = ["~/.config/ttal/.env"]
 `)
 	writeProjectsConfig(t, dir)
 
@@ -206,7 +207,7 @@ extra_paths = []
 }
 
 func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
-	dir := writeSandboxConfig(t, "enabled = true\n[shared]\nextra_paths = []")
+	dir := writeSandboxConfig(t, "enabled = true\nallowWrite = []\ndenyRead = []")
 	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
@@ -250,7 +251,7 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 
 func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	section := buildSandboxSection([]string{"/tmp"}, []string{home + "/.config/ttal/.env"}, nil)
+	section := buildSandboxSection([]string{"/tmp"}, []string{home + "/.config/ttal/.env"}, nil, nil)
 
 	assertEnforcementFields(t, section)
 
@@ -267,7 +268,7 @@ func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 
 func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 	extra := "/run/user/1000/custom.sock"
-	section := buildSandboxSection([]string{"/tmp"}, []string{}, []string{extra})
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, []string{extra})
 
 	net := section["network"].(map[string]interface{})
 	sockets := net["allowUnixSockets"].([]interface{})
@@ -276,12 +277,41 @@ func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 	assertSocketPresent(t, sockets, extra)
 }
 
+func TestBuildSandboxSection_AllowedDomains(t *testing.T) {
+	domains := []string{"github.com", "*.github.com", "*.guion.io"}
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, domains, nil)
+
+	net, ok := section["network"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected network section in sandbox")
+	}
+	gotDomains, ok := net["allowedDomains"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowedDomains in network section")
+	}
+	if len(gotDomains) != len(domains) {
+		t.Errorf("expected %d domains, got %d: %v", len(domains), len(gotDomains), gotDomains)
+	}
+	for i, d := range domains {
+		if gotDomains[i] != d {
+			t.Errorf("expected domain[%d]=%q, got %q", i, d, gotDomains[i])
+		}
+	}
+}
+
+func TestBuildSandboxSection_NoAllowedDomains(t *testing.T) {
+	// When allowedDomains is empty, the key should not appear in network.
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, nil)
+	net := section["network"].(map[string]interface{})
+	if _, ok := net["allowedDomains"]; ok {
+		t.Error("expected allowedDomains absent when not configured")
+	}
+}
+
 func TestSyncSandbox_Disabled(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = false
-
-[shared]
-extra_paths = ["~/.ttal:rw"]
+allowWrite = ["~/.ttal"]
 `)
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -303,9 +333,8 @@ extra_paths = ["~/.ttal:rw"]
 func TestSyncSandbox_EnforcementFields(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
-
-[shared]
-extra_paths = ["~/.ttal:rw"]
+allowWrite = ["~/.ttal"]
+denyRead = []
 `)
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -335,9 +364,8 @@ extra_paths = ["~/.ttal:rw"]
 func TestSyncSandbox_PreservesExistingSockets(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
-
-[shared]
-extra_paths = []
+allowWrite = []
+denyRead = []
 `)
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -369,13 +397,8 @@ func TestSyncSandbox_NonExistentPathsIncluded(t *testing.T) {
 	// Non-existent paths should appear in allowWrite — settings.json is declarative.
 	dir := writeSandboxConfig(t, `
 enabled = true
-
-[shared]
-extra_paths = ["/nonexistent/path/that/doesnt/exist:rw"]
-[worker]
-extra_paths = []
-[manager]
-extra_paths = []
+allowWrite = ["/nonexistent/path/that/doesnt/exist"]
+denyRead = []
 `)
 	writeProjectsConfig(t, dir)
 
@@ -430,9 +453,7 @@ func TestSyncSandbox_MissingConfigFileSkipsEnforcement(t *testing.T) {
 func TestSyncSandbox_DisabledLeavesExistingSettingsUnchanged(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = false
-
-[shared]
-extra_paths = []
+allowWrite = []
 `)
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -472,9 +493,8 @@ func TestSyncSandbox_ParseErrorReturnsError(t *testing.T) {
 func TestSyncSandbox_DaemonSocketDeduplication(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
-
-[shared]
-extra_paths = []
+allowWrite = []
+denyRead = []
 `)
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -506,5 +526,51 @@ extra_paths = []
 	}
 	if count != 1 {
 		t.Errorf("expected daemon socket exactly once, found %d times in %v", count, sockets)
+	}
+}
+
+// TestSyncSandbox_AllowedDomainsWrittenToSettings verifies that allowedDomains from
+// sandbox.toml appear in settings.json network section.
+func TestSyncSandbox_AllowedDomainsWrittenToSettings(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = []
+
+[network]
+allowedDomains = ["github.com", "*.github.com", "*.guion.io"]
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+
+	sandbox := settings["sandbox"].(map[string]interface{})
+	net := sandbox["network"].(map[string]interface{})
+	domains, ok := net["allowedDomains"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowedDomains in network section of settings.json")
+	}
+
+	want := map[string]bool{"github.com": true, "*.github.com": true, "*.guion.io": true}
+	for _, d := range domains {
+		ds, ok := d.(string)
+		if !ok {
+			t.Errorf("unexpected non-string domain: %v", d)
+			continue
+		}
+		delete(want, ds)
+	}
+	if len(want) > 0 {
+		t.Errorf("missing domains in allowedDomains: %v", want)
 	}
 }
