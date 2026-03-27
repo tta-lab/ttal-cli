@@ -64,7 +64,10 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 	existingSockets := extractExistingSockets(settings)
 	allowRead := sandbox.ExpandedAllowRead()
 	denyWrite := sandbox.ExpandedDenyWrite()
-	settings["sandbox"] = buildSandboxSection(allowWrite, denyWrite, denyRead, allowRead, sandbox.Network.AllowedDomains, sandbox.AutoAllowBashIfSandboxed, existingSockets)
+	settings["sandbox"] = buildSandboxSection(
+		allowWrite, denyWrite, denyRead, allowRead,
+		sandbox.Network.AllowedDomains, sandbox.AutoAllowBashIfSandboxed, existingSockets,
+	)
 
 	// Append permissions.deny entries from sandbox.toml (additive, preserve existing).
 	perms, denySlice, err := extractPermsDenyList(settings)
@@ -141,7 +144,10 @@ func tmuxSocketPath() string {
 // allowRead, denyWrite, allowedDomains are omitted when empty.
 // existingSockets are user-defined unix sockets from a prior settings.json; they
 // are preserved and our daemonSocketPath and tmuxSocketPath are appended (deduplicated).
-func buildSandboxSection(allowWrite, denyWrite, denyRead, allowRead, allowedDomains []string, autoAllowBash *bool, existingSockets []string) map[string]interface{} {
+func buildSandboxSection(
+	allowWrite, denyWrite, denyRead, allowRead, allowedDomains []string,
+	autoAllowBash *bool, existingSockets []string,
+) map[string]interface{} {
 	toIfaceSlice := func(ss []string) []interface{} {
 		out := make([]interface{}, len(ss))
 		for i, s := range ss {
