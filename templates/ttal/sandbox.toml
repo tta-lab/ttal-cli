@@ -42,10 +42,11 @@ allowWrite = [
   "~/.npm/_logs",                        # npm log directory
 ]
 
-# denyRead is intentionally empty: setting "~/" here would block ALL allowRead carveouts
-# (denyRead has higher priority than allowRead in CC sandbox). Secrets are blocked via
-# permissionsDeny below — which operates at the permissions layer and correctly
-# overrides allowRead for specific files without blocking the whole directory.
+# denyRead is intentionally empty. Secrets are blocked via permissionsDeny below, which
+# operates at the permissions layer and overrides allowRead for specific files without
+# blocking the whole directory.
+# WARNING: do not set a parent dir here (e.g. "~/") — denyRead has higher priority than
+# allowRead in CC sandbox and would block all carveouts within it.
 denyRead = []
 
 # Allowlist: dirs that agents legitimately need to read.

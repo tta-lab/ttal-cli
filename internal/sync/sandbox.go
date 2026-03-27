@@ -43,7 +43,7 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 	}
 
 	allowWrite, gitDirCount := buildAllowWritePaths(sandbox)
-	denyRead := buildDenyReadPaths(sandbox)
+	denyRead := sandbox.ExpandedDenyRead()
 
 	result := SandboxResult{
 		AllowWritePaths: allowWrite,
@@ -55,6 +55,12 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 		return result, nil
 	}
 
+	// Warn if sandbox is enabled but no secrets are explicitly blocked.
+	if len(sandbox.PermissionsDeny) == 0 && len(sandbox.DenyRead) == 0 {
+		log.Printf("[sync] warning: sandbox is enabled but permissionsDeny and denyRead are both empty" +
+			" — no secret files are explicitly blocked; verify sandbox.toml is complete")
+	}
+
 	settings, err := readOrInitSettings(settingsPath)
 	if err != nil {
 		return result, err
@@ -62,12 +68,15 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 
 	// Replace sandbox section, preserving any existing user unix sockets.
 	existingSockets := extractExistingSockets(settings)
-	allowRead := sandbox.ExpandedAllowRead()
-	denyWrite := sandbox.ExpandedDenyWrite()
-	settings["sandbox"] = buildSandboxSection(
-		allowWrite, denyWrite, denyRead, allowRead,
-		sandbox.Network.AllowedDomains, sandbox.AutoAllowBashIfSandboxed, existingSockets,
-	)
+	settings["sandbox"] = buildSandboxSection(sandboxSectionOpts{
+		allowWrite:      allowWrite,
+		denyWrite:       sandbox.ExpandedDenyWrite(),
+		denyRead:        denyRead,
+		allowRead:       sandbox.ExpandedAllowRead(),
+		allowedDomains:  sandbox.Network.AllowedDomains,
+		autoAllowBash:   sandbox.AutoAllowBashIfSandboxed,
+		existingSockets: existingSockets,
+	})
 
 	// Append permissions.deny entries from sandbox.toml (additive, preserve existing).
 	perms, denySlice, err := extractPermsDenyList(settings)
@@ -89,18 +98,16 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 }
 
 // buildAllowWritePaths collects all paths that should be in allowWrite:
-// - allowWrite entries from sandbox.toml (raw — no existence filtering)
+// - allowWrite entries from sandbox.toml (no existence filtering — declarative config)
 // - .git dirs for all registered projects (deduplicated)
 func buildAllowWritePaths(sandbox *config.SandboxConfig) ([]string, int) {
 	seen := make(map[string]bool)
 	var paths []string
 
-	// sandbox.toml allowWrite paths (no existence filtering — declarative config)
-	for _, p := range sandbox.AllowWrite {
-		expanded := expandHomePath(p)
-		if !seen[expanded] {
-			seen[expanded] = true
-			paths = append(paths, expanded)
+	for _, p := range sandbox.ExpandedAllowWrite() {
+		if !seen[p] {
+			seen[p] = true
+			paths = append(paths, p)
 		}
 	}
 
@@ -118,12 +125,6 @@ func buildAllowWritePaths(sandbox *config.SandboxConfig) ([]string, int) {
 	return paths, gitDirCount
 }
 
-// buildDenyReadPaths returns the expanded list of paths to deny reads for,
-// sourced from sandbox.toml's denyRead field.
-func buildDenyReadPaths(sandbox *config.SandboxConfig) []string {
-	return sandbox.ExpandedDenyRead()
-}
-
 // daemonSocketPath is the unix socket used for agent↔daemon communication.
 // Always whitelisted so that ttal send/go work in all agent sessions.
 const daemonSocketPath = "~/.ttal/daemon.sock"
@@ -138,16 +139,25 @@ func tmuxSocketPath() string {
 	return fmt.Sprintf("/tmp/tmux-%d/default", uid)
 }
 
+// sandboxSectionOpts holds parameters for buildSandboxSection.
+// Named fields prevent silent transposition of the five []string parameters.
+type sandboxSectionOpts struct {
+	allowWrite      []string
+	denyWrite       []string
+	denyRead        []string
+	allowRead       []string
+	allowedDomains  []string
+	autoAllowBash   *bool
+	existingSockets []string
+}
+
 // buildSandboxSection constructs the full sandbox object for settings.json.
 // failIfUnavailable and allowUnsandboxedCommands are hardcoded secure defaults.
 // autoAllowBashIfSandboxed is written only when explicitly set (non-nil).
-// allowRead, denyWrite, allowedDomains are omitted when empty.
+// denyRead, denyWrite, allowRead, allowedDomains are omitted when empty.
 // existingSockets are user-defined unix sockets from a prior settings.json; they
 // are preserved and our daemonSocketPath and tmuxSocketPath are appended (deduplicated).
-func buildSandboxSection(
-	allowWrite, denyWrite, denyRead, allowRead, allowedDomains []string,
-	autoAllowBash *bool, existingSockets []string,
-) map[string]interface{} {
+func buildSandboxSection(opts sandboxSectionOpts) map[string]interface{} {
 	toIfaceSlice := func(ss []string) []interface{} {
 		out := make([]interface{}, len(ss))
 		for i, s := range ss {
@@ -161,7 +171,7 @@ func buildSandboxSection(
 	tmuxSock := tmuxSocketPath()
 	seen := map[string]bool{daemonSock: true, tmuxSock: true}
 	sockets := []interface{}{daemonSock, tmuxSock}
-	for _, s := range existingSockets {
+	for _, s := range opts.existingSockets {
 		if !seen[s] {
 			seen[s] = true
 			sockets = append(sockets, s)
@@ -172,21 +182,21 @@ func buildSandboxSection(
 	network := map[string]interface{}{
 		"allowUnixSockets": sockets,
 	}
-	if len(allowedDomains) > 0 {
-		network["allowedDomains"] = toIfaceSlice(allowedDomains)
+	if len(opts.allowedDomains) > 0 {
+		network["allowedDomains"] = toIfaceSlice(opts.allowedDomains)
 	}
 
 	fs := map[string]interface{}{
-		"allowWrite": toIfaceSlice(allowWrite),
+		"allowWrite": toIfaceSlice(opts.allowWrite),
 	}
-	if len(denyRead) > 0 {
-		fs["denyRead"] = toIfaceSlice(denyRead)
+	if len(opts.denyRead) > 0 {
+		fs["denyRead"] = toIfaceSlice(opts.denyRead)
 	}
-	if len(denyWrite) > 0 {
-		fs["denyWrite"] = toIfaceSlice(denyWrite)
+	if len(opts.denyWrite) > 0 {
+		fs["denyWrite"] = toIfaceSlice(opts.denyWrite)
 	}
-	if len(allowRead) > 0 {
-		fs["allowRead"] = toIfaceSlice(allowRead)
+	if len(opts.allowRead) > 0 {
+		fs["allowRead"] = toIfaceSlice(opts.allowRead)
 	}
 
 	section := map[string]interface{}{
@@ -196,8 +206,8 @@ func buildSandboxSection(
 		"network":                  network,
 		"filesystem":               fs,
 	}
-	if autoAllowBash != nil {
-		section["autoAllowBashIfSandboxed"] = *autoAllowBash
+	if opts.autoAllowBash != nil {
+		section["autoAllowBashIfSandboxed"] = *opts.autoAllowBash
 	}
 	return section
 }
@@ -251,7 +261,8 @@ func collectProjectGitDirs() []string {
 	store := project.NewStore(storePath)
 	projects, err := store.List(false)
 	if err != nil {
-		log.Printf("[sync] warning: failed to load projects for sandbox git dirs: %v", err)
+		log.Printf("[sync] warning: failed to load projects for sandbox git dirs: %v"+
+			" — git write access will be missing from settings.json allowWrite", err)
 		return nil
 	}
 

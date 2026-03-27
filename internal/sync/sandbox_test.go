@@ -208,10 +208,18 @@ permissionsDeny = [
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	_ = json.Unmarshal(data, &settings)
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
 
-	perms := settings["permissions"].(map[string]interface{})
-	deny := perms["deny"].([]interface{})
+	perms, ok := settings["permissions"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected permissions object in settings.json")
+	}
+	deny, ok := perms["deny"].([]interface{})
+	if !ok {
+		t.Fatal("expected permissions.deny array in settings.json")
+	}
 
 	home, _ := os.UserHomeDir()
 	want := map[string]bool{
@@ -292,10 +300,18 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	_ = json.Unmarshal(data, &settings)
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
 
-	perms := settings["permissions"].(map[string]interface{})
-	deny := perms["deny"].([]interface{})
+	perms, ok := settings["permissions"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected permissions object in settings.json")
+	}
+	deny, ok := perms["deny"].([]interface{})
+	if !ok {
+		t.Fatal("expected permissions.deny array in settings.json")
+	}
 
 	joined := make([]string, len(deny))
 	for i, v := range deny {
@@ -317,7 +333,7 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 
 func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{home + "/"}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, denyRead: []string{home + "/"}})
 
 	assertEnforcementFields(t, section)
 
@@ -334,7 +350,7 @@ func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 
 func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 	extra := "/run/user/1000/custom.sock"
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, []string{extra})
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, existingSockets: []string{extra}})
 
 	net := section["network"].(map[string]interface{})
 	sockets := net["allowUnixSockets"].([]interface{})
@@ -344,7 +360,7 @@ func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 }
 
 func TestBuildSandboxSection_TmuxSocketIncluded(t *testing.T) {
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
 
 	net := section["network"].(map[string]interface{})
 	sockets := net["allowUnixSockets"].([]interface{})
@@ -355,7 +371,7 @@ func TestBuildSandboxSection_TmuxSocketIncluded(t *testing.T) {
 
 func TestBuildSandboxSection_AllowedDomains(t *testing.T) {
 	domains := []string{"github.com", "*.github.com", "*.guion.io"}
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, domains, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, allowedDomains: domains})
 
 	net, ok := section["network"].(map[string]interface{})
 	if !ok {
@@ -376,7 +392,7 @@ func TestBuildSandboxSection_AllowedDomains(t *testing.T) {
 }
 
 func TestBuildSandboxSection_NoAllowedDomains(t *testing.T) {
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
 	net := section["network"].(map[string]interface{})
 	if _, ok := net["allowedDomains"]; ok {
 		t.Error("expected allowedDomains absent when not configured")
@@ -385,7 +401,11 @@ func TestBuildSandboxSection_NoAllowedDomains(t *testing.T) {
 
 func TestBuildSandboxSection_AllowReadIncluded(t *testing.T) {
 	allowRead := []string{"/home/user/.ssh", "/home/user/.config/ttal"}
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{"/home/user/"}, allowRead, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{
+		allowWrite: []string{"/tmp"},
+		denyRead:   []string{"/home/user/"},
+		allowRead:  allowRead,
+	})
 
 	fs, ok := section["filesystem"].(map[string]interface{})
 	if !ok {
@@ -401,7 +421,7 @@ func TestBuildSandboxSection_AllowReadIncluded(t *testing.T) {
 }
 
 func TestBuildSandboxSection_EmptyAllowReadOmitted(t *testing.T) {
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
 	fs := section["filesystem"].(map[string]interface{})
 	if _, ok := fs["allowRead"]; ok {
 		t.Error("expected allowRead absent when empty")
@@ -483,10 +503,21 @@ denyRead = []
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	_ = json.Unmarshal(data, &settings)
-	sandbox := settings["sandbox"].(map[string]interface{})
-	net := sandbox["network"].(map[string]interface{})
-	sockets := net["allowUnixSockets"].([]interface{})
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+	sandbox, ok := settings["sandbox"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected sandbox object in settings.json")
+	}
+	net, ok := sandbox["network"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected network object in sandbox section")
+	}
+	sockets, ok := net["allowUnixSockets"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowUnixSockets array in network section")
+	}
 
 	assertSocketPresent(t, sockets, daemonSockExpanded(t))
 	assertSocketPresent(t, sockets, customSock)
@@ -632,7 +663,7 @@ denyRead = []
 // section when non-empty, and omitted when empty.
 func TestBuildSandboxSection_DenyWrite(t *testing.T) {
 	denyWrite := []string{"/secret/dir", "/readonly/path"}
-	section := buildSandboxSection([]string{"/tmp"}, denyWrite, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, denyWrite: denyWrite})
 
 	fs, ok := section["filesystem"].(map[string]interface{})
 	if !ok {
@@ -649,7 +680,7 @@ func TestBuildSandboxSection_DenyWrite(t *testing.T) {
 
 // TestBuildSandboxSection_EmptyDenyWriteOmitted verifies that denyWrite is absent when empty.
 func TestBuildSandboxSection_EmptyDenyWriteOmitted(t *testing.T) {
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
 	fs := section["filesystem"].(map[string]interface{})
 	if _, ok := fs["denyWrite"]; ok {
 		t.Error("expected denyWrite absent when empty")
@@ -660,7 +691,7 @@ func TestBuildSandboxSection_EmptyDenyWriteOmitted(t *testing.T) {
 // This is important: denyRead has higher priority than allowRead in CC sandbox, so writing
 // denyRead:[] (even empty) must not interfere with allowRead carveouts.
 func TestBuildSandboxSection_EmptyDenyReadOmitted(t *testing.T) {
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
 	fs := section["filesystem"].(map[string]interface{})
 	if _, ok := fs["denyRead"]; ok {
 		t.Error("expected denyRead absent when empty")
@@ -671,7 +702,7 @@ func TestBuildSandboxSection_EmptyDenyReadOmitted(t *testing.T) {
 // when explicitly set via a non-nil pointer.
 func TestBuildSandboxSection_AutoAllowBashSet(t *testing.T) {
 	val := false
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, &val, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, autoAllowBash: &val})
 	got, ok := section["autoAllowBashIfSandboxed"].(bool)
 	if !ok {
 		t.Fatal("expected autoAllowBashIfSandboxed as bool in sandbox section")
@@ -684,7 +715,7 @@ func TestBuildSandboxSection_AutoAllowBashSet(t *testing.T) {
 // TestBuildSandboxSection_AutoAllowBashOmittedWhenNil verifies that autoAllowBashIfSandboxed
 // is absent from the sandbox section when not set (nil pointer).
 func TestBuildSandboxSection_AutoAllowBashOmittedWhenNil(t *testing.T) {
-	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
 	if _, ok := section["autoAllowBashIfSandboxed"]; ok {
 		t.Error("expected autoAllowBashIfSandboxed absent when nil")
 	}
@@ -800,5 +831,146 @@ allowedDomains = ["github.com", "*.github.com", "*.guion.io"]
 	}
 	if len(want) > 0 {
 		t.Errorf("missing domains in allowedDomains: %v", want)
+	}
+}
+
+// TestBuildSandboxSection_AutoAllowBashTrue verifies that autoAllowBashIfSandboxed=true
+// is written when explicitly set — the positive value was previously untested.
+func TestBuildSandboxSection_AutoAllowBashTrue(t *testing.T) {
+	val := true
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, autoAllowBash: &val})
+	got, ok := section["autoAllowBashIfSandboxed"].(bool)
+	if !ok {
+		t.Fatal("expected autoAllowBashIfSandboxed as bool in sandbox section")
+	}
+	if !got {
+		t.Errorf("expected autoAllowBashIfSandboxed=true, got %v", got)
+	}
+}
+
+// TestSyncSandbox_PermissionsDenyIdempotent verifies that running ttal sync twice
+// does not produce duplicate permissionsDeny entries in settings.json.
+func TestSyncSandbox_PermissionsDenyIdempotent(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = []
+permissionsDeny = ["Read(~/.config/ttal/.env)"]
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	// First sync.
+	if _, err := syncSandbox(false, settingsPath); err != nil {
+		t.Fatalf("first syncSandbox: %v", err)
+	}
+	// Second sync — entry already present.
+	if _, err := syncSandbox(false, settingsPath); err != nil {
+		t.Fatalf("second syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+	perms, ok := settings["permissions"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected permissions object in settings.json")
+	}
+	deny, ok := perms["deny"].([]interface{})
+	if !ok {
+		t.Fatal("expected permissions.deny array in settings.json")
+	}
+
+	home, _ := os.UserHomeDir()
+	entry := "Read(" + filepath.Join(home, ".config/ttal/.env") + ")"
+	count := 0
+	for _, v := range deny {
+		if v == entry {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected permissionsDeny entry exactly once after two syncs, found %d times", count)
+	}
+}
+
+// TestSyncSandbox_DryRunChecksDenyReadPaths verifies that dry-run returns the correct
+// DenyReadPaths from sandbox.toml (not an empty slice).
+func TestSyncSandbox_DryRunChecksDenyReadPaths(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = ["~/.aws"]
+`)
+	writeProjectsConfig(t, dir)
+
+	settingsPath := filepath.Join(dir, "settings.json")
+	result, err := syncSandbox(true, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox dry-run: %v", err)
+	}
+
+	home, _ := os.UserHomeDir()
+	wantPath := filepath.Join(home, ".aws")
+	found := false
+	for _, p := range result.DenyReadPaths {
+		if p == wantPath {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected %s in dry-run DenyReadPaths, got %v", wantPath, result.DenyReadPaths)
+	}
+}
+
+// TestSyncSandbox_BarePermissionsDenyExpanded verifies that a bare path in permissionsDeny
+// (no Read() wrapper) is expanded and written to settings.json correctly.
+func TestSyncSandbox_BarePermissionsDenyExpanded(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = []
+permissionsDeny = ["~/.aws/credentials", "Read(~/.ssh/id_ed25519)"]
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	if _, err := syncSandbox(false, settingsPath); err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+	perms, ok := settings["permissions"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected permissions object in settings.json")
+	}
+	deny, ok := perms["deny"].([]interface{})
+	if !ok {
+		t.Fatal("expected permissions.deny array in settings.json")
+	}
+
+	home, _ := os.UserHomeDir()
+	wantBare := filepath.Join(home, ".aws/credentials")
+	wantWrapped := "Read(" + filepath.Join(home, ".ssh/id_ed25519") + ")"
+	gotBare, gotWrapped := false, false
+	for _, v := range deny {
+		if v == wantBare {
+			gotBare = true
+		}
+		if v == wantWrapped {
+			gotWrapped = true
+		}
+	}
+	if !gotBare {
+		t.Errorf("expected bare path %q in deny, got %v", wantBare, deny)
+	}
+	if !gotWrapped {
+		t.Errorf("expected wrapped path %q in deny, got %v", wantWrapped, deny)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/pr"
+	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
@@ -88,6 +89,25 @@ Examples:
 
 		// Notify lifecycle agent
 		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, resp.PRURL))
+
+		// Auto-advance pipeline — triggers daemon to spawn PR reviewer.
+		if ctx.Task.UUID != "" {
+			sessionName, _ := review.ResolveSessionName()
+			workDir, _ := os.Getwd()
+			advResp, advErr := daemon.AdvanceClient(daemon.AdvanceRequest{
+				TaskUUID:    ctx.Task.UUID,
+				AgentName:   os.Getenv("TTAL_AGENT_NAME"),
+				SessionName: sessionName,
+				WorkDir:     workDir,
+			})
+			if advErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", advErr)
+			} else if advResp.Status == daemon.AdvanceStatusAdvanced {
+				fmt.Printf("  Spawning reviewer...\n")
+			} else {
+				fmt.Printf("  Pipeline: %s\n", advResp.Status)
+			}
+		}
 
 		return nil
 	},
