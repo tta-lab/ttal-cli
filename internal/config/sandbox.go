@@ -9,7 +9,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// SandboxConfig holds per-plane extra TEMENOS_PATHS loaded from sandbox.toml.
+// SandboxConfig holds per-plane extra paths loaded from sandbox.toml.
+// Consumed by sync.SyncSandbox to build allowWrite paths for ~/.claude/settings.json.
 // Paths support ~ expansion and must include a :ro or :rw suffix.
 type SandboxConfig struct {
 	Shared  SandboxPlane `toml:"shared"`
