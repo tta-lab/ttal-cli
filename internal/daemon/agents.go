@@ -53,11 +53,7 @@ func initSingleAdapter(
 			return
 		}
 		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
-		agentEnv, err := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
-		if err != nil {
-			log.Printf("[daemon] failed to build env for %s: %v", ta.AgentName, err)
-			return
-		}
+		agentEnv := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 		shell := mcfg.Global.GetShell()
 		ensureProjectDir(agentPath)
 		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, agentEnv, shell); err != nil {
@@ -103,7 +99,7 @@ func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) stri
 }
 
 // buildManagerAgentEnv returns env vars for a manager agent session.
-func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) ([]string, error) {
+func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
 	agentEnv := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
@@ -123,13 +119,10 @@ func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig)
 			}
 		}
 	}
-	temenosEnv, err := envpkg.ManagerTemenosEnv(projectPaths)
-	if err != nil {
-		return nil, fmt.Errorf("build temenos env for manager %s: %w", agentName, err)
-	}
+	temenosEnv := envpkg.ManagerTemenosEnv(projectPaths)
 	agentEnv = append(agentEnv, temenosEnv...)
 
-	return agentEnv, nil
+	return agentEnv
 }
 
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json

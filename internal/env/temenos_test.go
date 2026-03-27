@@ -1,6 +1,7 @@
 package env
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,33 +11,51 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSharedTemenosPaths(t *testing.T) {
-	paths, err := sharedTemenosPaths()
-	require.NoError(t, err)
-
-	home, _ := os.UserHomeDir()
-	assert.Contains(t, paths, filepath.Join(home, ".ttal")+":rw")
-	assert.Contains(t, paths, filepath.Join(home, ".task")+":rw")
-	assert.Contains(t, paths, filepath.Join(home, ".diary")+":rw")
-	assert.Contains(t, paths, filepath.Join(home, ".local", "share", "flicknote")+":rw")
-	assert.Contains(t, paths, filepath.Join(home, ".config", "ttal")+":ro")
-	assert.Contains(t, paths, filepath.Join(home, ".config", "git")+":ro")
-	assert.Contains(t, paths, filepath.Join(home, ".gitconfig")+":ro")
-	assert.Contains(t, paths, filepath.Join(home, ".taskrc")+":ro")
+// writeSandboxTOML writes a minimal sandbox.toml to a temp config dir and
+// sets XDG_CONFIG_HOME so config.DefaultConfigDir() picks it up.
+func writeSandboxTOML(t *testing.T, content string) {
+	t.Helper()
+	dir := t.TempDir()
+	ttalDir := filepath.Join(dir, "ttal")
+	require.NoError(t, os.MkdirAll(ttalDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(ttalDir, "sandbox.toml"), []byte(content), 0o644))
+	t.Setenv("XDG_CONFIG_HOME", dir)
 }
 
 func TestWorkerTemenosEnv(t *testing.T) {
-	env, err := WorkerTemenosEnv(nil)
-	require.NoError(t, err)
+	// Use /tmp paths (always exist) so PathsForPlane's stat filter doesn't drop them.
+	// This avoids a dependency on ~/.ttal or ~/.task existing on the test machine / CI runner.
+	tmpA := filepath.Join(t.TempDir(), "shared-a")
+	tmpB := filepath.Join(t.TempDir(), "shared-b")
+	tmpW := filepath.Join(t.TempDir(), "worker-c")
+	require.NoError(t, os.MkdirAll(tmpA, 0o755))
+	require.NoError(t, os.MkdirAll(tmpB, 0o755))
+	require.NoError(t, os.MkdirAll(tmpW, 0o755))
+
+	writeSandboxTOML(t, fmt.Sprintf(`
+[shared]
+extra_paths = [%q, %q]
+
+[worker]
+extra_paths = [%q]
+
+[manager]
+extra_paths = []
+`, tmpA+":rw", tmpB+":rw", tmpW+":rw"))
+
+	env := WorkerTemenosEnv(nil)
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=true", env[0])
 	assert.True(t, strings.HasPrefix(env[1], "TEMENOS_PATHS="))
+	assert.Contains(t, env[1], tmpA+":rw")
+	assert.Contains(t, env[1], tmpB+":rw")
+	assert.Contains(t, env[1], tmpW+":rw")
 	assert.Equal(t, "ENABLE_TOOL_SEARCH=false", env[2])
 }
 
 func TestWorkerTemenosEnvWithExtraPaths(t *testing.T) {
-	env, err := WorkerTemenosEnv([]string{"/tmp/project-a", "/tmp/refs"})
-	require.NoError(t, err)
+	writeSandboxTOML(t, "")
+	env := WorkerTemenosEnv([]string{"/tmp/project-a", "/tmp/refs"})
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=true", env[0])
 	assert.Contains(t, env[1], "/tmp/project-a:ro")
@@ -44,28 +63,51 @@ func TestWorkerTemenosEnvWithExtraPaths(t *testing.T) {
 }
 
 func TestReviewerTemenosEnv(t *testing.T) {
-	env, err := ReviewerTemenosEnv(nil)
-	require.NoError(t, err)
+	writeSandboxTOML(t, `
+[shared]
+extra_paths = ["/tmp:rw"]
+
+[worker]
+extra_paths = ["/tmp:ro"]
+
+[manager]
+extra_paths = []
+`)
+	env := ReviewerTemenosEnv(nil)
 	require.Len(t, env, 3)
+	// Reviewers are read-only (TEMENOS_WRITE=false) but use the worker plane paths.
 	assert.Equal(t, "TEMENOS_WRITE=false", env[0])
 	assert.True(t, strings.HasPrefix(env[1], "TEMENOS_PATHS="))
+	// Worker plane paths (not just shared) must appear — reviewer uses "worker" plane.
+	assert.Contains(t, env[1], "/tmp:ro", "reviewer must include worker plane paths")
 	assert.Equal(t, "ENABLE_TOOL_SEARCH=false", env[2])
 }
 
 func TestManagerTemenosEnv(t *testing.T) {
+	writeSandboxTOML(t, `
+[shared]
+extra_paths = ["~/.ttal:rw"]
+
+[worker]
+extra_paths = ["~/Library/Caches/go-build:rw"]
+
+[manager]
+extra_paths = []
+`)
 	projects := []string{"/proj/alpha", "/proj/beta"}
-	env, err := ManagerTemenosEnv(projects)
-	require.NoError(t, err)
+	env := ManagerTemenosEnv(projects)
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=false", env[0])
 	assert.Contains(t, env[1], "/proj/alpha:ro")
 	assert.Contains(t, env[1], "/proj/beta:ro")
+	// worker-only paths must NOT appear in manager env
+	assert.NotContains(t, env[1], "go-build")
 	assert.Equal(t, "ENABLE_TOOL_SEARCH=false", env[2])
 }
 
 func TestManagerTemenosEnv_NoProjects(t *testing.T) {
-	env, err := ManagerTemenosEnv(nil)
-	require.NoError(t, err)
+	writeSandboxTOML(t, "")
+	env := ManagerTemenosEnv(nil)
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=false", env[0])
 	assert.True(t, strings.HasPrefix(env[1], "TEMENOS_PATHS="))

@@ -1,0 +1,42 @@
+# sandbox.toml — per-plane extra TEMENOS_PATHS
+# Deployed to ~/.config/ttal/sandbox.toml via `ttal sync`.
+#
+# [shared] paths are added to all planes.
+# [worker] paths are added to worker and reviewer sessions.
+# [manager] paths are added to manager sessions.
+#
+# Paths support ~ expansion and must include a :ro or :rw suffix.
+# Non-existent paths are silently skipped — list both macOS and Linux
+# variants freely; only the ones present on disk are used.
+
+[shared]
+extra_paths = [
+  "~/.ttal:rw",                              # ttal data dir (tasks, daemon state)
+  "~/.task:rw",                              # taskwarrior data (SQLite WAL needs :rw)
+  "~/.diary:rw",                             # diary data
+  "~/.local/share/flicknote:rw",             # flicknote SQLite database
+  "~/.config/ttal:ro",                       # ttal config (sandbox.toml, projects.toml, etc.)
+  "~/.config/flicknote:ro",                  # flicknote config
+  "~/.config/git:ro",                        # git config
+  "~/.gitconfig:ro",                         # git config (home dir variant)
+  "~/.taskrc:ro",                            # taskwarrior config
+  "/Library/Developer/CommandLineTools:ro",  # macOS: xcrun shim resolves make/clang from here
+  "/private/var/folders:rw",                 # macOS TMPDIR — used by Go, Rust, and most build tools
+  "/tmp:rw",                                 # Linux TMPDIR
+]
+
+[worker]
+extra_paths = [
+  "~/.cargo/registry:ro",                    # Rust crate registry cache
+  "~/.cargo/git:ro",                         # Rust git-sourced dependency cache
+  "~/.rustup:ro",                            # Rust toolchain (rustc, cargo binaries)
+  "~/Library/Caches/go-build:rw",            # macOS: Go build cache
+  "~/Library/Caches/golangci-lint:rw",       # macOS: golangci-lint analysis cache
+  "~/Library/Caches/cargo:rw",               # macOS: Rust incremental build cache
+  "~/.cache/go/build:rw",                    # Linux: Go build cache
+  "~/.cache/golangci-lint:rw",               # Linux: golangci-lint analysis cache
+  "~/.cache/cargo:rw",                       # Linux: Rust incremental build cache
+]
+
+[manager]
+extra_paths = []
