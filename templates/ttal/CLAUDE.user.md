@@ -13,7 +13,7 @@
 All agents use **temenos MCP** for file and command operations — built-in CC tools (Bash, Read, Write, Edit, Grep, Glob) are restricted via agent `tools:` frontmatter.
 
 **Available tools:**
-- `mcp__temenos__bash` — sandboxed shell execution via temenos daemon
+- `mcp__temenos__bash` — sandboxed shell execution via temenos daemon. **Always use this for shell commands** — don't spawn subagents just to run a bash command.
 - `mcp__context7__resolve-library-id` — look up library documentation IDs
 - `mcp__context7__query-docs` — fetch library documentation and examples
 - `Agent` — spawn subagents (orchestrators and lead reviewers only)
