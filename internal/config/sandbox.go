@@ -16,27 +16,35 @@ import (
 // AllowWrite              — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
 // DenyWrite               — paths Claude may not write to (maps to sandbox.filesystem.denyWrite).
 // DenyRead                — paths Claude may not read (maps to sandbox.filesystem.denyRead).
-//                           Typically ["~/"] to deny all home dir reads by default.
+//
+//	Typically ["~/"] to deny all home dir reads by default.
+//
 // AllowRead               — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
-//                           Used to allowlist specific dirs within the denied home dir.
+//
+//	Used to allowlist specific dirs within the denied home dir.
+//
 // PermissionsDeny         — raw permissions.deny entries (e.g. "Read(~/.ssh/id_ed25519)").
-//                           Written directly to settings.json permissions.deny (additive, deduplicated).
-//                           Use to deny specific secret files within allowRead dirs.
+//
+//	Written directly to settings.json permissions.deny (additive, deduplicated).
+//	Use to deny specific secret files within allowRead dirs.
+//
 // AutoAllowBashIfSandboxed — auto-approve bash commands when sandboxed (default: true in CC).
-//                            Set to false to require approval for each bash command.
+//
+//	Set to false to require approval for each bash command.
+//
 // Network                 — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
 // Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
 // failIfUnavailable and allowUnsandboxedCommands are hardcoded secure defaults in sync.
 type SandboxConfig struct {
-	Enabled                 bool          `toml:"enabled"`
+	Enabled                  bool          `toml:"enabled"`
 	AutoAllowBashIfSandboxed *bool         `toml:"autoAllowBashIfSandboxed"`
-	AllowWrite              []string      `toml:"allowWrite"`
-	DenyWrite               []string      `toml:"denyWrite"`
-	DenyRead                []string      `toml:"denyRead"`
-	AllowRead               []string      `toml:"allowRead"`
-	PermissionsDeny         []string      `toml:"permissionsDeny"`
-	Network                 NetworkConfig `toml:"network"`
+	AllowWrite               []string      `toml:"allowWrite"`
+	DenyWrite                []string      `toml:"denyWrite"`
+	DenyRead                 []string      `toml:"denyRead"`
+	AllowRead                []string      `toml:"allowRead"`
+	PermissionsDeny          []string      `toml:"permissionsDeny"`
+	Network                  NetworkConfig `toml:"network"`
 }
 
 // NetworkConfig holds network access settings for the sandbox.

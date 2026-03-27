@@ -173,7 +173,7 @@ allowRead = ["~/.ssh", "~/.config/ttal", "."]
 	wantPaths := map[string]bool{
 		filepath.Join(home, ".ssh"):         false,
 		filepath.Join(home, ".config/ttal"): false,
-		".": false,
+		".":                                 false,
 	}
 	for _, v := range allowRead {
 		if s, ok := v.(string); ok {
