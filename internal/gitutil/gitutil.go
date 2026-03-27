@@ -110,7 +110,7 @@ func GitCommonDir(dir string) string {
 	if err != nil {
 		return ""
 	}
-	p := strings.TrimSpace(string(out))
+	p := strings.TrimSpace(out)
 	if p == "" {
 		return ""
 	}
@@ -132,7 +132,7 @@ func IsWorktreeLinked(dir string) bool {
 	if commonDir == "" {
 		return false
 	}
-	gd := strings.TrimSpace(string(gitDir))
+	gd := strings.TrimSpace(gitDir)
 	if !filepath.IsAbs(gd) {
 		gd = filepath.Join(dir, gd)
 	}
