@@ -53,7 +53,7 @@ Requires `HOMEBREW_TAP_TOKEN` secret in GitHub repo settings (a PAT with repo sc
 
 ### Project Storage — TOML File
 
-Projects are stored in a plain TOML file at `~/.config/ttal/projects.toml` (or `~/.config/ttal/{team}-projects.toml` for non-default teams). No database dependencies.
+Projects are stored in a plain TOML file at `~/.config/ttal/projects.toml`. No database dependencies.
 
 **Store Location**: `internal/project/store.go`
 
@@ -86,7 +86,6 @@ path := project.ResolveProjectPath("ttal.pr")
 ```
 
 **Agent metadata** is stored in CLAUDE.md frontmatter files (see `internal/agentfs/`), not in the project store.
-
 ### Project Structure
 
 ```
@@ -259,8 +258,7 @@ Generate a template: `ttal doctor --fix`
 ~/.config/ttal/
   ├── .env                    - Secrets (bot tokens, API keys)
   ├── config.toml             - Global ttal configuration
-  ├── projects.toml           - Active/archived project registry (default team)
-  ├── {team}-projects.toml    - Per-team project registry (e.g. guion-projects.toml)
+  ├── projects.toml           - Active/archived project registry
   ├── roles.toml              - Agent role prompt templates (instructional text, no skills)
   ├── prompts.toml            - Prompt templates for agent operations
   └── license                 - License key

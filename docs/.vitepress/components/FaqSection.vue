@@ -36,11 +36,11 @@ const faqs = [
   },
   {
     q: "What does 'team' mean in pricing — human users or agent teams?",
-    a: 'Agent teams. A team is a group of agents that work together on a product — each team has its own agent registry, project registry, and task queue. Think of it as one team per product. Free includes 1 team with 2 agents, Pro gives 1 team with unlimited agents, Team gives unlimited teams. There are no per-seat charges for humans.',
+    a: 'Agent limits are about AI agents (Claude Code sessions), not human users. There are no per-seat charges for humans. Free includes 2 agents; Pro and Team give unlimited agents.',
   },
   {
-    q: 'Can agents talk to each other across teams?',
-    a: 'Yes, natively. Agents can message any other agent regardless of team — within-team and cross-team messaging both work out of the box via ttal send.',
+    q: 'Can agents talk to each other?',
+    a: 'Yes, natively. Agents can message any other agent via ttal send — coordination and delegation work out of the box.',
   },
 ]
 

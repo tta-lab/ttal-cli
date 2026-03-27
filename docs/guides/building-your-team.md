@@ -82,32 +82,3 @@ bot_token = "123456:ABC..."
 
 Open a DM with your new bot on Telegram. Send it a message — the daemon will deliver it to the agent's tmux session.
 
-## Multi-team setup
-
-For completely separate contexts (different projects, different taskwarrior instances):
-
-```toml
-[teams.personal]
-taskrc = "~/.taskrc"
-
-[teams.work]
-taskrc = "~/.task-work/taskrc"
-```
-
-Each team has its own:
-- Taskwarrior database
-- Agent roster
-- Bot tokens
-- Data directory
-
-## When to split into multiple teams
-
-**Keep one team when:**
-- All your projects share the same agents
-- You want a unified task list
-- One Telegram chat per agent is enough
-
-**Split into teams when:**
-- You have distinct contexts (personal vs work)
-- Different projects need different runtimes
-- You want separate taskwarrior databases
