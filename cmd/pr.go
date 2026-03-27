@@ -10,10 +10,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/pr"
-	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
@@ -88,35 +86,8 @@ Examples:
 			}
 		}
 
-		// Update ctx.Task.PRID for SpawnReviewer
-		ctx.Task.PRID = strconv.FormatInt(resp.PRIndex, 10)
-
 		// Notify lifecycle agent
 		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, resp.PRURL))
-
-		// Auto-spawn reviewer
-		workDir, _ := os.Getwd()
-		sessionName, sessionErr := review.ResolveSessionName()
-		if sessionErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
-		} else if sessionName != "" {
-			cfg, _ := loadConfigAndCoderRuntime()
-			reviewerName := resolvePRReviewerName(ctx.Task.Tags)
-			if tmux.WindowExists(sessionName, reviewerName) {
-				fmt.Println("  Reviewer already running, sending review request...")
-				if err := review.RequestReReview(sessionName, reviewerName, false, "", cfg); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: re-review request failed: %v\n", err)
-				}
-			} else {
-				fmt.Println("  Spawning reviewer...")
-				if err := review.SpawnReviewer(sessionName, ctx, reviewerName, cfg, workDir); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
-				}
-			}
-		} else {
-			fmt.Println("  To request a code review:")
-			fmt.Println("    ttal go <uuid>")
-		}
 
 		return nil
 	},
@@ -177,12 +148,6 @@ func writeReviewFile(body string) (string, error) {
 	}
 	_ = f.Close()
 	return f.Name(), nil
-}
-
-// resolvePRReviewerName resolves the PR reviewer agent name from pipeline config.
-// Falls back to "pr-review-lead" if no pipeline matches or no reviewer is configured.
-func resolvePRReviewerName(taskTags []string) string {
-	return resolveReviewerWindow(taskTags, "coder", "pr-review-lead")
 }
 
 // resolveCoderRuntime returns the coder's runtime from TTAL_RUNTIME env var,
