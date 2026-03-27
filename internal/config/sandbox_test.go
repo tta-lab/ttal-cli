@@ -18,61 +18,14 @@ func writeSandboxTOML(t *testing.T, content string) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 }
 
-func TestPathsForPlane_AliasingIsSafe(t *testing.T) {
-	// Calling PathsForPlane twice on the same SandboxConfig must not bleed
-	// plane paths into the shared section (the classic Go append aliasing trap).
-	cfg := &SandboxConfig{
-		Shared:  SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-		Worker:  SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-		Manager: SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-	}
-
-	worker := cfg.PathsForPlane("worker")
-	manager := cfg.PathsForPlane("manager")
-
-	// Both calls should return the same length (shared + one plane path).
-	assert.Equal(t, len(worker), len(manager), "second call should not see paths from first call")
-}
-
-func TestPathsForPlane_UnknownPlane(t *testing.T) {
-	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"/tmp:rw"}},
-	}
-	paths := cfg.PathsForPlane("nonexistent")
-	// Unknown plane falls back to shared only (no panic, no extra paths).
-	assert.Len(t, paths, 1)
-	assert.Equal(t, "/tmp:rw", paths[0])
-}
-
-func TestPathsForPlane_TildeExpansion(t *testing.T) {
-	// Point HOME at a temp dir so ~ expansion resolves to a path we control,
-	// and the subdir we create is guaranteed to pass PathsForPlane's os.Stat filter
-	// on any machine (including CI runners where ~/.ttal doesn't exist).
-	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
-	subDir := filepath.Join(tmpHome, "mydata")
-	require.NoError(t, os.Mkdir(subDir, 0o755))
-
-	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"~/mydata:rw"}},
-	}
-	paths := cfg.PathsForPlane("shared")
-	assert.Contains(t, paths, subDir+":rw")
-}
-
-func TestPathsForPlane_NonExistentFiltered(t *testing.T) {
-	cfg := &SandboxConfig{
-		Shared: SandboxPlane{ExtraPaths: []string{"/does/not/exist:ro"}},
-	}
-	paths := cfg.PathsForPlane("shared")
-	assert.Empty(t, paths, "non-existent paths must be filtered out")
-}
-
 func TestLoadSandbox_FileNotExist(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cfg := LoadSandbox()
 	assert.NotNil(t, cfg)
-	assert.Empty(t, cfg.Shared.ExtraPaths)
+	assert.Empty(t, cfg.AllowWrite)
+	assert.Empty(t, cfg.DenyRead)
+	assert.Empty(t, cfg.AllowRead)
+	assert.Empty(t, cfg.PermissionsDeny)
 }
 
 func TestLoadSandbox_MalformedTOML(t *testing.T) {
@@ -80,26 +33,70 @@ func TestLoadSandbox_MalformedTOML(t *testing.T) {
 	cfg := LoadSandbox()
 	// Must return clean zero value, not a partially-decoded config.
 	assert.NotNil(t, cfg)
-	assert.Empty(t, cfg.Shared.ExtraPaths)
-	assert.Empty(t, cfg.Worker.ExtraPaths)
-	assert.Empty(t, cfg.Manager.ExtraPaths)
+	assert.Empty(t, cfg.AllowWrite)
+	assert.Empty(t, cfg.DenyRead)
+	assert.Empty(t, cfg.AllowRead)
+	assert.Empty(t, cfg.PermissionsDeny)
 }
 
 func TestLoadSandbox_ValidTOML(t *testing.T) {
 	writeSandboxTOML(t, `
-[shared]
-extra_paths = ["/tmp:rw"]
+enabled = true
+autoAllowBashIfSandboxed = false
+allowWrite = ["/tmp"]
+denyWrite = ["/tmp/protected"]
+denyRead = ["~/"]
+allowRead = ["~/.ssh", "~/.config/ttal"]
+permissionsDeny = ["Read(~/.config/ttal/.env)", "Read(~/.ssh/id_ed25519)"]
 
-[worker]
-extra_paths = ["/tmp:ro"]
-
-[manager]
-extra_paths = []
+[network]
+allowedDomains = ["github.com", "*.guion.io"]
 `)
 	cfg := LoadSandbox()
 	require.NotNil(t, cfg)
-	assert.Equal(t, []string{"/tmp:rw"}, cfg.Shared.ExtraPaths)
-	assert.Equal(t, []string{"/tmp:ro"}, cfg.Worker.ExtraPaths)
+	assert.True(t, cfg.Enabled)
+	assert.NotNil(t, cfg.AutoAllowBashIfSandboxed)
+	assert.False(t, *cfg.AutoAllowBashIfSandboxed)
+	assert.Equal(t, []string{"/tmp"}, cfg.AllowWrite)
+	assert.Equal(t, []string{"/tmp/protected"}, cfg.DenyWrite)
+	assert.Equal(t, []string{"~/"}, cfg.DenyRead)
+	assert.Equal(t, []string{"~/.ssh", "~/.config/ttal"}, cfg.AllowRead)
+	assert.Equal(t, []string{"Read(~/.config/ttal/.env)", "Read(~/.ssh/id_ed25519)"}, cfg.PermissionsDeny)
+	assert.Equal(t, []string{"github.com", "*.guion.io"}, cfg.Network.AllowedDomains)
+}
+
+func TestLoadSandbox_AutoAllowBashNilWhenAbsent(t *testing.T) {
+	writeSandboxTOML(t, `
+enabled = true
+allowWrite = ["/tmp"]
+`)
+	cfg := LoadSandbox()
+	require.NotNil(t, cfg)
+	assert.Nil(t, cfg.AutoAllowBashIfSandboxed, "AutoAllowBashIfSandboxed should be nil when not set")
+}
+
+func TestLoadSandbox_ExpandedPaths(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	writeSandboxTOML(t, `
+enabled = true
+allowWrite = ["~/mydata"]
+denyWrite = ["~/protected"]
+denyRead = ["~/"]
+allowRead = ["~/.ssh"]
+permissionsDeny = ["Read(~/.config/ttal/.env)"]
+`)
+	cfg := LoadSandbox()
+	require.NotNil(t, cfg)
+
+	assert.Contains(t, cfg.ExpandedAllowWrite(), filepath.Join(tmpHome, "mydata"))
+	assert.Contains(t, cfg.ExpandedDenyWrite(), filepath.Join(tmpHome, "protected"))
+	assert.Contains(t, cfg.ExpandedDenyRead(), tmpHome+"/")
+	assert.Contains(t, cfg.ExpandedAllowRead(), filepath.Join(tmpHome, ".ssh"))
+
+	expanded := cfg.ExpandedPermissionsDeny()
+	assert.Contains(t, expanded, "Read("+filepath.Join(tmpHome, ".config/ttal/.env")+")")
 }
 
 func TestDefaultConfigDir_XGDBranch(t *testing.T) {

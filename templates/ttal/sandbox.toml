@@ -6,45 +6,101 @@
 # allowUnsandboxedCommands=false, daemon socket allowed).
 # When false, ttal sync skips the sandbox section entirely.
 #
-# All enforcement settings are hardcoded in sync — they are not configurable here.
+# allowWrite      — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
+# denyRead        — paths Claude may not read (maps to sandbox.filesystem.denyRead).
+#                   WARNING: denyRead has higher priority than allowRead — never use a parent
+#                   dir (e.g. "~/") here as it blocks all allowRead carveouts within it.
+#                   Only use for specific paths that do NOT overlap with any allowRead entry.
+# allowRead       — paths Claude may read (maps to sandbox.filesystem.allowRead).
+#                   Allowlist of dirs agents legitimately need. Only effective when denyRead
+#                   does not cover a parent of these paths (see denyRead warning above).
+# permissionsDeny — raw permissions.deny entries written directly to settings.json.
+#                   Use "Read(<path>)" to deny specific secret files within allowRead dirs.
 #
-# [shared] paths are added to all planes.
-# [worker] paths are added to worker and reviewer sessions.
-# [manager] paths are added to manager sessions.
-#
-# :rw paths become allowWrite entries in settings.json.
-# :ro paths are legacy (not enforced by CC sandbox; only denyRead restricts reads).
+# [network]
+# allowedDomains — external domains Claude may contact (maps to sandbox.network.allowedDomains).
 
 enabled = true
 
-[shared]
-extra_paths = [
-  "~/.ttal:rw",                              # ttal data dir (tasks, daemon state)
-  "~/.task:rw",                              # taskwarrior data (SQLite WAL needs :rw)
-  "~/.diary:rw",                             # diary data
-  "~/.local/share/flicknote:rw",             # flicknote SQLite database
-  "~/.config/ttal:ro",                       # ttal config (sandbox.toml, projects.toml, etc.)
-  "~/.config/flicknote:ro",                  # flicknote config
-  "~/.config/git:ro",                        # git config
-  "~/.gitconfig:ro",                         # git config (home dir variant)
-  "~/.taskrc:ro",                            # taskwarrior config
-  "/Library/Developer/CommandLineTools:ro",  # macOS: xcrun shim resolves make/clang from here
-  "/private/var/folders:rw",                 # macOS TMPDIR — used by Go, Rust, and most build tools
-  "/tmp:rw",                                 # Linux TMPDIR
+# Auto-approve bash commands when sandboxed (CC default: true).
+# Set to false to require explicit approval for each bash command in sandboxed sessions.
+autoAllowBashIfSandboxed = true
+
+allowWrite = [
+  "~/.ttal",                             # ttal data dir (tasks, daemon state)
+  "~/.task",                             # taskwarrior data (SQLite WAL needs write)
+  "~/.diary",                            # diary data
+  "~/.local/share/flicknote",            # flicknote SQLite database
+  "/private/var/folders",                # macOS TMPDIR — used by Go, Rust, and most build tools
+  "/tmp",                                # Linux TMPDIR
+  "~/Library/Caches/go-build",          # macOS: Go build cache
+  "~/Library/Caches/golangci-lint",     # macOS: golangci-lint analysis cache
+  "~/Library/Caches/cargo",             # macOS: Rust incremental build cache
+  "~/.cache/go/build",                   # Linux: Go build cache
+  "~/.cache/golangci-lint",             # Linux: golangci-lint analysis cache
+  "~/.cache/cargo",                      # Linux: Rust incremental build cache
+  "~/.npm/_logs",                        # npm log directory
 ]
 
-[worker]
-extra_paths = [
-  "~/.cargo/registry:ro",                    # Rust crate registry cache
-  "~/.cargo/git:ro",                         # Rust git-sourced dependency cache
-  "~/.rustup:ro",                            # Rust toolchain (rustc, cargo binaries)
-  "~/Library/Caches/go-build:rw",            # macOS: Go build cache
-  "~/Library/Caches/golangci-lint:rw",       # macOS: golangci-lint analysis cache
-  "~/Library/Caches/cargo:rw",               # macOS: Rust incremental build cache
-  "~/.cache/go/build:rw",                    # Linux: Go build cache
-  "~/.cache/golangci-lint:rw",               # Linux: golangci-lint analysis cache
-  "~/.cache/cargo:rw",                       # Linux: Rust incremental build cache
+# denyRead is intentionally empty. Secrets are blocked via permissionsDeny below, which
+# operates at the permissions layer and overrides allowRead for specific files without
+# blocking the whole directory.
+# WARNING: do not set a parent dir here (e.g. "~/") — denyRead has higher priority than
+# allowRead in CC sandbox and would block all carveouts within it.
+denyRead = []
+
+# Allowlist: dirs that agents legitimately need to read.
+allowRead = [
+  ".",                                   # current project (always needed)
+  "~/.ssh",                              # SSH dir — git needs this for auth
+  "~/.gnupg",                            # GPG — git needs this for signing
+  "~/.config/ttal",                      # ttal config (projects.toml, sandbox.toml, etc.)
+  "~/.config/flicknote",                 # flicknote config
+  "~/.config/git",                       # git config
+  "~/.gitconfig",                        # git config (home dir variant)
+  "~/.taskrc",                           # taskwarrior config
+  "~/.netrc",                            # HTTPS git auth
+  "~/.cargo/registry",                   # Rust crate registry cache
+  "~/.cargo/git",                        # Rust git-sourced dependency cache
+  "~/.rustup",                           # Rust toolchain
+  "/Library/Developer/CommandLineTools", # macOS: xcrun shim resolves make/clang from here
 ]
 
-[manager]
-extra_paths = []
+# Paths Claude may not write to (maps to sandbox.filesystem.denyWrite).
+# Useful to protect system dirs that fall within an allowWrite subtree.
+denyWrite = []
+
+# Block specific secret files via the permissions layer.
+# These override allowRead for individual files without blocking the whole directory —
+# the correct way to protect secrets within dirs that agents otherwise need to read.
+permissionsDeny = [
+  "Read(~/.config/ttal/.env)",           # ttal secrets (.env)
+  "Read(~/.ssh/id_ed25519)",             # SSH private key
+  "Read(~/.gnupg/**)",                   # GPG private keys
+  "Read(~/.netrc)",                      # HTTPS auth credentials
+  "Read(~/.aws/credentials)",            # AWS credentials
+  "Read(~/.kube/config)",               # Kubernetes config
+]
+
+[network]
+allowedDomains = [
+  # Code hosting
+  "github.com", "*.github.com",
+  "*.guion.io",
+  # Anthropic / Claude Code docs
+  "*.claude.com",
+  # Go modules
+  "proxy.golang.org", "sum.golang.org", "pkg.go.dev",
+  # Rust/Cargo
+  "crates.io", "*.crates.io",
+  # npm
+  "registry.npmjs.org",
+  # Python/pip
+  "pypi.org", "files.pythonhosted.org",
+  # JSON schema validation (settings.json $schema references)
+  "json.schemastore.org",
+  # Docker Hub
+  "docker.io", "*.docker.io",
+  # Telegram Bot API (daemon sends messages via Telegram)
+  "api.telegram.org",
+]
