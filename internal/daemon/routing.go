@@ -464,7 +464,8 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildManagerAgentEnv: agent identity, TASKRC, and allowlisted .env secrets.
+// Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets,
+// and temenos MCP sandbox config.
 func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
@@ -474,6 +475,12 @@ func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
 	vars = append(vars, env.AllowedDotEnvParts()...)
+
+	// Temenos MCP sandbox config — managers get read-only cwd, read access to all projects
+	// and the ask references_path.
+	projectPaths := env.CollectReadOnlyPaths()
+	vars = append(vars, env.ManagerTemenosEnv(projectPaths)...)
+
 	return vars
 }
 

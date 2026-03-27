@@ -215,7 +215,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
-	envParts := buildEnvParts(task, cfg.Runtime, taskrc)
+	envParts := buildEnvParts(task, cfg.Runtime, taskrc, workDir)
 	model := resolveModel(task, shellCfg)
 
 	var shellCmd string
@@ -281,7 +281,9 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []string {
+// workDir is the worker's cwd — used to detect linked worktrees that need
+// write access to the main repo's .git directory.
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc, workDir string) []string {
 	parts := []string{
 		"TTAL_AGENT_NAME=" + CoderAgentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
@@ -295,6 +297,15 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc string) []
 	// plus read-only access to all registered project paths and references.
 	readOnlyPaths := env.CollectReadOnlyPaths()
 	temenosEnv := env.WorkerTemenosEnv(readOnlyPaths)
+
+	// Linked worktrees need write access to the main repo's .git directory
+	// for git commit/push operations (worktree .git is a file pointing there).
+	if workDir != "" {
+		if commonDir := gitutil.LinkedWorktreeCommonDir(workDir); commonDir != "" {
+			temenosEnv = env.AppendTemenosPath(temenosEnv, commonDir+":rw")
+		}
+	}
+
 	parts = append(parts, temenosEnv...)
 
 	return parts

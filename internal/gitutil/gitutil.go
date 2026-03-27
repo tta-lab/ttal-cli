@@ -101,6 +101,39 @@ func BranchName(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// LinkedWorktreeCommonDir returns the shared .git directory if dir is a linked
+// git worktree. Returns "" if dir is the main repo or on any error.
+// Uses a single `git rev-parse --git-dir --git-common-dir` call to avoid
+// redundant subprocesses.
+func LinkedWorktreeCommonDir(dir string) string {
+	out, err := runGit(dir, "rev-parse", "--git-dir", "--git-common-dir")
+	if err != nil {
+		return ""
+	}
+	lines := strings.SplitN(strings.TrimSpace(out), "\n", 2)
+	if len(lines) < 2 {
+		return ""
+	}
+	gitDir := resolveGitPath(dir, lines[0])
+	commonDir := resolveGitPath(dir, lines[1])
+	if gitDir == "" || commonDir == "" || gitDir == commonDir {
+		return ""
+	}
+	return commonDir
+}
+
+// resolveGitPath cleans a git rev-parse output path, making it absolute relative to dir.
+func resolveGitPath(dir, raw string) string {
+	p := strings.TrimSpace(raw)
+	if p == "" {
+		return ""
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(dir, p)
+	}
+	return filepath.Clean(p)
+}
+
 func runGit(dir string, args ...string) (string, error) {
 	return runGitWithTimeout(cmdTimeout, dir, args...)
 }
