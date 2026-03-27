@@ -27,8 +27,6 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 
 // SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
-// SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
-// workDir is the caller's working directory (project path) — used as the reviewer's cwd.
 func SpawnPlanReviewer(
 	sessionName string, taskUUID string, reviewerName string, cfg *config.Config, workDir string,
 ) error {

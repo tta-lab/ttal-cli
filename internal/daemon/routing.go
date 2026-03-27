@@ -464,9 +464,6 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 }
 
 // buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets,
-// and temenos MCP sandbox config.
-// buildBreatheEnv returns the env var list for a breathe restart command.
 // Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets.
 func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{

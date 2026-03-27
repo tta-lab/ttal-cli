@@ -32,7 +32,6 @@ import (
 )
 
 // AdvanceRequest is the request body for POST /pipeline/advance.
-// AdvanceRequest is the request body for POST /pipeline/advance.
 type AdvanceRequest struct {
 	TaskUUID    string `json:"task_uuid"`
 	AgentName   string `json:"agent_name"`             // from TTAL_AGENT_NAME env in caller session
@@ -85,8 +84,6 @@ func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
 	return result, nil
 }
 
-// handlePipelineAdvance is the daemon-side HTTP handler for POST /pipeline/advance.
-// It may block for minutes when a "human" gate requires Telegram approval.
 // handlePipelineAdvance is the daemon-side HTTP handler for POST /pipeline/advance.
 // It may block for minutes when a "human" gate requires Telegram approval.
 func handlePipelineAdvance(
@@ -247,7 +244,6 @@ func annotateStageCompletion(uuid, stageName, assignee, agentName string) {
 }
 
 // processStageAdvance handles gate checks and advancement for an already-active stage.
-// processStageAdvance handles gate checks and advancement for an already-active stage.
 func processStageAdvance(
 	ctx context.Context,
 	w http.ResponseWriter,
@@ -260,7 +256,14 @@ func processStageAdvance(
 	callerAgent, sessionName, workDir, team, workerRuntime, teamPath string,
 	agentRoles map[string]string,
 ) {
-	if checkReviewerGate(w, task, stage, sessionName, workDir, mcfg.Global) {
+	if checkReviewerGate(w, task, stage) {
+		// Spawn or re-trigger reviewer when caller provided session context.
+		// Skip when sessionName is empty (old client or non-tmux caller) — backwards compatible.
+		if sessionName != "" && mcfg.Global != nil {
+			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global); err != nil {
+				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
+			}
+		}
 		return
 	}
 	if checkHumanGate(ctx, w, fe, p, idx, callerAgent, task, stage) {
@@ -289,13 +292,7 @@ func processStageAdvance(
 
 // checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
 // Returns true when the response has been written (caller should return).
-// checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
-// Returns true when the response has been written (caller should return).
-// When sessionName is non-empty, also spawns or re-triggers the reviewer (best-effort).
-func checkReviewerGate(
-	w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage,
-	sessionName, workDir string, cfg *config.Config,
-) bool {
+func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) bool {
 	if stage.Reviewer == "" {
 		return false
 	}
@@ -310,15 +307,6 @@ func checkReviewerGate(
 		Reviewer: stage.Reviewer,
 		Assignee: stage.Assignee,
 	})
-
-	// Spawn or re-trigger reviewer when caller provided session context.
-	// Skip when sessionName is empty (old client or non-tmux caller) — backwards compatible.
-	if sessionName != "" && cfg != nil {
-		if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, cfg); err != nil {
-			log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
-		}
-	}
-
 	return true
 }
 

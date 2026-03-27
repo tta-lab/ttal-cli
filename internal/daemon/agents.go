@@ -92,7 +92,6 @@ func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) stri
 }
 
 // buildManagerAgentEnv returns env vars for a manager agent session.
-// buildManagerAgentEnv returns env vars for a manager agent session.
 func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
 	agentEnv := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),

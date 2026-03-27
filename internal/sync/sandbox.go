@@ -168,16 +168,12 @@ func appendSecretDenyEntries(denySlice []interface{}, denyRead []string) []inter
 func buildReadDenyEntry(p string) string {
 	base := filepath.Base(p)
 	// Known filenames without extensions are files, not dirs.
-	fileNames := map[string]bool{
-		".env":        true,
-		"credentials": true,
-		"config":      true,
-		".netrc":      true,
-	}
-	if fileNames[base] {
+	switch base {
+	case ".env", "credentials", "config", ".netrc":
 		return fmt.Sprintf("Read(%s)", p)
+	default:
+		return fmt.Sprintf("Read(%s/**)", p)
 	}
-	return fmt.Sprintf("Read(%s/**)", p)
 }
 
 // allSandboxPaths returns the raw ExtraPaths from all planes of sandbox.toml,
