@@ -22,7 +22,7 @@ type SandboxResult struct {
 
 // SyncSandbox updates ~/.claude/settings.json with sandbox and secret-deny config.
 // It reads the project store for paths and .git dirs, loads sandbox.toml for
-// allowWrite/denyRead/network config, and merges into the existing settings.json.
+// allowWrite/denyRead/allowRead/network config, and merges into the existing settings.json.
 func SyncSandbox(dryRun bool) (SandboxResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -61,14 +61,15 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 
 	// Replace sandbox section, preserving any existing user unix sockets.
 	existingSockets := extractExistingSockets(settings)
-	settings["sandbox"] = buildSandboxSection(allowWrite, denyRead, sandbox.Network.AllowedDomains, existingSockets)
+	allowRead := sandbox.ExpandedAllowRead()
+	settings["sandbox"] = buildSandboxSection(allowWrite, denyRead, allowRead, sandbox.Network.AllowedDomains, existingSockets)
 
-	// Append Read deny entries for secrets (additive, preserve existing).
+	// Append permissions.deny entries from sandbox.toml (additive, preserve existing).
 	perms, denySlice, err := extractPermsDenyList(settings)
 	if err != nil {
 		return result, err
 	}
-	denySlice = appendSecretDenyEntries(denySlice, denyRead)
+	denySlice = appendPermsDenyEntries(denySlice, sandbox.ExpandedPermissionsDeny())
 	if denySlice == nil {
 		denySlice = []interface{}{}
 	}
@@ -125,17 +126,17 @@ const daemonSocketPath = "~/.ttal/daemon.sock"
 // buildSandboxSection constructs the full sandbox object for settings.json.
 // Enforcement settings (failIfUnavailable, allowUnsandboxedCommands) are hardcoded
 // secure defaults — they are not user-configurable.
+// allowRead paths are sourced from sandbox.toml's allowRead field (allowlist within denyRead).
 // allowedDomains are sourced from sandbox.toml's [network] section.
 // existingSockets are user-defined unix sockets from a prior settings.json; they
 // are preserved and our daemonSocketPath is appended (deduplicated).
-func buildSandboxSection(allowWrite, denyRead, allowedDomains []string, existingSockets []string) map[string]interface{} {
-	aw := make([]interface{}, len(allowWrite))
-	for i, p := range allowWrite {
-		aw[i] = p
-	}
-	dr := make([]interface{}, len(denyRead))
-	for i, p := range denyRead {
-		dr[i] = p
+func buildSandboxSection(allowWrite, denyRead, allowRead, allowedDomains []string, existingSockets []string) map[string]interface{} {
+	toIfaceSlice := func(ss []string) []interface{} {
+		out := make([]interface{}, len(ss))
+		for i, s := range ss {
+			out[i] = s
+		}
+		return out
 	}
 
 	// Merge daemon socket with any existing user sockets — deduplicated, daemon first.
@@ -154,11 +155,15 @@ func buildSandboxSection(allowWrite, denyRead, allowedDomains []string, existing
 		"allowUnixSockets": sockets,
 	}
 	if len(allowedDomains) > 0 {
-		domains := make([]interface{}, len(allowedDomains))
-		for i, d := range allowedDomains {
-			domains[i] = d
-		}
-		network["allowedDomains"] = domains
+		network["allowedDomains"] = toIfaceSlice(allowedDomains)
+	}
+
+	fs := map[string]interface{}{
+		"allowWrite": toIfaceSlice(allowWrite),
+		"denyRead":   toIfaceSlice(denyRead),
+	}
+	if len(allowRead) > 0 {
+		fs["allowRead"] = toIfaceSlice(allowRead)
 	}
 
 	return map[string]interface{}{
@@ -166,10 +171,7 @@ func buildSandboxSection(allowWrite, denyRead, allowedDomains []string, existing
 		"failIfUnavailable":        true,
 		"allowUnsandboxedCommands": false,
 		"network":                  network,
-		"filesystem": map[string]interface{}{
-			"allowWrite": aw,
-			"denyRead":   dr,
-		},
+		"filesystem":               fs,
 	}
 }
 
@@ -197,37 +199,23 @@ func extractExistingSockets(settings map[string]interface{}) []string {
 	return sockets
 }
 
-// appendSecretDenyEntries appends Read(<path>) entries to the deny list for each
-// secret path, using ** glob for directory secrets. Deduplicates against existing entries.
-func appendSecretDenyEntries(denySlice []interface{}, denyRead []string) []interface{} {
+// appendPermsDenyEntries appends permissions.deny entries to the deny list,
+// deduplicating against what's already present. Entries are written as-is
+// (callers must pre-expand ~ before calling).
+func appendPermsDenyEntries(denySlice []interface{}, entries []string) []interface{} {
 	existing := make(map[string]struct{}, len(denySlice))
 	for _, v := range denySlice {
 		if s, ok := v.(string); ok {
 			existing[s] = struct{}{}
 		}
 	}
-
-	for _, p := range denyRead {
-		// Use ** glob for directories, bare path for files.
-		entry := buildReadDenyEntry(p)
-		if _, ok := existing[entry]; !ok {
-			denySlice = append(denySlice, entry)
-			existing[entry] = struct{}{}
+	for _, e := range entries {
+		if _, ok := existing[e]; !ok {
+			denySlice = append(denySlice, e)
+			existing[e] = struct{}{}
 		}
 	}
 	return denySlice
-}
-
-// buildReadDenyEntry constructs the Read() deny entry for a path.
-// Known filenames are denied directly; everything else gets a /** glob (directory).
-func buildReadDenyEntry(p string) string {
-	base := filepath.Base(p)
-	switch base {
-	case ".env", "credentials", "config", ".netrc", "id_ed25519", "id_rsa", "id_ecdsa", "id_dsa":
-		return fmt.Sprintf("Read(%s)", p)
-	default:
-		return fmt.Sprintf("Read(%s/**)", p)
-	}
 }
 
 // collectProjectGitDirs returns deduplicated .git directories for all registered projects.

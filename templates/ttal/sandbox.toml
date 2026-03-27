@@ -6,10 +6,13 @@
 # allowUnsandboxedCommands=false, daemon socket allowed).
 # When false, ttal sync skips the sandbox section entirely.
 #
-# allowWrite — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
-# denyRead   — paths Claude may not read (maps to sandbox.filesystem.denyRead and
-#              permissions.deny Read() entries). Deny specific files, not whole dirs.
-# allowRead  — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
+# allowWrite      — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
+# denyRead        — paths Claude may not read (maps to sandbox.filesystem.denyRead).
+#                   Set to ["~/"] to deny all home dir reads by default.
+# allowRead       — paths readable within denied dirs (maps to sandbox.filesystem.allowRead).
+#                   Use to allowlist specific dirs within the denied home.
+# permissionsDeny — raw permissions.deny entries written directly to settings.json.
+#                   Use "Read(<path>)" to deny specific secret files within allowRead dirs.
 #
 # [network]
 # allowedDomains — external domains Claude may contact (maps to sandbox.network.allowedDomains).
@@ -32,15 +35,31 @@ allowWrite = [
   "~/.npm/_logs",                        # npm log directory
 ]
 
-# Deny specific secret files — not whole directories that git/ssh needs.
-denyRead = [
-  "~/.config/ttal/.env",                 # ttal secrets
-  "~/.ssh/id_ed25519",                   # SSH private key (deny key, not whole dir)
-  "~/.aws/credentials",                  # AWS credentials
-  "~/.kube/config",                      # Kubernetes config
+# Deny all home dir reads by default; allowRead below carves out what's needed.
+denyRead = ["~/"]
+
+# Allowlist: dirs that agents legitimately need to read.
+allowRead = [
+  ".",                                   # current project (always needed)
+  "~/.ssh",                              # SSH dir — git needs this for auth
+  "~/.gnupg",                            # GPG — git needs this for signing
+  "~/.config/ttal",                      # ttal config (projects.toml, sandbox.toml, etc.)
+  "~/.config/flicknote",                 # flicknote config
+  "~/.config/git",                       # git config
+  "~/.gitconfig",                        # git config (home dir variant)
+  "~/.taskrc",                           # taskwarrior config
+  "~/.netrc",                            # HTTPS git auth
+  "~/.cargo/registry",                   # Rust crate registry cache
+  "~/.cargo/git",                        # Rust git-sourced dependency cache
+  "~/.rustup",                           # Rust toolchain
+  "/Library/Developer/CommandLineTools", # macOS: xcrun shim resolves make/clang from here
 ]
 
-allowRead = []
+# Deny specific secret files within the allowRead dirs above.
+permissionsDeny = [
+  "Read(~/.config/ttal/.env)",           # ttal secrets
+  "Read(~/.ssh/id_ed25519)",             # SSH private key
+]
 
 [network]
 allowedDomains = [

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -12,20 +13,26 @@ import (
 // SandboxConfig holds sandbox path configuration loaded from sandbox.toml.
 // Consumed by sync.SyncSandbox to build the sandbox section in ~/.claude/settings.json.
 //
-// AllowWrite — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
-// DenyRead   — paths Claude may not read (maps to sandbox.filesystem.denyRead and permissions.deny).
-// AllowRead  — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
-// Network    — network access config (allowed domains, unix sockets are hardcoded by sync).
+// AllowWrite      — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
+// DenyRead        — paths Claude may not read (maps to sandbox.filesystem.denyRead).
+//                   Typically ["~/"] to deny all home dir reads by default.
+// AllowRead       — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
+//                   Used to allowlist specific dirs within the denied home dir.
+// PermissionsDeny — raw permissions.deny entries (e.g. "Read(~/.ssh/id_ed25519)").
+//                   Written directly to settings.json permissions.deny (additive, deduplicated).
+//                   Use to deny specific secret files within allowRead dirs.
+// Network         — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
 // Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
 // All enforcement settings (failIfUnavailable, allowUnsandboxedCommands) are
 // hardcoded secure defaults in sync — they are not configurable via sandbox.toml.
 type SandboxConfig struct {
-	Enabled    bool          `toml:"enabled"`
-	AllowWrite []string      `toml:"allowWrite"`
-	DenyRead   []string      `toml:"denyRead"`
-	AllowRead  []string      `toml:"allowRead"`
-	Network    NetworkConfig `toml:"network"`
+	Enabled        bool          `toml:"enabled"`
+	AllowWrite     []string      `toml:"allowWrite"`
+	DenyRead       []string      `toml:"denyRead"`
+	AllowRead      []string      `toml:"allowRead"`
+	PermissionsDeny []string     `toml:"permissionsDeny"`
+	Network        NetworkConfig `toml:"network"`
 }
 
 // NetworkConfig holds network access settings for the sandbox.
@@ -48,11 +55,43 @@ func (c *SandboxConfig) ExpandedAllowRead() []string {
 	return expandPaths(c.AllowRead)
 }
 
+// ExpandedPermissionsDeny returns the PermissionsDeny entries with ~ expanded,
+// including within Read(...) / Write(...) wrappers.
+func (c *SandboxConfig) ExpandedPermissionsDeny() []string {
+	return expandPermEntries(c.PermissionsDeny)
+}
+
 // expandPaths expands ~ in each path and returns the result.
+// Trailing slashes are preserved — "~/" stays as "<home>/" for sandbox denyRead semantics.
 func expandPaths(paths []string) []string {
 	result := make([]string, 0, len(paths))
 	for _, p := range paths {
-		result = append(result, expandHome(p))
+		expanded := expandHome(p)
+		// filepath.Join strips trailing slashes; restore them so that "~/" correctly
+		// maps to "<home>/" (CC sandbox uses the trailing slash to match the dir root).
+		if strings.HasSuffix(p, "/") && !strings.HasSuffix(expanded, "/") {
+			expanded += "/"
+		}
+		result = append(result, expanded)
+	}
+	return result
+}
+
+// expandPermEntries expands ~ within permissions entries like "Read(~/...)" or bare paths.
+// Handles ~ both at string start (bare paths) and inside wrappers like Read(~/...).
+func expandPermEntries(entries []string) []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return entries
+	}
+	result := make([]string, 0, len(entries))
+	for _, e := range entries {
+		// Replace all occurrences of ~/ and bare ~ (followed by non-/) with expanded home.
+		e = strings.ReplaceAll(e, "~/", home+"/")
+		if e == "~" {
+			e = home
+		}
+		result = append(result, e)
 	}
 	return result
 }

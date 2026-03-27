@@ -25,6 +25,7 @@ func TestLoadSandbox_FileNotExist(t *testing.T) {
 	assert.Empty(t, cfg.AllowWrite)
 	assert.Empty(t, cfg.DenyRead)
 	assert.Empty(t, cfg.AllowRead)
+	assert.Empty(t, cfg.PermissionsDeny)
 }
 
 func TestLoadSandbox_MalformedTOML(t *testing.T) {
@@ -35,14 +36,16 @@ func TestLoadSandbox_MalformedTOML(t *testing.T) {
 	assert.Empty(t, cfg.AllowWrite)
 	assert.Empty(t, cfg.DenyRead)
 	assert.Empty(t, cfg.AllowRead)
+	assert.Empty(t, cfg.PermissionsDeny)
 }
 
 func TestLoadSandbox_ValidTOML(t *testing.T) {
 	writeSandboxTOML(t, `
 enabled = true
 allowWrite = ["/tmp"]
-denyRead = ["~/.config/ttal/.env"]
-allowRead = []
+denyRead = ["~/"]
+allowRead = ["~/.ssh", "~/.config/ttal"]
+permissionsDeny = ["Read(~/.config/ttal/.env)", "Read(~/.ssh/id_ed25519)"]
 
 [network]
 allowedDomains = ["github.com", "*.guion.io"]
@@ -51,28 +54,32 @@ allowedDomains = ["github.com", "*.guion.io"]
 	require.NotNil(t, cfg)
 	assert.True(t, cfg.Enabled)
 	assert.Equal(t, []string{"/tmp"}, cfg.AllowWrite)
-	assert.Equal(t, []string{"~/.config/ttal/.env"}, cfg.DenyRead)
+	assert.Equal(t, []string{"~/"}, cfg.DenyRead)
+	assert.Equal(t, []string{"~/.ssh", "~/.config/ttal"}, cfg.AllowRead)
+	assert.Equal(t, []string{"Read(~/.config/ttal/.env)", "Read(~/.ssh/id_ed25519)"}, cfg.PermissionsDeny)
 	assert.Equal(t, []string{"github.com", "*.guion.io"}, cfg.Network.AllowedDomains)
 }
 
 func TestLoadSandbox_ExpandedPaths(t *testing.T) {
-	// Point HOME at a temp dir so ~ expansion resolves to a path we control.
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
 
 	writeSandboxTOML(t, `
 enabled = true
 allowWrite = ["~/mydata"]
-denyRead = ["~/.config/ttal/.env"]
+denyRead = ["~/"]
+allowRead = ["~/.ssh"]
+permissionsDeny = ["Read(~/.config/ttal/.env)"]
 `)
 	cfg := LoadSandbox()
 	require.NotNil(t, cfg)
 
-	expanded := cfg.ExpandedAllowWrite()
-	assert.Contains(t, expanded, filepath.Join(tmpHome, "mydata"))
+	assert.Contains(t, cfg.ExpandedAllowWrite(), filepath.Join(tmpHome, "mydata"))
+	assert.Contains(t, cfg.ExpandedDenyRead(), tmpHome+"/")
+	assert.Contains(t, cfg.ExpandedAllowRead(), filepath.Join(tmpHome, ".ssh"))
 
-	expandedDeny := cfg.ExpandedDenyRead()
-	assert.Contains(t, expandedDeny, filepath.Join(tmpHome, ".config/ttal/.env"))
+	expanded := cfg.ExpandedPermissionsDeny()
+	assert.Contains(t, expanded, "Read("+filepath.Join(tmpHome, ".config/ttal/.env")+")")
 }
 
 func TestDefaultConfigDir_XGDBranch(t *testing.T) {

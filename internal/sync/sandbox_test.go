@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -73,13 +72,12 @@ func writeProjectsConfig(t *testing.T, cfgDir string) {
 func TestSyncSandbox_DryRun(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
-
-allowWrite = ["/tmp", "/tmp/worker", "/usr/local"]
-denyRead = []
+allowWrite = ["/tmp", "/tmp/worker"]
+denyRead = ["~/"]
+allowRead = ["."]
 `)
 	writeProjectsConfig(t, dir)
 
-	// Use temp settings.json path.
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 	result, err := syncSandbox(true, settingsPath)
 	if err != nil {
@@ -91,7 +89,6 @@ denyRead = []
 		t.Error("dry-run should not write settings.json")
 	}
 
-	// /tmp and /tmp/worker should be in allowWrite.
 	found := make(map[string]bool)
 	for _, p := range result.AllowWritePaths {
 		found[p] = true
@@ -102,20 +99,17 @@ denyRead = []
 	if !found["/tmp/worker"] {
 		t.Errorf("expected /tmp/worker in allowWrite, got %v", result.AllowWritePaths)
 	}
-	if !found["/usr/local"] {
-		t.Errorf("expected /usr/local in allowWrite (all allowWrite entries included), got %v", result.AllowWritePaths)
-	}
 }
 
 func TestSyncSandbox_DenyRead(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
 allowWrite = []
-denyRead = [
-  "~/.config/ttal/.env",
-  "~/.ssh/id_ed25519",
-  "~/.aws/credentials",
-  "~/.kube/config",
+denyRead = ["~/"]
+allowRead = ["~/.ssh", "~/.config/ttal"]
+permissionsDeny = [
+  "Read(~/.config/ttal/.env)",
+  "Read(~/.ssh/id_ed25519)",
 ]
 `)
 	writeProjectsConfig(t, dir)
@@ -126,29 +120,108 @@ denyRead = [
 		t.Fatalf("syncSandbox: %v", err)
 	}
 
-	// denyRead must contain all configured secret paths.
+	// denyRead should be ["~/"] expanded.
+	home, _ := os.UserHomeDir()
 	found := make(map[string]bool)
 	for _, p := range result.DenyReadPaths {
 		found[p] = true
 	}
+	if !found[home+"/"] {
+		t.Errorf("expected ~/ (home) in denyRead, got %v", result.DenyReadPaths)
+	}
+
+	// ~/.ssh should NOT be in denyRead — it's in allowRead.
+	if found[filepath.Join(home, ".ssh")] {
+		t.Errorf("~/.ssh should be in allowRead, not denyRead")
+	}
+}
+
+func TestSyncSandbox_AllowReadInFilesystem(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = ["~/"]
+allowRead = ["~/.ssh", "~/.config/ttal", "."]
+`)
+	writeProjectsConfig(t, dir)
+
+	settingsPath := filepath.Join(t.TempDir(), ".claude", "settings.json")
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+
+	sandbox := settings["sandbox"].(map[string]interface{})
+	fs := sandbox["filesystem"].(map[string]interface{})
+	allowRead, ok := fs["allowRead"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowRead in filesystem section")
+	}
 
 	home, _ := os.UserHomeDir()
-	expected := []string{
-		filepath.Join(home, ".config/ttal/.env"),
-		filepath.Join(home, ".ssh/id_ed25519"),
-		filepath.Join(home, ".aws/credentials"),
-		filepath.Join(home, ".kube/config"),
+	wantPaths := map[string]bool{
+		filepath.Join(home, ".ssh"):         false,
+		filepath.Join(home, ".config/ttal"): false,
+		".": false,
 	}
-	for _, p := range expected {
-		if !found[p] {
-			t.Errorf("expected %s in denyRead, got %v", p, result.DenyReadPaths)
+	for _, v := range allowRead {
+		if s, ok := v.(string); ok {
+			wantPaths[s] = true
 		}
 	}
+	for p, found := range wantPaths {
+		if !found {
+			t.Errorf("expected %q in allowRead, got %v", p, allowRead)
+		}
+	}
+}
 
-	// ~/.ssh (whole dir) must NOT be in denyRead — we deny specific key files, not the dir.
-	sshDir := filepath.Join(home, ".ssh")
-	if found[sshDir] {
-		t.Errorf("expected whole .ssh dir NOT in denyRead (deny specific keys instead)")
+func TestSyncSandbox_PermissionsDenyWritten(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = ["~/"]
+allowRead = ["~/.ssh", "~/.config/ttal"]
+permissionsDeny = [
+  "Read(~/.config/ttal/.env)",
+  "Read(~/.ssh/id_ed25519)",
+]
+`)
+	writeProjectsConfig(t, dir)
+
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	_ = json.Unmarshal(data, &settings)
+
+	perms := settings["permissions"].(map[string]interface{})
+	deny := perms["deny"].([]interface{})
+
+	home, _ := os.UserHomeDir()
+	want := map[string]bool{
+		"Read(" + filepath.Join(home, ".config/ttal/.env") + ")": false,
+		"Read(" + filepath.Join(home, ".ssh/id_ed25519") + ")":   false,
+	}
+	for _, v := range deny {
+		if s, ok := v.(string); ok {
+			want[s] = true
+		}
+	}
+	for entry, found := range want {
+		if !found {
+			t.Errorf("expected %q in permissions.deny, got %v", entry, deny)
+		}
 	}
 }
 
@@ -156,7 +229,9 @@ func TestSyncSandbox_WritesSettingsJSON(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
 allowWrite = ["/tmp"]
-denyRead = ["~/.config/ttal/.env"]
+denyRead = ["~/"]
+allowRead = ["."]
+permissionsDeny = ["Read(~/.config/ttal/.env)"]
 `)
 	writeProjectsConfig(t, dir)
 
@@ -176,12 +251,10 @@ denyRead = ["~/.config/ttal/.env"]
 		t.Fatalf("parse settings.json: %v", err)
 	}
 
-	// Check sandbox section exists.
 	if _, ok := settings["sandbox"]; !ok {
 		t.Error("settings.json missing 'sandbox' key")
 	}
 
-	// Check permissions.deny has Read entries.
 	perms, ok := settings["permissions"].(map[string]interface{})
 	if !ok {
 		t.Fatal("settings.json missing 'permissions' object")
@@ -190,29 +263,17 @@ denyRead = ["~/.config/ttal/.env"]
 	if !ok {
 		t.Fatal("settings.json missing 'permissions.deny' array")
 	}
-	joined := make([]string, len(deny))
-	for i, v := range deny {
-		joined[i], _ = v.(string)
-	}
-	hasReadEntry := false
-	for _, s := range joined {
-		if strings.HasPrefix(s, "Read(") {
-			hasReadEntry = true
-			break
-		}
-	}
-	if !hasReadEntry {
-		t.Errorf("expected Read() entries in permissions.deny, got %v", joined)
+	if len(deny) == 0 {
+		t.Error("expected Read() entries in permissions.deny")
 	}
 }
 
 func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
-	dir := writeSandboxConfig(t, "enabled = true\nallowWrite = []\ndenyRead = []")
+	dir := writeSandboxConfig(t, "enabled = true\nallowWrite = []\ndenyRead = []\nallowRead = []")
 	writeProjectsConfig(t, dir)
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 
-	// Pre-populate settings.json with existing deny entries.
 	initial := `{"permissions": {"deny": ["Agent(kestrel)", "Agent(mira)"]}}`
 	if err := os.WriteFile(settingsPath, []byte(initial), 0o644); err != nil {
 		t.Fatalf("write initial settings: %v", err)
@@ -230,7 +291,6 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 	perms := settings["permissions"].(map[string]interface{})
 	deny := perms["deny"].([]interface{})
 
-	// Existing Agent entries must still be present.
 	joined := make([]string, len(deny))
 	for i, v := range deny {
 		joined[i], _ = v.(string)
@@ -251,7 +311,7 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 
 func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	section := buildSandboxSection([]string{"/tmp"}, []string{home + "/.config/ttal/.env"}, nil, nil)
+	section := buildSandboxSection([]string{"/tmp"}, []string{home + "/"}, nil, nil, nil)
 
 	assertEnforcementFields(t, section)
 
@@ -268,7 +328,7 @@ func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
 
 func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 	extra := "/run/user/1000/custom.sock"
-	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, []string{extra})
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, nil, []string{extra})
 
 	net := section["network"].(map[string]interface{})
 	sockets := net["allowUnixSockets"].([]interface{})
@@ -279,7 +339,7 @@ func TestBuildSandboxSection_PreservesExistingSockets(t *testing.T) {
 
 func TestBuildSandboxSection_AllowedDomains(t *testing.T) {
 	domains := []string{"github.com", "*.github.com", "*.guion.io"}
-	section := buildSandboxSection([]string{"/tmp"}, []string{}, domains, nil)
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, domains, nil)
 
 	net, ok := section["network"].(map[string]interface{})
 	if !ok {
@@ -300,11 +360,35 @@ func TestBuildSandboxSection_AllowedDomains(t *testing.T) {
 }
 
 func TestBuildSandboxSection_NoAllowedDomains(t *testing.T) {
-	// When allowedDomains is empty, the key should not appear in network.
-	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, nil)
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, nil, nil)
 	net := section["network"].(map[string]interface{})
 	if _, ok := net["allowedDomains"]; ok {
 		t.Error("expected allowedDomains absent when not configured")
+	}
+}
+
+func TestBuildSandboxSection_AllowReadIncluded(t *testing.T) {
+	allowRead := []string{"/home/user/.ssh", "/home/user/.config/ttal"}
+	section := buildSandboxSection([]string{"/tmp"}, []string{"/home/user/"}, allowRead, nil, nil)
+
+	fs, ok := section["filesystem"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected filesystem section")
+	}
+	ar, ok := fs["allowRead"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowRead in filesystem section")
+	}
+	if len(ar) != 2 {
+		t.Errorf("expected 2 allowRead entries, got %d", len(ar))
+	}
+}
+
+func TestBuildSandboxSection_EmptyAllowReadOmitted(t *testing.T) {
+	section := buildSandboxSection([]string{"/tmp"}, []string{}, nil, nil, nil)
+	fs := section["filesystem"].(map[string]interface{})
+	if _, ok := fs["allowRead"]; ok {
+		t.Error("expected allowRead absent when empty")
 	}
 }
 
@@ -320,11 +404,9 @@ allowWrite = ["~/.ttal"]
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Result should be empty — sandbox sync skipped entirely.
 	if len(result.AllowWritePaths) != 0 {
 		t.Errorf("expected empty AllowWritePaths when disabled, got %v", result.AllowWritePaths)
 	}
-	// settings.json must not be written.
 	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
 		t.Error("settings.json should not be written when sandbox is disabled")
 	}
@@ -334,7 +416,8 @@ func TestSyncSandbox_EnforcementFields(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
 allowWrite = ["~/.ttal"]
-denyRead = []
+denyRead = ["~/"]
+allowRead = ["."]
 `)
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -370,7 +453,6 @@ denyRead = []
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
 
-	// Pre-populate settings.json with a custom socket.
 	customSock := "/run/user/1000/custom.sock"
 	initial := `{"sandbox": {"network": {"allowUnixSockets": ["` + customSock + `"]}}}`
 	if err := os.WriteFile(settingsPath, []byte(initial), 0o644); err != nil {
@@ -394,7 +476,6 @@ denyRead = []
 }
 
 func TestSyncSandbox_NonExistentPathsIncluded(t *testing.T) {
-	// Non-existent paths should appear in allowWrite — settings.json is declarative.
 	dir := writeSandboxConfig(t, `
 enabled = true
 allowWrite = ["/nonexistent/path/that/doesnt/exist"]
@@ -420,12 +501,9 @@ denyRead = []
 	}
 }
 
-// TestSyncSandbox_MissingConfigFileSkipsEnforcement asserts that when sandbox.toml
-// is absent (fresh install), syncSandbox returns empty and does not write settings.json.
 func TestSyncSandbox_MissingConfigFileSkipsEnforcement(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	// Write projects.toml but NOT sandbox.toml.
 	ttalDir := filepath.Join(dir, "ttal")
 	if err := os.MkdirAll(ttalDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -447,9 +525,6 @@ func TestSyncSandbox_MissingConfigFileSkipsEnforcement(t *testing.T) {
 	}
 }
 
-// TestSyncSandbox_DisabledLeavesExistingSettingsUnchanged verifies that when sandbox
-// is disabled and settings.json already contains sandbox enforcement from a previous run,
-// the file is left untouched (stale enforcement remains — caller is responsible for cleanup).
 func TestSyncSandbox_DisabledLeavesExistingSettingsUnchanged(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = false
@@ -458,7 +533,6 @@ allowWrite = []
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
 
-	// Pre-populate with active enforcement from a previous sync.
 	prior := `{"sandbox":{"enabled":true,"failIfUnavailable":true}}`
 	if err := os.WriteFile(settingsPath, []byte(prior), 0o644); err != nil {
 		t.Fatalf("write prior settings: %v", err)
@@ -475,8 +549,6 @@ allowWrite = []
 	}
 }
 
-// TestSyncSandbox_ParseErrorReturnsError verifies that a corrupt sandbox.toml propagates
-// an error rather than silently disabling enforcement (security-relevant).
 func TestSyncSandbox_ParseErrorReturnsError(t *testing.T) {
 	dir := writeSandboxConfig(t, `this is not valid toml !!!`)
 	writeProjectsConfig(t, dir)
@@ -488,8 +560,6 @@ func TestSyncSandbox_ParseErrorReturnsError(t *testing.T) {
 	}
 }
 
-// TestSyncSandbox_DaemonSocketDeduplication verifies that running ttal sync twice
-// does not produce duplicate daemon socket entries in network.allowUnixSockets.
 func TestSyncSandbox_DaemonSocketDeduplication(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
@@ -499,11 +569,9 @@ denyRead = []
 	writeProjectsConfig(t, dir)
 	settingsPath := filepath.Join(dir, "settings.json")
 
-	// First sync.
 	if _, err := syncSandbox(false, settingsPath); err != nil {
 		t.Fatalf("first syncSandbox: %v", err)
 	}
-	// Second sync — daemon socket already present in settings.json.
 	if _, err := syncSandbox(false, settingsPath); err != nil {
 		t.Fatalf("second syncSandbox: %v", err)
 	}
@@ -529,8 +597,6 @@ denyRead = []
 	}
 }
 
-// TestSyncSandbox_AllowedDomainsWrittenToSettings verifies that allowedDomains from
-// sandbox.toml appear in settings.json network section.
 func TestSyncSandbox_AllowedDomainsWrittenToSettings(t *testing.T) {
 	dir := writeSandboxConfig(t, `
 enabled = true
