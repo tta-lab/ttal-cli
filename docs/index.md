@@ -61,7 +61,7 @@ Your agents aren't anonymous processes — they're persistent team members with 
 
 ## Two-Plane Architecture
 
-**[TTal](https://github.com/tta-lab/ttal-cli) coordinates. [logos](https://github.com/tta-lab/logos) thinks. [temenos](https://github.com/tta-lab/temenos) isolates.**
+**[TTal](https://github.com/tta-lab/ttal-cli) coordinates. [logos](https://github.com/tta-lab/logos) thinks. CC native sandbox isolates.**
 
 Two planes. Everything else follows from that.
 

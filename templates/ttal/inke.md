@@ -5,7 +5,7 @@ emoji: 🐙
 role: designer
 voice: af_nova
 claude-code:
-  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, read]

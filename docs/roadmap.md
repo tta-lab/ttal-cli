@@ -49,12 +49,12 @@ Replace Telegram with [Matrix](https://matrix.org) as the primary communication 
 
 ## v2.x — Sandboxed Execution
 
-Worker execution sandboxing via temenos (seatbelt on macOS, bwrap on Linux).
+Worker execution sandboxing via CC native sandbox (seatbelt on macOS, bwrap on Linux).
 
 **Shipped:**
 - **Isolation** — workers can't affect host system or other workers
 - **Security** — untrusted code execution in a safe boundary
 - **Resource limits** — cap CPU, memory, disk per worker
 
-**Approach:** OS-native sandboxing (seatbelt/bwrap) via temenos — no containers needed.
+**Approach:** OS-native sandboxing (seatbelt/bwrap) via CC native sandbox — configured in `~/.claude/settings.json` via `ttal sync`.
 

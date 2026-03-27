@@ -65,14 +65,7 @@ func initSingleAdapter(
 	}
 }
 
-// collectProjectPaths loads all active project paths across all teams.
-// Used to build TEMENOS_PATHS for manager sessions — managers need read access
-// to all projects for code investigation.
-func collectProjectPaths(mcfg *config.DaemonConfig) []string {
-	return gatherProjectPaths(mcfg, config.ResolveProjectsPathForTeam)
-}
-
-// gatherProjectPaths is the testable core of collectProjectPaths.
+// gatherProjectPaths returns all active project paths across all teams.
 // storePathFn maps a team name to the projects.toml path for that team.
 func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) string) []string {
 	seen := make(map[string]bool)
@@ -108,20 +101,6 @@ func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig)
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
 	agentEnv = append(agentEnv, envpkg.AllowedDotEnvParts()...)
-
-	// Temenos MCP sandbox config — managers get read-only cwd, read access to all projects
-	// and the ask references_path.
-	projectPaths := collectProjectPaths(mcfg)
-	if cfg, cfgErr := config.Load(); cfgErr == nil {
-		if rp := cfg.AskReferencesPath(); rp != "" {
-			if _, statErr := os.Stat(rp); statErr == nil {
-				projectPaths = append(projectPaths, rp)
-			}
-		}
-	}
-	temenosEnv := envpkg.ManagerTemenosEnv(projectPaths)
-	agentEnv = append(agentEnv, temenosEnv...)
-
 	return agentEnv
 }
 

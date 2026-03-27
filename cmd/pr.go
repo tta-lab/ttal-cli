@@ -95,6 +95,7 @@ Examples:
 		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, resp.PRURL))
 
 		// Auto-spawn reviewer
+		workDir, _ := os.Getwd()
 		sessionName, sessionErr := review.ResolveSessionName()
 		if sessionErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to detect tmux session: %v\n", sessionErr)
@@ -108,7 +109,7 @@ Examples:
 				}
 			} else {
 				fmt.Println("  Spawning reviewer...")
-				if err := review.SpawnReviewer(sessionName, ctx, reviewerName, cfg); err != nil {
+				if err := review.SpawnReviewer(sessionName, ctx, reviewerName, cfg, workDir); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", err)
 				}
 			}

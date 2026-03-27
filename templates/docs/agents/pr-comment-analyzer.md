@@ -13,7 +13,10 @@ description: |-
 claude-code:
   model: haiku
   tools:
-    - mcp__temenos__bash
+    - Bash
+    - Glob
+    - Grep
+    - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
 ---

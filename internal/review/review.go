@@ -8,7 +8,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -19,20 +18,15 @@ import (
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
-	readOnlyPaths := env.CollectReadOnlyPaths()
-	temenosEnv := env.ReviewerTemenosEnv(readOnlyPaths)
-	parts := make([]string, 0, 2+len(temenosEnv))
-	parts = append(parts,
+	return []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	)
-	// Temenos MCP sandbox config — reviewers get read-only cwd access plus project paths
-	parts = append(parts, temenosEnv...)
-	return parts
+	}
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
-func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg *config.Config) error {
+// workDir is the caller's working directory (project path) — used as the reviewer's cwd.
+func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg *config.Config, workDir string) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
@@ -64,11 +58,6 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
-	}
-
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	var shellCmd string

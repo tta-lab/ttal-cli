@@ -70,6 +70,7 @@ func TestResolveGitHubTokenEmptyAlias(t *testing.T) {
 }
 
 func TestResolveGitHubTokenNonExistentAlias(t *testing.T) {
+	t.Setenv(testTokenEnvVar, "") // clear any real env value so single-project shortcut doesn't use it
 	t.Setenv("GITHUB_TOKEN", testGlobalToken)
 
 	s := newTestStoreWithProject(t, "guion", testTokenEnvVar)

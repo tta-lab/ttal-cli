@@ -5,7 +5,7 @@ emoji: 🦎
 role: communicator
 description: Communications writer — polishes outward-facing text, adapts tone per platform
 claude-code:
-  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, read, glob, grep, write, edit]

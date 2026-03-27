@@ -5,7 +5,7 @@ description: Task orchestrator — creates, routes, and manages work via taskwar
 role: manager
 voice: af_jessica
 claude-code:
-  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash, glob, grep, read]

@@ -148,6 +148,15 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
+		printSyncHeader("sandbox", syncDryRun)
+		sandboxResult, err := sync.SyncSandbox(syncDryRun)
+		if err != nil {
+			return fmt.Errorf("sandbox sync failed: %w", err)
+		}
+		fmt.Printf("  allowWrite: %d paths (%d project .git dirs)\n",
+			len(sandboxResult.AllowWritePaths), sandboxResult.GitDirCount)
+		fmt.Printf("  denyRead: %d paths\n", len(sandboxResult.DenyReadPaths))
+
 		suffix := ""
 		if syncDryRun {
 			suffix = " (dry run)"
