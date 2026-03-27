@@ -1,13 +1,21 @@
-# sandbox.toml — per-plane extra TEMENOS_PATHS
+# sandbox.toml — CC native sandbox configuration
 # Deployed to ~/.config/ttal/sandbox.toml via `ttal sync`.
+#
+# enabled — controls whether ttal sync writes sandbox enforcement to settings.json.
+# When true, the sandbox is activated with secure defaults (failIfUnavailable=true,
+# allowUnsandboxedCommands=false, daemon socket allowed).
+# When false, ttal sync skips the sandbox section entirely.
+#
+# All enforcement settings are hardcoded in sync — they are not configurable here.
 #
 # [shared] paths are added to all planes.
 # [worker] paths are added to worker and reviewer sessions.
 # [manager] paths are added to manager sessions.
 #
-# Paths support ~ expansion and must include a :ro or :rw suffix.
-# Non-existent paths are silently skipped — list both macOS and Linux
-# variants freely; only the ones present on disk are used.
+# :rw paths become allowWrite entries in settings.json.
+# :ro paths are legacy (not enforced by CC sandbox; only denyRead restricts reads).
+
+enabled = true
 
 [shared]
 extra_paths = [

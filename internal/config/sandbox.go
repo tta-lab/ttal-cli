@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,9 +11,14 @@ import (
 )
 
 // SandboxConfig holds per-plane extra paths loaded from sandbox.toml.
-// Consumed by sync.SyncSandbox to build allowWrite paths for ~/.claude/settings.json.
+// Consumed by sync.SyncSandbox to build the sandbox section in ~/.claude/settings.json.
 // Paths support ~ expansion and must include a :ro or :rw suffix.
+//
+// Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
+// All enforcement settings (failIfUnavailable, allowUnsandboxedCommands, network) are
+// hardcoded secure defaults in sync — they are not configurable via sandbox.toml.
 type SandboxConfig struct {
+	Enabled bool         `toml:"enabled"`
 	Shared  SandboxPlane `toml:"shared"`
 	Worker  SandboxPlane `toml:"worker"`
 	Manager SandboxPlane `toml:"manager"`
@@ -57,18 +63,32 @@ func (c *SandboxConfig) PathsForPlane(plane string) []string {
 
 // LoadSandbox loads sandbox.toml from the default config dir.
 // Returns an empty config (no extra paths) if the file doesn't exist — non-fatal.
+// Parse errors are logged as warnings and return an empty config.
+// Use LoadSandboxWithError when parse failures must be surfaced (e.g. security-critical paths).
 func LoadSandbox() *SandboxConfig {
+	cfg, err := LoadSandboxWithError()
+	if err != nil {
+		log.Printf("[config] warning: %v", err)
+		return &SandboxConfig{}
+	}
+	return cfg
+}
+
+// LoadSandboxWithError loads sandbox.toml from the default config dir.
+// Returns an empty config (Enabled: false) when the file is absent — treated as disabled.
+// Returns an error when the file exists but cannot be read or parsed, so callers can
+// distinguish "disabled by config" from "broken config".
+func LoadSandboxWithError() (*SandboxConfig, error) {
 	path := filepath.Join(DefaultConfigDir(), "sandbox.toml")
 	if _, err := os.Stat(path); err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("[config] warning: cannot stat sandbox.toml: %v", err)
+		if os.IsNotExist(err) {
+			return &SandboxConfig{}, nil
 		}
-		return &SandboxConfig{}
+		return nil, fmt.Errorf("cannot stat sandbox.toml: %w", err)
 	}
 	var cfg SandboxConfig
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
-		log.Printf("[config] warning: failed to load sandbox.toml: %v", err)
-		return &SandboxConfig{}
+		return nil, fmt.Errorf("failed to parse sandbox.toml: %w", err)
 	}
-	return &cfg
+	return &cfg, nil
 }
