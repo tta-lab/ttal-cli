@@ -55,15 +55,15 @@ TTal is three things:
 │               bash-only agent loop      │
 │               LLMs think in plain text  │
 ├─────────────────────────────────────────┤
-│  temenos      the sacred boundary       │
+│  CC sandbox   the sacred boundary       │
 │               seatbelt (macOS) / bwrap  │
 │               (Linux) — YAGNI containers│
 └─────────────────────────────────────────┘
 ```
 
-**TTal** coordinates. **[logos](https://github.com/tta-lab/logos)** thinks. **[temenos](https://github.com/tta-lab/temenos)** isolates. Workers can't touch each other or the host.
+**TTal** coordinates. **[logos](https://github.com/tta-lab/logos)** thinks. CC native sandbox isolates. Workers can't touch each other or the host.
 
-Logos is a bash-only reasoning engine — no tool schemas, no JSON ceremony. Temenos is OS-native filesystem isolation — no containers needed. Three repos, one pipeline.
+Logos is a bash-only reasoning engine — no tool schemas, no JSON ceremony. CC's native sandbox (seatbelt/bwrap) provides OS-level filesystem isolation — no containers needed.
 
 ## Install
 
