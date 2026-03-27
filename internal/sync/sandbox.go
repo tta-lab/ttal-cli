@@ -178,7 +178,9 @@ func buildSandboxSection(
 
 	fs := map[string]interface{}{
 		"allowWrite": toIfaceSlice(allowWrite),
-		"denyRead":   toIfaceSlice(denyRead),
+	}
+	if len(denyRead) > 0 {
+		fs["denyRead"] = toIfaceSlice(denyRead)
 	}
 	if len(denyWrite) > 0 {
 		fs["denyWrite"] = toIfaceSlice(denyWrite)

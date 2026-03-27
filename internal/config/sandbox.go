@@ -17,11 +17,15 @@ import (
 // DenyWrite               — paths Claude may not write to (maps to sandbox.filesystem.denyWrite).
 // DenyRead                — paths Claude may not read (maps to sandbox.filesystem.denyRead).
 //
-//	Typically ["~/"] to deny all home dir reads by default.
+//	WARNING: denyRead takes higher priority than allowRead in CC sandbox.
+//	Never set a parent dir (e.g. "~/") — it blocks all allowRead carveouts within it.
+//	Only use for specific paths that do NOT overlap with any allowRead entry.
+//	For blocking secrets inside allowRead dirs, use permissionsDeny instead.
 //
 // AllowRead               — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
 //
-//	Used to allowlist specific dirs within the denied home dir.
+//	Allowlist of dirs agents need to read. Only effective when denyRead does not
+//	cover a parent of these paths (see DenyRead warning above).
 //
 // PermissionsDeny         — raw permissions.deny entries (e.g. "Read(~/.ssh/id_ed25519)").
 //

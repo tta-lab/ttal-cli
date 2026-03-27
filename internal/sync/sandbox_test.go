@@ -656,6 +656,17 @@ func TestBuildSandboxSection_EmptyDenyWriteOmitted(t *testing.T) {
 	}
 }
 
+// TestBuildSandboxSection_EmptyDenyReadOmitted verifies that denyRead is absent when empty.
+// This is important: denyRead has higher priority than allowRead in CC sandbox, so writing
+// denyRead:[] (even empty) must not interfere with allowRead carveouts.
+func TestBuildSandboxSection_EmptyDenyReadOmitted(t *testing.T) {
+	section := buildSandboxSection([]string{"/tmp"}, nil, []string{}, nil, nil, nil, nil)
+	fs := section["filesystem"].(map[string]interface{})
+	if _, ok := fs["denyRead"]; ok {
+		t.Error("expected denyRead absent when empty")
+	}
+}
+
 // TestBuildSandboxSection_AutoAllowBashSet verifies that autoAllowBashIfSandboxed is written
 // when explicitly set via a non-nil pointer.
 func TestBuildSandboxSection_AutoAllowBashSet(t *testing.T) {

@@ -8,9 +8,12 @@
 #
 # allowWrite      — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
 # denyRead        — paths Claude may not read (maps to sandbox.filesystem.denyRead).
-#                   Set to ["~/"] to deny all home dir reads by default.
-# allowRead       — paths readable within denied dirs (maps to sandbox.filesystem.allowRead).
-#                   Use to allowlist specific dirs within the denied home.
+#                   WARNING: denyRead has higher priority than allowRead — never use a parent
+#                   dir (e.g. "~/") here as it blocks all allowRead carveouts within it.
+#                   Only use for specific paths that do NOT overlap with any allowRead entry.
+# allowRead       — paths Claude may read (maps to sandbox.filesystem.allowRead).
+#                   Allowlist of dirs agents legitimately need. Only effective when denyRead
+#                   does not cover a parent of these paths (see denyRead warning above).
 # permissionsDeny — raw permissions.deny entries written directly to settings.json.
 #                   Use "Read(<path>)" to deny specific secret files within allowRead dirs.
 #
@@ -39,8 +42,11 @@ allowWrite = [
   "~/.npm/_logs",                        # npm log directory
 ]
 
-# Deny all home dir reads by default; allowRead below carves out what's needed.
-denyRead = ["~/"]
+# denyRead is intentionally empty: setting "~/" here would block ALL allowRead carveouts
+# (denyRead has higher priority than allowRead in CC sandbox). Secrets are blocked via
+# permissionsDeny below — which operates at the permissions layer and correctly
+# overrides allowRead for specific files without blocking the whole directory.
+denyRead = []
 
 # Allowlist: dirs that agents legitimately need to read.
 allowRead = [
@@ -63,10 +69,16 @@ allowRead = [
 # Useful to protect system dirs that fall within an allowWrite subtree.
 denyWrite = []
 
-# Deny specific secret files within the allowRead dirs above.
+# Block specific secret files via the permissions layer.
+# These override allowRead for individual files without blocking the whole directory —
+# the correct way to protect secrets within dirs that agents otherwise need to read.
 permissionsDeny = [
-  "Read(~/.config/ttal/.env)",           # ttal secrets
+  "Read(~/.config/ttal/.env)",           # ttal secrets (.env)
   "Read(~/.ssh/id_ed25519)",             # SSH private key
+  "Read(~/.gnupg/**)",                   # GPG private keys
+  "Read(~/.netrc)",                      # HTTPS auth credentials
+  "Read(~/.aws/credentials)",            # AWS credentials
+  "Read(~/.kube/config)",               # Kubernetes config
 ]
 
 [network]
