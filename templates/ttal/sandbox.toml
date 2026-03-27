@@ -43,4 +43,14 @@ denyRead = [
 allowRead = []
 
 [network]
-allowedDomains = ["github.com", "*.github.com", "*.guion.io"]
+allowedDomains = [
+  # Code hosting
+  "github.com", "*.github.com",
+  "*.guion.io",
+  # Go modules
+  "proxy.golang.org", "sum.golang.org", "pkg.go.dev",
+  # Rust/Cargo
+  "crates.io", "static.crates.io",
+  # npm
+  "registry.npmjs.org",
+]
