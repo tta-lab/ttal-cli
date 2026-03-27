@@ -19,19 +19,26 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/planreview"
+	"github.com/tta-lab/ttal-cli/internal/pr"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // AdvanceRequest is the request body for POST /pipeline/advance.
+// AdvanceRequest is the request body for POST /pipeline/advance.
 type AdvanceRequest struct {
-	TaskUUID  string `json:"task_uuid"`
-	AgentName string `json:"agent_name"` // from TTAL_AGENT_NAME env in caller session
-	Team      string `json:"team"`       // TODO: remove after in-flight request compat window (~2026 Q3)
+	TaskUUID    string `json:"task_uuid"`
+	AgentName   string `json:"agent_name"`             // from TTAL_AGENT_NAME env in caller session
+	Team        string `json:"team"`                   // TODO: remove after in-flight request compat window (~2026 Q3)
+	SessionName string `json:"session_name,omitempty"` // caller's tmux session (for reviewer spawn)
+	WorkDir     string `json:"work_dir,omitempty"`     // caller's cwd (for reviewer spawn)
 }
 
 // AdvanceResponse is the response body for POST /pipeline/advance.
@@ -78,6 +85,8 @@ func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
 	return result, nil
 }
 
+// handlePipelineAdvance is the daemon-side HTTP handler for POST /pipeline/advance.
+// It may block for minutes when a "human" gate requires Telegram approval.
 // handlePipelineAdvance is the daemon-side HTTP handler for POST /pipeline/advance.
 // It may block for minutes when a "human" gate requires Telegram approval.
 func handlePipelineAdvance(
@@ -157,7 +166,7 @@ func handlePipelineAdvance(
 	}
 
 	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
-		req.AgentName, team, workerRuntime, teamPath, agentRoles)
+		req.AgentName, req.SessionName, req.WorkDir, team, workerRuntime, teamPath, agentRoles)
 }
 
 // resolveTeamPath returns the filesystem path for the given team name.
@@ -238,6 +247,7 @@ func annotateStageCompletion(uuid, stageName, assignee, agentName string) {
 }
 
 // processStageAdvance handles gate checks and advancement for an already-active stage.
+// processStageAdvance handles gate checks and advancement for an already-active stage.
 func processStageAdvance(
 	ctx context.Context,
 	w http.ResponseWriter,
@@ -247,10 +257,10 @@ func processStageAdvance(
 	p *pipeline.Pipeline,
 	idx int,
 	stage *pipeline.Stage,
-	callerAgent, team, workerRuntime, teamPath string,
+	callerAgent, sessionName, workDir, team, workerRuntime, teamPath string,
 	agentRoles map[string]string,
 ) {
-	if checkReviewerGate(w, task, stage) {
+	if checkReviewerGate(w, task, stage, sessionName, workDir, mcfg.Global) {
 		return
 	}
 	if checkHumanGate(ctx, w, fe, p, idx, callerAgent, task, stage) {
@@ -279,13 +289,20 @@ func processStageAdvance(
 
 // checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
 // Returns true when the response has been written (caller should return).
-func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) bool {
+// checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
+// Returns true when the response has been written (caller should return).
+// When sessionName is non-empty, also spawns or re-triggers the reviewer (best-effort).
+func checkReviewerGate(
+	w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage,
+	sessionName, workDir string, cfg *config.Config,
+) bool {
 	if stage.Reviewer == "" {
 		return false
 	}
 	if hasTag(task.Tags, stage.StageLGTMTag()) {
 		return false
 	}
+
 	msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict", stage.Reviewer)
 	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 		Status:   AdvanceStatusNeedsLGTM,
@@ -293,7 +310,67 @@ func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pip
 		Reviewer: stage.Reviewer,
 		Assignee: stage.Assignee,
 	})
+
+	// Spawn or re-trigger reviewer when caller provided session context.
+	// Skip when sessionName is empty (old client or non-tmux caller) — backwards compatible.
+	if sessionName != "" && cfg != nil {
+		if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, cfg); err != nil {
+			log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
+		}
+	}
+
 	return true
+}
+
+// spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
+// workDir is the caller's working directory (passed via AdvanceRequest).
+func spawnOrRetriggerReviewerFromDaemon(
+	task *taskwarrior.Task, stage *pipeline.Stage,
+	sessionName, workDir string, cfg *config.Config,
+) error {
+	reviewerAgent := stage.Reviewer
+
+	if stage.Assignee == workerStage {
+		if tmux.WindowExists(sessionName, reviewerAgent) {
+			log.Printf("[advance] re-triggering PR reviewer %s for task %s", reviewerAgent, task.UUID)
+			return review.RequestReReview(sessionName, reviewerAgent, false, "", cfg)
+		}
+		log.Printf("[advance] spawning PR reviewer %s for task %s", reviewerAgent, task.UUID)
+		ctx, err := buildPRContextFromTask(task, workDir)
+		if err != nil {
+			return fmt.Errorf("build PR context: %w", err)
+		}
+		return review.SpawnReviewer(sessionName, ctx, reviewerAgent, cfg, workDir)
+	}
+
+	if tmux.WindowExists(sessionName, reviewerAgent) {
+		log.Printf("[advance] re-triggering plan reviewer %s for task %s", reviewerAgent, task.UUID)
+		return planreview.RequestReReview(sessionName, reviewerAgent, "", cfg)
+	}
+	log.Printf("[advance] spawning plan reviewer %s for task %s", reviewerAgent, task.UUID)
+	return planreview.SpawnPlanReviewer(sessionName, task.UUID, reviewerAgent, cfg, workDir)
+}
+
+// buildPRContextFromTask builds a PR context from a task and working directory.
+// Used by the daemon when spawning a PR reviewer.
+func buildPRContextFromTask(task *taskwarrior.Task, workDir string) (*pr.Context, error) {
+	projectPath := projectPkg.ResolveProjectPath(task.Project)
+	if projectPath == "" && workDir != "" {
+		projectPath = workDir
+	}
+	if projectPath == "" {
+		return nil, fmt.Errorf("cannot resolve project path for %q", task.Project)
+	}
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return nil, fmt.Errorf("detect git provider from %s: %w", projectPath, err)
+	}
+	return &pr.Context{
+		Task:  task,
+		Owner: info.Owner,
+		Repo:  info.Repo,
+		Info:  info,
+	}, nil
 }
 
 // checkCallerPastStage rejects manager-plane agents whose role belongs to an earlier

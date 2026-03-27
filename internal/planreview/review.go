@@ -7,7 +7,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -19,21 +18,20 @@ func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Run
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
 	}
-	readOnlyPaths := env.CollectReadOnlyPaths()
-	temenosEnv := env.ReviewerTemenosEnv(readOnlyPaths)
-	parts := make([]string, 0, 3+len(temenosEnv))
-	parts = append(parts,
+	return []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	)
-	// Temenos MCP sandbox config — plan reviewers get read-only cwd access plus project paths
-	parts = append(parts, temenosEnv...)
-	return parts, nil
+	}, nil
 }
 
 // SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
-func SpawnPlanReviewer(sessionName string, taskUUID string, reviewerName string, cfg *config.Config) error {
+// workDir is the caller's working directory (project path) — used as the reviewer's cwd.
+// SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
+// workDir is the caller's working directory (project path) — used as the reviewer's cwd.
+func SpawnPlanReviewer(
+	sessionName string, taskUUID string, reviewerName string, cfg *config.Config, workDir string,
+) error {
 	reviewerRT := cfg.ReviewerRuntime()
 	model := cfg.ReviewerModel()
 
@@ -45,11 +43,6 @@ func SpawnPlanReviewer(sessionName string, taskUUID string, reviewerName string,
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
-	}
-
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	envParts, err := buildPlanReviewerEnvParts(taskUUID, reviewerName, reviewerRT)
