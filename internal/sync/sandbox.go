@@ -44,7 +44,8 @@ func SyncSandbox(dryRun bool) (SandboxResult, error) {
 }
 
 func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
-	allowWrite, gitDirCount := buildAllowWritePaths()
+	sandbox := config.LoadSandbox()
+	allowWrite, gitDirCount := buildAllowWritePaths(sandbox)
 	denyRead := buildDenyReadPaths()
 
 	result := SandboxResult{
@@ -63,7 +64,7 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 	}
 
 	// Replace sandbox section entirely — ttal owns this section.
-	settings["sandbox"] = buildSandboxSection(allowWrite, denyRead)
+	settings["sandbox"] = buildSandboxSection(sandbox, allowWrite, denyRead)
 
 	// Append Read deny entries for secrets (additive, preserve existing).
 	perms, denySlice, err := extractPermsDenyList(settings)
@@ -84,12 +85,11 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 // buildAllowWritePaths collects all paths that should be in allowWrite:
 // - :rw paths from sandbox.toml (all planes combined, raw — no existence filtering)
 // - .git dirs for all registered projects (deduplicated)
-func buildAllowWritePaths() ([]string, int) {
+func buildAllowWritePaths(sandbox *config.SandboxConfig) ([]string, int) {
 	seen := make(map[string]bool)
 	var paths []string
 
 	// sandbox.toml :rw paths (all planes, no existence filtering — declarative config)
-	sandbox := config.LoadSandbox()
 	for _, p := range allSandboxPaths(sandbox) {
 		bare := stripSuffix(p)
 		if strings.HasSuffix(p, ":rw") {
@@ -124,8 +124,9 @@ func buildDenyReadPaths() []string {
 	return paths
 }
 
-// buildSandboxSection constructs the sandbox.filesystem object for settings.json.
-func buildSandboxSection(allowWrite, denyRead []string) map[string]interface{} {
+// buildSandboxSection constructs the full sandbox object for settings.json,
+// including enforcement flags, network config, and filesystem paths.
+func buildSandboxSection(cfg *config.SandboxConfig, allowWrite, denyRead []string) map[string]interface{} {
 	aw := make([]interface{}, len(allowWrite))
 	for i, p := range allowWrite {
 		aw[i] = p
@@ -134,12 +135,29 @@ func buildSandboxSection(allowWrite, denyRead []string) map[string]interface{} {
 	for i, p := range denyRead {
 		dr[i] = p
 	}
-	return map[string]interface{}{
+
+	section := map[string]interface{}{
+		"enabled":                  cfg.Enabled,
+		"failIfUnavailable":        cfg.FailIfUnavailable,
+		"allowUnsandboxedCommands": cfg.AllowUnsandboxedCommands,
 		"filesystem": map[string]interface{}{
 			"allowWrite": aw,
 			"denyRead":   dr,
 		},
 	}
+
+	// Network — expand ~ in socket paths; only include if non-empty.
+	if len(cfg.Network.AllowUnixSockets) > 0 {
+		sockets := make([]interface{}, len(cfg.Network.AllowUnixSockets))
+		for i, s := range cfg.Network.AllowUnixSockets {
+			sockets[i] = expandHomePath(s)
+		}
+		section["network"] = map[string]interface{}{
+			"allowUnixSockets": sockets,
+		}
+	}
+
+	return section
 }
 
 // appendSecretDenyEntries appends Read(<path>) entries to the deny list for each

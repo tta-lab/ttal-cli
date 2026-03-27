@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
 // writeSandboxConfig writes a sandbox.toml in a temp XDG_CONFIG_HOME dir.
@@ -206,6 +208,98 @@ func TestSyncSandbox_PreservesExistingDenyEntries(t *testing.T) {
 		if !found {
 			t.Errorf("expected existing entry %q preserved in deny list, got %v", name, joined)
 		}
+	}
+}
+
+func TestBuildSandboxSection_EnforcementFields(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	cfg := &config.SandboxConfig{
+		Enabled:                  true,
+		FailIfUnavailable:        true,
+		AllowUnsandboxedCommands: false,
+		Network: config.SandboxNetwork{
+			AllowUnixSockets: []string{"~/.ttal/daemon.sock"},
+		},
+	}
+	section := buildSandboxSection(cfg, []string{"/tmp"}, []string{home + "/.config/ttal/.env"})
+
+	if section["enabled"] != true {
+		t.Error("expected enabled=true")
+	}
+	if section["failIfUnavailable"] != true {
+		t.Error("expected failIfUnavailable=true")
+	}
+	if section["allowUnsandboxedCommands"] != false {
+		t.Error("expected allowUnsandboxedCommands=false")
+	}
+
+	// Assert network with expanded socket path (not ~).
+	net, ok := section["network"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected network section in sandbox")
+	}
+	sockets, ok := net["allowUnixSockets"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowUnixSockets in network")
+	}
+	expected := home + "/.ttal/daemon.sock"
+	if len(sockets) != 1 || sockets[0] != expected {
+		t.Errorf("expected socket %s, got %v", expected, sockets)
+	}
+}
+
+func TestSyncSandbox_EnforcementFields(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+fail_if_unavailable = true
+allow_unsandboxed_commands = false
+
+[network]
+allow_unix_sockets = ["~/.ttal/daemon.sock"]
+
+[shared]
+extra_paths = ["~/.ttal:rw"]
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+	sandbox, ok := settings["sandbox"].(map[string]interface{})
+	if !ok {
+		t.Fatal("missing sandbox section in settings.json")
+	}
+
+	if sandbox["enabled"] != true {
+		t.Error("expected enabled=true")
+	}
+	if sandbox["failIfUnavailable"] != true {
+		t.Error("expected failIfUnavailable=true")
+	}
+	if sandbox["allowUnsandboxedCommands"] != false {
+		t.Error("expected allowUnsandboxedCommands=false")
+	}
+
+	home, _ := os.UserHomeDir()
+	net, ok := sandbox["network"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected network section in sandbox output")
+	}
+	sockets, ok := net["allowUnixSockets"].([]interface{})
+	if !ok {
+		t.Fatal("expected allowUnixSockets in network")
+	}
+	expected := home + "/.ttal/daemon.sock"
+	if len(sockets) != 1 || sockets[0] != expected {
+		t.Errorf("expected socket %s, got %v", expected, sockets)
 	}
 }
 
