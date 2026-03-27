@@ -78,4 +78,6 @@ allowedDomains = [
   "pypi.org", "files.pythonhosted.org",
   # JSON schema validation (settings.json $schema references)
   "json.schemastore.org",
+  # Docker Hub
+  "docker.io", "*.docker.io",
 ]
