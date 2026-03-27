@@ -105,6 +105,26 @@ extra_paths = []
 	assert.Equal(t, "ENABLE_TOOL_SEARCH=false", env[2])
 }
 
+func TestAppendTemenosPath(t *testing.T) {
+	t.Run("appends to existing TEMENOS_PATHS", func(t *testing.T) {
+		env := []string{"TEMENOS_WRITE=true", "TEMENOS_PATHS=/a:ro,/b:ro", "ENABLE_TOOL_SEARCH=false"}
+		env = AppendTemenosPath(env, "/c/.git:rw")
+		assert.Equal(t, "TEMENOS_PATHS=/a:ro,/b:ro,/c/.git:rw", env[1])
+	})
+
+	t.Run("appends to empty TEMENOS_PATHS", func(t *testing.T) {
+		env := []string{"TEMENOS_WRITE=true", "TEMENOS_PATHS=", "ENABLE_TOOL_SEARCH=false"}
+		env = AppendTemenosPath(env, "/c/.git:rw")
+		assert.Equal(t, "TEMENOS_PATHS=/c/.git:rw", env[1])
+	})
+
+	t.Run("creates TEMENOS_PATHS if missing", func(t *testing.T) {
+		env := []string{"TEMENOS_WRITE=true"}
+		env = AppendTemenosPath(env, "/c/.git:rw")
+		assert.Contains(t, env, "TEMENOS_PATHS=/c/.git:rw")
+	})
+}
+
 func TestManagerTemenosEnv_NoProjects(t *testing.T) {
 	writeSandboxTOML(t, "")
 	env := ManagerTemenosEnv(nil)

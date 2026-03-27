@@ -53,6 +53,25 @@ func ManagerTemenosEnv(projectPaths []string) []string {
 	return buildTemenosEnv(false, "manager", projectPaths)
 }
 
+// AppendTemenosPath appends a path entry (with :ro or :rw suffix) to the
+// TEMENOS_PATHS value in a temenos env slice. The entry is appended as-is
+// (caller must include the suffix). Returns the modified slice.
+func AppendTemenosPath(temenosEnv []string, entry string) []string {
+	const prefix = "TEMENOS_PATHS="
+	for i, v := range temenosEnv {
+		if strings.HasPrefix(v, prefix) {
+			existing := strings.TrimPrefix(v, prefix)
+			if existing == "" {
+				temenosEnv[i] = prefix + entry
+			} else {
+				temenosEnv[i] = v + "," + entry
+			}
+			return temenosEnv
+		}
+	}
+	return append(temenosEnv, prefix+entry)
+}
+
 // CollectReadOnlyPaths returns all registered project paths plus the ask
 // references_path for use as read-only TEMENOS_PATHS entries.
 // Loads project store and config. Non-fatal on errors — returns what it can.

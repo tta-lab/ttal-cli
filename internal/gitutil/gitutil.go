@@ -101,6 +101,45 @@ func BranchName(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// GitCommonDir returns the path to the shared .git directory for a worktree.
+// For a regular repo this returns "<repo>/.git". For a linked worktree it
+// returns the main repo's ".git" directory (e.g. "/path/to/main/.git").
+// Returns "" on any error (not a git repo, timeout, etc.).
+func GitCommonDir(dir string) string {
+	out, err := runGit(dir, "rev-parse", "--git-common-dir")
+	if err != nil {
+		return ""
+	}
+	p := strings.TrimSpace(string(out))
+	if p == "" {
+		return ""
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(dir, p)
+	}
+	p = filepath.Clean(p)
+	return p
+}
+
+// IsWorktreeLinked returns true if dir is a linked git worktree (not the main repo).
+// Compares --git-dir (worktree-specific) against --git-common-dir (shared).
+func IsWorktreeLinked(dir string) bool {
+	gitDir, err := runGit(dir, "rev-parse", "--git-dir")
+	if err != nil {
+		return false
+	}
+	commonDir := GitCommonDir(dir)
+	if commonDir == "" {
+		return false
+	}
+	gd := strings.TrimSpace(string(gitDir))
+	if !filepath.IsAbs(gd) {
+		gd = filepath.Join(dir, gd)
+	}
+	gd = filepath.Clean(gd)
+	return gd != commonDir
+}
+
 func runGit(dir string, args ...string) (string, error) {
 	return runGitWithTimeout(cmdTimeout, dir, args...)
 }
