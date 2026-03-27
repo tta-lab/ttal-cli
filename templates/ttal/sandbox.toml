@@ -19,6 +19,10 @@
 
 enabled = true
 
+# Auto-approve bash commands when sandboxed (CC default: true).
+# Set to false to require explicit approval for each bash command in sandboxed sessions.
+autoAllowBashIfSandboxed = true
+
 allowWrite = [
   "~/.ttal",                             # ttal data dir (tasks, daemon state)
   "~/.task",                             # taskwarrior data (SQLite WAL needs write)
@@ -54,6 +58,10 @@ allowRead = [
   "~/.rustup",                           # Rust toolchain
   "/Library/Developer/CommandLineTools", # macOS: xcrun shim resolves make/clang from here
 ]
+
+# Paths Claude may not write to (maps to sandbox.filesystem.denyWrite).
+# Useful to protect system dirs that fall within an allowWrite subtree.
+denyWrite = []
 
 # Deny specific secret files within the allowRead dirs above.
 permissionsDeny = [

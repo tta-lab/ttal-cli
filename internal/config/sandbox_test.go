@@ -42,7 +42,9 @@ func TestLoadSandbox_MalformedTOML(t *testing.T) {
 func TestLoadSandbox_ValidTOML(t *testing.T) {
 	writeSandboxTOML(t, `
 enabled = true
+autoAllowBashIfSandboxed = false
 allowWrite = ["/tmp"]
+denyWrite = ["/tmp/protected"]
 denyRead = ["~/"]
 allowRead = ["~/.ssh", "~/.config/ttal"]
 permissionsDeny = ["Read(~/.config/ttal/.env)", "Read(~/.ssh/id_ed25519)"]
@@ -53,11 +55,24 @@ allowedDomains = ["github.com", "*.guion.io"]
 	cfg := LoadSandbox()
 	require.NotNil(t, cfg)
 	assert.True(t, cfg.Enabled)
+	assert.NotNil(t, cfg.AutoAllowBashIfSandboxed)
+	assert.False(t, *cfg.AutoAllowBashIfSandboxed)
 	assert.Equal(t, []string{"/tmp"}, cfg.AllowWrite)
+	assert.Equal(t, []string{"/tmp/protected"}, cfg.DenyWrite)
 	assert.Equal(t, []string{"~/"}, cfg.DenyRead)
 	assert.Equal(t, []string{"~/.ssh", "~/.config/ttal"}, cfg.AllowRead)
 	assert.Equal(t, []string{"Read(~/.config/ttal/.env)", "Read(~/.ssh/id_ed25519)"}, cfg.PermissionsDeny)
 	assert.Equal(t, []string{"github.com", "*.guion.io"}, cfg.Network.AllowedDomains)
+}
+
+func TestLoadSandbox_AutoAllowBashNilWhenAbsent(t *testing.T) {
+	writeSandboxTOML(t, `
+enabled = true
+allowWrite = ["/tmp"]
+`)
+	cfg := LoadSandbox()
+	require.NotNil(t, cfg)
+	assert.Nil(t, cfg.AutoAllowBashIfSandboxed, "AutoAllowBashIfSandboxed should be nil when not set")
 }
 
 func TestLoadSandbox_ExpandedPaths(t *testing.T) {
@@ -67,6 +82,7 @@ func TestLoadSandbox_ExpandedPaths(t *testing.T) {
 	writeSandboxTOML(t, `
 enabled = true
 allowWrite = ["~/mydata"]
+denyWrite = ["~/protected"]
 denyRead = ["~/"]
 allowRead = ["~/.ssh"]
 permissionsDeny = ["Read(~/.config/ttal/.env)"]
@@ -75,6 +91,7 @@ permissionsDeny = ["Read(~/.config/ttal/.env)"]
 	require.NotNil(t, cfg)
 
 	assert.Contains(t, cfg.ExpandedAllowWrite(), filepath.Join(tmpHome, "mydata"))
+	assert.Contains(t, cfg.ExpandedDenyWrite(), filepath.Join(tmpHome, "protected"))
 	assert.Contains(t, cfg.ExpandedDenyRead(), tmpHome+"/")
 	assert.Contains(t, cfg.ExpandedAllowRead(), filepath.Join(tmpHome, ".ssh"))
 

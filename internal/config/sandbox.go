@@ -13,26 +13,30 @@ import (
 // SandboxConfig holds sandbox path configuration loaded from sandbox.toml.
 // Consumed by sync.SyncSandbox to build the sandbox section in ~/.claude/settings.json.
 //
-// AllowWrite      — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
-// DenyRead        — paths Claude may not read (maps to sandbox.filesystem.denyRead).
-//                   Typically ["~/"] to deny all home dir reads by default.
-// AllowRead       — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
-//                   Used to allowlist specific dirs within the denied home dir.
-// PermissionsDeny — raw permissions.deny entries (e.g. "Read(~/.ssh/id_ed25519)").
-//                   Written directly to settings.json permissions.deny (additive, deduplicated).
-//                   Use to deny specific secret files within allowRead dirs.
-// Network         — network access config (allowed domains, unix sockets are hardcoded by sync).
+// AllowWrite              — paths Claude may write to (maps to sandbox.filesystem.allowWrite).
+// DenyWrite               — paths Claude may not write to (maps to sandbox.filesystem.denyWrite).
+// DenyRead                — paths Claude may not read (maps to sandbox.filesystem.denyRead).
+//                           Typically ["~/"] to deny all home dir reads by default.
+// AllowRead               — paths readable within a denied parent (maps to sandbox.filesystem.allowRead).
+//                           Used to allowlist specific dirs within the denied home dir.
+// PermissionsDeny         — raw permissions.deny entries (e.g. "Read(~/.ssh/id_ed25519)").
+//                           Written directly to settings.json permissions.deny (additive, deduplicated).
+//                           Use to deny specific secret files within allowRead dirs.
+// AutoAllowBashIfSandboxed — auto-approve bash commands when sandboxed (default: true in CC).
+//                            Set to false to require approval for each bash command.
+// Network                 — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
 // Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
-// All enforcement settings (failIfUnavailable, allowUnsandboxedCommands) are
-// hardcoded secure defaults in sync — they are not configurable via sandbox.toml.
+// failIfUnavailable and allowUnsandboxedCommands are hardcoded secure defaults in sync.
 type SandboxConfig struct {
-	Enabled        bool          `toml:"enabled"`
-	AllowWrite     []string      `toml:"allowWrite"`
-	DenyRead       []string      `toml:"denyRead"`
-	AllowRead      []string      `toml:"allowRead"`
-	PermissionsDeny []string     `toml:"permissionsDeny"`
-	Network        NetworkConfig `toml:"network"`
+	Enabled                 bool          `toml:"enabled"`
+	AutoAllowBashIfSandboxed *bool         `toml:"autoAllowBashIfSandboxed"`
+	AllowWrite              []string      `toml:"allowWrite"`
+	DenyWrite               []string      `toml:"denyWrite"`
+	DenyRead                []string      `toml:"denyRead"`
+	AllowRead               []string      `toml:"allowRead"`
+	PermissionsDeny         []string      `toml:"permissionsDeny"`
+	Network                 NetworkConfig `toml:"network"`
 }
 
 // NetworkConfig holds network access settings for the sandbox.
@@ -43,6 +47,11 @@ type NetworkConfig struct {
 // ExpandedAllowWrite returns the AllowWrite paths with ~ expanded.
 func (c *SandboxConfig) ExpandedAllowWrite() []string {
 	return expandPaths(c.AllowWrite)
+}
+
+// ExpandedDenyWrite returns the DenyWrite paths with ~ expanded.
+func (c *SandboxConfig) ExpandedDenyWrite() []string {
+	return expandPaths(c.DenyWrite)
 }
 
 // ExpandedDenyRead returns the DenyRead paths with ~ expanded.

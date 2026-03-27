@@ -62,7 +62,8 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 	// Replace sandbox section, preserving any existing user unix sockets.
 	existingSockets := extractExistingSockets(settings)
 	allowRead := sandbox.ExpandedAllowRead()
-	settings["sandbox"] = buildSandboxSection(allowWrite, denyRead, allowRead, sandbox.Network.AllowedDomains, existingSockets)
+	denyWrite := sandbox.ExpandedDenyWrite()
+	settings["sandbox"] = buildSandboxSection(allowWrite, denyWrite, denyRead, allowRead, sandbox.Network.AllowedDomains, sandbox.AutoAllowBashIfSandboxed, existingSockets)
 
 	// Append permissions.deny entries from sandbox.toml (additive, preserve existing).
 	perms, denySlice, err := extractPermsDenyList(settings)
@@ -124,13 +125,12 @@ func buildDenyReadPaths(sandbox *config.SandboxConfig) []string {
 const daemonSocketPath = "~/.ttal/daemon.sock"
 
 // buildSandboxSection constructs the full sandbox object for settings.json.
-// Enforcement settings (failIfUnavailable, allowUnsandboxedCommands) are hardcoded
-// secure defaults — they are not user-configurable.
-// allowRead paths are sourced from sandbox.toml's allowRead field (allowlist within denyRead).
-// allowedDomains are sourced from sandbox.toml's [network] section.
+// failIfUnavailable and allowUnsandboxedCommands are hardcoded secure defaults.
+// autoAllowBashIfSandboxed is written only when explicitly set (non-nil).
+// allowRead, denyWrite, allowedDomains are omitted when empty.
 // existingSockets are user-defined unix sockets from a prior settings.json; they
 // are preserved and our daemonSocketPath is appended (deduplicated).
-func buildSandboxSection(allowWrite, denyRead, allowRead, allowedDomains []string, existingSockets []string) map[string]interface{} {
+func buildSandboxSection(allowWrite, denyWrite, denyRead, allowRead, allowedDomains []string, autoAllowBash *bool, existingSockets []string) map[string]interface{} {
 	toIfaceSlice := func(ss []string) []interface{} {
 		out := make([]interface{}, len(ss))
 		for i, s := range ss {
@@ -162,17 +162,24 @@ func buildSandboxSection(allowWrite, denyRead, allowRead, allowedDomains []strin
 		"allowWrite": toIfaceSlice(allowWrite),
 		"denyRead":   toIfaceSlice(denyRead),
 	}
+	if len(denyWrite) > 0 {
+		fs["denyWrite"] = toIfaceSlice(denyWrite)
+	}
 	if len(allowRead) > 0 {
 		fs["allowRead"] = toIfaceSlice(allowRead)
 	}
 
-	return map[string]interface{}{
+	section := map[string]interface{}{
 		"enabled":                  true,
 		"failIfUnavailable":        true,
 		"allowUnsandboxedCommands": false,
 		"network":                  network,
 		"filesystem":               fs,
 	}
+	if autoAllowBash != nil {
+		section["autoAllowBashIfSandboxed"] = *autoAllowBash
+	}
+	return section
 }
 
 // extractExistingSockets reads network.allowUnixSockets from the existing sandbox
