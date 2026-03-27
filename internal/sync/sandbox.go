@@ -44,7 +44,10 @@ func SyncSandbox(dryRun bool) (SandboxResult, error) {
 }
 
 func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
-	sandbox := config.LoadSandbox()
+	sandbox, err := config.LoadSandboxWithError()
+	if err != nil {
+		return SandboxResult{}, fmt.Errorf("loading sandbox.toml: %w", err)
+	}
 	if !sandbox.Enabled {
 		return SandboxResult{}, nil
 	}
