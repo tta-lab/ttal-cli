@@ -74,4 +74,6 @@ allowedDomains = [
   "crates.io", "*.crates.io",
   # npm
   "registry.npmjs.org",
+  # JSON schema validation (settings.json $schema references)
+  "json.schemastore.org",
 ]
