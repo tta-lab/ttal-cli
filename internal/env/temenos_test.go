@@ -1,6 +1,7 @@
 package env
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,24 +23,33 @@ func writeSandboxTOML(t *testing.T, content string) {
 }
 
 func TestWorkerTemenosEnv(t *testing.T) {
-	writeSandboxTOML(t, `
+	// Use /tmp paths (always exist) so PathsForPlane's stat filter doesn't drop them.
+	// This avoids a dependency on ~/.ttal or ~/.task existing on the test machine / CI runner.
+	tmpA := filepath.Join(t.TempDir(), "shared-a")
+	tmpB := filepath.Join(t.TempDir(), "shared-b")
+	tmpW := filepath.Join(t.TempDir(), "worker-c")
+	require.NoError(t, os.MkdirAll(tmpA, 0o755))
+	require.NoError(t, os.MkdirAll(tmpB, 0o755))
+	require.NoError(t, os.MkdirAll(tmpW, 0o755))
+
+	writeSandboxTOML(t, fmt.Sprintf(`
 [shared]
-extra_paths = ["~/.ttal:rw", "~/.task:rw"]
+extra_paths = [%q, %q]
 
 [worker]
-extra_paths = ["~/Library/Caches/go-build:rw"]
+extra_paths = [%q]
 
 [manager]
 extra_paths = []
-`)
+`, tmpA+":rw", tmpB+":rw", tmpW+":rw"))
+
 	env := WorkerTemenosEnv(nil)
 	require.Len(t, env, 3)
 	assert.Equal(t, "TEMENOS_WRITE=true", env[0])
 	assert.True(t, strings.HasPrefix(env[1], "TEMENOS_PATHS="))
-
-	home, _ := os.UserHomeDir()
-	assert.Contains(t, env[1], home+"/.ttal:rw")
-	assert.Contains(t, env[1], home+"/.task:rw")
+	assert.Contains(t, env[1], tmpA+":rw")
+	assert.Contains(t, env[1], tmpB+":rw")
+	assert.Contains(t, env[1], tmpW+":rw")
 	assert.Equal(t, "ENABLE_TOOL_SEARCH=false", env[2])
 }
 
