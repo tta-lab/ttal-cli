@@ -64,24 +64,20 @@ Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/t
 | Field | Type | Description |
 |-------|------|-------------|
 | `shell` | string | Shell for tmux sessions: `zsh` or `fish` |
-| `default_team` | string | Which team to use by default |
 
 ## Team fields
-
-Each team lives under `[teams.<name>]`:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `data_dir` | string | Data directory (default: `~/.ttal`) |
 | `taskrc` | string | Path to taskwarrior config |
-| `chat_id` | string | Default Telegram chat ID for this team |
-| `notification_token_env` | string | Override env var for notification bot token (default: `{UPPER_TEAM}_NOTIFICATION_BOT_TOKEN`) |
+| `chat_id` | string | Telegram chat ID |
+| `notification_token_env` | string | Override env var for notification bot token (default: `DEFAULT_NOTIFICATION_BOT_TOKEN`) |
 | `agent_runtime` | string | Default runtime: `claude-code`, `codex` |
 | `worker_runtime` | string | Default runtime for spawned workers |
 | `voice_language` | string | ISO 639-1 language code for STT, or `auto` |
 | `voice_vocabulary` | list | Custom vocabulary words to improve Whisper accuracy |
 | `gateway_url` | string | Gateway URL for webhook-based runtimes |
-
 ## CLAUDE.md frontmatter fields
 
 Agent identity is configured in CLAUDE.md frontmatter (in the agent's workspace directory):
@@ -170,53 +166,20 @@ See [Prompts](./prompts.md) for full documentation and examples.
 
 ## Notification bot token
 
-System notifications (daemon ready, CI status, worker lifecycle) use a dedicated notification bot token per team, separate from agent bot tokens.
+System notifications (daemon ready, CI status, worker lifecycle) use a dedicated notification bot token, separate from agent bot tokens.
 
-**Convention:** `{UPPER_TEAM}_NOTIFICATION_BOT_TOKEN` in `~/.config/ttal/.env`
+**Convention:** `DEFAULT_NOTIFICATION_BOT_TOKEN` in `~/.config/ttal/.env`
 
 ```env
-# Default team
 DEFAULT_NOTIFICATION_BOT_TOKEN=123456:ABC-xyz
-
-# Work team
-WORK_NOTIFICATION_BOT_TOKEN=789012:DEF-uvw
 ```
 
-Override the env var name per team with `notification_token_env`:
+Override the env var name with `notification_token_env`:
 
 ```toml
 [teams.default]
 notification_token_env = "MY_CUSTOM_BOT_TOKEN"
 ```
-
-## Multi-team configuration
-
-Run separate teams with different taskwarrior instances and runtimes.
-Agents are discovered from the filesystem — no per-agent config blocks needed:
-
-```toml
-default_team = "personal"
-
-[teams.personal]
-data_dir = "~/.ttal"
-taskrc = "~/.taskrc"
-chat_id = "123456"
-team_path = "~/personal-agents"
-
-[teams.work]
-data_dir = "~/.ttal-work"
-taskrc = "~/.task-work/taskrc"
-chat_id = "789012"
-team_path = "~/work-agents"
-```
-
-Bot tokens in `~/.config/ttal/.env`:
-
-```env
-KESTREL_BOT_TOKEN=bot123:ABC
-ATLAS_BOT_TOKEN=bot456:DEF
-```
-
 ## Environment variables
 
 | Variable | Description |
