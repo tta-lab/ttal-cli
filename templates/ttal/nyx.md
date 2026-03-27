@@ -5,7 +5,7 @@ emoji: 🔭
 role: auditor
 voice: af_alloy
 claude-code:
-  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # CLAUDE.md - Nyx's Workspace

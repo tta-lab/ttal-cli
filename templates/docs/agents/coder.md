@@ -5,7 +5,7 @@ description: "Worker agent — executes implementation plans in isolated worktre
 role: worker
 claude-code:
   model: sonnet
-  tools: [mcp__temenos__bash, mcp__context7__resolve-library-id, mcp__context7__query-docs, Agent]
+  tools: [Bash, Glob, Grep, Read, Write, Edit, mcp__context7__resolve-library-id, mcp__context7__query-docs, Agent]
 ---
 
 # Coder

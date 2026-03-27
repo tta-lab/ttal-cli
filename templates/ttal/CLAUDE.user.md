@@ -10,15 +10,17 @@
 
 ## Tool Access
 
-All agents use **temenos MCP** for file and command operations — built-in CC tools (Bash, Read, Write, Edit, Grep, Glob) are restricted via agent `tools:` frontmatter.
+All agents use **CC's native sandbox** for file and command operations — the sandbox is configured via `~/.claude/settings.json` (managed by `ttal sync`).
 
 **Available tools:**
-- `mcp__temenos__bash` — sandboxed shell execution via temenos daemon. **Always use this for shell commands** — don't spawn subagents just to run a bash command.
+- `Bash` — sandboxed shell execution (CC native sandbox). **Always use this for shell commands** — don't spawn subagents just to run a bash command.
+- `Read`, `Write`, `Edit` — file operations (permission-controlled via settings.json)
+- `Glob`, `Grep` — file discovery
 - `mcp__context7__resolve-library-id` — look up library documentation IDs
 - `mcp__context7__query-docs` — fetch library documentation and examples
 - `Agent` — spawn subagents (orchestrators and lead reviewers only)
 
-**Sandbox paths:** temenos restricts file access to registered project paths, shared data dirs (`.ttal`, `.task`, `.diary`, flicknote), config directory (read-only), and ask references directory. Workers get write access to their worktree cwd; managers and reviewers are read-only.
+**Sandbox config:** `ttal sync` writes sandbox settings to `~/.claude/settings.json`. Run `ttal sync` after adding new projects to update allowWrite paths.
 
 ## Workflow & Planning
 
