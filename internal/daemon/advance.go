@@ -256,14 +256,26 @@ func processStageAdvance(
 	callerAgent, sessionName, workDir, team, workerRuntime, teamPath string,
 	agentRoles map[string]string,
 ) {
-	if checkReviewerGate(w, task, stage) {
-		// Spawn or re-trigger reviewer when caller provided session context.
+	if stage.Reviewer != "" && !hasTag(task.Tags, stage.StageLGTMTag()) {
+		// Attempt spawn/re-trigger before writing response so we can include the outcome.
 		// Skip when sessionName is empty (old client or non-tmux caller) — backwards compatible.
+		var spawnMsg string
 		if sessionName != "" && mcfg.Global != nil {
 			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global); err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
+				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
+			} else {
+				spawnMsg = " (reviewer spawned)"
 			}
 		}
+
+		msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict%s", stage.Reviewer, spawnMsg)
+		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+			Status:   AdvanceStatusNeedsLGTM,
+			Message:  msg,
+			Reviewer: stage.Reviewer,
+			Assignee: stage.Assignee,
+		})
 		return
 	}
 	if checkHumanGate(ctx, w, fe, p, idx, callerAgent, task, stage) {
