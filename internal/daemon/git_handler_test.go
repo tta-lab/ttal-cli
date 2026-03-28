@@ -191,18 +191,9 @@ func TestHTTPGitTag_HandlerError(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	// Handler error → 500 with OK=false; detailed decode contract covered by TestHTTPGitPush_HandlerError.
 	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
-	}
-	var resp GitTagResponse
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if resp.OK {
-		t.Error("expected OK=false on handler error")
-	}
-	if resp.Error != "tag failed" {
-		t.Errorf("expected Error=tag failed, got %q", resp.Error)
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

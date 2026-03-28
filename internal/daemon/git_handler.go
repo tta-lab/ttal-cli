@@ -115,7 +115,11 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 	}
 
 	// Security: validate WorkDir is a registered ttal project path (exact match).
-	if !isRegisteredProjectPath(req.WorkDir) {
+	registered, err := isRegisteredProjectPath(req.WorkDir)
+	if err != nil {
+		return GitTagResponse{Error: fmt.Sprintf("load project registry: %v", err)}
+	}
+	if !registered {
 		return GitTagResponse{Error: "tag only allowed for registered ttal projects"}
 	}
 
@@ -162,9 +166,14 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 
 	if err := pushCmd.Run(); err != nil {
 		// Tag was created locally but push failed — delete the local tag to avoid stale state.
+		// "--" prevents tag names like "-v1.0.0" from being parsed as flags.
 		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanCancel()
-		_ = exec.CommandContext(cleanCtx, "git", "-C", req.WorkDir, "tag", "-d", req.Tag).Run()
+		if cleanErr := exec.CommandContext(cleanCtx, "git", "-C", req.WorkDir, "tag", "-d", "--", req.Tag).Run(); cleanErr != nil {
+			log.Printf("[daemon] git tag cleanup failed (tag %s may be stale in %s): %v", req.Tag, req.WorkDir, cleanErr)
+		} else {
+			log.Printf("[daemon] git tag rolled back: deleted local tag %s", req.Tag)
+		}
 
 		log.Printf("[daemon] git tag push failed for %s: %v — %s", req.WorkDir, err, pushOut.String())
 		return GitTagResponse{Error: fmt.Sprintf("git push tag: %v\n%s", err, strings.TrimSpace(pushOut.String()))}
@@ -176,17 +185,19 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 
 // isRegisteredProjectPath checks if the given path is a registered ttal project path.
 // Uses exact match after filepath.Clean to prevent path-traversal attacks.
-func isRegisteredProjectPath(path string) bool {
+// Returns (false, err) when the project store cannot be read, so callers can surface
+// config errors instead of the misleading "not a registered project" message.
+func isRegisteredProjectPath(path string) (bool, error) {
 	cleanPath := filepath.Clean(path)
 	store := project.NewStore(config.ResolveProjectsPath())
 	projects, err := store.List(false)
 	if err != nil {
-		return false
+		return false, err
 	}
 	for _, p := range projects {
 		if filepath.Clean(p.Path) == cleanPath {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }

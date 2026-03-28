@@ -616,16 +616,9 @@ func GitPush(req GitPushRequest) (GitPushResponse, error) {
 	return gitCallTyped("/git/push", req, func(r GitPushResponse) string { return r.Error })
 }
 
-// gitTagClientTimeout is the total request timeout for git tag operations.
-const gitTagClientTimeout = 90 * time.Second
-
 // GitTag asks the daemon to create and push a git tag via daemon-held credentials.
 func GitTag(req GitTagRequest) (GitTagResponse, error) {
-	return daemonCallTyped("/git/tag", req, func(r GitTagResponse) string { return r.Error },
-		gitTagClientTimeout,
-		fmt.Sprintf("git tag timed out after %s — daemon is running but tag+push is slow", gitTagClientTimeout),
-		"daemon not running — ttal tag requires the daemon",
-	)
+	return gitCallTyped("/git/tag", req, func(r GitTagResponse) string { return r.Error })
 }
 
 // daemonCallTyped is the shared retry-with-backoff HTTP helper for long-running daemon operations.
