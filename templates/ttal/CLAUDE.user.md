@@ -203,14 +203,16 @@ ttal skill import templates/docs/skills --apply
 ttal skill import templates/docs/commands --apply --category command
 ```
 
-### Git Push
+### Git Operations
 
 ```bash
-ttal push    # push current branch to origin via daemon (no credentials needed in worker)
+ttal push                              # push current branch to origin via daemon
+ttal tag v1.0.0 --project <alias>      # create + push git tag via daemon
 ```
 
 - **Use `ttal push` for git push** — proxied through daemon, workers don't need tokens in their environment
-- Never run `git push` directly from a worker session — use `ttal push` instead
+- **Use `ttal tag` for git tags** — creates tag locally and pushes via daemon. `--project` is required.
+- Never run `git push` or `git push origin <tag>` directly from a worker session — use `ttal push` / `ttal tag` instead
 
 ### Tool Usage
 - **Never use `run_in_background` for `ttal go`** — it completes in seconds and backgrounding causes output read races (agent reads output before it's written)
@@ -294,6 +296,13 @@ ttal today completed                   # done today
 ttal voice speak "text"                # speak with your voice
 ttal voice speak "text" --voice <id>   # specific voice
 ttal voice status                      # check server
+```
+
+## Git
+
+```bash
+ttal push                              # push current branch to origin via daemon
+ttal tag v1.0.0 --project <alias>      # create + push git tag via daemon
 ```
 
 ### flicknote-cli
