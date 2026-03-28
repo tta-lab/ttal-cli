@@ -40,6 +40,7 @@ allowWrite = [
   "~/.cache/golangci-lint",             # Linux: golangci-lint analysis cache
   "~/.cache/cargo",                      # Linux: Rust incremental build cache
   "~/.npm/_logs",                        # npm log directory
+  "~/.qlty",                             # qlty data dir (plugin cache, hooks, results)
 ]
 
 # denyRead is intentionally empty. Secrets are blocked via permissionsDeny below, which

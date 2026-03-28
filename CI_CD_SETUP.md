@@ -20,9 +20,7 @@ This document describes the CI/CD workflows and development tooling implemented 
   - Build binary
 
 - **lint**
-  - Format check (fails if code not formatted)
-  - Run go vet
-  - Run golangci-lint with 17 linters
+  - Run qlty check (golangci-lint with 16 linters + trufflehog secret scanning)
 
 **Purpose:** Ensure all PRs meet quality standards before merge
 
@@ -37,9 +35,7 @@ This document describes the CI/CD workflows and development tooling implemented 
   - Build binary
 
 - **lint**
-  - Format code
-  - Run go vet
-  - Run golangci-lint
+  - Run qlty check (golangci-lint + gitleaks + osv-scanner + zizmor)
 
 **Purpose:** Keep main branch healthy and catch issues immediately after merge
 
@@ -68,7 +64,7 @@ git push origin v1.0.0
 
 ### golangci-lint Configuration (`.golangci.yml`)
 
-**Enabled Linters (17):**
+**Enabled Linters (16):**
 - `copyloopvar` - Detect loop variable capture issues
 - `dupl` - Find duplicated code
 - `errcheck` - Check for unchecked errors
@@ -93,16 +89,17 @@ git push origin v1.0.0
 **Exclusions:**
 - Line length checks relaxed for generated code
 
-### Pre-commit Hook (lefthook)
+### Git Hooks (qlty)
 
-**Installed via:** `lefthook install`
+**Installed via:** `qlty githooks install` or `make install-hooks`
 
-**Checks performed (parallel):**
-- `make fmt` — auto-apply formatting
-- `make vet` — static analysis
-- `make lint` — golangci-lint
+**Pre-commit hook:**
+- `qlty fmt` — auto-formats staged Go files (gofmt + goimports)
 
-Tests are CI-only and do not run in the pre-commit hook.
+**Pre-push hook:**
+- `qlty check` — runs golangci-lint (16 linters via `.golangci.yml`) + trufflehog (secret scanning)
+
+Tests are CI-only and do not run in git hooks.
 
 ## Makefile Enhancements
 
@@ -115,8 +112,11 @@ make ci
 # Check if working directory is clean (for CI)
 make check-clean
 
-# Install pre-commit hook
+# Install qlty git hooks
 make install-hooks
+
+# Run qlty check (lint + security scan)
+make qlty
 ```
 
 ### Complete Target List
@@ -129,12 +129,11 @@ make clean         # Remove built binaries
 make test          # Run tests
 make schema        # Regenerate JSON Schema from config structs
 make fmt           # Format code with gofmt
-make vet           # Run go vet
-make lint          # Run golangci-lint (if installed)
-make all           # Format, tidy, schema, vet, and build
-make ci            # Run all CI checks
+make qlty          # Run qlty check (lint + security scan)
+make all           # Format, tidy, schema, qlty, and build
+make ci            # Run all CI checks (qlty, schema, test, build)
 make check-clean   # Check if working directory is clean
-make install-hooks # Install git pre-commit hook
+make install-hooks # Install qlty git hooks
 ```
 
 ## PR Template (`.forgejo/pull_request_template.md`)
@@ -150,7 +149,7 @@ Standardized template for all pull requests:
 **Required checks before merge:**
 - [ ] Code formatted (`make fmt`)
 - [ ] Tests pass (`make test`)
-- [ ] Vet passes (`make vet`)
+- [ ] Qlty check passes (`make qlty`)
 - [ ] JSON Schema updated (`make schema`)
 - [ ] Conventional commit format used
 - [ ] No sensitive data committed
@@ -167,8 +166,8 @@ Added exclusions for:
 ### Standard Flow
 
 ```bash
-# 1. Install lefthook (one-time)
-lefthook install
+# 1. Install qlty hooks (one-time)
+qlty githooks install
 
 # 2. Make changes to code
 
