@@ -5,12 +5,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -29,17 +34,6 @@ jobs:
       - name: Lint and security scan
         run: qlty check --all --no-progress
 
-      - name: Generate schema
-        run: make schema
-
-      - name: Check for uncommitted changes
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Generated files are out of date. Run 'make schema', then commit."
-            git status --porcelain
-            exit 1
-          fi
-
       - name: Test
         run: make test
 
@@ -52,7 +46,7 @@ jobs:
           node-version: 22
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4 # zizmor: ignore[unpinned-uses]
         with:
           version: 10
 

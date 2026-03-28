@@ -10,10 +10,10 @@ TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focu
 
 ### Development Workflow
 ```bash
-# Format, tidy, schema, qlty, and build
+# Format, tidy, qlty, and build
 make all
 
-# Run all CI checks (qlty, schema, test, build)
+# Run all CI checks (qlty, test, build)
 make ci
 
 # Run tests

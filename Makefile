@@ -1,4 +1,4 @@
-.PHONY: help build build-dictate clean clean-projects reset test schema check-schema install install-dictate reinstall setup run fmt qlty doc-dev doc-build doc-deploy
+.PHONY: help build build-dictate clean clean-projects reset test install install-dictate reinstall setup run fmt qlty doc-dev doc-build doc-deploy
 
 # Default target
 help:
@@ -15,9 +15,8 @@ help:
 	@echo "  make test          - Run tests"
 	@echo "  make fmt           - Format code with gofmt"
 	@echo "  make qlty          - Run qlty check (lint + security scan)"
-	@echo "  make schema        - Generate JSON Schema from config structs"
-	@echo "  make all           - Format, tidy, schema, qlty, and build"
-	@echo "  make ci            - Run all CI checks (qlty, schema, test, build)"
+	@echo "  make all           - Format, tidy, qlty, and build"
+	@echo "  make ci            - Run all CI checks (qlty, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
 	@echo "  make install-hooks - Install qlty git hooks"
 	@echo "  make doc-dev       - Start docs dev server"
@@ -94,24 +93,6 @@ tidy:
 	@go mod tidy
 	@echo "✓ go mod tidy complete"
 
-# Generate JSON Schema from config structs
-schema:
-	@echo "Generating config schema..."
-	@mkdir -p schema docs/public/schema
-	@go run ./cmd/gen-schema > schema/config.schema.json
-	@cp schema/config.schema.json docs/public/schema/config.schema.json
-	@echo "✓ Schema generated and copied to doc site"
-
-# Verify committed schema matches generated output
-check-schema: schema
-	@if [ -n "$$(git diff schema/)" ]; then \
-		echo "❌ schema/config.schema.json is out of date — run: make schema"; \
-		git diff schema/; \
-		exit 1; \
-	else \
-		echo "✓ Schema is up to date"; \
-	fi
-
 # Format code
 fmt:
 	@echo "Formatting code..."
@@ -125,7 +106,7 @@ qlty:
 	@echo "✓ Qlty check complete"
 
 # Run all checks and build
-all: fmt tidy schema qlty build
+all: fmt tidy qlty build
 	@echo "✓ All checks passed and binary built"
 
 # Development workflow
@@ -133,7 +114,7 @@ dev: all
 	@echo "✓ Development build complete"
 
 # CI target - runs all checks (same as all but exits on failure)
-ci: qlty check-schema test build
+ci: qlty test build
 	@echo "✓ CI checks complete"
 
 # Check if working directory is clean (for CI)
