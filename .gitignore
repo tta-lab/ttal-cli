@@ -50,6 +50,11 @@ gui/frontend/node_modules/
 # Docker worker secrets (co-located in worktree, auto-deleted with worktree)
 .ttal-docker-env
 
+# qlty generated files (hooks are generated, config is committed)
+.qlty/hooks/
+.qlty/sources/
+.qlty/results/
+
 # OS
 .DS_Store
 Thumbs.db

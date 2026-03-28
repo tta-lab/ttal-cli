@@ -1,0 +1,40 @@
+config_version = "0"
+
+exclude_patterns = [
+  "third_party/**",
+  "docs/node_modules/**",
+  "schema/**",
+]
+
+test_patterns = [
+  "**/*_test.go",
+]
+
+# Code smells — duplication + complexity detection
+[smells]
+mode = "comment"
+
+[[source]]
+name = "default"
+default = true
+
+# Go linting — wraps existing .golangci.yml (16 linters + gofmt/goimports)
+# golangci-lint auto-discovers .golangci.yml via its built-in config search
+[[plugin]]
+name = "golangci-lint"
+mode = "block"
+
+# Secret scanning — catches leaked API keys, bot tokens, credentials
+[[plugin]]
+name = "trufflehog"
+mode = "block"
+
+# Dependency vulnerability scanning (scans go.mod/go.sum)
+[[plugin]]
+name = "osv-scanner"
+mode = "block"
+
+# GitHub Actions workflow security auditing
+[[plugin]]
+name = "zizmor"
+mode = "block"
