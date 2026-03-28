@@ -19,9 +19,11 @@ name = "default"
 default = true
 
 # Go linting — wraps existing .golangci.yml (16 linters + gofmt/goimports)
-# golangci-lint auto-discovers .golangci.yml via its built-in config search
+# Pinned to 2.10.1 (built with Go 1.26.0) — qlty's default version was built
+# with Go 1.23 which is too old for this project's go 1.26.1 requirement.
 [[plugin]]
 name = "golangci-lint"
+version = "2.10.1"
 mode = "block"
 
 # Secret scanning — catches leaked API keys, bot tokens, credentials
