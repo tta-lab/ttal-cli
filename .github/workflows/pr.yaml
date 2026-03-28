@@ -27,7 +27,7 @@ jobs:
           echo "$HOME/.qlty/bin" >> $GITHUB_PATH
 
       - name: Lint and security scan
-        run: qlty check --all --no-progress --fail-level high
+        run: qlty check --all --no-progress
 
       - name: Generate schema
         run: make schema

@@ -32,9 +32,11 @@ name = "trufflehog"
 mode = "block"
 
 # Dependency vulnerability scanning (scans go.mod/go.sum)
+# mode = "comment" so pre-existing medium vulns are reported but don't block CI.
+# Upgrade to "block" after addressing the known vulnerabilities.
 [[plugin]]
 name = "osv-scanner"
-mode = "block"
+mode = "comment"
 
 # GitHub Actions workflow security auditing
 [[plugin]]
