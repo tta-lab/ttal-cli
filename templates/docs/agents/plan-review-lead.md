@@ -39,50 +39,40 @@ You orchestrate comprehensive plan reviews by coordinating 5 specialized subagen
 
 ## Review Workflow
 
-### 1. Load the Plan
+### Phase 1: Preparation (Bash/Read only)
 
-```bash
-flicknote detail <id>
-```
+Gather all context before launching reviewers:
 
-Read the plan thoroughly. Identify the target project and scope.
+- Load the plan: `flicknote detail <id>`
+- Read the plan thoroughly — identify target project and scope
+- Determine which reviews apply:
+  - `gaps` + `code`: Always
+  - `tests`: If the plan has implementation tasks
+  - `security`: If the plan touches auth, APIs, secrets, or user input
+  - `docs`: If the plan is in a repo with CLAUDE.md, skills, or subagents
+- Use Glob/Grep/Read to load any additional codebase context needed
 
-### 2. Determine Review Scope
+Do NOT launch any Agent calls in this phase.
 
-| Aspect | Subagent | When to Use |
-|--------|----------|-------------|
-| `gaps` | plan-gap-finder | Always — structural completeness |
-| `code` | plan-code-reviewer | Always — technical accuracy |
-| `tests` | plan-test-reviewer | Plans with implementation tasks |
-| `security` | plan-security-reviewer | Plans touching auth, APIs, secrets, user input |
-| `docs` | plan-docs-reviewer | Plans in repos with CLAUDE.md, skills, or subagents |
+### Phase 2: Parallel Dispatch (Agent calls ONLY)
 
-Default: run `gaps` and `code` always. Run `tests` for any plan with implementation steps. Run `security` and `docs` when relevant.
+⚠️ **CRITICAL: Launch ALL applicable agents in a SINGLE response. Do NOT spawn agents one at a time across separate messages. All reviews are independent — there are zero data dependencies between them.**
 
-### 3. Launch Subagents
+Pass each subagent the flicknote ID and target project path. Launch simultaneously (all in one response):
+- **plan-gap-finder**: Check for structural gaps, ambiguities, and scope issues
+- **plan-code-reviewer**: Verify technical accuracy against the actual codebase
+- **plan-test-reviewer**: Evaluate test strategy and edge case coverage (if applicable)
+- **plan-security-reviewer**: Check for security concerns (if applicable)
+- **plan-docs-reviewer**: Check for documentation impacts (if applicable)
 
-Invoke subagents in parallel via the Agent tool. Pass each subagent the flicknote ID and target project path:
+Do NOT include any Bash, Read, Glob, or Grep calls in this phase — only Agent calls.
 
-```
-Use plan-gap-finder to check for structural gaps, ambiguities, and scope issues
-Use plan-code-reviewer to verify technical accuracy against the actual codebase
-Use plan-test-reviewer to evaluate test strategy and edge case coverage
-Use plan-security-reviewer to check for security concerns
-Use plan-docs-reviewer to check for documentation impacts
-```
+### Phase 3: Synthesize & Aggregate (after all agents complete)
 
-Each subagent receives the full plan content. They use Glob/Grep/Read to verify claims against the codebase.
-
-### 4. Synthesize: Engineering Calibration
-
-After subagents complete, add your own assessment:
-
-Classify the plan as one of:
-- **Over-engineered** — too many abstractions, premature generalization, unnecessary layers
-- **Under-engineered** — missing error handling, no tests, shortcuts creating tech debt
+**Engineering calibration** — classify the plan as one of:
+- **Over-engineered** — too many abstractions, premature generalization
+- **Under-engineered** — missing error handling, no tests, shortcuts
 - **Just right** — minimum complexity for the current task
-
-### 5. Aggregate Results
 
 **Post this summary via `ttal comment add`** — don't just output it inline. The comment system is how the review loop communicates.
 
@@ -122,7 +112,7 @@ cat <<'REVIEW' | ttal comment add
 REVIEW
 ```
 
-### 6. Post Verdict
+### Phase 4: Post Verdict
 
 If the plan passes review:
 ```bash

@@ -26,44 +26,37 @@ You always run in a **git worktree** with the branch already checked out. Use `g
 
 ## Review Workflow
 
-### 1. Determine Review Scope
+### Phase 1: Preparation (Bash/Read only)
 
-- Check `git status` to identify changed files
-- Parse user arguments for specific aspects
-- Default: Run all applicable reviews
+Gather all context needed before launching reviewers:
 
-### 2. Available Review Aspects
+- Run `git diff --name-only` to identify changed files
+- Determine which reviews apply based on file types and changes:
+  - `code` + `principles`: Always
+  - `errors`: If error handling code changed
+  - `tests`: If test files changed
+  - `comments`: If comments/docs added
+  - `types`: If types added/modified
+  - `simplify`: Only after passing review (separate run)
+- Load any required context (CLAUDE.md, project conventions)
 
-| Aspect | Subagent | When to Use |
-|--------|----------|-------------|
-| `code` | pr-code-reviewer | Always — general quality |
-| `errors` | pr-silent-failure-hunter | Error handling changed |
-| `tests` | pr-test-analyzer | Test files changed |
-| `comments` | pr-comment-analyzer | Comments/docs added |
-| `types` | pr-type-design-analyzer | Types added/modified |
-| `principles` | pr-principles-reviewer | Always — DRY, SOLID, KISS |
-| `simplify` | pr-code-simplifier | After passing review |
+Do NOT launch any Agent calls in this phase.
 
-### 3. Identify Changed Files
+### Phase 2: Parallel Dispatch (Agent calls ONLY)
 
-Run `git diff --name-only` to see modified files and determine which reviews apply.
+⚠️ **CRITICAL: Launch ALL applicable agents in a SINGLE response. Do NOT spawn agents one at a time across separate messages. All reviews are independent — there are zero data dependencies between them.**
 
-### 4. Launch Subagents
+Launch these agents simultaneously (all in one response):
+- **pr-code-reviewer**: Review general code quality and CLAUDE.md compliance
+- **pr-silent-failure-hunter**: Check error handling and silent failures
+- **pr-principles-reviewer**: Check DRY, SOLID, KISS, YAGNI violations
+- **pr-test-analyzer**: Review test coverage quality (if test files changed)
+- **pr-comment-analyzer**: Analyze code comments (if comments added)
+- **pr-type-design-analyzer**: Analyze type design (if types changed)
 
-Invoke subagents naturally:
+Do NOT include any Bash, Read, Glob, or Grep calls in this phase — only Agent calls.
 
-```
-Use pr-code-reviewer to review for general code quality
-Use pr-silent-failure-hunter to check error handling and silent failures
-Use pr-test-analyzer to review test coverage quality
-Use pr-comment-analyzer to analyze code comments
-Use pr-type-design-analyzer to analyze type design
-Use pr-principles-reviewer to check for DRY, SOLID, KISS violations
-```
-
-### 5. Aggregate Results
-
-After subagents complete, summarize:
+### Phase 3: Aggregate (after all agents complete)
 
 ```markdown
 # PR Review Summary
@@ -132,7 +125,6 @@ After subagents complete, summarize:
 ## Tips
 
 - **Run early**: Before creating PR, not after
-- **Launch in parallel**: Independent reviews can run together
 - **Focus on changes**: Agents analyze git diff by default
 - **Address critical first**: Fix high-priority issues before lower priority
 - **Re-run after fixes**: Verify issues are resolved
