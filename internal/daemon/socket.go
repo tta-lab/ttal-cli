@@ -273,6 +273,18 @@ type CloseWindowRequest struct {
 	Window  string `json:"window"`  // tmux window name (reviewer agent name from pipelines.toml)
 }
 
+// GitPushRequest asks the daemon to push a branch to origin using daemon-held credentials.
+type GitPushRequest struct {
+	WorkDir string `json:"work_dir"` // absolute path to the git worktree
+	Branch  string `json:"branch"`   // branch name to push
+}
+
+// GitPushResponse is the daemon's response for a git push operation.
+type GitPushResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -300,6 +312,8 @@ type httpHandlers struct {
 	prGetPR               func(PRGetPRRequest) PRGetPRResponse
 	prGetCombinedStatus   func(PRGetCombinedStatusRequest) PRCIStatusResponse
 	prGetCIFailureDetails func(PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse
+	// Git operations (daemon-proxied for credential isolation)
+	gitPush func(GitPushRequest) GitPushResponse
 }
 
 // newDaemonRouter creates the chi router with all daemon routes.
@@ -331,6 +345,8 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
 	r.Post("/pr/ci/status", handleHTTPPRCIStatus(handlers))
 	r.Post("/pr/ci/failure-details", handleHTTPPRCIFailureDetails(handlers))
+	// Git operations (proxied through daemon for credential isolation)
+	r.Post("/git/push", handleHTTPGitPush(handlers))
 	return r
 }
 
@@ -543,27 +559,47 @@ func handleHTTPPRCIFailureDetails(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
-// prCall is the generic helper for PR operations returning PRResponse.
-func prCall[Req any](path string, req Req) (PRResponse, error) {
-	return prCallTyped(path, req, func(r PRResponse) string { return r.Error })
+func handleHTTPGitPush(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req GitPushRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				GitPushResponse{OK: false, Error: "invalid gitPush JSON: " + err.Error()})
+			return
+		}
+		result := handlers.gitPush(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
 }
 
-// prCallTyped is the generic helper for PR operations returning a typed response.
-// getErr extracts the error string from the response type for error propagation.
-// Uses a 30-second timeout (vs the default 5s) since PR operations involve network
-// API calls. Makes up to 3 attempts (2 retries) with exponential backoff for transient
-// connection errors (e.g. daemon restart), but not for timeout errors (daemon running but slow).
-func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
+// gitClientTimeout is the total request timeout for git push operations.
+// Larger than prClientTimeout (30s) to accommodate large repos.
+const gitClientTimeout = 90 * time.Second
+
+// GitPush asks the daemon to push the current branch to origin via daemon-held credentials.
+func GitPush(req GitPushRequest) (GitPushResponse, error) {
+	return gitCallTyped("/git/push", req, func(r GitPushResponse) string { return r.Error })
+}
+
+// daemonCallTyped is the shared retry-with-backoff HTTP helper for long-running daemon operations.
+// timeout controls the HTTP client deadline; timeoutMsg and connMsg are user-facing error strings.
+// Retries up to 3 times with exponential backoff for transient connection errors only —
+// timeout errors are not retried (daemon is running but slow; retrying triples the wait time).
+func daemonCallTyped[Req any, Resp any](
+	path string, req Req, getErr func(Resp) string,
+	timeout time.Duration, timeoutMsg, connMsg string,
+) (Resp, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
-		return *new(Resp), fmt.Errorf("marshal PR request: %w", err)
+		return *new(Resp), fmt.Errorf("marshal request: %w", err)
 	}
 
-	client := daemonHTTPClientLong(prClientTimeout)
+	client := daemonHTTPClientLong(timeout)
 
-	// Retry with backoff for transient connection errors (e.g. daemon restart).
-	// Only retry on dial/connection errors — NOT on timeouts, which indicate
-	// the daemon is running but slow (retrying would triple the wait time).
 	var resp *http.Response
 	backoff := 1 * time.Second
 	const maxRetries = 3
@@ -572,12 +608,10 @@ func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) stri
 		if err == nil {
 			break
 		}
-		// Don't retry timeout errors — the daemon is running but slow.
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
 			break
 		}
-		// Last attempt — don't sleep, just exit with the error.
 		if attempt == maxRetries-1 {
 			break
 		}
@@ -587,20 +621,44 @@ func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) stri
 	if err != nil {
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
-			return *new(Resp), fmt.Errorf(
-				"PR operation timed out after %s — daemon is running but slow: %w", prClientTimeout, err)
+			return *new(Resp), fmt.Errorf("%s: %w", timeoutMsg, err)
 		}
-		return *new(Resp), fmt.Errorf("daemon not running — ttal pr requires the daemon: %w", err)
+		return *new(Resp), fmt.Errorf("%s: %w", connMsg, err)
 	}
 	defer resp.Body.Close()
 	var result Resp
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return *new(Resp), fmt.Errorf("decode PR response: %w", err)
+		return *new(Resp), fmt.Errorf("decode response: %w", err)
 	}
 	if errMsg := getErr(result); errMsg != "" {
 		return result, fmt.Errorf("%s", errMsg) //nolint:err113
 	}
 	return result, nil
+}
+
+// gitCallTyped wraps daemonCallTyped with git-specific timeout and error messages.
+func gitCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
+	return daemonCallTyped(path, req, getErr,
+		gitClientTimeout,
+		fmt.Sprintf("git push timed out after %s — daemon is running but push is slow", gitClientTimeout),
+		"daemon not running — ttal push requires the daemon",
+	)
+}
+
+// prCall is the generic helper for PR operations returning PRResponse.
+func prCall[Req any](path string, req Req) (PRResponse, error) {
+	return prCallTyped(path, req, func(r PRResponse) string { return r.Error })
+}
+
+// prCallTyped wraps daemonCallTyped with PR-specific timeout and error messages.
+// Uses a 30-second timeout (vs the default 5s) since PR operations involve network
+// API calls.
+func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
+	return daemonCallTyped(path, req, getErr,
+		prClientTimeout,
+		fmt.Sprintf("PR operation timed out after %s — daemon is running but slow", prClientTimeout),
+		"daemon not running — ttal pr requires the daemon",
+	)
 }
 
 // PRCreate asks the daemon to create a PR via the authenticated provider.

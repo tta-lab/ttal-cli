@@ -56,6 +56,9 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		commentGet: func(req CommentGetRequest) CommentGetResponse {
 			return CommentGetResponse{OK: true}
 		},
+		gitPush: func(req GitPushRequest) GitPushResponse {
+			return GitPushResponse{OK: true}
+		},
 	}
 }
 
