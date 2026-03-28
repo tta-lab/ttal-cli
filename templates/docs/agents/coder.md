@@ -72,7 +72,7 @@ For each TodoWrite item:
 
 After all tasks complete:
 1. Verify all tests pass
-2. `git push`
+2. `ttal push`
 3. `ttal pr create "title" --body "description"`
 
 ## Review Loop

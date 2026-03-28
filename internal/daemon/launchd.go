@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
@@ -99,23 +98,30 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
 	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, label))
 	cmd.Run()
 
-	// Bake env vars into plist
-	forgejoURL := os.Getenv("FORGEJO_URL")
-	forgejoToken := os.Getenv("FORGEJO_TOKEN")
-	if forgejoToken == "" {
-		forgejoToken = os.Getenv("FORGEJO_ACCESS_TOKEN")
-	}
-
-	var warnings []string
-	if forgejoURL == "" {
-		warnings = append(warnings, "FORGEJO_URL is not set")
-	}
-	if forgejoToken == "" {
-		warnings = append(warnings, "FORGEJO_TOKEN/FORGEJO_ACCESS_TOKEN is not set")
-	}
-
 	// One daemon serves all teams — no TTAL_TEAM in plist.
-	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+	// Credentials are NOT baked into the plist; the daemon loads them at runtime
+	// from ~/.config/ttal/.env via config.InjectDotEnvFallback().
+	plist := buildPlistContent(label, ttalBin, dataDir, home)
+
+	if err := os.WriteFile(plistPath, []byte(plist), 0o600); err != nil {
+		return err
+	}
+
+	cmd = exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", uid), plistPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("launchctl bootstrap failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	fmt.Printf("Daemon plist installed: %s\n", plistPath)
+	fmt.Printf("Logs: %s/daemon.log\n", dataDir)
+	return nil
+}
+
+// buildPlistContent returns the launchd plist XML for the daemon.
+// Only PATH is included in EnvironmentVariables — credentials are loaded at
+// runtime from ~/.config/ttal/.env via config.InjectDotEnvFallback().
+func buildPlistContent(label, ttalBin, dataDir, home string) string {
+	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -144,42 +150,10 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:%s/.local/bin:%s/go/bin:%s/.cargo/bin</string>
-        <key>FORGEJO_URL</key>
-        <string>%s</string>
-        <key>FORGEJO_TOKEN</key>
-        <string>%s</string>
     </dict>
 </dict>
 </plist>
-`, label, ttalBin, dataDir, dataDir, home, home, home,
-		xmlEscape(forgejoURL), xmlEscape(forgejoToken))
-
-	if err := os.WriteFile(plistPath, []byte(plist), 0o600); err != nil {
-		return err
-	}
-
-	if len(warnings) > 0 {
-		fmt.Printf("  Warning: %s (worker cleanup won't function)\n", strings.Join(warnings, ", "))
-	}
-
-	cmd = exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", uid), plistPath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("launchctl bootstrap failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	fmt.Printf("Daemon plist installed: %s\n", plistPath)
-	fmt.Printf("Logs: %s/daemon.log\n", dataDir)
-	return nil
-}
-
-// xmlEscape escapes a string for safe embedding in XML/plist content.
-func xmlEscape(s string) string {
-	var b strings.Builder
-	if err := xml.EscapeText(&b, []byte(s)); err != nil {
-		// EscapeText only fails on write errors to the builder, which can't happen.
-		return s
-	}
-	return b.String()
+`, label, ttalBin, dataDir, dataDir, home, home, home)
 }
 
 // Start boots the daemon launchd service.

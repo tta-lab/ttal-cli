@@ -203,6 +203,15 @@ ttal skill import templates/docs/skills --apply
 ttal skill import templates/docs/commands --apply --category command
 ```
 
+### Git Push
+
+```bash
+ttal push    # push current branch to origin via daemon (no credentials needed in worker)
+```
+
+- **Use `ttal push` for git push** — proxied through daemon, workers don't need tokens in their environment
+- Never run `git push` directly from a worker session — use `ttal push` instead
+
 ### Tool Usage
 - **Never use `run_in_background` for `ttal go`** — it completes in seconds and backgrounding causes output read races (agent reads output before it's written)
 

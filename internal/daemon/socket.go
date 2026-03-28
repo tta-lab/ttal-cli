@@ -273,6 +273,18 @@ type CloseWindowRequest struct {
 	Window  string `json:"window"`  // tmux window name (reviewer agent name from pipelines.toml)
 }
 
+// GitPushRequest asks the daemon to push a branch to origin using daemon-held credentials.
+type GitPushRequest struct {
+	WorkDir string `json:"work_dir"` // absolute path to the git worktree
+	Branch  string `json:"branch"`   // branch name to push
+}
+
+// GitPushResponse is the daemon's response for a git push operation.
+type GitPushResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -300,6 +312,8 @@ type httpHandlers struct {
 	prGetPR               func(PRGetPRRequest) PRGetPRResponse
 	prGetCombinedStatus   func(PRGetCombinedStatusRequest) PRCIStatusResponse
 	prGetCIFailureDetails func(PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse
+	// Git operations (daemon-proxied for credential isolation)
+	gitPush func(GitPushRequest) GitPushResponse
 }
 
 // newDaemonRouter creates the chi router with all daemon routes.
@@ -331,6 +345,8 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
 	r.Post("/pr/ci/status", handleHTTPPRCIStatus(handlers))
 	r.Post("/pr/ci/failure-details", handleHTTPPRCIFailureDetails(handlers))
+	// Git operations (proxied through daemon for credential isolation)
+	r.Post("/git/push", handleHTTPGitPush(handlers))
 	return r
 }
 
@@ -541,6 +557,28 @@ func handleHTTPPRCIFailureDetails(handlers httpHandlers) http.HandlerFunc {
 		result := handlers.prGetCIFailureDetails(req)
 		writeHTTPJSON(w, prOKStatus(result.OK), result)
 	}
+}
+
+func handleHTTPGitPush(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req GitPushRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				GitPushResponse{OK: false, Error: "invalid gitPush JSON: " + err.Error()})
+			return
+		}
+		result := handlers.gitPush(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
+}
+
+// GitPush asks the daemon to push the current branch to origin via daemon-held credentials.
+func GitPush(req GitPushRequest) (GitPushResponse, error) {
+	return prCallTyped("/git/push", req, func(r GitPushResponse) string { return r.Error })
 }
 
 // prCall is the generic helper for PR operations returning PRResponse.

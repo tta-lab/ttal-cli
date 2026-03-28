@@ -169,6 +169,7 @@ func Run() error {
 		prGetPR:               handlePRGetPR,
 		prGetCombinedStatus:   handlePRGetCombinedStatus,
 		prGetCIFailureDetails: handlePRGetCIFailureDetails,
+		gitPush:               handleGitPush,
 	})
 	if err != nil {
 		close(done)
