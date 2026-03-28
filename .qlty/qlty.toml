@@ -3,7 +3,6 @@ config_version = "0"
 exclude_patterns = [
   "third_party/**",
   "docs/**",
-  "schema/**",
 ]
 
 test_patterns = [
