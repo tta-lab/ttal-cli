@@ -52,11 +52,16 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 	cmd := exec.CommandContext(ctx, "git", "-C", req.WorkDir, "push", "-u", "origin", req.Branch)
 	cmd.Env = append(os.Environ(),
 		"GIT_TERMINAL_PROMPT=0", // never prompt — fail immediately if credentials are wrong
-		"GIT_CONFIG_COUNT=1",
+		// Two credential.helper entries: the first (empty) clears any helpers inherited from
+		// ~/.gitconfig (e.g. osxkeychain), so git doesn't fall through to stored credentials
+		// for a different account. The second installs our inline token helper.
+		"GIT_CONFIG_COUNT=2",
 		"GIT_CONFIG_KEY_0=credential.helper",
+		"GIT_CONFIG_VALUE_0=", // clear inherited helpers (osxkeychain etc.)
+		"GIT_CONFIG_KEY_1=credential.helper",
 		// Single-quote the password to prevent shell metacharacter injection.
 		// Git tokens are alphanumeric+hyphen — cannot contain single quotes — so this is safe.
-		fmt.Sprintf("GIT_CONFIG_VALUE_0=!f(){ echo username=x-access-token; echo password='%s'; }; f", token),
+		fmt.Sprintf("GIT_CONFIG_VALUE_1=!f(){ echo username=x-access-token; echo password='%s'; }; f", token),
 	)
 
 	var out bytes.Buffer
