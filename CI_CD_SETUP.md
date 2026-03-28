@@ -35,7 +35,7 @@ This document describes the CI/CD workflows and development tooling implemented 
   - Build binary
 
 - **lint**
-  - Run qlty check (golangci-lint + gitleaks + osv-scanner + zizmor)
+  - Run qlty check (golangci-lint + trufflehog + osv-scanner + zizmor)
 
 **Purpose:** Keep main branch healthy and catch issues immediately after merge
 

@@ -161,4 +161,4 @@ doc-deploy:
 # Install qlty git hooks (pre-commit: formatting, pre-push: lint + security)
 install-hooks:
 	@qlty githooks install
-	@echo "✓ Qlty hooks installed (pre-commit: fmt, pre-push: lint + gitleaks)"
+	@echo "✓ Qlty hooks installed (pre-commit: fmt, pre-push: lint + trufflehog)"

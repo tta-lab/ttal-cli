@@ -46,7 +46,9 @@ jobs:
         run: go mod download
 
       - name: Install qlty
-        run: curl -fsSL https://qlty.sh | bash
+        run: |
+          curl -fsSL https://qlty.sh | bash -s -- --version 0.618.0
+          echo "$HOME/.qlty/bin" >> $GITHUB_PATH
 
       - name: Lint and security scan
         run: qlty check --all --no-progress
