@@ -169,8 +169,10 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 		// "--" prevents tag names like "-v1.0.0" from being parsed as flags.
 		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanCancel()
-		if cleanErr := exec.CommandContext(cleanCtx, "git", "-C", req.WorkDir, "tag", "-d", "--", req.Tag).Run(); cleanErr != nil {
-			log.Printf("[daemon] git tag cleanup failed (tag %s may be stale in %s): %v", req.Tag, req.WorkDir, cleanErr)
+		cleanCmd := exec.CommandContext(cleanCtx, "git", "-C", req.WorkDir, "tag", "-d", "--", req.Tag)
+		if cleanErr := cleanCmd.Run(); cleanErr != nil {
+			log.Printf("[daemon] git tag cleanup failed (tag %s may be stale in %s): %v",
+				req.Tag, req.WorkDir, cleanErr)
 		} else {
 			log.Printf("[daemon] git tag rolled back: deleted local tag %s", req.Tag)
 		}
