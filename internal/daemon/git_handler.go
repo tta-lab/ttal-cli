@@ -22,7 +22,10 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 	}
 
 	// Security: only allow pushes from ttal-managed worktrees.
-	worktreesBase := filepath.Join(home, ".ttal", "worktrees")
+	// worktreesBase has a trailing separator so HasPrefix correctly rejects:
+	//   - adjacent directories (worktrees-evil/) — no separator match
+	//   - the base directory itself (worktrees/) — cleanPath has no trailing separator
+	worktreesBase := filepath.Join(home, ".ttal", "worktrees") + string(filepath.Separator)
 	cleanPath := filepath.Clean(req.WorkDir)
 	if !strings.HasPrefix(cleanPath, worktreesBase) {
 		return GitPushResponse{Error: "push only allowed from ttal worktrees"}
@@ -51,7 +54,9 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 		"GIT_TERMINAL_PROMPT=0", // never prompt — fail immediately if credentials are wrong
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=credential.helper",
-		fmt.Sprintf("GIT_CONFIG_VALUE_0=!f(){ echo username=x-access-token; echo password=%s; }; f", token),
+		// Single-quote the password to prevent shell metacharacter injection.
+		// Git tokens are alphanumeric+hyphen — cannot contain single quotes — so this is safe.
+		fmt.Sprintf("GIT_CONFIG_VALUE_0=!f(){ echo username=x-access-token; echo password='%s'; }; f", token),
 	)
 
 	var out bytes.Buffer
@@ -72,9 +77,9 @@ func getRemoteURL(workDir string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "git", "-C", workDir, "remote", "get-url", "origin").Output()
+	out, err := exec.CommandContext(ctx, "git", "-C", workDir, "remote", "get-url", "origin").CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("git remote get-url origin: %w", err)
+		return "", fmt.Errorf("git remote get-url origin: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
 }

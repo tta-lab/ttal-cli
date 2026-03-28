@@ -45,4 +45,9 @@ func TestPlistContent_DataDirUsed(t *testing.T) {
 	if !strings.Contains(plist, "/custom/datadir/daemon.log") {
 		t.Errorf("plist StandardOutPath should use dataDir, got:\n%s", plist)
 	}
+	// Both stdout and stderr should point to the same dataDir log file.
+	count := strings.Count(plist, "/custom/datadir/daemon.log")
+	if count < 2 {
+		t.Errorf("expected both StandardOutPath and StandardErrorPath to use dataDir, found %d occurrences", count)
+	}
 }

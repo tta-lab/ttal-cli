@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
@@ -50,7 +52,10 @@ Examples:
 
 // currentBranch returns the current git branch name for the given working directory.
 func currentBranch(workDir string) (string, error) {
-	out, err := exec.Command("git", "-C", workDir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "git", "-C", workDir, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
 		return "", fmt.Errorf("git rev-parse: %w", err)
 	}
