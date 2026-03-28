@@ -50,6 +50,10 @@ gui/frontend/node_modules/
 # Docker worker secrets (co-located in worktree, auto-deleted with worktree)
 .ttal-docker-env
 
+# qlty — ignore everything except the committed config
+.qlty/*
+!.qlty/qlty.toml
+
 # OS
 .DS_Store
 Thumbs.db

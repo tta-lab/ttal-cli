@@ -10,10 +10,10 @@ TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focu
 
 ### Development Workflow
 ```bash
-# Format, tidy, schema, vet, and build
+# Format, tidy, qlty, and build
 make all
 
-# Run all CI checks (format, schema, vet, lint, test, build)
+# Run all CI checks (qlty, test, build)
 make ci
 
 # Run tests
@@ -172,18 +172,23 @@ ttal project modify clawd name:'New Name' path:/new/path
 - Builds binaries for Linux/macOS (amd64, arm64)
 - Creates Forgejo/GitHub release with binaries
 
-### Pre-commit Hooks (lefthook)
+### Git Hooks (qlty)
 
-This repo uses [lefthook](https://github.com/evilmartians/lefthook) for pre-commit hooks. Install once in the main repo:
+This repo uses [qlty](https://github.com/qltysh/qlty) for git hooks and unified linting. Install once:
+
 ```bash
-lefthook install
+qlty githooks install
+# or: make install-hooks
 ```
 
-The pre-commit hook runs **fmt, vet, lint** in parallel. Tests are CI-only.
+The hooks run:
+- **Pre-commit:** `qlty fmt` — auto-formats staged Go files (gofmt + goimports)
+- **Pre-push:** `qlty check` — runs golangci-lint (16 linters via `.golangci.yml`) + trufflehog (secret scanning)
+- **CI:** `qlty check --all` — full scan including osv-scanner (dependency vulns) + zizmor (GitHub Actions security) + trufflehog (secret scanning)
 
-Workers in git worktrees inherit hooks from the main repo automatically.
+Workers in git worktrees may need to run `qlty githooks install` in their worktree directory.
 
-**Important:** If a commit fails due to pre-commit hook, fix the issue (usually `make fmt`) and commit again. Do NOT use `--no-verify` to skip hooks.
+**Important:** If a commit fails due to pre-commit hook, fix the issue and commit again. Do NOT use `--no-verify` to skip hooks.
 
 ## Testing
 

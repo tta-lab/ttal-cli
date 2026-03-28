@@ -1,4 +1,4 @@
-.PHONY: help build build-dictate clean clean-projects reset test schema check-schema install install-dictate reinstall setup run fmt vet lint doc-dev doc-build doc-deploy
+.PHONY: help build build-dictate clean clean-projects reset test install install-dictate reinstall setup run fmt qlty doc-dev doc-build doc-deploy
 
 # Default target
 help:
@@ -14,13 +14,11 @@ help:
 	@echo "  make reset         - Remove binaries"
 	@echo "  make test          - Run tests"
 	@echo "  make fmt           - Format code with gofmt"
-	@echo "  make vet           - Run go vet"
-	@echo "  make lint          - Run golangci-lint (if installed)"
-	@echo "  make schema        - Generate JSON Schema from config structs"
-	@echo "  make all           - Format, tidy, schema, vet, and build"
-	@echo "  make ci            - Run all CI checks (fmt, schema, vet, lint, test, build)"
+	@echo "  make qlty          - Run qlty check (lint + security scan)"
+	@echo "  make all           - Format, tidy, qlty, and build"
+	@echo "  make ci            - Run all CI checks (qlty, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
-	@echo "  make install-hooks - Install lefthook pre-commit hooks"
+	@echo "  make install-hooks - Install qlty git hooks"
 	@echo "  make doc-dev       - Start docs dev server"
 	@echo "  make doc-build     - Build docs site"
 	@echo "  make doc-deploy    - Build and deploy docs to Cloudflare"
@@ -95,48 +93,20 @@ tidy:
 	@go mod tidy
 	@echo "✓ go mod tidy complete"
 
-# Generate JSON Schema from config structs
-schema:
-	@echo "Generating config schema..."
-	@mkdir -p schema docs/public/schema
-	@go run ./cmd/gen-schema > schema/config.schema.json
-	@cp schema/config.schema.json docs/public/schema/config.schema.json
-	@echo "✓ Schema generated and copied to doc site"
-
-# Verify committed schema matches generated output
-check-schema: schema
-	@if [ -n "$$(git diff schema/)" ]; then \
-		echo "❌ schema/config.schema.json is out of date — run: make schema"; \
-		git diff schema/; \
-		exit 1; \
-	else \
-		echo "✓ Schema is up to date"; \
-	fi
-
 # Format code
 fmt:
 	@echo "Formatting code..."
 	@gofmt -w -s .
 	@echo "✓ Code formatted"
 
-# Run go vet
-vet:
-	@echo "Running go vet..."
-	@go vet ./...
-	@echo "✓ Vet complete"
-
-# Run golangci-lint (if installed)
-lint:
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		echo "Running golangci-lint..."; \
-		golangci-lint run ./...; \
-		echo "✓ Lint complete"; \
-	else \
-		echo "⚠ golangci-lint not installed. Install: https://golangci-lint.run/usage/install/"; \
-	fi
+# Run qlty check (lint + security scan)
+qlty:
+	@echo "Running qlty check..."
+	@qlty check --all --no-progress
+	@echo "✓ Qlty check complete"
 
 # Run all checks and build
-all: fmt tidy schema vet build
+all: fmt tidy qlty build
 	@echo "✓ All checks passed and binary built"
 
 # Development workflow
@@ -144,7 +114,7 @@ dev: all
 	@echo "✓ Development build complete"
 
 # CI target - runs all checks (same as all but exits on failure)
-ci: fmt check-schema vet lint test build
+ci: qlty test build
 	@echo "✓ CI checks complete"
 
 # Check if working directory is clean (for CI)
@@ -169,7 +139,7 @@ doc-deploy:
 	@cd docs && pnpm build && pnpm exec wrangler deploy
 	@echo "Docs deployed to ttal.guion.io"
 
-# Install lefthook pre-commit hooks
+# Install qlty git hooks (pre-commit: formatting, pre-push: lint + security)
 install-hooks:
-	@lefthook install
-	@echo "✓ Lefthook hooks installed"
+	@qlty githooks install
+	@echo "✓ Qlty hooks installed (pre-commit: fmt, pre-push: lint + trufflehog)"

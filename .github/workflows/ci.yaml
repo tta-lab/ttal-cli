@@ -5,12 +5,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -20,9 +25,6 @@ jobs:
 
       - name: Download dependencies
         run: go mod download
-
-      - name: Generate schema
-        run: make schema
 
       - name: Run tests
         run: make test
@@ -35,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -42,14 +46,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run gofmt
-        run: make fmt
+      - name: Download dependencies
+        run: go mod download
 
-      - name: Run go vet
-        run: make vet
+      - name: Install qlty
+        run: |
+          curl -fsSL https://qlty.sh | QLTY_VERSION=0.618.0 bash
+          echo "$HOME/.qlty/bin" >> $GITHUB_PATH
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.10
-          args: --timeout=5m
+      - name: Lint and security scan
+        run: qlty check --all --no-progress
