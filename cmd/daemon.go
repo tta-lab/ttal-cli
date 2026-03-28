@@ -20,7 +20,7 @@ JSONL watching, and worker cleanup.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Daemon commands need full .env access:
 		// - `run`: daemon startup loads its own, but PersistentPreRunE covers edge cases
-		// - `install`: bakes env vars into launchd plist
+		// - `install`: writes launchd plist (env vars not baked in since #423)
 		if err := config.InjectDotEnvFallback(); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not load .env: %v\n", err)
 		}
