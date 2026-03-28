@@ -256,14 +256,32 @@ func processStageAdvance(
 	callerAgent, sessionName, workDir, team, workerRuntime, teamPath string,
 	agentRoles map[string]string,
 ) {
-	if checkReviewerGate(w, task, stage) {
-		// Spawn or re-trigger reviewer when caller provided session context.
+	if stage.Reviewer != "" && !hasTag(task.Tags, stage.StageLGTMTag()) {
+		// Attempt spawn/re-trigger before writing response so we can include the outcome.
 		// Skip when sessionName is empty (old client or non-tmux caller) — backwards compatible.
-		if sessionName != "" && mcfg.Global != nil {
+		var spawnMsg string
+		switch {
+		case sessionName == "":
+			// Old client or non-tmux caller — skip spawn for backwards compatibility.
+		case mcfg.Global == nil:
+			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
+			spawnMsg = " (spawn skipped: daemon config not loaded)"
+		default:
 			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global); err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
+				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
+			} else {
+				spawnMsg = " (reviewer spawned)"
 			}
 		}
+
+		msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict%s", stage.Reviewer, spawnMsg)
+		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+			Status:   AdvanceStatusNeedsLGTM,
+			Message:  msg,
+			Reviewer: stage.Reviewer,
+			Assignee: stage.Assignee,
+		})
 		return
 	}
 	if checkHumanGate(ctx, w, fe, p, idx, callerAgent, task, stage) {
@@ -288,26 +306,6 @@ func processStageAdvance(
 	if err != nil {
 		log.Printf("[advance] next stage error: %v", err)
 	}
-}
-
-// checkReviewerGate writes a NeedsLGTM response when a reviewer is required but not yet approved.
-// Returns true when the response has been written (caller should return).
-func checkReviewerGate(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) bool {
-	if stage.Reviewer == "" {
-		return false
-	}
-	if hasTag(task.Tags, stage.StageLGTMTag()) {
-		return false
-	}
-
-	msg := fmt.Sprintf("⏸ Waiting for reviewer (%s) verdict", stage.Reviewer)
-	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
-		Status:   AdvanceStatusNeedsLGTM,
-		Message:  msg,
-		Reviewer: stage.Reviewer,
-		Assignee: stage.Assignee,
-	})
-	return true
 }
 
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.

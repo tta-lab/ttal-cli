@@ -285,6 +285,18 @@ type GitPushResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
+// GitTagRequest asks the daemon to create and push a git tag using daemon-held credentials.
+type GitTagRequest struct {
+	WorkDir string `json:"work_dir"` // absolute path to the project repo
+	Tag     string `json:"tag"`      // tag name (e.g. "v2.1.0")
+}
+
+// GitTagResponse is the daemon's response for a git tag operation.
+type GitTagResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -314,6 +326,7 @@ type httpHandlers struct {
 	prGetCIFailureDetails func(PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse
 	// Git operations (daemon-proxied for credential isolation)
 	gitPush func(GitPushRequest) GitPushResponse
+	gitTag  func(GitTagRequest) GitTagResponse
 }
 
 // newDaemonRouter creates the chi router with all daemon routes.
@@ -347,6 +360,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/pr/ci/failure-details", handleHTTPPRCIFailureDetails(handlers))
 	// Git operations (proxied through daemon for credential isolation)
 	r.Post("/git/push", handleHTTPGitPush(handlers))
+	r.Post("/git/tag", handleHTTPGitTag(handlers))
 	return r
 }
 
@@ -576,6 +590,23 @@ func handleHTTPGitPush(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
+func handleHTTPGitTag(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req GitTagRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				GitTagResponse{OK: false, Error: "invalid gitTag JSON: " + err.Error()})
+			return
+		}
+		result := handlers.gitTag(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
+}
+
 // gitClientTimeout is the total request timeout for git push operations.
 // Larger than prClientTimeout (30s) to accommodate large repos.
 const gitClientTimeout = 90 * time.Second
@@ -583,6 +614,11 @@ const gitClientTimeout = 90 * time.Second
 // GitPush asks the daemon to push the current branch to origin via daemon-held credentials.
 func GitPush(req GitPushRequest) (GitPushResponse, error) {
 	return gitCallTyped("/git/push", req, func(r GitPushResponse) string { return r.Error })
+}
+
+// GitTag asks the daemon to create and push a git tag via daemon-held credentials.
+func GitTag(req GitTagRequest) (GitTagResponse, error) {
+	return gitCallTyped("/git/tag", req, func(r GitTagResponse) string { return r.Error })
 }
 
 // daemonCallTyped is the shared retry-with-backoff HTTP helper for long-running daemon operations.

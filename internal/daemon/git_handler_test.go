@@ -159,3 +159,121 @@ func TestTokenForHost_EmptyToken(t *testing.T) {
 		t.Errorf("expected empty token for forgejo when FORGEJO_TOKEN unset, got %q", got)
 	}
 }
+
+func TestHTTPGitTag_BadJSON(t *testing.T) {
+	r := newDaemonRouter(testHandlers(nil))
+
+	req := httptest.NewRequest(http.MethodPost, "/git/tag", bytes.NewReader([]byte("not json")))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+	var resp GitTagResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.OK {
+		t.Error("expected OK=false for bad JSON")
+	}
+}
+
+func TestHTTPGitTag_HandlerError(t *testing.T) {
+	h := testHandlers(nil)
+	h.gitTag = func(req GitTagRequest) GitTagResponse {
+		return GitTagResponse{OK: false, Error: "tag failed"}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(GitTagRequest{WorkDir: "/some/path", Tag: "v1.0.0"})
+	req := httptest.NewRequest(http.MethodPost, "/git/tag", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// Handler error → 500 with OK=false; detailed decode contract covered by TestHTTPGitPush_HandlerError.
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHTTPGitTag_HappyPath(t *testing.T) {
+	h := testHandlers(nil)
+	var received GitTagRequest
+	h.gitTag = func(req GitTagRequest) GitTagResponse {
+		received = req
+		return GitTagResponse{OK: true}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(GitTagRequest{WorkDir: "/some/project", Tag: "v1.0.0"})
+	req := httptest.NewRequest(http.MethodPost, "/git/tag", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if received.WorkDir != "/some/project" {
+		t.Errorf("expected WorkDir=/some/project, got %q", received.WorkDir)
+	}
+	if received.Tag != "v1.0.0" {
+		t.Errorf("expected Tag=v1.0.0, got %q", received.Tag)
+	}
+}
+
+func TestHandleGitTag_EmptyTag(t *testing.T) {
+	resp := handleGitTag(GitTagRequest{WorkDir: "/some/path", Tag: ""})
+	if resp.OK {
+		t.Error("expected OK=false for empty tag")
+	}
+	if resp.Error != "tag must not be empty" {
+		t.Errorf("unexpected error: %q", resp.Error)
+	}
+}
+
+func TestHandleGitTag_EmptyWorkDir(t *testing.T) {
+	resp := handleGitTag(GitTagRequest{WorkDir: "", Tag: "v1.0.0"})
+	if resp.OK {
+		t.Error("expected OK=false for empty work_dir")
+	}
+	if resp.Error != "work_dir must not be empty" {
+		t.Errorf("unexpected error: %q", resp.Error)
+	}
+}
+
+func TestHandleGitTag_UnregisteredProject(t *testing.T) {
+	resp := handleGitTag(GitTagRequest{WorkDir: "/tmp/not-a-project", Tag: "v1.0.0"})
+	if resp.OK {
+		t.Error("expected OK=false for unregistered project")
+	}
+	if resp.Error != "tag only allowed for registered ttal projects" {
+		t.Errorf("unexpected error: %q", resp.Error)
+	}
+}
+
+// TestHandleGitTag_PathTraversal mirrors TestHandleGitPush_WorkDirValidation —
+// ensures exact-match prevents adjacent-dir and parent-dir bypasses.
+func TestHandleGitTag_PathTraversal(t *testing.T) {
+	tests := []struct {
+		name    string
+		workDir string
+	}{
+		{"adjacent directory bypass", "/tmp/my-project-evil"},
+		{"parent directory", "/tmp"},
+		{"path traversal", "/tmp/my-project/../other-project"},
+		{"trailing slash", "/tmp/not-registered/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := handleGitTag(GitTagRequest{WorkDir: tt.workDir, Tag: "v1.0.0"})
+			if resp.OK {
+				t.Error("expected OK=false for unregistered path")
+			}
+			if resp.Error != "tag only allowed for registered ttal projects" {
+				t.Errorf("unexpected error: %q", resp.Error)
+			}
+		})
+	}
+}
