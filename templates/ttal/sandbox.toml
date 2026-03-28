@@ -39,6 +39,7 @@ allowWrite = [
   "~/.cache/go/build",                   # Linux: Go build cache
   "~/.cache/golangci-lint",             # Linux: golangci-lint analysis cache
   "~/.cache/cargo",                      # Linux: Rust incremental build cache
+  "~/.cargo/registry",                   # Rust crate registry cache (index + crate downloads)
   "~/.npm/_logs",                        # npm log directory
   "~/.qlty",                             # qlty data dir (plugin cache, hooks, results)
 ]
