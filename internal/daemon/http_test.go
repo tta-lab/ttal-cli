@@ -59,6 +59,9 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		gitPush: func(req GitPushRequest) GitPushResponse {
 			return GitPushResponse{OK: true}
 		},
+		gitTag: func(req GitTagRequest) GitTagResponse {
+			return GitTagResponse{OK: true}
+		},
 	}
 }
 
