@@ -21,14 +21,11 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Format
-        run: |
-          make fmt
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Code not formatted. Run 'make fmt' and commit the changes."
-            git status --porcelain
-            exit 1
-          fi
+      - name: Install qlty
+        run: curl -fsSL https://qlty.sh | bash
+
+      - name: Lint and security scan
+        run: qlty check --all --no-progress
 
       - name: Generate schema
         run: make schema
@@ -40,15 +37,6 @@ jobs:
             git status --porcelain
             exit 1
           fi
-
-      - name: Vet
-        run: make vet
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.10
-          args: --timeout=5m
 
       - name: Test
         run: make test

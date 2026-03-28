@@ -42,14 +42,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run gofmt
-        run: make fmt
+      - name: Download dependencies
+        run: go mod download
 
-      - name: Run go vet
-        run: make vet
+      - name: Install qlty
+        run: curl -fsSL https://qlty.sh | bash
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.10
-          args: --timeout=5m
+      - name: Lint and security scan
+        run: qlty check --all --no-progress
