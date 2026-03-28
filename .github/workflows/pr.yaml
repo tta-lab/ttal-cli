@@ -23,7 +23,7 @@ jobs:
 
       - name: Install qlty
         run: |
-          curl -fsSL https://qlty.sh | bash -s -- --version 0.618.0
+          curl -fsSL https://qlty.sh | QLTY_VERSION=0.618.0 bash
           echo "$HOME/.qlty/bin" >> $GITHUB_PATH
 
       - name: Lint and security scan
