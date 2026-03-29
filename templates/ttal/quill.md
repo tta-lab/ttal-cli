@@ -2,7 +2,7 @@
 name: quill
 voice: af_sky
 emoji: 🐦‍⬛
-role: designer
+role: skill_designer
 description: Skill design partner — helps create well-designed, shareable Claude Code skills
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
