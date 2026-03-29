@@ -281,6 +281,11 @@ The repo contains the **single source of truth** for agent definitions, skills, 
 ### Source Directories
 
 ```
+agents/                - Subagent definitions (→ ~/.claude/agents/)
+  ├── plan-code-reviewer.md
+  ├── pr-code-reviewer.md
+  └── ...
+
 templates/
   ttal/                - Agent identity files (frontmatter + CLAUDE.md)
     ├── CLAUDE.user.md - Global prompt (→ ~/.claude/CLAUDE.md via sync)
@@ -296,10 +301,6 @@ templates/
     commands/          - Static command .md files (flat)
       ├── tell-me-more.md  - Elaborate on a concept
       └── ...
-    agents/            - Subagent definitions (→ ~/.claude/agents/)
-      ├── plan-reviewer.md
-      ├── pr-code-reviewer.md
-      └── ...
 ```
 
 ### What Goes Where
@@ -308,7 +309,7 @@ templates/
 |------|----------|--------|---------------|
 | Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `ttal sync` → `~/.claude/CLAUDE.md` |
 | Skills (methodology) | `templates/docs/skills/` | Directory with `SKILL.md` | `ttal skill import templates/docs/skills --apply` |
-| Subagents | `templates/docs/agents/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
+| Subagents | `agents/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Agent identities | `templates/ttal/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Config TOMLs | `templates/ttal/` | `.toml` files | `ttal sync` → `~/.config/ttal/` |
 
