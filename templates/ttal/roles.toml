@@ -6,9 +6,14 @@ ttal task get"""
 prompt = """Write an implementation plan for this task.
 Read the task first: ttal task get
 
-Storage: Save the plan via flicknote add 'content' --project plans
-Iterate with: flicknote detail <id> --tree, flicknote modify <id> --section <section-id>
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+Plan workflow:
+1. Orient (complex tasks): flicknote add 'orientation doc' --project orientation -> annotate task with hex ID
+2. Plan as task tree: cat plan.md | task <parent-uuid> plan -> subtasks ARE the plan
+3. View: task <parent-uuid> tree
+4. Iterate: cat updated.md | task <parent-uuid> plan replace
+
+For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
+For orientation docs and research notes, use flicknote."""
 
 [researcher]
 prompt = """Research this topic thoroughly.
@@ -22,8 +27,12 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 prompt = """Diagnose this bug and write a fix plan.
 Read the task first: ttal task get
 
-Storage: Save findings via flicknote add 'content' --project fixes
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+Workflow:
+1. Save diagnosis to flicknote: flicknote add 'findings' --project fixes -> annotate task with hex ID
+2. Plan fix steps as task tree: cat fix.md | task <parent-uuid> plan
+3. View: task <parent-uuid> tree
+
+For simple fixes, annotate the task directly instead of using a task tree."""
 
 [communicator]
 prompt = """Draft outward-facing communication for this task.
@@ -37,6 +46,11 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 prompt = """Write a devops/infrastructure implementation plan for this task.
 Read the task first: ttal task get
 
-Storage: Save the plan via flicknote add 'content' --project plans
-Iterate with: flicknote detail <id> --tree, flicknote modify <id> --section <section-id>
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+Plan workflow:
+1. Orient (complex tasks): flicknote add 'orientation doc' --project orientation -> annotate task with hex ID
+2. Plan as task tree: cat plan.md | task <parent-uuid> plan -> subtasks ARE the plan
+3. View: task <parent-uuid> tree
+4. Iterate: cat updated.md | task <parent-uuid> plan replace
+
+For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
+For orientation docs and research notes, use flicknote."""
