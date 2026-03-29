@@ -91,6 +91,7 @@ Examples:
 		// Notify lifecycle agent
 		if err := daemon.Notify(daemon.NotifyRequest{
 			Message: notification.PRCreated{
+				Ctx:   notification.NewContext(ctx.Task.Project, ctx.Task.HexID(), title, ""),
 				Title: title,
 				URL:   resp.PRURL,
 			}.Render(),

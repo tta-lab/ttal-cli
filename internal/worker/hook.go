@@ -179,7 +179,7 @@ func hookLog(eventType, taskUUID, description string, kvs ...string) {
 // NotifyTelegram sends a notification to the team's Telegram chat.
 // Fire-and-forget: errors are logged but not propagated.
 //
-// Deprecated: Use daemon.Notify() from CLI contexts for channel-agnostic delivery.
+// Migration note: prefer daemon.Notify() from CLI contexts for channel-agnostic delivery.
 // This wrapper is retained as a test seam for advance.go's notifyTelegramFn default.
 func NotifyTelegram(message string) {
 	if err := notify.Send(message); err != nil {

@@ -271,7 +271,11 @@ func handleCIStatus(
 
 	switch cs.State {
 	case gitprovider.StateSuccess:
-		msg := notification.CIPassed{PRIndex: target.PRIndex, SHA: headSHA}.Render()
+		msg := notification.CIPassed{
+			Ctx:     notification.NewContext(target.ProjectAlias, target.TaskUUID, target.Description, ""),
+			PRIndex: target.PRIndex,
+			SHA:     headSHA,
+		}.Render()
 		deliverToWorkerSession(target.SessionName, msg)
 		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		// Return prPollInitial so the caller updates lastDeliveredSHA, preventing
@@ -280,7 +284,11 @@ func handleCIStatus(
 		return prPollInitial
 
 	case gitprovider.StateFailure, gitprovider.StateError:
-		ciFailedMsg := notification.CIFailed{PRIndex: target.PRIndex, SHA: headSHA}.Render()
+		ciFailedMsg := notification.CIFailed{
+			Ctx:     notification.NewContext(target.ProjectAlias, target.TaskUUID, target.Description, ""),
+			PRIndex: target.PRIndex,
+			SHA:     headSHA,
+		}.Render()
 		deliverToWorkerSession(target.SessionName, ciFailedMsg)
 		notifyPRStatus(frontends, target, ciFailedMsg)
 		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
@@ -303,7 +311,10 @@ func checkMergeConflict(
 	if alreadyNotified {
 		return true
 	}
-	conflictMsg := notification.MergeConflict{PRIndex: target.PRIndex}.Render()
+	conflictMsg := notification.MergeConflict{
+		Ctx:     notification.NewContext(target.ProjectAlias, target.TaskUUID, target.Description, ""),
+		PRIndex: target.PRIndex,
+	}.Render()
 	deliverToWorkerSession(target.SessionName, conflictMsg)
 	notifyPRStatus(frontends, target, conflictMsg)
 	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))

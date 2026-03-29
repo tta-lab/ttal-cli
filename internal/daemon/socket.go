@@ -855,12 +855,19 @@ func Notify(req NotifyRequest) error {
 		return fmt.Errorf("daemon not running: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("daemon returned HTTP %d for /notify", resp.StatusCode)
+	}
 	var result SendResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return fmt.Errorf("decode notify response: %w", err)
 	}
 	if !result.OK {
-		return fmt.Errorf("notify: %s", result.Error) //nolint:err113
+		msg := result.Error
+		if msg == "" {
+			msg = "unknown error"
+		}
+		return fmt.Errorf("notify: %s", msg) //nolint:err113
 	}
 	return nil
 }

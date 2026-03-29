@@ -1,7 +1,6 @@
 package notification_test
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -88,8 +87,8 @@ func TestPRReadyToMerge(t *testing.T) {
 
 func TestPRMergeFailed(t *testing.T) {
 	n := notification.PRMergeFailed{
-		Ctx: fullCtx(),
-		Err: errors.New("timeout"),
+		Ctx:    fullCtx(),
+		Reason: "timeout",
 	}
 	got := n.Render()
 	if !strings.Contains(got, "⚠️") || !strings.Contains(got, "timeout") {
@@ -144,7 +143,10 @@ func TestCleanupFailed(t *testing.T) {
 }
 
 func TestGateRequest_Render(t *testing.T) {
-	n := notification.GateRequest{Ctx: fullCtx(), NextStage: "Implement"}
+	// fullCtx has Stage="" — use NewContext with a stage for GateRequest
+	n := notification.GateRequest{
+		Ctx: notification.NewContext("ttal", "eba5d7ab", "standardize notifications", "Implement"),
+	}
 	got := n.Render()
 	if !strings.Contains(got, "🔒") || !strings.Contains(got, "Implement") {
 		t.Errorf("unexpected output: %q", got)
@@ -153,8 +155,7 @@ func TestGateRequest_Render(t *testing.T) {
 
 func TestGateRequest_RenderHTML(t *testing.T) {
 	n := notification.GateRequest{
-		Ctx:       notification.NewContext("ttal", "eba5d7ab", "<script>alert('xss')</script>", ""),
-		NextStage: "Implement",
+		Ctx: notification.NewContext("ttal", "eba5d7ab", "<script>alert('xss')</script>", "Implement"),
 	}
 	got := n.RenderHTML()
 	if strings.Contains(got, "<script>") {

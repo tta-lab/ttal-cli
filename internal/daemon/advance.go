@@ -691,8 +691,7 @@ func askHumanGate(
 	task *taskwarrior.Task, nextStageName string,
 ) (bool, error) {
 	question := notification.GateRequest{
-		Ctx:       notification.NewContext(task.Project, task.HexID(), task.Description, nextStageName),
-		NextStage: nextStageName,
+		Ctx: notification.NewContext(task.Project, task.HexID(), task.Description, nextStageName),
 	}.RenderHTML()
 	options := []string{frontend.GateOptionApprove, frontend.GateOptionReject}
 	answer, skipped, err := fe.AskHuman(ctx, agentName, question, options)
@@ -851,8 +850,8 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 	if err := mergeWorkerPR(task); err != nil {
 		log.Printf("[advance] PR merge failed: %v", err)
 		notifyTelegramFn(notification.PRMergeFailed{
-			Ctx: notification.NewContext(task.Project, task.HexID(), task.Description, ""),
-			Err: err,
+			Ctx:    notification.NewContext(task.Project, task.HexID(), task.Description, ""),
+			Reason: err.Error(),
 		}.Render())
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,

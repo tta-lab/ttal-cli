@@ -99,12 +99,12 @@ func (n PRReadyToMerge) Render() string {
 
 // PRMergeFailed is sent when an automatic PR merge fails.
 type PRMergeFailed struct {
-	Ctx Context
-	Err error
+	Ctx    Context
+	Reason string
 }
 
 func (n PRMergeFailed) Render() string {
-	body := fmt.Sprintf("PR merge failed for %s: %v", n.Ctx.TaskDesc, n.Err)
+	body := fmt.Sprintf("PR merge failed for %s: %s", n.Ctx.TaskDesc, n.Reason)
 	return render("⚠️", n.Ctx.header(), body)
 }
 
@@ -170,14 +170,14 @@ func (n CleanupFailed) Render() string {
 }
 
 // GateRequest is the human approval gate prompt. Implements HTMLNotification.
+// Ctx.Stage holds the next pipeline stage name.
 type GateRequest struct {
-	Ctx       Context
-	NextStage string
+	Ctx Context
 }
 
 func (n GateRequest) Render() string {
 	body := fmt.Sprintf("Go to %s\n\n%s\n%s · %s",
-		n.NextStage, n.Ctx.TaskDesc, n.Ctx.Project, n.Ctx.shortID())
+		n.Ctx.Stage, n.Ctx.TaskDesc, n.Ctx.Project, n.Ctx.shortID())
 	return render("🔒", "", body)
 }
 
@@ -185,7 +185,7 @@ func (n GateRequest) Render() string {
 func (n GateRequest) RenderHTML() string {
 	return fmt.Sprintf(
 		"🔒 Go to <b>%s</b>\n\n📋 %s\n📁 %s · <code>%s</code>",
-		html.EscapeString(n.NextStage),
+		html.EscapeString(n.Ctx.Stage),
 		html.EscapeString(n.Ctx.TaskDesc),
 		html.EscapeString(n.Ctx.Project),
 		html.EscapeString(n.Ctx.shortID()),
@@ -198,7 +198,7 @@ type Reminder struct {
 }
 
 func (n Reminder) Render() string {
-	return "🔔 " + n.Ctx.TaskDesc
+	return render("🔔", n.Ctx.header(), n.Ctx.TaskDesc)
 }
 
 // DaemonReady is sent when the daemon finishes startup.

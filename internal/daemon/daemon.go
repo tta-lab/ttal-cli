@@ -114,7 +114,7 @@ func Run() error {
 
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, frontends, done)
-	startCleanupWatcher(frontends, done)
+	startCleanupWatcher(frontends, mcfg.DefaultTeamName(), done)
 	startPRWatcher(mcfg, frontends, done)
 	startReminderPoller(mcfg, frontends, done)
 	startWatcher(mcfg, frontends, msgSvc, done)
@@ -142,9 +142,35 @@ func Run() error {
 	defaultTeamName := mcfg.DefaultTeamName()
 	commentSync := resolveCommentSync(mcfg, defaultTeamName)
 
-	askHumanHandler := defaultFE.AskHumanHTTPHandler()
+	srv, err := listenHTTP(sockPath, buildHTTPHandlers(ctx, mcfg, shellCfg, defaultFE, frontends, registry, msgSvc, commentSvc, defaultTeamName, commentSync))
+	if err != nil {
+		close(done)
+		return err
+	}
 
-	srv, err := listenHTTP(sockPath, httpHandlers{
+	log.Printf("[daemon] ready")
+	if err := defaultFE.SendNotification(ctx, notification.DaemonReady{}.Render()); err != nil {
+		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
+	}
+	awaitShutdown(done, cancel, mcfg, registry, srv)
+	return nil
+}
+
+// buildHTTPHandlers constructs the httpHandlers struct for the daemon HTTP server.
+// Extracted from Run() to reduce cyclomatic complexity.
+func buildHTTPHandlers(
+	ctx context.Context,
+	mcfg *config.DaemonConfig,
+	shellCfg *config.Config,
+	defaultFE frontend.Frontend,
+	frontends map[string]frontend.Frontend,
+	registry *adapterRegistry,
+	msgSvc *message.Service,
+	commentSvc *comment.Service,
+	defaultTeamName string,
+	commentSync string,
+) httpHandlers {
+	return httpHandlers{
 		send: func(req SendRequest) error {
 			return handleSend(mcfg, registry, frontends, msgSvc, req)
 		},
@@ -155,7 +181,7 @@ func Run() error {
 		breathe: func(req BreatheRequest) SendResponse {
 			return handleBreathe(shellCfg, req)
 		},
-		askHuman:   askHumanHandler,
+		askHuman:   defaultFE.AskHumanHTTPHandler(),
 		askHandler: handleAsk(shellCfg),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
@@ -190,18 +216,7 @@ func Run() error {
 		prGetCIFailureDetails: handlePRGetCIFailureDetails,
 		gitPush:               handleGitPush,
 		gitTag:                handleGitTag,
-	})
-	if err != nil {
-		close(done)
-		return err
 	}
-
-	log.Printf("[daemon] ready")
-	if err := defaultFE.SendNotification(ctx, notification.DaemonReady{}.Render()); err != nil {
-		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
-	}
-	awaitShutdown(done, cancel, mcfg, registry, srv)
-	return nil
 }
 
 // formatUsageString formats UsageData into a human-readable string for the /usage command.
