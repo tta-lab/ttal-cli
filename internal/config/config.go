@@ -1274,6 +1274,41 @@ func defaultDataDir() string {
 // DefaultConfigDir returns the path to the ttal configuration directory (~/.config/ttal).
 func DefaultConfigDir() string { return defaultConfigDir() }
 
+// LoadTeamPath reads only the team_path field from config.toml.
+// This is a lightweight alternative to Load() for hook contexts — hooks run
+// synchronously in taskwarrior's pipeline and cannot afford the overhead of
+// Load() which also parses roles.toml and prompts.toml (and fails if they're
+// missing required fields). This function intentionally duplicates the team
+// resolution logic from resolve() to stay independent.
+// Returns empty string on any error (callers treat empty as "unknown").
+func LoadTeamPath(configDir string) string {
+	if configDir == "" {
+		configDir = DefaultConfigDir()
+	}
+	path := filepath.Join(configDir, "config.toml")
+
+	// Minimal struct — only decode what we need.
+	var cfg struct {
+		DefaultTeam string `toml:"default_team"`
+		Teams       map[string]struct {
+			TeamPath string `toml:"team_path"`
+		} `toml:"teams"`
+	}
+	if _, err := toml.DecodeFile(path, &cfg); err != nil {
+		return ""
+	}
+
+	teamName := cfg.DefaultTeam
+	if teamName == "" {
+		teamName = DefaultTeamName
+	}
+	team, ok := cfg.Teams[teamName]
+	if !ok || team.TeamPath == "" {
+		return ""
+	}
+	return ExpandHome(team.TeamPath)
+}
+
 func defaultConfigDir() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, "ttal")
