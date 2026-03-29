@@ -72,8 +72,8 @@ Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_p
 
 Skills are stored in flicknote and accessed at runtime via `ttal skill get <name>`. To import skill files:
 ```bash
-ttal skill import templates/docs/skills --apply
-ttal skill import templates/docs/commands --apply --category command
+ttal skill import skills --apply
+ttal skill import commands --apply --category command
 ```
 
 ## Task Routing

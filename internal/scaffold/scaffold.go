@@ -23,7 +23,7 @@ type ScaffoldInfo struct {
 	InstallHint string // optional install instructions (from frontmatter)
 }
 
-// Apply copies a scaffold and the shared docs/ directory into the workspace.
+// Apply copies a scaffold and the shared docs/, skills/, and commands/ directories into the workspace.
 func Apply(repoDir, scaffoldName, workspace string) error {
 	scaffoldDir := filepath.Join(repoDir, scaffoldName)
 
@@ -49,14 +49,26 @@ func Apply(repoDir, scaffoldName, workspace string) error {
 		return fmt.Errorf("copy scaffold: %w", err)
 	}
 
-	// Copy shared docs/ if it exists
-	docsDir := filepath.Join(repoDir, "docs")
-	if info, err := os.Stat(docsDir); err == nil && info.IsDir() {
-		if err := copyDir(docsDir, filepath.Join(workspace, "docs")); err != nil {
-			return fmt.Errorf("copy docs: %w", err)
+	// Copy shared top-level directories (docs/, skills/, commands/) if they exist.
+	for _, dir := range []string{"docs", "skills", "commands"} {
+		if err := copySharedDir(repoDir, workspace, dir); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+// copySharedDir copies repoDir/name into workspace/name if the source exists.
+func copySharedDir(repoDir, workspace, name string) error {
+	src := filepath.Join(repoDir, name)
+	info, err := os.Stat(src)
+	if err != nil || !info.IsDir() {
+		return nil
+	}
+	if err := copyDir(src, filepath.Join(workspace, name)); err != nil {
+		return fmt.Errorf("copy %s: %w", name, err)
+	}
 	return nil
 }
 
