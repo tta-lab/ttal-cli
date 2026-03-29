@@ -3,6 +3,7 @@ package taskwarrior
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -126,6 +127,41 @@ func GetPendingReminders() ([]Task, error) {
 		return nil, fmt.Errorf("failed to query pending reminders: %w", err)
 	}
 	return tasks, nil
+}
+
+// GetChildren returns pending subtasks of the given parent UUID, sorted by position.
+// Returns nil, nil when no children exist or when running on stock taskwarrior.
+func GetChildren(parentUUID string) ([]Task, error) {
+	if !IsFork() {
+		return nil, nil
+	}
+	tasks, err := exportTasks(fmt.Sprintf("parent_id:%s", parentUUID), "status:pending", "export")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get children of %s: %w", parentUUID, err)
+	}
+	sortByPosition(tasks)
+	return tasks, nil
+}
+
+// GetChildrenAll returns all subtasks of the given parent UUID regardless of status,
+// sorted by position. Returns nil, nil on stock taskwarrior.
+func GetChildrenAll(parentUUID string) ([]Task, error) {
+	if !IsFork() {
+		return nil, nil
+	}
+	tasks, err := exportTasks(fmt.Sprintf("parent_id:%s", parentUUID), "export")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all children of %s: %w", parentUUID, err)
+	}
+	sortByPosition(tasks)
+	return tasks, nil
+}
+
+// sortByPosition sorts tasks by their Position field (string comparison, ascending).
+func sortByPosition(tasks []Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].Position < tasks[j].Position
+	})
 }
 
 func parseSimpleListOutput(out string) []string {
