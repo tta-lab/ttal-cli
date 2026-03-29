@@ -14,7 +14,7 @@ After a meaningful conversation — decisions made, patterns discovered, prefere
 
 Find the CLAUDE.md you own in the current repo:
 
-- **In `~/clawd/`** — update your agent file (e.g. `quill/CLAUDE.md`, `kestrel/CLAUDE.md`)
+- **In `~/clawd/`** — update your agent file (e.g. `yuki/CLAUDE.md`, `kestrel/CLAUDE.md`)
 - **In any other repo** — update the project root `CLAUDE.md`
 
 If unsure, ask which file to update.

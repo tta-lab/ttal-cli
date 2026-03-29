@@ -6,7 +6,7 @@ living showcase of how a real team is structured and managed with ttal.
 
 ## The Team
 
-12 professional agents, each with a dedicated workspace and CLAUDE.md:
+11 professional agents, each with a dedicated workspace and CLAUDE.md:
 
 | Agent | Role | Creature/Object |
 |-------|------|----------------|
@@ -15,7 +15,6 @@ living showcase of how a real team is structured and managed with ttal.
 | **Inke** 🐙 | Design architect — writes executable implementation plans (ttal domain) | Octopus |
 | **Kestrel** 🦅 | Bug fix designer — diagnoses root causes and writes fix plans | Kestrel |
 | **Eve** 🦘 | Agent creator — designs new agent identities, handles respawn updates | Kangaroo |
-| **Quill** 🐦‍⬛ | Skill design partner — helps create well-designed, shareable Claude Code skills | Crow |
 | **Lyra** 🦎 | Communications writer — polishes outward-facing text, adapts tone per platform | Lizard |
 | **Mira** 🧭 | Design architect — writes implementation plans (fb3/Guion domain) | Compass |
 | **Nyx** 🔭 | Researcher — deep dives on Guion/fb3 projects and Effect.ts stack | Telescope |
@@ -46,7 +45,6 @@ templates/ttal/
 ├── inke/CLAUDE.md       # Design architect (ttal domain)
 ├── kestrel/CLAUDE.md    # Bug fix designer
 ├── eve/CLAUDE.md        # Agent creator
-├── quill/CLAUDE.md      # Skill design partner
 ├── lyra/CLAUDE.md       # Communications writer
 ├── mira/CLAUDE.md       # Design architect (fb3/Guion domain)
 ├── nyx/CLAUDE.md        # Researcher (Guion/fb3 domain)
