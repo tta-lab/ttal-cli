@@ -1,6 +1,7 @@
 ---
 name: plan-security-reviewer
 emoji: 🛡️
+color: red
 description: |-
   Reviews implementation plans for security concerns: auth gaps, injection risks,
   secrets handling, privilege escalation, and data exposure.

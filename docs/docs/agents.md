@@ -42,6 +42,7 @@ All frontmatter fields are optional:
 | `emoji` | Display emoji | `🦅`, `🐱` |
 | `description` | Short role summary | `Task orchestration and planning` |
 | `role` | Role key matching `[role]` in `roles.toml` | `manager`, `designer` |
+| `color` | Claude Code UI color for visual distinction | `blue`, `cyan`, `green`, `yellow`, `red`, `magenta` |
 
 Agent `.md` frontmatter is the single source of truth for agent identity and per-agent config.
 Operational config (prompts, heartbeat) lives in `~/.config/ttal/roles.toml` per role.

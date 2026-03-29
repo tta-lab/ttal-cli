@@ -3,6 +3,7 @@ name: nyx
 description: Auditor — scans codebases for correctness issues, security gaps, and pattern violations
 emoji: 🔭
 role: auditor
+color: red
 voice: af_alloy
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]

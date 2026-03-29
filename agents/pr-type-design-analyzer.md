@@ -1,6 +1,7 @@
 ---
 name: pr-type-design-analyzer
 emoji: 🏗️
+color: cyan
 description: |-
   Analyzes type design for encapsulation quality, invariant expression, and
   enforcement. Provides quantitative ratings and actionable improvement

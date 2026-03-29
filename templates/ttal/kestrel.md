@@ -3,6 +3,7 @@ name: kestrel
 description: Bug fix designer — diagnoses root causes and writes fix plans for workers to execute
 emoji: 🦅
 role: fixer
+color: yellow
 voice: af_river
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]

@@ -202,6 +202,9 @@ Example:
 		if ag.Voice != "" {
 			fmt.Printf("Voice:     %s\n", ag.Voice)
 		}
+		if ag.Color != "" {
+			fmt.Printf("Color:     %s\n", ag.Color)
+		}
 		return nil
 	},
 }
@@ -241,10 +244,10 @@ Examples:
 				if !voice.IsValidVoice(value) {
 					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
 				}
-			case "emoji", "description", "role":
-				// valid fields
+			case "emoji", "description", "role", "color":
+				// valid fields — color accepts any string; no validation (unlike voice)
 			default:
-				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, role)", field)
+				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, role, color)", field)
 			}
 
 			if err := agentfs.SetField(teamPath, name, field, value); err != nil {

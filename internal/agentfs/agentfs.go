@@ -48,6 +48,7 @@ type AgentInfo struct {
 	Emoji       string // display emoji
 	Description string // short role summary
 	Role        string // e.g. designer, researcher — matches [prompts] key
+	Color       string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
 }
 
 // Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
@@ -74,10 +75,7 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 		}
 
 		if fm, err := parseFrontmatter(mdPath); err == nil {
-			info.Voice = fm["voice"]
-			info.Emoji = fm["emoji"]
-			info.Description = fm["description"]
-			info.Role = fm["role"]
+			applyFrontmatter(&info, fm)
 		} else {
 			log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 		}
@@ -106,10 +104,7 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 	}
 
 	if fm, err := parseFrontmatter(mdPath); err == nil {
-		info.Voice = fm["voice"]
-		info.Emoji = fm["emoji"]
-		info.Description = fm["description"]
-		info.Role = fm["role"]
+		applyFrontmatter(info, fm)
 	} else {
 		log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 	}
@@ -174,6 +169,11 @@ func Count(teamPath string) (int, error) {
 
 // SetField updates a single frontmatter field in an agent's .md file.
 // If no frontmatter exists, it adds one. Preserves existing content.
+//
+// SetField only handles flat frontmatter (key: value pairs). It returns an
+// error if the file contains nested/indented frontmatter (e.g. claude-code:
+// blocks), as SetField would silently corrupt the nested structure. Use direct
+// file editing for files with nested YAML.
 func SetField(teamPath, name, field, value string) error {
 	mdPath := filepath.Join(teamPath, name+".md")
 	data, err := os.ReadFile(mdPath)
@@ -182,6 +182,11 @@ func SetField(teamPath, name, field, value string) error {
 	}
 
 	content := string(data)
+	if hasNestedFrontmatter(content) {
+		return fmt.Errorf("agent '%s' has nested frontmatter (e.g. claude-code: block) — "+
+			"edit the file directly instead of using SetField to avoid data loss", name)
+	}
+
 	fm, body := splitFrontmatter(content)
 
 	fm[field] = value
@@ -202,6 +207,33 @@ func SetField(teamPath, name, field, value string) error {
 	sb.WriteString(body)
 
 	return os.WriteFile(mdPath, []byte(sb.String()), 0o644)
+}
+
+// applyFrontmatter populates AgentInfo fields from a parsed frontmatter map.
+func applyFrontmatter(info *AgentInfo, fm map[string]string) {
+	info.Voice = fm["voice"]
+	info.Emoji = fm["emoji"]
+	info.Description = fm["description"]
+	info.Role = fm["role"]
+	info.Color = fm["color"]
+}
+
+// hasNestedFrontmatter returns true if the content contains indented lines
+// within the frontmatter block, indicating nested YAML (e.g. claude-code: blocks).
+func hasNestedFrontmatter(content string) bool {
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != frontmatterDelimiter {
+		return false
+	}
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == frontmatterDelimiter {
+			return false
+		}
+		if len(lines[i]) > 0 && (lines[i][0] == ' ' || lines[i][0] == '\t') {
+			return true
+		}
+	}
+	return false
 }
 
 // parseFrontmatter reads YAML-like frontmatter from a markdown file.

@@ -1,6 +1,7 @@
 ---
 name: plan-gap-finder
 emoji: 🔎
+color: magenta
 description: |-
   Finds structural gaps in implementation plans: missing steps, ambiguities,
   undefined behaviors, scope issues, and unaddressed integration points.

@@ -3,6 +3,7 @@ name: coder
 emoji: ⚡
 description: "Worker agent — executes implementation plans in isolated worktrees. Loads plan from task context, implements continuously, creates PR when done."
 role: worker
+color: green
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Write, Edit, mcp__context7__resolve-library-id, mcp__context7__query-docs, Agent]

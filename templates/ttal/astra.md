@@ -3,6 +3,7 @@ name: astra
 description: Design architect — writes executable implementation plans from research and requirements (fb3/Effect.ts domain)
 emoji: 📐
 role: designer
+color: blue
 voice: af_nicole
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]

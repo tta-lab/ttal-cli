@@ -23,6 +23,7 @@ type AgentFrontmatter struct {
 	Name        string                 `yaml:"name"`
 	Description string                 `yaml:"description"`
 	Emoji       string                 `yaml:"emoji"`
+	Color       string                 `yaml:"color"`
 	ClaudeCode  map[string]interface{} `yaml:"claude-code"`
 	Codex       map[string]interface{} `yaml:"codex"`
 	Ttal        *TtalAgentConfig       `yaml:"ttal"`
@@ -91,12 +92,15 @@ func ParseAgentFile(content string) (*ParsedAgent, error) {
 }
 
 // GenerateCCVariant produces a Claude Code agent .md file from a parsed canonical agent.
-// Includes shared fields (name, description) plus claude-code specific fields.
+// Includes shared fields (name, description, color) plus claude-code specific fields.
 func GenerateCCVariant(agent *ParsedAgent) (string, error) {
 	fm := make(map[string]interface{})
 	fm["name"] = agent.Frontmatter.Name
 	if agent.Frontmatter.Description != "" {
 		fm["description"] = agent.Frontmatter.Description
+	}
+	if agent.Frontmatter.Color != "" {
+		fm["color"] = agent.Frontmatter.Color
 	}
 	for k, v := range agent.Frontmatter.ClaudeCode {
 		fm[k] = v
