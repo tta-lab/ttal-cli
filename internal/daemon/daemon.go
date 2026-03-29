@@ -152,6 +152,17 @@ func Run() error {
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
 		},
+		notify: func(team, msg string) error {
+			t := team
+			if t == "" {
+				t = mcfg.DefaultTeamName()
+			}
+			fe, ok := frontends[t]
+			if !ok {
+				return fmt.Errorf("no frontend for team %s", t)
+			}
+			return fe.SendNotification(ctx, msg)
+		},
 		commentAdd: func(req CommentAddRequest) CommentAddResponse {
 			return handleCommentAdd(commentSvc, defaultTeamName, commentSync, req)
 		},
