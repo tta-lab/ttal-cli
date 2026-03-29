@@ -169,7 +169,8 @@ var commentListCmd = &cobra.Command{
 		}
 
 		if len(resp.Comments) == 0 {
-			fmt.Println("No comments yet — sit tight, notifications will come when there's something to read. No need to keep checking.")
+			fmt.Println("No comments yet — sit tight, notifications will come when there's" +
+				" something to read. No need to keep checking.")
 			return nil
 		}
 
