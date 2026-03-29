@@ -13,7 +13,7 @@ assignee = "designer"
 emoji = "🧭"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-planning", "flicknote"]
+skills = ["sp-planning", "flicknote", "task-tree"]
 
 [[standard.stages]]
 name = "Implement"
@@ -32,7 +32,7 @@ assignee = "fixer"
 emoji = "🔧"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-debugging", "flicknote"]
+skills = ["sp-debugging", "flicknote", "task-tree"]
 
 [[bugfix.stages]]
 name = "Implement"
@@ -95,7 +95,7 @@ assignee = "designer"
 emoji = "💡"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-brainstorming", "flicknote"]
+skills = ["sp-brainstorming", "flicknote", "task-tree"]
 
 [[brainstorm.stages]]
 name = "Implement"
@@ -114,7 +114,7 @@ assignee = "devops"
 emoji = "⚓"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-planning", "flicknote"]
+skills = ["sp-planning", "flicknote", "task-tree"]
 
 [[devops.stages]]
 name = "Implement"
