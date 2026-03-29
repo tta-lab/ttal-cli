@@ -151,7 +151,8 @@ func TestCount(t *testing.T) {
 
 func TestSetField(t *testing.T) {
 	dir := t.TempDir()
-	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n---\n# Yuki\n\nSome content.")
+	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat +
+		"\n---\n# Yuki\n\nSome content.")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "voice", "af_sky"); err != nil {
