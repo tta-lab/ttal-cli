@@ -90,24 +90,24 @@ func TestHeatmapModel_MoveCursor(t *testing.T) {
 	grid := buildGrid(map[time.Time]int{}, now)
 	m := heatmapModel{grid: grid, cursorX: 26, cursorY: 3}
 
-	m.moveCursor(keyLeft)
+	m.handleKey("left")
 	if m.cursorX != 25 {
-		t.Errorf("expected cursorX=25 after keyLeft, got %d", m.cursorX)
+		t.Errorf("expected cursorX=25 after left, got %d", m.cursorX)
 	}
 
-	m.moveCursor(keyRight)
+	m.handleKey("right")
 	if m.cursorX != 26 {
-		t.Errorf("expected cursorX=26 after keyRight, got %d", m.cursorX)
+		t.Errorf("expected cursorX=26 after right, got %d", m.cursorX)
 	}
 
-	m.moveCursor(keyUp)
+	m.handleKey("up")
 	if m.cursorY != 2 {
-		t.Errorf("expected cursorY=2 after keyUp, got %d", m.cursorY)
+		t.Errorf("expected cursorY=2 after up, got %d", m.cursorY)
 	}
 
-	m.moveCursor(keyDown)
+	m.handleKey("down")
 	if m.cursorY != 3 {
-		t.Errorf("expected cursorY=3 after keyDown, got %d", m.cursorY)
+		t.Errorf("expected cursorY=3 after down, got %d", m.cursorY)
 	}
 }
 
@@ -118,7 +118,7 @@ func TestHeatmapModel_MoveCursor_WrapVertical(t *testing.T) {
 
 	// Moving up from row 0 should wrap to row 6, but guard future dates may revert.
 	// Use week 0 which has old dates, so no future guard.
-	m.moveCursor(keyUp)
+	m.handleKey("up")
 	if m.cursorY != 6 {
 		t.Errorf("expected cursorY=6 after wrapping up from 0, got %d", m.cursorY)
 	}
@@ -130,7 +130,7 @@ func TestHeatmapModel_MoveCursor_ClampHorizontal(t *testing.T) {
 	m := heatmapModel{grid: grid, cursorX: 0, cursorY: 0}
 
 	// Can't go left past week 0.
-	m.moveCursor(keyLeft)
+	m.handleKey("left")
 	if m.cursorX != 0 {
 		t.Errorf("expected cursorX to stay 0 at left boundary, got %d", m.cursorX)
 	}
@@ -138,7 +138,7 @@ func TestHeatmapModel_MoveCursor_ClampHorizontal(t *testing.T) {
 	// Can't go right past week 52.
 	m.cursorX = 52
 	m.cursorY = 0 // week 52 day 0 = Sun 2026-03-08, not future
-	m.moveCursor(keyRight)
+	m.handleKey("right")
 	if m.cursorX != 52 {
 		t.Errorf("expected cursorX to stay 52 at right boundary, got %d", m.cursorX)
 	}
@@ -151,7 +151,7 @@ func TestHeatmapModel_MoveCursor_FutureDateGuard(t *testing.T) {
 	grid := buildGrid(map[time.Time]int{}, now)
 	m := heatmapModel{grid: grid, cursorX: grid.todayWeek, cursorY: grid.todayDay}
 
-	m.moveCursor(keyDown)
+	m.handleKey("down")
 	if m.cursorX != grid.todayWeek || m.cursorY != grid.todayDay {
 		t.Errorf("expected cursor to revert to today (%d,%d), got (%d,%d)",
 			grid.todayWeek, grid.todayDay, m.cursorX, m.cursorY)

@@ -8,8 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -92,6 +95,11 @@ type Model struct {
 	// Active filter columns
 	agentEmojiByName map[string]string // agent name → emoji (from agentfs)
 	pipelineCfg      *pipeline.Config  // pipeline definitions (for stage resolution)
+
+	// Key bindings and help
+	keys         KeyMap
+	helpModel    help.Model
+	helpViewport viewport.Model
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -113,6 +121,9 @@ func NewModel() Model {
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 		expanded:       make(map[string]bool),
 		childrenCache:  make(map[string][]Task),
+		keys:           DefaultKeyMap(),
+		helpModel:      help.New(),
+		helpViewport:   viewport.New(),
 	}
 	return m
 }
@@ -126,6 +137,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.state == stateHelp {
+			m.helpViewport.SetWidth(m.width)
+			m.helpViewport.SetHeight(m.height - 3)
+		}
 		return m, nil
 	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg,
 		actionResultMsg, execFinishedMsg, heatmapLoadedMsg, childrenLoadedMsg:
@@ -207,9 +222,10 @@ func (m *Model) handleTasksLoaded(msg tasksLoadedMsg) (tea.Model, tea.Cmd) {
 		m.statusMsg = "Task load error: " + msg.err.Error()
 	}
 	m.tasks = msg.tasks
-	m.childrenCache = make(map[string][]Task) // clear stale children on reload
+	// Keep childrenCache intact — children remain visible while reloading in background.
+	// handleChildrenLoaded overwrites entries when fresh data arrives.
 	m.applyFilter()
-	// Reload children for any currently expanded parents
+	// Reload children for expanded parents in background
 	cmds := make([]tea.Cmd, 0, len(m.expanded))
 	for parentUUID := range m.expanded {
 		cmds = append(cmds, loadChildren(parentUUID))
@@ -297,84 +313,81 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmDeleteKey(msg)
 	case stateHeatmap:
 		return m.handleHeatmapKey(msg)
+	case stateHelp:
+		return m.handleHelpKey(msg)
 	}
 
-	action := resolveKey(msg)
-
-	switch action {
-	case keyQuit:
+	switch {
+	case key.Matches(msg, m.keys.Quit):
 		if m.state != stateTaskList {
 			m.state = stateTaskList
 			return m, nil
 		}
 		return m, tea.Quit
-	case keyEsc:
+	case key.Matches(msg, m.keys.Esc):
 		if m.state != stateTaskList {
 			m.state = stateTaskList
 		}
 		return m, nil
 	}
 
-	if cmd, handled := m.handleTaskListKey(action); handled {
-		return m, cmd
+	if model, cmd, handled := m.handleTaskListKey(msg); handled {
+		return model, cmd
 	}
-
-	if m.handleNavigation(action) {
+	if handled := m.handleNavigation(msg); handled {
 		return m, nil
 	}
-
-	return m.handleAction(action)
+	return m.handleAction(msg)
 }
 
-// handleTaskListKey handles task-list-specific keys (tree expand/collapse + Enter).
-// Returns (cmd, true) when handled, (nil, false) to fall through.
-func (m *Model) handleTaskListKey(action keyAction) (tea.Cmd, bool) {
-	switch action {
-	case keyRight: // l — expand (task list only)
+// handleTaskListKey handles tree expand/collapse and Enter (task list only).
+// Returns (model, cmd, true) when handled, (nil, nil, false) to fall through.
+func (m *Model) handleTaskListKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+	switch {
+	case key.Matches(msg, m.keys.Right):
 		if m.state == stateTaskList {
-			return m.expandSelected(), true
+			return m, m.expandSelected(), true
 		}
-	case keyLeft: // h — collapse (task list only)
+	case key.Matches(msg, m.keys.Left):
 		if m.state == stateTaskList {
 			m.collapseSelected()
-			return nil, true
+			return m, nil, true
 		}
-	case keyEnter:
+	case key.Matches(msg, m.keys.Enter):
 		if len(m.filtered) == 0 {
-			return nil, false
+			return m, nil, true
 		}
 		t := &m.filtered[m.cursor]
 		// Child rows are expanded inline — Enter only opens detail for root tasks.
-		// Press h to collapse and navigate to the parent, then Enter to open its detail.
 		if t.IsSubtask() {
-			return nil, true // consume but do nothing
+			return m, nil, true
 		}
 		m.selectedUUID = t.UUID
 		m.state = stateTaskDetail
-		// Load children for detail view if not cached
 		if _, ok := m.childrenCache[m.selectedUUID]; !ok {
-			return loadChildren(m.selectedUUID), true
+			return m, loadChildren(m.selectedUUID), true
 		}
-		return nil, true
+		return m, nil, true
 	}
-	return nil, false
+	return nil, nil, false
 }
 
-func (m *Model) handleNavigation(action keyAction) bool {
-	switch action {
-	case keyUp:
+// handleNavigation handles cursor movement keys. Returns true when handled.
+func (m *Model) handleNavigation(msg tea.KeyPressMsg) bool {
+	switch {
+	case key.Matches(msg, m.keys.Up):
 		m.moveCursor(-1)
-	case keyDown:
+	case key.Matches(msg, m.keys.Down):
 		m.moveCursor(1)
-	case keyPageDown:
+	case key.Matches(msg, m.keys.PageDown):
 		m.moveCursor(m.visibleRows())
-	case keyPageUp:
+	case key.Matches(msg, m.keys.PageUp):
 		m.moveCursor(-m.visibleRows())
-	case keyHalfPageDown:
+	case key.Matches(msg, m.keys.HalfPageDown):
 		m.moveCursor(m.visibleRows() / 2)
-	case keyHalfPageUp:
+	case key.Matches(msg, m.keys.HalfPageUp):
 		m.moveCursor(-m.visibleRows() / 2)
-	case keyTop:
+	case key.Matches(msg, m.keys.Top):
 		m.cursor = 0
 		if len(m.filtered) > 0 {
 			m.selectedUUID = m.filtered[0].UUID
@@ -382,7 +395,7 @@ func (m *Model) handleNavigation(action keyAction) bool {
 			m.selectedUUID = ""
 		}
 		m.ensureCursorVisible()
-	case keyBottom:
+	case key.Matches(msg, m.keys.Bottom):
 		if len(m.filtered) > 0 {
 			m.cursor = len(m.filtered) - 1
 			m.selectedUUID = m.filtered[m.cursor].UUID
@@ -394,107 +407,111 @@ func (m *Model) handleNavigation(action keyAction) bool {
 	return true
 }
 
-func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
-	// Task-scoped actions that require a selected task
-	if cmd := m.handleTaskAction(action); cmd != nil {
-		return m, cmd
-	}
-
-	// Global actions
-	switch action {
-	case keyFilterNext:
+// handleAction handles global and task-scoped actions.
+func (m *Model) handleAction(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.FilterNext):
 		m.filter = m.filter.Next()
 		m.cursor = 0
 		return m, m.reloadTasks()
-	case keyFilterPrev:
+	case key.Matches(msg, m.keys.FilterPrev):
 		m.filter = m.filter.Prev()
 		m.cursor = 0
 		return m, m.reloadTasks()
-	case keySearch:
+	case key.Matches(msg, m.keys.Search):
 		m.state = stateSearch
 		m.searchInput.SetValue("")
 		if len(m.projects) == 0 || len(m.tags) == 0 {
 			return m, tea.Batch(m.searchInput.Focus(), loadConfigForAutocomplete())
 		}
 		return m, m.searchInput.Focus()
-	case keyHelp:
-		if m.state == stateHelp {
-			m.state = stateTaskList
-		} else {
-			m.state = stateHelp
-		}
-	case keyRefresh:
+	case key.Matches(msg, m.keys.Help):
+		m.state = stateHelp
+		m.helpModel.ShowAll = true
+		m.helpModel.SetWidth(m.width - 4)
+		m.helpViewport.SetWidth(m.width)
+		m.helpViewport.SetHeight(m.height - 3)
+		m.helpViewport.SetContent(m.helpModel.FullHelpView(m.keys.FullHelp()))
+		m.helpViewport.GotoTop()
+		return m, nil
+	case key.Matches(msg, m.keys.Refresh):
 		return m, m.reloadTasks()
-	case keyHeatmap:
+	case key.Matches(msg, m.keys.Heatmap):
 		m.heatmapReady = false
 		m.state = stateHeatmap
 		return m, loadHeatmapCmd()
 	}
-	return m, nil
+	return m.handleTaskAction(msg)
 }
 
-func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
+// handleTaskAction handles actions that operate on the selected task.
+func (m *Model) handleTaskAction(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t := m.selectedTask()
 	if t == nil {
-		return nil
+		return m, nil
 	}
-	if cmd := m.handleOverlayAction(action); cmd != nil {
-		return cmd
-	}
-	switch action {
-	case keyAdvance:
-		return advanceTask(t.UUID)
-	case keyAddToday:
-		return addToToday(t.UUID)
-	case keyRemoveToday:
-		return removeFromToday(t.UUID)
-	case keyToggleNext:
-		return toggleNext(t)
-	case keyDone:
-		return doneTask(t.UUID)
-	case keyOpenPR:
-		return openPR(t.UUID)
-	case keyOpenSession:
-		return openSession(t, m.cfg)
-	case keyOpenTerm:
-		return openTerm(t)
-	case keyOpenEditor:
-		return openEditor(t)
-	case keyCopy:
-		return copyTask(t)
-	}
-	return nil
-}
-
-// handleOverlayAction handles actions that open an overlay or change view state.
-// Returns a non-nil Cmd (possibly a no-op focus cmd) when an action was handled.
-func (m *Model) handleOverlayAction(action keyAction) tea.Cmd {
-	switch action {
-	case keyModify:
+	switch {
+	case key.Matches(msg, m.keys.Advance):
+		return m, advanceTask(t.UUID)
+	case key.Matches(msg, m.keys.Done):
+		return m, doneTask(t.UUID)
+	case key.Matches(msg, m.keys.Modify):
 		m.state = stateModify
 		m.modifyInput.SetValue("")
 		m.updateModifyMatches(m.projects, m.tags)
-		return m.modifyInput.Focus()
-	case keyAnnotate:
+		return m, m.modifyInput.Focus()
+	case key.Matches(msg, m.keys.Annotate):
 		m.state = stateAnnotate
 		m.annotateInput.SetValue("")
-		return m.annotateInput.Focus()
-	case keyDelete:
+		return m, m.annotateInput.Focus()
+	case key.Matches(msg, m.keys.Delete):
 		m.state = stateConfirmDelete
-		return overlayHandled
+		return m, overlayHandled
+	case key.Matches(msg, m.keys.AddToday):
+		return m, addToToday(t.UUID)
+	case key.Matches(msg, m.keys.RemoveToday):
+		return m, removeFromToday(t.UUID)
+	case key.Matches(msg, m.keys.ToggleNext):
+		return m, toggleNext(t)
+	case key.Matches(msg, m.keys.OpenPR):
+		return m, openPR(t.UUID)
+	case key.Matches(msg, m.keys.OpenSession):
+		return m, openSession(t, m.cfg)
+	case key.Matches(msg, m.keys.OpenTerm):
+		return m, openTerm(t)
+	case key.Matches(msg, m.keys.OpenEditor):
+		return m, openEditor(t)
+	case key.Matches(msg, m.keys.Copy):
+		return m, copyTask(t)
 	}
-	return nil
+	return m, nil
+}
+
+func (m *Model) handleHelpKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Esc), key.Matches(msg, m.keys.Help):
+		m.state = stateTaskList
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.helpViewport, cmd = m.helpViewport.Update(msg)
+		return m, cmd
+	}
 }
 
 func (m *Model) handleHeatmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	action := resolveKey(msg)
-	switch action {
-	case keyHeatmap, keyEsc:
+	switch {
+	case key.Matches(msg, m.keys.Heatmap), key.Matches(msg, m.keys.Esc):
 		m.state = stateTaskList
 		return m, nil
-	case keyUp, keyDown, keyLeft, keyRight:
-		m.heatmapModel.moveCursor(action)
-		return m, nil
+	case key.Matches(msg, m.keys.Up):
+		m.heatmapModel.handleKey("up")
+	case key.Matches(msg, m.keys.Down):
+		m.heatmapModel.handleKey("down")
+	case key.Matches(msg, m.keys.Left):
+		m.heatmapModel.handleKey("left")
+	case key.Matches(msg, m.keys.Right):
+		m.heatmapModel.handleKey("right")
 	}
 	return m, nil
 }
@@ -792,12 +809,14 @@ func (m *Model) collapseSelected() {
 	if t.IsSubtask() {
 		parentUUID := t.ParentID
 		delete(m.expanded, parentUUID)
+		delete(m.childrenCache, parentUUID) // clean up cache so re-expand fetches fresh
 		m.applyFilter()
 		m.restoreCursorByUUID(parentUUID)
 		return
 	}
 	if m.expanded[t.UUID] {
 		delete(m.expanded, t.UUID)
+		delete(m.childrenCache, t.UUID) // clean up cache so re-expand fetches fresh
 		m.applyFilter()
 	}
 }

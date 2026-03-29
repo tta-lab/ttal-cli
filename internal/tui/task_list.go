@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 )
 
@@ -86,17 +87,24 @@ func (m Model) buildColumns() columnLayout {
 }
 
 func (m Model) renderHeader(c columnLayout) string {
-	if c.showActive {
-		return styleDim.Render(
-			fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-				c.uuid, "ID", c.pri, "P",
-				c.age, "Age", c.project, "Project",
-				c.agent, "Agent", c.stage, "Stage", "Description"))
+	cell := func(title string, width int) string {
+		return lipgloss.NewStyle().Width(width).MaxWidth(width).Inline(true).Render(title)
 	}
-	return styleDim.Render(
-		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
-			c.uuid, "ID", c.pri, "P",
-			c.age, "Age", c.project, "Project", c.tags, "Tags", "Description"))
+
+	var parts []string
+	parts = append(parts, cell("ID", c.uuid))
+	parts = append(parts, cell("P", c.pri))
+	parts = append(parts, cell("Age", c.age))
+	parts = append(parts, cell("Project", c.project))
+	if c.showActive {
+		parts = append(parts, cell("Agent", c.agent))
+		parts = append(parts, cell("Stage", c.stage))
+	} else {
+		parts = append(parts, cell("Tags", c.tags))
+	}
+	parts = append(parts, "Description")
+
+	return styleDim.Render(" " + strings.Join(parts, " "))
 }
 
 // rowData holds pre-computed display values for a single task row.
@@ -118,12 +126,12 @@ func (m Model) buildRowData(i int, c columnLayout) rowData {
 	}
 	tags := ""
 	if !c.showActive {
-		tags = truncate(strings.Join(t.Tags, " "), c.tags)
+		tags = strings.Join(t.Tags, " ")
 	}
 	agentStr, stageStr := "", ""
 	if c.showActive {
-		agentStr = truncate(resolveAgent(t, m.agentEmojiByName), c.agent)
-		stageStr = truncate(resolveStage(t, m.pipelineCfg), c.stage)
+		agentStr = resolveAgent(t, m.agentEmojiByName)
+		stageStr = resolveStage(t, m.pipelineCfg)
 	}
 	descStr := t.Description
 	if t.IsSubtask() {
@@ -136,9 +144,9 @@ func (m Model) buildRowData(i int, c columnLayout) rowData {
 	}
 	return rowData{
 		t: t, uuid: t.HexID(), pri: pri, age: age,
-		proj: truncate(t.Project, c.project), tags: tags,
+		proj: t.Project, tags: tags,
 		agentStr: agentStr, stageStr: stageStr,
-		desc: truncate(descStr, c.desc),
+		desc: descStr,
 	}
 }
 
@@ -147,22 +155,35 @@ func (m Model) renderRow(i int, c columnLayout) string {
 	selected := i == m.cursor
 	isChild := d.t.IsSubtask()
 
-	// Plain line (used by selected + today styles)
-	plainLine := buildPlainLine(d, c)
+	cellLine := renderCells(d, c)
 
-	return m.applyRowStyle(d, c, plainLine, selected, isChild)
+	return m.applyRowStyle(d, c, cellLine, selected, isChild)
 }
 
-func buildPlainLine(d rowData, c columnLayout) string {
-	if c.showActive {
-		return fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			c.uuid, d.uuid, c.pri, d.pri,
-			c.age, d.age, c.project, d.proj,
-			c.agent, d.agentStr, c.stage, d.stageStr, d.desc)
+// renderCells builds a row string with lipgloss-width-aware cell alignment.
+// Values are plain text — caller applies row-level styling (selected, today) afterward.
+// Uses Inline(true) to avoid ANSI reset sequences that would interfere with
+// outer row-level styling (e.g., styleToday's background color).
+func renderCells(d rowData, c columnLayout) string {
+	cell := func(value string, width int) string {
+		return lipgloss.NewStyle().Width(width).MaxWidth(width).Inline(true).
+			Render(ansi.Truncate(value, width, "…"))
 	}
-	return fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
-		c.uuid, d.uuid, c.pri, d.pri,
-		c.age, d.age, c.project, d.proj, c.tags, d.tags, d.desc)
+
+	var parts []string
+	parts = append(parts, cell(d.uuid, c.uuid))
+	parts = append(parts, cell(d.pri, c.pri))
+	parts = append(parts, cell(d.age, c.age))
+	parts = append(parts, cell(d.proj, c.project))
+	if c.showActive {
+		parts = append(parts, cell(d.agentStr, c.agent))
+		parts = append(parts, cell(d.stageStr, c.stage))
+	} else {
+		parts = append(parts, cell(d.tags, c.tags))
+	}
+	parts = append(parts, ansi.Truncate(d.desc, c.desc, "…"))
+
+	return " " + strings.Join(parts, " ")
 }
 
 func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, selected, isChild bool) string {
@@ -185,42 +206,60 @@ func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, select
 	}
 }
 
+// styledCell renders a value with inner styling inside a fixed-width cell.
+func styledCell(value string, width int, style lipgloss.Style) string {
+	return lipgloss.NewStyle().Width(width).MaxWidth(width).Inline(true).
+		Render(style.Render(ansi.Truncate(value, width, "…")))
+}
+
 func styleChildRowActive(d rowData, c columnLayout) string {
-	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
-	sPri := lipgloss.NewStyle().Width(c.pri).Render(styleDim.Render(d.pri))
-	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
-	sProj := lipgloss.NewStyle().Width(c.project).Render(styleDim.Render(d.proj))
-	sAgent := lipgloss.NewStyle().Width(c.agent).Render(styleDim.Render(""))
-	sStage := lipgloss.NewStyle().Width(c.stage).Render(styleDim.Render(""))
-	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sAgent + " " + sStage + " " + d.desc
+	parts := []string{
+		styledCell(d.uuid, c.uuid, styleDim),
+		styledCell(d.pri, c.pri, styleDim),
+		styledCell(d.age, c.age, styleDim),
+		styledCell(d.proj, c.project, styleDim),
+		styledCell("", c.agent, styleDim),
+		styledCell("", c.stage, styleDim),
+		ansi.Truncate(d.desc, c.desc, "…"),
+	}
+	return " " + strings.Join(parts, " ")
 }
 
 func styleChildRow(d rowData, c columnLayout) string {
-	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
-	sPri := lipgloss.NewStyle().Width(c.pri).Render(styleDim.Render(d.pri))
-	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
-	sProj := lipgloss.NewStyle().Width(c.project).Render(styleDim.Render(d.proj))
-	sTags := lipgloss.NewStyle().Width(c.tags).Render(styleDim.Render(""))
-	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sTags + " " + d.desc
+	parts := []string{
+		styledCell(d.uuid, c.uuid, styleDim),
+		styledCell(d.pri, c.pri, styleDim),
+		styledCell(d.age, c.age, styleDim),
+		styledCell(d.proj, c.project, styleDim),
+		styledCell("", c.tags, styleDim),
+		ansi.Truncate(d.desc, c.desc, "…"),
+	}
+	return " " + strings.Join(parts, " ")
 }
 
 func styleActiveRow(d rowData, c columnLayout) string {
-	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
-	sPri := lipgloss.NewStyle().Width(c.pri).Render(priorityStyle(d.t.Priority).Render(d.pri))
-	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
-	sProj := lipgloss.NewStyle().Width(c.project).Render(d.proj)
-	sAgent := lipgloss.NewStyle().Width(c.agent).Render(styleTag.Render(d.agentStr))
-	sStage := lipgloss.NewStyle().Width(c.stage).Render(styleDim.Render(d.stageStr))
-	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sAgent + " " + sStage + " " + d.desc
+	parts := []string{
+		styledCell(d.uuid, c.uuid, styleDim),
+		styledCell(d.pri, c.pri, priorityStyle(d.t.Priority)),
+		styledCell(d.age, c.age, styleDim),
+		styledCell(d.proj, c.project, lipgloss.NewStyle()),
+		styledCell(d.agentStr, c.agent, styleTag),
+		styledCell(d.stageStr, c.stage, styleDim),
+		ansi.Truncate(d.desc, c.desc, "…"),
+	}
+	return " " + strings.Join(parts, " ")
 }
 
 func styleStandardRow(d rowData, c columnLayout) string {
-	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
-	sPri := lipgloss.NewStyle().Width(c.pri).Render(priorityStyle(d.t.Priority).Render(d.pri))
-	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
-	sProj := lipgloss.NewStyle().Width(c.project).Render(d.proj)
-	sTags := lipgloss.NewStyle().Width(c.tags).Render(styleTag.Render(d.tags))
-	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sTags + " " + d.desc
+	parts := []string{
+		styledCell(d.uuid, c.uuid, styleDim),
+		styledCell(d.pri, c.pri, priorityStyle(d.t.Priority)),
+		styledCell(d.age, c.age, styleDim),
+		styledCell(d.proj, c.project, lipgloss.NewStyle()),
+		styledCell(d.tags, c.tags, styleTag),
+		ansi.Truncate(d.desc, c.desc, "…"),
+	}
+	return " " + strings.Join(parts, " ")
 }
 
 func (m Model) viewStatusBar() string {
@@ -240,11 +279,14 @@ func (m Model) viewStatusBar() string {
 		parts = append(parts, styleDim.Render(t.UUID))
 	}
 
-	right := styleHelp.Render("? help  f filter  / search  q quit")
-
 	left := styleStatusBar.Render(strings.Join(parts, "  "))
+	leftWidth := lipgloss.Width(left)
 
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	// Context-sensitive help on the right
+	m.helpModel.SetWidth(m.width - leftWidth - 2)
+	right := m.helpModel.View(m.keys)
+
+	gap := m.width - leftWidth - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
 	}
@@ -300,15 +342,4 @@ func resolveStage(t *Task, pipeCfg *pipeline.Config) string {
 		return ""
 	}
 	return stage.DisplayName()
-}
-
-func truncate(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen <= 1 {
-		return string(runes[:maxLen])
-	}
-	return string(runes[:maxLen-1]) + "~"
 }
