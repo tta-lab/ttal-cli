@@ -279,11 +279,14 @@ func (m Model) viewStatusBar() string {
 		parts = append(parts, styleDim.Render(t.UUID))
 	}
 
-	right := styleHelp.Render("? help  f filter  / search  q quit")
-
 	left := styleStatusBar.Render(strings.Join(parts, "  "))
+	leftWidth := lipgloss.Width(left)
 
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	// Context-sensitive help on the right
+	m.helpModel.SetWidth(m.width - leftWidth - 2)
+	right := m.helpModel.View(m.keys)
+
+	gap := m.width - leftWidth - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
 	}

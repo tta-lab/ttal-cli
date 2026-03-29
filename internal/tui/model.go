@@ -8,8 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -92,6 +95,11 @@ type Model struct {
 	// Active filter columns
 	agentEmojiByName map[string]string // agent name → emoji (from agentfs)
 	pipelineCfg      *pipeline.Config  // pipeline definitions (for stage resolution)
+
+	// Key bindings and help
+	keys         KeyMap
+	helpModel    help.Model
+	helpViewport viewport.Model
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -113,6 +121,9 @@ func NewModel() Model {
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 		expanded:       make(map[string]bool),
 		childrenCache:  make(map[string][]Task),
+		keys:           DefaultKeyMap(),
+		helpModel:      help.New(),
+		helpViewport:   viewport.New(),
 	}
 	return m
 }
@@ -126,6 +137,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.state == stateHelp {
+			m.helpViewport.SetWidth(m.width)
+			m.helpViewport.SetHeight(m.height - 3)
+		}
 		return m, nil
 	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg,
 		actionResultMsg, execFinishedMsg, heatmapLoadedMsg, childrenLoadedMsg:
@@ -297,84 +312,59 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmDeleteKey(msg)
 	case stateHeatmap:
 		return m.handleHeatmapKey(msg)
+	case stateHelp:
+		return m.handleHelpKey(msg)
 	}
 
-	action := resolveKey(msg)
-
-	switch action {
-	case keyQuit:
+	switch {
+	case key.Matches(msg, m.keys.Quit):
 		if m.state != stateTaskList {
 			m.state = stateTaskList
 			return m, nil
 		}
 		return m, tea.Quit
-	case keyEsc:
+	case key.Matches(msg, m.keys.Esc):
 		if m.state != stateTaskList {
 			m.state = stateTaskList
 		}
 		return m, nil
-	}
-
-	if cmd, handled := m.handleTaskListKey(action); handled {
-		return m, cmd
-	}
-
-	if m.handleNavigation(action) {
-		return m, nil
-	}
-
-	return m.handleAction(action)
-}
-
-// handleTaskListKey handles task-list-specific keys (tree expand/collapse + Enter).
-// Returns (cmd, true) when handled, (nil, false) to fall through.
-func (m *Model) handleTaskListKey(action keyAction) (tea.Cmd, bool) {
-	switch action {
-	case keyRight: // l — expand (task list only)
+	case key.Matches(msg, m.keys.Right):
 		if m.state == stateTaskList {
-			return m.expandSelected(), true
+			return m, m.expandSelected()
 		}
-	case keyLeft: // h — collapse (task list only)
+	case key.Matches(msg, m.keys.Left):
 		if m.state == stateTaskList {
 			m.collapseSelected()
-			return nil, true
+			return m, nil
 		}
-	case keyEnter:
+	case key.Matches(msg, m.keys.Enter):
 		if len(m.filtered) == 0 {
-			return nil, false
+			return m, nil
 		}
 		t := &m.filtered[m.cursor]
 		// Child rows are expanded inline — Enter only opens detail for root tasks.
-		// Press h to collapse and navigate to the parent, then Enter to open its detail.
 		if t.IsSubtask() {
-			return nil, true // consume but do nothing
+			return m, nil
 		}
 		m.selectedUUID = t.UUID
 		m.state = stateTaskDetail
-		// Load children for detail view if not cached
 		if _, ok := m.childrenCache[m.selectedUUID]; !ok {
-			return loadChildren(m.selectedUUID), true
+			return m, loadChildren(m.selectedUUID)
 		}
-		return nil, true
-	}
-	return nil, false
-}
-
-func (m *Model) handleNavigation(action keyAction) bool {
-	switch action {
-	case keyUp:
+		return m, nil
+	case key.Matches(msg, m.keys.Up):
 		m.moveCursor(-1)
-	case keyDown:
+	case key.Matches(msg, m.keys.Down):
 		m.moveCursor(1)
-	case keyPageDown:
+	case key.Matches(msg, m.keys.PageDown):
 		m.moveCursor(m.visibleRows())
-	case keyPageUp:
+	case key.Matches(msg, m.keys.PageUp):
 		m.moveCursor(-m.visibleRows())
-	case keyHalfPageDown:
+	case key.Matches(msg, m.keys.HalfPageDown):
 		m.moveCursor(m.visibleRows() / 2)
-	case keyHalfPageUp:
+	case key.Matches(msg, m.keys.HalfPageUp):
 		m.moveCursor(-m.visibleRows() / 2)
-	case keyTop:
+	case key.Matches(msg, m.keys.Top):
 		m.cursor = 0
 		if len(m.filtered) > 0 {
 			m.selectedUUID = m.filtered[0].UUID
@@ -382,119 +372,130 @@ func (m *Model) handleNavigation(action keyAction) bool {
 			m.selectedUUID = ""
 		}
 		m.ensureCursorVisible()
-	case keyBottom:
+	case key.Matches(msg, m.keys.Bottom):
 		if len(m.filtered) > 0 {
 			m.cursor = len(m.filtered) - 1
 			m.selectedUUID = m.filtered[m.cursor].UUID
 			m.ensureCursorVisible()
 		}
-	default:
-		return false
-	}
-	return true
-}
-
-func (m *Model) handleAction(action keyAction) (tea.Model, tea.Cmd) {
-	// Task-scoped actions that require a selected task
-	if cmd := m.handleTaskAction(action); cmd != nil {
-		return m, cmd
-	}
-
-	// Global actions
-	switch action {
-	case keyFilterNext:
+	case key.Matches(msg, m.keys.FilterNext):
 		m.filter = m.filter.Next()
 		m.cursor = 0
 		return m, m.reloadTasks()
-	case keyFilterPrev:
+	case key.Matches(msg, m.keys.FilterPrev):
 		m.filter = m.filter.Prev()
 		m.cursor = 0
 		return m, m.reloadTasks()
-	case keySearch:
+	case key.Matches(msg, m.keys.Search):
 		m.state = stateSearch
 		m.searchInput.SetValue("")
 		if len(m.projects) == 0 || len(m.tags) == 0 {
 			return m, tea.Batch(m.searchInput.Focus(), loadConfigForAutocomplete())
 		}
 		return m, m.searchInput.Focus()
-	case keyHelp:
-		if m.state == stateHelp {
-			m.state = stateTaskList
-		} else {
-			m.state = stateHelp
-		}
-	case keyRefresh:
+	case key.Matches(msg, m.keys.Help):
+		m.state = stateHelp
+		m.helpModel.ShowAll = true
+		m.helpModel.SetWidth(m.width - 4)
+		helpContent := m.helpModel.FullHelpView(m.keys.FullHelp())
+		m.helpViewport.SetWidth(m.width)
+		m.helpViewport.SetHeight(m.height - 3)
+		m.helpViewport.SetContent(helpContent)
+		m.helpViewport.GotoTop()
+	case key.Matches(msg, m.keys.Refresh):
 		return m, m.reloadTasks()
-	case keyHeatmap:
+	case key.Matches(msg, m.keys.Heatmap):
 		m.heatmapReady = false
 		m.state = stateHeatmap
 		return m, loadHeatmapCmd()
+	// Task-scoped actions
+	case key.Matches(msg, m.keys.Advance):
+		if t := m.selectedTask(); t != nil {
+			return m, advanceTask(t.UUID)
+		}
+	case key.Matches(msg, m.keys.Done):
+		if t := m.selectedTask(); t != nil {
+			return m, doneTask(t.UUID)
+		}
+	case key.Matches(msg, m.keys.Modify):
+		if t := m.selectedTask(); t != nil {
+			m.state = stateModify
+			m.modifyInput.SetValue("")
+			m.updateModifyMatches(m.projects, m.tags)
+			return m, m.modifyInput.Focus()
+		}
+	case key.Matches(msg, m.keys.Annotate):
+		if t := m.selectedTask(); t != nil {
+			m.state = stateAnnotate
+			m.annotateInput.SetValue("")
+			return m, m.annotateInput.Focus()
+		}
+	case key.Matches(msg, m.keys.Delete):
+		if t := m.selectedTask(); t != nil {
+			m.state = stateConfirmDelete
+			return m, overlayHandled
+		}
+	case key.Matches(msg, m.keys.AddToday):
+		if t := m.selectedTask(); t != nil {
+			return m, addToToday(t.UUID)
+		}
+	case key.Matches(msg, m.keys.RemoveToday):
+		if t := m.selectedTask(); t != nil {
+			return m, removeFromToday(t.UUID)
+		}
+	case key.Matches(msg, m.keys.ToggleNext):
+		if t := m.selectedTask(); t != nil {
+			return m, toggleNext(t)
+		}
+	case key.Matches(msg, m.keys.OpenPR):
+		if t := m.selectedTask(); t != nil {
+			return m, openPR(t.UUID)
+		}
+	case key.Matches(msg, m.keys.OpenSession):
+		if t := m.selectedTask(); t != nil {
+			return m, openSession(t, m.cfg)
+		}
+	case key.Matches(msg, m.keys.OpenTerm):
+		if t := m.selectedTask(); t != nil {
+			return m, openTerm(t)
+		}
+	case key.Matches(msg, m.keys.OpenEditor):
+		if t := m.selectedTask(); t != nil {
+			return m, openEditor(t)
+		}
+	case key.Matches(msg, m.keys.Copy):
+		if t := m.selectedTask(); t != nil {
+			return m, copyTask(t)
+		}
 	}
 	return m, nil
 }
 
-func (m *Model) handleTaskAction(action keyAction) tea.Cmd {
-	t := m.selectedTask()
-	if t == nil {
-		return nil
+func (m *Model) handleHelpKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Esc), key.Matches(msg, m.keys.Help):
+		m.state = stateTaskList
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.helpViewport, cmd = m.helpViewport.Update(msg)
+		return m, cmd
 	}
-	if cmd := m.handleOverlayAction(action); cmd != nil {
-		return cmd
-	}
-	switch action {
-	case keyAdvance:
-		return advanceTask(t.UUID)
-	case keyAddToday:
-		return addToToday(t.UUID)
-	case keyRemoveToday:
-		return removeFromToday(t.UUID)
-	case keyToggleNext:
-		return toggleNext(t)
-	case keyDone:
-		return doneTask(t.UUID)
-	case keyOpenPR:
-		return openPR(t.UUID)
-	case keyOpenSession:
-		return openSession(t, m.cfg)
-	case keyOpenTerm:
-		return openTerm(t)
-	case keyOpenEditor:
-		return openEditor(t)
-	case keyCopy:
-		return copyTask(t)
-	}
-	return nil
-}
-
-// handleOverlayAction handles actions that open an overlay or change view state.
-// Returns a non-nil Cmd (possibly a no-op focus cmd) when an action was handled.
-func (m *Model) handleOverlayAction(action keyAction) tea.Cmd {
-	switch action {
-	case keyModify:
-		m.state = stateModify
-		m.modifyInput.SetValue("")
-		m.updateModifyMatches(m.projects, m.tags)
-		return m.modifyInput.Focus()
-	case keyAnnotate:
-		m.state = stateAnnotate
-		m.annotateInput.SetValue("")
-		return m.annotateInput.Focus()
-	case keyDelete:
-		m.state = stateConfirmDelete
-		return overlayHandled
-	}
-	return nil
 }
 
 func (m *Model) handleHeatmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	action := resolveKey(msg)
-	switch action {
-	case keyHeatmap, keyEsc:
+	switch {
+	case key.Matches(msg, m.keys.Heatmap), key.Matches(msg, m.keys.Esc):
 		m.state = stateTaskList
 		return m, nil
-	case keyUp, keyDown, keyLeft, keyRight:
-		m.heatmapModel.moveCursor(action)
-		return m, nil
+	case key.Matches(msg, m.keys.Up):
+		m.heatmapModel.handleKey("up")
+	case key.Matches(msg, m.keys.Down):
+		m.heatmapModel.handleKey("down")
+	case key.Matches(msg, m.keys.Left):
+		m.heatmapModel.handleKey("left")
+	case key.Matches(msg, m.keys.Right):
+		m.heatmapModel.handleKey("right")
 	}
 	return m, nil
 }

@@ -177,8 +177,8 @@ func (m Model) viewHelp() string {
 	}
 	b.WriteString(styleTitle.Render(fmt.Sprintf(" TTal [%s] — Help", teamLabel)))
 	b.WriteString("\n\n")
-	b.WriteString(helpText)
+	b.WriteString(m.helpViewport.View())
 	b.WriteString("\n\n")
-	b.WriteString(styleDim.Render("  Press ? or Esc to close"))
+	b.WriteString(styleDim.Render("  Press ? or Esc to close  •  j/k to scroll"))
 	return m.padToHeight(b.String()) + m.viewStatusBar()
 }

@@ -204,26 +204,27 @@ func (h heatmapModel) view() string {
 	return sb.String()
 }
 
-// moveCursor handles arrow key navigation with future-date guard.
-func (h *heatmapModel) moveCursor(action keyAction) {
+// handleKey handles arrow key navigation with future-date guard.
+// direction is one of "up", "down", "left", "right".
+func (h *heatmapModel) handleKey(direction string) {
 	prevX, prevY := h.cursorX, h.cursorY
 
-	switch action {
-	case keyUp:
+	switch direction {
+	case "up":
 		h.cursorY--
 		if h.cursorY < 0 {
 			h.cursorY = 6
 		}
-	case keyDown:
+	case "down":
 		h.cursorY++
 		if h.cursorY > 6 {
 			h.cursorY = 0
 		}
-	case keyLeft:
+	case "left":
 		if h.cursorX > 0 {
 			h.cursorX--
 		}
-	case keyRight:
+	case "right":
 		if h.cursorX < 52 {
 			h.cursorX++
 		}

@@ -39,9 +39,6 @@ var (
 			BorderForeground(colorAccent).
 			Padding(1, 2)
 
-	styleHelp = lipgloss.NewStyle().
-			Foreground(colorDim)
-
 	styleToday = lipgloss.NewStyle().
 			Background(colorTodayBg)
 
