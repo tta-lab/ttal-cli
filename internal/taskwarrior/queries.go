@@ -25,7 +25,11 @@ func ExportTaskByHexID(hexID, status string) (*Task, error) {
 	if err != nil {
 		return nil, fmt.Errorf("no task found with uuid prefix %s: %w", hexID, err)
 	}
-	return parseFirstTask(out)
+	task, err := parseFirstTask(out)
+	if err != nil {
+		return nil, fmt.Errorf("no task found with uuid prefix %s: %w", hexID, err)
+	}
+	return task, nil
 }
 
 func FindTasks(keywords []string, status string) ([]Task, error) {

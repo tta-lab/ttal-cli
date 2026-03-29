@@ -33,11 +33,12 @@ var taskCmd = &cobra.Command{
 }
 
 var taskGetCmd = &cobra.Command{
-	Use:   "get",
+	Use:   "get [uuid]",
 	Short: "Get formatted task prompt",
 	Long: `Export a taskwarrior task and format it as a rich prompt.
 
-The task UUID is auto-resolved from the session context:
+If a UUID is provided as an argument, that task is used directly.
+Otherwise the task is auto-resolved from the session context:
   - Worker sessions: TTAL_JOB_ID
   - Agent sessions: TTAL_AGENT_NAME → active task with matching tag
 
@@ -45,18 +46,34 @@ Includes description, annotations, and inlined referenced documentation.
 Useful for piping to agents or debugging task content.
 
 Examples:
-  ttal task get              # auto-resolves from session context
+  ttal task get abc12345    # specific task by UUID
+  ttal task get             # auto-resolves from session context
   ttal task get | ttal send --to eve --stdin`,
-	Args: cobra.NoArgs,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		uuid, err := resolveCurrentTask()
-		if err != nil {
-			return err
+		var uuid string
+		if len(args) > 0 {
+			uuid = args[0]
+		} else {
+			resolved, err := resolveCurrentTask()
+			if err != nil {
+				return fmt.Errorf("no UUID provided and auto-resolve failed: %w", err)
+			}
+			uuid = resolved
 		}
 		if err := taskwarrior.ValidateUUID(uuid); err != nil {
 			return err
 		}
-		task, err := taskwarrior.ExportTask(uuid)
+
+		// Use ExportTaskByHexID for short hex prefixes (8 chars),
+		// ExportTask for full UUIDs (36 chars with dashes).
+		var task *taskwarrior.Task
+		var err error
+		if len(uuid) != 36 {
+			task, err = taskwarrior.ExportTaskByHexID(uuid, "")
+		} else {
+			task, err = taskwarrior.ExportTask(uuid)
+		}
 		if err != nil {
 			return err
 		}
