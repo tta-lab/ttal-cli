@@ -169,7 +169,7 @@ var commentListCmd = &cobra.Command{
 		}
 
 		if len(resp.Comments) == 0 {
-			fmt.Println("No comments on this task.")
+			fmt.Println("No comments yet — sit tight, notifications will come when there's something to read. No need to keep checking.")
 			return nil
 		}
 
