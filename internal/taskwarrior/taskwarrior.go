@@ -49,16 +49,20 @@ type Annotation struct {
 
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
-	ID          string       `json:"id"`
 	UUID        string       `json:"uuid"`
 	Description string       `json:"description"`
 	Project     string       `json:"project,omitempty"`
 	Status      string       `json:"status"`
+	Urgency     float64      `json:"urgency"`
 	Tags        []string     `json:"tags,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Start       string       `json:"start,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
+	Priority    string       `json:"priority,omitempty"`
 	Scheduled   string       `json:"scheduled,omitempty"`
+	Due         string       `json:"due,omitempty"`
+	Entry       string       `json:"entry,omitempty"`
+	End         string       `json:"end,omitempty"`
 	PRID        string       `json:"pr_id,omitempty"`
 	Spawner     string       `json:"spawner,omitempty"`
 }
@@ -92,6 +96,65 @@ func (t *Task) SessionName() string {
 	}
 
 	return prefix + slug
+}
+
+// IsActive returns true if the task is currently started.
+func (t *Task) IsActive() bool {
+	return t.Start != ""
+}
+
+// IsToday returns true if the task is scheduled for today or earlier.
+func (t *Task) IsToday() bool {
+	if t.Scheduled == "" {
+		return false
+	}
+	parsed, err := ParseTaskDate(t.Scheduled)
+	if err != nil {
+		return false
+	}
+	today := time.Now().Truncate(24 * time.Hour)
+	return !parsed.After(today)
+}
+
+// Age returns a human-readable age string based on the entry date.
+func (t *Task) Age() string {
+	if t.Entry == "" {
+		return ""
+	}
+	parsed, err := time.Parse("20060102T150405Z", t.Entry)
+	if err != nil {
+		return "?"
+	}
+	return formatAge(time.Since(parsed))
+}
+
+func formatAge(d time.Duration) string {
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	if d < 30*24*time.Hour {
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
+	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
+}
+
+// ParseTaskDate parses taskwarrior date formats (ISO 8601 with T and Z).
+func ParseTaskDate(s string) (time.Time, error) {
+	formats := []string{
+		"20060102T150405Z",
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t.Truncate(24 * time.Hour), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse date: %s", s)
 }
 
 // ExtractSessionID extracts the UUID[:8] from a session name.

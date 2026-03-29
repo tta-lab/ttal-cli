@@ -60,7 +60,7 @@ func (m Model) viewTaskList() string {
 		t := &m.filtered[i]
 		selected := i == m.cursor
 
-		uuid := t.ShortUUID()
+		uuid := t.SessionID()
 		pri := t.Priority
 		if pri == "" {
 			pri = "-"

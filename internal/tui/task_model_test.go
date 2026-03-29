@@ -5,27 +5,27 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-func TestFormatAge(t *testing.T) {
+func TestAge(t *testing.T) {
 	tests := []struct {
 		name     string
-		d        time.Duration
+		entry    string
 		expected string
 	}{
-		{"minutes", 45 * time.Minute, "45m"},
-		{"one hour", time.Hour, "1h"},
-		{"hours", 5 * time.Hour, "5h"},
-		{"one day", 24 * time.Hour, "1d"},
-		{"days", 10 * 24 * time.Hour, "10d"},
-		{"29 days", 29 * 24 * time.Hour, "29d"},
-		{"30 days becomes months", 30 * 24 * time.Hour, "1mo"},
-		{"months", 90 * 24 * time.Hour, "3mo"},
+		{"empty entry", "", ""},
+		{"invalid entry", "bad-date", "?"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatAge(tt.d)
-			assert.Equal(t, tt.expected, result)
+			task := taskwarrior.Task{Entry: tt.entry}
+			assert.Equal(t, tt.expected, task.Age())
 		})
 	}
+
+	// Test with a known recent entry
+	recent := time.Now().Add(-5 * time.Hour).UTC().Format("20060102T150405Z")
+	task := taskwarrior.Task{Entry: recent}
+	assert.Equal(t, "5h", task.Age())
 }

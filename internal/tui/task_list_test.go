@@ -1,17 +1,13 @@
 package tui
 
-import (
-	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-)
+import "testing"
 
 func TestMoveCursor(t *testing.T) {
 	m := Model{
 		filtered: []Task{
-			{Task: taskwarrior.Task{ID: "1"}},
-			{Task: taskwarrior.Task{ID: "2"}},
-			{Task: taskwarrior.Task{ID: "3"}},
+			{UUID: "aa000001"},
+			{UUID: "bb000002"},
+			{UUID: "cc000003"},
 		},
 		cursor: 0,
 		offset: 0,
@@ -48,14 +44,14 @@ func TestMoveCursor(t *testing.T) {
 func TestEnsureCursorVisible(t *testing.T) {
 	m := Model{
 		filtered: []Task{
-			{Task: taskwarrior.Task{ID: "1"}},
-			{Task: taskwarrior.Task{ID: "2"}},
-			{Task: taskwarrior.Task{ID: "3"}},
-			{Task: taskwarrior.Task{ID: "4"}},
-			{Task: taskwarrior.Task{ID: "5"}},
-			{Task: taskwarrior.Task{ID: "6"}},
-			{Task: taskwarrior.Task{ID: "7"}},
-			{Task: taskwarrior.Task{ID: "8"}},
+			{UUID: "aa000001"},
+			{UUID: "bb000002"},
+			{UUID: "cc000003"},
+			{UUID: "dd000004"},
+			{UUID: "ee000005"},
+			{UUID: "ff000006"},
+			{UUID: "a1000007"},
+			{UUID: "b2000008"},
 		},
 		cursor: 0,
 		offset: 0,

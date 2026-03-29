@@ -102,7 +102,7 @@ Examples:
 		}
 
 		sort.Slice(tasks, func(i, j int) bool {
-			return tasks[i].ID < tasks[j].ID
+			return tasks[i].Urgency > tasks[j].Urgency
 		})
 
 		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()

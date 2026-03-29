@@ -122,7 +122,7 @@ func field(b *strings.Builder, label, pad, value string) {
 }
 
 func formatDate(s string) string {
-	if t, err := parseTaskDate(s); err == nil {
+	if t, err := taskwarrior.ParseTaskDate(s); err == nil {
 		return t.Format("2006-01-02")
 	}
 	return s
