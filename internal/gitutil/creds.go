@@ -19,8 +19,10 @@ import (
 // projectAlias is optional — when provided, per-project github_token_env
 // overrides are respected via project.ResolveGitHubToken().
 //
-// Return length: 1 (prompt suppression only) or 6 (prompt + credential config).
-// Callers that need to detect "no token" can check len(env) == 1.
+// The token is passed via GIT_TOKEN_INJECT rather than interpolated into the
+// shell string, which avoids breakage if a token ever contains shell metacharacters.
+//
+// Use GitCredEnvHasToken to check whether credentials were injected.
 func GitCredEnv(remoteURL, projectAlias string) []string {
 	// Always suppress interactive prompts — this prevents the hang bug
 	// even when no token is configured.
@@ -36,8 +38,16 @@ func GitCredEnv(remoteURL, projectAlias string) []string {
 		"GIT_CONFIG_KEY_0=credential.helper",
 		"GIT_CONFIG_VALUE_0=",
 		"GIT_CONFIG_KEY_1=credential.helper",
-		fmt.Sprintf("GIT_CONFIG_VALUE_1=!f(){ echo username=x-access-token; echo password='%s'; }; f", token),
+		"GIT_CONFIG_VALUE_1=!f(){ echo username=x-access-token; echo password=$GIT_TOKEN_INJECT; }; f",
+		"GIT_TOKEN_INJECT="+token,
 	)
+}
+
+// GitCredEnvHasToken reports whether GitCredEnv would inject a token for the
+// given remote URL and project alias. Use this instead of checking len(GitCredEnv(...))
+// to guard critical operations that must fail fast without a token.
+func GitCredEnvHasToken(remoteURL, projectAlias string) bool {
+	return tokenForRemote(remoteURL, projectAlias) != ""
 }
 
 // RemoteURL returns the origin remote URL for the given directory.

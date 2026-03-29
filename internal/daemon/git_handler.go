@@ -45,11 +45,10 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 		return GitPushResponse{Error: fmt.Sprintf("get remote URL: %v", err)}
 	}
 
-	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
-	if len(credEnv) == 1 {
-		// Only GIT_TERMINAL_PROMPT=0, no token — fail early with clear error.
+	if !gitutil.GitCredEnvHasToken(remoteURL, req.ProjectAlias) {
 		return GitPushResponse{Error: fmt.Sprintf("no token for %s (project: %s)", remoteURL, req.ProjectAlias)}
 	}
+	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -95,11 +94,10 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 		return GitTagResponse{Error: fmt.Sprintf("get remote URL: %v", err)}
 	}
 
-	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
-	if len(credEnv) == 1 {
-		// Only GIT_TERMINAL_PROMPT=0, no token — fail early with clear error.
+	if !gitutil.GitCredEnvHasToken(remoteURL, req.ProjectAlias) {
 		return GitTagResponse{Error: fmt.Sprintf("no token for %s (project: %s)", remoteURL, req.ProjectAlias)}
 	}
+	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 
 	// Create the tag locally. "--" prevents tag names from being parsed as flags.
 	// If tag already exists, git exits 128 — we surface this as an error (no overwrite).

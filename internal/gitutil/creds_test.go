@@ -1,7 +1,6 @@
 package gitutil
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -29,11 +28,11 @@ func TestTokenForRemote(t *testing.T) {
 }
 
 func TestGitCredEnv(t *testing.T) {
-	t.Run("with token includes all 6 env vars", func(t *testing.T) {
+	t.Run("with token includes all 7 env vars", func(t *testing.T) {
 		t.Setenv("GITHUB_TOKEN", "test-token-123")
 		env := GitCredEnv("https://github.com/org/repo", "")
-		if len(env) != 6 {
-			t.Fatalf("expected 6 env vars, got %d: %v", len(env), env)
+		if len(env) != 7 {
+			t.Fatalf("expected 7 env vars, got %d: %v", len(env), env)
 		}
 		if env[0] != "GIT_TERMINAL_PROMPT=0" {
 			t.Errorf("env[0] = %q, want GIT_TERMINAL_PROMPT=0", env[0])
@@ -41,8 +40,9 @@ func TestGitCredEnv(t *testing.T) {
 		if env[1] != "GIT_CONFIG_COUNT=2" {
 			t.Errorf("env[1] = %q, want GIT_CONFIG_COUNT=2", env[1])
 		}
-		if !strings.Contains(env[5], "test-token-123") {
-			t.Errorf("env[5] should contain token, got %q", env[5])
+		// Token is passed via GIT_TOKEN_INJECT, not interpolated into the shell string.
+		if env[6] != "GIT_TOKEN_INJECT=test-token-123" {
+			t.Errorf("env[6] = %q, want GIT_TOKEN_INJECT=test-token-123", env[6])
 		}
 	})
 
@@ -63,6 +63,23 @@ func TestGitCredEnv(t *testing.T) {
 		env := GitCredEnv("https://git.guion.io/org/repo", "")
 		if len(env) != 1 {
 			t.Fatalf("expected 1 env var, got %d", len(env))
+		}
+	})
+}
+
+func TestGitCredEnvHasToken(t *testing.T) {
+	t.Run("returns true when token available", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "mytoken")
+		if !GitCredEnvHasToken("https://github.com/org/repo", "") {
+			t.Error("expected true, got false")
+		}
+	})
+
+	t.Run("returns false when no token", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "")
+		t.Setenv("FORGEJO_TOKEN", "")
+		if GitCredEnvHasToken("https://github.com/org/repo", "") {
+			t.Error("expected false, got true")
 		}
 	})
 }

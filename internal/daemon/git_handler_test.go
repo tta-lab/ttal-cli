@@ -136,19 +136,31 @@ func TestGitCredEnvForHost(t *testing.T) {
 	t.Setenv("FORGEJO_TOKEN", "fg-token")
 
 	tests := []struct {
-		remoteURL string
-		wantLen   int // 6 = credentials injected, 1 = prompt suppression only
+		remoteURL  string
+		wantToken  string
+		wantHasEnv bool
 	}{
-		{"https://github.com/org/repo.git", 6},
-		{"git@github.com:org/repo.git", 6},
-		{"https://git.guion.io/org/repo.git", 6},
-		{"https://git.example.com/org/repo.git", 6},
+		{"https://github.com/org/repo.git", "gh-token", true},
+		{"git@github.com:org/repo.git", "gh-token", true},
+		{"https://git.guion.io/org/repo.git", "fg-token", true},
+		{"https://git.example.com/org/repo.git", "fg-token", true},
 	}
 
 	for _, tt := range tests {
 		env := gitutil.GitCredEnv(tt.remoteURL, "")
-		if len(env) != tt.wantLen {
-			t.Errorf("GitCredEnv(%q) returned %d env vars, want %d", tt.remoteURL, len(env), tt.wantLen)
+		if tt.wantHasEnv && !gitutil.GitCredEnvHasToken(tt.remoteURL, "") {
+			t.Errorf("GitCredEnvHasToken(%q) = false, want true", tt.remoteURL)
+		}
+		// GIT_TOKEN_INJECT=<token> is the last entry when credentials are injected.
+		found := false
+		for _, e := range env {
+			if e == "GIT_TOKEN_INJECT="+tt.wantToken {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("GitCredEnv(%q): GIT_TOKEN_INJECT=%q not found in env %v", tt.remoteURL, tt.wantToken, env)
 		}
 	}
 }
@@ -157,12 +169,18 @@ func TestGitCredEnvForHost_EmptyToken(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("FORGEJO_TOKEN", "")
 
-	// Without tokens, only GIT_TERMINAL_PROMPT=0 should be returned.
-	if env := gitutil.GitCredEnv("https://github.com/org/repo.git", ""); len(env) != 1 {
-		t.Errorf("expected 1 env var for github with no token, got %d", len(env))
-	}
-	if env := gitutil.GitCredEnv("https://git.guion.io/org/repo.git", ""); len(env) != 1 {
-		t.Errorf("expected 1 env var for forgejo with no token, got %d", len(env))
+	// Without tokens: HasToken should be false, env should contain only GIT_TERMINAL_PROMPT=0.
+	for _, url := range []string{
+		"https://github.com/org/repo.git",
+		"https://git.guion.io/org/repo.git",
+	} {
+		if gitutil.GitCredEnvHasToken(url, "") {
+			t.Errorf("GitCredEnvHasToken(%q) = true with no tokens set", url)
+		}
+		env := gitutil.GitCredEnv(url, "")
+		if len(env) != 1 || env[0] != "GIT_TERMINAL_PROMPT=0" {
+			t.Errorf("GitCredEnv(%q) = %v, want [GIT_TERMINAL_PROMPT=0]", url, env)
+		}
 	}
 }
 

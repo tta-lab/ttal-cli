@@ -517,8 +517,10 @@ func pullLatest(project, projectAlias string) {
 	fmt.Println("Pulling latest changes...")
 	cmd := exec.CommandContext(ctx, "git", "-C", project, "pull", "--ff-only")
 
-	remoteURL, err := gitutil.RemoteURL(project)
-	if err == nil {
+	remoteURL, remoteErr := gitutil.RemoteURL(project)
+	if remoteErr != nil {
+		fmt.Fprintf(os.Stderr, "  warning: could not get remote URL (pull will run without credential injection): %v\n", remoteErr)
+	} else {
 		cmd.Env = append(os.Environ(), gitutil.GitCredEnv(remoteURL, projectAlias)...)
 	}
 

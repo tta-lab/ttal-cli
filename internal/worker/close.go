@@ -306,8 +306,10 @@ func pullMainBranch(projectPath, projectAlias string) {
 
 	cmd := exec.CommandContext(ctx, "git", "-C", projectPath, "pull", "--ff-only")
 
-	remoteURL, err := gitutil.RemoteURL(projectPath)
-	if err == nil {
+	remoteURL, remoteErr := gitutil.RemoteURL(projectPath)
+	if remoteErr != nil {
+		fmt.Fprintf(os.Stderr, "  warning: could not get remote URL (pull will run without credential injection): %v\n", remoteErr)
+	} else {
 		cmd.Env = append(os.Environ(), gitutil.GitCredEnv(remoteURL, projectAlias)...)
 	}
 
