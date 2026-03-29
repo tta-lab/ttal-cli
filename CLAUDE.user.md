@@ -181,12 +181,12 @@ ttal voice speak "text" --voice af_heart  # specific voice
 ttal sync                    # deploy skills + subagents + config TOMLs to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
-Sources: `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/skills/` → `~/.claude/skills/`, `/Users/neil/Code/guion-opensource/ttal-cli/agents/` → `~/.claude/agents/`
+Sources: `/Users/neil/Code/guion-opensource/ttal-cli/skills/` → `~/.claude/skills/`, `/Users/neil/Code/guion-opensource/ttal-cli/agents/` → `~/.claude/agents/`
 Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
 
 ## Learning & Knowledge
 
-- `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/learning/` is where all agent learning notes go (book notes, insights, patterns discovered)
+- `/Users/neil/Code/guion-opensource/ttal-cli/learning/` is where all agent learning notes go (book notes, insights, patterns discovered)
 - Use the knowledge skill for folder routing and frontmatter conventions
 
 ## Git Committing Scope

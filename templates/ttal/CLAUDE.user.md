@@ -135,7 +135,7 @@ REVIEW
 
 ## Learning & Knowledge
 
-- `/Users/neil/Code/guion-opensource/ttal-cli/templates/docs/learning/` is where all agent learning notes go (book notes, insights, patterns discovered)
+- `/Users/neil/Code/guion-opensource/ttal-cli/learning/` is where all agent learning notes go (book notes, insights, patterns discovered)
 - Use the knowledge skill for folder routing and frontmatter conventions
 
 ## Git Committing Scope

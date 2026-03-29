@@ -292,15 +292,16 @@ templates/
     ├── yuki.md        - Each agent's full identity, role, decision rules
     ├── kestrel.md
     └── ...
-  docs/
-    skills/            - Skill directories (each has SKILL.md)
-      ├── sp-planning/SKILL.md        - Full planning process (explore → design → write → validate)
-      ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
-      ├── sp-brainstorming/SKILL.md   - Brainstorming framework
-      └── ...
-    commands/          - Static command .md files (flat)
-      ├── tell-me-more.md  - Elaborate on a concept
-      └── ...
+
+skills/                - Skill directories (each has SKILL.md)
+  ├── sp-planning/SKILL.md        - Full planning process (explore → design → write → validate)
+  ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
+  ├── sp-brainstorming/SKILL.md   - Brainstorming framework
+  └── ...
+
+commands/              - Static command .md files (flat)
+  ├── tell-me-more.md  - Elaborate on a concept
+  └── ...
 ```
 
 ### What Goes Where
@@ -308,14 +309,14 @@ templates/
 | Type | Location | Format | How to deploy |
 |------|----------|--------|---------------|
 | Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `ttal sync` → `~/.claude/CLAUDE.md` |
-| Skills (methodology) | `templates/docs/skills/` | Directory with `SKILL.md` | `ttal skill import templates/docs/skills --apply` |
+| Skills (methodology) | `skills/` | Directory with `SKILL.md` | `ttal skill import skills --apply` |
 | Subagents | `agents/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Agent identities | `templates/ttal/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Config TOMLs | `templates/ttal/` | `.toml` files | `ttal sync` → `~/.config/ttal/` |
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
 
-**Skills:** Skills live in flicknote and are accessed at runtime via `ttal skill get`. Import from source with `ttal skill import templates/docs/skills --apply`. Dynamic commands also use flicknote — trigger via Telegram sends `run ttal skill get <name>` to the agent.
+**Skills:** Skills live in flicknote and are accessed at runtime via `ttal skill get`. Import from source with `ttal skill import skills --apply`. Dynamic commands also use flicknote — trigger via Telegram sends `run ttal skill get <name>` to the agent.
 
 ## Additional Documentation
 

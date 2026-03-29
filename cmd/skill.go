@@ -80,7 +80,7 @@ Mode 1: Register an existing flicknote note by ID.
   ttal skill add breathe a1b2c3d4 --category command --description "..."
 
 Mode 2: Upload a file to flicknote and register it.
-  ttal skill add breathe --file templates/docs/skills/breathe/SKILL.md`,
+  ttal skill add breathe --file skills/breathe/SKILL.md`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fileFlag, _ := cmd.Flags().GetString("file")
@@ -134,9 +134,9 @@ flat .md files → reference. Use --category to override.
 Dry-run by default. Use --apply to actually upload and register.
 
 Example:
-  ttal skill import templates/docs/skills
-  ttal skill import templates/docs/skills --apply
-  ttal skill import templates/docs/commands --apply --category command
+  ttal skill import skills
+  ttal skill import skills --apply
+  ttal skill import commands --apply --category command
   ttal skill import skills/ --apply --force`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

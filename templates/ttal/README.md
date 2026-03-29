@@ -55,8 +55,7 @@ templates/ttal/
 └── quill/CLAUDE.md      # Researcher (linguistic patterns)
 ```
 
-Shared skills, subagents, and commands live in `templates/docs/` — referenced via
-`../docs/` in `config.toml`. All agents in this template use that shared library.
+Shared skills, subagents, and commands live in `skills/` and `commands/` at the repo root. All agents in this template use that shared library.
 
 ## Adopting This Template
 
