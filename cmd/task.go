@@ -69,7 +69,7 @@ Examples:
 		// ExportTask for full UUIDs (36 chars with dashes).
 		var task *taskwarrior.Task
 		var err error
-		if len(uuid) < 36 {
+		if len(uuid) != 36 {
 			task, err = taskwarrior.ExportTaskByHexID(uuid, "")
 		} else {
 			task, err = taskwarrior.ExportTask(uuid)

@@ -38,6 +38,19 @@ func TestTaskGetCmd_ArgTakesPriorityOverEnv(t *testing.T) {
 	if strings.Contains(err.Error(), "aaaaaaaa") {
 		t.Errorf("arg should take priority over TTAL_JOB_ID, but error references env UUID: %v", err)
 	}
+	if !strings.Contains(err.Error(), "bbbbbbbb") {
+		t.Errorf("expected error to reference arg UUID bbbbbbbb, got: %v", err)
+	}
+}
+
+func TestTaskGetCmd_InvalidUUIDArg_ReturnsValidationError(t *testing.T) {
+	err := taskGetCmd.RunE(taskGetCmd, []string{"42"})
+	if err == nil {
+		t.Error("expected validation error for numeric task ID")
+	}
+	if !strings.Contains(err.Error(), "numeric task IDs") {
+		t.Errorf("expected 'numeric task IDs' validation error, got: %v", err)
+	}
 }
 
 func TestTaskGetCmd_NoArgNoEnv_ReturnsError(t *testing.T) {
