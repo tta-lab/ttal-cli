@@ -121,6 +121,10 @@ func installDaemonPlist(home, ttalBin, dataDir string) error {
 // Only PATH is included in EnvironmentVariables — credentials are loaded at
 // runtime from ~/.config/ttal/.env via config.InjectDotEnvFallback().
 func buildPlistContent(label, ttalBin, dataDir, home string) string {
+	// Build PATH separately to keep the format string under the line-length limit.
+	daemonPATH := "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:" +
+		home + "/.local/bin:" + home + "/go/bin:" +
+		home + "/.cargo/bin:" + home + "/.qlty/bin"
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -149,11 +153,11 @@ func buildPlistContent(label, ttalBin, dataDir, home string) string {
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:%s/.local/bin:%s/go/bin:%s/.cargo/bin</string>
+        <string>%s</string>
     </dict>
 </dict>
 </plist>
-`, label, ttalBin, dataDir, dataDir, home, home, home)
+`, label, ttalBin, dataDir, dataDir, daemonPATH)
 }
 
 // Start boots the daemon launchd service.

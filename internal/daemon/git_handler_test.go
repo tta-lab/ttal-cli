@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
 )
 
 func TestHTTPGitPush_BadJSON(t *testing.T) {
@@ -126,37 +128,59 @@ func TestHandleGitPush_EmptyBranch(t *testing.T) {
 	}
 }
 
-func TestTokenForHost(t *testing.T) {
+// TestGitCredEnvForHost verifies that the shared credential helper resolves
+// the correct token per host. Token resolution was previously tested via the
+// removed tokenForHost — now delegated to gitutil.GitCredEnv.
+func TestGitCredEnvForHost(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "gh-token")
 	t.Setenv("FORGEJO_TOKEN", "fg-token")
 
 	tests := []struct {
-		remoteURL string
-		wantToken string
+		remoteURL  string
+		wantToken  string
+		wantHasEnv bool
 	}{
-		{"https://github.com/org/repo.git", "gh-token"},
-		{"git@github.com:org/repo.git", "gh-token"},
-		{"https://git.guion.io/org/repo.git", "fg-token"},
-		{"https://git.example.com/org/repo.git", "fg-token"},
+		{"https://github.com/org/repo.git", "gh-token", true},
+		{"git@github.com:org/repo.git", "gh-token", true},
+		{"https://git.guion.io/org/repo.git", "fg-token", true},
+		{"https://git.example.com/org/repo.git", "fg-token", true},
 	}
 
 	for _, tt := range tests {
-		got := tokenForHost(tt.remoteURL)
-		if got != tt.wantToken {
-			t.Errorf("tokenForHost(%q) = %q, want %q", tt.remoteURL, got, tt.wantToken)
+		env := gitutil.GitCredEnv(tt.remoteURL, "")
+		if tt.wantHasEnv && !gitutil.GitCredEnvHasToken(tt.remoteURL, "") {
+			t.Errorf("GitCredEnvHasToken(%q) = false, want true", tt.remoteURL)
+		}
+		// GIT_TOKEN_INJECT=<token> is the last entry when credentials are injected.
+		found := false
+		for _, e := range env {
+			if e == "GIT_TOKEN_INJECT="+tt.wantToken {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("GitCredEnv(%q): GIT_TOKEN_INJECT=%q not found in env %v", tt.remoteURL, tt.wantToken, env)
 		}
 	}
 }
 
-func TestTokenForHost_EmptyToken(t *testing.T) {
+func TestGitCredEnvForHost_EmptyToken(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("FORGEJO_TOKEN", "")
 
-	if got := tokenForHost("https://github.com/org/repo.git"); got != "" {
-		t.Errorf("expected empty token for github when GITHUB_TOKEN unset, got %q", got)
-	}
-	if got := tokenForHost("https://git.guion.io/org/repo.git"); got != "" {
-		t.Errorf("expected empty token for forgejo when FORGEJO_TOKEN unset, got %q", got)
+	// Without tokens: HasToken should be false, env should contain only GIT_TERMINAL_PROMPT=0.
+	for _, url := range []string{
+		"https://github.com/org/repo.git",
+		"https://git.guion.io/org/repo.git",
+	} {
+		if gitutil.GitCredEnvHasToken(url, "") {
+			t.Errorf("GitCredEnvHasToken(%q) = true with no tokens set", url)
+		}
+		env := gitutil.GitCredEnv(url, "")
+		if len(env) != 1 || env[0] != "GIT_TERMINAL_PROMPT=0" {
+			t.Errorf("GitCredEnv(%q) = %v, want [GIT_TERMINAL_PROMPT=0]", url, env)
+		}
 	}
 }
 

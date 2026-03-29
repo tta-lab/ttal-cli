@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 var pushCmd = &cobra.Command{
@@ -34,9 +37,11 @@ Examples:
 			return fmt.Errorf("get current branch: %w", err)
 		}
 
+		projectAlias := resolveAliasFromPath(workDir)
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
-			WorkDir: workDir,
-			Branch:  branch,
+			WorkDir:      workDir,
+			Branch:       branch,
+			ProjectAlias: projectAlias,
 		})
 		if err != nil {
 			return fmt.Errorf("push failed: %w", err)
@@ -64,6 +69,37 @@ func currentBranch(workDir string) (string, error) {
 		return "", fmt.Errorf("not on a named branch (detached HEAD or empty repo)")
 	}
 	return branch, nil
+}
+
+// resolveAliasFromPath resolves the project alias for the given working directory
+// by scanning registered projects for a path match. Falls back to extracting the
+// alias suffix from a worktree directory name (e.g. ~/.ttal/worktrees/<uuid>-<alias>).
+// Returns empty string if no match is found — callers fall back to GITHUB_TOKEN.
+func resolveAliasFromPath(workDir string) string {
+	store := project.NewStore(config.ResolveProjectsPath())
+	projects, err := store.List(false)
+	if err != nil {
+		return ""
+	}
+	cleanWork := filepath.Clean(workDir)
+	for _, p := range projects {
+		cleanProj := filepath.Clean(p.Path)
+		if cleanWork == cleanProj || strings.HasPrefix(cleanWork, cleanProj+string(filepath.Separator)) {
+			return p.Alias
+		}
+	}
+	// Worktree path: ~/.ttal/worktrees/<uuid8>-<alias>/...
+	// Extract alias from the directory name suffix after the UUID prefix.
+	base := filepath.Base(cleanWork)
+	if idx := strings.Index(base, "-"); idx >= 0 {
+		candidate := base[idx+1:]
+		for _, p := range projects {
+			if p.Alias == candidate {
+				return candidate
+			}
+		}
+	}
+	return ""
 }
 
 func init() {

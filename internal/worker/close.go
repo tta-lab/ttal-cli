@@ -97,7 +97,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 			}
 		}
-		pullMainBranch(gitRoot)
+		pullMainBranch(gitRoot, task.Project)
 		deleteTaskPlans(task.Annotations)
 		return &CloseResult{
 			Cleaned:   true,
@@ -224,7 +224,7 @@ func closeWithPR(
 				fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", taskUUID, err)
 			}
 		}
-		pullMainBranch(gitRoot)
+		pullMainBranch(gitRoot, projectAlias)
 		deleteTaskPlans(annotations)
 		return &CloseResult{
 			Cleaned: true,
@@ -300,11 +300,19 @@ func deleteTaskPlans(annotations []taskwarrior.Annotation) {
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.
-func pullMainBranch(projectPath string) {
+func pullMainBranch(projectPath, projectAlias string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "git", "-C", projectPath, "pull", "--ff-only")
+
+	remoteURL, remoteErr := gitutil.RemoteURL(projectPath)
+	if remoteErr != nil {
+		fmt.Fprintf(os.Stderr, "  warning: could not get remote URL, pull runs without credentials: %v\n", remoteErr)
+	} else {
+		cmd.Env = append(os.Environ(), gitutil.GitCredEnv(remoteURL, projectAlias)...)
+	}
+
 	if out, err := cmd.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: git pull in %s failed (non-fatal): %v\n", projectPath, err)
 		if len(out) > 0 {

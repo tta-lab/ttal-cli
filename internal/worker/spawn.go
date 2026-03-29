@@ -372,13 +372,13 @@ func setupWorktree(project, dirName, branchName, projectAlias string) (string, e
 		fmt.Printf("Worktree already exists at %s, reusing\n", worktreeDir)
 	} else {
 		// Pull latest from remote so worktree branches from up-to-date main
-		pullLatest(project)
+		pullLatest(project, projectAlias)
 
 		if err := createWorktree(project, worktreeDir, workerBranch); err != nil {
 			return "", err
 		}
 
-		if err := pushBranchToUpstream(project, workerBranch); err != nil {
+		if err := pushBranchToUpstream(project, workerBranch, projectAlias); err != nil {
 			fmt.Fprintf(os.Stderr, "  warning: failed to push branch (non-fatal): %v\n", err)
 			fmt.Fprintf(os.Stderr, "  Worker can still function locally; push manually if needed.\n")
 		} else {
@@ -433,26 +433,30 @@ func createWorktree(project, worktreeDir, workerBranch string) error {
 	return nil
 }
 
-func pushBranchToUpstream(project, branch string) error {
+func pushBranchToUpstream(project, branch, projectAlias string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "-C", project, "remote", "get-url", "origin")
-	if err := cmd.Run(); err != nil {
+	remoteURL, err := gitutil.RemoteURL(project)
+	if err != nil {
 		return fmt.Errorf("failed to get origin remote: %w", err)
 	}
+
+	credEnv := gitutil.GitCredEnv(remoteURL, projectAlias)
 
 	// Check whether the remote branch already exists before pushing, so we can
 	// skip the push without relying on locale-dependent git error messages.
 	// (The old approach matched "branch is already" in stderr output, which
 	// varies by git version and locale and is therefore fragile.)
 	checkCmd := exec.CommandContext(ctx, "git", "-C", project, "ls-remote", "--exit-code", "--heads", "origin", branch)
+	checkCmd.Env = append(os.Environ(), credEnv...)
 	if checkCmd.Run() == nil {
 		// Remote branch already exists; nothing to push.
 		return nil
 	}
 
-	cmd = exec.CommandContext(ctx, "git", "-C", project, "push", "-u", "origin", branch)
+	cmd := exec.CommandContext(ctx, "git", "-C", project, "push", "-u", "origin", branch)
+	cmd.Env = append(os.Environ(), credEnv...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to push branch %s: %w\n%s", branch, err, strings.TrimSpace(string(out)))
@@ -506,12 +510,20 @@ func runSetupScript(scriptPath, workDir string) {
 	}
 }
 
-func pullLatest(project string) {
+func pullLatest(project, projectAlias string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	fmt.Println("Pulling latest changes...")
 	cmd := exec.CommandContext(ctx, "git", "-C", project, "pull", "--ff-only")
+
+	remoteURL, remoteErr := gitutil.RemoteURL(project)
+	if remoteErr != nil {
+		fmt.Fprintf(os.Stderr, "  warning: could not get remote URL, pull runs without credentials: %v\n", remoteErr)
+	} else {
+		cmd.Env = append(os.Environ(), gitutil.GitCredEnv(remoteURL, projectAlias)...)
+	}
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: git pull failed (non-fatal): %v\n", err)

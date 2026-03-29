@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tta-lab/ttal-cli/internal/gitutil"
 )
 
 const repoOpTimeout = 5 * time.Minute
@@ -61,13 +63,17 @@ func ResolveRepoRef(ref, referencesPath string) (cloneURL, localPath string, err
 
 // EnsureRepo clones the repo if it doesn't exist, or pulls if it does.
 // The provided context is respected for cancellation; repoOpTimeout is applied as a deadline.
+// No project alias is available for external repos — host-based token resolution is used.
 func EnsureRepo(ctx context.Context, cloneURL, localPath string) error {
 	ctx, cancel := context.WithTimeout(ctx, repoOpTimeout)
 	defer cancel()
 
+	credEnv := gitutil.GitCredEnv(cloneURL, "")
+
 	if dirExists(localPath) {
 		fmt.Fprintf(os.Stderr, "Updating %s...\n", filepath.Base(localPath))
 		cmd := exec.CommandContext(ctx, "git", "-C", localPath, "pull", "--ff-only")
+		cmd.Env = append(os.Environ(), credEnv...)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("git pull failed in %s: %w", localPath, err)
@@ -80,6 +86,7 @@ func EnsureRepo(ctx context.Context, cloneURL, localPath string) error {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
 	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", cloneURL, localPath)
+	cmd.Env = append(os.Environ(), credEnv...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("git clone %s into %s: %w", cloneURL, localPath, err)
