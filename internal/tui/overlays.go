@@ -80,10 +80,13 @@ func (m Model) placeOverlay(background, overlay string) string {
 			break
 		}
 		bg := bgLines[row]
-		for len(bg) < startCol {
-			bg += " "
+		// Pad background to overlay start position using visual width
+		bgWidth := ansi.StringWidth(bg)
+		if bgWidth < startCol {
+			bg += strings.Repeat(" ", startCol-bgWidth)
 		}
-		bgLines[row] = bg[:min(startCol, len(bg))] + overlayLine
+		// Truncate background at overlay start (ANSI-aware, no corruption)
+		bgLines[row] = ansi.Truncate(bg, startCol, "") + overlayLine
 	}
 
 	return strings.Join(bgLines, "\n")
