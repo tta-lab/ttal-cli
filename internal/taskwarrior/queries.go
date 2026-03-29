@@ -157,7 +157,9 @@ func GetChildrenAll(parentUUID string) ([]Task, error) {
 	return tasks, nil
 }
 
-// sortByPosition sorts tasks by their Position field (string comparison, ascending).
+// sortByPosition sorts tasks by their Position field (lexicographic string comparison, ascending).
+// The GuionAI fork stores positions as zero-padded integers (e.g. "0001000", "0002000"),
+// so lexicographic order matches numeric order. Non-zero-padded values may sort incorrectly.
 func sortByPosition(tasks []Task) {
 	sort.Slice(tasks, func(i, j int) bool {
 		return tasks[i].Position < tasks[j].Position

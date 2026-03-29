@@ -64,7 +64,7 @@ func TestAnnotateInputAcceptsText(t *testing.T) {
 	}
 }
 
-func TestApplyFilter_ExcludesSubtasks(t *testing.T) {
+func TestApplyFilter_PassesThroughTasksWithParentID(t *testing.T) {
 	m := NewModel()
 	m.filter = filterPending
 	m.tasks = []Task{

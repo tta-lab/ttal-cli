@@ -2,6 +2,7 @@ package taskwarrior
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"regexp"
 	"strconv"
@@ -282,6 +283,7 @@ func IsFork() bool {
 	forkDetectOnce.Do(func() {
 		out, err := Command("_columns").Output()
 		if err != nil {
+			log.Printf("IsFork: task _columns failed, assuming stock taskwarrior: %v", err)
 			forkDetected = false
 			return
 		}

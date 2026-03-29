@@ -90,8 +90,8 @@ type Model struct {
 	childrenCache map[string][]Task // parent UUID → loaded children
 
 	// Active filter columns
-	agentNames  map[string]string // agent name → emoji (from agentfs)
-	pipelineCfg *pipeline.Config  // pipeline definitions (for stage resolution)
+	agentEmojiByName map[string]string // agent name → emoji (from agentfs)
+	pipelineCfg      *pipeline.Config  // pipeline definitions (for stage resolution)
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -127,7 +127,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg, heatmapLoadedMsg, childrenLoadedMsg:
+	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg,
+		actionResultMsg, execFinishedMsg, heatmapLoadedMsg, childrenLoadedMsg:
 		return m.handleDataMsg(msg)
 	case spinner.TickMsg:
 		if !m.loading {
@@ -159,7 +160,7 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cfg = msg.cfg
 		m.projects = msg.projects
 		m.tags = msg.tags
-		m.agentNames = msg.agentNames
+		m.agentEmojiByName = msg.agentEmojiByName
 		m.pipelineCfg = msg.pipelineCfg
 		if msg.cfg != nil {
 			m.teamName = msg.cfg.TeamName()
@@ -170,30 +171,9 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tags = msg.tags
 		return m, nil
 	case tasksLoadedMsg:
-		m.loading = false
-		if msg.err != nil {
-			m.statusMsg = "Task load error: " + msg.err.Error()
-		}
-		m.tasks = msg.tasks
-		m.childrenCache = make(map[string][]Task) // clear stale children on reload
-		m.applyFilter()
-		// Reload children for any currently expanded parents
-		var cmds []tea.Cmd
-		for parentUUID := range m.expanded {
-			cmds = append(cmds, loadChildren(parentUUID))
-		}
-		if len(cmds) > 0 {
-			return m, tea.Batch(cmds...)
-		}
-		return m, nil
+		return m.handleTasksLoaded(msg)
 	case childrenLoadedMsg:
-		if msg.err != nil {
-			m.statusMsg = "Load children: " + msg.err.Error()
-			return m, nil
-		}
-		m.childrenCache[msg.parentUUID] = msg.children
-		m.applyFilter() // rebuild filtered list with children injected
-		return m, nil
+		return m.handleChildrenLoaded(msg)
 	case actionResultMsg:
 		m.statusMsg = msg.message
 		if msg.err != nil {
@@ -218,6 +198,37 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.heatmapReady = true
 		return m, nil
 	}
+	return m, nil
+}
+
+func (m *Model) handleTasksLoaded(msg tasksLoadedMsg) (tea.Model, tea.Cmd) {
+	m.loading = false
+	if msg.err != nil {
+		m.statusMsg = "Task load error: " + msg.err.Error()
+	}
+	m.tasks = msg.tasks
+	m.childrenCache = make(map[string][]Task) // clear stale children on reload
+	m.applyFilter()
+	// Reload children for any currently expanded parents
+	var cmds []tea.Cmd
+	for parentUUID := range m.expanded {
+		cmds = append(cmds, loadChildren(parentUUID))
+	}
+	if len(cmds) > 0 {
+		return m, tea.Batch(cmds...)
+	}
+	return m, nil
+}
+
+func (m *Model) handleChildrenLoaded(msg childrenLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		// Remove from expanded so the reload loop doesn't retry indefinitely
+		delete(m.expanded, msg.parentUUID)
+		m.statusMsg = fmt.Sprintf("Load children [%s]: %s", msg.parentUUID[:8], msg.err.Error())
+		return m, nil
+	}
+	m.childrenCache[msg.parentUUID] = msg.children
+	m.applyFilter() // rebuild filtered list with children injected
 	return m, nil
 }
 
@@ -304,26 +315,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Tree expand/collapse — only in task list state
-	if m.state == stateTaskList {
-		switch action {
-		case keyRight: // l — expand
-			return m, m.expandSelected()
-		case keyLeft: // h — collapse
-			m.collapseSelected()
-			return m, nil
-		}
-	}
-
-	// Extract keyEnter here so it can return a Cmd (load children for detail view)
-	if action == keyEnter && len(m.filtered) > 0 {
-		m.selectedUUID = m.filtered[m.cursor].UUID
-		m.state = stateTaskDetail
-		// Load children for detail view if not cached
-		if _, ok := m.childrenCache[m.selectedUUID]; !ok {
-			return m, loadChildren(m.selectedUUID)
-		}
-		return m, nil
+	if cmd, handled := m.handleTaskListKey(action); handled {
+		return m, cmd
 	}
 
 	if m.handleNavigation(action) {
@@ -331,6 +324,40 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m.handleAction(action)
+}
+
+// handleTaskListKey handles task-list-specific keys (tree expand/collapse + Enter).
+// Returns (cmd, true) when handled, (nil, false) to fall through.
+func (m *Model) handleTaskListKey(action keyAction) (tea.Cmd, bool) {
+	switch action {
+	case keyRight: // l — expand (task list only)
+		if m.state == stateTaskList {
+			return m.expandSelected(), true
+		}
+	case keyLeft: // h — collapse (task list only)
+		if m.state == stateTaskList {
+			m.collapseSelected()
+			return nil, true
+		}
+	case keyEnter:
+		if len(m.filtered) == 0 {
+			return nil, false
+		}
+		t := &m.filtered[m.cursor]
+		// Child rows are expanded inline — Enter only opens detail for root tasks.
+		// Press h to collapse and navigate to the parent, then Enter to open its detail.
+		if t.IsSubtask() {
+			return nil, true // consume but do nothing
+		}
+		m.selectedUUID = t.UUID
+		m.state = stateTaskDetail
+		// Load children for detail view if not cached
+		if _, ok := m.childrenCache[m.selectedUUID]; !ok {
+			return loadChildren(m.selectedUUID), true
+		}
+		return nil, true
+	}
+	return nil, false
 }
 
 func (m *Model) handleNavigation(action keyAction) bool {
@@ -689,7 +716,7 @@ func (m *Model) applyFilter() {
 	prevUUID := m.selectedUUID
 
 	// Phase 1: filter root tasks
-	var roots []Task
+	roots := make([]Task, 0, len(m.tasks))
 	for _, t := range m.tasks {
 		switch m.filter {
 		case filterPending:
@@ -800,12 +827,12 @@ type autocompleteLoadedMsg struct {
 }
 
 type configLoadedMsg struct {
-	cfg         *config.Config
-	projects    []string
-	tags        []string
-	agentNames  map[string]string
-	pipelineCfg *pipeline.Config
-	err         error
+	cfg              *config.Config
+	projects         []string
+	tags             []string
+	agentEmojiByName map[string]string
+	pipelineCfg      *pipeline.Config
+	err              error
 }
 
 type tasksLoadedMsg struct {
@@ -848,24 +875,28 @@ func loadConfig() tea.Cmd {
 		}
 
 		// Agent emojis from frontmatter (depends on cfg.TeamPath())
-		agentMap := make(map[string]string)
+		agentEmojiMap := make(map[string]string)
 		if cfg != nil {
-			if agents, err := agentfs.Discover(cfg.TeamPath()); err == nil {
+			if agents, err := agentfs.Discover(cfg.TeamPath()); err != nil {
+				log.Printf("failed to discover agents for active view: %v", err)
+			} else {
 				for _, a := range agents {
-					agentMap[a.Name] = a.Emoji
+					agentEmojiMap[a.Name] = a.Emoji
 				}
 			}
 		}
 
 		// Pipeline config
 		var pipeCfg *pipeline.Config
-		if pc, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
+		if pc, err := pipeline.Load(config.DefaultConfigDir()); err != nil {
+			log.Printf("failed to load pipeline config for active view: %v", err)
+		} else {
 			pipeCfg = pc
 		}
 
 		return configLoadedMsg{
 			cfg: cfg, projects: projects, tags: tags,
-			agentNames: agentMap, pipelineCfg: pipeCfg,
+			agentEmojiByName: agentEmojiMap, pipelineCfg: pipeCfg,
 		}
 	}
 }

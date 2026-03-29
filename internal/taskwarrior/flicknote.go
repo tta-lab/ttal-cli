@@ -155,65 +155,100 @@ func (t *Task) FormatPrompt() string {
 		}
 	}
 
-	// Append subtask tree if this task has children (fork only)
 	if IsFork() {
-		children, err := GetChildren(t.UUID)
-		if err == nil && len(children) > 0 {
-			result += "\nSubtasks:\n"
-			result += strings.Repeat("─", 80) + "\n"
-			for i, child := range children {
-				status := "pending"
-				if child.Status == "completed" {
-					status = "✓ done"
-				} else if child.IsActive() {
-					status = "● active"
-				}
-				prefix := "├─"
-				if i == len(children)-1 {
-					prefix = "└─"
-				}
-				result += fmt.Sprintf("%s [%s] %s (%s)\n", prefix, child.HexID(), child.Description, status)
-				// Include child annotations (indented), skip pipeline noise
-				for _, ann := range child.Annotations {
-					if strings.HasPrefix(ann.Description, "pipeline:") ||
-						strings.HasPrefix(ann.Description, "advanced:") ||
-						strings.HasPrefix(ann.Description, "lgtm:") ||
-						strings.HasPrefix(ann.Description, "stage:") {
-						continue
-					}
-					result += fmt.Sprintf("   %s\n", ann.Description)
-				}
-			}
-			result += strings.Repeat("─", 80) + "\n"
-		}
+		result = appendSubtasksSection(result, t.UUID)
 	}
-
-	// If this is a subtask, prepend parent context and append sibling list
 	if IsFork() && t.ParentID != "" {
-		parent, err := ExportTask(t.ParentID)
-		if err == nil {
-			result = fmt.Sprintf("Parent: [%s] %s\n\n", parent.HexID(), parent.Description) + result
-		}
+		result = prependParentContext(result, t)
+	}
 
-		siblings, err := GetChildren(t.ParentID)
-		if err == nil && len(siblings) > 1 {
-			result += "\nSibling tasks:\n"
-			for _, sib := range siblings {
-				if sib.UUID == t.UUID {
-					result += fmt.Sprintf("  → [%s] %s (this task)\n", sib.HexID(), sib.Description)
-				} else {
-					status := "pending"
-					if sib.Status == "completed" {
-						status = "✓"
-					} else if sib.IsActive() {
-						status = "●"
-					}
-					result += fmt.Sprintf("    [%s] %s (%s)\n", sib.HexID(), sib.Description, status)
-				}
+	return result
+}
+
+// taskStatusLabel returns a human-readable status label for prompt output.
+func taskStatusLabel(t *Task) string {
+	if t.Status == "completed" {
+		return "✓ done"
+	}
+	if t.IsActive() {
+		return "● active"
+	}
+	return "pending"
+}
+
+// taskStatusGlyph returns a short status glyph ("✓" / "●" / "").
+func taskStatusGlyph(t *Task) string {
+	if t.Status == "completed" {
+		return "✓"
+	}
+	if t.IsActive() {
+		return "●"
+	}
+	return ""
+}
+
+// isPipelineAnnotation returns true for annotation prefixes that are pipeline noise.
+func isPipelineAnnotation(desc string) bool {
+	return strings.HasPrefix(desc, "pipeline:") ||
+		strings.HasPrefix(desc, "advanced:") ||
+		strings.HasPrefix(desc, "lgtm:") ||
+		strings.HasPrefix(desc, "stage:")
+}
+
+// appendSubtasksSection appends a formatted subtask tree to result.
+func appendSubtasksSection(result, parentUUID string) string {
+	children, err := GetChildren(parentUUID)
+	if err != nil {
+		return result + fmt.Sprintf("\nSubtasks: [error loading: %v]\n", err)
+	}
+	if len(children) == 0 {
+		return result
+	}
+	result += "\nSubtasks:\n" + strings.Repeat("─", 80) + "\n"
+	for i, child := range children {
+		prefix := "├─"
+		if i == len(children)-1 {
+			prefix = "└─"
+		}
+		result += fmt.Sprintf("%s [%s] %s (%s)\n", prefix, child.HexID(), child.Description, taskStatusLabel(&child))
+		for _, ann := range child.Annotations {
+			if !isPipelineAnnotation(ann.Description) {
+				result += fmt.Sprintf("   %s\n", ann.Description)
 			}
 		}
 	}
+	return result + strings.Repeat("─", 80) + "\n"
+}
 
+// prependParentContext prepends parent description and appends siblings when t is a subtask.
+func prependParentContext(result string, t *Task) string {
+	parent, err := ExportTask(t.ParentID)
+	if err != nil {
+		result = fmt.Sprintf("Parent: [error loading %s: %v]\n\n", t.ParentID[:8], err) + result
+	} else {
+		result = fmt.Sprintf("Parent: [%s] %s\n\n", parent.HexID(), parent.Description) + result
+	}
+
+	siblings, err := GetChildren(t.ParentID)
+	if err != nil {
+		return result + fmt.Sprintf("\nSibling tasks: [error loading: %v]\n", err)
+	}
+	if len(siblings) <= 1 {
+		return result
+	}
+	result += "\nSibling tasks:\n"
+	for _, sib := range siblings {
+		if sib.UUID == t.UUID {
+			result += fmt.Sprintf("  → [%s] %s (this task)\n", sib.HexID(), sib.Description)
+		} else {
+			glyph := taskStatusGlyph(&sib)
+			if glyph != "" {
+				result += fmt.Sprintf("    [%s] %s (%s)\n", sib.HexID(), sib.Description, glyph)
+			} else {
+				result += fmt.Sprintf("    [%s] %s (pending)\n", sib.HexID(), sib.Description)
+			}
+		}
+	}
 	return result
 }
 

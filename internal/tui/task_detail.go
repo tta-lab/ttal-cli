@@ -72,13 +72,7 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	if t.Spawner != "" {
 		field(b, "Spawner:", " ", t.Spawner)
 	}
-	if t.ParentID != "" {
-		parentHex := t.ParentID
-		if len(parentHex) >= 8 {
-			parentHex = parentHex[:8]
-		}
-		field(b, "Parent:", " ", parentHex)
-	}
+	writeParentField(b, t)
 	if t.Scheduled != "" {
 		field(b, "Sched:", " ", formatDate(t.Scheduled))
 	}
@@ -135,15 +129,33 @@ func writeSubtasks(b *strings.Builder, children []Task) {
 		if i == len(children)-1 {
 			prefix = "  └─ "
 		}
-		status := " "
-		if child.Status == "completed" {
-			status = "✓"
-		} else if child.IsActive() {
-			status = "●"
-		}
+		glyph := taskGlyph(&child)
 		id := styleDim.Render("[" + child.HexID() + "]")
-		fmt.Fprintf(b, "%s%s %s %s\n", prefix, id, status, child.Description)
+		fmt.Fprintf(b, "%s%s %s %s\n", prefix, id, glyph, child.Description)
 	}
+}
+
+// taskGlyph returns a single-char status indicator: "✓" / "●" / " ".
+func taskGlyph(t *Task) string {
+	if t.Status == "completed" {
+		return "✓"
+	}
+	if t.IsActive() {
+		return "●"
+	}
+	return " "
+}
+
+// writeParentField writes the Parent field when the task is a subtask.
+func writeParentField(b *strings.Builder, t *Task) {
+	if t.ParentID == "" {
+		return
+	}
+	parentHex := t.ParentID
+	if len(parentHex) >= 8 {
+		parentHex = parentHex[:8]
+	}
+	field(b, "Parent:", " ", parentHex)
 }
 
 func field(b *strings.Builder, label, pad, value string) {
