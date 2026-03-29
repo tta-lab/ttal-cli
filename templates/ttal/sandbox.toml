@@ -92,7 +92,7 @@ allowedDomains = [
   # Anthropic / Claude Code docs
   "*.claude.com",
   # Go modules
-  "proxy.golang.org", "sum.golang.org", "pkg.go.dev",
+  "go.dev", "*.go.dev", "golang.org", "*.golang.org",
   # Rust/Cargo
   "crates.io", "*.crates.io",
   # npm

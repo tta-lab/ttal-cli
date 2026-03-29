@@ -16,7 +16,7 @@ import (
 
 // task represents a taskwarrior task from JSON export.
 type task struct {
-	ID          int      `json:"id"`
+	ID          string   `json:"id"`
 	UUID        string   `json:"uuid"`
 	Description string   `json:"description"`
 	Project     string   `json:"project"`

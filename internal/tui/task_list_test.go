@@ -9,9 +9,9 @@ import (
 func TestMoveCursor(t *testing.T) {
 	m := Model{
 		filtered: []Task{
-			{Task: taskwarrior.Task{ID: 1}},
-			{Task: taskwarrior.Task{ID: 2}},
-			{Task: taskwarrior.Task{ID: 3}},
+			{Task: taskwarrior.Task{ID: "1"}},
+			{Task: taskwarrior.Task{ID: "2"}},
+			{Task: taskwarrior.Task{ID: "3"}},
 		},
 		cursor: 0,
 		offset: 0,
@@ -48,14 +48,14 @@ func TestMoveCursor(t *testing.T) {
 func TestEnsureCursorVisible(t *testing.T) {
 	m := Model{
 		filtered: []Task{
-			{Task: taskwarrior.Task{ID: 1}},
-			{Task: taskwarrior.Task{ID: 2}},
-			{Task: taskwarrior.Task{ID: 3}},
-			{Task: taskwarrior.Task{ID: 4}},
-			{Task: taskwarrior.Task{ID: 5}},
-			{Task: taskwarrior.Task{ID: 6}},
-			{Task: taskwarrior.Task{ID: 7}},
-			{Task: taskwarrior.Task{ID: 8}},
+			{Task: taskwarrior.Task{ID: "1"}},
+			{Task: taskwarrior.Task{ID: "2"}},
+			{Task: taskwarrior.Task{ID: "3"}},
+			{Task: taskwarrior.Task{ID: "4"}},
+			{Task: taskwarrior.Task{ID: "5"}},
+			{Task: taskwarrior.Task{ID: "6"}},
+			{Task: taskwarrior.Task{ID: "7"}},
+			{Task: taskwarrior.Task{ID: "8"}},
 		},
 		cursor: 0,
 		offset: 0,

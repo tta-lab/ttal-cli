@@ -49,7 +49,7 @@ type Annotation struct {
 
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
-	ID          int          `json:"id"`
+	ID          string       `json:"id"`
 	UUID        string       `json:"uuid"`
 	Description string       `json:"description"`
 	Project     string       `json:"project,omitempty"`
