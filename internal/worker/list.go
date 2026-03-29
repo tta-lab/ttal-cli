@@ -56,7 +56,7 @@ func List() error {
 	seen := make(map[string]bool)
 	unique := make([]taskwarrior.Task, 0, len(tasks))
 	for _, t := range tasks {
-		sid := t.SessionID()
+		sid := t.HexID()
 		if sid == "" || seen[sid] {
 			continue
 		}

@@ -14,16 +14,16 @@ func ExportTask(uuid string) (*Task, error) {
 	return parseFirstTask(out)
 }
 
-func ExportTaskBySessionID(sessionID, status string) (*Task, error) {
+func ExportTaskByHexID(hexID, status string) (*Task, error) {
 	var args []string
 	if status != "" {
 		args = append(args, fmt.Sprintf("status:%s", status))
 	}
-	args = append(args, fmt.Sprintf("uuid:%s", sessionID), "export")
+	args = append(args, fmt.Sprintf("uuid:%s", hexID), "export")
 
 	out, err := runTask(args...)
 	if err != nil {
-		return nil, fmt.Errorf("no task found with uuid prefix %s: %w", sessionID, err)
+		return nil, fmt.Errorf("no task found with uuid prefix %s: %w", hexID, err)
 	}
 	return parseFirstTask(out)
 }

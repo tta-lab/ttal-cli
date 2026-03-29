@@ -37,10 +37,10 @@ func formatCommentTime(raw string) string {
 // Manager plane: TTAL_AGENT_NAME → active task with +<agent> tag.
 func resolveCurrentTask() (string, error) {
 	if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
-		task, pendingErr := taskwarrior.ExportTaskBySessionID(jobID, "pending")
+		task, pendingErr := taskwarrior.ExportTaskByHexID(jobID, "pending")
 		if pendingErr != nil {
 			var completedErr error
-			task, completedErr = taskwarrior.ExportTaskBySessionID(jobID, "completed")
+			task, completedErr = taskwarrior.ExportTaskByHexID(jobID, "completed")
 			if completedErr != nil {
 				return "", fmt.Errorf("no task for job ID %q (pending: %v; completed: %w)", jobID, pendingErr, completedErr)
 			}

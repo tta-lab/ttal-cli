@@ -18,9 +18,9 @@ func resolveTaskTags() []string {
 	if jobID == "" {
 		return nil
 	}
-	task, err := taskwarrior.ExportTaskBySessionID(jobID, "pending")
+	task, err := taskwarrior.ExportTaskByHexID(jobID, "pending")
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySessionID(jobID, "completed")
+		task, err = taskwarrior.ExportTaskByHexID(jobID, "completed")
 	}
 	if err != nil || task == nil {
 		return nil

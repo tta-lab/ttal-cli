@@ -102,19 +102,15 @@ Examples:
 		}
 
 		sort.Slice(tasks, func(i, j int) bool {
-			return tasks[i].ID < tasks[j].ID
+			return tasks[i].Urgency > tasks[j].Urgency
 		})
 
 		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
 		var rows [][]string
 		for _, t := range tasks {
-			uuid := t.UUID
-			if len(uuid) > 8 {
-				uuid = uuid[:8]
-			}
 			rows = append(rows, []string{
-				uuid,
+				t.HexID(),
 				t.Status,
 				t.Project,
 				strings.Join(t.Tags, " "),

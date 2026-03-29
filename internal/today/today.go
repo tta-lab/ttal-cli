@@ -14,27 +14,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-// task represents a taskwarrior task from JSON export.
-type task struct {
-	ID          int      `json:"id"`
-	UUID        string   `json:"uuid"`
-	Description string   `json:"description"`
-	Project     string   `json:"project"`
-	Tags        []string `json:"tags"`
-	Urgency     float64  `json:"urgency"`
-	Due         string   `json:"due"`
-	Scheduled   string   `json:"scheduled"`
-	End         string   `json:"end"`
-	Status      string   `json:"status"`
-}
-
-func (t task) ShortUUID() string {
-	if len(t.UUID) >= 8 {
-		return t.UUID[:8]
-	}
-	return t.UUID
-}
-
 // List shows pending tasks scheduled for today or earlier, sorted by urgency.
 func List() error {
 	out, err := taskwarrior.Command("status:pending", "export").Output()
@@ -42,18 +21,18 @@ func List() error {
 		return fmt.Errorf("failed to export tasks: %w", err)
 	}
 
-	var tasks []task
+	var tasks []taskwarrior.Task
 	if err := json.Unmarshal(out, &tasks); err != nil {
 		return fmt.Errorf("failed to parse tasks: %w", err)
 	}
 
 	today := time.Now().Truncate(24 * time.Hour)
-	var filtered []task
+	var filtered []taskwarrior.Task
 	for _, t := range tasks {
 		if t.Scheduled == "" {
 			continue
 		}
-		schedDate, err := parseTaskDate(t.Scheduled)
+		schedDate, err := taskwarrior.ParseTaskDate(t.Scheduled)
 		if err != nil {
 			continue
 		}
@@ -77,12 +56,12 @@ func List() error {
 	for _, t := range filtered {
 		due := ""
 		if t.Due != "" {
-			if parsed, err := parseTaskDate(t.Due); err == nil {
+			if parsed, err := taskwarrior.ParseTaskDate(t.Due); err == nil {
 				due = parsed.Format("2006-01-02")
 			}
 		}
 		rows = append(rows, []string{
-			t.ShortUUID(),
+			t.HexID(),
 			fmt.Sprintf("%.1f", t.Urgency),
 			t.Project,
 			strings.Join(t.Tags, " "),
@@ -91,7 +70,7 @@ func List() error {
 		})
 	}
 
-	t := table.New().
+	tbl := table.New().
 		Border(lipgloss.RoundedBorder()).
 		BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
 		StyleFunc(func(row, col int) lipgloss.Style {
@@ -109,7 +88,7 @@ func List() error {
 		Headers("ID", "Urg", "Project", "Tags", "Due", "Description").
 		Rows(rows...)
 
-	fmt.Println(t)
+	fmt.Println(tbl)
 	fmt.Printf("\n%d %s\n", len(filtered), format.Plural(len(filtered), "task", "tasks"))
 	return nil
 }
@@ -121,7 +100,7 @@ func Completed() error {
 		return fmt.Errorf("failed to export tasks: %w", err)
 	}
 
-	var tasks []task
+	var tasks []taskwarrior.Task
 	if err := json.Unmarshal(out, &tasks); err != nil {
 		return fmt.Errorf("failed to parse tasks: %w", err)
 	}
@@ -140,14 +119,14 @@ func Completed() error {
 	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {
 		rows = append(rows, []string{
-			t.ShortUUID(),
+			t.HexID(),
 			t.Project,
 			strings.Join(t.Tags, " "),
 			t.Description,
 		})
 	}
 
-	t := table.New().
+	tbl := table.New().
 		Border(lipgloss.RoundedBorder()).
 		BorderStyle(lipgloss.NewStyle().Foreground(dimColor)).
 		StyleFunc(func(row, col int) lipgloss.Style {
@@ -162,7 +141,7 @@ func Completed() error {
 		Headers("ID", "Project", "Tags", "Description").
 		Rows(rows...)
 
-	fmt.Println(t)
+	fmt.Println(tbl)
 	fmt.Printf("\n%d %s\n", len(tasks), format.Plural(len(tasks), "task", "tasks"))
 	return nil
 }
@@ -207,7 +186,7 @@ func CompletedCounts() (map[time.Time]int, error) {
 		return nil, fmt.Errorf("query completed tasks: %w", err)
 	}
 
-	var tasks []task
+	var tasks []taskwarrior.Task
 	if err := json.Unmarshal(out, &tasks); err != nil {
 		return nil, fmt.Errorf("parse completed tasks: %w", err)
 	}
@@ -217,7 +196,7 @@ func CompletedCounts() (map[time.Time]int, error) {
 		if t.End == "" {
 			continue
 		}
-		end, err := parseTaskDate(t.End)
+		end, err := taskwarrior.ParseTaskDate(t.End)
 		if err != nil {
 			log.Printf("CompletedCounts: skipping task %s: cannot parse end date %q: %v", t.UUID, t.End, err)
 			continue
@@ -228,23 +207,6 @@ func CompletedCounts() (map[time.Time]int, error) {
 	}
 
 	return counts, nil
-}
-
-// parseTaskDate parses taskwarrior date formats (ISO 8601 with T and Z).
-func parseTaskDate(s string) (time.Time, error) {
-	// Taskwarrior exports dates as "20260224T120000Z"
-	formats := []string{
-		"20060102T150405Z",
-		time.RFC3339,
-		"2006-01-02T15:04:05Z",
-		"2006-01-02",
-	}
-	for _, f := range formats {
-		if t, err := time.Parse(f, s); err == nil {
-			return t.Truncate(24 * time.Hour), nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("cannot parse date: %s", s)
 }
 
 func validateIDs(ids []string) error {

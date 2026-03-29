@@ -52,12 +52,12 @@ func fireReminders(fe frontend.Frontend) {
 	for _, t := range tasks {
 		msg := "🔔 " + t.Description
 		if err := fe.SendNotification(context.Background(), msg); err != nil {
-			log.Printf("[reminder] failed to send for %s: %v", t.SessionID(), err)
+			log.Printf("[reminder] failed to send for %s: %v", t.HexID(), err)
 			continue
 		}
 		if err := taskwarrior.MarkDone(t.UUID); err != nil {
 			// Task stays pending and will be retried on the next poll cycle.
-			log.Printf("[reminder] failed to mark done %s: %v", t.SessionID(), err)
+			log.Printf("[reminder] failed to mark done %s: %v", t.HexID(), err)
 			continue
 		}
 		log.Printf("[reminder] fired: %s", t.Description)

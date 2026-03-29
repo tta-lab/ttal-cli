@@ -1,20 +1,16 @@
 package tui
 
-import (
-	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-)
+import "testing"
 
 func TestApplyFilterPendingExcludesActiveTasks(t *testing.T) {
 	m := Model{
 		filter: filterPending,
 		tasks: []Task{
-			{Task: taskwarrior.Task{ID: 1, UUID: "aa000001"}},
-			{Task: taskwarrior.Task{ID: 2, UUID: "bb000002", Start: "20260101T100000Z"}},
-			{Task: taskwarrior.Task{ID: 3, UUID: "cc000003"}},
+			{UUID: "aa000001"},
+			{UUID: "bb000002", Start: "20260101T100000Z"},
+			{UUID: "cc000003"},
 			// scheduled in the past but not active — should remain in pending
-			{Task: taskwarrior.Task{ID: 4, UUID: "dd000004"}, Scheduled: "20200101T000000Z"},
+			{UUID: "dd000004", Scheduled: "20200101T000000Z"},
 		},
 		height: 20,
 	}
@@ -34,8 +30,8 @@ func TestApplyFilterPendingAllActive(t *testing.T) {
 	m := Model{
 		filter: filterPending,
 		tasks: []Task{
-			{Task: taskwarrior.Task{ID: 1, UUID: "aa000001", Start: "20260101T100000Z"}},
-			{Task: taskwarrior.Task{ID: 2, UUID: "bb000002", Start: "20260101T110000Z"}},
+			{UUID: "aa000001", Start: "20260101T100000Z"},
+			{UUID: "bb000002", Start: "20260101T110000Z"},
 		},
 		height: 20,
 	}

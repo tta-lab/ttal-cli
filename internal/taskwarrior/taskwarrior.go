@@ -2,6 +2,7 @@ package taskwarrior
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -49,23 +50,26 @@ type Annotation struct {
 
 // Task represents a taskwarrior task with worker UDAs.
 type Task struct {
-	ID          int          `json:"id"`
 	UUID        string       `json:"uuid"`
 	Description string       `json:"description"`
 	Project     string       `json:"project,omitempty"`
 	Status      string       `json:"status"`
+	Urgency     float64      `json:"urgency"`
 	Tags        []string     `json:"tags,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Start       string       `json:"start,omitempty"`
 	Modified    string       `json:"modified,omitempty"`
+	Priority    string       `json:"priority,omitempty"`
 	Scheduled   string       `json:"scheduled,omitempty"`
+	Due         string       `json:"due,omitempty"`
+	Entry       string       `json:"entry,omitempty"`
+	End         string       `json:"end,omitempty"`
 	PRID        string       `json:"pr_id,omitempty"`
 	Spawner     string       `json:"spawner,omitempty"`
 }
 
-// SessionID returns a deterministic session identifier derived from the task UUID.
-// Uses the first 8 characters of the UUID (4 billion possible values).
-func (t *Task) SessionID() string {
+// HexID returns the first 8 hex characters of the task UUID.
+func (t *Task) HexID() string {
 	if len(t.UUID) >= 8 {
 		return t.UUID[:8]
 	}
@@ -84,19 +88,96 @@ func (t *Task) SessionID() string {
 //
 // This is distinct from agent sessions which use "ttal-<team>-<agent>".
 func (t *Task) SessionName() string {
-	prefix := "w-" + t.SessionID() + "-" // "w-e9d4b7c1-" = 11 chars
+	prefix := "w-" + t.HexID() + "-" // "w-e9d4b7c1-" = 11 chars
 
 	slug := slugify(t.Description, 64)
 	if slug == "" {
-		return "w-" + t.SessionID()
+		return "w-" + t.HexID()
 	}
 
 	return prefix + slug
 }
 
-// ExtractSessionID extracts the UUID[:8] from a session name.
+// IsActive returns true if the task is currently started.
+func (t *Task) IsActive() bool {
+	return t.Start != ""
+}
+
+// IsToday returns true if the task is scheduled for today or earlier.
+func (t *Task) IsToday() bool {
+	if t.Scheduled == "" {
+		return false
+	}
+	parsed, err := ParseTaskDate(t.Scheduled)
+	if err != nil {
+		return false
+	}
+	today := time.Now().Truncate(24 * time.Hour)
+	return !parsed.After(today)
+}
+
+// Age returns a human-readable age string based on the entry date.
+func (t *Task) Age() string {
+	if t.Entry == "" {
+		return ""
+	}
+	parsed, err := parseTaskTime(t.Entry)
+	if err != nil {
+		return "?"
+	}
+	return formatAge(time.Since(parsed))
+}
+
+// parseTaskTime parses taskwarrior date formats without truncation.
+// Unlike ParseTaskDate (which truncates to midnight for date comparisons),
+// this preserves the full timestamp for duration calculations.
+func parseTaskTime(s string) (time.Time, error) {
+	formats := []string{
+		"20060102T150405Z",
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse date: %s", s)
+}
+
+func formatAge(d time.Duration) string {
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(math.Round(d.Hours())))
+	}
+	if d < 30*24*time.Hour {
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
+	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
+}
+
+// ParseTaskDate parses taskwarrior date formats (ISO 8601 with T and Z).
+func ParseTaskDate(s string) (time.Time, error) {
+	formats := []string{
+		"20060102T150405Z",
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t.Truncate(24 * time.Hour), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse date: %s", s)
+}
+
+// ExtractHexID extracts the UUID[:8] from a session name.
 // Handles w-UUID[:8]-slug (worker) and bare UUID[:8].
-func ExtractSessionID(sessionName string) string {
+func ExtractHexID(sessionName string) string {
 	if strings.HasPrefix(sessionName, "w-") {
 		parts := strings.SplitN(sessionName[2:], "-", 2)
 		if len(parts) > 0 {

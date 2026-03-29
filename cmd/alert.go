@@ -66,7 +66,7 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 		return false, nil
 	}
 
-	task, twErr := taskwarrior.ExportTaskBySessionID(sessionID, "pending")
+	task, twErr := taskwarrior.ExportTaskByHexID(sessionID, "pending")
 	if twErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not resolve task for alert routing: %v\n", twErr)
 		return false, nil // can't determine spawner — fall back gracefully
