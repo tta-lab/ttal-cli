@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
-	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -39,7 +38,7 @@ Examples:
 		}
 
 		if alertToHuman {
-			return notify.Send(message)
+			return daemon.Notify(daemon.NotifyRequest{Message: message})
 		}
 
 		routed, err := alertToSpawner(cmd, message)
@@ -50,8 +49,8 @@ Examples:
 			return nil
 		}
 
-		// No spawner configured — fall through to Telegram
-		return notify.Send(message)
+		// No spawner configured — fall through to daemon notification
+		return daemon.Notify(daemon.NotifyRequest{Message: message})
 	},
 }
 

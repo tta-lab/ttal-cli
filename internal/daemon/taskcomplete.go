@@ -70,8 +70,7 @@ func notifyTelegramTaskDone(frontends map[string]frontend.Frontend, target prWat
 		log.Printf("[taskComplete] notifyTelegram: no frontend for team %q — skipped", teamName)
 		return
 	}
-	msg := formatTaskDoneMsg(target)
-	if err := fe.SendNotification(context.Background(), msg); err != nil {
+	if err := fe.SendNotification(context.Background(), formatTaskDoneMsg(target)); err != nil {
 		log.Printf("[taskComplete] notify failed: %v", err)
 	}
 }

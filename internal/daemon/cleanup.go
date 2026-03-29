@@ -1,20 +1,22 @@
 package daemon
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // startCleanupWatcher watches ~/.ttal/cleanup/ for worker cleanup requests.
 // Processes pending files on startup (crash recovery), then watches for new ones.
-func startCleanupWatcher(done <-chan struct{}) {
+func startCleanupWatcher(frontends map[string]frontend.Frontend, defaultTeam string, done <-chan struct{}) {
 	dir, err := worker.CleanupDir()
 	if err != nil {
 		log.Printf("[cleanup] disabled: %v", err)
@@ -39,7 +41,7 @@ func startCleanupWatcher(done <-chan struct{}) {
 
 	// Process pending requests after watcher is active to avoid missing files
 	// written between scan and watch start. Double-processing is safe.
-	processPendingCleanups(dir)
+	processPendingCleanups(dir, frontends, defaultTeam)
 
 	go func() {
 		defer watcher.Close()
@@ -52,7 +54,7 @@ func startCleanupWatcher(done <-chan struct{}) {
 					return
 				}
 				if event.Op&fsnotify.Create != 0 && strings.HasSuffix(event.Name, ".json") {
-					processCleanupFile(event.Name)
+					processCleanupFile(event.Name, frontends, defaultTeam)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -67,7 +69,7 @@ func startCleanupWatcher(done <-chan struct{}) {
 }
 
 // processPendingCleanups handles any .json files already in the cleanup dir.
-func processPendingCleanups(dir string) {
+func processPendingCleanups(dir string, frontends map[string]frontend.Frontend, defaultTeam string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		log.Printf("[cleanup] failed to read pending cleanups: %v", err)
@@ -75,13 +77,13 @@ func processPendingCleanups(dir string) {
 	}
 	for _, e := range entries {
 		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
-			processCleanupFile(filepath.Join(dir, e.Name()))
+			processCleanupFile(filepath.Join(dir, e.Name()), frontends, defaultTeam)
 		}
 	}
 }
 
 // processCleanupFile reads a cleanup request and executes the full lifecycle.
-func processCleanupFile(path string) {
+func processCleanupFile(path string, frontends map[string]frontend.Frontend, defaultTeam string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		log.Printf("[cleanup] failed to read %s: %v", path, err)
@@ -98,10 +100,26 @@ func processCleanupFile(path string) {
 
 	if err := worker.ExecuteCleanup(req, path, false); err != nil {
 		log.Printf("[cleanup] failed for %s: %v", req.SessionID, err)
-		worker.NotifyTelegram(fmt.Sprintf("⚠️ Worker cleanup failed\nSession: %s\nReason: %v\nTask: %s",
-			req.SessionID, err, req.TaskUUID))
+		notifyCleanupFailure(frontends, defaultTeam, req.SessionID, req.TaskUUID, err.Error())
 		return
 	}
 
 	log.Printf("[cleanup] completed: session=%s", req.SessionID)
+}
+
+// notifyCleanupFailure sends a cleanup failure notification through the default team frontend.
+func notifyCleanupFailure(frontends map[string]frontend.Frontend, defaultTeam, sessionID, taskID, errMsg string) {
+	fe, ok := frontends[defaultTeam]
+	if !ok {
+		log.Printf("[cleanup] notifyCleanupFailure: no frontend for default team — notification dropped")
+		return
+	}
+	msg := notification.CleanupFailed{
+		Ctx:       notification.NewContext("", taskID, "", ""),
+		SessionID: sessionID,
+		Err:       errMsg,
+	}.Render()
+	if err := fe.SendNotification(context.Background(), msg); err != nil {
+		log.Printf("[cleanup] notify failed: %v", err)
+	}
 }

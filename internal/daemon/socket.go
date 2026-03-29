@@ -299,6 +299,14 @@ type GitTagResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
+// NotifyRequest sends a pre-rendered notification string through the daemon's frontend.
+// This is the correct way for CLI commands and workers to send notifications
+// without coupling to a specific transport (Telegram, Matrix, etc).
+type NotifyRequest struct {
+	Team    string `json:"team,omitempty"` // defaults to "default"
+	Message string `json:"message"`        // pre-rendered notification string
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -329,6 +337,8 @@ type httpHandlers struct {
 	// Git operations (daemon-proxied for credential isolation)
 	gitPush func(GitPushRequest) GitPushResponse
 	gitTag  func(GitTagRequest) GitTagResponse
+	// notify routes a pre-rendered notification string through the frontend abstraction.
+	notify func(team, msg string) error
 }
 
 // newDaemonRouter creates the chi router with all daemon routes.
@@ -363,6 +373,8 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// Git operations (proxied through daemon for credential isolation)
 	r.Post("/git/push", handleHTTPGitPush(handlers))
 	r.Post("/git/tag", handleHTTPGitTag(handlers))
+	// Notify routes a pre-rendered message through the frontend abstraction.
+	r.Post("/notify", handleHTTPNotify(handlers))
 	return r
 }
 
@@ -822,6 +834,40 @@ func CloseWindow(req CloseWindowRequest) error {
 	}
 	if !result.OK {
 		return fmt.Errorf("close window: %s", result.Error) //nolint:err113
+	}
+	return nil
+}
+
+// Notify sends a pre-rendered notification string through the daemon's frontend abstraction.
+// This is the correct way for CLI commands and workers to send notifications
+// without coupling to a specific transport (Telegram, Matrix, etc).
+// Returns error if the daemon is not running or delivery fails.
+// Fire-and-forget callers (cmd/pr.go, worker/hook.go) should log and continue.
+// User-facing callers (cmd/alert.go) should propagate the error.
+func Notify(req NotifyRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal notify request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/notify", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("daemon returned HTTP %d for /notify", resp.StatusCode)
+	}
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("decode notify response: %w", err)
+	}
+	if !result.OK {
+		msg := result.Error
+		if msg == "" {
+			msg = "unknown error"
+		}
+		return fmt.Errorf("notify: %s", msg) //nolint:err113
 	}
 	return nil
 }

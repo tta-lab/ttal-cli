@@ -62,6 +62,7 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		gitTag: func(req GitTagRequest) GitTagResponse {
 			return GitTagResponse{OK: true}
 		},
+		notify: func(_, _ string) error { return nil },
 	}
 }
 
@@ -633,5 +634,65 @@ func TestHTTPPRCheckMergeable_Smoke(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHTTPNotify_HappyPath(t *testing.T) {
+	var capturedTeam, capturedMsg string
+	h := testHandlers(nil)
+	h.notify = func(team, msg string) error {
+		capturedTeam = team
+		capturedMsg = msg
+		return nil
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(NotifyRequest{Team: "myteam", Message: "hello from worker"})
+	req := httptest.NewRequest(http.MethodPost, "/notify", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if capturedTeam != "myteam" {
+		t.Errorf("expected team=myteam, got %q", capturedTeam)
+	}
+	if capturedMsg != "hello from worker" {
+		t.Errorf("expected msg=hello from worker, got %q", capturedMsg)
+	}
+}
+
+func TestHTTPNotify_BadJSON(t *testing.T) {
+	r := newDaemonRouter(testHandlers(nil))
+
+	req := httptest.NewRequest(http.MethodPost, "/notify", bytes.NewReader([]byte("not json")))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHTTPNotify_HandlerError(t *testing.T) {
+	h := testHandlers(nil)
+	h.notify = func(_, _ string) error { return fmt.Errorf("frontend error") }
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(NotifyRequest{Message: "test"})
+	req := httptest.NewRequest(http.MethodPost, "/notify", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
+	}
+	var resp SendResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Error == "" {
+		t.Error("expected error message in response")
 	}
 }

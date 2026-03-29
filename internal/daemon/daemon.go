@@ -20,6 +20,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 
 	_ "modernc.org/sqlite"
 )
@@ -113,7 +114,7 @@ func Run() error {
 
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, frontends, done)
-	startCleanupWatcher(done)
+	startCleanupWatcher(frontends, mcfg.DefaultTeamName(), done)
 	startPRWatcher(mcfg, frontends, done)
 	startReminderPoller(mcfg, frontends, done)
 	startWatcher(mcfg, frontends, msgSvc, done)
@@ -131,12 +132,49 @@ func Run() error {
 		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
 	}
 
+	// Rewire advance.go's notifyTelegramFn to route through the frontend abstraction.
+	SetNotifyFn(func(msg string) {
+		if err := defaultFE.SendNotification(ctx, msg); err != nil {
+			log.Printf("[advance] notification failed: %v", err)
+		}
+	})
+
 	defaultTeamName := mcfg.DefaultTeamName()
 	commentSync := resolveCommentSync(mcfg, defaultTeamName)
 
-	askHumanHandler := defaultFE.AskHumanHTTPHandler()
+	handlers := buildHTTPHandlers(
+		ctx, mcfg, shellCfg, defaultFE, frontends,
+		registry, msgSvc, commentSvc, defaultTeamName, commentSync,
+	)
+	srv, err := listenHTTP(sockPath, handlers)
+	if err != nil {
+		close(done)
+		return err
+	}
 
-	srv, err := listenHTTP(sockPath, httpHandlers{
+	log.Printf("[daemon] ready")
+	if err := defaultFE.SendNotification(ctx, notification.DaemonReady{}.Render()); err != nil {
+		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
+	}
+	awaitShutdown(done, cancel, mcfg, registry, srv)
+	return nil
+}
+
+// buildHTTPHandlers constructs the httpHandlers struct for the daemon HTTP server.
+// Extracted from Run() to reduce cyclomatic complexity.
+func buildHTTPHandlers(
+	ctx context.Context,
+	mcfg *config.DaemonConfig,
+	shellCfg *config.Config,
+	defaultFE frontend.Frontend,
+	frontends map[string]frontend.Frontend,
+	registry *adapterRegistry,
+	msgSvc *message.Service,
+	commentSvc *comment.Service,
+	defaultTeamName string,
+	commentSync string,
+) httpHandlers {
+	return httpHandlers{
 		send: func(req SendRequest) error {
 			return handleSend(mcfg, registry, frontends, msgSvc, req)
 		},
@@ -147,10 +185,21 @@ func Run() error {
 		breathe: func(req BreatheRequest) SendResponse {
 			return handleBreathe(shellCfg, req)
 		},
-		askHuman:   askHumanHandler,
+		askHuman:   defaultFE.AskHumanHTTPHandler(),
 		askHandler: handleAsk(shellCfg),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
+		},
+		notify: func(team, msg string) error {
+			t := team
+			if t == "" {
+				t = mcfg.DefaultTeamName()
+			}
+			fe, ok := frontends[t]
+			if !ok {
+				return fmt.Errorf("no frontend for team %s", t)
+			}
+			return fe.SendNotification(ctx, msg)
 		},
 		commentAdd: func(req CommentAddRequest) CommentAddResponse {
 			return handleCommentAdd(commentSvc, defaultTeamName, commentSync, req)
@@ -171,18 +220,7 @@ func Run() error {
 		prGetCIFailureDetails: handlePRGetCIFailureDetails,
 		gitPush:               handleGitPush,
 		gitTag:                handleGitTag,
-	})
-	if err != nil {
-		close(done)
-		return err
 	}
-
-	log.Printf("[daemon] ready")
-	if err := defaultFE.SendNotification(ctx, "✅ Daemon ready"); err != nil {
-		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
-	}
-	awaitShutdown(done, cancel, mcfg, registry, srv)
-	return nil
 }
 
 // formatUsageString formats UsageData into a human-readable string for the /usage command.

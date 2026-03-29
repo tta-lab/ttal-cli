@@ -7,6 +7,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -50,7 +51,7 @@ func fireReminders(fe frontend.Frontend) {
 	}
 
 	for _, t := range tasks {
-		msg := "🔔 " + t.Description
+		msg := notification.Reminder{Ctx: notification.NewContext("", "", t.Description, "")}.Render()
 		if err := fe.SendNotification(context.Background(), msg); err != nil {
 			log.Printf("[reminder] failed to send for %s: %v", t.HexID(), err)
 			continue
