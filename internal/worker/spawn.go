@@ -519,7 +519,7 @@ func pullLatest(project, projectAlias string) {
 
 	remoteURL, remoteErr := gitutil.RemoteURL(project)
 	if remoteErr != nil {
-		fmt.Fprintf(os.Stderr, "  warning: could not get remote URL (pull will run without credential injection): %v\n", remoteErr)
+		fmt.Fprintf(os.Stderr, "  warning: could not get remote URL, pull runs without credentials: %v\n", remoteErr)
 	} else {
 		cmd.Env = append(os.Environ(), gitutil.GitCredEnv(remoteURL, projectAlias)...)
 	}
