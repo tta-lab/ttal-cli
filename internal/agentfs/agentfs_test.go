@@ -7,11 +7,16 @@ import (
 	"testing"
 )
 
+const (
+	testVoiceAfHeart = "af_heart"
+	testEmojiCat     = "\U0001F431" // 🐱
+)
+
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
 	// Agent with frontmatter (flat .md file)
-	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n" +
+	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
 		"description: Task orchestration\ncolor: green\n---\n# Yuki")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
@@ -44,10 +49,10 @@ func TestDiscover(t *testing.T) {
 		t.Fatal("yuki not found")
 		return
 	}
-	if yAgent.Voice != "af_heart" {
+	if yAgent.Voice != testVoiceAfHeart {
 		t.Errorf("voice: got %q, want af_heart", yAgent.Voice)
 	}
-	if yAgent.Emoji != "\U0001F431" {
+	if yAgent.Emoji != testEmojiCat {
 		t.Errorf("emoji: got %q, want cat emoji", yAgent.Emoji)
 	}
 	if yAgent.Description != "Task orchestration" {
@@ -92,7 +97,7 @@ func TestGet(t *testing.T) {
 func TestSetFieldColorRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	// Simple fixture — no nested YAML — to verify all fields survive a SetField rewrite
-	fixture := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n" +
+	fixture := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
 		"description: Task orchestration\nrole: manager\ncolor: green\n---\n# Yuki\n\nSome content.")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), fixture, 0o644) //nolint:errcheck
 
@@ -105,10 +110,10 @@ func TestSetFieldColorRoundTrip(t *testing.T) {
 		t.Errorf("color after update: got %q, want cyan", ag.Color)
 	}
 	// Verify all other fields survived the rewrite
-	if ag.Voice != "af_heart" {
+	if ag.Voice != testVoiceAfHeart {
 		t.Errorf("voice should be preserved, got %q", ag.Voice)
 	}
-	if ag.Emoji != "\U0001F431" {
+	if ag.Emoji != testEmojiCat {
 		t.Errorf("emoji should be preserved, got %q", ag.Emoji)
 	}
 	if ag.Description != "Task orchestration" {
@@ -146,7 +151,7 @@ func TestCount(t *testing.T) {
 
 func TestSetField(t *testing.T) {
 	dir := t.TempDir()
-	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n---\n# Yuki\n\nSome content.")
+	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n---\n# Yuki\n\nSome content.")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "voice", "af_sky"); err != nil {
@@ -157,7 +162,7 @@ func TestSetField(t *testing.T) {
 	if ag.Voice != "af_sky" {
 		t.Errorf("voice after update: got %q, want af_sky", ag.Voice)
 	}
-	if ag.Emoji != "\U0001F431" {
+	if ag.Emoji != testEmojiCat {
 		t.Errorf("emoji should be preserved, got %q", ag.Emoji)
 	}
 }
@@ -166,12 +171,12 @@ func TestSetFieldNoFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "yuki.md"), []byte("# Yuki\n\nNo frontmatter here."), 0o644)
 
-	if err := SetField(dir, "yuki", "voice", "af_heart"); err != nil {
+	if err := SetField(dir, "yuki", "voice", testVoiceAfHeart); err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
 
 	ag, _ := Get(dir, "yuki")
-	if ag.Voice != "af_heart" {
+	if ag.Voice != testVoiceAfHeart {
 		t.Errorf("voice: got %q, want af_heart", ag.Voice)
 	}
 
