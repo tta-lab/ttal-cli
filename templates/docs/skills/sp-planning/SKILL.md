@@ -74,6 +74,32 @@ Example: "Add auth to API and update frontend to use it" → split into:
 - The task assumes a structure that doesn't exist → flag it
 - You find recent changes that conflict with the task's assumptions → reconcile before planning
 
+## Phase 1.5: Orient (for complex tasks)
+
+For non-trivial tasks, capture the orientation before designing. This is a lightweight version of brainstorming — not a full design session, just enough to anchor the plan.
+
+**Write a short orientation doc:**
+
+```bash
+cat <<'ORIENT' | flicknote add --project orientation
+# Orientation: [Feature Name]
+## What
+One sentence: what are we building/changing?
+## Why
+What problem does this solve? What's the motivation?
+## Approach
+Which approach are we taking and why? (If you evaluated alternatives in Phase 1, note the decision here.)
+## Anti-goals
+What is this NOT doing? (Prevents scope creep during implementation.)
+ORIENT
+```
+
+Annotate the task: `task <uuid> annotate "orientation: <flicknote-hex-id>"`
+
+**When to skip:** Simple bug fixes, mechanical refactors, tasks where what/why is obvious from the description. If the task description already answers what/why/approach, go straight to Phase 2.
+
+**When to write one:** Multi-file features, architecture decisions, anything where a worker might ask "but why are we doing it this way?"
+
 ## Phase 2: Design
 
 With reality understood, now design the solution:
@@ -186,32 +212,58 @@ Before declaring the plan done, check it against reality:
 3. **Is the scope reasonable?** — if it's more than ~5 tasks, consider splitting into phases
 4. **Would a worker need to ask questions?** — if yes, the plan isn't ready
 
-## Inline Plans vs Flicknote Plans
+## Plan Storage
 
-**Small tasks (≤6 steps, single file or mechanical changes):** Use inline plans — annotate the task directly with the plan. No flicknote needed.
+### Inline Plans (small tasks)
+
+For tasks with <=6 steps or single-file mechanical changes, annotate the task directly:
 
 ```bash
 ttal task add --project <alias> "description" --tag planned
-task <uuid> annotate 'Plan (inline): 1. Remove dep from package.json 2. Update imports in 3 files 3. Run bun install'
+task <uuid> annotate 'Plan: 1. Do X 2. Do Y 3. Do Z'
 ```
 
-**Large tasks (architecture decisions, multi-file refactors, trade-off analysis needed):** Use flicknote plans — save to flicknote, annotate task with hex ID.
+### Task Tree Plans (default for structured plans)
+
+For multi-step plans, create a subtask tree. The tree IS the plan — each subtask is a step, annotations hold details.
 
 ```bash
-# All plans go to the "plans" flicknote project
-flicknote add 'full plan content' --project plans
-task <uuid> annotate 'Plan: flicknote <hex-id>'
+cat <<'PLAN' | task <parent-uuid> plan
+## Step 1: Title
+Details and context for this step.
+
+## Step 2: Title
+Details and context for this step.
+PLAN
+
+# View the plan
+task <parent-uuid> tree
+
+# Iterate
+cat updated.md | task <parent-uuid> plan replace
 ```
 
-**Decision rule:** If the plan fits in 1-2 task annotations and a worker can execute it without ambiguity, inline it. If it needs headings, code examples, trade-off analysis, or context sections — use flicknote.
+No separate annotation needed — the subtasks are already under the parent task.
+
+### Flicknote (orientation docs + legacy plans)
+
+For orientation docs (what/why context): `flicknote add --project orientation`
+For full plan docs (legacy, still supported): `flicknote add --project plans`
+
+```bash
+task <uuid> annotate '<flicknote-hex-id>'
+```
+
+**Decision rule:** If the plan fits in annotations → inline. If it's an ordered set of execution steps → task tree. If you need to capture what/why/trade-offs separately → flicknote orientation alongside a task tree.
 
 ## After the Plan Is Written
 
-1. **Save the plan** — inline annotation or flicknote (see above)
-2. **Create a task** (if needed): `ttal task add --project <alias> "description"`
-3. **Annotate the task** with plan reference (inline or flicknote hex ID)
-4. **Review:** Run at least 2 rounds of `ttal go <uuid>`. Revise until the plan passes.
-5. **Execute:** When the plan survives review, run `ttal go <uuid>` to spawn a worker.
+1. **Save the plan:**
+   - Inline: annotate the task directly
+   - Task tree: `cat plan.md | task <parent-uuid> plan` — subtasks are already under the parent
+   - Flicknote (legacy): `flicknote add --project plans`, then `task <uuid> annotate '<hex-id>'`
+2. **Review:** Run at least 2 rounds of `ttal go <uuid>`. Revise until the plan passes.
+3. **Execute:** When the plan survives review, run `ttal go <uuid>` to spawn a worker.
 
 ## Remember
 
