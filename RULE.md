@@ -67,7 +67,7 @@ ttal ask "what is the latest Go generics syntax?" --web
 ttal sync                    # deploy subagents + config TOMLs to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
-Sources: `templates/docs/agents/` → `~/.claude/agents/`
+Sources: `agents/` → `~/.claude/agents/`
 Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
 
 Skills are stored in flicknote and accessed at runtime via `ttal skill get <name>`. To import skill files:
