@@ -84,16 +84,44 @@ type docRef struct {
 }
 
 func (t *Task) FormatPrompt() string {
+	inlineProjects := LoadInlineProjects()
+	refDescs, flicknoteCache, refs := parseAnnotationRefs(t.Annotations, inlineProjects)
+
 	lines := make([]string, 0, 1+len(t.Annotations))
 	lines = append(lines, t.Description)
+	for _, ann := range t.Annotations {
+		if refDescs[ann.Description] {
+			continue
+		}
+		lines = append(lines, "")
+		lines = append(lines, ann.Description)
+	}
 
-	inlineProjects := LoadInlineProjects()
+	result := strings.Join(lines, "\n") + "\n"
+	result += formatDocRefs(refs, flicknoteCache)
 
+	if IsFork() {
+		result = appendSubtasksSection(result, t.UUID)
+	}
+	if IsFork() && t.ParentID != "" {
+		result = prependParentContext(result, t)
+	}
+
+	return result
+}
+
+// parseAnnotationRefs scans annotations and classifies them as inline doc refs.
+// Returns refDescs (annotations that should be omitted from plain output),
+// flicknoteCache (pre-fetched flicknote content keyed by annotation desc),
+// and refs (ordered list of doc references to render).
+func parseAnnotationRefs(
+	annotations []Annotation, inlineProjects []string,
+) (map[string]bool, map[string]string, []docRef) {
 	refDescs := make(map[string]bool)
 	flicknoteCache := make(map[string]string)
 	var refs []docRef
 
-	for _, ann := range t.Annotations {
+	for _, ann := range annotations {
 		desc := ann.Description
 
 		if matches := inlineRefPattern.FindAllStringSubmatch(desc, -1); len(matches) > 0 {
@@ -111,7 +139,6 @@ func (t *Task) FormatPrompt() string {
 		if m := HexIDPattern.FindStringSubmatch(desc); len(m) > 0 {
 			hexID := m[1]
 			refDescs[desc] = true
-
 			note := ReadFlicknoteJSON(hexID)
 			if note != nil && ShouldInlineNote(note, inlineProjects) {
 				flicknoteCache[desc] = formatFlicknoteContent(note)
@@ -127,42 +154,32 @@ func (t *Task) FormatPrompt() string {
 		}
 	}
 
-	for _, ann := range t.Annotations {
-		if refDescs[ann.Description] {
-			continue
+	return refDescs, flicknoteCache, refs
+}
+
+// formatDocRefs renders the "Referenced Documentation" block for all refs.
+// Returns an empty string when refs is empty.
+func formatDocRefs(refs []docRef, flicknoteCache map[string]string) string {
+	if len(refs) == 0 {
+		return ""
+	}
+	sep := strings.Repeat("═", 80)
+	subSep := strings.Repeat("─", 80)
+	var b strings.Builder
+	b.WriteString("\nReferenced Documentation:\n")
+	for _, ref := range refs {
+		b.WriteString(sep + "\n")
+		b.WriteString(ref.label + "\n")
+		b.WriteString(subSep + "\n")
+		switch ref.refType {
+		case "file":
+			b.WriteString(readFileRef(ref.id) + "\n")
+		case "flicknote_cached":
+			b.WriteString(flicknoteCache[ref.id] + "\n")
 		}
-		lines = append(lines, "")
-		lines = append(lines, ann.Description)
+		b.WriteString(sep + "\n")
 	}
-
-	result := strings.Join(lines, "\n") + "\n"
-
-	if len(refs) > 0 {
-		result += "\nReferenced Documentation:\n"
-		sep := strings.Repeat("═", 80)
-		subSep := strings.Repeat("─", 80)
-		for _, ref := range refs {
-			result += sep + "\n"
-			result += ref.label + "\n"
-			result += subSep + "\n"
-			switch ref.refType {
-			case "file":
-				result += readFileRef(ref.id) + "\n"
-			case "flicknote_cached":
-				result += flicknoteCache[ref.id] + "\n"
-			}
-			result += sep + "\n"
-		}
-	}
-
-	if IsFork() {
-		result = appendSubtasksSection(result, t.UUID)
-	}
-	if IsFork() && t.ParentID != "" {
-		result = prependParentContext(result, t)
-	}
-
-	return result
+	return b.String()
 }
 
 // taskStatusLabel returns a human-readable status label for prompt output.
