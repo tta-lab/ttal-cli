@@ -769,8 +769,14 @@ func loadTasks(filter filterMode, search string) tea.Cmd {
 	return func() tea.Msg {
 		var args []string
 		switch filter {
-		case filterPending, filterToday, filterActive:
+		case filterPending, filterToday:
 			args = append(args, "status:pending")
+			if taskwarrior.IsFork() {
+				args = append(args, "parent_id:") // root tasks only (fork feature)
+			}
+		case filterActive:
+			args = append(args, "status:pending")
+			// Active shows ALL tasks including subtasks — active work is active work
 		case filterCompleted:
 			args = append(args, "status:completed")
 		}

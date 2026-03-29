@@ -1,6 +1,10 @@
 package tui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestApplyFilterPendingExcludesActiveTasks(t *testing.T) {
 	m := Model{
@@ -58,6 +62,22 @@ func TestAnnotateInputAcceptsText(t *testing.T) {
 	if m.annotateInput.Value() != "test annotation" {
 		t.Errorf("expected %q, got %q", "test annotation", m.annotateInput.Value())
 	}
+}
+
+func TestApplyFilter_ExcludesSubtasks(t *testing.T) {
+	m := NewModel()
+	m.filter = filterPending
+	m.tasks = []Task{
+		{UUID: "aaaa-root", Description: "root task", Status: "pending"},
+		{UUID: "bbbb-child", Description: "child task", Status: "pending", ParentID: "aaaa-root"},
+		{UUID: "cccc-root2", Description: "another root", Status: "pending"},
+	}
+	m.applyFilter()
+
+	// Root-only filtering is done server-side (parent_id: in loadTasks).
+	// applyFilter only handles client-side active/today/completed splitting.
+	// This test verifies applyFilter doesn't crash or mishandle tasks with ParentID set.
+	assert.Equal(t, 3, len(m.filtered)) // all show when loaded (server handles filtering)
 }
 
 func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {

@@ -16,7 +16,12 @@ import (
 
 // List shows pending tasks scheduled for today or earlier, sorted by urgency.
 func List() error {
-	out, err := taskwarrior.Command("status:pending", "export").Output()
+	args := []string{"status:pending"}
+	if taskwarrior.IsFork() {
+		args = append(args, "parent_id:") // root tasks only (fork feature)
+	}
+	args = append(args, "export")
+	out, err := taskwarrior.Command(args...).Output()
 	if err != nil {
 		return fmt.Errorf("failed to export tasks: %w", err)
 	}
