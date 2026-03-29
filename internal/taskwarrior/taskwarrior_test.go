@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const testUUID = "e9d4b7c1-1234-5678-9abc-def012345678"
@@ -406,6 +408,34 @@ func TestIsToday(t *testing.T) {
 			if got := task.IsToday(); got != tt.want {
 				t.Errorf("IsToday() with Scheduled=%q = %v, want %v", tt.scheduled, got, tt.want)
 			}
+		})
+	}
+}
+
+func TestTask_IsSubtask(t *testing.T) {
+	root := Task{UUID: "aaaa-bbbb", Description: "root task"}
+	child := Task{UUID: "cccc-dddd", Description: "child task", ParentID: "aaaa-bbbb"}
+
+	assert.False(t, root.IsSubtask())
+	assert.True(t, root.IsRoot())
+	assert.True(t, child.IsSubtask())
+	assert.False(t, child.IsRoot())
+}
+
+func TestIsForkFromColumns(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{"fork with parent_id", "uuid\ndescription\nparent_id\nposition\n", true},
+		{"stock without parent_id", "uuid\ndescription\nproject\nstatus\n", false},
+		{"empty output", "", false},
+		{"parent_id as substring only", "uuid\nmy_parent_id_field\n", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isForkFromColumns(tt.output))
 		})
 	}
 }

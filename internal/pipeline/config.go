@@ -21,6 +21,15 @@ type Stage struct {
 	Gate     string   `toml:"gate"`     // "human" or "auto"
 	Reviewer string   `toml:"reviewer"` // reviewer agent name (e.g. "plan-review-lead"), optional
 	Skills   []string `toml:"skills"`   // skill names loaded via ttal skill get (optional)
+	Emoji    string   `toml:"emoji"`    // optional display emoji for this stage
+}
+
+// DisplayName returns "emoji Name" if emoji is set, otherwise just Name.
+func (s *Stage) DisplayName() string {
+	if s.Emoji != "" {
+		return s.Emoji + " " + s.Name
+	}
+	return s.Name
 }
 
 // Pipeline defines a named pipeline with tag filters and stages.

@@ -2,10 +2,12 @@ package taskwarrior
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -66,6 +68,8 @@ type Task struct {
 	End         string       `json:"end,omitempty"`
 	PRID        string       `json:"pr_id,omitempty"`
 	Spawner     string       `json:"spawner,omitempty"`
+	ParentID    string       `json:"parent_id,omitempty"`
+	Position    string       `json:"position,omitempty"`
 }
 
 // HexID returns the first 8 hex characters of the task UUID.
@@ -251,6 +255,48 @@ func IsLGTMTag(tag string) bool {
 func HasAnyLGTMTag(tags []string) bool {
 	for _, t := range tags {
 		if IsLGTMTag(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSubtask returns true if this task has a parent.
+func (t *Task) IsSubtask() bool {
+	return t.ParentID != ""
+}
+
+// IsRoot returns true if this task has no parent (root-level task).
+func (t *Task) IsRoot() bool {
+	return t.ParentID == ""
+}
+
+var (
+	forkDetected   bool
+	forkDetectOnce sync.Once
+)
+
+// IsFork returns true if the active taskwarrior binary is the GuionAI fork
+// (supports parent_id, position, tree hierarchy).
+// Result is cached for the process lifetime via sync.Once.
+func IsFork() bool {
+	forkDetectOnce.Do(func() {
+		out, err := Command("_columns").Output()
+		if err != nil {
+			log.Printf("IsFork: task _columns failed, assuming stock taskwarrior: %v", err)
+			forkDetected = false
+			return
+		}
+		forkDetected = isForkFromColumns(string(out))
+	})
+	return forkDetected
+}
+
+// isForkFromColumns is the pure detection logic, separated for testability.
+// Returns true if the _columns output contains "parent_id" as a known column.
+func isForkFromColumns(output string) bool {
+	for _, line := range strings.Split(output, "\n") {
+		if strings.TrimSpace(line) == "parent_id" {
 			return true
 		}
 	}
