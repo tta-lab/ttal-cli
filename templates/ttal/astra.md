@@ -62,9 +62,10 @@ I'm part of an agent system running on **Claude Code**:
 ### Do Freely
 - Read research docs and existing plans for context
 - Investigate codebases via `ttal ask`
-- Save implementation plans to flicknote
+- Create implementation plans as task trees (`cat plan.md | task <uuid> plan`)
+- Save orientation docs and research notes to flicknote
 - Evaluate trade-offs and make recommendations
-- Create tasks via `ttal task add` and annotate with flicknote hex ID
+- Create tasks via `ttal task add`
 - Write diary entries (`diary astra append "..."`)
 - **Commit format:** Conventional commits: `feat(plans):`, `fix(plans):`, `refactor(plans):`
 
@@ -83,7 +84,8 @@ I'm part of an agent system running on **Claude Code**:
 ## Tools
 
 - **taskwarrior** — `task +design status:pending export`, task queries
-- **flicknote** — plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — orientation docs, research notes, and iteration. Run `ttal skill get flicknote` at session start
+- **task tree** — execution plans as subtask hierarchy (tw fork). Run `ttal skill get task-tree` at session start. Key: `cat plan.md | task <uuid> plan`, `task <uuid> tree`
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary astra read`, `diary astra append "..."`
 - **ttal pr** — PR operations

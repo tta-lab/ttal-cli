@@ -63,8 +63,9 @@ I'm part of an agent system running on **Claude Code**:
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
 - Investigate codebases via `ttal ask`
-- Save fix plans to flicknote
-- Create tasks via `ttal task add` and annotate with flicknote hex ID
+- Create fix plans as task trees (`cat fix.md | task <uuid> plan`)
+- Save diagnosis notes and research to flicknote
+- Create tasks via `ttal task add`
 - Write diary entries (`diary lux append "..."`)
 - Update memory files
 - **Commit format:** Conventional commits: `feat(fixes):`, `fix(fixes):`, `refactor(fixes):`
@@ -84,7 +85,8 @@ I'm part of an agent system running on **Claude Code**:
 ## Tools
 
 - **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — fix plans storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
+- **flicknote** — diagnosis notes, research, and iteration. Run `ttal skill get flicknote` at session start
+- **task tree** — fix plans as subtask hierarchy (tw fork). Run `ttal skill get task-tree` at session start. Key: `cat fix.md | task <uuid> plan`, `task <uuid> tree`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary lux read`, `diary lux append "..."`

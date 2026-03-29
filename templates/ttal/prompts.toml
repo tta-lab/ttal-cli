@@ -67,6 +67,7 @@ plan_review = """\
 Review the plan.
 
 Run `ttal task get` (no extra params) to see the full task and plan.
+If the plan uses a task tree, also run `task <uuid> tree` to see the subtask structure.
 Investigate the codebase as needed to verify assumptions.
 
 Post your review with: ttal comment add "<markdown>"
@@ -90,6 +91,7 @@ plan_re_review = """\
 The designer has updated the plan for the task based on your previous review.
 {{designer-comment}}
 Run `ttal task get` (no extra params) to see the updated plan.
+If the plan uses a task tree, also run `task <uuid> tree` to see the updated subtask structure.
 Check whether the issues you raised have been addressed.
 
 Post your updated review with: ttal comment add "<markdown>"

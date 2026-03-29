@@ -25,7 +25,7 @@ You are a plan test strategy reviewer. Your job is to evaluate whether implement
 
 ## Input
 
-You receive an implementation plan. Read the target project's existing tests to understand conventions.
+You receive an implementation plan (from flicknote, inline, or as a subtask tree). If the plan is a subtask tree, run `task <uuid> tree` to see the structure. Read the target project's existing tests to understand conventions.
 
 ## What to Check
 
