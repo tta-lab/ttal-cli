@@ -426,7 +426,14 @@ func (m *Model) handleAction(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.searchInput.Focus()
 	case key.Matches(msg, m.keys.Help):
-		return m, m.openHelp()
+		m.state = stateHelp
+		m.helpModel.ShowAll = true
+		m.helpModel.SetWidth(m.width - 4)
+		m.helpViewport.SetWidth(m.width)
+		m.helpViewport.SetHeight(m.height - 3)
+		m.helpViewport.SetContent(m.helpModel.FullHelpView(m.keys.FullHelp()))
+		m.helpViewport.GotoTop()
+		return m, nil
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.reloadTasks()
 	case key.Matches(msg, m.keys.Heatmap):
@@ -435,19 +442,6 @@ func (m *Model) handleAction(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, loadHeatmapCmd()
 	}
 	return m.handleTaskAction(msg)
-}
-
-// openHelp initialises the help viewport and transitions to stateHelp.
-func (m *Model) openHelp() tea.Cmd {
-	m.state = stateHelp
-	m.helpModel.ShowAll = true
-	m.helpModel.SetWidth(m.width - 4)
-	helpContent := m.helpModel.FullHelpView(m.keys.FullHelp())
-	m.helpViewport.SetWidth(m.width)
-	m.helpViewport.SetHeight(m.height - 3)
-	m.helpViewport.SetContent(helpContent)
-	m.helpViewport.GotoTop()
-	return nil
 }
 
 // handleTaskAction handles actions that operate on the selected task.
