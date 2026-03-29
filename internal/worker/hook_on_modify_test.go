@@ -415,10 +415,12 @@ gate = "auto"
 func TestIsManagerRole(t *testing.T) {
 	// Create a temp team dir with two agent .md files — one manager, one fixer.
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: manager\n---\n# Yuki\n"), 0o644); err != nil {
+	yukiContent := []byte("---\nrole: manager\n---\n# Yuki\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), yukiContent, 0o644); err != nil {
 		t.Fatalf("write yuki.md: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n# Kestrel\n"), 0o644); err != nil {
+	kestrelContent := []byte("---\nrole: fixer\n---\n# Kestrel\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), kestrelContent, 0o644); err != nil {
 		t.Fatalf("write kestrel.md: %v", err)
 	}
 
