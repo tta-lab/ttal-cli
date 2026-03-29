@@ -73,8 +73,9 @@ func TestDiscover(t *testing.T) {
 		t.Fatal("kestrel not found")
 		return
 	}
-	if kAgent.Voice != "" || kAgent.Emoji != "" {
-		t.Errorf("kestrel should have empty metadata, got voice=%q emoji=%q", kAgent.Voice, kAgent.Emoji)
+	if kAgent.Voice != "" || kAgent.Emoji != "" || kAgent.Color != "" {
+		t.Errorf("kestrel should have empty metadata, got voice=%q emoji=%q color=%q",
+			kAgent.Voice, kAgent.Emoji, kAgent.Color)
 	}
 }
 
@@ -105,7 +106,10 @@ func TestSetFieldColorRoundTrip(t *testing.T) {
 		t.Fatalf("SetField: %v", err)
 	}
 
-	ag, _ := Get(dir, "yuki")
+	ag, err := Get(dir, "yuki")
+	if err != nil {
+		t.Fatalf("Get after SetField: %v", err)
+	}
 	if ag.Color != "cyan" {
 		t.Errorf("color after update: got %q, want cyan", ag.Color)
 	}
@@ -165,6 +169,17 @@ func TestSetField(t *testing.T) {
 	}
 	if ag.Emoji != testEmojiCat {
 		t.Errorf("emoji should be preserved, got %q", ag.Emoji)
+	}
+}
+
+func TestSetFieldRejectsNestedFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	nested := []byte("---\nname: coder\nrole: worker\nclaude-code:\n  model: sonnet\n---\n# Coder")
+	os.WriteFile(filepath.Join(dir, "coder.md"), nested, 0o644) //nolint:errcheck
+
+	err := SetField(dir, "coder", "color", "green")
+	if err == nil {
+		t.Fatal("expected error for nested frontmatter, got nil")
 	}
 }
 

@@ -152,3 +152,42 @@ func TestGenerateVariantNoRuntimeBlock(t *testing.T) {
 		t.Error("CC variant should still contain shared name")
 	}
 }
+
+func TestGenerateCCVariantIncludesColor(t *testing.T) {
+	agent := &ParsedAgent{
+		Frontmatter: AgentFrontmatter{
+			Name:  "coder",
+			Color: "green",
+			ClaudeCode: map[string]interface{}{
+				"model": "sonnet",
+			},
+		},
+		Body: "Prompt body.\n",
+	}
+
+	result, err := GenerateCCVariant(agent)
+	if err != nil {
+		t.Fatalf("GenerateCCVariant: %v", err)
+	}
+	if !strings.Contains(result, "color: green") {
+		t.Errorf("CC variant should contain color field, got:\n%s", result)
+	}
+}
+
+func TestGenerateCCVariantOmitsEmptyColor(t *testing.T) {
+	agent := &ParsedAgent{
+		Frontmatter: AgentFrontmatter{
+			Name:  "no-color",
+			Color: "",
+		},
+		Body: "Body.\n",
+	}
+
+	result, err := GenerateCCVariant(agent)
+	if err != nil {
+		t.Fatalf("GenerateCCVariant: %v", err)
+	}
+	if strings.Contains(result, "color:") {
+		t.Errorf("CC variant should not contain color field when empty, got:\n%s", result)
+	}
+}
