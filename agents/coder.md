@@ -47,26 +47,31 @@ Worktree rules:
 
 **Always use `ttal task get` with no extra params** — the env var `TTAL_JOB_ID` handles UUID resolution automatically. Never pass a UUID manually.
 
-Read the plan from flicknote: `flicknote detail <hex-id>` — the hex ID is in the task annotations.
+Load the plan — check task annotations for context:
+- **Flicknote plan:** If annotations contain a flicknote hex ID, read it: `flicknote detail <hex-id>`
+- **Task tree plan:** Check for subtasks: `task $TTAL_JOB_ID tree` — if subtasks exist, they ARE your work items. Each subtask = a step to execute.
+- **Inline plan:** If no flicknote ID and no subtasks, read the task annotation for inline steps.
+
+If both flicknote and subtask tree exist, the subtask tree is your execution tracker and the flicknote is supplementary context.
 
 Verify you're in the correct project: does the codebase in `pwd` match what the plan describes? If not:
 ```bash
 ttal alert "wrong project: plan describes <X> but spawned in <actual path>"
 ```
 
-Mentally decompose the plan into ordered steps and track progress using TodoWrite (session-scoped task tracking, not persistent memory).
-
 ### Execute
 
 Execute every task **continuously** — do not pause between tasks for feedback.
 
-For each TodoWrite item:
-1. Mark as in_progress
-2. Follow each step exactly as written in the plan
+For each subtask in the tree:
+1. Read the subtask's description and annotations for details
+2. Follow each step exactly as written
 3. Run verifications as specified (build, test)
 4. Commit as specified in the plan
-5. Mark as completed
-6. Move to the next item immediately
+5. Mark the subtask done: `task <subtask-uuid> done`
+6. Move to the next subtask immediately
+
+If no subtask tree exists (inline or flicknote-only plan), execute the plan steps sequentially in order.
 
 ### Create PR
 
@@ -117,6 +122,8 @@ Don't guess your way through blockers — alert and wait.
 ## Tools
 
 - `ttal task get` — load task context (**no UUID, no extra params** — env var handles it)
+- `task $TTAL_JOB_ID tree` — view your subtask work items
+- `task <subtask-uuid> done` — mark a completed subtask
 - `ttal pr create` / `ttal pr modify` — PR operations (never use `gh` or `tea`)
 - `ttal comment add` — post progress, triage updates (mirrors to GitHub/Forgejo)
 - `ttal alert` — escalate blockers to the planner/parent agent

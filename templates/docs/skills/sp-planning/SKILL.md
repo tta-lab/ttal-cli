@@ -118,29 +118,26 @@ With reality understood, now design the solution:
 
 ## Phase 3: Write the Plan
 
-Now write. Everything below this point is about plan format and quality.
+Now write. The default format is a **task tree** — subtasks under the parent task. Each subtask = one step the worker executes and marks done. Use flicknote for orientation docs (what/why context) alongside the tree when needed.
 
 ### Plan Quality Checklist
 
-Every task in the plan MUST have:
+Every subtask in the plan MUST have:
 
 - [ ] **Files** — exact paths to create, modify, and test
-- [ ] **Before/after code** — show what changes, not just "add validation"
-- [ ] **Build/test commands** — exact commands with expected output
+- [ ] **What to do** — clear description, not just "add validation." For complex changes, include before/after code.
+- [ ] **Build/test commands** — exact commands with expected output (can be in parent task or final subtask)
 - [ ] **Commit message** — ready to copy-paste
-- [ ] **Dependencies explicit** — what must be done before this task
 - [ ] **Self-contained** — worker can execute without asking questions
 
-If a task fails this checklist, it's not ready.
+If a subtask fails this checklist, it's not ready.
 
-### Plan Document Header
+### Orientation Header (flicknote)
 
-Every plan MUST start with:
+When writing a flicknote orientation doc alongside the task tree, start with:
 
 ```markdown
 # Plan: [Feature Name]
-
-> **For Claude:** Workers implement this plan using the coder agent identity.
 
 **Project:** [ttal project alias — e.g. `ttal-cli`]
 **Goal:** [One sentence describing what this builds]
@@ -150,49 +147,31 @@ Every plan MUST start with:
 ---
 ```
 
-### Task Structure
+### Task Structure (task tree format)
+
+Each `##` heading becomes a subtask. Body text becomes the subtask's annotation. Workers see these via `task <uuid> tree` and mark each done on completion.
 
 ```markdown
-## Task N: [Component Name]
+## Add validation layer
+Add input validation to the API handler. Check required fields, validate types, return 400 on failure.
 
-**Files:**
-- Create: `exact/path/to/file.go`
-- Modify: `exact/path/to/existing.go`
-- Test: `tests/exact/path/to/test.go`
+Files: `internal/api/handler.go` (modify), `internal/api/handler_test.go` (create)
 
-**Step 1: Write the failing test**
+Step 1: Write failing test for missing required fields
+Step 2: Implement validation, run tests
+Step 3: Commit — `feat(api): add input validation to handler`
 
-\`\`\`go
-func TestSpecificBehavior(t *testing.T) {
-    result := Function(input)
-    assert.Equal(t, expected, result)
-}
-\`\`\`
+## Write integration tests
+Integration tests for the full validation flow.
 
-**Step 2: Run test to verify it fails**
+Files: `internal/api/integration_test.go` (create)
 
-Run: `go test ./path/... -run TestSpecificBehavior -v`
-Expected: FAIL
-
-**Step 3: Write minimal implementation**
-
-\`\`\`go
-func Function(input string) string {
-    return expected
-}
-\`\`\`
-
-**Step 4: Run test to verify it passes**
-
-Run: `go test ./path/... -run TestSpecificBehavior -v`
-Expected: PASS
-
-**Step 5: Commit**
-
-\`\`\`
-feat(scope): add specific feature
-\`\`\`
+Step 1: Write integration test hitting the handler endpoint
+Step 2: Run `make test`, verify pass
+Step 3: Commit — `test(api): add validation integration tests`
 ```
+
+Each subtask is self-contained: files, steps, commit message. The worker executes them in order and marks each done with `task <subtask-uuid> done`.
 
 ### Bite-Sized Task Granularity
 
