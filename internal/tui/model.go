@@ -82,6 +82,10 @@ type Model struct {
 	// Heatmap
 	heatmapModel heatmapModel
 	heatmapReady bool
+
+	// Tree expand/collapse
+	expanded      map[string]bool   // parent UUIDs currently expanded
+	childrenCache map[string][]Task // parent UUID → loaded children
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -101,6 +105,8 @@ func NewModel() Model {
 		modifyInput:    newTextInput("+tag project:x priority:H"),
 		annotateInput:  newTextInput("annotation text"),
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		expanded:       make(map[string]bool),
+		childrenCache:  make(map[string][]Task),
 	}
 	return m
 }
@@ -115,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg, heatmapLoadedMsg:
+	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg, actionResultMsg, execFinishedMsg, heatmapLoadedMsg, childrenLoadedMsg:
 		return m.handleDataMsg(msg)
 	case spinner.TickMsg:
 		if !m.loading {
@@ -161,7 +167,24 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "Task load error: " + msg.err.Error()
 		}
 		m.tasks = msg.tasks
+		m.childrenCache = make(map[string][]Task) // clear stale children on reload
 		m.applyFilter()
+		// Reload children for any currently expanded parents
+		var cmds []tea.Cmd
+		for parentUUID := range m.expanded {
+			cmds = append(cmds, loadChildren(parentUUID))
+		}
+		if len(cmds) > 0 {
+			return m, tea.Batch(cmds...)
+		}
+		return m, nil
+	case childrenLoadedMsg:
+		if msg.err != nil {
+			m.statusMsg = "Load children: " + msg.err.Error()
+			return m, nil
+		}
+		m.childrenCache[msg.parentUUID] = msg.children
+		m.applyFilter() // rebuild filtered list with children injected
 		return m, nil
 	case actionResultMsg:
 		m.statusMsg = msg.message
@@ -273,6 +296,28 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Tree expand/collapse — only in task list state
+	if m.state == stateTaskList {
+		switch action {
+		case keyRight: // l — expand
+			return m, m.expandSelected()
+		case keyLeft: // h — collapse
+			m.collapseSelected()
+			return m, nil
+		}
+	}
+
+	// Extract keyEnter here so it can return a Cmd (load children for detail view)
+	if action == keyEnter && len(m.filtered) > 0 {
+		m.selectedUUID = m.filtered[m.cursor].UUID
+		m.state = stateTaskDetail
+		// Load children for detail view if not cached
+		if _, ok := m.childrenCache[m.selectedUUID]; !ok {
+			return m, loadChildren(m.selectedUUID)
+		}
+		return m, nil
+	}
+
 	if m.handleNavigation(action) {
 		return m, nil
 	}
@@ -307,11 +352,6 @@ func (m *Model) handleNavigation(action keyAction) bool {
 			m.cursor = len(m.filtered) - 1
 			m.selectedUUID = m.filtered[m.cursor].UUID
 			m.ensureCursorVisible()
-		}
-	case keyEnter:
-		if len(m.filtered) > 0 {
-			m.selectedUUID = m.filtered[m.cursor].UUID
-			m.state = stateTaskDetail
 		}
 	default:
 		return false
@@ -640,7 +680,8 @@ func (m *Model) visibleRows() int {
 func (m *Model) applyFilter() {
 	prevUUID := m.selectedUUID
 
-	m.filtered = nil
+	// Phase 1: filter root tasks
+	var roots []Task
 	for _, t := range m.tasks {
 		switch m.filter {
 		case filterPending:
@@ -656,11 +697,22 @@ func (m *Model) applyFilter() {
 				continue
 			}
 		}
-		m.filtered = append(m.filtered, t)
+		roots = append(roots, t)
 	}
-	sort.Slice(m.filtered, func(i, j int) bool {
-		return m.filtered[i].Urgency > m.filtered[j].Urgency
+	sort.Slice(roots, func(i, j int) bool {
+		return roots[i].Urgency > roots[j].Urgency
 	})
+
+	// Phase 2: interleave expanded children after their parents
+	m.filtered = nil
+	for _, t := range roots {
+		m.filtered = append(m.filtered, t)
+		if m.expanded[t.UUID] {
+			if children, ok := m.childrenCache[t.UUID]; ok {
+				m.filtered = append(m.filtered, children...)
+			}
+		}
+	}
 
 	if m.restoreCursorByUUID(prevUUID) {
 		return
@@ -675,6 +727,44 @@ func (m *Model) applyFilter() {
 	}
 	m.syncSelectedUUID()
 	m.offset = 0
+}
+
+// expandSelected expands the task under cursor to show its children.
+// Returns a Cmd to load children if not cached.
+func (m *Model) expandSelected() tea.Cmd {
+	t := m.selectedTask()
+	if t == nil {
+		return nil
+	}
+	if m.expanded[t.UUID] {
+		return nil
+	}
+	m.expanded[t.UUID] = true
+	if _, ok := m.childrenCache[t.UUID]; ok {
+		m.applyFilter()
+		return nil
+	}
+	return loadChildren(t.UUID)
+}
+
+// collapseSelected collapses the task under cursor.
+// If cursor is on a child task, collapses the parent instead.
+func (m *Model) collapseSelected() {
+	t := m.selectedTask()
+	if t == nil {
+		return
+	}
+	if t.IsSubtask() {
+		parentUUID := t.ParentID
+		delete(m.expanded, parentUUID)
+		m.applyFilter()
+		m.restoreCursorByUUID(parentUUID)
+		return
+	}
+	if m.expanded[t.UUID] {
+		delete(m.expanded, t.UUID)
+		m.applyFilter()
+	}
 }
 
 // restoreCursorByUUID repositions the cursor to the task with the given UUID.
@@ -723,6 +813,12 @@ type execFinishedMsg struct {
 	err error
 }
 
+type childrenLoadedMsg struct {
+	parentUUID string
+	children   []Task
+	err        error
+}
+
 // Commands
 
 func loadConfig() tea.Cmd {
@@ -757,6 +853,13 @@ func loadConfigForAutocomplete() tea.Cmd {
 		}
 
 		return autocompleteLoadedMsg{projects: projects, tags: tags}
+	}
+}
+
+func loadChildren(parentUUID string) tea.Cmd {
+	return func() tea.Msg {
+		children, err := taskwarrior.GetChildren(parentUUID)
+		return childrenLoadedMsg{parentUUID: parentUUID, children: children, err: err}
 	}
 }
 

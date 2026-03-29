@@ -120,6 +120,9 @@ const helpText = `Key Bindings:
   Ctrl+C          Cancel search
   Ctrl+R          Refresh tasks
 
+  l               Expand task (show subtasks)
+  h               Collapse task (hide subtasks) — on a subtask, collapses parent
+
   H               Heatmap (task completion, past year) — hjkl/←↑↓→ to navigate, H/Esc to close
   ?               Toggle help
   q               Quit`

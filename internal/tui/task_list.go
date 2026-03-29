@@ -59,6 +59,7 @@ func (m Model) viewTaskList() string {
 	for i := m.offset; i < end; i++ {
 		t := &m.filtered[i]
 		selected := i == m.cursor
+		isChild := t.IsSubtask()
 
 		uuid := t.HexID()
 		pri := t.Priority
@@ -71,7 +72,17 @@ func (m Model) viewTaskList() string {
 		}
 		proj := truncate(t.Project, colProject)
 		tags := truncate(strings.Join(t.Tags, " "), colTags)
-		desc := truncate(t.Description, colDesc)
+
+		descStr := t.Description
+		if isChild {
+			isLast := (i+1 >= len(m.filtered)) || !m.filtered[i+1].IsSubtask()
+			prefix := "├─ "
+			if isLast {
+				prefix = "└─ "
+			}
+			descStr = prefix + descStr
+		}
+		desc := truncate(descStr, colDesc)
 
 		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
 			colUUID, uuid, colPri, pri,
@@ -84,6 +95,15 @@ func (m Model) viewTaskList() string {
 			// Uses plain line because lipgloss Width() padding emits ANSI reset sequences
 			// that clear the outer background when cells are styled individually.
 			line = styleToday.Render(line)
+		} else if isChild {
+			// Child rows: dim metadata more aggressively
+			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
+			styledPri := lipgloss.NewStyle().Width(colPri).Render(styleDim.Render(pri))
+			styledAge := lipgloss.NewStyle().Width(colAge).Render(styleDim.Render(age))
+			styledProj := lipgloss.NewStyle().Width(colProject).Render(styleDim.Render(proj))
+			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleDim.Render(""))
+			line = " " + styledUUID + " " + styledPri + " " +
+				styledAge + " " + styledProj + " " + styledTags + " " + desc
 		} else {
 			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
 			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
