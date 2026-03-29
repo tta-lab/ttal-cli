@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -88,7 +89,14 @@ Examples:
 		}
 
 		// Notify lifecycle agent
-		worker.NotifyTelegram(fmt.Sprintf("📋 PR created: %s\n%s", title, resp.PRURL))
+		if err := daemon.Notify(daemon.NotifyRequest{
+			Message: notification.PRCreated{
+				Title: title,
+				URL:   resp.PRURL,
+			}.Render(),
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: notification failed: %v\n", err)
+		}
 
 		// Auto-advance pipeline — triggers daemon to spawn PR reviewer.
 		if ctx.Task.UUID != "" {
