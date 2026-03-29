@@ -11,6 +11,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
@@ -114,11 +115,38 @@ func lgtmTagAdded(originalTags, modifiedTags []string) string {
 	return ""
 }
 
+// isManagerRole returns true if agentName has role=manager in the team directory.
+// Returns false on any error — fail-safe means enforce the gate.
+func isManagerRole(agentName, configDir string) bool {
+	if agentName == "" {
+		return false
+	}
+	teamPath := config.LoadTeamPath(configDir)
+	if teamPath == "" {
+		return false
+	}
+	info, err := agentfs.Get(teamPath, agentName)
+	if err != nil {
+		return false
+	}
+	return info.Role == "manager"
+}
+
 // checkPipelineDoneGuard blocks task completion when the task matches a pipeline
 // but the last stage hasn't been approved. Pipeline completion is determined by
 // the presence of +<laststage>_lgtm tag.
 // configDir may be empty — defaults to config.DefaultConfigDir().
 func checkPipelineDoneGuard(task hookTask, configDir string) error {
+	// Escape hatch: humans and manager-role agents bypass the done gate.
+	// Only workers and non-manager agents are gated by pipeline stages.
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+	if agentName == "" {
+		return nil // Human — no gate.
+	}
+	if isManagerRole(agentName, configDir) {
+		return nil // Manager role — no gate.
+	}
+
 	p := matchedPipeline(task, configDir)
 	if p == nil {
 		return nil
