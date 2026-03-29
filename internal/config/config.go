@@ -1278,8 +1278,9 @@ func DefaultConfigDir() string { return defaultConfigDir() }
 // This is a lightweight alternative to Load() for hook contexts — hooks run
 // synchronously in taskwarrior's pipeline and cannot afford the overhead of
 // Load() which also parses roles.toml and prompts.toml (and fails if they're
-// missing required fields). This function intentionally duplicates the team
-// resolution logic from resolve() to stay independent.
+// missing required fields). The team resolution logic (reading default_team,
+// falling back to DefaultTeamName) is deliberately inlined here to stay
+// independent of Load() and resolve().
 // Returns empty string on any error (callers treat empty as "unknown").
 func LoadTeamPath(configDir string) string {
 	if configDir == "" {

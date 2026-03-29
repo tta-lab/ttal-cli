@@ -127,6 +127,7 @@ func isManagerRole(agentName, configDir string) bool {
 	}
 	info, err := agentfs.Get(teamPath, agentName)
 	if err != nil {
+		hookLogFile(fmt.Sprintf("isManagerRole: agentfs.Get(%q): %v — treating as non-manager", agentName, err))
 		return false
 	}
 	return info.Role == "manager"
@@ -174,6 +175,9 @@ func checkPipelineDoneGuard(task hookTask, configDir string) error {
 // addedLgtmTag must be pre-computed by the caller to avoid duplicating the predicate.
 // allowedReviewers is collected from the pipeline stages' Reviewer fields.
 // If allowedReviewers is nil (no pipeline found), all agents are rejected.
+// No manager bypass by design: managers force-complete tasks via checkPipelineDoneGuard
+// (the done gate), not by manually setting _lgtm tags. LGTM tags represent reviewer
+// sign-off on specific pipeline stages and should only come from designated reviewers.
 func checkLGTMGuard(addedLgtmTag string, allowedReviewers []string) error {
 	if addedLgtmTag == "" {
 		return nil
