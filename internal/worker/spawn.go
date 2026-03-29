@@ -191,7 +191,7 @@ func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error 
 
 func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (workDir, branch string, err error) {
 	if cfg.Worktree {
-		workDir, err = setupWorktree(project, task.SessionID(), cfg.Name, task.Project)
+		workDir, err = setupWorktree(project, task.HexID(), cfg.Name, task.Project)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to setup worktree: %w", err)
 		}
@@ -287,7 +287,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc, _ string) []string {
 	parts := []string{
 		"TTAL_AGENT_NAME=" + CoderAgentName,
-		fmt.Sprintf("TTAL_JOB_ID=%s", task.SessionID()),
+		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
 	if taskrc != "" {
@@ -303,7 +303,7 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 		}
 	}
 
-	setEnv("TTAL_JOB_ID", task.SessionID())
+	setEnv("TTAL_JOB_ID", task.HexID())
 
 	if taskrc != "" {
 		setEnv("TASKRC", taskrc)

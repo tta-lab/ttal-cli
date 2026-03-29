@@ -40,10 +40,10 @@ type CloseResult struct {
 func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Find the task by UUID prefix (try completed first, then pending)
 	// Handle both old (bare UUID[:8]) and new (w-UUID[:8]-slug) formats
-	sid := taskwarrior.ExtractSessionID(sessionID)
-	task, err := taskwarrior.ExportTaskBySessionID(sid, taskStatusCompleted)
+	sid := taskwarrior.ExtractHexID(sessionID)
+	task, err := taskwarrior.ExportTaskByHexID(sid, taskStatusCompleted)
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySessionID(sid, taskStatusPending)
+		task, err = taskwarrior.ExportTaskByHexID(sid, taskStatusPending)
 	}
 	if err != nil {
 		result := &CloseResult{

@@ -80,9 +80,9 @@ func resolveTaskInfo(jobID string) (*taskwarrior.Task, *gitprovider.RepoInfo, er
 // resolveTask finds the task from TTAL_JOB_ID.
 func resolveTask(jobID string) (*taskwarrior.Task, error) {
 	// Try pending (active worker), then completed (just finished)
-	task, err := taskwarrior.ExportTaskBySessionID(jobID, "pending")
+	task, err := taskwarrior.ExportTaskByHexID(jobID, "pending")
 	if err != nil {
-		task, err = taskwarrior.ExportTaskBySessionID(jobID, "completed")
+		task, err = taskwarrior.ExportTaskByHexID(jobID, "completed")
 		if err != nil {
 			return nil, fmt.Errorf("no task found for job ID %q: %w", jobID, err)
 		}

@@ -67,9 +67,8 @@ type Task struct {
 	Spawner     string       `json:"spawner,omitempty"`
 }
 
-// SessionID returns a deterministic session identifier derived from the task UUID.
-// Uses the first 8 characters of the UUID (4 billion possible values).
-func (t *Task) SessionID() string {
+// HexID returns the first 8 hex characters of the task UUID.
+func (t *Task) HexID() string {
 	if len(t.UUID) >= 8 {
 		return t.UUID[:8]
 	}
@@ -88,11 +87,11 @@ func (t *Task) SessionID() string {
 //
 // This is distinct from agent sessions which use "ttal-<team>-<agent>".
 func (t *Task) SessionName() string {
-	prefix := "w-" + t.SessionID() + "-" // "w-e9d4b7c1-" = 11 chars
+	prefix := "w-" + t.HexID() + "-" // "w-e9d4b7c1-" = 11 chars
 
 	slug := slugify(t.Description, 64)
 	if slug == "" {
-		return "w-" + t.SessionID()
+		return "w-" + t.HexID()
 	}
 
 	return prefix + slug
@@ -157,9 +156,9 @@ func ParseTaskDate(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("cannot parse date: %s", s)
 }
 
-// ExtractSessionID extracts the UUID[:8] from a session name.
+// ExtractHexID extracts the UUID[:8] from a session name.
 // Handles w-UUID[:8]-slug (worker) and bare UUID[:8].
-func ExtractSessionID(sessionName string) string {
+func ExtractHexID(sessionName string) string {
 	if strings.HasPrefix(sessionName, "w-") {
 		parts := strings.SplitN(sessionName[2:], "-", 2)
 		if len(parts) > 0 {

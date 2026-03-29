@@ -106,7 +106,7 @@ func runRemindList(_ *cobra.Command, _ []string) error {
 				sched = parsed.Local().Format("2006-01-02 15:04")
 			}
 		}
-		fmt.Printf("%-10s %-20s %s\n", t.SessionID(), sched, t.Description)
+		fmt.Printf("%-10s %-20s %s\n", t.HexID(), sched, t.Description)
 	}
 	return nil
 }

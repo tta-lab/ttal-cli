@@ -13,7 +13,7 @@ import (
 )
 
 // buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
-// TTAL_JOB_ID is set so the reviewer can resolve the task context via ExportTaskBySessionID.
+// TTAL_JOB_ID is set so the reviewer can resolve the task context via ExportTaskByHexID.
 func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Runtime) ([]string, error) {
 	if len(taskUUID) < 8 {
 		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)

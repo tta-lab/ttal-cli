@@ -609,7 +609,7 @@ func advanceToStage(
 		}
 
 		spawnCfg := worker.SpawnConfig{
-			Name:     task.SessionID(),
+			Name:     task.HexID(),
 			Project:  projectPath,
 			TaskUUID: task.UUID,
 			Worktree: true,
@@ -687,7 +687,7 @@ func askHumanGate(
 		html.EscapeString(nextStageName),
 		html.EscapeString(task.Description),
 		html.EscapeString(task.Project),
-		html.EscapeString(task.SessionID()),
+		html.EscapeString(task.HexID()),
 	)
 	options := []string{frontend.GateOptionApprove, frontend.GateOptionReject}
 	answer, skipped, err := fe.AskHuman(ctx, agentName, question, options)

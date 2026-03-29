@@ -61,7 +61,7 @@ func List() error {
 			}
 		}
 		rows = append(rows, []string{
-			t.SessionID(),
+			t.HexID(),
 			fmt.Sprintf("%.1f", t.Urgency),
 			t.Project,
 			strings.Join(t.Tags, " "),
@@ -119,7 +119,7 @@ func Completed() error {
 	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {
 		rows = append(rows, []string{
-			t.SessionID(),
+			t.HexID(),
 			t.Project,
 			strings.Join(t.Tags, " "),
 			t.Description,
