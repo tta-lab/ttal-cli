@@ -275,8 +275,9 @@ type CloseWindowRequest struct {
 
 // GitPushRequest asks the daemon to push a branch to origin using daemon-held credentials.
 type GitPushRequest struct {
-	WorkDir string `json:"work_dir"` // absolute path to the git worktree
-	Branch  string `json:"branch"`   // branch name to push
+	WorkDir      string `json:"work_dir"`                // absolute path to the git worktree
+	Branch       string `json:"branch"`                  // branch name to push
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // GitPushResponse is the daemon's response for a git push operation.
@@ -287,8 +288,9 @@ type GitPushResponse struct {
 
 // GitTagRequest asks the daemon to create and push a git tag using daemon-held credentials.
 type GitTagRequest struct {
-	WorkDir string `json:"work_dir"` // absolute path to the project repo
-	Tag     string `json:"tag"`      // tag name (e.g. "v2.1.0")
+	WorkDir      string `json:"work_dir"`                // absolute path to the project repo
+	Tag          string `json:"tag"`                     // tag name (e.g. "v2.1.0")
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
 // GitTagResponse is the daemon's response for a git tag operation.

@@ -40,8 +40,9 @@ Examples:
 		}
 
 		resp, err := daemon.GitTag(daemon.GitTagRequest{
-			WorkDir: projectPath,
-			Tag:     tag,
+			WorkDir:      projectPath,
+			Tag:          tag,
+			ProjectAlias: projectAlias,
 		})
 		if err != nil {
 			return fmt.Errorf("tag failed: %w", err)
