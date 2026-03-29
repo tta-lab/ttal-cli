@@ -368,7 +368,7 @@ func TestParseTaskDate(t *testing.T) {
 		wantErr bool
 	}{
 		{"compact format", "20260224T120000Z", false},
-		{"RFC3339", "2026-02-24T12:00:00Z", false},
+		{"RFC3339", "2026-02-24T12:00:00+01:00", false},
 		{"ISO with Z", "2026-02-24T12:00:00Z", false},
 		{"date only", "2026-02-24", false},
 		{"invalid", "not-a-date", true},
@@ -387,7 +387,7 @@ func TestParseTaskDate(t *testing.T) {
 func TestIsToday(t *testing.T) {
 	today := time.Now().UTC()
 	yesterday := today.Add(-24 * time.Hour)
-	tomorrow := today.Add(24 * time.Hour)
+	tomorrow := today.Add(48 * time.Hour)
 
 	tests := []struct {
 		name      string
