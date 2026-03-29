@@ -6,7 +6,7 @@ living showcase of how a real team is structured and managed with ttal.
 
 ## The Team
 
-11 professional agents, each with a dedicated workspace and CLAUDE.md:
+12 professional agents, each with a dedicated workspace and CLAUDE.md:
 
 | Agent | Role | Creature/Object |
 |-------|------|----------------|
@@ -21,6 +21,7 @@ living showcase of how a real team is structured and managed with ttal.
 | **Lux** 🔥 | Bug fix designer — diagnoses root causes across all projects | Matchstick |
 | **Astra** 📐 | Design architect — writes implementation plans (Effect.ts/fb3 domain) | Drafting Compass |
 | **Cael** ⚓ | Devops design architect — K8s, GitOps, Tanka, Flux, infrastructure | Anchor |
+| **Quill** 🐦‍⬛ | Researcher — linguistic patterns, prompt analysis, structural deep dives | Crow |
 
 ## How It Differs from Starter Templates
 
@@ -50,7 +51,8 @@ templates/ttal/
 ├── nyx/CLAUDE.md        # Researcher (Guion/fb3 domain)
 ├── lux/CLAUDE.md        # Bug fix designer
 ├── astra/CLAUDE.md      # Design architect (Effect.ts/fb3 domain)
-└── cael/CLAUDE.md       # Devops design architect
+├── cael/CLAUDE.md       # Devops design architect
+└── quill/CLAUDE.md      # Researcher (linguistic patterns)
 ```
 
 Shared skills, subagents, and commands live in `templates/docs/` — referenced via
