@@ -28,6 +28,7 @@ func (m Model) viewTaskDetail() string {
 
 	writeOptionalFields(&b, t)
 	writeAnnotations(&b, t, m.width)
+	writeSubtasks(&b, m.childrenCache[t.UUID])
 
 	b.WriteString("\n")
 	b.WriteString(styleDim.Render(
@@ -70,6 +71,13 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 	}
 	if t.Spawner != "" {
 		field(b, "Spawner:", " ", t.Spawner)
+	}
+	if t.ParentID != "" {
+		parentHex := t.ParentID
+		if len(parentHex) >= 8 {
+			parentHex = parentHex[:8]
+		}
+		field(b, "Parent:", " ", parentHex)
 	}
 	if t.Scheduled != "" {
 		field(b, "Sched:", " ", formatDate(t.Scheduled))
@@ -114,6 +122,27 @@ func writeAnnotations(b *strings.Builder, t *Task, width int) {
 		}
 
 		fmt.Fprintf(b, "  %s%s\n", date, desc)
+	}
+}
+
+func writeSubtasks(b *strings.Builder, children []Task) {
+	if len(children) == 0 {
+		return
+	}
+	b.WriteString("\n  " + styleTitle.Render("Subtasks") + "\n")
+	for i, child := range children {
+		prefix := "  ├─ "
+		if i == len(children)-1 {
+			prefix = "  └─ "
+		}
+		status := " "
+		if child.Status == "completed" {
+			status = "✓"
+		} else if child.IsActive() {
+			status = "●"
+		}
+		id := styleDim.Render("[" + child.HexID() + "]")
+		fmt.Fprintf(b, "%s%s %s %s\n", prefix, id, status, child.Description)
 	}
 }
 
