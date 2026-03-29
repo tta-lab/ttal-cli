@@ -12,6 +12,16 @@ const (
 	testEmojiCat     = "\U0001F431" // 🐱
 )
 
+// findAgent returns a pointer to the named agent in the slice, or nil.
+func findAgent(agents []AgentInfo, name string) *AgentInfo {
+	for i := range agents {
+		if agents[i].Name == name {
+			return &agents[i]
+		}
+	}
+	return nil
+}
+
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
@@ -33,18 +43,11 @@ func TestDiscover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
-
 	if len(agents) != 2 {
 		t.Fatalf("expected 2 agents, got %d", len(agents))
 	}
 
-	// Find yuki
-	var yAgent *AgentInfo
-	for i := range agents {
-		if agents[i].Name == "yuki" {
-			yAgent = &agents[i]
-		}
-	}
+	yAgent := findAgent(agents, "yuki")
 	if yAgent == nil {
 		t.Fatal("yuki not found")
 		return
@@ -62,13 +65,7 @@ func TestDiscover(t *testing.T) {
 		t.Errorf("color: got %q, want green", yAgent.Color)
 	}
 
-	// Find kestrel (no frontmatter — fields should be empty)
-	var kAgent *AgentInfo
-	for i := range agents {
-		if agents[i].Name == "kestrel" {
-			kAgent = &agents[i]
-		}
-	}
+	kAgent := findAgent(agents, "kestrel")
 	if kAgent == nil {
 		t.Fatal("kestrel not found")
 		return
