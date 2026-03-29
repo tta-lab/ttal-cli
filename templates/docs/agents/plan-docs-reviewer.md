@@ -25,7 +25,7 @@ You are a plan documentation reviewer. Your job is to identify documentation tha
 
 ## Input
 
-You receive an implementation plan and its target project path. Read the project's documentation structure.
+You receive an implementation plan and its target project path (from flicknote, inline, or as a subtask tree). If the plan is a subtask tree, run `task <uuid> tree` to see the structure. Read the project's documentation structure.
 
 ## What to Check
 

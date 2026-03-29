@@ -25,7 +25,7 @@ You are a plan gap analyst. Your job is to find what's missing, unclear, or stru
 
 ## Input
 
-You receive a plan (from flicknote or inline). If the plan references a project, verify the codebase:
+You receive a plan (from flicknote, inline, or as a subtask tree). If the plan is a subtask tree, run `task <uuid> tree` to see the full structure. If the plan references a project, verify the codebase:
 ```bash
 ls <project-path>
 ```
@@ -55,6 +55,8 @@ ls <project-path>
 - Integration points not covered (how do components connect?)
 - Missing commit messages or build/test commands
 - Steps that depend on each other but dependency not stated
+- Task tree plans: Are subtasks in the right order? Are annotations sufficient for a worker?
+- Task tree plans: Is the tree depth appropriate (too flat = vague steps, too deep = micro-management)?
 
 ### Undefined Behaviors
 - What happens if a step fails midway?
