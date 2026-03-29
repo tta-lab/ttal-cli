@@ -55,6 +55,32 @@ ttal task add --project <alias> "description" --annotate "plan: flicknote/<id>"
 
 Workers automatically look for flicknote notes in projects named `*plan*` or `*fix*`. Using this naming convention ensures workers see your context without you needing to paste it manually.
 
+**Task tree plan** (tw fork) — create subtask tree under the parent:
+
+```bash
+# Write orientation doc (optional, for complex tasks)
+cat <<'ORIENT' | flicknote add --project orientation
+# Orientation: Feature Name
+## What -- goal
+## Why -- motivation
+## Anti-goals -- what this is NOT
+ORIENT
+
+# Create the plan as a subtask tree
+cat <<'PLAN' | task <parent-uuid> plan
+## Step 1 title
+Details for this step.
+
+## Step 2 title
+Details for this step.
+PLAN
+
+# View the plan
+task <parent-uuid> tree
+```
+
+The subtask tree IS the plan — no separate annotation needed. Each subtask is a step, annotations hold details.
+
 ### Step 3: Execute
 ```bash
 ttal go <uuid>    # spawns a worker in isolated worktree
