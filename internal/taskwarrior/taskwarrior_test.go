@@ -3,6 +3,7 @@ package taskwarrior
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 const testUUID = "e9d4b7c1-1234-5678-9abc-def012345678"
@@ -355,6 +356,80 @@ func TestHasAnyLGTMTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := HasAnyLGTMTag(tt.tags); got != tt.want {
 				t.Errorf("HasAnyLGTMTag(%v) = %v, want %v", tt.tags, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseTaskDate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"compact format", "20260224T120000Z", false},
+		{"RFC3339", "2026-02-24T12:00:00Z", false},
+		{"ISO with Z", "2026-02-24T12:00:00Z", false},
+		{"date only", "2026-02-24", false},
+		{"invalid", "not-a-date", true},
+		{"empty", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTaskDate(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseTaskDate(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestIsToday(t *testing.T) {
+	today := time.Now().UTC()
+	yesterday := today.Add(-24 * time.Hour)
+	tomorrow := today.Add(24 * time.Hour)
+
+	tests := []struct {
+		name      string
+		scheduled string
+		want      bool
+	}{
+		{"empty", "", false},
+		{"today", today.Format("20060102T150405Z"), true},
+		{"yesterday", yesterday.Format("20060102T150405Z"), true},
+		{"tomorrow", tomorrow.Format("20060102T150405Z"), false},
+		{"invalid date", "bad-date", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := Task{Scheduled: tt.scheduled}
+			if got := task.IsToday(); got != tt.want {
+				t.Errorf("IsToday() with Scheduled=%q = %v, want %v", tt.scheduled, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatAge(t *testing.T) {
+	tests := []struct {
+		name string
+		d    time.Duration
+		want string
+	}{
+		{"minutes", 45 * time.Minute, "45m"},
+		{"one hour", time.Hour, "1h"},
+		{"hours rounds up", 1*time.Hour + 55*time.Minute, "2h"},
+		{"hours", 5 * time.Hour, "5h"},
+		{"one day", 24 * time.Hour, "1d"},
+		{"days", 10 * 24 * time.Hour, "10d"},
+		{"29 days", 29 * 24 * time.Hour, "29d"},
+		{"30 days becomes months", 30 * 24 * time.Hour, "1mo"},
+		{"months", 90 * 24 * time.Hour, "3mo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatAge(tt.d); got != tt.want {
+				t.Errorf("formatAge(%v) = %q, want %q", tt.d, got, tt.want)
 			}
 		})
 	}

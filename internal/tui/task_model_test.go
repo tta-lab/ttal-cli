@@ -24,8 +24,8 @@ func TestAge(t *testing.T) {
 		})
 	}
 
-	// Test with a known recent entry
-	recent := time.Now().Add(-5 * time.Hour).UTC().Format("20060102T150405Z")
+	// Use -5h30m to avoid truncation boundary flakiness
+	recent := time.Now().Add(-5*time.Hour - 30*time.Minute).UTC().Format("20060102T150405Z")
 	task := taskwarrior.Task{Entry: recent}
-	assert.Equal(t, "5h", task.Age())
+	assert.Equal(t, "6h", task.Age())
 }

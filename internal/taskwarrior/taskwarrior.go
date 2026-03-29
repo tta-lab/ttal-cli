@@ -2,6 +2,7 @@ package taskwarrior
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -120,11 +121,29 @@ func (t *Task) Age() string {
 	if t.Entry == "" {
 		return ""
 	}
-	parsed, err := time.Parse("20060102T150405Z", t.Entry)
+	parsed, err := parseTaskTime(t.Entry)
 	if err != nil {
 		return "?"
 	}
 	return formatAge(time.Since(parsed))
+}
+
+// parseTaskTime parses taskwarrior date formats without truncation.
+// Unlike ParseTaskDate (which truncates to midnight for date comparisons),
+// this preserves the full timestamp for duration calculations.
+func parseTaskTime(s string) (time.Time, error) {
+	formats := []string{
+		"20060102T150405Z",
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse date: %s", s)
 }
 
 func formatAge(d time.Duration) string {
@@ -132,7 +151,7 @@ func formatAge(d time.Duration) string {
 		return fmt.Sprintf("%dm", int(d.Minutes()))
 	}
 	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh", int(d.Hours()))
+		return fmt.Sprintf("%dh", int(math.Round(d.Hours())))
 	}
 	if d < 30*24*time.Hour {
 		return fmt.Sprintf("%dd", int(d.Hours()/24))
