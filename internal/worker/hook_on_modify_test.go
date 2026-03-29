@@ -2,6 +2,7 @@ package worker
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -267,6 +268,9 @@ gate = "auto"
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Simulate a worker context so the escape hatch doesn't bypass the gate.
+			// No config.toml in temp dirs → isManagerRole returns false → gate enforced.
+			t.Setenv("TTAL_AGENT_NAME", "some-worker")
 			var dir string
 			if tt.toml != "" {
 				dir = writeTempPipelines(t, tt.toml)
@@ -308,6 +312,7 @@ func TestLgtmTagAdded(t *testing.T) {
 func TestCheckPipelineDoneGuard_MalformedTOML(t *testing.T) {
 	// Malformed pipelines.toml — guard should fail-open (allow completion).
 	// This documents the intent: corrupt config should not block task completion.
+	t.Setenv("TTAL_AGENT_NAME", "some-worker")
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "pipelines.toml"), []byte("not valid toml [[["), 0o644); err != nil {
 		t.Fatalf("write pipelines.toml: %v", err)
@@ -405,4 +410,124 @@ gate = "auto"
 			}
 		})
 	}
+}
+
+func TestIsManagerRole(t *testing.T) {
+	// Create a temp team dir with two agent .md files — one manager, one fixer.
+	teamDir := t.TempDir()
+	yukiContent := []byte("---\nrole: manager\n---\n# Yuki\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), yukiContent, 0o644); err != nil {
+		t.Fatalf("write yuki.md: %v", err)
+	}
+	kestrelContent := []byte("---\nrole: fixer\n---\n# Kestrel\n")
+	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), kestrelContent, 0o644); err != nil {
+		t.Fatalf("write kestrel.md: %v", err)
+	}
+
+	// Create a minimal config.toml pointing to the temp team dir.
+	configDir := t.TempDir()
+	configContent := fmt.Sprintf(`
+default_team = "default"
+[teams.default]
+team_path = %q
+`, teamDir)
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		agentName string
+		want      bool
+	}{
+		{"manager role bypasses", "yuki", true},
+		{"fixer role does not bypass", "kestrel", false},
+		{"unknown agent does not bypass", "coder", false},
+		{"empty name does not bypass", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isManagerRole(tt.agentName, configDir)
+			if got != tt.want {
+				t.Errorf("isManagerRole(%q) = %v, want %v", tt.agentName, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsManagerRole_NoConfig(t *testing.T) {
+	// No config.toml — should fail-safe (return false).
+	emptyDir := t.TempDir()
+	if got := isManagerRole("yuki", emptyDir); got {
+		t.Error("expected false when config.toml is missing")
+	}
+}
+
+func TestCheckPipelineDoneGuard_EscapeHatch(t *testing.T) {
+	const pipelinesBugfix = `
+[bugfix]
+tags = ["bugfix"]
+
+[[bugfix.stages]]
+name = "Fix"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+
+[[bugfix.stages]]
+name = "Implement"
+assignee = "worker"
+gate = "auto"
+reviewer = "pr-review-lead"
+`
+	// Set up a team dir with a manager and a fixer.
+	teamDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: manager\n---\n"), 0o644); err != nil {
+		t.Fatalf("write yuki.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write kestrel.md: %v", err)
+	}
+
+	// Config dir with pipelines.toml AND config.toml pointing to team dir.
+	configDir := writeTempPipelines(t, pipelinesBugfix)
+	configContent := fmt.Sprintf(`
+default_team = "default"
+[teams.default]
+team_path = %q
+`, teamDir)
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	// Task that would normally be blocked (has pipeline tag, no last-stage lgtm).
+	task := makeLGTMTask([]string{"bugfix"})
+
+	t.Run("human bypasses gate", func(t *testing.T) {
+		t.Setenv("TTAL_AGENT_NAME", "")
+		if err := checkPipelineDoneGuard(task, configDir); err != nil {
+			t.Errorf("expected nil for human, got: %v", err)
+		}
+	})
+
+	t.Run("manager role bypasses gate", func(t *testing.T) {
+		t.Setenv("TTAL_AGENT_NAME", "yuki")
+		if err := checkPipelineDoneGuard(task, configDir); err != nil {
+			t.Errorf("expected nil for manager role, got: %v", err)
+		}
+	})
+
+	t.Run("fixer role is still gated", func(t *testing.T) {
+		t.Setenv("TTAL_AGENT_NAME", "kestrel")
+		if err := checkPipelineDoneGuard(task, configDir); err == nil {
+			t.Error("expected error for fixer role, got nil")
+		}
+	})
+
+	t.Run("unknown agent (worker) is still gated", func(t *testing.T) {
+		t.Setenv("TTAL_AGENT_NAME", "coder")
+		if err := checkPipelineDoneGuard(task, configDir); err == nil {
+			t.Error("expected error for unknown agent, got nil")
+		}
+	})
 }
