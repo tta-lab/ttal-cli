@@ -222,9 +222,10 @@ func (m *Model) handleTasksLoaded(msg tasksLoadedMsg) (tea.Model, tea.Cmd) {
 		m.statusMsg = "Task load error: " + msg.err.Error()
 	}
 	m.tasks = msg.tasks
-	m.childrenCache = make(map[string][]Task) // clear stale children on reload
+	// Keep childrenCache intact — children remain visible while reloading in background.
+	// handleChildrenLoaded overwrites entries when fresh data arrives.
 	m.applyFilter()
-	// Reload children for any currently expanded parents
+	// Reload children for expanded parents in background
 	cmds := make([]tea.Cmd, 0, len(m.expanded))
 	for parentUUID := range m.expanded {
 		cmds = append(cmds, loadChildren(parentUUID))
@@ -793,12 +794,14 @@ func (m *Model) collapseSelected() {
 	if t.IsSubtask() {
 		parentUUID := t.ParentID
 		delete(m.expanded, parentUUID)
+		delete(m.childrenCache, parentUUID) // clean up cache so re-expand fetches fresh
 		m.applyFilter()
 		m.restoreCursorByUUID(parentUUID)
 		return
 	}
 	if m.expanded[t.UUID] {
 		delete(m.expanded, t.UUID)
+		delete(m.childrenCache, t.UUID) // clean up cache so re-expand fetches fresh
 		m.applyFilter()
 	}
 }
