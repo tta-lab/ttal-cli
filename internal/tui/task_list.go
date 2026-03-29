@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 )
 
@@ -118,12 +119,12 @@ func (m Model) buildRowData(i int, c columnLayout) rowData {
 	}
 	tags := ""
 	if !c.showActive {
-		tags = truncate(strings.Join(t.Tags, " "), c.tags)
+		tags = ansi.Truncate(strings.Join(t.Tags, " "), c.tags, "…")
 	}
 	agentStr, stageStr := "", ""
 	if c.showActive {
-		agentStr = truncate(resolveAgent(t, m.agentEmojiByName), c.agent)
-		stageStr = truncate(resolveStage(t, m.pipelineCfg), c.stage)
+		agentStr = ansi.Truncate(resolveAgent(t, m.agentEmojiByName), c.agent, "…")
+		stageStr = ansi.Truncate(resolveStage(t, m.pipelineCfg), c.stage, "…")
 	}
 	descStr := t.Description
 	if t.IsSubtask() {
@@ -136,9 +137,9 @@ func (m Model) buildRowData(i int, c columnLayout) rowData {
 	}
 	return rowData{
 		t: t, uuid: t.HexID(), pri: pri, age: age,
-		proj: truncate(t.Project, c.project), tags: tags,
+		proj: ansi.Truncate(t.Project, c.project, "…"), tags: tags,
 		agentStr: agentStr, stageStr: stageStr,
-		desc: truncate(descStr, c.desc),
+		desc: ansi.Truncate(descStr, c.desc, "…"),
 	}
 }
 
@@ -300,15 +301,4 @@ func resolveStage(t *Task, pipeCfg *pipeline.Config) string {
 		return ""
 	}
 	return stage.DisplayName()
-}
-
-func truncate(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen <= 1 {
-		return string(runes[:maxLen])
-	}
-	return string(runes[:maxLen-1]) + "~"
 }

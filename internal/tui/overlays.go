@@ -6,6 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) viewTextInputOverlay(background, title, prompt string, input textinput.Model) string {
@@ -38,7 +39,7 @@ func (m Model) viewConfirmDeleteOverlay(background string) string {
 	t := m.selectedTask()
 	desc := "(no task selected)"
 	if t != nil {
-		desc = truncate(t.Description, 40)
+		desc = ansi.Truncate(t.Description, 40, "…")
 	}
 
 	var b strings.Builder
