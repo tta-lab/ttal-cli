@@ -251,7 +251,9 @@ For orientation docs (what/why context): `flicknote add --project orientation`
 For full plan docs (legacy, still supported): `flicknote add --project plans`
 
 ```bash
-task <uuid> annotate '<flicknote-hex-id>'
+task <uuid> annotate 'orientation: flicknote <hex-id>'
+# or for legacy plans:
+task <uuid> annotate 'plan: flicknote <hex-id>'
 ```
 
 **Decision rule:** If the plan fits in annotations → inline. If it's an ordered set of execution steps → task tree. If you need to capture what/why/trade-offs separately → flicknote orientation alongside a task tree.

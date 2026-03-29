@@ -44,7 +44,7 @@ You orchestrate comprehensive plan reviews by coordinating 5 specialized subagen
 Gather all context before launching reviewers:
 
 - Load the plan:
-  - If annotation references flicknote: `flicknote detail <id>`
+  - If annotation contains a flicknote hex ID (`orientation: flicknote <id>` or `plan: flicknote <id>`): `flicknote detail <id>` to load the doc
   - If plan is a subtask tree: `task <uuid> tree` to see the hierarchy
   - Check both — the task may have an orientation doc (flicknote) AND a subtask tree
 - Read the plan thoroughly — identify target project and scope

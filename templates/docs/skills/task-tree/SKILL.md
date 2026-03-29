@@ -51,6 +51,7 @@ Each `##` heading becomes a direct subtask. Body text becomes the subtask's anno
 
 ```bash
 # Replace the entire subtask tree with a new version
+# ⚠️ Destructive: drops ALL existing subtasks before creating new ones
 cat updated-plan.md | task <parent-uuid> plan replace
 
 # Append more subtasks (keeps existing ones)
