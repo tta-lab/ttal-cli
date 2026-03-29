@@ -11,7 +11,8 @@ func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
 	// Agent with frontmatter (flat .md file)
-	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\ncolor: green\n---\n# Yuki")
+	yukiContent := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n" +
+		"description: Task orchestration\ncolor: green\n---\n# Yuki")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
 	// Agent without frontmatter (flat .md file)
@@ -91,7 +92,8 @@ func TestGet(t *testing.T) {
 func TestSetFieldColorRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	// Simple fixture — no nested YAML — to verify all fields survive a SetField rewrite
-	fixture := []byte("---\nvoice: af_heart\nemoji: \U0001F431\ndescription: Task orchestration\nrole: manager\ncolor: green\n---\n# Yuki\n\nSome content.")
+	fixture := []byte("---\nvoice: af_heart\nemoji: \U0001F431\n" +
+		"description: Task orchestration\nrole: manager\ncolor: green\n---\n# Yuki\n\nSome content.")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), fixture, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "color", "cyan"); err != nil {
