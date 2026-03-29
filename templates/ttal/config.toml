@@ -6,7 +6,7 @@ shell = "zsh"
   inline_projects = ["plan", "fix"]
 
 [sync]
-  subagents_paths = ["../docs/agents"]
+  subagents_paths = ["../../agents"]
   global_prompt_path = "~/Code/guion-opensource/ttal-cli/templates/ttal/CLAUDE.user.md"
   rules_paths = [
     "~/Code/guion-opensource/ttal-cli",
