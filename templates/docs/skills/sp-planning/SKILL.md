@@ -9,7 +9,7 @@ description: Full planning process — explore reality, design, write plan, vali
 
 Plan by understanding reality first, then designing, then writing. Bad plans come from designers who don't read the codebase first.
 
-Assume the worker is a skilled developer, but knows almost nothing about our toolset or problem domain. Document everything they need: which files to touch, before/after code, build/test commands, commit messages. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Assume the worker is a skilled developer, but knows almost nothing about our toolset or problem domain. Document everything they need: which files to touch, a clear description of what to do (before/after code for non-obvious changes), build/test commands, commit messages. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
 
 **Announce at start:** "I'm using the planning skill to create the implementation plan."
 
@@ -173,6 +173,8 @@ Step 3: Commit — `test(api): add validation integration tests`
 
 Each subtask is self-contained: files, steps, commit message. The worker executes them in order and marks each done with `task <subtask-uuid> done`.
 
+Subtasks execute in tree order — arrange them accordingly. For hard ordering constraints, use `task <uuid> modify depends:<other-uuid>`.
+
 ### Bite-Sized Task Granularity
 
 Each step is one action (2-5 minutes):
@@ -250,7 +252,7 @@ task <uuid> annotate 'plan: flicknote <hex-id>'
 
 - Explore reality before designing — read the code first
 - Exact file paths always
-- Complete code in plan (not "add validation")
+- Clear description of what to do; before/after code for non-obvious changes
 - Exact commands with expected output
 - DRY, YAGNI, TDD, frequent commits
 - Worker should never need to ask questions

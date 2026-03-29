@@ -71,7 +71,7 @@ For each subtask in the tree:
 5. Mark the subtask done: `task <subtask-uuid> done`
 6. Move to the next subtask immediately
 
-If no subtask tree exists (inline or flicknote-only plan), execute the plan steps sequentially in order.
+If no subtask tree exists (inline or flicknote-only plan): execute the steps sequentially in order, commit after each, no step-level tracking required.
 
 ### Create PR
 
