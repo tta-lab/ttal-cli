@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/planreview"
 	"github.com/tta-lab/ttal-cli/internal/pr"
@@ -518,9 +518,17 @@ var countTasksFn = taskwarrior.CountTasks
 // Package-level var for test injection.
 var worktreePathFn = worker.WorktreePath
 
-// notifyTelegramFn is the function used to send Telegram notifications.
-// Package-level var for test injection.
+// notifyTelegramFn is the function used to send notifications.
+// Package-level var for test injection. Default is set during daemon init via
+// SetNotifyFn to close over the default team frontend.
+// Before daemon init, falls back to worker.NotifyTelegram (e.g. in tests).
 var notifyTelegramFn = worker.NotifyTelegram
+
+// SetNotifyFn replaces the default notifyTelegramFn with a frontend-backed
+// implementation. Called by daemon.Run() after frontends are built.
+func SetNotifyFn(fn func(string)) {
+	notifyTelegramFn = fn
+}
 
 // resolveHintedAgent checks task tags for a routing hint — a tag matching a known
 // agent name with the required role. Returns the agent if found and idle, nil otherwise.
@@ -682,13 +690,10 @@ func askHumanGate(
 	ctx context.Context, fe frontend.Frontend, agentName string,
 	task *taskwarrior.Task, nextStageName string,
 ) (bool, error) {
-	question := fmt.Sprintf(
-		"🔒 Go to <b>%s</b>\n\n📋 %s\n📁 %s · <code>%s</code>",
-		html.EscapeString(nextStageName),
-		html.EscapeString(task.Description),
-		html.EscapeString(task.Project),
-		html.EscapeString(task.HexID()),
-	)
+	question := notification.GateRequest{
+		Ctx:       notification.NewContext(task.Project, task.HexID(), task.Description, nextStageName),
+		NextStage: nextStageName,
+	}.RenderHTML()
 	options := []string{frontend.GateOptionApprove, frontend.GateOptionReject}
 	answer, skipped, err := fe.AskHuman(ctx, agentName, question, options)
 	if err != nil {
@@ -800,7 +805,9 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		log.Printf("[advance] warning: could not load config, defaulting to auto-merge: %v", cfgErr)
 	}
 	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
-		notifyTelegramFn(fmt.Sprintf("🔔 PR ready to merge: %s", task.Description))
+		notifyTelegramFn(notification.PRReadyToMerge{
+			Ctx: notification.NewContext(task.Project, task.HexID(), task.Description, ""),
+		}.Render())
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusNeedsLGTM,
 			Message: "Manual merge mode — PR ready for human merge",
@@ -817,7 +824,10 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 			// Directory exists but git status failed (locked repo, timeout, etc.) — block to be safe.
 			msg := fmt.Sprintf("dirty check failed for worktree %s: %v", worktreeDir, gitErr)
 			log.Printf("[advance] blocked merge: %s", msg)
-			notifyTelegramFn(fmt.Sprintf("⚠️ Merge blocked for %s: could not verify worktree state", task.Description))
+			notifyTelegramFn(notification.PRMergeBlocked{
+				Ctx:    notification.NewContext(task.Project, task.HexID(), task.Description, ""),
+				Reason: "could not verify worktree state",
+			}.Render())
 			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
 				Status:  AdvanceStatusRejected,
 				Message: msg,
@@ -826,7 +836,10 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		} else if !clean {
 			msg := fmt.Sprintf("worktree has uncommitted changes — commit or discard before merging (%s)", worktreeDir)
 			log.Printf("[advance] blocked merge: %s", msg)
-			notifyTelegramFn(fmt.Sprintf("⚠️ Merge blocked for %s: uncommitted changes in worktree", task.Description))
+			notifyTelegramFn(notification.PRMergeBlocked{
+				Ctx:    notification.NewContext(task.Project, task.HexID(), task.Description, ""),
+				Reason: "uncommitted changes in worktree",
+			}.Render())
 			writeHTTPJSON(w, http.StatusConflict, AdvanceResponse{
 				Status:  AdvanceStatusRejected,
 				Message: msg,
@@ -837,7 +850,10 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 
 	if err := mergeWorkerPR(task); err != nil {
 		log.Printf("[advance] PR merge failed: %v", err)
-		notifyTelegramFn(fmt.Sprintf("⚠️ PR merge failed for %s: %v", task.Description, err))
+		notifyTelegramFn(notification.PRMergeFailed{
+			Ctx: notification.NewContext(task.Project, task.HexID(), task.Description, ""),
+			Err: err,
+		}.Render())
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
 			Message: "merge PR: " + err.Error(),

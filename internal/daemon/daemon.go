@@ -20,6 +20,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 
 	_ "modernc.org/sqlite"
 )
@@ -113,7 +114,7 @@ func Run() error {
 
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, frontends, done)
-	startCleanupWatcher(done)
+	startCleanupWatcher(frontends, done)
 	startPRWatcher(mcfg, frontends, done)
 	startReminderPoller(mcfg, frontends, done)
 	startWatcher(mcfg, frontends, msgSvc, done)
@@ -130,6 +131,13 @@ func Run() error {
 		close(done)
 		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
 	}
+
+	// Rewire advance.go's notifyTelegramFn to route through the frontend abstraction.
+	SetNotifyFn(func(msg string) {
+		if err := defaultFE.SendNotification(ctx, msg); err != nil {
+			log.Printf("[advance] notification failed: %v", err)
+		}
+	})
 
 	defaultTeamName := mcfg.DefaultTeamName()
 	commentSync := resolveCommentSync(mcfg, defaultTeamName)
@@ -189,7 +197,7 @@ func Run() error {
 	}
 
 	log.Printf("[daemon] ready")
-	if err := defaultFE.SendNotification(ctx, "✅ Daemon ready"); err != nil {
+	if err := defaultFE.SendNotification(ctx, notification.DaemonReady{}.Render()); err != nil {
 		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
 	}
 	awaitShutdown(done, cancel, mcfg, registry, srv)

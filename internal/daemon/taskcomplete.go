@@ -6,6 +6,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -70,7 +71,10 @@ func notifyTelegramTaskDone(frontends map[string]frontend.Frontend, target prWat
 		log.Printf("[taskComplete] notifyTelegram: no frontend for team %q — skipped", teamName)
 		return
 	}
-	msg := formatTaskDoneMsg(target)
+	msg := notification.TaskDone{
+		Ctx:     notification.NewContext(target.ProjectAlias, target.TaskUUID, target.Description, ""),
+		PRIndex: target.PRIndex,
+	}.Render()
 	if err := fe.SendNotification(context.Background(), msg); err != nil {
 		log.Printf("[taskComplete] notify failed: %v", err)
 	}

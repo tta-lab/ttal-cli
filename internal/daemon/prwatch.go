@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -271,8 +271,7 @@ func handleCIStatus(
 
 	switch cs.State {
 	case gitprovider.StateSuccess:
-		msg := fmt.Sprintf("✅ PR #%d CI checks passed (sha=%s). Waiting for reviewer LGTM before merge.",
-			target.PRIndex, shortSHA(headSHA))
+		msg := notification.CIPassed{PRIndex: target.PRIndex, SHA: headSHA}.Render()
 		deliverToWorkerSession(target.SessionName, msg)
 		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		// Return prPollInitial so the caller updates lastDeliveredSHA, preventing
@@ -281,10 +280,9 @@ func handleCIStatus(
 		return prPollInitial
 
 	case gitprovider.StateFailure, gitprovider.StateError:
-		msg := fmt.Sprintf("❌ PR #%d CI checks failed (sha=%s). Run `ttal pr ci --log` for failure details.",
-			target.PRIndex, shortSHA(headSHA))
-		deliverToWorkerSession(target.SessionName, msg)
-		notifyPRStatus(frontends, target, "❌ CI failed", "")
+		ciFailedMsg := notification.CIFailed{PRIndex: target.PRIndex, SHA: headSHA}.Render()
+		deliverToWorkerSession(target.SessionName, ciFailedMsg)
+		notifyPRStatus(frontends, target, ciFailedMsg)
 		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		return prPollInitial
 
@@ -305,10 +303,9 @@ func checkMergeConflict(
 	if alreadyNotified {
 		return true
 	}
-	msg := fmt.Sprintf("PR #%d has merge conflicts — rebase or merge base branch to resolve.",
-		target.PRIndex)
-	deliverToWorkerSession(target.SessionName, msg)
-	notifyPRStatus(frontends, target, "⚠️ Merge conflict detected", "")
+	conflictMsg := notification.MergeConflict{PRIndex: target.PRIndex}.Render()
+	deliverToWorkerSession(target.SessionName, conflictMsg)
+	notifyPRStatus(frontends, target, conflictMsg)
 	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))
 	return true
 }
@@ -320,10 +317,10 @@ func deliverToWorkerSession(sessionName, msg string) {
 	}
 }
 
-// notifyPRStatus sends PR status to the team's frontend notification channel.
+// notifyPRStatus sends a pre-rendered notification message to the team's frontend.
 func notifyPRStatus(
 	frontends map[string]frontend.Frontend,
-	target prWatchTarget, status string, runURL string,
+	target prWatchTarget, msg string,
 ) {
 	team := target.Team
 	if team == "" {
@@ -336,10 +333,6 @@ func notifyPRStatus(
 		return
 	}
 
-	msg := fmt.Sprintf("%s\nPR #%d: %s", status, target.PRIndex, target.Description)
-	if runURL != "" {
-		msg += "\n" + runURL
-	}
 	if err := fe.SendNotification(context.Background(), msg); err != nil {
 		log.Printf("[prwatch] notify failed: %v", err)
 	}
@@ -347,12 +340,10 @@ func notifyPRStatus(
 
 // formatTaskDoneMsg returns the standard task-done message used for agent notifications.
 func formatTaskDoneMsg(target prWatchTarget) string {
-	if target.PRIndex > 0 {
-		return fmt.Sprintf("✅ [task %s done, PR #%d merged] %s",
-			shortSHA(target.TaskUUID), target.PRIndex, target.Description)
-	}
-	return fmt.Sprintf("✅ [task %s done] %s",
-		shortSHA(target.TaskUUID), target.Description)
+	return notification.TaskDone{
+		Ctx:     notification.NewContext(target.ProjectAlias, target.TaskUUID, target.Description, ""),
+		PRIndex: target.PRIndex,
+	}.Render()
 }
 
 // notifySpawnerMerged delivers a PR-merged message to the spawning agent.
