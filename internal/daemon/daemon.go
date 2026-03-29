@@ -142,7 +142,10 @@ func Run() error {
 	defaultTeamName := mcfg.DefaultTeamName()
 	commentSync := resolveCommentSync(mcfg, defaultTeamName)
 
-	handlers := buildHTTPHandlers(ctx, mcfg, shellCfg, defaultFE, frontends, registry, msgSvc, commentSvc, defaultTeamName, commentSync)
+	handlers := buildHTTPHandlers(
+		ctx, mcfg, shellCfg, defaultFE, frontends,
+		registry, msgSvc, commentSvc, defaultTeamName, commentSync,
+	)
 	srv, err := listenHTTP(sockPath, handlers)
 	if err != nil {
 		close(done)
