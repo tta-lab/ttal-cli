@@ -47,8 +47,8 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 
 	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 	if len(credEnv) == 1 {
-		// Only GIT_TERMINAL_PROMPT=0, no token available — fail early with clear error.
-		return GitPushResponse{Error: fmt.Sprintf("no token available for host: %s (project: %s)", remoteURL, req.ProjectAlias)}
+		// Only GIT_TERMINAL_PROMPT=0, no token — fail early with clear error.
+		return GitPushResponse{Error: fmt.Sprintf("no token for %s (project: %s)", remoteURL, req.ProjectAlias)}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -69,7 +69,6 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 	log.Printf("[daemon] git push ok: %s → %s", req.WorkDir, req.Branch)
 	return GitPushResponse{OK: true}
 }
-
 
 // handleGitTag creates a lightweight git tag and pushes it to origin using daemon-held credentials.
 // WorkDir is validated against registered ttal project paths to prevent arbitrary repo tagging.
@@ -98,8 +97,8 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 
 	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 	if len(credEnv) == 1 {
-		// Only GIT_TERMINAL_PROMPT=0, no token available — fail early with clear error.
-		return GitTagResponse{Error: fmt.Sprintf("no token available for host: %s (project: %s)", remoteURL, req.ProjectAlias)}
+		// Only GIT_TERMINAL_PROMPT=0, no token — fail early with clear error.
+		return GitTagResponse{Error: fmt.Sprintf("no token for %s (project: %s)", remoteURL, req.ProjectAlias)}
 	}
 
 	// Create the tag locally. "--" prevents tag names from being parsed as flags.
