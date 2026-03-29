@@ -11,7 +11,9 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -86,6 +88,10 @@ type Model struct {
 	// Tree expand/collapse
 	expanded      map[string]bool   // parent UUIDs currently expanded
 	childrenCache map[string][]Task // parent UUID → loaded children
+
+	// Active filter columns
+	agentNames  map[string]string // agent name → emoji (from agentfs)
+	pipelineCfg *pipeline.Config  // pipeline definitions (for stage resolution)
 }
 
 func newTextInput(placeholder string) textinput.Model {
@@ -153,6 +159,8 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cfg = msg.cfg
 		m.projects = msg.projects
 		m.tags = msg.tags
+		m.agentNames = msg.agentNames
+		m.pipelineCfg = msg.pipelineCfg
 		if msg.cfg != nil {
 			m.teamName = msg.cfg.TeamName()
 		}
@@ -792,10 +800,12 @@ type autocompleteLoadedMsg struct {
 }
 
 type configLoadedMsg struct {
-	cfg      *config.Config
-	projects []string
-	tags     []string
-	err      error
+	cfg         *config.Config
+	projects    []string
+	tags        []string
+	agentNames  map[string]string
+	pipelineCfg *pipeline.Config
+	err         error
 }
 
 type tasksLoadedMsg struct {
@@ -837,7 +847,26 @@ func loadConfig() tea.Cmd {
 			log.Printf("failed to load tags for autocomplete: %v", err)
 		}
 
-		return configLoadedMsg{cfg: cfg, projects: projects, tags: tags}
+		// Agent emojis from frontmatter (depends on cfg.TeamPath())
+		agentMap := make(map[string]string)
+		if cfg != nil {
+			if agents, err := agentfs.Discover(cfg.TeamPath()); err == nil {
+				for _, a := range agents {
+					agentMap[a.Name] = a.Emoji
+				}
+			}
+		}
+
+		// Pipeline config
+		var pipeCfg *pipeline.Config
+		if pc, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
+			pipeCfg = pc
+		}
+
+		return configLoadedMsg{
+			cfg: cfg, projects: projects, tags: tags,
+			agentNames: agentMap, pipelineCfg: pipeCfg,
+		}
 	}
 }
 

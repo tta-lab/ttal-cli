@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 )
 
 func (m Model) viewTaskList() string {
@@ -31,21 +32,46 @@ func (m Model) viewTaskList() string {
 	}
 
 	// Column widths
-	colUUID := 10
-	colPri := 3
-	colAge := 6
-	colProject := 12
-	colTags := 12
-	colDesc := m.width - colUUID - colPri - colAge - colProject - colTags - 10
+	colUUID := 9 // hex ID is 8 chars + 1 padding
+	colPri := 2  // single char (H/M/L/-)
+	colAge := 5  // "3mo" is max 3 chars
+	colProject := 10
+	colTags := 10
+
+	showActiveColumns := m.filter == filterActive
+	colAgent := 0
+	colStage := 0
+	if showActiveColumns {
+		colAgent = 10 // "🧭 mira" = ~8 chars
+		colStage = 12 // "💡 Brainstorm" = ~12 chars
+		colTags = 0   // hide tags in active view
+	}
+
+	overhead := colUUID + colPri + colAge + colProject + 7 // 7 = leading space + 6 separators
+	if showActiveColumns {
+		overhead += colAgent + colStage + 2 // +2 for extra separators
+	} else {
+		overhead += colTags
+	}
+	colDesc := m.width - overhead
 	if colDesc < 20 {
 		colDesc = 20
 	}
 
 	// Header
-	header := styleDim.Render(
-		fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
-			colUUID, "ID", colPri, "P",
-			colAge, "Age", colProject, "Project", colTags, "Tags", "Description"))
+	var header string
+	if showActiveColumns {
+		header = styleDim.Render(
+			fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
+				colUUID, "ID", colPri, "P",
+				colAge, "Age", colProject, "Project",
+				colAgent, "Agent", colStage, "Stage", "Description"))
+	} else {
+		header = styleDim.Render(
+			fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+				colUUID, "ID", colPri, "P",
+				colAge, "Age", colProject, "Project", colTags, "Tags", "Description"))
+	}
 	b.WriteString(header)
 	b.WriteString("\n")
 
@@ -71,7 +97,10 @@ func (m Model) viewTaskList() string {
 			age = "-"
 		}
 		proj := truncate(t.Project, colProject)
-		tags := truncate(strings.Join(t.Tags, " "), colTags)
+		tags := ""
+		if !showActiveColumns {
+			tags = truncate(strings.Join(t.Tags, " "), colTags)
+		}
 
 		descStr := t.Description
 		if isChild {
@@ -84,9 +113,19 @@ func (m Model) viewTaskList() string {
 		}
 		desc := truncate(descStr, colDesc)
 
-		line := fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
-			colUUID, uuid, colPri, pri,
-			colAge, age, colProject, proj, colTags, tags, desc)
+		var line string
+		if showActiveColumns {
+			agentStr := truncate(resolveAgent(t, m.agentNames), colAgent)
+			stageStr := truncate(resolveStage(t, m.pipelineCfg), colStage)
+			line = fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
+				colUUID, uuid, colPri, pri,
+				colAge, age, colProject, proj,
+				colAgent, agentStr, colStage, stageStr, desc)
+		} else {
+			line = fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+				colUUID, uuid, colPri, pri,
+				colAge, age, colProject, proj, colTags, tags, desc)
+		}
 
 		if selected {
 			line = styleSelected.Render(line)
@@ -104,6 +143,17 @@ func (m Model) viewTaskList() string {
 			styledTags := lipgloss.NewStyle().Width(colTags).Render(styleDim.Render(""))
 			line = " " + styledUUID + " " + styledPri + " " +
 				styledAge + " " + styledProj + " " + styledTags + " " + desc
+		} else if showActiveColumns {
+			agentStr := truncate(resolveAgent(t, m.agentNames), colAgent)
+			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
+			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
+			styledAge := lipgloss.NewStyle().Width(colAge).Render(styleDim.Render(age))
+			styledProj := lipgloss.NewStyle().Width(colProject).Render(proj)
+			styledAgent := lipgloss.NewStyle().Width(colAgent).Render(styleTag.Render(agentStr))
+			stageStr := truncate(resolveStage(t, m.pipelineCfg), colStage)
+			styledStage := lipgloss.NewStyle().Width(colStage).Render(styleDim.Render(stageStr))
+			line = " " + styledUUID + " " + styledPri + " " +
+				styledAge + " " + styledProj + " " + styledAgent + " " + styledStage + " " + desc
 		} else {
 			styledUUID := lipgloss.NewStyle().Width(colUUID).Render(styleDim.Render(uuid))
 			styledPri := lipgloss.NewStyle().Width(colPri).Render(priorityStyle(t.Priority).Render(pri))
@@ -164,6 +214,46 @@ func (m Model) padToHeight(content string) string {
 		content += strings.Repeat("\n", target-lines)
 	}
 	return content
+}
+
+// resolveAgent returns "emoji name" for the agent working on this task.
+// Checks tags for agent name match, falls back to spawner UDA.
+func resolveAgent(t *Task, agentNames map[string]string) string {
+	for _, tag := range t.Tags {
+		if emoji, ok := agentNames[tag]; ok {
+			if emoji != "" {
+				return emoji + " " + tag
+			}
+			return tag
+		}
+	}
+	if t.Spawner != "" {
+		parts := strings.SplitN(t.Spawner, ":", 2)
+		if len(parts) == 2 {
+			name := parts[1]
+			if emoji, ok := agentNames[name]; ok && emoji != "" {
+				return emoji + " " + name
+			}
+			return name
+		}
+	}
+	return ""
+}
+
+// resolveStage returns the current pipeline stage display name.
+func resolveStage(t *Task, pipeCfg *pipeline.Config) string {
+	if pipeCfg == nil {
+		return ""
+	}
+	_, p, err := pipeCfg.MatchPipeline(t.Tags)
+	if err != nil || p == nil {
+		return ""
+	}
+	_, stage, err := p.CurrentStage(t.Tags)
+	if err != nil || stage == nil {
+		return ""
+	}
+	return stage.DisplayName()
 }
 
 func truncate(s string, maxLen int) string {

@@ -10,6 +10,7 @@ tags = ["feature", "refactor"]
 [[standard.stages]]
 name = "Plan"
 assignee = "designer"
+emoji = "🧭"
 gate = "human"
 reviewer = "plan-review-lead"
 skills = ["sp-planning", "flicknote"]
@@ -17,6 +18,7 @@ skills = ["sp-planning", "flicknote"]
 [[standard.stages]]
 name = "Implement"
 assignee = "coder"
+emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -27,6 +29,7 @@ tags = ["bugfix"]
 [[bugfix.stages]]
 name = "Fix"
 assignee = "fixer"
+emoji = "🔧"
 gate = "human"
 reviewer = "plan-review-lead"
 skills = ["sp-debugging", "flicknote"]
@@ -34,6 +37,7 @@ skills = ["sp-debugging", "flicknote"]
 [[bugfix.stages]]
 name = "Implement"
 assignee = "coder"
+emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -44,6 +48,7 @@ tags = ["hotfix"]
 [[hotfix.stages]]
 name = "Implement"
 assignee = "coder"
+emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -55,6 +60,7 @@ tags = ["research"]
 [[research.stages]]
 name = "Research"
 assignee = "researcher"
+emoji = "🔭"
 gate = "auto"
 skills = ["sp-research", "flicknote"]
 
@@ -65,6 +71,7 @@ tags = ["audit"]
 [[audit.stages]]
 name = "Audit"
 assignee = "auditor"
+emoji = "🔍"
 gate = "auto"
 
 [comm]
@@ -74,6 +81,7 @@ tags = ["comm"]
 [[comm.stages]]
 name = "Draft"
 assignee = "communicator"
+emoji = "✏️"
 gate = "human"
 skills = ["flicknote"]
 
@@ -84,6 +92,7 @@ tags = ["brainstorm"]
 [[brainstorm.stages]]
 name = "Brainstorm"
 assignee = "designer"
+emoji = "💡"
 gate = "human"
 reviewer = "plan-review-lead"
 skills = ["sp-brainstorming", "flicknote"]
@@ -91,6 +100,7 @@ skills = ["sp-brainstorming", "flicknote"]
 [[brainstorm.stages]]
 name = "Implement"
 assignee = "coder"
+emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -101,6 +111,7 @@ tags = ["devops"]
 [[devops.stages]]
 name = "Plan"
 assignee = "devops"
+emoji = "⚓"
 gate = "human"
 reviewer = "plan-review-lead"
 skills = ["sp-planning", "flicknote"]
@@ -108,5 +119,6 @@ skills = ["sp-planning", "flicknote"]
 [[devops.stages]]
 name = "Implement"
 assignee = "coder"
+emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
