@@ -99,12 +99,15 @@ func (m Model) renderHeader(c columnLayout) string {
 			c.age, "Age", c.project, "Project", c.tags, "Tags", "Description"))
 }
 
-func (m Model) renderRow(i int, c columnLayout) string {
-	t := &m.filtered[i]
-	selected := i == m.cursor
-	isChild := t.IsSubtask()
+// rowData holds pre-computed display values for a single task row.
+type rowData struct {
+	t                              *Task
+	uuid, pri, age, proj           string
+	tags, agentStr, stageStr, desc string
+}
 
-	uuid := t.HexID()
+func (m Model) buildRowData(i int, c columnLayout) rowData {
+	t := &m.filtered[i]
 	pri := t.Priority
 	if pri == "" {
 		pri = "-"
@@ -113,23 +116,17 @@ func (m Model) renderRow(i int, c columnLayout) string {
 	if age == "" {
 		age = "-"
 	}
-	proj := truncate(t.Project, c.project)
-
 	tags := ""
 	if !c.showActive {
 		tags = truncate(strings.Join(t.Tags, " "), c.tags)
 	}
-
-	// Agent/stage resolved once, used in both plain and styled paths
-	agentStr := ""
-	stageStr := ""
+	agentStr, stageStr := "", ""
 	if c.showActive {
 		agentStr = truncate(resolveAgent(t, m.agentEmojiByName), c.agent)
 		stageStr = truncate(resolveStage(t, m.pipelineCfg), c.stage)
 	}
-
 	descStr := t.Description
-	if isChild {
+	if t.IsSubtask() {
 		isLast := (i+1 >= len(m.filtered)) || !m.filtered[i+1].IsSubtask()
 		prefix := "├─ "
 		if isLast {
@@ -137,66 +134,93 @@ func (m Model) renderRow(i int, c columnLayout) string {
 		}
 		descStr = prefix + descStr
 	}
-	desc := truncate(descStr, c.desc)
+	return rowData{
+		t: t, uuid: t.HexID(), pri: pri, age: age,
+		proj: truncate(t.Project, c.project), tags: tags,
+		agentStr: agentStr, stageStr: stageStr,
+		desc: truncate(descStr, c.desc),
+	}
+}
+
+func (m Model) renderRow(i int, c columnLayout) string {
+	d := m.buildRowData(i, c)
+	selected := i == m.cursor
+	isChild := d.t.IsSubtask()
 
 	// Plain line (used by selected + today styles)
-	var plainLine string
-	if c.showActive {
-		plainLine = fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
-			c.uuid, uuid, c.pri, pri,
-			c.age, age, c.project, proj,
-			c.agent, agentStr, c.stage, stageStr, desc)
-	} else {
-		plainLine = fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
-			c.uuid, uuid, c.pri, pri,
-			c.age, age, c.project, proj, c.tags, tags, desc)
-	}
+	plainLine := buildPlainLine(d, c)
 
+	return m.applyRowStyle(d, c, plainLine, selected, isChild)
+}
+
+func buildPlainLine(d rowData, c columnLayout) string {
+	if c.showActive {
+		return fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %-*s %s",
+			c.uuid, d.uuid, c.pri, d.pri,
+			c.age, d.age, c.project, d.proj,
+			c.agent, d.agentStr, c.stage, d.stageStr, d.desc)
+	}
+	return fmt.Sprintf(" %-*s %-*s %-*s %-*s %-*s %s",
+		c.uuid, d.uuid, c.pri, d.pri,
+		c.age, d.age, c.project, d.proj, c.tags, d.tags, d.desc)
+}
+
+func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, selected, isChild bool) string {
 	switch {
 	case selected:
 		return styleSelected.Render(plainLine)
-	case t.IsToday() && m.filter == filterPending:
+	case d.t.IsToday() && m.filter == filterPending:
 		// Today-or-overdue scheduled task: blue background — only in pending view.
 		// Uses plain line because lipgloss Width() padding emits ANSI reset sequences
 		// that clear the outer background when cells are styled individually.
 		return styleToday.Render(plainLine)
 	case isChild && c.showActive:
-		// Child rows in active view: use active column layout with dim styling
-		styledUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(uuid))
-		styledPri := lipgloss.NewStyle().Width(c.pri).Render(styleDim.Render(pri))
-		styledAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(age))
-		styledProj := lipgloss.NewStyle().Width(c.project).Render(styleDim.Render(proj))
-		styledAgent := lipgloss.NewStyle().Width(c.agent).Render(styleDim.Render(""))
-		styledStage := lipgloss.NewStyle().Width(c.stage).Render(styleDim.Render(""))
-		return " " + styledUUID + " " + styledPri + " " +
-			styledAge + " " + styledProj + " " + styledAgent + " " + styledStage + " " + desc
+		return styleChildRowActive(d, c)
 	case isChild:
-		// Child rows in standard views: dim all metadata
-		styledUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(uuid))
-		styledPri := lipgloss.NewStyle().Width(c.pri).Render(styleDim.Render(pri))
-		styledAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(age))
-		styledProj := lipgloss.NewStyle().Width(c.project).Render(styleDim.Render(proj))
-		styledTags := lipgloss.NewStyle().Width(c.tags).Render(styleDim.Render(""))
-		return " " + styledUUID + " " + styledPri + " " +
-			styledAge + " " + styledProj + " " + styledTags + " " + desc
+		return styleChildRow(d, c)
 	case c.showActive:
-		styledUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(uuid))
-		styledPri := lipgloss.NewStyle().Width(c.pri).Render(priorityStyle(t.Priority).Render(pri))
-		styledAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(age))
-		styledProj := lipgloss.NewStyle().Width(c.project).Render(proj)
-		styledAgent := lipgloss.NewStyle().Width(c.agent).Render(styleTag.Render(agentStr))
-		styledStage := lipgloss.NewStyle().Width(c.stage).Render(styleDim.Render(stageStr))
-		return " " + styledUUID + " " + styledPri + " " +
-			styledAge + " " + styledProj + " " + styledAgent + " " + styledStage + " " + desc
+		return styleActiveRow(d, c)
 	default:
-		styledUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(uuid))
-		styledPri := lipgloss.NewStyle().Width(c.pri).Render(priorityStyle(t.Priority).Render(pri))
-		styledAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(age))
-		styledProj := lipgloss.NewStyle().Width(c.project).Render(proj)
-		styledTags := lipgloss.NewStyle().Width(c.tags).Render(styleTag.Render(tags))
-		return " " + styledUUID + " " + styledPri + " " +
-			styledAge + " " + styledProj + " " + styledTags + " " + desc
+		return styleStandardRow(d, c)
 	}
+}
+
+func styleChildRowActive(d rowData, c columnLayout) string {
+	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
+	sPri := lipgloss.NewStyle().Width(c.pri).Render(styleDim.Render(d.pri))
+	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
+	sProj := lipgloss.NewStyle().Width(c.project).Render(styleDim.Render(d.proj))
+	sAgent := lipgloss.NewStyle().Width(c.agent).Render(styleDim.Render(""))
+	sStage := lipgloss.NewStyle().Width(c.stage).Render(styleDim.Render(""))
+	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sAgent + " " + sStage + " " + d.desc
+}
+
+func styleChildRow(d rowData, c columnLayout) string {
+	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
+	sPri := lipgloss.NewStyle().Width(c.pri).Render(styleDim.Render(d.pri))
+	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
+	sProj := lipgloss.NewStyle().Width(c.project).Render(styleDim.Render(d.proj))
+	sTags := lipgloss.NewStyle().Width(c.tags).Render(styleDim.Render(""))
+	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sTags + " " + d.desc
+}
+
+func styleActiveRow(d rowData, c columnLayout) string {
+	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
+	sPri := lipgloss.NewStyle().Width(c.pri).Render(priorityStyle(d.t.Priority).Render(d.pri))
+	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
+	sProj := lipgloss.NewStyle().Width(c.project).Render(d.proj)
+	sAgent := lipgloss.NewStyle().Width(c.agent).Render(styleTag.Render(d.agentStr))
+	sStage := lipgloss.NewStyle().Width(c.stage).Render(styleDim.Render(d.stageStr))
+	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sAgent + " " + sStage + " " + d.desc
+}
+
+func styleStandardRow(d rowData, c columnLayout) string {
+	sUUID := lipgloss.NewStyle().Width(c.uuid).Render(styleDim.Render(d.uuid))
+	sPri := lipgloss.NewStyle().Width(c.pri).Render(priorityStyle(d.t.Priority).Render(d.pri))
+	sAge := lipgloss.NewStyle().Width(c.age).Render(styleDim.Render(d.age))
+	sProj := lipgloss.NewStyle().Width(c.project).Render(d.proj)
+	sTags := lipgloss.NewStyle().Width(c.tags).Render(styleTag.Render(d.tags))
+	return " " + sUUID + " " + sPri + " " + sAge + " " + sProj + " " + sTags + " " + d.desc
 }
 
 func (m Model) viewStatusBar() string {

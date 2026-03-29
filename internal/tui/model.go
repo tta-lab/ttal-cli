@@ -210,7 +210,7 @@ func (m *Model) handleTasksLoaded(msg tasksLoadedMsg) (tea.Model, tea.Cmd) {
 	m.childrenCache = make(map[string][]Task) // clear stale children on reload
 	m.applyFilter()
 	// Reload children for any currently expanded parents
-	var cmds []tea.Cmd
+	cmds := make([]tea.Cmd, 0, len(m.expanded))
 	for parentUUID := range m.expanded {
 		cmds = append(cmds, loadChildren(parentUUID))
 	}
