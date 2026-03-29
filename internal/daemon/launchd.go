@@ -149,11 +149,11 @@ func buildPlistContent(label, ttalBin, dataDir, home string) string {
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:%s/.local/bin:%s/go/bin:%s/.cargo/bin</string>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:%s/.local/bin:%s/go/bin:%s/.cargo/bin:%s/.qlty/bin</string>
     </dict>
 </dict>
 </plist>
-`, label, ttalBin, dataDir, dataDir, home, home, home)
+`, label, ttalBin, dataDir, dataDir, home, home, home, home)
 }
 
 // Start boots the daemon launchd service.
