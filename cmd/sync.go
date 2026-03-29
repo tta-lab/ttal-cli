@@ -40,7 +40,7 @@ skill files and register them in the skill registry.
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
   subagents_paths = ["~/clawd/docs/agents"]
-  rules_paths = ["~/clawd/docs/skills", "~/Code/my-project"]`,
+  rules_paths = ["~/clawd/skills", "~/Code/my-project"]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
