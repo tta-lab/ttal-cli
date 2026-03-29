@@ -3,6 +3,7 @@ name: pr-review-lead
 emoji: 🎯
 description: "PR review orchestrator — coordinates 7 specialized subagents for comprehensive code review"
 role: reviewer
+color: blue
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs, Agent]

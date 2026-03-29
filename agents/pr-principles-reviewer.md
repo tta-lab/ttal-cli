@@ -1,6 +1,7 @@
 ---
 name: pr-principles-reviewer
 emoji: 📐
+color: yellow
 description: |-
   Reviews PR diffs for violations of software engineering principles: DRY, SOLID,
   KISS, YAGNI, separation of concerns, guard clauses, and cyclomatic complexity.

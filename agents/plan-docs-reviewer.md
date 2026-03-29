@@ -1,6 +1,7 @@
 ---
 name: plan-docs-reviewer
 emoji: 📝
+color: green
 description: |-
   Reviews whether implementation plans account for documentation impacts —
   CLAUDE.md updates, skill definitions, subagent definitions, README changes,

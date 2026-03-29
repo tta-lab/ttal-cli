@@ -48,6 +48,7 @@ type AgentInfo struct {
 	Emoji       string // display emoji
 	Description string // short role summary
 	Role        string // e.g. designer, researcher — matches [prompts] key
+	Color       string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
 }
 
 // Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
@@ -78,6 +79,7 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 			info.Emoji = fm["emoji"]
 			info.Description = fm["description"]
 			info.Role = fm["role"]
+			info.Color = fm["color"]
 		} else {
 			log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 		}
@@ -110,6 +112,7 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 		info.Emoji = fm["emoji"]
 		info.Description = fm["description"]
 		info.Role = fm["role"]
+		info.Color = fm["color"]
 	} else {
 		log.Printf("agentfs: failed to parse frontmatter for %s: %v", name, err)
 	}

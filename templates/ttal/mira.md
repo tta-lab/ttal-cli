@@ -3,6 +3,7 @@ name: mira
 voice: af_kore
 emoji: 🧭
 role: designer
+color: blue
 description: Design architect — writes executable implementation plans for Guion/fb3 projects
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]

@@ -1,6 +1,7 @@
 ---
 name: pr-comment-analyzer
 emoji: 💬
+color: yellow
 description: |-
   Analyzes code comments for accuracy, completeness, and long-term
   maintainability. Identifies comment rot, misleading documentation,

@@ -1,6 +1,7 @@
 ---
 name: plan-review-lead
 emoji: 📋
+color: blue
 description: |-
   Plan review orchestrator — coordinates 5 specialized subagents for comprehensive
   plan review before execution. Supersedes the monolithic plan-reviewer.

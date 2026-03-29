@@ -1,6 +1,7 @@
 ---
 name: plan-code-reviewer
 emoji: 🔬
+color: cyan
 description: |-
   Verifies implementation plan accuracy against the actual codebase. Checks that
   referenced files, functions, and interfaces exist and match the plan's assumptions.

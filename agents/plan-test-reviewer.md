@@ -1,6 +1,7 @@
 ---
 name: plan-test-reviewer
 emoji: 🧪
+color: yellow
 description: |-
   Evaluates test strategy and edge case coverage in implementation plans.
   Checks for missing test scenarios, untested error paths, and whether the

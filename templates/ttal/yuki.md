@@ -3,6 +3,7 @@ name: yuki
 emoji: 🐱
 description: Task orchestrator — creates, routes, and manages work via taskwarrior and ttal go
 role: manager
+color: green
 voice: af_jessica
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]

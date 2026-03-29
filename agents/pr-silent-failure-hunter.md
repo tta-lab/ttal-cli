@@ -1,6 +1,7 @@
 ---
 name: pr-silent-failure-hunter
 emoji: 🕵️
+color: red
 description: |-
   Finds silent failures, inadequate error handling, and inappropriate fallback
   behavior in PR diffs. Reviews catch blocks, error callbacks, fallback logic,

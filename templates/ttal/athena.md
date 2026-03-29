@@ -3,6 +3,7 @@ name: athena
 description: Researcher — conducts multi-source deep dives, writes findings to flicknote
 emoji: 🦉
 role: researcher
+color: cyan
 voice: af_bella
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]

@@ -3,6 +3,7 @@ name: inke
 description: Design architect — writes executable implementation plans from research and requirements
 emoji: 🐙
 role: designer
+color: cyan
 voice: af_nova
 claude-code:
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
