@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -320,6 +321,132 @@ func TestCheckPipelineDoneGuard_MalformedTOML(t *testing.T) {
 	task := makeLGTMTask([]string{"bugfix"})
 	if err := checkPipelineDoneGuard(task, dir); err != nil {
 		t.Errorf("expected nil (fail-open) for malformed TOML, got: %v", err)
+	}
+}
+
+func TestTagDiff(t *testing.T) {
+	tests := []struct {
+		name        string
+		origTags    []string
+		modTags     []string
+		wantAdded   []string
+		wantRemoved []string
+	}{
+		{"no changes", []string{"feature"}, []string{"feature"}, nil, nil},
+		{"tag added", []string{"feature"}, []string{"feature", "urgent"}, []string{"urgent"}, nil},
+		{"tag removed", []string{"feature", "urgent"}, []string{"feature"}, nil, []string{"urgent"}},
+		{"added and removed", []string{"feature", "old"}, []string{"feature", "new"}, []string{"new"}, []string{"old"}},
+		{"empty lists", []string{}, []string{}, nil, nil},
+		// tagDiff uses sets: duplicates in orig resolve to the same element — no false removal.
+		{"duplicate in orig — no removal", []string{"a", "a"}, []string{"a"}, nil, nil},
+		// tagDiff iterates modTags linearly for additions — duplicates in mod appear twice.
+		// This documents the current contract: deduplication is the caller's responsibility.
+		{"duplicate in mod — two additions", []string{}, []string{"a", "a"}, []string{"a", "a"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			added, removed := tagDiff(tt.origTags, tt.modTags)
+			// Sort both slices before comparing — tagDiff output order mirrors input order,
+			// but sorted comparison is more robust if iteration order ever changes.
+			slices.Sort(added)
+			slices.Sort(removed)
+			wantAdded := append([]string(nil), tt.wantAdded...)
+			wantRemoved := append([]string(nil), tt.wantRemoved...)
+			slices.Sort(wantAdded)
+			slices.Sort(wantRemoved)
+			if len(added) != len(wantAdded) {
+				t.Errorf("added = %v, want %v", added, wantAdded)
+			}
+			for i, tag := range wantAdded {
+				if i >= len(added) || added[i] != tag {
+					t.Errorf("added[%d] = %q, want %q", i, added[i], tag)
+				}
+			}
+			if len(removed) != len(wantRemoved) {
+				t.Errorf("removed = %v, want %v", removed, wantRemoved)
+			}
+			for i, tag := range wantRemoved {
+				if i >= len(removed) || removed[i] != tag {
+					t.Errorf("removed[%d] = %q, want %q", i, removed[i], tag)
+				}
+			}
+		})
+	}
+}
+
+func makeTagTask(tags []string) hookTask {
+	t := hookTask{}
+	t["uuid"] = "test-uuid"
+	t["status"] = "pending"
+	if len(tags) > 0 {
+		tagSlice := make([]interface{}, len(tags))
+		for i, tag := range tags {
+			tagSlice[i] = tag
+		}
+		t["tags"] = tagSlice
+	}
+	return t
+}
+
+func TestCheckTagGuard(t *testing.T) {
+	// Set up a temp team dir with a manager and a worker.
+	teamDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: manager\n---\n"), 0o644); err != nil {
+		t.Fatalf("write yuki.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write kestrel.md: %v", err)
+	}
+	configDir := t.TempDir()
+	configContent := fmt.Sprintf(`
+default_team = "default"
+[teams.default]
+team_path = %q
+`, teamDir)
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		agentName string
+		origTags  []string
+		modTags   []string
+		wantErr   bool
+	}{
+		{"human adds tag", "", []string{"feature"}, []string{"feature", "newtag"}, false},
+		{"manager adds tag", "yuki", []string{"feature"}, []string{"feature", "newtag"}, false},
+		{"manager removes tag", "yuki", []string{"feature", "old"}, []string{"feature"}, false},
+		{"worker adds non-lgtm tag", "kestrel", []string{"feature"}, []string{"feature", "urgent"}, true},
+		{"worker removes tag", "kestrel", []string{"feature", "old"}, []string{"feature"}, true},
+		// _lgtm additions are deferred to checkLGTMGuard, not blocked by checkTagGuard.
+		{"worker adds _lgtm only", "kestrel", []string{"feature"}, []string{"feature", "plan_lgtm"}, false},
+		{"worker no tag change", "kestrel", []string{"feature"}, []string{"feature"}, false},
+		{"worker adds _lgtm and non-lgtm", "kestrel", []string{"feature"}, []string{"feature", "plan_lgtm", "urgent"}, true},
+		{"unknown agent adds tag", "coder", []string{"feature"}, []string{"feature", "newtag"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("TTAL_AGENT_NAME", tt.agentName)
+			orig := makeTagTask(tt.origTags)
+			mod := makeTagTask(tt.modTags)
+			err := checkTagGuard(orig, mod, configDir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkTagGuard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckTagGuard_NoConfig(t *testing.T) {
+	// When config.toml is missing, isManagerRole returns false (fail-safe).
+	// Any named agent that modifies tags should be rejected.
+	t.Setenv("TTAL_AGENT_NAME", "yuki")
+	emptyDir := t.TempDir()
+	orig := makeTagTask([]string{"feature"})
+	mod := makeTagTask([]string{"feature", "newtag"})
+	if err := checkTagGuard(orig, mod, emptyDir); err == nil {
+		t.Error("expected rejection when config.toml is missing (fail-safe treats all agents as non-manager)")
 	}
 }
 

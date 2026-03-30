@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -103,16 +104,79 @@ func resolveAllowedReviewers(task hookTask, configDir string) []string {
 
 // lgtmTagAdded returns the _lgtm tag that was added (empty if none).
 func lgtmTagAdded(originalTags, modifiedTags []string) string {
-	origSet := make(map[string]bool, len(originalTags))
-	for _, t := range originalTags {
-		origSet[t] = true
-	}
-	for _, t := range modifiedTags {
-		if taskwarrior.IsLGTMTag(t) && !origSet[t] {
+	added, _ := tagDiff(originalTags, modifiedTags)
+	for _, t := range added {
+		if taskwarrior.IsLGTMTag(t) {
 			return t
 		}
 	}
 	return ""
+}
+
+// tagDiff computes added and removed tags between original and modified tag lists.
+func tagDiff(origTags, modTags []string) (added, removed []string) {
+	origSet := make(map[string]bool, len(origTags))
+	for _, t := range origTags {
+		origSet[t] = true
+	}
+	modSet := make(map[string]bool, len(modTags))
+	for _, t := range modTags {
+		modSet[t] = true
+	}
+	for _, t := range modTags {
+		if !origSet[t] {
+			added = append(added, t)
+		}
+	}
+	for _, t := range origTags {
+		if !modSet[t] {
+			removed = append(removed, t)
+		}
+	}
+	return added, removed
+}
+
+// checkTagGuard blocks tag modifications from non-privileged agents.
+// Human (empty TTAL_AGENT_NAME) and manager-role agents may change any tags.
+// All other agents may only add _lgtm tags (validated separately by checkLGTMGuard).
+// Non-lgtm additions and any tag removals are rejected.
+// configDir may be empty — defaults to config.DefaultConfigDir().
+//
+// NOTE: The daemon process does not set TTAL_AGENT_NAME, so daemon-initiated
+// tag changes (pipeline advancement via advance.go) pass through as "human."
+// If TTAL_AGENT_NAME is ever set in the daemon's launchd environment, pipeline
+// advancement would break. Keep daemon env clean of this variable.
+func checkTagGuard(original, modified hookTask, configDir string) error {
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+	if agentName == "" {
+		return nil // Human or daemon — no gate.
+	}
+	if isManagerRole(agentName, configDir) {
+		return nil // Manager role — no gate.
+	}
+	added, removed := tagDiff(original.Tags(), modified.Tags())
+	// Filter out _lgtm additions — those are validated by checkLGTMGuard.
+	var nonLgtmAdded []string
+	for _, t := range added {
+		if !taskwarrior.IsLGTMTag(t) {
+			nonLgtmAdded = append(nonLgtmAdded, t)
+		}
+	}
+	if len(nonLgtmAdded) > 0 || len(removed) > 0 {
+		var parts []string
+		if len(nonLgtmAdded) > 0 {
+			parts = append(parts, fmt.Sprintf("added: %v", nonLgtmAdded))
+		}
+		if len(removed) > 0 {
+			parts = append(parts, fmt.Sprintf("removed: %v", removed))
+		}
+		return fmt.Errorf(
+			"cannot modify tags: only humans and managers can change tags directly (%s)."+
+				" Use `ttal go <uuid>` for pipeline tag changes",
+			strings.Join(parts, ", "),
+		)
+	}
+	return nil
 }
 
 // isManagerRole returns true if agentName has role=manager in the team directory.
@@ -203,6 +267,13 @@ func HookOnModify() {
 			fmt.Println(string(rawModified))
 		}
 		os.Exit(0)
+	}
+
+	// Guard: only humans and managers can modify tags (non-lgtm).
+	if err := checkTagGuard(original, modified, ""); err != nil {
+		hookLogFile("tag guard: " + err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 
 	// Guard: only pipeline reviewers can set _lgtm tags.
