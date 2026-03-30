@@ -173,7 +173,8 @@ func TestRunContext_RouteComposition(t *testing.T) {
 	if err := os.MkdirAll(routingDir, 0o755); err != nil {
 		t.Fatalf("mkdir routing: %v", err)
 	}
-	routeJSON := `{"task_uuid":"abc12345","role_prompt":"You are a designer.","message":"Work on task abc12345.","routed_by":"astra","created_at":"2026-01-01T00:00:00Z"}`
+	routeJSON := `{"task_uuid":"abc12345","role_prompt":"You are a designer.",` +
+		`"message":"Work on task abc12345.","routed_by":"astra","created_at":"2026-01-01T00:00:00Z"}`
 	if err := os.WriteFile(filepath.Join(routingDir, "kestrel.json"), []byte(routeJSON), 0o644); err != nil {
 		t.Fatalf("write route: %v", err)
 	}

@@ -46,7 +46,9 @@ func EvaluateBreatheContext(commands []string, agentName, teamName string) strin
 		if failCount == len(commands) {
 			log.Printf("[breathe] %s/%s: all breathe_context commands failed — no context produced", agentName, teamName)
 		} else {
-			log.Printf("[breathe] %s/%s: breathe_context commands produced no output (%d failed, %d empty)", agentName, teamName, failCount, len(commands)-failCount)
+			emptyCount := len(commands) - failCount
+			log.Printf("[breathe] %s/%s: breathe_context commands produced no output (%d failed, %d empty)",
+				agentName, teamName, failCount, emptyCount)
 		}
 	}
 	return result
