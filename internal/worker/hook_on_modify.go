@@ -133,11 +133,10 @@ func isManagerRole(agentName, configDir string) bool {
 	return info.Role == "manager"
 }
 
-// checkPipelineDoneGuard blocks task completion when the task matches a pipeline
-// but the last stage hasn't been approved. Pipeline completion is determined by
-// the presence of +<laststage>_lgtm tag.
-// configDir may be empty — defaults to config.DefaultConfigDir().
-func checkPipelineDoneGuard(task hookTask, configDir string) error {
+// checkPipelineDoneGuardWith blocks task completion when p is non-nil but the last
+// stage hasn't been approved. p is the already-matched pipeline — pass nil to skip the gate.
+// configDir is only used for the manager-role lookup; empty defaults to config.DefaultConfigDir().
+func checkPipelineDoneGuardWith(task hookTask, p *pipeline.Pipeline, configDir string) error {
 	// Escape hatch: humans and manager-role agents bypass the done gate.
 	// Only workers and non-manager agents are gated by pipeline stages.
 	agentName := os.Getenv("TTAL_AGENT_NAME")
@@ -148,7 +147,6 @@ func checkPipelineDoneGuard(task hookTask, configDir string) error {
 		return nil // Manager role — no gate.
 	}
 
-	p := matchedPipeline(task, configDir)
 	if p == nil {
 		return nil
 	}
@@ -169,6 +167,14 @@ func checkPipelineDoneGuard(task hookTask, configDir string) error {
 		"cannot complete task: pipeline not finished (need +%s). Use `ttal go <uuid>` to advance through stages",
 		lastStage.StageLGTMTag(),
 	)
+}
+
+// checkPipelineDoneGuard blocks task completion when the task matches a pipeline
+// but the last stage hasn't been approved. Pipeline completion is determined by
+// the presence of +<laststage>_lgtm tag.
+// configDir may be empty — defaults to config.DefaultConfigDir().
+func checkPipelineDoneGuard(task hookTask, configDir string) error {
+	return checkPipelineDoneGuardWith(task, matchedPipeline(task, configDir), configDir)
 }
 
 // checkLGTMGuard rejects _lgtm tag additions from agents not listed as pipeline reviewers.
@@ -220,8 +226,11 @@ func HookOnModify() {
 
 	// Check if task is being completed
 	if modified.Status() == taskStatusCompleted && original.Status() != taskStatusCompleted {
+		// Hoist pipeline lookup so both the done guard and notify check share one disk read.
+		p := matchedPipeline(modified, "")
+
 		// Block completion if pipeline stages are incomplete.
-		if err := checkPipelineDoneGuard(modified, ""); err != nil {
+		if err := checkPipelineDoneGuardWith(modified, p, ""); err != nil {
 			hookLogFile("pipeline guard: " + err.Error())
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
@@ -235,7 +244,7 @@ func HookOnModify() {
 		}
 		// Notify daemon — fire-and-forget, won't block task completion.
 		// Only notify for pipeline tasks; non-pipeline task completions are not manager-relevant.
-		if matchedPipeline(modified, "") != nil {
+		if p != nil {
 			notifyTaskComplete(modified, prTitle)
 		}
 	}
