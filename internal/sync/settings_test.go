@@ -318,7 +318,7 @@ func TestInstallSessionStartHook_PreservesExistingHooks(t *testing.T) {
 		"hooks": map[string]interface{}{
 			"SessionStart": []interface{}{
 				map[string]interface{}{
-					"matcher": "*.py",
+					"matcher": "startup|clear",
 					"hooks": []interface{}{
 						map[string]interface{}{
 							"type":    "command",

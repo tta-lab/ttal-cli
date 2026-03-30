@@ -122,6 +122,8 @@ type sessionStartHookEntry struct {
 }
 
 // sessionStartMatcher is one element of the SessionStart array.
+// Matcher filters by SessionStart source: "startup|clear" fires only on fresh start and /clear.
+// resume and compact are excluded — resume has intact memory, compact carries its own summary.
 type sessionStartMatcher struct {
 	Matcher string                  `json:"matcher"`
 	Hooks   []sessionStartHookEntry `json:"hooks"`
@@ -187,8 +189,9 @@ func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
 	}
 
 	// Not present — append our matcher.
+	// "startup|clear": fire on fresh start and /clear; skip resume (memory intact) and compact.
 	newEntry := sessionStartMatcher{
-		Matcher: "*",
+		Matcher: "startup|clear",
 		Hooks: []sessionStartHookEntry{
 			{Type: "command", Command: ttalContextCommand, Timeout: 15},
 		},
