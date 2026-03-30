@@ -58,12 +58,30 @@ func captureContextOutput(t *testing.T, stdinJSON ...string) string {
 
 // TestRunContext_NonAgentSession verifies non-agent sessions output {}.
 func TestRunContext_NonAgentSession(t *testing.T) {
-
 	// No agent_type in hook input — should be a no-op.
 	output := captureContextOutput(t, `{"cwd":"/some/random/dir"}`)
 	output = trimNewlines(output)
 	if output != "{}" {
 		t.Errorf("expected {} for non-agent session, got %q", output)
+	}
+}
+
+// TestRunContext_EmptyStdin verifies empty stdin (no hook input) produces {}.
+func TestRunContext_EmptyStdin(t *testing.T) {
+	// Provide closed stdin with no data.
+	output := captureContextOutput(t, "")
+	output = trimNewlines(output)
+	if output != "{}" {
+		t.Errorf("expected {} for empty stdin, got %q", output)
+	}
+}
+
+// TestRunContext_MalformedStdin verifies malformed JSON stdin produces {}.
+func TestRunContext_MalformedStdin(t *testing.T) {
+	output := captureContextOutput(t, `{"bad json:}`)
+	output = trimNewlines(output)
+	if output != "{}" {
+		t.Errorf("expected {} for malformed stdin, got %q", output)
 	}
 }
 

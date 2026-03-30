@@ -29,7 +29,7 @@ func newSessionStartOutput(ctx string) *hookSpecificOutput {
 }
 
 // hookInput is the JSON payload CC sends to command hooks via stdin.
-// agent_type is present when the session uses --agent (e.g. "kestrel").
+// CC also sends cwd, session_id, hook_event_name, etc.; only agent_type is needed here.
 type hookInput struct {
 	AgentType string `json:"agent_type"`
 }
@@ -38,12 +38,17 @@ type hookInput struct {
 // Returns zero-value hookInput on any error (graceful degradation).
 func readHookInput() hookInput {
 	data, err := io.ReadAll(os.Stdin)
-	if err != nil || len(data) == 0 {
+	if err != nil {
+		log.Printf("[context] failed to read hook input from stdin: %v", err)
+		return hookInput{}
+	}
+	if len(data) == 0 {
 		return hookInput{}
 	}
 	var input hookInput
 	if err := json.Unmarshal(data, &input); err != nil {
 		log.Printf("[context] failed to parse hook input: %v", err)
+		return hookInput{}
 	}
 	return input
 }
@@ -53,8 +58,9 @@ var contextCmd = &cobra.Command{
 	Short: "Output CC SessionStart hook JSON with agent context",
 	Long: `ttal context is called by the CC SessionStart hook on every new session.
 
-It reads TTAL_AGENT_NAME to determine which agent is starting. If the env var
-is not set (non-agent session), it outputs {} and exits 0 — a no-op for the hook.
+It reads agent_type from the hook's stdin JSON to determine which agent is
+starting. If agent_type is absent (non-agent session), it outputs {} and
+exits 0 — a no-op for the hook.
 
 For agent sessions it:
   1. Loads config to get breathe_context commands and team name
