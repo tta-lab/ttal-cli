@@ -111,7 +111,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 	}
 
 	if systemMsg == "" {
-		// No context to inject — output no-op.
+		log.Printf("[context] agent=%s: no context to inject", agentName)
 		noopHook()
 		return nil
 	}
