@@ -208,3 +208,20 @@ func TestCollapseSelectedClearsCache(t *testing.T) {
 		assert.Empty(t, m.childrenCache, "cache should be cleared when collapsing from child")
 	})
 }
+
+func TestApplyFilterCompletedSortsByEndDescending(t *testing.T) {
+	m := Model{
+		filter: filterCompleted,
+		tasks: []Task{
+			{UUID: "aa000001", Status: "completed", End: "20260101T100000Z"},
+			{UUID: "bb000002", Status: "completed", End: "20260315T120000Z"},
+			{UUID: "cc000003", Status: "completed", End: "20260210T080000Z"},
+		},
+		height: 20,
+	}
+	m.applyFilter()
+	assert.Equal(t, 3, len(m.filtered))
+	assert.Equal(t, "bb000002", m.filtered[0].UUID, "most recent should be first")
+	assert.Equal(t, "cc000003", m.filtered[1].UUID, "second most recent should be second")
+	assert.Equal(t, "aa000001", m.filtered[2].UUID, "oldest should be last")
+}
