@@ -107,4 +107,6 @@ allowedDomains = [
   "docker.io", "*.docker.io",
   # Telegram Bot API (daemon sends messages via Telegram)
   "api.telegram.org",
+  # SQLite documentation
+  "www.sqlite.org",
 ]
