@@ -265,6 +265,19 @@ func TestInstallSessionStartHook_FreshFile(t *testing.T) {
 	if !strings.Contains(string(data), "SessionStart") {
 		t.Errorf("expected 'SessionStart' key in settings.json, got: %s", data)
 	}
+
+	// Verify hook is written under the "hooks" wrapper key (CC 2.1.87+ format).
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	hooksMap, ok := settings["hooks"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected settings.hooks to be an object, got: %T", settings["hooks"])
+	}
+	if _, ok := hooksMap["SessionStart"]; !ok {
+		t.Error("expected SessionStart under hooks wrapper key")
+	}
 }
 
 func TestInstallSessionStartHook_Idempotent(t *testing.T) {
@@ -300,16 +313,18 @@ func TestInstallSessionStartHook_PreservesExistingHooks(t *testing.T) {
 	tmpDir := t.TempDir()
 	settingsPath := filepath.Join(tmpDir, "settings.json")
 
-	// Write a settings.json with an existing non-ttal SessionStart hook.
+	// Write a settings.json with an existing non-ttal SessionStart hook (new hooks wrapper format).
 	initial := map[string]interface{}{
-		"SessionStart": []interface{}{
-			map[string]interface{}{
-				"matcher": "*.py",
-				"hooks": []interface{}{
-					map[string]interface{}{
-						"type":    "command",
-						"command": "python-linter",
-						"timeout": 10,
+		"hooks": map[string]interface{}{
+			"SessionStart": []interface{}{
+				map[string]interface{}{
+					"matcher": "*.py",
+					"hooks": []interface{}{
+						map[string]interface{}{
+							"type":    "command",
+							"command": "python-linter",
+							"timeout": 10,
+						},
 					},
 				},
 			},
