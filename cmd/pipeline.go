@@ -258,7 +258,8 @@ func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config)
 		if err == nil {
 			branch, err := worker.WorktreeBranch(task.UUID, task.Project)
 			if err != nil {
-				log.Printf("[pipeline prompt] could not resolve worktree branch for task %s ({{branch}} will be empty): %v", task.HexID(), err)
+				log.Printf("[pipeline prompt] could not resolve worktree branch for task %s"+
+					" ({{branch}} will be empty): %v", task.HexID(), err)
 			}
 			owner, repo := resolvePROwnerRepo(task)
 			replacer := strings.NewReplacer(
@@ -284,7 +285,8 @@ func resolvePROwnerRepo(task *taskwarrior.Task) (owner, repo string) {
 	}
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
-		log.Printf("[pipeline prompt] could not detect git provider for project %q ({{owner}}/{{repo}} will be empty): %v", task.Project, err)
+		log.Printf("[pipeline prompt] could not detect git provider for project %q"+
+			" ({{owner}}/{{repo}} will be empty): %v", task.Project, err)
 		return "", ""
 	}
 	return info.Owner, info.Repo
