@@ -104,12 +104,9 @@ func resolveAllowedReviewers(task hookTask, configDir string) []string {
 
 // lgtmTagAdded returns the _lgtm tag that was added (empty if none).
 func lgtmTagAdded(originalTags, modifiedTags []string) string {
-	origSet := make(map[string]bool, len(originalTags))
-	for _, t := range originalTags {
-		origSet[t] = true
-	}
-	for _, t := range modifiedTags {
-		if taskwarrior.IsLGTMTag(t) && !origSet[t] {
+	added, _ := tagDiff(originalTags, modifiedTags)
+	for _, t := range added {
+		if taskwarrior.IsLGTMTag(t) {
 			return t
 		}
 	}

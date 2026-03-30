@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -336,24 +337,35 @@ func TestTagDiff(t *testing.T) {
 		{"tag removed", []string{"feature", "urgent"}, []string{"feature"}, nil, []string{"urgent"}},
 		{"added and removed", []string{"feature", "old"}, []string{"feature", "new"}, []string{"new"}, []string{"old"}},
 		{"empty lists", []string{}, []string{}, nil, nil},
-		// tagDiff uses sets: duplicates in orig resolve to same element, no false removal.
+		// tagDiff uses sets: duplicates in orig resolve to the same element — no false removal.
 		{"duplicate in orig — no removal", []string{"a", "a"}, []string{"a"}, nil, nil},
+		// tagDiff iterates modTags linearly for additions — duplicates in mod appear twice.
+		// This documents the current contract: deduplication is the caller's responsibility.
+		{"duplicate in mod — two additions", []string{}, []string{"a", "a"}, []string{"a", "a"}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			added, removed := tagDiff(tt.origTags, tt.modTags)
-			if len(added) != len(tt.wantAdded) {
-				t.Errorf("added = %v, want %v", added, tt.wantAdded)
+			// Sort both slices before comparing — tagDiff output order mirrors input order,
+			// but sorted comparison is more robust if iteration order ever changes.
+			slices.Sort(added)
+			slices.Sort(removed)
+			wantAdded := append([]string(nil), tt.wantAdded...)
+			wantRemoved := append([]string(nil), tt.wantRemoved...)
+			slices.Sort(wantAdded)
+			slices.Sort(wantRemoved)
+			if len(added) != len(wantAdded) {
+				t.Errorf("added = %v, want %v", added, wantAdded)
 			}
-			for i, tag := range tt.wantAdded {
+			for i, tag := range wantAdded {
 				if i >= len(added) || added[i] != tag {
 					t.Errorf("added[%d] = %q, want %q", i, added[i], tag)
 				}
 			}
-			if len(removed) != len(tt.wantRemoved) {
-				t.Errorf("removed = %v, want %v", removed, tt.wantRemoved)
+			if len(removed) != len(wantRemoved) {
+				t.Errorf("removed = %v, want %v", removed, wantRemoved)
 			}
-			for i, tag := range tt.wantRemoved {
+			for i, tag := range wantRemoved {
 				if i >= len(removed) || removed[i] != tag {
 					t.Errorf("removed[%d] = %q, want %q", i, removed[i], tag)
 				}
@@ -423,6 +435,18 @@ team_path = %q
 				t.Errorf("checkTagGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestCheckTagGuard_NoConfig(t *testing.T) {
+	// When config.toml is missing, isManagerRole returns false (fail-safe).
+	// Any named agent that modifies tags should be rejected.
+	t.Setenv("TTAL_AGENT_NAME", "yuki")
+	emptyDir := t.TempDir()
+	orig := makeTagTask([]string{"feature"})
+	mod := makeTagTask([]string{"feature", "newtag"})
+	if err := checkTagGuard(orig, mod, emptyDir); err == nil {
+		t.Error("expected rejection when config.toml is missing (fail-safe treats all agents as non-manager)")
 	}
 }
 
