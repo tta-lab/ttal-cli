@@ -194,7 +194,7 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch string) error {
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)

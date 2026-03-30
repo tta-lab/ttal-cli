@@ -717,7 +717,7 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 // $ ttal pipeline prompt reads the stage tag to output the role-specific prompt.
 func routeToPersistentAgent(
 	w http.ResponseWriter, cfg *config.Config,
-	task *taskwarrior.Task, agent *agentfs.AgentInfo,
+	_ *taskwarrior.Task, agent *agentfs.AgentInfo,
 	_, _, team string,
 ) error {
 	if !shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
