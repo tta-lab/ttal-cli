@@ -111,6 +111,91 @@ func extractPermsDenyList(settings map[string]interface{}) (map[string]interface
 	return perms, denySlice, nil
 }
 
+// ttalContextCommand is the command used in the SessionStart hook.
+const ttalContextCommand = "ttal context"
+
+// sessionStartHookEntry is a single entry in a SessionStart hooks list.
+type sessionStartHookEntry struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+	Timeout int    `json:"timeout"`
+}
+
+// sessionStartMatcher is one element of the SessionStart array.
+type sessionStartMatcher struct {
+	Matcher string                  `json:"matcher"`
+	Hooks   []sessionStartHookEntry `json:"hooks"`
+}
+
+// InstallSessionStartHook writes a SessionStart entry into ~/.claude/settings.json.
+// Additive: if the key exists, adds our entry only if a hook with "ttal context" is absent.
+// Preserves all existing non-ttal SessionStart hooks.
+// Returns true if the hook was added (false if already present or dry-run with no change).
+func InstallSessionStartHook(dryRun bool) (added bool, err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false, fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	return installSessionStartHook(dryRun, settingsPath)
+}
+
+func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
+	settings, err := readOrInitSettings(settingsPath)
+	if err != nil {
+		return false, err
+	}
+
+	// Read existing SessionStart value if present.
+	var existing []interface{}
+	if raw, ok := settings["SessionStart"]; ok {
+		existing, ok = raw.([]interface{})
+		if !ok {
+			return false, fmt.Errorf("settings.json: SessionStart is not an array (got %T)", raw)
+		}
+	}
+
+	// Check if our hook is already present.
+	for _, entry := range existing {
+		m, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		hooks, ok := m["hooks"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, h := range hooks {
+			hm, ok := h.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if cmd, ok := hm["command"].(string); ok && cmd == ttalContextCommand {
+				return false, nil // already present
+			}
+		}
+	}
+
+	// Not present — append our matcher.
+	newEntry := sessionStartMatcher{
+		Matcher: "*",
+		Hooks: []sessionStartHookEntry{
+			{Type: "command", Command: ttalContextCommand, Timeout: 15},
+		},
+	}
+	existing = append(existing, newEntry)
+
+	if dryRun {
+		return true, nil
+	}
+
+	settings["SessionStart"] = existing
+	if err := writeSettingsJSON(settingsPath, settings); err != nil {
+		return false, fmt.Errorf("writing settings.json: %w", err)
+	}
+	return true, nil
+}
+
 // writeSettingsJSON marshals v to indented JSON and writes to path (0o644).
 // Creates parent directory if needed.
 func writeSettingsJSON(path string, v interface{}) error {
