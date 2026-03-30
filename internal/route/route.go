@@ -14,11 +14,14 @@ import (
 const routingDir = "routing"
 
 // Request is written to ~/.ttal/routing/<agent>.json by the router.
-// The daemon checks for this file during handleBreathe to compose
-// the restart with routing context.
+// Consumed by the CC SessionStart hook (ttal context) which injects RolePrompt
+// and Message as the session system message.
 type Request struct {
-	TaskUUID    string    `json:"task_uuid"`
-	RolePrompt  string    `json:"role_prompt"`
+	TaskUUID   string `json:"task_uuid"`
+	RolePrompt string `json:"role_prompt"`
+	// Trigger is no longer used: context injection via the CC SessionStart hook
+	// means Message alone is sufficient to kick the agent into action at startup.
+	// Kept for backward compatibility with existing staged route files.
 	Trigger     string    `json:"trigger"`
 	ProjectPath string    `json:"project_path,omitempty"`
 	RoutedBy    string    `json:"routed_by,omitempty"`
@@ -50,6 +53,8 @@ func Stage(agentName string, req Request) error {
 }
 
 // Consume reads and deletes a routing request file. Returns nil, nil if no file exists.
+// Parse happens before delete: if JSON is malformed the file is left on disk for
+// diagnosis and the error is returned. The file is only removed on successful parse.
 func Consume(agentName string) (*Request, error) {
 	path := filepath.Join(config.DefaultDataDir(), routingDir, agentName+".json")
 	data, err := os.ReadFile(path)
@@ -59,12 +64,14 @@ func Consume(agentName string) (*Request, error) {
 		}
 		return nil, fmt.Errorf("read routing file: %w", err)
 	}
-	if err := os.Remove(path); err != nil {
-		return nil, fmt.Errorf("remove routing file (would cause re-delivery): %w", err)
-	}
+	// Parse first — if the file is corrupt, leave it on disk for diagnosis.
 	var req Request
 	if err := json.Unmarshal(data, &req); err != nil {
 		return nil, fmt.Errorf("parse routing file: %w", err)
+	}
+	// Only remove after successful parse to prevent assignment loss on corrupt write.
+	if err := os.Remove(path); err != nil {
+		return nil, fmt.Errorf("remove routing file (would cause re-delivery): %w", err)
 	}
 	return &req, nil
 }

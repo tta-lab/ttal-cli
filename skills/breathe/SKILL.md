@@ -69,35 +69,44 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 
 ## What Happens After
 
+### Manager path (uses SessionStart hook)
+
 1. The daemon receives your handoff
-2. Daemon persists your handoff to diary, then reads today's diary entry (handoff + any earlier entries today) as enriched context
-3. Writes a synthetic JSONL session with the enriched handoff as the first message
+2. Daemon persists your handoff to diary
+3. Status file session ID is cleared
 4. Your CC session is killed
-5. A new CC session starts with `--resume` on the synthetic session
-6. You wake up in a fresh context window with the handoff as context
-7. Continue from where you left off
+5. A new CC session starts fresh (no `--resume`)
+6. CC fires the SessionStart hook: `ttal context` reads env, evaluates breathe_context commands, and consumes any pending route file to build the system message
+7. You wake up in a fresh context window with the session context injected by the hook
+8. Continue from where you left off
 
 Your handoff is saved in diary — it persists across sessions.
+
+### Worker path (still uses synthetic JSONL + --resume)
+
+Workers use synthetic JSONL sessions with `--resume` — the SessionStart hook does not apply to short-lived worker sessions.
 
 ## Auto-Breathe on Route
 
 When a task is routed via `ttal go`, the agent is asked to breathe
 so they start fresh. The router stages routing params to
 `~/.ttal/routing/<agent>.json`, then sends a message asking the agent to
-`/breathe`. The daemon composes the restart:
+`/breathe`. On next startup:
 
-- **System prompt (JSONL):** agent's handoff + role prompt from routing file
-- **Trigger (positional arg):** task assignment that kicks the agent into action
+- **Manager path:** The SessionStart hook (`ttal context`) consumes the route file and injects the role prompt and task assignment as the system message
+- **Worker path:** The daemon reads the route file during `handleBreathe` and composes the restart
 
-Managers are exempt — they keep persistent sessions.
+Managers are exempt from forced breathe — they keep persistent sessions.
 
 To skip: `ttal go <uuid> --no-breathe`
 
-## Unified Spawn Pattern
+## Unified Spawn Pattern (Manager)
 
-All spawns (workers, reviewers, route-breathe) now use the same pattern:
+The manager breathe path:
 
-1. Write system prompt into synthetic JSONL session
-2. Launch `claude --resume <session-id> -- "<trigger>"`
+1. Daemon kills old session, creates new session without `--resume`
+2. CC starts, fires SessionStart hook
+3. `ttal context` evaluates breathe_context commands and pending route file
+4. System message is injected into the session
 
-The system prompt carries context; the trigger kicks off action.
+The SessionStart hook is installed via `ttal sync` (not `ttal doctor --fix`).

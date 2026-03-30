@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -237,5 +238,124 @@ func TestDenyPrimaryAgentsAsSubagents_NonObjectPermissionsReturnsError(t *testin
 	}
 	if string(written) != string(content) {
 		t.Error("settings.json should not be modified when returning an error")
+	}
+}
+
+// ── SessionStart hook tests ─────────────────────────────────────────────────
+
+func TestInstallSessionStartHook_FreshFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	added, err := installSessionStartHook(false, settingsPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !added {
+		t.Error("expected added=true for fresh install")
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json not created: %v", err)
+	}
+	if !strings.Contains(string(data), "ttal context") {
+		t.Errorf("expected 'ttal context' in settings.json, got: %s", data)
+	}
+	if !strings.Contains(string(data), "SessionStart") {
+		t.Errorf("expected 'SessionStart' key in settings.json, got: %s", data)
+	}
+}
+
+func TestInstallSessionStartHook_Idempotent(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	// First install
+	if _, err := installSessionStartHook(false, settingsPath); err != nil {
+		t.Fatalf("first install error: %v", err)
+	}
+
+	// Second install — should not add duplicate
+	added, err := installSessionStartHook(false, settingsPath)
+	if err != nil {
+		t.Fatalf("second install error: %v", err)
+	}
+	if added {
+		t.Error("expected added=false on second (idempotent) install")
+	}
+
+	// Verify only one ttal context entry exists
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("reading settings.json: %v", err)
+	}
+	count := strings.Count(string(data), "ttal context")
+	if count != 1 {
+		t.Errorf("expected exactly 1 'ttal context' entry, found %d", count)
+	}
+}
+
+func TestInstallSessionStartHook_PreservesExistingHooks(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	// Write a settings.json with an existing non-ttal SessionStart hook.
+	initial := map[string]interface{}{
+		"SessionStart": []interface{}{
+			map[string]interface{}{
+				"matcher": "*.py",
+				"hooks": []interface{}{
+					map[string]interface{}{
+						"type":    "command",
+						"command": "python-linter",
+						"timeout": 10,
+					},
+				},
+			},
+		},
+	}
+	data, _ := json.MarshalIndent(initial, "", "  ")
+	if err := os.WriteFile(settingsPath, append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	added, err := installSessionStartHook(false, settingsPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !added {
+		t.Error("expected added=true when adding to existing SessionStart")
+	}
+
+	written, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both the existing hook and the new ttal hook must be present.
+	if !strings.Contains(string(written), "python-linter") {
+		t.Error("existing non-ttal hook was not preserved")
+	}
+	if !strings.Contains(string(written), "ttal context") {
+		t.Error("new ttal context hook not added")
+	}
+}
+
+func TestInstallSessionStartHook_DryRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	added, err := installSessionStartHook(true, settingsPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !added {
+		t.Error("expected added=true in dry-run (reports what would be done)")
+	}
+
+	// File must NOT have been created in dry-run mode.
+	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+		t.Error("dry-run should not create settings.json")
 	}
 }
