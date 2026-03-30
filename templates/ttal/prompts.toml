@@ -1,10 +1,14 @@
-execute = """\
-Implement this task. The plan is in your task context.
-Follow each task in order: read the plan, make changes, verify, commit.
+context = """
+$ diary {{agent-name}} read
+$ ttal agent list
+---
 
-IMPORTANT: Use `ttal task get` (no extra params) to get task details including the plan.
-IMPORTANT: Always use `ttal pr` for PR operations (create, modify) — never use `gh` or `tea`, even if the repo is on GitHub.
-IMPORTANT: Use `ttal go` (no extra params) to finalize your work when you finish triage and got lgtm from reviewer"""
+## New Task Assignment
+
+Read the task and do your best based on the context.
+Run `ttal task get` (no extra arguments) to retrieve task details.
+$ ttal pipeline prompt
+"""
 
 triage = """\
 {{skill:triage}}
@@ -127,8 +131,3 @@ cat <<'EOF' | ttal comment add
 EOF
 ```
 If verdict is LGTM and no remaining issues, advance with: ttal go"""
-
-breathe_context = """
-diary {{agent-name}} read
-ttal agent list
-"""

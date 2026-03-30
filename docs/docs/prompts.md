@@ -12,13 +12,49 @@ ttal lets you customize the prompts sent to agents when routing tasks. This cont
 Create `~/.config/ttal/prompts.toml` with your prompt templates:
 
 ```toml
-execute = "Implement this task. The plan is in your task context."
+context = """
+$ diary {{agent-name}} read
+$ ttal agent list
+---
+
+## New Task Assignment
+
+$ ttal pipeline prompt
+"""
+
 triage = "{{skill:triage}}\nPR review posted. Read {{review-file}}, assess and fix issues."
 review = "You are reviewing PR #{{pr-number}} in {{owner}}/{{repo}}."
 re_review = "Re-review scope: {{review-scope}}"
 ```
 
-> **Note:** Prompts live in a dedicated `prompts.toml` file rather than `config.toml`, keeping your main config file focused on settings and team configuration. Role-based prompts (for agents with `role: designer` or `role: researcher`) live in `roles.toml`, not `prompts.toml`.
+> **Note:** Prompts live in a dedicated `prompts.toml` file rather than `config.toml`, keeping your main config file focused on settings and team configuration. Role-based prompts (for agents with `role: designer` or `role: researcher`) live in `roles.toml`, not `prompts.toml`. The `coder` role prompt also lives in `roles.toml`.
+
+## Context Template (`context`)
+
+The `context` prompt is the universal CC SessionStart template. It is rendered for every agent session and supports two line types:
+
+- **`$ <cmd>`** — shell command, executed and replaced with its stdout (header: `--- <cmd> ---`)
+- **Plain text** — passed through as-is
+
+Template vars `{{agent-name}}` and `{{team-name}}` are expanded before execution.
+
+Commands that fail or produce no output are silently skipped — partial output is fine.
+
+```toml
+context = """
+$ diary {{agent-name}} read
+$ ttal agent list
+---
+
+## New Task Assignment
+
+Read the task and do your best based on the context.
+Run `ttal task get` (no extra arguments) to retrieve task details.
+$ ttal pipeline prompt
+"""
+```
+
+`ttal pipeline prompt` reads `TTAL_JOB_ID` / `TTAL_AGENT_NAME` from the environment to find the current task and output the role-specific prompt (coder instructions, review prompt, etc.).
 
 ## Template variables
 
@@ -45,18 +81,30 @@ as all runtimes require skill invocations at the start of the message.
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
+| `context` | CC SessionStart hook (all agents) | `{{agent-name}}`, `{{team-name}}`, `$ cmd` |
 | `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}` |
 | `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}` |
-| `execute` | `ttal go` | `{{task-id}}`, `{{skill:name}}` |
+| `coder` | `ttal go` (worker spawn, via `roles.toml`) | `{{task-id}}` |
 | `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
 | `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}`, `{{skill:name}}` |
 
 ## How each prompt is used
 
-### `execute`
+### `context`
 
-The execute prompt is prepended to the worker's spawn prompt. When you run `ttal go <uuid>`, the worker receives this prompt followed by the task context (description, annotations, inlined docs).
+The universal SessionStart template. Rendered for every agent session via the CC hook.
+Lines starting with `$ ` are executed as shell commands. The `$ ttal pipeline prompt` line
+outputs the role-specific prompt (coder instructions, review prompt, plan review prompt, etc.)
+based on the current task's pipeline stage.
+
+Workers get `TTAL_JOB_ID` derived from their worktree path. Managers and reviewers get
+`TTAL_AGENT_NAME` from their `--agent` flag. Both are available as env vars during `$ cmd` execution.
+
+### `coder` (in `roles.toml`)
+
+The coder role prompt is rendered by `ttal pipeline prompt` and injected via the context
+template. Configure it in `roles.toml` under `[coder]`.
 
 Default: instructs the coder agent to implement the task using the plan from the task context.
 
@@ -78,7 +126,7 @@ Sent to the coder window after the reviewer posts a PR review. Contains the revi
 
 ### `review`
 
-The initial prompt for the reviewer when spawning a new review window. Contains PR metadata (number, title, owner, repo, branch).
+The initial prompt for the reviewer when spawning a new review window. Contains PR metadata (number, title, owner, repo, branch). Rendered by `ttal pipeline prompt` in the reviewer's session.
 
 ### `re_review`
 
@@ -86,35 +134,28 @@ Sent to the reviewer when the coder pushes fixes and requests a re-review. Conta
 
 ## Examples
 
-### Custom execute prompt with a specific skill
+### Custom context template with diary and task list
 
 ```toml
 # ~/.config/ttal/prompts.toml
-execute = "{{skill:sp-tdd}}"
+context = """
+$ diary {{agent-name}} read
+$ ttal today list
+---
+
+$ ttal pipeline prompt
+"""
 ```
 
-This would use test-driven development for all workers instead of the default plan-execution flow.
-
-### Adding project-specific instructions
-
-```toml
-# ~/.config/ttal/prompts.toml
-execute = """\
-Always run `make ci` before committing.
-Use conventional commit messages."""
-```
-
-### Custom researcher role prompt
+### Custom coder role prompt
 
 ```toml
 # ~/.config/ttal/roles.toml
-researcher = """\
-{{skill:tell-me-more}}
-Research task {{task-id}} thoroughly:
-1. Search for existing solutions
-2. Compare at least 3 approaches
-3. Write findings to ~/clawd/docs/research/
-4. Annotate the task with Research: <path>"""
+[coder]
+prompt = """Always run `make ci` before committing.
+Use conventional commit messages.
+
+Read the task: ttal task get"""
 ```
 
 ### Custom triage prompt
