@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -27,13 +28,39 @@ func newSessionStartOutput(ctx string) *hookSpecificOutput {
 	return &hookSpecificOutput{HookEventName: "SessionStart", AdditionalContext: ctx}
 }
 
+// hookInput is the JSON payload CC sends to command hooks via stdin.
+// CC also sends cwd, session_id, hook_event_name, etc.; only agent_type is needed here.
+type hookInput struct {
+	AgentType string `json:"agent_type"`
+}
+
+// readHookInput reads the CC hook input JSON from stdin.
+// Returns zero-value hookInput on any error (graceful degradation).
+func readHookInput() hookInput {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		log.Printf("[context] failed to read hook input from stdin: %v", err)
+		return hookInput{}
+	}
+	if len(data) == 0 {
+		return hookInput{}
+	}
+	var input hookInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		log.Printf("[context] failed to parse hook input: %v", err)
+		return hookInput{}
+	}
+	return input
+}
+
 var contextCmd = &cobra.Command{
 	Use:   "context",
 	Short: "Output CC SessionStart hook JSON with agent context",
 	Long: `ttal context is called by the CC SessionStart hook on every new session.
 
-It reads TTAL_AGENT_NAME to determine which agent is starting. If the env var
-is not set (non-agent session), it outputs {} and exits 0 — a no-op for the hook.
+It reads agent_type from the hook's stdin JSON to determine which agent is
+starting. If agent_type is absent (non-agent session), it outputs {} and
+exits 0 — a no-op for the hook.
 
 For agent sessions it:
   1. Loads config to get breathe_context commands and team name
@@ -67,12 +94,7 @@ func outputJSON(v interface{}) error {
 }
 
 func runContext(_ *cobra.Command, _ []string) error {
-	agentName := os.Getenv("TTAL_AGENT_NAME")
-	if agentName == "" {
-		// Non-agent session — no-op hook.
-		noopHook()
-		return nil
-	}
+	input := readHookInput()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -85,6 +107,14 @@ func runContext(_ *cobra.Command, _ []string) error {
 	teamName := cfg.TeamName()
 	if teamName == "" {
 		teamName = config.DefaultTeamName
+	}
+
+	// agent_type is set by CC when the session uses --agent <name>.
+	agentName := input.AgentType
+	if agentName == "" {
+		// Non-agent session — no-op hook.
+		noopHook()
+		return nil
 	}
 
 	// Build context from breathe_context commands.

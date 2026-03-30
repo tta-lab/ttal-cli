@@ -12,8 +12,25 @@ import (
 )
 
 // captureContextOutput runs runContext and captures stdout.
-func captureContextOutput(t *testing.T) string {
+// stdinJSON is optional hook input JSON to provide via stdin.
+func captureContextOutput(t *testing.T, stdinJSON ...string) string {
 	t.Helper()
+
+	// Inject stdin if provided.
+	if len(stdinJSON) > 0 && stdinJSON[0] != "" {
+		oldStdin := os.Stdin
+		pr, pw, err := os.Pipe()
+		if err != nil {
+			t.Fatalf("stdin pipe: %v", err)
+		}
+		if _, err := pw.WriteString(stdinJSON[0]); err != nil {
+			t.Fatalf("write stdin: %v", err)
+		}
+		pw.Close()
+		os.Stdin = pr
+		defer func() { os.Stdin = oldStdin }()
+	}
+
 	// Redirect stdout by capturing via cobra output
 	buf := &bytes.Buffer{}
 	contextCmd.SetOut(buf)
@@ -41,12 +58,39 @@ func captureContextOutput(t *testing.T) string {
 
 // TestRunContext_NonAgentSession verifies non-agent sessions output {}.
 func TestRunContext_NonAgentSession(t *testing.T) {
-	t.Setenv("TTAL_AGENT_NAME", "")
+	// No agent_type in hook input — should be a no-op.
+	output := captureContextOutput(t, `{"cwd":"/some/random/dir"}`)
+	output = trimNewlines(output)
+	if output != "{}" {
+		t.Errorf("expected {} for non-agent session, got %q", output)
+	}
+}
+
+// TestRunContext_EmptyStdin verifies empty stdin (no hook input) produces {}.
+func TestRunContext_EmptyStdin(t *testing.T) {
+	// Wire up a closed pipe so readHookInput sees EOF with zero bytes.
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	pw.Close()
+	oldStdin := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = oldStdin }()
 
 	output := captureContextOutput(t)
 	output = trimNewlines(output)
 	if output != "{}" {
-		t.Errorf("expected {} for non-agent session, got %q", output)
+		t.Errorf("expected {} for empty stdin, got %q", output)
+	}
+}
+
+// TestRunContext_MalformedStdin verifies malformed JSON stdin produces {}.
+func TestRunContext_MalformedStdin(t *testing.T) {
+	output := captureContextOutput(t, `{"bad json:}`)
+	output = trimNewlines(output)
+	if output != "{}" {
+		t.Errorf("expected {} for malformed stdin, got %q", output)
 	}
 }
 
@@ -54,7 +98,6 @@ func TestRunContext_NonAgentSession(t *testing.T) {
 func TestRunContext_AgentWithConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "kestrel")
 
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -71,7 +114,9 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 		t.Fatalf("write config.toml: %v", err)
 	}
 
-	output := captureContextOutput(t)
+	// Hook input with agent_type from --agent flag.
+	hookInput := testHookInputKestrel
+	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
 	// Output must always be valid JSON.
@@ -98,10 +143,11 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 func TestRunContext_MissingConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "kestrel")
+
 	// No config files — config.Load should fail gracefully
 
-	output := captureContextOutput(t)
+	hookInput := testHookInputKestrel
+	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
 	// Must be valid JSON even when config is missing
@@ -119,7 +165,6 @@ func TestRunContext_MissingConfig(t *testing.T) {
 func TestRunContext_MalformedRouteFile(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "kestrel")
 
 	// Write a minimal config.toml so config.Load() succeeds.
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
@@ -140,7 +185,8 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 		t.Fatalf("write bad route: %v", err)
 	}
 
-	output := captureContextOutput(t)
+	hookInput := testHookInputKestrel
+	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
 	// Must be valid JSON despite corrupt route file.
@@ -155,7 +201,6 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 func TestRunContext_RouteComposition(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "kestrel")
 
 	// Write config with a breathe_context command so we have a non-empty base.
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
@@ -182,7 +227,8 @@ func TestRunContext_RouteComposition(t *testing.T) {
 		t.Fatalf("write route: %v", err)
 	}
 
-	output := captureContextOutput(t)
+	hookInput := testHookInputKestrel
+	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
 	var resp ccHookResponse
@@ -209,6 +255,8 @@ func TestRunContext_RouteComposition(t *testing.T) {
 		t.Error("route file should have been consumed (deleted)")
 	}
 }
+
+const testHookInputKestrel = `{"agent_type":"kestrel"}`
 
 func trimNewlines(s string) string {
 	for len(s) > 0 && (s[len(s)-1] == '\n' || s[len(s)-1] == '\r') {
