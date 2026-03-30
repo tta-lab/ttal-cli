@@ -6,6 +6,7 @@ role: designer
 color: cyan
 voice: af_nova
 claude-code:
+  model: opus
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

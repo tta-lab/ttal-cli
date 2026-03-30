@@ -145,14 +145,6 @@ func computeSubpath(project, gitRoot string) (string, error) {
 	return "", nil
 }
 
-// resolveModel determines the worker model: +hard tag uses opus, otherwise team worker_model config.
-func resolveModel(task *taskwarrior.Task, shellCfg *config.Config) string {
-	if task.HasTag("hard") {
-		return "opus"
-	}
-	return shellCfg.WorkerModel()
-}
-
 // resolveRuntime determines the worker runtime from config, defaulting to ClaudeCode.
 func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime {
 	if rt == "" || rt == runtime.ClaudeCode {
@@ -216,7 +208,6 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc, workDir)
-	model := resolveModel(task, shellCfg)
 
 	var shellCmd string
 	var ccSessionPath string // non-empty for CC workers; cleaned up if tmux.NewSession fails
@@ -243,7 +234,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 				CWD:       workDir,
 				GitBranch: branch,
 				Handoff:   systemPrompt,
-			}, model, CoderAgentName, "Begin implementation.",
+			}, CoderAgentName, "Begin implementation.",
 		)
 		if err != nil {
 			return err

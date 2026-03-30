@@ -108,9 +108,6 @@ type Config struct {
 	resolvedAgentRuntime     string
 	resolvedWorkerRuntime    string
 	resolvedReviewerRuntime  string
-	resolvedAgentModel       string
-	resolvedWorkerModel      string
-	resolvedReviewerModel    string
 	resolvedMergeMode        string
 	resolvedTeamPath         string
 	resolvedProjectsPath     string
@@ -140,14 +137,8 @@ type TeamConfig struct {
 	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code"` //nolint:lll
 	// Runtime for spawned workers
 	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
-	// Model for agent sessions (default: sonnet)
-	AgentModel string `toml:"agent_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
-	// Model for spawned workers (default: sonnet; +hard tag overrides to opus)
-	WorkerModel string `toml:"worker_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// Runtime for spawned reviewers (falls back to worker_runtime)
 	ReviewerRuntime string `toml:"reviewer_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
-	// Model for spawned reviewers (falls back to worker_model)
-	ReviewerModel string `toml:"reviewer_model" jsonschema:"enum=haiku,enum=sonnet,enum=opus"` //nolint:lll
 	// PR merge mode override for this team
 	MergeMode string `toml:"merge_mode" jsonschema:"enum=auto,enum=manual"` //nolint:lll
 	// Comment sync mode: "none" (DB only) or "pr" (mirror to PR). Default: "pr".
@@ -256,31 +247,8 @@ func AgentBotToken(agentName string) string {
 }
 
 // AgentRuntimeFor returns the team-level agent runtime.
-// Per-agent overrides are no longer supported; configure via team agent_runtime.
 func (c *Config) AgentRuntimeFor(_ string) runtime.Runtime {
 	return c.AgentRuntime()
-}
-
-// AgentModel returns the team's agent model ("sonnet" if unset).
-func (c *Config) AgentModel() string {
-	if c.resolvedAgentModel != "" {
-		return c.resolvedAgentModel
-	}
-	return DefaultModel
-}
-
-// WorkerModel returns the team's worker model ("sonnet" if unset).
-func (c *Config) WorkerModel() string {
-	if c.resolvedWorkerModel != "" {
-		return c.resolvedWorkerModel
-	}
-	return DefaultModel
-}
-
-// AgentModelFor returns the team-level agent model.
-// Per-agent overrides are no longer supported; configure via team agent_model.
-func (c *Config) AgentModelFor(_ string) string {
-	return c.AgentModel()
 }
 
 // resolveNotificationToken reads the notification bot token from .env.
@@ -377,15 +345,6 @@ func (c *Config) ReviewerRuntime() runtime.Runtime {
 		return runtime.Runtime(c.resolvedReviewerRuntime)
 	}
 	return c.WorkerRuntime()
-}
-
-// ReviewerModel returns the team's reviewer model.
-// Falls back to WorkerModel if not set.
-func (c *Config) ReviewerModel() string {
-	if c.resolvedReviewerModel != "" {
-		return c.resolvedReviewerModel
-	}
-	return c.WorkerModel()
 }
 
 // TaskSyncURL returns the TaskChampion sync server URL for the active team.
@@ -786,9 +745,6 @@ func (c *Config) resolve() error {
 	c.resolvedAgentRuntime = team.AgentRuntime
 	c.resolvedWorkerRuntime = team.WorkerRuntime
 	c.resolvedReviewerRuntime = team.ReviewerRuntime
-	c.resolvedAgentModel = team.AgentModel
-	c.resolvedWorkerModel = team.WorkerModel
-	c.resolvedReviewerModel = team.ReviewerModel
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
 	if err := validateTeamRuntimes(c.resolvedWorkerRuntime, c.resolvedReviewerRuntime); err != nil {
@@ -899,9 +855,6 @@ type ResolvedTeam struct {
 	AgentRuntime      string
 	WorkerRuntime     string
 	ReviewerRuntime   string
-	AgentModel        string
-	WorkerModel       string
-	ReviewerModel     string
 	MergeMode         string
 	CommentSync       string
 	Voice             VoiceConfig
@@ -1059,9 +1012,6 @@ func resolveTeam(
 		AgentRuntime:      team.AgentRuntime,
 		WorkerRuntime:     team.WorkerRuntime,
 		ReviewerRuntime:   team.ReviewerRuntime,
-		AgentModel:        team.AgentModel,
-		WorkerModel:       team.WorkerModel,
-		ReviewerModel:     team.ReviewerModel,
 		MergeMode:         team.MergeMode,
 		CommentSync:       team.CommentSync,
 		Voice: VoiceConfig{
@@ -1181,32 +1131,6 @@ func (m *DaemonConfig) AgentRuntimeForTeam(teamName, _ string) runtime.Runtime {
 		return runtime.Runtime(team.AgentRuntime)
 	}
 	return runtime.ClaudeCode
-}
-
-// AgentModelForTeam returns the team-level agent model.
-// Per-agent overrides are no longer supported; configure via team agent_model.
-func (m *DaemonConfig) AgentModelForTeam(teamName, _ string) string {
-	team, ok := m.Teams[teamName]
-	if !ok {
-		return DefaultModel
-	}
-	if team.AgentModel != "" {
-		return team.AgentModel
-	}
-	return DefaultModel
-}
-
-// WorkerModelForTeam resolves effective model for workers in a team:
-// team worker_model > "sonnet".
-func (m *DaemonConfig) WorkerModelForTeam(teamName string) string {
-	team, ok := m.Teams[teamName]
-	if !ok {
-		return DefaultModel
-	}
-	if team.WorkerModel != "" {
-		return team.WorkerModel
-	}
-	return DefaultModel
 }
 
 // resolvedPaths caches dataDir, dbPath, and projectsPath together from a single config load,

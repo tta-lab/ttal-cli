@@ -48,7 +48,6 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	prIndex := prInfo.Index
 
 	reviewerRT := cfg.ReviewerRuntime()
-	model := cfg.ReviewerModel()
 
 	systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
 	if systemPrompt == "" {
@@ -83,7 +82,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 				CWD:       workDir,
 				GitBranch: gitBranch,
 				Handoff:   systemPrompt,
-			}, model, reviewerName, "Review the PR.",
+			}, reviewerName, "Review the PR.",
 		)
 		if err != nil {
 			return err

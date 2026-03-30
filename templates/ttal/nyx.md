@@ -6,6 +6,7 @@ role: auditor
 color: red
 voice: af_alloy
 claude-code:
+  model: sonnet
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 

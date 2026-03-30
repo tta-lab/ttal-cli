@@ -6,6 +6,7 @@ role: creator
 color: magenta
 description: Agent creator — designs new agent identities, handles respawn updates across the team
 claude-code:
+  model: sonnet
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

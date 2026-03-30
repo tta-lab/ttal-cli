@@ -15,15 +15,12 @@ import (
 // trigger: prompt passed as positional arg (may contain newlines; empty = omit entirely).
 // agent: CC agent identity (empty = omit --agent flag).
 // Currently only supports ClaudeCode. Codex support tracked in #321.
-func BuildResumeCommand(ttalBin, sessionID string, rt runtime.Runtime, model, agent, trigger string) (string, error) {
-	if model == "" {
-		model = "sonnet"
-	}
+func BuildResumeCommand(ttalBin, sessionID string, rt runtime.Runtime, agent, trigger string) (string, error) {
 	switch rt {
 	case runtime.ClaudeCode:
 		cmd := fmt.Sprintf(
-			"%s worker gatekeeper -- claude --resume %s --model %s --dangerously-skip-permissions",
-			ttalBin, sessionID, model,
+			"%s worker gatekeeper -- claude --resume %s --dangerously-skip-permissions",
+			ttalBin, sessionID,
 		)
 		if agent != "" {
 			cmd += fmt.Sprintf(" --agent %s", agent)
@@ -44,7 +41,7 @@ func BuildResumeCommand(ttalBin, sessionID string, rt runtime.Runtime, model, ag
 // steps (e.g. tmux.NewSession) fail, to avoid orphaned session files.
 // agent: --agent flag value (empty = omit). trigger: positional arg (empty = omit).
 func BuildCCSessionCommand(
-	ttalBin, workDir string, sessCfg breathe.SessionConfig, model, agent, trigger string,
+	ttalBin, workDir string, sessCfg breathe.SessionConfig, agent, trigger string,
 ) (sessionPath, cmd string, err error) {
 	projectDir, err := breathe.CCProjectDir(workDir)
 	if err != nil {
@@ -55,7 +52,7 @@ func BuildCCSessionCommand(
 		return "", "", fmt.Errorf("write synthetic session: %w", err)
 	}
 	sessionPath = filepath.Join(projectDir, sessionID+".jsonl")
-	cmd, err = BuildResumeCommand(ttalBin, sessionID, runtime.ClaudeCode, model, agent, trigger)
+	cmd, err = BuildResumeCommand(ttalBin, sessionID, runtime.ClaudeCode, agent, trigger)
 	if err != nil {
 		os.Remove(sessionPath)
 		return "", "", err
