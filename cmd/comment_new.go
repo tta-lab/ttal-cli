@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -116,7 +117,9 @@ Examples:
 			if ctx, err := pr.ResolveContextWithoutProvider(); err != nil {
 				log.Printf("debug: PR context not resolved — no mirror: %v", err)
 			} else if idx, err := pr.PRIndex(ctx); err != nil {
-				log.Printf("debug: PR index not resolved — no mirror: %v", err)
+				if !errors.Is(err, pr.ErrNoPR) {
+					log.Printf("debug: PR index not resolved — no mirror: %v", err)
+				}
 			} else {
 				providerType = string(ctx.Info.Provider)
 				owner = ctx.Owner
