@@ -6,6 +6,7 @@ role: communicator
 color: magenta
 description: Communications writer — polishes outward-facing text, adapts tone per platform
 claude-code:
+  model: sonnet
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
