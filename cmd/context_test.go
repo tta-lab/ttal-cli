@@ -74,20 +74,17 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 	output := captureContextOutput(t)
 	output = trimNewlines(output)
 
-	if output == "{}" {
-		t.Skip("breathe_context command produced no output (may not be configured correctly in test env)")
-	}
-
+	// Output must always be valid JSON.
 	var resp map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &resp); err != nil {
 		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 	}
-	if _, ok := resp["systemMessage"]; !ok {
-		// empty context falls through to {} output — acceptable
-		if output == "{}" {
-			return
+	// With a working echo command, we expect a systemMessage. If the command
+	// produced no output (empty day, no diary), {} is also acceptable.
+	if output != "{}" {
+		if _, ok := resp["systemMessage"]; !ok {
+			t.Errorf("expected systemMessage key in non-empty output, got: %q", output)
 		}
-		t.Errorf("expected systemMessage key in output, got: %q", output)
 	}
 }
 
