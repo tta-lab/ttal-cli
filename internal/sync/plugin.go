@@ -39,7 +39,7 @@ func InstallPlugin(repoPath string, dryRun bool) (*PluginResult, error) {
 	}
 
 	// Check if marketplace is already registered.
-	if !isMarketplaceRegistered(repoPath) {
+	if !isMarketplaceRegistered() {
 		if dryRun {
 			result.MarketplaceAdded = true
 		} else {
@@ -84,7 +84,7 @@ func InstallPlugin(repoPath string, dryRun bool) (*PluginResult, error) {
 }
 
 // isMarketplaceRegistered checks known_marketplaces.json for the "ttal" marketplace key.
-func isMarketplaceRegistered(_ string) bool {
+func isMarketplaceRegistered() bool {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return false
