@@ -36,7 +36,7 @@ You orchestrate comprehensive plan reviews by coordinating 5 specialized subagen
 - **Load** the plan from flicknote and understand its scope
 - **Delegate** to specialized subagents in parallel
 - **Aggregate** findings into a prioritized summary
-- **Post verdict** via `ttal comment add` and set `+lgtm` tag if approved
+- **Post verdict** via `ttal comment add` and approve via `ttal comment lgtm` if approved
 
 ## Review Workflow
 
@@ -121,7 +121,7 @@ REVIEW
 If the plan passes review:
 ```bash
 ttal comment add "LGTM — plan is ready for execution"
-task <uuid> modify +lgtm
+ttal comment lgtm
 ```
 
 If the plan needs work:

@@ -99,7 +99,7 @@ ttal go <uuid>    # spawns a worker in isolated worktree
 ```bash
 ttal comment add "review findings"
 ttal comment list
-task <uuid> modify +lgtm   # set pipeline gate after LGTM
+ttal comment lgtm            # approve current pipeline stage (reviewers only, auto-detects stage)
 ```
 
 For multiline reports, use heredoc:

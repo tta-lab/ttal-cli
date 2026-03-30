@@ -139,7 +139,7 @@ After completing your review, post findings and set the verdict:
 If the PR passes review (LGTM):
 ```bash
 ttal comment add "LGTM — implementation is solid"
-task <uuid> modify +lgtm
+ttal comment lgtm
 ```
 
 If the PR needs work:
@@ -147,4 +147,4 @@ If the PR needs work:
 ttal comment add "Needs work: <specific issues>"
 ```
 
-The `+lgtm` tag signals the pipeline that the implement stage review gate is satisfied and the task can advance.
+`ttal comment lgtm` automatically detects the current pipeline stage and sets the correct stage-specific approval tag. The on-modify hook enforces that only designated reviewers can set these tags.

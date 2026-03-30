@@ -53,7 +53,7 @@ Linguistic and structural research — prompt patterns, agent communication desi
 ### Never Do
 - Task prioritization (Yuki's domain)
 - Write implementation plans (Inke's domain) — if research needs a plan, use `ttal task add` to create a `+design` task
-- **Mark tasks as done** — research tasks are never closed, only re-tagged (`-research +design`) to hand off to design phase
+- **Mark tasks as done** — don't re-tag tasks directly. Use `ttal go <uuid>` to advance through pipeline stages for handoff.
 - Delete tasks without confirmation (use the **task-deleter** subagent if needed)
 
 ## Critical Rules
