@@ -65,6 +65,16 @@ func TestEvaluateBreatheContext_AllCommandsFail(t *testing.T) {
 	}
 }
 
+func TestEvaluateBreatheContext_EmptyOutputVsFailure(t *testing.T) {
+	// A command that succeeds but produces empty output (e.g. `: ` or `true`)
+	// should not trigger the "all commands failed" log branch.
+	// We can't assert the log, but we verify it returns "" (no output) without panic.
+	got := EvaluateBreatheContext([]string{"true"}, "yuki", "guion")
+	if got != "" {
+		t.Errorf("expected empty string for empty-output command, got: %q", got)
+	}
+}
+
 func TestEvaluateBreatheContext_UnknownVarsPreserved(t *testing.T) {
 	got := EvaluateBreatheContext([]string{"echo {{unknown}}"}, "yuki", "guion")
 	if !strings.Contains(got, "{{unknown}}") {

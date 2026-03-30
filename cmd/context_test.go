@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -143,6 +144,65 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 	var v interface{}
 	if err := json.Unmarshal([]byte(output), &v); err != nil {
 		t.Fatalf("output is not valid JSON with corrupt route file: %v\noutput: %q", err, output)
+	}
+}
+
+// TestRunContext_RouteComposition verifies that a valid route file appends role prompt
+// and message to the systemMessage and sets continue: true.
+func TestRunContext_RouteComposition(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("TTAL_AGENT_NAME", "kestrel")
+
+	// Write config with a breathe_context command so we have a non-empty base.
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"),
+		[]byte("[teams.default]\nteam_path = \""+tmp+"\"\n"), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"),
+		[]byte("breathe_context = \"echo base-context\"\n"), 0o644); err != nil {
+		t.Fatalf("write prompts.toml: %v", err)
+	}
+
+	// Stage a route file.
+	routingDir := filepath.Join(tmp, ".ttal", "routing")
+	if err := os.MkdirAll(routingDir, 0o755); err != nil {
+		t.Fatalf("mkdir routing: %v", err)
+	}
+	routeJSON := `{"task_uuid":"abc12345","role_prompt":"You are a designer.","message":"Work on task abc12345.","routed_by":"astra","created_at":"2026-01-01T00:00:00Z"}`
+	if err := os.WriteFile(filepath.Join(routingDir, "kestrel.json"), []byte(routeJSON), 0o644); err != nil {
+		t.Fatalf("write route: %v", err)
+	}
+
+	output := captureContextOutput(t)
+	output = trimNewlines(output)
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
+	}
+
+	sysMsg, ok := resp["systemMessage"].(string)
+	if !ok {
+		t.Fatalf("expected systemMessage string, got: %v", resp)
+	}
+	if !strings.Contains(sysMsg, "You are a designer.") {
+		t.Errorf("expected role prompt in systemMessage, got: %q", sysMsg)
+	}
+	if !strings.Contains(sysMsg, "Work on task abc12345.") {
+		t.Errorf("expected route message in systemMessage, got: %q", sysMsg)
+	}
+	if resp["continue"] != true {
+		t.Errorf("expected continue=true, got: %v", resp["continue"])
+	}
+
+	// Route file must have been consumed (deleted).
+	if _, err := os.Stat(filepath.Join(routingDir, "kestrel.json")); !os.IsNotExist(err) {
+		t.Error("route file should have been consumed (deleted)")
 	}
 }
 

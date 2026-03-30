@@ -41,6 +41,12 @@ func init() {
 	rootCmd.AddCommand(contextCmd)
 }
 
+// noopHook outputs {} — the CC hook no-op response — and returns nil.
+// Used for all graceful-degradation paths to keep them as single-site edits.
+func noopHook() {
+	fmt.Println("{}")
+}
+
 // outputJSON writes v as JSON to stdout and returns any marshal error.
 func outputJSON(v interface{}) error {
 	data, err := json.Marshal(v)
@@ -55,7 +61,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	if agentName == "" {
 		// Non-agent session — no-op hook.
-		fmt.Println("{}")
+		noopHook()
 		return nil
 	}
 
@@ -63,7 +69,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		// Config load failed — degrade gracefully.
 		log.Printf("[context] config load failed: %v — outputting empty hook", err)
-		fmt.Println("{}")
+		noopHook()
 		return nil
 	}
 
@@ -97,12 +103,14 @@ func runContext(_ *cobra.Command, _ []string) error {
 
 	if systemMsg == "" {
 		// No context to inject — output no-op.
-		fmt.Println("{}")
+		noopHook()
 		return nil
 	}
 
-	return outputJSON(ccHookResponse{
-		SystemMessage: systemMsg,
-		Continue:      true,
-	})
+	if err := outputJSON(ccHookResponse{SystemMessage: systemMsg, Continue: true}); err != nil {
+		// Degrade gracefully: marshal failure must not cause a non-zero exit that blocks CC startup.
+		log.Printf("[context] failed to marshal hook response (falling back to empty): %v", err)
+		noopHook()
+	}
+	return nil
 }

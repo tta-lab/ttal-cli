@@ -23,12 +23,17 @@ func EvaluateBreatheContext(commands []string, agentName, teamName string) strin
 	}
 
 	var b strings.Builder
+	failCount := 0
 	for _, cmd := range commands {
 		expanded := ExpandBreatheVars(cmd, agentName, teamName)
 		WarnUnexpandedVars(expanded)
-		output := RunBreatheCommand(expanded)
-		if output == "" {
+		output, ok := runBreatheCommandWithStatus(expanded)
+		if !ok {
+			failCount++
 			continue
+		}
+		if output == "" {
+			continue // command succeeded but produced no output (e.g. empty list)
 		}
 		b.WriteString("--- ")
 		b.WriteString(expanded)
@@ -38,9 +43,33 @@ func EvaluateBreatheContext(commands []string, agentName, teamName string) strin
 	}
 	result := b.String()
 	if result == "" {
-		log.Printf("[breathe] %s/%s: all breathe_context commands failed — no context produced", agentName, teamName)
+		if failCount == len(commands) {
+			log.Printf("[breathe] %s/%s: all breathe_context commands failed — no context produced", agentName, teamName)
+		} else {
+			log.Printf("[breathe] %s/%s: breathe_context commands produced no output (%d failed, %d empty)", agentName, teamName, failCount, len(commands)-failCount)
+		}
 	}
 	return result
+}
+
+// runBreatheCommandWithStatus executes a shell command and returns (output, ok).
+// ok=false means the command failed (non-zero exit or timeout); ok=true with empty string
+// means the command succeeded but produced no output.
+func runBreatheCommandWithStatus(cmd string) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), breatheContextTimeout)
+	defer cancel()
+
+	//nolint:gosec // command comes from user config, not untrusted input
+	out, err := exec.CommandContext(ctx, "sh", "-c", cmd).CombinedOutput()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Printf("[breathe] context command timed out (skipped): %s", cmd)
+		} else {
+			log.Printf("[breathe] context command failed (skipped): %s: %v\n%s", cmd, err, strings.TrimRight(string(out), "\n"))
+		}
+		return "", false
+	}
+	return strings.TrimRight(string(out), "\n"), true
 }
 
 // ExpandBreatheVars replaces {{agent-name}} and {{team-name}} in a command string.
@@ -60,18 +89,6 @@ func WarnUnexpandedVars(cmd string) {
 // RunBreatheCommand executes a shell command with a timeout and returns its stdout+stderr.
 // Logs a distinct message for timeouts vs other failures. Returns empty string on failure.
 func RunBreatheCommand(cmd string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), breatheContextTimeout)
-	defer cancel()
-
-	//nolint:gosec // command comes from user config, not untrusted input
-	out, err := exec.CommandContext(ctx, "sh", "-c", cmd).CombinedOutput()
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			log.Printf("[breathe] context command timed out (skipped): %s", cmd)
-		} else {
-			log.Printf("[breathe] context command failed (skipped): %s: %v\n%s", cmd, err, strings.TrimRight(string(out), "\n"))
-		}
-		return ""
-	}
-	return strings.TrimRight(string(out), "\n")
+	out, _ := runBreatheCommandWithStatus(cmd)
+	return out
 }

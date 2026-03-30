@@ -151,7 +151,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		printSyncHeader("hooks", syncDryRun)
 		hookAdded, err := sync.InstallSessionStartHook(syncDryRun)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: SessionStart hook install failed: %v\n", err)
+			return fmt.Errorf("SessionStart hook install failed: %w", err)
 		} else if hookAdded {
 			fmt.Printf("  SessionStart hook added: ttal context\n")
 		} else {

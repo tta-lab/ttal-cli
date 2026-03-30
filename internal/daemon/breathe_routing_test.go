@@ -133,6 +133,51 @@ func TestBuildCCRestartCmdApostropheEscaping(t *testing.T) {
 	}
 }
 
+// TestBuildCCFreshCmd verifies that --resume is absent and --agent is correctly interpolated.
+func TestBuildCCFreshCmd(t *testing.T) {
+	cmd := buildCCFreshCmd("sonnet", "kestrel", "")
+
+	if strings.Contains(cmd, "--resume") {
+		t.Errorf("buildCCFreshCmd must not contain --resume: %q", cmd)
+	}
+	if !strings.Contains(cmd, "--model sonnet") {
+		t.Errorf("missing --model flag: %q", cmd)
+	}
+	if !strings.Contains(cmd, "--agent kestrel") {
+		t.Errorf("missing --agent flag: %q", cmd)
+	}
+	if !strings.Contains(cmd, "--dangerously-skip-permissions") {
+		t.Errorf("missing --dangerously-skip-permissions flag: %q", cmd)
+	}
+	if strings.Contains(cmd, "-- ") {
+		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
+	}
+}
+
+func TestBuildCCFreshCmdWithTrigger(t *testing.T) {
+	cmd := buildCCFreshCmd("sonnet", "inke", "New task routed. Run: ttal task get abc12345")
+	if !strings.Contains(cmd, "-- 'New task routed. Run: ttal task get abc12345'") {
+		t.Errorf("missing trigger with -- separator: %q", cmd)
+	}
+}
+
+func TestBuildCCFreshCmdApostropheEscaping(t *testing.T) {
+	cmd := buildCCFreshCmd("sonnet", "kestrel", "it's a test")
+	if !strings.Contains(cmd, "it'\\''s a test") {
+		t.Errorf("apostrophe not escaped correctly: %q", cmd)
+	}
+}
+
+func TestBuildCCFreshCmdAgentInterpolation(t *testing.T) {
+	cmd := buildCCFreshCmd("opus", "athena", "")
+	if !strings.Contains(cmd, "--agent athena") {
+		t.Errorf("agent name not correctly interpolated, got: %q", cmd)
+	}
+	if strings.Contains(cmd, "--agent opus") {
+		t.Errorf("model leaked into --agent slot: %q", cmd)
+	}
+}
+
 // TestHandleSendSystemRouting verifies that From=="system" routes to handleSystemToAgent
 // and not to handleAgentToAgent (which would add an [agent from:] prefix).
 func TestHandleSendSystemRouting(t *testing.T) {
