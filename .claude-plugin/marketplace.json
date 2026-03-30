@@ -1,0 +1,18 @@
+{
+  "name": "ttal",
+  "owner": {
+    "name": "GuionAI",
+    "url": "https://github.com/tta-lab"
+  },
+  "plugins": [
+    {
+      "name": "ttal",
+      "source": "./plugin",
+      "description": "Subagents and hooks for TTAL multi-agent orchestration",
+      "version": "0.1.0",
+      "author": {
+        "name": "GuionAI"
+      }
+    }
+  ]
+}

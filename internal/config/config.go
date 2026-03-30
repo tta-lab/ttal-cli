@@ -164,12 +164,15 @@ type TeamConfig struct {
 
 // SyncConfig holds paths for subagent and rule deployment.
 type SyncConfig struct {
-	// Directories for subagent definitions
+	// Directories for subagent definitions (team agents deployed to ~/.claude/agents/)
 	SubagentsPaths []string `toml:"subagents_paths"`
 	// Directories for RULE.md files
 	RulesPaths []string `toml:"rules_paths"`
 	// Path to global CLAUDE.md prompt
 	GlobalPromptPath string `toml:"global_prompt_path"`
+	// CC plugin marketplace source — local path or git URL.
+	// Default: resolved from project store ("ttal" alias).
+	MarketplaceSource string `toml:"marketplace_source"`
 }
 
 // VoiceConfig holds voice-related settings resolved from the active team.

@@ -1,0 +1,17 @@
+{
+  "description": "TTAL session context injection",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ttal context",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/doctor"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/sync"
 )
 
@@ -50,13 +51,12 @@ Configure source paths in ~/.config/ttal/config.toml:
 		syncCfg := cfg.Sync
 		teamPath := cfg.TeamPath()
 
-		hasNoPaths := len(syncCfg.SubagentsPaths) == 0 && len(syncCfg.RulesPaths) == 0 &&
+		hasNoPaths := len(syncCfg.RulesPaths) == 0 &&
 			syncCfg.GlobalPromptPath == "" && teamPath == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
 				"  [sync]\n" +
-				"  subagents_paths = [\"~/path/to/agents\"]\n" +
 				"  rules_paths = [\"~/path/to/rules\"]")
 		}
 
@@ -64,41 +64,54 @@ Configure source paths in ~/.config/ttal/config.toml:
 		agentCount := 0
 		ruleCount := 0
 
-		if len(syncCfg.SubagentsPaths) > 0 || teamPath != "" {
-			printSyncHeader("agents", syncDryRun)
-
-			// Deploy subagents (from subagents_paths) — NOT denied
-			if len(syncCfg.SubagentsPaths) > 0 {
-				subResults, err := sync.DeployAgents(syncCfg.SubagentsPaths, syncDryRun)
-				if err != nil {
-					return fmt.Errorf("subagent sync failed: %w", err)
-				}
-				printAgentResults(subResults)
-				agentCount += len(subResults)
+		// Install/update ttal CC plugin (subagents + SessionStart hook).
+		printSyncHeader("plugin", syncDryRun)
+		marketplaceSrc := syncCfg.MarketplaceSource
+		if marketplaceSrc == "" {
+			// Resolve from project store — local clone preferred.
+			marketplaceSrc = project.ResolveProjectPath("ttal")
+		}
+		if marketplaceSrc == "" {
+			marketplaceSrc = "https://github.com/tta-lab/ttal-cli"
+		}
+		pluginResult, err := sync.InstallPlugin(marketplaceSrc, syncDryRun)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: plugin sync failed: %v\n", err)
+		} else {
+			if pluginResult.MarketplaceAdded {
+				fmt.Printf("  Marketplace registered: %s\n", shortenHome(marketplaceSrc))
 			}
+			if pluginResult.PluginInstalled {
+				fmt.Printf("  Plugin installed: ttal (%d agents, SessionStart hook)\n", pluginResult.AgentCount)
+			} else if pluginResult.PluginUpdated {
+				fmt.Printf("  Plugin updated: ttal (%d agents, SessionStart hook)\n", pluginResult.AgentCount)
+			} else {
+				fmt.Printf("  Plugin: ttal (up to date, %d agents)\n", pluginResult.AgentCount)
+			}
+		}
 
-			// Deploy team agents (from team_path) — denied as subagents
-			if teamPath != "" {
-				teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
-				if err != nil {
-					return fmt.Errorf("team agent sync failed: %w", err)
-				}
-				printAgentResults(teamResults)
-				agentCount += len(teamResults)
+		// Deploy team agents (identity files) to ~/.claude/agents/ — denied as subagents.
+		if teamPath != "" {
+			printSyncHeader("team agents", syncDryRun)
 
-				// Only deny team agents as subagents
-				primaryAgentNames := make([]string, len(teamResults))
-				for i, r := range teamResults {
-					primaryAgentNames[i] = r.Name
-				}
-				denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
-				if err != nil {
-					fmt.Fprintf(os.Stderr,
-						"warning: agents NOT denied as subagents (settings.json update failed): %v\n", err)
-				} else {
-					for _, name := range denied {
-						fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)
-					}
+			teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
+			if err != nil {
+				return fmt.Errorf("team agent sync failed: %w", err)
+			}
+			printAgentResults(teamResults)
+			agentCount += len(teamResults)
+
+			primaryAgentNames := make([]string, len(teamResults))
+			for i, r := range teamResults {
+				primaryAgentNames[i] = r.Name
+			}
+			denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
+			if err != nil {
+				fmt.Fprintf(os.Stderr,
+					"warning: agents NOT denied as subagents (settings.json update failed): %v\n", err)
+			} else {
+				for _, name := range denied {
+					fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)
 				}
 			}
 		}
@@ -146,16 +159,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (%s)\n", shortenHome(r.Dest), r.Runtime)
 			}
-		}
-
-		printSyncHeader("hooks", syncDryRun)
-		hookAdded, err := sync.InstallSessionStartHook(syncDryRun)
-		if err != nil {
-			return fmt.Errorf("SessionStart hook install failed: %w", err)
-		} else if hookAdded {
-			fmt.Printf("  SessionStart hook added: ttal context\n")
-		} else {
-			fmt.Printf("  SessionStart hook: already installed\n")
 		}
 
 		printSyncHeader("sandbox", syncDryRun)
