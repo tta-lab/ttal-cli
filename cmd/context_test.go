@@ -60,7 +60,7 @@ func captureContextOutput(t *testing.T, stdinJSON ...string) string {
 func TestRunContext_NonAgentSession(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "")
 
-	// No cwd in hook input, no env var — should be a no-op.
+	// No agent_type in hook input, no env var — should be a no-op.
 	output := captureContextOutput(t, `{"cwd":"/some/random/dir"}`)
 	output = trimNewlines(output)
 	if output != "{}" {
@@ -89,8 +89,8 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 		t.Fatalf("write config.toml: %v", err)
 	}
 
-	// Hook input with cwd = teamPath/kestrel → resolves agent name "kestrel".
-	hookInput := `{"cwd":"` + filepath.Join(tmp, "kestrel") + `"}`
+	// Hook input with agent_type from --agent flag.
+	hookInput := `{"agent_type":"kestrel"}`
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -121,7 +121,7 @@ func TestRunContext_MissingConfig(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "")
 	// No config files — config.Load should fail gracefully
 
-	hookInput := `{"cwd":"` + filepath.Join(tmp, "kestrel") + `"}`
+	hookInput := `{"agent_type":"kestrel"}`
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -161,7 +161,7 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 		t.Fatalf("write bad route: %v", err)
 	}
 
-	hookInput := `{"cwd":"` + filepath.Join(tmp, "kestrel") + `"}`
+	hookInput := `{"agent_type":"kestrel"}`
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -204,7 +204,7 @@ func TestRunContext_RouteComposition(t *testing.T) {
 		t.Fatalf("write route: %v", err)
 	}
 
-	hookInput := `{"cwd":"` + filepath.Join(tmp, "kestrel") + `"}`
+	hookInput := `{"agent_type":"kestrel"}`
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -233,33 +233,7 @@ func TestRunContext_RouteComposition(t *testing.T) {
 	}
 }
 
-func TestResolveAgentName(t *testing.T) {
-	tests := []struct {
-		name     string
-		cwd      string
-		teamPath string
-		want     string
-	}{
-		{"direct child", "/team/kestrel", "/team", "kestrel"},
-		{"trailing slash", "/team/kestrel/", "/team", "kestrel"},
-		{"nested too deep", "/team/kestrel/sub", "/team", ""},
-		{"different parent", "/other/kestrel", "/team", ""},
-		{"empty cwd", "", "/team", ""},
-		{"empty team path", "/team/kestrel", "", ""},
-		{"both empty", "", "", ""},
-		{"root cwd", "/", "/team", ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := resolveAgentName(tt.cwd, tt.teamPath)
-			if got != tt.want {
-				t.Errorf("resolveAgentName(%q, %q) = %q, want %q", tt.cwd, tt.teamPath, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestRunContext_EnvVarFallback verifies TTAL_AGENT_NAME env var still works when cwd doesn't match.
+// TestRunContext_EnvVarFallback verifies TTAL_AGENT_NAME env var still works when agent_type is absent.
 func TestRunContext_EnvVarFallback(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
@@ -278,8 +252,8 @@ func TestRunContext_EnvVarFallback(t *testing.T) {
 		t.Fatalf("write config.toml: %v", err)
 	}
 
-	// cwd doesn't match teamPath/<agent>, so should fall back to env var.
-	hookInput := `{"cwd":"/some/other/dir"}`
+	// No agent_type in hook input — should fall back to env var.
+	hookInput := `{"cwd":"/some/dir"}`
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 

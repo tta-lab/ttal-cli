@@ -6,8 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -31,8 +29,9 @@ func newSessionStartOutput(ctx string) *hookSpecificOutput {
 }
 
 // hookInput is the JSON payload CC sends to command hooks via stdin.
+// agent_type is present when the session uses --agent (e.g. "kestrel").
 type hookInput struct {
-	CWD string `json:"cwd"`
+	AgentType string `json:"agent_type"`
 }
 
 // readHookInput reads the CC hook input JSON from stdin.
@@ -47,29 +46,6 @@ func readHookInput() hookInput {
 		log.Printf("[context] failed to parse hook input: %v", err)
 	}
 	return input
-}
-
-// resolveAgentName derives the agent name from the hook input cwd.
-// Agent sessions run in teamPath/<agentName>/, so the last path component
-// is the agent name. Returns "" if cwd doesn't sit under teamPath.
-func resolveAgentName(cwd, teamPath string) string {
-	if cwd == "" || teamPath == "" {
-		return ""
-	}
-	// Normalize to handle trailing slashes.
-	cwd = filepath.Clean(cwd)
-	teamPath = filepath.Clean(teamPath)
-
-	// cwd must be teamPath/<name> (direct child).
-	dir := filepath.Dir(cwd)
-	if dir != teamPath {
-		return ""
-	}
-	name := filepath.Base(cwd)
-	if name == "." || name == "/" || strings.Contains(name, " ") {
-		return ""
-	}
-	return name
 }
 
 var contextCmd = &cobra.Command{
@@ -127,9 +103,9 @@ func runContext(_ *cobra.Command, _ []string) error {
 		teamName = config.DefaultTeamName
 	}
 
-	// Derive agent name from cwd: agent sessions run in teamPath/<agentName>/.
+	// agent_type is set by CC when the session uses --agent <name>.
 	// Falls back to TTAL_AGENT_NAME env var for backward compatibility.
-	agentName := resolveAgentName(input.CWD, cfg.TeamPath())
+	agentName := input.AgentType
 	if agentName == "" {
 		agentName = os.Getenv("TTAL_AGENT_NAME")
 	}
