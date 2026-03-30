@@ -405,12 +405,15 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// 5. Breathe: prefer /clear on a live session (hook re-injects context without restart).
 	// Fall back to kill+fresh-start when the session is dead.
-	if tmux.SessionExists(plan.oldSessionName) {
+	// Note: diaryAppendHandoff (step 3) runs unconditionally so the handoff is persisted
+	// before both paths — /clear causes the source=clear hook to read the updated diary.
+	sessionAlive := tmux.SessionExists(plan.oldSessionName)
+	if sessionAlive {
 		log.Printf("[breathe] %s: session alive — sending /clear (source=clear hook will re-inject context)", req.Agent)
 		if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
 			log.Printf("[breathe] %s: /clear failed (%v), falling back to restart", req.Agent, err)
 		} else {
-			log.Printf("[breathe] %s: /clear sent", req.Agent)
+			log.Printf("[breathe] %s: /clear sent (fire-and-forget; hook delivery unconfirmed)", req.Agent)
 			return SendResponse{OK: true}
 		}
 	}
@@ -421,7 +424,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
 	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
-	if tmux.SessionExists(plan.oldSessionName) {
+	if sessionAlive {
 		if err := tmux.KillSession(plan.oldSessionName); err != nil {
 			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
 		}

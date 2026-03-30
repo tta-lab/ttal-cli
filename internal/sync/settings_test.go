@@ -275,8 +275,24 @@ func TestInstallSessionStartHook_FreshFile(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected settings.hooks to be an object, got: %T", settings["hooks"])
 	}
-	if _, ok := hooksMap["SessionStart"]; !ok {
-		t.Error("expected SessionStart under hooks wrapper key")
+	entries, ok := hooksMap["SessionStart"].([]interface{})
+	if !ok {
+		t.Fatalf("expected hooks.SessionStart to be an array, got: %T", hooksMap["SessionStart"])
+	}
+	// Verify the matcher value — a regression to "*" would silently fire on resume/compact.
+	found := false
+	for _, e := range entries {
+		m, ok := e.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if m["matcher"] == "startup|clear" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected matcher 'startup|clear' in written hook entry, got: %s", data)
 	}
 }
 
@@ -372,5 +388,114 @@ func TestInstallSessionStartHook_DryRun(t *testing.T) {
 	// File must NOT have been created in dry-run mode.
 	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
 		t.Error("dry-run should not create settings.json")
+	}
+}
+
+func TestInstallSessionStartHook_MigratesLegacyTopLevelSessionStart(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	// Write pre-2.1.87 settings.json with SessionStart at the top level.
+	initial := map[string]interface{}{
+		"SessionStart": []interface{}{
+			map[string]interface{}{
+				"matcher": "*",
+				"hooks": []interface{}{
+					map[string]interface{}{
+						"type":    "command",
+						"command": "legacy-hook",
+						"timeout": 10,
+					},
+				},
+			},
+		},
+	}
+	data, _ := json.MarshalIndent(initial, "", "  ")
+	if err := os.WriteFile(settingsPath, append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	added, err := installSessionStartHook(false, settingsPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !added {
+		t.Error("expected added=true after migrating legacy format")
+	}
+
+	written, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(written, &settings); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Old top-level key must be gone.
+	if _, ok := settings["SessionStart"]; ok {
+		t.Error("legacy top-level SessionStart key should have been removed after migration")
+	}
+
+	// Both the migrated legacy hook and the new ttal hook must be under hooks.SessionStart.
+	hooksMap, ok := settings["hooks"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected hooks wrapper object, got: %T", settings["hooks"])
+	}
+	entries, ok := hooksMap["SessionStart"].([]interface{})
+	if !ok {
+		t.Fatalf("expected hooks.SessionStart array, got: %T", hooksMap["SessionStart"])
+	}
+	if !strings.Contains(string(written), "legacy-hook") {
+		t.Error("migrated legacy hook should be present in hooks.SessionStart")
+	}
+	if !strings.Contains(string(written), "ttal context") {
+		t.Error("new ttal context hook should be present in hooks.SessionStart")
+	}
+	if len(entries) != 2 {
+		t.Errorf("expected 2 entries after migration (legacy + ttal), got %d", len(entries))
+	}
+}
+
+func TestInstallSessionStartHook_NonObjectHooksReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	content := []byte(`{"hooks": "not-an-object"}` + "\n")
+	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := installSessionStartHook(false, settingsPath)
+	if err == nil {
+		t.Fatal("expected error for non-object hooks, got nil")
+	}
+
+	// File must not have been modified.
+	written, _ := os.ReadFile(settingsPath)
+	if string(written) != string(content) {
+		t.Error("settings.json should not be modified when returning an error")
+	}
+}
+
+func TestInstallSessionStartHook_NonArraySessionStartReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	content := []byte(`{"hooks": {"SessionStart": "not-an-array"}}` + "\n")
+	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := installSessionStartHook(false, settingsPath)
+	if err == nil {
+		t.Fatal("expected error for non-array hooks.SessionStart, got nil")
+	}
+
+	// File must not have been modified.
+	written, _ := os.ReadFile(settingsPath)
+	if string(written) != string(content) {
+		t.Error("settings.json should not be modified when returning an error")
 	}
 }
