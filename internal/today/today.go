@@ -93,7 +93,7 @@ func List() error {
 		Headers("ID", "Urg", "Project", "Tags", "Due", "Description").
 		Rows(rows...)
 
-	fmt.Println(tbl)
+	lipgloss.Println(tbl)
 	fmt.Printf("\n%d %s\n", len(filtered), format.Plural(len(filtered), "task", "tasks"))
 	return nil
 }
@@ -146,7 +146,7 @@ func Completed() error {
 		Headers("ID", "Project", "Tags", "Description").
 		Rows(rows...)
 
-	fmt.Println(tbl)
+	lipgloss.Println(tbl)
 	fmt.Printf("\n%d %s\n", len(tasks), format.Plural(len(tasks), "task", "tasks"))
 	return nil
 }

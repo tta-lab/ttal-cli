@@ -160,7 +160,7 @@ var agentListCmd = &cobra.Command{
 			Headers("NAME", "ROLE", "DESCRIPTION").
 			Rows(rows...)
 
-		fmt.Println(tbl)
+		lipgloss.Println(tbl)
 		fmt.Printf("\n%d %s\n", len(agents), format.Plural(len(agents), "agent", "agents"))
 		return nil
 	},

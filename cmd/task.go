@@ -152,7 +152,7 @@ Examples:
 			Headers("ID", "Status", "Project", "Tags", "Description").
 			Rows(rows...)
 
-		fmt.Println(tbl)
+		lipgloss.Println(tbl)
 		plural := "tasks"
 		if len(tasks) == 1 {
 			plural = "task" //nolint:goconst
@@ -237,7 +237,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("loading completed tasks: %w", err)
 		}
-		fmt.Print(tui.RenderHeatmap(counts, time.Now()))
+		lipgloss.Print(tui.RenderHeatmap(counts, time.Now()))
 		return nil
 	},
 }

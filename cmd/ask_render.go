@@ -28,17 +28,17 @@ var (
 
 // renderCommandStart prints a styled command header to stderr.
 func renderCommandStart(command string) {
-	fmt.Fprintf(os.Stderr, "\n%s\n", askCmdStyle.Render("  $ "+command))
+	lipgloss.Fprintf(os.Stderr, "\n%s\n", askCmdStyle.Render("  $ "+command))
 }
 
 // renderCommandResult prints truncated command output and exit code to stderr.
 func renderCommandResult(output string, exitCode int) {
 	if output != "" {
 		truncated := truncateOutput(output)
-		fmt.Fprintf(os.Stderr, "%s\n", askOutputStyle.Render(truncated))
+		lipgloss.Fprintf(os.Stderr, "%s\n", askOutputStyle.Render(truncated))
 	}
 	if exitCode != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", askExitErrStyle.Render(
+		lipgloss.Fprintf(os.Stderr, "%s\n", askExitErrStyle.Render(
 			fmt.Sprintf("  exit %d", exitCode)))
 	}
 }
@@ -46,7 +46,7 @@ func renderCommandResult(output string, exitCode int) {
 // renderRetry prints a styled retry notice to stderr.
 // It serves as the OnRetry callback for logos.Callbacks.
 func renderRetry(reason string, step int) {
-	fmt.Fprintf(os.Stderr, "\n%s\n", askRetryStyle.Render(
+	lipgloss.Fprintf(os.Stderr, "\n%s\n", askRetryStyle.Render(
 		fmt.Sprintf("  ↺ retry (step %d: %s)", step, reason)))
 }
 

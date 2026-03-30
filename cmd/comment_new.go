@@ -208,7 +208,7 @@ var commentListCmd = &cobra.Command{
 			Headers("ROUND", "AUTHOR", "BODY", "TIME").
 			Rows(rows...)
 
-		fmt.Println(tbl)
+		lipgloss.Println(tbl)
 		return nil
 	},
 }
