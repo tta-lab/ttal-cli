@@ -130,6 +130,7 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
 | `ttal tag <version>` | git tag + push via daemon | `handleGitTag` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
+| CC SessionStart hook | Session context injection | `ttal context` (installed via `ttal sync`) |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
 are set. Taskwarrior hooks use `--to` (daemon socket → agent's tmux session).
@@ -145,6 +146,7 @@ When `ttal go <uuid>` is run with `+lgtm` set, the daemon merges the PR (squash)
 cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up via fsnotify and handles the
 full lifecycle: close session, remove worktree, mark task done.
 `ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
+`ttal sync` installs the CC SessionStart hook (`ttal context`) into `~/.claude/settings.json` — not `ttal doctor --fix`.
 
 ### Modify Command Syntax
 
