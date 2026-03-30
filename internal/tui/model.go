@@ -752,6 +752,9 @@ func (m *Model) applyFilter() {
 		roots = append(roots, t)
 	}
 	sort.Slice(roots, func(i, j int) bool {
+		if m.filter == filterCompleted {
+			return roots[i].End > roots[j].End
+		}
 		return roots[i].Urgency > roots[j].Urgency
 	})
 
