@@ -50,7 +50,7 @@ func TestRunContext_NonAgentSession(t *testing.T) {
 	}
 }
 
-// TestRunContext_AgentWithConfig verifies agent session outputs valid JSON with systemMessage.
+// TestRunContext_AgentWithConfig verifies agent session outputs valid JSON with additionalContext.
 func TestRunContext_AgentWithConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
@@ -75,15 +75,21 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 	output = trimNewlines(output)
 
 	// Output must always be valid JSON.
-	var resp map[string]interface{}
+	var resp ccHookResponse
 	if err := json.Unmarshal([]byte(output), &resp); err != nil {
 		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 	}
-	// With a working echo command, we expect a systemMessage. If the command
-	// produced no output (empty day, no diary), {} is also acceptable.
+	// With a working echo command, we expect hookSpecificOutput with additionalContext.
+	// If the command produced no output (empty day, no diary), {} is also acceptable.
 	if output != "{}" {
-		if _, ok := resp["systemMessage"]; !ok {
-			t.Errorf("expected systemMessage key in non-empty output, got: %q", output)
+		if resp.HookSpecificOutput == nil {
+			t.Fatalf("expected hookSpecificOutput in non-empty output, got: %q", output)
+		}
+		if resp.HookSpecificOutput.HookEventName != "SessionStart" {
+			t.Errorf("expected hookEventName=SessionStart, got: %q", resp.HookSpecificOutput.HookEventName)
+		}
+		if resp.HookSpecificOutput.AdditionalContext == "" {
+			t.Errorf("expected non-empty additionalContext, got: %q", output)
 		}
 	}
 }
@@ -145,7 +151,7 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 }
 
 // TestRunContext_RouteComposition verifies that a valid route file appends role prompt
-// and message to the systemMessage and sets continue: true.
+// and message to additionalContext via hookSpecificOutput.
 func TestRunContext_RouteComposition(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
@@ -179,23 +185,23 @@ func TestRunContext_RouteComposition(t *testing.T) {
 	output := captureContextOutput(t)
 	output = trimNewlines(output)
 
-	var resp map[string]interface{}
+	var resp ccHookResponse
 	if err := json.Unmarshal([]byte(output), &resp); err != nil {
 		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 	}
 
-	sysMsg, ok := resp["systemMessage"].(string)
-	if !ok {
-		t.Fatalf("expected systemMessage string, got: %v", resp)
+	if resp.HookSpecificOutput == nil {
+		t.Fatalf("expected hookSpecificOutput, got: %q", output)
 	}
-	if !strings.Contains(sysMsg, "You are a designer.") {
-		t.Errorf("expected role prompt in systemMessage, got: %q", sysMsg)
+	if resp.HookSpecificOutput.HookEventName != "SessionStart" {
+		t.Errorf("expected hookEventName=SessionStart, got: %q", resp.HookSpecificOutput.HookEventName)
 	}
-	if !strings.Contains(sysMsg, "Work on task abc12345.") {
-		t.Errorf("expected route message in systemMessage, got: %q", sysMsg)
+	ctx := resp.HookSpecificOutput.AdditionalContext
+	if !strings.Contains(ctx, "You are a designer.") {
+		t.Errorf("expected role prompt in additionalContext, got: %q", ctx)
 	}
-	if resp["continue"] != true {
-		t.Errorf("expected continue=true, got: %v", resp["continue"])
+	if !strings.Contains(ctx, "Work on task abc12345.") {
+		t.Errorf("expected route message in additionalContext, got: %q", ctx)
 	}
 
 	// Route file must have been consumed (deleted).
