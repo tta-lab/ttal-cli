@@ -68,8 +68,17 @@ func TestRunContext_NonAgentSession(t *testing.T) {
 
 // TestRunContext_EmptyStdin verifies empty stdin (no hook input) produces {}.
 func TestRunContext_EmptyStdin(t *testing.T) {
-	// Provide closed stdin with no data.
-	output := captureContextOutput(t, "")
+	// Wire up a closed pipe so readHookInput sees EOF with zero bytes.
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	pw.Close()
+	oldStdin := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = oldStdin }()
+
+	output := captureContextOutput(t)
 	output = trimNewlines(output)
 	if output != "{}" {
 		t.Errorf("expected {} for empty stdin, got %q", output)
