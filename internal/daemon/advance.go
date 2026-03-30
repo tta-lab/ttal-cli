@@ -718,7 +718,7 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 func routeToPersistentAgent(
 	w http.ResponseWriter, cfg *config.Config,
 	task *taskwarrior.Task, agent *agentfs.AgentInfo,
-	_, callerAgent, team string,
+	_, _, team string,
 ) error {
 	if !shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
 		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())

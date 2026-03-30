@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -187,7 +186,7 @@ func TestExtractWorktreeHexID(t *testing.T) {
 		},
 		{
 			name: "non-worktree path",
-			cwd:  fmt.Sprintf("/Users/neil/Code/project"),
+			cwd:  "/Users/neil/Code/project",
 			want: "",
 		},
 		{
