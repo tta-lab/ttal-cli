@@ -11,8 +11,10 @@ import (
 )
 
 // formatAgentMessage formats an agent-to-agent message for delivery.
+// Includes a reply hint footer so the receiver knows how to respond.
 func formatAgentMessage(fromAgent, text string) string {
-	return fmt.Sprintf("[agent from:%s]\n%s", fromAgent, text)
+	replyHint := fmt.Sprintf("Reply with: ttal send --to %s \"your message\"", fromAgent)
+	return fmt.Sprintf("[agent from:%s]\n%s\n\n---\n%s", fromAgent, text, replyHint)
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.
