@@ -13,9 +13,15 @@ import (
 )
 
 // ccHookResponse is the JSON payload expected by CC SessionStart hooks.
+// additionalContext is injected into Claude's system context.
+// systemMessage is a user-facing warning banner (not sent to the model).
 type ccHookResponse struct {
-	SystemMessage string `json:"systemMessage,omitempty"`
-	Continue      bool   `json:"continue"`
+	HookSpecificOutput *hookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+type hookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
 }
 
 var contextCmd = &cobra.Command{
@@ -107,7 +113,13 @@ func runContext(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	if err := outputJSON(ccHookResponse{SystemMessage: systemMsg, Continue: true}); err != nil {
+	resp := ccHookResponse{
+		HookSpecificOutput: &hookSpecificOutput{
+			HookEventName:     "SessionStart",
+			AdditionalContext: systemMsg,
+		},
+	}
+	if err := outputJSON(resp); err != nil {
 		// Degrade gracefully: marshal failure must not cause a non-zero exit that blocks CC startup.
 		log.Printf("[context] failed to marshal hook response (falling back to empty): %v", err)
 		noopHook()
