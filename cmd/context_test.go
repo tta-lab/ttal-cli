@@ -193,6 +193,9 @@ func TestRunContext_RouteComposition(t *testing.T) {
 	if resp.HookSpecificOutput == nil {
 		t.Fatalf("expected hookSpecificOutput, got: %q", output)
 	}
+	if resp.HookSpecificOutput.HookEventName != "SessionStart" {
+		t.Errorf("expected hookEventName=SessionStart, got: %q", resp.HookSpecificOutput.HookEventName)
+	}
 	ctx := resp.HookSpecificOutput.AdditionalContext
 	if !strings.Contains(ctx, "You are a designer.") {
 		t.Errorf("expected role prompt in additionalContext, got: %q", ctx)

@@ -12,16 +12,19 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/sessionctx"
 )
 
-// ccHookResponse is the JSON payload expected by CC SessionStart hooks.
-// additionalContext is injected into Claude's system context.
-// systemMessage is a user-facing warning banner (not sent to the model).
+// ccHookResponse is the JSON payload for CC SessionStart hooks.
+// hookSpecificOutput.additionalContext is injected into Claude's system context.
 type ccHookResponse struct {
 	HookSpecificOutput *hookSpecificOutput `json:"hookSpecificOutput,omitempty"`
 }
 
 type hookSpecificOutput struct {
 	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
+	AdditionalContext string `json:"additionalContext"`
+}
+
+func newSessionStartOutput(ctx string) *hookSpecificOutput {
+	return &hookSpecificOutput{HookEventName: "SessionStart", AdditionalContext: ctx}
 }
 
 var contextCmd = &cobra.Command{
@@ -37,7 +40,7 @@ For agent sessions it:
   2. Evaluates breathe_context commands to build session context
   3. Checks for a pending route file (~/.ttal/routing/<agent>.json) and appends
      role prompt and message if present
-  4. Outputs {"systemMessage": "<context>", "continue": true}
+  4. Outputs {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "<context>"}}
 
 Always outputs valid JSON — even on config load failures or corrupt route files.`,
 	RunE: runContext,
@@ -114,10 +117,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 	}
 
 	resp := ccHookResponse{
-		HookSpecificOutput: &hookSpecificOutput{
-			HookEventName:     "SessionStart",
-			AdditionalContext: systemMsg,
-		},
+		HookSpecificOutput: newSessionStartOutput(systemMsg),
 	}
 	if err := outputJSON(resp); err != nil {
 		// Degrade gracefully: marshal failure must not cause a non-zero exit that blocks CC startup.
