@@ -461,29 +461,6 @@ func diaryAppendHandoff(agent, handoff string) {
 	log.Printf("[breathe] %s: diary handoff persisted", agent)
 }
 
-// diaryReadToday returns today's diary entry for the agent. If the diary
-// binary is missing, the read fails, or the entry is empty (normal on the
-// first breathe of the day), the original handoff is returned unchanged.
-func diaryReadToday(agent, handoff string) string {
-	diaryPath, err := exec.LookPath("diary")
-	if err != nil {
-		return handoff
-	}
-
-	cmd := exec.Command(diaryPath, agent, "read")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[breathe] %s: diary read failed — %v: %s", agent, err, strings.TrimSpace(string(out)))
-		return handoff
-	}
-	if len(bytes.TrimSpace(out)) == 0 {
-		log.Printf("[breathe] %s: diary entry empty today — using original handoff", agent)
-		return handoff
-	}
-
-	return string(out)
-}
-
 // handleStatusUpdate writes agent context status to the status directory.
 func handleStatusUpdate(req StatusUpdateRequest) {
 	team := req.Team

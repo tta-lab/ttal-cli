@@ -232,49 +232,6 @@ func TestDiaryAppendHandoff(t *testing.T) {
 	})
 }
 
-func TestDiaryReadToday(t *testing.T) {
-	const original = "# Handoff\n\nDid some work."
-
-	t.Run("diary not on PATH returns original handoff", func(t *testing.T) {
-		t.Setenv("PATH", "/nonexistent-path-xyz")
-		got := diaryReadToday("kestrel", original)
-		if got != original {
-			t.Errorf("expected original handoff, got %q", got)
-		}
-	})
-
-	t.Run("diary read fails (non-zero exit) returns original handoff", func(t *testing.T) {
-		tmp := t.TempDir()
-		writeFakeDiary(t, tmp, "fail-read", "")
-		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
-		got := diaryReadToday("kestrel", original)
-		if got != original {
-			t.Errorf("expected original handoff on read failure, got %q", got)
-		}
-	})
-
-	t.Run("diary read returns empty falls back to original handoff", func(t *testing.T) {
-		tmp := t.TempDir()
-		writeFakeDiary(t, tmp, "empty-read", "")
-		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
-		got := diaryReadToday("kestrel", original)
-		if got != original {
-			t.Errorf("expected original handoff on empty read, got %q", got)
-		}
-	})
-
-	t.Run("diary available returns enriched handoff from read", func(t *testing.T) {
-		tmp := t.TempDir()
-		enriched := "# Today\nHandoff + reflection from it's a complex day"
-		writeFakeDiary(t, tmp, "ok", enriched)
-		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
-		got := diaryReadToday("kestrel", original)
-		if got != enriched {
-			t.Errorf("expected enriched handoff %q, got %q", enriched, got)
-		}
-	})
-}
-
 // loadConfigWithTeamPath writes a minimal config.toml to a temp HOME and loads it.
 // Used to test code paths that require a resolved team path.
 func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
