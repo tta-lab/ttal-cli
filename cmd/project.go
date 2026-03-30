@@ -119,7 +119,7 @@ Examples:
 			Headers("ALIAS", "NAME", "PATH", "STATUS").
 			Rows(rows...)
 
-		fmt.Println(t)
+		lipgloss.Println(t)
 		fmt.Printf("\n%d %s\n", len(projects), format.Plural(len(projects), "project", "projects"))
 		return nil
 	},

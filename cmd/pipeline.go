@@ -60,7 +60,7 @@ Example:
 			Headers("NAME", "DESCRIPTION", "TAGS").
 			Rows(rows...)
 
-		fmt.Println(t)
+		lipgloss.Println(t)
 		fmt.Printf("\n%d %s\n", len(names), format.Plural(len(names), "pipeline", "pipelines"))
 		return nil
 	},

@@ -221,12 +221,12 @@ func runSkillList(listAll bool) error {
 		for _, s := range skills {
 			rows = append(rows, []string{s.Name, s.Category, s.Description})
 		}
-		fmt.Println(buildSkillTable([]string{"Name", "Category", "Description"}, rows, 1))
+		lipgloss.Println(buildSkillTable([]string{"Name", "Category", "Description"}, rows, 1))
 	} else {
 		for _, s := range skills {
 			rows = append(rows, []string{s.Name, s.Description})
 		}
-		fmt.Println(buildSkillTable([]string{"Name", "Description"}, rows))
+		lipgloss.Println(buildSkillTable([]string{"Name", "Description"}, rows))
 	}
 	return nil
 }
@@ -350,7 +350,7 @@ func runSkillFind(keywords []string, findAll bool) error {
 		rows = append(rows, []string{res.s.Name, res.s.Category, string(res.source), res.s.Description})
 	}
 
-	fmt.Println(buildSkillTable([]string{"Name", "Category", "Match", "Description"}, rows, 1, 2))
+	lipgloss.Println(buildSkillTable([]string{"Name", "Category", "Match", "Description"}, rows, 1, 2))
 	return nil
 }
 
@@ -597,7 +597,7 @@ func runSkillImport(folder string, apply, force bool, category string) error {
 	for _, e := range entries {
 		rows = append(rows, []string{e.name, e.category, e.id, e.status})
 	}
-	fmt.Println(buildSkillTable([]string{"Name", "Category", "Flicknote ID", "Status"}, rows, 1, 2))
+	lipgloss.Println(buildSkillTable([]string{"Name", "Category", "Flicknote ID", "Status"}, rows, 1, 2))
 
 	if !apply {
 		fmt.Println("\nDry run — use --apply to upload and register.")
