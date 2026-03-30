@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
@@ -17,11 +16,14 @@ import (
 )
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
-func buildReviewerEnvParts(agentName string, rt runtime.Runtime) []string {
-	return []string{
+// TTAL_JOB_ID is set so the reviewer can resolve the task context via ttal pipeline prompt.
+func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
+	parts := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
+	return parts
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
@@ -34,11 +36,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	// Compute branch at runtime from the worktree — soft failure, review can proceed with empty branch.
 	gitBranch, err := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
 	if err != nil {
-		shortUUID := ctx.Task.UUID
-		if len(shortUUID) > 8 {
-			shortUUID = shortUUID[:8]
-		}
-		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", shortUUID, err)
+		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", ctx.Task.HexID(), err)
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
@@ -49,11 +47,6 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 
 	reviewerRT := cfg.ReviewerRuntime()
 
-	systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
-	if systemPrompt == "" {
-		return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
-	}
-
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -61,11 +54,15 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 
 	var shellCmd string
 
-	envParts := buildReviewerEnvParts(reviewerName, reviewerRT)
-	var ccSessionPath string // non-empty for CC reviewers; cleaned up if tmux.NewWindow fails
+	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
 
 	if reviewerRT == runtime.Codex {
-		// Codex reviewers stay on the old task-file path until #321
+		// Codex reviewers stay on the old task-file path until #321.
+		// Build prompt from template for Codex since it doesn't support the context hook.
+		systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
+		if systemPrompt == "" {
+			return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
+		}
 		promptFile, err := writePromptFile(systemPrompt)
 		if err != nil {
 			return err
@@ -76,25 +73,12 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		// Claude Code: JSONL session + trigger
-		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
-			ttalBin, workDir, breathe.SessionConfig{
-				CWD:       workDir,
-				GitBranch: gitBranch,
-				Handoff:   systemPrompt,
-			}, reviewerName, "Review the PR.",
-		)
-		if err != nil {
-			return err
-		}
-		ccSessionPath = sessionPath
-		shellCmd = cfg.BuildEnvShellCommand(envParts, resumeCmd)
+		// Claude Code: direct launch — context and review prompt injected via SessionStart hook
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.")
+		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
 	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
-		if ccSessionPath != "" {
-			os.Remove(ccSessionPath)
-		}
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 

@@ -76,37 +76,36 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 3. Status file session ID is cleared
 4. Your CC session is killed
 5. A new CC session starts fresh (no `--resume`)
-6. CC fires the SessionStart hook: `ttal context` reads env, evaluates breathe_context commands, and consumes any pending route file to build the system message
+6. CC fires the SessionStart hook: `ttal context` renders the universal `context` template, executing `$ cmd` lines (diary read, agent list, pipeline prompt) to build the system message
 7. You wake up in a fresh context window with the session context injected by the hook
-8. Continue from where you left off
 
 Your handoff is saved in diary — it persists across sessions.
 
-### Worker path (still uses synthetic JSONL + --resume)
+### Worker and reviewer path (uses SessionStart hook)
 
-Workers use synthetic JSONL sessions with `--resume` — the SessionStart hook does not apply to short-lived worker sessions.
+Workers and reviewers also use the CC SessionStart hook. On session start:
+- The hook renders the `context` template
+- `TTAL_JOB_ID` is derived from the worktree CWD (workers) or session env (reviewers)
+- `$ ttal pipeline prompt` outputs the role-specific prompt (coder instructions, review prompt, etc.)
 
 ## Auto-Breathe on Route
 
-When a task is routed via `ttal go`, the agent is asked to breathe
-so they start fresh. The router stages routing params to
-`~/.ttal/routing/<agent>.json`, then sends a message asking the agent to
-`/breathe`. On next startup:
-
-- **Manager path:** The SessionStart hook (`ttal context`) consumes the route file and injects the role prompt and task assignment as the system message
-- **Worker path:** The daemon reads the route file during `handleBreathe` and composes the restart
-
-Managers are exempt from forced breathe — they keep persistent sessions.
+When a task is routed via `ttal go`, the agent is asked to breathe so they start fresh.
+The stage tag is already written to taskwarrior before breathe is triggered.
+On next startup, the SessionStart hook renders the context template and `$ ttal pipeline prompt`
+reads the stage tag to output the role-specific prompt. No route file needed — taskwarrior
+state is the single source of truth.
 
 To skip: `ttal go <uuid> --no-breathe`
 
-## Unified Spawn Pattern (Manager)
+## Unified Context Injection
 
-The manager breathe path:
+All session types (manager, worker, reviewer) use the same `context` template rendered by
+the CC SessionStart hook:
 
-1. Daemon kills old session, creates new session without `--resume`
+1. Daemon kills old session (managers) or worker spawns directly with `--agent`
 2. CC starts, fires SessionStart hook
-3. `ttal context` evaluates breathe_context commands and pending route file
-4. System message is injected into the session
+3. `ttal context` renders the `context` template — `$ cmd` lines executed with agent env vars
+4. System message injected into the session
 
 The SessionStart hook is installed via `ttal sync` (not `ttal doctor --fix`).

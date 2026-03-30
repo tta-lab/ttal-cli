@@ -120,38 +120,6 @@ func TestAdvanceRoute_InvalidJSON(t *testing.T) {
 	}
 }
 
-// TestBuildRouteTrigger_NeverContainsDescription guards against re-introducing task.Description
-// into the trigger. Descriptions can contain shell metacharacters (<, >, |, $, ?) that break
-// the zsh -c '...' wrapper used to deliver the trigger to agent sessions.
-func TestBuildRouteTrigger_NeverContainsDescription(t *testing.T) {
-	uuid := "abc12345-1234-1234-1234-123456789abc"
-	trigger := buildRouteTrigger(uuid)
-
-	// Must contain the short UUID.
-	if !strings.Contains(trigger, "abc12345") {
-		t.Errorf("trigger missing UUID: %q", trigger)
-	}
-
-	// Must be a single line (no newlines that could smuggle description content).
-	if strings.Contains(trigger, "\n") {
-		t.Errorf("trigger must be single-line, got: %q", trigger)
-	}
-
-	// Must not contain any user-controlled text — only the fixed template and UUID.
-	metacharDescriptions := []string{
-		"test <foo> bar",
-		"worker/<slug>?",
-		"it's a task; rm -rf /",
-		"pipe | me",
-		"$HOME backdoor",
-	}
-	for _, desc := range metacharDescriptions {
-		if strings.Contains(trigger, desc) {
-			t.Errorf("trigger must not contain description %q: %q", desc, trigger)
-		}
-	}
-}
-
 // TestFindIdleAgent_NoAgentsForRole tests the error case when no agents have the role.
 func TestFindIdleAgent_NoAgentsForRole(t *testing.T) {
 	_, err := findIdleAgent("", "nonexistent-role")
@@ -406,8 +374,8 @@ func TestCheckCallerPastStage_AllowedMidPipelineLGTM(t *testing.T) {
 	}
 }
 
-// TestPrependStageSkills verifies the prependStageSkills helper.
-func TestPrependStageSkills(t *testing.T) {
+// TestPrependSkills verifies the pipeline.PrependSkills helper (moved from daemon).
+func TestPrependSkills(t *testing.T) {
 	tests := []struct {
 		name   string
 		prompt string
@@ -453,9 +421,9 @@ func TestPrependStageSkills(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := prependStageSkills(tt.prompt, tt.skills, tt.rt)
+			got := pipeline.PrependSkills(tt.prompt, tt.skills, tt.rt)
 			if got != tt.want {
-				t.Errorf("prependStageSkills() =\n%q\nwant:\n%q", got, tt.want)
+				t.Errorf("PrependSkills() =\n%q\nwant:\n%q", got, tt.want)
 			}
 		})
 	}

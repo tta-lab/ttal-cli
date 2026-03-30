@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
@@ -195,7 +194,7 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, branch string) error {
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -210,7 +209,6 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc, workDir)
 
 	var shellCmd string
-	var ccSessionPath string // non-empty for CC workers; cleaned up if tmux.NewSession fails
 
 	if cfg.Runtime == runtime.Codex {
 		// Codex workers stay on the old task-file path until #321
@@ -224,31 +222,14 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		}
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		// Claude Code: JSONL session + trigger
-		systemPrompt, err := writeSessionPrompt(task, cfg, shellCfg)
-		if err != nil {
-			return err
-		}
-		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
-			ttalBin, workDir, breathe.SessionConfig{
-				CWD:       workDir,
-				GitBranch: branch,
-				Handoff:   systemPrompt,
-			}, CoderAgentName, "Begin implementation.",
-		)
-		if err != nil {
-			return err
-		}
-		ccSessionPath = sessionPath
-		shellCmd = shellCfg.BuildEnvShellCommand(envParts, resumeCmd)
+		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, CoderAgentName, "Begin implementation.")
+		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
 	if err := tmux.NewSession(sessionName, CoderAgentName, workDir, shellCmd); err != nil {
-		if ccSessionPath != "" {
-			os.Remove(ccSessionPath)
-		}
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
@@ -316,26 +297,16 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 	return nil
 }
 
-// writeSessionPrompt builds the system prompt for a CC worker session.
-// This content goes into the synthetic JSONL session.
-func writeSessionPrompt(task *taskwarrior.Task, cfg SpawnConfig, shellCfg *config.Config) (string, error) {
+// writeTaskFile writes the execute prompt to a temp file for Codex workers.
+// Codex does not support the context hook (#321), so it uses the legacy task-file pattern.
+func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, shellCfg *config.Config) (string, error) {
 	shortID := task.UUID
 	if len(shortID) > 8 {
 		shortID = shortID[:8]
 	}
-	executePrompt := shellCfg.RenderPrompt("execute", shortID, cfg.Runtime)
-	if executePrompt == "" {
-		return "", fmt.Errorf("execute prompt not configured: add [prompts] execute = \"...\" to config.toml")
-	}
-	return executePrompt, nil
-}
-
-// writeTaskFile writes the system prompt to a temp file for Codex workers.
-// Codex does not support JSONL resume (#321), so it uses the legacy task-file pattern.
-func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, shellCfg *config.Config) (string, error) {
-	prompt, err := writeSessionPrompt(task, cfg, shellCfg)
-	if err != nil {
-		return "", err
+	prompt := shellCfg.RenderPrompt("coder", shortID, cfg.Runtime)
+	if prompt == "" {
+		return "", fmt.Errorf("coder prompt not configured: add [coder] to roles.toml")
 	}
 
 	taskFile, err := os.CreateTemp("", "claude-task-*.txt")

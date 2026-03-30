@@ -18,14 +18,13 @@ import (
 // Supports {{task-id}} and {{skill:name}} template variables.
 // Role-based keys (designer, researcher) come from roles.toml, not config.toml.
 type PromptsConfig struct {
-	Execute        string `toml:"execute" jsonschema:"description=Prompt prefix for worker spawn"`
-	Triage         string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                                                      //nolint:lll
-	Review         string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"`                          //nolint:lll
-	ReReview       string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`                                   //nolint:lll
-	PlanReview     string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}} {{skill:plan-review}}"`                                               //nolint:lll
-	PlanReReview   string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                                                 //nolint:lll
-	PlanTriage     string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                                            //nolint:lll
-	BreatheContext string `toml:"breathe_context" jsonschema:"description=Commands to build agent session context on breathe (one per line). Supports {{agent-name}}, {{team-name}}."` //nolint:lll
+	Context      string `toml:"context" jsonschema:"description=Universal CC SessionStart context template. Lines prefixed with '$ ' are executed as shell commands."` //nolint:lll
+	Triage       string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                                        //nolint:lll
+	Review       string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"`            //nolint:lll
+	ReReview     string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`                     //nolint:lll
+	PlanReview   string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}} {{skill:plan-review}}"`                                 //nolint:lll
+	PlanReReview string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                                   //nolint:lll
+	PlanTriage   string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                              //nolint:lll
 }
 
 // AgentSessionName returns the tmux session name for an agent.
@@ -395,7 +394,8 @@ func (c *Config) BreatheThreshold() float64 {
 // The default manager-plane prompt must not bleed into worker prompts.
 // Keep in sync with PromptsConfig fields and the promptsMap in Prompt() below.
 var workerPromptKeys = map[string]bool{
-	"execute":        true,
+	"coder":          true,
+	"context":        true,
 	"review":         true,
 	"re_review":      true,
 	"triage":         true,
@@ -424,7 +424,7 @@ func (c *Config) Prompt(key string) string {
 
 	if c.hasAnyPromptConfigured() {
 		promptsMap := map[string]string{
-			"execute":        c.Prompts.Execute,
+			"context":        c.Prompts.Context,
 			"triage":         c.Prompts.Triage,
 			"review":         c.Prompts.Review,
 			"re_review":      c.Prompts.ReReview,
@@ -455,28 +455,11 @@ func (c *Config) HeartbeatPrompt(agentName string) string {
 	return c.resolvedRoles.HeartbeatPrompts[agentName]
 }
 
-// BreatheContextCommands returns breathe_context commands split by line.
-// Returns nil if not configured or empty.
-func (c *Config) BreatheContextCommands() []string {
-	raw := c.Prompts.BreatheContext
-	if raw == "" {
-		return nil
-	}
-	var cmds []string
-	for _, line := range strings.Split(raw, "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			cmds = append(cmds, line)
-		}
-	}
-	return cmds
-}
-
 func (c *Config) hasAnyPromptConfigured() bool {
-	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
+	return c.Prompts.Context != "" || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
 		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != "" ||
-		c.Prompts.PlanTriage != "" || c.Prompts.BreatheContext != ""
+		c.Prompts.PlanTriage != ""
 }
 
 // RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.

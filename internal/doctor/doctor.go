@@ -283,9 +283,9 @@ func checkConfig(fix bool) Section {
 // checkPrompts verifies that prompts.toml was loaded and has required keys.
 // Receives the already-loaded PromptsConfig from cfg.Prompts to avoid a second disk read.
 func checkPrompts(section *Section, prompts config.PromptsConfig) {
-	if prompts.Execute == "" && prompts.Review == "" {
+	if prompts.Context == "" && prompts.Review == "" {
 		section.add(LevelWarn, "prompts",
-			"prompts.toml not found or missing 'execute'/'review' keys — create ~/.config/ttal/prompts.toml")
+			"prompts.toml not found or missing 'context'/'review' keys — create ~/.config/ttal/prompts.toml")
 		return
 	}
 	section.add(LevelOK, "prompts", "prompts.toml loaded")

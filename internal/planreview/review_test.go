@@ -4,16 +4,12 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-const testUUIDLong = "abcd1234-0000-0000-0000-000000000000"
-
 func TestBuildPlanReviewerEnvParts_ContainsJobID(t *testing.T) {
-	uuid := "f9a917aa-fc67-4aab-b398-18480e58ce86"
-	parts, err := buildPlanReviewerEnvParts(uuid, "plan-review-lead", runtime.ClaudeCode)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	task := &taskwarrior.Task{UUID: "f9a917aa-fc67-4aab-b398-18480e58ce86"}
+	parts := buildPlanReviewerEnvParts(task, "plan-review-lead", runtime.ClaudeCode)
 	var found bool
 	for _, p := range parts {
 		if p == "TTAL_JOB_ID=f9a917aa" {
@@ -25,19 +21,9 @@ func TestBuildPlanReviewerEnvParts_ContainsJobID(t *testing.T) {
 	}
 }
 
-func TestBuildPlanReviewerEnvParts_ShortUUIDReturnsError(t *testing.T) {
-	_, err := buildPlanReviewerEnvParts("short", "plan-review-lead", runtime.ClaudeCode)
-	if err == nil {
-		t.Error("expected error for UUID shorter than 8 chars")
-	}
-}
-
 func TestBuildPlanReviewerEnvParts_AgentNamePassthrough(t *testing.T) {
-	uuid := testUUIDLong
-	parts, err := buildPlanReviewerEnvParts(uuid, "custom-reviewer", runtime.ClaudeCode)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	task := &taskwarrior.Task{UUID: "abcd1234-0000-0000-0000-000000000000"}
+	parts := buildPlanReviewerEnvParts(task, "custom-reviewer", runtime.ClaudeCode)
 	var found bool
 	for _, p := range parts {
 		if p == "TTAL_AGENT_NAME=custom-reviewer" {

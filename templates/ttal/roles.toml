@@ -2,6 +2,15 @@
 prompt = """Read the task and do your best based on the context.
 ttal task get"""
 
+[coder]
+prompt = """\
+Implement this task. The plan is in your task context.
+Follow each task in order: read the plan, make changes, verify, commit.
+
+IMPORTANT: Use `ttal task get` (no extra params) to get task details including the plan.
+IMPORTANT: Always use `ttal pr` for PR operations (create, modify) — never use `gh` or `tea`, even if the repo is on GitHub.
+IMPORTANT: Use `ttal go` (no extra params) to finalize your work when you finish triage and got lgtm from reviewer"""
+
 [designer]
 prompt = """Write an implementation plan for this task.
 Read the task first: ttal task get

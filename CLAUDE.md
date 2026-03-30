@@ -103,17 +103,18 @@ cmd/             - CLI commands (cobra)
   └── go.go      - ttal go (pipeline stage engine)
 
 internal/
-  ├── agentfs/   - Filesystem-based agent discovery (CLAUDE.md frontmatter)
-  ├── project/   - Project store (TOML) and resolution logic
-  ├── watcher/   - JSONL file watcher (CC → Telegram via daemon)
-  ├── daemon/    - Long-running daemon (socket, Telegram, delivery, launchd)
-  ├── forgejo/   - Forgejo SDK client and repo helpers
-  ├── pr/        - PR operations (create, modify, merge, comment)
-  ├── worker/    - Worker lifecycle (hook, spawn, close)
-  ├── gitutil/   - Git/worktree utilities (dump state, cleanup)
-  ├── tmux/      - tmux session management and send-keys delivery
-  ├── today/     - Today focus list (lipgloss tables, scheduled date mgmt)
-  └── taskwarrior/ - Shared taskwarrior helpers (export, find, prompt, UDAs)
+  ├── agentfs/      - Filesystem-based agent discovery (CLAUDE.md frontmatter)
+  ├── project/      - Project store (TOML) and resolution logic
+  ├── promptrender/ - Unified prompt template renderer ($ cmd syntax)
+  ├── watcher/      - JSONL file watcher (CC → Telegram via daemon)
+  ├── daemon/       - Long-running daemon (socket, Telegram, delivery, launchd)
+  ├── forgejo/      - Forgejo SDK client and repo helpers
+  ├── pr/           - PR operations (create, modify, merge, comment)
+  ├── worker/       - Worker lifecycle (hook, spawn, close)
+  ├── gitutil/      - Git/worktree utilities (dump state, cleanup)
+  ├── tmux/         - tmux session management and send-keys delivery
+  ├── today/        - Today focus list (lipgloss tables, scheduled date mgmt)
+  └── taskwarrior/  - Shared taskwarrior helpers (export, find, prompt, UDAs)
 ```
 
 ### Daemon Architecture
