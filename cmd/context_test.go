@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,8 +95,9 @@ func TestRunContext_MalformedStdin(t *testing.T) {
 	}
 }
 
-// TestRunContext_AgentWithConfig verifies agent session outputs valid JSON with additionalContext.
-func TestRunContext_AgentWithConfig(t *testing.T) {
+// TestRunContext_AgentWithContextTemplate verifies agent session with context template
+// outputs valid JSON with additionalContext.
+func TestRunContext_AgentWithContextTemplate(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
@@ -103,9 +105,8 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	// Write config with a breathe_context command that produces output.
-	// prompts.toml is a flat file (no section headers).
-	promptsToml := "breathe_context = \"echo context-from-hook\"\n"
+	// Write config with a context template containing a $ cmd line.
+	promptsToml := "context = \"$ echo context-from-hook\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
 		t.Fatalf("write prompts.toml: %v", err)
 	}
@@ -114,7 +115,6 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 		t.Fatalf("write config.toml: %v", err)
 	}
 
-	// Hook input with agent_type from --agent flag.
 	hookInput := testHookInputKestrel
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
@@ -124,18 +124,15 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &resp); err != nil {
 		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 	}
-	// With a working echo command, we expect hookSpecificOutput with additionalContext.
-	// If the command produced no output (empty day, no diary), {} is also acceptable.
-	if output != "{}" {
-		if resp.HookSpecificOutput == nil {
-			t.Fatalf("expected hookSpecificOutput in non-empty output, got: %q", output)
-		}
-		if resp.HookSpecificOutput.HookEventName != "SessionStart" {
-			t.Errorf("expected hookEventName=SessionStart, got: %q", resp.HookSpecificOutput.HookEventName)
-		}
-		if resp.HookSpecificOutput.AdditionalContext == "" {
-			t.Errorf("expected non-empty additionalContext, got: %q", output)
-		}
+	if resp.HookSpecificOutput == nil {
+		t.Fatalf("expected hookSpecificOutput in output, got: %q", output)
+	}
+	if resp.HookSpecificOutput.HookEventName != "SessionStart" {
+		t.Errorf("expected hookEventName=SessionStart, got: %q", resp.HookSpecificOutput.HookEventName)
+	}
+	if !strings.Contains(resp.HookSpecificOutput.AdditionalContext, "context-from-hook") {
+		t.Errorf("expected 'context-from-hook' in additionalContext, got: %q",
+			resp.HookSpecificOutput.AdditionalContext)
 	}
 }
 
@@ -161,98 +158,52 @@ func TestRunContext_MissingConfig(t *testing.T) {
 	}
 }
 
-// TestRunContext_MalformedRouteFile verifies corrupt route file still produces valid JSON.
-func TestRunContext_MalformedRouteFile(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
-
-	// Write a minimal config.toml so config.Load() succeeds.
-	cfgDir := filepath.Join(tmp, ".config", "ttal")
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
-		t.Fatalf("mkdir cfg: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"),
-		[]byte("[teams.default]\nteam_path = \""+tmp+"\"\n"), 0o644); err != nil {
-		t.Fatalf("write config.toml: %v", err)
+// TestExtractWorktreeHexID verifies worktree hex ID extraction from CWD paths.
+func TestExtractWorktreeHexID(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot determine home dir")
 	}
 
-	// Write a corrupt route file under the default data dir (~/.ttal/routing/).
-	routingDir := filepath.Join(tmp, ".ttal", "routing")
-	if err := os.MkdirAll(routingDir, 0o755); err != nil {
-		t.Fatalf("mkdir routing: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(routingDir, "kestrel.json"), []byte("not-valid-json"), 0o644); err != nil {
-		t.Fatalf("write bad route: %v", err)
-	}
-
-	hookInput := testHookInputKestrel
-	output := captureContextOutput(t, hookInput)
-	output = trimNewlines(output)
-
-	// Must be valid JSON despite corrupt route file.
-	var v interface{}
-	if err := json.Unmarshal([]byte(output), &v); err != nil {
-		t.Fatalf("output is not valid JSON with corrupt route file: %v\noutput: %q", err, output)
-	}
-}
-
-// TestRunContext_RouteComposition verifies that a valid route file appends role prompt
-// and message to additionalContext via hookSpecificOutput.
-func TestRunContext_RouteComposition(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
-
-	// Write config with a breathe_context command so we have a non-empty base.
-	cfgDir := filepath.Join(tmp, ".config", "ttal")
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"),
-		[]byte("[teams.default]\nteam_path = \""+tmp+"\"\n"), 0o644); err != nil {
-		t.Fatalf("write config.toml: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"),
-		[]byte("breathe_context = \"echo base-context\"\n"), 0o644); err != nil {
-		t.Fatalf("write prompts.toml: %v", err)
+	tests := []struct {
+		name string
+		cwd  string
+		want string
+	}{
+		{
+			name: "standard worktree path",
+			cwd:  filepath.Join(home, ".ttal", "worktrees", "878619a0-ttal"),
+			want: "878619a0",
+		},
+		{
+			name: "multi-hyphen alias",
+			cwd:  filepath.Join(home, ".ttal", "worktrees", "eb2fde5b-ttal-cli"),
+			want: "eb2fde5b",
+		},
+		{
+			name: "empty CWD",
+			cwd:  "",
+			want: "",
+		},
+		{
+			name: "non-worktree path",
+			cwd:  fmt.Sprintf("/Users/neil/Code/project"),
+			want: "",
+		},
+		{
+			name: "worktree subdir",
+			cwd:  filepath.Join(home, ".ttal", "worktrees", "ec16980f-ttal", "cmd"),
+			want: "ec16980f",
+		},
 	}
 
-	// Stage a route file.
-	routingDir := filepath.Join(tmp, ".ttal", "routing")
-	if err := os.MkdirAll(routingDir, 0o755); err != nil {
-		t.Fatalf("mkdir routing: %v", err)
-	}
-	routeJSON := `{"task_uuid":"abc12345","role_prompt":"You are a designer.",` +
-		`"message":"Work on task abc12345.","routed_by":"astra","created_at":"2026-01-01T00:00:00Z"}`
-	if err := os.WriteFile(filepath.Join(routingDir, "kestrel.json"), []byte(routeJSON), 0o644); err != nil {
-		t.Fatalf("write route: %v", err)
-	}
-
-	hookInput := testHookInputKestrel
-	output := captureContextOutput(t, hookInput)
-	output = trimNewlines(output)
-
-	var resp ccHookResponse
-	if err := json.Unmarshal([]byte(output), &resp); err != nil {
-		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
-	}
-
-	if resp.HookSpecificOutput == nil {
-		t.Fatalf("expected hookSpecificOutput, got: %q", output)
-	}
-	if resp.HookSpecificOutput.HookEventName != "SessionStart" {
-		t.Errorf("expected hookEventName=SessionStart, got: %q", resp.HookSpecificOutput.HookEventName)
-	}
-	ctx := resp.HookSpecificOutput.AdditionalContext
-	if !strings.Contains(ctx, "You are a designer.") {
-		t.Errorf("expected role prompt in additionalContext, got: %q", ctx)
-	}
-	if !strings.Contains(ctx, "Work on task abc12345.") {
-		t.Errorf("expected route message in additionalContext, got: %q", ctx)
-	}
-
-	// Route file must have been consumed (deleted).
-	if _, err := os.Stat(filepath.Join(routingDir, "kestrel.json")); !os.IsNotExist(err) {
-		t.Error("route file should have been consumed (deleted)")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractWorktreeHexID(tt.cwd)
+			if got != tt.want {
+				t.Errorf("extractWorktreeHexID(%q) = %q, want %q", tt.cwd, got, tt.want)
+			}
+		})
 	}
 }
 
