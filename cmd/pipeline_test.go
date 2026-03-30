@@ -10,6 +10,59 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 )
 
+// TestResolvePipelinePrompt_NoEnvVars verifies that resolvePipelinePrompt returns empty
+// when neither TTAL_JOB_ID nor TTAL_AGENT_NAME is set (no-op path 1).
+func TestResolvePipelinePrompt_NoEnvVars(t *testing.T) {
+	t.Setenv("TTAL_JOB_ID", "")
+	t.Setenv("TTAL_AGENT_NAME", "")
+	got := resolvePipelinePrompt()
+	if got != "" {
+		t.Errorf("expected empty output with no env vars, got: %q", got)
+	}
+}
+
+// TestResolvePromptKey_CoderAssignee verifies the coder assignee maps to "coder" prompt key.
+func TestResolvePromptKey_CoderAssignee(t *testing.T) {
+	t.Setenv("TTAL_AGENT_NAME", "coder")
+	stage := &pipeline.Stage{Assignee: "coder", Reviewer: ""}
+	got := resolvePromptKey(stage)
+	if got != "coder" {
+		t.Errorf("resolvePromptKey for coder assignee = %q, want %q", got, "coder")
+	}
+}
+
+// TestResolvePromptKey_PRReviewer verifies that when TTAL_AGENT_NAME matches stage.Reviewer
+// and the assignee is a coder stage, "review" prompt key is returned.
+func TestResolvePromptKey_PRReviewer(t *testing.T) {
+	t.Setenv("TTAL_AGENT_NAME", "pr-review-lead")
+	stage := &pipeline.Stage{Assignee: "coder", Reviewer: "pr-review-lead"}
+	got := resolvePromptKey(stage)
+	if got != "review" {
+		t.Errorf("resolvePromptKey for PR reviewer = %q, want %q", got, "review")
+	}
+}
+
+// TestResolvePromptKey_PlanReviewer verifies that when TTAL_AGENT_NAME matches stage.Reviewer
+// and the assignee is a non-coder stage, "plan_review" prompt key is returned.
+func TestResolvePromptKey_PlanReviewer(t *testing.T) {
+	t.Setenv("TTAL_AGENT_NAME", "plan-review-lead")
+	stage := &pipeline.Stage{Assignee: "designer", Reviewer: "plan-review-lead"}
+	got := resolvePromptKey(stage)
+	if got != "plan_review" {
+		t.Errorf("resolvePromptKey for plan reviewer = %q, want %q", got, "plan_review")
+	}
+}
+
+// TestResolvePromptKey_DesignerAssignee verifies that designer assignee maps to "designer".
+func TestResolvePromptKey_DesignerAssignee(t *testing.T) {
+	t.Setenv("TTAL_AGENT_NAME", "mira")
+	stage := &pipeline.Stage{Assignee: "designer", Reviewer: ""}
+	got := resolvePromptKey(stage)
+	if got != "designer" {
+		t.Errorf("resolvePromptKey for designer assignee = %q, want %q", got, "designer")
+	}
+}
+
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	old := os.Stdout

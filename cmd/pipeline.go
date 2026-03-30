@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -9,7 +11,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	projectpkg "github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 var pipelineCmd = &cobra.Command{
@@ -125,8 +131,156 @@ func renderPipelineGraph(p pipeline.Pipeline) {
 	fmt.Println()
 }
 
+// workerAssignee is the pipeline stage assignee value that identifies a worker/coder stage.
+// Mirrored from internal/daemon to avoid a cross-package import cycle.
+const workerAssignee = "coder"
+
+// pipelinePromptCmd outputs the role-specific prompt for the current task and pipeline stage.
+// It is called by the CC SessionStart hook (via the context template's $ ttal pipeline prompt line)
+// and must produce empty output when no relevant task or stage is found.
+var pipelinePromptCmd = &cobra.Command{
+	Use:   "prompt",
+	Short: "Output the role prompt for the current task's pipeline stage",
+	Long: `Output the role-specific prompt for the current task's pipeline stage.
+
+Called by the CC SessionStart hook via the context template. Reads TTAL_JOB_ID
+(worker/reviewer path) or TTAL_AGENT_NAME (manager path) to find the current task.
+Outputs the role prompt with skills prepended. Outputs nothing when no task or stage
+is found — always exits 0 (non-zero exits would fail the context hook).`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		prompt := resolvePipelinePrompt()
+		if prompt != "" {
+			fmt.Println(prompt)
+		}
+		return nil
+	},
+}
+
+// resolvePipelinePrompt finds the current task and returns the role-specific prompt,
+// or empty string if any step fails or no prompt is configured.
+func resolvePipelinePrompt() string {
+	task := resolveCurrentTaskForPrompt()
+	if task == nil {
+		return ""
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("[pipeline prompt] config load failed: %v", err)
+		return ""
+	}
+
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		log.Printf("[pipeline prompt] pipeline load failed: %v", err)
+		return ""
+	}
+
+	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
+	if err != nil || p == nil {
+		return ""
+	}
+
+	_, stage, err := p.CurrentStage(task.Tags)
+	if err != nil || stage == nil {
+		return ""
+	}
+
+	promptKey := resolvePromptKey(stage)
+	rolePrompt := cfg.Prompt(promptKey)
+	if rolePrompt == "" {
+		return ""
+	}
+
+	agentRT := cfg.AgentRuntimeFor("")
+	rolePrompt = pipeline.PrependSkills(rolePrompt, stage.Skills, agentRT)
+	rolePrompt = expandPromptVars(rolePrompt, task, cfg)
+
+	return rolePrompt
+}
+
+// resolveCurrentTaskForPrompt finds the task for the current session via TTAL_JOB_ID or TTAL_AGENT_NAME.
+// Returns nil when no task is found (non-fatal).
+func resolveCurrentTaskForPrompt() *taskwarrior.Task {
+	if hexID := os.Getenv("TTAL_JOB_ID"); hexID != "" {
+		task, err := taskwarrior.ExportTaskByHexID(hexID, "")
+		if err != nil {
+			log.Printf("[pipeline prompt] task lookup by TTAL_JOB_ID=%s failed: %v", hexID, err)
+			return nil
+		}
+		return task
+	}
+
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+	if agentName == "" {
+		return nil
+	}
+
+	tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", "+"+agentName)
+	if err != nil || len(tasks) == 0 {
+		return nil
+	}
+	return &tasks[0]
+}
+
+// resolvePromptKey determines which config prompt key to use for the given stage,
+// taking the current agent identity (TTAL_AGENT_NAME) into account for reviewer sessions.
+func resolvePromptKey(stage *pipeline.Stage) string {
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+
+	// Reviewer path: agent is the stage's reviewer, not the assignee.
+	if agentName != "" && stage.Reviewer == agentName {
+		if stage.Assignee == workerAssignee {
+			return "review"
+		}
+		return "plan_review"
+	}
+
+	return stage.Assignee
+}
+
+// expandPromptVars expands task-specific template variables in the prompt,
+// including {{task-id}}, {{pr-number}}, {{owner}}, {{repo}}, {{branch}}, and {{skill:name}}.
+func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config) string {
+	rt := cfg.AgentRuntimeFor("")
+
+	// Expand PR vars — soft failure: use empty strings if resolution fails.
+	if task.PRID != "" {
+		prInfo, err := taskwarrior.ParsePRID(task.PRID)
+		if err == nil {
+			branch, _ := worker.WorktreeBranch(task.UUID, task.Project)
+			owner, repo := resolvePROwnerRepo(task)
+			replacer := strings.NewReplacer(
+				"{{pr-number}}", fmt.Sprintf("%d", prInfo.Index),
+				"{{pr-title}}", task.Description,
+				"{{owner}}", owner,
+				"{{repo}}", repo,
+				"{{branch}}", branch,
+			)
+			prompt = replacer.Replace(prompt)
+		}
+	}
+
+	return config.RenderTemplate(prompt, task.HexID(), rt)
+}
+
+// resolvePROwnerRepo resolves the owner and repo for a task's project.
+// Soft failure: returns empty strings if the project path or git remote cannot be resolved.
+func resolvePROwnerRepo(task *taskwarrior.Task) (owner, repo string) {
+	projectPath := projectpkg.ResolveProjectPath(task.Project)
+	if projectPath == "" {
+		return "", ""
+	}
+	info, err := gitprovider.DetectProvider(projectPath)
+	if err != nil {
+		return "", ""
+	}
+	return info.Owner, info.Repo
+}
+
 func init() {
 	rootCmd.AddCommand(pipelineCmd)
 	pipelineCmd.AddCommand(pipelineListCmd)
 	pipelineCmd.AddCommand(pipelineGetCmd)
+	pipelineCmd.AddCommand(pipelinePromptCmd)
 }
