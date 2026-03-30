@@ -38,6 +38,7 @@ linters:
     #   (net.Conn).Write       — socket.go:260 courtesy reply after handler ran
     #   (*os.File).WriteString — hook.go:263 taskwarrior JSON passthrough on stdout
     #   fmt.Fprintf            — hook.go:308 best-effort debug log line
+    #   lipgloss.Print/Println/Fprintf — best-effort terminal rendering; TTY errors non-actionable
     #   (net.Conn).SetDeadline — only fails if conn already closed; next op catches it
     #
     # Important call sites that DO check errors (not excluded):
@@ -60,6 +61,9 @@ linters:
         - (*os.File).WriteString
         - (*os/exec.Cmd).Run
         - fmt.Fprintf
+        - charm.land/lipgloss/v2.Print
+        - charm.land/lipgloss/v2.Println
+        - charm.land/lipgloss/v2.Fprintf
         # test-only
         - os.Mkdir
         - os.WriteFile
