@@ -147,7 +147,7 @@ func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
 	}
 
 	// Read existing SessionStart value if present.
-	var existing []interface{}
+	existing := make([]interface{}, 0, 1)
 	if raw, ok := settings["SessionStart"]; ok {
 		existing, ok = raw.([]interface{})
 		if !ok {
