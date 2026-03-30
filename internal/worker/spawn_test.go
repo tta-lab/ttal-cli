@@ -65,19 +65,19 @@ func TestBuildEnvParts_NoTaskRC(t *testing.T) {
 	}
 }
 
-func TestWriteSessionPrompt_MissingExecutePrompt(t *testing.T) {
-	cfg := SpawnConfig{Name: "test", Runtime: runtime.ClaudeCode}
+func TestWriteTaskFile_MissingCoderPrompt(t *testing.T) {
+	cfg := SpawnConfig{Name: "test", Runtime: runtime.Codex}
 	task := &taskwarrior.Task{
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
 	}
-	// Empty config has no execute prompt configured
+	// Empty config has no coder prompt configured
 	shellCfg := &config.Config{}
-	_, err := writeSessionPrompt(task, cfg, shellCfg)
+	_, err := writeTaskFile(task, cfg, shellCfg)
 	if err == nil {
-		t.Fatal("expected error when execute prompt not configured")
+		t.Fatal("expected error when coder prompt not configured")
 	}
-	if !strings.Contains(err.Error(), "execute prompt not configured") {
+	if !strings.Contains(err.Error(), "coder prompt not configured") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }

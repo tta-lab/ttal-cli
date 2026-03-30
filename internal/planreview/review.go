@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -32,11 +31,6 @@ func SpawnPlanReviewer(
 ) error {
 	reviewerRT := cfg.ReviewerRuntime()
 
-	systemPrompt := buildPlanReviewerPrompt(cfg, taskUUID, reviewerRT)
-	if systemPrompt == "" {
-		return fmt.Errorf("plan_review prompt not configured: add [prompts] plan_review = \"...\" to config.toml")
-	}
-
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -46,10 +40,15 @@ func SpawnPlanReviewer(
 	if err != nil {
 		return err
 	}
-	var ccSessionPath string
 
 	var shellCmd string
 	if reviewerRT == runtime.Codex {
+		// Codex reviewers stay on the old task-file path until #321.
+		// Build prompt from template for Codex since it doesn't support the context hook.
+		systemPrompt := buildPlanReviewerPrompt(cfg, taskUUID, reviewerRT)
+		if systemPrompt == "" {
+			return fmt.Errorf("plan_review prompt not configured: add [prompts] plan_review = \"...\" to config.toml")
+		}
 		promptFile, err := writePromptFile(systemPrompt)
 		if err != nil {
 			return err
@@ -60,23 +59,12 @@ func SpawnPlanReviewer(
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		sessionPath, resumeCmd, err := launchcmd.BuildCCSessionCommand(
-			ttalBin, workDir, breathe.SessionConfig{
-				CWD:     workDir,
-				Handoff: systemPrompt,
-			}, reviewerName, "Review the plan.",
-		)
-		if err != nil {
-			return err
-		}
-		ccSessionPath = sessionPath
-		shellCmd = cfg.BuildEnvShellCommand(envParts, resumeCmd)
+		// Claude Code: direct launch — context and plan-review prompt injected via SessionStart hook
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the plan.")
+		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
 	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
-		if ccSessionPath != "" {
-			os.Remove(ccSessionPath)
-		}
 		return fmt.Errorf("failed to create plan-review window: %w", err)
 	}
 
