@@ -724,3 +724,48 @@ func TestCommentSyncResolution(t *testing.T) {
 		})
 	}
 }
+
+func TestBreatheContextCommands(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "empty string returns nil",
+			input: "",
+			want:  nil,
+		},
+		{
+			name:  "single line returns one-element slice",
+			input: "ttal agent list",
+			want:  []string{"ttal agent list"},
+		},
+		{
+			name:  "multi-line input split into commands",
+			input: "diary {{agent-name}} read --last 1\nttal agent list\nttal today list",
+			want:  []string{"diary {{agent-name}} read --last 1", "ttal agent list", "ttal today list"},
+		},
+		{
+			name:  "empty and whitespace lines skipped",
+			input: "cmd1\n\n   \ncmd2\n",
+			want:  []string{"cmd1", "cmd2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Prompts: PromptsConfig{BreatheContext: tt.input},
+			}
+			got := cfg.BreatheContextCommands()
+			if len(got) != len(tt.want) {
+				t.Fatalf("BreatheContextCommands() len = %d, want %d; got %v", len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("BreatheContextCommands()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

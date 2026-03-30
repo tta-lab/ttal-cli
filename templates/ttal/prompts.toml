@@ -127,3 +127,8 @@ cat <<'EOF' | ttal comment add
 EOF
 ```
 If verdict is LGTM and no remaining issues, advance with: ttal go"""
+
+breathe_context = """
+diary {{agent-name}} read --last 1
+ttal agent list
+"""

@@ -348,25 +348,36 @@ func resolveBreatheSessions(
 	}, nil
 }
 
-// selectBreatheEnv returns the env vars for the breathe restart command.
-func selectBreatheEnv(agent string, shellCfg *config.Config) []string {
-	return buildBreatheEnv(agent, shellCfg)
-}
-
-// composeRouteHandoff merges a base handoff with a route request's role prompt and message.
-func composeRouteHandoff(base string, routeReq *route.Request, agent string) (handoff, trigger string) {
-	if routeReq == nil {
-		return base, ""
+// buildBreatheHandoff returns the composed handoff string and trigger for a breathe request.
+// It evaluates breathe_context commands (falling back to diaryReadToday) then appends any
+// route prompt/message. The trigger comes from the route request when present.
+func buildBreatheHandoff(
+	shellCfg *config.Config, req BreatheRequest, team string, routeReq *route.Request,
+) (handoff, trigger string) {
+	// Build base context from breathe_context commands or diary fallback.
+	if cmds := shellCfg.BreatheContextCommands(); len(cmds) > 0 {
+		ctx := evaluateBreatheContext(cmds, req.Agent, team)
+		if ctx != "" {
+			handoff = ctx
+		} else {
+			handoff = req.Handoff // all commands failed, use original
+		}
+	} else {
+		handoff = diaryReadToday(req.Agent, req.Handoff) // backward compat
 	}
-	composed := base
+
+	// Append route context if present.
+	if routeReq == nil {
+		return handoff, ""
+	}
 	if routeReq.RolePrompt != "" {
-		composed += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
+		handoff += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
 	}
 	if routeReq.Message != "" {
-		composed += "\n\n" + routeReq.Message
+		handoff += "\n\n" + routeReq.Message
 	}
-	log.Printf("[breathe] routing %s to task %s (routed by %s)", agent, routeReq.TaskUUID, routeReq.RoutedBy)
-	return composed, routeReq.Trigger
+	log.Printf("[breathe] routing %s to task %s (routed by %s)", req.Agent, routeReq.TaskUUID, routeReq.RoutedBy)
+	return handoff, routeReq.Trigger
 }
 
 // handleBreathe restarts an agent's CC session with a handoff prompt.
@@ -402,12 +413,11 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, plan.cwd)
 	}
 
-	// 4. Persist handoff to diary and enrich with today's diary content.
+	// 4. Persist handoff to diary (write-side, stays).
 	diaryAppendHandoff(req.Agent, req.Handoff)
-	handoff := diaryReadToday(req.Agent, req.Handoff)
 
-	// 5. Compose handoff with route context (route already consumed in step 1).
-	composedHandoff, trigger := composeRouteHandoff(handoff, routeReq, req.Agent)
+	// 5. Build session context and compose with route if present.
+	composedHandoff, trigger := buildBreatheHandoff(shellCfg, req, team, routeReq)
 
 	// 6. Write synthetic JSONL session (BEFORE killing anything).
 	projectDir, err := breathe.CCProjectDir(plan.cwd)
@@ -440,7 +450,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// 8. Build restart command with env.
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	agentEnv := selectBreatheEnv(req.Agent, shellCfg)
+	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
 	// 9. Kill old session, create new.
