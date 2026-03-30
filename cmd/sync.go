@@ -19,11 +19,14 @@ var (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Deploy subagents and rules to runtime directories",
-	Long: `Reads canonical subagent .md files and RULE.md cheat sheets,
-then deploys them to runtime directories.
+	Short: "Deploy plugin, team agents, rules, and configs to runtime directories",
+	Long: `Installs the ttal CC plugin (subagents + SessionStart hook) and deploys
+team agent identities, RULE.md cheat sheets, and config TOMLs.
 
-Subagents are split into runtime-specific variants:
+Plugin (subagents + hook):
+  Installed via CC plugin marketplace (claude plugin install ttal@ttal)
+
+Team agent identities are deployed as:
   Claude Code → ~/.claude/agents/{name}.md
   Codex       → ~/.codex/agents/{name}.toml + ~/.codex/config.toml
 
@@ -35,12 +38,8 @@ Config TOMLs are deployed from team_path:
   prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
   config.toml is NOT synced (machine-specific settings).
 
-Skills are stored in flicknote. Use 'ttal skill import <folder>' to upload
-skill files and register them in the skill registry.
-
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
-  subagents_paths = ["~/clawd/docs/agents"]
   rules_paths = ["~/clawd/skills", "~/Code/my-project"]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
@@ -51,8 +50,11 @@ Configure source paths in ~/.config/ttal/config.toml:
 		syncCfg := cfg.Sync
 		teamPath := cfg.TeamPath()
 
+		// Plugin install always runs (resolves marketplace from project store or URL).
+		// Only error if there's nothing else to sync either.
 		hasNoPaths := len(syncCfg.RulesPaths) == 0 &&
-			syncCfg.GlobalPromptPath == "" && teamPath == ""
+			syncCfg.GlobalPromptPath == "" && teamPath == "" &&
+			syncCfg.MarketplaceSource == "" && project.ResolveProjectPath("ttal") == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +

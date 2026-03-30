@@ -26,12 +26,14 @@ type PluginResult struct {
 func InstallPlugin(repoPath string, dryRun bool) (*PluginResult, error) {
 	result := &PluginResult{}
 
-	// Count agents in the plugin for reporting.
-	agentsDir := filepath.Join(repoPath, "plugin", "agents")
-	if entries, err := os.ReadDir(agentsDir); err == nil {
-		for _, e := range entries {
-			if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
-				result.AgentCount++
+	// Count agents in the plugin for reporting (local paths only).
+	if !strings.HasPrefix(repoPath, "http") {
+		agentsDir := filepath.Join(repoPath, "plugin", "agents")
+		if entries, err := os.ReadDir(agentsDir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
+					result.AgentCount++
+				}
 			}
 		}
 	}
@@ -68,8 +70,10 @@ func InstallPlugin(repoPath string, dryRun bool) (*PluginResult, error) {
 		} else {
 			out, err := exec.Command("claude", "plugin", "update", ttalPluginRef).CombinedOutput()
 			if err != nil {
-				// Update can fail if already at latest — not fatal.
-				_ = out
+				// Update can fail if already at latest — not fatal, but log others.
+				if !strings.Contains(string(out), "already") {
+					fmt.Fprintf(os.Stderr, "warning: plugin update: %s\n", strings.TrimSpace(string(out)))
+				}
 			} else {
 				result.PluginUpdated = true
 			}
@@ -79,8 +83,8 @@ func InstallPlugin(repoPath string, dryRun bool) (*PluginResult, error) {
 	return result, nil
 }
 
-// isMarketplaceRegistered checks known_marketplaces.json for the ttal marketplace.
-func isMarketplaceRegistered(repoPath string) bool {
+// isMarketplaceRegistered checks known_marketplaces.json for the "ttal" marketplace key.
+func isMarketplaceRegistered(_ string) bool {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return false
@@ -93,17 +97,8 @@ func isMarketplaceRegistered(repoPath string) bool {
 	if err := json.Unmarshal(data, &markets); err != nil {
 		return false
 	}
-	// The key is the marketplace name from the JSON file.
-	for _, v := range markets {
-		m, ok := v.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if src, ok := m["source"].(string); ok && src == repoPath {
-			return true
-		}
-	}
-	return false
+	_, ok := markets["ttal"]
+	return ok
 }
 
 // isPluginInstalled checks installed_plugins.json for the ttal plugin.
