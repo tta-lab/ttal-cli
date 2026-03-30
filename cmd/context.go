@@ -3,8 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -25,6 +28,48 @@ type hookSpecificOutput struct {
 
 func newSessionStartOutput(ctx string) *hookSpecificOutput {
 	return &hookSpecificOutput{HookEventName: "SessionStart", AdditionalContext: ctx}
+}
+
+// hookInput is the JSON payload CC sends to command hooks via stdin.
+type hookInput struct {
+	CWD string `json:"cwd"`
+}
+
+// readHookInput reads the CC hook input JSON from stdin.
+// Returns zero-value hookInput on any error (graceful degradation).
+func readHookInput() hookInput {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil || len(data) == 0 {
+		return hookInput{}
+	}
+	var input hookInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		log.Printf("[context] failed to parse hook input: %v", err)
+	}
+	return input
+}
+
+// resolveAgentName derives the agent name from the hook input cwd.
+// Agent sessions run in teamPath/<agentName>/, so the last path component
+// is the agent name. Returns "" if cwd doesn't sit under teamPath.
+func resolveAgentName(cwd, teamPath string) string {
+	if cwd == "" || teamPath == "" {
+		return ""
+	}
+	// Normalize to handle trailing slashes.
+	cwd = filepath.Clean(cwd)
+	teamPath = filepath.Clean(teamPath)
+
+	// cwd must be teamPath/<name> (direct child).
+	dir := filepath.Dir(cwd)
+	if dir != teamPath {
+		return ""
+	}
+	name := filepath.Base(cwd)
+	if name == "." || name == "/" || strings.Contains(name, " ") {
+		return ""
+	}
+	return name
 }
 
 var contextCmd = &cobra.Command{
@@ -67,12 +112,7 @@ func outputJSON(v interface{}) error {
 }
 
 func runContext(_ *cobra.Command, _ []string) error {
-	agentName := os.Getenv("TTAL_AGENT_NAME")
-	if agentName == "" {
-		// Non-agent session — no-op hook.
-		noopHook()
-		return nil
-	}
+	input := readHookInput()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -85,6 +125,18 @@ func runContext(_ *cobra.Command, _ []string) error {
 	teamName := cfg.TeamName()
 	if teamName == "" {
 		teamName = config.DefaultTeamName
+	}
+
+	// Derive agent name from cwd: agent sessions run in teamPath/<agentName>/.
+	// Falls back to TTAL_AGENT_NAME env var for backward compatibility.
+	agentName := resolveAgentName(input.CWD, cfg.TeamPath())
+	if agentName == "" {
+		agentName = os.Getenv("TTAL_AGENT_NAME")
+	}
+	if agentName == "" {
+		// Non-agent session — no-op hook.
+		noopHook()
+		return nil
 	}
 
 	// Build context from breathe_context commands.
