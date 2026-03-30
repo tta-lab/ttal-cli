@@ -104,11 +104,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 	}
 
 	// agent_type is set by CC when the session uses --agent <name>.
-	// Falls back to TTAL_AGENT_NAME env var for backward compatibility.
 	agentName := input.AgentType
-	if agentName == "" {
-		agentName = os.Getenv("TTAL_AGENT_NAME")
-	}
 	if agentName == "" {
 		// Non-agent session — no-op hook.
 		noopHook()

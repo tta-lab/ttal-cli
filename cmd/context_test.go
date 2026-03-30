@@ -58,9 +58,8 @@ func captureContextOutput(t *testing.T, stdinJSON ...string) string {
 
 // TestRunContext_NonAgentSession verifies non-agent sessions output {}.
 func TestRunContext_NonAgentSession(t *testing.T) {
-	t.Setenv("TTAL_AGENT_NAME", "")
 
-	// No agent_type in hook input, no env var — should be a no-op.
+	// No agent_type in hook input — should be a no-op.
 	output := captureContextOutput(t, `{"cwd":"/some/random/dir"}`)
 	output = trimNewlines(output)
 	if output != "{}" {
@@ -72,7 +71,6 @@ func TestRunContext_NonAgentSession(t *testing.T) {
 func TestRunContext_AgentWithConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "") // Not relying on env var — cwd-based resolution.
 
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -118,7 +116,7 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 func TestRunContext_MissingConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "")
+
 	// No config files — config.Load should fail gracefully
 
 	hookInput := testHookInputKestrel
@@ -140,7 +138,6 @@ func TestRunContext_MissingConfig(t *testing.T) {
 func TestRunContext_MalformedRouteFile(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "")
 
 	// Write a minimal config.toml so config.Load() succeeds.
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
@@ -177,7 +174,6 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 func TestRunContext_RouteComposition(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "")
 
 	// Write config with a breathe_context command so we have a non-empty base.
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
@@ -230,39 +226,6 @@ func TestRunContext_RouteComposition(t *testing.T) {
 	// Route file must have been consumed (deleted).
 	if _, err := os.Stat(filepath.Join(routingDir, "kestrel.json")); !os.IsNotExist(err) {
 		t.Error("route file should have been consumed (deleted)")
-	}
-}
-
-// TestRunContext_EnvVarFallback verifies TTAL_AGENT_NAME env var still works when agent_type is absent.
-func TestRunContext_EnvVarFallback(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
-	t.Setenv("TTAL_AGENT_NAME", "kestrel")
-
-	cfgDir := filepath.Join(tmp, ".config", "ttal")
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	promptsToml := "breathe_context = \"echo fallback-context\"\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
-		t.Fatalf("write prompts.toml: %v", err)
-	}
-	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
-		t.Fatalf("write config.toml: %v", err)
-	}
-
-	// No agent_type in hook input — should fall back to env var.
-	hookInput := `{"cwd":"/some/dir"}`
-	output := captureContextOutput(t, hookInput)
-	output = trimNewlines(output)
-
-	if output == "{}" {
-		t.Error("expected non-empty output with env var fallback, got {}")
-	}
-	var resp ccHookResponse
-	if err := json.Unmarshal([]byte(output), &resp); err != nil {
-		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 	}
 }
 
