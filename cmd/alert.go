@@ -78,7 +78,7 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 	team, agent := parseSpawner(task.Spawner)
 
 	// Append reply instructions
-	message += fmt.Sprintf("\n\nReply to this worker: ttal send --to %s \"your message\"", sessionID)
+	message += "\n\n" + daemon.ReplyHint(sessionID)
 
 	if sendErr := daemon.Send(daemon.SendRequest{
 		From:    sessionID,
