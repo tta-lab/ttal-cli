@@ -100,45 +100,6 @@ func TestWorkerRuntime(t *testing.T) {
 	}
 }
 
-func TestAgentModel(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  *Config
-		want string
-	}{
-		{"unset defaults to sonnet", &Config{}, DefaultModel},
-		{"explicit opus", &Config{resolvedAgentModel: "opus"}, "opus"},
-		{"explicit haiku", &Config{resolvedAgentModel: "haiku"}, "haiku"},
-		{"explicit sonnet", &Config{resolvedAgentModel: "sonnet"}, "sonnet"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.AgentModel(); got != tt.want {
-				t.Errorf("AgentModel() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestWorkerModel(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  *Config
-		want string
-	}{
-		{"unset defaults to sonnet", &Config{}, DefaultModel},
-		{"explicit opus", &Config{resolvedWorkerModel: "opus"}, "opus"},
-		{"explicit haiku", &Config{resolvedWorkerModel: "haiku"}, "haiku"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.WorkerModel(); got != tt.want {
-				t.Errorf("WorkerModel() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestReviewerRuntime(t *testing.T) {
 	tests := []struct {
 		name string
@@ -152,25 +113,6 @@ func TestReviewerRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.cfg.ReviewerRuntime(); got != tt.want {
 				t.Errorf("ReviewerRuntime() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestReviewerModel(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  *Config
-		want string
-	}{
-		{"explicit opus", &Config{resolvedReviewerModel: "opus"}, "opus"},
-		{"falls back to worker_model", &Config{resolvedWorkerModel: "opus"}, "opus"},
-		{"falls back to sonnet default", &Config{}, "sonnet"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.ReviewerModel(); got != tt.want {
-				t.Errorf("ReviewerModel() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -192,95 +134,6 @@ func TestReviewerRuntimeRoundTrip(t *testing.T) {
 	}
 	if got := cfg.ReviewerRuntime(); got != runtime.ClaudeCode {
 		t.Errorf("ReviewerRuntime() = %q, want %q", got, runtime.ClaudeCode)
-	}
-}
-
-func TestAgentModelFor(t *testing.T) {
-	tests := []struct {
-		name  string
-		cfg   *Config
-		agent string
-		want  string
-	}{
-		{
-			"unset defaults to sonnet",
-			&Config{},
-			"kestrel",
-			DefaultModel,
-		},
-		{
-			"team agent_model returned for any agent",
-			&Config{resolvedAgentModel: "haiku"},
-			"kestrel",
-			"haiku",
-		},
-		{
-			"team agent_model returned for unknown agent",
-			&Config{resolvedAgentModel: "opus"},
-			"unknown",
-			"opus",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.AgentModelFor(tt.agent); got != tt.want {
-				t.Errorf("AgentModelFor(%q) = %q, want %q", tt.agent, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestDaemonConfigAgentModelForTeam(t *testing.T) {
-	mcfg := &DaemonConfig{
-		Teams: map[string]*ResolvedTeam{
-			"teamA": {AgentModel: "haiku"},
-			"teamB": {},
-		},
-	}
-
-	tests := []struct {
-		name  string
-		team  string
-		agent string
-		want  string
-	}{
-		{"team agent_model used", "teamA", "kestrel", "haiku"},
-		{"no team model defaults to sonnet", "teamB", "mira", DefaultModel},
-		{"unknown team defaults to sonnet", "unknown", "x", DefaultModel},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := mcfg.AgentModelForTeam(tt.team, tt.agent); got != tt.want {
-				t.Errorf("AgentModelForTeam(%q, %q) = %q, want %q",
-					tt.team, tt.agent, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestDaemonConfigWorkerModelForTeam(t *testing.T) {
-	mcfg := &DaemonConfig{
-		Teams: map[string]*ResolvedTeam{
-			"teamA": {WorkerModel: "opus"},
-			"teamB": {},
-		},
-	}
-
-	tests := []struct {
-		name string
-		team string
-		want string
-	}{
-		{"team worker_model used", "teamA", "opus"},
-		{"empty defaults to sonnet", "teamB", DefaultModel},
-		{"unknown team defaults to sonnet", "unknown", DefaultModel},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := mcfg.WorkerModelForTeam(tt.team); got != tt.want {
-				t.Errorf("WorkerModelForTeam(%q) = %q, want %q", tt.team, got, tt.want)
-			}
-		})
 	}
 }
 

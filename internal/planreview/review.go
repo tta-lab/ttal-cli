@@ -31,7 +31,6 @@ func SpawnPlanReviewer(
 	sessionName string, taskUUID string, reviewerName string, cfg *config.Config, workDir string,
 ) error {
 	reviewerRT := cfg.ReviewerRuntime()
-	model := cfg.ReviewerModel()
 
 	systemPrompt := buildPlanReviewerPrompt(cfg, taskUUID, reviewerRT)
 	if systemPrompt == "" {
@@ -65,7 +64,7 @@ func SpawnPlanReviewer(
 			ttalBin, workDir, breathe.SessionConfig{
 				CWD:     workDir,
 				Handoff: systemPrompt,
-			}, model, reviewerName, "Review the plan.",
+			}, reviewerName, "Review the plan.",
 		)
 		if err != nil {
 			return err

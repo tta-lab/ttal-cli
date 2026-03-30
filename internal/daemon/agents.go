@@ -52,11 +52,10 @@ func initSingleAdapter(
 			log.Printf("[daemon] CC agent %s already running (session: %s)", ta.AgentName, sessionName)
 			return
 		}
-		model := mcfg.AgentModelForTeam(ta.TeamName, ta.AgentName)
 		agentEnv := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 		shell := mcfg.Global.GetShell()
 		ensureProjectDir(agentPath)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, model, ta.TeamName, agentEnv, shell); err != nil {
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, ta.TeamName, agentEnv, shell); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
@@ -197,11 +196,8 @@ func ensureProjectDir(agentPath string) {
 }
 
 // spawnCCSession creates a tmux session for a Claude Code agent.
-func spawnCCSession(sessionName, agentName, agentPath, model, teamName string, env []string, shell string) error {
+func spawnCCSession(sessionName, agentName, agentPath, teamName string, env []string, shell string) error {
 	cmd := "claude --dangerously-skip-permissions --agent " + agentName
-	if model != "" {
-		cmd += " --model " + model
-	}
 	if sid := lastSessionID(teamName, agentName, agentPath); sid != "" {
 		cmd += " --resume " + sid
 	}

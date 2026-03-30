@@ -3,7 +3,7 @@
 // It spawns a new tmux window running a coding agent configured as a PR
 // reviewer, builds the review prompt from config templates, and handles
 // re-review requests by sending updated instructions to the existing window.
-// Reviewers run in the worker plane using the team's worker_model.
+// Reviewers run in the worker plane; model is set via the reviewer agent's frontmatter.
 //
 // Plane: worker
 package review

@@ -82,52 +82,6 @@ func TestWriteSessionPrompt_MissingExecutePrompt(t *testing.T) {
 	}
 }
 
-func TestResolveModel(t *testing.T) {
-	tests := []struct {
-		name string
-		tags []string
-		want string
-	}{
-		{
-			name: "default returns sonnet",
-			tags: nil,
-			want: "sonnet",
-		},
-		{
-			name: "hard tag returns opus",
-			tags: []string{"hard"},
-			want: "opus",
-		},
-		{
-			name: "other tags return sonnet",
-			tags: []string{"urgent", "frontend"},
-			want: "sonnet",
-		},
-		{
-			name: "hard with other tags still returns opus",
-			tags: []string{"urgent", "hard", "frontend"},
-			want: "opus",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			task := &taskwarrior.Task{
-				UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-				Description: "test task",
-				Tags:        tt.tags,
-			}
-			// WorkerModel() accessor with configured values is tested in config_test.go.
-			// Here we test the +hard override logic with default config.
-			shellCfg := &config.Config{}
-			got := resolveModel(task, shellCfg)
-			if got != tt.want {
-				t.Errorf("resolveModel(%v) = %q, want %q", tt.tags, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestResolveRuntime(t *testing.T) {
 	tests := []struct {
 		name     string

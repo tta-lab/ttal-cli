@@ -9,7 +9,7 @@ import (
 
 func TestBuildResumeCommand(t *testing.T) {
 	got, err := BuildResumeCommand(
-		"/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "sonnet", "kestrel", "Review the PR.",
+		"/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "kestrel", "Review the PR.",
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -23,10 +23,13 @@ func TestBuildResumeCommand(t *testing.T) {
 	if !strings.Contains(got, "-- 'Review the PR.'") {
 		t.Errorf("missing trigger: %q", got)
 	}
+	if strings.Contains(got, "--model") {
+		t.Errorf("should not contain --model: %q", got)
+	}
 }
 
 func TestBuildResumeCommandNoTrigger(t *testing.T) {
-	got, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "", "", "")
+	got, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,13 +39,13 @@ func TestBuildResumeCommandNoTrigger(t *testing.T) {
 	if strings.Contains(got, "--agent") {
 		t.Errorf("should not have --agent when empty: %q", got)
 	}
-	if !strings.Contains(got, "--model sonnet") {
-		t.Errorf("model should default to sonnet: %q", got)
+	if strings.Contains(got, "--model") {
+		t.Errorf("should not have --model: %q", got)
 	}
 }
 
 func TestBuildResumeCommandCodexUnsupported(t *testing.T) {
-	_, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.Codex, "", "", "")
+	_, err := BuildResumeCommand("/usr/bin/ttal", "session-abc", runtime.Codex, "", "")
 	if err == nil {
 		t.Fatal("expected error for Codex runtime")
 	}
@@ -53,7 +56,7 @@ func TestBuildResumeCommandCodexUnsupported(t *testing.T) {
 
 func TestBuildResumeCommandApostropheEscaping(t *testing.T) {
 	got, err := BuildResumeCommand(
-		"/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "sonnet", "", "it's a test",
+		"/usr/bin/ttal", "session-abc", runtime.ClaudeCode, "", "it's a test",
 	)
 	if err != nil {
 		t.Fatal(err)
