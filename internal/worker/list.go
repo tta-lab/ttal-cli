@@ -185,5 +185,5 @@ func printWorkerTable(workers []WorkerInfo) {
 		Headers("SESSION", "STATUS", "PR", "BRANCH", "PROJECT", "TASK").
 		Rows(rows...)
 
-	fmt.Println(tbl)
+	lipgloss.Println(tbl)
 }
