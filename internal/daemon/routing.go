@@ -9,13 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/breathe"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
-	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/message"
-	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
@@ -276,10 +273,26 @@ func injectSecretsToSession(sessionName string) {
 // trigger, if non-empty, is appended as a positional arg after --.
 // When trigger is empty (self-breathe), no -- separator is added.
 // Extracted for unit testing.
+// Used by spawnCCSession (cold start) via --resume. For breathe restarts use buildCCFreshCmd.
 func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
 	cmd := fmt.Sprintf(
 		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
 		sessionID, model, agent,
+	)
+	if trigger != "" {
+		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
+		cmd += fmt.Sprintf(" -- '%s'", escaped)
+	}
+	return cmd
+}
+
+// buildCCFreshCmd returns the claude command for a breathe restart without --resume.
+// The CC SessionStart hook (ttal context) injects the session context at startup.
+// trigger, if non-empty, is appended as a positional arg after --.
+func buildCCFreshCmd(model, agent, trigger string) string {
+	cmd := fmt.Sprintf(
+		"claude --model %s --dangerously-skip-permissions --agent %s",
+		model, agent,
 	)
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
@@ -348,39 +361,9 @@ func resolveBreatheSessions(
 	}, nil
 }
 
-// buildBreatheHandoff returns the composed handoff string and trigger for a breathe request.
-// It evaluates breathe_context commands (falling back to diaryReadToday) then appends any
-// route prompt/message. The trigger comes from the route request when present.
-func buildBreatheHandoff(
-	shellCfg *config.Config, req BreatheRequest, team string, routeReq *route.Request,
-) (handoff, trigger string) {
-	// Build base context from breathe_context commands or diary fallback.
-	if cmds := shellCfg.BreatheContextCommands(); len(cmds) > 0 {
-		ctx := evaluateBreatheContext(cmds, req.Agent, team)
-		if ctx != "" {
-			handoff = ctx
-		} else {
-			handoff = req.Handoff // all commands failed, use original
-		}
-	} else {
-		handoff = diaryReadToday(req.Agent, req.Handoff) // backward compat
-	}
-
-	// Append route context if present.
-	if routeReq == nil {
-		return handoff, ""
-	}
-	if routeReq.RolePrompt != "" {
-		handoff += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
-	}
-	if routeReq.Message != "" {
-		handoff += "\n\n" + routeReq.Message
-	}
-	log.Printf("[breathe] routing %s to task %s (routed by %s)", req.Agent, routeReq.TaskUUID, routeReq.RoutedBy)
-	return handoff, routeReq.Trigger
-}
-
 // handleBreathe restarts an agent's CC session with a handoff prompt.
+// Context injection is handled by the CC SessionStart hook (ttal context) which
+// evaluates breathe_context commands and consumes any pending route file.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
 func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	team := req.Team
@@ -394,50 +377,22 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		return SendResponse{OK: false, Error: "empty handoff prompt"}
 	}
 
-	// 1. Consume route file EARLY to get routing context for handoff composition.
-	routeReq, err := route.Consume(req.Agent)
-	if err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("consume routing file: %v", err)}
-	}
-
-	// 2. Resolve session names and CWD.
+	// 1. Resolve session names and CWD.
 	plan, err := resolveBreatheSessions(req, team, shellCfg)
 	if err != nil {
 		return SendResponse{OK: false, Error: err.Error()}
 	}
 
-	// 3. Get model, CC version, and git branch.
+	// 2. Get model info.
 	am := resolveAgentModel(team, req.Agent)
-	gitBranch := gitutil.BranchName(plan.cwd)
-	if gitBranch == "" {
-		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, plan.cwd)
-	}
 
-	// 4. Persist handoff to diary (write-side, stays).
+	// 3. Persist handoff to diary (write-side persistence).
 	diaryAppendHandoff(req.Agent, req.Handoff)
 
-	// 5. Build session context and compose with route if present.
-	composedHandoff, trigger := buildBreatheHandoff(shellCfg, req, team, routeReq)
-
-	// 6. Write synthetic JSONL session (BEFORE killing anything).
-	projectDir, err := breathe.CCProjectDir(plan.cwd)
-	if err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("resolve CC project dir: %v", err)}
-	}
-	newSessionID, err := breathe.WriteSyntheticSession(projectDir, breathe.SessionConfig{
-		CWD:       plan.cwd,
-		CCVersion: am.ccVersion,
-		GitBranch: gitBranch,
-		Handoff:   composedHandoff,
-	})
-	if err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("write session: %v", err)}
-	}
-
-	// 7. Update status file with new session ID.
+	// 4. Update status file — clear session ID so the statusline hook populates the real ID.
 	if err := status.WriteAgent(team, status.AgentStatus{
 		Agent:               req.Agent,
-		SessionID:           newSessionID,
+		SessionID:           "", // cleared; CC SessionStart hook populates the real session ID
 		ContextUsedPct:      0,
 		ContextRemainingPct: 100,
 		ModelID:             am.model,
@@ -448,12 +403,12 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 8. Build restart command with env.
-	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
+	// 5. Build fresh command — no --resume; SessionStart hook injects context at startup.
+	ccCmd := buildCCFreshCmd(am.model, req.Agent, "")
 	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
-	// 9. Kill old session, create new.
+	// 6. Kill old session, create new.
 	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
 	if tmux.SessionExists(plan.oldSessionName) {
 		if err := tmux.KillSession(plan.oldSessionName); err != nil {
