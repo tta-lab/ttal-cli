@@ -9,12 +9,8 @@ import (
 	"strings"
 )
 
-const (
-	// ttalMarketplaceName is the marketplace name in .claude-plugin/marketplace.json.
-	ttalMarketplaceName = "ttal"
-	// ttalPluginRef is the plugin@marketplace identifier for claude plugin commands.
-	ttalPluginRef = "ttal@ttal"
-)
+// ttalPluginRef is the plugin@marketplace identifier for claude plugin commands.
+const ttalPluginRef = "ttal@ttal"
 
 // PluginResult reports the outcome of a plugin sync operation.
 type PluginResult struct {
