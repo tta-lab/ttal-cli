@@ -356,7 +356,9 @@ func selectBreatheEnv(agent string, shellCfg *config.Config) []string {
 // buildBreatheHandoff returns the composed handoff string and trigger for a breathe request.
 // It evaluates breathe_context commands (falling back to diaryReadToday) then appends any
 // route prompt/message. The trigger comes from the route request when present.
-func buildBreatheHandoff(shellCfg *config.Config, req BreatheRequest, team string, routeReq *route.Request) (handoff, trigger string) {
+func buildBreatheHandoff(
+	shellCfg *config.Config, req BreatheRequest, team string, routeReq *route.Request,
+) (handoff, trigger string) {
 	// Build base context from breathe_context commands or diary fallback.
 	if cmds := shellCfg.BreatheContextCommands(); len(cmds) > 0 {
 		ctx := evaluateBreatheContext(cmds, req.Agent, team)
