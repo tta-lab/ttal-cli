@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
@@ -23,7 +22,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/review"
-	"github.com/tta-lab/ttal-cli/internal/route"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -468,19 +466,6 @@ func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage
 	})
 }
 
-// prependStageSkills prepends skill invocations from stage config to a role prompt.
-// Returns the prompt unchanged when skills is empty.
-func prependStageSkills(rolePrompt string, skills []string, rt runtime.Runtime) string {
-	if len(skills) == 0 {
-		return rolePrompt
-	}
-	lines := make([]string, len(skills))
-	for i, s := range skills {
-		lines[i] = runtime.FormatSkillInvocation(rt, s)
-	}
-	return strings.Join(lines, "\n") + "\n\n" + rolePrompt
-}
-
 // shouldBreatheStatus is the pure logic: returns true when the agent should be breathed.
 // Stale (>5min) or nil status defaults to true (breathe when uncertain).
 func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) bool {
@@ -498,17 +483,6 @@ func shouldBreathe(team, agentName string, threshold float64) bool {
 		return true
 	}
 	return shouldBreatheStatus(agentStatus, threshold)
-}
-
-// buildRouteTrigger builds a shell-safe trigger string for routing a task to an agent.
-// Only the UUID (hex, always shell-safe) is included. Task description is intentionally
-// excluded — it may contain shell metacharacters that break the zsh -c '...' wrapper.
-func buildRouteTrigger(uuid string) string {
-	shortUUID := uuid
-	if len(shortUUID) > 8 {
-		shortUUID = shortUUID[:8]
-	}
-	return fmt.Sprintf("New task routed. Run: ttal task get %s", shortUUID)
 }
 
 // countTasksFn is the function used to count active tasks. Package-level var for test injection.
@@ -664,7 +638,7 @@ func advanceToStage(
 	cfg := mcfg.Global
 	agentRT := cfg.AgentRuntimeFor(agent.Name)
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
-	rolePrompt = prependStageSkills(rolePrompt, stage.Skills, agentRT)
+	rolePrompt = pipeline.PrependSkills(rolePrompt, stage.Skills, agentRT)
 
 	if err := routeToPersistentAgent(w, cfg, task, agent, rolePrompt, callerAgent, team); err != nil {
 		return err
@@ -737,36 +711,20 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 	return nil, fmt.Errorf("all agents with role %q are busy: %v", role, names)
 }
 
-// routeToPersistentAgent stages a route file and optionally breathes a persistent agent.
+// routeToPersistentAgent optionally breathes a persistent agent.
+// The route file mechanism has been removed — taskwarrior state (stage tag) is the SSOT.
+// When the agent breathes, ttal context renders the universal context template, and
+// $ ttal pipeline prompt reads the stage tag to output the role-specific prompt.
 func routeToPersistentAgent(
 	w http.ResponseWriter, cfg *config.Config,
 	task *taskwarrior.Task, agent *agentfs.AgentInfo,
-	rolePrompt, callerAgent, team string,
+	_, callerAgent, team string,
 ) error {
-	trigger := buildRouteTrigger(task.UUID)
-	projectPath := projectPkg.ResolveProjectPath(task.Project)
-	if err := route.Stage(agent.Name, route.Request{
-		TaskUUID:    task.UUID,
-		RolePrompt:  rolePrompt,
-		Trigger:     trigger,
-		ProjectPath: projectPath,
-		RoutedBy:    callerAgent,
-		Team:        team,
-	}); err != nil {
-		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
-			Status:  AdvanceStatusError,
-			Message: "stage route: " + err.Error(),
-		})
-		return err
-	}
 	if !shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
 		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
 		return nil
 	}
 	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
-		if _, consumeErr := route.Consume(agent.Name); consumeErr != nil {
-			log.Printf("[advance] warning: clean up route file for %s: %v", agent.Name, consumeErr)
-		}
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
 			Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
