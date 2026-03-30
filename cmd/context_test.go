@@ -90,7 +90,7 @@ func TestRunContext_AgentWithConfig(t *testing.T) {
 	}
 
 	// Hook input with agent_type from --agent flag.
-	hookInput := `{"agent_type":"kestrel"}`
+	hookInput := testHookInputKestrel
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -121,7 +121,7 @@ func TestRunContext_MissingConfig(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "")
 	// No config files — config.Load should fail gracefully
 
-	hookInput := `{"agent_type":"kestrel"}`
+	hookInput := testHookInputKestrel
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -161,7 +161,7 @@ func TestRunContext_MalformedRouteFile(t *testing.T) {
 		t.Fatalf("write bad route: %v", err)
 	}
 
-	hookInput := `{"agent_type":"kestrel"}`
+	hookInput := testHookInputKestrel
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -204,7 +204,7 @@ func TestRunContext_RouteComposition(t *testing.T) {
 		t.Fatalf("write route: %v", err)
 	}
 
-	hookInput := `{"agent_type":"kestrel"}`
+	hookInput := testHookInputKestrel
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
 
@@ -265,6 +265,8 @@ func TestRunContext_EnvVarFallback(t *testing.T) {
 		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 	}
 }
+
+const testHookInputKestrel = `{"agent_type":"kestrel"}`
 
 func trimNewlines(s string) string {
 	for len(s) > 0 && (s[len(s)-1] == '\n' || s[len(s)-1] == '\r') {
