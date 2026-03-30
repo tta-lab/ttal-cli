@@ -354,6 +354,8 @@ func selectBreatheEnv(agent string, shellCfg *config.Config) []string {
 }
 
 // composeRouteHandoff merges a base handoff with a route request's role prompt and message.
+//
+// Deprecated: route composition is now inlined in handleBreathe.
 func composeRouteHandoff(base string, routeReq *route.Request, agent string) (handoff, trigger string) {
 	if routeReq == nil {
 		return base, ""
@@ -402,12 +404,36 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] %s: could not detect git branch for %s — leaving empty", req.Agent, plan.cwd)
 	}
 
-	// 4. Persist handoff to diary and enrich with today's diary content.
+	// 4. Persist handoff to diary (write-side, stays).
 	diaryAppendHandoff(req.Agent, req.Handoff)
-	handoff := diaryReadToday(req.Agent, req.Handoff)
 
-	// 5. Compose handoff with route context (route already consumed in step 1).
-	composedHandoff, trigger := composeRouteHandoff(handoff, routeReq, req.Agent)
+	// 5. Build session context from breathe_context commands.
+	// Falls back to diaryReadToday if breathe_context not configured.
+	var handoff string
+	if cmds := shellCfg.BreatheContextCommands(); len(cmds) > 0 {
+		ctx := evaluateBreatheContext(cmds, req.Agent, team)
+		if ctx != "" {
+			handoff = ctx
+		} else {
+			handoff = req.Handoff // all commands failed, use original
+		}
+	} else {
+		handoff = diaryReadToday(req.Agent, req.Handoff) // backward compat
+	}
+
+	// 6. Auto-append route context if present.
+	composedHandoff := handoff
+	trigger := ""
+	if routeReq != nil {
+		if routeReq.RolePrompt != "" {
+			composedHandoff += "\n\n---\n\n## New Task Assignment\n\n" + routeReq.RolePrompt
+		}
+		if routeReq.Message != "" {
+			composedHandoff += "\n\n" + routeReq.Message
+		}
+		trigger = routeReq.Trigger
+		log.Printf("[breathe] routing %s to task %s (routed by %s)", req.Agent, routeReq.TaskUUID, routeReq.RoutedBy)
+	}
 
 	// 6. Write synthetic JSONL session (BEFORE killing anything).
 	projectDir, err := breathe.CCProjectDir(plan.cwd)
