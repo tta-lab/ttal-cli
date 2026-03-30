@@ -233,8 +233,11 @@ func HookOnModify() {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
-		// Notify daemon — fire-and-forget, won't block task completion
-		notifyTaskComplete(modified, prTitle)
+		// Notify daemon — fire-and-forget, won't block task completion.
+		// Only notify for pipeline tasks; non-pipeline task completions are not manager-relevant.
+		if matchedPipeline(modified, "") != nil {
+			notifyTaskComplete(modified, prTitle)
+		}
 	}
 
 	// Re-enrich when project changes to a non-empty value.
