@@ -131,10 +131,6 @@ func renderPipelineGraph(p pipeline.Pipeline) {
 	fmt.Println()
 }
 
-// workerAssignee is the pipeline stage assignee value that identifies a worker/coder stage.
-// Mirrored from internal/daemon to avoid a cross-package import cycle.
-const workerAssignee = "coder"
-
 // pipelinePromptCmd outputs the role-specific prompt for the current task and pipeline stage.
 // It is called by the CC SessionStart hook (via the context template's $ ttal pipeline prompt line)
 // and must produce empty output when no relevant task or stage is found.
@@ -177,12 +173,20 @@ func resolvePipelinePrompt() string {
 	}
 
 	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
-	if err != nil || p == nil {
+	if err != nil {
+		log.Printf("[pipeline prompt] pipeline match failed for task %s: %v", task.HexID(), err)
+		return ""
+	}
+	if p == nil {
 		return ""
 	}
 
 	_, stage, err := p.CurrentStage(task.Tags)
-	if err != nil || stage == nil {
+	if err != nil {
+		log.Printf("[pipeline prompt] stage resolution failed for task %s: %v", task.HexID(), err)
+		return ""
+	}
+	if stage == nil {
 		return ""
 	}
 
@@ -217,7 +221,11 @@ func resolveCurrentTaskForPrompt() *taskwarrior.Task {
 	}
 
 	tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", "+"+agentName)
-	if err != nil || len(tasks) == 0 {
+	if err != nil {
+		log.Printf("[pipeline prompt] task lookup for TTAL_AGENT_NAME=%s failed: %v", agentName, err)
+		return nil
+	}
+	if len(tasks) == 0 {
 		return nil
 	}
 	return &tasks[0]
@@ -230,7 +238,7 @@ func resolvePromptKey(stage *pipeline.Stage) string {
 
 	// Reviewer path: agent is the stage's reviewer, not the assignee.
 	if agentName != "" && stage.Reviewer == agentName {
-		if stage.Assignee == workerAssignee {
+		if stage.Assignee == pipeline.CoderAssignee {
 			return "review"
 		}
 		return "plan_review"
@@ -248,7 +256,10 @@ func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config)
 	if task.PRID != "" {
 		prInfo, err := taskwarrior.ParsePRID(task.PRID)
 		if err == nil {
-			branch, _ := worker.WorktreeBranch(task.UUID, task.Project)
+			branch, err := worker.WorktreeBranch(task.UUID, task.Project)
+			if err != nil {
+				log.Printf("[pipeline prompt] could not resolve worktree branch for task %s ({{branch}} will be empty): %v", task.HexID(), err)
+			}
 			owner, repo := resolvePROwnerRepo(task)
 			replacer := strings.NewReplacer(
 				"{{pr-number}}", fmt.Sprintf("%d", prInfo.Index),
@@ -273,6 +284,7 @@ func resolvePROwnerRepo(task *taskwarrior.Task) (owner, repo string) {
 	}
 	info, err := gitprovider.DetectProvider(projectPath)
 	if err != nil {
+		log.Printf("[pipeline prompt] could not detect git provider for project %q ({{owner}}/{{repo}} will be empty): %v", task.Project, err)
 		return "", ""
 	}
 	return info.Owner, info.Repo

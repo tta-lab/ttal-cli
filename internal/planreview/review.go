@@ -8,26 +8,24 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
 // buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
-// TTAL_JOB_ID is set so the reviewer can resolve the task context via ExportTaskByHexID.
-func buildPlanReviewerEnvParts(taskUUID string, agentName string, rt runtime.Runtime) ([]string, error) {
-	if len(taskUUID) < 8 {
-		return nil, fmt.Errorf("taskUUID too short to derive job ID: %q", taskUUID)
-	}
+// TTAL_JOB_ID is set from task.HexID() so the reviewer can resolve the task context.
+func buildPlanReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
 	return []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
-		fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]),
+		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}, nil
+	}
 }
 
 // SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
 func SpawnPlanReviewer(
-	sessionName string, taskUUID string, reviewerName string, cfg *config.Config, workDir string,
+	sessionName string, task *taskwarrior.Task, reviewerName string, cfg *config.Config, workDir string,
 ) error {
 	reviewerRT := cfg.ReviewerRuntime()
 
@@ -36,16 +34,13 @@ func SpawnPlanReviewer(
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	envParts, err := buildPlanReviewerEnvParts(taskUUID, reviewerName, reviewerRT)
-	if err != nil {
-		return err
-	}
+	envParts := buildPlanReviewerEnvParts(task, reviewerName, reviewerRT)
 
 	var shellCmd string
 	if reviewerRT == runtime.Codex {
 		// Codex reviewers stay on the old task-file path until #321.
 		// Build prompt from template for Codex since it doesn't support the context hook.
-		systemPrompt := buildPlanReviewerPrompt(cfg, taskUUID, reviewerRT)
+		systemPrompt := buildPlanReviewerPrompt(cfg, task.UUID, reviewerRT)
 		if systemPrompt == "" {
 			return fmt.Errorf("plan_review prompt not configured: add [prompts] plan_review = \"...\" to config.toml")
 		}

@@ -31,10 +31,7 @@ func RenderTemplate(tmpl, agentName, teamName string, env []string) string {
 	for _, line := range strings.Split(expanded, "\n") {
 		if strings.HasPrefix(line, "$ ") {
 			cmd := strings.TrimPrefix(line, "$ ")
-			output, ok := runCommand(cmd, env)
-			if !ok {
-				continue
-			}
+			output := runCommand(cmd, env)
 			if output == "" {
 				continue
 			}
@@ -52,11 +49,11 @@ func RenderTemplate(tmpl, agentName, teamName string, env []string) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// runCommand executes a shell command with a timeout and returns (output, ok).
+// runCommand executes a shell command with a timeout and returns the trimmed stdout output.
 // env is merged into os.Environ() — later entries override earlier ones.
-// ok=false means the command failed (non-zero exit or timeout).
-// ok=true with empty string means the command succeeded but produced no output.
-func runCommand(cmd string, env []string) (string, bool) {
+// Returns empty string when the command fails (non-zero exit or timeout).
+// Failures are logged including stderr so callers can diagnose broken $ commands.
+func runCommand(cmd string, env []string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 
@@ -65,14 +62,18 @@ func runCommand(cmd string, env []string) (string, bool) {
 	// Merge env: os.Environ() base, then overrides. Later entries win for duplicates.
 	c.Env = append(os.Environ(), env...)
 
+	var stderrBuf strings.Builder
+	c.Stderr = &stderrBuf
+
 	out, err := c.Output()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Printf("[promptrender] command timed out (skipped): %s", cmd)
 		} else {
-			log.Printf("[promptrender] command failed (skipped): %s: %v", cmd, err)
+			stderr := strings.TrimRight(stderrBuf.String(), "\n")
+			log.Printf("[promptrender] command failed (skipped): %s: %v\n%s", cmd, err, stderr)
 		}
-		return "", false
+		return ""
 	}
-	return strings.TrimRight(string(out), "\n"), true
+	return strings.TrimRight(string(out), "\n")
 }

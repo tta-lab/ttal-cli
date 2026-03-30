@@ -166,10 +166,11 @@ func extractWorktreeHexID(cwd string) string {
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
+		log.Printf("[context] could not resolve home dir (worker treated as manager): %v", err)
 		return ""
 	}
 	worktreesRoot := filepath.Join(home, ".ttal", "worktrees")
-	if !strings.HasPrefix(cwd, worktreesRoot) {
+	if !strings.HasPrefix(cwd, worktreesRoot+string(filepath.Separator)) {
 		return ""
 	}
 	// cwd is under worktreesRoot — the next path segment is the worktree dir name.

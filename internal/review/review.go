@@ -17,13 +17,11 @@ import (
 
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ttal pipeline prompt.
-func buildReviewerEnvParts(taskUUID string, agentName string, rt runtime.Runtime) []string {
+func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
 	parts := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
-	if len(taskUUID) >= 8 {
-		parts = append(parts, fmt.Sprintf("TTAL_JOB_ID=%s", taskUUID[:8]))
 	}
 	return parts
 }
@@ -38,11 +36,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	// Compute branch at runtime from the worktree — soft failure, review can proceed with empty branch.
 	gitBranch, err := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
 	if err != nil {
-		shortUUID := ctx.Task.UUID
-		if len(shortUUID) > 8 {
-			shortUUID = shortUUID[:8]
-		}
-		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", shortUUID, err)
+		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", ctx.Task.HexID(), err)
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
@@ -60,7 +54,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 
 	var shellCmd string
 
-	envParts := buildReviewerEnvParts(ctx.Task.UUID, reviewerName, reviewerRT)
+	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
 
 	if reviewerRT == runtime.Codex {
 		// Codex reviewers stay on the old task-file path until #321.

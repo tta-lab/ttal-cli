@@ -394,6 +394,7 @@ func (c *Config) BreatheThreshold() float64 {
 // The default manager-plane prompt must not bleed into worker prompts.
 // Keep in sync with PromptsConfig fields and the promptsMap in Prompt() below.
 var workerPromptKeys = map[string]bool{
+	"coder":          true,
 	"context":        true,
 	"review":         true,
 	"re_review":      true,

@@ -186,7 +186,7 @@ func TestExtractWorktreeHexID(t *testing.T) {
 		},
 		{
 			name: "non-worktree path",
-			cwd:  "/Users/neil/Code/project",
+			cwd:  filepath.Join(home, "Code", "project"),
 			want: "",
 		},
 		{
@@ -203,6 +203,76 @@ func TestExtractWorktreeHexID(t *testing.T) {
 				t.Errorf("extractWorktreeHexID(%q) = %q, want %q", tt.cwd, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestRunContext_WorkerCWD_SetsJobID verifies that a worker session (CWD under ~/.ttal/worktrees/)
+// has TTAL_JOB_ID derived from the worktree dir name and passed to $ cmd subprocesses.
+func TestRunContext_WorkerCWD_SetsJobID(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir cfgDir: %v", err)
+	}
+	// Context template echoes TTAL_JOB_ID — set by extractWorktreeHexID from the CWD.
+	promptsToml := "context = \"$ echo $TTAL_JOB_ID\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
+		t.Fatalf("write prompts.toml: %v", err)
+	}
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	// Create the worktree directory so the path is valid.
+	worktreeCWD := filepath.Join(tmp, ".ttal", "worktrees", "ab12cd34-ttal")
+	if err := os.MkdirAll(worktreeCWD, 0o755); err != nil {
+		t.Fatalf("mkdir worktree: %v", err)
+	}
+
+	hookInput := `{"agent_type":"coder","cwd":"` + worktreeCWD + `"}`
+	output := captureContextOutput(t, hookInput)
+	output = trimNewlines(output)
+
+	var resp ccHookResponse
+	if err := json.Unmarshal([]byte(output), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
+	}
+	if resp.HookSpecificOutput == nil {
+		t.Fatalf("expected hookSpecificOutput, got: %q", output)
+	}
+	if !strings.Contains(resp.HookSpecificOutput.AdditionalContext, "ab12cd34") {
+		t.Errorf("expected TTAL_JOB_ID 'ab12cd34' in additionalContext, got: %q",
+			resp.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+// TestRunContext_NoContextKey verifies that a valid config without a 'context' prompt key
+// produces {} (no context injection — non-agent sessions and unconfigured agents get no context).
+func TestRunContext_NoContextKey(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir cfgDir: %v", err)
+	}
+	// prompts.toml exists but has no context key — only an unrelated key.
+	promptsToml := "review = \"You are a reviewer.\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
+		t.Fatalf("write prompts.toml: %v", err)
+	}
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	output := captureContextOutput(t, testHookInputKestrel)
+	output = trimNewlines(output)
+	if output != "{}" {
+		t.Errorf("expected {} when context key absent, got: %q", output)
 	}
 }
 

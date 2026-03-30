@@ -59,7 +59,8 @@ const (
 )
 
 // workerStage is the pipeline stage assignee value that identifies a worker stage.
-const workerStage = "coder"
+// Alias for pipeline.CoderAssignee for local readability.
+const workerStage = pipeline.CoderAssignee
 
 // AdvanceClient sends an advance request to the daemon and blocks until response.
 func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
@@ -332,7 +333,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 		return planreview.RequestReReview(sessionName, reviewerAgent, "", cfg)
 	}
 	log.Printf("[advance] spawning plan reviewer %s for task %s", reviewerAgent, task.UUID)
-	return planreview.SpawnPlanReviewer(sessionName, task.UUID, reviewerAgent, cfg, workDir)
+	return planreview.SpawnPlanReviewer(sessionName, task, reviewerAgent, cfg, workDir)
 }
 
 // buildPRContextFromTask builds a PR context from a task and working directory.

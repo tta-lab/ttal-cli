@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // TestResolvePipelinePrompt_NoEnvVars verifies that resolvePipelinePrompt returns empty
@@ -60,6 +62,44 @@ func TestResolvePromptKey_DesignerAssignee(t *testing.T) {
 	got := resolvePromptKey(stage)
 	if got != "designer" {
 		t.Errorf("resolvePromptKey for designer assignee = %q, want %q", got, "designer")
+	}
+}
+
+// TestExpandPromptVars_PRIDVars verifies that {{pr-number}} and {{pr-title}} are expanded
+// when the task has a valid PRID. Branch/owner/repo use soft failure (empty string) since
+// no git repo or worktree exists in test context.
+func TestExpandPromptVars_PRIDVars(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:        "ab12cd34-0000-0000-0000-000000000000",
+		Description: "Add login feature",
+		PRID:        "42",
+	}
+	prompt := "PR {{pr-number}}: {{pr-title}} (branch: {{branch}})"
+	cfg := &config.Config{}
+
+	got := expandPromptVars(prompt, task, cfg)
+	if !strings.Contains(got, "PR 42:") {
+		t.Errorf("expected {{pr-number}} expanded to 42, got: %q", got)
+	}
+	if !strings.Contains(got, "Add login feature") {
+		t.Errorf("expected {{pr-title}} expanded to task description, got: %q", got)
+	}
+}
+
+// TestExpandPromptVars_NoPRID verifies that prompts are returned unchanged when PRID is empty.
+func TestExpandPromptVars_NoPRID(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:        "ab12cd34-0000-0000-0000-000000000000",
+		Description: "Some task",
+		PRID:        "",
+	}
+	prompt := "PR {{pr-number}}: {{pr-title}}"
+	cfg := &config.Config{}
+
+	got := expandPromptVars(prompt, task, cfg)
+	// Without PRID, PR vars should remain as literal placeholders (not expanded).
+	if strings.Contains(got, "42") {
+		t.Errorf("expected no PR number expansion without PRID, got: %q", got)
 	}
 }
 
