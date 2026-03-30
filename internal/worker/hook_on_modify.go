@@ -174,7 +174,8 @@ func checkTagGuard(original, modified hookTask, configDir string) error {
 			parts = append(parts, fmt.Sprintf("removed: %v", removed))
 		}
 		return fmt.Errorf(
-			"cannot modify tags: only humans and managers can change tags directly (%s). Use `ttal go <uuid>` for pipeline tag changes",
+			"cannot modify tags: only humans and managers can change tags directly (%s)."+
+				" Use `ttal go <uuid>` for pipeline tag changes",
 			strings.Join(parts, ", "),
 		)
 	}

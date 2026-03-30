@@ -407,7 +407,8 @@ team_path = %q
 		{"manager removes tag", "yuki", []string{"feature", "old"}, []string{"feature"}, false},
 		{"worker adds non-lgtm tag", "kestrel", []string{"feature"}, []string{"feature", "urgent"}, true},
 		{"worker removes tag", "kestrel", []string{"feature", "old"}, []string{"feature"}, true},
-		{"worker adds _lgtm only — deferred to LGTM guard", "kestrel", []string{"feature"}, []string{"feature", "plan_lgtm"}, false},
+		// _lgtm additions are deferred to checkLGTMGuard, not blocked by checkTagGuard.
+		{"worker adds _lgtm only", "kestrel", []string{"feature"}, []string{"feature", "plan_lgtm"}, false},
 		{"worker no tag change", "kestrel", []string{"feature"}, []string{"feature"}, false},
 		{"worker adds _lgtm and non-lgtm", "kestrel", []string{"feature"}, []string{"feature", "plan_lgtm", "urgent"}, true},
 		{"unknown agent adds tag", "coder", []string{"feature"}, []string{"feature", "newtag"}, true},
