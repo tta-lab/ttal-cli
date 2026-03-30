@@ -514,7 +514,7 @@ func (c *Config) hasAnyPromptConfigured() bool {
 	return c.Prompts.Execute != "" || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
 		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != "" ||
-		c.Prompts.PlanTriage != ""
+		c.Prompts.PlanTriage != "" || c.Prompts.BreatheContext != ""
 }
 
 // RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.

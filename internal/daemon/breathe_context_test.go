@@ -47,6 +47,21 @@ func TestEvaluateBreatheContext_FailedCommandNonFatal(t *testing.T) {
 	}
 }
 
+func TestEvaluateBreatheContext_MultiCommandSeparator(t *testing.T) {
+	// Two successful commands: verify each gets its own header block separated correctly.
+	got := evaluateBreatheContext([]string{"echo alpha", "echo beta"}, "yuki", "guion")
+	if !strings.Contains(got, "--- echo alpha ---\nalpha") {
+		t.Errorf("expected alpha block with header, got: %q", got)
+	}
+	if !strings.Contains(got, "--- echo beta ---\nbeta") {
+		t.Errorf("expected beta block with header, got: %q", got)
+	}
+	// Verify the two sections are separated by a blank line
+	if !strings.Contains(got, "alpha\n\n--- echo beta ---") {
+		t.Errorf("expected blank line between sections, got: %q", got)
+	}
+}
+
 func TestEvaluateBreatheContext_AllCommandsFail(t *testing.T) {
 	got := evaluateBreatheContext([]string{"false", "exit 1"}, "yuki", "guion")
 	if got != "" {

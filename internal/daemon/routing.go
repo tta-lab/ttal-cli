@@ -348,11 +348,6 @@ func resolveBreatheSessions(
 	}, nil
 }
 
-// selectBreatheEnv returns the env vars for the breathe restart command.
-func selectBreatheEnv(agent string, shellCfg *config.Config) []string {
-	return buildBreatheEnv(agent, shellCfg)
-}
-
 // buildBreatheHandoff returns the composed handoff string and trigger for a breathe request.
 // It evaluates breathe_context commands (falling back to diaryReadToday) then appends any
 // route prompt/message. The trigger comes from the route request when present.
@@ -455,7 +450,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 
 	// 8. Build restart command with env.
 	ccCmd := buildCCRestartCmd(newSessionID, am.model, req.Agent, trigger)
-	agentEnv := selectBreatheEnv(req.Agent, shellCfg)
+	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
 	// 9. Kill old session, create new.
