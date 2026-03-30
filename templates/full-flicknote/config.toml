@@ -4,7 +4,6 @@
   inline_projects = ["plan", "fix"]
 
 [sync]
-  subagents_paths = ["./docs/agents"]
 
 [teams.default]
   chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram

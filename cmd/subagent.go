@@ -45,12 +45,9 @@ var subagentListCmd = &cobra.Command{
 	RunE:  listSubagents,
 }
 
-func loadSubagentsPaths() ([]string, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-	return cfg.Sync.SubagentsPaths, nil
+// loadSubagentsPaths returns the hardcoded path to agents directory.
+func loadSubagentsPaths() []string {
+	return []string{"root/agents"}
 }
 
 // findTtalAgent discovers ttal-configured agents and returns the one matching name.
@@ -83,7 +80,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	agent, err := findTtalAgent(name, ttalCfg.Sync.SubagentsPaths)
+	agent, err := findTtalAgent(name, loadSubagentsPaths())
 	if err != nil {
 		return err
 	}
@@ -195,10 +192,7 @@ func deriveCommands(toolNames []string) []logos.CommandDoc {
 }
 
 func listSubagents(_ *cobra.Command, _ []string) error {
-	paths, err := loadSubagentsPaths()
-	if err != nil {
-		return err
-	}
+	paths := loadSubagentsPaths()
 
 	agents, err := internalsync.DiscoverTtalAgents(paths)
 	if err != nil {

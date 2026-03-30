@@ -133,19 +133,19 @@ func deployOneAgent(srcPath, ccDir, codexDir string, dryRun bool) (AgentResult, 
 	return result, agent, nil
 }
 
-// DiscoverTtalAgents scans subagents_paths for .md files with ttal: frontmatter.
+// DiscoverTtalAgents scans paths for .md files with ttal: frontmatter.
 // Returns only agents that have a ttal: section, sorted by name.
-func DiscoverTtalAgents(subagentsPaths []string) ([]*ParsedAgent, error) {
+func DiscoverTtalAgents(paths []string) ([]*ParsedAgent, error) {
 	var agents []*ParsedAgent
-	for _, rawPath := range subagentsPaths {
+	for _, rawPath := range paths {
 		dir := config.ExpandHome(rawPath)
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "warning: subagents path not found: %s\n", dir)
+				fmt.Fprintf(os.Stderr, "warning: agents path not found: %s\n", dir)
 				continue
 			}
-			return nil, fmt.Errorf("reading subagents dir %s: %w", dir, err)
+			return nil, fmt.Errorf("reading agents dir %s: %w", dir, err)
 		}
 		for _, entry := range entries {
 			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
