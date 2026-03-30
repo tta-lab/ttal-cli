@@ -247,7 +247,6 @@ func AgentBotToken(agentName string) string {
 }
 
 // AgentRuntimeFor returns the team-level agent runtime.
-// Per-agent overrides are no longer supported; configure via team agent_runtime.
 func (c *Config) AgentRuntimeFor(_ string) runtime.Runtime {
 	return c.AgentRuntime()
 }
