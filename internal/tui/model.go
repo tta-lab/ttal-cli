@@ -729,6 +729,15 @@ func (m *Model) visibleRows() int {
 	return rows
 }
 
+// rootSortLess returns a sort comparator for root tasks.
+// Completed tasks sort by End descending; all others sort by urgency descending.
+func (m *Model) rootSortLess(roots []Task) func(i, j int) bool {
+	if m.filter == filterCompleted {
+		return func(i, j int) bool { return roots[i].End > roots[j].End }
+	}
+	return func(i, j int) bool { return roots[i].Urgency > roots[j].Urgency }
+}
+
 func (m *Model) applyFilter() {
 	prevUUID := m.selectedUUID
 
@@ -751,12 +760,7 @@ func (m *Model) applyFilter() {
 		}
 		roots = append(roots, t)
 	}
-	sort.Slice(roots, func(i, j int) bool {
-		if m.filter == filterCompleted {
-			return roots[i].End > roots[j].End
-		}
-		return roots[i].Urgency > roots[j].Urgency
-	})
+	sort.Slice(roots, m.rootSortLess(roots))
 
 	// Phase 2: interleave expanded children after their parents
 	m.filtered = nil
