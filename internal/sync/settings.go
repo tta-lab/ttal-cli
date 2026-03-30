@@ -122,6 +122,8 @@ type sessionStartHookEntry struct {
 }
 
 // sessionStartMatcher is one element of the SessionStart array.
+// Matcher filters by SessionStart source: "startup|clear" fires only on fresh start and /clear.
+// resume and compact are excluded — resume has intact memory, compact carries its own summary.
 type sessionStartMatcher struct {
 	Matcher string                  `json:"matcher"`
 	Hooks   []sessionStartHookEntry `json:"hooks"`
@@ -146,12 +148,22 @@ func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
 		return false, err
 	}
 
+	// CC 2.1.87+ requires hooks under a top-level "hooks" wrapper key.
+	// Read or init the hooks map.
+	hooksMap := make(map[string]interface{})
+	if raw, ok := settings["hooks"]; ok {
+		hooksMap, ok = raw.(map[string]interface{})
+		if !ok {
+			return false, fmt.Errorf("settings.json: hooks is not an object (got %T)", raw)
+		}
+	}
+
 	// Read existing SessionStart value if present.
 	existing := make([]interface{}, 0, 1)
-	if raw, ok := settings["SessionStart"]; ok {
+	if raw, ok := hooksMap["SessionStart"]; ok {
 		existing, ok = raw.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("settings.json: SessionStart is not an array (got %T)", raw)
+			return false, fmt.Errorf("settings.json: hooks.SessionStart is not an array (got %T)", raw)
 		}
 	}
 
@@ -177,8 +189,9 @@ func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
 	}
 
 	// Not present — append our matcher.
+	// "startup|clear": fire on fresh start and /clear; skip resume (memory intact) and compact.
 	newEntry := sessionStartMatcher{
-		Matcher: "*",
+		Matcher: "startup|clear",
 		Hooks: []sessionStartHookEntry{
 			{Type: "command", Command: ttalContextCommand, Timeout: 15},
 		},
@@ -189,7 +202,8 @@ func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
 		return true, nil
 	}
 
-	settings["SessionStart"] = existing
+	hooksMap["SessionStart"] = existing
+	settings["hooks"] = hooksMap
 	if err := writeSettingsJSON(settingsPath, settings); err != nil {
 		return false, fmt.Errorf("writing settings.json: %w", err)
 	}

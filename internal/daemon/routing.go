@@ -403,14 +403,28 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
 	}
 
-	// 5. Build fresh command — no --resume; SessionStart hook injects context at startup.
+	// 5. Breathe: prefer /clear on a live session (hook re-injects context without restart).
+	// Fall back to kill+fresh-start when the session is dead.
+	// Note: diaryAppendHandoff (step 3) runs unconditionally so the handoff is persisted
+	// before both paths — /clear causes the source=clear hook to read the updated diary.
+	sessionAlive := tmux.SessionExists(plan.oldSessionName)
+	if sessionAlive {
+		log.Printf("[breathe] %s: session alive — sending /clear (source=clear hook will re-inject context)", req.Agent)
+		if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
+			log.Printf("[breathe] %s: /clear failed (%v), falling back to restart", req.Agent, err)
+		} else {
+			log.Printf("[breathe] %s: /clear sent (fire-and-forget; hook delivery unconfirmed)", req.Agent)
+			return SendResponse{OK: true}
+		}
+	}
+
+	// Session dead or /clear failed — full restart.
 	ccCmd := buildCCFreshCmd(am.model, req.Agent, "")
 	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
-	// 6. Kill old session, create new.
 	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
-	if tmux.SessionExists(plan.oldSessionName) {
+	if sessionAlive {
 		if err := tmux.KillSession(plan.oldSessionName); err != nil {
 			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
 		}
@@ -423,7 +437,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	// Inject secrets into tmux session env for future commands.
 	injectSecretsToSession(plan.newSessionName)
 
-	log.Printf("[breathe] %s: fresh breath taken (session: %s)", req.Agent, plan.newSessionName)
+	log.Printf("[breathe] %s: fresh breath taken (restart, session: %s)", req.Agent, plan.newSessionName)
 
 	return SendResponse{OK: true}
 }

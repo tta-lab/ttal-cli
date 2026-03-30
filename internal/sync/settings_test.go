@@ -265,6 +265,35 @@ func TestInstallSessionStartHook_FreshFile(t *testing.T) {
 	if !strings.Contains(string(data), "SessionStart") {
 		t.Errorf("expected 'SessionStart' key in settings.json, got: %s", data)
 	}
+
+	// Verify hook is written under the "hooks" wrapper key (CC 2.1.87+ format).
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	hooksMap, ok := settings["hooks"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected settings.hooks to be an object, got: %T", settings["hooks"])
+	}
+	entries, ok := hooksMap["SessionStart"].([]interface{})
+	if !ok {
+		t.Fatalf("expected hooks.SessionStart to be an array, got: %T", hooksMap["SessionStart"])
+	}
+	// Verify the matcher value — a regression to "*" would silently fire on resume/compact.
+	found := false
+	for _, e := range entries {
+		m, ok := e.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if m["matcher"] == "startup|clear" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected matcher 'startup|clear' in written hook entry, got: %s", data)
+	}
 }
 
 func TestInstallSessionStartHook_Idempotent(t *testing.T) {
@@ -300,16 +329,18 @@ func TestInstallSessionStartHook_PreservesExistingHooks(t *testing.T) {
 	tmpDir := t.TempDir()
 	settingsPath := filepath.Join(tmpDir, "settings.json")
 
-	// Write a settings.json with an existing non-ttal SessionStart hook.
+	// Write a settings.json with an existing non-ttal SessionStart hook (new hooks wrapper format).
 	initial := map[string]interface{}{
-		"SessionStart": []interface{}{
-			map[string]interface{}{
-				"matcher": "*.py",
-				"hooks": []interface{}{
-					map[string]interface{}{
-						"type":    "command",
-						"command": "python-linter",
-						"timeout": 10,
+		"hooks": map[string]interface{}{
+			"SessionStart": []interface{}{
+				map[string]interface{}{
+					"matcher": "startup|clear",
+					"hooks": []interface{}{
+						map[string]interface{}{
+							"type":    "command",
+							"command": "python-linter",
+							"timeout": 10,
+						},
 					},
 				},
 			},
@@ -357,5 +388,47 @@ func TestInstallSessionStartHook_DryRun(t *testing.T) {
 	// File must NOT have been created in dry-run mode.
 	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
 		t.Error("dry-run should not create settings.json")
+	}
+}
+
+func TestInstallSessionStartHook_NonObjectHooksReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	content := []byte(`{"hooks": "not-an-object"}` + "\n")
+	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := installSessionStartHook(false, settingsPath)
+	if err == nil {
+		t.Fatal("expected error for non-object hooks, got nil")
+	}
+
+	// File must not have been modified.
+	written, _ := os.ReadFile(settingsPath)
+	if string(written) != string(content) {
+		t.Error("settings.json should not be modified when returning an error")
+	}
+}
+
+func TestInstallSessionStartHook_NonArraySessionStartReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	settingsPath := filepath.Join(tmpDir, "settings.json")
+
+	content := []byte(`{"hooks": {"SessionStart": "not-an-array"}}` + "\n")
+	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := installSessionStartHook(false, settingsPath)
+	if err == nil {
+		t.Fatal("expected error for non-array hooks.SessionStart, got nil")
+	}
+
+	// File must not have been modified.
+	written, _ := os.ReadFile(settingsPath)
+	if string(written) != string(content) {
+		t.Error("settings.json should not be modified when returning an error")
 	}
 }
