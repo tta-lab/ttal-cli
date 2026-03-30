@@ -29,6 +29,7 @@ autoAllowBashIfSandboxed = true
 allowWrite = [
   "~/.ttal",                             # ttal data dir (tasks, daemon state)
   "~/.task",                             # taskwarrior data (SQLite WAL needs write)
+  "~/.config/ttal",                      # ttal config (projects.toml, config.toml, etc.)
   "~/.diary",                            # diary data
   "~/.local/share/flicknote",            # flicknote SQLite database
   "/private/var/folders",                # macOS TMPDIR — used by Go, Rust, and most build tools
@@ -77,6 +78,7 @@ denyWrite = []
 # the correct way to protect secrets within dirs that agents otherwise need to read.
 permissionsDeny = [
   "Read(~/.config/ttal/.env)",           # ttal secrets (.env)
+  "Write(~/.config/ttal/.env)",          # prevent overwriting ttal secrets
   "Read(~/.ssh/id_ed25519)",             # SSH private key
   "Read(~/.gnupg/**)",                   # GPG private keys
   "Read(~/.netrc)",                      # HTTPS auth credentials
