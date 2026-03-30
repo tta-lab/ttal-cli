@@ -158,21 +158,6 @@ func installSessionStartHook(dryRun bool, settingsPath string) (bool, error) {
 		}
 	}
 
-	// Migrate pre-2.1.87 top-level SessionStart entries into the hooks wrapper.
-	// Any entries at settings["SessionStart"] are orphaned (CC ignores them); move them
-	// into hooksMap["SessionStart"] so they continue to fire, then drop the stale key.
-	if raw, ok := settings["SessionStart"]; ok {
-		if legacyEntries, ok := raw.([]interface{}); ok && len(legacyEntries) > 0 {
-			// Merge legacy entries before the new-format ones (preserve existing order).
-			if existing, ok := hooksMap["SessionStart"].([]interface{}); ok {
-				hooksMap["SessionStart"] = append(legacyEntries, existing...)
-			} else {
-				hooksMap["SessionStart"] = legacyEntries
-			}
-		}
-		delete(settings, "SessionStart")
-	}
-
 	// Read existing SessionStart value if present.
 	existing := make([]interface{}, 0, 1)
 	if raw, ok := hooksMap["SessionStart"]; ok {
