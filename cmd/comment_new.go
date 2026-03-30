@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -113,14 +114,18 @@ Examples:
 		var providerType, owner, repo, projectAlias string
 		var prIndex int64
 		if os.Getenv("TTAL_JOB_ID") != "" {
-			if ctx, err := pr.ResolveContextWithoutProvider(); err == nil {
-				if idx, err := pr.PRIndex(ctx); err == nil {
-					providerType = string(ctx.Info.Provider)
-					owner = ctx.Owner
-					repo = ctx.Repo
-					prIndex = idx
-					projectAlias = ctx.Task.Project
+			if ctx, err := pr.ResolveContextWithoutProvider(); err != nil {
+				log.Printf("debug: PR context not resolved — no mirror: %v", err)
+			} else if idx, err := pr.PRIndex(ctx); err != nil {
+				if !errors.Is(err, pr.ErrNoPR) {
+					log.Printf("debug: PR index not resolved — no mirror: %v", err)
 				}
+			} else {
+				providerType = string(ctx.Info.Provider)
+				owner = ctx.Owner
+				repo = ctx.Repo
+				prIndex = idx
+				projectAlias = ctx.Task.Project
 			}
 		}
 
