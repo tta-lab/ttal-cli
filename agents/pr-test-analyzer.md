@@ -11,15 +11,8 @@ description: |-
   user: "Check if the tests in this PR are thorough"
   assistant: "I'll use the pr-test-analyzer agent to review the test coverage."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

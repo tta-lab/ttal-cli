@@ -11,15 +11,8 @@ description: |-
   user: "Verify this plan's assumptions against the codebase"
   assistant: "I'll use the plan-code-reviewer agent to check technical accuracy."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

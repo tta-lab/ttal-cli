@@ -11,15 +11,8 @@ description: |-
   user: "I've added the new authentication feature. Can you simplify it?"
   assistant: "I'll use the pr-code-simplifier agent to refine the implementation."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

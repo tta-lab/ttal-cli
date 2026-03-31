@@ -16,15 +16,8 @@ description: |-
   user: "Review PR #1234"
   assistant: "I'll use the pr-silent-failure-hunter agent to check for silent failures."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

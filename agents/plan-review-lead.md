@@ -15,15 +15,8 @@ description: |-
   user: "Is the plan for the auth refactor ready?"
   assistant: "I'll use the plan-review-lead agent to check the plan."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # Plan Review Lead

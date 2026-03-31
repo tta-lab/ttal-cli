@@ -11,15 +11,8 @@ description: |-
   user: "Review the types being added in this PR"
   assistant: "I'll use the pr-type-design-analyzer agent to review the type designs."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

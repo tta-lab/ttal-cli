@@ -11,15 +11,8 @@ description: |-
   user: "Check this plan for gaps and missing steps"
   assistant: "I'll use the plan-gap-finder agent to identify structural gaps."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

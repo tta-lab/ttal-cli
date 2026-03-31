@@ -16,15 +16,8 @@ description: |-
   user: "Please create a function to validate email addresses"
   assistant: "Now I'll use the pr-code-reviewer agent to review this implementation."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

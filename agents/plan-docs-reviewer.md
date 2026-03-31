@@ -11,15 +11,8 @@ description: |-
   user: "Check if this plan covers documentation changes"
   assistant: "I'll use the plan-docs-reviewer agent to check for doc impacts."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

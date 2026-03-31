@@ -11,15 +11,8 @@ description: |-
   user: "Check if the comments in this PR are accurate"
   assistant: "I'll use the pr-comment-analyzer agent to review the comments."
   </example>
-claude-code:
-  model: haiku
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: haiku
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---
