@@ -40,6 +40,8 @@ import (
 //
 //	These commands bypass sandbox restrictions entirely. Use with care — they run with
 //	full filesystem and network access regardless of sandbox settings.
+//	Use "command:*" to match all subcommands (e.g. "qlty:*"). Exact names match
+//	only a single specific invocation.
 //
 // Network                 — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
