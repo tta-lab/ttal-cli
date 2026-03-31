@@ -358,10 +358,12 @@ func spawnOrRetriggerReviewerFromDaemon(
 	}
 
 	if tmux.WindowExists(targetSession, reviewerAgent) {
-		log.Printf("[advance] re-triggering plan reviewer %s for task %s in session %q", reviewerAgent, task.UUID, targetSession)
+		log.Printf("[advance] re-triggering plan reviewer %s for task %s in session %q",
+			reviewerAgent, task.UUID, targetSession)
 		return planreview.RequestReReview(targetSession, reviewerAgent, "", cfg)
 	}
-	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q", reviewerAgent, task.UUID, targetSession)
+	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q",
+		reviewerAgent, task.UUID, targetSession)
 	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, cfg, targetWorkDir)
 }
 
