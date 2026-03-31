@@ -16,6 +16,10 @@
 #                   does not cover a parent of these paths (see denyRead warning above).
 # permissionsDeny — raw permissions.deny entries written directly to settings.json.
 #                   Use "Read(<path>)" to deny specific secret files within allowRead dirs.
+# excludedCommands — commands run unsandboxed (maps to sandbox.excludedCommands).
+#                   These commands bypass sandbox restrictions entirely — use with care.
+#                   Use "command:*" to match a command and all its subcommands (exact name
+#                   matches only one invocation). Example: "qlty:*" matches all qlty calls.
 #
 # [network]
 # allowedDomains — external domains Claude may contact (maps to sandbox.network.allowedDomains).
@@ -25,6 +29,12 @@ enabled = true
 # Auto-approve bash commands when sandboxed (CC default: true).
 # Set to false to require explicit approval for each bash command in sandboxed sessions.
 autoAllowBashIfSandboxed = true
+
+# Commands that run unsandboxed — bypass all filesystem and network restrictions.
+# Use "command:*" to match a command and all its subcommands (exact name only matches
+# one specific invocation). Example: "qlty:*" matches qlty check, qlty fmt, etc.
+# Map to sandbox.excludedCommands in settings.json.
+excludedCommands = ["qlty:*"]
 
 allowWrite = [
   "~/.ttal",                             # ttal data dir (tasks, daemon state)

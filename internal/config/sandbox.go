@@ -36,6 +36,13 @@ import (
 //
 //	Set to false to require approval for each bash command.
 //
+// ExcludedCommands        — commands run unsandboxed (maps to sandbox.excludedCommands).
+//
+//	These commands bypass sandbox restrictions entirely. Use with care — they run with
+//	full filesystem and network access regardless of sandbox settings.
+//	Use "command:*" to match all subcommands (e.g. "qlty:*"). Exact names match
+//	only a single specific invocation.
+//
 // Network                 — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
 // Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
@@ -43,6 +50,7 @@ import (
 type SandboxConfig struct {
 	Enabled                  bool          `toml:"enabled"`
 	AutoAllowBashIfSandboxed *bool         `toml:"autoAllowBashIfSandboxed"`
+	ExcludedCommands         []string      `toml:"excludedCommands"`
 	AllowWrite               []string      `toml:"allowWrite"`
 	DenyWrite                []string      `toml:"denyWrite"`
 	DenyRead                 []string      `toml:"denyRead"`

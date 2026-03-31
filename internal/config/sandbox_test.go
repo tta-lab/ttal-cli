@@ -113,3 +113,23 @@ func TestDefaultConfigDir_HomeBranch(t *testing.T) {
 	got := DefaultConfigDir()
 	assert.Equal(t, filepath.Join(home, ".config", "ttal"), got)
 }
+
+func TestLoadSandbox_ExcludedCommandsParsed(t *testing.T) {
+	writeSandboxTOML(t, `
+enabled = true
+excludedCommands = ["CustomCommand", "AnotherTool"]
+`)
+	cfg := LoadSandbox()
+	require.NotNil(t, cfg)
+	assert.Equal(t, []string{"CustomCommand", "AnotherTool"}, cfg.ExcludedCommands)
+}
+
+func TestLoadSandbox_ExcludedCommandsNilWhenAbsent(t *testing.T) {
+	writeSandboxTOML(t, `
+enabled = true
+allowWrite = ["/tmp"]
+`)
+	cfg := LoadSandbox()
+	require.NotNil(t, cfg)
+	assert.Nil(t, cfg.ExcludedCommands, "ExcludedCommands should be nil when not set")
+}
