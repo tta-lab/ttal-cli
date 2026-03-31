@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -55,6 +56,9 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 	var ordered []string
 
 	addPath := func(p string, readOnly bool) {
+		if !filepath.IsAbs(p) {
+			return
+		}
 		if existing, ok := seen[p]; ok {
 			// RW wins — upgrade ro to rw if needed.
 			if existing && !readOnly {
