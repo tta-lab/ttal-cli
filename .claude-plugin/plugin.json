@@ -1,0 +1,32 @@
+{
+  "name": "ttal",
+  "version": "0.1.0",
+  "description": "Subagents and hooks for TTAL multi-agent orchestration",
+  "author": {
+    "name": "GuionAI",
+    "url": "https://github.com/tta-lab"
+  },
+  "agents": [
+    "./agents/code-lead.md",
+    "./agents/coder.md",
+    "./agents/debugger.md",
+    "./agents/doc-writer.md",
+    "./agents/plan-code-reviewer.md",
+    "./agents/plan-docs-reviewer.md",
+    "./agents/plan-gap-finder.md",
+    "./agents/plan-review-lead.md",
+    "./agents/plan-security-reviewer.md",
+    "./agents/plan-test-reviewer.md",
+    "./agents/pr-code-reviewer.md",
+    "./agents/pr-code-simplifier.md",
+    "./agents/pr-comment-analyzer.md",
+    "./agents/pr-principles-reviewer.md",
+    "./agents/pr-review-lead.md",
+    "./agents/pr-silent-failure-hunter.md",
+    "./agents/pr-test-analyzer.md",
+    "./agents/pr-type-design-analyzer.md",
+    "./agents/test-writer.md"
+  ],
+  "skills": ["./skills/"],
+  "commands": ["./commands/"]
+}

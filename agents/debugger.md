@@ -3,9 +3,8 @@ name: debugger
 emoji: 🔬
 description: "Stateless debugger — diagnoses root causes by reading code, running tests, and tracing execution. Reports findings, does not fix."
 color: red
-claude-code:
-  model: sonnet
-  tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

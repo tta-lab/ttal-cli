@@ -16,15 +16,8 @@ description: |-
   user: "Review PR #42 for code quality"
   assistant: "I'll use the pr-principles-reviewer agent to check for principle violations."
   </example>
-claude-code:
-  model: sonnet
-  tools:
-    - Bash
-    - Glob
-    - Grep
-    - Read
-    - mcp__context7__resolve-library-id
-    - mcp__context7__query-docs
+model: sonnet
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   access: ro
 ---

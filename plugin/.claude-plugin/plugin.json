@@ -1,9 +1,0 @@
-{
-  "name": "ttal",
-  "version": "0.1.0",
-  "description": "Subagents and hooks for TTAL multi-agent orchestration",
-  "author": {
-    "name": "GuionAI",
-    "url": "https://github.com/tta-lab"
-  }
-}
