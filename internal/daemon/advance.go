@@ -266,7 +266,8 @@ func processStageAdvance(
 			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
 			spawnMsg = " (spawn skipped: daemon config not loaded)"
 		default:
-			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, agentRoles, mcfg.Global); err != nil {
+			err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, agentRoles, mcfg.Global)
+			if err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
 				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
 			} else {
