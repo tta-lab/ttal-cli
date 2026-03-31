@@ -326,6 +326,8 @@ type httpHandlers struct {
 	closeWindow func(CloseWindowRequest) SendResponse
 	// Ask agent loop (runs logos server-side, streams NDJSON)
 	askHandler http.HandlerFunc
+	// Subagent loop (runs logos server-side, streams NDJSON)
+	subagentHandler http.HandlerFunc
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -352,6 +354,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
 	r.Post("/ask", handlers.askHandler)
+	r.Post("/subagent/run", handlers.subagentHandler)
 	r.Post("/pipeline/advance", handlers.pipelineAdvance)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
@@ -1070,6 +1073,57 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 		var event ask.Event
 		if err := dec.Decode(&event); err != nil {
 			return fmt.Errorf("decode ask event: %w", err)
+		}
+		onEvent(event)
+		if event.Type == ask.EventDone || event.Type == ask.EventError {
+			terminated = true
+		}
+	}
+	if !terminated {
+		return fmt.Errorf("stream ended without terminal event (daemon may have crashed)")
+	}
+	return nil
+}
+
+// RunSubagent sends a subagent request to the daemon and streams NDJSON events back.
+// Mirrors AskAgent — POST to /subagent/run, stream events, require terminal event.
+func RunSubagent(ctx context.Context, req ask.SubagentRequest, onEvent func(ask.Event)) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal subagent request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		daemonBaseURL+"/subagent/run", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := daemonHTTPClientStreaming().Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("daemon not running — ttal subagent run requires the daemon: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		var errResp SendResponse
+		if json.Unmarshal(raw, &errResp) == nil && errResp.Error != "" {
+			return fmt.Errorf("daemon: %s", errResp.Error)
+		}
+		if len(raw) > 0 {
+			return fmt.Errorf("daemon returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		}
+		return fmt.Errorf("daemon returned HTTP %d", resp.StatusCode)
+	}
+
+	var terminated bool
+	dec := json.NewDecoder(resp.Body)
+	for dec.More() {
+		var event ask.Event
+		if err := dec.Decode(&event); err != nil {
+			return fmt.Errorf("decode subagent event: %w", err)
 		}
 		onEvent(event)
 		if event.Type == ask.EventDone || event.Type == ask.EventError {
