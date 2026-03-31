@@ -85,7 +85,7 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 // RunSubagent executes a subagent loop server-side.
 // This is the daemon-side implementation — temenos is reachable here.
 func RunSubagent(ctx context.Context, req SubagentRequest, cfg *config.Config, emit EventFunc) error {
-	agent, err := findAgent(req.Name, cfg.Sync.SubagentsPaths)
+	agent, err := FindAgent(req.Name, cfg.Sync.SubagentsPaths)
 	if err != nil {
 		return err
 	}
@@ -210,8 +210,8 @@ func buildSubagentSystemPrompt(
 	return systemPrompt, nil
 }
 
-// findAgent discovers ttal-configured agents and returns the one matching name.
-func findAgent(name string, paths []string) (*internalsync.ParsedAgent, error) {
+// FindAgent discovers ttal-configured agents and returns the one matching name.
+func FindAgent(name string, paths []string) (*internalsync.ParsedAgent, error) {
 	agents, err := internalsync.DiscoverTtalAgents(paths)
 	if err != nil {
 		return nil, fmt.Errorf("discover agents: %w", err)

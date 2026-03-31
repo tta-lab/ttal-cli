@@ -92,7 +92,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 
 	// Look up the agent locally for the header display (emoji + name).
 	// This is a cheap local FS scan — no temenos needed.
-	if agent, findErr := findTtalAgent(name, ttalCfg.Sync.SubagentsPaths); findErr == nil {
+	if agent, findErr := ask.FindAgent(name, ttalCfg.Sync.SubagentsPaths); findErr == nil {
 		printAgentHeader(agent.Frontmatter.Emoji, name)
 	}
 
@@ -130,27 +130,6 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// findTtalAgent discovers ttal-configured agents and returns the one matching name.
-func findTtalAgent(name string, paths []string) (*internalsync.ParsedAgent, error) {
-	agents, err := internalsync.DiscoverTtalAgents(paths)
-	if err != nil {
-		return nil, fmt.Errorf("discover agents: %w", err)
-	}
-	for _, a := range agents {
-		if a.Frontmatter.Name == name {
-			return a, nil
-		}
-	}
-	available := make([]string, len(agents))
-	for i, a := range agents {
-		available[i] = a.Frontmatter.Name
-	}
-	if len(available) == 0 {
-		return nil, fmt.Errorf("agent %q not found (no agents with ttal: frontmatter discovered)", name)
-	}
-	return nil, fmt.Errorf("agent %q not found — available: %s", name, strings.Join(available, ", "))
 }
 
 func listSubagents(_ *cobra.Command, _ []string) error {
