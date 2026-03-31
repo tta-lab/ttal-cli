@@ -101,19 +101,22 @@ func RunAsk(ctx context.Context, req Request, cfg *config.Config, emit EventFunc
 
 // preWarmURL pre-fetches the URL via temenos before running the agent loop.
 // Only active for ModeURL when a URL is provided.
-func preWarmURL(ctx context.Context, tc logos.CommandRunner, req Request, emit EventFunc) error {
+func preWarmURL(ctx context.Context, tc logos.BlockRunner, req Request, emit EventFunc) error {
 	if req.Mode != ModeURL || req.URL == "" {
 		return nil
 	}
 	emit(Event{Type: EventStatus, Message: "Fetching " + req.URL + "..."})
 	quotedURL := "'" + strings.ReplaceAll(req.URL, "'", "'\\''") + "'"
-	resp, err := tc.Run(ctx, logos.RunRequest{Command: "url " + quotedURL})
+	resp, err := tc.RunBlock(ctx, logos.RunBlockRequest{Block: "url " + quotedURL})
 	if err != nil {
 		return fmt.Errorf("pre-fetch %s: %w", req.URL, err)
 	}
-	if resp.ExitCode != 0 {
-		return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
-			req.URL, resp.ExitCode, strings.TrimSpace(resp.Stderr))
+	// Check if any command in the block failed
+	for _, result := range resp.Results {
+		if result.ExitCode != 0 {
+			return fmt.Errorf("pre-fetch %s failed (exit %d): %s",
+				req.URL, result.ExitCode, strings.TrimSpace(result.Stderr))
+		}
 	}
 	return nil
 }
@@ -139,9 +142,6 @@ func buildLogosCallbacks(emit EventFunc) logos.Callbacks {
 	return logos.Callbacks{
 		OnDelta: func(text string) {
 			emit(Event{Type: EventDelta, Text: text})
-		},
-		OnCommandStart: func(command string) {
-			emit(Event{Type: EventCommandStart, Command: command})
 		},
 		OnCommandResult: func(command, output string, exitCode int) {
 			emit(Event{Type: EventCommandResult, Command: command, Output: output, ExitCode: exitCode})

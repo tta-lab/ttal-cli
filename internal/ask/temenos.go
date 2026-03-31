@@ -7,9 +7,9 @@ import (
 	"github.com/tta-lab/logos"
 )
 
-// NewTemenosClient creates a CommandRunner and verifies the temenos daemon is reachable.
+// NewTemenosClient creates a BlockRunner and verifies the temenos daemon is reachable.
 // The "daemon not running" hint is only shown when the health check actually fails.
-func NewTemenosClient(ctx context.Context) (logos.CommandRunner, error) {
+func NewTemenosClient(ctx context.Context) (logos.BlockRunner, error) {
 	tc, err := logos.NewClient("")
 	if err != nil {
 		return nil, fmt.Errorf("connect to temenos daemon: %w", err)

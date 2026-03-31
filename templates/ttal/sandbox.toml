@@ -64,7 +64,6 @@ denyRead = []
 
 # Allowlist: dirs that agents legitimately need to read.
 allowRead = [
-  ".",                                   # current project (always needed)
   "~/.config/ttal",                      # ttal config (projects.toml, sandbox.toml, etc.)
   "~/.config/flicknote",                 # flicknote config
   "~/.config/git",                       # git config
