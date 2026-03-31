@@ -266,7 +266,7 @@ func processStageAdvance(
 			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
 			spawnMsg = " (spawn skipped: daemon config not loaded)"
 		default:
-			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global); err != nil {
+			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, agentRoles, mcfg.Global); err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
 				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
 			} else {
@@ -307,11 +307,25 @@ func processStageAdvance(
 	}
 }
 
+// resolveReviewerSession determines which tmux session should host the plan-review window.
+// The reviewer belongs in the task owner's session (the agent whose name tag is on the task),
+// not the caller's session (the agent who ran ttal go).
+// Falls back to callerSession when no agent tag is found on the task.
+func resolveReviewerSession(taskTags []string, agentRoles map[string]string, team, callerSession string) string {
+	ownerAgent := findAgentTag(taskTags, agentRoles)
+	if ownerAgent == "" {
+		return callerSession
+	}
+	return config.AgentSessionName(team, ownerAgent)
+}
+
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
 // workDir is the caller's working directory (passed via AdvanceRequest).
 func spawnOrRetriggerReviewerFromDaemon(
 	task *taskwarrior.Task, stage *pipeline.Stage,
-	sessionName, workDir string, cfg *config.Config,
+	sessionName, workDir, team string,
+	agentRoles map[string]string,
+	cfg *config.Config,
 ) error {
 	reviewerAgent := stage.Reviewer
 
@@ -328,12 +342,20 @@ func spawnOrRetriggerReviewerFromDaemon(
 		return review.SpawnReviewer(sessionName, ctx, reviewerAgent, cfg, workDir)
 	}
 
-	if tmux.WindowExists(sessionName, reviewerAgent) {
+	// Plan-review: resolve the task owner's session instead of using the caller's.
+	// PR-review (above) correctly uses the caller's session — the caller is the worker.
+	targetSession := resolveReviewerSession(task.Tags, agentRoles, team, sessionName)
+	targetWorkDir := workDir
+	if projectPath := projectPkg.ResolveProjectPath(task.Project); projectPath != "" {
+		targetWorkDir = projectPath
+	}
+
+	if tmux.WindowExists(targetSession, reviewerAgent) {
 		log.Printf("[advance] re-triggering plan reviewer %s for task %s", reviewerAgent, task.UUID)
-		return planreview.RequestReReview(sessionName, reviewerAgent, "", cfg)
+		return planreview.RequestReReview(targetSession, reviewerAgent, "", cfg)
 	}
 	log.Printf("[advance] spawning plan reviewer %s for task %s", reviewerAgent, task.UUID)
-	return planreview.SpawnPlanReviewer(sessionName, task, reviewerAgent, cfg, workDir)
+	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, cfg, targetWorkDir)
 }
 
 // buildPRContextFromTask builds a PR context from a task and working directory.

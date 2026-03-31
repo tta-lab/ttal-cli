@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -569,6 +570,49 @@ func runGit(t *testing.T, args ...string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git command %v failed: %v\n%s", args, err, out)
 	}
+}
+
+// TestResolveReviewerSession verifies the resolveReviewerSession helper.
+func TestResolveReviewerSession(t *testing.T) {
+	agentRoles := map[string]string{
+		testAgentInke: "designer",
+		"athena":      "researcher",
+	}
+	const team = "default"
+	const callerSession = "ttal-default-yuki"
+
+	t.Run("agent tag found returns owner session", func(t *testing.T) {
+		tags := []string{"feature", testAgentInke, "plan"}
+		got := resolveReviewerSession(tags, agentRoles, team, callerSession)
+		want := config.AgentSessionName(team, testAgentInke)
+		if got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("no agent tag falls back to caller session", func(t *testing.T) {
+		tags := []string{"feature", "plan"}
+		got := resolveReviewerSession(tags, agentRoles, team, callerSession)
+		if got != callerSession {
+			t.Errorf("expected caller session %q, got %q", callerSession, got)
+		}
+	})
+
+	t.Run("tag not in agentRoles falls back to caller session", func(t *testing.T) {
+		tags := []string{"feature", "someothertag", "plan"}
+		got := resolveReviewerSession(tags, agentRoles, team, callerSession)
+		if got != callerSession {
+			t.Errorf("expected caller session %q, got %q", callerSession, got)
+		}
+	})
+
+	t.Run("empty agentRoles falls back to caller session", func(t *testing.T) {
+		tags := []string{"feature", testAgentInke, "plan"}
+		got := resolveReviewerSession(tags, map[string]string{}, team, callerSession)
+		if got != callerSession {
+			t.Errorf("expected caller session %q, got %q", callerSession, got)
+		}
+	})
 }
 
 // TestFindAgentTag verifies the findAgentTag helper.
