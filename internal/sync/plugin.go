@@ -28,7 +28,7 @@ func InstallPlugin(repoPath string, dryRun bool) (*PluginResult, error) {
 
 	// Count agents in the plugin for reporting (local paths only).
 	if !strings.HasPrefix(repoPath, "http") {
-		agentsDir := filepath.Join(repoPath, "plugin", "agents")
+		agentsDir := filepath.Join(repoPath, "agents")
 		if entries, err := os.ReadDir(agentsDir); err == nil {
 			for _, e := range entries {
 				if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
