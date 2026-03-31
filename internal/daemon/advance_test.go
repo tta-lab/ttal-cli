@@ -613,6 +613,14 @@ func TestResolveReviewerSession(t *testing.T) {
 			t.Errorf("expected caller session %q, got %q", callerSession, got)
 		}
 	})
+
+	t.Run("empty team falls back to caller session", func(t *testing.T) {
+		tags := []string{"feature", testAgentInke, "plan"}
+		got := resolveReviewerSession(tags, agentRoles, "", callerSession)
+		if got != callerSession {
+			t.Errorf("expected caller session %q, got %q", callerSession, got)
+		}
+	})
 }
 
 // TestFindAgentTag verifies the findAgentTag helper.

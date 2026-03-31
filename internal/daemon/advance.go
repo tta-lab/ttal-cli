@@ -311,8 +311,11 @@ func processStageAdvance(
 // resolveReviewerSession determines which tmux session should host the plan-review window.
 // The reviewer belongs in the task owner's session (the agent whose name tag is on the task),
 // not the caller's session (the agent who ran ttal go).
-// Falls back to callerSession when no agent tag is found on the task.
+// Falls back to callerSession when no agent tag is found on the task or when team is empty.
 func resolveReviewerSession(taskTags []string, agentRoles map[string]string, team, callerSession string) string {
+	if team == "" {
+		return callerSession
+	}
 	ownerAgent := findAgentTag(taskTags, agentRoles)
 	if ownerAgent == "" {
 		return callerSession
@@ -322,6 +325,9 @@ func resolveReviewerSession(taskTags []string, agentRoles map[string]string, tea
 
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
 // workDir is the caller's working directory (passed via AdvanceRequest).
+// For plan-review, workDir is overridden with the project's registered path so the reviewer
+// runs in the correct directory, not the caller's workspace.
+// For PR-review, workDir is used as-is — the caller is the worker.
 func spawnOrRetriggerReviewerFromDaemon(
 	task *taskwarrior.Task, stage *pipeline.Stage,
 	sessionName, workDir, team string,
@@ -352,10 +358,10 @@ func spawnOrRetriggerReviewerFromDaemon(
 	}
 
 	if tmux.WindowExists(targetSession, reviewerAgent) {
-		log.Printf("[advance] re-triggering plan reviewer %s for task %s", reviewerAgent, task.UUID)
+		log.Printf("[advance] re-triggering plan reviewer %s for task %s in session %q", reviewerAgent, task.UUID, targetSession)
 		return planreview.RequestReReview(targetSession, reviewerAgent, "", cfg)
 	}
-	log.Printf("[advance] spawning plan reviewer %s for task %s", reviewerAgent, task.UUID)
+	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q", reviewerAgent, task.UUID, targetSession)
 	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, cfg, targetWorkDir)
 }
 
