@@ -16,7 +16,7 @@ description: |-
   assistant: "I'll use the plan-review-lead agent to check the plan."
   </example>
 model: sonnet
-tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+tools: [Bash, Glob, Grep, Read, Agent, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # Plan Review Lead
@@ -50,22 +50,22 @@ Gather all context before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ttal subagent run via Bash)
+### Phase 2: Subagent Dispatch (Agent tool — parallel)
 
-Run each applicable reviewer via `ttal subagent run`. Pass the flicknote ID and target project path in the prompt. Run sequentially — each reviewer is independent.
+Run all applicable reviewers in parallel using the Agent tool. Make multiple Agent tool calls in a single response — do NOT wait for each to finish before launching the next.
 
-```bash
-ttal subagent run plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
-ttal subagent run plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
-# If plan has implementation tasks:
-ttal subagent run plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
-# If plan touches auth, APIs, secrets, or user input:
-ttal subagent run plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
-# If repo has CLAUDE.md, skills, or subagents:
-ttal subagent run plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
-```
+Pass the flicknote ID and target project path in each prompt.
 
-Collect and note the output from each reviewer before moving to Phase 3.
+Reviewers to launch in parallel (always run these two):
+- **plan-gap-finder**: "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
+- **plan-code-reviewer**: "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
+
+Conditional reviewers (include if applicable, still launch in parallel with the above):
+- **plan-test-reviewer** (if plan has implementation tasks): "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
+- **plan-security-reviewer** (if plan touches auth, APIs, secrets, or user input): "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
+- **plan-docs-reviewer** (if repo has CLAUDE.md, skills, or subagents): "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
+
+Wait for ALL Agent calls to complete before proceeding to Phase 3.
 
 ### Phase 3: Synthesize & Aggregate (after all agents complete)
 
@@ -149,15 +149,13 @@ Compare against the previous round's issues:
 
 **plan-docs-reviewer**: Checks whether the plan accounts for documentation impacts — CLAUDE.md updates, skill definitions, subagent definitions, README changes, and other docs that should change alongside the code.
 
-## Tool: ttal subagent run
+## Tool: Agent
 
-Invoke specialist reviewers via Bash:
+Invoke specialist reviewers via the CC Agent tool (not Bash). Make all applicable calls in parallel in a single response.
 
-```bash
-ttal subagent run <name> "<prompt with plan ID and project path>"
-```
+The agent name maps to the subagent definition (e.g., agent name 'plan-gap-finder' uses the plan-gap-finder subagent).
 
-Available reviewers: `plan-gap-finder`, `plan-code-reviewer`, `plan-test-reviewer`, `plan-security-reviewer`, `plan-docs-reviewer`.
+Available reviewers: plan-gap-finder, plan-code-reviewer, plan-test-reviewer, plan-security-reviewer, plan-docs-reviewer.
 
 ## Rules
 
