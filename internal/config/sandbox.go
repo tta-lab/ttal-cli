@@ -50,12 +50,12 @@ import (
 type SandboxConfig struct {
 	Enabled                  bool          `toml:"enabled"`
 	AutoAllowBashIfSandboxed *bool         `toml:"autoAllowBashIfSandboxed"`
+	ExcludedCommands         []string      `toml:"excludedCommands"`
 	AllowWrite               []string      `toml:"allowWrite"`
 	DenyWrite                []string      `toml:"denyWrite"`
 	DenyRead                 []string      `toml:"denyRead"`
 	AllowRead                []string      `toml:"allowRead"`
 	PermissionsDeny          []string      `toml:"permissionsDeny"`
-	ExcludedCommands         []string      `toml:"excludedCommands"`
 	Network                  NetworkConfig `toml:"network"`
 }
 
