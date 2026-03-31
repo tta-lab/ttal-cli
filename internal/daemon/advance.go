@@ -161,6 +161,13 @@ func handlePipelineAdvance(
 		return
 	}
 
+	// Guard: reject named manager-plane agents from advancing another agent's owned task.
+	// Once a task is assigned to an agent (owner tag set), only that agent can drive it forward.
+	// Workers (empty AgentName or unknown to agentRoles) always pass through.
+	if checkOwnershipGuard(w, task, req.AgentName, agentRoles) {
+		return
+	}
+
 	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
 		req.AgentName, req.SessionName, req.WorkDir, team, workerRuntime, teamPath, agentRoles)
 }
@@ -428,6 +435,35 @@ func checkCallerPastStage(
 		Status: AdvanceStatusRejected,
 		Message: fmt.Sprintf("Task %s is already at stage %s — your stage (%s) is complete. No action needed.",
 			taskUUID, currentStageName, callerStageName),
+	})
+	return true
+}
+
+// checkOwnershipGuard rejects named manager-plane agents from advancing a task
+// owned by a different agent. Once a task has an owner tag (set by advanceToStage when
+// routing to an agent), only that agent may drive it forward. Workers (empty AgentName
+// or not found in agentRoles) and unowned tasks always pass through.
+// Returns true when the response has been written (caller should return).
+func checkOwnershipGuard(
+	w http.ResponseWriter,
+	task *taskwarrior.Task,
+	callerAgent string,
+	agentRoles map[string]string,
+) bool {
+	if callerAgent == "" {
+		return false
+	}
+	if _, isAgent := agentRoles[callerAgent]; !isAgent {
+		return false // not a recognized manager-plane agent (e.g. worker session name)
+	}
+	ownerAgent := findAgentTag(task.Tags, agentRoles)
+	if ownerAgent == "" || ownerAgent == callerAgent {
+		return false
+	}
+	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+		Status: AdvanceStatusRejected,
+		Message: fmt.Sprintf("Task %s is owned by %s — only they can advance it.",
+			task.HexID(), ownerAgent),
 	})
 	return true
 }

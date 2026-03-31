@@ -623,6 +623,77 @@ func TestResolveReviewerSession(t *testing.T) {
 	})
 }
 
+// TestCheckOwnershipGuard verifies that the ownership guard allows or rejects correctly.
+func TestCheckOwnershipGuard(t *testing.T) {
+	agentRoles := map[string]string{
+		testAgentInke: "designer",
+		"yuki":        "manager",
+		"athena":      "researcher",
+	}
+
+	newTask := func(tags ...string) *taskwarrior.Task {
+		return &taskwarrior.Task{
+			UUID: "abcd1234-0000-0000-0000-000000000000",
+			Tags: tags,
+		}
+	}
+
+	t.Run("owner calls go on own task — allowed", func(t *testing.T) {
+		task := newTask("plan", testAgentInke)
+		w := httptest.NewRecorder()
+		rejected := checkOwnershipGuard(w, task, testAgentInke, agentRoles)
+		if rejected {
+			t.Error("owner should be allowed to advance their own task")
+		}
+	})
+
+	t.Run("non-owner manager calls go on owned task — rejected", func(t *testing.T) {
+		task := newTask("plan", testAgentInke) // owned by inke
+		w := httptest.NewRecorder()
+		rejected := checkOwnershipGuard(w, task, "yuki", agentRoles)
+		if !rejected {
+			t.Error("non-owner manager should be rejected")
+		}
+		var resp AdvanceResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if resp.Status != AdvanceStatusRejected {
+			t.Errorf("expected status %q, got %q", AdvanceStatusRejected, resp.Status)
+		}
+		if !strings.Contains(resp.Message, testAgentInke) {
+			t.Errorf("message should name the owner %q: %s", testAgentInke, resp.Message)
+		}
+	})
+
+	t.Run("unowned task — allowed", func(t *testing.T) {
+		task := newTask("plan", "feature") // no agent tag
+		w := httptest.NewRecorder()
+		rejected := checkOwnershipGuard(w, task, "yuki", agentRoles)
+		if rejected {
+			t.Error("unowned task should always be allowed (routing phase)")
+		}
+	})
+
+	t.Run("empty callerAgent (worker) — allowed", func(t *testing.T) {
+		task := newTask("plan", testAgentInke)
+		w := httptest.NewRecorder()
+		rejected := checkOwnershipGuard(w, task, "", agentRoles)
+		if rejected {
+			t.Error("empty callerAgent should be allowed (worker)")
+		}
+	})
+
+	t.Run("caller not in agentRoles (worker session name) — allowed", func(t *testing.T) {
+		task := newTask("plan", testAgentInke)
+		w := httptest.NewRecorder()
+		rejected := checkOwnershipGuard(w, task, "3860d481-ttal", agentRoles)
+		if rejected {
+			t.Error("unknown agent name (worker session) should be allowed")
+		}
+	})
+}
+
 // TestFindAgentTag verifies the findAgentTag helper.
 func TestFindAgentTag(t *testing.T) {
 	agentRoles := map[string]string{
