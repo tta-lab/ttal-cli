@@ -36,6 +36,11 @@ import (
 //
 //	Set to false to require approval for each bash command.
 //
+// ExcludedCommands        — commands run unsandboxed (maps to sandbox.excludedCommands).
+//
+//	These commands bypass sandbox restrictions entirely. Use with care — they run with
+//	full filesystem and network access regardless of sandbox settings.
+//
 // Network                 — network access config (allowed domains, unix sockets are hardcoded by sync).
 //
 // Enabled controls whether ttal sync writes sandbox enforcement to settings.json.
@@ -48,6 +53,7 @@ type SandboxConfig struct {
 	DenyRead                 []string      `toml:"denyRead"`
 	AllowRead                []string      `toml:"allowRead"`
 	PermissionsDeny          []string      `toml:"permissionsDeny"`
+	ExcludedCommands         []string      `toml:"excludedCommands"`
 	Network                  NetworkConfig `toml:"network"`
 }
 

@@ -974,3 +974,126 @@ permissionsDeny = ["~/.aws/credentials", "Read(~/.ssh/id_ed25519)"]
 		t.Errorf("expected wrapped path %q in deny, got %v", wantWrapped, deny)
 	}
 }
+
+// TestBuildSandboxSection_ExcludedCommandsIncluded verifies that excludedCommands is
+// written at the top level of the sandbox section when non-empty.
+func TestBuildSandboxSection_ExcludedCommandsIncluded(t *testing.T) {
+	cmds := []string{"CustomCommand", "AnotherTool"}
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, excludedCommands: cmds})
+
+	ec, ok := section["excludedCommands"].([]interface{})
+	if !ok {
+		t.Fatal("expected excludedCommands in sandbox section")
+	}
+	if len(ec) != 2 {
+		t.Errorf("expected 2 excludedCommands, got %d: %v", len(ec), ec)
+	}
+	for i, cmd := range cmds {
+		if ec[i] != cmd {
+			t.Errorf("expected excludedCommands[%d]=%q, got %q", i, cmd, ec[i])
+		}
+	}
+}
+
+// TestBuildSandboxSection_ExcludedCommandsTopLevel verifies that excludedCommands is
+// at the top level of the sandbox section, NOT inside filesystem or network.
+func TestBuildSandboxSection_ExcludedCommandsTopLevel(t *testing.T) {
+	cmds := []string{"MyCommand"}
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}, excludedCommands: cmds})
+
+	// Must be at top level
+	if _, ok := section["excludedCommands"]; !ok {
+		t.Fatal("expected excludedCommands at top level of sandbox section")
+	}
+
+	// Must NOT be inside filesystem
+	fs := section["filesystem"].(map[string]interface{})
+	if _, ok := fs["excludedCommands"]; ok {
+		t.Error("excludedCommands should NOT be inside filesystem section")
+	}
+
+	// Must NOT be inside network
+	net := section["network"].(map[string]interface{})
+	if _, ok := net["excludedCommands"]; ok {
+		t.Error("excludedCommands should NOT be inside network section")
+	}
+}
+
+// TestBuildSandboxSection_EmptyExcludedCommandsOmitted verifies that excludedCommands
+// is absent when empty.
+func TestBuildSandboxSection_EmptyExcludedCommandsOmitted(t *testing.T) {
+	section := buildSandboxSection(sandboxSectionOpts{allowWrite: []string{"/tmp"}})
+	if _, ok := section["excludedCommands"]; ok {
+		t.Error("expected excludedCommands absent when empty")
+	}
+}
+
+// TestSyncSandbox_ExcludedCommandsWrittenToSettings verifies that excludedCommands
+// from sandbox.toml appears in settings.json sandbox section at top level.
+func TestSyncSandbox_ExcludedCommandsWrittenToSettings(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = []
+excludedCommands = ["CustomTool", "DebugCmd"]
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+
+	sandbox := settings["sandbox"].(map[string]interface{})
+	ec, ok := sandbox["excludedCommands"].([]interface{})
+	if !ok {
+		t.Fatal("expected excludedCommands in sandbox section of settings.json")
+	}
+	want := map[string]bool{"CustomTool": true, "DebugCmd": true}
+	for _, v := range ec {
+		s, ok := v.(string)
+		if !ok {
+			t.Errorf("unexpected non-string excludedCommand: %v", v)
+			continue
+		}
+		delete(want, s)
+	}
+	if len(want) > 0 {
+		t.Errorf("missing excludedCommands in settings.json: %v", want)
+	}
+}
+
+// TestSyncSandbox_ExcludedCommandsAbsentWhenEmpty verifies that excludedCommands
+// is not written to settings.json when field is absent in sandbox.toml.
+func TestSyncSandbox_ExcludedCommandsAbsentWhenEmpty(t *testing.T) {
+	dir := writeSandboxConfig(t, `
+enabled = true
+allowWrite = []
+denyRead = []
+`)
+	writeProjectsConfig(t, dir)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	_, err := syncSandbox(false, settingsPath)
+	if err != nil {
+		t.Fatalf("syncSandbox: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("parse settings.json: %v", err)
+	}
+
+	sandbox := settings["sandbox"].(map[string]interface{})
+	if _, ok := sandbox["excludedCommands"]; ok {
+		t.Error("expected excludedCommands absent when not configured in sandbox.toml")
+	}
+}

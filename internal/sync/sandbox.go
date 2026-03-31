@@ -69,13 +69,14 @@ func syncSandbox(dryRun bool, settingsPath string) (SandboxResult, error) {
 	// Replace sandbox section, preserving any existing user unix sockets.
 	existingSockets := extractExistingSockets(settings)
 	settings["sandbox"] = buildSandboxSection(sandboxSectionOpts{
-		allowWrite:      allowWrite,
-		denyWrite:       sandbox.ExpandedDenyWrite(),
-		denyRead:        denyRead,
-		allowRead:       sandbox.ExpandedAllowRead(),
-		allowedDomains:  sandbox.Network.AllowedDomains,
-		autoAllowBash:   sandbox.AutoAllowBashIfSandboxed,
-		existingSockets: existingSockets,
+		allowWrite:       allowWrite,
+		denyWrite:        sandbox.ExpandedDenyWrite(),
+		denyRead:         denyRead,
+		allowRead:        sandbox.ExpandedAllowRead(),
+		allowedDomains:   sandbox.Network.AllowedDomains,
+		autoAllowBash:    sandbox.AutoAllowBashIfSandboxed,
+		existingSockets:  existingSockets,
+		excludedCommands: sandbox.ExcludedCommands,
 	})
 
 	// Append permissions.deny entries from sandbox.toml (additive, preserve existing).
@@ -142,13 +143,14 @@ func tmuxSocketPath() string {
 // sandboxSectionOpts holds parameters for buildSandboxSection.
 // Named fields prevent silent transposition of the five []string parameters.
 type sandboxSectionOpts struct {
-	allowWrite      []string
-	denyWrite       []string
-	denyRead        []string
-	allowRead       []string
-	allowedDomains  []string
-	autoAllowBash   *bool
-	existingSockets []string
+	allowWrite       []string
+	denyWrite        []string
+	denyRead         []string
+	allowRead        []string
+	allowedDomains   []string
+	autoAllowBash    *bool
+	existingSockets  []string
+	excludedCommands []string
 }
 
 // buildSandboxSection constructs the full sandbox object for settings.json.
@@ -206,6 +208,12 @@ func buildSandboxSection(opts sandboxSectionOpts) map[string]interface{} {
 		"network":                  network,
 		"filesystem":               fs,
 	}
+
+	// excludedCommands: commands run unsandboxed — top-level field in sandbox section
+	if len(opts.excludedCommands) > 0 {
+		section["excludedCommands"] = toIfaceSlice(opts.excludedCommands)
+	}
+
 	if opts.autoAllowBash != nil {
 		section["autoAllowBashIfSandboxed"] = *opts.autoAllowBash
 	}
