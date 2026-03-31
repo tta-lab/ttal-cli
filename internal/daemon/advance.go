@@ -161,6 +161,13 @@ func handlePipelineAdvance(
 		return
 	}
 
+	// Guard: reject named manager-plane agents from advancing another agent's owned task.
+	// Once a task is assigned to an agent (owner tag set), only that agent can drive it forward.
+	// Workers (empty AgentName or unknown to agentRoles) always pass through.
+	if checkOwnershipGuard(w, task, req.AgentName, agentRoles) {
+		return
+	}
+
 	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
 		req.AgentName, req.SessionName, req.WorkDir, team, workerRuntime, teamPath, agentRoles)
 }
@@ -266,7 +273,8 @@ func processStageAdvance(
 			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
 			spawnMsg = " (spawn skipped: daemon config not loaded)"
 		default:
-			if err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global); err != nil {
+			err := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, agentRoles, mcfg.Global)
+			if err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
 				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
 			} else {
@@ -307,11 +315,31 @@ func processStageAdvance(
 	}
 }
 
+// resolveReviewerSession determines which tmux session should host the plan-review window.
+// The reviewer belongs in the task owner's session (the agent whose name tag is on the task),
+// not the caller's session (the agent who ran ttal go).
+// Falls back to callerSession when no agent tag is found on the task or when team is empty.
+func resolveReviewerSession(taskTags []string, agentRoles map[string]string, team, callerSession string) string {
+	if team == "" {
+		return callerSession
+	}
+	ownerAgent := findAgentTag(taskTags, agentRoles)
+	if ownerAgent == "" {
+		return callerSession
+	}
+	return config.AgentSessionName(team, ownerAgent)
+}
+
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
 // workDir is the caller's working directory (passed via AdvanceRequest).
+// For plan-review, workDir is overridden with the project's registered path so the reviewer
+// runs in the correct directory, not the caller's workspace.
+// For PR-review, workDir is used as-is — the caller is the worker.
 func spawnOrRetriggerReviewerFromDaemon(
 	task *taskwarrior.Task, stage *pipeline.Stage,
-	sessionName, workDir string, cfg *config.Config,
+	sessionName, workDir, team string,
+	agentRoles map[string]string,
+	cfg *config.Config,
 ) error {
 	reviewerAgent := stage.Reviewer
 
@@ -328,12 +356,22 @@ func spawnOrRetriggerReviewerFromDaemon(
 		return review.SpawnReviewer(sessionName, ctx, reviewerAgent, cfg, workDir)
 	}
 
-	if tmux.WindowExists(sessionName, reviewerAgent) {
-		log.Printf("[advance] re-triggering plan reviewer %s for task %s", reviewerAgent, task.UUID)
-		return planreview.RequestReReview(sessionName, reviewerAgent, "", cfg)
+	// Plan-review: resolve the task owner's session instead of using the caller's.
+	// PR-review (above) correctly uses the caller's session — the caller is the worker.
+	targetSession := resolveReviewerSession(task.Tags, agentRoles, team, sessionName)
+	targetWorkDir := workDir
+	if projectPath := projectPkg.ResolveProjectPath(task.Project); projectPath != "" {
+		targetWorkDir = projectPath
 	}
-	log.Printf("[advance] spawning plan reviewer %s for task %s", reviewerAgent, task.UUID)
-	return planreview.SpawnPlanReviewer(sessionName, task, reviewerAgent, cfg, workDir)
+
+	if tmux.WindowExists(targetSession, reviewerAgent) {
+		log.Printf("[advance] re-triggering plan reviewer %s for task %s in session %q",
+			reviewerAgent, task.UUID, targetSession)
+		return planreview.RequestReReview(targetSession, reviewerAgent, "", cfg)
+	}
+	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q",
+		reviewerAgent, task.UUID, targetSession)
+	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, cfg, targetWorkDir)
 }
 
 // buildPRContextFromTask builds a PR context from a task and working directory.
@@ -397,6 +435,35 @@ func checkCallerPastStage(
 		Status: AdvanceStatusRejected,
 		Message: fmt.Sprintf("Task %s is already at stage %s — your stage (%s) is complete. No action needed.",
 			taskUUID, currentStageName, callerStageName),
+	})
+	return true
+}
+
+// checkOwnershipGuard rejects named manager-plane agents from advancing a task
+// owned by a different agent. Once a task has an owner tag (set by advanceToStage when
+// routing to an agent), only that agent may drive it forward. Workers (empty AgentName
+// or not found in agentRoles) and unowned tasks always pass through.
+// Returns true when the response has been written (caller should return).
+func checkOwnershipGuard(
+	w http.ResponseWriter,
+	task *taskwarrior.Task,
+	callerAgent string,
+	agentRoles map[string]string,
+) bool {
+	if callerAgent == "" {
+		return false
+	}
+	if _, isAgent := agentRoles[callerAgent]; !isAgent {
+		return false // not a recognized manager-plane agent (e.g. worker session name)
+	}
+	ownerAgent := findAgentTag(task.Tags, agentRoles)
+	if ownerAgent == "" || ownerAgent == callerAgent {
+		return false
+	}
+	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+		Status: AdvanceStatusRejected,
+		Message: fmt.Sprintf("Task %s is owned by %s — only they can advance it.",
+			task.HexID(), ownerAgent),
 	})
 	return true
 }
