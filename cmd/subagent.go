@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/logos"
 	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/project"
 	internalsync "github.com/tta-lab/ttal-cli/internal/sync"
 )
 
@@ -24,17 +25,22 @@ var subagentRunFlags struct {
 	maxSteps   int
 	maxTokens  int
 	sandboxEnv []string
+	project    string
+	repo       string
 }
 
 var subagentRunCmd = &cobra.Command{
 	Use:   "run <name> <prompt>",
 	Short: "Execute a subagent by name using its ttal: frontmatter config",
-	Long: `Run a named subagent using model/tools/system-prompt from its ttal: frontmatter.
-CWD is automatically added to allowed paths.
+	Long: `Run a named subagent using model/access/system-prompt from its ttal: frontmatter.
+Sandbox paths are loaded from sandbox.toml. CWD access is controlled by the agent's
+ttal.access field: "rw" for read-write, "ro" for read-only.
 
 Examples:
   ttal subagent run pr-code-reviewer "Review the current diff"
-  ttal subagent run web-fetcher "Fetch https://example.com and summarize"`,
+  ttal subagent run coder "implement the foo function in bar.go"
+  ttal subagent run coder "implement X" --project ttal-cli
+  ttal subagent run pr-code-reviewer "Review PR" --repo woodpecker-ci/woodpecker`,
 	Args: cobra.ExactArgs(2),
 	RunE: runSubagentByName,
 }
@@ -74,6 +80,99 @@ func findTtalAgent(name string, paths []string) (*internalsync.ParsedAgent, erro
 	return nil, fmt.Errorf("agent %q not found — available: %s", name, strings.Join(available, ", "))
 }
 
+// commandsForAccess returns the command docs appropriate for the given access level.
+// "rw" agents get AllCommands + src edit operations; "ro" agents get AllCommands only.
+func commandsForAccess(access string) []logos.CommandDoc {
+	if access == "rw" {
+		return ask.RWCommands()
+	}
+	return ask.AllCommands()
+}
+
+// buildSandboxPaths constructs AllowedPaths from sandbox.toml + CWD.
+// allowWrite paths → rw, allowRead paths → ro, CWD → rw/ro per access field.
+// Paths appearing in both lists are deduplicated (rw wins).
+func buildSandboxPaths(sandbox *config.SandboxConfig, cwd, access string) []logos.AllowedPath {
+	cwdReadOnly := access != "rw"
+
+	// Build a deduplicated map: path → readOnly. RW wins over RO.
+	seen := make(map[string]bool) // true = readOnly
+	var ordered []string
+
+	addPath := func(p string, readOnly bool) {
+		if existing, ok := seen[p]; ok {
+			// RW wins — upgrade ro to rw if needed.
+			if existing && !readOnly {
+				seen[p] = false
+			}
+			return
+		}
+		seen[p] = readOnly
+		ordered = append(ordered, p)
+	}
+
+	for _, p := range sandbox.ExpandedAllowWrite() {
+		addPath(p, false)
+	}
+	for _, p := range sandbox.ExpandedAllowRead() {
+		addPath(p, true)
+	}
+	// CWD goes last (may upgrade an existing entry or add a new one).
+	addPath(cwd, cwdReadOnly)
+
+	paths := make([]logos.AllowedPath, 0, len(ordered))
+	for _, p := range ordered {
+		paths = append(paths, logos.AllowedPath{Path: p, ReadOnly: seen[p]})
+	}
+	return paths
+}
+
+// resolveCWD returns the working directory for subagent run based on flags.
+//
+//   - --project <alias> → registered project path (access from agent frontmatter)
+//   - --repo <ref>      → local clone path (always ro)
+//   - neither           → os.Getwd()
+//
+// Returns cwd, effectiveAccess, and any error.
+func resolveCWD(ctx context.Context, ttalCfg *config.Config, agentAccess string) (
+	cwd, effectiveAccess string, err error,
+) {
+	switch {
+	case subagentRunFlags.project != "" && subagentRunFlags.repo != "":
+		return "", "", fmt.Errorf("--project and --repo are mutually exclusive")
+	case subagentRunFlags.project != "":
+		p, resolveErr := project.GetProjectPath(subagentRunFlags.project)
+		if resolveErr != nil {
+			return "", "", fmt.Errorf("resolve project: %w", resolveErr)
+		}
+		return p, agentAccess, nil
+	case subagentRunFlags.repo != "":
+		cloneURL, localPath, resolveErr := ask.ResolveRepoRef(subagentRunFlags.repo, ttalCfg.AskReferencesPath())
+		if resolveErr != nil {
+			return "", "", fmt.Errorf("resolve repo: %w", resolveErr)
+		}
+		if ensureErr := ask.EnsureRepo(ctx, cloneURL, localPath); ensureErr != nil {
+			return "", "", fmt.Errorf("ensure repo: %w", ensureErr)
+		}
+		return localPath, "ro", nil // repos are always read-only
+	default:
+		wd, wdErr := os.Getwd()
+		if wdErr != nil {
+			return "", "", fmt.Errorf("get working directory: %w", wdErr)
+		}
+		return wd, agentAccess, nil
+	}
+}
+
+// claudeMDInstruction is appended to every subagent's system prompt.
+// It instructs the agent to discover and read CLAUDE.md / AGENTS.md conventions.
+const claudeMDInstruction = `
+
+## Project Conventions
+
+Before starting work, check for CLAUDE.md and AGENTS.md in the project root and subfolders. If found,
+read them — they contain project conventions, architecture notes, and coding guidelines you must follow.`
+
 func runSubagentByName(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	prompt := args[1]
@@ -88,9 +187,18 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if agent.Frontmatter.Ttal == nil {
+		return fmt.Errorf("agent %q has no ttal: block — add 'ttal: access: ro' or 'ttal: access: rw' to its frontmatter", name) //nolint:lll
+	}
+
+	access := agent.Frontmatter.Ttal.Access
+	if access != "ro" && access != "rw" {
+		return fmt.Errorf("agent %q has invalid access %q (want ro or rw)", name, access)
+	}
+
 	model := agent.Frontmatter.Ttal.Model
 	if model == "" {
-		return fmt.Errorf("agent %q has no model in ttal: frontmatter", name)
+		model = ttalCfg.AskModel()
 	}
 
 	provider, modelID, err := ask.BuildProvider(model)
@@ -98,13 +206,12 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("build provider: %w", err)
 	}
 
-	cwd, err := os.Getwd()
+	cwd, effectiveAccess, err := resolveCWD(cmd.Context(), ttalCfg, access)
 	if err != nil {
-		return fmt.Errorf("get working directory: %w", err)
+		return err
 	}
 
-	// Derive command list from frontmatter tools list.
-	commands := deriveCommands(agent.Frontmatter.Ttal.Tools)
+	commands := commandsForAccess(effectiveAccess)
 
 	promptData := logos.PromptData{
 		WorkingDir: cwd,
@@ -119,6 +226,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 	if agent.Body != "" {
 		systemPrompt += "\n\n" + agent.Body
 	}
+	systemPrompt += claudeMDInstruction
 
 	tc, err := ask.NewTemenosClient(context.Background())
 	if err != nil {
@@ -137,6 +245,9 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		envMap[k] = v
 	}
 
+	sandbox := config.LoadSandbox()
+	allowedPaths := buildSandboxPaths(sandbox, cwd, effectiveAccess)
+
 	printAgentHeader(agent.Frontmatter.Emoji, name)
 
 	cfg := logos.Config{
@@ -147,51 +258,13 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		MaxTokens:    maxTokens,
 		Temenos:      tc,
 		SandboxEnv:   envMap,
-		AllowedPaths: []logos.AllowedPath{{Path: cwd, ReadOnly: true}},
+		AllowedPaths: allowedPaths,
 	}
 
 	result, err := logos.Run(context.Background(), cfg, nil, prompt, logos.Callbacks{
 		OnDelta: renderDelta,
 	})
 	return flushAgentResult(result, err)
-}
-
-// deriveCommands maps frontmatter tool names to logos CommandDoc entries.
-// If tools is empty, defaults to all commands (full access).
-// Output order is always canonical (url, web, rg, src) regardless of input order.
-func deriveCommands(toolNames []string) []logos.CommandDoc {
-	if len(toolNames) == 0 {
-		return ask.AllCommands()
-	}
-	var hasURL, hasWeb, hasRG, hasSrc bool
-	for _, t := range toolNames {
-		switch t {
-		case "read_url":
-			hasURL = true
-		case "search_web":
-			hasWeb = true
-		case "bash", "read", "read_md", "glob", "grep":
-			hasRG = true
-		case "read_src":
-			hasSrc = true
-		default:
-			fmt.Fprintf(os.Stderr, "warning: unrecognised tool %q in agent frontmatter — ignored\n", t)
-		}
-	}
-	var cmds []logos.CommandDoc
-	if hasURL {
-		cmds = append(cmds, ask.FetchCommandDoc)
-	}
-	if hasWeb {
-		cmds = append(cmds, ask.WebCommandDoc)
-	}
-	if hasRG {
-		cmds = append(cmds, ask.RGCommandDoc)
-	}
-	if hasSrc {
-		cmds = append(cmds, ask.SrcCommandDoc)
-	}
-	return cmds
 }
 
 func listSubagents(_ *cobra.Command, _ []string) error {
@@ -210,8 +283,8 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Compute column widths
-	nameW, modelW, toolsW := len("NAME"), len("MODEL"), len("TOOLS")
+	// Compute column widths.
+	nameW, accessW, modelW := len("NAME"), len("ACCESS"), len("MODEL")
 	for _, a := range agents {
 		if a.Frontmatter.Ttal == nil {
 			continue
@@ -219,24 +292,30 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 		if n := len(a.Frontmatter.Name); n > nameW {
 			nameW = n
 		}
-		if n := len(a.Frontmatter.Ttal.Model); n > modelW {
-			modelW = n
+		if n := len(a.Frontmatter.Ttal.Access); n > accessW {
+			accessW = n
 		}
-		ts := strings.Join(a.Frontmatter.Ttal.Tools, ", ")
-		if n := len(ts); n > toolsW {
-			toolsW = n
+		m := a.Frontmatter.Ttal.Model
+		if m == "" {
+			m = "(default)"
+		}
+		if n := len(m); n > modelW {
+			modelW = n
 		}
 	}
 
-	// Header
-	fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, "NAME", modelW, "MODEL", toolsW, "TOOLS", "DESCRIPTION")
+	// Header.
+	fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, "NAME", accessW, "ACCESS", modelW, "MODEL", "DESCRIPTION")
 	for _, a := range agents {
 		if a.Frontmatter.Ttal == nil {
 			continue
 		}
-		ts := strings.Join(a.Frontmatter.Ttal.Tools, ", ")
+		m := a.Frontmatter.Ttal.Model
+		if m == "" {
+			m = "(default)"
+		}
 		desc := firstLine(a.Frontmatter.Description)
-		fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, modelW, a.Frontmatter.Ttal.Model, toolsW, ts, desc)
+		fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, accessW, a.Frontmatter.Ttal.Access, modelW, m, desc)
 	}
 	return nil
 }
@@ -282,6 +361,8 @@ func init() {
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
 	)
+	subagentRunCmd.Flags().StringVar(&subagentRunFlags.project, "project", "", "Run against a registered ttal project")         //nolint:lll
+	subagentRunCmd.Flags().StringVar(&subagentRunFlags.repo, "repo", "", "Run against a GitHub/Forgejo repo (auto-clone/pull)") //nolint:lll
 
 	subagentCmd.AddCommand(subagentRunCmd)
 	subagentCmd.AddCommand(subagentListCmd)

@@ -25,6 +25,8 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
+ttal:
+  access: ro
 ---
 
 You are an expert code reviewer specializing in software engineering principles. Your job is to review PR diffs and flag violations of established principles with specific, actionable suggestions.

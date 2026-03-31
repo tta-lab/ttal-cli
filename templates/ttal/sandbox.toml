@@ -55,8 +55,6 @@ denyRead = []
 # Allowlist: dirs that agents legitimately need to read.
 allowRead = [
   ".",                                   # current project (always needed)
-  "~/.ssh",                              # SSH dir — git needs this for auth
-  "~/.gnupg",                            # GPG — git needs this for signing
   "~/.config/ttal",                      # ttal config (projects.toml, sandbox.toml, etc.)
   "~/.config/flicknote",                 # flicknote config
   "~/.config/git",                       # git config
@@ -79,8 +77,6 @@ denyWrite = []
 permissionsDeny = [
   "Read(~/.config/ttal/.env)",           # ttal secrets (.env)
   "Write(~/.config/ttal/.env)",          # prevent overwriting ttal secrets
-  "Read(~/.ssh/id_ed25519)",             # SSH private key
-  "Read(~/.gnupg/**)",                   # GPG private keys
   "Read(~/.netrc)",                      # HTTPS auth credentials
   "Read(~/.aws/credentials)",            # AWS credentials
   "Read(~/.kube/config)",               # Kubernetes config

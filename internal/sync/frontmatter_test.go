@@ -52,6 +52,15 @@ Just a body.
 			body: "Just a body.",
 		},
 		{
+			name:  "with ttal access config",
+			input: "---\nname: coder\nttal:\n  access: rw\n---\nBody.\n",
+			want: AgentFrontmatter{
+				Name: "coder",
+				Ttal: &TtalAgentConfig{Access: "rw"},
+			},
+			body: "Body.",
+		},
+		{
 			name:    "missing name",
 			input:   "---\ndescription: no name\n---\nbody\n",
 			wantErr: "missing required field: name",
@@ -99,6 +108,14 @@ Just a body.
 			// Check runtime block presence
 			if tt.want.ClaudeCode != nil && got.Frontmatter.ClaudeCode == nil {
 				t.Error("expected ClaudeCode to be non-nil")
+			}
+			if tt.want.Ttal != nil {
+				if got.Frontmatter.Ttal == nil {
+					t.Fatal("expected Ttal to be non-nil")
+				}
+				if got.Frontmatter.Ttal.Access != tt.want.Ttal.Access {
+					t.Errorf("Ttal.Access = %q, want %q", got.Frontmatter.Ttal.Access, tt.want.Ttal.Access)
+				}
 			}
 		})
 	}

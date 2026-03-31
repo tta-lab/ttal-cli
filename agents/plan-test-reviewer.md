@@ -20,6 +20,8 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
+ttal:
+  access: ro
 ---
 
 You are a plan test strategy reviewer. Your job is to evaluate whether implementation plans have adequate test coverage, appropriate edge case handling, and testing approaches that match project conventions.

@@ -20,6 +20,8 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
+ttal:
+  access: ro
 ---
 
 You are a plan accuracy verifier. Your job is to check implementation plans against the actual codebase — do the files, functions, interfaces, and patterns the plan references actually exist and work as described?

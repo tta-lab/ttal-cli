@@ -24,7 +24,6 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
-    - Agent
 ---
 
 # Plan Review Lead
@@ -58,18 +57,22 @@ Gather all context before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Parallel Dispatch (Agent calls ONLY)
+### Phase 2: Subagent Dispatch (ttal subagent run via Bash)
 
-⚠️ **CRITICAL: Launch ALL applicable agents in a SINGLE response. Do NOT spawn agents one at a time across separate messages. All reviews are independent — there are zero data dependencies between them.**
+Run each applicable reviewer via `ttal subagent run`. Pass the flicknote ID and target project path in the prompt. Run sequentially — each reviewer is independent.
 
-Pass each subagent the flicknote ID and target project path. Launch simultaneously (all in one response):
-- **plan-gap-finder**: Check for structural gaps, ambiguities, and scope issues
-- **plan-code-reviewer**: Verify technical accuracy against the actual codebase
-- **plan-test-reviewer**: Evaluate test strategy and edge case coverage (if applicable)
-- **plan-security-reviewer**: Check for security concerns (if applicable)
-- **plan-docs-reviewer**: Check for documentation impacts (if applicable)
+```bash
+ttal subagent run plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
+ttal subagent run plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
+# If plan has implementation tasks:
+ttal subagent run plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
+# If plan touches auth, APIs, secrets, or user input:
+ttal subagent run plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
+# If repo has CLAUDE.md, skills, or subagents:
+ttal subagent run plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
+```
 
-Do NOT include any Bash, Read, Glob, or Grep calls in this phase — only Agent calls.
+Collect and note the output from each reviewer before moving to Phase 3.
 
 ### Phase 3: Synthesize & Aggregate (after all agents complete)
 
@@ -152,6 +155,16 @@ Compare against the previous round's issues:
 **plan-security-reviewer**: Checks for auth gaps, injection risks, secrets handling, privilege escalation, and data exposure. Only runs when the plan touches security-relevant code.
 
 **plan-docs-reviewer**: Checks whether the plan accounts for documentation impacts — CLAUDE.md updates, skill definitions, subagent definitions, README changes, and other docs that should change alongside the code.
+
+## Tool: ttal subagent run
+
+Invoke specialist reviewers via Bash:
+
+```bash
+ttal subagent run <name> "<prompt with plan ID and project path>"
+```
+
+Available reviewers: `plan-gap-finder`, `plan-code-reviewer`, `plan-test-reviewer`, `plan-security-reviewer`, `plan-docs-reviewer`.
 
 ## Rules
 
