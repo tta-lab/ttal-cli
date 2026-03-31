@@ -21,6 +21,11 @@ import (
 // workerWindow is the tmux window name used by all worker sessions.
 const workerWindow = worker.CoderAgentName
 
+// clearSettleDelay is the time to wait after sending /clear before sending
+// the start trigger prompt. Allows CC's /clear to complete and the
+// SessionStart hook to re-inject context before the trigger lands.
+const clearSettleDelay = 500 * time.Millisecond
+
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.
 func persistMsg(msgSvc *message.Service, p message.CreateParams) {
@@ -413,7 +418,15 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 		if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
 			log.Printf("[breathe] %s: /clear failed (%v), falling back to restart", req.Agent, err)
 		} else {
-			log.Printf("[breathe] %s: /clear sent (fire-and-forget; hook delivery unconfirmed)", req.Agent)
+			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
+			go func() {
+				time.Sleep(clearSettleDelay)
+				if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "go"); err != nil {
+					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
+				} else {
+					log.Printf("[breathe] %s: start trigger sent", req.Agent)
+				}
+			}()
 			return SendResponse{OK: true}
 		}
 	}
