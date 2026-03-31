@@ -90,76 +90,17 @@ func RunSubagent(ctx context.Context, req SubagentRequest, cfg *config.Config, e
 		return err
 	}
 
-	if agent.Frontmatter.Ttal == nil {
-		return fmt.Errorf("agent %q has no ttal: block — add 'ttal: access: ro' or 'ttal: access: rw' to its frontmatter", req.Name)
-	}
-
-	access := agent.Frontmatter.Ttal.Access
-	if access != "ro" && access != "rw" {
-		return fmt.Errorf("agent %q has invalid access %q (want ro or rw)", req.Name, access)
-	}
-
-	model := agent.Frontmatter.Ttal.Model
-	if model == "" {
-		model = cfg.AskModel()
-	}
-
-	provider, modelID, err := BuildProvider(model)
-	if err != nil {
-		return fmt.Errorf("build provider: %w", err)
-	}
-
-	cwd, effectiveAccess, err := resolveSubagentCWD(ctx, req, cfg, access)
+	access, err := validateAgentAccess(agent, req.Name)
 	if err != nil {
 		return err
 	}
 
-	commands := CommandsForAccess(effectiveAccess)
-
-	promptData := logos.PromptData{
-		WorkingDir: cwd,
-		Platform:   runtime.GOOS,
-		Date:       time.Now().Format("2006-01-02"),
-		Commands:   commands,
-	}
-	systemPrompt, err := logos.BuildSystemPrompt(promptData)
-	if err != nil {
-		return fmt.Errorf("build system prompt: %w", err)
-	}
-	if agent.Body != "" {
-		systemPrompt += "\n\n" + agent.Body
-	}
-	systemPrompt += claudeMDInstruction
-
-	tc, err := NewTemenosClient(ctx)
+	logosCfg, err := buildSubagentConfig(ctx, req, cfg, agent, access)
 	if err != nil {
 		return err
 	}
 
-	maxSteps := req.MaxSteps
-	if maxSteps == 0 {
-		maxSteps = cfg.AskMaxSteps()
-	}
-	maxTokens := req.MaxTokens
-	if maxTokens == 0 {
-		maxTokens = cfg.AskMaxTokens()
-	}
-
-	sandbox := config.LoadSandbox()
-	allowedPaths := BuildSubagentSandboxPaths(sandbox, cwd, effectiveAccess)
-
-	logosCfg := logos.Config{
-		Provider:     provider,
-		Model:        modelID,
-		SystemPrompt: systemPrompt,
-		MaxSteps:     maxSteps,
-		MaxTokens:    maxTokens,
-		Temenos:      tc,
-		SandboxEnv:   req.SandboxEnv,
-		AllowedPaths: allowedPaths,
-	}
-
-	result, err := logos.Run(ctx, logosCfg, nil, req.Prompt, buildLogosCallbacks(emit))
+	result, err := logos.Run(ctx, *logosCfg, nil, req.Prompt, buildLogosCallbacks(emit))
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "max steps") {
@@ -176,6 +117,97 @@ func RunSubagent(ctx context.Context, req SubagentRequest, cfg *config.Config, e
 	}
 	emit(Event{Type: EventDone, Response: response})
 	return nil
+}
+
+// validateAgentAccess checks that the agent has a valid ttal: config block.
+func validateAgentAccess(agent *internalsync.ParsedAgent, name string) (string, error) {
+	if agent.Frontmatter.Ttal == nil {
+		return "", fmt.Errorf(
+			"agent %q has no ttal: block — add 'ttal: access: ro' or 'ttal: access: rw'", name)
+	}
+	access := agent.Frontmatter.Ttal.Access
+	if access != "ro" && access != "rw" {
+		return "", fmt.Errorf("agent %q has invalid access %q (want ro or rw)", name, access)
+	}
+	return access, nil
+}
+
+// buildSubagentConfig assembles the logos.Config for a subagent run.
+func buildSubagentConfig(
+	ctx context.Context,
+	req SubagentRequest,
+	cfg *config.Config,
+	agent *internalsync.ParsedAgent,
+	access string,
+) (*logos.Config, error) {
+	model := agent.Frontmatter.Ttal.Model
+	if model == "" {
+		model = cfg.AskModel()
+	}
+
+	provider, modelID, err := BuildProvider(model)
+	if err != nil {
+		return nil, fmt.Errorf("build provider: %w", err)
+	}
+
+	cwd, effectiveAccess, err := resolveSubagentCWD(ctx, req, cfg, access)
+	if err != nil {
+		return nil, err
+	}
+
+	systemPrompt, err := buildSubagentSystemPrompt(agent, cwd, effectiveAccess)
+	if err != nil {
+		return nil, err
+	}
+
+	tc, err := NewTemenosClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	maxSteps := req.MaxSteps
+	if maxSteps == 0 {
+		maxSteps = cfg.AskMaxSteps()
+	}
+	maxTokens := req.MaxTokens
+	if maxTokens == 0 {
+		maxTokens = cfg.AskMaxTokens()
+	}
+
+	sandbox := config.LoadSandbox()
+	allowedPaths := BuildSubagentSandboxPaths(sandbox, cwd, effectiveAccess)
+
+	return &logos.Config{
+		Provider:     provider,
+		Model:        modelID,
+		SystemPrompt: systemPrompt,
+		MaxSteps:     maxSteps,
+		MaxTokens:    maxTokens,
+		Temenos:      tc,
+		SandboxEnv:   req.SandboxEnv,
+		AllowedPaths: allowedPaths,
+	}, nil
+}
+
+// buildSubagentSystemPrompt creates the full system prompt for a subagent.
+func buildSubagentSystemPrompt(
+	agent *internalsync.ParsedAgent, cwd, access string,
+) (string, error) {
+	promptData := logos.PromptData{
+		WorkingDir: cwd,
+		Platform:   runtime.GOOS,
+		Date:       time.Now().Format("2006-01-02"),
+		Commands:   CommandsForAccess(access),
+	}
+	systemPrompt, err := logos.BuildSystemPrompt(promptData)
+	if err != nil {
+		return "", fmt.Errorf("build system prompt: %w", err)
+	}
+	if agent.Body != "" {
+		systemPrompt += "\n\n" + agent.Body
+	}
+	systemPrompt += claudeMDInstruction
+	return systemPrompt, nil
 }
 
 // findAgent discovers ttal-configured agents and returns the one matching name.
