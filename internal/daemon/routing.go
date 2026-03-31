@@ -427,6 +427,8 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 					log.Printf("[breathe] %s: start trigger sent", req.Agent)
 				}
 			}()
+			// Return OK immediately: the start trigger is best-effort and sent async.
+			// Callers must not assume the agent is ready to receive work at this point.
 			return SendResponse{OK: true}
 		}
 	}
