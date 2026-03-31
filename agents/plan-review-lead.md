@@ -50,13 +50,16 @@ Gather all context before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ttal subagent run via Bash)
+### Phase 2: Subagent Dispatch (ttal subagent run via Bash — parallel)
 
-Run each applicable reviewer via `ttal subagent run`. Pass the flicknote ID and target project path in the prompt. Run sequentially — each reviewer is independent.
+Run all applicable reviewers **in parallel** using `ttal subagent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
 ```bash
+# Always run these two in parallel:
 ttal subagent run plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
 ttal subagent run plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
+
+# Conditional — include in the same parallel batch if applicable:
 # If plan has implementation tasks:
 ttal subagent run plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
 # If plan touches auth, APIs, secrets, or user input:
@@ -151,7 +154,7 @@ Compare against the previous round's issues:
 
 ## Tool: ttal subagent run
 
-Invoke specialist reviewers via Bash:
+Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
 ```bash
 ttal subagent run <name> "<prompt with plan ID and project path>"

@@ -42,14 +42,18 @@ Gather all context needed before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ttal subagent run via Bash)
+### Phase 2: Subagent Dispatch (ttal subagent run via Bash — parallel)
 
-Run each applicable reviewer via `ttal subagent run`. Provide the PR context (changed files, branch) in the prompt. Run sequentially — each reviewer is independent.
+Run all applicable reviewers **in parallel** using `ttal subagent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
 ```bash
+# Always run these two in parallel:
 ttal subagent run pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
-ttal subagent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
 ttal subagent run pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
+
+# Conditional — include in the same parallel batch if applicable:
+# If error handling code changed:
+ttal subagent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
 # If test files changed:
 ttal subagent run pr-test-analyzer "Review the current PR diff for test coverage quality."
 # If comments/docs were added:
@@ -128,7 +132,7 @@ Collect and note the output from each reviewer before moving to Phase 3.
 
 ## Tool: ttal subagent run
 
-Invoke specialist reviewers via Bash:
+Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
 ```bash
 ttal subagent run <name> "<prompt with PR context>"
