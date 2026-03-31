@@ -20,6 +20,8 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
+ttal:
+  access: ro
 ---
 
 You are a plan gap analyst. Your job is to find what's missing, unclear, or structurally wrong in implementation plans before workers execute them.

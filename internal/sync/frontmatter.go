@@ -13,9 +13,11 @@ const ManagedMarkerField = "managed_by: ttal-sync"
 
 // TtalAgentConfig holds ttal-native execution config for a subagent.
 // When present, ttal can run the agent directly without manual --tool/--model flags.
+// Access controls CWD sandbox permissions: "ro" (read-only) or "rw" (read-write).
+// Model is optional — when empty, the config.toml default is used at runtime.
 type TtalAgentConfig struct {
-	Model string   `yaml:"model"`
-	Tools []string `yaml:"tools"`
+	Model  string `yaml:"model"`
+	Access string `yaml:"access"` // "ro" or "rw"
 }
 
 // AgentFrontmatter holds parsed frontmatter from a canonical agent .md file.

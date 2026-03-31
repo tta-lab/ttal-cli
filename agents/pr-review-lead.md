@@ -6,7 +6,7 @@ role: reviewer
 color: blue
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs, Agent]
+  tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # PR Review Lead
@@ -43,19 +43,23 @@ Gather all context needed before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Parallel Dispatch (Agent calls ONLY)
+### Phase 2: Subagent Dispatch (ttal subagent run via Bash)
 
-⚠️ **CRITICAL: Launch ALL applicable agents in a SINGLE response. Do NOT spawn agents one at a time across separate messages. All reviews are independent — there are zero data dependencies between them.**
+Run each applicable reviewer via `ttal subagent run`. Provide the PR context (changed files, branch) in the prompt. Run sequentially — each reviewer is independent.
 
-Launch these agents simultaneously (all in one response):
-- **pr-code-reviewer**: Review general code quality and CLAUDE.md compliance
-- **pr-silent-failure-hunter**: Check error handling and silent failures
-- **pr-principles-reviewer**: Check DRY, SOLID, KISS, YAGNI violations
-- **pr-test-analyzer**: Review test coverage quality (if test files changed)
-- **pr-comment-analyzer**: Analyze code comments (if comments added)
-- **pr-type-design-analyzer**: Analyze type design (if types changed)
+```bash
+ttal subagent run pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
+ttal subagent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
+ttal subagent run pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
+# If test files changed:
+ttal subagent run pr-test-analyzer "Review the current PR diff for test coverage quality."
+# If comments/docs were added:
+ttal subagent run pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
+# If types were added or modified:
+ttal subagent run pr-type-design-analyzer "Review the current PR diff for type design quality."
+```
 
-Do NOT include any Bash, Read, Glob, or Grep calls in this phase — only Agent calls.
+Collect and note the output from each reviewer before moving to Phase 3.
 
 ### Phase 3: Aggregate (after all agents complete)
 
@@ -122,6 +126,16 @@ Do NOT include any Bash, Read, Glob, or Grep calls in this phase — only Agent 
 - Improves clarity and readability
 - Applies project standards
 - Preserves functionality
+
+## Tool: ttal subagent run
+
+Invoke specialist reviewers via Bash:
+
+```bash
+ttal subagent run <name> "<prompt with PR context>"
+```
+
+Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-principles-reviewer`, `pr-test-analyzer`, `pr-comment-analyzer`, `pr-type-design-analyzer`, `pr-code-simplifier`.
 
 ## Tips
 

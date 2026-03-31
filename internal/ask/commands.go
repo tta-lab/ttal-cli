@@ -75,6 +75,29 @@ Examples:
   src docs/architecture.md --tree`,
 }
 
+// SrcWriteCommandDoc documents src edit/replace/insert/delete/comment operations.
+var SrcWriteCommandDoc = logos.CommandDoc{
+	Name:    "src (edit)",
+	Summary: "Symbol-aware source editor",
+	Help: `Edit operations:
+  echo "..." | src replace <file> -s <id>       Replace symbol body
+  echo "..." | src insert <file> --after <id>   Insert after symbol
+  echo "..." | src insert <file> --before <id>  Insert before symbol
+  src delete <file> -s <id>                     Delete symbol
+  echo "// doc" | src comment <file> -s <id>    Write doc comment
+
+Text-level edit (for any file):
+  cat <<'EDIT' | src edit <file>
+  ===BEFORE===
+  old text
+  ===AFTER===
+  new text
+  EDIT
+
+4-pass matching: exact > trim-trailing > trim-both > Unicode fold.
+Always shows colored diff + updated symbol tree.`,
+}
+
 // NetworkCommands returns CommandDocs for network-only modes (--url, --web).
 func NetworkCommands() []logos.CommandDoc {
 	return []logos.CommandDoc{FetchCommandDoc, WebCommandDoc}
@@ -83,4 +106,9 @@ func NetworkCommands() []logos.CommandDoc {
 // AllCommands returns CommandDocs for modes with both filesystem and network access.
 func AllCommands() []logos.CommandDoc {
 	return append(NetworkCommands(), RGCommandDoc, SrcCommandDoc)
+}
+
+// RWCommands returns CommandDocs for rw agents — all of AllCommands plus src edit operations.
+func RWCommands() []logos.CommandDoc {
+	return append(AllCommands(), SrcWriteCommandDoc)
 }

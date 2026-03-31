@@ -7,6 +7,8 @@ color: green
 claude-code:
   model: sonnet
   tools: [Bash, Glob, Grep, Read, Write, Edit, mcp__context7__resolve-library-id, mcp__context7__query-docs, Agent]
+ttal:
+  access: rw
 ---
 
 # Coder

@@ -25,6 +25,8 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
+ttal:
+  access: ro
 ---
 
 ## Environment

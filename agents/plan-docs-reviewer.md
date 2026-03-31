@@ -20,6 +20,8 @@ claude-code:
     - Read
     - mcp__context7__resolve-library-id
     - mcp__context7__query-docs
+ttal:
+  access: ro
 ---
 
 You are a plan documentation reviewer. Your job is to identify documentation that should be updated alongside the code changes in a plan but isn't mentioned.
