@@ -134,7 +134,9 @@ func buildSandboxPaths(sandbox *config.SandboxConfig, cwd, access string) []logo
 //   - neither           → os.Getwd()
 //
 // Returns cwd, effectiveAccess, and any error.
-func resolveCWD(ctx context.Context, ttalCfg *config.Config, agentAccess string) (cwd, effectiveAccess string, err error) {
+func resolveCWD(ctx context.Context, ttalCfg *config.Config, agentAccess string) (
+	cwd, effectiveAccess string, err error,
+) {
 	switch {
 	case subagentRunFlags.project != "" && subagentRunFlags.repo != "":
 		return "", "", fmt.Errorf("--project and --repo are mutually exclusive")
@@ -168,7 +170,8 @@ const claudeMDInstruction = `
 
 ## Project Conventions
 
-Before starting work, check for CLAUDE.md and AGENTS.md in the project root and subfolders. If found, read them — they contain project conventions, architecture notes, and coding guidelines you must follow.`
+Before starting work, check for CLAUDE.md and AGENTS.md in the project root and subfolders. If found,
+read them — they contain project conventions, architecture notes, and coding guidelines you must follow.`
 
 func runSubagentByName(cmd *cobra.Command, args []string) error {
 	name := args[0]
@@ -343,8 +346,8 @@ func init() {
 	subagentRunCmd.Flags().StringArrayVar(
 		&subagentRunFlags.sandboxEnv, "env", nil, "Extra env vars for sandbox (KEY=VALUE)",
 	)
-	subagentRunCmd.Flags().StringVar(&subagentRunFlags.project, "project", "", "Run against a registered ttal project")
-	subagentRunCmd.Flags().StringVar(&subagentRunFlags.repo, "repo", "", "Run against a GitHub/Forgejo repo (auto-clone/pull)")
+	subagentRunCmd.Flags().StringVar(&subagentRunFlags.project, "project", "", "Run against a registered ttal project")         //nolint:lll
+	subagentRunCmd.Flags().StringVar(&subagentRunFlags.repo, "repo", "", "Run against a GitHub/Forgejo repo (auto-clone/pull)") //nolint:lll
 
 	subagentCmd.AddCommand(subagentRunCmd)
 	subagentCmd.AddCommand(subagentListCmd)
