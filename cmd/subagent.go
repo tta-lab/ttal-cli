@@ -187,6 +187,10 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if agent.Frontmatter.Ttal == nil {
+		return fmt.Errorf("agent %q has no ttal: block — add 'ttal: access: ro' or 'ttal: access: rw' to its frontmatter", name) //nolint:lll
+	}
+
 	access := agent.Frontmatter.Ttal.Access
 	if access != "ro" && access != "rw" {
 		return fmt.Errorf("agent %q has invalid access %q (want ro or rw)", name, access)
@@ -280,7 +284,7 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 	}
 
 	// Compute column widths.
-	nameW, accessW := len("NAME"), len("ACCESS")
+	nameW, accessW, modelW := len("NAME"), len("ACCESS"), len("MODEL")
 	for _, a := range agents {
 		if a.Frontmatter.Ttal == nil {
 			continue
@@ -291,16 +295,27 @@ func listSubagents(_ *cobra.Command, _ []string) error {
 		if n := len(a.Frontmatter.Ttal.Access); n > accessW {
 			accessW = n
 		}
+		m := a.Frontmatter.Ttal.Model
+		if m == "" {
+			m = "(default)"
+		}
+		if n := len(m); n > modelW {
+			modelW = n
+		}
 	}
 
 	// Header.
-	fmt.Printf("%-*s  %-*s  %s\n", nameW, "NAME", accessW, "ACCESS", "DESCRIPTION")
+	fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, "NAME", accessW, "ACCESS", modelW, "MODEL", "DESCRIPTION")
 	for _, a := range agents {
 		if a.Frontmatter.Ttal == nil {
 			continue
 		}
+		m := a.Frontmatter.Ttal.Model
+		if m == "" {
+			m = "(default)"
+		}
 		desc := firstLine(a.Frontmatter.Description)
-		fmt.Printf("%-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, accessW, a.Frontmatter.Ttal.Access, desc)
+		fmt.Printf("%-*s  %-*s  %-*s  %s\n", nameW, a.Frontmatter.Name, accessW, a.Frontmatter.Ttal.Access, modelW, m, desc)
 	}
 	return nil
 }
