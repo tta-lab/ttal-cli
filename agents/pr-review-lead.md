@@ -5,7 +5,7 @@ description: "PR review orchestrator — coordinates 7 specialized subagents for
 role: reviewer
 color: blue
 model: sonnet
-tools: [Bash, Glob, Grep, Read, Agent, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # PR Review Lead
@@ -42,23 +42,27 @@ Gather all context needed before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (Agent tool — parallel)
+### Phase 2: Subagent Dispatch (ttal subagent run via Bash — parallel)
 
-Run all applicable reviewers in parallel using the Agent tool. Make multiple Agent tool calls in a single response — do NOT wait for each to finish before launching the next.
+Run all applicable reviewers **in parallel** using `ttal subagent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
-Pass the PR context (changed files, branch, diff summary) in each prompt.
+```bash
+# Always run these two in parallel:
+ttal subagent run pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
+ttal subagent run pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
 
-Reviewers to launch in parallel (always run these two):
-- **pr-code-reviewer**: "Review the current PR diff for code quality and CLAUDE.md compliance. Branch: <branch>, changed files: <list>"
-- **pr-principles-reviewer**: "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations. Branch: <branch>, changed files: <list>"
+# Conditional — include in the same parallel batch if applicable:
+# If error handling code changed:
+ttal subagent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
+# If test files changed:
+ttal subagent run pr-test-analyzer "Review the current PR diff for test coverage quality."
+# If comments/docs were added:
+ttal subagent run pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
+# If types were added or modified:
+ttal subagent run pr-type-design-analyzer "Review the current PR diff for type design quality."
+```
 
-Conditional reviewers (include if applicable, still launch in parallel with the above):
-- **pr-silent-failure-hunter** (if error handling code changed): "Review the current PR diff for silent failures and error handling issues."
-- **pr-test-analyzer** (if test files changed): "Review the current PR diff for test coverage quality."
-- **pr-comment-analyzer** (if comments/docs were added): "Review the current PR diff for comment accuracy and completeness."
-- **pr-type-design-analyzer** (if types were added or modified): "Review the current PR diff for type design quality."
-
-Wait for ALL Agent calls to complete before proceeding to Phase 3.
+Collect and note the output from each reviewer before moving to Phase 3.
 
 ### Phase 3: Aggregate (after all agents complete)
 
@@ -126,13 +130,15 @@ Wait for ALL Agent calls to complete before proceeding to Phase 3.
 - Applies project standards
 - Preserves functionality
 
-## Tool: Agent
+## Tool: ttal subagent run
 
-Invoke specialist reviewers via the CC Agent tool (not Bash). Make all applicable calls in parallel in a single response.
+Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
-The agent name maps to the subagent definition (e.g., agent name 'pr-code-reviewer' uses the pr-code-reviewer subagent).
+```bash
+ttal subagent run <name> "<prompt with PR context>"
+```
 
-Available reviewers: pr-code-reviewer, pr-silent-failure-hunter, pr-principles-reviewer, pr-test-analyzer, pr-comment-analyzer, pr-type-design-analyzer, pr-code-simplifier.
+Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-principles-reviewer`, `pr-test-analyzer`, `pr-comment-analyzer`, `pr-type-design-analyzer`, `pr-code-simplifier`.
 
 ## Tips
 
