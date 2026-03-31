@@ -55,6 +55,26 @@ Examples:
 			)
 		}
 
+		// Push branch to origin before creating PR
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get working directory: %w", err)
+		}
+		projectAlias := resolveAliasFromPath(workDir)
+		fmt.Println("Pushing branch to origin...")
+		resp, err := daemon.GitPush(daemon.GitPushRequest{
+			WorkDir:      workDir,
+			Branch:       branch,
+			ProjectAlias: projectAlias,
+		})
+		if err != nil {
+			return fmt.Errorf("push failed: %w", err)
+		}
+		if !resp.OK {
+			return fmt.Errorf("push failed: %s", resp.Error)
+		}
+		fmt.Println("Pushed.")
+
 		title := strings.Join(args, " ")
 		body, _ := cmd.Flags().GetString("body")
 
@@ -63,7 +83,7 @@ Examples:
 			base = "main"
 		}
 
-		resp, err := daemon.PRCreate(daemon.PRCreateRequest{
+		prResp, err := daemon.PRCreate(daemon.PRCreateRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
@@ -77,13 +97,13 @@ Examples:
 			return err
 		}
 
-		fmt.Printf("PR #%d created: %s\n", resp.PRIndex, resp.PRURL)
+		fmt.Printf("PR #%d created: %s\n", prResp.PRIndex, prResp.PRURL)
 		fmt.Printf("  %s → %s\n", branch, base)
 		fmt.Println()
 
 		// Store PRID in taskwarrior
 		if ctx.Task.UUID != "" {
-			if err := taskwarrior.SetPRID(ctx.Task.UUID, strconv.FormatInt(resp.PRIndex, 10)); err != nil {
+			if err := taskwarrior.SetPRID(ctx.Task.UUID, strconv.FormatInt(prResp.PRIndex, 10)); err != nil {
 				fmt.Printf("warning: PR created but failed to update task: %v\n", err)
 			}
 		}
@@ -93,7 +113,7 @@ Examples:
 			Message: notification.PRCreated{
 				Ctx:   notification.NewContext(ctx.Task.Project, ctx.Task.HexID(), title, ""),
 				Title: title,
-				URL:   resp.PRURL,
+				URL:   prResp.PRURL,
 			}.Render(),
 		}); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: notification failed: %v\n", err)
@@ -148,7 +168,7 @@ Examples:
 			return err
 		}
 
-		resp, err := daemon.PRModify(daemon.PRModifyRequest{
+		prResp, err := daemon.PRModify(daemon.PRModifyRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
@@ -161,7 +181,7 @@ Examples:
 			return err
 		}
 
-		fmt.Printf("PR #%d updated: %s\n", resp.PRIndex, resp.PRURL)
+		fmt.Printf("PR #%d updated: %s\n", prResp.PRIndex, prResp.PRURL)
 		return nil
 	},
 }
