@@ -185,8 +185,9 @@ func buildHTTPHandlers(
 		breathe: func(req BreatheRequest) SendResponse {
 			return handleBreathe(shellCfg, req)
 		},
-		askHuman:   defaultFE.AskHumanHTTPHandler(),
-		askHandler: handleAsk(shellCfg),
+		askHuman:        defaultFE.AskHumanHTTPHandler(),
+		askHandler:      handleAsk(shellCfg),
+		subagentHandler: handleSubagent(shellCfg),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
 		},

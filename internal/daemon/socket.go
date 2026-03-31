@@ -326,6 +326,8 @@ type httpHandlers struct {
 	closeWindow func(CloseWindowRequest) SendResponse
 	// Ask agent loop (runs logos server-side, streams NDJSON)
 	askHandler http.HandlerFunc
+	// Subagent loop (runs logos server-side, streams NDJSON)
+	subagentHandler http.HandlerFunc
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
@@ -352,6 +354,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	r.Post("/breathe", handleHTTPBreathe(handlers))
 	r.Post("/ask/human", handlers.askHuman)
 	r.Post("/ask", handlers.askHandler)
+	r.Post("/subagent/run", handlers.subagentHandler)
 	r.Post("/pipeline/advance", handlers.pipelineAdvance)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHTTPJSON(w, http.StatusOK, SendResponse{OK: true})
@@ -1030,13 +1033,26 @@ func daemonHTTPClientStreaming() *http.Client {
 // The NDJSON stream keeps the connection alive — idle timeouts aren't a concern.
 // Lifecycle is controlled by context cancellation (e.g. Ctrl-C → SIGINT).
 func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) error {
-	body, err := json.Marshal(req)
+	return streamNDJSON(ctx, "/ask", req, "ttal ask", onEvent)
+}
+
+// RunSubagent sends a subagent request to the daemon and streams NDJSON events back.
+func RunSubagent(ctx context.Context, req ask.SubagentRequest, onEvent func(ask.Event)) error {
+	return streamNDJSON(ctx, "/subagent/run", req, "ttal subagent run", onEvent)
+}
+
+// streamNDJSON posts a JSON request to the daemon and streams NDJSON ask.Event responses.
+// cmdName is used in error messages (e.g. "ttal ask", "ttal subagent run").
+func streamNDJSON(
+	ctx context.Context, path string, payload any, cmdName string, onEvent func(ask.Event),
+) error {
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("marshal ask request: %w", err)
+		return fmt.Errorf("marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		daemonBaseURL+"/ask", bytes.NewReader(body))
+		daemonBaseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
@@ -1044,7 +1060,7 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 
 	resp, err := daemonHTTPClientStreaming().Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("daemon not running — ttal ask requires the daemon: %w", err)
+		return fmt.Errorf("daemon not running — %s requires the daemon: %w", cmdName, err)
 	}
 	defer resp.Body.Close()
 
@@ -1056,7 +1072,8 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 			return fmt.Errorf("daemon: %s", errResp.Error)
 		}
 		if len(raw) > 0 {
-			return fmt.Errorf("daemon returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+			return fmt.Errorf("daemon returned HTTP %d: %s",
+				resp.StatusCode, strings.TrimSpace(string(raw)))
 		}
 		return fmt.Errorf("daemon returned HTTP %d", resp.StatusCode)
 	}
@@ -1069,7 +1086,7 @@ func AskAgent(ctx context.Context, req ask.Request, onEvent func(ask.Event)) err
 	for dec.More() {
 		var event ask.Event
 		if err := dec.Decode(&event); err != nil {
-			return fmt.Errorf("decode ask event: %w", err)
+			return fmt.Errorf("decode event: %w", err)
 		}
 		onEvent(event)
 		if event.Type == ask.EventDone || event.Type == ask.EventError {
