@@ -227,15 +227,15 @@ func TestProjectListArchivedOnly(t *testing.T) {
 
 func TestProjectListJSON(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.Add("proj1", "Project One", "/path/one"); err \!= nil {
+	if err := store.Add("proj1", "Project One", "/path/one"); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
-	if err := store.Add("proj2", "Project Two", "/path/two"); err \!= nil {
+	if err := store.Add("proj2", "Project Two", "/path/two"); err != nil {
 		t.Fatalf("failed to create project: %v", err)
 	}
 
 	projects, err := store.List(false)
-	if err \!= nil {
+	if err != nil {
 		t.Fatalf("failed to list projects: %v", err)
 	}
 
@@ -250,16 +250,16 @@ func TestProjectListJSON(t *testing.T) {
 		output = append(output, projectJSON{Alias: p.Alias, Name: p.Name, Path: p.Path})
 	}
 	data, err := json.Marshal(output)
-	if err \!= nil {
+	if err != nil {
 		t.Fatalf("failed to marshal projects: %v", err)
 	}
 
 	// Parse JSON output and verify structure
 	var results []map[string]string
-	if err := json.Unmarshal(data, &results); err \!= nil {
+	if err := json.Unmarshal(data, &results); err != nil {
 		t.Fatalf("failed to parse JSON output: %v\nOutput: %s", err, string(data))
 	}
-	if len(results) \!= 2 {
+	if len(results) != 2 {
 		t.Fatalf("expected 2 projects in JSON, got %d", len(results))
 	}
 	assertJSONProjectFields(t, results)
@@ -273,7 +273,7 @@ func assertJSONProjectFields(t *testing.T, results []map[string]string) {
 	found := false
 	for _, r := range results {
 		for _, field := range requiredFields {
-			if _, ok := r[field]; \!ok {
+			if _, ok := r[field]; !ok {
 				t.Errorf("JSON object missing %q field", field)
 			}
 		}
@@ -281,7 +281,7 @@ func assertJSONProjectFields(t *testing.T, results []map[string]string) {
 			found = true
 		}
 	}
-	if \!found {
+	if !found {
 		t.Error("expected project proj1 not found in JSON output")
 	}
 }
