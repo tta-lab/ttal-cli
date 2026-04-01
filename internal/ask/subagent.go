@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -148,6 +149,22 @@ func validateAgentAccess(agent *internalsync.ParsedAgent, name string) (string, 
 	return access, nil
 }
 
+// injectHomeEnv returns a copy of env with HOME set to the real user home directory
+// if not already present. Creates the map if nil. This ensures subagents run with
+// the correct HOME so ttal commands resolve the daemon socket and git finds SDK paths.
+func injectHomeEnv(env map[string]string) map[string]string {
+	result := make(map[string]string, len(env)+1)
+	for k, v := range env {
+		result[k] = v
+	}
+	if _, ok := result["HOME"]; !ok {
+		if home, err := os.UserHomeDir(); err == nil {
+			result["HOME"] = home
+		}
+	}
+	return result
+}
+
 // buildSubagentConfig assembles the logos.Config for a subagent run.
 func buildSubagentConfig(
 	ctx context.Context,
@@ -200,7 +217,7 @@ func buildSubagentConfig(
 		MaxSteps:     maxSteps,
 		MaxTokens:    maxTokens,
 		Temenos:      tc,
-		SandboxEnv:   req.SandboxEnv,
+		SandboxEnv:   injectHomeEnv(req.SandboxEnv),
 		AllowedPaths: allowedPaths,
 	}, nil
 }
