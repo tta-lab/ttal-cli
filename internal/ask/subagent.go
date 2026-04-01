@@ -49,7 +49,7 @@ func CommandsForAccess(access string) []logos.CommandDoc {
 // allowWrite paths → rw, allowRead paths → ro, CWD → rw/ro per access field.
 // Paths appearing in both lists are deduplicated (rw wins).
 func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string) []logos.AllowedPath {
-	cwdReadOnly := access != "rw"
+	isCwdReadOnly := access != "rw"
 
 	// Build a deduplicated map: path → readOnly. RW wins over RO.
 	seen := make(map[string]bool) // true = readOnly
@@ -70,14 +70,15 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 		ordered = append(ordered, p)
 	}
 
+	// CWD goes first — temenos uses mounts[0] as WorkingDir.
+	addPath(cwd, isCwdReadOnly)
+
 	for _, p := range sandbox.ExpandedAllowWrite() {
 		addPath(p, false)
 	}
 	for _, p := range sandbox.ExpandedAllowRead() {
 		addPath(p, true)
 	}
-	// CWD goes last (may upgrade an existing entry or add a new one).
-	addPath(cwd, cwdReadOnly)
 
 	paths := make([]logos.AllowedPath, 0, len(ordered))
 	for _, p := range ordered {

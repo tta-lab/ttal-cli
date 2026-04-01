@@ -123,3 +123,16 @@ func TestBuildSubagentSandboxPaths_SkipsRelativePaths(t *testing.T) {
 		assert.NotEqual(t, "./bar", p.Path)
 	}
 }
+
+func TestBuildSubagentSandboxPaths_CWDIsFirstMount(t *testing.T) {
+	sandbox := &config.SandboxConfig{
+		AllowWrite: []string{"/other/write"},
+		AllowRead:  []string{"/other/read"},
+	}
+
+	paths := BuildSubagentSandboxPaths(sandbox, "/project/dir", "rw")
+
+	require := assert.New(t)
+	require.NotEmpty(paths)
+	require.Equal("/project/dir", paths[0].Path, "CWD must be first so temenos uses it as WorkingDir")
+}
