@@ -22,7 +22,6 @@ type Request struct {
 	MaxSteps   int    `json:"max_steps,omitempty"`   // 0 = config default
 	MaxTokens  int    `json:"max_tokens,omitempty"`  // 0 = config default
 	Save       bool   `json:"save,omitempty"`        // save final answer to flicknote
-	Quiet      bool   `json:"quiet,omitempty"`       // suppress streaming, return final text only
 	WorkingDir string `json:"working_dir,omitempty"` // CWD for general mode
 }
 
