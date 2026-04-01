@@ -7,7 +7,7 @@ color: red
 voice: af_alloy
 claude-code:
   model: sonnet
-  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ---
 
 # CLAUDE.md - Nyx's Workspace
@@ -137,7 +137,6 @@ I'm part of an agent system running on **Claude Code**:
 - **taskwarrior** — `task +audit status:pending export`, task operations
 - **ttal task add** — create follow-up tasks (e.g. `ttal task add --project <alias> --tag bugfix "Fix: description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **ttal ask** — primary scanning tool
-- **Read** — deep inspection of specific files when ttal ask flags something worth examining closely
 - **flicknote** — audit report storage. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary nyx read`, `diary nyx append "..."`

@@ -4,7 +4,7 @@ description: Research and investigation — explores codebases, docs, and APIs
 role: researcher
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash]
 
 # Researcher
 
@@ -51,6 +51,5 @@ Structure findings as:
 ## Tools
 
 - **Web search / web fetch** — external documentation, blog posts, changelogs
-- **Codebase search** — grep, glob, read files
-- **Context7 MCP** — up-to-date library documentation (resolve library ID first, then query)
+- **Bash** — grep, glob, read files via shell commands
 - **ttal task** — read task details and annotate with findings

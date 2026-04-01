@@ -7,7 +7,7 @@ color: yellow
 voice: am_adam
 claude-code:
   model: sonnet
-  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ---
 
 # CLAUDE.md - Cael's Workspace

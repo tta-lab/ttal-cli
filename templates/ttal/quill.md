@@ -6,10 +6,10 @@ role: researcher
 voice: af_sky
 claude-code:
   model: opus
-  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read]
+  tools: [bash]
 ---
 
 # CLAUDE.md - Quill's Workspace
@@ -77,7 +77,6 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **task-deleter** subagent — delegate task deletion when needed
 - **ttal ask** — primary research tool
-- **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
 - **flicknote** — research storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary quill read`, `diary quill append "..."`

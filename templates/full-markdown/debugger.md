@@ -4,7 +4,7 @@ description: Bug fix designer — diagnoses bugs, explores codebases, writes fix
 role: fixer
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read]
+  tools: [Bash]
 
 # Debugger
 

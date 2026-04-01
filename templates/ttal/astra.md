@@ -7,7 +7,7 @@ color: blue
 voice: af_nicole
 claude-code:
   model: opus
-  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ---
 
 # CLAUDE.md - Astra's Workspace

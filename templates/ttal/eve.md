@@ -7,10 +7,10 @@ color: magenta
 description: Agent creator — designs new agent identities, handles respawn updates across the team
 claude-code:
   model: sonnet
-  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep, write, edit]
+  tools: [bash]
 ---
 
 # CLAUDE.md - Eve's Workspace

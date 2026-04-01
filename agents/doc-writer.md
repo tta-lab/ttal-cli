@@ -1,10 +1,10 @@
 ---
 name: doc-writer
 emoji: 📝
-description: "Stateless doc writer — updates documentation for specified changes. CWD-scoped, writes directly to doc files."
+description: "Stateless doc writer — updates documentation for specified changes using Bash. CWD-scoped, writes directly to doc files."
 color: green
 model: haiku
-tools: [Bash, Write, Edit]
+tools: [Bash]
 ttal:
   access: rw
 ---
