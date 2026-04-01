@@ -225,7 +225,9 @@ func resolveWorker(idPrefix string) (string, error) {
 }
 
 // dispatchToWorker persists a message and delivers it to a worker tmux session.
-func dispatchToWorker(msgSvc *message.Service, session, windowName string, params message.CreateParams, text string) error {
+func dispatchToWorker(
+	msgSvc *message.Service, session, windowName string, params message.CreateParams, text string,
+) error {
 	persistMsg(msgSvc, params)
 	return deliverToWorker(session, windowName, text)
 }
