@@ -34,7 +34,7 @@ autoAllowBashIfSandboxed = true
 # Use "command:*" to match a command and all its subcommands (exact name only matches
 # one specific invocation). Example: "qlty:*" matches qlty check, qlty fmt, etc.
 # Map to sandbox.excludedCommands in settings.json.
-excludedCommands = ["qlty:*"]
+excludedCommands = ["qlty:*", "go test:*"]
 
 allowWrite = [
   "~/.ttal",                             # ttal data dir (tasks, daemon state)

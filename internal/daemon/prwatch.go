@@ -321,10 +321,10 @@ func checkMergeConflict(
 	return true
 }
 
-// deliverToWorkerSession sends a message to the coder window of a worker tmux session.
+// deliverToWorkerSession sends a message to the worker window of a worker tmux session.
 func deliverToWorkerSession(sessionName, msg string) {
-	if err := tmux.SendKeys(sessionName, "coder", msg); err != nil {
-		log.Printf("[prwatch] SendKeys failed for %s:coder: %v", sessionName, err)
+	if err := tmux.SendKeys(sessionName, workerWindow, msg); err != nil {
+		log.Printf("[prwatch] SendKeys failed for %s:%s: %v", sessionName, workerWindow, err)
 	}
 }
 

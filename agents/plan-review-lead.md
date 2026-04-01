@@ -68,9 +68,11 @@ ttal subagent run plan-security-reviewer "Review plan at flicknote/<id> for proj
 ttal subagent run plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
 ```
 
-Collect and note the output from each reviewer before moving to Phase 3.
+**Wait for ALL subagent calls to complete and read their FULL output before proceeding to Phase 3.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has returned its results. Collect and note the output from each reviewer.
 
 ### Phase 3: Synthesize & Aggregate (after all agents complete)
+
+**Only begin aggregation after ALL Phase 2 subagent calls have completed. If any call is still running, wait.**
 
 **Engineering calibration** — classify the plan as one of:
 - **Over-engineered** — too many abstractions, premature generalization
