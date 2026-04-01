@@ -6,7 +6,7 @@ role: manager
 color: green
 voice: af_jessica
 claude-code:
-  model: sonnet
+  model: opus
   tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
