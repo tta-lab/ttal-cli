@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the pr-test-analyzer agent to review the test coverage."
   </example>
 model: sonnet
-  tools: [Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ttal:
   access: ro
 ---

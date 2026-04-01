@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the pr-code-simplifier agent to refine the implementation."
   </example>
 model: sonnet
-  tools: [Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ttal:
   access: ro
 ---
