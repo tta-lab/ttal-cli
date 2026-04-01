@@ -70,14 +70,15 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 		ordered = append(ordered, p)
 	}
 
+	// CWD goes first — temenos uses mounts[0] as WorkingDir.
+	addPath(cwd, cwdReadOnly)
+
 	for _, p := range sandbox.ExpandedAllowWrite() {
 		addPath(p, false)
 	}
 	for _, p := range sandbox.ExpandedAllowRead() {
 		addPath(p, true)
 	}
-	// CWD goes last (may upgrade an existing entry or add a new one).
-	addPath(cwd, cwdReadOnly)
 
 	paths := make([]logos.AllowedPath, 0, len(ordered))
 	for _, p := range ordered {
