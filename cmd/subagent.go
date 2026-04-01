@@ -109,8 +109,7 @@ func runSubagentByName(cmd *cobra.Command, args []string) error {
 
 	var agentErr string
 
-	eventHandler, sp := buildAskEventCallbacks(false)
-	defer sp.Stop()
+	eventHandler := buildAskEventCallbacks()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

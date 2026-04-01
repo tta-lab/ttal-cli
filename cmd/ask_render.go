@@ -32,12 +32,13 @@ func renderCommandStart(command string) {
 }
 
 // renderCommandResult prints truncated command output and exit code to stderr.
+// Output is only shown on non-zero exit codes (failures).
 func renderCommandResult(output string, exitCode int) {
-	if output != "" {
-		truncated := truncateOutput(output)
-		lipgloss.Fprintf(os.Stderr, "%s\n", askOutputStyle.Render(truncated))
-	}
 	if exitCode != 0 {
+		if output != "" {
+			truncated := truncateOutput(output)
+			lipgloss.Fprintf(os.Stderr, "%s\n", askOutputStyle.Render(truncated))
+		}
 		lipgloss.Fprintf(os.Stderr, "%s\n", askExitErrStyle.Render(
 			fmt.Sprintf("  exit %d", exitCode)))
 	}
@@ -85,7 +86,7 @@ func renderCmdBlock(content string) {
 		if trimmed == "" {
 			continue
 		}
-		// Strip the § prefix for display, show as "$ command"
+		// Strip the section sign prefix for display, show as "$ command"
 		trimmed = strings.TrimPrefix(trimmed, "§ ")
 		renderCommandStart(trimmed)
 	}

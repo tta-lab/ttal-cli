@@ -121,14 +121,12 @@ func TestRenderCommandResult_NonZeroExit(t *testing.T) {
 }
 
 func TestRenderCommandResult_ZeroExit(t *testing.T) {
+	// With smart output, output is suppressed on success (exit 0)
 	out := captureStderr(t, func() {
 		renderCommandResult("some output", 0)
 	})
-	if strings.Contains(out, "exit") {
-		t.Errorf("expected no exit line for zero exit, got %q", out)
-	}
-	if !strings.Contains(out, "some output") {
-		t.Errorf("expected output text in result, got %q", out)
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("expected no output for zero exit (smart mode suppresses output on success), got %q", out)
 	}
 }
 

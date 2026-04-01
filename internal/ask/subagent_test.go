@@ -36,7 +36,7 @@ func TestBuildSubagentSandboxPaths_DeduplicatesRWWins(t *testing.T) {
 		AllowRead:  []string{"/rw/path", "/ro/path"},
 	}
 
-	paths := BuildSubagentSandboxPaths(sandbox, "/cwd", "ro")
+	paths := BuildSubagentSandboxPaths(sandbox, "/cwd", "ro", nil)
 
 	// /rw/path should be RW (not upgraded to RO by allowRead).
 	for _, p := range paths {
@@ -55,7 +55,7 @@ func TestBuildSubagentSandboxPaths_DeduplicatesRWWins(t *testing.T) {
 func TestBuildSubagentSandboxPaths_CWDRWAccess(t *testing.T) {
 	sandbox := &config.SandboxConfig{}
 
-	paths := BuildSubagentSandboxPaths(sandbox, "/cwd", "rw")
+	paths := BuildSubagentSandboxPaths(sandbox, "/cwd", "rw", nil)
 
 	require := assert.New(t)
 	require.Len(paths, 1)
@@ -69,7 +69,7 @@ func TestBuildSubagentSandboxPaths_CWDUpgradesExistingEntry(t *testing.T) {
 	}
 
 	// CWD with rw access should upgrade the existing ro entry.
-	paths := BuildSubagentSandboxPaths(sandbox, "/cwd", "rw")
+	paths := BuildSubagentSandboxPaths(sandbox, "/cwd", "rw", nil)
 
 	for _, p := range paths {
 		if p.Path == "/cwd" {
@@ -83,7 +83,7 @@ func TestBuildSubagentSandboxPaths_SkipsRelativePaths(t *testing.T) {
 		AllowWrite: []string{"/tmp/write"},
 	}
 
-	paths := BuildSubagentSandboxPaths(sandbox, "/home/test", "rw")
+	paths := BuildSubagentSandboxPaths(sandbox, "/home/test", "rw", nil)
 
 	// All returned paths should be absolute.
 	for _, p := range paths {
@@ -130,7 +130,7 @@ func TestBuildSubagentSandboxPaths_CWDIsFirstMount(t *testing.T) {
 		AllowRead:  []string{"/other/read"},
 	}
 
-	paths := BuildSubagentSandboxPaths(sandbox, "/project/dir", "rw")
+	paths := BuildSubagentSandboxPaths(sandbox, "/project/dir", "rw", nil)
 
 	require := assert.New(t)
 	require.NotEmpty(paths)
