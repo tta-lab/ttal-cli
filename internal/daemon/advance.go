@@ -617,6 +617,24 @@ func resolveStageAgent(
 	return findIdleAgent(teamPath, assignee)
 }
 
+// isWorkerStage returns true if the stage should be handled as a worker spawn.
+// It returns true if stage.Worker is explicitly set, OR if the stage assignee
+// is not a known agent role — guarding against pipelines where worker=true was
+// omitted but the assignee is a CC agent name (e.g. "code-lead"), not a role.
+func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
+	if stage.IsWorker() {
+		return true
+	}
+	for _, role := range agentRoles {
+		if role == stage.Assignee {
+			return false // assignee is a valid role — route to an agent
+		}
+	}
+	// Assignee not found as any agent's role → treat as worker agent name.
+	log.Printf("[advance] stage %q assignee %q is not a known role — treating as worker stage", stage.Name, stage.Assignee)
+	return true
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -627,7 +645,7 @@ func advanceToStage(
 	teamPath string,
 	agentRoles map[string]string,
 ) error {
-	if stage.IsWorker() {
+	if isWorkerStage(stage, agentRoles) {
 		// Worker stage: start task and spawn.
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
