@@ -146,7 +146,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  ei sandbox sync (dry run)\n")
 			}
 		} else {
-			fmt.Printf("  skipped: ei not in PATH (run 'go install github.com/tta-lab/einai/cmd/ei@latest' to enable sandbox sync)\n")
+			const installHint = "go install github.com/tta-lab/einai/cmd/ei@latest"
+			fmt.Printf("  skipped: ei not in PATH (install: %s)\n", installHint)
 		}
 
 		suffix := ""
