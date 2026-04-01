@@ -62,9 +62,11 @@ ttal subagent run pr-comment-analyzer "Review the current PR diff for comment ac
 ttal subagent run pr-type-design-analyzer "Review the current PR diff for type design quality."
 ```
 
-Collect and note the output from each reviewer before moving to Phase 3.
+**Wait for ALL subagent calls to complete and read their FULL output before proceeding to Phase 3.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has returned its results. Collect and note the output from each reviewer.
 
 ### Phase 3: Aggregate (after all agents complete)
+
+**Only begin aggregation after ALL Phase 2 subagent calls have completed. If any call is still running, wait.**
 
 ```markdown
 # PR Review Summary
