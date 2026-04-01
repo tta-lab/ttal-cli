@@ -5,7 +5,7 @@ description: "PR review orchestrator — coordinates 7 specialized subagents for
 role: reviewer
 color: blue
 model: sonnet
-tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+tools: [Bash]
 ---
 
 # PR Review Lead

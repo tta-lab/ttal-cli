@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the pr-comment-analyzer agent to review the comments."
   </example>
 model: haiku
-tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+tools: [Bash]
 ttal:
   access: ro
 ---

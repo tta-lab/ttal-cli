@@ -4,7 +4,7 @@ emoji: 🧪
 description: "Stateless test writer — writes tests for specified code using src tools. CWD-scoped, no session persistence."
 color: yellow
 model: sonnet
-tools: [Bash, Glob, Grep, Read, Write, Edit]
+tools: [Bash, Write, Edit]
 ttal:
   access: rw
 ---

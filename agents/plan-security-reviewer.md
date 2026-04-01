@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the plan-security-reviewer agent to check for security concerns."
   </example>
 model: sonnet
-tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+tools: [Bash]
 ttal:
   access: ro
 ---
