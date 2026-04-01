@@ -320,7 +320,8 @@ reviewer = "plan-review-lead"
 
 [[standard.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 gate = "auto"
 reviewer = "pr-review-lead"
 `
@@ -369,7 +370,8 @@ tags = ["t2"]
 
 [[p2.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 gate = "auto"
 reviewer = "multi-reviewer"
 `
@@ -646,6 +648,90 @@ gate = "auto"
 	}
 	if len(p.Stages[1].Skills) != 0 {
 		t.Errorf("expected 0 skills for coder stage, got %d", len(p.Stages[1].Skills))
+	}
+}
+
+// TOML fixture for IsWorkerAgent and WorkerAgentName tests.
+const workerTOML = `[standard]
+description = "Plan → Implement"
+tags = ["feature"]
+
+[[standard.stages]]
+name = "Plan"
+assignee = "designer"
+gate = "human"
+
+[[standard.stages]]
+name = "Implement"
+assignee = "code-lead"
+worker = true
+gate = "auto"
+reviewer = "pr-review-lead"
+
+[research]
+description = "Research only"
+tags = ["research"]
+
+[[research.stages]]
+name = "Research"
+assignee = "researcher"
+gate = "auto"
+`
+
+func TestIsWorkerAgent_TrueForWorkerAssignee(t *testing.T) {
+	dir := writeTempTOML(t, workerTOML)
+	cfg, _ := Load(dir)
+
+	if !cfg.IsWorkerAgent("code-lead") {
+		t.Error("expected IsWorkerAgent(\"code-lead\") to return true")
+	}
+}
+
+func TestIsWorkerAgent_FalseForNonWorkerAssignee(t *testing.T) {
+	dir := writeTempTOML(t, workerTOML)
+	cfg, _ := Load(dir)
+
+	if cfg.IsWorkerAgent("designer") {
+		t.Error("expected IsWorkerAgent(\"designer\") to return false for non-worker stage")
+	}
+}
+
+func TestIsWorkerAgent_FalseForUnknownAgent(t *testing.T) {
+	dir := writeTempTOML(t, workerTOML)
+	cfg, _ := Load(dir)
+
+	if cfg.IsWorkerAgent("unknown") {
+		t.Error("expected IsWorkerAgent(\"unknown\") to return false")
+	}
+}
+
+func TestWorkerAgentName_ReturnsWorkerAssignee(t *testing.T) {
+	dir := writeTempTOML(t, workerTOML)
+	cfg, _ := Load(dir)
+
+	name := cfg.WorkerAgentName([]string{"feature"})
+	if name != "code-lead" {
+		t.Errorf("expected \"code-lead\", got %q", name)
+	}
+}
+
+func TestWorkerAgentName_NoWorkerStages(t *testing.T) {
+	dir := writeTempTOML(t, workerTOML)
+	cfg, _ := Load(dir)
+
+	name := cfg.WorkerAgentName([]string{"research"})
+	if name != "" {
+		t.Errorf("expected empty string for pipeline without worker stages, got %q", name)
+	}
+}
+
+func TestWorkerAgentName_NoPipelineMatch(t *testing.T) {
+	dir := writeTempTOML(t, workerTOML)
+	cfg, _ := Load(dir)
+
+	name := cfg.WorkerAgentName([]string{"nomatch"})
+	if name != "" {
+		t.Errorf("expected empty string for no pipeline match, got %q", name)
 	}
 }
 

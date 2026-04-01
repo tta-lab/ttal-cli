@@ -37,7 +37,7 @@ func TestResolvePromptKey_CoderAssignee(t *testing.T) {
 // and the assignee is a coder stage, "review" prompt key is returned.
 func TestResolvePromptKey_PRReviewer(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "pr-review-lead")
-	stage := &pipeline.Stage{Assignee: "coder", Reviewer: "pr-review-lead"}
+	stage := &pipeline.Stage{Assignee: "code-lead", Worker: true, Reviewer: "pr-review-lead"}
 	got := resolvePromptKey(stage)
 	if got != "review" {
 		t.Errorf("resolvePromptKey for PR reviewer = %q, want %q", got, "review")

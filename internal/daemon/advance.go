@@ -58,10 +58,6 @@ const (
 	AdvanceStatusComplete   = "complete"
 )
 
-// workerStage is the pipeline stage assignee value that identifies a worker stage.
-// Alias for pipeline.CoderAssignee for local readability.
-const workerStage = pipeline.CoderAssignee
-
 // AdvanceClient sends an advance request to the daemon and blocks until response.
 func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
 	body, err := json.Marshal(req)
@@ -236,14 +232,14 @@ func nowUTC() string {
 }
 
 // annotateStageCompletion writes an audit annotation recording who completed the stage.
-func annotateStageCompletion(uuid, stageName, assignee, agentName string) {
+func annotateStageCompletion(uuid string, stage *pipeline.Stage, agentName string) {
 	completedBy := agentName
-	if assignee == workerStage {
-		completedBy = workerStage
+	if stage.IsWorker() {
+		completedBy = stage.Assignee
 	} else if completedBy == "" {
 		completedBy = "unknown"
 	}
-	record := fmt.Sprintf("stage:%s by:%s completed:%s", stageName, completedBy, nowUTC())
+	record := fmt.Sprintf("stage:%s by:%s completed:%s", stage.Name, completedBy, nowUTC())
 	if err := taskwarrior.AnnotateTask(uuid, record); err != nil {
 		log.Printf("[advance] warning: annotate stage completion: %v", err)
 	}
@@ -297,7 +293,7 @@ func processStageAdvance(
 
 	cleanupAssigneeTags(task, stage, agentRoles)
 
-	if stage.Assignee == workerStage && task.PRID != "" {
+	if stage.IsWorker() && task.PRID != "" {
 		if done := handleWorkerPRMerge(w, task); done {
 			return
 		}
@@ -343,7 +339,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 ) error {
 	reviewerAgent := stage.Reviewer
 
-	if stage.Assignee == workerStage {
+	if stage.IsWorker() {
 		if tmux.WindowExists(sessionName, reviewerAgent) {
 			log.Printf("[advance] re-triggering PR reviewer %s for task %s", reviewerAgent, task.UUID)
 			return review.RequestReReview(sessionName, reviewerAgent, false, "", cfg)
@@ -505,7 +501,7 @@ func checkHumanGate(
 // throughout the pipeline lifecycle. Worker stages have no agent tag to remove.
 func cleanupAssigneeTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
 	oldAgentName := findAgentTag(task.Tags, agentRoles)
-	annotateStageCompletion(task.UUID, stage.Name, stage.Assignee, oldAgentName)
+	annotateStageCompletion(task.UUID, stage, oldAgentName)
 
 	if oldAgentName != "" {
 		if err := taskwarrior.ModifyTags(task.UUID, "-"+oldAgentName); err != nil {
@@ -517,7 +513,7 @@ func cleanupAssigneeTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRol
 // handlePipelineComplete writes the pipeline-complete response.
 // For worker+PR stages the cleanup handler owns MarkDone; for others it marks done inline.
 func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage *pipeline.Stage) {
-	if stage.Assignee == workerStage && task.PRID != "" {
+	if stage.IsWorker() && task.PRID != "" {
 		// Worker+PR: cleanup handler calls MarkDone after session teardown.
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:  AdvanceStatusComplete,
@@ -621,6 +617,24 @@ func resolveStageAgent(
 	return findIdleAgent(teamPath, assignee)
 }
 
+// isWorkerStage returns true if the stage should be handled as a worker spawn.
+// It returns true if stage.Worker is explicitly set, OR if the stage assignee
+// is not a known agent role — guarding against pipelines where worker=true was
+// omitted but the assignee is a CC agent name (e.g. "code-lead"), not a role.
+func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
+	if stage.IsWorker() {
+		return true
+	}
+	for _, role := range agentRoles {
+		if role == stage.Assignee {
+			return false // assignee is a valid role — route to an agent
+		}
+	}
+	// Assignee not found as any agent's role → treat as worker agent name.
+	log.Printf("[advance] stage %q assignee %q is not a known role — treating as worker stage", stage.Name, stage.Assignee)
+	return true
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -631,7 +645,7 @@ func advanceToStage(
 	teamPath string,
 	agentRoles map[string]string,
 ) error {
-	if stage.Assignee == workerStage {
+	if isWorkerStage(stage, agentRoles) {
 		// Worker stage: start task and spawn.
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
@@ -659,12 +673,13 @@ func advanceToStage(
 		}
 
 		spawnCfg := worker.SpawnConfig{
-			Name:     task.HexID(),
-			Project:  projectPath,
-			TaskUUID: task.UUID,
-			Worktree: true,
-			Runtime:  runtime.Runtime(workerRuntime), //nolint:unconvert
-			Spawner:  spawner,
+			Name:      task.HexID(),
+			Project:   projectPath,
+			TaskUUID:  task.UUID,
+			Worktree:  true,
+			Runtime:   runtime.Runtime(workerRuntime), //nolint:unconvert
+			Spawner:   spawner,
+			AgentName: stage.Assignee,
 		}
 
 		if err := worker.Spawn(spawnCfg); err != nil {
@@ -678,7 +693,7 @@ func advanceToStage(
 		writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 			Status:   AdvanceStatusAdvanced,
 			Stage:    stage.Name,
-			Assignee: workerStage,
+			Assignee: stage.Assignee,
 		})
 		return nil
 	}

@@ -22,13 +22,14 @@ import (
 
 // SpawnConfig holds configuration for spawning a worker.
 type SpawnConfig struct {
-	Name     string
-	Project  string
-	TaskUUID string
-	Worktree bool
-	Force    bool
-	Runtime  runtime.Runtime
-	Spawner  string // team:agent format, set by ttal go
+	Name      string
+	Project   string
+	TaskUUID  string
+	Worktree  bool
+	Force     bool
+	Runtime   runtime.Runtime
+	Spawner   string // team:agent format, set by ttal go
+	AgentName string // CC agent identity from the pipeline stage assignee
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
@@ -206,7 +207,14 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 	}
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
-	envParts := buildEnvParts(task, cfg.Runtime, taskrc, workDir)
+
+	// Use cfg.AgentName if set, otherwise fall back to CoderAgentName.
+	agentName := cfg.AgentName
+	if agentName == "" {
+		agentName = CoderAgentName
+	}
+
+	envParts := buildEnvParts(task, cfg.Runtime, taskrc, agentName)
 
 	var shellCmd string
 
@@ -223,13 +231,13 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, CoderAgentName, "Begin implementation.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.")
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, CoderAgentName, workDir, shellCmd); err != nil {
+	if err := tmux.NewSession(sessionName, agentName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
@@ -256,9 +264,9 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 // workDir is the worker's cwd — used to detect linked worktrees that need
 // write access to the main repo's .git directory.
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc, _ string) []string {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc, agentName string) []string {
 	parts := []string{
-		"TTAL_AGENT_NAME=" + CoderAgentName,
+		"TTAL_AGENT_NAME=" + agentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}

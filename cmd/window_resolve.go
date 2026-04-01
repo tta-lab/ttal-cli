@@ -7,10 +7,22 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
-// coderWindowName is the fixed window name for coder sessions.
-const coderWindowName = "coder"
+// workerWindowName returns the tmux window name for the worker agent based on task tags.
+// Falls back to the default worker agent name if the pipeline config is unavailable
+// or no worker stage matches the tags.
+func workerWindowName(taskTags []string) string {
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		return worker.CoderAgentName
+	}
+	if name := pipelineCfg.WorkerAgentName(taskTags); name != "" {
+		return name
+	}
+	return worker.CoderAgentName
+}
 
 // resolveTaskTags returns the task tags for the current session, or nil if unavailable.
 func resolveTaskTags() []string {

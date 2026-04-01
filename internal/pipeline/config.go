@@ -18,10 +18,16 @@ var validStageNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 type Stage struct {
 	Name     string   `toml:"name"`
 	Assignee string   `toml:"assignee"` // role from roles.toml (e.g. "designer") or "coder" (special)
+	Worker   bool     `toml:"worker"`   // marks worker-plane stages
 	Gate     string   `toml:"gate"`     // "human" or "auto"
 	Reviewer string   `toml:"reviewer"` // reviewer agent name (e.g. "plan-review-lead"), optional
 	Skills   []string `toml:"skills"`   // skill names loaded via ttal skill get (optional)
 	Emoji    string   `toml:"emoji"`    // optional display emoji for this stage
+}
+
+// IsWorker returns true if this is a worker-plane stage.
+func (s *Stage) IsWorker() bool {
+	return s.Worker
 }
 
 // DisplayName returns "emoji Name" if emoji is set, otherwise just Name.
@@ -184,10 +190,10 @@ const (
 
 // ReviewerNotifyTarget scans all pipelines to determine what notification
 // target an agent maps to based on the stage type they review.
-// Returns NotifyTargetCoder if the agent is a reviewer for a "coder" stage.
+// Returns NotifyTargetCoder if the agent is a reviewer for a worker stage.
 // Returns NotifyTargetDesigner if the agent is a reviewer for any other stage.
 // Returns NotifyTargetNone if the agent is not a reviewer in any pipeline.
-// If the agent reviews both coder and non-coder stages, NotifyTargetCoder wins.
+// If the agent reviews both worker and non-worker stages, NotifyTargetCoder wins.
 func (c *Config) ReviewerNotifyTarget(agentName string) NotifyTarget {
 	target := NotifyTargetNone
 	for _, p := range c.Pipelines {
@@ -195,7 +201,7 @@ func (c *Config) ReviewerNotifyTarget(agentName string) NotifyTarget {
 			if s.Reviewer != agentName {
 				continue
 			}
-			if s.Assignee == "coder" {
+			if s.Worker {
 				return NotifyTargetCoder // most specific — return immediately
 			}
 			target = NotifyTargetDesigner
@@ -209,6 +215,33 @@ func (c *Config) HasReviewer(agentName string) bool {
 	for _, p := range c.Pipelines {
 		for _, s := range p.Stages {
 			if s.Reviewer == agentName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// WorkerAgentName returns the assignee of the first worker stage matching taskTags.
+// Returns empty string if no pipeline matches or no worker stage is found.
+func (c *Config) WorkerAgentName(taskTags []string) string {
+	_, p, err := c.MatchPipeline(taskTags)
+	if err != nil || p == nil {
+		return ""
+	}
+	for _, s := range p.Stages {
+		if s.Worker && s.Assignee != "" {
+			return s.Assignee
+		}
+	}
+	return ""
+}
+
+// IsWorkerAgent returns true if agentName is the assignee of any worker stage.
+func (c *Config) IsWorkerAgent(agentName string) bool {
+	for _, p := range c.Pipelines {
+		for _, s := range p.Stages {
+			if s.Worker && s.Assignee == agentName {
 				return true
 			}
 		}

@@ -238,7 +238,7 @@ func resolvePromptKey(stage *pipeline.Stage) string {
 
 	// Reviewer path: agent is the stage's reviewer, not the assignee.
 	if agentName != "" && stage.Reviewer == agentName {
-		if stage.Assignee == pipeline.CoderAssignee {
+		if stage.IsWorker() {
 			return "review"
 		}
 		return "plan_review"

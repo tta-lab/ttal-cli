@@ -20,7 +20,8 @@ skills = ["sp-planning", "flicknote"]
 
 [[standard.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -37,7 +38,8 @@ skills = ["sp-debugging", "flicknote"]
 
 [[bugfix.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 gate = "auto"
 reviewer = "pr-review-lead"
 
@@ -47,7 +49,8 @@ tags = ["hotfix"]
 
 [[hotfix.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 gate = "auto"
 reviewer = "pr-review-lead"
 `

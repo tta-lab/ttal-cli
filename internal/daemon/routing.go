@@ -99,7 +99,7 @@ func handleTo(
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
 		log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
-		return dispatchToWorker(msgSvc, session, message.CreateParams{
+		return dispatchToWorker(msgSvc, session, worker.CoderAgentName, message.CreateParams{
 			Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
 			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
 		}, req.Message)
@@ -166,7 +166,7 @@ func handleAgentToAgent(
 		}
 		rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
 		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
-		return dispatchToWorker(msgSvc, session, message.CreateParams{
+		return dispatchToWorker(msgSvc, session, worker.CoderAgentName, message.CreateParams{
 			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
 			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 		}, msg)
@@ -225,14 +225,16 @@ func resolveWorker(idPrefix string) (string, error) {
 }
 
 // dispatchToWorker persists a message and delivers it to a worker tmux session.
-func dispatchToWorker(msgSvc *message.Service, session string, params message.CreateParams, text string) error {
+func dispatchToWorker(
+	msgSvc *message.Service, session, windowName string, params message.CreateParams, text string,
+) error {
 	persistMsg(msgSvc, params)
-	return deliverToWorker(session, text)
+	return deliverToWorker(session, windowName, text)
 }
 
 // deliverToWorker sends a message to a worker's tmux session.
-func deliverToWorker(session, text string) error {
-	return tmux.SendKeys(session, workerWindow, text)
+func deliverToWorker(session, windowName, text string) error {
+	return tmux.SendKeys(session, windowName, text)
 }
 
 // breatheAgentModel holds the model info resolved from the agent's status file.

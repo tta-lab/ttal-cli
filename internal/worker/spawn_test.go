@@ -15,7 +15,7 @@ func TestBuildEnvParts(t *testing.T) {
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode, "/custom/taskrc", "")
+	parts := buildEnvParts(task, runtime.ClaudeCode, "/custom/taskrc", CoderAgentName)
 
 	if len(parts) < 2 {
 		t.Fatal("expected at least TTAL_AGENT_NAME and TTAL_JOB_ID")
