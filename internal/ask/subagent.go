@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/logos"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	internalsandbox "github.com/tta-lab/ttal-cli/internal/sandbox"
 	internalsync "github.com/tta-lab/ttal-cli/internal/sync"
 )
 
@@ -190,7 +191,7 @@ func buildSubagentConfig(
 	}
 
 	sandbox := config.LoadSandbox()
-	allowedPaths := BuildSubagentSandboxPaths(sandbox, cwd, effectiveAccess, internalsync.CollectProjectGitDirs())
+	allowedPaths := BuildSubagentSandboxPaths(sandbox, cwd, effectiveAccess, internalsandbox.CollectProjectGitDirs())
 
 	return &logos.Config{
 		Provider:     provider,

@@ -10,8 +10,7 @@ import (
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/gitutil"
-	"github.com/tta-lab/ttal-cli/internal/project"
+	internalsandbox "github.com/tta-lab/ttal-cli/internal/sandbox"
 )
 
 // SandboxResult holds the outcome of a SyncSandbox call.
@@ -114,7 +113,7 @@ func buildAllowWritePaths(sandbox *config.SandboxConfig) ([]string, int) {
 
 	// Project .git dirs
 	gitDirCount := 0
-	for _, gitDir := range CollectProjectGitDirs() {
+	for _, gitDir := range internalsandbox.CollectProjectGitDirs() {
 		if !seen[gitDir] {
 			seen[gitDir] = true
 			paths = append(paths, gitDir)
@@ -261,44 +260,6 @@ func appendPermsDenyEntries(denySlice []interface{}, entries []string) []interfa
 		}
 	}
 	return denySlice
-}
-
-// CollectProjectGitDirs returns deduplicated .git directories for all registered projects.
-// Exported so the subagent sandbox builder can include them in AllowedPaths.
-func CollectProjectGitDirs() []string {
-	storePath := config.ResolveProjectsPath()
-	store := project.NewStore(storePath)
-	projects, err := store.List(false)
-	if err != nil {
-		log.Printf("[sync] warning: failed to load projects for sandbox git dirs: %v"+
-			" — git write access will be missing from settings.json allowWrite", err)
-		return nil
-	}
-
-	seen := make(map[string]bool)
-	var gitDirs []string
-	for _, p := range projects {
-		if p.Path == "" {
-			continue
-		}
-		gitDir := resolveGitDir(p.Path)
-		if gitDir != "" && !seen[gitDir] {
-			seen[gitDir] = true
-			gitDirs = append(gitDirs, gitDir)
-		}
-	}
-	sort.Strings(gitDirs)
-	return gitDirs
-}
-
-// resolveGitDir returns the .git directory for a project path.
-// For linked worktrees, returns the common git dir. For regular repos, returns <path>/.git.
-func resolveGitDir(projectPath string) string {
-	if commonDir := gitutil.LinkedWorktreeCommonDir(projectPath); commonDir != "" {
-		return commonDir
-	}
-	gitDir := filepath.Join(projectPath, ".git")
-	return gitDir
 }
 
 // expandHomePath expands ~ in path to the user's home directory.
