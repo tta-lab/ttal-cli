@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -131,19 +130,18 @@ Frontmatter name/description override derived values.
 Category is auto-detected: sp-* dirs → methodology, other dirs → tool,
 flat .md files → reference. Use --category to override.
 
+Existing notes are updated in-place; new notes are uploaded.
 Dry-run by default. Use --apply to actually upload and register.
 
 Example:
   ttal skill import skills
   ttal skill import skills --apply
-  ttal skill import commands --apply --category command
-  ttal skill import skills/ --apply --force`,
+  ttal skill import commands --apply --category command`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apply, _ := cmd.Flags().GetBool("apply")
-		force, _ := cmd.Flags().GetBool("force")
 		category, _ := cmd.Flags().GetString("category")
-		return runSkillImport(args[0], apply, force, category)
+		return runSkillImport(args[0], apply, category)
 	},
 }
 
@@ -163,7 +161,6 @@ func init() {
 	skillAddCmd.Flags().String("description", "", "Skill description")
 	skillAddCmd.Flags().Bool("force", false, "Overwrite existing registration")
 	skillImportCmd.Flags().Bool("apply", false, "Actually upload and register (default is dry-run)")
-	skillImportCmd.Flags().Bool("force", false, "Re-upload and update existing registrations")
 	skillImportCmd.Flags().String("category", "", "Override auto-detected category (command, methodology, reference, tool)") //nolint:lll
 }
 
@@ -510,14 +507,11 @@ func scanFolder(dir, categoryOverride string) ([]importEntry, error) {
 }
 
 // uploadAndRegister uploads one entry to flicknote and registers it, setting e.status and e.id.
-func uploadAndRegister(r *skill.Registry, e *importEntry, apply, force bool) {
+// If apply is false, it only reports what would be done.
+// If an entry already exists, it updates in-place using flicknote modify; otherwise it creates a new note.
+func uploadAndRegister(r *skill.Registry, e *importEntry, apply bool) {
 	existing, _ := r.Get(e.name) // not-found is expected; only real registry errors would matter here
 
-	if existing != nil && !force {
-		e.status = "skipped (exists)"
-		e.id = existing.FlicknoteID
-		return
-	}
 	if !apply {
 		if existing != nil {
 			e.status = "would update"
@@ -536,43 +530,53 @@ func uploadAndRegister(r *skill.Registry, e *importEntry, apply, force bool) {
 	fmName, fmDesc, body := skill.ParseFrontmatter(content)
 	if fmName != "" {
 		e.name = fmName
+		// Re-lookup after name change — frontmatter name may differ from directory name
+		existing, _ = r.Get(e.name)
 	}
 
-	cmd := exec.Command("flicknote", "add", "--project", "ttal.skills")
-	cmd.Stdin = bytes.NewReader(body)
-	output, err := cmd.Output()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			e.status = fmt.Sprintf("upload error: %s", strings.TrimSpace(string(exitErr.Stderr)))
-		} else {
-			e.status = fmt.Sprintf("upload error: %v", err)
+	var flicknoteID string
+	if existing != nil {
+		// Update existing note in-place
+		cmd := exec.Command("flicknote", "modify", existing.FlicknoteID)
+		cmd.Stdin = bytes.NewReader(body)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			msg := "update error: %s (if note was deleted, run: ttal skill remove %s && reimport)"
+			e.status = fmt.Sprintf(msg, strings.TrimSpace(string(out)), e.name)
+			return
 		}
-		return
-	}
+		flicknoteID = existing.FlicknoteID
+		e.status = "updated"
+		e.id = flicknoteID
+	} else {
+		// Upload new note
+		cmd := exec.Command("flicknote", "add", "--project", "ttal.skills")
+		cmd.Stdin = bytes.NewReader(body)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			e.status = fmt.Sprintf("upload error: %s", strings.TrimSpace(string(output)))
+			return
+		}
 
-	matches := flicknoteIDRegexp.FindSubmatch(output)
-	if len(matches) < 2 {
-		e.status = fmt.Sprintf("parse error: %s", strings.TrimSpace(string(output)))
-		return
+		matches := flicknoteIDRegexp.FindSubmatch(output)
+		if len(matches) < 2 {
+			e.status = fmt.Sprintf("parse error: %s", strings.TrimSpace(string(output)))
+			return
+		}
+		flicknoteID = string(matches[1])
+		e.status = "uploaded"
+		e.id = flicknoteID
 	}
-	flicknoteID := string(matches[1])
 
 	s := skill.Skill{Name: e.name, FlicknoteID: flicknoteID, Category: e.category, Description: fmDesc}
-	if err := r.Add(s, force); err != nil {
+	isUpdate := existing != nil
+	if err := r.Add(s, isUpdate); err != nil {
 		e.status = fmt.Sprintf("register error: %v", err)
 		return
 	}
-
-	e.id = flicknoteID
-	if existing != nil {
-		e.status = "updated"
-	} else {
-		e.status = "uploaded"
-	}
 }
 
-func runSkillImport(folder string, apply, force bool, category string) error {
+func runSkillImport(folder string, apply bool, category string) error {
 	dir := config.ExpandHome(folder)
 
 	entries, err := scanFolder(dir, category)
@@ -590,7 +594,7 @@ func runSkillImport(folder string, apply, force bool, category string) error {
 	}
 
 	for i := range entries {
-		uploadAndRegister(r, &entries[i], apply, force)
+		uploadAndRegister(r, &entries[i], apply)
 	}
 
 	var rows [][]string
