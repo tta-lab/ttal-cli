@@ -4,7 +4,7 @@ emoji: 🎬
 description: "Code orchestrator — delegates implementation to coder/test-writer/doc-writer via ttal subagent run. Reads plan, coordinates specialists, reviews output."
 color: blue
 model: sonnet
-tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash, Edit, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # Code Lead

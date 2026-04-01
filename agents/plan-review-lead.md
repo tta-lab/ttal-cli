@@ -16,7 +16,7 @@ description: |-
   assistant: "I'll use the plan-review-lead agent to check the plan."
   </example>
 model: sonnet
-tools: [Bash, Glob, Grep, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ---
 
 # Plan Review Lead

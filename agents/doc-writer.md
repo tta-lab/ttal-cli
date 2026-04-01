@@ -4,7 +4,7 @@ emoji: 📝
 description: "Stateless doc writer — updates documentation for specified changes. CWD-scoped, writes directly to doc files."
 color: green
 model: haiku
-tools: [Bash, Glob, Grep, Read, Write, Edit]
+  tools: [Bash, Write, Edit]
 ttal:
   access: rw
 ---
