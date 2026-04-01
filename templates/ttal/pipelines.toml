@@ -17,7 +17,8 @@ skills = ["sp-planning", "flicknote", "task-tree"]
 
 [[standard.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
@@ -36,7 +37,8 @@ skills = ["sp-debugging", "flicknote", "task-tree"]
 
 [[bugfix.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
@@ -47,7 +49,8 @@ tags = ["hotfix"]
 
 [[hotfix.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
@@ -99,7 +102,8 @@ skills = ["sp-brainstorming", "flicknote", "task-tree"]
 
 [[brainstorm.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
@@ -118,7 +122,8 @@ skills = ["sp-planning", "flicknote", "task-tree"]
 
 [[devops.stages]]
 name = "Implement"
-assignee = "coder"
+assignee = "code-lead"
+worker = true
 emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"

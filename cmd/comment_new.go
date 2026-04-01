@@ -367,19 +367,17 @@ func notifyCounterpart(body string) {
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	taskTags := resolveTaskTags()
 
-	// "coder" is a fixed system identity set by worker spawn (internal/worker/spawn.go),
-	// not a pipeline-configured agent name — always notify the reviewer window.
-	if agentName == "coder" {
-		cfg, _ := loadConfigAndCoderRuntime()
+	cfg, rt := loadConfigAndCoderRuntime()
+
+	// Check if this agent is a worker — always notify the reviewer window.
+	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err == nil && pipelineCfg.IsWorkerAgent(agentName) {
 		reviewerWindow := resolveReviewerWindow(taskTags, "coder", "pr-review-lead")
 		notifyReviewer(sessionName, body, cfg, reviewerWindow)
 		return
 	}
 
-	cfg, rt := loadConfigAndCoderRuntime()
-
 	// Check if this agent is a reviewer — route based on what stage type they review.
-	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		log.Printf("warn: notifyCounterpart: load pipelines: %v", err)
 		// Pipeline unavailable — fall back to plan-review-lead directly; don't re-invoke
@@ -390,7 +388,7 @@ func notifyCounterpart(body string) {
 
 	switch pipelineCfg.ReviewerNotifyTarget(agentName) {
 	case pipeline.NotifyTargetCoder:
-		notifyCoder(sessionName, body, cfg, rt)
+		notifyCoder(sessionName, body, cfg, rt, taskTags)
 	case pipeline.NotifyTargetDesigner:
 		notifyDesigner(sessionName, body, cfg, rt)
 	default:
@@ -414,8 +412,9 @@ func renderTriageNotification(body, tmpl string, rt runtime.Runtime) (string, bo
 	return config.RenderTemplate(replacer.Replace(tmpl), "", rt), true
 }
 
-func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
-	if !tmux.WindowExists(sessionName, coderWindowName) {
+func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtime, taskTags []string) {
+	windowName := workerWindowName(taskTags)
+	if !tmux.WindowExists(sessionName, windowName) {
 		return
 	}
 	tmpl := cfg.Prompt("triage")
@@ -426,7 +425,7 @@ func notifyCoder(sessionName, body string, cfg *config.Config, rt runtime.Runtim
 	if !ok {
 		return
 	}
-	if err := tmux.SendKeys(sessionName, coderWindowName, notification); err != nil {
+	if err := tmux.SendKeys(sessionName, windowName, notification); err != nil {
 		log.Printf("warning: notify coder failed: %v", err)
 	}
 }
