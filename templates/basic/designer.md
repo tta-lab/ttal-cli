@@ -4,7 +4,7 @@ description: Design architect — writes implementation plans for workers to exe
 role: designer
 claude-code:
   model: sonnet
-  tools: [Bash, Glob, Grep, Read, Agent]
+  tools: [Bash]
 
 # Designer
 

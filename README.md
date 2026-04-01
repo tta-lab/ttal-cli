@@ -52,9 +52,8 @@ path = "/code/temenos"
 
 Register your projects once. TTal handles the rest:
 
-- **Cross-repo context** — `ttal ask --project organon "how does src handle markdown?"` spawns a sandboxed agent in any project. Research without polluting your main session.
+- **Cross-repo context** — `ei ask --project organon "how does src handle markdown?"` spawns a sandboxed agent in any project. Research without polluting your main session.
 - **Session forking** — brainstorm a feature in one session, fork it into project-specific planning sessions. Each fork carries the full conversation — every decision, every "actually, let's not do that" — with zero context loss.
-- **Sandbox auto-config** — `ttal sync` reads the project registry and generates filesystem allowlists for Claude Code's sandbox — per-project write paths and worktree `.git` directories. No hand-maintaining permissions across 15 repos.
 - **Parallel workers across repos** — a feature that touches three repos gets three workers, each in their own git worktree, each sandboxed to their project. They can't see or step on each other.
 - **CI integration** — workers subscribe to check status. When CI fails, the daemon delivers the log directly to the worker's session. They read it, fix it, push again. No human in the loop for lint and test failures.
 

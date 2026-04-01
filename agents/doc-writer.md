@@ -1,10 +1,10 @@
 ---
 name: doc-writer
 emoji: 📝
-description: "Stateless doc writer — updates documentation for specified changes. CWD-scoped, writes directly to doc files."
+description: "Stateless doc writer — updates documentation for specified changes using Bash. CWD-scoped, writes directly to doc files."
 color: green
 model: haiku
-tools: [Bash, Write, Edit]
+tools: [Bash]
 ttal:
   access: rw
 ---
@@ -29,9 +29,7 @@ src <file> -s <id>            # read a section or symbol
 src comment <file> -s <id> --read   # read existing doc comment
 echo "// updated doc" | src comment <file> -s <id>   # write doc comment
 cat <<'EDIT' | src edit <file>
-===BEFORE===
 old text
-===AFTER===
 new text
 EDIT
 ```

@@ -99,11 +99,11 @@ REVIEW
 - don't create re-export files for backward compatibility - just update imports directly
 - when moon typecheck shows cached results, trust them - don't try alternative methods like `bunx tsc` or `bun run typecheck`
 - when adding new dependencies, run `bun install <package>` in root to get latest version - don't manually write potentially outdated versions in package.json
-- **Use `ttal ask` for all external research** — repos, web pages, projects, and web search:
-  - `ttal ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
-  - `ttal ask "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
-  - `ttal ask "question" --project <alias>` — explore registered ttal projects
-  - `ttal ask "question" --web` — search the web and read results
+- **Use `ei ask` for all external research** — repos, web pages, projects, and web search:
+  - `ei ask "question" --repo org/repo` — explore OSS repos (auto-clone/pull)
+  - `ei ask "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
+  - `ei ask "question" --project <alias>` — explore registered ttal projects
+  - `ei ask "question" --web` — search the web and read results
 
 ## ttal CLI
 
@@ -158,10 +158,10 @@ ttal go <uuid>    # advance task through pipeline stage (route to agent or spawn
 Investigate external repos, web pages, internal projects, or search the web:
 
 ```bash
-ttal ask "how does routing work?" --project ttal-cli
-ttal ask "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
-ttal ask "what API endpoints are available?" --url https://docs.example.com
-ttal ask "what is the latest Go generics syntax?" --web
+ei ask "how does routing work?" --project ttal-cli
+ei ask "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
+ei ask "what API endpoints are available?" --url https://docs.example.com
+ei ask "what is the latest Go generics syntax?" --web
 ```
 
 ### Projects
@@ -176,13 +176,14 @@ ttal voice speak "text"      # TTS → Telegram voice message
 ttal voice speak "text" --voice af_heart  # specific voice
 ```
 
-### Sync (deploy skills, subagents & config)
+### Sync (deploy skills & config)
 ```bash
-ttal sync                    # deploy skills + subagents + config TOMLs to runtime dirs
+ttal sync                    # deploy skills + config TOMLs to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
-Sources: `/Users/neil/Code/guion-opensource/ttal-cli/skills/` → `~/.claude/skills/`, `/Users/neil/Code/guion-opensource/ttal-cli/agents/` → `~/.claude/agents/`
+Sources: `/Users/neil/Code/guion-opensource/ttal-cli/skills/` → `~/.claude/skills/`
 Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
+Agent definitions live in [einai](https://github.com/tta-lab/einai) — use `ei sync` for agent/skill deployment.
 
 ## Learning & Knowledge
 

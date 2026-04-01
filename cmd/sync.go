@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -19,16 +20,12 @@ var (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Deploy plugin, team agents, rules, and configs to runtime directories",
+	Short: "Deploy plugin, rules, and configs to runtime directories",
 	Long: `Installs the ttal CC plugin (subagents + SessionStart hook) and deploys
-team agent identities, RULE.md cheat sheets, and config TOMLs.
+RULE.md cheat sheets and config TOMLs.
 
 Plugin (subagents + hook):
   Installed via CC plugin marketplace (claude plugin install ttal@ttal)
-
-Team agent identities are deployed as:
-  Claude Code → ~/.claude/agents/{name}.md
-  Codex       → ~/.codex/agents/{name}.toml + ~/.codex/config.toml
 
 Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
@@ -63,7 +60,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 		}
 
 		configCount := 0
-		agentCount := 0
 		ruleCount := 0
 
 		// Install/update ttal CC plugin (subagents + SessionStart hook).
@@ -89,32 +85,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  Plugin updated: ttal (%d agents, SessionStart hook)\n", pluginResult.AgentCount)
 			} else {
 				fmt.Printf("  Plugin: ttal (up to date, %d agents)\n", pluginResult.AgentCount)
-			}
-		}
-
-		// Deploy team agents (identity files) to ~/.claude/agents/ — denied as subagents.
-		if teamPath != "" {
-			printSyncHeader("team agents", syncDryRun)
-
-			teamResults, err := sync.DeployAgents([]string{teamPath}, syncDryRun)
-			if err != nil {
-				return fmt.Errorf("team agent sync failed: %w", err)
-			}
-			printAgentResults(teamResults)
-			agentCount += len(teamResults)
-
-			primaryAgentNames := make([]string, len(teamResults))
-			for i, r := range teamResults {
-				primaryAgentNames[i] = r.Name
-			}
-			denied, err := sync.DenyPrimaryAgentsAsSubagents(primaryAgentNames, syncDryRun)
-			if err != nil {
-				fmt.Fprintf(os.Stderr,
-					"warning: agents NOT denied as subagents (settings.json update failed): %v\n", err)
-			} else {
-				for _, name := range denied {
-					fmt.Printf("  Denied primary agent as subagent: Agent(%s)\n", name)
-				}
 			}
 		}
 
@@ -163,21 +133,32 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
+		// Sync sandbox via einai (ei) if available in PATH
 		printSyncHeader("sandbox", syncDryRun)
-		sandboxResult, err := sync.SyncSandbox(syncDryRun)
-		if err != nil {
-			return fmt.Errorf("sandbox sync failed: %w", err)
+		if _, err := exec.LookPath("ei"); err == nil {
+			if !syncDryRun {
+				eiCmd := exec.Command("ei", "sandbox", "sync")
+				eiCmd.Stdout = os.Stdout
+				eiCmd.Stderr = os.Stderr
+				if err := eiCmd.Run(); err != nil {
+					fmt.Fprintf(os.Stderr, "  warning: ei sandbox sync failed: %v\n", err)
+				} else {
+					fmt.Printf("  ei sandbox synced\n")
+				}
+			} else {
+				fmt.Printf("  ei sandbox sync (dry run)\n")
+			}
+		} else {
+			const installHint = "go install github.com/tta-lab/einai/cmd/ei@latest"
+			fmt.Printf("  skipped: ei not in PATH (install: %s)\n", installHint)
 		}
-		fmt.Printf("  allowWrite: %d paths (%d project .git dirs)\n",
-			len(sandboxResult.AllowWritePaths), sandboxResult.GitDirCount)
-		fmt.Printf("  denyRead: %d paths\n", len(sandboxResult.DenyReadPaths))
 
 		suffix := ""
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d configs, %d agents, %d rules.%s\n",
-			configCount, agentCount, ruleCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d rules.%s\n",
+			configCount, ruleCount, suffix)
 		return nil
 	},
 }
@@ -266,13 +247,5 @@ func printSyncHeader(label string, dryRun bool) {
 		fmt.Printf("Syncing %s (dry run)...\n", label)
 	} else {
 		fmt.Printf("Syncing %s...\n", label)
-	}
-}
-
-func printAgentResults(results []sync.AgentResult) {
-	for _, r := range results {
-		fmt.Printf("  %s\n", shortenHome(r.Source))
-		fmt.Printf("    → %s (claude-code)\n", shortenHome(r.CCDest))
-		fmt.Printf("    → %s (codex)\n", shortenHome(r.CodexDest))
 	}
 }

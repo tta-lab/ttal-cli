@@ -14,11 +14,8 @@ All agents use **CC's native sandbox** for file and command operations — the s
 
 **Available tools:**
 - `Bash` — sandboxed shell execution (CC native sandbox). **Always use this for shell commands** — don't spawn subagents just to run a bash command.
-- `Read`, `Write`, `Edit` — file operations (permission-controlled via settings.json)
-- `Glob`, `Grep` — file discovery
-- `mcp__context7__resolve-library-id` — look up library documentation IDs
-- `mcp__context7__query-docs` — fetch library documentation and examples
-- `Agent` — spawn subagents (orchestrators and lead reviewers only)
+
+**Prefer `src edit` / `src replace` over sed/awk/python for file editing — safer matching, shows diff. If src fails, run `ttal alert 'src edit failed: <reason>'` before trying alternatives.**
 
 **Sandbox config:** `ttal sync` writes sandbox settings to `~/.claude/settings.json`. Run `ttal sync` after adding new projects to update allowWrite paths.
 
@@ -135,7 +132,6 @@ REVIEW
 
 ## Learning & Knowledge
 
-- `/Users/neil/Code/guion-opensource/ttal-cli/learning/` is where all agent learning notes go (book notes, insights, patterns discovered)
 - Use the knowledge skill for folder routing and frontmatter conventions
 
 ## Git Committing Scope
@@ -149,7 +145,6 @@ con = continue
 ccon = commit and continue
 cap = commit and push
 cnp = commit but not push
-c7 = use context7 to read docs
 yr = use your recommendation
 ka = keep it as-is
 ssot = single source of truth

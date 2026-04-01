@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
@@ -221,5 +222,66 @@ func TestProjectListArchivedOnly(t *testing.T) {
 	}
 	if len(active) > 0 && active[0].Alias != "active-proj" {
 		t.Errorf("active project alias = %v, want active-proj", active[0].Alias)
+	}
+}
+
+func TestProjectListJSON(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.Add("proj1", "Project One", "/path/one"); err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+	if err := store.Add("proj2", "Project Two", "/path/two"); err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+
+	projects, err := store.List(false)
+	if err != nil {
+		t.Fatalf("failed to list projects: %v", err)
+	}
+
+	// Reproduce the JSON output logic from the command
+	type projectJSON struct {
+		Alias string `json:"alias"`
+		Name  string `json:"name"`
+		Path  string `json:"path"`
+	}
+	output := make([]projectJSON, 0, len(projects))
+	for _, p := range projects {
+		output = append(output, projectJSON{Alias: p.Alias, Name: p.Name, Path: p.Path})
+	}
+	data, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("failed to marshal projects: %v", err)
+	}
+
+	// Parse JSON output and verify structure
+	var results []map[string]string
+	if err := json.Unmarshal(data, &results); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nOutput: %s", err, string(data))
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 projects in JSON, got %d", len(results))
+	}
+	assertJSONProjectFields(t, results)
+}
+
+// assertJSONProjectFields checks that each item has alias, name, path keys
+// and that proj1 is present with expected values.
+func assertJSONProjectFields(t *testing.T, results []map[string]string) {
+	t.Helper()
+	requiredFields := []string{"alias", "name", "path"}
+	found := false
+	for _, r := range results {
+		for _, field := range requiredFields {
+			if _, ok := r[field]; !ok {
+				t.Errorf("JSON object missing %q field", field)
+			}
+		}
+		if r["alias"] == "proj1" && r["name"] == "Project One" && r["path"] == "/path/one" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected project proj1 not found in JSON output")
 	}
 }

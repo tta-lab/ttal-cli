@@ -26,10 +26,6 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		askHuman: func(w http.ResponseWriter, r *http.Request) {
 			writeHTTPJSON(w, http.StatusServiceUnavailable, AskHumanResponse{Error: "not configured in test"})
 		},
-		askHandler: func(w http.ResponseWriter, r *http.Request) {
-			writeHTTPJSON(w, http.StatusServiceUnavailable,
-				SendResponse{OK: false, Error: "not configured in test"})
-		},
 		// PR handlers — always wired to avoid nil dereference when tests exercise the router.
 		prCreate:         func(req PRCreateRequest) PRResponse { return PRResponse{OK: true} },
 		prModify:         func(req PRModifyRequest) PRResponse { return PRResponse{OK: true} },

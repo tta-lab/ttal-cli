@@ -4,7 +4,7 @@ emoji: 🎬
 description: "Code orchestrator — delegates implementation to coder/test-writer/doc-writer via ttal subagent run. Reads plan, coordinates specialists, reviews output."
 color: blue
 model: sonnet
-tools: [Bash, Edit]
+tools: [Bash]
 ---
 
 # Code Lead

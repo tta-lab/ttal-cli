@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/ask"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/reporef"
 )
 
 // Shell functions installed via --init. command ttal prevents alias recursion.
@@ -88,7 +88,7 @@ func runJump(cmd *cobra.Command, args []string) error {
 	}
 	refsPath := cfg.AskReferencesPath()
 
-	repoPath, repoErr := ask.FindClonedRepo(target, refsPath)
+	repoPath, repoErr := reporef.FindClonedRepo(target, refsPath)
 	if repoErr == nil {
 		fmt.Println(repoPath)
 		return nil

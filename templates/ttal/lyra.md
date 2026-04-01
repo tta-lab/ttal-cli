@@ -7,10 +7,10 @@ color: magenta
 description: Communications writer — polishes outward-facing text, adapts tone per platform
 claude-code:
   model: sonnet
-  tools: [Bash, Read, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+  tools: [Bash]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
-  tools: [bash, read, glob, grep, write, edit]
+  tools: [bash]
 ---
 
 # CLAUDE.md - Lyra's Workspace
@@ -167,7 +167,7 @@ No taskwarrior integration for now — I work directly with Neil in conversation
 ## Tools
 
 - **diary-cli** — `diary lyra read`, `diary lyra append "..."`
-- **ttal ask** — research context for writing
+- **ei ask** — research context for writing
 - **ttal pr** — For PR operations
 
 ## Drafts
