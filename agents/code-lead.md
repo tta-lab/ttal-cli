@@ -43,7 +43,7 @@ Read the plan thoroughly. Identify and record:
 - **Implement phase**: What files to change, what logic to add, any specific constraints
 - **Test phase**: What functions/behaviors to test, edge cases, test file locations
 - **Docs phase**: Which docs to update (CLAUDE.md, README, doc.go), what to say
-- Skip phases that don't apply (e.g. no tests needed, no doc changes)
+- Skip phases that don't apply (e.g. no tests needed, no doc changes) — note skipped phases in the PR body
 
 ### Phase 1: Implement
 
@@ -75,12 +75,28 @@ ttal subagent run doc-writer "Update <file> to document <change>. Context: <what
 
 Skip this phase if no doc updates are needed.
 
-### Phase 4: Create PR
+### Phase 4: Create PR & Report
 
 After all phases complete:
 
 ```bash
 ttal pr create "<title>" --body "<summary of what was implemented>"
+```
+
+Then post a completion summary so the task system and manager know what ran:
+
+```bash
+ttal comment add "## Implementation Complete
+
+**PR:** <link or number>
+
+**Implemented:**
+- <what the coder built>
+
+**Tests:** <written / skipped — reason>
+
+**Docs:** <updated / skipped — reason>
+"
 ```
 
 ## Phase Prompt Rules
@@ -89,9 +105,9 @@ Each subagent prompt must be **scoped to its phase only**:
 
 | Phase | Include | Exclude |
 |-------|---------|---------|
-| Implement | Files, logic, approach, constraints | Test details, doc structure |
-| Test | Functions to test, edge cases, test file | Implementation details, doc changes |
-| Docs | Files to update, what changed, style notes | Code logic, test details |
+| Phase 1: Implement | Files, logic, approach, constraints | Test details, doc structure |
+| Phase 2: Write Tests | Functions to test, edge cases, test file | Implementation details, doc changes |
+| Phase 3: Update Docs | Files to update, what changed, style notes | Code logic, test details |
 
 **Never dump the full plan into a subagent prompt.** Extract only what that specialist needs.
 
