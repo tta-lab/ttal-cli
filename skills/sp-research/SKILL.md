@@ -19,6 +19,16 @@ Conduct structured, multi-source research that produces actionable findings. Res
 - **Sourced:** Always cite sources with links
 - **Honest:** If research hits a dead end, document why — don't force conclusions
 
+## Checkpoint: Discuss Scope
+
+Before starting research, align on what you're investigating.
+
+- Read the task description and any annotations
+- State your planned scope: 'Here's what I plan to investigate: [topic]. I'll focus on [specific questions]. Boundaries: [what I won't cover]. Expected output: [what the findings doc will look like].'
+- Ask for alignment: 'Does this scope match what you need, or should I adjust the focus?'
+- Keep it lightweight: 3-5 sentences covering scope, boundaries, expected outputs + a question
+- **If not aligned** → revise scope and discuss again. Do not proceed to Research Process without explicit agreement.
+
 ## Research Process
 
 1. **Understand the question** — read the task description and annotations. What decision does this research inform?

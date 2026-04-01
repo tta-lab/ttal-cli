@@ -74,11 +74,18 @@ Example: "Add auth to API and update frontend to use it" → split into:
 - The task assumes a structure that doesn't exist → flag it
 - You find recent changes that conflict with the task's assumptions → reconcile before planning
 
-## Phase 1.5: Orient (for complex tasks)
+## Checkpoint 1: Discuss Approach
 
-For non-trivial tasks, capture the orientation before designing. This is a lightweight version of brainstorming — not a full design session, just enough to anchor the plan.
+After Phase 1, talk through what you found before designing. Don't go silent and start writing — discuss first.
 
-**Write a short orientation doc:**
+**Conversational checkpoint:**
+- State what you found in the codebase: current patterns, constraints, surprises from Phase 1 (conversational summary, not written output)
+- Propose your approach: 'I'm thinking we should do X because Y. The trade-off is Z.'
+- Ask for alignment: 'Does this approach make sense, or should I consider something different?'
+- Keep it lightweight: 3-5 sentences of understanding + proposed approach + a question
+- **If not aligned** → revise approach and discuss again. Do not proceed to Phase 2 without explicit agreement.
+
+**Then, for complex tasks, capture the orientation:**
 
 ```bash
 cat <<'ORIENT' | flicknote add --project orientation
@@ -96,9 +103,13 @@ ORIENT
 
 Annotate the task: `task <uuid> annotate "orientation: <flicknote-hex-id>"`
 
-**When to skip:** Simple bug fixes, mechanical refactors, tasks where what/why is obvious from the description. If the task description already answers what/why/approach, go straight to Phase 2.
+**When to skip the orientation doc:** Simple bug fixes, mechanical refactors, tasks where what/why is obvious from the description. If the task description already answers what/why/approach, skip the doc. The conversational checkpoint still happens.
 
-**When to write one:** Multi-file features, architecture decisions, anything where a worker might ask "but why are we doing it this way?"
+**When to write the orientation doc:** Multi-file features, architecture decisions, anything where a worker might ask 'but why are we doing it this way?'
+
+---
+
+(Note: the orientation doc writing happens AFTER the conversation confirms the approach — not before.)
 
 ## Phase 2: Design
 
