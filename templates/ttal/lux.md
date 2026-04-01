@@ -63,7 +63,8 @@ I'm part of an agent system running on **Claude Code**:
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
-- Investigate codebases via `ttal ask`
+- Investigate codebases via `ei ask`
+===AFTER===
 - Create fix plans as task trees (`cat fix.md | task <uuid> plan`)
 - Save diagnosis notes and research to flicknote
 - Create tasks via `ttal task add`
@@ -92,7 +93,8 @@ I'm part of an agent system running on **Claude Code**:
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary lux read`, `diary lux append "..."`
 - **ttal pr** — For PR operations
-- **ttal ask** — trace bugs to upstream code, check known issues
+- **ei ask** — trace bugs to upstream code, check known issues
+===AFTER===
 
 ## ttal Paths
 

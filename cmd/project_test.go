@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
@@ -221,5 +222,71 @@ func TestProjectListArchivedOnly(t *testing.T) {
 	}
 	if len(active) > 0 && active[0].Alias != "active-proj" {
 		t.Errorf("active project alias = %v, want active-proj", active[0].Alias)
+	}
+}
+
+func TestProjectListJSON(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.Add("proj1", "Project One", "/path/one"); err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+	if err := store.Add("proj2", "Project Two", "/path/two"); err != nil {
+		t.Fatalf("failed to create project: %v", err)
+	}
+
+	projects, err := store.List(false)
+	if err != nil {
+		t.Fatalf("failed to list projects: %v", err)
+	}
+
+	// Reproduce the JSON output logic from the command
+	type projectJSON struct {
+		Alias string `json:"alias"`
+		Name  string `json:"name"`
+		Path  string `json:"path"`
+	}
+	output := make([]projectJSON, 0, len(projects))
+	for _, p := range projects {
+		output = append(output, projectJSON{Alias: p.Alias, Name: p.Name, Path: p.Path})
+	}
+	data, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("failed to marshal projects: %v", err)
+	}
+	jsonOutput := string(data)
+
+	// Parse JSON output
+	var results []map[string]string
+	if err := json.Unmarshal([]byte(jsonOutput), &results); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nOutput: %s", err, jsonOutput)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 projects in JSON, got %d", len(results))
+	}
+
+	// Verify structure (alias, name, path fields present)
+	for _, r := range results {
+		if _, ok := r["alias"]; !ok {
+			t.Error("JSON object missing 'alias' field")
+		}
+		if _, ok := r["name"]; !ok {
+			t.Error("JSON object missing 'name' field")
+		}
+		if _, ok := r["path"]; !ok {
+			t.Error("JSON object missing 'path' field")
+		}
+	}
+
+	// Verify content of one project
+	found := false
+	for _, r := range results {
+		if r["alias"] == "proj1" && r["name"] == "Project One" && r["path"] == "/path/one" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected project proj1 not found in JSON output")
 	}
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -20,6 +21,7 @@ var (
 	projectAlias string
 	projectName  string
 	projectPath  string
+	projectJSON  bool
 	archivedOnly bool
 )
 
@@ -81,6 +83,24 @@ Examples:
 		projects, err := store.List(archivedOnly)
 		if err != nil {
 			return fmt.Errorf("failed to list projects: %w", err)
+		}
+
+		if projectJSON {
+			type projectJSON struct {
+				Alias string `json:"alias"`
+				Name  string `json:"name"`
+				Path  string `json:"path"`
+			}
+			output := make([]projectJSON, 0, len(projects))
+			for _, p := range projects {
+				output = append(output, projectJSON{Alias: p.Alias, Name: p.Name, Path: p.Path})
+			}
+			data, err := json.Marshal(output)
+			if err != nil {
+				return fmt.Errorf("failed to marshal projects: %w", err)
+			}
+			fmt.Println(string(data))
+			return nil
 		}
 
 		if len(projects) == 0 {
@@ -228,6 +248,7 @@ func init() {
 	projectAddCmd.Flags().StringVar(&projectAlias, "alias", "", "Project alias (required, unique identifier)")
 	projectAddCmd.Flags().StringVar(&projectName, "name", "", "Project name (required)")
 	projectAddCmd.Flags().StringVar(&projectPath, "path", "", "Filesystem path")
+	projectListCmd.Flags().BoolVar(&projectJSON, "json", false, "Output as JSON")
 	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
 }
 

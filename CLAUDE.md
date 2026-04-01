@@ -130,7 +130,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
 | `ttal go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
 | `ttal tag <version>` | git tag + push via daemon | `handleGitTag` |
-| `ttal subagent run <name>` | daemon proxy → logos.Run | `handleSubagent` → `ask.RunSubagent` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 | CC SessionStart hook | Session context injection | `ttal context` (installed via `ttal sync`) |
 
@@ -148,7 +147,7 @@ When `ttal go <uuid>` is run with `+lgtm` set, the daemon merges the PR (squash)
 cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up via fsnotify and handles the
 full lifecycle: close session, remove worktree, mark task done.
 `ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
-`ttal sync` installs the CC SessionStart hook (`ttal context`) into `~/.claude/settings.json` — not `ttal doctor --fix`.
+`ttal sync` installs the CC SessionStart hook (`ttal context`) into `~/.claude/settings.json`.
 
 ### Modify Command Syntax
 

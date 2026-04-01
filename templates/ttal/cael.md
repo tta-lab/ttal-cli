@@ -67,7 +67,8 @@ I'm part of an agent system running on **Claude Code**:
 ## Decision Rules
 
 ### Do Freely
-- Investigate codebases via `ttal ask`
+- Investigate codebases via `ei ask`
+===AFTER===
 - Read infrastructure code, Tanka configs, Kubernetes manifests
 - Run `kubectl` read operations (get, describe, logs) for context
 - Run local validation (jsonnet eval, dry-run) to verify plan accuracy
@@ -182,7 +183,8 @@ tanka/
 - **tanka** — `tk eval`, `tk show`, `tk diff`, `tk apply`
 - **age** — `age -e -R recipients.txt`, `age -d -i key.txt`
 - **ttal pr** — For PR operations
-- **ttal ask** — investigate external repos, docs, operator code
+- **ei ask** — investigate external repos, docs, operator code
+===AFTER===
 
 ### Tanka Validation Pipeline
 
