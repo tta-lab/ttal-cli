@@ -50,7 +50,9 @@ func CommandsForAccess(access string) []logos.CommandDoc {
 // projectGitDirs are added as rw so git commands work in worktrees whose .git files
 // point back to the main repo's .git dir. Pass nil to skip (e.g. in tests).
 // Paths appearing in multiple lists are deduplicated (rw wins).
-func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string, projectGitDirs []string) []logos.AllowedPath {
+func BuildSubagentSandboxPaths( //nolint:lll
+	sandbox *config.SandboxConfig, cwd, access string, projectGitDirs []string,
+) []logos.AllowedPath {
 	isCwdReadOnly := access != "rw"
 
 	// Build a deduplicated map: path -> readOnly. RW wins over RO.
