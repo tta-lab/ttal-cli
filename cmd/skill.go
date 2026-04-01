@@ -540,7 +540,8 @@ func uploadAndRegister(r *skill.Registry, e *importEntry, apply bool) {
 		cmd.Stdin = bytes.NewReader(body)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			e.status = fmt.Sprintf("update error: %s (if note was deleted, run: ttal skill remove %s && reimport)", strings.TrimSpace(string(out)), e.name)
+			msg := "update error: %s (if note was deleted, run: ttal skill remove %s && reimport)"
+			e.status = fmt.Sprintf(msg, strings.TrimSpace(string(out)), e.name)
 			return
 		}
 		flicknoteID = existing.FlicknoteID
