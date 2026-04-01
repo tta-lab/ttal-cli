@@ -114,7 +114,7 @@ func buildAllowWritePaths(sandbox *config.SandboxConfig) ([]string, int) {
 
 	// Project .git dirs
 	gitDirCount := 0
-	for _, gitDir := range collectProjectGitDirs() {
+	for _, gitDir := range CollectProjectGitDirs() {
 		if !seen[gitDir] {
 			seen[gitDir] = true
 			paths = append(paths, gitDir)
@@ -263,8 +263,9 @@ func appendPermsDenyEntries(denySlice []interface{}, entries []string) []interfa
 	return denySlice
 }
 
-// collectProjectGitDirs returns deduplicated .git directories for all registered projects.
-func collectProjectGitDirs() []string {
+// CollectProjectGitDirs returns deduplicated .git directories for all registered projects.
+// Exported so the subagent sandbox builder can include them in AllowedPaths.
+func CollectProjectGitDirs() []string {
 	storePath := config.ResolveProjectsPath()
 	store := project.NewStore(storePath)
 	projects, err := store.List(false)

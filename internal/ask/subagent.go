@@ -45,13 +45,15 @@ func CommandsForAccess(access string) []logos.CommandDoc {
 	return AllCommands()
 }
 
-// BuildSubagentSandboxPaths constructs AllowedPaths from sandbox.toml + CWD.
-// allowWrite paths → rw, allowRead paths → ro, CWD → rw/ro per access field.
-// Paths appearing in both lists are deduplicated (rw wins).
-func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string) []logos.AllowedPath {
+// BuildSubagentSandboxPaths constructs AllowedPaths from sandbox.toml + CWD + project git dirs.
+// allowWrite paths -> rw, allowRead paths -> ro, CWD -> rw/ro per access field.
+// projectGitDirs are added as rw so git commands work in worktrees whose .git files
+// point back to the main repo's .git dir. Pass nil to skip (e.g. in tests).
+// Paths appearing in multiple lists are deduplicated (rw wins).
+func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string, projectGitDirs []string) []logos.AllowedPath {
 	isCwdReadOnly := access != "rw"
 
-	// Build a deduplicated map: path → readOnly. RW wins over RO.
+	// Build a deduplicated map: path -> readOnly. RW wins over RO.
 	seen := make(map[string]bool) // true = readOnly
 	var ordered []string
 
@@ -60,7 +62,7 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 			return
 		}
 		if existing, ok := seen[p]; ok {
-			// RW wins — upgrade ro to rw if needed.
+			// RW wins -- upgrade ro to rw if needed.
 			if existing && !readOnly {
 				seen[p] = false
 			}
@@ -70,7 +72,7 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 		ordered = append(ordered, p)
 	}
 
-	// CWD goes first — temenos uses mounts[0] as WorkingDir.
+	// CWD goes first -- temenos uses mounts[0] as WorkingDir.
 	addPath(cwd, isCwdReadOnly)
 
 	for _, p := range sandbox.ExpandedAllowWrite() {
@@ -78,6 +80,12 @@ func BuildSubagentSandboxPaths(sandbox *config.SandboxConfig, cwd, access string
 	}
 	for _, p := range sandbox.ExpandedAllowRead() {
 		addPath(p, true)
+	}
+
+	// Add project .git dirs so git commands work inside subagent sandboxes.
+	// Mirrors the CC-session sandbox built by ttal sync (buildAllowWritePaths).
+	for _, gitDir := range projectGitDirs {
+		addPath(gitDir, false)
 	}
 
 	paths := make([]logos.AllowedPath, 0, len(ordered))
@@ -180,7 +188,7 @@ func buildSubagentConfig(
 	}
 
 	sandbox := config.LoadSandbox()
-	allowedPaths := BuildSubagentSandboxPaths(sandbox, cwd, effectiveAccess)
+	allowedPaths := BuildSubagentSandboxPaths(sandbox, cwd, effectiveAccess, internalsync.CollectProjectGitDirs())
 
 	return &logos.Config{
 		Provider:     provider,
