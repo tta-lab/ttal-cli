@@ -24,8 +24,7 @@ func TestIsAllowedForSession(t *testing.T) {
 		// Credentials with TTAL_ prefix must be blocked — prefix allowlist is for
 		// runtime metadata only (TTAL_JOB_ID, TTAL_AGENT_NAME), not git tokens.
 		"TTAL_FORGEJO_TOKEN", "TTAL_GITHUB_TOKEN",
-		// LLM/search API keys — ttal ask now runs server-side in the daemon,
-		// so workers no longer need these keys directly.
+		// LLM/search API keys — workers do not need these keys directly.
 		"MINIMAX_API_KEY", "MINIMAX_API_URL",
 		"BRAVE_API_KEY",
 	}
