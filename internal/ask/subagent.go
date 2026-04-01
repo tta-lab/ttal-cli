@@ -47,7 +47,7 @@ func CommandsForAccess(access string) []logos.CommandDoc {
 }
 
 // BuildSubagentSandboxPaths constructs AllowedPaths from sandbox.toml + CWD + project git dirs.
-// allowWrite paths -> rw, allowRead paths -> ro, CWD -> rw/ro per access field.
+// allowWrite paths → rw, allowRead paths → ro, CWD → rw/ro per access field.
 // projectGitDirs are added as rw so git commands work in worktrees whose .git files
 // point back to the main repo's .git dir. Pass nil to skip (e.g. in tests).
 // Paths appearing in multiple lists are deduplicated (rw wins).
@@ -56,7 +56,7 @@ func BuildSubagentSandboxPaths( //nolint:lll
 ) []logos.AllowedPath {
 	isCwdReadOnly := access != "rw"
 
-	// Build a deduplicated map: path -> readOnly. RW wins over RO.
+	// Build a deduplicated map: path → readOnly. RW wins over RO.
 	seen := make(map[string]bool) // true = readOnly
 	var ordered []string
 
@@ -65,7 +65,7 @@ func BuildSubagentSandboxPaths( //nolint:lll
 			return
 		}
 		if existing, ok := seen[p]; ok {
-			// RW wins -- upgrade ro to rw if needed.
+			// RW wins — upgrade ro to rw if needed.
 			if existing && !readOnly {
 				seen[p] = false
 			}
@@ -75,7 +75,7 @@ func BuildSubagentSandboxPaths( //nolint:lll
 		ordered = append(ordered, p)
 	}
 
-	// CWD goes first -- temenos uses mounts[0] as WorkingDir.
+	// CWD goes first — temenos uses mounts[0] as WorkingDir.
 	addPath(cwd, isCwdReadOnly)
 
 	for _, p := range sandbox.ExpandedAllowWrite() {

@@ -28,7 +28,7 @@ var (
 
 // renderCommandStart prints a styled command header to stderr.
 func renderCommandStart(command string) {
-	lipgloss.Fprintf(os.Stderr, "\n%s \n", askCmdStyle.Render("  $ "+command))
+	lipgloss.Fprintf(os.Stderr, "\n%s\n", askCmdStyle.Render("  $ "+command))
 }
 
 // renderCommandResult prints truncated command output and exit code to stderr.
@@ -51,7 +51,7 @@ func renderRetry(reason string, step int) {
 		fmt.Sprintf("  ↺ retry (step %d: %s)", step, reason)))
 }
 
-// renderDelta handles OnDelta text - prose goes to stdout, <cmd> blocks
+// renderDelta handles OnDelta text — prose goes to stdout, <cmd> blocks
 // are rendered as styled command previews on stderr.
 func renderDelta(text string) {
 	for len(text) > 0 {
@@ -66,7 +66,7 @@ func renderDelta(text string) {
 		}
 		end := strings.Index(text[start:], "</cmd>")
 		if end == -1 {
-			// Partial block - shouldn't happen with atomic chunks, print as-is
+			// Partial block — shouldn't happen with atomic chunks, print as-is
 			fmt.Print(text[start:])
 			return
 		}
