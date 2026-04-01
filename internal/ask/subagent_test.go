@@ -136,3 +136,33 @@ func TestBuildSubagentSandboxPaths_CWDIsFirstMount(t *testing.T) {
 	require.NotEmpty(paths)
 	require.Equal("/project/dir", paths[0].Path, "CWD must be first so temenos uses it as WorkingDir")
 }
+func TestInjectHomeEnv_NilMapGetsHome(t *testing.T) {
+	result := injectHomeEnv(nil)
+
+	home, ok := result["HOME"]
+	assert.True(t, ok, "HOME should be injected into nil map")
+	assert.NotEmpty(t, home, "HOME should be non-empty")
+}
+
+func TestInjectHomeEnv_EmptyMapGetsHome(t *testing.T) {
+	result := injectHomeEnv(map[string]string{})
+
+	home, ok := result["HOME"]
+	assert.True(t, ok, "HOME should be injected into empty map")
+	assert.NotEmpty(t, home, "HOME should be non-empty")
+}
+
+func TestInjectHomeEnv_ExistingHomePreserved(t *testing.T) {
+	result := injectHomeEnv(map[string]string{"HOME": "/custom/home"})
+
+	assert.Equal(t, "/custom/home", result["HOME"], "existing HOME should not be overwritten")
+}
+
+func TestInjectHomeEnv_OtherKeysPreserved(t *testing.T) {
+	result := injectHomeEnv(map[string]string{"FOO": "bar", "BAZ": "qux"})
+
+	assert.Equal(t, "bar", result["FOO"], "FOO should be preserved")
+	assert.Equal(t, "qux", result["BAZ"], "BAZ should be preserved")
+	_, hasHome := result["HOME"]
+	assert.True(t, hasHome, "HOME should also be injected")
+}

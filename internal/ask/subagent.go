@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -148,6 +149,26 @@ func validateAgentAccess(agent *internalsync.ParsedAgent, name string) (string, 
 	return access, nil
 }
 
+// injectHomeEnv returns a copy of env with HOME set to the real user home directory
+// if not already present. Creates the map if nil. Without HOME, subagents on macOS
+// fall back to a tmpDir home (via temenos seatbelt), causing ttal commands to target
+// the wrong daemon socket and git to fail resolving SDK paths.
+func injectHomeEnv(env map[string]string) map[string]string {
+	result := make(map[string]string, len(env)+1)
+	for k, v := range env {
+		result[k] = v
+	}
+	if _, ok := result["HOME"]; !ok {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Printf("[subagent] injectHomeEnv: os.UserHomeDir() failed: %v — HOME will be absent from sandbox env", err)
+		} else {
+			result["HOME"] = home
+		}
+	}
+	return result
+}
+
 // buildSubagentConfig assembles the logos.Config for a subagent run.
 func buildSubagentConfig(
 	ctx context.Context,
@@ -200,7 +221,7 @@ func buildSubagentConfig(
 		MaxSteps:     maxSteps,
 		MaxTokens:    maxTokens,
 		Temenos:      tc,
-		SandboxEnv:   req.SandboxEnv,
+		SandboxEnv:   injectHomeEnv(req.SandboxEnv),
 		AllowedPaths: allowedPaths,
 	}, nil
 }
