@@ -74,12 +74,12 @@ Example: "Add auth to API and update frontend to use it" → split into:
 - The task assumes a structure that doesn't exist → flag it
 - You find recent changes that conflict with the task's assumptions → reconcile before planning
 
-## Phase 1.5: Discuss Approach
+## Checkpoint 1: Discuss Approach
 
 After Phase 1, talk through what you found before designing. Don't go silent and start writing — discuss first.
 
 **Conversational checkpoint:**
-- State what you found in the codebase: current patterns, constraints, surprises from Phase 1
+- State what you found in the codebase: current patterns, constraints, surprises from Phase 1 (conversational summary, not written output)
 - Propose your approach: 'I'm thinking we should do X because Y. The trade-off is Z.'
 - Ask for alignment: 'Does this approach make sense, or should I consider something different?'
 - Keep it lightweight: 3-5 sentences of understanding + proposed approach + a question

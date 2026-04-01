@@ -20,6 +20,8 @@ Diagnose bugs by tracing from symptom to root cause, then write a fix plan clear
 3. **Always diagnose first** — no exceptions, even for "obvious" bugs
 4. **Design at structure level** — before adding behavior, question whether the existing structure supports it cleanly. Refactor first if needed.
 
+---
+
 ## Checkpoint 1: Discuss Understanding
 
 Before investigating, confirm you've understood the bug description correctly.
@@ -30,6 +32,8 @@ Before investigating, confirm you've understood the bug description correctly.
 - Keep it lightweight: 2-4 sentences + a question
 - **This is about the bug DESCRIPTION, not the diagnosis** — Phase 1 does the actual investigation
 - **If not aligned** → revise your understanding and discuss again. Do not proceed to Phase 1 without explicit agreement.
+
+---
 
 ## Phase 1: Root Cause Investigation
 
@@ -93,6 +97,8 @@ Before investigating, confirm you've understood the bug description correctly.
 3. **Verify** — did it work? Yes → write fix plan. No → form NEW hypothesis. Don't stack fixes.
 4. **If 3+ Hypotheses Failed** — STOP. Question the architecture. This is a wrong pattern, not a missing fix. Discuss with your human partner before continuing.
 
+---
+
 ## Checkpoint 2: Discuss Diagnosis
 
 After completing the investigation (Phases 1–3), discuss your findings before writing the fix plan.
@@ -101,6 +107,8 @@ After completing the investigation (Phases 1–3), discuss your findings before 
 - Ask for alignment: 'Does this diagnosis and fix strategy look right before I write the detailed plan?'
 - Keep it lightweight: 2-4 sentences + a question
 - **If not aligned** → revisit diagnosis or adjust strategy and discuss again. Do not proceed to Phase 4 without explicit agreement.
+
+---
 
 ## Phase 4: Write the Fix Plan
 
