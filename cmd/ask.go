@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/ask"
@@ -23,7 +22,6 @@ var askFlags struct {
 	web       bool
 	human     bool
 	save      bool
-	quiet     bool
 	options   []string
 	maxSteps  int
 	maxTokens int
@@ -122,7 +120,6 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 		emoji:     "🔭",
 		label:     "ask --project " + alias,
 		save:      askFlags.save,
-		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -137,7 +134,6 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 		emoji:     "🔭",
 		label:     "ask --repo " + repoRef,
 		save:      askFlags.save,
-		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -152,7 +148,6 @@ func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int
 		emoji:     "🔭",
 		label:     "ask --url",
 		save:      askFlags.save,
-		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -166,7 +161,6 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error 
 		emoji:     "🔭",
 		label:     "ask --web",
 		save:      askFlags.save,
-		quiet:     askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -185,7 +179,6 @@ func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) er
 		emoji:      "🔭",
 		label:      "ask",
 		save:       askFlags.save,
-		quiet:      askFlags.quiet || cfg.AskOutput() == config.AskOutputQuiet,
 	})
 }
 
@@ -202,7 +195,6 @@ type askOpts struct {
 	emoji      string // optional display emoji shown before output
 	label      string // display name shown in header (defaults to "ask")
 	save       bool   // if true, pipe final answer to flicknote add
-	quiet      bool   // if true, suppress streaming and print result after completion
 }
 
 // runAskAgent sends an ask request to the daemon and streams results to the terminal.
@@ -223,15 +215,13 @@ func runAskAgent(opts askOpts) error {
 		MaxSteps:   opts.maxSteps,
 		MaxTokens:  opts.maxTokens,
 		Save:       opts.save,
-		Quiet:      opts.quiet,
 		WorkingDir: opts.workingDir,
 	}
 
 	var finalResponse string
 	var agentErr string
 
-	eventHandler, sp := buildAskEventCallbacks(opts.quiet)
-	defer sp.Stop()
+	eventHandler := buildAskEventCallbacks()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -247,14 +237,6 @@ func runAskAgent(opts askOpts) error {
 	})
 	if err != nil {
 		return err // transport/daemon error
-	}
-
-	if opts.quiet && finalResponse != "" {
-		fmt.Print(finalResponse)
-		// Ensure trailing newline in quiet mode (verbose mode already streams deltas with newlines).
-		if !strings.HasSuffix(finalResponse, "\n") {
-			fmt.Println()
-		}
 	}
 
 	if agentErr != "" {
@@ -298,25 +280,20 @@ func init() {
 	askCmd.Flags().BoolVar(&askFlags.web, "web", false, "Search the web to answer the question")
 	askCmd.Flags().BoolVar(&askFlags.human, "human", false, "Ask a human via Telegram and block until answered")
 	askCmd.Flags().BoolVar(&askFlags.save, "save", false, "Save the final answer to flicknote (best-effort; failures are logged to stderr)") //nolint:lll
-	askCmd.Flags().BoolVar(&askFlags.quiet, "quiet", false, "Show only assistant text (no streaming, no command traces)")
-	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)") //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                      //nolint:lll
-	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")        //nolint:lll
+	askCmd.Flags().StringArrayVar(&askFlags.options, "option", nil, "Add an option button (repeatable, only valid with --human)")            //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxSteps, "max-steps", config.AskDefaultMaxSteps, "Maximum agent steps")                                 //nolint:lll
+	askCmd.Flags().IntVar(&askFlags.maxTokens, "max-tokens", config.AskDefaultMaxTokens, "Maximum output tokens per step")                   //nolint:lll
 
 	rootCmd.AddCommand(askCmd)
 }
 
-// buildAskEventCallbacks returns an event handler and optional spinner for the given mode.
-// In quiet mode all streaming events are suppressed and a spinner is started on TTY stderr.
-// In verbose mode the full streaming callbacks are wired and spinner is nil.
-func buildAskEventCallbacks(quiet bool) (func(ask.Event), *spinner) {
-	if quiet {
-		var sp *spinner
-		if isTerminal(os.Stderr) {
-			sp = startSpinner()
-		}
-		return func(ask.Event) {}, sp
-	}
+// buildAskEventCallbacks returns an event handler with smart output:
+// - Delta: stream to stdout
+// - CommandStart: print $ command to stderr
+// - CommandResult success: suppress output
+// - CommandResult failure: print output AND exit code to stderr
+// - Retry, Status: print to stderr
+func buildAskEventCallbacks() func(ask.Event) {
 	return func(e ask.Event) {
 		switch e.Type {
 		case ask.EventDelta:
@@ -330,53 +307,6 @@ func buildAskEventCallbacks(quiet bool) (func(ask.Event), *spinner) {
 		case ask.EventStatus:
 			fmt.Fprintf(os.Stderr, "%s\n", e.Message)
 		}
-	}, nil
-}
-
-// isTerminal reports whether f is connected to a terminal.
-func isTerminal(f *os.File) bool {
-	fi, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
-}
-
-// spinner displays an animated spinner on stderr while the agent runs in quiet mode.
-type spinner struct {
-	done chan struct{}
-}
-
-func startSpinner() *spinner {
-	s := &spinner{done: make(chan struct{})}
-	go func() {
-		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		i := 0
-		ticker := time.NewTicker(80 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-s.done:
-				fmt.Fprintf(os.Stderr, "\r\033[K") // clear spinner line
-				return
-			case <-ticker.C:
-				fmt.Fprintf(os.Stderr, "\r%s thinking...", frames[i%len(frames)])
-				i++
-			}
-		}
-	}()
-	return s
-}
-
-func (s *spinner) Stop() {
-	if s == nil {
-		return
-	}
-	select {
-	case <-s.done:
-		// already stopped
-	default:
-		close(s.done)
 	}
 }
 
