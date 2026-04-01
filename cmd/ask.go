@@ -97,20 +97,20 @@ func runAsk(cmd *cobra.Command, args []string) error {
 
 	switch {
 	case askFlags.project != "":
-		return askProject(question, askFlags.project, cfg, maxSteps, maxTokens)
+		return askProject(question, askFlags.project, maxSteps, maxTokens)
 	case askFlags.repo != "":
-		return askRepo(question, askFlags.repo, cfg, maxSteps, maxTokens)
+		return askRepo(question, askFlags.repo, maxSteps, maxTokens)
 	case askFlags.web:
-		return askWeb(question, cfg, maxSteps, maxTokens)
+		return askWeb(question, maxSteps, maxTokens)
 	case askFlags.url != "":
-		return askURL(question, askFlags.url, cfg, maxSteps, maxTokens)
+		return askURL(question, askFlags.url, maxSteps, maxTokens)
 	default:
-		return askGeneral(question, cfg, maxSteps, maxTokens)
+		return askGeneral(question, maxSteps, maxTokens)
 	}
 }
 
 // askProject asks about a registered ttal project.
-func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askProject(question, alias string, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:  question,
 		mode:      ask.ModeProject,
@@ -124,7 +124,7 @@ func askProject(question, alias string, cfg *config.Config, maxSteps, maxTokens 
 }
 
 // askRepo asks about an open-source repository (auto-clone/pull).
-func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askRepo(question, repoRef string, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:  question,
 		mode:      ask.ModeRepo,
@@ -138,7 +138,7 @@ func askRepo(question, repoRef string, cfg *config.Config, maxSteps, maxTokens i
 }
 
 // askURL asks about a web page using url for pre-fetching.
-func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askURL(question, rawURL string, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:  question,
 		mode:      ask.ModeURL,
@@ -152,7 +152,7 @@ func askURL(question, rawURL string, cfg *config.Config, maxSteps, maxTokens int
 }
 
 // askWeb searches the web to answer a question.
-func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askWeb(question string, maxSteps, maxTokens int) error {
 	return runAskAgent(askOpts{
 		question:  question,
 		mode:      ask.ModeWeb,
@@ -165,7 +165,7 @@ func askWeb(question string, cfg *config.Config, maxSteps, maxTokens int) error 
 }
 
 // askGeneral asks about the current working directory with both filesystem and web tools.
-func askGeneral(question string, cfg *config.Config, maxSteps, maxTokens int) error {
+func askGeneral(question string, maxSteps, maxTokens int) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get working directory: %w", err)
