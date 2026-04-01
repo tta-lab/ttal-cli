@@ -53,7 +53,7 @@ Build a scoped prompt with ONLY the implementation context:
 ttal subagent run coder "Implement <feature>. File: <file>. Approach: <specific approach from plan>. Constraints: <any from plan>. Do NOT write tests — implementation only."
 ```
 
-> **Worktree note:** The coder runs inside the project worktree (its working directory is the repo root). All file operations are relative to that directory — no need to reference the original source repository path. The worktree is a full git clone with all files. External references (docs, other repos) are fine to access, but source file edits must happen in the worktree.
+> **Worktree note:** The coder runs inside the project worktree (its working directory is the repo root). All file operations are relative to that directory — no need to reference the original source repository path. The worktree has a complete checkout of all files (git worktrees share `.git` with the main repo — not a separate clone). External references (docs, other repos) are fine to access, but source file edits must happen in the worktree.
 
 Read the full output. If the coder reports blockers or unexpected issues, investigate before continuing.
 

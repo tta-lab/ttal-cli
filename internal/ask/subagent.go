@@ -150,15 +150,19 @@ func validateAgentAccess(agent *internalsync.ParsedAgent, name string) (string, 
 }
 
 // injectHomeEnv returns a copy of env with HOME set to the real user home directory
-// if not already present. Creates the map if nil. This ensures subagents run with
-// the correct HOME so ttal commands resolve the daemon socket and git finds SDK paths.
+// if not already present. Creates the map if nil. Without HOME, subagents on macOS
+// fall back to a tmpDir home (via temenos seatbelt), causing ttal commands to target
+// the wrong daemon socket and git to fail resolving SDK paths.
 func injectHomeEnv(env map[string]string) map[string]string {
 	result := make(map[string]string, len(env)+1)
 	for k, v := range env {
 		result[k] = v
 	}
 	if _, ok := result["HOME"]; !ok {
-		if home, err := os.UserHomeDir(); err == nil {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Printf("[subagent] injectHomeEnv: os.UserHomeDir() failed: %v — HOME will be absent from sandbox env", err)
+		} else {
 			result["HOME"] = home
 		}
 	}
