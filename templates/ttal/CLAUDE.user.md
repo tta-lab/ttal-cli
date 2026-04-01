@@ -133,7 +133,6 @@ REVIEW
 ## Learning & Knowledge
 
 - Use the knowledge skill for folder routing and frontmatter conventions
-===AFTER===
 
 ## Git Committing Scope
 

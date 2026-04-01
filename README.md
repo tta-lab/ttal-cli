@@ -56,7 +56,6 @@ Register your projects once. TTal handles the rest:
 - **Session forking** — brainstorm a feature in one session, fork it into project-specific planning sessions. Each fork carries the full conversation — every decision, every "actually, let's not do that" — with zero context loss.
 - **Parallel workers across repos** — a feature that touches three repos gets three workers, each in their own git worktree, each sandboxed to their project. They can't see or step on each other.
 - **CI integration** — workers subscribe to check status. When CI fails, the daemon delivers the log directly to the worker's session. They read it, fix it, push again. No human in the loop for lint and test failures.
-===AFTER===
 
 A cross-repo feature that touches TTal, temenos, and organon gets three parallel workers, three PRs, three review cycles — all coordinated through one pipeline.
 

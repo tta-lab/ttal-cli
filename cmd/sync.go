@@ -137,7 +137,10 @@ Configure source paths in ~/.config/ttal/config.toml:
 		printSyncHeader("sandbox", syncDryRun)
 		if _, err := exec.LookPath("ei"); err == nil {
 			if !syncDryRun {
-				if err := exec.Command("ei", "sandbox", "sync").Run(); err != nil {
+				eiCmd := exec.Command("ei", "sandbox", "sync")
+				eiCmd.Stdout = os.Stdout
+				eiCmd.Stderr = os.Stderr
+				if err := eiCmd.Run(); err != nil {
 					fmt.Fprintf(os.Stderr, "  warning: ei sandbox sync failed: %v\n", err)
 				} else {
 					fmt.Printf("  ei sandbox synced\n")

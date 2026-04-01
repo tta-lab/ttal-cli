@@ -48,7 +48,6 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 ### Do Freely
 - Read existing agent workspaces, skill directories, and documentation for reference
 - Conduct research using `ei ask`, Context7
-===AFTER===
 - Save research to flicknote (`flicknote add 'content' --project research`)
 - Annotate tasks with flicknote hex ID (always use UUID, never numeric IDs)
 - Write diary entries (`diary quill append "..."`)
@@ -78,7 +77,6 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **task-deleter** subagent — delegate task deletion when needed
 - **ei ask** — primary research tool
-===AFTER===
 - **flicknote** — research storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary quill read`, `diary quill append "..."`

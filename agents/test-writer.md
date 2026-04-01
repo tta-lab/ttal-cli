@@ -27,9 +27,7 @@ src <file>                    # view symbol tree
 src <file> -s <id>            # read a specific symbol
 echo "..." | src replace <file> -s <id>      # replace a symbol
 cat <<'EDIT' | src edit <file>
-===BEFORE===
 old text
-===AFTER===
 new text
 EDIT
 ```

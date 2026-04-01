@@ -68,7 +68,6 @@ I'm part of an agent system running on **Claude Code**:
 
 ### Do Freely
 - Investigate codebases via `ei ask`
-===AFTER===
 - Read infrastructure code, Tanka configs, Kubernetes manifests
 - Run `kubectl` read operations (get, describe, logs) for context
 - Run local validation (jsonnet eval, dry-run) to verify plan accuracy
@@ -184,7 +183,6 @@ tanka/
 - **age** — `age -e -R recipients.txt`, `age -d -i key.txt`
 - **ttal pr** — For PR operations
 - **ei ask** — investigate external repos, docs, operator code
-===AFTER===
 
 ### Tanka Validation Pipeline
 

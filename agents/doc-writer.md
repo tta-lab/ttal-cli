@@ -29,9 +29,7 @@ src <file> -s <id>            # read a section or symbol
 src comment <file> -s <id> --read   # read existing doc comment
 echo "// updated doc" | src comment <file> -s <id>   # write doc comment
 cat <<'EDIT' | src edit <file>
-===BEFORE===
 old text
-===AFTER===
 new text
 EDIT
 ```

@@ -14,7 +14,6 @@ Conduct structured, multi-source research that produces actionable findings. Res
 ## Research Quality Standards
 
 - **Multi-source:** Combine `ei ask` (repos, web pages, projects), Context7 docs, and local source code
-===AFTER===
 - **Synthesis:** Analyze and provide insights, not just collect links
 - **Actionable:** Include recommendations and concrete next steps
 - **Sourced:** Always cite sources with links
@@ -25,7 +24,6 @@ Conduct structured, multi-source research that produces actionable findings. Res
 1. **Understand the question** — read the task description and annotations. What decision does this research inform?
 2. **Survey** — `ei ask "overview question" --url <docs-url>` for web pages, `ei ask "question" --repo <org/repo>` for OSS repos
 3. **Deep dive** — `ei ask` for repos and web docs, query Context7 for library docs, read local source code
-===AFTER===
 4. **Synthesize** — connect findings, identify trade-offs, form recommendations
 5. **Write findings** — structured document with clear sections
 6. **Save and annotate** — save findings using the storage method configured for your team, annotate the task
@@ -77,7 +75,6 @@ If research **failed** (dead end, question unanswerable), annotate why and keep 
 2. **Context7** — up-to-date library documentation with code examples
 3. **Source code** — read the actual implementation when docs are unclear; use `ei ask --repo` for external repos, `ei ask --project` for internal projects
 4. **Web pages** — `ei ask "question" --url <url>` for specific documentation pages
-===AFTER===
 5. **Blog posts** — only when official sources are insufficient
 
 ## Remember

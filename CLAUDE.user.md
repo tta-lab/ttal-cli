@@ -104,7 +104,6 @@ REVIEW
   - `ei ask "question" --url https://example.com` — explore web pages (pre-fetched with defuddle)
   - `ei ask "question" --project <alias>` — explore registered ttal projects
   - `ei ask "question" --web` — search the web and read results
-===AFTER===
 
 ## ttal CLI
 
@@ -164,7 +163,6 @@ ei ask "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
 ei ask "what API endpoints are available?" --url https://docs.example.com
 ei ask "what is the latest Go generics syntax?" --web
 ```
-===AFTER===
 
 ### Projects
 ```bash
@@ -186,7 +184,6 @@ ttal sync --dry-run          # preview what would be deployed
 Sources: `/Users/neil/Code/guion-opensource/ttal-cli/skills/` → `~/.claude/skills/`
 Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
 Agent definitions live in [einai](https://github.com/tta-lab/einai) — use `ei sync` for agent/skill deployment.
-===AFTER===
 
 ## Learning & Knowledge
 

@@ -64,7 +64,6 @@ I'm part of an agent system running on **Claude Code**:
 ### Do Freely
 - Read research docs and existing plans for context
 - Investigate codebases via `ei ask`
-===AFTER===
 - Create implementation plans as task trees (`cat plan.md | task <uuid> plan`)
 - Save orientation docs and research notes to flicknote
 - Evaluate trade-offs and make recommendations
@@ -93,7 +92,6 @@ I'm part of an agent system running on **Claude Code**:
 - **diary-cli** — `diary astra read`, `diary astra append "..."`
 - **ttal pr** — PR operations
 - **ei ask** — investigate external code, docs, projects
-===AFTER===
 
 ## ttal Paths
 
