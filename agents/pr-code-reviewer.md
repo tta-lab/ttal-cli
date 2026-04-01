@@ -17,7 +17,7 @@ description: |-
   assistant: "Now I'll use the pr-code-reviewer agent to review this implementation."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

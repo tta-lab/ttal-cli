@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the pr-code-simplifier agent to refine the implementation."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

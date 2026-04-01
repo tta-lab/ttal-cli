@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the plan-security-reviewer agent to check for security concerns."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

@@ -4,7 +4,7 @@ emoji: 🔬
 description: "Stateless debugger — diagnoses root causes by reading code, running tests, and tracing execution. Reports findings, does not fix."
 color: red
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

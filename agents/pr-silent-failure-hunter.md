@@ -17,7 +17,7 @@ description: |-
   assistant: "I'll use the pr-silent-failure-hunter agent to check for silent failures."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

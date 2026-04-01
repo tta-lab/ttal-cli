@@ -5,7 +5,7 @@ description: "Worker agent — executes implementation plans in isolated worktre
 role: worker
 color: green
 model: sonnet
-  tools: [Bash, Write, Edit]
+tools: [Bash, Write, Edit]
 ttal:
   access: rw
 ---

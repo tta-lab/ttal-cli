@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the pr-comment-analyzer agent to review the comments."
   </example>
 model: haiku
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

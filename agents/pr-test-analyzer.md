@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the pr-test-analyzer agent to review the test coverage."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

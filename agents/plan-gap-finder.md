@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the plan-gap-finder agent to identify structural gaps."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

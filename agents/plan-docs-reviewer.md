@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the plan-docs-reviewer agent to check for doc impacts."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

@@ -12,7 +12,7 @@ description: |-
   assistant: "I'll use the plan-test-reviewer agent to review test coverage."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---

@@ -17,7 +17,7 @@ description: |-
   assistant: "I'll use the pr-principles-reviewer agent to check for principle violations."
   </example>
 model: sonnet
-  tools: [Bash]
+tools: [Bash]
 ttal:
   access: ro
 ---
