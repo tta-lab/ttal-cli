@@ -50,17 +50,6 @@ ttal voice speak "text" --voice <id>   # specific voice
 ttal voice status                      # check server
 ```
 
-## Ask
-
-Investigate external repos, web pages, internal projects, or search the web:
-
-```bash
-ttal ask "how does routing work?" --project ttal-cli
-ttal ask "how does pipeline syntax work?" --repo woodpecker-ci/woodpecker
-ttal ask "what API endpoints are available?" --url https://docs.example.com
-ttal ask "what is the latest Go generics syntax?" --web
-```
-
 ## Sync
 
 ```bash

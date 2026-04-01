@@ -25,7 +25,7 @@ Running ttal with no subcommand launches the interactive TUI.`,
 		return err
 	},
 	// PersistentPreRunE removed — .env is loaded only by commands that need it
-	// (ttal ask, ttal daemon). Daemon proxies authenticated operations.
+	// (ttal daemon). Daemon proxies authenticated operations.
 }
 
 func init() {

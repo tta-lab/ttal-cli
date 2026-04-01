@@ -39,16 +39,10 @@ func AgentSessionName(team, agent string) string {
 // DefaultInlineProjects is the default set of flicknote project keywords to inline.
 var DefaultInlineProjects = []string{"plan"}
 
-// AskConfig holds settings for the `ttal ask` command.
+// AskConfig holds settings for reference repo resolution (used by ttal jump).
 type AskConfig struct {
 	// Local path for cloned OSS reference repos (default: ~/.ttal/references/)
 	ReferencesPath string `toml:"references_path"`
-	// Model for the ask subagent (default: claude-sonnet-4-6)
-	Model string `toml:"model"`
-	// Maximum agent steps (default: 100)
-	MaxSteps int `toml:"max_steps"`
-	// Maximum output tokens per step (default: 131072)
-	MaxTokens int `toml:"max_tokens"`
 }
 
 // FlicknoteConfig holds flicknote-related settings.
@@ -80,7 +74,7 @@ type Config struct {
 	Sync SyncConfig `toml:"sync"`
 	// Prompt templates for task routing (loaded from prompts.toml, not config.toml)
 	Prompts PromptsConfig `toml:"-"`
-	// Ask subcommand settings
+	// Ask holds reference repo path settings (used by ttal jump)
 	Ask AskConfig `toml:"ask"`
 	// Flicknote integration settings
 	Flicknote FlicknoteConfig `toml:"flicknote"`
@@ -504,12 +498,7 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 }
 
 const (
-	DefaultAskModel          = "claude-sonnet-4-6"
 	defaultAskReferencesPath = "~/.ttal/references/"
-	// AskDefaultMaxSteps is the default for ttal ask / subagent run commands.
-	AskDefaultMaxSteps = 100
-	// AskDefaultMaxTokens is the default for ttal ask / subagent run commands.
-	AskDefaultMaxTokens = 131072
 )
 
 // AskReferencesPath returns the resolved path for cloned reference repos.
@@ -519,33 +508,6 @@ func (c *Config) AskReferencesPath() string {
 		return expandHome(c.Ask.ReferencesPath)
 	}
 	return expandHome(defaultAskReferencesPath)
-}
-
-// AskModel returns the model to use for the ask subagent.
-// Defaults to claude-sonnet-4-6 if not configured.
-func (c *Config) AskModel() string {
-	if c.Ask.Model != "" {
-		return c.Ask.Model
-	}
-	return DefaultAskModel
-}
-
-// AskMaxSteps returns the configured max steps for ask/subagent commands.
-// Defaults to AskDefaultMaxSteps (100) if not set in config.
-func (c *Config) AskMaxSteps() int {
-	if c.Ask.MaxSteps > 0 {
-		return c.Ask.MaxSteps
-	}
-	return AskDefaultMaxSteps
-}
-
-// AskMaxTokens returns the configured max output tokens for ask/subagent commands.
-// Defaults to AskDefaultMaxTokens (131072) if not set in config.
-func (c *Config) AskMaxTokens() int {
-	if c.Ask.MaxTokens > 0 {
-		return c.Ask.MaxTokens
-	}
-	return AskDefaultMaxTokens
 }
 
 const DefaultShell = "zsh"
