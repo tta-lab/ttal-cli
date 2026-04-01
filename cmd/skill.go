@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -531,6 +530,8 @@ func uploadAndRegister(r *skill.Registry, e *importEntry, apply bool) {
 	fmName, fmDesc, body := skill.ParseFrontmatter(content)
 	if fmName != "" {
 		e.name = fmName
+		// Re-lookup after name change — frontmatter name may differ from directory name
+		existing, _ = r.Get(e.name)
 	}
 
 	var flicknoteID string
@@ -551,14 +552,9 @@ func uploadAndRegister(r *skill.Registry, e *importEntry, apply bool) {
 		// Upload new note
 		cmd := exec.Command("flicknote", "add", "--project", "ttal.skills")
 		cmd.Stdin = bytes.NewReader(body)
-		output, err := cmd.Output()
+		output, err := cmd.CombinedOutput()
 		if err != nil {
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-				e.status = fmt.Sprintf("upload error: %s", strings.TrimSpace(string(exitErr.Stderr)))
-			} else {
-				e.status = fmt.Sprintf("upload error: %v", err)
-			}
+			e.status = fmt.Sprintf("upload error: %s", strings.TrimSpace(string(output)))
 			return
 		}
 
@@ -573,8 +569,8 @@ func uploadAndRegister(r *skill.Registry, e *importEntry, apply bool) {
 	}
 
 	s := skill.Skill{Name: e.name, FlicknoteID: flicknoteID, Category: e.category, Description: fmDesc}
-	force := existing != nil // pass true for force when updating existing
-	if err := r.Add(s, force); err != nil {
+	isUpdate := existing != nil
+	if err := r.Add(s, isUpdate); err != nil {
 		e.status = fmt.Sprintf("register error: %v", err)
 		return
 	}
