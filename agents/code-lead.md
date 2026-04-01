@@ -75,7 +75,7 @@ ttal subagent run doc-writer "Update <file> to document <change>. Context: <what
 
 Skip this phase if no doc updates are needed.
 
-### Phase 4: Create PR & Report
+### Phase 4: Create PR
 
 After all phases complete:
 
@@ -83,21 +83,7 @@ After all phases complete:
 ttal pr create "<title>" --body "<summary of what was implemented>"
 ```
 
-Then post a completion summary so the task system and manager know what ran:
-
-```bash
-ttal comment add "## Implementation Complete
-
-**PR:** <link or number>
-
-**Implemented:**
-- <what the coder built>
-
-**Tests:** <written / skipped — reason>
-
-**Docs:** <updated / skipped — reason>
-"
-```
+The PR body is the completion record — include what was implemented, which phases ran, and anything skipped (with reason).
 
 ## Phase Prompt Rules
 
