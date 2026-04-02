@@ -50,22 +50,22 @@ Gather all context before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ttal subagent run via Bash — parallel)
+### Phase 2: Subagent Dispatch (ei agent run via Bash — parallel)
 
-Run all applicable reviewers **in parallel** using `ttal subagent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
+Run all applicable reviewers **in parallel** using `ei agent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
 ```bash
 # Always run these two in parallel:
-ttal subagent run plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
-ttal subagent run plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
+ei agent run plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
+ei agent run plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
 
 # Conditional — include in the same parallel batch if applicable:
 # If plan has implementation tasks:
-ttal subagent run plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
+ei agent run plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
 # If plan touches auth, APIs, secrets, or user input:
-ttal subagent run plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
+ei agent run plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
 # If repo has CLAUDE.md, skills, or subagents:
-ttal subagent run plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
+ei agent run plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
 ```
 
 **Wait for ALL subagent calls to complete and read their FULL output before proceeding to Phase 3.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has returned its results. Collect and note the output from each reviewer.
@@ -154,12 +154,12 @@ Compare against the previous round's issues:
 
 **plan-docs-reviewer**: Checks whether the plan accounts for documentation impacts — CLAUDE.md updates, skill definitions, subagent definitions, README changes, and other docs that should change alongside the code.
 
-## Tool: ttal subagent run
+## Tool: ei agent run
 
 Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
 ```bash
-ttal subagent run <name> "<prompt with plan ID and project path>"
+ei agent run <name> "<prompt with plan ID and project path>"
 ```
 
 Available reviewers: `plan-gap-finder`, `plan-code-reviewer`, `plan-test-reviewer`, `plan-security-reviewer`, `plan-docs-reviewer`.
