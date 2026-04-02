@@ -140,6 +140,8 @@ Invoke specialist reviewers via Bash. Launch all applicable reviewers **in paral
 ei agent run <name> "<prompt with PR context>"
 ```
 
+> **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
+
 Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-principles-reviewer`, `pr-test-analyzer`, `pr-comment-analyzer`, `pr-type-design-analyzer`, `pr-code-simplifier`.
 
 ## Tips

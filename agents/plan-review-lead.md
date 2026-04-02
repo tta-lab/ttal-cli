@@ -162,6 +162,8 @@ Invoke specialist reviewers via Bash. Launch all applicable reviewers **in paral
 ei agent run <name> "<prompt with plan ID and project path>"
 ```
 
+> **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
+
 Available reviewers: `plan-gap-finder`, `plan-code-reviewer`, `plan-test-reviewer`, `plan-security-reviewer`, `plan-docs-reviewer`.
 
 ## Rules

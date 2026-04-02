@@ -28,6 +28,8 @@ You are the orchestration layer for code tasks. You read plans and delegate to s
 ei agent run <name> "<prompt>"
 ```
 
+> **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
+
 Specialist subagents: `coder`, `test-writer`, `doc-writer`.
 
 ## Workflow
