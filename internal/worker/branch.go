@@ -9,6 +9,12 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
+// branchNameFn is injectable for testing. Defaults to gitutil.BranchName.
+var branchNameFn = gitutil.BranchName
+
+// resolveProjectPathFn is injectable for testing. Defaults to project.ResolveProjectPath.
+var resolveProjectPathFn = project.ResolveProjectPath
+
 // WorktreePath returns the filesystem path of the worktree for the given task UUID
 // and project alias. Returns an error if the UUID is too short (< 8 chars).
 func WorktreePath(taskUUID, projectAlias string) (string, error) {
@@ -28,7 +34,7 @@ func WorktreeBranch(taskUUID, projectAlias string) (string, error) {
 	}
 	worktreeDir := filepath.Join(config.WorktreesRoot(),
 		fmt.Sprintf("%s-%s", taskUUID[:8], projectAlias))
-	branch := gitutil.BranchName(worktreeDir)
+	branch := branchNameFn(worktreeDir)
 	if branch == "" {
 		return "", fmt.Errorf("no branch found in worktree %s", worktreeDir)
 	}
@@ -49,16 +55,15 @@ func CurrentBranch(taskUUID, projectAlias, workDir string) string {
 	if len(taskUUID) >= 8 {
 		worktreeDir := filepath.Join(config.WorktreesRoot(),
 			fmt.Sprintf("%s-%s", taskUUID[:8], projectAlias))
-		if branch := gitutil.BranchName(worktreeDir); branch != "" {
+		if branch := branchNameFn(worktreeDir); branch != "" {
 			return branch
 		}
 	}
 
 	// Try project path
 	if projectAlias != "" {
-		proj := resolveProjectPath(projectAlias)
-		if proj != "" {
-			if branch := gitutil.BranchName(proj); branch != "" {
+		if projPath := resolveProjectPathFn(projectAlias); projPath != "" {
+			if branch := branchNameFn(projPath); branch != "" {
 				return branch
 			}
 		}
@@ -66,19 +71,8 @@ func CurrentBranch(taskUUID, projectAlias, workDir string) string {
 
 	// Try provided workDir
 	if workDir != "" {
-		return gitutil.BranchName(workDir)
+		return branchNameFn(workDir)
 	}
 
 	return ""
-}
-
-// resolveProjectPath resolves a project alias to its filesystem path.
-// Returns empty string if not found.
-func resolveProjectPath(alias string) string {
-	store := project.NewStore(config.ResolveProjectsPath())
-	proj, err := store.Get(alias)
-	if err != nil || proj == nil {
-		return ""
-	}
-	return proj.Path
 }
