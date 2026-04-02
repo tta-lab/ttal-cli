@@ -52,6 +52,12 @@ func DumpWorkerState(sessionName, workDir, workerName string) (string, error) {
 	return dumpFile, nil
 }
 
+// isPorcelainStatusChar returns true if the byte is a valid git porcelain status indicator.
+func isPorcelainStatusChar(b byte) bool {
+	return b == ' ' || b == 'M' || b == 'A' || b == 'D' || b == 'R' ||
+		b == 'C' || b == 'U' || b == '?' || b == '!'
+}
+
 // IsWorktreeClean checks whether the worktree has uncommitted changes.
 // Returns (true, nil) if clean, (false, nil) if dirty, or (false, err) if
 // the git command itself failed (e.g. missing directory, timeout).
@@ -60,7 +66,31 @@ func IsWorktreeClean(workDir string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("git status failed in %s: %w", workDir, err)
 	}
-	return strings.TrimSpace(out) == "", nil
+
+	// Filter to only actual porcelain status lines.
+	// Git may output warnings to stderr that get captured in combined output.
+	// Porcelain format is "XY filepath" where X and Y are status indicators.
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	for _, line := range lines {
+		// Need at least 3 chars: X, Y, and space (e.g., " M file")
+		if len(line) < 3 {
+			continue
+		}
+		// Check if first two chars are valid porcelain status codes
+		if isPorcelainStatusChar(line[0]) && isPorcelainStatusChar(line[1]) {
+			// This is a real status line
+			// ? = untracked, ! = ignored - these don't count as "changes" for our purposes
+			if line[0] == '?' || line[0] == '!' {
+				continue
+			}
+			// Actual staged/modified changes
+			return false, nil
+		}
+		// Otherwise it's likely a warning/error message from git, ignore it
+	}
+
+	// No valid status lines found = clean (or no changes)
+	return true, nil
 }
 
 // RemoveWorktree removes a git worktree and its branch.

@@ -30,9 +30,11 @@ All authenticated API calls are proxied through the daemon for token isolation.`
 
 var prCreateCmd = &cobra.Command{
 	Use:   "create <title>",
-	Short: "Create a PR from the current worker branch",
-	Long: `Creates a Forgejo PR using the task's branch and project path.
+	Short: "Create a PR from the current branch",
+	Long: `Creates a Forgejo PR using the current branch and project path.
 Stores the PR index in the task's pr_id UDA for future commands.
+
+Works in both worktree and non-worktree setups.
 
 Examples:
   ttal pr create "feat: add user authentication"
@@ -44,22 +46,22 @@ Examples:
 			return err
 		}
 
-		branch, branchErr := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
-		if branchErr != nil {
-			branch = ""
+		// Get workDir first for branch detection
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get working directory: %w", err)
 		}
+
+		// Use CurrentBranch which supports both worktree and non-worktree setups
+		branch := worker.CurrentBranch(ctx.Task.UUID, ctx.Task.Project, workDir)
 		if branch == "" {
 			return fmt.Errorf(
-				"cannot determine branch — run from an active worktree: task %s",
+				"cannot determine branch — ensure you're in a git repo with an active branch: %s",
 				ctx.Task.UUID,
 			)
 		}
 
 		// Push branch to origin before creating PR
-		workDir, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
-		}
 		projectAlias := resolveAliasFromPath(workDir)
 		fmt.Println("Pushing branch to origin...")
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
@@ -122,7 +124,6 @@ Examples:
 		// Auto-advance pipeline — triggers daemon to spawn PR reviewer.
 		if ctx.Task.UUID != "" {
 			sessionName, _ := review.ResolveSessionName()
-			workDir, _ := os.Getwd()
 			advResp, advErr := daemon.AdvanceClient(daemon.AdvanceRequest{
 				TaskUUID:    ctx.Task.UUID,
 				AgentName:   os.Getenv("TTAL_AGENT_NAME"),

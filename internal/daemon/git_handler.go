@@ -16,25 +16,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
-// handleGitPush executes a git push from a worktree using daemon-held credentials.
-// WorkDir is validated to be under ~/.ttal/worktrees/ to prevent arbitrary repo pushes.
+// handleGitPush executes a git push using daemon-held credentials.
+// WorkDir may be a ttal worktree or any registered project directory.
 // Credentials are injected via GIT_CONFIG env vars — never via URL embedding or keychain.
 func handleGitPush(req GitPushRequest) GitPushResponse {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return GitPushResponse{Error: fmt.Sprintf("resolve home dir: %v", err)}
-	}
-
-	// Security: only allow pushes from ttal-managed worktrees.
-	// worktreesBase has a trailing separator so HasPrefix correctly rejects:
-	//   - adjacent directories (worktrees-evil/) — no separator match
-	//   - the base directory itself (worktrees/) — cleanPath has no trailing separator
-	worktreesBase := filepath.Join(home, ".ttal", "worktrees") + string(filepath.Separator)
-	cleanPath := filepath.Clean(req.WorkDir)
-	if !strings.HasPrefix(cleanPath, worktreesBase) {
-		return GitPushResponse{Error: "push only allowed from ttal worktrees"}
-	}
-
 	if req.Branch == "" {
 		return GitPushResponse{Error: "branch must not be empty"}
 	}

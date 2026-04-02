@@ -2,7 +2,6 @@ package review
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -33,11 +32,8 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
 
-	// Compute branch at runtime from the worktree — soft failure, review can proceed with empty branch.
-	gitBranch, err := worker.WorktreeBranch(ctx.Task.UUID, ctx.Task.Project)
-	if err != nil {
-		log.Printf("[review] warning: could not resolve worktree branch for %s: %v", ctx.Task.HexID(), err)
-	}
+	// Compute branch at runtime — works in both worktree and non-worktree setups.
+	gitBranch := worker.CurrentBranch(ctx.Task.UUID, ctx.Task.Project, workDir)
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
 	if err != nil {

@@ -82,35 +82,6 @@ func TestHTTPGitPush_HappyPath(t *testing.T) {
 	}
 }
 
-func TestHandleGitPush_WorkDirValidation(t *testing.T) {
-	home, _ := os.UserHomeDir()
-
-	tests := []struct {
-		name    string
-		workDir string
-	}{
-		{"completely outside", "/tmp/some-other-repo"},
-		{"adjacent directory bypass", home + "/.ttal/worktrees-evil/repo"},
-		{"parent directory", home + "/.ttal"},
-		{"worktrees base itself", home + "/.ttal/worktrees"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resp := handleGitPush(GitPushRequest{
-				WorkDir: tt.workDir,
-				Branch:  "main",
-			})
-			if resp.OK {
-				t.Error("expected OK=false for path outside worktrees")
-			}
-			if resp.Error != "push only allowed from ttal worktrees" {
-				t.Errorf("unexpected error: %q", resp.Error)
-			}
-		})
-	}
-}
-
 func TestHandleGitPush_EmptyBranch(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	worktreePath := home + "/.ttal/worktrees/test-worker"

@@ -6,7 +6,14 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
+
+// branchNameFn is injectable for testing. Defaults to gitutil.BranchName.
+var branchNameFn = gitutil.BranchName
+
+// resolveProjectPathFn is injectable for testing. Defaults to project.ResolveProjectPath.
+var resolveProjectPathFn = project.ResolveProjectPath
 
 // WorktreePath returns the filesystem path of the worktree for the given task UUID
 // and project alias. Returns an error if the UUID is too short (< 8 chars).
@@ -27,9 +34,45 @@ func WorktreeBranch(taskUUID, projectAlias string) (string, error) {
 	}
 	worktreeDir := filepath.Join(config.WorktreesRoot(),
 		fmt.Sprintf("%s-%s", taskUUID[:8], projectAlias))
-	branch := gitutil.BranchName(worktreeDir)
+	branch := branchNameFn(worktreeDir)
 	if branch == "" {
 		return "", fmt.Errorf("no branch found in worktree %s", worktreeDir)
 	}
 	return branch, nil
+}
+
+// CurrentBranch returns the current git branch for a task, supporting both
+// worktree and non-worktree (regular git repo) setups.
+//
+// Resolution order:
+//  1. If worktree exists at ~/.ttal/worktrees/<uuid8>-<alias>/ → use it
+//  2. If project path exists → run git branch --show-current there
+//  3. If workDir is provided and is a valid git repo → run git branch --show-current there
+//
+// Returns empty string if no branch can be determined.
+func CurrentBranch(taskUUID, projectAlias, workDir string) string {
+	// Try worktree first
+	if len(taskUUID) >= 8 {
+		worktreeDir := filepath.Join(config.WorktreesRoot(),
+			fmt.Sprintf("%s-%s", taskUUID[:8], projectAlias))
+		if branch := branchNameFn(worktreeDir); branch != "" {
+			return branch
+		}
+	}
+
+	// Try project path
+	if projectAlias != "" {
+		if projPath := resolveProjectPathFn(projectAlias); projPath != "" {
+			if branch := branchNameFn(projPath); branch != "" {
+				return branch
+			}
+		}
+	}
+
+	// Try provided workDir
+	if workDir != "" {
+		return branchNameFn(workDir)
+	}
+
+	return ""
 }
