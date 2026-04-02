@@ -256,11 +256,7 @@ func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config)
 	if task.PRID != "" {
 		prInfo, err := taskwarrior.ParsePRID(task.PRID)
 		if err == nil {
-			branch, err := worker.WorktreeBranch(task.UUID, task.Project)
-			if err != nil {
-				log.Printf("[pipeline prompt] could not resolve worktree branch for task %s"+
-					" ({{branch}} will be empty): %v", task.HexID(), err)
-			}
+			branch := worker.CurrentBranch(task.UUID, task.Project, "")
 			owner, repo := resolvePROwnerRepo(task)
 			replacer := strings.NewReplacer(
 				"{{pr-number}}", fmt.Sprintf("%d", prInfo.Index),
