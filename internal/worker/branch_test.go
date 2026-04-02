@@ -4,6 +4,13 @@ import (
 	"testing"
 )
 
+const (
+	testProjectAlias       = "myproj"
+	testProjectPath        = "/projects/myproj"
+	testWorktreeBranchUUID = "abcd1234"
+	testWorktreePath       = "/fake/worktrees/" + testWorktreeBranchUUID + "-" + testProjectAlias
+)
+
 // contains reports whether substr is within s (simple helper for test stubs).
 func contains(s, substr string) bool {
 	return len(substr) > 0 && len(s) >= len(substr) && findSubstring(s, substr)
@@ -38,26 +45,26 @@ func stubResolveProjectPath(t *testing.T, fn func(alias string) string) func() {
 // TestCurrentBranch_WorktreePriority verifies worktree is checked first.
 func TestCurrentBranch_WorktreePriority(t *testing.T) {
 	restoreProj := stubResolveProjectPath(t, func(alias string) string {
-		return "/projects/myproj" // shouldn't be used
+		return testProjectPath // shouldn't be used
 	})
 	defer restoreProj()
 
 	worktreeCalled := false
 	restore := stubBranchName(t, func(dir string) string {
 		// Simulate worktree has a branch (any worktree path for this UUID/alias)
-		if contains(dir, "abcd1234-myproj") {
+		if contains(dir, testWorktreeBranchUUID+"-"+testProjectAlias) {
 			worktreeCalled = true
 			return "feature-123"
 		}
 		// Project path would also have a branch but shouldn't be reached
-		if dir == "/projects/myproj" {
+		if dir == testProjectPath {
 			return "should-not-be-used"
 		}
 		return ""
 	})
 	defer restore()
 
-	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", "myproj", "/other")
+	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", testProjectAlias, "/other")
 	if got != "feature-123" {
 		t.Errorf("CurrentBranch() = %q, want %q (worktree priority)", got, "feature-123")
 	}
@@ -69,25 +76,25 @@ func TestCurrentBranch_WorktreePriority(t *testing.T) {
 // TestCurrentBranch_FallsBackToProjectPath verifies project path is tried when worktree has no branch.
 func TestCurrentBranch_FallsBackToProjectPath(t *testing.T) {
 	restoreProj := stubResolveProjectPath(t, func(alias string) string {
-		if alias == "myproj" {
-			return "/projects/myproj"
+		if alias == testProjectAlias {
+			return testProjectPath
 		}
 		return ""
 	})
 	defer restoreProj()
 
 	restore := stubBranchName(t, func(dir string) string {
-		if dir == "/fake/worktrees/abcd1234-myproj" {
+		if dir == testWorktreePath {
 			return "" // worktree has no branch
 		}
-		if dir == "/projects/myproj" {
+		if dir == testProjectPath {
 			return "develop" // project has branch
 		}
 		return ""
 	})
 	defer restore()
 
-	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", "myproj", "")
+	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", testProjectAlias, "")
 	if got != "develop" {
 		t.Errorf("CurrentBranch() = %q, want %q (project path fallback)", got, "develop")
 	}
@@ -96,18 +103,18 @@ func TestCurrentBranch_FallsBackToProjectPath(t *testing.T) {
 // TestCurrentBranch_FallsBackToWorkDir verifies workDir is tried when project path fails.
 func TestCurrentBranch_FallsBackToWorkDir(t *testing.T) {
 	restoreProj := stubResolveProjectPath(t, func(alias string) string {
-		if alias == "myproj" {
-			return "/projects/myproj"
+		if alias == testProjectAlias {
+			return testProjectPath
 		}
 		return ""
 	})
 	defer restoreProj()
 
 	restore := stubBranchName(t, func(dir string) string {
-		if dir == "/fake/worktrees/abcd1234-myproj" {
+		if dir == testWorktreePath {
 			return "" // worktree has no branch
 		}
-		if dir == "/projects/myproj" {
+		if dir == testProjectPath {
 			return "" // project has no branch
 		}
 		if dir == "/cwd" {
@@ -117,7 +124,7 @@ func TestCurrentBranch_FallsBackToWorkDir(t *testing.T) {
 	})
 	defer restore()
 
-	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", "myproj", "/cwd")
+	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", testProjectAlias, "/cwd")
 	if got != "local-branch" {
 		t.Errorf("CurrentBranch() = %q, want %q (workDir fallback)", got, "local-branch")
 	}
@@ -135,7 +142,7 @@ func TestCurrentBranch_AllSourcesEmpty(t *testing.T) {
 	})
 	defer restore()
 
-	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", "myproj", "/cwd")
+	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", testProjectAlias, "/cwd")
 	if got != "" {
 		t.Errorf("CurrentBranch() = %q, want empty string", got)
 	}
@@ -144,8 +151,8 @@ func TestCurrentBranch_AllSourcesEmpty(t *testing.T) {
 // TestCurrentBranch_ShortUUIDSkipsWorktree verifies UUID < 8 chars skips worktree.
 func TestCurrentBranch_ShortUUIDSkipsWorktree(t *testing.T) {
 	restoreProj := stubResolveProjectPath(t, func(alias string) string {
-		if alias == "myproj" {
-			return "/projects/myproj"
+		if alias == testProjectAlias {
+			return testProjectPath
 		}
 		return ""
 	})
@@ -154,18 +161,18 @@ func TestCurrentBranch_ShortUUIDSkipsWorktree(t *testing.T) {
 	worktreeCalled := false
 	restore := stubBranchName(t, func(dir string) string {
 		// Should never be called for worktree with short UUID
-		if dir == "/fake/worktrees/abcd-myproj" {
+		if dir == "/fake/worktrees/abcd-"+testProjectAlias {
 			worktreeCalled = true
 			return "worktree-branch"
 		}
-		if dir == "/projects/myproj" {
+		if dir == testProjectPath {
 			return "short-uuid-branch"
 		}
 		return ""
 	})
 	defer restore()
 
-	got := CurrentBranch("abcd", "myproj", "")
+	got := CurrentBranch("abcd", testProjectAlias, "")
 	if got != "short-uuid-branch" {
 		t.Errorf("CurrentBranch(shortUUID) = %q, want %q", got, "short-uuid-branch")
 	}
@@ -185,7 +192,7 @@ func TestCurrentBranch_EmptyProjectAliasSkipsProjectPath(t *testing.T) {
 	worktreeCalled := false
 	restore := stubBranchName(t, func(dir string) string {
 		// With empty alias, worktree path ends with a hyphen
-		if contains(dir, "abcd1234-") && !contains(dir, "abcd1234-0") {
+		if contains(dir, testWorktreeBranchUUID+"-") && !contains(dir, testWorktreeBranchUUID+"-0") {
 			worktreeCalled = true
 			return "from-worktree"
 		}
@@ -205,8 +212,8 @@ func TestCurrentBranch_EmptyProjectAliasSkipsProjectPath(t *testing.T) {
 // TestCurrentBranch_EmptyWorkDirSkipsWorkDirCheck verifies empty workDir skips that check.
 func TestCurrentBranch_EmptyWorkDirSkipsWorkDirCheck(t *testing.T) {
 	restoreProj := stubResolveProjectPath(t, func(alias string) string {
-		if alias == "myproj" {
-			return "/projects/myproj"
+		if alias == testProjectAlias {
+			return testProjectPath
 		}
 		return ""
 	})
@@ -214,10 +221,10 @@ func TestCurrentBranch_EmptyWorkDirSkipsWorkDirCheck(t *testing.T) {
 
 	workDirCalled := false
 	restore := stubBranchName(t, func(dir string) string {
-		if dir == "/fake/worktrees/abcd1234-myproj" {
+		if dir == testWorktreePath {
 			return "" // no worktree branch
 		}
-		if dir == "/projects/myproj" {
+		if dir == testProjectPath {
 			return "project-branch"
 		}
 		if dir == "" {
@@ -229,7 +236,7 @@ func TestCurrentBranch_EmptyWorkDirSkipsWorkDirCheck(t *testing.T) {
 	defer restore()
 
 	// Note: empty workDir is passed as ""
-	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", "myproj", "")
+	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", testProjectAlias, "")
 	if got != "project-branch" {
 		t.Errorf("CurrentBranch() = %q, want %q (project path when workDir empty)", got, "project-branch")
 	}
@@ -239,7 +246,7 @@ func TestCurrentBranch_EmptyWorkDirSkipsWorkDirCheck(t *testing.T) {
 // TestCurrentBranch_ProjectPathCalledWithCorrectPath verifies the project path is constructed correctly.
 func TestCurrentBranch_ProjectPathCalledWithCorrectPath(t *testing.T) {
 	restoreProj := stubResolveProjectPath(t, func(alias string) string {
-		if alias == "myproj" {
+		if alias == testProjectAlias {
 			return "/the/project/path"
 		}
 		return ""
@@ -248,7 +255,7 @@ func TestCurrentBranch_ProjectPathCalledWithCorrectPath(t *testing.T) {
 
 	projectPathCalled := false
 	restore := stubBranchName(t, func(dir string) string {
-		if dir == "/fake/worktrees/abcd1234-myproj" {
+		if dir == testWorktreePath {
 			return "" // no worktree branch
 		}
 		if dir == "/the/project/path" {
@@ -259,7 +266,7 @@ func TestCurrentBranch_ProjectPathCalledWithCorrectPath(t *testing.T) {
 	})
 	defer restore()
 
-	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", "myproj", "")
+	got := CurrentBranch("abcd1234-0000-0000-0000-000000000000", testProjectAlias, "")
 	if got != "main" {
 		t.Errorf("CurrentBranch() = %q, want %q", got, "main")
 	}
