@@ -42,24 +42,24 @@ Gather all context needed before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ttal subagent run via Bash — parallel)
+### Phase 2: Subagent Dispatch (ei agent run via Bash — parallel)
 
-Run all applicable reviewers **in parallel** using `ttal subagent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
+Run all applicable reviewers **in parallel** using `ei agent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
 ```bash
 # Always run these two in parallel:
-ttal subagent run pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
-ttal subagent run pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
+ei agent run pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
+ei agent run pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
 
 # Conditional — include in the same parallel batch if applicable:
 # If error handling code changed:
-ttal subagent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
+ei agent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
 # If test files changed:
-ttal subagent run pr-test-analyzer "Review the current PR diff for test coverage quality."
+ei agent run pr-test-analyzer "Review the current PR diff for test coverage quality."
 # If comments/docs were added:
-ttal subagent run pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
+ei agent run pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
 # If types were added or modified:
-ttal subagent run pr-type-design-analyzer "Review the current PR diff for type design quality."
+ei agent run pr-type-design-analyzer "Review the current PR diff for type design quality."
 ```
 
 **Wait for ALL subagent calls to complete and read their FULL output before proceeding to Phase 3.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has returned its results. Collect and note the output from each reviewer.
@@ -132,13 +132,15 @@ ttal subagent run pr-type-design-analyzer "Review the current PR diff for type d
 - Applies project standards
 - Preserves functionality
 
-## Tool: ttal subagent run
+## Tool: ei agent run
 
 Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
 ```bash
-ttal subagent run <name> "<prompt with PR context>"
+ei agent run <name> "<prompt with PR context>"
 ```
+
+> **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
 
 Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-principles-reviewer`, `pr-test-analyzer`, `pr-comment-analyzer`, `pr-type-design-analyzer`, `pr-code-simplifier`.
 
