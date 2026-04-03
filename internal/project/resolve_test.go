@@ -224,3 +224,55 @@ func TestMatchByContains(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveProjectAliasWithStore(t *testing.T) {
+	const testAlias = "proj"
+
+	t.Run("exact path match", func(t *testing.T) {
+		storeDir := t.TempDir()
+		workDir := filepath.Join(storeDir, "code")
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, workDir); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(workDir, store)
+		if got != testAlias {
+			t.Errorf("got %q, want %q", got, testAlias)
+		}
+	})
+
+	t.Run("nested inside registered path", func(t *testing.T) {
+		storeDir := t.TempDir()
+		projPath := filepath.Join(storeDir, "code")
+		subDir := filepath.Join(projPath, "backend", "cmd")
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, projPath); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(subDir, store)
+		if got != testAlias {
+			t.Errorf("got %q, want %q", got, testAlias)
+		}
+	})
+
+	t.Run("unregistered path", func(t *testing.T) {
+		storeDir := t.TempDir()
+		workDir := filepath.Join(storeDir, "unregistered")
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, filepath.Join(storeDir, "other")); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(workDir, store)
+		if got != "" {
+			t.Errorf("got %q, want %q", got, "")
+		}
+	})
+
+	t.Run("store error returns empty", func(t *testing.T) {
+		store := NewStore("/nonexistent/projects.toml")
+		got := resolveProjectAliasWithStore("/any/path", store)
+		if got != "" {
+			t.Errorf("got %q, want %q", got, "")
+		}
+	})
+}

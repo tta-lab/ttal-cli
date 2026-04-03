@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -30,6 +31,33 @@ func ResolveProjectPathForTeam(projectName, team string) string {
 		return ResolveProjectPath(projectName)
 	}
 	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPathForTeam(team)))
+}
+
+// ResolveProjectAlias returns the project alias for a given filesystem path.
+// Returns the alias if the path is inside (or equal to) a registered project path.
+// Otherwise returns "" — callers fall back to GITHUB_TOKEN.
+func ResolveProjectAlias(workDir string) string {
+	return resolveProjectAliasWithStore(workDir, NewStore(config.ResolveProjectsPath()))
+}
+
+func resolveProjectAliasWithStore(workDir string, store *Store) string {
+	projects, err := store.List(false)
+	if err != nil {
+		return ""
+	}
+
+	cleanWork := filepath.Clean(workDir)
+
+	// 1. Path prefix match
+	for _, p := range projects {
+		cleanProj := filepath.Clean(p.Path)
+		if cleanWork == cleanProj || strings.HasPrefix(cleanWork, cleanProj+string(filepath.Separator)) {
+			return p.Alias
+		}
+	}
+
+	// 2. Otherwise: return "" (caller falls back to GITHUB_TOKEN)
+	return ""
 }
 
 // ResolveProjectPathOrError resolves a project path from a taskwarrior project field.
