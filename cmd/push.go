@@ -71,12 +71,18 @@ func currentBranch(workDir string) (string, error) {
 	return branch, nil
 }
 
+// storeFactoryFn is injectable for testing. Defaults to creating a store from
+// the real projects.toml path.
+var storeFactoryFn = func() *project.Store {
+	return project.NewStore(config.ResolveProjectsPath())
+}
+
 // resolveAliasFromPath resolves the project alias for the given working directory
 // by scanning registered projects for a path match. Falls back to extracting the
 // alias suffix from a worktree directory name (e.g. ~/.ttal/worktrees/<uuid>-<alias>).
 // Returns empty string if no match is found — callers fall back to GITHUB_TOKEN.
 func resolveAliasFromPath(workDir string) string {
-	store := project.NewStore(config.ResolveProjectsPath())
+	store := storeFactoryFn()
 	projects, err := store.List(false)
 	if err != nil {
 		return ""

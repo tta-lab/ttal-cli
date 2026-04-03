@@ -62,7 +62,12 @@ Examples:
 		}
 
 		// Push branch to origin before creating PR
+		// resolveAliasFromPath may return "" if workDir is not inside a registered project.
+		// Fall back to ctx.Task.Project which is already resolved from the task context.
 		projectAlias := resolveAliasFromPath(workDir)
+		if projectAlias == "" {
+			projectAlias = ctx.Task.Project
+		}
 		fmt.Println("Pushing branch to origin...")
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
 			WorkDir:      workDir,
@@ -93,7 +98,7 @@ Examples:
 			Base:         base,
 			Title:        title,
 			Body:         body,
-			ProjectAlias: ctx.Task.Project,
+			ProjectAlias: projectAlias,
 		})
 		if err != nil {
 			return err
@@ -176,7 +181,7 @@ Examples:
 			Index:        index,
 			Title:        title,
 			Body:         body,
-			ProjectAlias: ctx.Task.Project,
+			ProjectAlias: projectAlias,
 		})
 		if err != nil {
 			return err
