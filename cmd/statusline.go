@@ -6,13 +6,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/user"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/statusline"
 )
 
 type statuslineInput struct {
@@ -91,19 +91,11 @@ func runStatusline(cmd *cobra.Command, args []string) error {
 }
 
 func printStatusLine(input statuslineInput) {
-	username := os.Getenv("USER")
-	if username == "" {
-		if u, err := user.Current(); err == nil {
-			username = u.Username
-		}
-	}
-
-	hostname, _ := os.Hostname()
-	if idx := strings.IndexByte(hostname, '.'); idx != -1 {
-		hostname = hostname[:idx]
-	}
-
 	cwd := input.Workspace.CurrentDir
+	jobID := os.Getenv("TTAL_JOB_ID")
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+
+	compactCwd := statusline.CompactPath(cwd, jobID)
 	currentTime := time.Now().Format("15:04:05")
 
 	// Git info
@@ -121,11 +113,14 @@ func printStatusLine(input statuslineInput) {
 		ctx = fmt.Sprintf(" ctx:%.0f%%", pct)
 	}
 
-	fmt.Printf("%s#%s %s%s%s @ %s%s%s in %s%s%s%s [%s]%s\n",
-		ansiBoldBlue, ansiReset,
-		ansiCyan, username, ansiReset,
-		ansiGreen, hostname, ansiReset,
-		ansiBoldYellow, cwd, ansiReset,
+	agentPrefix := ""
+	if agentName != "" {
+		agentPrefix = fmt.Sprintf("%s[%s]%s ", ansiBoldBlue, agentName, ansiReset)
+	}
+
+	fmt.Printf("%s%s%s%s%s [%s]%s\n",
+		agentPrefix,
+		ansiBoldYellow, compactCwd, ansiReset,
 		gitInfo,
 		currentTime,
 		ctx,
