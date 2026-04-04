@@ -24,10 +24,10 @@ func setupStore(t *testing.T, alias, projectPath string) (*project.Store, string
 func TestCompactPathWith(t *testing.T) {
 	homeDir := "/Users/neil"
 
-	// Create a real project path for tests
-	projectPath := "/Users/neil/Code/guion-opensource/ttal-cli"
+	// Use a synthetic project path that doesn't collide with any real registered project
+	projectPath := "/Users/neil/Code/test-org/myapp"
 
-	store, worktreesRoot := setupStore(t, "ttal", projectPath)
+	store, worktreesRoot := setupStore(t, "myapp", projectPath)
 
 	tests := []struct {
 		name          string
@@ -45,7 +45,7 @@ func TestCompactPathWith(t *testing.T) {
 			store:         store,
 			worktreesRoot: worktreesRoot,
 			homeDir:       homeDir,
-			want:          "(ttal)",
+			want:          "(myapp)",
 		},
 		{
 			name:          "subdir of project returns alias",
@@ -54,34 +54,62 @@ func TestCompactPathWith(t *testing.T) {
 			store:         store,
 			worktreesRoot: worktreesRoot,
 			homeDir:       homeDir,
-			want:          "(ttal)",
+			want:          "(myapp)",
 		},
 		{
 			name:          "worktree path with jobID",
-			cwd:           worktreesRoot + "/ab12cd34-ttal",
+			cwd:           worktreesRoot + "/ab12cd34-myapp",
 			jobID:         "ab12cd34",
 			store:         store,
 			worktreesRoot: worktreesRoot,
 			homeDir:       homeDir,
-			want:          "(ttal - ab12cd34)",
+			want:          "(myapp - ab12cd34)",
 		},
 		{
 			name:          "worktree path without jobID",
-			cwd:           worktreesRoot + "/ab12cd34-ttal",
+			cwd:           worktreesRoot + "/ab12cd34-myapp",
 			jobID:         "",
 			store:         store,
 			worktreesRoot: worktreesRoot,
 			homeDir:       homeDir,
-			want:          "(ttal)",
+			want:          "(myapp)",
 		},
 		{
-			name:          "non-project path under home abbreviates intermediate dirs",
-			cwd:           "/Users/neil/Code/guion-opensource/ttal-cli",
+			name:          "worktree with hyphenated alias resolves correctly",
+			cwd:           worktreesRoot + "/ab12cd34-myapp-pr",
+			jobID:         "ab12cd34",
+			store:         func() *project.Store { s, _ := setupStore(t, "myapp-pr", projectPath+"-pr"); return s }(),
+			worktreesRoot: worktreesRoot,
+			homeDir:       homeDir,
+			want:          "(myapp-pr - ab12cd34)",
+		},
+		{
+			name:          "worktree alias not in store falls back to path abbreviation",
+			cwd:           worktreesRoot + "/ab12cd34-unknown",
+			jobID:         "ab12cd34",
+			store:         store, // only has "myapp", not "unknown"
+			worktreesRoot: worktreesRoot,
+			homeDir:       homeDir,
+			// worktreesRoot is a TempDir under /private/var/... or /tmp — just ensure no alias match
+			want: func() string { return abbreviatePath(worktreesRoot+"/ab12cd34-unknown", homeDir) }(),
+		},
+		{
+			name:          "store error falls back to path abbreviation",
+			cwd:           "/Users/neil/Code/test-org/other",
 			jobID:         "",
 			store:         project.NewStore("/nonexistent/projects.toml"),
 			worktreesRoot: worktreesRoot,
 			homeDir:       homeDir,
-			want:          "~/C/g/ttal-cli",
+			want:          "~/C/t/other",
+		},
+		{
+			name:          "non-project path under home abbreviates intermediate dirs",
+			cwd:           "/Users/neil/Code/guion-opensource/some-tool",
+			jobID:         "",
+			store:         project.NewStore("/nonexistent/projects.toml"),
+			worktreesRoot: worktreesRoot,
+			homeDir:       homeDir,
+			want:          "~/C/g/some-tool",
 		},
 		{
 			name:          "cwd equals home returns ~",

@@ -1,6 +1,7 @@
 package statusline
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,11 +17,15 @@ import (
 func CompactPath(cwd, jobID string) string {
 	store := project.NewStore(config.ResolveProjectsPath())
 	worktreesRoot := config.WorktreesRoot()
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[statusline] warning: cannot determine home dir: %v\n", err)
+	}
 	return compactPathWith(cwd, jobID, store, worktreesRoot, homeDir)
 }
 
-// compactPathWith is the injectable implementation used by tests.
+// compactPathWith is the testable variant of CompactPath that accepts explicit
+// dependencies instead of reading them from config or the environment.
 func compactPathWith(cwd, jobID string, store *project.Store, worktreesRoot, homeDir string) string {
 	if cwd == "" {
 		return ""
