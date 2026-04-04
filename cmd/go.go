@@ -76,7 +76,7 @@ Examples:
 		case daemon.AdvanceStatusNoPipeline:
 			fmt.Printf("No pipeline: %s\n", resp.Message)
 		case daemon.AdvanceStatusNeedsLGTM:
-			// resp.Message already contains the emoji and reviewer info from the daemon
+			// NeedsLGTM messages are pre-formatted by the daemon with emoji and reviewer details
 			fmt.Printf("%s\n    You'll be pinged when the verdict arrives — nothing to do in the meantime.\n", resp.Message)
 		case daemon.AdvanceStatusRejected:
 			return fmt.Errorf("rejected: %s", resp.Message)
