@@ -12,9 +12,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/notification"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 const (
@@ -29,6 +31,7 @@ const (
 type prWatchTarget struct {
 	TaskUUID     string
 	SessionName  string
+	WindowName   string // tmux window name within the worker session (derived from pipeline assignee)
 	Team         string
 	Owner        string
 	Repo         string
@@ -142,9 +145,11 @@ func scanTeam(
 			continue
 		}
 
+		windowName := resolveWorkerWindowName(task.Tags)
 		target := prWatchTarget{
 			TaskUUID:     task.UUID,
 			SessionName:  sessionName,
+			WindowName:   windowName,
 			Team:         teamName,
 			Owner:        info.Owner,
 			Repo:         info.Repo,
@@ -276,7 +281,7 @@ func handleCIStatus(
 			PRIndex: target.PRIndex,
 			SHA:     headSHA,
 		}.Render()
-		deliverToWorkerSession(target.SessionName, msg)
+		deliverToWorkerSession(target, msg)
 		log.Printf("[prwatch] PR #%d CI passed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		// Return prPollInitial so the caller updates lastDeliveredSHA, preventing
 		// re-notification for the same SHA. Goroutine stays alive to detect future
@@ -289,7 +294,7 @@ func handleCIStatus(
 			PRIndex: target.PRIndex,
 			SHA:     headSHA,
 		}.Render()
-		deliverToWorkerSession(target.SessionName, ciFailedMsg)
+		deliverToWorkerSession(target, ciFailedMsg)
 		notifyPRStatus(frontends, target, ciFailedMsg)
 		log.Printf("[prwatch] PR #%d checks failed (sha=%s)", target.PRIndex, shortSHA(headSHA))
 		return prPollInitial
@@ -315,16 +320,32 @@ func checkMergeConflict(
 		Ctx:     notification.NewContext(target.ProjectAlias, target.TaskUUID, target.Description, ""),
 		PRIndex: target.PRIndex,
 	}.Render()
-	deliverToWorkerSession(target.SessionName, conflictMsg)
+	deliverToWorkerSession(target, conflictMsg)
 	notifyPRStatus(frontends, target, conflictMsg)
 	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))
 	return true
 }
 
+// resolveWorkerWindowName returns the worker agent name (= tmux window name) for the given
+// task tags by reading pipelines.toml. Falls back to worker.CoderAgentName if unavailable.
+func resolveWorkerWindowName(taskTags []string) string {
+	cfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		return worker.CoderAgentName
+	}
+	if name := cfg.WorkerAgentName(taskTags); name != "" {
+		return name
+	}
+	if name := cfg.AnyWorkerAgentName(); name != "" {
+		return name
+	}
+	return worker.CoderAgentName
+}
+
 // deliverToWorkerSession sends a message to the worker window of a worker tmux session.
-func deliverToWorkerSession(sessionName, msg string) {
-	if err := tmux.SendKeys(sessionName, workerWindow, msg); err != nil {
-		log.Printf("[prwatch] SendKeys failed for %s:%s: %v", sessionName, workerWindow, err)
+func deliverToWorkerSession(target prWatchTarget, msg string) {
+	if err := tmux.SendKeys(target.SessionName, target.WindowName, msg); err != nil {
+		log.Printf("[prwatch] SendKeys failed for %s:%s: %v", target.SessionName, target.WindowName, err)
 	}
 }
 

@@ -5,7 +5,7 @@ description: "Worker agent — executes implementation plans in isolated worktre
 role: worker
 color: green
 model: sonnet
-tools: [Bash]
+tools: [Bash, Read, Write, Edit]
 ttal:
   access: rw
 ---
@@ -120,6 +120,18 @@ Don't guess your way through blockers — alert and wait.
 - Work on main branch
 - Use `gh` or `tea` for PR operations
 - Pass a UUID to `ttal task get` or `ttal go` — the `TTAL_JOB_ID` env var is pre-set in your session; passing a UUID manually overrides it and breaks routing
+
+## File Tools
+
+Use these directly — no need to delegate:
+
+- `Read` — read any file
+- `Edit` — modify existing files (preferred over Bash for targeted edits)
+- `Write` — create new files or full rewrites
+- `src <file>` — symbol-aware exploration and editing (Go, TS, etc.)
+- `Bash` — shell commands, build, test, git
+
+Prefer `Edit`/`Write` over `Bash` for file changes. Use `src edit` for symbol-aware replacements.
 
 ## Tools
 

@@ -20,8 +20,8 @@ func TestBuildEnvParts(t *testing.T) {
 	if len(parts) < 2 {
 		t.Fatal("expected at least TTAL_AGENT_NAME and TTAL_JOB_ID")
 	}
-	if parts[0] != "TTAL_AGENT_NAME=code-lead" {
-		t.Errorf("first part should be TTAL_AGENT_NAME=code-lead, got %q", parts[0])
+	if parts[0] != "TTAL_AGENT_NAME=coder" {
+		t.Errorf("first part should be TTAL_AGENT_NAME=coder, got %q", parts[0])
 	}
 	if !strings.HasPrefix(parts[1], "TTAL_JOB_ID=") {
 		t.Errorf("second part should be TTAL_JOB_ID, got %q", parts[1])

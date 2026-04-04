@@ -15,6 +15,7 @@ import (
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -208,10 +209,19 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 
 	taskrc := resolveTaskRCFromConfig(shellCfg)
 
-	// Use cfg.AgentName if set, otherwise fall back to CoderAgentName.
+	// Use cfg.AgentName if set (always the case when spawned via pipeline advance).
+	// Fall back to reading pipelines.toml to avoid hardcoding the agent name.
 	agentName := cfg.AgentName
 	if agentName == "" {
-		agentName = CoderAgentName
+		if pipelineCfg, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
+			agentName = pipelineCfg.WorkerAgentName(task.Tags)
+			if agentName == "" {
+				agentName = pipelineCfg.AnyWorkerAgentName()
+			}
+		}
+		if agentName == "" {
+			agentName = CoderAgentName
+		}
 	}
 
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc, agentName)

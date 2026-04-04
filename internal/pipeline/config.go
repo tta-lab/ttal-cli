@@ -237,6 +237,20 @@ func (c *Config) WorkerAgentName(taskTags []string) string {
 	return ""
 }
 
+// AnyWorkerAgentName returns the assignee of the first worker stage found across all pipelines.
+// Use this when task tags are unavailable and you need the canonical worker agent name.
+// Returns empty string if no worker stage is defined in any pipeline.
+func (c *Config) AnyWorkerAgentName() string {
+	for _, p := range c.Pipelines {
+		for _, s := range p.Stages {
+			if s.Worker && s.Assignee != "" {
+				return s.Assignee
+			}
+		}
+	}
+	return ""
+}
+
 // IsWorkerAgent returns true if agentName is the assignee of any worker stage.
 func (c *Config) IsWorkerAgent(agentName string) bool {
 	for _, p := range c.Pipelines {
