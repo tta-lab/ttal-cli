@@ -62,12 +62,11 @@ Examples:
 		}
 
 		// Push branch to origin before creating PR
-		projectAlias := resolveAliasFromPath(workDir)
 		fmt.Println("Pushing branch to origin...")
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
 			WorkDir:      workDir,
 			Branch:       branch,
-			ProjectAlias: projectAlias,
+			ProjectAlias: ctx.Alias,
 		})
 		if err != nil {
 			return fmt.Errorf("push failed: %w", err)
@@ -93,7 +92,7 @@ Examples:
 			Base:         base,
 			Title:        title,
 			Body:         body,
-			ProjectAlias: ctx.Task.Project,
+			ProjectAlias: ctx.Alias,
 		})
 		if err != nil {
 			return err
@@ -176,7 +175,7 @@ Examples:
 			Index:        index,
 			Title:        title,
 			Body:         body,
-			ProjectAlias: ctx.Task.Project,
+			ProjectAlias: ctx.Alias,
 		})
 		if err != nil {
 			return err

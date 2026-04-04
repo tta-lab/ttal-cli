@@ -14,6 +14,7 @@ type Context struct {
 	Owner string
 	Repo  string
 	Info  *gitprovider.RepoInfo
+	Alias string // resolved project alias (from task.Project or cwd path)
 }
 
 // ResolveContextWithoutProvider resolves task metadata and git repo info
@@ -37,7 +38,7 @@ func resolveFromTaskWithoutProvider(jobID string) (*Context, error) {
 		Owner: info.Owner,
 		Repo:  info.Repo,
 		Info:  info,
-		// Provider is nil — API calls go through daemon
+		Alias: task.Project,
 	}, nil
 }
 
@@ -57,6 +58,7 @@ func resolveFromCwdWithoutProvider() (*Context, error) {
 		Owner: info.Owner,
 		Repo:  info.Repo,
 		Info:  info,
+		Alias: project.ResolveProjectAlias(cwd),
 	}, nil
 }
 
