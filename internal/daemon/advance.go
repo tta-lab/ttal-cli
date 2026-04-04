@@ -837,6 +837,14 @@ func findAgentTag(tags []string, agentRoles map[string]string) string {
 	return ""
 }
 
+// ErrCIPending is returned by mergeWorkerPR when a merge attempt is blocked by
+// pending CI checks. The caller should notify the worker to wait and retry.
+var ErrCIPending = errors.New("ci pending")
+
+// mergeWorkerPRFn is the function used to merge worker PRs.
+// Package-level var for test injection.
+var mergeWorkerPRFn = mergeWorkerPR
+
 // handleWorkerPRMerge merges the worker PR and requests cleanup.
 // Returns true when the HTTP response has been written (caller should return).
 func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
@@ -888,7 +896,24 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 		}
 	}
 
-	if err := mergeWorkerPR(task); err != nil {
+	if err := mergeWorkerPRFn(task); err != nil {
+		if errors.Is(err, ErrCIPending) {
+			prIndex := int64(0)
+			if prInfo, parseErr := taskwarrior.ParsePRID(task.PRID); parseErr == nil {
+				prIndex = prInfo.Index
+			}
+			log.Printf("[advance] PR #%d merge blocked by pending CI — notifying worker to wait", prIndex)
+			notifyTelegramFn(notification.CIPendingMerge{
+				Ctx:     notification.NewContext(task.Project, task.HexID(), task.Description, ""),
+				PRIndex: prIndex,
+			}.Render())
+			writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
+				Status: AdvanceStatusNeedsLGTM,
+				Message: "CI checks still running — you'll be notified here when they complete." +
+					" Then run `ttal go` to complete the merge.",
+			})
+			return true
+		}
 		log.Printf("[advance] PR merge failed: %v", err)
 		notifyTelegramFn(notification.PRMergeFailed{
 			Ctx:    notification.NewContext(task.Project, task.HexID(), task.Description, ""),
@@ -940,6 +965,10 @@ func mergeWorkerPR(task *taskwarrior.Task) error {
 		if resp.AlreadyMerged {
 			log.Printf("[advance] PR #%d already merged, skipping", prInfo.Index)
 			return nil
+		}
+		if resp.CIPending {
+			log.Printf("[advance] PR #%d merge blocked by pending CI", prInfo.Index)
+			return ErrCIPending
 		}
 		return errors.New(resp.Error)
 	}

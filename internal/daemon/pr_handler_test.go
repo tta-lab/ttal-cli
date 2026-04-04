@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -145,6 +146,28 @@ func TestCountPRCheckStates(t *testing.T) {
 	}
 	if pending != 1 {
 		t.Errorf("expected 1 pending, got %d", pending)
+	}
+}
+
+// TestIsCIPendingMergeError verifies keyword detection for CI-pending merge errors.
+func TestIsCIPendingMergeError(t *testing.T) {
+	cases := []struct {
+		err      error
+		expected bool
+	}{
+		{nil, false},
+		{errors.New("some other error"), false},
+		{errors.New("failed to merge PR #1: 405 Repository rule violations found." +
+			" Required status check is in progress"), true},
+		{errors.New("required status check xyz not satisfied"), true},
+		{errors.New("merge blocked: status check is in progress"), true},
+		{errors.New("merge conflicts"), false},
+	}
+	for _, tc := range cases {
+		got := isCIPendingMergeError(tc.err)
+		if got != tc.expected {
+			t.Errorf("isCIPendingMergeError(%v) = %v, want %v", tc.err, got, tc.expected)
+		}
 	}
 }
 

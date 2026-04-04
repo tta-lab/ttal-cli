@@ -141,8 +141,23 @@ type CIPassed struct {
 
 func (n CIPassed) Render() string {
 	sha := shortSHA(n.SHA)
-	body := fmt.Sprintf("PR #%d CI checks passed (sha=%s). Waiting for reviewer LGTM before merge.", n.PRIndex, sha)
+	body := fmt.Sprintf("PR #%d CI checks passed (sha=%s). Run `ttal go` to merge (if you have LGTM).", n.PRIndex, sha)
 	return render("✅", n.Ctx.header(), body)
+}
+
+// CIPendingMerge is sent (to Telegram) when a merge attempt is blocked by pending CI checks.
+// The worker is notified via the AdvanceResponse message.
+type CIPendingMerge struct {
+	Ctx     Context
+	PRIndex int64
+}
+
+func (n CIPendingMerge) Render() string {
+	body := fmt.Sprintf(
+		"PR #%d merge blocked — CI checks still running. Worker will be notified when they complete.",
+		n.PRIndex,
+	)
+	return render("⏳", n.Ctx.header(), body)
 }
 
 // MergeConflict is sent when a PR has merge conflicts.
