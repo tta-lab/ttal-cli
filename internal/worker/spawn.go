@@ -166,6 +166,9 @@ func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
 		fmt.Fprintf(os.Stderr, "warning: failed to register temenos session (non-fatal): %v\n", err)
 		return ""
 	}
+	// Store the token so cleanupWorker can delete the session on close.
+	// On annotation failure the token is lost — the 8h TTL on the temenos daemon is
+	// the recovery path (sessions expire automatically if close never runs).
 	if annErr := taskwarrior.AnnotateTask(taskUUID, "temenos_token:"+token); annErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with temenos token: %v\n", annErr)
 	}

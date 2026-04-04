@@ -2,6 +2,7 @@ package temenos
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -12,13 +13,40 @@ import (
 
 const defaultMCPPort = 9783
 
+// mcpServerEntry holds the typed fields for one MCP server config entry.
+type mcpServerEntry struct {
+	Type    string            `json:"type"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+}
+
+// mcpConfigDoc is the top-level MCP config document.
+type mcpConfigDoc struct {
+	MCPServers map[string]mcpServerEntry `json:"mcpServers"`
+}
+
 // MCPConfig returns the inline JSON for the temenos MCP server configuration.
+// Uses encoding/json so special characters in token are safely escaped.
 // Pure function — no side effects.
 func MCPConfig(port int, token string) string {
-	return fmt.Sprintf(
-		`{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:%d","headers":{"X-Session-Token":"%s"}}}}`,
-		port, token,
-	)
+	doc := mcpConfigDoc{
+		MCPServers: map[string]mcpServerEntry{
+			"temenos": {
+				Type: "http",
+				URL:  fmt.Sprintf("http://127.0.0.1:%d", port),
+				Headers: map[string]string{
+					"X-Session-Token": token,
+				},
+			},
+		},
+	}
+	data, err := json.Marshal(doc)
+	if err != nil {
+		// json.Marshal on a plain struct with string values never errors;
+		// this branch exists for defensive completeness.
+		return ""
+	}
+	return string(data)
 }
 
 // RegisterSessionForAgent registers a temenos session for a CC worker or manager.

@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/status"
@@ -299,9 +300,7 @@ func buildCCRestartCmd(sessionID, model, agent, trigger, mcpConfig string) strin
 		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
 		sessionID, model, agent,
 	)
-	if mcpConfig != "" {
-		cmd += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
-	}
+	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
 		cmd += fmt.Sprintf(" -- '%s'", escaped)
@@ -318,9 +317,7 @@ func buildCCFreshCmd(model, agent, trigger, mcpConfig string) string {
 		"claude --model %s --dangerously-skip-permissions --agent %s",
 		model, agent,
 	)
-	if mcpConfig != "" {
-		cmd += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
-	}
+	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
 		cmd += fmt.Sprintf(" -- '%s'", escaped)

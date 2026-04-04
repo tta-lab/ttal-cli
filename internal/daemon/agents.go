@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	envpkg "github.com/tta-lab/ttal-cli/internal/env"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
@@ -220,9 +221,7 @@ func spawnCCSession(sessionName, agentName, agentPath, teamName string, env []st
 	if sid := lastSessionID(teamName, agentName, agentPath); sid != "" {
 		cmd += " --resume " + sid
 	}
-	if mcpConfig != "" {
-		cmd += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
-	}
+	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
 
 	envStr := ""
 	if len(env) > 0 {

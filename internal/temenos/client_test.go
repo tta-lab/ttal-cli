@@ -7,15 +7,21 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 // startUnixServer starts a minimal HTTP server on a unix socket for testing.
-// Returns the socket path and a cleanup function.
+// Returns the socket path. Uses os.MkdirTemp with a short prefix to stay within
+// the macOS unix socket path limit (104 chars).
 func startUnixServer(t *testing.T, mux *http.ServeMux) string {
 	t.Helper()
-	tmpDir := t.TempDir()
-	socketPath := filepath.Join(tmpDir, "test.sock")
+	// Use a short prefix to avoid exceeding macOS's 104-char unix socket path limit.
+	dir, err := os.MkdirTemp("", "tt")
+	if err != nil {
+		t.Fatalf("mkdirtemp: %v", err)
+	}
+	socketPath := filepath.Join(dir, "s.sock")
 	ln, err := net.Listen("unix", socketPath)
 	if err != nil {
 		t.Fatalf("listen unix: %v", err)
@@ -24,7 +30,7 @@ func startUnixServer(t *testing.T, mux *http.ServeMux) string {
 	go func() { _ = srv.Serve(ln) }()
 	t.Cleanup(func() {
 		_ = srv.Close()
-		_ = os.Remove(socketPath)
+		_ = os.RemoveAll(dir)
 	})
 	return socketPath
 }
@@ -101,4 +107,79 @@ func TestNew_DefaultSocketPath(t *testing.T) {
 	if c.socketPath != want {
 		t.Errorf("expected socket path %q, got %q", want, c.socketPath)
 	}
+}
+
+func TestRegisterSession_NonOKStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/session/register", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	})
+
+	socketPath := startUnixServer(t, mux)
+	c := New(socketPath)
+
+	_, err := c.RegisterSession(context.Background(), "coder", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for non-200 status, got nil")
+	}
+	if !containsStatus(err.Error(), "500") {
+		t.Errorf("expected status 500 in error, got: %v", err)
+	}
+}
+
+func TestRegisterSession_EmptyToken(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/session/register", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(registerResponse{Token: ""})
+	})
+
+	socketPath := startUnixServer(t, mux)
+	c := New(socketPath)
+
+	_, err := c.RegisterSession(context.Background(), "coder", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for empty token, got nil")
+	}
+}
+
+func TestDeleteSession_NonOKStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/session/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	})
+
+	socketPath := startUnixServer(t, mux)
+	c := New(socketPath)
+
+	err := c.DeleteSession(context.Background(), "tok123")
+	if err == nil {
+		t.Fatal("expected error for non-200 status, got nil")
+	}
+	if !containsStatus(err.Error(), "404") {
+		t.Errorf("expected status 404 in error, got: %v", err)
+	}
+}
+
+func TestHealth_NonOKStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+	})
+
+	socketPath := startUnixServer(t, mux)
+	c := New(socketPath)
+
+	err := c.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected error for non-200 status, got nil")
+	}
+	if !containsStatus(err.Error(), "503") {
+		t.Errorf("expected status 503 in error, got: %v", err)
+	}
+}
+
+// containsStatus reports whether errMsg contains the given status code string.
+func containsStatus(errMsg, code string) bool {
+	return strings.Contains(errMsg, code)
 }
