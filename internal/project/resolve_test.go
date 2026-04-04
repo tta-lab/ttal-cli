@@ -225,7 +225,7 @@ func TestMatchByContains(t *testing.T) {
 	}
 }
 
-func TestResolveProjectAliasWithStore(t *testing.T) {
+func TestResolveProjectAlias_PathMatch(t *testing.T) {
 	const testAlias = "proj"
 
 	t.Run("exact path match", func(t *testing.T) {
@@ -254,6 +254,10 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 			t.Errorf("got %q, want %q", got, testAlias)
 		}
 	})
+}
+
+func TestResolveProjectAlias_WorktreePaths(t *testing.T) {
+	const testAlias = "proj"
 
 	t.Run("worktree path extracts alias from uuid8-alias directory name", func(t *testing.T) {
 		storeDir := t.TempDir()
@@ -315,7 +319,7 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 	t.Run("worktree path with too-short uuid8 returns empty", func(t *testing.T) {
 		storeDir := t.TempDir()
 		worktreesRoot := filepath.Join(storeDir, "worktrees")
-		worktreeDir := filepath.Join(worktreesRoot, "abc-"+testAlias) // uuid must be 8 chars
+		worktreeDir := filepath.Join(worktreesRoot, "abc-"+testAlias)
 		store := NewStore(filepath.Join(storeDir, "projects.toml"))
 		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
 			t.Fatalf("Add error: %v", err)
@@ -325,6 +329,10 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 			t.Errorf("got %q, want %q", got, "")
 		}
 	})
+}
+
+func TestResolveProjectAlias_Fallback(t *testing.T) {
+	const testAlias = "proj"
 
 	t.Run("unregistered path", func(t *testing.T) {
 		storeDir := t.TempDir()
