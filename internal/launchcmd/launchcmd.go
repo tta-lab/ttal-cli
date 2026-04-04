@@ -10,11 +10,16 @@ import (
 // via the CC SessionStart hook (ttal context) rather than a synthetic JSONL session.
 // agent: CC agent identity (e.g. "coder", "pr-review-lead"). Required.
 // trigger: positional arg (the initial message; empty = omit).
-func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
+// mcpConfig: inline JSON for --mcp-config flag; single-quoted in the shell command
+// since tokens are hex-only and JSON contains no single quotes. Empty = omit.
+func BuildCCDirectCommand(ttalBin, agent, trigger, mcpConfig string) string {
 	cmd := fmt.Sprintf(
 		"%s worker gatekeeper -- claude --dangerously-skip-permissions --agent %s",
 		ttalBin, agent,
 	)
+	if mcpConfig != "" {
+		cmd += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
+	}
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
 		cmd += fmt.Sprintf(" -- '%s'", escaped)

@@ -6,7 +6,7 @@ import (
 )
 
 func TestBuildCCDirectCommand_WithTrigger(t *testing.T) {
-	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin implementation.")
+	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin implementation.", "")
 	if !strings.Contains(got, "--agent coder") {
 		t.Errorf("missing --agent coder: %q", got)
 	}
@@ -16,10 +16,13 @@ func TestBuildCCDirectCommand_WithTrigger(t *testing.T) {
 	if strings.Contains(got, "--resume") {
 		t.Errorf("should not contain --resume: %q", got)
 	}
+	if strings.Contains(got, "--mcp-config") {
+		t.Errorf("should not contain --mcp-config when empty: %q", got)
+	}
 }
 
 func TestBuildCCDirectCommand_NoTrigger(t *testing.T) {
-	got := BuildCCDirectCommand("/usr/bin/ttal", "pr-review-lead", "")
+	got := BuildCCDirectCommand("/usr/bin/ttal", "pr-review-lead", "", "")
 	if !strings.Contains(got, "--agent pr-review-lead") {
 		t.Errorf("missing --agent: %q", got)
 	}
@@ -29,9 +32,22 @@ func TestBuildCCDirectCommand_NoTrigger(t *testing.T) {
 }
 
 func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
-	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "it's a test")
+	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "it's a test", "")
 	if !strings.Contains(got, "it'\\''s a test") {
 		t.Errorf("apostrophe not escaped correctly: %q", got)
+	}
+}
+
+func TestBuildCCDirectCommand_MCPConfig(t *testing.T) {
+	// Use a short token for line-length compliance.
+	mcpJSON := `{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:9783",` +
+		`"headers":{"X-Session-Token":"tok"}}}}`
+	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin.", mcpJSON)
+	if !strings.Contains(got, "--mcp-config '"+mcpJSON+"'") {
+		t.Errorf("missing --mcp-config: %q", got)
+	}
+	if !strings.Contains(got, "--agent coder") {
+		t.Errorf("missing --agent coder: %q", got)
 	}
 }
 

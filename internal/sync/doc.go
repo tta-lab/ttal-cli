@@ -3,7 +3,7 @@
 // It reads skill directories and config files from configured source paths,
 // generates runtime-specific variants (Claude Code, Codex),
 // and writes or symlinks them to the appropriate destination directories.
-// Subagent and sandbox deployment are handled by einai (ei sync / ei sandbox sync).
+// Subagent deployment is handled by einai (ei sync).
 //
 // Plane: shared
 package sync

@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -131,26 +130,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s\n", shortenHome(r.Source))
 				fmt.Printf("    → %s (%s)\n", shortenHome(r.Dest), r.Runtime)
 			}
-		}
-
-		// Sync sandbox via einai (ei) if available in PATH
-		printSyncHeader("sandbox", syncDryRun)
-		if _, err := exec.LookPath("ei"); err == nil {
-			if !syncDryRun {
-				eiCmd := exec.Command("ei", "sandbox", "sync")
-				eiCmd.Stdout = os.Stdout
-				eiCmd.Stderr = os.Stderr
-				if err := eiCmd.Run(); err != nil {
-					fmt.Fprintf(os.Stderr, "  warning: ei sandbox sync failed: %v\n", err)
-				} else {
-					fmt.Printf("  ei sandbox synced\n")
-				}
-			} else {
-				fmt.Printf("  ei sandbox sync (dry run)\n")
-			}
-		} else {
-			const installHint = "go install github.com/tta-lab/einai/cmd/ei@latest"
-			fmt.Printf("  skipped: ei not in PATH (install: %s)\n", installHint)
 		}
 
 		suffix := ""

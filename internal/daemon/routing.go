@@ -291,13 +291,17 @@ func injectSecretsToSession(sessionName string) {
 // buildCCRestartCmd returns the claude --resume command for a breathe restart.
 // trigger, if non-empty, is appended as a positional arg after --.
 // When trigger is empty (self-breathe), no -- separator is added.
+// mcpConfig, if non-empty, is appended via --mcp-config.
 // Extracted for unit testing.
 // Used by spawnCCSession (cold start) via --resume. For breathe restarts use buildCCFreshCmd.
-func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
+func buildCCRestartCmd(sessionID, model, agent, trigger, mcpConfig string) string {
 	cmd := fmt.Sprintf(
 		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
 		sessionID, model, agent,
 	)
+	if mcpConfig != "" {
+		cmd += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
+	}
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
 		cmd += fmt.Sprintf(" -- '%s'", escaped)
@@ -308,11 +312,15 @@ func buildCCRestartCmd(sessionID, model, agent, trigger string) string {
 // buildCCFreshCmd returns the claude command for a breathe restart without --resume.
 // The CC SessionStart hook (ttal context) injects the session context at startup.
 // trigger, if non-empty, is appended as a positional arg after --.
-func buildCCFreshCmd(model, agent, trigger string) string {
+// mcpConfig, if non-empty, is appended via --mcp-config.
+func buildCCFreshCmd(model, agent, trigger, mcpConfig string) string {
 	cmd := fmt.Sprintf(
 		"claude --model %s --dangerously-skip-permissions --agent %s",
 		model, agent,
 	)
+	if mcpConfig != "" {
+		cmd += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
+	}
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
 		cmd += fmt.Sprintf(" -- '%s'", escaped)
@@ -448,7 +456,9 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 
 	// Session dead or /clear failed — full restart.
-	ccCmd := buildCCFreshCmd(am.model, req.Agent, "")
+	// Register a fresh temenos session for the restarted agent.
+	mcpJSON := registerManagerSession(req.Agent)
+	ccCmd := buildCCFreshCmd(am.model, req.Agent, "", mcpJSON)
 	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 
