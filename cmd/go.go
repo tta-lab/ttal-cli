@@ -63,20 +63,25 @@ Examples:
 		switch resp.Status {
 		case daemon.AdvanceStatusAdvanced:
 			if resp.Agent != "" {
-				fmt.Printf("Advanced to stage: %s (%s)\n", resp.Stage, resp.Agent)
+				// Routed to a named manager-plane agent (designer, researcher, etc.)
+				fmt.Printf("📬  Routed to %s for %s.\n    They'll pick this up — you'll be notified when done. Nothing to do.\n",
+					resp.Agent, resp.Stage)
 			} else if resp.Assignee != "" {
-				fmt.Printf("Advanced to stage: %s [%s]\n", resp.Stage, resp.Assignee)
+				// Worker spawned in an isolated worktree
+				fmt.Printf("⚙️   Worker spawned for %s stage.\n    Running in an isolated worktree — you'll be notified when the PR is ready.\n",
+					resp.Stage)
 			} else {
-				fmt.Printf("Advanced to stage: %s\n", resp.Stage)
+				fmt.Printf("✅  Advanced to %s stage.\n", resp.Stage)
 			}
 		case daemon.AdvanceStatusNoPipeline:
 			fmt.Printf("No pipeline: %s\n", resp.Message)
 		case daemon.AdvanceStatusNeedsLGTM:
-			fmt.Printf("Blocked: %s\n", resp.Message)
+			// resp.Message already contains the emoji and reviewer info from the daemon
+			fmt.Printf("%s\n    You'll be pinged when the verdict arrives — nothing to do in the meantime.\n", resp.Message)
 		case daemon.AdvanceStatusRejected:
 			return fmt.Errorf("rejected: %s", resp.Message)
 		case daemon.AdvanceStatusComplete:
-			fmt.Printf("Pipeline complete: %s\n", resp.Message)
+			fmt.Printf("✅  Pipeline complete — %s\n", resp.Message)
 		case daemon.AdvanceStatusError:
 			return fmt.Errorf("error: %s", resp.Message)
 		default:
