@@ -13,13 +13,25 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
-// workerWindow is the tmux window name used by all worker sessions.
-const workerWindow = worker.CoderAgentName
+// workerWindowName returns the tmux window name for worker sessions by reading
+// the worker stage assignee from pipelines.toml. Falls back to worker.CoderAgentName
+// if the config cannot be loaded or no worker stage is defined.
+func workerWindowName() string {
+	cfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		return worker.CoderAgentName
+	}
+	if name := cfg.AnyWorkerAgentName(); name != "" {
+		return name
+	}
+	return worker.CoderAgentName
+}
 
 // clearSettleDelay is the time to wait after sending /clear before sending
 // the start trigger prompt. Allows CC's /clear to complete and the
@@ -99,7 +111,7 @@ func handleTo(
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
 		log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
-		return dispatchToWorker(msgSvc, session, worker.CoderAgentName, message.CreateParams{
+		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
 			Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
 			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
 		}, req.Message)
@@ -166,7 +178,7 @@ func handleAgentToAgent(
 		}
 		rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
 		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
-		return dispatchToWorker(msgSvc, session, worker.CoderAgentName, message.CreateParams{
+		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
 			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
 			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 		}, msg)
