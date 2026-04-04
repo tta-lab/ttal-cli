@@ -272,7 +272,9 @@ Examples:
 			taskID := ""
 			if alias != "" {
 				tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", fmt.Sprintf("project:%s", alias))
-				if err == nil && len(tasks) > 0 {
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to lookup active task: %v\n", err)
+				} else if len(tasks) > 0 {
 					taskID = tasks[0].HexID()
 				}
 			}
@@ -285,8 +287,7 @@ Examples:
 		}
 
 		if alias == "" {
-			fmt.Fprintf(os.Stderr, "no project found for %s\n", workDir)
-			os.Exit(1)
+			return fmt.Errorf("no project found for %s", workDir)
 		}
 		fmt.Println(alias)
 		return nil
