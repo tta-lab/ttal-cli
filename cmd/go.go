@@ -68,8 +68,8 @@ Examples:
 					resp.Agent, resp.Stage)
 			} else if resp.Assignee != "" {
 				// Worker spawned in an isolated worktree
-				fmt.Printf("⚙️   Worker spawned for %s stage.\n    Running in an isolated worktree — you'll be notified when the PR is ready.\n",
-					resp.Stage)
+				fmt.Printf("⚙️   Worker spawned for %s stage.\n", resp.Stage)
+				fmt.Println("    Running in an isolated worktree — you'll be notified when the PR is ready.")
 			} else {
 				fmt.Printf("✅  Advanced to %s stage.\n", resp.Stage)
 			}
