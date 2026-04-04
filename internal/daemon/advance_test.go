@@ -539,6 +539,66 @@ func TestHandleWorkerPRMerge_MissingWorktree(t *testing.T) {
 	}
 }
 
+// TestHandleWorkerPRMerge_CIPending verifies that handleWorkerPRMerge returns
+// AdvanceStatusNeedsLGTM (not an error) when mergeWorkerPRFn returns ErrCIPending.
+func TestHandleWorkerPRMerge_CIPending(t *testing.T) {
+	missingDir := filepath.Join(t.TempDir(), "abcd1234-myproj")
+	var notified []string
+
+	origPath := worktreePathFn
+	origNotify := notifyTelegramFn
+	origMerge := mergeWorkerPRFn
+	worktreePathFn = func(_, _ string) (string, error) { return missingDir, nil }
+	notifyTelegramFn = func(msg string) { notified = append(notified, msg) }
+	mergeWorkerPRFn = func(_ *taskwarrior.Task) error { return ErrCIPending }
+	defer func() {
+		worktreePathFn = origPath
+		notifyTelegramFn = origNotify
+		mergeWorkerPRFn = origMerge
+	}()
+
+	task := &taskwarrior.Task{
+		UUID:        "abcd1234-0000-0000-0000-000000000000",
+		Project:     "myproj",
+		Description: "test task",
+		PRID:        "myproj/myrepo#42",
+	}
+
+	w := httptest.NewRecorder()
+	done := handleWorkerPRMerge(w, task)
+
+	if !done {
+		t.Fatal("expected handleWorkerPRMerge to return true (response written)")
+	}
+
+	var resp AdvanceResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.Status != AdvanceStatusNeedsLGTM {
+		t.Errorf("expected AdvanceStatusNeedsLGTM for CI-pending, got %q: %s", resp.Status, resp.Message)
+	}
+	if !strings.Contains(resp.Message, "CI checks still running") {
+		t.Errorf("expected CI-pending message, got %q", resp.Message)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected HTTP 200 for CI-pending (not an error), got %d", w.Code)
+	}
+
+	// Should have sent a Telegram notification about the pending CI merge.
+	ciPendingNotified := false
+	for _, msg := range notified {
+		if strings.Contains(msg, "CI checks still running") || strings.Contains(msg, "merge blocked") {
+			ciPendingNotified = true
+			break
+		}
+	}
+	if !ciPendingNotified {
+		t.Errorf("expected CIPendingMerge Telegram notification, got: %v", notified)
+	}
+}
+
 // setupDirtyRepo initialises a git repo in dir, makes an initial commit,
 // then modifies a tracked file without staging — leaving the worktree dirty.
 func setupDirtyRepo(t *testing.T, dir string) {

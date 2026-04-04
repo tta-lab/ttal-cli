@@ -157,6 +157,7 @@ type PRResponse struct {
 	PRIndex       int64  `json:"pr_index,omitempty"`
 	HeadSHA       string `json:"head_sha,omitempty"`
 	AlreadyMerged bool   `json:"already_merged,omitempty"`
+	CIPending     bool   `json:"ci_pending,omitempty"` // merge blocked by pending CI checks
 }
 
 // PRGetPRResponse is the daemon's response for GetPR.

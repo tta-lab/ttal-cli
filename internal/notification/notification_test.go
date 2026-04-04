@@ -121,6 +121,17 @@ func TestCIPassed(t *testing.T) {
 	}
 }
 
+func TestCIPendingMerge(t *testing.T) {
+	n := notification.CIPendingMerge{Ctx: fullCtx(), PRIndex: 7}
+	got := n.Render()
+	if !strings.Contains(got, "⏳") || !strings.Contains(got, "PR #7") {
+		t.Errorf("unexpected output: %q", got)
+	}
+	if !strings.Contains(got, "CI checks still running") {
+		t.Errorf("expected CI-pending message, got: %q", got)
+	}
+}
+
 func TestMergeConflict(t *testing.T) {
 	n := notification.MergeConflict{Ctx: fullCtx(), PRIndex: 5}
 	got := n.Render()

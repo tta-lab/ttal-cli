@@ -48,15 +48,20 @@ func handlePRMerge(req PRMergeRequest) PRResponse {
 		return PRResponse{OK: false, AlreadyMerged: true, Error: fmt.Sprintf("PR #%d is already merged", req.Index)}
 	}
 	if !fetchedPR.Mergeable {
-		reason := diagnosePRMergeFailure(provider, req.Owner, req.Repo, fetchedPR)
-		return PRResponse{OK: false, Error: fmt.Sprintf("PR #%d is not mergeable:\n%s", req.Index, reason)}
+		reason, ciPending := diagnosePRMergeFailure(provider, req.Owner, req.Repo, fetchedPR)
+		errMsg := fmt.Sprintf("PR #%d is not mergeable:\n%s", req.Index, reason)
+		return PRResponse{OK: false, CIPending: ciPending, Error: errMsg}
 	}
 	if err := provider.MergePR(req.Owner, req.Repo, req.Index, req.DeleteBranch); err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("merge PR: %v", err)}
+		ciPending := isCIPendingMergeError(err)
+		return PRResponse{OK: false, CIPending: ciPending, Error: fmt.Sprintf("merge PR: %v", err)}
 	}
 	return PRResponse{OK: true}
 }
 
+// handlePRCheckMergeable checks if a PR can be merged.
+// CIPending is set in the response when CI checks are the sole blocker,
+// allowing callers to distinguish CI-pending from other merge failures.
 func handlePRCheckMergeable(req PRCheckMergeableRequest) PRResponse {
 	token := project.ResolveGitHubToken(req.ProjectAlias)
 	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
@@ -71,8 +76,9 @@ func handlePRCheckMergeable(req PRCheckMergeableRequest) PRResponse {
 		return PRResponse{OK: false, Error: fmt.Sprintf("PR #%d is already merged", req.Index)}
 	}
 	if !fetchedPR.Mergeable {
-		reason := diagnosePRMergeFailure(provider, req.Owner, req.Repo, fetchedPR)
-		return PRResponse{OK: false, Error: fmt.Sprintf("PR #%d is not mergeable:\n%s", req.Index, reason)}
+		reason, ciPending := diagnosePRMergeFailure(provider, req.Owner, req.Repo, fetchedPR)
+		errMsg := fmt.Sprintf("PR #%d is not mergeable:\n%s", req.Index, reason)
+		return PRResponse{OK: false, CIPending: ciPending, Error: errMsg}
 	}
 	return PRResponse{OK: true, HeadSHA: fetchedPR.HeadSHA}
 }
@@ -138,23 +144,38 @@ func handlePRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) PRCIFailureDe
 	return PRCIFailureDetailsResponse{OK: true, Details: results}
 }
 
-// diagnosePRMergeFailure queries CI status and returns a human-readable explanation.
+// diagnosePRMergeFailure queries CI status and returns a human-readable explanation
+// and whether pending CI checks are the sole merge blocker.
 func diagnosePRMergeFailure(
 	provider gitprovider.Provider, owner, repo string, fetchedPR *gitprovider.PullRequest,
-) string {
+) (string, bool) {
 	const possibleCauses = "Possible causes: merge conflicts or branch protection rules."
 	if fetchedPR.HeadSHA == "" {
-		return "  Could not determine HEAD SHA to check CI status.\n  " + possibleCauses
+		return "  Could not determine HEAD SHA to check CI status.\n  " + possibleCauses, false
 	}
 	cs, err := provider.GetCombinedStatus(owner, repo, fetchedPR.HeadSHA)
 	if err != nil {
-		return fmt.Sprintf("  Could not fetch CI status: %v\n  %s", err, possibleCauses)
+		return fmt.Sprintf("  Could not fetch CI status: %v\n  %s", err, possibleCauses), false
 	}
 	failing, pending := countPRCheckStates(cs.Statuses)
 	if pending > 0 && failing == 0 {
-		return fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal go <uuid>", pending)
+		msg := fmt.Sprintf("  CI checks still running (%d pending).\n  Try again in 30s: sleep 30 && ttal go <uuid>", pending)
+		return msg, true
 	}
-	return buildPRStatusLines(cs.Statuses, failing, pending)
+	return buildPRStatusLines(cs.Statuses, failing, pending), false
+}
+
+// isCIPendingMergeError returns true when a MergePR error indicates CI checks are still running.
+// Matches error message text from Forgejo/GitHub when branch protection rules block the merge
+// due to pending CI (e.g. "Required status check is in progress"). String matching is used
+// because HTTP status codes are not accessible through the error chain from these SDKs.
+func isCIPendingMergeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "required status check") ||
+		strings.Contains(msg, "status check is in progress")
 }
 
 // countPRCheckStates returns the number of failed and pending checks.
