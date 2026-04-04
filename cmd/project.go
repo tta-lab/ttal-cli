@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -11,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const statusCol = 3 // index of the STATUS column in project list table
@@ -235,6 +238,62 @@ Examples:
 	},
 }
 
+var resolveJSON bool
+
+var projectResolveCmd = &cobra.Command{
+	Use:   "resolve [path]",
+	Short: "Resolve project alias from a filesystem path",
+	Long: `Resolve the project alias for a given path (defaults to current directory).
+
+Examples:
+  ttal project resolve                       # resolve cwd
+  ttal project resolve /path/to/repo         # resolve explicit path
+  ttal project resolve --json                # output {"alias":"...","task_id":"..."}`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var workDir string
+		if len(args) == 1 {
+			abs, err := filepath.Abs(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid path: %w", err)
+			}
+			workDir = abs
+		} else {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get working directory: %w", err)
+			}
+			workDir = cwd
+		}
+
+		alias := project.ResolveProjectAlias(workDir)
+
+		if resolveJSON {
+			taskID := ""
+			if alias != "" {
+				tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", fmt.Sprintf("project:%s", alias))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to lookup active task: %v\n", err)
+				} else if len(tasks) > 0 {
+					taskID = tasks[0].HexID()
+				}
+			}
+			out, err := json.Marshal(map[string]string{"alias": alias, "task_id": taskID})
+			if err != nil {
+				return fmt.Errorf("failed to marshal output: %w", err)
+			}
+			fmt.Println(string(out))
+			return nil
+		}
+
+		if alias == "" {
+			return fmt.Errorf("no project found for %s", workDir)
+		}
+		fmt.Println(alias)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(projectCmd)
 
@@ -244,12 +303,14 @@ func init() {
 	projectCmd.AddCommand(projectUnarchiveCmd)
 	projectCmd.AddCommand(projectDeleteCmd)
 	projectCmd.AddCommand(projectModifyCmd)
+	projectCmd.AddCommand(projectResolveCmd)
 
 	projectAddCmd.Flags().StringVar(&projectAlias, "alias", "", "Project alias (required, unique identifier)")
 	projectAddCmd.Flags().StringVar(&projectName, "name", "", "Project name (required)")
 	projectAddCmd.Flags().StringVar(&projectPath, "path", "", "Filesystem path")
 	projectListCmd.Flags().BoolVar(&projectJSON, "json", false, "Output as JSON")
 	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
+	projectResolveCmd.Flags().BoolVar(&resolveJSON, "json", false, "Output as JSON with alias and task_id")
 }
 
 func parseModifyArgs(args []string) (fieldUpdates map[string]string, err error) {
