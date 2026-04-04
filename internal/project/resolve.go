@@ -33,6 +33,13 @@ func ResolveProjectPathForTeam(projectName, team string) string {
 	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPathForTeam(team)))
 }
 
+// ResolveProjectAliasWithStore is like ResolveProjectAlias but accepts an
+// explicit store and worktreesRoot, making it testable without real config reads.
+// Pass worktreesRoot="" to use the default from config.
+func ResolveProjectAliasWithStore(workDir string, store *Store, worktreesRoot string) string {
+	return resolveProjectAliasWithStore(workDir, store, worktreesRoot)
+}
+
 // ResolveProjectAlias returns the project alias for a given filesystem path.
 // Returns the alias if the path is inside (or equal to) a registered project path,
 // or if the path is a ttal worktree whose directory name contains a valid alias.
