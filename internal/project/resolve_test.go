@@ -235,7 +235,7 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 		if err := store.Add(testAlias, testAlias, workDir); err != nil {
 			t.Fatalf("Add error: %v", err)
 		}
-		got := resolveProjectAliasWithStore(workDir, store)
+		got := resolveProjectAliasWithStore(workDir, store, "")
 		if got != testAlias {
 			t.Errorf("got %q, want %q", got, testAlias)
 		}
@@ -249,9 +249,80 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 		if err := store.Add(testAlias, testAlias, projPath); err != nil {
 			t.Fatalf("Add error: %v", err)
 		}
-		got := resolveProjectAliasWithStore(subDir, store)
+		got := resolveProjectAliasWithStore(subDir, store, "")
 		if got != testAlias {
 			t.Errorf("got %q, want %q", got, testAlias)
+		}
+	})
+
+	t.Run("worktree path extracts alias from uuid8-alias directory name", func(t *testing.T) {
+		storeDir := t.TempDir()
+		worktreesRoot := filepath.Join(storeDir, "worktrees")
+		worktreeDir := filepath.Join(worktreesRoot, "abc12345-"+testAlias)
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
+		if got != testAlias {
+			t.Errorf("got %q, want %q", got, testAlias)
+		}
+	})
+
+	t.Run("worktree path with subdirectory", func(t *testing.T) {
+		storeDir := t.TempDir()
+		worktreesRoot := filepath.Join(storeDir, "worktrees")
+		worktreeDir := filepath.Join(worktreesRoot, "deadbeef-"+testAlias, "src", "cmd")
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
+		if got != testAlias {
+			t.Errorf("got %q, want %q", got, testAlias)
+		}
+	})
+
+	t.Run("worktree path with alias containing hyphens", func(t *testing.T) {
+		storeDir := t.TempDir()
+		worktreesRoot := filepath.Join(storeDir, "worktrees")
+		const hyphenAlias = "proj-pr"
+		worktreeDir := filepath.Join(worktreesRoot, "12345678-"+hyphenAlias)
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(hyphenAlias, hyphenAlias, "/some/registered/path"); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
+		if got != hyphenAlias {
+			t.Errorf("got %q, want %q", got, hyphenAlias)
+		}
+	})
+
+	t.Run("worktree path with unknown alias returns empty", func(t *testing.T) {
+		storeDir := t.TempDir()
+		worktreesRoot := filepath.Join(storeDir, "worktrees")
+		worktreeDir := filepath.Join(worktreesRoot, "abc12345-unknown")
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
+		if got != "" {
+			t.Errorf("got %q, want %q", got, "")
+		}
+	})
+
+	t.Run("worktree path with too-short uuid8 returns empty", func(t *testing.T) {
+		storeDir := t.TempDir()
+		worktreesRoot := filepath.Join(storeDir, "worktrees")
+		worktreeDir := filepath.Join(worktreesRoot, "abc-"+testAlias) // uuid must be 8 chars
+		store := NewStore(filepath.Join(storeDir, "projects.toml"))
+		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
+		if got != "" {
+			t.Errorf("got %q, want %q", got, "")
 		}
 	})
 
@@ -262,7 +333,7 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 		if err := store.Add(testAlias, testAlias, filepath.Join(storeDir, "other")); err != nil {
 			t.Fatalf("Add error: %v", err)
 		}
-		got := resolveProjectAliasWithStore(workDir, store)
+		got := resolveProjectAliasWithStore(workDir, store, "")
 		if got != "" {
 			t.Errorf("got %q, want %q", got, "")
 		}
@@ -270,7 +341,7 @@ func TestResolveProjectAliasWithStore(t *testing.T) {
 
 	t.Run("store error returns empty", func(t *testing.T) {
 		store := NewStore("/nonexistent/projects.toml")
-		got := resolveProjectAliasWithStore("/any/path", store)
+		got := resolveProjectAliasWithStore("/any/path", store, "")
 		if got != "" {
 			t.Errorf("got %q, want %q", got, "")
 		}

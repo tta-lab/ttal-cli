@@ -34,13 +34,16 @@ func ResolveProjectPathForTeam(projectName, team string) string {
 }
 
 // ResolveProjectAlias returns the project alias for a given filesystem path.
-// Returns the alias if the path is inside (or equal to) a registered project path.
+// Returns the alias if the path is inside (or equal to) a registered project path,
+// or if the path is a ttal worktree whose directory name contains a valid alias.
 // Otherwise returns "" — callers fall back to GITHUB_TOKEN.
 func ResolveProjectAlias(workDir string) string {
-	return resolveProjectAliasWithStore(workDir, NewStore(config.ResolveProjectsPath()))
+	return resolveProjectAliasWithStore(workDir, NewStore(config.ResolveProjectsPath()), "")
 }
 
-func resolveProjectAliasWithStore(workDir string, store *Store) string {
+// resolveProjectAliasWithStore resolves alias using a provided store.
+// worktreesRoot overrides config.WorktreesRoot() — pass "" to use the default.
+func resolveProjectAliasWithStore(workDir string, store *Store, worktreesRoot string) string {
 	projects, err := store.List(false)
 	if err != nil {
 		return ""
@@ -48,7 +51,7 @@ func resolveProjectAliasWithStore(workDir string, store *Store) string {
 
 	cleanWork := filepath.Clean(workDir)
 
-	// 1. Path prefix match
+	// 1. Path prefix match against registered project paths
 	for _, p := range projects {
 		cleanProj := filepath.Clean(p.Path)
 		if cleanWork == cleanProj || strings.HasPrefix(cleanWork, cleanProj+string(filepath.Separator)) {
@@ -56,7 +59,29 @@ func resolveProjectAliasWithStore(workDir string, store *Store) string {
 		}
 	}
 
-	// 2. Otherwise: return "" (caller falls back to GITHUB_TOKEN)
+	// 2. Worktree path: <worktreesRoot>/<uuid8>-<alias>/ → extract alias
+	if worktreesRoot == "" {
+		worktreesRoot = config.WorktreesRoot()
+	}
+	cleanRoot := filepath.Clean(worktreesRoot)
+	if strings.HasPrefix(cleanWork, cleanRoot+string(filepath.Separator)) {
+		rel := strings.TrimPrefix(cleanWork, cleanRoot)
+		rel = strings.TrimPrefix(rel, string(filepath.Separator))
+		parts := strings.SplitN(rel, string(filepath.Separator), 2)
+		if len(parts) >= 1 {
+			dir := parts[0]
+			// Format: <uuid8>-<alias> where uuid8 is exactly 8 hex chars
+			if len(dir) > 9 && dir[8] == '-' {
+				alias := dir[9:]
+				// Validate alias exists in store
+				if proj, err := store.Get(alias); err == nil && proj != nil && alias != "" {
+					return alias
+				}
+			}
+		}
+	}
+
+	// 3. Otherwise: return "" (caller falls back to GITHUB_TOKEN)
 	return ""
 }
 
