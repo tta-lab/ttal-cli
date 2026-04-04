@@ -620,7 +620,7 @@ func resolveStageAgent(
 // isWorkerStage returns true if the stage should be handled as a worker spawn.
 // It returns true if stage.Worker is explicitly set, OR if the stage assignee
 // is not a known agent role — guarding against pipelines where worker=true was
-// omitted but the assignee is a CC agent name (e.g. "code-lead"), not a role.
+// omitted but the assignee is a CC agent name (e.g. "coder"), not a role.
 func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
 	if stage.IsWorker() {
 		return true

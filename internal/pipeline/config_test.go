@@ -320,7 +320,7 @@ reviewer = "plan-review-lead"
 
 [[standard.stages]]
 name = "Implement"
-assignee = "code-lead"
+assignee = "coder"
 worker = true
 gate = "auto"
 reviewer = "pr-review-lead"
@@ -370,7 +370,7 @@ tags = ["t2"]
 
 [[p2.stages]]
 name = "Implement"
-assignee = "code-lead"
+assignee = "coder"
 worker = true
 gate = "auto"
 reviewer = "multi-reviewer"
@@ -663,7 +663,7 @@ gate = "human"
 
 [[standard.stages]]
 name = "Implement"
-assignee = "code-lead"
+assignee = "coder"
 worker = true
 gate = "auto"
 reviewer = "pr-review-lead"
@@ -682,8 +682,8 @@ func TestIsWorkerAgent_TrueForWorkerAssignee(t *testing.T) {
 	dir := writeTempTOML(t, workerTOML)
 	cfg, _ := Load(dir)
 
-	if !cfg.IsWorkerAgent("code-lead") {
-		t.Error("expected IsWorkerAgent(\"code-lead\") to return true")
+	if !cfg.IsWorkerAgent("coder") {
+		t.Error("expected IsWorkerAgent(\"coder\") to return true")
 	}
 }
 
@@ -710,8 +710,8 @@ func TestWorkerAgentName_ReturnsWorkerAssignee(t *testing.T) {
 	cfg, _ := Load(dir)
 
 	name := cfg.WorkerAgentName([]string{"feature"})
-	if name != "code-lead" {
-		t.Errorf("expected \"code-lead\", got %q", name)
+	if name != "coder" {
+		t.Errorf("expected \"coder\", got %q", name)
 	}
 }
 
