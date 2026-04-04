@@ -11,6 +11,112 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 )
 
+// stubProvider is a minimal gitprovider.Provider for unit testing diagnosePRMergeFailure.
+// Only GetCombinedStatus is used by that function; all other methods panic.
+type stubProvider struct {
+	combinedStatus *gitprovider.CombinedStatus
+	statusErr      error
+}
+
+func (s *stubProvider) Name() string { return "stub" }
+func (s *stubProvider) CreatePR(_, _, _, _, _, _ string) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *stubProvider) EditPR(_, _ string, _ int64, _, _ string) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *stubProvider) GetPR(_, _ string, _ int64) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *stubProvider) MergePR(_, _ string, _ int64, _ bool) error { panic("not implemented") }
+func (s *stubProvider) CreateComment(_, _ string, _ int64, _ string) (*gitprovider.Comment, error) {
+	panic("not implemented")
+}
+func (s *stubProvider) ListComments(_, _ string, _ int64) ([]*gitprovider.Comment, error) {
+	panic("not implemented")
+}
+func (s *stubProvider) GetCombinedStatus(_, _, _ string) (*gitprovider.CombinedStatus, error) {
+	return s.combinedStatus, s.statusErr
+}
+func (s *stubProvider) GetCIFailureDetails(_, _, _ string) ([]*gitprovider.JobFailure, error) {
+	panic("not implemented")
+}
+
+// TestDiagnosePRMergeFailure_CIPending exercises the (string, bool) return of
+// diagnosePRMergeFailure across the key CI state combinations.
+func TestDiagnosePRMergeFailure_CIPending(t *testing.T) {
+	cases := []struct {
+		name       string
+		pr         *gitprovider.PullRequest
+		provider   *stubProvider
+		wantCI     bool
+		wantSubstr string
+	}{
+		{
+			name: "pending only → ciPending=true",
+			pr:   &gitprovider.PullRequest{HeadSHA: "abc"},
+			provider: &stubProvider{combinedStatus: &gitprovider.CombinedStatus{
+				State: "pending",
+				Statuses: []*gitprovider.CommitStatus{
+					{Context: "ci/build", State: gitprovider.StatePending},
+				},
+			}},
+			wantCI:     true,
+			wantSubstr: "CI checks still running",
+		},
+		{
+			name: "failing only → ciPending=false",
+			pr:   &gitprovider.PullRequest{HeadSHA: "abc"},
+			provider: &stubProvider{combinedStatus: &gitprovider.CombinedStatus{
+				State: "failure",
+				Statuses: []*gitprovider.CommitStatus{
+					{Context: "ci/test", State: gitprovider.StateFailure, Description: "tests failed"},
+				},
+			}},
+			wantCI:     false,
+			wantSubstr: "CI check(s) failed",
+		},
+		{
+			name: "failing + pending → ciPending=false",
+			pr:   &gitprovider.PullRequest{HeadSHA: "abc"},
+			provider: &stubProvider{combinedStatus: &gitprovider.CombinedStatus{
+				State: "failure",
+				Statuses: []*gitprovider.CommitStatus{
+					{Context: "ci/test", State: gitprovider.StateFailure, Description: "tests failed"},
+					{Context: "ci/lint", State: gitprovider.StatePending},
+				},
+			}},
+			wantCI: false,
+		},
+		{
+			name:       "HeadSHA empty → ciPending=false",
+			pr:         &gitprovider.PullRequest{HeadSHA: ""},
+			provider:   &stubProvider{},
+			wantCI:     false,
+			wantSubstr: "Could not determine HEAD SHA",
+		},
+		{
+			name:       "GetCombinedStatus error → ciPending=false",
+			pr:         &gitprovider.PullRequest{HeadSHA: "abc"},
+			provider:   &stubProvider{statusErr: errors.New("api down")},
+			wantCI:     false,
+			wantSubstr: "Could not fetch CI status",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg, ciPending := diagnosePRMergeFailure(tc.provider, "o", "r", tc.pr)
+			if ciPending != tc.wantCI {
+				t.Errorf("ciPending = %v, want %v; msg=%q", ciPending, tc.wantCI, msg)
+			}
+			if tc.wantSubstr != "" && !strings.Contains(msg, tc.wantSubstr) {
+				t.Errorf("msg %q missing %q", msg, tc.wantSubstr)
+			}
+		})
+	}
+}
+
 func TestHandlePRCreateMissingFields(t *testing.T) {
 	// Missing provider type should fail at provider creation
 	resp := handlePRCreate(PRCreateRequest{Owner: "o", Repo: "r", Title: "t"})

@@ -59,6 +59,9 @@ func handlePRMerge(req PRMergeRequest) PRResponse {
 	return PRResponse{OK: true}
 }
 
+// handlePRCheckMergeable checks if a PR can be merged.
+// CIPending is set in the response when CI checks are the sole blocker,
+// allowing callers to distinguish CI-pending from other merge failures.
 func handlePRCheckMergeable(req PRCheckMergeableRequest) PRResponse {
 	token := project.ResolveGitHubToken(req.ProjectAlias)
 	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
@@ -163,8 +166,9 @@ func diagnosePRMergeFailure(
 }
 
 // isCIPendingMergeError returns true when a MergePR error indicates CI checks are still running.
-// Detects the 405 "Required status check is in progress" error returned by Forgejo/GitHub
-// when branch protection rules block the merge due to pending CI.
+// Matches error message text from Forgejo/GitHub when branch protection rules block the merge
+// due to pending CI (e.g. "Required status check is in progress"). String matching is used
+// because HTTP status codes are not accessible through the error chain from these SDKs.
 func isCIPendingMergeError(err error) bool {
 	if err == nil {
 		return false

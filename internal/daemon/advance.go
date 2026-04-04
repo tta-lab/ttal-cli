@@ -901,6 +901,8 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 			prIndex := int64(0)
 			if prInfo, parseErr := taskwarrior.ParsePRID(task.PRID); parseErr == nil {
 				prIndex = prInfo.Index
+			} else {
+				log.Printf("[advance] could not parse PRID %q: %v", task.PRID, parseErr)
 			}
 			log.Printf("[advance] PR #%d merge blocked by pending CI — notifying worker to wait", prIndex)
 			notifyTelegramFn(notification.CIPendingMerge{
@@ -967,7 +969,7 @@ func mergeWorkerPR(task *taskwarrior.Task) error {
 			return nil
 		}
 		if resp.CIPending {
-			log.Printf("[advance] PR #%d merge blocked by pending CI", prInfo.Index)
+			log.Printf("[advance] PR #%d merge blocked by pending CI: %s", prInfo.Index, resp.Error)
 			return ErrCIPending
 		}
 		return errors.New(resp.Error)
