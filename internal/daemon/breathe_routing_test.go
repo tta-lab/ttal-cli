@@ -92,7 +92,7 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 
 // TestBuildCCRestartCmd verifies that --agent flag is present and correctly interpolated.
 func TestBuildCCRestartCmd(t *testing.T) {
-	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "")
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "", "")
 
 	if !strings.Contains(cmd, "--resume session-abc") {
 		t.Errorf("missing --resume flag: %q", cmd)
@@ -113,21 +113,21 @@ func TestBuildCCRestartCmd(t *testing.T) {
 }
 
 func TestBuildCCRestartCmdWithTrigger(t *testing.T) {
-	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "New task routed. Run: ttal task get abc12345")
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "New task routed. Run: ttal task get abc12345", "")
 	if !strings.Contains(cmd, "-- 'New task routed. Run: ttal task get abc12345'") {
 		t.Errorf("missing trigger with -- separator: %q", cmd)
 	}
 }
 
 func TestBuildCCRestartCmdEmptyTrigger(t *testing.T) {
-	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "")
+	cmd := buildCCRestartCmd("session-123", "sonnet", "inke", "", "")
 	if strings.Contains(cmd, "-- ") {
 		t.Errorf("empty trigger should not produce -- separator: %q", cmd)
 	}
 }
 
 func TestBuildCCRestartCmdApostropheEscaping(t *testing.T) {
-	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "it's a test")
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "it's a test", "")
 	if !strings.Contains(cmd, "it'\\''s a test") {
 		t.Errorf("apostrophe not escaped correctly: %q", cmd)
 	}
@@ -135,7 +135,7 @@ func TestBuildCCRestartCmdApostropheEscaping(t *testing.T) {
 
 // TestBuildCCFreshCmd verifies that --resume is absent and --agent is correctly interpolated.
 func TestBuildCCFreshCmd(t *testing.T) {
-	cmd := buildCCFreshCmd("sonnet", "kestrel", "")
+	cmd := buildCCFreshCmd("sonnet", "kestrel", "", "")
 
 	if strings.Contains(cmd, "--resume") {
 		t.Errorf("buildCCFreshCmd must not contain --resume: %q", cmd)
@@ -155,21 +155,21 @@ func TestBuildCCFreshCmd(t *testing.T) {
 }
 
 func TestBuildCCFreshCmdWithTrigger(t *testing.T) {
-	cmd := buildCCFreshCmd("sonnet", "inke", "New task routed. Run: ttal task get abc12345")
+	cmd := buildCCFreshCmd("sonnet", "inke", "New task routed. Run: ttal task get abc12345", "")
 	if !strings.Contains(cmd, "-- 'New task routed. Run: ttal task get abc12345'") {
 		t.Errorf("missing trigger with -- separator: %q", cmd)
 	}
 }
 
 func TestBuildCCFreshCmdApostropheEscaping(t *testing.T) {
-	cmd := buildCCFreshCmd("sonnet", "kestrel", "it's a test")
+	cmd := buildCCFreshCmd("sonnet", "kestrel", "it's a test", "")
 	if !strings.Contains(cmd, "it'\\''s a test") {
 		t.Errorf("apostrophe not escaped correctly: %q", cmd)
 	}
 }
 
 func TestBuildCCFreshCmdAgentInterpolation(t *testing.T) {
-	cmd := buildCCFreshCmd("opus", "athena", "")
+	cmd := buildCCFreshCmd("opus", "athena", "", "")
 	if !strings.Contains(cmd, "--agent athena") {
 		t.Errorf("agent name not correctly interpolated, got: %q", cmd)
 	}
@@ -208,13 +208,29 @@ func TestHandleSendSystemRouting(t *testing.T) {
 
 // TestBuildCCRestartCmdAgentInterpolation verifies agent name is not swapped with session/model.
 func TestBuildCCRestartCmdAgentInterpolation(t *testing.T) {
-	cmd := buildCCRestartCmd("my-session", "opus", "athena", "")
+	cmd := buildCCRestartCmd("my-session", "opus", "athena", "", "")
 	if !strings.Contains(cmd, "--agent athena") {
 		t.Errorf("agent name not correctly interpolated, got: %q", cmd)
 	}
 	// Ensure model is not placed in the agent slot
 	if strings.Contains(cmd, "--agent opus") {
 		t.Errorf("model leaked into --agent slot: %q", cmd)
+	}
+}
+
+func TestBuildCCRestartCmdWithMCPConfig(t *testing.T) {
+	mcpCfg := `{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:9783","headers":{}}}}`
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "", mcpCfg)
+	if !strings.Contains(cmd, "--mcp-config '"+mcpCfg+"'") {
+		t.Errorf("missing --mcp-config in restart cmd: %q", cmd)
+	}
+}
+
+func TestBuildCCFreshCmdWithMCPConfig(t *testing.T) {
+	mcpCfg := `{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:9783","headers":{}}}}`
+	cmd := buildCCFreshCmd("sonnet", "kestrel", "", mcpCfg)
+	if !strings.Contains(cmd, "--mcp-config '"+mcpCfg+"'") {
+		t.Errorf("missing --mcp-config in fresh cmd: %q", cmd)
 	}
 }
 

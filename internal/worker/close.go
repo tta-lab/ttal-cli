@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -82,7 +83,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Force mode: dump + cleanup + exit 0
 	if force {
 		dumpPath := dumpState(sessionName, workDir)
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, task.Annotations); err != nil {
 			return &CloseResult{
 				Error:     true,
 				Status:    fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -213,7 +214,7 @@ func closeWithPR(
 
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, annotations); err != nil {
 			return &CloseResult{
 				Error:  true,
 				Status: fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -252,7 +253,17 @@ func dumpState(sessionName, workDir string) string {
 }
 
 // cleanupWorker kills the tmux session and removes the git worktree + branch.
-func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
+// annotations are used to extract a temenos session token for cleanup (best-effort).
+func cleanupWorker(sessionName, workDir, branch, gitRoot string, annotations []taskwarrior.Annotation) error {
+	// Delete temenos session — best-effort, 8h TTL handles expiry on error.
+	if token := temenos.ExtractToken(annotations); token != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to delete temenos session (non-fatal): %v\n", err)
+		}
+	}
+
 	if tmux.SessionExists(sessionName) {
 		if err := tmux.KillSession(sessionName); err != nil {
 			return fmt.Errorf("failed to kill session: %w", err)

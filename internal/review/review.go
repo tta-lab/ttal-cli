@@ -70,7 +70,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: direct launch — context and review prompt injected via SessionStart hook
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.", "")
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 

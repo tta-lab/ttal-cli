@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -101,7 +102,12 @@ func spawnWorker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch)
+	// Resolve agent name early — needed for both temenos registration and launch.
+	agentName := resolveAgentName(cfg, task)
+
+	mcpJSON := registerWorkerSession(agentName, task.UUID, worktreeRoot)
+
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpJSON)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -144,6 +150,47 @@ func computeSubpath(project, gitRoot string) (string, error) {
 		return rel, nil
 	}
 	return "", nil
+}
+
+// registerWorkerSession registers a temenos session for a worker, annotates the task
+// with the session token, and returns the MCP config JSON.
+// Best-effort: logs warnings on failure and returns "" so the worker still launches.
+func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
+	writePaths := []string{worktreeRoot}
+	if commonDir := gitutil.LinkedWorktreeCommonDir(worktreeRoot); commonDir != "" {
+		writePaths = append(writePaths, commonDir)
+	}
+	ctx := context.Background()
+	mcpJSON, token, err := temenos.RegisterSessionForAgent(ctx, agentName, writePaths, worktreeRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to register temenos session (non-fatal): %v\n", err)
+		return ""
+	}
+	// Store the token so cleanupWorker can delete the session on close.
+	// On annotation failure the token is lost — the 8h TTL on the temenos daemon is
+	// the recovery path (sessions expire automatically if close never runs).
+	if annErr := taskwarrior.AnnotateTask(taskUUID, "temenos_token:"+token); annErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with temenos token: %v\n", annErr)
+	}
+	return mcpJSON
+}
+
+// resolveAgentName returns the CC agent identity for the worker.
+// Uses cfg.AgentName if set (always the case when spawned via pipeline advance).
+// Falls back to pipelines.toml → CoderAgentName.
+func resolveAgentName(cfg SpawnConfig, task *taskwarrior.Task) string {
+	if cfg.AgentName != "" {
+		return cfg.AgentName
+	}
+	if pipelineCfg, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
+		if name := pipelineCfg.WorkerAgentName(task.Tags); name != "" {
+			return name
+		}
+		if name := pipelineCfg.AnyWorkerAgentName(); name != "" {
+			return name
+		}
+	}
+	return CoderAgentName
 }
 
 // resolveRuntime determines the worker runtime from config, defaulting to ClaudeCode.
@@ -196,7 +243,8 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string) error {
+// mcpConfig, if non-empty, is passed to claude via --mcp-config.
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfig string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -241,7 +289,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfig)
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 

@@ -55,7 +55,7 @@ func SpawnPlanReviewer(
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: direct launch — context and plan-review prompt injected via SessionStart hook
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the plan.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the plan.", "")
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 

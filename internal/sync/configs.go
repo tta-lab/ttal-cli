@@ -13,7 +13,6 @@ var configFiles = []string{
 	"prompts.toml",
 	"roles.toml",
 	"pipelines.toml",
-	"sandbox.toml",
 }
 
 // ConfigResult tracks a single config file deployment for reporting.

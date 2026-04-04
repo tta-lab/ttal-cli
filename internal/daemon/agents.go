@@ -9,13 +9,16 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	envpkg "github.com/tta-lab/ttal-cli/internal/env"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
@@ -55,7 +58,8 @@ func initSingleAdapter(
 		agentEnv := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 		shell := mcfg.Global.GetShell()
 		ensureProjectDir(agentPath)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, ta.TeamName, agentEnv, shell); err != nil {
+		mcpJSON := registerManagerSession(ta.AgentName)
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, ta.TeamName, agentEnv, shell, mcpJSON); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
@@ -195,12 +199,29 @@ func ensureProjectDir(agentPath string) {
 	}
 }
 
+// registerManagerSession registers a temenos session for a manager CC agent.
+// No writePaths — managers read code across projects but write operations go via
+// temenos baseline config (shared infra paths like ~/.ttal are in the baseline).
+// Best-effort: returns empty string on error so callers can continue without MCP config.
+func registerManagerSession(agentName string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	mcpJSON, _, err := temenos.RegisterSessionForAgent(ctx, agentName, nil, "")
+	if err != nil {
+		log.Printf("[daemon] warning: failed to register temenos session for %s (non-fatal): %v", agentName, err)
+		return ""
+	}
+	return mcpJSON
+}
+
 // spawnCCSession creates a tmux session for a Claude Code agent.
-func spawnCCSession(sessionName, agentName, agentPath, teamName string, env []string, shell string) error {
+// mcpConfig, if non-empty, is appended to the claude command via --mcp-config.
+func spawnCCSession(sessionName, agentName, agentPath, teamName string, env []string, shell, mcpConfig string) error {
 	cmd := "claude --dangerously-skip-permissions --agent " + agentName
 	if sid := lastSessionID(teamName, agentName, agentPath); sid != "" {
 		cmd += " --resume " + sid
 	}
+	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
 
 	envStr := ""
 	if len(env) > 0 {
