@@ -61,6 +61,13 @@ Examples:
 		}
 
 		from := os.Getenv("TTAL_AGENT_NAME")
+		jobID := os.Getenv("TTAL_JOB_ID")
+		// Workers have both TTAL_AGENT_NAME (e.g. "coder") and TTAL_JOB_ID set.
+		// Use the job ID as From so the daemon can validate the sender as a live
+		// worker session (hex UUID). Manager agents only have TTAL_AGENT_NAME.
+		if jobID != "" && from != "" {
+			from = jobID
+		}
 		if sendTo == "human" && from == "" {
 			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
 		}
