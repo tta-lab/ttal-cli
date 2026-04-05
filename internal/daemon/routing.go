@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -453,9 +454,9 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 
 	// Session dead or /clear failed — full restart.
-	// Register a fresh temenos session for the restarted agent.
-	mcpJSON := registerManagerSession(req.Agent)
-	ccCmd := buildCCFreshCmd(am.model, req.Agent, "", mcpJSON)
+	// Reuse the shared manager MCP config file — token lifecycle is daemon-scoped, not per-breathe.
+	mcpPath := temenos.ManagerMCPConfigPath()
+	ccCmd := buildCCFreshCmd(am.model, req.Agent, "", mcpPath)
 	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
 

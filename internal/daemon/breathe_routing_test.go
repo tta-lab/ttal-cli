@@ -219,17 +219,18 @@ func TestBuildCCRestartCmdAgentInterpolation(t *testing.T) {
 }
 
 func TestBuildCCRestartCmdWithMCPConfig(t *testing.T) {
-	mcpCfg := `{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:9783","headers":{}}}}`
-	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "", mcpCfg)
-	if !strings.Contains(cmd, "--mcp-config '"+mcpCfg+"'") {
+	// Callers pass a file path, not raw JSON.
+	mcpPath := "/Users/neil/.ttal/mcps/m-kestrel.json"
+	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "", mcpPath)
+	if !strings.Contains(cmd, "--mcp-config "+mcpPath) {
 		t.Errorf("missing --mcp-config in restart cmd: %q", cmd)
 	}
 }
 
 func TestBuildCCFreshCmdWithMCPConfig(t *testing.T) {
-	mcpCfg := `{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:9783","headers":{}}}}`
-	cmd := buildCCFreshCmd("sonnet", "kestrel", "", mcpCfg)
-	if !strings.Contains(cmd, "--mcp-config '"+mcpCfg+"'") {
+	mcpPath := "/Users/neil/.ttal/mcps/m-kestrel.json"
+	cmd := buildCCFreshCmd("sonnet", "kestrel", "", mcpPath)
+	if !strings.Contains(cmd, "--mcp-config "+mcpPath) {
 		t.Errorf("missing --mcp-config in fresh cmd: %q", cmd)
 	}
 }

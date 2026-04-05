@@ -153,7 +153,8 @@ func computeSubpath(project, gitRoot string) (string, error) {
 }
 
 // registerWorkerSession registers a temenos session for a worker, annotates the task
-// with the session token, and returns the MCP config JSON.
+// with the session token, writes the MCP config to ~/.ttal/mcps/w-<hexid>.json,
+// and returns the file path.
 // Best-effort: logs warnings on failure and returns "" so the worker still launches.
 func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
 	writePaths := []string{worktreeRoot}
@@ -172,7 +173,16 @@ func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
 	if annErr := taskwarrior.AnnotateTask(taskUUID, "temenos_token:"+token); annErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with temenos token: %v\n", annErr)
 	}
-	return mcpJSON
+	hexID := taskUUID
+	if len(hexID) >= 8 {
+		hexID = hexID[:8]
+	}
+	path, err := temenos.WriteMCPConfigFile("w-"+hexID, mcpJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to write MCP config file (non-fatal): %v\n", err)
+		return ""
+	}
+	return path
 }
 
 // resolveAgentName returns the CC agent identity for the worker.

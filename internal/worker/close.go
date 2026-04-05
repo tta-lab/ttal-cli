@@ -83,7 +83,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Force mode: dump + cleanup + exit 0
 	if force {
 		dumpPath := dumpState(sessionName, workDir)
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, task.Annotations); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, task.HexID(), task.Annotations); err != nil {
 			return &CloseResult{
 				Error:     true,
 				Status:    fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -214,7 +214,11 @@ func closeWithPR(
 
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, annotations); err != nil {
+		hexID := taskUUID
+		if len(hexID) >= 8 {
+			hexID = hexID[:8]
+		}
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, hexID, annotations); err != nil {
 			return &CloseResult{
 				Error:  true,
 				Status: fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -253,8 +257,9 @@ func dumpState(sessionName, workDir string) string {
 }
 
 // cleanupWorker kills the tmux session and removes the git worktree + branch.
+// taskHexID is used to delete the worker's MCP config file (~/.ttal/mcps/w-<hexid>.json).
 // annotations are used to extract a temenos session token for cleanup (best-effort).
-func cleanupWorker(sessionName, workDir, branch, gitRoot string, annotations []taskwarrior.Annotation) error {
+func cleanupWorker(sessionName, workDir, branch, gitRoot, taskHexID string, annotations []taskwarrior.Annotation) error {
 	// Delete temenos session — best-effort, 8h TTL handles expiry on error.
 	if token := temenos.ExtractToken(annotations); token != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -262,6 +267,10 @@ func cleanupWorker(sessionName, workDir, branch, gitRoot string, annotations []t
 		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to delete temenos session (non-fatal): %v\n", err)
 		}
+	}
+	// Delete MCP config file — best-effort.
+	if taskHexID != "" {
+		temenos.DeleteMCPConfigFile("w-" + taskHexID)
 	}
 
 	if tmux.SessionExists(sessionName) {

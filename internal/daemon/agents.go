@@ -28,12 +28,16 @@ import (
 func initAdapters(mcfg *config.DaemonConfig) {
 	ensureLocalAgentTrust(mcfg)
 
+	// Register one shared manager MCP token at daemon start.
+	// All CC manager agents share this file — lifecycle is daemon-scoped, not per-agent.
+	mcpPath := initManagerMCPToken()
+
 	var wg sync.WaitGroup
 	for _, ta := range mcfg.AllAgents() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ta, mcfg)
+			initSingleAdapter(ta, mcfg, mcpPath)
 		}()
 	}
 	wg.Wait()
@@ -41,7 +45,7 @@ func initAdapters(mcfg *config.DaemonConfig) {
 
 // initSingleAdapter initializes a single agent's tmux session.
 func initSingleAdapter(
-	ta config.TeamAgent, mcfg *config.DaemonConfig,
+	ta config.TeamAgent, mcfg *config.DaemonConfig, mcpPath string,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -58,8 +62,7 @@ func initSingleAdapter(
 		agentEnv := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
 		shell := mcfg.Global.GetShell()
 		ensureProjectDir(agentPath)
-		mcpJSON := registerManagerSession(ta.AgentName)
-		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, ta.TeamName, agentEnv, shell, mcpJSON); err != nil {
+		if err := spawnCCSession(sessionName, ta.AgentName, agentPath, ta.TeamName, agentEnv, shell, mcpPath); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
@@ -199,19 +202,33 @@ func ensureProjectDir(agentPath string) {
 	}
 }
 
-// registerManagerSession registers a temenos session for a manager CC agent.
-// No writePaths — managers read code across projects but write operations go via
-// temenos baseline config (shared infra paths like ~/.ttal are in the baseline).
-// Best-effort: returns empty string on error so callers can continue without MCP config.
-func registerManagerSession(agentName string) string {
+// initManagerMCPToken handles the daemon-start lifecycle for the shared manager MCP token:
+// unregisters any existing token from the previous daemon run, registers a fresh one,
+// and writes ~/.ttal/mcps/m.json. Returns the path for passing to agent spawns.
+// Best-effort: returns empty string on error so agents still launch without MCP config.
+func initManagerMCPToken() string {
+	// Unregister the previous daemon's token if the file exists.
+	if token := temenos.ReadMCPConfigToken("m"); token != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
+			log.Printf("[daemon] warning: failed to unregister old manager token (non-fatal): %v", err)
+		}
+		cancel()
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	mcpJSON, _, err := temenos.RegisterSessionForAgent(ctx, agentName, nil, "")
+	mcpJSON, _, err := temenos.RegisterSessionForAgent(ctx, "manager", nil, "")
 	if err != nil {
-		log.Printf("[daemon] warning: failed to register temenos session for %s (non-fatal): %v", agentName, err)
+		log.Printf("[daemon] warning: failed to register manager temenos session (non-fatal): %v", err)
 		return ""
 	}
-	return mcpJSON
+	path, err := temenos.WriteMCPConfigFile("m", mcpJSON)
+	if err != nil {
+		log.Printf("[daemon] warning: failed to write manager MCP config file (non-fatal): %v", err)
+		return ""
+	}
+	return path
 }
 
 // spawnCCSession creates a tmux session for a Claude Code agent.

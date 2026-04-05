@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -106,4 +108,72 @@ func ExtractToken(annotations []taskwarrior.Annotation) string {
 // deletes the session for the given token.
 func DeleteSessionByToken(ctx context.Context, token string) error {
 	return New("").DeleteSession(ctx, token)
+}
+
+// mcpConfigDir returns the directory where MCP config files are stored.
+// Naming convention: m.json for managers (shared — all have identical permissions),
+// w-<hexid>.json for workers (per-task, deleted on close).
+func mcpConfigDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get home dir: %w", err)
+	}
+	return filepath.Join(home, ".ttal", "mcps"), nil
+}
+
+// ManagerMCPConfigPath returns the path to the shared manager MCP config file.
+// All manager agents share this file — token lifecycle is tied to the daemon, not individual agents.
+func ManagerMCPConfigPath() string {
+	dir, err := mcpConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "m.json")
+}
+
+// ReadMCPConfigToken reads the session token embedded in ~/.ttal/mcps/<name>.json.
+// Returns empty string if the file does not exist or cannot be parsed.
+func ReadMCPConfigToken(name string) string {
+	dir, err := mcpConfigDir()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(dir, name+".json"))
+	if err != nil {
+		return ""
+	}
+	var doc mcpConfigDoc
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return ""
+	}
+	if s, ok := doc.MCPServers["temenos"]; ok {
+		return s.Headers["X-Session-Token"]
+	}
+	return ""
+}
+
+// WriteMCPConfigFile writes mcpJSON to ~/.ttal/mcps/<name>.json and returns the path.
+// Use "m" for the shared manager config and "w-<hexid>" for per-worker configs.
+func WriteMCPConfigFile(name, mcpJSON string) (string, error) {
+	dir, err := mcpConfigDir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create mcp config dir: %w", err)
+	}
+	path := filepath.Join(dir, name+".json")
+	if err := os.WriteFile(path, []byte(mcpJSON), 0o600); err != nil {
+		return "", fmt.Errorf("write mcp config file %s: %w", path, err)
+	}
+	return path, nil
+}
+
+// DeleteMCPConfigFile removes ~/.ttal/mcps/<name>.json. Best-effort: no error returned.
+func DeleteMCPConfigFile(name string) {
+	dir, err := mcpConfigDir()
+	if err != nil {
+		return
+	}
+	_ = os.Remove(filepath.Join(dir, name+".json"))
 }
