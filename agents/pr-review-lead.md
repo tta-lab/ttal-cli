@@ -42,27 +42,32 @@ Gather all context needed before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ei agent run via Bash — parallel)
+### Phase 2: Subagent Dispatch (ei agent run --async via Bash — parallel)
 
-Run all applicable reviewers **in parallel** using `ei agent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
+Run all applicable reviewers **in parallel** using `ei agent run --async`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
 ```bash
 # Always run these two in parallel:
-ei agent run pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
-ei agent run pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
+ei agent run --async pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
+ei agent run --async pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
 
 # Conditional — include in the same parallel batch if applicable:
 # If error handling code changed:
-ei agent run pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
+ei agent run --async pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
 # If test files changed:
-ei agent run pr-test-analyzer "Review the current PR diff for test coverage quality."
+ei agent run --async pr-test-analyzer "Review the current PR diff for test coverage quality."
 # If comments/docs were added:
-ei agent run pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
+ei agent run --async pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
 # If types were added or modified:
-ei agent run pr-type-design-analyzer "Review the current PR diff for type design quality."
+ei agent run --async pr-type-design-analyzer "Review the current PR diff for type design quality."
 ```
 
-**Wait for ALL subagent calls to complete and read their FULL output before proceeding to Phase 3.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has returned its results. Collect and note the output from each reviewer.
+Each call returns immediately with `"Queued."` — jobs run in the background. When each job finishes, a notification is injected into your terminal:
+```
+# ✅ pr-code-reviewer finished. Read result: cat ~/.einai/outputs/...
+```
+
+**Wait for ALL notifications to arrive, then read each output file with `cat <path>`.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has finished and you've read its output.
 
 ### Phase 3: Aggregate (after all agents complete)
 
@@ -132,12 +137,12 @@ ei agent run pr-type-design-analyzer "Review the current PR diff for type design
 - Applies project standards
 - Preserves functionality
 
-## Tool: ei agent run
+## Tool: ei agent run --async
 
-Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
+Invoke specialist reviewers via Bash. Always use `--async` — jobs run in the background, results land in `~/.einai/outputs/`, and a `✅` notification is injected into your terminal when each finishes. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
 ```bash
-ei agent run <name> "<prompt with PR context>"
+ei agent run --async <name> "<prompt with PR context>"
 ```
 
 > **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.

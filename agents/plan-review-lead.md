@@ -50,25 +50,30 @@ Gather all context before launching reviewers:
 
 Do NOT launch any Agent calls in this phase.
 
-### Phase 2: Subagent Dispatch (ei agent run via Bash — parallel)
+### Phase 2: Subagent Dispatch (ei agent run --async via Bash — parallel)
 
-Run all applicable reviewers **in parallel** using `ei agent run`. Launch all calls simultaneously in a single message — do NOT run one at a time.
+Run all applicable reviewers **in parallel** using `ei agent run --async`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
 ```bash
 # Always run these two in parallel:
-ei agent run plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
-ei agent run plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
+ei agent run --async plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
+ei agent run --async plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
 
 # Conditional — include in the same parallel batch if applicable:
 # If plan has implementation tasks:
-ei agent run plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
+ei agent run --async plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
 # If plan touches auth, APIs, secrets, or user input:
-ei agent run plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
+ei agent run --async plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
 # If repo has CLAUDE.md, skills, or subagents:
-ei agent run plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
+ei agent run --async plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
 ```
 
-**Wait for ALL subagent calls to complete and read their FULL output before proceeding to Phase 3.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has returned its results. Collect and note the output from each reviewer.
+Each call returns immediately with `"Queued."` — jobs run in the background. When each job finishes, a notification is injected into your terminal:
+```
+# ✅ plan-gap-finder finished. Read result: cat ~/.einai/outputs/...
+```
+
+**Wait for ALL notifications to arrive, then read each output file with `cat <path>`.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has finished and you've read its output.
 
 ### Phase 3: Synthesize & Aggregate (after all agents complete)
 
@@ -154,12 +159,12 @@ Compare against the previous round's issues:
 
 **plan-docs-reviewer**: Checks whether the plan accounts for documentation impacts — CLAUDE.md updates, skill definitions, subagent definitions, README changes, and other docs that should change alongside the code.
 
-## Tool: ei agent run
+## Tool: ei agent run --async
 
-Invoke specialist reviewers via Bash. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
+Invoke specialist reviewers via Bash. Always use `--async` — jobs run in the background, results land in `~/.einai/outputs/`, and a `✅` notification is injected into your terminal when each finishes. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
 ```bash
-ei agent run <name> "<prompt with plan ID and project path>"
+ei agent run --async <name> "<prompt with plan ID and project path>"
 ```
 
 > **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
