@@ -119,8 +119,34 @@ func (a *Adapter) SendMessage(_ context.Context, text string) error {
 func (a *Adapter) Events() <-chan runtime.Event { return a.events }
 
 func (a *Adapter) CreateSession(_ context.Context) (string, error) {
+	// Build agent context for developer instructions
+	var devInstructions *string
+	if a.cfg.TeamPath != "" {
+		ctx, err := BuildAgentContext(a.cfg.AgentName, a.cfg.TeamPath, a.cfg.Env)
+		if err != nil {
+			log.Printf("[codex] warning: could not build agent context: %v", err)
+		} else if ctx != "" {
+			devInstructions = &ctx
+		}
+	}
+
+	// Resolve model from codex frontmatter section
+	var model *string
+	if a.cfg.TeamPath != "" {
+		m := ResolveCodexModel(a.cfg.AgentName, a.cfg.TeamPath, a.cfg.Model)
+		if m != "" {
+			model = &m
+		}
+	}
+
+	// Auto-approve everything (YOLO mode — belt-and-suspenders with per-request handlers)
+	approvalNever := json.RawMessage(`"never"`)
+
 	params := protocol.ThreadStartParams{
-		Cwd: &a.cfg.WorkDir,
+		Cwd:                   &a.cfg.WorkDir,
+		DeveloperInstructions: devInstructions,
+		Model:                 model,
+		ApprovalPolicy:        &approvalNever,
 	}
 	result, err := a.client.Call(protocol.MethodThreadStart, params)
 	if err != nil {
