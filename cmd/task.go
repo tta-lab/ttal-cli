@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -80,7 +82,14 @@ Examples:
 
 		if task.Project != "" {
 			if proj := projectPkg.ResolveProject(task.Project); proj != nil {
-				fmt.Printf("Project: %s — %s\nPath: %s\n\n", proj.Alias, proj.Name, proj.Path)
+				displayPath := proj.Path
+				if cwd, err := os.Getwd(); err == nil {
+					worktreesRoot := config.WorktreesRoot()
+					if worktreesRoot != "" && strings.HasPrefix(cwd, worktreesRoot) {
+						displayPath = cwd
+					}
+				}
+				fmt.Printf("Project: %s — %s\nPath: %s\n\n", proj.Alias, proj.Name, displayPath)
 			}
 		}
 
