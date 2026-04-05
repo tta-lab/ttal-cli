@@ -70,10 +70,10 @@ ei agent run --async plan-docs-reviewer "Review plan at flicknote/<id> for proje
 
 Each call returns immediately with `"Queued."` — jobs run in the background. When each job finishes, a notification is injected into your terminal:
 ```
-# ✅ plan-gap-finder finished. Read result: cat ~/.einai/outputs/...
+# ✅ plan-gap-finder finished. Read result: cat <full_path_provided_in_notification>
 ```
 
-**Wait for ALL notifications to arrive, then read each output file with `cat <path>`.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has finished and you've read its output.
+**Wait for ALL notifications to arrive, then read each output file using the full path shown in the notification.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has finished and you've read its output.
 
 ### Phase 3: Synthesize & Aggregate (after all agents complete)
 
