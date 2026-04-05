@@ -343,8 +343,8 @@ func spawnOrRetriggerReviewerFromDaemon(
 
 	if stage.IsWorker() {
 		if tmux.WindowExists(sessionName, reviewerAgent) {
-			log.Printf("[advance] re-triggering PR reviewer %s for task %s", reviewerAgent, task.UUID)
-			return review.RequestReReview(sessionName, reviewerAgent, false, "", cfg)
+			log.Printf("[advance] reviewer window %s already exists for task %s — skipping (content delivery handled by ttal comment add)", reviewerAgent, task.UUID)
+			return nil
 		}
 		log.Printf("[advance] spawning PR reviewer %s for task %s", reviewerAgent, task.UUID)
 		ctx, err := buildPRContextFromTask(task, workDir)
@@ -363,9 +363,9 @@ func spawnOrRetriggerReviewerFromDaemon(
 	}
 
 	if tmux.WindowExists(targetSession, reviewerAgent) {
-		log.Printf("[advance] re-triggering plan reviewer %s for task %s in session %q",
-			reviewerAgent, task.UUID, targetSession)
-		return planreview.RequestReReview(targetSession, reviewerAgent, "", cfg)
+		log.Printf("[advance] reviewer window %s already exists in session %q for task %s — skipping (content delivery handled by ttal comment add)",
+			reviewerAgent, targetSession, task.UUID)
+		return nil
 	}
 	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q",
 		reviewerAgent, task.UUID, targetSession)
