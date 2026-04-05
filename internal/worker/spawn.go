@@ -105,9 +105,9 @@ func spawnWorker(cfg SpawnConfig) error {
 	// Resolve agent name early — needed for both temenos registration and launch.
 	agentName := resolveAgentName(cfg, task)
 
-	mcpJSON := registerWorkerSession(agentName, task.UUID, worktreeRoot)
+	mcpPath := registerWorkerSession(agentName, task.UUID, worktreeRoot)
 
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpJSON)
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpPath)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -153,7 +153,8 @@ func computeSubpath(project, gitRoot string) (string, error) {
 }
 
 // registerWorkerSession registers a temenos session for a worker, annotates the task
-// with the session token, and returns the MCP config JSON.
+// with the session token, writes the MCP config to ~/.ttal/mcps/w-<hexid>.json,
+// and returns the file path.
 // Best-effort: logs warnings on failure and returns "" so the worker still launches.
 func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
 	writePaths := []string{worktreeRoot}
@@ -172,7 +173,16 @@ func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
 	if annErr := taskwarrior.AnnotateTask(taskUUID, "temenos_token:"+token); annErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with temenos token: %v\n", annErr)
 	}
-	return mcpJSON
+	hexID := taskUUID
+	if len(hexID) >= 8 {
+		hexID = hexID[:8]
+	}
+	path, err := temenos.WriteMCPConfigFile("w-"+hexID, mcpJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to write MCP config file (non-fatal): %v\n", err)
+		return ""
+	}
+	return path
 }
 
 // resolveAgentName returns the CC agent identity for the worker.
@@ -243,8 +253,10 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-// mcpConfig, if non-empty, is passed to claude via --mcp-config.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfig string) error {
+// mcpConfigPath, if non-empty, is the path to the MCP config JSON file passed via --mcp-config.
+func launchTmuxWorker(
+	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfigPath string,
+) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -289,7 +301,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfig)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 

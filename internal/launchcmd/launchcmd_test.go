@@ -39,11 +39,10 @@ func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
 }
 
 func TestBuildCCDirectCommand_MCPConfig(t *testing.T) {
-	// Use a short token for line-length compliance.
-	mcpJSON := `{"mcpServers":{"temenos":{"type":"http","url":"http://127.0.0.1:9783",` +
-		`"headers":{"X-Session-Token":"tok"}}}}`
-	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin.", mcpJSON)
-	if !strings.Contains(got, "--mcp-config '"+mcpJSON+"'") {
+	// Callers now pass a file path, not raw JSON.
+	mcpPath := "/tmp/mcps/w-abc12345.json"
+	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin.", mcpPath)
+	if !strings.Contains(got, "--mcp-config "+mcpPath) {
 		t.Errorf("missing --mcp-config: %q", got)
 	}
 	if !strings.Contains(got, "--agent coder") {

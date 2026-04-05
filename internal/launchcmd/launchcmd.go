@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// AppendMCPConfig appends --mcp-config '<json>' to cmd when mcpConfig is non-empty.
-// The JSON is single-quoted — safe because tokens are hex-only and JSON contains no
-// single quotes.
-func AppendMCPConfig(cmd, mcpConfig string) string {
-	if mcpConfig == "" {
+// AppendMCPConfig appends --mcp-config <path> to cmd when mcpConfigPath is non-empty.
+// The path points to a JSON file under ~/.ttal/mcps/ — no shell quoting needed
+// because the path contains only safe characters (letters, digits, hyphens, dots, slashes).
+func AppendMCPConfig(cmd, mcpConfigPath string) string {
+	if mcpConfigPath == "" {
 		return cmd
 	}
-	return cmd + fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
+	return cmd + " --mcp-config " + mcpConfigPath
 }
 
 // BuildCCDirectCommand builds a gatekeeper-wrapped direct claude command using --agent.
@@ -20,7 +20,7 @@ func AppendMCPConfig(cmd, mcpConfig string) string {
 // via the CC SessionStart hook (ttal context) rather than a synthetic JSONL session.
 // agent: CC agent identity (e.g. "coder", "pr-review-lead"). Required.
 // trigger: positional arg (the initial message; empty = omit).
-// mcpConfig: inline JSON for --mcp-config flag. Empty = omit.
+// mcpConfigPath: path to MCP config JSON file (e.g. ~/.ttal/mcps/w-abc12345.json). Empty = omit.
 func BuildCCDirectCommand(ttalBin, agent, trigger, mcpConfig string) string {
 	cmd := fmt.Sprintf(
 		"%s worker gatekeeper -- claude --dangerously-skip-permissions --agent %s",

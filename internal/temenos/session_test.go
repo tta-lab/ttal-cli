@@ -1,6 +1,8 @@
 package temenos
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -51,5 +53,91 @@ func TestExtractToken_Empty(t *testing.T) {
 	got := ExtractToken(nil)
 	if got != "" {
 		t.Errorf("expected empty string for nil annotations, got %q", got)
+	}
+}
+
+// --- MCP config file helpers ---
+
+func TestWriteMCPConfigFile_RoundTrip(t *testing.T) {
+	mcpJSON := MCPConfig(9783, "roundtriptoken")
+	path, err := WriteMCPConfigFile("test-rt", mcpJSON)
+	if err != nil {
+		t.Fatalf("WriteMCPConfigFile: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	if !strings.HasSuffix(path, "test-rt.json") {
+		t.Errorf("unexpected path %q", path)
+	}
+
+	token := ReadMCPConfigToken("test-rt")
+	if token != "roundtriptoken" {
+		t.Errorf("ReadMCPConfigToken: got %q, want roundtriptoken", token)
+	}
+}
+
+func TestReadMCPConfigToken_Missing(t *testing.T) {
+	// File does not exist — should return empty string, not panic or error.
+	got := ReadMCPConfigToken("test-missing-xyz")
+	if got != "" {
+		t.Errorf("expected empty string for missing file, got %q", got)
+	}
+}
+
+func TestReadMCPConfigToken_InvalidJSON(t *testing.T) {
+	path, err := WriteMCPConfigFile("test-badjson", "not-valid-json{{{")
+	if err != nil {
+		t.Fatalf("WriteMCPConfigFile: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	got := ReadMCPConfigToken("test-badjson")
+	if got != "" {
+		t.Errorf("expected empty string for invalid JSON, got %q", got)
+	}
+}
+
+func TestReadMCPConfigToken_NoTemenosKey(t *testing.T) {
+	// Valid JSON but no "temenos" server entry.
+	path, err := WriteMCPConfigFile("test-notemenos", `{"mcpServers":{}}`)
+	if err != nil {
+		t.Fatalf("WriteMCPConfigFile: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	got := ReadMCPConfigToken("test-notemenos")
+	if got != "" {
+		t.Errorf("expected empty string when temenos key absent, got %q", got)
+	}
+}
+
+func TestDeleteMCPConfigFile(t *testing.T) {
+	path, err := WriteMCPConfigFile("test-del", MCPConfig(9783, "deletetoken"))
+	if err != nil {
+		t.Fatalf("WriteMCPConfigFile: %v", err)
+	}
+
+	DeleteMCPConfigFile("test-del")
+
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected file to be deleted, stat err: %v", err)
+	}
+}
+
+func TestDeleteMCPConfigFile_NoFile(t *testing.T) {
+	// Should not panic or return error when file doesn't exist.
+	DeleteMCPConfigFile("test-delete-nonexistent-xyz")
+}
+
+func TestManagerMCPConfigPath(t *testing.T) {
+	path := ManagerMCPConfigPath()
+	if path == "" {
+		t.Fatal("ManagerMCPConfigPath returned empty string")
+	}
+	if !strings.HasSuffix(path, "/m.json") {
+		t.Errorf("expected path ending in /m.json, got %q", path)
+	}
+	if !strings.Contains(path, ".ttal/mcps") {
+		t.Errorf("expected path under .ttal/mcps, got %q", path)
 	}
 }
