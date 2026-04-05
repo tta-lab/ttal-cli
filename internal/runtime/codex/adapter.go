@@ -36,7 +36,7 @@ func (a *Adapter) Runtime() runtime.Runtime { return runtime.Codex }
 
 func (a *Adapter) Start(ctx context.Context) error {
 	a.proc = &process{
-		port:    a.cfg.Port,
+		port:    0, // auto-assign via net.Listen in process.start
 		workDir: a.cfg.WorkDir,
 		env:     a.cfg.Env,
 	}

@@ -84,7 +84,6 @@ func initSingleAdapter(
 			AgentName: ta.AgentName,
 			WorkDir:   agentPath,
 			Env:       buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg),
-			Port:      0,
 			TeamPath:  ta.TeamPath,
 		}
 		adapter := codexRuntime.New(cfg)

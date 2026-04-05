@@ -65,6 +65,5 @@ type AdapterConfig struct {
 	WorkDir   string   // Agent workspace directory
 	Model     string   // Model override
 	Env       []string // Additional env vars (TTAL_AGENT_NAME, TASKRC, etc.)
-	Port      int      // WebSocket port for app-server runtimes (Codex). 0 = auto-assign.
 	TeamPath  string   // Path to team agent definitions (for identity injection)
 }
