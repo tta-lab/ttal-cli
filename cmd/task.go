@@ -86,7 +86,7 @@ Examples:
 				if cwd, err := os.Getwd(); err == nil {
 					worktreesRoot := config.WorktreesRoot()
 					if worktreesRoot != "" && strings.HasPrefix(cwd, worktreesRoot) {
-						displayPath = cwd
+						displayPath = cwd // show actual worktree path when inside one
 					}
 				}
 				fmt.Printf("Project: %s — %s\nPath: %s\n\n", proj.Alias, proj.Name, displayPath)
