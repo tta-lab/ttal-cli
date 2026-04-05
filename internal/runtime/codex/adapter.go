@@ -251,6 +251,7 @@ func (a *Adapter) sendEvent(evt runtime.Event) {
 	}
 }
 
+//nolint:gocyclo
 func (a *Adapter) processNotification(notif rpcResponse) {
 	switch notif.Method {
 	case protocol.NotifItemAgentMessageDelta,

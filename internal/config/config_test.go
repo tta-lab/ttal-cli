@@ -617,9 +617,11 @@ func TestAgentRuntimeForTeam(t *testing.T) {
 	dir := t.TempDir()
 
 	// Agent with codex runtime override
-	os.WriteFile(filepath.Join(dir, "codex-agent.md"), []byte("---\nname: codex-agent\nruntime: codex\n---\n# CodeX Agent"), 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "codex-agent.md"),
+		[]byte("---\nname: codex-agent\nruntime: codex\n---\n# CodeX Agent"), 0o644) //nolint:errcheck
 	// Agent with no runtime override
-	os.WriteFile(filepath.Join(dir, "cc-agent.md"), []byte("---\nname: cc-agent\n---\n# CC Agent"), 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "cc-agent.md"),
+		[]byte("---\nname: cc-agent\n---\n# CC Agent"), 0o644) //nolint:errcheck
 
 	tests := []struct {
 		name      string

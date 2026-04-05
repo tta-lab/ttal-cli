@@ -125,7 +125,11 @@ func TestProcessNotificationTokenUsageUpdated(t *testing.T) {
 		events: make(chan runtime.Event, 16),
 	}
 	contextWindow := int64(128000)
-	params := fmt.Sprintf(`{"threadId":"t1","turnId":"r1","tokenUsage":{"total":{"totalTokens":64000,"inputTokens":50000,"outputTokens":14000,"cachedInputTokens":0,"reasoningOutputTokens":0},"last":{"totalTokens":1000,"inputTokens":800,"outputTokens":200,"cachedInputTokens":0,"reasoningOutputTokens":0},"modelContextWindow":%d}}`, contextWindow)
+	//nolint:lll
+	params := fmt.Sprintf(
+		`{"threadId":"t1","turnId":"r1","tokenUsage":{"total":{"totalTokens":64000,"inputTokens":50000,"outputTokens":14000,"cachedInputTokens":0,"reasoningOutputTokens":0},"last":{"totalTokens":1000,"inputTokens":800,"outputTokens":200,"cachedInputTokens":0,"reasoningOutputTokens":0},"modelContextWindow":%d}}`,
+		contextWindow,
+	)
 	a.processNotification(rpcResponse{
 		Method: protocol.NotifThreadTokenUsageUpdated,
 		Params: json.RawMessage(params),

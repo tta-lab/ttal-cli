@@ -391,10 +391,12 @@ func resolveBreatheSessions(
 	}, nil
 }
 
-// handleBreathe restarts an agent's CC session with a handoff prompt.
+// handleBreathe sends a handoff to an agent's CC session via tmux.
 // Context injection is handled by the CC SessionStart hook (ttal context) which
 // evaluates breathe_context commands and consumes any pending route file.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
+//
+//nolint:gocyclo,lll
 func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
 	team := req.Team
 	if team == "" {
@@ -408,10 +410,12 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 	}
 
 	// Dispatch to codex handler if agent uses Codex runtime
-	if ta, ok := mcfg.FindAgentInTeam(team, req.Agent); ok {
-		rt := mcfg.AgentRuntimeForTeam(team, ta.TeamPath, req.Agent)
-		if rt == runtime.Codex {
-			return handleCodexBreathe(req, team, registry)
+	if mcfg != nil {
+		if ta, ok := mcfg.FindAgentInTeam(team, req.Agent); ok {
+			rt := mcfg.AgentRuntimeForTeam(team, ta.TeamPath, req.Agent)
+			if rt == runtime.Codex {
+				return handleCodexBreathe(req, team, registry)
+			}
 		}
 	}
 
