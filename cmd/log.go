@@ -27,14 +27,9 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		alias := args[0]
 
-		tail := logTail
-		if tail <= 0 {
-			tail = 100
-		}
-
 		resp, err := daemon.KubeLog(daemon.KubeLogRequest{
 			Alias: alias,
-			Tail:  tail,
+			Tail:  logTail,
 			Since: logSince,
 		})
 		if err != nil {

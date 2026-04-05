@@ -13,19 +13,66 @@ func testKubeStore(t *testing.T) *project.Store {
 	return project.NewStore(path)
 }
 
-func TestKubeHandlerRequiresK8sApp(t *testing.T) {
+func TestKubeHandlerIncompleteK8sConfig(t *testing.T) {
 	store := testKubeStore(t)
 	if err := store.Add("proj", "Project", "/path"); err != nil {
 		t.Fatalf("Add() error: %v", err)
 	}
 
 	handler := HandleKubeLog(store, "do-sgp1", []string{"apps-dev", "supa-dev"})
+
+	// No k8s fields set
+	resp := handler(KubeLogRequest{Alias: "proj", Tail: 100})
+	if resp.OK {
+		t.Error("handler should return error for project without k8s fields")
+	}
+	if resp.Error != `project "proj" has incomplete k8s config (k8s_app="", k8s_namespace="") — both required` {
+		t.Errorf("unexpected error: %q", resp.Error)
+	}
+
+	// Only k8s_app set
+	if err := store.Modify("proj", map[string]string{"k8s_app": "my-api"}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+	resp = handler(KubeLogRequest{Alias: "proj", Tail: 100})
+	if resp.OK {
+		t.Error("handler should return error for project without namespace")
+	}
+}
+
+func TestKubeHandlerEmptyNamespace(t *testing.T) {
+	store := testKubeStore(t)
+	if err := store.Add("proj", "Project", "/path"); err != nil {
+		t.Fatalf("Add() error: %v", err)
+	}
+	if err := store.Modify("proj", map[string]string{"k8s_app": "my-api", "k8s_namespace": ""}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	handler := HandleKubeLog(store, "do-sgp1", []string{"apps-dev", "supa-dev"})
 	resp := handler(KubeLogRequest{Alias: "proj", Tail: 100})
 
 	if resp.OK {
-		t.Error("handler should return error for project without k8s_app")
+		t.Error("handler should return error for missing namespace")
 	}
-	if resp.Error != `project "proj" has no k8s_app configured` {
+}
+
+func TestKubeHandlerEmptyAllowlist(t *testing.T) {
+	store := testKubeStore(t)
+	if err := store.Add("proj", "Project", "/path"); err != nil {
+		t.Fatalf("Add() error: %v", err)
+	}
+	if err := store.Modify("proj", map[string]string{"k8s_app": "my-api", "k8s_namespace": "apps-dev"}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	handler := HandleKubeLog(store, "do-sgp1", []string{})
+	resp := handler(KubeLogRequest{Alias: "proj", Tail: 100})
+
+	if resp.OK {
+		t.Error("handler should return error for empty allowlist")
+	}
+	if resp.Error != "no namespaces configured in kubernetes.allowed_namespaces — add to config.toml" {
 		t.Errorf("unexpected error: %q", resp.Error)
 	}
 }

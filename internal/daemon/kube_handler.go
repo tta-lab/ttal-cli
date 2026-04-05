@@ -22,9 +22,22 @@ func HandleKubeLog(store *project.Store, kubeCtx string, allowedNS []string) fun
 			return KubeLogResponse{OK: false, Error: fmt.Sprintf("project %q not found", req.Alias)}
 		}
 
-		// Guard: k8s_app must be configured
-		if proj.K8sApp == "" {
-			return KubeLogResponse{OK: false, Error: fmt.Sprintf("project %q has no k8s_app configured", req.Alias)}
+		// Guard: both k8s fields must be configured
+		if proj.K8sApp == "" || proj.K8sNamespace == "" {
+			return KubeLogResponse{
+				OK: false,
+				Error: fmt.Sprintf(
+					`project %q has incomplete k8s config (k8s_app=%q, k8s_namespace=%q) — both required`,
+					req.Alias, proj.K8sApp, proj.K8sNamespace),
+			}
+		}
+
+		// Guard: allowlist must be configured
+		if len(allowedNS) == 0 {
+			return KubeLogResponse{
+				OK:    false,
+				Error: "no namespaces configured in kubernetes.allowed_namespaces — add to config.toml",
+			}
 		}
 
 		// Namespace validation
