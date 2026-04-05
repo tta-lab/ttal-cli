@@ -81,8 +81,8 @@ If no subtask tree exists (inline or flicknote-only plan): execute the steps seq
 
 After all tasks complete:
 1. Verify all tests pass
-2. `ttal push`
-3. `ttal pr create "title" --body "description"`
+2. `ttal push` — always use this, never `git push` directly
+3. `ttal pr create "title" --body "description"` — always use `ttal pr`, never `gh` or `tea`
 
 ## Review Loop
 
