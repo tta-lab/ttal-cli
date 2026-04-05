@@ -34,6 +34,20 @@ func BuildCCDirectCommand(ttalBin, agent, trigger, mcpConfig string) string {
 	return cmd
 }
 
+// BuildLenosCommand builds a lenos launch command via the worker gatekeeper.
+// No MCP config for lenos yet.
+func BuildLenosCommand(ttalBin, agent, trigger, contextFile string) string {
+	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --yolo --agent %s", ttalBin, agent)
+	if contextFile != "" {
+		cmd += " --context-file " + contextFile
+	}
+	if trigger != "" {
+		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
+		cmd += fmt.Sprintf(" -- '%s'", escaped)
+	}
+	return cmd
+}
+
 // BuildCodexGatekeeperCommand builds a gatekeeper-wrapped codex command
 // using the legacy task-file pattern. Claude Code uses BuildCCDirectCommand instead.
 // This will be removed when Codex supports the context hook (#321).

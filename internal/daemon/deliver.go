@@ -34,7 +34,7 @@ func deliverToAgent(
 		}
 	}
 	// Fallback: tmux for CC agents, frontend notification for others
-	rt := mcfg.AgentRuntimeForTeam(teamName, "", agentName)
+	rt := mcfg.RuntimeForAgent(teamName, "", agentName)
 	if rt == runtime.ClaudeCode {
 		session := config.AgentSessionName(teamName, agentName)
 		return tmux.SendKeys(session, agentName, text)

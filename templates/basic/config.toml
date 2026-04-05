@@ -4,7 +4,7 @@
   inline_projects = ["plan", "fix"]
 
 [sync]
-  subagents_paths = ["./docs/agents"]
+  worker_agent_paths = ["./docs/agents"]
 
 [teams.default]
   chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
@@ -12,7 +12,7 @@
   data_dir = "~/.ttal"
   taskrc = "~/.taskrc"
   voice_language = "en"
-  worker_runtime = "claude-code"
+  default_runtime = "claude-code"
   agent_model = "sonnet"
   worker_model = "sonnet"
   emoji_reactions = true

@@ -36,8 +36,7 @@ data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
 chat_id = "123456789"           # Global Telegram chat ID
 team_path = "~/clawd"           # Root path for agent workspaces
-agent_runtime = "claude-code"   # Default runtime for agents
-worker_runtime = "claude-code"  # Default runtime for workers
+default_runtime = "claude-code"  # Default runtime for agents and workers (claude-code, codex, lenos)
 ```
 
 ### Agent discovery
@@ -73,8 +72,7 @@ Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/t
 | `taskrc` | string | Path to taskwarrior config |
 | `chat_id` | string | Telegram chat ID |
 | `notification_token_env` | string | Override env var for notification bot token (default: `DEFAULT_NOTIFICATION_BOT_TOKEN`) |
-| `agent_runtime` | string | Default runtime: `claude-code`, `codex` |
-| `worker_runtime` | string | Default runtime for spawned workers |
+| `default_runtime` | string | Default runtime for agents and workers (`claude-code`, `codex`, `lenos`) |
 | `voice_language` | string | ISO 639-1 language code for STT, or `auto` |
 | `voice_vocabulary` | list | Custom vocabulary words to improve Whisper accuracy |
 | `gateway_url` | string | Gateway URL for webhook-based runtimes |

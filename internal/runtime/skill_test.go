@@ -10,6 +10,7 @@ func TestFormatSkillInvocation(t *testing.T) {
 	}{
 		{ClaudeCode, "triage", "run ttal skill get triage"},
 		{Codex, "triage", "$triage"},
+		{Lenos, "triage", "run ttal skill get triage"},
 		{ClaudeCode, "review-pr", "run ttal skill get review-pr"},
 		{Codex, "review-pr", "$review-pr"},
 	}

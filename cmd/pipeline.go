@@ -196,7 +196,7 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 
-	agentRT := cfg.AgentRuntimeFor("")
+	agentRT := cfg.DefaultRuntime()
 	rolePrompt = pipeline.PrependSkills(rolePrompt, stage.Skills, agentRT)
 	rolePrompt = expandPromptVars(rolePrompt, task, cfg)
 
@@ -250,7 +250,7 @@ func resolvePromptKey(stage *pipeline.Stage) string {
 // expandPromptVars expands task-specific template variables in the prompt,
 // including {{task-id}}, {{pr-number}}, {{owner}}, {{repo}}, {{branch}}, and {{skill:name}}.
 func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config) string {
-	rt := cfg.AgentRuntimeFor("")
+	rt := cfg.DefaultRuntime()
 
 	// Expand PR vars — soft failure: use empty strings if resolution fails.
 	if task.PRID != "" {

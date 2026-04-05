@@ -22,13 +22,14 @@ type TtalAgentConfig struct {
 
 // AgentFrontmatter holds parsed frontmatter from a canonical agent .md file.
 type AgentFrontmatter struct {
-	Name        string                 `yaml:"name"`
-	Description string                 `yaml:"description"`
-	Emoji       string                 `yaml:"emoji"`
-	Color       string                 `yaml:"color"`
-	ClaudeCode  map[string]interface{} `yaml:"claude-code"`
-	Codex       map[string]interface{} `yaml:"codex"`
-	Ttal        *TtalAgentConfig       `yaml:"ttal"`
+	Name           string                 `yaml:"name"`
+	Description    string                 `yaml:"description"`
+	Emoji          string                 `yaml:"emoji"`
+	Color          string                 `yaml:"color"`
+	DefaultRuntime string                 `yaml:"default_runtime"`
+	ClaudeCode     map[string]interface{} `yaml:"claude-code"`
+	Codex          map[string]interface{} `yaml:"codex"`
+	Ttal           *TtalAgentConfig       `yaml:"ttal"`
 }
 
 // ParsedAgent holds the parsed frontmatter and body of an agent .md file.

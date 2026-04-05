@@ -184,7 +184,7 @@ func buildHTTPHandlers(
 		},
 		askHuman: defaultFE.AskHumanHTTPHandler(),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
-			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.WorkerRuntime()))
+			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.DefaultRuntime()))
 		},
 		notify: func(team, msg string) error {
 			t := team

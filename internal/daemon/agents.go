@@ -58,7 +58,7 @@ func initSingleAdapter(
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, ta.AgentName)
+	rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, ta.AgentName)
 
 	// CC agents use tmux
 	if rt == runtime.ClaudeCode {
@@ -245,7 +245,7 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, ta.AgentName)
+		rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}

@@ -48,7 +48,7 @@ func startWatcher(
 			if !ok {
 				return
 			}
-			rt := mcfg.AgentRuntimeForTeam(teamName, ta.TeamPath, agentName)
+			rt := mcfg.RuntimeForAgent(teamName, ta.TeamPath, agentName)
 			persistMsg(msgSvc, message.CreateParams{
 				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
 				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,

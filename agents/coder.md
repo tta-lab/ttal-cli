@@ -4,8 +4,10 @@ emoji: ⚡
 description: "Worker agent — executes implementation plans in isolated worktrees. Loads plan from task context, implements continuously, creates PR when done."
 role: worker
 color: green
-model: sonnet
-tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+default_runtime: lenos
+claude-code:
+  model: sonnet
+  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
 ttal:
   access: rw
 ---

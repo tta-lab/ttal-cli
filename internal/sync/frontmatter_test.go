@@ -61,6 +61,27 @@ Just a body.
 			body: "Body.",
 		},
 		{
+			name: "with default_runtime override",
+			input: `---
+name: coder
+default_runtime: lenos
+claude-code:
+  model: sonnet
+  tools: ["Bash", "Read"]
+---
+Body.
+`,
+			want: AgentFrontmatter{
+				Name:           "coder",
+				DefaultRuntime: "lenos",
+				ClaudeCode: map[string]interface{}{
+					"model": "sonnet",
+					"tools": []interface{}{"Bash", "Read"},
+				},
+			},
+			body: "Body.",
+		},
+		{
 			name:    "missing name",
 			input:   "---\ndescription: no name\n---\nbody\n",
 			wantErr: "missing required field: name",
@@ -100,6 +121,9 @@ Just a body.
 			}
 			if got.Frontmatter.Description != tt.want.Description {
 				t.Errorf("Description = %q, want %q", got.Frontmatter.Description, tt.want.Description)
+			}
+			if got.Frontmatter.DefaultRuntime != tt.want.DefaultRuntime {
+				t.Errorf("DefaultRuntime = %q, want %q", got.Frontmatter.DefaultRuntime, tt.want.DefaultRuntime)
 			}
 			if got.Body != tt.body {
 				t.Errorf("Body = %q, want %q", got.Body, tt.body)
