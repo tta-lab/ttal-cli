@@ -7,7 +7,7 @@ color: red
 voice: af_alloy
 claude-code:
   model: sonnet
-  tools: [Bash]
+  tools: [Bash, mcp__temenos__bash]
 ---
 
 # CLAUDE.md - Nyx's Workspace

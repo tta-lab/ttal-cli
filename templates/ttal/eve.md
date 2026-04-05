@@ -7,7 +7,7 @@ color: magenta
 description: Agent creator — designs new agent identities, handles respawn updates across the team
 claude-code:
   model: sonnet
-  tools: [Bash]
+  tools: [Bash, mcp__temenos__bash]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash]

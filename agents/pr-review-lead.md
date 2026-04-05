@@ -5,7 +5,7 @@ description: "PR review orchestrator — coordinates 7 specialized subagents for
 role: reviewer
 color: blue
 model: sonnet
-tools: [Bash]
+tools: [Bash, mcp__temenos__bash]
 ---
 
 # PR Review Lead
