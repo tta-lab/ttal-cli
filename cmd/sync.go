@@ -50,7 +50,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 		// Only error if there's nothing else to sync either.
 		hasNoPaths := len(syncCfg.RulesPaths) == 0 &&
 			syncCfg.GlobalPromptPath == "" && teamPath == "" &&
-			syncCfg.MarketplaceSource == "" && project.ResolveProjectPath("ttal") == ""
+			syncCfg.MarketplaceSource == "" &&
+			len(syncCfg.WorkerAgentPaths) == 0 &&
+			project.ResolveProjectPath("ttal") == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
@@ -118,6 +120,20 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
+		// Deploy worker agents (from worker_agent_paths) to ~/.claude/agents/.
+		workerAgentCount := 0
+		if len(syncCfg.WorkerAgentPaths) > 0 {
+			printSyncHeader("worker agents", syncDryRun)
+			workerResults, err := sync.DeployWorkerAgents(syncCfg.WorkerAgentPaths, syncDryRun)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: worker agent sync: %v\n", err)
+			}
+			for _, r := range workerResults {
+				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+			}
+			workerAgentCount = len(workerResults)
+		}
+
 		if syncCfg.GlobalPromptPath != "" {
 			printSyncHeader("global prompt", syncDryRun)
 
@@ -136,8 +152,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d configs, %d rules.%s\n",
-			configCount, ruleCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents.%s\n",
+			configCount, ruleCount, workerAgentCount, suffix)
 		return nil
 	},
 }

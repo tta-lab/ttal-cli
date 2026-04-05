@@ -50,6 +50,30 @@ func TestBuildCCDirectCommand_MCPConfig(t *testing.T) {
 	}
 }
 
+func TestBuildLenosCommand_Basic(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "Begin implementation.", "")
+	want := "/usr/bin/ttal worker gatekeeper -- lenos --yolo --agent coder -- 'Begin implementation.'"
+	if got != want {
+		t.Fatalf("unexpected command\nwant: %s\n got: %s", want, got)
+	}
+}
+
+func TestBuildLenosCommand_WithContextFile(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "Begin.", "/tmp/lenos-context-abc123.md")
+	want := "/usr/bin/ttal worker gatekeeper -- lenos --yolo --agent coder " +
+		"--context-file /tmp/lenos-context-abc123.md -- 'Begin.'"
+	if got != want {
+		t.Fatalf("unexpected command\nwant: %s\n got: %s", want, got)
+	}
+}
+
+func TestBuildLenosCommand_ApostropheEscaping(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test", "")
+	if !strings.Contains(got, "it'\\''s a test") {
+		t.Errorf("apostrophe not escaped correctly: %q", got)
+	}
+}
+
 func TestBuildCodexGatekeeperCommand(t *testing.T) {
 	got, err := BuildCodexGatekeeperCommand("ttal", "/tmp/task.txt")
 	if err != nil {

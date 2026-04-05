@@ -11,11 +11,12 @@ type Runtime string
 const (
 	ClaudeCode Runtime = "claude-code"
 	Codex      Runtime = "codex"
+	Lenos      Runtime = "lenos"
 )
 
 // All returns all valid runtime values.
 func All() []Runtime {
-	return []Runtime{ClaudeCode, Codex}
+	return []Runtime{ClaudeCode, Codex, Lenos}
 }
 
 // Values returns all valid runtime strings (for ent schema enum).
@@ -36,6 +37,8 @@ func Parse(s string) (Runtime, error) {
 		return ClaudeCode, nil
 	case string(Codex), "cx":
 		return Codex, nil
+	case string(Lenos):
+		return Lenos, nil
 	default:
 		return "", fmt.Errorf("unknown runtime: %q (valid: %s)", s, joinRuntimes())
 	}
@@ -52,7 +55,7 @@ func Validate(s string) error {
 // IsWorkerRuntime returns true if the runtime can be used for workers.
 func (r Runtime) IsWorkerRuntime() bool {
 	switch r {
-	case ClaudeCode, Codex:
+	case ClaudeCode, Codex, Lenos:
 		return true
 	default:
 		return false

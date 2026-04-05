@@ -27,7 +27,7 @@ func TestDiscover(t *testing.T) {
 
 	// Agent with frontmatter (flat .md file)
 	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
-		"description: Task orchestration\ncolor: green\nruntime: codex\n---\n# Yuki")
+		"description: Task orchestration\ncolor: green\ndefault_runtime: codex\n---\n# Yuki")
 	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
 
 	// Agent without frontmatter (flat .md file)
@@ -64,8 +64,8 @@ func TestDiscover(t *testing.T) {
 	if yAgent.Color != "green" {
 		t.Errorf("color: got %q, want green", yAgent.Color)
 	}
-	if yAgent.Runtime != "codex" {
-		t.Errorf("runtime: got %q, want codex", yAgent.Runtime)
+	if yAgent.DefaultRuntime != "codex" {
+		t.Errorf("default_runtime: got %q, want codex", yAgent.DefaultRuntime)
 	}
 
 	kAgent := findAgent(agents, "kestrel")
@@ -73,9 +73,9 @@ func TestDiscover(t *testing.T) {
 		t.Fatal("kestrel not found")
 		return
 	}
-	if kAgent.Voice != "" || kAgent.Emoji != "" || kAgent.Color != "" || kAgent.Runtime != "" {
-		t.Errorf("kestrel should have empty metadata, got voice=%q emoji=%q color=%q runtime=%q",
-			kAgent.Voice, kAgent.Emoji, kAgent.Color, kAgent.Runtime)
+	if kAgent.Voice != "" || kAgent.Emoji != "" || kAgent.Color != "" || kAgent.DefaultRuntime != "" {
+		t.Errorf("kestrel should have empty metadata, got voice=%q emoji=%q color=%q default_runtime=%q",
+			kAgent.Voice, kAgent.Emoji, kAgent.Color, kAgent.DefaultRuntime)
 	}
 }
 

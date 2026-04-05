@@ -42,14 +42,14 @@ func isAgentFile(e fs.DirEntry) (name string, ok bool) {
 
 // AgentInfo holds agent metadata parsed from .md file frontmatter.
 type AgentInfo struct {
-	Name        string // directory name (lowercase)
-	Path        string // absolute path to agent directory
-	Voice       string // Kokoro TTS voice ID
-	Emoji       string // display emoji
-	Description string // short role summary
-	Role        string // e.g. designer, researcher — matches [prompts] key
-	Color       string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
-	Runtime     string // per-agent runtime override (e.g. "codex")
+	Name           string // directory name (lowercase)
+	Path           string // absolute path to agent directory
+	Voice          string // Kokoro TTS voice ID
+	Emoji          string // display emoji
+	Description    string // short role summary
+	Role           string // e.g. designer, researcher — matches [prompts] key
+	Color          string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
+	DefaultRuntime string // per-agent default_runtime override (e.g. "lenos")
 }
 
 // Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
@@ -111,6 +111,17 @@ func Get(teamPath, name string) (*AgentInfo, error) {
 	}
 
 	return info, nil
+}
+
+// GetFromPaths searches multiple directories in order and returns the first match.
+func GetFromPaths(paths []string, name string) (*AgentInfo, error) {
+	for _, p := range paths {
+		info, err := Get(p, name)
+		if err == nil {
+			return info, nil
+		}
+	}
+	return nil, fmt.Errorf("agent '%s' not found in any of %v", name, paths)
 }
 
 // GetFromPath returns agent metadata from an absolute agent directory path.
@@ -217,7 +228,7 @@ func applyFrontmatter(info *AgentInfo, fm map[string]string) {
 	info.Description = fm["description"]
 	info.Role = fm["role"]
 	info.Color = fm["color"]
-	info.Runtime = fm["runtime"]
+	info.DefaultRuntime = fm["default_runtime"]
 }
 
 // hasNestedFrontmatter returns true if the content contains indented lines

@@ -66,76 +66,42 @@ func TestShellCommand(t *testing.T) {
 	}
 }
 
-func TestAgentRuntime(t *testing.T) {
+func TestDefaultRuntime(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *Config
 		want runtime.Runtime
 	}{
 		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
-		{"explicit claude-code", &Config{resolvedAgentRuntime: "claude-code"}, runtime.ClaudeCode},
+		{"explicit claude-code", &Config{resolvedDefaultRuntime: "claude-code"}, runtime.ClaudeCode},
+		{"explicit codex", &Config{resolvedDefaultRuntime: "codex"}, runtime.Codex},
+		{"explicit lenos", &Config{resolvedDefaultRuntime: "lenos"}, runtime.Lenos},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.AgentRuntime(); got != tt.want {
-				t.Errorf("AgentRuntime() = %q, want %q", got, tt.want)
+			if got := tt.cfg.DefaultRuntime(); got != tt.want {
+				t.Errorf("DefaultRuntime() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestWorkerRuntime(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  *Config
-		want runtime.Runtime
-	}{
-		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
-		{"explicit claude-code", &Config{resolvedWorkerRuntime: "claude-code"}, runtime.ClaudeCode},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.WorkerRuntime(); got != tt.want {
-				t.Errorf("WorkerRuntime() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestReviewerRuntime(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  *Config
-		want runtime.Runtime
-	}{
-		{"explicit claude-code", &Config{resolvedReviewerRuntime: "claude-code"}, runtime.ClaudeCode},
-		{"falls back to claude-code default", &Config{}, runtime.ClaudeCode},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.ReviewerRuntime(); got != tt.want {
-				t.Errorf("ReviewerRuntime() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestReviewerRuntimeRoundTrip(t *testing.T) {
+func TestDefaultRuntimeRoundTrip(t *testing.T) {
 	cfg := &Config{
 		DefaultTeam: "default",
 		Teams: map[string]TeamConfig{
 			"default": {
-				TeamPath:        "/tmp/test",
-				ReviewerRuntime: "claude-code",
-				ChatID:          "x",
+				TeamPath:       "/tmp/test",
+				DefaultRuntime: "lenos",
+				ChatID:         "x",
 			},
 		},
 	}
 	if err := cfg.resolve(); err != nil {
 		t.Fatalf("resolve() failed: %v", err)
 	}
-	if got := cfg.ReviewerRuntime(); got != runtime.ClaudeCode {
-		t.Errorf("ReviewerRuntime() = %q, want %q", got, runtime.ClaudeCode)
+	if got := cfg.DefaultRuntime(); got != runtime.Lenos {
+		t.Errorf("DefaultRuntime() = %q, want %q", got, runtime.Lenos)
 	}
 }
 
@@ -612,13 +578,13 @@ func TestPromptContext_HasAnyPromptConfigured(t *testing.T) {
 	}
 }
 
-func TestAgentRuntimeForTeam(t *testing.T) {
+func TestRuntimeForAgent(t *testing.T) {
 	// Create temp agent files for testing per-agent override
 	dir := t.TempDir()
 
 	// Agent with codex runtime override
 	os.WriteFile(filepath.Join(dir, "codex-agent.md"),
-		[]byte("---\nname: codex-agent\nruntime: codex\n---\n# CodeX Agent"), 0o644) //nolint:errcheck
+		[]byte("---\nname: codex-agent\ndefault_runtime: codex\n---\n# CodeX Agent"), 0o644) //nolint:errcheck
 	// Agent with no runtime override
 	os.WriteFile(filepath.Join(dir, "cc-agent.md"),
 		[]byte("---\nname: cc-agent\n---\n# CC Agent"), 0o644) //nolint:errcheck
@@ -632,12 +598,12 @@ func TestAgentRuntimeForTeam(t *testing.T) {
 	}{
 		{
 			"per-agent runtime override",
-			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {AgentRuntime: "claude-code"}}},
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {DefaultRuntime: "claude-code"}}},
 			dir, "codex-agent", runtime.Codex,
 		},
 		{
 			"team fallback when no per-agent override",
-			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {AgentRuntime: "codex"}}},
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {DefaultRuntime: "codex"}}},
 			dir, "cc-agent", runtime.Codex,
 		},
 		{
@@ -652,15 +618,15 @@ func TestAgentRuntimeForTeam(t *testing.T) {
 		},
 		{
 			"teamPath empty string falls back to team runtime",
-			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {AgentRuntime: "codex"}}},
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {DefaultRuntime: "codex"}}},
 			"", "cc-agent", runtime.Codex,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.cfg.AgentRuntimeForTeam("team", tt.teamPath, tt.agentName)
+			got := tt.cfg.RuntimeForAgent("team", tt.teamPath, tt.agentName)
 			if got != tt.want {
-				t.Errorf("AgentRuntimeForTeam() = %v, want %v", got, tt.want)
+				t.Errorf("RuntimeForAgent() = %v, want %v", got, tt.want)
 			}
 		})
 	}

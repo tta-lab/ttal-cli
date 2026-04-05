@@ -235,13 +235,6 @@ func checkConfig(fix bool) Section {
 		return section
 	}
 
-	// Check for deprecated default_runtime before loading
-	rawContent, _ := os.ReadFile(cfgPath)
-	if strings.Contains(string(rawContent), "default_runtime") {
-		section.add(LevelError, "default_runtime",
-			"deprecated: rename default_runtime to worker_runtime (and add agent_runtime if needed)")
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		section.add(LevelError, "config", fmt.Sprintf("invalid config: %v", err))
@@ -252,6 +245,7 @@ func checkConfig(fix bool) Section {
 
 	// Warn if [prompts] section still exists in config.toml (moved to prompts.toml).
 	// Check line-by-line to avoid false positives from comments or string values.
+	rawContent, _ := os.ReadFile(cfgPath)
 	for _, line := range strings.Split(string(rawContent), "\n") {
 		if strings.TrimSpace(line) == "[prompts]" {
 			section.add(LevelWarn, "prompts_migration",

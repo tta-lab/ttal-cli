@@ -11,6 +11,7 @@ ttal is runtime-agnostic. It manages agent sessions via tmux and doesn't care wh
 |---------|--------|-------------|
 | **Claude Code** | Stable | Anthropic's CLI. Fully supported, battle-tested. |
 | **Codex CLI** | Experimental | OpenAI's coding CLI. Adapter exists but not battle-tested. |
+| **Lenos** | Experimental | Lightweight worker runtime via `lenos` binary. |
 
 ## Configuration
 
@@ -20,18 +21,18 @@ Set the default runtime for all agents and workers in a team:
 
 ```toml
 [teams.default]
-agent_runtime = "claude-code"
-worker_runtime = "claude-code"
+default_runtime = "claude-code"
 ```
 
-### Per-task override via tags
+### Per-agent override
 
-Task tags can trigger runtime overrides:
+Set `default_runtime` in the agent's `CLAUDE.md` frontmatter to override the team default for that agent:
 
-- `+cx` → Codex CLI
-
-```bash
-task add "Implement feature X" +cx    # Worker will use Codex CLI
+```yaml
+---
+name: coder
+default_runtime: lenos
+---
 ```
 
 ## How the adapter works
@@ -53,7 +54,7 @@ ttal (coordination layer)
     ↓
 Coding harness (optional — e.g., oh-my-claudecode)
     ↓
-Runtime (Claude Code / Codex CLI)
+Runtime (Claude Code / Codex CLI / Lenos)
 ```
 
 ttal operates at the coordination layer. Coding harnesses like oh-my-claudecode operate at the coding layer — they make individual agents code better within a session. The two layers are complementary, not competitive.

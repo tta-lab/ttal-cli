@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/promptrender"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/temenos"
@@ -105,7 +106,11 @@ func spawnWorker(cfg SpawnConfig) error {
 	// Resolve agent name early — needed for both temenos registration and launch.
 	agentName := resolveAgentName(cfg, task)
 
-	mcpPath := registerWorkerSession(agentName, task.UUID, worktreeRoot)
+	// Skip temenos session registration for lenos workers (lenos handles its own sandbox).
+	var mcpPath string
+	if cfg.Runtime != runtime.Lenos {
+		mcpPath = registerWorkerSession(agentName, task.UUID, worktreeRoot)
+	}
 
 	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpPath)
 }
@@ -204,12 +209,7 @@ func resolveAgentName(cfg SpawnConfig, task *taskwarrior.Task) string {
 }
 
 // resolveRuntime determines the worker runtime from config, defaulting to ClaudeCode.
-func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime {
-	if rt == "" || rt == runtime.ClaudeCode {
-		if task.HasTag("codex") || task.HasTag("cx") {
-			return runtime.Codex
-		}
-	}
+func resolveRuntime(rt runtime.Runtime, _ *taskwarrior.Task) runtime.Runtime {
 	if rt != "" {
 		return rt
 	}
@@ -218,7 +218,7 @@ func resolveRuntime(rt runtime.Runtime, task *taskwarrior.Task) runtime.Runtime 
 		fmt.Fprintf(os.Stderr, "warning: failed to load config: %v\n", err)
 	}
 	if shellCfg != nil {
-		return shellCfg.WorkerRuntime()
+		return shellCfg.DefaultRuntime()
 	}
 	return runtime.ClaudeCode
 }
@@ -250,6 +250,67 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 
 	fmt.Println("Working in main directory (no worktree)")
 	return project, detectBranch(project), nil
+}
+
+// buildRuntimeShellCommand builds the shell command for the given runtime.
+func buildRuntimeShellCommand(
+	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, task *taskwarrior.Task,
+	agentName string, envParts []string, mcpConfigPath string,
+) (string, error) {
+	switch cfg.Runtime {
+	case runtime.Codex:
+		taskFile, err := writeTaskFile(task, cfg, shellCfg)
+		if err != nil {
+			return "", err
+		}
+		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, taskFile)
+		if err != nil {
+			return "", err
+		}
+		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
+
+	case runtime.Lenos:
+		teamName := shellCfg.TeamName()
+		if teamName == "" {
+			teamName = config.DefaultTeamName
+		}
+		contextFile, err := writeContextFile(task, agentName, teamName, shellCfg)
+		if err != nil {
+			return "", fmt.Errorf("write lenos context file: %w", err)
+		}
+		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, "Begin implementation.", contextFile)
+		return shellCfg.BuildEnvShellCommand(envParts, lenosCmd), nil
+
+	default:
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
+		return shellCfg.BuildEnvShellCommand(envParts, ccCmd), nil
+	}
+}
+
+// writeContextFile renders the context template to a temp file for lenos workers.
+// Lenos reads the context via --context-file instead of a CC-style SessionStart hook.
+func writeContextFile(task *taskwarrior.Task, agentName, teamName string, cfg *config.Config) (string, error) {
+	tmpl := cfg.Prompt("context")
+	if tmpl == "" {
+		// No context template — return empty path; lenos will start without context
+		return "", nil
+	}
+
+	envVars := []string{
+		"TTAL_AGENT_NAME=" + agentName,
+		"TTAL_JOB_ID=" + task.HexID(),
+	}
+	output := promptrender.RenderTemplate(tmpl, agentName, teamName, envVars)
+
+	f, err := os.CreateTemp("", "lenos-context-*.md")
+	if err != nil {
+		return "", fmt.Errorf("create temp context file: %w", err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(output); err != nil {
+		return "", fmt.Errorf("write context file: %w", err)
+	}
+	return f.Name(), nil
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
@@ -286,23 +347,9 @@ func launchTmuxWorker(
 
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc, agentName)
 
-	var shellCmd string
-
-	if cfg.Runtime == runtime.Codex {
-		// Codex workers stay on the old task-file path until #321
-		taskFile, err := writeTaskFile(task, cfg, shellCfg)
-		if err != nil {
-			return err
-		}
-		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, taskFile)
-		if err != nil {
-			return err
-		}
-		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
-	} else {
-		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
-		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
+	shellCmd, err := buildRuntimeShellCommand(cfg, shellCfg, ttalBin, task, agentName, envParts, mcpConfigPath)
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)

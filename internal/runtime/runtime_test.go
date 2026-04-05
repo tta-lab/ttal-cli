@@ -16,6 +16,7 @@ func TestParse(t *testing.T) {
 		{"cc alias", "cc", ClaudeCode, false},
 		{"codex literal", "codex", Codex, false},
 		{"cx alias", "cx", Codex, false},
+		{"lenos literal", "lenos", Lenos, false},
 		{"unknown errors", "vim", "", true},
 		{"partial match errors", "claude", "", true},
 	}
@@ -42,6 +43,7 @@ func TestValidate(t *testing.T) {
 	}{
 		{"claude-code valid", "claude-code", false},
 		{"codex valid", "codex", false},
+		{"lenos valid", "lenos", false},
 		{"alias not valid for Validate", "cc", true},
 		{"alias not valid for Validate", "cx", true},
 		{"empty not valid for Validate", "", true},
@@ -60,10 +62,10 @@ func TestValidate(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	all := All()
-	if len(all) != 2 {
-		t.Fatalf("All() returned %d runtimes, want 2", len(all))
+	if len(all) != 3 {
+		t.Fatalf("All() returned %d runtimes, want 3", len(all))
 	}
-	want := []Runtime{ClaudeCode, Codex}
+	want := []Runtime{ClaudeCode, Codex, Lenos}
 	for i, w := range want {
 		if all[i] != w {
 			t.Errorf("All()[%d] = %q, want %q", i, all[i], w)
@@ -73,10 +75,10 @@ func TestAll(t *testing.T) {
 
 func TestValues(t *testing.T) {
 	vals := Values()
-	if len(vals) != 2 {
-		t.Fatalf("Values() returned %d strings, want 2", len(vals))
+	if len(vals) != 3 {
+		t.Fatalf("Values() returned %d strings, want 3", len(vals))
 	}
-	want := []string{"claude-code", "codex"}
+	want := []string{"claude-code", "codex", "lenos"}
 	for i, w := range want {
 		if vals[i] != w {
 			t.Errorf("Values()[%d] = %q, want %q", i, vals[i], w)
@@ -90,5 +92,8 @@ func TestIsWorkerRuntime(t *testing.T) {
 	}
 	if got := Codex.IsWorkerRuntime(); got != true {
 		t.Errorf("Codex.IsWorkerRuntime() = %v, want true", got)
+	}
+	if got := Lenos.IsWorkerRuntime(); got != true {
+		t.Errorf("Lenos.IsWorkerRuntime() = %v, want true", got)
 	}
 }

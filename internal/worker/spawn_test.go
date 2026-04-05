@@ -86,45 +86,30 @@ func TestResolveRuntime(t *testing.T) {
 	tests := []struct {
 		name     string
 		configRT runtime.Runtime
-		taskTags []string
 		want     runtime.Runtime
 	}{
 		{
-			name:     "codex tag switches runtime when config empty",
-			configRT: "",
-			taskTags: []string{"codex"},
-			want:     runtime.Codex,
-		},
-		{
-			name:     "cx alias switches runtime",
-			configRT: "",
-			taskTags: []string{"cx"},
-			want:     runtime.Codex,
-		},
-		{
-			name:     "claude-code with codex tag switches to codex",
+			name:     "explicit claude-code",
 			configRT: runtime.ClaudeCode,
-			taskTags: []string{"codex"},
+			want:     runtime.ClaudeCode,
+		},
+		{
+			name:     "explicit codex",
+			configRT: runtime.Codex,
 			want:     runtime.Codex,
 		},
 		{
-			name:     "empty config no tags defaults to claude-code",
-			configRT: "",
-			taskTags: nil,
-			want:     runtime.ClaudeCode,
+			name:     "explicit lenos",
+			configRT: runtime.Lenos,
+			want:     runtime.Lenos,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			task := &taskwarrior.Task{
-				UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-				Description: "test task",
-				Tags:        tt.taskTags,
-			}
-			got := resolveRuntime(tt.configRT, task)
+			got := resolveRuntime(tt.configRT, nil)
 			if got != tt.want {
-				t.Errorf("resolveRuntime(%q, %v) = %q, want %q", tt.configRT, tt.taskTags, got, tt.want)
+				t.Errorf("resolveRuntime(%q) = %q, want %q", tt.configRT, got, tt.want)
 			}
 		})
 	}

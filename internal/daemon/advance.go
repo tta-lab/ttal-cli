@@ -145,7 +145,8 @@ func handlePipelineAdvance(
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
-		err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, team, workerRuntime, teamPath, agentRoles)
+		err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, team, workerRuntime, teamPath, agentRoles,
+			mcfg.Global.Sync.WorkerAgentPaths)
 		if err != nil {
 			log.Printf("[advance] first stage error: %v", err)
 		}
@@ -305,7 +306,8 @@ func processStageAdvance(
 		return
 	}
 
-	err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, team, workerRuntime, teamPath, agentRoles)
+	err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, team, workerRuntime, teamPath, agentRoles,
+		mcfg.Global.Sync.WorkerAgentPaths)
 	if err != nil {
 		log.Printf("[advance] next stage error: %v", err)
 	}
@@ -635,6 +637,21 @@ func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
 	return true
 }
 
+// resolveWorkerAgentRuntime resolves the runtime for a worker stage.
+// It checks per-agent frontmatter override, then falls back to the team default.
+func resolveWorkerAgentRuntime(workerRT, teamPath string, workerAgentPaths []string, assignee string) string {
+	searchPaths := workerAgentPaths
+	if len(searchPaths) == 0 {
+		searchPaths = []string{teamPath}
+	}
+	if info, err := agentfs.GetFromPaths(searchPaths, assignee); err == nil && info.DefaultRuntime != "" {
+		if rt, err := runtime.Parse(info.DefaultRuntime); err == nil {
+			return string(rt)
+		}
+	}
+	return workerRT
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -644,8 +661,12 @@ func advanceToStage(
 	callerAgent, team, workerRuntime string,
 	teamPath string,
 	agentRoles map[string]string,
+	workerAgentPaths []string,
 ) error {
 	if isWorkerStage(stage, agentRoles) {
+		resolvedRT := resolveWorkerAgentRuntime(
+			workerRuntime, teamPath, workerAgentPaths, stage.Assignee)
+
 		// Worker stage: start task and spawn.
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
@@ -677,7 +698,7 @@ func advanceToStage(
 			Project:   projectPath,
 			TaskUUID:  task.UUID,
 			Worktree:  true,
-			Runtime:   runtime.Runtime(workerRuntime), //nolint:unconvert
+			Runtime:   runtime.Runtime(resolvedRT), //nolint:unconvert
 			Spawner:   spawner,
 			AgentName: stage.Assignee,
 		}
@@ -719,7 +740,7 @@ func advanceToStage(
 	}
 
 	cfg := mcfg.Global
-	agentRT := cfg.AgentRuntimeFor(agent.Name)
+	agentRT := cfg.DefaultRuntime()
 	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
 	rolePrompt = pipeline.PrependSkills(rolePrompt, stage.Skills, agentRT)
 

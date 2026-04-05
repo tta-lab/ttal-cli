@@ -93,9 +93,7 @@ type Config struct {
 	resolvedTaskRC           string
 	resolvedTaskData         string
 	resolvedTeamName         string
-	resolvedAgentRuntime     string
-	resolvedWorkerRuntime    string
-	resolvedReviewerRuntime  string
+	resolvedDefaultRuntime   string
 	resolvedMergeMode        string
 	resolvedTeamPath         string
 	resolvedProjectsPath     string
@@ -121,12 +119,8 @@ type TeamConfig struct {
 	LifecycleAgent string `toml:"lifecycle_agent"` //nolint:lll
 	// Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)
 	NotificationTokenEnv string `toml:"notification_token_env"` //nolint:lll
-	// Runtime for agent sessions
-	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
-	// Runtime for spawned workers
-	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
-	// Runtime for spawned reviewers (falls back to worker_runtime)
-	ReviewerRuntime string `toml:"reviewer_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
+	// Default runtime for all agents and workers in this team
+	DefaultRuntime string `toml:"default_runtime" jsonschema:"enum=claude-code,enum=codex,enum=lenos"` //nolint:lll
 	// PR merge mode override for this team
 	MergeMode string `toml:"merge_mode" jsonschema:"enum=auto,enum=manual"` //nolint:lll
 	// Comment sync mode: "none" (DB only) or "pr" (mirror to PR). Default: "pr".
@@ -152,8 +146,8 @@ type TeamConfig struct {
 
 // SyncConfig holds paths for subagent and rule deployment.
 type SyncConfig struct {
-	// Directories for subagent definitions (team agents deployed to ~/.claude/agents/)
-	SubagentsPaths []string `toml:"subagents_paths"`
+	// Directories for worker agent definitions (deployed to ~/.claude/agents/)
+	WorkerAgentPaths []string `toml:"worker_agent_paths"`
 	// Directories for RULE.md files
 	RulesPaths []string `toml:"rules_paths"`
 	// Path to global CLAUDE.md prompt
@@ -161,6 +155,11 @@ type SyncConfig struct {
 	// CC plugin marketplace source — local path or git URL.
 	// Default: resolved from project store ("ttal" alias).
 	MarketplaceSource string `toml:"marketplace_source"`
+}
+
+// WorkerAgentPaths returns the configured worker agent paths from the sync config.
+func (c *Config) WorkerAgentPaths() []string {
+	return c.Sync.WorkerAgentPaths
 }
 
 // VoiceConfig holds voice-related settings resolved from the active team.
@@ -237,9 +236,12 @@ func AgentBotToken(agentName string) string {
 	return os.Getenv(key)
 }
 
-// AgentRuntimeFor returns the team-level agent runtime.
-func (c *Config) AgentRuntimeFor(_ string) runtime.Runtime {
-	return c.AgentRuntime()
+// DefaultRuntime returns the team's default runtime ("claude-code" if unset).
+func (c *Config) DefaultRuntime() runtime.Runtime {
+	if c.resolvedDefaultRuntime != "" {
+		return runtime.Runtime(c.resolvedDefaultRuntime)
+	}
+	return runtime.ClaudeCode
 }
 
 // resolveNotificationToken reads the notification bot token from .env.
@@ -311,31 +313,6 @@ func (c *Config) UserName() string {
 		return c.User.Name
 	}
 	return os.Getenv("USER")
-}
-
-// AgentRuntime returns the team's agent runtime ("claude-code" if unset).
-func (c *Config) AgentRuntime() runtime.Runtime {
-	if c.resolvedAgentRuntime != "" {
-		return runtime.Runtime(c.resolvedAgentRuntime)
-	}
-	return runtime.ClaudeCode
-}
-
-// WorkerRuntime returns the team's worker runtime ("claude-code" if unset).
-func (c *Config) WorkerRuntime() runtime.Runtime {
-	if c.resolvedWorkerRuntime != "" {
-		return runtime.Runtime(c.resolvedWorkerRuntime)
-	}
-	return runtime.ClaudeCode
-}
-
-// ReviewerRuntime returns the team's reviewer runtime.
-// Falls back to WorkerRuntime if not set.
-func (c *Config) ReviewerRuntime() runtime.Runtime {
-	if c.resolvedReviewerRuntime != "" {
-		return runtime.Runtime(c.resolvedReviewerRuntime)
-	}
-	return c.WorkerRuntime()
 }
 
 // TaskSyncURL returns the TaskChampion sync server URL for the active team.
@@ -663,12 +640,10 @@ func (c *Config) resolve() error {
 	// Resolve ProjectsPath: colocated with config.toml in ~/.config/ttal/
 	c.resolvedProjectsPath = projectsPathForTeam(teamName)
 
-	c.resolvedAgentRuntime = team.AgentRuntime
-	c.resolvedWorkerRuntime = team.WorkerRuntime
-	c.resolvedReviewerRuntime = team.ReviewerRuntime
+	c.resolvedDefaultRuntime = team.DefaultRuntime
 	c.resolvedTaskSyncURL = team.TaskSyncURL
 
-	if err := validateTeamRuntimes(c.resolvedWorkerRuntime, c.resolvedReviewerRuntime); err != nil {
+	if err := validateDefaultRuntime(team.DefaultRuntime); err != nil {
 		return err
 	}
 
@@ -728,24 +703,13 @@ func resolveEmojiReactions(team TeamConfig) bool {
 	return team.EmojiReactions != nil && *team.EmojiReactions
 }
 
-// validateTeamRuntimes validates worker_runtime and reviewer_runtime for a team config.
-// Combines both checks into a single call to keep callers at low cyclomatic complexity.
-func validateTeamRuntimes(workerRuntime, reviewerRuntime string) error {
-	if err := validateWorkerPlaneRuntime("worker_runtime", "workers", workerRuntime); err != nil {
-		return err
-	}
-	return validateWorkerPlaneRuntime("reviewer_runtime", "reviewers", reviewerRuntime)
-}
-
-// validateWorkerPlaneRuntime returns an error if the given runtime string is set but not
-// valid for worker-plane sessions.
-// role is the human-readable noun for the error message (e.g. "workers", "reviewers").
-func validateWorkerPlaneRuntime(field, role, value string) error {
+// validateDefaultRuntime returns an error if the given runtime string is set but not valid.
+func validateDefaultRuntime(value string) error {
 	if value == "" {
 		return nil
 	}
 	if !runtime.Runtime(value).IsWorkerRuntime() {
-		return fmt.Errorf("%s %q is not valid for %s (use claude-code or codex)", field, value, role)
+		return fmt.Errorf("default_runtime %q is not valid (use claude-code, codex, or lenos)", value)
 	}
 	return nil
 }
@@ -773,9 +737,7 @@ type ResolvedTeam struct {
 	ChatID            string
 	LifecycleAgent    string // Deprecated: use NotificationToken instead
 	NotificationToken string
-	AgentRuntime      string
-	WorkerRuntime     string
-	ReviewerRuntime   string
+	DefaultRuntime    string
 	MergeMode         string
 	CommentSync       string
 	Voice             VoiceConfig
@@ -930,9 +892,7 @@ func resolveTeam(
 		ChatID:            team.ChatID,
 		LifecycleAgent:    team.LifecycleAgent,
 		NotificationToken: resolveNotificationToken(teamName, team.NotificationTokenEnv),
-		AgentRuntime:      team.AgentRuntime,
-		WorkerRuntime:     team.WorkerRuntime,
-		ReviewerRuntime:   team.ReviewerRuntime,
+		DefaultRuntime:    team.DefaultRuntime,
 		MergeMode:         team.MergeMode,
 		CommentSync:       team.CommentSync,
 		Voice: VoiceConfig{
@@ -961,7 +921,7 @@ func resolveTeam(
 		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
 	}
 
-	if err := validateTeamRuntimes(team.WorkerRuntime, team.ReviewerRuntime); err != nil {
+	if err := validateDefaultRuntime(team.DefaultRuntime); err != nil {
 		return nil, err
 	}
 
@@ -1041,14 +1001,14 @@ func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, 
 	return &ta, true
 }
 
-// AgentRuntimeForTeam returns the runtime for a specific agent.
+// RuntimeForAgent returns the runtime for a specific agent.
 // It checks the agent's per-agent frontmatter override first, then falls back to
-// the team-level agent_runtime, then Claude Code.
-func (m *DaemonConfig) AgentRuntimeForTeam(teamName, teamPath, agentName string) runtime.Runtime {
+// the team-level default_runtime, then Claude Code.
+func (m *DaemonConfig) RuntimeForAgent(teamName, teamPath, agentName string) runtime.Runtime {
 	// Check per-agent frontmatter override
 	if teamPath != "" {
-		if info, err := agentfs.Get(teamPath, agentName); err == nil && info.Runtime != "" {
-			return runtime.Runtime(info.Runtime)
+		if info, err := agentfs.Get(teamPath, agentName); err == nil && info.DefaultRuntime != "" {
+			return runtime.Runtime(info.DefaultRuntime)
 		}
 	}
 
@@ -1057,8 +1017,8 @@ func (m *DaemonConfig) AgentRuntimeForTeam(teamName, teamPath, agentName string)
 	if !ok {
 		return runtime.ClaudeCode
 	}
-	if team.AgentRuntime != "" {
-		return runtime.Runtime(team.AgentRuntime)
+	if team.DefaultRuntime != "" {
+		return runtime.Runtime(team.DefaultRuntime)
 	}
 	return runtime.ClaudeCode
 }

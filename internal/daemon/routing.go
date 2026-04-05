@@ -91,7 +91,7 @@ func handleFrom(
 	if !ok {
 		return fmt.Errorf("no frontend configured for team %s (agent %s)", ta.TeamName, req.From)
 	}
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, req.From)
+	rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
@@ -139,7 +139,7 @@ func handleSystemToAgent(
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, req.To)
+	rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, req.To)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: "system", Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
@@ -183,14 +183,14 @@ func handleAgentToAgent(
 		if err != nil {
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
-		rt := mcfg.AgentRuntimeForTeam(senderTeam, senderTeamPath, req.From)
+		rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
 		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
 		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
 			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
 			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 		}, msg)
 	}
-	rt := mcfg.AgentRuntimeForTeam(senderTeam, senderTeamPath, req.From)
+	rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
 		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
@@ -412,7 +412,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 	// Dispatch to codex handler if agent uses Codex runtime
 	if mcfg != nil {
 		if ta, ok := mcfg.FindAgentInTeam(team, req.Agent); ok {
-			rt := mcfg.AgentRuntimeForTeam(team, ta.TeamPath, req.Agent)
+			rt := mcfg.RuntimeForAgent(team, ta.TeamPath, req.Agent)
 			if rt == runtime.Codex {
 				return handleCodexBreathe(req, team, registry)
 			}
