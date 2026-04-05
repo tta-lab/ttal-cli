@@ -180,7 +180,7 @@ func buildHTTPHandlers(
 			return handleTaskComplete(req, mcfg, registry, frontends)
 		},
 		breathe: func(req BreatheRequest) SendResponse {
-			return handleBreathe(shellCfg, req)
+			return handleBreathe(shellCfg, req, mcfg, registry)
 		},
 		askHuman: defaultFE.AskHumanHTTPHandler(),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {

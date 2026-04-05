@@ -63,7 +63,7 @@ func TestHandleBreatheValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := handleBreathe(shellCfg, tt.req)
+			resp := handleBreathe(shellCfg, tt.req, nil, nil)
 			if resp.OK {
 				t.Fatalf("expected OK=false, got OK=true")
 			}
@@ -83,7 +83,7 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 		Team:    "",
 		Agent:   "nonexistent-test-agent-xyz",
 		Handoff: "# Handoff",
-	})
+	}, nil, nil)
 	// Should fail at CWD fallback, not at team validation
 	if resp.OK {
 		t.Fatalf("expected OK=false (no tmux session), got OK=true")

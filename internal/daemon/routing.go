@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -394,7 +395,7 @@ func resolveBreatheSessions(
 // Context injection is handled by the CC SessionStart hook (ttal context) which
 // evaluates breathe_context commands and consumes any pending route file.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
-func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
+func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
 	team := req.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -404,6 +405,14 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 	if req.Handoff == "" {
 		return SendResponse{OK: false, Error: "empty handoff prompt"}
+	}
+
+	// Dispatch to codex handler if agent uses Codex runtime
+	if ta, ok := mcfg.FindAgentInTeam(team, req.Agent); ok {
+		rt := mcfg.AgentRuntimeForTeam(team, ta.TeamPath, req.Agent)
+		if rt == runtime.Codex {
+			return handleCodexBreathe(req, team, registry)
+		}
 	}
 
 	// 1. Resolve session names and CWD.
@@ -517,6 +526,33 @@ func diaryAppendHandoff(agent, handoff string) {
 		return
 	}
 	log.Printf("[breathe] %s: diary handoff persisted", agent)
+}
+
+// handleCodexBreathe performs a breathe restart for a Codex agent.
+// Creates a new thread (auto-injecting identity via developerInstructions) and sends
+// the handoff as the first turn.
+func handleCodexBreathe(req BreatheRequest, team string, registry *adapterRegistry) SendResponse {
+	adapter, ok := registry.get(team, req.Agent)
+	if !ok {
+		return SendResponse{OK: false, Error: "codex adapter not found for " + req.Agent}
+	}
+
+	// Persist handoff to diary
+	diaryAppendHandoff(req.Agent, req.Handoff)
+
+	// Create a new thread — CreateSession auto-injects developerInstructions
+	ctx := context.Background()
+	if _, err := adapter.CreateSession(ctx); err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("codex create session: %v", err)}
+	}
+
+	// Send handoff as first turn in the new thread
+	if err := adapter.SendMessage(ctx, req.Handoff); err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("codex send handoff: %v", err)}
+	}
+
+	log.Printf("[breathe] %s: codex breathe done (new thread, handoff sent)", req.Agent)
+	return SendResponse{OK: true}
 }
 
 // handleStatusUpdate writes agent context status to the status directory.
