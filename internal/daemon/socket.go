@@ -305,6 +305,20 @@ type NotifyRequest struct {
 	Message string `json:"message"`        // pre-rendered notification string
 }
 
+// KubeLogRequest asks the daemon to fetch pod logs via kubectl.
+type KubeLogRequest struct {
+	Alias string `json:"alias"`           // project alias to look up k8s metadata
+	Tail  int    `json:"tail"`            // --tail N (default 100)
+	Since string `json:"since,omitempty"` // --since duration (e.g. "5m")
+}
+
+// KubeLogResponse is the daemon's response for a KubeLog operation.
+type KubeLogResponse struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+	Logs  string `json:"logs,omitempty"`
+}
+
 // httpHandlers groups all handler functions for the HTTP server.
 // Unlike the old socketHandlers, taskComplete receives a typed struct
 // instead of raw bytes — the HTTP layer handles JSON decoding.
@@ -333,6 +347,8 @@ type httpHandlers struct {
 	// Git operations (daemon-proxied for credential isolation)
 	gitPush func(GitPushRequest) GitPushResponse
 	gitTag  func(GitTagRequest) GitTagResponse
+	// Kubernetes log proxy
+	kubeLog func(KubeLogRequest) KubeLogResponse
 	// notify routes a pre-rendered notification string through the frontend abstraction.
 	notify func(team, msg string) error
 }
@@ -368,6 +384,8 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// Git operations (proxied through daemon for credential isolation)
 	r.Post("/git/push", handleHTTPGitPush(handlers))
 	r.Post("/git/tag", handleHTTPGitTag(handlers))
+	// Kubernetes log proxy
+	r.Post("/kube/log", handleHTTPKubeLog(handlers))
 	// Notify routes a pre-rendered message through the frontend abstraction.
 	r.Post("/notify", handleHTTPNotify(handlers))
 	return r
@@ -616,6 +634,23 @@ func handleHTTPGitTag(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
+func handleHTTPKubeLog(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req KubeLogRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				KubeLogResponse{OK: false, Error: "invalid KubeLog JSON: " + err.Error()})
+			return
+		}
+		result := handlers.kubeLog(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
+}
+
 // gitClientTimeout is the total request timeout for git push operations.
 // Larger than prClientTimeout (30s) to accommodate large repos.
 const gitClientTimeout = 90 * time.Second
@@ -688,6 +723,24 @@ func gitCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) str
 		fmt.Sprintf("git push timed out after %s — daemon is running but push is slow", gitClientTimeout),
 		"daemon not running — ttal push requires the daemon",
 	)
+}
+
+// kubeClientTimeout is the total request timeout for kubectl log operations.
+const kubeClientTimeout = 30 * time.Second
+
+// kubeCallTyped wraps daemonCallTyped with kube-specific timeout and error messages.
+// Do NOT reuse gitCallTyped — it has git-specific error text like "git push timed out".
+func kubeCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
+	return daemonCallTyped(path, req, getErr,
+		kubeClientTimeout,
+		fmt.Sprintf("kubectl logs timed out after %s — daemon is running but slow", kubeClientTimeout),
+		"daemon not running — ttal log requires the daemon",
+	)
+}
+
+// KubeLog asks the daemon to fetch pod logs via kubectl.
+func KubeLog(req KubeLogRequest) (KubeLogResponse, error) {
+	return kubeCallTyped("/kube/log", req, func(r KubeLogResponse) string { return r.Error })
 }
 
 // prCall is the generic helper for PR operations returning PRResponse.

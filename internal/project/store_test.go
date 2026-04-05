@@ -13,6 +13,10 @@ const (
 	nameFbTk  = "Toolkit"
 	pathFbAp  = "/path/fb/ap"
 	pathFbTk  = "/path/fb/tk"
+
+	testK8sApp       = "my-api"
+	testK8sNamespace = "apps-dev"
+	testK8sAppOther  = "my-app"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -501,5 +505,137 @@ func TestStoreExists(t *testing.T) {
 	exists, _ = s.Exists("nonexistent")
 	if exists {
 		t.Error("nonexistent project should not exist")
+	}
+}
+
+func TestStoreModifyK8sFields(t *testing.T) {
+	s := newTestStore(t)
+	mustAdd(t, s, "proj", "Project", "/path")
+
+	if err := s.Modify("proj", map[string]string{"k8s_app": testK8sApp, "k8s_namespace": testK8sNamespace}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	p, _ := s.Get("proj")
+	if p.K8sApp != testK8sApp {
+		t.Errorf("K8sApp = %q, want %q", p.K8sApp, testK8sApp)
+	}
+	if p.K8sNamespace != testK8sNamespace {
+		t.Errorf("K8sNamespace = %q, want %q", p.K8sNamespace, testK8sNamespace)
+	}
+}
+
+func TestStoreK8sFieldsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+	s := NewStore(path)
+
+	if err := s.Add("proj", "Project", "/path"); err != nil {
+		t.Fatalf("Add() error: %v", err)
+	}
+	if err := s.Modify("proj", map[string]string{"k8s_app": testK8sApp, "k8s_namespace": testK8sNamespace}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	// Reload via fresh store and verify fields survive
+	s2 := NewStore(path)
+	p, err := s2.Get("proj")
+	if err != nil {
+		t.Fatalf("Get() after reload error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("Get() returned nil after reload")
+	}
+	if p.K8sApp != testK8sApp {
+		t.Errorf("K8sApp = %q, want %q", p.K8sApp, testK8sApp)
+	}
+	if p.K8sNamespace != testK8sNamespace {
+		t.Errorf("K8sNamespace = %q, want %q", p.K8sNamespace, testK8sNamespace)
+	}
+}
+
+func TestStoreModifyPreservesOtherFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+	s := NewStore(path)
+
+	if err := s.Add("proj", "Project", "/path"); err != nil {
+		t.Fatalf("Add() error: %v", err)
+	}
+	// Set github_token_env
+	if err := s.Modify("proj", map[string]string{"github_token_env": "MY_TOKEN"}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	// Modify k8s fields — github_token_env must survive
+	if err := s.Modify("proj", map[string]string{
+		"k8s_app":       testK8sAppOther,
+		"k8s_namespace": testK8sNamespace,
+	}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	s2 := NewStore(path)
+	p, _ := s2.Get("proj")
+	if p.GitHubTokenEnv != "MY_TOKEN" {
+		t.Errorf("GitHubTokenEnv = %q, want %q", p.GitHubTokenEnv, "MY_TOKEN")
+	}
+	if p.K8sApp != testK8sAppOther {
+		t.Errorf("K8sApp = %q, want %q", p.K8sApp, testK8sAppOther)
+	}
+	if p.K8sNamespace != testK8sNamespace {
+		t.Errorf("K8sNamespace = %q, want %q", p.K8sNamespace, testK8sNamespace)
+	}
+
+	// Modify github_token_env — k8s fields must survive
+	if err := s.Modify("proj", map[string]string{"github_token_env": "OTHER_TOKEN"}); err != nil {
+		t.Fatalf("Modify() error: %v", err)
+	}
+
+	s3 := NewStore(path)
+	p, _ = s3.Get("proj")
+	if p.GitHubTokenEnv != "OTHER_TOKEN" {
+		t.Errorf("GitHubTokenEnv = %q, want %q", p.GitHubTokenEnv, "OTHER_TOKEN")
+	}
+	if p.K8sApp != testK8sAppOther {
+		t.Errorf("K8sApp = %q, want %q", p.K8sApp, testK8sAppOther)
+	}
+	if p.K8sNamespace != testK8sNamespace {
+		t.Errorf("K8sNamespace = %q, want %q", p.K8sNamespace, testK8sNamespace)
+	}
+}
+
+func TestStoreFlattenDoesNotTreatK8sFieldsAsSubProject(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects.toml")
+
+	tomlContent := `[proj]
+name = "Project"
+path = "/path/proj"
+k8s_app = "` + testK8sAppOther + `"
+k8s_namespace = "` + testK8sNamespace + `"
+`
+	if err := os.WriteFile(path, []byte(tomlContent), 0o644); err != nil {
+		t.Fatalf("writing test TOML: %v", err)
+	}
+
+	s := NewStore(path)
+	projects, err := s.List(false)
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	// Should be exactly 1 project — k8s_app and k8s_namespace must not be treated as sub-projects
+	if len(projects) != 1 {
+		aliases := make([]string, len(projects))
+		for i, p := range projects {
+			aliases[i] = p.Alias
+		}
+		t.Fatalf("List() returned %d projects, want 1: %v", len(projects), aliases)
+	}
+	if projects[0].K8sApp != "my-app" {
+		t.Errorf("K8sApp = %q, want %q", projects[0].K8sApp, "my-app")
+	}
+	if projects[0].K8sNamespace != "apps-dev" {
+		t.Errorf("K8sNamespace = %q, want %q", projects[0].K8sNamespace, "apps-dev")
 	}
 }

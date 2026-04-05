@@ -14,6 +14,8 @@ type Project struct {
 	Name           string `toml:"name"`
 	Path           string `toml:"path"`
 	GitHubTokenEnv string `toml:"github_token_env"` // optional: env var name for per-project GitHub token
+	K8sApp         string `toml:"k8s_app"`          // optional: Kubernetes app label value (app.kubernetes.io/name)
+	K8sNamespace   string `toml:"k8s_namespace"`    // optional: Kubernetes namespace
 	Alias          string `toml:"-"`                // derived from TOML key
 	Archived       bool   `toml:"-"`                // derived from section
 }
@@ -23,6 +25,8 @@ type projectEntry struct {
 	Name           string `toml:"name"`
 	Path           string `toml:"path"`
 	GitHubTokenEnv string `toml:"github_token_env"`
+	K8sApp         string `toml:"k8s_app"`
+	K8sNamespace   string `toml:"k8s_namespace"`
 }
 
 // projectsFile is the on-disk TOML structure.
@@ -95,7 +99,7 @@ func flattenProjects(out map[string]projectEntry, prefix string, val any) {
 		out[prefix] = parseEntry(val)
 	}
 	for k, v := range m {
-		if k == "name" || k == "path" || k == "github_token_env" {
+		if k == "name" || k == "path" || k == "github_token_env" || k == "k8s_app" || k == "k8s_namespace" {
 			continue
 		}
 		if _, ok := v.(map[string]any); ok {
@@ -118,6 +122,12 @@ func parseEntry(val any) projectEntry {
 	}
 	if gte, ok := m["github_token_env"].(string); ok {
 		e.GitHubTokenEnv = gte
+	}
+	if app, ok := m["k8s_app"].(string); ok {
+		e.K8sApp = app
+	}
+	if ns, ok := m["k8s_namespace"].(string); ok {
+		e.K8sNamespace = ns
 	}
 	return e
 }
@@ -183,6 +193,12 @@ func entryToMap(e projectEntry) map[string]string {
 	if e.GitHubTokenEnv != "" {
 		m["github_token_env"] = e.GitHubTokenEnv
 	}
+	if e.K8sApp != "" {
+		m["k8s_app"] = e.K8sApp
+	}
+	if e.K8sNamespace != "" {
+		m["k8s_namespace"] = e.K8sNamespace
+	}
 	return m
 }
 
@@ -215,6 +231,8 @@ func (s *Store) List(archived bool) ([]Project, error) {
 			Name:           entry.Name,
 			Path:           entry.Path,
 			GitHubTokenEnv: entry.GitHubTokenEnv,
+			K8sApp:         entry.K8sApp,
+			K8sNamespace:   entry.K8sNamespace,
 			Alias:          alias,
 			Archived:       archived,
 		})
@@ -243,6 +261,8 @@ func (s *Store) Get(alias string) (*Project, error) {
 		Name:           entry.Name,
 		Path:           entry.Path,
 		GitHubTokenEnv: entry.GitHubTokenEnv,
+		K8sApp:         entry.K8sApp,
+		K8sNamespace:   entry.K8sNamespace,
 		Alias:          alias,
 	}, nil
 }
@@ -288,8 +308,12 @@ func (s *Store) Modify(alias string, updates map[string]string) error {
 			entry.Path = value
 		case "github_token_env":
 			entry.GitHubTokenEnv = value
+		case "k8s_app":
+			entry.K8sApp = value
+		case "k8s_namespace":
+			entry.K8sNamespace = value
 		default:
-			return fmt.Errorf("unknown field %q (available: alias, name, path, github_token_env)", field)
+			return fmt.Errorf("unknown field %q (available: alias, name, path, github_token_env, k8s_app, k8s_namespace)", field)
 		}
 	}
 
