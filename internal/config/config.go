@@ -122,7 +122,7 @@ type TeamConfig struct {
 	// Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)
 	NotificationTokenEnv string `toml:"notification_token_env"` //nolint:lll
 	// Runtime for agent sessions
-	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code"` //nolint:lll
+	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
 	// Runtime for spawned workers
 	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
 	// Runtime for spawned reviewers (falls back to worker_runtime)

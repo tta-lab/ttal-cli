@@ -49,6 +49,7 @@ type AgentInfo struct {
 	Description string // short role summary
 	Role        string // e.g. designer, researcher — matches [prompts] key
 	Color       string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
+	Runtime     string // per-agent runtime override (e.g. "codex")
 }
 
 // Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
@@ -216,6 +217,7 @@ func applyFrontmatter(info *AgentInfo, fm map[string]string) {
 	info.Description = fm["description"]
 	info.Role = fm["role"]
 	info.Color = fm["color"]
+	info.Runtime = fm["runtime"]
 }
 
 // hasNestedFrontmatter returns true if the content contains indented lines
