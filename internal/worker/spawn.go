@@ -252,6 +252,41 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 	return project, detectBranch(project), nil
 }
 
+// buildRuntimeShellCommand builds the shell command for the given runtime.
+func buildRuntimeShellCommand(
+	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, task *taskwarrior.Task,
+	agentName string, envParts []string, mcpConfigPath string,
+) (string, error) {
+	switch cfg.Runtime {
+	case runtime.Codex:
+		taskFile, err := writeTaskFile(task, cfg, shellCfg)
+		if err != nil {
+			return "", err
+		}
+		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, taskFile)
+		if err != nil {
+			return "", err
+		}
+		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
+
+	case runtime.Lenos:
+		teamName := shellCfg.TeamName()
+		if teamName == "" {
+			teamName = config.DefaultTeamName
+		}
+		contextFile, err := writeContextFile(task, agentName, teamName, shellCfg)
+		if err != nil {
+			return "", fmt.Errorf("write lenos context file: %w", err)
+		}
+		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, "Begin implementation.", contextFile)
+		return shellCfg.BuildEnvShellCommand(envParts, lenosCmd), nil
+
+	default:
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
+		return shellCfg.BuildEnvShellCommand(envParts, ccCmd), nil
+	}
+}
+
 // writeContextFile renders the context template to a temp file for lenos workers.
 // Lenos reads the context via --context-file instead of a CC-style SessionStart hook.
 func writeContextFile(task *taskwarrior.Task, agentName, teamName string, cfg *config.Config) (string, error) {
@@ -312,35 +347,9 @@ func launchTmuxWorker(
 
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc, agentName)
 
-	var shellCmd string
-
-	if cfg.Runtime == runtime.Codex {
-		// Codex workers stay on the old task-file path until #321
-		taskFile, err := writeTaskFile(task, cfg, shellCfg)
-		if err != nil {
-			return err
-		}
-		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, taskFile)
-		if err != nil {
-			return err
-		}
-		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
-	} else if cfg.Runtime == runtime.Lenos {
-		// Lenos: render context to temp file, launch via gatekeeper
-		teamName := shellCfg.TeamName()
-		if teamName == "" {
-			teamName = config.DefaultTeamName
-		}
-		contextFile, err := writeContextFile(task, agentName, teamName, shellCfg)
-		if err != nil {
-			return fmt.Errorf("write lenos context file: %w", err)
-		}
-		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, "Begin implementation.", contextFile)
-		shellCmd = shellCfg.BuildEnvShellCommand(envParts, lenosCmd)
-	} else {
-		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
-		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
+	shellCmd, err := buildRuntimeShellCommand(cfg, shellCfg, ttalBin, task, agentName, envParts, mcpConfigPath)
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)

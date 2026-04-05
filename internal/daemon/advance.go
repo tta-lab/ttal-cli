@@ -637,6 +637,21 @@ func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
 	return true
 }
 
+// resolveWorkerAgentRuntime resolves the runtime for a worker stage.
+// It checks per-agent frontmatter override, then falls back to the team default.
+func resolveWorkerAgentRuntime(workerRT, teamPath string, workerAgentPaths []string, assignee string) string {
+	searchPaths := workerAgentPaths
+	if len(searchPaths) == 0 {
+		searchPaths = []string{teamPath}
+	}
+	if info, err := agentfs.GetFromPaths(searchPaths, assignee); err == nil && info.DefaultRuntime != "" {
+		if rt, err := runtime.Parse(info.DefaultRuntime); err == nil {
+			return string(rt)
+		}
+	}
+	return workerRT
+}
+
 // advanceToStage routes the task to the given stage (agent or worker).
 func advanceToStage(
 	w http.ResponseWriter,
@@ -649,18 +664,8 @@ func advanceToStage(
 	workerAgentPaths []string,
 ) error {
 	if isWorkerStage(stage, agentRoles) {
-		// Resolve per-agent runtime override from agent frontmatter.
-		// Worker agents live in workerAgentPaths; fall back to teamPath for manager agents.
-		resolvedRT := workerRuntime
-		searchPaths := workerAgentPaths
-		if len(searchPaths) == 0 {
-			searchPaths = []string{teamPath}
-		}
-		if info, err := agentfs.GetFromPaths(searchPaths, stage.Assignee); err == nil && info.DefaultRuntime != "" {
-			if rt, parseErr := runtime.Parse(info.DefaultRuntime); parseErr == nil {
-				resolvedRT = string(rt)
-			}
-		}
+		resolvedRT := resolveWorkerAgentRuntime(
+			workerRuntime, teamPath, workerAgentPaths, stage.Assignee)
 
 		// Worker stage: start task and spawn.
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
