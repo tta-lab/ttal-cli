@@ -259,7 +259,10 @@ func dumpState(sessionName, workDir string) string {
 // cleanupWorker kills the tmux session and removes the git worktree + branch.
 // taskHexID is used to delete the worker's MCP config file (~/.ttal/mcps/w-<hexid>.json).
 // annotations are used to extract a temenos session token for cleanup (best-effort).
-func cleanupWorker(sessionName, workDir, branch, gitRoot, taskHexID string, annotations []taskwarrior.Annotation) error {
+func cleanupWorker(
+	sessionName, workDir, branch, gitRoot, taskHexID string,
+	annotations []taskwarrior.Annotation,
+) error {
 	// Delete temenos session — best-effort, 8h TTL handles expiry on error.
 	if token := temenos.ExtractToken(annotations); token != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

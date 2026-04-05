@@ -254,7 +254,9 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 
 // launchTmuxWorker spawns a worker in a tmux session.
 // mcpConfigPath, if non-empty, is the path to the MCP config JSON file passed via --mcp-config.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfigPath string) error {
+func launchTmuxWorker(
+	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfigPath string,
+) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
