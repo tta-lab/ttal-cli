@@ -90,7 +90,7 @@ func handleFrom(
 	if !ok {
 		return fmt.Errorf("no frontend configured for team %s (agent %s)", ta.TeamName, req.From)
 	}
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.From)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
@@ -138,7 +138,7 @@ func handleSystemToAgent(
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.To)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, req.To)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: "system", Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
@@ -173,19 +173,23 @@ func handleAgentToAgent(
 
 	toTA := resolveAgent(mcfg, req.Team, req.To)
 	msg := formatAgentMessage(req.From, req.Message)
+	senderTeamPath := ""
+	if fromTA != nil {
+		senderTeamPath = fromTA.TeamPath
+	}
 	if toTA == nil {
 		session, err := resolveWorker(req.To)
 		if err != nil {
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
-		rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
+		rt := mcfg.AgentRuntimeForTeam(senderTeam, senderTeamPath, req.From)
 		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
 		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
 			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
 			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 		}, msg)
 	}
-	rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
+	rt := mcfg.AgentRuntimeForTeam(senderTeam, senderTeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
 		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,

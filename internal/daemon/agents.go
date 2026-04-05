@@ -49,7 +49,7 @@ func initSingleAdapter(
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, ta.AgentName)
 
 	// CC agents use tmux — spawn session but don't register adapter
 	// (deliverToAgent falls back to tmux send-keys for unregistered agents).
@@ -154,7 +154,7 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}

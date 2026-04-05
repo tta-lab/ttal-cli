@@ -1041,9 +1041,18 @@ func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, 
 	return &ta, true
 }
 
-// AgentRuntimeForTeam returns the team-level agent runtime.
-// Per-agent overrides are no longer supported; configure via team agent_runtime.
-func (m *DaemonConfig) AgentRuntimeForTeam(teamName, _ string) runtime.Runtime {
+// AgentRuntimeForTeam returns the runtime for a specific agent.
+// It checks the agent's per-agent frontmatter override first, then falls back to
+// the team-level agent_runtime, then Claude Code.
+func (m *DaemonConfig) AgentRuntimeForTeam(teamName, teamPath, agentName string) runtime.Runtime {
+	// Check per-agent frontmatter override
+	if teamPath != "" {
+		if info, err := agentfs.Get(teamPath, agentName); err == nil && info.Runtime != "" {
+			return runtime.Runtime(info.Runtime)
+		}
+	}
+
+	// Fall back to team-level runtime
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return runtime.ClaudeCode
