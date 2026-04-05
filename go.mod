@@ -26,7 +26,11 @@ require (
 	modernc.org/sqlite v1.46.1
 )
 
-require github.com/charmbracelet/x/ansi v0.11.6
+require (
+	github.com/charmbracelet/x/ansi v0.11.6
+	github.com/gorilla/websocket v1.5.0
+	github.com/tta-lab/codex-server-go v0.1.0
+)
 
 require (
 	ariga.io/atlas v0.32.1-0.20250325101103-175b25e1c1b9 // indirect
