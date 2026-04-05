@@ -105,9 +105,9 @@ func spawnWorker(cfg SpawnConfig) error {
 	// Resolve agent name early — needed for both temenos registration and launch.
 	agentName := resolveAgentName(cfg, task)
 
-	mcpJSON := registerWorkerSession(agentName, task.UUID, worktreeRoot)
+	mcpPath := registerWorkerSession(agentName, task.UUID, worktreeRoot)
 
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpJSON)
+	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpPath)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -253,8 +253,8 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-// mcpConfig, if non-empty, is passed to claude via --mcp-config.
-func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfig string) error {
+// mcpConfigPath, if non-empty, is the path to the MCP config JSON file passed via --mcp-config.
+func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfigPath string) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
@@ -299,7 +299,7 @@ func launchTmuxWorker(cfg SpawnConfig, task *taskwarrior.Task, sessionName, work
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
 		// Claude Code: direct launch — context injected via CC SessionStart hook (ttal context)
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfig)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
 		shellCmd = shellCfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
