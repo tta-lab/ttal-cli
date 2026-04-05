@@ -263,7 +263,6 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 		protocol.NotifItemMcpToolCallProgress,
 		protocol.NotifThreadCompacted,
 		protocol.NotifThreadNameUpdated,
-		protocol.NotifThreadTokenUsageUpdated,
 		protocol.NotifTurnDiffUpdated,
 		protocol.NotifTurnPlanUpdated,
 		protocol.NotifModelRerouted,
@@ -274,6 +273,25 @@ func (a *Adapter) processNotification(notif rpcResponse) {
 		protocol.NotifAccountRateLimitsUpdated,
 		protocol.NotifTurnStarted:
 		// Streaming deltas, acknowledgements, and informational — no action needed
+
+	case protocol.NotifThreadTokenUsageUpdated:
+		var params protocol.ThreadTokenUsageUpdatedNotification
+		if json.Unmarshal(notif.Params, &params) == nil {
+			totalTokens := float64(params.TokenUsage.Total.TotalTokens)
+			contextWindow := float64(0)
+			if params.TokenUsage.ModelContextWindow != nil {
+				contextWindow = float64(*params.TokenUsage.ModelContextWindow)
+			}
+			if contextWindow > 0 {
+				usedPct := (totalTokens / contextWindow) * 100
+				a.sendEvent(runtime.Event{
+					Type:                runtime.EventStatus,
+					Agent:               a.cfg.AgentName,
+					ContextUsedPct:      usedPct,
+					ContextRemainingPct: 100 - usedPct,
+				})
+			}
+		}
 
 	case protocol.NotifItemCompleted:
 		var params protocol.ItemCompletedNotification
