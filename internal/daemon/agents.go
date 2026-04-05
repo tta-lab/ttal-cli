@@ -14,18 +14,25 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	envpkg "github.com/tta-lab/ttal-cli/internal/env"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	codexRuntime "github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
-// initAdapters starts all agent sessions in parallel via tmux.
-// Config-driven: iterates all teams, no DB required.
-func initAdapters(mcfg *config.DaemonConfig) {
+// initAdapters starts all agent sessions in parallel.
+// CC agents use tmux sessions; Codex agents use the WebSocket adapter.
+func initAdapters(
+	ctx context.Context, mcfg *config.DaemonConfig, registry *adapterRegistry,
+	frontends map[string]frontend.Frontend, msgSvc *message.Service,
+) {
 	ensureLocalAgentTrust(mcfg)
 
 	// Register one shared manager MCP token at daemon start.
@@ -37,22 +44,23 @@ func initAdapters(mcfg *config.DaemonConfig) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ta, mcfg, mcpPath)
+			initSingleAdapter(ctx, ta, mcfg, registry, frontends, msgSvc, mcpPath)
 		}()
 	}
 	wg.Wait()
 }
 
-// initSingleAdapter initializes a single agent's tmux session.
+// initSingleAdapter initializes a single agent's session (CC via tmux, or Codex via adapter).
 func initSingleAdapter(
-	ta config.TeamAgent, mcfg *config.DaemonConfig, mcpPath string,
+	ctx context.Context, ta config.TeamAgent, mcfg *config.DaemonConfig,
+	registry *adapterRegistry, frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, mcpPath string,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, ta.AgentName)
 
-	// CC agents use tmux — spawn session but don't register adapter
-	// (deliverToAgent falls back to tmux send-keys for unregistered agents).
+	// CC agents use tmux
 	if rt == runtime.ClaudeCode {
 		sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
 		if tmux.SessionExists(sessionName) {
@@ -68,6 +76,89 @@ func initSingleAdapter(
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
 		}
 		return
+	}
+
+	// Codex agents use the WebSocket adapter
+	if rt == runtime.Codex {
+		cfg := runtime.AdapterConfig{
+			AgentName: ta.AgentName,
+			WorkDir:   agentPath,
+			Env:       buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg),
+			TeamPath:  ta.TeamPath,
+		}
+		adapter := codexRuntime.New(cfg)
+		if err := adapter.Start(ctx); err != nil {
+			log.Printf("[daemon] failed to start Codex adapter for %s: %v", ta.AgentName, err)
+			return
+		}
+		registry.set(ta.TeamName, ta.AgentName, adapter)
+		initCodexSession(ctx, ta.AgentName, adapter)
+		go bridgeAdapterEvents(ctx, ta.TeamName, ta.AgentName, adapter, mcfg, frontends, msgSvc)
+		log.Printf("[daemon] Codex agent %s running", ta.AgentName)
+		return
+	}
+}
+
+// initCodexSession tries to resume the last thread or creates a new session.
+func initCodexSession(ctx context.Context, agentName string, adapter *codexRuntime.Adapter) {
+	if lastID, err := adapter.ListThreads(ctx); err == nil && lastID != "" {
+		if _, err := adapter.ResumeSession(ctx, lastID); err == nil {
+			log.Printf("[daemon] Codex agent %s resumed thread %s", agentName, lastID)
+			return
+		}
+		log.Printf("[daemon] Codex agent %s failed to resume thread %s: %v", agentName, lastID, err)
+	}
+	if _, err := adapter.CreateSession(ctx); err != nil {
+		log.Printf("[daemon] Codex agent %s failed to create session: %v", agentName, err)
+	}
+}
+
+// bridgeAdapterEvents routes Codex adapter events to frontends and status.
+func bridgeAdapterEvents(
+	ctx context.Context, teamName, agentName string, adapter *codexRuntime.Adapter,
+	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, msgSvc *message.Service,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt, ok := <-adapter.Events():
+			if !ok {
+				return
+			}
+			fe, hasFE := frontends[teamName]
+			switch evt.Type {
+			case runtime.EventText:
+				if hasFE {
+					persistMsg(msgSvc, message.CreateParams{
+						Sender: agentName, Recipient: mcfg.Global.UserName(),
+						Content: evt.Text, Team: teamName, Channel: message.ChannelCLI,
+					})
+					_ = fe.SendText(ctx, agentName, evt.Text)
+				}
+			case runtime.EventError:
+				log.Printf("[daemon] codex error for %s: %s", agentName, evt.Text)
+			case runtime.EventTool:
+				if hasFE {
+					teamCfg := mcfg.Teams[teamName]
+					if teamCfg != nil && teamCfg.EmojiReactions {
+						emoji := telegram.ToolEmoji(evt.ToolName)
+						if emoji != "" {
+							_ = fe.SetReaction(ctx, agentName, emoji)
+						}
+					}
+				}
+			case runtime.EventStatus:
+				if err := status.WriteAgent(teamName, status.AgentStatus{
+					Agent:               agentName,
+					ContextUsedPct:      evt.ContextUsedPct,
+					ContextRemainingPct: evt.ContextRemainingPct,
+					UpdatedAt:           time.Now(),
+				}); err != nil {
+					log.Printf("[daemon] codex status write error for %s: %v", agentName, err)
+				}
+			}
+		}
 	}
 }
 
@@ -154,7 +245,7 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry) {
 func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.AgentName)
+		rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}

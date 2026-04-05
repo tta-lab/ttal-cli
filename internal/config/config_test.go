@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -607,5 +609,59 @@ func TestPromptContext_HasAnyPromptConfigured(t *testing.T) {
 	}
 	if !cfg.hasAnyPromptConfigured() {
 		t.Error("hasAnyPromptConfigured() = false when Context is set, want true")
+	}
+}
+
+func TestAgentRuntimeForTeam(t *testing.T) {
+	// Create temp agent files for testing per-agent override
+	dir := t.TempDir()
+
+	// Agent with codex runtime override
+	os.WriteFile(filepath.Join(dir, "codex-agent.md"),
+		[]byte("---\nname: codex-agent\nruntime: codex\n---\n# CodeX Agent"), 0o644) //nolint:errcheck
+	// Agent with no runtime override
+	os.WriteFile(filepath.Join(dir, "cc-agent.md"),
+		[]byte("---\nname: cc-agent\n---\n# CC Agent"), 0o644) //nolint:errcheck
+
+	tests := []struct {
+		name      string
+		cfg       *DaemonConfig
+		teamPath  string
+		agentName string
+		want      runtime.Runtime
+	}{
+		{
+			"per-agent runtime override",
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {AgentRuntime: "claude-code"}}},
+			dir, "codex-agent", runtime.Codex,
+		},
+		{
+			"team fallback when no per-agent override",
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {AgentRuntime: "codex"}}},
+			dir, "cc-agent", runtime.Codex,
+		},
+		{
+			"ClaudeCode default when no team runtime",
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {}}},
+			dir, "cc-agent", runtime.ClaudeCode,
+		},
+		{
+			"ClaudeCode default when unknown team",
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{}},
+			dir, "cc-agent", runtime.ClaudeCode,
+		},
+		{
+			"teamPath empty string falls back to team runtime",
+			&DaemonConfig{Teams: map[string]*ResolvedTeam{"team": {AgentRuntime: "codex"}}},
+			"", "cc-agent", runtime.Codex,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.cfg.AgentRuntimeForTeam("team", tt.teamPath, tt.agentName)
+			if got != tt.want {
+				t.Errorf("AgentRuntimeForTeam() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

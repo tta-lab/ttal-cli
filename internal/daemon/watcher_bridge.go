@@ -40,14 +40,15 @@ func startWatcher(
 
 	w, err := watcher.New(agentMap,
 		func(teamName, agentName, text string) {
-			if _, ok := mcfg.FindAgentInTeam(teamName, agentName); !ok {
+			ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
+			if !ok {
 				return
 			}
 			fe, ok := frontends[teamName]
 			if !ok {
 				return
 			}
-			rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
+			rt := mcfg.AgentRuntimeForTeam(teamName, ta.TeamPath, agentName)
 			persistMsg(msgSvc, message.CreateParams{
 				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
 				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,

@@ -65,4 +65,5 @@ type AdapterConfig struct {
 	WorkDir   string   // Agent workspace directory
 	Model     string   // Model override
 	Env       []string // Additional env vars (TTAL_AGENT_NAME, TASKRC, etc.)
+	TeamPath  string   // Path to team agent definitions (for identity injection)
 }

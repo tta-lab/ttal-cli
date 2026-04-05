@@ -34,10 +34,13 @@ func deliverToAgent(
 		}
 	}
 	// Fallback: tmux for CC agents, frontend notification for others
-	rt := mcfg.AgentRuntimeForTeam(teamName, agentName)
+	rt := mcfg.AgentRuntimeForTeam(teamName, "", agentName)
 	if rt == runtime.ClaudeCode {
 		session := config.AgentSessionName(teamName, agentName)
 		return tmux.SendKeys(session, agentName, text)
+	}
+	if rt == runtime.Codex {
+		return fmt.Errorf("codex adapter not available for %s (start failed?)", agentName)
 	}
 	// Non-CC agent with no adapter — send via frontend notification
 	fe, ok := frontends[teamName]

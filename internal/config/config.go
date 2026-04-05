@@ -122,7 +122,7 @@ type TeamConfig struct {
 	// Override env var for notification bot token (default: {UPPER_TEAM}_NOTIFICATION_BOT_TOKEN)
 	NotificationTokenEnv string `toml:"notification_token_env"` //nolint:lll
 	// Runtime for agent sessions
-	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code"` //nolint:lll
+	AgentRuntime string `toml:"agent_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
 	// Runtime for spawned workers
 	WorkerRuntime string `toml:"worker_runtime" jsonschema:"enum=claude-code,enum=codex"` //nolint:lll
 	// Runtime for spawned reviewers (falls back to worker_runtime)
@@ -1041,9 +1041,18 @@ func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, 
 	return &ta, true
 }
 
-// AgentRuntimeForTeam returns the team-level agent runtime.
-// Per-agent overrides are no longer supported; configure via team agent_runtime.
-func (m *DaemonConfig) AgentRuntimeForTeam(teamName, _ string) runtime.Runtime {
+// AgentRuntimeForTeam returns the runtime for a specific agent.
+// It checks the agent's per-agent frontmatter override first, then falls back to
+// the team-level agent_runtime, then Claude Code.
+func (m *DaemonConfig) AgentRuntimeForTeam(teamName, teamPath, agentName string) runtime.Runtime {
+	// Check per-agent frontmatter override
+	if teamPath != "" {
+		if info, err := agentfs.Get(teamPath, agentName); err == nil && info.Runtime != "" {
+			return runtime.Runtime(info.Runtime)
+		}
+	}
+
+	// Fall back to team-level runtime
 	team, ok := m.Teams[teamName]
 	if !ok {
 		return runtime.ClaudeCode

@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -90,7 +91,7 @@ func handleFrom(
 	if !ok {
 		return fmt.Errorf("no frontend configured for team %s (agent %s)", ta.TeamName, req.From)
 	}
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.From)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
@@ -138,7 +139,7 @@ func handleSystemToAgent(
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, req.To)
+	rt := mcfg.AgentRuntimeForTeam(ta.TeamName, ta.TeamPath, req.To)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: "system", Recipient: req.To, Content: req.Message,
 		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
@@ -173,19 +174,23 @@ func handleAgentToAgent(
 
 	toTA := resolveAgent(mcfg, req.Team, req.To)
 	msg := formatAgentMessage(req.From, req.Message)
+	senderTeamPath := ""
+	if fromTA != nil {
+		senderTeamPath = fromTA.TeamPath
+	}
 	if toTA == nil {
 		session, err := resolveWorker(req.To)
 		if err != nil {
 			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
 		}
-		rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
+		rt := mcfg.AgentRuntimeForTeam(senderTeam, senderTeamPath, req.From)
 		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
 		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
 			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
 			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 		}, msg)
 	}
-	rt := mcfg.AgentRuntimeForTeam(senderTeam, req.From)
+	rt := mcfg.AgentRuntimeForTeam(senderTeam, senderTeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: req.To, Content: req.Message,
 		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
@@ -386,11 +391,13 @@ func resolveBreatheSessions(
 	}, nil
 }
 
-// handleBreathe restarts an agent's CC session with a handoff prompt.
+// handleBreathe sends a handoff to an agent's CC session via tmux.
 // Context injection is handled by the CC SessionStart hook (ttal context) which
 // evaluates breathe_context commands and consumes any pending route file.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
-func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
+//
+//nolint:gocyclo,lll
+func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
 	team := req.Team
 	if team == "" {
 		team = config.DefaultTeamName
@@ -400,6 +407,16 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	}
 	if req.Handoff == "" {
 		return SendResponse{OK: false, Error: "empty handoff prompt"}
+	}
+
+	// Dispatch to codex handler if agent uses Codex runtime
+	if mcfg != nil {
+		if ta, ok := mcfg.FindAgentInTeam(team, req.Agent); ok {
+			rt := mcfg.AgentRuntimeForTeam(team, ta.TeamPath, req.Agent)
+			if rt == runtime.Codex {
+				return handleCodexBreathe(req, team, registry)
+			}
+		}
 	}
 
 	// 1. Resolve session names and CWD.
@@ -513,6 +530,33 @@ func diaryAppendHandoff(agent, handoff string) {
 		return
 	}
 	log.Printf("[breathe] %s: diary handoff persisted", agent)
+}
+
+// handleCodexBreathe performs a breathe restart for a Codex agent.
+// Creates a new thread (auto-injecting identity via developerInstructions) and sends
+// the handoff as the first turn.
+func handleCodexBreathe(req BreatheRequest, team string, registry *adapterRegistry) SendResponse {
+	adapter, ok := registry.get(team, req.Agent)
+	if !ok {
+		return SendResponse{OK: false, Error: "codex adapter not found for " + req.Agent}
+	}
+
+	// Persist handoff to diary
+	diaryAppendHandoff(req.Agent, req.Handoff)
+
+	// Create a new thread — CreateSession auto-injects developerInstructions
+	ctx := context.Background()
+	if _, err := adapter.CreateSession(ctx); err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("codex create session: %v", err)}
+	}
+
+	// Send handoff as first turn in the new thread
+	if err := adapter.SendMessage(ctx, req.Handoff); err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("codex send handoff: %v", err)}
+	}
+
+	log.Printf("[breathe] %s: codex breathe done (new thread, handoff sent)", req.Agent)
+	return SendResponse{OK: true}
 }
 
 // handleStatusUpdate writes agent context status to the status directory.
