@@ -83,15 +83,9 @@ func Run() error {
 
 	registry := newAdapterRegistry()
 
-	// Run adapter init concurrently with command discovery — they're independent.
+	// Run command discovery concurrently.
 	var startupWg sync.WaitGroup
 	var discovered []BotCommand
-
-	startupWg.Add(1)
-	go func() {
-		defer startupWg.Done()
-		initAdapters(mcfg)
-	}()
 
 	startupWg.Add(1)
 	go func() {
@@ -106,6 +100,9 @@ func Run() error {
 	// fully populated before Start is called below.
 	frontends := buildFrontends(mcfg, registry, msgSvc)
 	registerFrontendCommands(frontends, AllCommands(discovered))
+
+	// Start adapters after frontends are built — codex needs frontends ready for event bridging.
+	initAdapters(ctx, mcfg, registry, frontends, msgSvc)
 
 	// Start all frontends.
 	if err := startFrontends(ctx, done, frontends); err != nil {
