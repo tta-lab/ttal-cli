@@ -150,6 +150,7 @@ func (c *Client) readLoop() {
 	for {
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
+			log.Printf("[codex] read error: %v", err)
 			return
 		}
 

@@ -21,6 +21,16 @@ type process struct {
 
 // start spawns `codex app-server --listen ws://127.0.0.1:<port>`.
 func (p *process) start(ctx context.Context) error {
+	// Allocate a free port if none was configured.
+	if p.port == 0 {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("allocate free port: %w", err)
+		}
+		p.port = ln.Addr().(*net.TCPAddr).Port
+		ln.Close()
+	}
+
 	listenAddr := fmt.Sprintf("ws://127.0.0.1:%d", p.port)
 
 	args := []string{"app-server", "--listen", listenAddr}

@@ -21,6 +21,7 @@ type Adapter struct {
 	mu             sync.Mutex
 	wg             sync.WaitGroup
 	cancel         context.CancelFunc
+	stopOnce       sync.Once
 }
 
 // New creates a Codex adapter.
@@ -43,7 +44,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 		return err
 	}
 
-	url := fmt.Sprintf("ws://127.0.0.1:%d", a.cfg.Port)
+	url := fmt.Sprintf("ws://127.0.0.1:%d", a.proc.port)
 	client, err := NewClient(url)
 	if err != nil {
 		a.proc.stop()
@@ -89,7 +90,7 @@ func (a *Adapter) Stop(_ context.Context) error {
 	}
 	a.wg.Wait()
 	a.proc.stop()
-	close(a.events)
+	a.stopOnce.Do(func() { close(a.events) })
 	return nil
 }
 
