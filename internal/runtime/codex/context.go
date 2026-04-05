@@ -2,6 +2,7 @@ package codex
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,9 @@ func loadRulesContent() string {
 	}
 	results, err := syncer.DeployRules(cfg.Sync.RulesPaths, true)
 	if err != nil || len(results) == 0 {
+		if len(cfg.Sync.RulesPaths) > 0 {
+			log.Printf("[codex] warning: no rules loaded from %v", cfg.Sync.RulesPaths)
+		}
 		return ""
 	}
 	var sb strings.Builder
