@@ -21,6 +21,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notification"
+	"github.com/tta-lab/ttal-cli/internal/project"
 
 	_ "modernc.org/sqlite"
 )
@@ -216,6 +217,11 @@ func buildHTTPHandlers(
 		prGetCIFailureDetails: handlePRGetCIFailureDetails,
 		gitPush:               handleGitPush,
 		gitTag:                handleGitTag,
+		kubeLog: HandleKubeLog(
+			project.NewStore(config.ResolveProjectsPath()),
+			mcfg.Global.Kubernetes.Context,
+			mcfg.Global.Kubernetes.AllowedNamespaces,
+		),
 	}
 }
 

@@ -51,6 +51,14 @@ type FlicknoteConfig struct {
 	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
 }
 
+// KubernetesConfig holds kubectl/k8s settings for ttal log.
+type KubernetesConfig struct {
+	// Context is the kubectl context name to use (e.g. "do-sgp1-guion-k8s")
+	Context string `toml:"context"`
+	// AllowedNamespaces is the list of namespaces agents are allowed to query logs from.
+	AllowedNamespaces []string `toml:"allowed_namespaces"`
+}
+
 // UserConfig holds the human user's identity for the GUI and message queries.
 type UserConfig struct {
 	// Human's display name (e.g. "neil"). Falls back to $USER env var if empty.
@@ -80,6 +88,8 @@ type Config struct {
 	Flicknote FlicknoteConfig `toml:"flicknote"`
 	// Global voice settings (vocabulary, language)
 	Voice VoiceConfig `toml:"voice"`
+	// Kubernetes settings for ttal log proxy
+	Kubernetes KubernetesConfig `toml:"kubernetes"`
 
 	// Active team — falls back to "default" if unset
 	DefaultTeam string `toml:"default_team"` //nolint:lll
