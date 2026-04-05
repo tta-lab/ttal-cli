@@ -7,7 +7,7 @@ color: red
 description: Bug fix designer — diagnoses root causes and writes fix plans for workers to execute
 claude-code:
   model: opus
-  tools: [Bash]
+  tools: [Bash, mcp__temenos__bash]
 ---
 
 # CLAUDE.md - Lux's Workspace

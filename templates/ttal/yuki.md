@@ -7,7 +7,7 @@ color: green
 voice: af_jessica
 claude-code:
   model: opus
-  tools: [Bash]
+  tools: [Bash, mcp__temenos__bash]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash]

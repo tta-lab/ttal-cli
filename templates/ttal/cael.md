@@ -7,7 +7,7 @@ color: yellow
 voice: am_adam
 claude-code:
   model: sonnet
-  tools: [Bash]
+  tools: [Bash, mcp__temenos__bash]
 ---
 
 # CLAUDE.md - Cael's Workspace

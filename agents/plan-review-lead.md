@@ -16,7 +16,7 @@ description: |-
   assistant: "I'll use the plan-review-lead agent to check the plan."
   </example>
 model: sonnet
-tools: [Bash]
+tools: [Bash, mcp__temenos__bash]
 ---
 
 # Plan Review Lead
