@@ -220,7 +220,7 @@ func TestBuildCCRestartCmdAgentInterpolation(t *testing.T) {
 
 func TestBuildCCRestartCmdWithMCPConfig(t *testing.T) {
 	// Callers pass a file path, not raw JSON.
-	mcpPath := "/Users/neil/.ttal/mcps/m-kestrel.json"
+	mcpPath := "/tmp/mcps/m.json"
 	cmd := buildCCRestartCmd("session-abc", "sonnet", "kestrel", "", mcpPath)
 	if !strings.Contains(cmd, "--mcp-config "+mcpPath) {
 		t.Errorf("missing --mcp-config in restart cmd: %q", cmd)
@@ -228,7 +228,7 @@ func TestBuildCCRestartCmdWithMCPConfig(t *testing.T) {
 }
 
 func TestBuildCCFreshCmdWithMCPConfig(t *testing.T) {
-	mcpPath := "/Users/neil/.ttal/mcps/m-kestrel.json"
+	mcpPath := "/tmp/mcps/m.json"
 	cmd := buildCCFreshCmd("sonnet", "kestrel", "", mcpPath)
 	if !strings.Contains(cmd, "--mcp-config "+mcpPath) {
 		t.Errorf("missing --mcp-config in fresh cmd: %q", cmd)

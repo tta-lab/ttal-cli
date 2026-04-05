@@ -40,7 +40,7 @@ func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
 
 func TestBuildCCDirectCommand_MCPConfig(t *testing.T) {
 	// Callers now pass a file path, not raw JSON.
-	mcpPath := "/Users/neil/.ttal/mcps/w-abc12345.json"
+	mcpPath := "/tmp/mcps/w-abc12345.json"
 	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin.", mcpPath)
 	if !strings.Contains(got, "--mcp-config "+mcpPath) {
 		t.Errorf("missing --mcp-config: %q", got)
