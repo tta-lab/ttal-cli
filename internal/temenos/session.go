@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,9 +124,11 @@ func mcpConfigDir() (string, error) {
 
 // ManagerMCPConfigPath returns the path to the shared manager MCP config file.
 // All manager agents share this file — token lifecycle is tied to the daemon, not individual agents.
+// Returns empty string (logged as warning) if the home directory cannot be determined.
 func ManagerMCPConfigPath() string {
 	dir, err := mcpConfigDir()
 	if err != nil {
+		log.Printf("[temenos] warning: cannot resolve MCP config dir: %v", err)
 		return ""
 	}
 	return filepath.Join(dir, "m.json")
@@ -170,10 +173,15 @@ func WriteMCPConfigFile(name, mcpJSON string) (string, error) {
 }
 
 // DeleteMCPConfigFile removes ~/.ttal/mcps/<name>.json. Best-effort: no error returned.
+// Logs a warning for unexpected errors (not-exist is silently ignored).
 func DeleteMCPConfigFile(name string) {
 	dir, err := mcpConfigDir()
 	if err != nil {
+		log.Printf("[temenos] warning: cannot resolve MCP config dir for delete: %v", err)
 		return
 	}
-	_ = os.Remove(filepath.Join(dir, name+".json"))
+	path := filepath.Join(dir, name+".json")
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		log.Printf("[temenos] warning: failed to delete MCP config %s: %v", path, err)
+	}
 }

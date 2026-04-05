@@ -456,6 +456,9 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest) SendResponse {
 	// Session dead or /clear failed — full restart.
 	// Reuse the shared manager MCP config file — token lifecycle is daemon-scoped, not per-breathe.
 	mcpPath := temenos.ManagerMCPConfigPath()
+	if mcpPath == "" {
+		log.Printf("[breathe] %s: MCP config path unavailable — restarting without MCP access", req.Agent)
+	}
 	ccCmd := buildCCFreshCmd(am.model, req.Agent, "", mcpPath)
 	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
 	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
