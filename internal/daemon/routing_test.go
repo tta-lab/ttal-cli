@@ -1,10 +1,12 @@
 package daemon
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func TestIsValidHexPrefix(t *testing.T) {
@@ -245,5 +247,119 @@ func TestHandleToRejectsBareHex(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "job_id:agent_name") {
 		t.Errorf("error = %q, want substring %q", err.Error(), "job_id:agent_name")
+	}
+}
+
+// TestResolveManagerWindow tests the resolveManagerWindow function with injected mocks.
+const testJobIDA = "e9d4b7c1"
+
+func TestResolveManagerWindow(t *testing.T) {
+	mcfg := &config.DaemonConfig{Global: &config.Config{}}
+
+	origExport := exportTaskByHexIDFn
+	origWindowExists := windowExistsFn
+	origBuildAgentRoles := buildAgentRolesFn
+	t.Cleanup(func() {
+		exportTaskByHexIDFn = origExport
+		windowExistsFn = origWindowExists
+		buildAgentRolesFn = origBuildAgentRoles
+	})
+
+	taskWithOwner := &taskwarrior.Task{
+		UUID:        "e9d4b7c1aabbccddeeff001122334455",
+		Description: "test task",
+		Tags:        []string{"feature", "yuki"},
+		Status:      "pending",
+	}
+	taskWithoutOwner := &taskwarrior.Task{
+		UUID:        "e9d4b7c1aabbccddeeff001122334466",
+		Description: "test task no owner",
+		Tags:        []string{"feature"},
+		Status:      "pending",
+	}
+
+	// Inject a buildAgentRolesFn that returns a known role map.
+	injectRoles := func(roles map[string]string) {
+		buildAgentRolesFn = func(teamPath string) map[string]string { return roles }
+	}
+	injectRoles(map[string]string{"yuki": "manager", "kestrel": "fixer"})
+
+	t.Run("returns correct session when task has agent tag and window exists", func(t *testing.T) {
+		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+			if hexID == testJobIDA {
+				return taskWithOwner, nil
+			}
+			return nil, errors.New("not found")
+		}
+		// TeamName() returns "" for an empty Config, so session is "ttal--yuki".
+		windowExistsFn = func(session, window string) bool {
+			return session == "ttal--yuki" && window == "coder"
+		}
+
+		session, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if session != "ttal--yuki" {
+			t.Errorf("session = %q, want %q", session, "ttal--yuki")
+		}
+	})
+
+	t.Run("returns error when no agent tag on task", func(t *testing.T) {
+		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+			if hexID == testJobIDA {
+				return taskWithoutOwner, nil
+			}
+			return nil, errors.New("not found")
+		}
+
+		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "no owner agent tag") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "no owner agent tag")
+		}
+	})
+
+	t.Run("returns error when window not found in session", func(t *testing.T) {
+		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+			if hexID == testJobIDA {
+				return taskWithOwner, nil
+			}
+			return nil, errors.New("not found")
+		}
+		windowExistsFn = func(session, window string) bool {
+			return false // window does not exist
+		}
+
+		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "window") || !strings.Contains(err.Error(), "not found") {
+			t.Errorf("error = %q, want substring containing 'window' and 'not found'", err.Error())
+		}
+	})
+}
+
+// TestResolveManagerWindowTaskLookupError verifies that resolveManagerWindow propagates
+// task lookup errors from the injected exportTaskByHexIDFn.
+func TestResolveManagerWindowTaskLookupError(t *testing.T) {
+	mcfg := &config.DaemonConfig{Global: &config.Config{}}
+
+	origExport := exportTaskByHexIDFn
+	t.Cleanup(func() { exportTaskByHexIDFn = origExport })
+
+	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+		return nil, errors.New("task not found")
+	}
+
+	_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "task lookup") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "task lookup")
 	}
 }

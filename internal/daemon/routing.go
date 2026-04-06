@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
@@ -96,15 +97,20 @@ func handleTo(
 	if ta == nil {
 		// Try parseWorkerAddress for job_id:agent_name format
 		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
-			session, err := resolveWorker(jobID)
+			session, dispatched, err := dispatchToWorkerOrManager(
+				mcfg, jobID, agentName, msgSvc, mcfg.Global.UserName(), req.Team, req.To, req.Message, nil)
 			if err != nil {
-				return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+				return err
 			}
-			log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
-			return dispatchToWorker(msgSvc, session, agentName, message.CreateParams{
-				Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
-				Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
-			}, req.Message)
+			if dispatched {
+				isWorker := strings.HasPrefix(session, "w-")
+				if isWorker {
+					log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
+				} else {
+					log.Printf("[daemon] human-to-manager-window: %s → %s:%s", mcfg.Global.UserName(), req.To, session)
+				}
+				return nil
+			}
 		}
 		// Bare hex UUID — reject with helpful error
 		if isBareWorkerHex(req.To) {
@@ -177,6 +183,39 @@ func bareHexError(got string) error {
 	return fmt.Errorf("bare worker UUID not supported, use job_id:agent_name format (e.g. %s)", example)
 }
 
+// dispatchToWorkerOrManager attempts to dispatch a message to a worker session identified by
+// jobID, falling back to the task owner's manager session window. Returns (session, true, nil) on
+// worker dispatch, (session, true, nil) on manager fallback dispatch, ( "", false, nil) if the
+// address does not match a worker format, or ("", false, error) on failure.
+// The caller logs the dispatch. This reduces cyclomatic complexity in callers that need both paths.
+func dispatchToWorkerOrManager(
+	mcfg *config.DaemonConfig,
+	jobID, agentName string,
+	msgSvc *message.Service, sender, team, recipient string,
+	msg string, rt *runtime.Runtime,
+) (string, bool, error) {
+	session, err := resolveWorker(jobID)
+	if err == nil {
+		return session, true, dispatchToWorker(msgSvc, session, agentName, message.CreateParams{
+			Sender: sender, Recipient: "worker:" + recipient, Content: msg,
+			Team: team, Channel: message.ChannelCLI, Runtime: rt,
+		}, msg)
+	}
+	// Fall back to manager window — subagent results return to the task
+	// owner's session after the worker session is gone. dispatchToWorker is
+	// generic tmux send-keys delivery and works for both worker sessions
+	// and manager windows.
+	fallback, mgrErr := resolveManagerWindow(jobID, agentName, mcfg)
+	if mgrErr != nil {
+		return "", false, fmt.Errorf("unknown agent or worker %s: %w", recipient, err)
+	}
+	return fallback, true, dispatchToWorker(msgSvc, fallback, agentName, message.CreateParams{
+		Sender: sender, Recipient: "worker:" + recipient, Content: msg,
+		Team: team, Channel: message.ChannelCLI, Runtime: rt,
+	}, msg)
+}
+
+//nolint:gocyclo // handleAgentToAgent is a message routing dispatcher with inherently many branches
 func handleAgentToAgent(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
@@ -215,16 +254,23 @@ func handleAgentToAgent(
 	if toTA == nil {
 		// Try parseWorkerAddress for To: job_id:agent_name
 		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
-			session, err := resolveWorker(jobID)
-			if err != nil {
-				return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
-			}
 			rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
-			log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
-			return dispatchToWorker(msgSvc, session, agentName, message.CreateParams{
-				Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
-				Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
-			}, msg)
+			session, dispatched, err := dispatchToWorkerOrManager(
+				mcfg, jobID, agentName, msgSvc, req.From, senderTeam, req.To, msg, &rt)
+			if err != nil {
+				return err
+			}
+			if dispatched {
+				// Determine which dispatch path was taken by checking if the session
+				// matches the worker prefix (w-<hex8>). Manager sessions don't match.
+				isWorker := strings.HasPrefix(session, "w-")
+				if isWorker {
+					log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
+				} else {
+					log.Printf("[daemon] agent-to-manager-window: %s → %s:%s", req.From, req.To, session)
+				}
+				return nil
+			}
 		}
 		// Bare hex UUID — reject with helpful error
 		if isBareWorkerHex(req.To) {
@@ -297,6 +343,41 @@ func resolveWorker(idPrefix string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no worker session for %s", idPrefix)
+}
+
+// buildAgentRolesFn is the function used to discover agent roles from the team path.
+// Package-level var for test injection.
+var buildAgentRolesFn = buildAgentRoles
+
+// exportTaskByHexIDFn is the function used to look up a task by hex UUID.
+// Package-level var for test injection.
+var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
+
+// windowExistsFn is the function used to check if a tmux window exists.
+// Package-level var for test injection.
+var windowExistsFn = tmux.WindowExists
+
+// resolveManagerWindow resolves the manager session window for a task's owner agent.
+// It queries taskwarrior for the task by hex ID, finds the owner agent from task tags,
+// resolves the manager session, and verifies the window exists.
+// Returns (sessionName, nil) on success or ("", error) on failure.
+func resolveManagerWindow(jobID, windowName string, mcfg *config.DaemonConfig) (string, error) {
+	team := mcfg.Global.TeamName()
+	teamPath := mcfg.Global.TeamPath()
+	task, err := exportTaskByHexIDFn(jobID, "")
+	if err != nil {
+		return "", fmt.Errorf("resolve manager window: task lookup: %w", err)
+	}
+	agentRoles := buildAgentRolesFn(teamPath)
+	ownerAgent := findAgentTag(task.Tags, agentRoles)
+	if ownerAgent == "" {
+		return "", fmt.Errorf("resolve manager window: no owner agent tag on task %s", jobID)
+	}
+	session := config.AgentSessionName(team, ownerAgent)
+	if !windowExistsFn(session, windowName) {
+		return "", fmt.Errorf("resolve manager window: window %s not found in session %s", windowName, session)
+	}
+	return session, nil
 }
 
 // dispatchToWorker persists a message and delivers it to a worker tmux session.
