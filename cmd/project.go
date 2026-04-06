@@ -321,8 +321,11 @@ Example:
 		}
 
 		repoURL := repoInfo.WebURL()
+		if err := open.Browser(repoURL); err != nil {
+			return fmt.Errorf("open browser for %s: %w", repoURL, err)
+		}
 		fmt.Printf("Opening %s/%s: %s\n", repoInfo.Owner, repoInfo.Repo, repoURL)
-		return open.Browser(repoURL)
+		return nil
 	},
 }
 

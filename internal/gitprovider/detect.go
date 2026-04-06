@@ -20,36 +20,29 @@ type RepoInfo struct {
 	DefaultBranch string
 }
 
-// PRURL constructs the full web URL for a pull request.
-func (r *RepoInfo) PRURL(prID string) string {
-	var baseURL, prSegment string
-	switch r.Provider {
-	case ProviderGitHub:
-		baseURL = "https://github.com"
-		prSegment = "pull"
-	default:
-		baseURL = os.Getenv("FORGEJO_URL")
-		if baseURL == "" {
-			baseURL = "https://" + r.Host
-		}
-		prSegment = "pulls"
+// baseWebURL returns the base web URL for the hosting provider.
+func (r *RepoInfo) baseWebURL() string {
+	if r.Provider == ProviderGitHub {
+		return "https://github.com"
 	}
-	return fmt.Sprintf("%s/%s/%s/%s/%s", baseURL, r.Owner, r.Repo, prSegment, prID)
+	if url := os.Getenv("FORGEJO_URL"); url != "" {
+		return url
+	}
+	return "https://" + r.Host
 }
 
 // WebURL constructs the base web URL for the repository.
 func (r *RepoInfo) WebURL() string {
-	var baseURL string
-	switch r.Provider {
-	case ProviderGitHub:
-		baseURL = "https://github.com"
-	default:
-		baseURL = os.Getenv("FORGEJO_URL")
-		if baseURL == "" {
-			baseURL = "https://" + r.Host
-		}
+	return fmt.Sprintf("%s/%s/%s", r.baseWebURL(), r.Owner, r.Repo)
+}
+
+// PRURL constructs the full web URL for a pull request.
+func (r *RepoInfo) PRURL(prID string) string {
+	prSegment := "pull"
+	if r.Provider != ProviderGitHub {
+		prSegment = "pulls"
 	}
-	return fmt.Sprintf("%s/%s/%s", baseURL, r.Owner, r.Repo)
+	return fmt.Sprintf("%s/%s/%s/%s/%s", r.baseWebURL(), r.Owner, r.Repo, prSegment, prID)
 }
 
 func DetectProvider(workDir string) (*RepoInfo, error) {

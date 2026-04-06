@@ -1,6 +1,7 @@
 package gitprovider
 
 import (
+	"os"
 	"testing"
 )
 
@@ -163,6 +164,55 @@ func TestSplitPath(t *testing.T) {
 			}
 			if owner != tt.wantOwner || repo != tt.wantRepo {
 				t.Errorf("splitPath() = (%v, %v), want (%v, %v)", owner, repo, tt.wantOwner, tt.wantRepo)
+			}
+		})
+	}
+}
+
+func TestWebURL(t *testing.T) {
+	origForgejoURL := os.Getenv("FORGEJO_URL")
+	os.Unsetenv("FORGEJO_URL")
+	defer func() {
+		if origForgejoURL != "" {
+			os.Setenv("FORGEJO_URL", origForgejoURL)
+		} else {
+			os.Unsetenv("FORGEJO_URL")
+		}
+	}()
+
+	tests := []struct {
+		name    string
+		repo    *RepoInfo
+		wantURL string
+	}{
+		{
+			name:    "GitHub",
+			repo:    &RepoInfo{Owner: "tta-lab", Repo: "ttal-cli", Provider: ProviderGitHub, Host: "github.com"},
+			wantURL: "https://github.com/tta-lab/ttal-cli",
+		},
+		{
+			name:    "Forgejo without FORGEJO_URL",
+			repo:    &RepoInfo{Owner: "clawteam", Repo: "myproject", Provider: ProviderForgejo, Host: "git.guion.io"},
+			wantURL: "https://git.guion.io/clawteam/myproject",
+		},
+		{
+			name:    "Forgejo with FORGEJO_URL",
+			repo:    &RepoInfo{Owner: "myorg", Repo: "project", Provider: ProviderForgejo, Host: "git.internal.io"},
+			wantURL: "https://internal.example.com/myorg/project",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "Forgejo with FORGEJO_URL" {
+				os.Setenv("FORGEJO_URL", "https://internal.example.com")
+			} else {
+				os.Unsetenv("FORGEJO_URL")
+			}
+
+			got := tt.repo.WebURL()
+			if got != tt.wantURL {
+				t.Errorf("WebURL() = %v, want %v", got, tt.wantURL)
 			}
 		})
 	}
