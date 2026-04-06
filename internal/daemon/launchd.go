@@ -124,7 +124,7 @@ func buildPlistContent(label, ttalBin, dataDir, home string) string {
 	// Build PATH separately to keep the format string under the line-length limit.
 	daemonPATH := "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:" +
 		home + "/.local/bin:" + home + "/go/bin:" +
-		home + "/.cargo/bin:" + home + "/.qlty/bin"
+		home + "/.cargo/bin"
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
