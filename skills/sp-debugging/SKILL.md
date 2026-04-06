@@ -33,6 +33,8 @@ Before investigating, confirm you've understood the bug description correctly.
 - **This is about the bug DESCRIPTION, not the diagnosis** — Phase 1 does the actual investigation
 - **If not aligned** → revise your understanding and discuss again. Do not proceed to Phase 1 without explicit agreement.
 
+**⛔ STOP here.** End your message after presenting your understanding and question. Do not begin Phase 1 until the human responds and confirms alignment.
+
 ---
 
 ## Phase 1: Root Cause Investigation
@@ -107,6 +109,8 @@ After completing the investigation (Phases 1–3), discuss your findings before 
 - Ask for alignment: 'Does this diagnosis and fix strategy look right before I write the detailed plan?'
 - Keep it lightweight: 2-4 sentences + a question
 - **If not aligned** → revisit diagnosis or adjust strategy and discuss again. Do not proceed to Phase 4 without explicit agreement.
+
+**⛔ STOP here.** End your message after presenting your diagnosis and question. Do not begin Phase 4 until the human responds and confirms alignment.
 
 ---
 
