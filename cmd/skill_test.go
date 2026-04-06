@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -164,16 +165,91 @@ inke = ["breathe"]
 		t.Errorf("expected both yuki and inke in cleaned agents, got %v", agents)
 	}
 
-	// Reload and verify breathe is gone
 	r2, _ := skill.Load(registryPath)
 	_, err = r2.Get("breathe")
 	if err == nil {
 		t.Error("breathe should be removed")
 	}
 
-	// sp-debugging should still be there
 	_, err = r2.Get("sp-debugging")
 	if err != nil {
 		t.Errorf("sp-debugging should still exist: %v", err)
 	}
+}
+
+func TestSkillList_JSON(t *testing.T) {
+	registryPath := withTempRegistry(t, cmdTestTOML)
+	r, err := skill.Load(registryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	skills := r.List()
+	type skillJSON struct {
+		Name        string `json:"name"`
+		FlicknoteID string `json:"flicknote_id"`
+		Category    string `json:"category"`
+		Description string `json:"description"`
+	}
+	output := make([]skillJSON, 0, len(skills))
+	for _, s := range skills {
+		output = append(output, skillJSON{
+			Name:        s.Name,
+			FlicknoteID: s.FlicknoteID,
+			Category:    s.Category,
+			Description: s.Description,
+		})
+	}
+
+	var parsed []map[string]string
+	if err := json.Unmarshal(mustMarshalJSON(output), &parsed); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if len(parsed) != 2 {
+		t.Errorf("expected 2 skills, got %d", len(parsed))
+	}
+
+	expectedKeys := []string{"name", "flicknote_id", "category", "description"}
+	for _, item := range parsed {
+		for _, key := range expectedKeys {
+			if _, ok := item[key]; !ok {
+				t.Errorf("missing key %q in JSON output", key)
+			}
+		}
+	}
+}
+
+func TestSkillGet_JSON_Metadata(t *testing.T) {
+	registryPath := withTempRegistry(t, cmdTestTOML)
+	r, err := skill.Load(registryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := r.Get("breathe")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if s.Name != "breathe" {
+		t.Errorf("expected name breathe, got %s", s.Name)
+	}
+	if s.FlicknoteID != "a1b2c3d4" {
+		t.Errorf("expected flicknote_id a1b2c3d4, got %s", s.FlicknoteID)
+	}
+	if s.Category != "command" {
+		t.Errorf("expected category command, got %s", s.Category)
+	}
+	if s.Description != "Refresh context window" {
+		t.Errorf("expected description 'Refresh context window', got %s", s.Description)
+	}
+}
+
+func mustMarshalJSON(v any) []byte {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

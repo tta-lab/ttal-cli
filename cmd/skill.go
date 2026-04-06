@@ -37,7 +37,8 @@ Example:
   ttal skill list --all`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		listAll, _ := cmd.Flags().GetBool("all")
-		return runSkillList(listAll)
+		jsonOut, _ := cmd.Flags().GetBool("json")
+		return runSkillList(listAll, jsonOut)
 	},
 }
 
@@ -51,7 +52,8 @@ Example:
   ttal skill get sp-debugging`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runSkillGet(args[0])
+		jsonOut, _ := cmd.Flags().GetBool("json")
+		return runSkillGet(args[0], jsonOut)
 	},
 }
 
@@ -155,6 +157,8 @@ func init() {
 	skillCmd.AddCommand(skillImportCmd)
 
 	skillListCmd.Flags().Bool("all", false, "List all skills (ignore agent filter)")
+	skillListCmd.Flags().Bool("json", false, "Output as JSON")
+	skillGetCmd.Flags().Bool("json", false, "Output as JSON")
 	skillFindCmd.Flags().Bool("all", false, "Search all skills (ignore agent filter)")
 	skillAddCmd.Flags().String("file", "", "Path to file to upload to flicknote")
 	skillAddCmd.Flags().String("category", "", "Skill category (command, methodology, reference, tool)")
@@ -192,7 +196,7 @@ func buildSkillTable(headers []string, rows [][]string, dimCols ...int) *table.T
 		Rows(rows...)
 }
 
-func runSkillList(listAll bool) error {
+func runSkillList(listAll, jsonOut bool) error {
 	r, err := loadRegistry()
 	if err != nil {
 		return err
@@ -204,6 +208,30 @@ func runSkillList(listAll bool) error {
 		skills = r.List()
 	} else {
 		skills = r.ListForAgent(agentName)
+	}
+
+	if jsonOut {
+		type skillJSON struct {
+			Name        string `json:"name"`
+			FlicknoteID string `json:"flicknote_id"`
+			Category    string `json:"category"`
+			Description string `json:"description"`
+		}
+		output := make([]skillJSON, 0, len(skills))
+		for _, s := range skills {
+			output = append(output, skillJSON{
+				Name:        s.Name,
+				FlicknoteID: s.FlicknoteID,
+				Category:    s.Category,
+				Description: s.Description,
+			})
+		}
+		data, err := json.Marshal(output)
+		if err != nil {
+			return fmt.Errorf("failed to marshal skills: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	if len(skills) == 0 {
@@ -228,7 +256,7 @@ func runSkillList(listAll bool) error {
 	return nil
 }
 
-func runSkillGet(name string) error {
+func runSkillGet(name string, jsonOut bool) error {
 	r, err := loadRegistry()
 	if err != nil {
 		return err
@@ -237,6 +265,35 @@ func runSkillGet(name string) error {
 	s, err := r.Get(name)
 	if err != nil {
 		return err
+	}
+
+	if jsonOut {
+		type skillJSON struct {
+			Name        string `json:"name"`
+			FlicknoteID string `json:"flicknote_id"`
+			Category    string `json:"category"`
+			Description string `json:"description"`
+			Content     string `json:"content"`
+		}
+		contentCmd := exec.Command("flicknote", "content", s.FlicknoteID, "--raw")
+		var buf bytes.Buffer
+		contentCmd.Stdout = &buf
+		contentCmd.Stderr = os.Stderr
+		if err := contentCmd.Run(); err != nil {
+			return fmt.Errorf("failed to fetch skill content: %w", err)
+		}
+		data, err := json.Marshal(skillJSON{
+			Name:        s.Name,
+			FlicknoteID: s.FlicknoteID,
+			Category:    s.Category,
+			Description: s.Description,
+			Content:     strings.TrimSpace(buf.String()),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to marshal skill: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	cmd := exec.Command("flicknote", "content", s.FlicknoteID)
