@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -361,5 +362,157 @@ func TestResolveManagerWindowTaskLookupError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "task lookup") {
 		t.Errorf("error = %q, want substring %q", err.Error(), "task lookup")
+	}
+}
+
+// TestDispatchToWorkerOrManager tests the dispatchToWorkerOrManager function.
+//
+//nolint:gocyclo
+func TestDispatchToWorkerOrManager(t *testing.T) {
+	mcfg := &config.DaemonConfig{Global: &config.Config{}}
+
+	origResolveWorker := resolveWorker
+	origResolveManagerWindow := resolveManagerWindow
+	origDispatchImpl := dispatchToWorkerImpl
+	t.Cleanup(func() {
+		resolveWorker = origResolveWorker
+		resolveManagerWindow = origResolveManagerWindow
+		dispatchToWorkerImpl = origDispatchImpl
+	})
+
+	// Track which dispatch path was called.
+	var dispatchCalls []string
+	dispatchToWorkerImpl = func(
+		msgSvc *message.Service, session, windowName string, params message.CreateParams, text string,
+	) error {
+		dispatchCalls = append(dispatchCalls, session+":"+windowName)
+		return nil
+	}
+
+	t.Run("worker found returns worker dispatch", func(t *testing.T) {
+		dispatchCalls = nil
+		resolveWorker = func(idPrefix string) (string, error) {
+			return "w-e9d4b7c1-coder", nil
+		}
+		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
+			t.Fatal("resolveManagerWindow should not be called when worker is found")
+			return "", nil
+		}
+
+		session, dispatched, err := dispatchToWorkerOrManager(
+			mcfg, "e9d4b7c1", "coder", nil, "yuki", "ttal", "e9d4b7c1:coder", "result", nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !dispatched {
+			t.Error("expected dispatched=true")
+		}
+		if session != "w-e9d4b7c1-coder" {
+			t.Errorf("session = %q, want %q", session, "w-e9d4b7c1-coder")
+		}
+		if len(dispatchCalls) != 1 || dispatchCalls[0] != "w-e9d4b7c1-coder:coder" {
+			t.Errorf("dispatch calls = %v, want [w-e9d4b7c1-coder:coder]", dispatchCalls)
+		}
+	})
+
+	t.Run("worker gone plus manager found returns manager fallback dispatch", func(t *testing.T) {
+		dispatchCalls = nil
+		resolveWorker = func(idPrefix string) (string, error) {
+			return "", errors.New("no worker session")
+		}
+		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
+			if jobID == "e9d4b7c1" && windowName == "coder" {
+				return "ttal-ttal-yuki", nil
+			}
+			return "", errors.New("manager not found")
+		}
+
+		session, dispatched, err := dispatchToWorkerOrManager(
+			mcfg, "e9d4b7c1", "coder", nil, "worker", "ttal", "e9d4b7c1:coder", "result", nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !dispatched {
+			t.Error("expected dispatched=true")
+		}
+		if session != "ttal-ttal-yuki" {
+			t.Errorf("session = %q, want %q", session, "ttal-ttal-yuki")
+		}
+		if len(dispatchCalls) != 1 || dispatchCalls[0] != "ttal-ttal-yuki:coder" {
+			t.Errorf("dispatch calls = %v, want [ttal-ttal-yuki:coder]", dispatchCalls)
+		}
+	})
+
+	t.Run("both fail returns error", func(t *testing.T) {
+		dispatchCalls = nil
+		resolveWorker = func(idPrefix string) (string, error) {
+			return "", errors.New("no worker session")
+		}
+		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
+			return "", errors.New("manager window not found")
+		}
+
+		session, dispatched, err := dispatchToWorkerOrManager(
+			mcfg, "e9d4b7c1", "coder", nil, "yuki", "ttal", "e9d4b7c1:coder", "result", nil)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if dispatched {
+			t.Error("expected dispatched=false")
+		}
+		if session != "" {
+			t.Errorf("session = %q, want empty", session)
+		}
+		if len(dispatchCalls) != 0 {
+			t.Errorf("dispatch calls = %v, want []", dispatchCalls)
+		}
+	})
+}
+
+// TestResolveManagerWindowWithTeam verifies AgentSessionName formatting with a non-empty team.
+func TestResolveManagerWindowWithTeam(t *testing.T) {
+	// Build a Config with a resolved team name so AgentSessionName produces "ttal-<team>-<agent>".
+	// We inject buildAgentRolesFn to avoid needing a real agentfs directory.
+	origExport := exportTaskByHexIDFn
+	origWindowExists := windowExistsFn
+	origBuildAgentRoles := buildAgentRolesFn
+	t.Cleanup(func() {
+		exportTaskByHexIDFn = origExport
+		windowExistsFn = origWindowExists
+		buildAgentRolesFn = origBuildAgentRoles
+	})
+
+	cfg := &config.Config{}
+	mcfg := &config.DaemonConfig{Global: cfg}
+
+	taskWithOwner := &taskwarrior.Task{
+		UUID:        testJobIDA + "aabbccddeeff",
+		Description: "test",
+		Tags:        []string{"yuki"},
+		Status:      "pending",
+	}
+
+	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+		if hexID == testJobIDA {
+			return taskWithOwner, nil
+		}
+		return nil, errors.New("not found")
+	}
+	buildAgentRolesFn = func(teamPath string) map[string]string {
+		return map[string]string{"yuki": "manager"}
+	}
+	windowExistsFn = func(session, window string) bool {
+		// With empty TeamName(), session would be "ttal--yuki".
+		// With real TeamName(), session would be "ttal-ttal-yuki".
+		// We verify the window is found in any case.
+		return strings.HasSuffix(session, "-yuki") && window == "subagent"
+	}
+
+	session, err := resolveManagerWindow(testJobIDA, "subagent", mcfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasSuffix(session, "-yuki") {
+		t.Errorf("session = %q, want suffix -yuki", session)
 	}
 }

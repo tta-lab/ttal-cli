@@ -103,12 +103,7 @@ func handleTo(
 				return err
 			}
 			if dispatched {
-				isWorker := strings.HasPrefix(session, "w-")
-				if isWorker {
-					log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
-				} else {
-					log.Printf("[daemon] human-to-manager-window: %s → %s:%s", mcfg.Global.UserName(), req.To, session)
-				}
+				logDispatch("human-to-worker", mcfg.Global.UserName(), req.To, session)
 				return nil
 			}
 		}
@@ -196,23 +191,43 @@ func dispatchToWorkerOrManager(
 ) (string, bool, error) {
 	session, err := resolveWorker(jobID)
 	if err == nil {
-		return session, true, dispatchToWorker(msgSvc, session, agentName, message.CreateParams{
+		return session, true, dispatchToWorkerImpl(msgSvc, session, agentName, message.CreateParams{
 			Sender: sender, Recipient: "worker:" + recipient, Content: msg,
 			Team: team, Channel: message.ChannelCLI, Runtime: rt,
 		}, msg)
 	}
 	// Fall back to manager window — subagent results return to the task
-	// owner's session after the worker session is gone. dispatchToWorker is
+	// owner's session after the worker session is gone. dispatchToWorkerImpl is
 	// generic tmux send-keys delivery and works for both worker sessions
 	// and manager windows.
 	fallback, mgrErr := resolveManagerWindow(jobID, agentName, mcfg)
 	if mgrErr != nil {
 		return "", false, fmt.Errorf("unknown agent or worker %s: %w", recipient, err)
 	}
-	return fallback, true, dispatchToWorker(msgSvc, fallback, agentName, message.CreateParams{
+	return fallback, true, dispatchToWorkerImpl(msgSvc, fallback, agentName, message.CreateParams{
 		Sender: sender, Recipient: "worker:" + recipient, Content: msg,
 		Team: team, Channel: message.ChannelCLI, Runtime: rt,
 	}, msg)
+}
+
+// dispatchToWorkerImpl is the real dispatchToWorker implementation.
+// Exposed as a var so it can be overridden in tests.
+var dispatchToWorkerImpl = func(
+	msgSvc *message.Service, session, windowName string, params message.CreateParams, text string,
+) error {
+	persistMsg(msgSvc, params)
+	return deliverToWorker(session, windowName, text)
+}
+
+// logDispatch logs the appropriate dispatch message based on session type.
+// kind is the base log prefix (e.g. "human-to-worker", "agent-to-worker").
+// isWorker indicates whether the session is a worker session (w- prefix).
+func logDispatch(kind, sender, to, session string) {
+	if strings.HasPrefix(session, "w-") {
+		log.Printf("[daemon] %s: %s → %s (%s)", kind, sender, to, session)
+	} else {
+		log.Printf("[daemon] %s: %s → %s:%s", kind, sender, to, session)
+	}
 }
 
 //nolint:gocyclo // handleAgentToAgent is a message routing dispatcher with inherently many branches
@@ -316,10 +331,10 @@ func parseWorkerAddress(s string) (jobID, agentName string, ok bool) {
 	return parts[0], parts[1], true
 }
 
-// resolveWorker finds a tmux session for a worker identified by hex UUID prefix.
+// resolveWorkerImpl finds a tmux session for a worker identified by hex UUID prefix.
 // Session names follow the format: w-{uuid[:8]}-{slug}.
 // idPrefix must be at least 8 hex characters (case-insensitive).
-func resolveWorker(idPrefix string) (string, error) {
+func resolveWorkerImpl(idPrefix string) (string, error) {
 	normalized := strings.ToLower(idPrefix)
 	if len(normalized) < 8 {
 		return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
@@ -357,11 +372,19 @@ var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
 // Package-level var for test injection.
 var windowExistsFn = tmux.WindowExists
 
-// resolveManagerWindow resolves the manager session window for a task's owner agent.
+// resolveWorker is the function used to find a worker tmux session by UUID prefix.
+// Package-level var for test injection.
+var resolveWorker = resolveWorkerImpl
+
+// resolveManagerWindow is the function used to resolve the manager session window for a task.
+// Package-level var for test injection.
+var resolveManagerWindow = resolveManagerWindowImpl
+
+// resolveManagerWindowImpl resolves the manager session window for a task's owner agent.
 // It queries taskwarrior for the task by hex ID, finds the owner agent from task tags,
 // resolves the manager session, and verifies the window exists.
 // Returns (sessionName, nil) on success or ("", error) on failure.
-func resolveManagerWindow(jobID, windowName string, mcfg *config.DaemonConfig) (string, error) {
+func resolveManagerWindowImpl(jobID, windowName string, mcfg *config.DaemonConfig) (string, error) {
 	team := mcfg.Global.TeamName()
 	teamPath := mcfg.Global.TeamPath()
 	task, err := exportTaskByHexIDFn(jobID, "")
@@ -378,14 +401,6 @@ func resolveManagerWindow(jobID, windowName string, mcfg *config.DaemonConfig) (
 		return "", fmt.Errorf("resolve manager window: window %s not found in session %s", windowName, session)
 	}
 	return session, nil
-}
-
-// dispatchToWorker persists a message and delivers it to a worker tmux session.
-func dispatchToWorker(
-	msgSvc *message.Service, session, windowName string, params message.CreateParams, text string,
-) error {
-	persistMsg(msgSvc, params)
-	return deliverToWorker(session, windowName, text)
 }
 
 // deliverToWorker sends a message to a worker's tmux session.
