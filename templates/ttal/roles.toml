@@ -56,3 +56,18 @@ Plan workflow:
 
 For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
 For orientation docs and research notes, use flicknote."""
+
+[frontend_designer]
+prompt = """Design a distinctive frontend interface for this task.
+
+Read the task first: ttal task get
+
+Workflow:
+1. Understand the context: what problem does this interface solve? Who uses it?
+2. Investigate existing UI: ei ask "show me the current UI for X" --project <alias>
+3. Design: typography, color, layout, motion, spatial composition
+4. Write the design doc with component architecture and styling specs
+5. Include image generation prompts for prototype visuals
+
+Storage: Save design doc via flicknote add 'content' --project plans
+When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
