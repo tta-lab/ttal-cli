@@ -9,10 +9,10 @@ import (
 
 func TestRenderSkillPlaceholders(t *testing.T) {
 	// Mock flicknote fetcher so tests don't depend on real flicknote content.
-	orig := skill.FlicknoteFetcher
-	t.Cleanup(func() { skill.FlicknoteFetcher = orig })
-	skill.FlicknoteFetcher = func(id string) (string, error) {
-		return "SKILL_CONTENT(" + id + ")", nil
+	orig := skill.ContentFetcher
+	t.Cleanup(func() { skill.ContentFetcher = orig })
+	skill.ContentFetcher = func(name string) string {
+		return "SKILL_CONTENT(" + name + ")"
 	}
 
 	tests := []struct {
@@ -31,20 +31,20 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			name:  "skill placeholder replaced with content",
 			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.ClaudeCode,
-			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(cd32f690)\n\nWrite a plan for task abc123",
+			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(sp-planning)\n\nWrite a plan for task abc123",
 		},
 		{
 			name:  "skill placeholder replaced regardless of runtime",
 			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.Codex,
-			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(cd32f690)\n\nWrite a plan for task abc123",
+			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(sp-planning)\n\nWrite a plan for task abc123",
 		},
 		{
 			name:  "multiple skill placeholders",
 			input: "{{skill:sp-planning}}\n{{skill:flicknote}}\nDo the thing",
 			rt:    runtime.Codex,
-			want: "# sp-planning [skill]\n\nSKILL_CONTENT(cd32f690)" +
-				"\n\n# flicknote [skill]\n\nSKILL_CONTENT(8977bddf)\n\nDo the thing",
+			want: "# sp-planning [skill]\n\nSKILL_CONTENT(sp-planning)" +
+				"\n\n# flicknote [skill]\n\nSKILL_CONTENT(flicknote)\n\nDo the thing",
 		},
 		{
 			name:  "no placeholders unchanged",
@@ -68,13 +68,13 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			name:  "skill placeholder in middle of text",
 			input: "Start {{skill:triage}} middle end",
 			rt:    runtime.ClaudeCode,
-			want:  "# triage [skill]\n\nSKILL_CONTENT(c64be429)\n\nStart  middle end",
+			want:  "# triage [skill]\n\nSKILL_CONTENT(triage)\n\nStart  middle end",
 		},
 		{
 			name:  "skill placeholder at end of text",
 			input: "Some text {{skill:triage}}",
 			rt:    runtime.Codex,
-			want:  "# triage [skill]\n\nSKILL_CONTENT(c64be429)\n\nSome text ",
+			want:  "# triage [skill]\n\nSKILL_CONTENT(triage)\n\nSome text ",
 		},
 	}
 	for _, tt := range tests {

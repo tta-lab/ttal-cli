@@ -222,10 +222,18 @@ func (r *Registry) save() error {
 	return nil
 }
 
-// FetchContent loads the default skills registry, looks up the skill by name,
+// ContentFetcher is the function used to fetch a skill's content by name.
+// It defaults to fetchContentImpl but can be replaced for testing (e.g., to avoid
+// loading the real registry on CI). Callers use FetchContent() which delegates here.
+var ContentFetcher func(name string) string = fetchContentImpl
+
+// FetchContent returns the raw flicknote content for a named skill.
+func FetchContent(name string) string { return ContentFetcher(name) }
+
+// fetchContentImpl loads the default skills registry, looks up the skill by name,
 // and returns its raw flicknote content. Returns empty string on any error
 // (soft-fail: logs a warning but does not propagate the error).
-func FetchContent(name string) string {
+func fetchContentImpl(name string) string {
 	r, err := Load(DefaultPath())
 	if err != nil {
 		log.Printf("[skill] warning: could not load skills registry: %v", err)
