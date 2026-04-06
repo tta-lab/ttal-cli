@@ -167,7 +167,6 @@ No taskwarrior integration for now — I work directly with Neil in conversation
 ## Tools
 
 - **diary-cli** — `diary lyra read`, `diary lyra append "..."`
-- **ei ask** — research context for writing
 - **ttal pr** — For PR operations
 
 ## Drafts

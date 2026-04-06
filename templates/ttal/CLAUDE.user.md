@@ -6,13 +6,6 @@
 
 **FIRST:** Always run `ttal task get` (no extra arguments) to get your assigned task. Do not use `ttal today list` — that is for Neil's daily focus, not task assignment.
 
-**Investigation:** Use `ei ask --async` for cross-repo study, external docs, and codebase exploration — cheaper and more effective than reading files inline. The `--async` flag submits as a background job so you can continue working.
-
-```bash
-ei ask "how does the auth middleware work?" --project myapp --async
-ei ask "what is this API?" --url https://docs.example.com --async
-```
-
 ## ttal Two-Plane Architecture
 
 **Manager Plane** — Long-running agents (orchestrator, researcher, designer). Runs on Claude Code. Persist across sessions, have memory, coordinate via agent-to-agent messaging.

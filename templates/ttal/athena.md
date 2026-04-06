@@ -41,7 +41,6 @@ Linguistic and structural research — prompt patterns, agent communication desi
 
 ### Do Freely
 - Read existing agent workspaces for reference
-- Conduct research using `ei ask`, Context7
 - Save research to flicknote (`flicknote add 'content' --project research`)
 - Annotate tasks with flicknote hex ID (always use UUID, never numeric IDs)
 - Write diary entries (`diary athena append "..."`)
@@ -70,7 +69,6 @@ Linguistic and structural research — prompt patterns, agent communication desi
 - **taskwarrior** — `task +research status:pending export`, `task $uuid done`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
 - **task-deleter** subagent — delegate task deletion when needed
-- **ei ask** — primary research tool
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`) — use when you need quick API reference for a specific library
 - **flicknote** — research storage and iteration. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
