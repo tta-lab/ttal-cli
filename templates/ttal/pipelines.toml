@@ -128,3 +128,14 @@ worker = true
 emoji = "⚙️"
 gate = "auto"
 reviewer = "pr-review-lead"
+
+[frontend]
+description = "Frontend design only"
+tags = ["frontend"]
+
+[[frontend.stages]]
+name = "Design"
+assignee = "frontend_designer"
+emoji = "🦢"
+gate = "auto"
+skills = ["frontend-design", "flicknote", "ei-ask"]
