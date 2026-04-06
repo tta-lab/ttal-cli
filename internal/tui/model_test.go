@@ -80,6 +80,38 @@ func TestApplyFilter_PassesThroughTasksWithParentID(t *testing.T) {
 	assert.Equal(t, 3, len(m.filtered)) // all show when loaded (server handles filtering)
 }
 
+func TestBuildLoadTasksArgs(t *testing.T) {
+	// Verify args structure — IsFork() state determines whether parent_id: is present.
+	// Non-fork: parent_id: absent; Fork: parent_id: present for pending/today/active.
+	for _, filter := range []filterMode{filterPending, filterToday, filterActive} {
+		args := buildLoadTasksArgs(filter, "")
+		if len(args) < 2 {
+			t.Fatalf("filter %v: expected at least [status:pending, ...], got %v", filter, args)
+		}
+		if args[0] != "status:pending" {
+			t.Errorf("filter %v: expected status:pending first, got %v", filter, args[0])
+		}
+		if args[len(args)-1] != "export" {
+			t.Errorf("filter %v: expected export last, got %v", filter, args[len(args)-1])
+		}
+	}
+
+	// filterCompleted never includes parent_id:
+	argsCompleted := buildLoadTasksArgs(filterCompleted, "")
+	if argsCompleted[0] != "status:completed" {
+		t.Errorf("filterCompleted: expected status:completed first, got %v", argsCompleted[0])
+	}
+	if argsCompleted[len(argsCompleted)-1] != "export" {
+		t.Errorf("filterCompleted: expected export last, got %v", argsCompleted[len(argsCompleted)-1])
+	}
+
+	// Search is appended before export
+	argsWithSearch := buildLoadTasksArgs(filterPending, "project:ttal")
+	if argsWithSearch[len(argsWithSearch)-2] != "project:ttal" {
+		t.Errorf("expected search arg before export, got %v", argsWithSearch)
+	}
+}
+
 func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
 	// Pre-populate the package-level cache so ensureProjectsAndTags skips the
 	// taskwarrior exec call (not available in CI).

@@ -876,31 +876,37 @@ func (m *Model) reloadTasks() tea.Cmd {
 	return loadTasks(m.filter, m.searchInput.Value())
 }
 
+// buildLoadTasksArgs returns the taskwarrior args for the given filter and search.
+// Extracted for testability.
+func buildLoadTasksArgs(filter filterMode, search string) []string {
+	var args []string
+	switch filter {
+	case filterPending, filterToday:
+		args = append(args, "status:pending")
+		if taskwarrior.IsFork() {
+			args = append(args, "parent_id:") // root tasks only (fork feature)
+		}
+	case filterActive:
+		args = append(args, "status:pending")
+		if taskwarrior.IsFork() {
+			args = append(args, "parent_id:") // root tasks only (fork feature)
+		}
+	case filterCompleted:
+		args = append(args, "status:completed")
+	}
+
+	// Pass search as raw taskwarrior filter args
+	if search != "" {
+		args = append(args, strings.Fields(search)...)
+	}
+
+	args = append(args, "export")
+	return args
+}
+
 func loadTasks(filter filterMode, search string) tea.Cmd {
 	return func() tea.Msg {
-		var args []string
-		switch filter {
-		case filterPending, filterToday:
-			args = append(args, "status:pending")
-			if taskwarrior.IsFork() {
-				args = append(args, "parent_id:") // root tasks only (fork feature)
-			}
-		case filterActive:
-			args = append(args, "status:pending")
-			if taskwarrior.IsFork() {
-				args = append(args, "parent_id:") // root tasks only (fork feature)
-			}
-		case filterCompleted:
-			args = append(args, "status:completed")
-		}
-
-		// Pass search as raw taskwarrior filter args
-		if search != "" {
-			args = append(args, strings.Fields(search)...)
-		}
-
-		args = append(args, "export")
-
+		args := buildLoadTasksArgs(filter, search)
 		cmd := taskwarrior.Command(args...)
 		out, err := cmd.Output()
 		if err != nil {
