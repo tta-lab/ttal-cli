@@ -137,6 +137,7 @@ make clean         # Remove built binaries
 make test          # Run tests
 make schema        # Regenerate JSON Schema from config structs
 make fmt           # Format code with gofmt
+make tidy         # Tidy go modules
 make lint          # Run golangci-lint (16 linters)
 make all           # Format, tidy, lint, and build
 make ci            # Run all CI checks (lint, test, build)
