@@ -55,6 +55,10 @@ func PR(uuid string) error {
 	return openBrowser(prURL)
 }
 
+func Browser(url string) error {
+	return openBrowser(url)
+}
+
 func openBrowser(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {

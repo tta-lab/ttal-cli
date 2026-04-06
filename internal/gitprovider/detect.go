@@ -37,6 +37,21 @@ func (r *RepoInfo) PRURL(prID string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s", baseURL, r.Owner, r.Repo, prSegment, prID)
 }
 
+// WebURL constructs the base web URL for the repository.
+func (r *RepoInfo) WebURL() string {
+	var baseURL string
+	switch r.Provider {
+	case ProviderGitHub:
+		baseURL = "https://github.com"
+	default:
+		baseURL = os.Getenv("FORGEJO_URL")
+		if baseURL == "" {
+			baseURL = "https://" + r.Host
+		}
+	}
+	return fmt.Sprintf("%s/%s/%s", baseURL, r.Owner, r.Repo)
+}
+
 func DetectProvider(workDir string) (*RepoInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
 	defer cancel()
