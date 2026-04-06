@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
@@ -37,7 +39,8 @@ Example:
   ttal skill list --all`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		listAll, _ := cmd.Flags().GetBool("all")
-		return runSkillList(listAll)
+		jsonOut, _ := cmd.Flags().GetBool("json")
+		return runSkillList(listAll, jsonOut)
 	},
 }
 
@@ -51,7 +54,8 @@ Example:
   ttal skill get sp-debugging`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runSkillGet(args[0])
+		jsonOut, _ := cmd.Flags().GetBool("json")
+		return runSkillGet(args[0], jsonOut)
 	},
 }
 
@@ -155,6 +159,8 @@ func init() {
 	skillCmd.AddCommand(skillImportCmd)
 
 	skillListCmd.Flags().Bool("all", false, "List all skills (ignore agent filter)")
+	skillListCmd.Flags().Bool("json", false, "Output as JSON")
+	skillGetCmd.Flags().Bool("json", false, "Output as JSON")
 	skillFindCmd.Flags().Bool("all", false, "Search all skills (ignore agent filter)")
 	skillAddCmd.Flags().String("file", "", "Path to file to upload to flicknote")
 	skillAddCmd.Flags().String("category", "", "Skill category (command, methodology, reference, tool)")
@@ -164,7 +170,10 @@ func init() {
 	skillImportCmd.Flags().String("category", "", "Override auto-detected category (command, methodology, reference, tool)") //nolint:lll
 }
 
-func loadRegistry() (*skill.Registry, error) {
+func loadRegistry(paths ...string) (*skill.Registry, error) {
+	if len(paths) > 0 && paths[0] != "" {
+		return skill.Load(paths[0])
+	}
 	return skill.Load(skill.DefaultPath())
 }
 
@@ -192,8 +201,20 @@ func buildSkillTable(headers []string, rows [][]string, dimCols ...int) *table.T
 		Rows(rows...)
 }
 
-func runSkillList(listAll bool) error {
-	r, err := loadRegistry()
+type skillJSON struct {
+	Name        string `json:"name"`
+	FlicknoteID string `json:"flicknote_id"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+}
+
+type skillJSONWithContent struct {
+	skillJSON
+	Content string `json:"content"`
+}
+
+func runSkillList(listAll, jsonOut bool, registryPaths ...string) error {
+	r, err := loadRegistry(registryPaths...)
 	if err != nil {
 		return err
 	}
@@ -204,6 +225,19 @@ func runSkillList(listAll bool) error {
 		skills = r.List()
 	} else {
 		skills = r.ListForAgent(agentName)
+	}
+
+	if jsonOut {
+		output := make([]skillJSON, 0, len(skills))
+		for _, s := range skills {
+			output = append(output, skillJSON{
+				Name:        s.Name,
+				FlicknoteID: s.FlicknoteID,
+				Category:    s.Category,
+				Description: s.Description,
+			})
+		}
+		return printJSON(output)
 	}
 
 	if len(skills) == 0 {
@@ -228,8 +262,8 @@ func runSkillList(listAll bool) error {
 	return nil
 }
 
-func runSkillGet(name string) error {
-	r, err := loadRegistry()
+func runSkillGet(name string, jsonOut bool, registryPaths ...string) error {
+	r, err := loadRegistry(registryPaths...)
 	if err != nil {
 		return err
 	}
@@ -239,10 +273,40 @@ func runSkillGet(name string) error {
 		return err
 	}
 
+	if jsonOut {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		contentCmd := exec.CommandContext(ctx, "flicknote", "content", s.FlicknoteID, "--raw")
+		var buf bytes.Buffer
+		contentCmd.Stdout = &buf
+		contentCmd.Stderr = os.Stderr
+		if err := contentCmd.Run(); err != nil {
+			return fmt.Errorf("failed to fetch skill content: %w", err)
+		}
+		return printJSON(skillJSONWithContent{
+			skillJSON: skillJSON{
+				Name:        s.Name,
+				FlicknoteID: s.FlicknoteID,
+				Category:    s.Category,
+				Description: s.Description,
+			},
+			Content: strings.TrimSpace(buf.String()),
+		})
+	}
+
 	cmd := exec.Command("flicknote", "content", s.FlicknoteID)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func printJSON(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal skill: %w", err)
+	}
+	fmt.Println(string(data))
+	return nil
 }
 
 // flicknoteSearchResult is a partial parse of flicknote find --json output.
