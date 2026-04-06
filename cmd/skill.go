@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
@@ -168,7 +170,10 @@ func init() {
 	skillImportCmd.Flags().String("category", "", "Override auto-detected category (command, methodology, reference, tool)") //nolint:lll
 }
 
-func loadRegistry() (*skill.Registry, error) {
+func loadRegistry(paths ...string) (*skill.Registry, error) {
+	if len(paths) > 0 && paths[0] != "" {
+		return skill.Load(paths[0])
+	}
 	return skill.Load(skill.DefaultPath())
 }
 
@@ -196,8 +201,20 @@ func buildSkillTable(headers []string, rows [][]string, dimCols ...int) *table.T
 		Rows(rows...)
 }
 
-func runSkillList(listAll, jsonOut bool) error {
-	r, err := loadRegistry()
+type skillJSON struct {
+	Name        string `json:"name"`
+	FlicknoteID string `json:"flicknote_id"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+}
+
+type skillJSONWithContent struct {
+	skillJSON
+	Content string `json:"content"`
+}
+
+func runSkillList(listAll, jsonOut bool, registryPaths ...string) error {
+	r, err := loadRegistry(registryPaths...)
 	if err != nil {
 		return err
 	}
@@ -211,12 +228,6 @@ func runSkillList(listAll, jsonOut bool) error {
 	}
 
 	if jsonOut {
-		type skillJSON struct {
-			Name        string `json:"name"`
-			FlicknoteID string `json:"flicknote_id"`
-			Category    string `json:"category"`
-			Description string `json:"description"`
-		}
 		output := make([]skillJSON, 0, len(skills))
 		for _, s := range skills {
 			output = append(output, skillJSON{
@@ -226,12 +237,7 @@ func runSkillList(listAll, jsonOut bool) error {
 				Description: s.Description,
 			})
 		}
-		data, err := json.Marshal(output)
-		if err != nil {
-			return fmt.Errorf("failed to marshal skills: %w", err)
-		}
-		fmt.Println(string(data))
-		return nil
+		return printJSON(output)
 	}
 
 	if len(skills) == 0 {
@@ -256,8 +262,8 @@ func runSkillList(listAll, jsonOut bool) error {
 	return nil
 }
 
-func runSkillGet(name string, jsonOut bool) error {
-	r, err := loadRegistry()
+func runSkillGet(name string, jsonOut bool, registryPaths ...string) error {
+	r, err := loadRegistry(registryPaths...)
 	if err != nil {
 		return err
 	}
@@ -268,38 +274,39 @@ func runSkillGet(name string, jsonOut bool) error {
 	}
 
 	if jsonOut {
-		type skillJSON struct {
-			Name        string `json:"name"`
-			FlicknoteID string `json:"flicknote_id"`
-			Category    string `json:"category"`
-			Description string `json:"description"`
-			Content     string `json:"content"`
-		}
-		contentCmd := exec.Command("flicknote", "content", s.FlicknoteID, "--raw")
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		contentCmd := exec.CommandContext(ctx, "flicknote", "content", s.FlicknoteID, "--raw")
 		var buf bytes.Buffer
 		contentCmd.Stdout = &buf
 		contentCmd.Stderr = os.Stderr
 		if err := contentCmd.Run(); err != nil {
 			return fmt.Errorf("failed to fetch skill content: %w", err)
 		}
-		data, err := json.Marshal(skillJSON{
-			Name:        s.Name,
-			FlicknoteID: s.FlicknoteID,
-			Category:    s.Category,
-			Description: s.Description,
-			Content:     strings.TrimSpace(buf.String()),
+		return printJSON(skillJSONWithContent{
+			skillJSON: skillJSON{
+				Name:        s.Name,
+				FlicknoteID: s.FlicknoteID,
+				Category:    s.Category,
+				Description: s.Description,
+			},
+			Content: strings.TrimSpace(buf.String()),
 		})
-		if err != nil {
-			return fmt.Errorf("failed to marshal skill: %w", err)
-		}
-		fmt.Println(string(data))
-		return nil
 	}
 
 	cmd := exec.Command("flicknote", "content", s.FlicknoteID)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func printJSON(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal skill: %w", err)
+	}
+	fmt.Println(string(data))
+	return nil
 }
 
 // flicknoteSearchResult is a partial parse of flicknote find --json output.
