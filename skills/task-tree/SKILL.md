@@ -15,6 +15,10 @@ Two tools, two purposes:
 
 ## Creating a Plan
 
+`task plan` is for **decomposition** — building a subtask tree from scratch by breaking a goal into steps. Think of it as the "outline" phase.
+
+**Not** for surgical edits to individual subtasks. If you already have a tree and just need to update one subtask's details, use `task annotate` or `task modify` (see Common Mistakes below).
+
 Pipe markdown to `task <parent-uuid> plan`:
 
 ```bash
@@ -97,3 +101,33 @@ task <subtask-uuid> done
 ## Handoff to Workers
 
 Workers read their subtask tree to know what to do. The plan review process uses `task <uuid> tree` to review the plan structure. No separate annotation linking is needed — the subtasks are already under the parent task.
+
+## Common Mistakes
+
+### Treating `task plan` as a surgical editor
+
+`task plan` (without `replace`) **appends** subtasks. `task plan replace` **replaces the entire tree**. Neither is safe for editing one subtask's details — you'd lose the rest of the tree.
+
+For editing individual subtask details, use:
+```bash
+# Update a subtask's description
+task <subtask-uuid> modify "Updated description"
+
+# Add or update annotation text on a subtask
+task <subtask-uuid> annotate "Additional detail: ..."
+
+# Change a subtask's status
+task <subtask-uuid> start
+task <subtask-uuid> done
+```
+
+### Creating duplicate subtask trees
+
+Agents sometimes write detailed plans in task annotations, then also pipe similar markdown to `task plan`, resulting in two copies of the same work. The tree is the plan — don't duplicate it in annotations.
+
+- Use **subtask tree** for the execution steps (workers read this)
+- Use **flicknote** for orientation context (goals, trade-offs, architecture)
+
+### Using `task plan replace` casually
+
+`task plan replace` drops ALL existing subtasks before creating new ones. It's destructive. Prefer appending or creating from scratch in a fresh task. Only use `replace` when you intentionally want a full rebuild.
