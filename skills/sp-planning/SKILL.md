@@ -85,6 +85,8 @@ After Phase 1, talk through what you found before designing. Don't go silent and
 - Keep it lightweight: 3-5 sentences of understanding + proposed approach + a question
 - **If not aligned** → revise approach and discuss again. Do not proceed to Phase 2 without explicit agreement.
 
+**⛔ STOP here.** End your message after presenting your findings and question. Do not begin Phase 2 or write the orientation doc until the human responds and confirms alignment.
+
 **Then, for complex tasks, capture the orientation:**
 
 ```bash
