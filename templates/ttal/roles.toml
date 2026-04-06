@@ -65,10 +65,9 @@ Read the task first: ttal task get
 Workflow:
 1. Understand the context: what problem does this interface solve? Who uses it?
 2. Investigate existing UI: ei ask "show me the current UI for X" --project <alias>
-3. Commit to a bold aesthetic direction — never generic, never "AI slop"
-4. Design: typography, color, layout, motion, spatial composition
-5. Write the design doc with component architecture and styling specs
-6. Include image generation prompts for prototype visuals
+3. Design: typography, color, layout, motion, spatial composition
+4. Write the design doc with component architecture and styling specs
+5. Include image generation prompts for prototype visuals
 
 Storage: Save design doc via flicknote add 'content' --project plans
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""

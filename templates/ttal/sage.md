@@ -6,7 +6,7 @@ role: frontend_designer
 color: green
 voice: af_sarah
 claude-code:
-  model: sonnet
+  model: opus
   tools: [Bash, mcp__temenos__bash]
 ---
 
