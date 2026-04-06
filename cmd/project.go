@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
+	"github.com/tta-lab/ttal-cli/internal/open"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -294,6 +296,39 @@ Examples:
 	},
 }
 
+var projectOpenCmd = &cobra.Command{
+	Use:   "open <alias>",
+	Short: "Open project repository in browser",
+	Long: `Open the project's remote repository URL in the default browser.
+
+Resolves the project path from projects.toml, reads the git remote origin URL,
+and constructs the web URL (github.com for GitHub, FORGEJO_URL for Forgejo repos).
+
+Example:
+  ttal project open ttal`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		alias := args[0]
+
+		projectPath, err := project.GetProjectPath(alias)
+		if err != nil {
+			return err
+		}
+
+		repoInfo, err := gitprovider.DetectProvider(projectPath)
+		if err != nil {
+			return fmt.Errorf("cannot determine repo from %s: %w", projectPath, err)
+		}
+
+		repoURL := repoInfo.WebURL()
+		if err := open.Browser(repoURL); err != nil {
+			return fmt.Errorf("open browser for %s: %w", repoURL, err)
+		}
+		fmt.Printf("Opening %s/%s: %s\n", repoInfo.Owner, repoInfo.Repo, repoURL)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(projectCmd)
 
@@ -304,6 +339,7 @@ func init() {
 	projectCmd.AddCommand(projectDeleteCmd)
 	projectCmd.AddCommand(projectModifyCmd)
 	projectCmd.AddCommand(projectResolveCmd)
+	projectCmd.AddCommand(projectOpenCmd)
 
 	projectAddCmd.Flags().StringVar(&projectAlias, "alias", "", "Project alias (required, unique identifier)")
 	projectAddCmd.Flags().StringVar(&projectName, "name", "", "Project name (required)")

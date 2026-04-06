@@ -167,3 +167,41 @@ func TestSplitPath(t *testing.T) {
 		})
 	}
 }
+
+func TestWebURL(t *testing.T) {
+	baseCases := []struct {
+		name    string
+		repo    *RepoInfo
+		wantURL string
+	}{
+		{
+			name:    "GitHub",
+			repo:    &RepoInfo{Owner: "tta-lab", Repo: "ttal-cli", Provider: ProviderGitHub, Host: "github.com"},
+			wantURL: "https://github.com/tta-lab/ttal-cli",
+		},
+		{
+			name:    "Forgejo without FORGEJO_URL",
+			repo:    &RepoInfo{Owner: "clawteam", Repo: "myproject", Provider: ProviderForgejo, Host: "git.guion.io"},
+			wantURL: "https://git.guion.io/clawteam/myproject",
+		},
+	}
+
+	for _, tt := range baseCases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.repo.WebURL()
+			if got != tt.wantURL {
+				t.Errorf("WebURL() = %v, want %v", got, tt.wantURL)
+			}
+		})
+	}
+
+	t.Run("Forgejo with FORGEJO_URL", func(t *testing.T) {
+		t.Setenv("FORGEJO_URL", "https://internal.example.com")
+		repo := &RepoInfo{Owner: "myorg", Repo: "project", Provider: ProviderForgejo, Host: "git.internal.io"}
+		got := repo.WebURL()
+		want := "https://internal.example.com/myorg/project"
+		if got != want {
+			t.Errorf("WebURL() = %v, want %v", got, want)
+		}
+	})
+}
