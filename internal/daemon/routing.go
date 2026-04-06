@@ -103,7 +103,7 @@ func handleTo(
 				return err
 			}
 			if dispatched {
-				logDispatch("human-to-worker", mcfg.Global.UserName(), req.To, session)
+				logDispatch("human", mcfg.Global.UserName(), req.To, session)
 				return nil
 			}
 		}
@@ -219,14 +219,13 @@ var dispatchToWorkerImpl = func(
 	return deliverToWorker(session, windowName, text)
 }
 
-// logDispatch logs the appropriate dispatch message based on session type.
-// kind is the base log prefix (e.g. "human-to-worker", "agent-to-worker").
-// isWorker indicates whether the session is a worker session (w- prefix).
-func logDispatch(kind, sender, to, session string) {
+// logDispatch logs the dispatch message. source is the sender kind ("human" or "agent");
+// the function infers the full label from the session type (worker vs manager window).
+func logDispatch(source, sender, to, session string) {
 	if strings.HasPrefix(session, "w-") {
-		log.Printf("[daemon] %s: %s → %s (%s)", kind, sender, to, session)
+		log.Printf("[daemon] %s-to-worker: %s → %s (%s)", source, sender, to, session)
 	} else {
-		log.Printf("[daemon] %s: %s → %s:%s", kind, sender, to, session)
+		log.Printf("[daemon] %s-to-manager-window: %s → %s:%s", source, sender, to, session)
 	}
 }
 
@@ -276,14 +275,7 @@ func handleAgentToAgent(
 				return err
 			}
 			if dispatched {
-				// Determine which dispatch path was taken by checking if the session
-				// matches the worker prefix (w-<hex8>). Manager sessions don't match.
-				isWorker := strings.HasPrefix(session, "w-")
-				if isWorker {
-					log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
-				} else {
-					log.Printf("[daemon] agent-to-manager-window: %s → %s:%s", req.From, req.To, session)
-				}
+				logDispatch("agent", req.From, req.To, session)
 				return nil
 			}
 		}
