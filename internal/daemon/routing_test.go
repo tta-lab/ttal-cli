@@ -7,6 +7,55 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
+func TestIsValidHexPrefix(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"8 hex chars is valid", "abc12345", true},
+		{"more than 8 hex chars is valid", "abc12345abcdef", true},
+		{"7 hex chars is invalid", "abc1234", false},
+		{"non-hex chars is invalid", "zzzzzzzz", false},
+		{"empty string is invalid", "", false},
+		{"mixed case hex is valid", "ABCDEF12", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isValidHexPrefix(tt.input)
+			if got != tt.want {
+				t.Errorf("isValidHexPrefix(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsBareWorkerHex(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"bare hex is valid", "abc12345", true},
+		{"bare hex with colon is invalid", "abc12345:coder", false},
+		{"short bare hex is invalid", "abc123", false},
+		{"non-hex bare is invalid", "zzzzzzzz", false},
+		{"mixed case bare hex is valid", "ABCDEF12", true},
+		{"empty string is invalid", "", false},
+		{"agent name without hex is invalid", "kestrel", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isBareWorkerHex(tt.input)
+			if got != tt.want {
+				t.Errorf("isBareWorkerHex(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseWorkerAddress(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -157,6 +206,24 @@ func TestHandleAgentToAgentUnknownSender(t *testing.T) {
 				t.Errorf("error = %q, want substring %q", err.Error(), tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestBareHexError verifies bareHexError does not panic on empty string.
+func TestBareHexError(t *testing.T) {
+	// Must not panic
+	err := bareHexError("")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "abc12345:coder") {
+		t.Errorf("error = %q, want example abc12345:coder", err.Error())
+	}
+
+	// With 8+ chars should use the provided prefix
+	err = bareHexError("aabbccdd")
+	if !strings.Contains(err.Error(), "aabbccdd:coder") {
+		t.Errorf("error = %q, want prefix aabbccdd:coder", err.Error())
 	}
 }
 

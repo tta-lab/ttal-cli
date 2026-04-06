@@ -144,17 +144,14 @@ func handleSystemToAgent(
 // Falls back to worker session delivery when the recipient is job_id:agent_name.
 // Rejects bare hex UUIDs with a helpful error message.
 // The sender may also be a worker job_id:agent_name (e.g. from ttal alert in a worker session).
-// isBareWorkerHex reports whether s is a bare hex string (no colon) that would pass
-// resolveWorker's format validation (8+ hex chars).
-func isBareWorkerHex(s string) bool {
-	if strings.Contains(s, ":") {
+
+// isValidHexPrefix reports whether s (case-insensitive) is at least 8 lowercase hex characters.
+func isValidHexPrefix(s string) bool {
+	s = strings.ToLower(s)
+	if len(s) < 8 {
 		return false
 	}
-	lower := strings.ToLower(s)
-	if len(lower) < 8 {
-		return false
-	}
-	for _, c := range lower {
+	for _, c := range s {
 		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
@@ -162,9 +159,21 @@ func isBareWorkerHex(s string) bool {
 	return true
 }
 
+// isBareWorkerHex reports whether s is a bare hex string (no colon) that would pass
+// resolveWorker's format validation (8+ hex chars).
+func isBareWorkerHex(s string) bool {
+	if strings.Contains(s, ":") {
+		return false
+	}
+	return isValidHexPrefix(s)
+}
+
 // bareHexError returns the "bare worker UUID not supported" error with a helpful example.
 func bareHexError(got string) error {
-	example := got[:8] + ":coder"
+	example := "abc12345:coder"
+	if len(got) >= 8 {
+		example = got[:8] + ":coder"
+	}
 	return fmt.Errorf("bare worker UUID not supported, use job_id:agent_name format (e.g. %s)", example)
 }
 
@@ -177,11 +186,12 @@ func handleAgentToAgent(
 	if isBareWorkerHex(req.From) {
 		return bareHexError(req.From)
 	}
+	var fromTA *config.TeamAgent
 	if jobID, _, ok := parseWorkerAddress(req.From); ok {
 		if _, err := resolveWorker(jobID); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
-	} else if fromTA := resolveAgent(mcfg, req.Team, req.From); fromTA == nil {
+	} else if fromTA = resolveAgent(mcfg, req.Team, req.From); fromTA == nil {
 		if _, err := resolveWorker(req.From); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
@@ -190,7 +200,6 @@ func handleAgentToAgent(
 	if senderTeam == "" {
 		senderTeam = config.DefaultTeamName
 	}
-	fromTA := resolveAgent(mcfg, req.Team, req.From)
 	if fromTA != nil {
 		senderTeam = fromTA.TeamName
 	} else if senderTeam == config.DefaultTeamName && req.Team == "" {
@@ -254,14 +263,9 @@ func parseWorkerAddress(s string) (jobID, agentName string, ok bool) {
 	if len(parts) != 2 || parts[1] == "" {
 		return "", "", false
 	}
-	prefix := strings.ToLower(parts[0])
-	if len(prefix) < 8 {
+	prefix := parts[0]
+	if !isValidHexPrefix(prefix) {
 		return "", "", false
-	}
-	for _, c := range prefix {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
-			return "", "", false
-		}
 	}
 	return parts[0], parts[1], true
 }
