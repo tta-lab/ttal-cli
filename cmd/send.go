@@ -12,7 +12,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
-const sendExample = `ttal send --to kestrel "your message"`
+const sendExample = `ttal send --to kestrel "message"
+  ttal send --to abc12345:coder "message"    # worker session`
 
 var (
 	sendTo    string
@@ -24,15 +25,15 @@ var sendCmd = &cobra.Command{
 	Short: "Send a message between agents or to a human",
 	Long: `Send a message with explicit direction:
 
-  --to <agent>         delivers to agent via tmux
-  --to <team>:<agent>  delivers to agent in a specific team
-  --to human           sends to human via Telegram
+  --to <agent>            delivers to agent via tmux
+  --to <job_id>:<agent>   delivers to worker session
+  --to human              sends to human via Telegram
 
 Agent identity comes from TTAL_AGENT_NAME env var (set automatically in team tmux sessions).
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
-  ttal send --to guion:astra "design review needed"
+  ttal send --to abc12345:coder "worker session message"
   ttal send --to human "compact complete"
   echo "done" | ttal send --to kestrel --stdin`,
 	Args: cobra.ArbitraryArgs,
@@ -63,29 +64,19 @@ Examples:
 		from := os.Getenv("TTAL_AGENT_NAME")
 		jobID := os.Getenv("TTAL_JOB_ID")
 		// Workers have both TTAL_AGENT_NAME (e.g. "coder") and TTAL_JOB_ID set.
-		// Use the job ID as From so the daemon can validate the sender as a live
-		// worker session (hex UUID). Manager agents only have TTAL_AGENT_NAME.
+		// Construct From as jobID:agentName so the daemon can route replies.
 		if jobID != "" && from != "" {
-			from = jobID
+			from = jobID + ":" + from
 		}
 		if sendTo == "human" && from == "" {
 			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
 		}
 
-		// Resolve team:agent syntax
-		team := ""
-		to := sendTo
-		if parts := strings.SplitN(sendTo, ":", 2); len(parts) == 2 {
-			team = parts[0]
-			to = parts[1]
-		}
-
-		usage.Log("send", to)
+		usage.Log("send", sendTo)
 
 		return daemon.Send(daemon.SendRequest{
 			From:    from,
-			To:      to,
-			Team:    team,
+			To:      sendTo,
 			Message: message,
 		})
 	},

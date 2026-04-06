@@ -4,7 +4,7 @@
 
 ```bash
 ttal send --to <agent> "message"
-ttal send --to <uuid> "message"        # send to worker session (8+ hex chars)
+ttal send --to <job_id>:<agent_name> "message"   # send to worker session
 ```
 
 ## Tasks

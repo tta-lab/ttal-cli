@@ -78,10 +78,14 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 	team, agent := parseSpawner(task.Spawner)
 
 	// Append reply instructions
-	message += "\n\n" + daemon.ReplyHint(sessionID)
+	addr := sessionID
+	if agentName := os.Getenv("TTAL_AGENT_NAME"); agentName != "" {
+		addr = sessionID + ":" + agentName
+	}
+	message += "\n\n" + daemon.ReplyHint(addr)
 
 	if sendErr := daemon.Send(daemon.SendRequest{
-		From:    sessionID,
+		From:    addr,
 		To:      agent,
 		Team:    team,
 		Message: message,
