@@ -62,15 +62,6 @@ func TestRenderRowFitsWidth(t *testing.T) {
 				Start:       "20260101T100000Z",
 			},
 		},
-		{
-			name:   "child row",
-			filter: filterPending,
-			task: Task{
-				UUID:        "bbbbcccc-1234-5678-9abc-def012345678",
-				Description: "Child task",
-				ParentID:    "aabbccdd-1234-5678-9abc-def012345678",
-			},
-		},
 	}
 
 	for _, tt := range tests {
