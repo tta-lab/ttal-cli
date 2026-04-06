@@ -3,7 +3,8 @@
 shell = "zsh"
 
 [flicknote]
-  inline_projects = ["plan", "fix"]
+  # "plan" and "fix" kept for backward compat with existing annotated tasks
+  inline_projects = ["plan", "fix", "orientation"]
 
 [sync]
   worker_agent_paths = ["../../agents"]

@@ -239,15 +239,12 @@ cat updated.md | task <parent-uuid> plan replace
 
 No separate annotation needed — the subtasks are already under the parent task.
 
-### Flicknote (orientation docs + legacy plans)
+### Flicknote (orientation docs)
 
 For orientation docs (what/why context): `flicknote add --project orientation`
-For full plan docs (legacy, still supported): `flicknote add --project plans`
 
 ```bash
 task <uuid> annotate 'orientation: flicknote <hex-id>'
-# or for legacy plans:
-task <uuid> annotate 'plan: flicknote <hex-id>'
 ```
 
 **Decision rule:** If the plan fits in annotations → inline. If it's an ordered set of execution steps → task tree. If you need to capture what/why/trade-offs separately → flicknote orientation alongside a task tree.
@@ -257,7 +254,7 @@ task <uuid> annotate 'plan: flicknote <hex-id>'
 1. **Save the plan:**
    - Inline: annotate the task directly
    - Task tree: `cat plan.md | task <parent-uuid> plan` — subtasks are already under the parent
-   - Flicknote (legacy): `flicknote add --project plans`, then `task <uuid> annotate '<hex-id>'`
+   - Orientation: `flicknote add --project orientation`, then `task <uuid> annotate '<hex-id>'`
 2. **Review:** Run at least 2 rounds of `ttal go <uuid>`. Revise until the plan passes.
 3. **Execute:** When the plan survives review, run `ttal go <uuid>` to spawn a worker.
 

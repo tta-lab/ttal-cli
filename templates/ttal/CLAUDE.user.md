@@ -43,18 +43,15 @@ ttal task add --project <alias> "description"
 ttal task add --project <alias> "description" --annotate "specific details, edge cases, approach"
 ```
 
-**Large task** — write a plan in flicknote, then annotate with the note ID:
+**Large task** — use task tree for the plan, flicknote for supplemental context:
 ```bash
-# Project name MUST contain "plan" or "fix" so workers can find it
-flicknote add "# Plan: ..." --project myproject-plan
-# or
-flicknote add "# Fix: ..." --project myproject-fix
+# Diagnosis notes (bug fixes)
+flicknote add "findings..." --project fixes
 
-# Then annotate the task with the flicknote ID
-ttal task add --project <alias> "description" --annotate "plan: flicknote/<id>"
+# Annotate the task with the flicknote hex ID
+task <uuid> annotate "<hex-id>"
 ```
-
-Workers automatically look for flicknote notes in projects named `*plan*` or `*fix*`. Using this naming convention ensures workers see your context without you needing to paste it manually.
+Plans go in the task tree (see below), not flicknote. Use flicknote for diagnosis notes (`fixes`) and orientation docs (`orientation`) that supplement the task tree.
 
 **Task tree plan** (tw fork) — create subtask tree under the parent:
 
