@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -49,10 +49,7 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Install qlty
-        run: |
-          curl -fsSL https://qlty.sh | QLTY_VERSION=0.618.0 bash
-          echo "$HOME/.qlty/bin" >> $GITHUB_PATH
-
-      - name: Lint and security scan
-        run: qlty check --all --no-progress
+      - name: Lint with golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.4

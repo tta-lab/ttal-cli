@@ -1,4 +1,4 @@
-.PHONY: help build build-dictate clean clean-projects reset test install install-dictate reinstall setup run fmt qlty doc-dev doc-build doc-deploy
+.PHONY: help build build-dictate clean clean-projects reset test install install-dictate reinstall setup run fmt lint doc-dev doc-build doc-deploy
 
 # Default target
 help:
@@ -14,11 +14,11 @@ help:
 	@echo "  make reset         - Remove binaries"
 	@echo "  make test          - Run tests"
 	@echo "  make fmt           - Format code with gofmt"
-	@echo "  make qlty          - Run qlty check (lint + security scan)"
-	@echo "  make all           - Format, tidy, qlty, and build"
-	@echo "  make ci            - Run all CI checks (qlty, test, build)"
+	@echo "  make lint          - Run golangci-lint (16 linters)"
+	@echo "  make all           - Format, tidy, lint, and build"
+	@echo "  make ci            - Run all CI checks (lint, test, build)"
 	@echo "  make check-clean   - Check if working directory is clean"
-	@echo "  make install-hooks - Install qlty git hooks"
+	@echo "  make install-hooks - Install lefthook git hooks"
 	@echo "  make doc-dev       - Start docs dev server"
 	@echo "  make doc-build     - Build docs site"
 	@echo "  make doc-deploy    - Build and deploy docs to Cloudflare"
@@ -99,14 +99,14 @@ fmt:
 	@gofmt -w -s .
 	@echo "✓ Code formatted"
 
-# Run qlty check (lint + security scan)
-qlty:
-	@echo "Running qlty check..."
-	@qlty check --all --no-progress
-	@echo "✓ Qlty check complete"
+# Run golangci-lint
+lint:
+	@echo "Running golangci-lint..."
+	@golangci-lint run ./...
+	@echo "✓ Lint complete"
 
 # Run all checks and build
-all: fmt tidy qlty build
+all: fmt tidy lint build
 	@echo "✓ All checks passed and binary built"
 
 # Development workflow
@@ -114,7 +114,7 @@ dev: all
 	@echo "✓ Development build complete"
 
 # CI target - runs all checks (same as all but exits on failure)
-ci: qlty test build
+ci: lint test build
 	@echo "✓ CI checks complete"
 
 # Check if working directory is clean (for CI)
@@ -139,7 +139,7 @@ doc-deploy:
 	@cd docs && pnpm build && pnpm exec wrangler deploy
 	@echo "Docs deployed to ttal.guion.io"
 
-# Install qlty git hooks (pre-commit: formatting, pre-push: lint + security)
+# Install lefthook git hooks (pre-commit: gofmt + goimports, pre-push: golangci-lint + trufflehog)
 install-hooks:
-	@qlty githooks install
-	@echo "✓ Qlty hooks installed (pre-commit: fmt, pre-push: lint + trufflehog)"
+	@lefthook install
+	@echo "✓ Lefthook hooks installed (pre-commit: gofmt + goimports, pre-push: golangci-lint + trufflehog)"

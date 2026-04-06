@@ -19,7 +19,7 @@
 # excludedCommands — commands run unsandboxed (maps to sandbox.excludedCommands).
 #                   These commands bypass sandbox restrictions entirely — use with care.
 #                   Use "command:*" to match a command and all its subcommands (exact name
-#                   matches only one invocation). Example: "qlty:*" matches all qlty calls.
+#                   matches only one invocation).
 #
 # [network]
 # allowedDomains — external domains Claude may contact (maps to sandbox.network.allowedDomains).
@@ -32,9 +32,9 @@ autoAllowBashIfSandboxed = true
 
 # Commands that run unsandboxed — bypass all filesystem and network restrictions.
 # Use "command:*" to match a command and all its subcommands (exact name only matches
-# one specific invocation). Example: "qlty:*" matches qlty check, qlty fmt, etc.
+# one specific invocation).
 # Map to sandbox.excludedCommands in settings.json.
-excludedCommands = ["qlty:*", "go test:*"]
+excludedCommands = ["go test:*"]
 
 allowWrite = [
   "~/.ttal",                             # ttal data dir (tasks, daemon state)
@@ -52,7 +52,6 @@ allowWrite = [
   "~/.cache/cargo",                      # Linux: Rust incremental build cache
   "~/.cargo/registry",                   # Rust crate registry cache (index + crate downloads)
   "~/.npm/_logs",                        # npm log directory
-  "~/.qlty",                             # qlty data dir (plugin cache, hooks, results)
 ]
 
 # denyRead is intentionally empty. Secrets are blocked via permissionsDeny below, which

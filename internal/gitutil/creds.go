@@ -26,7 +26,8 @@ import (
 func GitCredEnv(remoteURL, projectAlias string) []string {
 	// Always suppress interactive prompts — this prevents the hang bug
 	// even when no token is configured.
-	env := []string{"GIT_TERMINAL_PROMPT=0"}
+	env := make([]string, 0, 7)
+	env = append(env, "GIT_TERMINAL_PROMPT=0")
 
 	token := tokenForRemote(remoteURL, projectAlias)
 	if token == "" {

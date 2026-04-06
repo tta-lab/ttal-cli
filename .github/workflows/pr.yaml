@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -26,13 +26,10 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Install qlty
-        run: |
-          curl -fsSL https://qlty.sh | QLTY_VERSION=0.618.0 bash
-          echo "$HOME/.qlty/bin" >> $GITHUB_PATH
-
-      - name: Lint and security scan
-        run: qlty check --all --no-progress
+      - name: Lint with golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.4
 
       - name: Test
         run: make test
@@ -46,7 +43,7 @@ jobs:
           node-version: 22
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4 # zizmor: ignore[unpinned-uses]
+        uses: pnpm/action-setup@v4.0.0
         with:
           version: 10
 
@@ -55,3 +52,40 @@ jobs:
 
       - name: Build docs
         run: cd docs && pnpm build
+
+  trufflehog-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: TruffleHog secrets scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
+  osv-scan:
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.5
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      pull-requests: write
+
+  zizmor-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@v0.5.2
+        with:
+          version: v1.23.1
