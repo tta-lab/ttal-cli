@@ -205,7 +205,7 @@ task <uuid> annotate 'Fix (inline): Root cause: nil pointer in auth middleware. 
 **Large fixes (multi-file, needs diagnosis context, trade-off analysis):** Use flicknote — save full fix plan, annotate task with hex ID.
 
 ```bash
-flicknote add 'full fix plan content' --project <your-project>
+flicknote add 'full fix plan content' --project fixes
 task <uuid> annotate 'Fix plan: flicknote <hex-id>'
 ```
 

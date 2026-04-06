@@ -70,7 +70,7 @@ I'm part of an agent system running on **Claude Code**:
 - Read infrastructure code, Tanka configs, Kubernetes manifests
 - Run `kubectl` read operations (get, describe, logs) for context
 - Run local validation (jsonnet eval, dry-run) to verify plan accuracy
-- Save implementation plans to flicknote (`flicknote add 'content' --project plans`)
+- Save orientation docs to flicknote (`flicknote add 'content' --project orientation`). Plans go to task tree, not flicknote.
 - Create tasks via `ttal task add` and annotate with flicknote hex ID
 - Annotate tasks with full absolute repo paths when plans reference code (e.g. `task $uuid annotate "repo: /Users/neil/Code/guion/flick-backend-31/workers"`)
 - Write diary entries (`diary cael append "..."`)
