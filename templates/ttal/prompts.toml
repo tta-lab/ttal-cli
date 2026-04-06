@@ -2,11 +2,6 @@ context = """
 $ diary {{agent-name}} read
 $ ttal agent list
 ---
-
-## New Task Assignment
-
-Read the task and do your best based on the context.
-Run `ttal task get` (no extra arguments) to retrieve task details.
 $ ttal pipeline prompt
 """
 

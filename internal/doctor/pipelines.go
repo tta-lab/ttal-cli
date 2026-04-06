@@ -5,7 +5,7 @@ package doctor
 const defaultPipelinesContent = `# Pipeline definitions for ttal go.
 # Each pipeline defines a sequence of stages with role-based assignment and gates.
 # Tasks are matched to pipelines by their tags.
-# Skills are loaded per-stage via ttal skill get <name>.
+# Skills are inlined per-stage into context at context render time.
 
 [standard]
 description = "Plan → Implement"

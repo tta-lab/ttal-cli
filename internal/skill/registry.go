@@ -2,11 +2,15 @@ package skill
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -79,8 +83,9 @@ func Load(path string) (*Registry, error) {
 	return r, nil
 }
 
-// DefaultPath returns the default path for the skills registry.
-func DefaultPath() string {
+// DefaultPath is the default path for the skills registry.
+// It is a variable (not a function) so tests can patch it.
+var DefaultPath = func() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
@@ -215,6 +220,76 @@ func (r *Registry) save() error {
 		return fmt.Errorf("writing skills registry %s: %w", r.path, err)
 	}
 	return nil
+}
+
+// ContentFetcher is the function used to fetch a skill's content by name.
+// It defaults to fetchContentImpl but can be replaced for testing (e.g., to avoid
+// loading the real registry on CI). Callers use FetchContent() which delegates here.
+var ContentFetcher func(name string) string = fetchContentImpl
+
+// FetchContent returns the raw flicknote content for a named skill.
+func FetchContent(name string) string { return ContentFetcher(name) }
+
+// fetchContentImpl loads the default skills registry, looks up the skill by name,
+// and returns its raw flicknote content. Returns empty string on any error
+// (soft-fail: logs a warning but does not propagate the error).
+func fetchContentImpl(name string) string {
+	r, err := Load(DefaultPath())
+	if err != nil {
+		log.Printf("[skill] warning: could not load skills registry: %v", err)
+		return ""
+	}
+	s, err := r.Get(name)
+	if err != nil {
+		log.Printf("[skill] warning: skill %q not found in registry: %v", name, err)
+		return ""
+	}
+
+	content, err := FlicknoteFetcher(s.FlicknoteID)
+	if err != nil {
+		log.Printf("[skill] warning: could not fetch flicknote content for %q: %v", name, err)
+		return ""
+	}
+	// Normalize: strip trailing newline so callers get consistent content without trailing \n.
+	return strings.TrimRight(content, "\n")
+}
+
+// FlicknoteFetcher is the function used to fetch skill content from flicknote.
+// It defaults to fetchFlicknoteContent but can be replaced for testing.
+var FlicknoteFetcher func(id string) (string, error) = fetchFlicknoteContent
+
+// fetchFlicknoteContent shells out to `flicknote content <id> --raw` and returns
+// the stdout content.
+func fetchFlicknoteContent(id string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "flicknote", "content", id, "--raw")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("flicknote content %s: %w", id, err)
+	}
+	return strings.TrimSuffix(stdout.String(), "\n"), nil
+}
+
+// FetchContents calls FetchContent for each name in order and concatenates
+// the results, wrapping each skill in a `# <SkillName> [skill]` header.
+// Skips empty results silently.
+func FetchContents(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, name := range names {
+		content := FetchContent(name)
+		if content == "" {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("# %s [skill]\n\n%s", name, content))
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 // ParseFrontmatter extracts name and description from YAML frontmatter,

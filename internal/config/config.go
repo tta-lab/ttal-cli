@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/license"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 // PromptsConfig holds configurable prompt templates for task routing and worker spawn.
@@ -465,7 +466,10 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 		// Extract skill name
 		skillName := result[start+len("{{skill:") : end-2]
 		if skillName != "" {
-			skills = append(skills, runtime.FormatSkillInvocation(rt, skillName))
+			skillContent := skill.FetchContent(skillName)
+			if skillContent != "" {
+				skills = append(skills, fmt.Sprintf("# %s [skill]\n\n%s", skillName, skillContent))
+			}
 		}
 
 		// Remove the placeholder (including any trailing newline that follows {{skill:xxx}}\n)
@@ -477,7 +481,7 @@ func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
 
 	// Prepend skills at start if any found
 	if len(skills) > 0 {
-		skillLine := strings.Join(skills, "\n")
+		skillLine := strings.Join(skills, "\n\n")
 		result = skillLine + "\n\n" + result
 	}
 
