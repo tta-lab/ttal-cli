@@ -16,4 +16,4 @@ pre-push:
     golangci-lint:
       run: golangci-lint run ./...
     trufflehog:
-      run: trufflehog git file://. --since-commit HEAD --only-verified --fail
+      run: bash -c 'if [ -f .git ]; then trufflehog filesystem . --only-verified --fail; else trufflehog git file://. --since-commit HEAD --only-verified --fail; fi'
