@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectpkg "github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/skill"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -196,11 +197,27 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 
-	agentRT := cfg.DefaultRuntime()
-	rolePrompt = pipeline.PrependSkills(rolePrompt, stage.Skills, agentRT)
-	rolePrompt = expandPromptVars(rolePrompt, task, cfg)
+	skillContent := skill.FetchContents(stage.Skills)
+	taskPrompt := formatTaskPromptForPipeline(task)
 
-	return rolePrompt
+	var combined strings.Builder
+	if skillContent != "" {
+		combined.WriteString(skillContent)
+	}
+	if taskPrompt != "" {
+		if combined.Len() > 0 {
+			combined.WriteString("\n\n---\n\n## Task\n\n")
+		} else {
+			combined.WriteString("## Task\n\n")
+		}
+		combined.WriteString(taskPrompt)
+	}
+	if combined.Len() > 0 {
+		combined.WriteString("\n\n---\n\n")
+	}
+	combined.WriteString(rolePrompt)
+
+	return expandPromptVars(combined.String(), task, cfg)
 }
 
 // resolveCurrentTaskForPrompt finds the task for the current session via TTAL_JOB_ID or TTAL_AGENT_NAME.
@@ -270,6 +287,22 @@ func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config)
 	}
 
 	return config.RenderTemplate(prompt, task.HexID(), rt)
+}
+
+// formatTaskPromptForPipeline formats a task into a pipeline prompt block.
+// Resolves project path and uses task.FormatPrompt() for the task content.
+// Returns empty string if task cannot be resolved (non-fatal).
+func formatTaskPromptForPipeline(task *taskwarrior.Task) string {
+	if task == nil {
+		return ""
+	}
+	projPath := projectpkg.ResolveProjectPath(task.Project)
+	proj := projectpkg.ResolveProject(task.Project)
+	if proj != nil && projPath != "" {
+		return fmt.Sprintf("Project: %s — %s\\nPath: %s\\n\\n%s",
+			task.Project, proj.Name, projPath, task.FormatPrompt())
+	}
+	return task.FormatPrompt()
 }
 
 // resolvePROwnerRepo resolves the owner and repo for a task's project.

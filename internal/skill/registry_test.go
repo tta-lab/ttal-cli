@@ -3,6 +3,7 @@ package skill_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/skill"
@@ -346,5 +347,106 @@ description = "Refresh"
 	s, ok = r.ReverseLookup("a1b2c3d4")
 	if !ok || s.Name != skillBreathe {
 		t.Errorf("expected breathe on prefix match, got %v, %v", s, ok)
+	}
+}
+
+func TestFetchContent_FakeFlicknote(t *testing.T) {
+	// Create a temp dir with a fake flicknote binary
+	tmpDir := t.TempDir()
+	fakeBin := filepath.Join(tmpDir, "flicknote")
+	if err := os.WriteFile(fakeBin, []byte(`#!/bin/sh
+if [ "$1" = "content" ] && [ "$2" = "a1b2c3d4" ]; then
+	echo "# Breathe skill body"
+elif [ "$1" = "content" ] && [ "$2" = "e5f6a7b8" ]; then
+	echo "# SpDebugging content"
+else
+	echo "unknown" >&2
+	exit 1
+fi
+`), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Build new PATH with tmpDir first
+	oldPath := os.Getenv("PATH")
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+
+	// Patch DefaultPath to use a temp registry
+	origDefaultPath := skill.DefaultPath
+	registryPath := writeTOML(t, sampleTOML)
+	skill.DefaultPath = func() string { return registryPath }
+	t.Cleanup(func() { skill.DefaultPath = origDefaultPath })
+
+	content := skill.FetchContent("breathe")
+	if content == "" {
+		t.Fatal("FetchContent returned empty string")
+	}
+	if content != "# Breathe skill body" {
+		t.Errorf("unexpected content: %q", content)
+	}
+}
+
+func TestFetchContent_NotFound(t *testing.T) {
+	// Patch DefaultPath to use a temp registry with no matching skill
+	origDefaultPath := skill.DefaultPath
+	registryPath := writeTOML(t, sampleTOML)
+	skill.DefaultPath = func() string { return registryPath }
+	t.Cleanup(func() { skill.DefaultPath = origDefaultPath })
+
+	// Even without a fake flicknote, FetchContent should not panic on skill-not-found
+	content := skill.FetchContent("nonexistent-skill")
+	if content != "" {
+		t.Errorf("expected empty for nonexistent skill, got: %q", content)
+	}
+}
+
+func TestFetchContents_Multiple(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeBin := filepath.Join(tmpDir, "flicknote")
+	if err := os.WriteFile(fakeBin, []byte(`#!/bin/sh
+if [ "$1" = "content" ] && [ "$2" = "a1b2c3d4" ]; then
+	echo "breathe body"
+elif [ "$1" = "content" ] && [ "$2" = "e5f6a7b8" ]; then
+	echo "debugging body"
+else
+	echo "unknown" >&2
+	exit 1
+fi
+`), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+
+	origDefaultPath := skill.DefaultPath
+	registryPath := writeTOML(t, sampleTOML)
+	skill.DefaultPath = func() string { return registryPath }
+	t.Cleanup(func() { skill.DefaultPath = origDefaultPath })
+
+	content := skill.FetchContents([]string{"breathe", "sp-debugging"})
+	if content == "" {
+		t.Fatal("FetchContents returned empty string")
+	}
+	if !strings.Contains(content, "# breathe [skill]") {
+		t.Errorf("missing breathe header: %q", content)
+	}
+	if !strings.Contains(content, "# sp-debugging [skill]") {
+		t.Errorf("missing sp-debugging header: %q", content)
+	}
+	if !strings.Contains(content, "breathe body") {
+		t.Errorf("missing breathe body: %q", content)
+	}
+	if !strings.Contains(content, "debugging body") {
+		t.Errorf("missing debugging body: %q", content)
+	}
+}
+
+func TestFetchContents_EmptyNames(t *testing.T) {
+	content := skill.FetchContents([]string{})
+	if content != "" {
+		t.Errorf("expected empty for empty names, got: %q", content)
 	}
 }

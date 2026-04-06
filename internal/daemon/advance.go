@@ -747,11 +747,7 @@ func advanceToStage(
 	}
 
 	cfg := mcfg.Global
-	agentRT := cfg.DefaultRuntime()
-	rolePrompt := cfg.RenderPrompt(agent.Role, task.UUID, agentRT)
-	rolePrompt = pipeline.PrependSkills(rolePrompt, stage.Skills, agentRT)
-
-	if err := routeToPersistentAgent(w, cfg, task, agent, rolePrompt, callerAgent, team); err != nil {
+	if err := routeToPersistentAgent(w, cfg, task, agent, "", "", team); err != nil {
 		return err
 	}
 

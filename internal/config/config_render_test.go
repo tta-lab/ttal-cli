@@ -4,9 +4,17 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 func TestRenderSkillPlaceholders(t *testing.T) {
+	// Mock flicknote fetcher so tests don't depend on real flicknote content.
+	orig := skill.FlicknoteFetcher
+	t.Cleanup(func() { skill.FlicknoteFetcher = orig })
+	skill.FlicknoteFetcher = func(id string) (string, error) {
+		return "SKILL_CONTENT(" + id + ")", nil
+	}
+
 	tests := []struct {
 		name  string
 		input string
@@ -14,28 +22,29 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "CC replaces skill placeholder with text",
+			name:  "CC replaces task-id placeholder",
 			input: "Write a plan for task {{task-id}}",
 			rt:    runtime.ClaudeCode,
 			want:  "Write a plan for task abc123",
 		},
 		{
-			name:  "CC replaces skill placeholder at start",
+			name:  "skill placeholder replaced with content",
 			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.ClaudeCode,
-			want:  "run ttal skill get sp-planning\n\nWrite a plan for task abc123",
+			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(cd32f690)\n\nWrite a plan for task abc123",
 		},
 		{
-			name:  "Codex replaces skill placeholder with dollar",
+			name:  "skill placeholder replaced regardless of runtime",
 			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
 			rt:    runtime.Codex,
-			want:  "$sp-planning\n\nWrite a plan for task abc123",
+			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(cd32f690)\n\nWrite a plan for task abc123",
 		},
 		{
 			name:  "multiple skill placeholders",
 			input: "{{skill:sp-planning}}\n{{skill:flicknote}}\nDo the thing",
 			rt:    runtime.Codex,
-			want:  "$sp-planning\n$flicknote\n\nDo the thing",
+			want: "# sp-planning [skill]\n\nSKILL_CONTENT(cd32f690)" +
+				"\n\n# flicknote [skill]\n\nSKILL_CONTENT(8977bddf)\n\nDo the thing",
 		},
 		{
 			name:  "no placeholders unchanged",
@@ -59,13 +68,13 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 			name:  "skill placeholder in middle of text",
 			input: "Start {{skill:triage}} middle end",
 			rt:    runtime.ClaudeCode,
-			want:  "run ttal skill get triage\n\nStart  middle end",
+			want:  "# triage [skill]\n\nSKILL_CONTENT(c64be429)\n\nStart  middle end",
 		},
 		{
 			name:  "skill placeholder at end of text",
 			input: "Some text {{skill:triage}}",
 			rt:    runtime.Codex,
-			want:  "$triage\n\nSome text ",
+			want:  "# triage [skill]\n\nSKILL_CONTENT(c64be429)\n\nSome text ",
 		},
 	}
 	for _, tt := range tests {

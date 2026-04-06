@@ -130,7 +130,7 @@ Per-pipeline stage config lives in `~/.config/ttal/pipelines.toml`:
 
 ### Stage Skills
 
-Stages can declare skills loaded at task routing time:
+Stages can declare skills that are inlined into the agent's context at task routing time:
 
 ```toml
 [[standard.stages]]
@@ -140,7 +140,10 @@ gate = "human"
 skills = ["sp-planning", "flicknote"]
 ```
 
-When a task advances to this stage, skill invocations are prepended to the role prompt. This ties skills to what the agent is doing (stage), not who they are (role) — the same agent can use different skills at different stages.
+When a task advances to this stage, the skill content (raw markdown from flicknote)
+is inlined into the context alongside the task prompt and role instructions.
+Skills are loaded at context time, not at stage entry via `ttal skill get`.
+This ties skills to what the agent is doing (stage), not who they are (role) — the same agent can use different skills at different stages.
 
 ## prompts.toml fields
 

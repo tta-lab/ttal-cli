@@ -13,7 +13,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
-	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -372,61 +371,6 @@ func TestCheckCallerPastStage_AllowedMidPipelineLGTM(t *testing.T) {
 	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", taskTags)
 	if rejected {
 		t.Error("should NOT reject when current stage already has LGTM (mid-pipeline bypass)")
-	}
-}
-
-// TestPrependSkills verifies the pipeline.PrependSkills helper (moved from daemon).
-func TestPrependSkills(t *testing.T) {
-	tests := []struct {
-		name   string
-		prompt string
-		skills []string
-		rt     runtime.Runtime
-		want   string
-	}{
-		{
-			name:   "no skills returns prompt unchanged",
-			prompt: "Write a plan",
-			skills: nil,
-			rt:     runtime.ClaudeCode,
-			want:   "Write a plan",
-		},
-		{
-			name:   "empty skills returns prompt unchanged",
-			prompt: "Write a plan",
-			skills: []string{},
-			rt:     runtime.ClaudeCode,
-			want:   "Write a plan",
-		},
-		{
-			name:   "single skill prepended CC",
-			prompt: "Write a plan",
-			skills: []string{"sp-planning"},
-			rt:     runtime.ClaudeCode,
-			want:   "run ttal skill get sp-planning\n\nWrite a plan",
-		},
-		{
-			name:   "multiple skills prepended CC",
-			prompt: "Write a plan",
-			skills: []string{"sp-planning", "flicknote"},
-			rt:     runtime.ClaudeCode,
-			want:   "run ttal skill get sp-planning\nrun ttal skill get flicknote\n\nWrite a plan",
-		},
-		{
-			name:   "codex runtime uses dollar prefix",
-			prompt: "Write a plan",
-			skills: []string{"sp-planning"},
-			rt:     runtime.Codex,
-			want:   "$sp-planning\n\nWrite a plan",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := pipeline.PrependSkills(tt.prompt, tt.skills, tt.rt)
-			if got != tt.want {
-				t.Errorf("PrependSkills() =\n%q\nwant:\n%q", got, tt.want)
-			}
-		})
 	}
 }
 

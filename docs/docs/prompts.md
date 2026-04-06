@@ -64,15 +64,17 @@ $ ttal pipeline prompt
 ### Skill References
 
 Use `{{skill:name}}` to reference skills in prompts. This resolves to the
-correct invocation syntax based on the target agent's runtime:
+skill's raw markdown content (via flicknote), inlined directly into the prompt:
 
-| Runtime     | `{{skill:triage}}` resolves to |
-|-------------|-------------------------------|
-| claude-code | `/triage`                     |
-| codex       | `$triage`                     |
+```toml
+triage = """\
+{{skill:triage}}
+PR review posted. Read it, assess and fix issues.
+"""
+```
 
-Skill references should appear at the **beginning** of the prompt (first line),
-as all runtimes require skill invocations at the start of the message.
+The skill content is wrapped with a `# <SkillName> [skill]` header. If the skill
+is not found, the placeholder is silently replaced with empty string.
 
 > **Note:** `{{skill:name}}` placeholders are used in worker-plane prompts (`prompts.toml`) only.
 > Manager-plane agents receive skills via the `skills` field in `pipelines.toml` stage config.
