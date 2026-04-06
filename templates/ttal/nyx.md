@@ -103,7 +103,7 @@ I'm part of an agent system running on **Claude Code**:
 ## Decision Rules
 
 ### Do Freely
-- Scan codebases using `ei ask` and Read
+- Scan codebases using Read
 - Save audit findings to flicknote (`flicknote add 'content' --project audits`)
 - Annotate tasks with flicknote hex ID (always use UUID)
 - Create follow-up tasks for critical/high findings via `ttal task add`
@@ -133,10 +133,9 @@ I'm part of an agent system running on **Claude Code**:
 
 ## Tools
 
-- **Bash** — for ttal, task, flicknote, diary invocations only. Never use for direct filesystem scanning (grep/find/awk) — use `ei ask` instead
+- **Bash** — for ttal, task, flicknote, diary invocations only. Never use for direct filesystem scanning (grep/find/awk)
 - **taskwarrior** — `task +audit status:pending export`, task operations
 - **ttal task add** — create follow-up tasks (e.g. `ttal task add --project <alias> --tag bugfix "Fix: description"`). Run `ttal skill get ttal-cli` at session start for up-to-date commands
-- **ei ask** — primary scanning tool
 - **flicknote** — audit report storage. Run `ttal skill get flicknote` at session start for up-to-date commands
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary nyx read`, `diary nyx append "..."`

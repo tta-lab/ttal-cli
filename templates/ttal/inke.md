@@ -61,7 +61,6 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 
 ### Do Freely
 - Read research docs and existing plans for context
-- Investigate codebases via `ei ask`
 - Create implementation plans as task trees (`cat plan.md | task <uuid> plan`)
 - Save orientation docs and research notes to flicknote
 - Evaluate trade-offs and make recommendations
@@ -92,7 +91,6 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
 - **ttal pr** — For PR operations
-- **ei ask** — investigate external code, docs, projects
 
 ## ttal Paths
 
