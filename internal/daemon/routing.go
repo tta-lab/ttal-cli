@@ -14,27 +14,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
-	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
-	"github.com/tta-lab/ttal-cli/internal/worker"
 )
-
-// workerWindowName returns the tmux window name for worker sessions by reading
-// the worker stage assignee from pipelines.toml. Falls back to worker.CoderAgentName
-// if the config cannot be loaded or no worker stage is defined.
-func workerWindowName() string {
-	cfg, err := pipeline.Load(config.DefaultConfigDir())
-	if err != nil {
-		return worker.CoderAgentName
-	}
-	if name := cfg.AnyWorkerAgentName(); name != "" {
-		return name
-	}
-	return worker.CoderAgentName
-}
 
 // clearSettleDelay is the time to wait after sending /clear before sending
 // the start trigger prompt. Allows CC's /clear to complete and the
@@ -100,7 +84,8 @@ func handleFrom(
 }
 
 // handleTo delivers a message to an agent via its runtime adapter.
-// Falls back to worker session delivery when the recipient is a hex UUID.
+// Falls back to worker session delivery when the recipient is job_id:agent_name.
+// Rejects bare hex UUIDs with a helpful error message.
 // Human→worker messages are sent as bare text (no [agent from:] prefix).
 func handleTo(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
@@ -109,15 +94,23 @@ func handleTo(
 ) error {
 	ta := resolveAgent(mcfg, req.Team, req.To)
 	if ta == nil {
-		session, err := resolveWorker(req.To)
-		if err != nil {
-			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+		// Try parseWorkerAddress for job_id:agent_name format
+		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
+			session, err := resolveWorker(jobID)
+			if err != nil {
+				return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+			}
+			log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
+			return dispatchToWorker(msgSvc, session, agentName, message.CreateParams{
+				Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
+				Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
+			}, req.Message)
 		}
-		log.Printf("[daemon] human-to-worker: %s → %s (%s)", mcfg.Global.UserName(), req.To, session)
-		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
-			Sender: mcfg.Global.UserName(), Recipient: "worker:" + req.To,
-			Content: req.Message, Team: req.Team, Channel: message.ChannelCLI,
-		}, req.Message)
+		// Bare hex UUID — reject with helpful error
+		if isBareWorkerHex(req.To) {
+			return bareHexError(req.To)
+		}
+		return fmt.Errorf("unknown agent or worker %s", req.To)
 	}
 	// Human-originated: no runtime attribution (humans don't have a runtime entry).
 	persistMsg(msgSvc, message.CreateParams{
@@ -148,17 +141,48 @@ func handleSystemToAgent(
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
-// Falls back to worker session delivery when the recipient is a hex UUID.
-// The sender may also be a worker hex UUID (e.g. from ttal alert in a worker session).
+// Falls back to worker session delivery when the recipient is job_id:agent_name.
+// Rejects bare hex UUIDs with a helpful error message.
+// The sender may also be a worker job_id:agent_name (e.g. from ttal alert in a worker session).
+// isBareWorkerHex reports whether s is a bare hex string (no colon) that would pass
+// resolveWorker's format validation (8+ hex chars).
+func isBareWorkerHex(s string) bool {
+	if strings.Contains(s, ":") {
+		return false
+	}
+	lower := strings.ToLower(s)
+	if len(lower) < 8 {
+		return false
+	}
+	for _, c := range lower {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// bareHexError returns the "bare worker UUID not supported" error with a helpful example.
+func bareHexError(got string) error {
+	example := got[:8] + ":coder"
+	return fmt.Errorf("bare worker UUID not supported, use job_id:agent_name format (e.g. %s)", example)
+}
+
 func handleAgentToAgent(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	fromTA := resolveAgent(mcfg, req.Team, req.From)
-	if fromTA == nil {
+	// Validate From.
+	if isBareWorkerHex(req.From) {
+		return bareHexError(req.From)
+	}
+	if jobID, _, ok := parseWorkerAddress(req.From); ok {
+		if _, err := resolveWorker(jobID); err != nil {
+			return fmt.Errorf("unknown agent or worker: %s", req.From)
+		}
+	} else if fromTA := resolveAgent(mcfg, req.Team, req.From); fromTA == nil {
 		if _, err := resolveWorker(req.From); err != nil {
-			// session string discarded — only validating that the hex ID resolves
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
 	}
@@ -166,6 +190,7 @@ func handleAgentToAgent(
 	if senderTeam == "" {
 		senderTeam = config.DefaultTeamName
 	}
+	fromTA := resolveAgent(mcfg, req.Team, req.From)
 	if fromTA != nil {
 		senderTeam = fromTA.TeamName
 	} else if senderTeam == config.DefaultTeamName && req.Team == "" {
@@ -179,16 +204,24 @@ func handleAgentToAgent(
 		senderTeamPath = fromTA.TeamPath
 	}
 	if toTA == nil {
-		session, err := resolveWorker(req.To)
-		if err != nil {
-			return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+		// Try parseWorkerAddress for To: job_id:agent_name
+		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
+			session, err := resolveWorker(jobID)
+			if err != nil {
+				return fmt.Errorf("unknown agent or worker %s: %w", req.To, err)
+			}
+			rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
+			log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
+			return dispatchToWorker(msgSvc, session, agentName, message.CreateParams{
+				Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
+				Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
+			}, msg)
 		}
-		rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
-		log.Printf("[daemon] agent-to-worker: %s → %s (%s)", req.From, req.To, session)
-		return dispatchToWorker(msgSvc, session, workerWindowName(), message.CreateParams{
-			Sender: req.From, Recipient: "worker:" + req.To, Content: req.Message,
-			Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
-		}, msg)
+		// Bare hex UUID — reject with helpful error
+		if isBareWorkerHex(req.To) {
+			return bareHexError(req.To)
+		}
+		return fmt.Errorf("unknown agent or worker %s", req.To)
 	}
 	rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
@@ -212,6 +245,25 @@ func resolveAgent(mcfg *config.DaemonConfig, teamHint, agentName string) *config
 		return ta
 	}
 	return nil
+}
+
+// parseWorkerAddress returns the job ID and agent name from a worker address string.
+// Returns true when s matches "<8+ hex chars>:<non-empty name>".
+func parseWorkerAddress(s string) (jobID, agentName string, ok bool) {
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return "", "", false
+	}
+	prefix := strings.ToLower(parts[0])
+	if len(prefix) < 8 {
+		return "", "", false
+	}
+	for _, c := range prefix {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return "", "", false
+		}
+	}
+	return parts[0], parts[1], true
 }
 
 // resolveWorker finds a tmux session for a worker identified by hex UUID prefix.
