@@ -87,7 +87,7 @@ func truncateDescription(desc string) string {
 
 // AllCommands returns the full command list: static commands + discovered dynamic commands.
 func AllCommands(discovered []BotCommand) []BotCommand {
-	allCommands := make([]BotCommand, len(registeredCommands))
-	copy(allCommands, registeredCommands)
+	allCommands := make([]BotCommand, 0, len(registeredCommands)+len(discovered))
+	allCommands = append(allCommands, registeredCommands...)
 	return append(allCommands, discovered...)
 }
