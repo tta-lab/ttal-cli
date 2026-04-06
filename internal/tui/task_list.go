@@ -133,31 +133,21 @@ func (m Model) buildRowData(i int, c columnLayout) rowData {
 		agentStr = resolveAgent(t, m.agentEmojiByName)
 		stageStr = resolveStage(t, m.pipelineCfg)
 	}
-	descStr := t.Description
-	if t.IsSubtask() {
-		isLast := (i+1 >= len(m.filtered)) || !m.filtered[i+1].IsSubtask()
-		prefix := "├─ "
-		if isLast {
-			prefix = "└─ "
-		}
-		descStr = prefix + descStr
-	}
 	return rowData{
 		t: t, uuid: t.HexID(), pri: pri, age: age,
 		proj: t.Project, tags: tags,
 		agentStr: agentStr, stageStr: stageStr,
-		desc: descStr,
+		desc: t.Description,
 	}
 }
 
 func (m Model) renderRow(i int, c columnLayout) string {
 	d := m.buildRowData(i, c)
 	selected := i == m.cursor
-	isChild := d.t.IsSubtask()
 
 	cellLine := renderCells(d, c)
 
-	return m.applyRowStyle(d, c, cellLine, selected, isChild)
+	return m.applyRowStyle(d, c, cellLine, selected)
 }
 
 // renderCells builds a row string with lipgloss-width-aware cell alignment.
@@ -186,7 +176,7 @@ func renderCells(d rowData, c columnLayout) string {
 	return " " + strings.Join(parts, " ")
 }
 
-func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, selected, isChild bool) string {
+func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, selected bool) string {
 	switch {
 	case selected:
 		return styleSelected.Render(plainLine)
@@ -195,10 +185,6 @@ func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, select
 		// Uses plain line because lipgloss Width() padding emits ANSI reset sequences
 		// that clear the outer background when cells are styled individually.
 		return styleToday.Render(plainLine)
-	case isChild && c.showActive:
-		return styleChildRowActive(d, c)
-	case isChild:
-		return styleChildRow(d, c)
 	case c.showActive:
 		return styleActiveRow(d, c)
 	default:
@@ -210,31 +196,6 @@ func (m Model) applyRowStyle(d rowData, c columnLayout, plainLine string, select
 func styledCell(value string, width int, style lipgloss.Style) string {
 	return lipgloss.NewStyle().Width(width).MaxWidth(width).Inline(true).
 		Render(style.Render(ansi.Truncate(value, width, "…")))
-}
-
-func styleChildRowActive(d rowData, c columnLayout) string {
-	parts := []string{
-		styledCell(d.uuid, c.uuid, styleDim),
-		styledCell(d.pri, c.pri, styleDim),
-		styledCell(d.age, c.age, styleDim),
-		styledCell(d.proj, c.project, styleDim),
-		styledCell("", c.agent, styleDim),
-		styledCell("", c.stage, styleDim),
-		ansi.Truncate(d.desc, c.desc, "…"),
-	}
-	return " " + strings.Join(parts, " ")
-}
-
-func styleChildRow(d rowData, c columnLayout) string {
-	parts := []string{
-		styledCell(d.uuid, c.uuid, styleDim),
-		styledCell(d.pri, c.pri, styleDim),
-		styledCell(d.age, c.age, styleDim),
-		styledCell(d.proj, c.project, styleDim),
-		styledCell("", c.tags, styleDim),
-		ansi.Truncate(d.desc, c.desc, "…"),
-	}
-	return " " + strings.Join(parts, " ")
 }
 
 func styleActiveRow(d rowData, c columnLayout) string {

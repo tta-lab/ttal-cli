@@ -88,8 +88,7 @@ type Model struct {
 	heatmapModel heatmapModel
 	heatmapReady bool
 
-	// Tree expand/collapse
-	expanded      map[string]bool   // parent UUIDs currently expanded
+	// Child cache for detail view
 	childrenCache map[string][]Task // parent UUID → loaded children
 
 	// Active filter columns
@@ -119,7 +118,6 @@ func NewModel() Model {
 		modifyInput:    newTextInput("+tag project:x priority:H"),
 		annotateInput:  newTextInput("annotation text"),
 		loadingSpinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
-		expanded:       make(map[string]bool),
 		childrenCache:  make(map[string][]Task),
 		keys:           DefaultKeyMap(),
 		helpModel:      help.New(),
@@ -222,29 +220,16 @@ func (m *Model) handleTasksLoaded(msg tasksLoadedMsg) (tea.Model, tea.Cmd) {
 		m.statusMsg = "Task load error: " + msg.err.Error()
 	}
 	m.tasks = msg.tasks
-	// Keep childrenCache intact — children remain visible while reloading in background.
-	// handleChildrenLoaded overwrites entries when fresh data arrives.
 	m.applyFilter()
-	// Reload children for expanded parents in background
-	cmds := make([]tea.Cmd, 0, len(m.expanded))
-	for parentUUID := range m.expanded {
-		cmds = append(cmds, loadChildren(parentUUID))
-	}
-	if len(cmds) > 0 {
-		return m, tea.Batch(cmds...)
-	}
 	return m, nil
 }
 
 func (m *Model) handleChildrenLoaded(msg childrenLoadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		// Remove from expanded so the reload loop doesn't retry indefinitely
-		delete(m.expanded, msg.parentUUID)
 		m.statusMsg = fmt.Sprintf("Load children [%s]: %s", msg.parentUUID[:8], msg.err.Error())
 		return m, nil
 	}
 	m.childrenCache[msg.parentUUID] = msg.children
-	m.applyFilter() // rebuild filtered list with children injected
 	return m, nil
 }
 
@@ -340,28 +325,15 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m.handleAction(msg)
 }
 
-// handleTaskListKey handles tree expand/collapse and Enter (task list only).
+// handleTaskListKey handles Enter (task list only).
 // Returns (model, cmd, true) when handled, (nil, nil, false) to fall through.
 func (m *Model) handleTaskListKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch {
-	case key.Matches(msg, m.keys.Right):
-		if m.state == stateTaskList {
-			return m, m.expandSelected(), true
-		}
-	case key.Matches(msg, m.keys.Left):
-		if m.state == stateTaskList {
-			m.collapseSelected()
-			return m, nil, true
-		}
 	case key.Matches(msg, m.keys.Enter):
 		if len(m.filtered) == 0 {
 			return m, nil, true
 		}
 		t := &m.filtered[m.cursor]
-		// Child rows are expanded inline — Enter only opens detail for root tasks.
-		if t.IsSubtask() {
-			return m, nil, true
-		}
 		m.selectedUUID = t.UUID
 		m.state = stateTaskDetail
 		if _, ok := m.childrenCache[m.selectedUUID]; !ok {
@@ -508,9 +480,9 @@ func (m *Model) handleHeatmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.heatmapModel.handleKey("up")
 	case key.Matches(msg, m.keys.Down):
 		m.heatmapModel.handleKey("down")
-	case key.Matches(msg, m.keys.Left):
+	case msg.String() == "h", msg.String() == "left":
 		m.heatmapModel.handleKey("left")
-	case key.Matches(msg, m.keys.Right):
+	case msg.String() == "l", msg.String() == "right":
 		m.heatmapModel.handleKey("right")
 	}
 	return m, nil
@@ -761,17 +733,7 @@ func (m *Model) applyFilter() {
 		roots = append(roots, t)
 	}
 	sort.Slice(roots, m.rootSortLess(roots))
-
-	// Phase 2: interleave expanded children after their parents
-	m.filtered = nil
-	for _, t := range roots {
-		m.filtered = append(m.filtered, t)
-		if m.expanded[t.UUID] {
-			if children, ok := m.childrenCache[t.UUID]; ok {
-				m.filtered = append(m.filtered, children...)
-			}
-		}
-	}
+	m.filtered = roots
 
 	if m.restoreCursorByUUID(prevUUID) {
 		return
@@ -786,46 +748,6 @@ func (m *Model) applyFilter() {
 	}
 	m.syncSelectedUUID()
 	m.offset = 0
-}
-
-// expandSelected expands the task under cursor to show its children.
-// Returns a Cmd to load children if not cached.
-func (m *Model) expandSelected() tea.Cmd {
-	t := m.selectedTask()
-	if t == nil {
-		return nil
-	}
-	if m.expanded[t.UUID] {
-		return nil
-	}
-	m.expanded[t.UUID] = true
-	if _, ok := m.childrenCache[t.UUID]; ok {
-		m.applyFilter()
-		return nil
-	}
-	return loadChildren(t.UUID)
-}
-
-// collapseSelected collapses the task under cursor.
-// If cursor is on a child task, collapses the parent instead.
-func (m *Model) collapseSelected() {
-	t := m.selectedTask()
-	if t == nil {
-		return
-	}
-	if t.IsSubtask() {
-		parentUUID := t.ParentID
-		delete(m.expanded, parentUUID)
-		delete(m.childrenCache, parentUUID) // clean up cache so re-expand fetches fresh
-		m.applyFilter()
-		m.restoreCursorByUUID(parentUUID)
-		return
-	}
-	if m.expanded[t.UUID] {
-		delete(m.expanded, t.UUID)
-		delete(m.childrenCache, t.UUID) // clean up cache so re-expand fetches fresh
-		m.applyFilter()
-	}
 }
 
 // restoreCursorByUUID repositions the cursor to the task with the given UUID.
@@ -954,29 +876,37 @@ func (m *Model) reloadTasks() tea.Cmd {
 	return loadTasks(m.filter, m.searchInput.Value())
 }
 
+// buildLoadTasksArgs returns the taskwarrior args for the given filter and search.
+// Extracted for testability.
+func buildLoadTasksArgs(filter filterMode, search string) []string {
+	var args []string
+	switch filter {
+	case filterPending, filterToday:
+		args = append(args, "status:pending")
+		if taskwarrior.IsFork() {
+			args = append(args, "parent_id:") // root tasks only (fork feature)
+		}
+	case filterActive:
+		args = append(args, "status:pending")
+		if taskwarrior.IsFork() {
+			args = append(args, "parent_id:") // root tasks only (fork feature)
+		}
+	case filterCompleted:
+		args = append(args, "status:completed")
+	}
+
+	// Pass search as raw taskwarrior filter args
+	if search != "" {
+		args = append(args, strings.Fields(search)...)
+	}
+
+	args = append(args, "export")
+	return args
+}
+
 func loadTasks(filter filterMode, search string) tea.Cmd {
 	return func() tea.Msg {
-		var args []string
-		switch filter {
-		case filterPending, filterToday:
-			args = append(args, "status:pending")
-			if taskwarrior.IsFork() {
-				args = append(args, "parent_id:") // root tasks only (fork feature)
-			}
-		case filterActive:
-			args = append(args, "status:pending")
-			// Active shows ALL tasks including subtasks — active work is active work
-		case filterCompleted:
-			args = append(args, "status:completed")
-		}
-
-		// Pass search as raw taskwarrior filter args
-		if search != "" {
-			args = append(args, strings.Fields(search)...)
-		}
-
-		args = append(args, "export")
-
+		args := buildLoadTasksArgs(filter, search)
 		cmd := taskwarrior.Command(args...)
 		out, err := cmd.Output()
 		if err != nil {

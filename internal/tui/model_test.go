@@ -80,6 +80,38 @@ func TestApplyFilter_PassesThroughTasksWithParentID(t *testing.T) {
 	assert.Equal(t, 3, len(m.filtered)) // all show when loaded (server handles filtering)
 }
 
+func TestBuildLoadTasksArgs(t *testing.T) {
+	// Verify args structure — IsFork() state determines whether parent_id: is present.
+	// Non-fork: parent_id: absent; Fork: parent_id: present for pending/today/active.
+	for _, filter := range []filterMode{filterPending, filterToday, filterActive} {
+		args := buildLoadTasksArgs(filter, "")
+		if len(args) < 2 {
+			t.Fatalf("filter %v: expected at least [status:pending, ...], got %v", filter, args)
+		}
+		if args[0] != "status:pending" {
+			t.Errorf("filter %v: expected status:pending first, got %v", filter, args[0])
+		}
+		if args[len(args)-1] != "export" {
+			t.Errorf("filter %v: expected export last, got %v", filter, args[len(args)-1])
+		}
+	}
+
+	// filterCompleted never includes parent_id:
+	argsCompleted := buildLoadTasksArgs(filterCompleted, "")
+	if argsCompleted[0] != "status:completed" {
+		t.Errorf("filterCompleted: expected status:completed first, got %v", argsCompleted[0])
+	}
+	if argsCompleted[len(argsCompleted)-1] != "export" {
+		t.Errorf("filterCompleted: expected export last, got %v", argsCompleted[len(argsCompleted)-1])
+	}
+
+	// Search is appended before export
+	argsWithSearch := buildLoadTasksArgs(filterPending, "project:ttal")
+	if argsWithSearch[len(argsWithSearch)-2] != "project:ttal" {
+		t.Errorf("expected search arg before export, got %v", argsWithSearch)
+	}
+}
+
 func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
 	// Pre-populate the package-level cache so ensureProjectsAndTags skips the
 	// taskwarrior exec call (not available in CI).
@@ -137,76 +169,6 @@ func TestSearchAutocompleteFiltersBySearchStr(t *testing.T) {
 	if hasProjectX || hasOther {
 		t.Error("did NOT expect 'projectX' or 'other' in matches (doesn't contain 'ttal')")
 	}
-}
-
-func TestAutoRefreshPreservesExpandedChildren(t *testing.T) {
-	m := NewModel()
-	m.filter = filterPending
-	m.width = 80
-	m.height = 20
-
-	parent := Task{UUID: "aaaa-parent", Description: "parent task"}
-	child := Task{UUID: "bbbb-child", Description: "child task", ParentID: "aaaa-parent"}
-
-	m.tasks = []Task{parent}
-	m.expanded = map[string]bool{"aaaa-parent": true}
-	m.childrenCache = map[string][]Task{"aaaa-parent": {child}}
-	m.applyFilter()
-
-	// Verify children are in filtered list
-	assert.Equal(t, 2, len(m.filtered), "parent + child should be in filtered list")
-
-	// Simulate auto-refresh: new tasks arrive (same data)
-	msg := tasksLoadedMsg{tasks: []Task{parent}}
-	m.handleTasksLoaded(msg)
-
-	// Children should still be visible (not cleared)
-	assert.Equal(t, 2, len(m.filtered), "children should persist through refresh")
-	assert.Equal(t, "bbbb-child", m.filtered[1].UUID)
-}
-
-func TestCollapseSelectedClearsCache(t *testing.T) {
-	t.Run("collapse root task", func(t *testing.T) {
-		m := NewModel()
-		m.filter = filterPending
-		m.width = 80
-		m.height = 20
-
-		parent := Task{UUID: "aaaa-parent", Description: "parent"}
-		child := Task{UUID: "bbbb-child", Description: "child", ParentID: "aaaa-parent"}
-
-		m.tasks = []Task{parent}
-		m.expanded = map[string]bool{"aaaa-parent": true}
-		m.childrenCache = map[string][]Task{"aaaa-parent": {child}}
-		m.applyFilter()
-		m.cursor = 0 // cursor on parent
-
-		m.collapseSelected()
-
-		assert.Empty(t, m.expanded)
-		assert.Empty(t, m.childrenCache, "cache should be cleared on collapse")
-	})
-
-	t.Run("collapse from child task", func(t *testing.T) {
-		m := NewModel()
-		m.filter = filterPending
-		m.width = 80
-		m.height = 20
-
-		parent := Task{UUID: "aaaa-parent", Description: "parent"}
-		child := Task{UUID: "bbbb-child", Description: "child", ParentID: "aaaa-parent"}
-
-		m.tasks = []Task{parent}
-		m.expanded = map[string]bool{"aaaa-parent": true}
-		m.childrenCache = map[string][]Task{"aaaa-parent": {child}}
-		m.applyFilter()
-		m.cursor = 1 // cursor on child
-
-		m.collapseSelected()
-
-		assert.Empty(t, m.expanded)
-		assert.Empty(t, m.childrenCache, "cache should be cleared when collapsing from child")
-	})
 }
 
 func TestApplyFilterCompletedSortsByEndDescending(t *testing.T) {
