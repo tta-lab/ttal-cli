@@ -37,7 +37,7 @@ func BuildCCDirectCommand(ttalBin, agent, trigger, mcpConfig string) string {
 // BuildLenosCommand builds a lenos launch command via the worker gatekeeper.
 // No MCP config for lenos yet.
 func BuildLenosCommand(ttalBin, agent, trigger, contextFile string) string {
-	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --yolo --agent %s", ttalBin, agent)
+	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
 	if contextFile != "" {
 		cmd += " --context-file " + contextFile
 	}
