@@ -87,9 +87,9 @@ func showStatus() error {
 	return nil
 }
 
-func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
+func buildAgentRow(cfg *config.Config, _, name string) agentRow {
 	rt := cfg.DefaultRuntime()
-	s, _ := status.ReadAgent(teamName, name)
+	s, _ := status.ReadAgent(config.DefaultTeamName, name)
 
 	row := agentRow{
 		name:    name,
