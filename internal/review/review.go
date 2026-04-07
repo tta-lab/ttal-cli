@@ -1,15 +1,18 @@
 package review
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -17,12 +20,11 @@ import (
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ttal pipeline prompt.
 func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
-	parts := []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
-		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
-		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
+	return []string{
+		fmt.Sprintf("%s=%s", temenos.EnvKeyAgentName, agentName),
+		fmt.Sprintf("%s=%s", temenos.EnvKeyJobID, task.HexID()),
+		fmt.Sprintf("%s=%s", temenos.EnvKeyRuntime, rt),
 	}
-	return parts
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
@@ -49,6 +51,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	}
 
 	var shellCmd string
+	var mcpPath string
 
 	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
 
@@ -69,8 +72,14 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		// Claude Code: direct launch — context and review prompt injected via SessionStart hook
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.", "")
+		// Claude Code: register temenos session for MCP bash, then launch CC.
+		regCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		mcpPath = temenos.RegisterReviewerTemenos(
+			regCtx, reviewerName, workDir,
+			ctx.Task.UUID, temenos.TokenAnnotationPRReviewer, reviewerRT,
+		)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.", mcpPath)
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 

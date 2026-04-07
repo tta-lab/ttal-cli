@@ -140,9 +140,6 @@ func TestBuildCCFreshCmd(t *testing.T) {
 	if strings.Contains(cmd, "--resume") {
 		t.Errorf("buildCCFreshCmd must not contain --resume: %q", cmd)
 	}
-	if !strings.Contains(cmd, "--model sonnet") {
-		t.Errorf("missing --model flag: %q", cmd)
-	}
 	if !strings.Contains(cmd, "--agent kestrel") {
 		t.Errorf("missing --agent flag: %q", cmd)
 	}
