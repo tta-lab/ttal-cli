@@ -54,7 +54,7 @@ func startHeartbeatScheduler(
 		log.Printf("[heartbeat] scheduling %s (role: %s) every %s", ta.AgentName, info.Role, interval)
 		started++
 
-		teamName := ta.TeamName
+		teamName := config.DefaultTeamName
 		agentName := ta.AgentName
 		go func() {
 			ticker := time.NewTicker(interval)
@@ -65,7 +65,7 @@ func startHeartbeatScheduler(
 					return
 				case <-ticker.C:
 					log.Printf("[heartbeat] firing for %s", agentName)
-					if err := deliverToAgent(registry, mcfg, frontends, teamName, agentName, prompt); err != nil {
+					if err := deliverToAgent(registry, mcfg, frontends, agentName, prompt); err != nil {
 						log.Printf("[heartbeat] deliver failed for %s/%s: %v", teamName, agentName, err)
 					}
 				}

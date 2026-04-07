@@ -61,11 +61,10 @@ type InboundHandler func(teamName, agentName, text string)
 
 // TelegramConfig holds construction parameters for TelegramFrontend.
 type TelegramConfig struct {
-	TeamName   string
 	MCfg       *config.DaemonConfig
 	OnMessage  InboundHandler
 	MsgSvc     *message.Service
-	UserNameFn func() string // returns human display name for this team
-	GetUsageFn func() string // returns formatted usage string, or "" if unavailable
-	RestartFn  func() error  // triggers daemon restart (launchctl kickstart -k)
+	UserNameFn func() string
+	GetUsageFn func() string
+	RestartFn  func() error
 }

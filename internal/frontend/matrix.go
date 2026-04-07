@@ -24,13 +24,12 @@ import (
 
 // MatrixConfig holds construction parameters for MatrixFrontend.
 type MatrixConfig struct {
-	TeamName   string
 	MCfg       *config.DaemonConfig
 	OnMessage  InboundHandler
 	MsgSvc     *message.Service
-	UserNameFn func() string // returns human display name for this team
-	GetUsageFn func() string // returns formatted usage string, or "" if unavailable
-	RestartFn  func() error  // triggers daemon restart (launchctl kickstart -k)
+	UserNameFn func() string
+	GetUsageFn func() string
+	RestartFn  func() error
 }
 
 // agentSession holds a Matrix client and its associated room for one agent.
@@ -67,22 +66,22 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 		return nil, fmt.Errorf("MatrixConfig.UserNameFn is required")
 	}
 
-	team, ok := cfg.MCfg.Teams[cfg.TeamName]
-	if !ok {
-		return nil, fmt.Errorf("team %q not found in config", cfg.TeamName)
+	team := cfg.MCfg.Team
+	if team == nil {
+		return nil, fmt.Errorf("[teams.default] not found in config")
 	}
 	matrixCfg := team.Matrix
 	if matrixCfg == nil {
-		return nil, fmt.Errorf("team %q has frontend=matrix but no [teams.%s.matrix] config", cfg.TeamName, cfg.TeamName)
+		return nil, fmt.Errorf("[teams.default] has frontend=matrix but no [teams.default.matrix] config")
 	}
 	if err := matrixCfg.Validate(); err != nil {
-		return nil, fmt.Errorf("team %q matrix config invalid: %w", cfg.TeamName, err)
+		return nil, fmt.Errorf("[teams.default] matrix config invalid: %w", err)
 	}
 
 	homeserver := matrixCfg.Homeserver
 	domain, err := extractDomain(homeserver)
 	if err != nil {
-		return nil, fmt.Errorf("team %q: invalid matrix homeserver %q: %w", cfg.TeamName, homeserver, err)
+		return nil, fmt.Errorf("[teams.default]: invalid matrix homeserver %q: %w", homeserver, err)
 	}
 
 	sessions := make(map[string]agentSession)
@@ -214,7 +213,7 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 			Sender:    senderName,
 			Recipient: agentName,
 			Content:   body,
-			Team:      f.cfg.TeamName,
+			Team:      config.DefaultTeamName,
 			Channel:   message.ChannelMatrix,
 		}); err != nil {
 			log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
@@ -222,12 +221,12 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 	}
 	// Bash mode: "! " prefix sends directly to CC without [matrix from:] wrapper.
 	if strings.HasPrefix(body, bashModePrefix) {
-		f.cfg.OnMessage(f.cfg.TeamName, agentName, body)
+		f.cfg.OnMessage(config.DefaultTeamName, agentName, body)
 		return
 	}
 
 	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, body)
-	f.cfg.OnMessage(f.cfg.TeamName, agentName, formatted)
+	f.cfg.OnMessage(config.DefaultTeamName, agentName, formatted)
 }
 
 // startNotifSync sets up the notification client sync loop with command handlers.
@@ -302,7 +301,7 @@ func (f *MatrixFrontend) SendVoice(_ context.Context, _ string, _ []byte) error 
 // If no notification client is configured, logs a warning and returns nil (not an error).
 func (f *MatrixFrontend) SendNotification(ctx context.Context, text string) error {
 	if f.notifyClient == nil {
-		log.Printf("[matrix] no notification client configured for team %s — dropping notification", f.cfg.TeamName)
+		log.Printf("[matrix] no notification client configured for team %s — dropping notification", config.DefaultTeamName)
 		return nil // not an error — acceptable in Phase 2
 	}
 	if _, err := f.notifyClient.SendText(ctx, f.notifyRoom, text); err != nil {
@@ -395,7 +394,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 			Sender:    senderName,
 			Recipient: agentName,
 			Content:   rawText,
-			Team:      f.cfg.TeamName,
+			Team:      config.DefaultTeamName,
 			Channel:   message.ChannelMatrix,
 		}); err != nil {
 			log.Printf("[matrix] voice persist failed: %v", err)
@@ -403,7 +402,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 	}
 
 	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, rawText)
-	f.cfg.OnMessage(f.cfg.TeamName, agentName, formatted)
+	f.cfg.OnMessage(config.DefaultTeamName, agentName, formatted)
 }
 
 // ClearTracking clears the tracked inbound event ID for an agent.
@@ -457,24 +456,24 @@ func (f *MatrixFrontend) handleMatrixCommand(
 
 	switch cmd {
 	case "status":
-		f.handleMatrixStatusCommand(f.cfg.TeamName, replyFn, args)
+		f.handleMatrixStatusCommand(config.DefaultTeamName, replyFn, args)
 	case "help":
 		f.handleMatrixHelpCommand(replyFn)
 	case "usage":
 		f.handleMatrixUsageCommand(replyFn)
 	case "new":
 		fullCmd := "/" + cmd + joinArgs(args, " ")
-		sendKeysToAgentWithReply(f.cfg.TeamName, agentName, fullCmd, "Sent /new — starting fresh conversation", replyFn)
+		sendKeysToAgentWithReply(agentName, fullCmd, "Sent /new — starting fresh conversation", replyFn)
 	case "compact":
 		fullCmd := "/" + cmd + joinArgs(args, " ")
-		sendKeysToAgentWithReply(f.cfg.TeamName, agentName, fullCmd, "Sent /compact — compacting conversation", replyFn)
+		sendKeysToAgentWithReply(agentName, fullCmd, "Sent /compact — compacting conversation", replyFn)
 	case "wait":
-		sendEscToAgentWithReply(f.cfg.TeamName, agentName, replyFn)
+		sendEscToAgentWithReply(agentName, replyFn)
 	default:
 		origName := f.resolveSkillCommand(cmd)
 		if origName != "" {
 			skillCmd := buildSkillGetCommand(origName, text)
-			sendKeysToAgentWithReply(f.cfg.TeamName, agentName, skillCmd, "", replyFn)
+			sendKeysToAgentWithReply(agentName, skillCmd, "", replyFn)
 		}
 		// Unknown commands are silently ignored (same as Telegram default handler)
 	}
@@ -552,8 +551,8 @@ func (f *MatrixFrontend) resolveSkillCommand(cmd string) string {
 }
 
 // sendKeysToAgentWithReply sends tmux keys to an agent and optionally replies with a confirmation.
-func sendKeysToAgentWithReply(teamName, agentName, keys, confirmMsg string, replyFn func(string)) {
-	session := config.AgentSessionName(teamName, agentName)
+func sendKeysToAgentWithReply(agentName, keys, confirmMsg string, replyFn func(string)) {
+	session := config.AgentSessionName(agentName)
 	if err := tmux.SendKeys(session, agentName, keys); err != nil {
 		replyFn("Error: " + err.Error())
 		return
@@ -564,8 +563,8 @@ func sendKeysToAgentWithReply(teamName, agentName, keys, confirmMsg string, repl
 }
 
 // sendEscToAgentWithReply sends Escape to an agent's tmux session and replies with confirmation.
-func sendEscToAgentWithReply(teamName, agentName string, replyFn func(string)) {
-	session := config.AgentSessionName(teamName, agentName)
+func sendEscToAgentWithReply(agentName string, replyFn func(string)) {
+	session := config.AgentSessionName(agentName)
 	if err := tmux.SendRawKey(session, agentName, "Escape"); err != nil {
 		replyFn("Error: " + err.Error())
 		return
@@ -584,7 +583,7 @@ func (f *MatrixFrontend) handleNotifCommand(text string) {
 
 	switch cmd {
 	case "status":
-		f.handleMatrixStatusCommand(f.cfg.TeamName, replyFn, args)
+		f.handleMatrixStatusCommand(config.DefaultTeamName, replyFn, args)
 	case "usage":
 		f.handleMatrixUsageCommand(replyFn)
 	case "restart":

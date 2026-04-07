@@ -43,7 +43,7 @@ type prWatchTarget struct {
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
 // and active tmux sessions, then spawns per-PR polling goroutines.
-func startPRWatcher(mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, done <-chan struct{}) {
+func startPRWatcher(_ *config.DaemonConfig, frontends map[string]frontend.Frontend, done <-chan struct{}) {
 	var mu sync.Mutex
 	active := make(map[string]bool) // task UUID → polling
 
@@ -59,7 +59,7 @@ func startPRWatcher(mcfg *config.DaemonConfig, frontends map[string]frontend.Fro
 			case <-timer.C:
 			}
 
-			scanForPRTasks(mcfg, frontends, &mu, active, done)
+			scanForPRTasks(frontends, &mu, active, done)
 			timer.Reset(prScanInterval)
 		}
 	}()
@@ -70,11 +70,11 @@ func startPRWatcher(mcfg *config.DaemonConfig, frontends map[string]frontend.Fro
 // scanForPRTasks queries taskwarrior for tasks with pr_id, checks tmux sessions,
 // and spawns polling goroutines for new PRs.
 func scanForPRTasks(
-	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend,
+	frontends map[string]frontend.Frontend,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
-	teamName := mcfg.DefaultTeamName()
+	teamName := config.DefaultTeamName
 	seen := scanTeam(frontends, teamName, mu, active, done)
 	if seen == nil {
 		// Scan failed — skip pruning this round to avoid orphaning
@@ -385,11 +385,9 @@ func notifyOwnerMerged(
 	if target.Owner == "" {
 		return
 	}
-	teamName := target.Team
-	if teamName == "" {
-		teamName = config.DefaultTeamName
-	}
-	if err := deliverToAgent(registry, mcfg, frontends, teamName, target.Owner, formatTaskDoneMsg(target)); err != nil {
+	// teamName is always empty since TaskCompleteRequest no longer carries Team.
+	_ = target.Team // suppress unused field warning
+	if err := deliverToAgent(registry, mcfg, frontends, target.Owner, formatTaskDoneMsg(target)); err != nil {
 		log.Printf("[prwatch] failed to notify owner %s: %v", target.Owner, err)
 	}
 }
@@ -426,8 +424,8 @@ func notifyManagerAgents(
 		if agent.Name == target.Owner {
 			continue
 		}
-		if err := deliverToAgent(registry, mcfg, frontends, teamName, agent.Name, msg); err != nil {
-			log.Printf("[prwatch] notifyManagerAgents: deliver to %s/%s: %v", teamName, agent.Name, err)
+		if err := deliverToAgent(registry, mcfg, frontends, agent.Name, msg); err != nil {
+			log.Printf("[prwatch] notifyManagerAgents: deliver to %s: %v", agent.Name, err)
 		}
 	}
 }

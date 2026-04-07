@@ -11,19 +11,13 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
-// configWithTeamName is the minimal interface needed for session name construction.
-type configWithTeamName interface {
-	TeamName() string
-}
-
 // Package-level overrides for test injection.
 var (
 	exportTaskFn    = taskwarrior.ExportTask
 	sessionExistsFn = tmux.SessionExists
 	attachFn        = attachToSession
-	configLoaderFn  = func() (configWithTeamName, error) {
-		cfg, err := config.Load()
-		return cfg, err
+	configLoaderFn  = func() (*config.Config, error) {
+		return config.Load()
 	}
 )
 
@@ -54,7 +48,7 @@ func Session(uuid string) error {
 			return fmt.Errorf("could not load config for owner session lookup: %w", err)
 		}
 		if cfg != nil {
-			ownerSession := config.AgentSessionName(cfg.TeamName(), task.Owner)
+			ownerSession := config.AgentSessionName(task.Owner)
 			if sessionExistsFn(ownerSession) {
 				return attachFn(ownerSession)
 			}

@@ -578,13 +578,12 @@ func runGit(t *testing.T, args ...string) {
 
 // TestResolveReviewerSession verifies the resolveReviewerSession helper.
 func TestResolveReviewerSession(t *testing.T) {
-	const team = "default"
 	const callerSession = "ttal-default-yuki"
 
 	t.Run("owner set returns owner session", func(t *testing.T) {
 		task := &taskwarrior.Task{UUID: "t1", Owner: "inke"}
-		got := resolveReviewerSession(task, team, callerSession)
-		want := config.AgentSessionName(team, "inke")
+		got := resolveReviewerSession(task, callerSession)
+		want := config.AgentSessionName("inke")
 		if got != want {
 			t.Errorf("expected %q, got %q", want, got)
 		}
@@ -592,15 +591,7 @@ func TestResolveReviewerSession(t *testing.T) {
 
 	t.Run("owner empty falls back to caller session", func(t *testing.T) {
 		task := &taskwarrior.Task{UUID: "t2"} // no Owner
-		got := resolveReviewerSession(task, team, callerSession)
-		if got != callerSession {
-			t.Errorf("expected caller session %q, got %q", callerSession, got)
-		}
-	})
-
-	t.Run("empty team falls back to caller session", func(t *testing.T) {
-		task := &taskwarrior.Task{UUID: "t3", Owner: "inke"}
-		got := resolveReviewerSession(task, "", callerSession)
+		got := resolveReviewerSession(task, callerSession)
 		if got != callerSession {
 			t.Errorf("expected caller session %q, got %q", callerSession, got)
 		}
@@ -689,9 +680,9 @@ func TestAdvance_SecondManagerRoute_OwnerUnchanged(t *testing.T) {
 	t.Cleanup(func() { setOwnerFn = orig })
 }
 
-// TestAdvance_WorkerStage_OwnerUnchanged verifies that setOwnerFn is NOT called
-// when advancing to a worker stage.
-func TestAdvance_WorkerStage_OwnerUnchanged(t *testing.T) {
+// TestEnsureWorkerStageOwner_WriteOnceGuard verifies that ensureWorkerStageOwner
+// does NOT call setOwnerFn when the task already has an owner (write-once guard).
+func TestEnsureWorkerStageOwner_WriteOnceGuard(t *testing.T) {
 	orig := setOwnerFn
 	setOwnerFn = func(uuid, owner string) error {
 		t.Errorf("setOwnerFn should not be called at worker stage, got uuid=%s owner=%s", uuid, owner)
@@ -700,13 +691,42 @@ func TestAdvance_WorkerStage_OwnerUnchanged(t *testing.T) {
 	t.Cleanup(func() { setOwnerFn = orig })
 }
 
-// TestAdvance_WorkerStageFromUnowned_OwnerStaysEmpty verifies that setOwnerFn is NOT called
-// when a task without an owner enters a worker stage (edge case).
-func TestAdvance_WorkerStageFromUnowned_OwnerStaysEmpty(t *testing.T) {
+// TestAdvance_WorkerStageFromUnowned_SetsOwner verifies that setOwnerFn IS called
+// with the caller when an unowned task routes to a worker stage (e.g. hotfix).
+func TestEnsureWorkerStageOwner_SetsOwnerForUnownedTask(t *testing.T) {
+	var capturedOwner string
 	orig := setOwnerFn
 	setOwnerFn = func(uuid, owner string) error {
-		t.Errorf("setOwnerFn should not be called for unowned task at worker stage, got uuid=%s owner=%s", uuid, owner)
+		capturedOwner = owner
 		return nil
 	}
 	t.Cleanup(func() { setOwnerFn = orig })
+
+	task := &taskwarrior.Task{UUID: "aaaa0001", Owner: ""}
+	err := ensureWorkerStageOwner(task, "cael", "Implement")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedOwner != "cael" {
+		t.Errorf("capturedOwner = %q, want %q", capturedOwner, "cael")
+	}
+}
+
+func TestEnsureWorkerStageOwner_SkipsOwnedTask(t *testing.T) {
+	var called bool
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+
+	task := &taskwarrior.Task{UUID: "aaaa0001", Owner: "astra"}
+	err := ensureWorkerStageOwner(task, "cael", "Implement")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if called {
+		t.Error("setOwnerFn should not be called for already-owned task")
+	}
 }

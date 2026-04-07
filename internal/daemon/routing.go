@@ -69,18 +69,18 @@ func handleFrom(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	ta := resolveAgent(mcfg, req.Team, req.From)
+	ta := resolveAgent(mcfg, req.From)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.From)
 	}
-	fe, ok := frontends[ta.TeamName]
+	fe, ok := frontends[config.DefaultTeamName]
 	if !ok {
-		return fmt.Errorf("no frontend configured for team %s (agent %s)", ta.TeamName, req.From)
+		return fmt.Errorf("no frontend configured for team default (agent %s)", req.From)
 	}
-	rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, req.From)
+	rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, req.From)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: req.From, Recipient: mcfg.Global.UserName(), Content: req.Message,
-		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		Team: config.DefaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	return fe.SendText(context.Background(), ta.AgentName, req.Message)
 }
@@ -94,12 +94,12 @@ func handleTo(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	ta := resolveAgent(mcfg, req.Team, req.To)
+	ta := resolveAgent(mcfg, req.To)
 	if ta == nil {
 		// Try parseWorkerAddress for job_id:agent_name format
 		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
 			session, dispatched, err := dispatchToWorkerOrManager(
-				mcfg, jobID, agentName, msgSvc, mcfg.Global.UserName(), req.Team, req.To, req.Message, nil)
+				mcfg, jobID, agentName, msgSvc, mcfg.Global.UserName(), req.To, req.Message, nil)
 			if err != nil {
 				return err
 			}
@@ -117,9 +117,9 @@ func handleTo(
 	// Human-originated: no runtime attribution (humans don't have a runtime entry).
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: mcfg.Global.UserName(), Recipient: req.To, Content: req.Message,
-		Team: ta.TeamName, Channel: message.ChannelCLI,
+		Team: config.DefaultTeamName, Channel: message.ChannelCLI,
 	})
-	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
+	return deliverToAgent(registry, mcfg, frontends, req.To, req.Message)
 }
 
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
@@ -130,16 +130,16 @@ func handleSystemToAgent(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	ta := resolveAgent(mcfg, req.Team, req.To)
+	ta := resolveAgent(mcfg, req.To)
 	if ta == nil {
 		return fmt.Errorf("unknown agent: %s", req.To)
 	}
-	rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, req.To)
+	rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, req.To)
 	persistMsg(msgSvc, message.CreateParams{
 		Sender: "system", Recipient: req.To, Content: req.Message,
-		Team: ta.TeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		Team: config.DefaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 	})
-	return deliverToAgent(registry, mcfg, frontends, ta.TeamName, req.To, req.Message)
+	return deliverToAgent(registry, mcfg, frontends, req.To, req.Message)
 }
 
 // handleAgentToAgent delivers a message from one agent to another.
@@ -187,14 +187,14 @@ func bareHexError(got string) error {
 func dispatchToWorkerOrManager(
 	mcfg *config.DaemonConfig,
 	jobID, agentName string,
-	msgSvc *message.Service, sender, team, recipient string,
+	msgSvc *message.Service, sender, recipient string,
 	msg string, rt *runtime.Runtime,
 ) (string, bool, error) {
 	session, err := resolveWorker(jobID)
 	if err == nil {
 		return session, true, dispatchToWorkerImpl(msgSvc, session, agentName, message.CreateParams{
 			Sender: sender, Recipient: "worker:" + recipient, Content: msg,
-			Team: team, Channel: message.ChannelCLI, Runtime: rt,
+			Team: config.DefaultTeamName, Channel: message.ChannelCLI, Runtime: rt,
 		}, msg)
 	}
 	// Fall back to manager window — subagent results return to the task
@@ -207,7 +207,7 @@ func dispatchToWorkerOrManager(
 	}
 	return fallback, true, dispatchToWorkerImpl(msgSvc, fallback, agentName, message.CreateParams{
 		Sender: sender, Recipient: "worker:" + recipient, Content: msg,
-		Team: team, Channel: message.ChannelCLI, Runtime: rt,
+		Team: config.DefaultTeamName, Channel: message.ChannelCLI, Runtime: rt,
 	}, msg)
 }
 
@@ -245,22 +245,17 @@ func handleAgentToAgent(
 		if _, err := resolveWorker(jobID); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
-	} else if fromTA = resolveAgent(mcfg, req.Team, req.From); fromTA == nil {
+	} else if fromTA = resolveAgent(mcfg, req.From); fromTA == nil {
 		if _, err := resolveWorker(req.From); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
 	}
-	senderTeam := req.Team
-	if senderTeam == "" {
+	senderTeam := config.DefaultTeamName
+	if fromTA != nil {
 		senderTeam = config.DefaultTeamName
 	}
-	if fromTA != nil {
-		senderTeam = fromTA.TeamName
-	} else if senderTeam == config.DefaultTeamName && req.Team == "" {
-		log.Printf("[daemon] worker sender %s: team unknown, attributing to default team", req.From)
-	}
 
-	toTA := resolveAgent(mcfg, req.Team, req.To)
+	toTA := resolveAgent(mcfg, req.To)
 	msg := formatAgentMessage(req.From, req.Message)
 	senderTeamPath := ""
 	if fromTA != nil {
@@ -271,7 +266,7 @@ func handleAgentToAgent(
 		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
 			rt := mcfg.RuntimeForAgent(senderTeam, senderTeamPath, req.From)
 			session, dispatched, err := dispatchToWorkerOrManager(
-				mcfg, jobID, agentName, msgSvc, req.From, senderTeam, req.To, msg, &rt)
+				mcfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
 			if err != nil {
 				return err
 			}
@@ -292,17 +287,11 @@ func handleAgentToAgent(
 		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
 	})
 	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, mcfg, frontends, toTA.TeamName, req.To, msg)
+	return deliverToAgent(registry, mcfg, frontends, req.To, msg)
 }
 
 // resolveAgent finds an agent by name, using team hint if provided.
-func resolveAgent(mcfg *config.DaemonConfig, teamHint, agentName string) *config.TeamAgent {
-	if teamHint != "" {
-		ta, ok := mcfg.FindAgentInTeam(teamHint, agentName)
-		if ok {
-			return ta
-		}
-	}
+func resolveAgent(mcfg *config.DaemonConfig, agentName string) *config.TeamAgent {
 	ta, ok := mcfg.FindAgent(agentName)
 	if ok {
 		return ta
@@ -361,6 +350,14 @@ var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
 // Package-level var for test injection.
 var windowExistsFn = tmux.WindowExists
 
+// tmuxSendKeysFn sends keys to a tmux session window.
+// Package-level var for test injection.
+var tmuxSendKeysFn = tmux.SendKeys
+
+// tmuxSessionExistsFn checks if a tmux session exists.
+// Package-level var for test injection.
+var tmuxSessionExistsFn = tmux.SessionExists
+
 // resolveWorker is the function used to find a worker tmux session by UUID prefix.
 // Package-level var for test injection.
 var resolveWorker = resolveWorkerImpl
@@ -378,7 +375,6 @@ var pipelineLoadFn = pipeline.Load
 // Returns (sessionName, nil) on success or ("", error) on failure.
 // Returns an error if the task is at a worker stage — callers should route to the worker session instead.
 func resolveManagerWindowImpl(jobID, windowName string, mcfg *config.DaemonConfig) (string, error) {
-	team := mcfg.Global.TeamName()
 	task, err := exportTaskByHexIDFn(jobID, "")
 	if err != nil {
 		return "", fmt.Errorf("resolve manager window: task lookup: %w", err)
@@ -407,7 +403,7 @@ func resolveManagerWindowImpl(jobID, windowName string, mcfg *config.DaemonConfi
 		return "", fmt.Errorf("resolve manager window: task at worker stage, no manager window for %s", jobID)
 	}
 
-	session := config.AgentSessionName(team, task.Owner)
+	session := config.AgentSessionName(task.Owner)
 	if !windowExistsFn(session, windowName) {
 		return "", fmt.Errorf("resolve manager window: window %s not found in session %s", windowName, session)
 	}
@@ -425,8 +421,8 @@ type breatheAgentModel struct {
 }
 
 // resolveAgentModel reads the current model/CC version from the agent's status file.
-func resolveAgentModel(team, agent string) breatheAgentModel {
-	s, err := status.ReadAgent(team, agent)
+func resolveAgentModel(agent string) breatheAgentModel {
+	s, err := status.ReadAgent("default", agent)
 	if err != nil {
 		log.Printf("[breathe] %s: warning: could not read status file, using default model: %v", agent, err)
 	}
@@ -516,7 +512,7 @@ func buildBreatheEnv(agent string, cfg *config.Config) []string {
 // Returns sessionAlive so the caller can skip KillSession on a dead session.
 func resolveBrCWD(sessionName, windowName, agent string, cfg *config.Config) (string, bool, error) {
 	var cwd string
-	sessionAlive := tmux.SessionExists(sessionName)
+	sessionAlive := tmuxSessionExistsFn(sessionName)
 	if sessionAlive {
 		var err error
 		cwd, err = tmux.GetPaneCwd(sessionName, windowName)
@@ -546,9 +542,9 @@ type breatheSessionPlan struct {
 
 // resolveBreatheSessions determines old/new session names and CWD for a persistent-agent breathe.
 func resolveBreatheSessions(
-	req BreatheRequest, team string, shellCfg *config.Config,
+	req BreatheRequest, shellCfg *config.Config,
 ) (breatheSessionPlan, error) {
-	persistName := config.AgentSessionName(team, req.Agent)
+	persistName := config.AgentSessionName(req.Agent)
 	// TODO(fork-model): session override hook for future fork-model graduation
 	cwdSession := persistName
 	if req.SessionName != "" {
@@ -577,10 +573,6 @@ func resolveBreatheSessions(
 //
 //nolint:gocyclo,lll
 func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.DaemonConfig, registry *adapterRegistry) SendResponse {
-	team := req.Team
-	if team == "" {
-		team = config.DefaultTeamName
-	}
 	if req.Agent == "" {
 		return SendResponse{OK: false, Error: "missing agent name"}
 	}
@@ -590,28 +582,28 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 
 	// Dispatch to codex handler if agent uses Codex runtime
 	if mcfg != nil {
-		if ta, ok := mcfg.FindAgentInTeam(team, req.Agent); ok {
-			rt := mcfg.RuntimeForAgent(team, ta.TeamPath, req.Agent)
+		if ta, ok := mcfg.FindAgentInTeam(config.DefaultTeamName, req.Agent); ok {
+			rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, req.Agent)
 			if rt == runtime.Codex {
-				return handleCodexBreathe(req, team, registry)
+				return handleCodexBreathe(req, registry)
 			}
 		}
 	}
 
 	// 1. Resolve session names and CWD.
-	plan, err := resolveBreatheSessions(req, team, shellCfg)
+	plan, err := resolveBreatheSessions(req, shellCfg)
 	if err != nil {
 		return SendResponse{OK: false, Error: err.Error()}
 	}
 
 	// 2. Get model info.
-	am := resolveAgentModel(team, req.Agent)
+	am := resolveAgentModel(req.Agent)
 
 	// 3. Persist handoff to diary (write-side persistence).
 	diaryAppendHandoff(req.Agent, req.Handoff)
 
 	// 4. Update status file — clear session ID so the statusline hook populates the real ID.
-	if err := status.WriteAgent(team, status.AgentStatus{
+	if err := status.WriteAgent("default", status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           "", // cleared; CC SessionStart hook populates the real session ID
 		ContextUsedPct:      0,
@@ -621,23 +613,23 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 		CCVersion:           am.ccVersion,
 		UpdatedAt:           time.Now().UTC(),
 	}); err != nil {
-		log.Printf("[breathe] warning: failed to write status for %s/%s: %v", team, req.Agent, err)
+		log.Printf("[breathe] warning: failed to write status for default/%s: %v", req.Agent, err)
 	}
 
 	// 5. Breathe: prefer /clear on a live session (hook re-injects context without restart).
 	// Fall back to kill+fresh-start when the session is dead.
 	// Note: diaryAppendHandoff (step 3) runs unconditionally so the handoff is persisted
 	// before both paths — /clear causes the source=clear hook to read the updated diary.
-	sessionAlive := tmux.SessionExists(plan.oldSessionName)
+	sessionAlive := tmuxSessionExistsFn(plan.oldSessionName)
 	if sessionAlive {
 		log.Printf("[breathe] %s: session alive — sending /clear (source=clear hook will re-inject context)", req.Agent)
-		if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
+		if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
 			log.Printf("[breathe] %s: /clear failed (%v), falling back to restart", req.Agent, err)
 		} else {
 			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
 			go func() {
 				time.Sleep(clearSettleDelay)
-				if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "go"); err != nil {
+				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "Continue with the task."); err != nil {
 					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
 				} else {
 					log.Printf("[breathe] %s: start trigger sent", req.Agent)
@@ -658,7 +650,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 		}
 	}
 	mcpPath := temenos.AgentMCPConfigPath(req.Agent)
-	agentEnv := buildManagerAgentEnv(req.Agent, req.Team, mcfg)
+	agentEnv := buildManagerAgentEnv(req.Agent, mcfg)
 	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, shellCfg.GetShell(), mcpPath, ""); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
@@ -692,8 +684,8 @@ func diaryAppendHandoff(agent, handoff string) {
 // handleCodexBreathe performs a breathe restart for a Codex agent.
 // Creates a new thread (auto-injecting identity via developerInstructions) and sends
 // the handoff as the first turn.
-func handleCodexBreathe(req BreatheRequest, team string, registry *adapterRegistry) SendResponse {
-	adapter, ok := registry.get(team, req.Agent)
+func handleCodexBreathe(req BreatheRequest, registry *adapterRegistry) SendResponse {
+	adapter, ok := registry.get(config.DefaultTeamName, req.Agent)
 	if !ok {
 		return SendResponse{OK: false, Error: "codex adapter not found for " + req.Agent}
 	}
@@ -718,10 +710,6 @@ func handleCodexBreathe(req BreatheRequest, team string, registry *adapterRegist
 
 // handleStatusUpdate writes agent context status to the status directory.
 func handleStatusUpdate(req StatusUpdateRequest) {
-	team := req.Team
-	if team == "" {
-		team = config.DefaultTeamName
-	}
 	s := status.AgentStatus{
 		Agent:               req.Agent,
 		ContextUsedPct:      req.ContextUsedPct,
@@ -730,7 +718,7 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 		SessionID:           req.SessionID,
 		UpdatedAt:           time.Now(),
 	}
-	if err := status.WriteAgent(team, s); err != nil {
-		log.Printf("[daemon] failed to write status for %s/%s: %v", team, req.Agent, err)
+	if err := status.WriteAgent("default", s); err != nil {
+		log.Printf("[daemon] failed to write status for default/%s: %v", req.Agent, err)
 	}
 }

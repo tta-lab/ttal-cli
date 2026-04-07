@@ -173,7 +173,7 @@ Requires task_sync_url to be set in the team's config.toml section.`,
 
 		syncURL := cfg.TaskSyncURL()
 		if syncURL == "" {
-			return fmt.Errorf("task_sync_url not set for team %q — add it to config.toml first", cfg.TeamName())
+			return fmt.Errorf("task_sync_url not set for team %q — add it to config.toml first", "default")
 		}
 
 		syncFilePath := filepath.Join(cfg.DataDir(), "taskrc.sync")

@@ -281,10 +281,7 @@ func buildRuntimeShellCommand(
 		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
 
 	case runtime.Lenos:
-		teamName := shellCfg.TeamName()
-		if teamName == "" {
-			teamName = config.DefaultTeamName
-		}
+		teamName := config.DefaultTeamName
 		contextFile, err := writeContextFile(task, agentName, teamName, shellCfg)
 		if err != nil {
 			return "", fmt.Errorf("write lenos context file: %w", err)

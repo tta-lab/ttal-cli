@@ -202,7 +202,7 @@ func TestHandleMatrixCommand_Status(t *testing.T) {
 	var got string
 	replyFn := func(msg string) { got = msg }
 	fe := &MatrixFrontend{
-		cfg: MatrixConfig{TeamName: "nonexistent-team-xyz"},
+		cfg: MatrixConfig{},
 	}
 	fe.handleMatrixStatusCommand("nonexistent-team-xyz", replyFn, nil)
 	if got != "No agent status data available" {
@@ -353,7 +353,7 @@ func TestHandleNotifCommand_RestartNilFn(t *testing.T) {
 	}
 	fe := &MatrixFrontend{
 		cfg: MatrixConfig{
-			TeamName:  "testteam",
+
 			RestartFn: nil,
 		},
 		sessions:     make(map[string]agentSession),
@@ -384,7 +384,7 @@ func TestHandleNotifCommand_Help(t *testing.T) {
 		t.Fatalf("NewClient: %v", err)
 	}
 	fe := &MatrixFrontend{
-		cfg:          MatrixConfig{TeamName: "testteam"},
+		cfg:          MatrixConfig{},
 		sessions:     make(map[string]agentSession),
 		notifyClient: nc,
 		notifyRoom:   id.RoomID("!notifyroom:test"),

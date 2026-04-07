@@ -14,7 +14,7 @@ func handleHTTPNotify(handlers httpHandlers) http.HandlerFunc {
 			writeHTTPJSON(w, http.StatusBadRequest, SendResponse{Error: "bad json"})
 			return
 		}
-		if err := handlers.notify(req.Team, req.Message); err != nil {
+		if err := handlers.notify("default", req.Message); err != nil {
 			writeHTTPJSON(w, http.StatusInternalServerError, SendResponse{Error: err.Error()})
 			return
 		}

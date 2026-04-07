@@ -17,12 +17,12 @@ func TestAgentSessionName(t *testing.T) {
 	}{
 		{"default", "kestrel", "ttal-default-kestrel"},
 		{"default", "yuki", "ttal-default-yuki"},
-		{"guion", "mira", "ttal-guion-mira"},
-		{"sven", "athena", "ttal-sven-athena"},
+		{"guion", "mira", "ttal-default-mira"},
+		{"sven", "athena", "ttal-default-athena"},
 	}
 	for _, tt := range tests {
-		if got := AgentSessionName(tt.team, tt.agent); got != tt.want {
-			t.Errorf("AgentSessionName(%q, %q) = %q, want %q", tt.team, tt.agent, got, tt.want)
+		if got := AgentSessionName(tt.agent); got != tt.want {
+			t.Errorf("AgentSessionName(%q) = %q, want %q", tt.agent, got, tt.want)
 		}
 	}
 }
@@ -535,7 +535,7 @@ func TestCommentSyncResolution(t *testing.T) {
 				TeamPath:    "/tmp/test",
 				CommentSync: tt.commentSync,
 			}
-			rt, err := resolveTeam("test", team, nil, map[string]TeamConfig{"test": team})
+			rt, err := resolveTeam("test", team, nil)
 			if err != nil {
 				t.Fatalf("resolveTeam() error: %v", err)
 			}

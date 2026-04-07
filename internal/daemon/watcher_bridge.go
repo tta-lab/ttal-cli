@@ -30,9 +30,9 @@ func startWatcher(
 		projectsDir := defaultProjectsDir
 
 		// Composite key avoids collision when multiple teams have same agent name
-		key := ta.TeamName + "/" + encoded
+		key := config.DefaultTeamName + "/" + encoded
 		agentMap[key] = watcher.WatchedAgent{
-			AgentInfo:   watcher.AgentInfo{TeamName: ta.TeamName, AgentName: ta.AgentName},
+			AgentInfo:   watcher.AgentInfo{TeamName: config.DefaultTeamName, AgentName: ta.AgentName},
 			ProjectsDir: projectsDir,
 			EncodedDir:  encoded,
 		}
@@ -40,21 +40,21 @@ func startWatcher(
 
 	w, err := watcher.New(agentMap,
 		func(teamName, agentName, text string) {
-			ta, ok := mcfg.FindAgentInTeam(teamName, agentName)
+			ta, ok := mcfg.FindAgent(agentName)
 			if !ok {
 				return
 			}
-			fe, ok := frontends[teamName]
+			fe, ok := frontends[config.DefaultTeamName]
 			if !ok {
 				return
 			}
-			rt := mcfg.RuntimeForAgent(teamName, ta.TeamPath, agentName)
+			rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, agentName)
 			persistMsg(msgSvc, message.CreateParams{
 				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
-				Team: teamName, Channel: message.ChannelWatcher, Runtime: &rt,
+				Team: config.DefaultTeamName, Channel: message.ChannelWatcher, Runtime: &rt,
 			})
 			if err := fe.SendText(context.Background(), agentName, text); err != nil {
-				log.Printf("[watcher] send error for %s/%s: %v", teamName, agentName, err)
+				log.Printf("[watcher] send error for %s/%s: %v", config.DefaultTeamName, agentName, err)
 			} else {
 				_ = fe.ClearTracking(context.Background(), agentName)
 			}
@@ -64,11 +64,10 @@ func startWatcher(
 			if emoji == "" {
 				return
 			}
-			// Check if emoji reactions are enabled for this team
-			if team, ok := mcfg.Teams[teamName]; !ok || !team.EmojiReactions {
+			if mcfg.Team != nil && mcfg.Team.EmojiReactions {
 				return
 			}
-			fe, ok := frontends[teamName]
+			fe, ok := frontends[config.DefaultTeamName]
 			if !ok {
 				return
 			}

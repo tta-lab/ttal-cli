@@ -15,12 +15,12 @@ func handleTaskComplete(
 	req TaskCompleteRequest, mcfg *config.DaemonConfig,
 	registry *adapterRegistry, frontends map[string]frontend.Frontend,
 ) SendResponse {
-	if req.Team == "" {
-		req.Team = config.DefaultTeamName
+	// Use PR title if available, fall back to task description.
+	desc := req.Desc
+	if req.PRTitle != "" {
+		desc = req.PRTitle
 	}
 
-	// Build target — reuse prWatchTarget with only the fields notifications need.
-	// Owner, Repo, Provider, SessionName are left zero — not used by notify functions.
 	var prIndex int64
 	if req.PRID != "" {
 		if info, err := taskwarrior.ParsePRID(req.PRID); err != nil {
@@ -30,15 +30,8 @@ func handleTaskComplete(
 		}
 	}
 
-	// Use PR title if available, fall back to task description.
-	desc := req.Desc
-	if req.PRTitle != "" {
-		desc = req.PRTitle
-	}
-
 	target := prWatchTarget{
 		TaskUUID:    req.TaskUUID,
-		Team:        req.Team,
 		Owner:       req.Owner,
 		Description: desc,
 		PRIndex:     prIndex,

@@ -52,7 +52,7 @@ func buildTestFrontend(t *testing.T, srv *httptest.Server, agentName, roomID str
 	}
 	return &MatrixFrontend{
 		cfg: MatrixConfig{
-			TeamName:   "testteam",
+
 			UserNameFn: func() string { return testUserName },
 		},
 		sessions: map[string]agentSession{
@@ -73,7 +73,7 @@ func TestNewMatrix_MissingCallbacks(t *testing.T) {
 	}
 
 	_, err := NewMatrix(MatrixConfig{
-		TeamName:   "myteam",
+
 		MCfg:       mcfg,
 		OnMessage:  nil,
 		UserNameFn: func() string { return testUserName },
@@ -83,7 +83,7 @@ func TestNewMatrix_MissingCallbacks(t *testing.T) {
 	}
 
 	_, err = NewMatrix(MatrixConfig{
-		TeamName:  "myteam",
+
 		MCfg:      mcfg,
 		OnMessage: func(_, _, _ string) {},
 		// UserNameFn intentionally nil
@@ -101,7 +101,7 @@ func TestNewMatrix_MissingConfig(t *testing.T) {
 		},
 	}
 	_, err := NewMatrix(MatrixConfig{
-		TeamName:   "myteam",
+
 		MCfg:       mcfg,
 		OnMessage:  func(_, _, _ string) {},
 		UserNameFn: func() string { return testUserName },
@@ -114,21 +114,19 @@ func TestNewMatrix_MissingConfig(t *testing.T) {
 // TestNewMatrix_SkipsAgentWithoutToken verifies that agents with unset token env vars are skipped.
 func TestNewMatrix_SkipsAgentWithoutToken(t *testing.T) {
 	mcfg := &config.DaemonConfig{
-		Teams: map[string]*config.ResolvedTeam{
-			"myteam": {
-				Name:     "myteam",
-				Frontend: "matrix",
-				Matrix: &config.MatrixTeamConfig{
-					Homeserver: "https://matrix.example.com",
-					Agents: map[string]config.MatrixAgentConfig{
-						"yuki": {AccessTokenEnv: "TTAL_TEST_UNSET_TOKEN_12345", RoomID: "!room:example.com"},
-					},
+		Team: &config.ResolvedTeam{
+			Name:     "default",
+			Frontend: "matrix",
+			Matrix: &config.MatrixTeamConfig{
+				Homeserver: "https://matrix.example.com",
+				Agents: map[string]config.MatrixAgentConfig{
+					"yuki": {AccessTokenEnv: "TTAL_TEST_UNSET_TOKEN_12345", RoomID: "!room:example.com"},
 				},
 			},
 		},
 	}
 	fe, err := NewMatrix(MatrixConfig{
-		TeamName:   "myteam",
+
 		MCfg:       mcfg,
 		OnMessage:  func(_, _, _ string) {},
 		UserNameFn: func() string { return testUserName },
@@ -186,7 +184,7 @@ func TestMatrixFrontend_SendNotification(t *testing.T) {
 		t.Fatalf("NewClient: %v", err)
 	}
 	fe := &MatrixFrontend{
-		cfg:          MatrixConfig{TeamName: "testteam"},
+		cfg:          MatrixConfig{},
 		sessions:     map[string]agentSession{},
 		notifyClient: nc,
 		notifyRoom:   id.RoomID("!notifyroom:test"),
@@ -207,7 +205,7 @@ func TestMatrixFrontend_SendNotification(t *testing.T) {
 // TestMatrixFrontend_SendNotification_NilClient verifies nil notify client returns nil (not error).
 func TestMatrixFrontend_SendNotification_NilClient(t *testing.T) {
 	fe := &MatrixFrontend{
-		cfg:          MatrixConfig{TeamName: "testteam"},
+		cfg:          MatrixConfig{},
 		notifyClient: nil,
 		lastEventID:  make(map[string]id.EventID),
 	}
@@ -458,7 +456,7 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 			var got string
 			fe := &MatrixFrontend{
 				cfg: MatrixConfig{
-					TeamName:   "testteam",
+
 					UserNameFn: func() string { return testUserName },
 					OnMessage:  func(_, agentName, text string) { got = text },
 				},

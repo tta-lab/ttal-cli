@@ -4,12 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
-
-type stubConfig struct{ teamName string }
-
-func (c *stubConfig) TeamName() string { return c.teamName }
 
 func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 	origExport := exportTaskFn
@@ -28,22 +25,23 @@ func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 		return &taskwarrior.Task{UUID: uuid, Owner: "astra", Tags: []string{"feature"}}, nil
 	}
 	sessionExistsFn = func(name string) bool {
-		return name == "ttal-testteam-astra"
+		return name == "ttal-default-astra"
 	}
 	attachFn = func(name string) error {
 		attached = name
 		return nil
 	}
-	configLoaderFn = func() (configWithTeamName, error) {
-		return &stubConfig{teamName: "testteam"}, nil
+	// Stub config so cfg != nil and the owner-fallback path is entered.
+	configLoaderFn = func() (*config.Config, error) {
+		return &config.Config{}, nil
 	}
 
 	err := Session("aaaa0001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if attached != "ttal-testteam-astra" {
-		t.Errorf("expected owner session ttal-testteam-astra, got %q", attached)
+	if attached != "ttal-default-astra" {
+		t.Errorf("expected owner session ttal-default-astra, got %q", attached)
 	}
 }
 

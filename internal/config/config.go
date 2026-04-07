@@ -10,7 +10,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
-	"github.com/tta-lab/ttal-cli/internal/license"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/skill"
 )
@@ -28,13 +27,15 @@ type PromptsConfig struct {
 	PlanTriage   string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                              //nolint:lll
 }
 
+const sessionPrefix = "ttal-default-"
+
 // AgentSessionName returns the tmux session name for an agent.
-// Convention: "ttal-<team>-<agent>" (e.g. "ttal-default-athena", "ttal-guion-mira").
+// Convention: "ttal-default-<agent>" (e.g. "ttal-default-athena", "ttal-default-mira").
 //
 // This is distinct from worker sessions which use "w-<uuid[:8]>-<slug>"
 // (e.g. "w-e9d4b7c1-fix-auth"). See taskwarrior.Task.SessionName().
-func AgentSessionName(team, agent string) string {
-	return fmt.Sprintf("ttal-%s-%s", team, agent)
+func AgentSessionName(agent string) string {
+	return sessionPrefix + agent
 }
 
 // DefaultInlineProjects is the default set of flicknote project keywords to inline.
@@ -99,11 +100,9 @@ type Config struct {
 	// Human user identity (used by GUI ChatService and message queries)
 	User UserConfig `toml:"user"`
 
-	// Resolved at load time, not from TOML.
 	resolvedDataDir          string
 	resolvedTaskRC           string
 	resolvedTaskData         string
-	resolvedTeamName         string
 	resolvedDefaultRuntime   string
 	resolvedMergeMode        string
 	resolvedTeamPath         string
@@ -313,11 +312,6 @@ func (c *Config) AgentPath(agentName string) string {
 	return filepath.Join(c.resolvedTeamPath, agentName)
 }
 
-// TeamName returns the resolved active team name.
-func (c *Config) TeamName() string {
-	return c.resolvedTeamName
-}
-
 // UserName returns the configured human name, falling back to the $USER env var.
 func (c *Config) UserName() string {
 	if c.User.Name != "" {
@@ -332,21 +326,15 @@ func (c *Config) TaskSyncURL() string {
 }
 
 const (
+	defaultTeamName = "default"
+	// DefaultTeamName is the legacy exported name for the default team. Use the unexported
+	// defaultTeamName internally. External packages still reference this constant.
 	DefaultTeamName         = "default"
 	DefaultModel            = "sonnet"
 	MergeModeAuto           = "auto"
 	MergeModeManual         = "manual"
 	defaultBreatheThreshold = 40.0 // % context usage below which auto-breathe is skipped
 )
-
-// checkTeamLicense loads the license and checks if the team count is within limits.
-func checkTeamLicense(teamCount int) error {
-	lic, err := license.Load()
-	if err != nil {
-		return fmt.Errorf("license check: %w", err)
-	}
-	return lic.CheckTeamLimit(teamCount)
-}
 
 // GetMergeMode returns the resolved merge mode ("auto" if unset).
 // "auto" merges immediately; "manual" sends a notification instead.
@@ -592,23 +580,16 @@ func (c *Config) resolve() error {
 		return fmt.Errorf("config requires [teams] sections (flat config no longer supported)")
 	}
 
-	// Enforce team count limit based on license tier.
-	if err := checkTeamLicense(len(c.Teams)); err != nil {
-		return err
-	}
-
 	// Resolve active team: default_team > "default"
 	teamName := c.DefaultTeam
 	if teamName == "" {
-		teamName = DefaultTeamName
+		teamName = defaultTeamName
 	}
 
 	team, ok := c.Teams[teamName]
 	if !ok {
 		return fmt.Errorf("team %q not found in config", teamName)
 	}
-
-	c.resolvedTeamName = teamName
 
 	// Promote team fields to top-level.
 	c.ChatID = team.ChatID
@@ -626,7 +607,7 @@ func (c *Config) resolve() error {
 	// Resolve DataDir: explicit override > convention
 	if team.DataDir != "" {
 		c.resolvedDataDir = expandHome(team.DataDir)
-	} else if teamName == DefaultTeamName {
+	} else if teamName == defaultTeamName {
 		c.resolvedDataDir = defaultDataDir()
 	} else {
 		// Non-default teams use convention: ~/.ttal/<teamName>/
@@ -636,7 +617,7 @@ func (c *Config) resolve() error {
 	// Resolve TaskRC: explicit override > convention
 	if team.TaskRC != "" {
 		c.resolvedTaskRC = expandHome(team.TaskRC)
-	} else if teamName == DefaultTeamName {
+	} else if teamName == defaultTeamName {
 		c.resolvedTaskRC = defaultTaskRC()
 	} else {
 		c.resolvedTaskRC = filepath.Join(c.resolvedDataDir, "taskrc")
@@ -684,24 +665,20 @@ func (c *Config) resolve() error {
 
 // resolveVoiceConfig resolves the voice config with merged vocabulary for a team.
 func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
-	allTeamNames := make([]string, 0, len(c.Teams))
 	allAgentNames := make([]string, 0)
 	seenAgents := make(map[string]bool)
-	for tn, t := range c.Teams {
-		allTeamNames = append(allTeamNames, tn)
-		if t.TeamPath != "" {
-			names, err := agentfs.DiscoverAgents(expandHome(t.TeamPath))
-			if err == nil {
-				for _, name := range names {
-					if !seenAgents[name] {
-						seenAgents[name] = true
-						allAgentNames = append(allAgentNames, name)
-					}
+	if team.TeamPath != "" {
+		names, err := agentfs.DiscoverAgents(expandHome(team.TeamPath))
+		if err == nil {
+			for _, name := range names {
+				if !seenAgents[name] {
+					seenAgents[name] = true
+					allAgentNames = append(allAgentNames, name)
 				}
 			}
 		}
 	}
-	mergedVocab := c.Voice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
+	mergedVocab := c.Voice.EffectiveVocabulary(team.VoiceVocabulary, []string{defaultTeamName}, allAgentNames)
 	lang := c.Voice.Language
 	if lang == "" {
 		lang = team.VoiceLanguage
@@ -735,10 +712,11 @@ func (c *Config) validateMergeMode() error {
 	return nil
 }
 
-// DaemonConfig holds all teams' resolved configurations.
+// DaemonConfig holds the default team's resolved configuration.
 type DaemonConfig struct {
 	Global *Config                  // Raw config (Sync, Shell, Prompts, etc.)
-	Teams  map[string]*ResolvedTeam // team name -> resolved team config
+	Team   *ResolvedTeam            // Convenience: Teams["default"]
+	Teams  map[string]*ResolvedTeam // TOML decoding artifact only
 }
 
 // ResolvedTeam holds one team's fully resolved configuration.
@@ -760,26 +738,17 @@ type ResolvedTeam struct {
 	Matrix            *MatrixTeamConfig // nil for telegram teams
 }
 
-// UserNameForTeam returns the human identity for a given team.
+// UserNameForTeam returns the human identity for the default team.
 // Falls back to the global [user] name, then $USER.
-func (d *DaemonConfig) UserNameForTeam(teamName string) string {
-	if team, ok := d.Teams[teamName]; ok && team.UserName != "" {
-		return team.UserName
+func (d *DaemonConfig) UserNameForTeam(_ string) string {
+	if d.Team != nil && d.Team.UserName != "" {
+		return d.Team.UserName
 	}
 	return d.Global.UserName()
 }
 
-// DefaultTeamName returns the default team name with fallback to "default".
-func (m *DaemonConfig) DefaultTeamName() string {
-	if m.Global.DefaultTeam != "" {
-		return m.Global.DefaultTeam
-	}
-	return DefaultTeamName
-}
-
 // TeamAgent pairs an agent with its team context.
 type TeamAgent struct {
-	TeamName  string
 	AgentName string
 	ChatID    string // team chat ID (all agents in a team share one chat)
 	TeamPath  string
@@ -801,13 +770,8 @@ func LoadAll() (*DaemonConfig, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	if len(cfg.Teams) == 0 {
-		return nil, fmt.Errorf("config requires [teams] sections")
-	}
-
-	// Enforce team count limit based on license tier.
-	if err := checkTeamLicense(len(cfg.Teams)); err != nil {
-		return nil, err
+	if _, ok := cfg.Teams[defaultTeamName]; !ok {
+		return nil, fmt.Errorf("config.toml missing [teams.default] section")
 	}
 
 	mcfg := &DaemonConfig{
@@ -829,22 +793,22 @@ func LoadAll() (*DaemonConfig, error) {
 	}
 	cfg.Prompts = prompts
 
-	for teamName, team := range cfg.Teams {
-		rt, err := resolveTeam(teamName, team, &cfg.Voice, cfg.Teams)
-		if err != nil {
-			return nil, fmt.Errorf("team %q: %w", teamName, err)
-		}
-		// Resolve human username: per-team override → global → $USER
-		userName := team.User.Name
-		if userName == "" {
-			userName = cfg.User.Name
-		}
-		if userName == "" {
-			userName = os.Getenv("USER")
-		}
-		rt.UserName = userName
-		mcfg.Teams[teamName] = rt
+	team := cfg.Teams[defaultTeamName]
+	rt, err := resolveTeam(defaultTeamName, team, &cfg.Voice)
+	if err != nil {
+		return nil, fmt.Errorf("team %q: %w", defaultTeamName, err)
 	}
+	// Resolve human username: per-team override → global → $USER
+	userName := team.User.Name
+	if userName == "" {
+		userName = cfg.User.Name
+	}
+	if userName == "" {
+		userName = os.Getenv("USER")
+	}
+	rt.UserName = userName
+	mcfg.Teams[defaultTeamName] = rt
+	mcfg.Team = rt
 
 	return mcfg, nil
 }
@@ -854,35 +818,30 @@ func resolveTeam(
 	teamName string,
 	team TeamConfig,
 	globalVoice *VoiceConfig,
-	allTeams map[string]TeamConfig,
 ) (*ResolvedTeam, error) {
 	if team.TeamPath == "" {
 		return nil, fmt.Errorf("missing required field: team_path")
 	}
 
-	// Build all team names and agent names for vocabulary
-	allTeamNames := make([]string, 0, len(allTeams))
+	// Discover agents in this team for vocabulary
 	allAgentNames := make([]string, 0)
 	seenAgents := make(map[string]bool)
-	for tn, t := range allTeams {
-		allTeamNames = append(allTeamNames, tn)
-		if t.TeamPath != "" {
-			names, err := agentfs.DiscoverAgents(expandHome(t.TeamPath))
-			if err == nil {
-				for _, name := range names {
-					if !seenAgents[name] {
-						seenAgents[name] = true
-						allAgentNames = append(allAgentNames, name)
-					}
+	if team.TeamPath != "" {
+		names, err := agentfs.DiscoverAgents(expandHome(team.TeamPath))
+		if err == nil {
+			for _, name := range names {
+				if !seenAgents[name] {
+					seenAgents[name] = true
+					allAgentNames = append(allAgentNames, name)
 				}
 			}
 		}
 	}
 
-	// Merge global + team vocabulary with all team/agent names
+	// Merge global + team vocabulary with this team's agent names
 	var mergedVocab []string
 	if globalVoice != nil {
-		mergedVocab = globalVoice.EffectiveVocabulary(team.VoiceVocabulary, allTeamNames, allAgentNames)
+		mergedVocab = globalVoice.EffectiveVocabulary(team.VoiceVocabulary, []string{defaultTeamName}, allAgentNames)
 	} else {
 		mergedVocab = team.VoiceVocabulary
 	}
@@ -920,7 +879,7 @@ func resolveTeam(
 	// Resolve DataDir
 	if team.DataDir != "" {
 		rt.DataDir = expandHome(team.DataDir)
-	} else if teamName == DefaultTeamName {
+	} else if teamName == defaultTeamName {
 		rt.DataDir = defaultDataDir()
 	} else {
 		rt.DataDir = filepath.Join(defaultDataDir(), teamName)
@@ -929,7 +888,7 @@ func resolveTeam(
 	// Resolve TaskRC: explicit > convention (<data_dir>/taskrc) > default (~/.taskrc)
 	if team.TaskRC != "" {
 		rt.TaskRC = expandHome(team.TaskRC)
-	} else if teamName == DefaultTeamName {
+	} else if teamName == defaultTeamName {
 		rt.TaskRC = defaultTaskRC()
 	} else {
 		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
@@ -946,7 +905,7 @@ func resolveTeam(
 // Agents are discovered from the filesystem: any subdir of team_path containing CLAUDE.md.
 func (m *DaemonConfig) AllAgents() []TeamAgent {
 	var agents []TeamAgent
-	for teamName, team := range m.Teams {
+	for _, team := range m.Teams {
 		if team.TeamPath == "" {
 			continue
 		}
@@ -956,7 +915,6 @@ func (m *DaemonConfig) AllAgents() []TeamAgent {
 		}
 		for _, agentName := range names {
 			agents = append(agents, TeamAgent{
-				TeamName:  teamName,
 				AgentName: agentName,
 				ChatID:    team.ChatID,
 				TeamPath:  team.TeamPath,
@@ -964,9 +922,6 @@ func (m *DaemonConfig) AllAgents() []TeamAgent {
 		}
 	}
 	sort.Slice(agents, func(i, j int) bool {
-		if agents[i].TeamName != agents[j].TeamName {
-			return agents[i].TeamName < agents[j].TeamName
-		}
 		return agents[i].AgentName < agents[j].AgentName
 	})
 	return agents
@@ -976,13 +931,12 @@ func (m *DaemonConfig) AllAgents() []TeamAgent {
 // Returns the first match if agent names are unique across teams.
 // Uses agentfs.HasAgent for discovery.
 func (m *DaemonConfig) FindAgent(agentName string) (*TeamAgent, bool) {
-	for teamName, team := range m.Teams {
+	for _, team := range m.Teams {
 		if team.TeamPath == "" {
 			continue
 		}
 		if agentfs.HasAgent(team.TeamPath, agentName) {
 			ta := TeamAgent{
-				TeamName:  teamName,
 				AgentName: agentName,
 				ChatID:    team.ChatID,
 				TeamPath:  team.TeamPath,
@@ -1007,7 +961,6 @@ func (m *DaemonConfig) FindAgentInTeam(teamName, agentName string) (*TeamAgent, 
 		return nil, false
 	}
 	ta := TeamAgent{
-		TeamName:  teamName,
 		AgentName: agentName,
 		ChatID:    team.ChatID,
 		TeamPath:  team.TeamPath,
@@ -1083,7 +1036,7 @@ func ResolveProjectsPathForTeam(teamName string) string {
 // All project files are colocated with config.toml in ~/.config/ttal/.
 func projectsPathForTeam(teamName string) string {
 	cfgDir := defaultConfigDir()
-	if teamName == DefaultTeamName {
+	if teamName == defaultTeamName {
 		return filepath.Join(cfgDir, "projects.toml")
 	}
 	return filepath.Join(cfgDir, teamName+"-projects.toml")
@@ -1125,7 +1078,7 @@ func DefaultConfigDir() string { return defaultConfigDir() }
 // synchronously in taskwarrior's pipeline and cannot afford the overhead of
 // Load() which also parses roles.toml and prompts.toml (and fails if they're
 // missing required fields). The team resolution logic (reading default_team,
-// falling back to DefaultTeamName) is deliberately inlined here to stay
+// falling back to defaultTeamName) is deliberately inlined here to stay
 // independent of Load() and resolve().
 // Returns empty string on any error (callers treat empty as "unknown").
 func LoadTeamPath(configDir string) string {
@@ -1147,7 +1100,7 @@ func LoadTeamPath(configDir string) string {
 
 	teamName := cfg.DefaultTeam
 	if teamName == "" {
-		teamName = DefaultTeamName
+		teamName = defaultTeamName
 	}
 	team, ok := cfg.Teams[teamName]
 	if !ok || team.TeamPath == "" {

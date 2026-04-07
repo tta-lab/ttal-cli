@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -83,17 +82,9 @@ func alertToOwner(cmd *cobra.Command, message string) (routed bool, err error) {
 	}
 	message += "\n\n" + daemon.ReplyHint(addr)
 
-	cfg, cfgErr := config.Load()
-	if cfgErr != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not load config for alert routing: %v\n", cfgErr)
-		return false, nil
-	}
-	team := cfg.TeamName()
-
 	if sendErr := daemon.Send(daemon.SendRequest{
 		From:    addr,
 		To:      task.Owner,
-		Team:    team,
 		Message: message,
 	}); sendErr != nil {
 		return false, sendErr

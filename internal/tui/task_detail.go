@@ -173,7 +173,7 @@ func (m Model) viewHelp() string {
 	var b strings.Builder
 	teamLabel := m.teamName
 	if teamLabel == "" {
-		teamLabel = "default"
+		teamLabel = teamDefault
 	}
 	b.WriteString(styleTitle.Render(fmt.Sprintf(" TTal [%s] — Help", teamLabel)))
 	b.WriteString("\n\n")

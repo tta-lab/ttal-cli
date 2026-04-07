@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,7 +81,6 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 	// team="" should default without panicking — it will fail at CWD fallback
 	// (shellCfg has no resolved team path, so AgentPath returns "").
 	resp := handleBreathe(shellCfg, BreatheRequest{
-		Team:    "",
 		Agent:   "nonexistent-test-agent-xyz",
 		Handoff: "# Handoff",
 	}, nil, nil)
@@ -395,7 +395,6 @@ func TestResolveBreatheSessions(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := loadConfigWithTeamPath(t, tmp)
 	const agent = "astra"
-	const team = "default"
 
 	tests := []struct {
 		name           string
@@ -405,13 +404,13 @@ func TestResolveBreatheSessions(t *testing.T) {
 	}{
 		{
 			name:           "self-breathe → persistent session",
-			req:            BreatheRequest{Agent: agent, Team: team, SessionName: ""},
+			req:            BreatheRequest{Agent: agent, SessionName: ""},
 			wantOldSession: "ttal-default-" + agent,
 			wantNewSession: "ttal-default-" + agent,
 		},
 		{
 			name:           "session name override → use as old session, restart as persistent",
-			req:            BreatheRequest{Agent: agent, Team: team, SessionName: "custom-session-" + agent},
+			req:            BreatheRequest{Agent: agent, SessionName: "custom-session-" + agent},
 			wantOldSession: "custom-session-" + agent,
 			wantNewSession: "ttal-default-" + agent,
 		},
@@ -419,7 +418,7 @@ func TestResolveBreatheSessions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			plan, err := resolveBreatheSessions(tt.req, team, cfg)
+			plan, err := resolveBreatheSessions(tt.req, cfg)
 			if err != nil {
 				t.Fatalf("resolveBreatheSessions error: %v", err)
 			}
@@ -430,5 +429,114 @@ func TestResolveBreatheSessions(t *testing.T) {
 				t.Errorf("newSessionName = %q, want %q", plan.newSessionName, tt.wantNewSession)
 			}
 		})
+	}
+}
+
+// TestHandleBreathe_SendsContinueWithTask verifies that after sending /clear, the daemon
+// sends "Continue with the task." (not bare "go") as the start trigger. This was Fix B
+// in the plan-review-lead async delivery fix.
+func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
+	// Use a real temp directory as the team path so cfg.AgentPath() resolves
+	// and resolveAgentModel can find the agent status file.
+	tmpTeamDir := t.TempDir()
+
+	// Construct a minimal config with resolvedTeamPath set.
+	// resolvedTeamPath is a private field — we can't set it directly on &config.Config{}.
+	// Use config.LoadAll() which properly populates all resolved fields.
+	// config.LoadAll() reads XDG_CONFIG_HOME, so we write the config there.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir: %v", err)
+	}
+	configDir := filepath.Join(home, ".config", "ttal")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+
+	// Back up existing config so we can restore it.
+	configPath := filepath.Join(configDir, "config.toml")
+	var backup []byte
+	if oldCfg, err := os.ReadFile(configPath); err == nil {
+		backup = oldCfg
+	}
+	t.Cleanup(func() {
+		if backup != nil {
+			os.WriteFile(configPath, backup, 0o644)
+		} else {
+			os.Remove(configPath)
+		}
+	})
+
+	configYAML := `default_team = ""
+[teams.default]
+team_path = "` + tmpTeamDir + `"
+`
+	if err := os.WriteFile(configPath, []byte(configYAML), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+
+	origSendKeys := tmuxSendKeysFn
+	origSessionExists := tmuxSessionExistsFn
+	t.Cleanup(func() {
+		tmuxSendKeysFn = origSendKeys
+		tmuxSessionExistsFn = origSessionExists
+	})
+
+	var mu sync.Mutex
+	var sendCalls []struct {
+		session string
+		window  string
+		text    string
+	}
+
+	tmuxSendKeysFn = func(session, window, text string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		sendCalls = append(sendCalls, struct {
+			session string
+			window  string
+			text    string
+		}{session, window, text})
+		return nil
+	}
+	// Session exists → /clear path taken
+	tmuxSessionExistsFn = func(name string) bool {
+		return name == "ttal-default-kestrel"
+	}
+
+	// Use SessionName to bypass GetPaneCwd (no real tmux available in test).
+	resp := handleBreathe(cfg, BreatheRequest{
+		Agent:       "kestrel",
+		Handoff:     "# Handoff\n\nNext steps: continue",
+		SessionName: "ttal-default-kestrel",
+	}, nil, nil)
+
+	// handleBreathe returns immediately (trigger is sent async).
+	if !resp.OK {
+		t.Fatalf("handleBreathe returned OK=false: %s", resp.Error)
+	}
+
+	// Wait for the async trigger to fire (clearSettleDelay = 500ms).
+	time.Sleep(600 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Should have exactly two SendKeys calls: /clear then "Continue with the task."
+	if len(sendCalls) < 2 {
+		t.Fatalf("expected at least 2 SendKeys calls, got %d: %v", len(sendCalls), sendCalls)
+	}
+
+	if sendCalls[0].text != "/clear" {
+		t.Errorf("first SendKeys call text = %q, want %q", sendCalls[0].text, "/clear")
+	}
+
+	if sendCalls[1].text != "Continue with the task." {
+		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, "Continue with the task.")
 	}
 }

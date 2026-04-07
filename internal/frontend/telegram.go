@@ -123,7 +123,7 @@ func (f *TelegramFrontend) RegisterCommands(commands []Command) error {
 	allAgents := f.cfg.MCfg.AllAgents()
 	tokenAgent := make(map[string]string)
 	for _, ta := range allAgents {
-		if ta.TeamName != f.cfg.TeamName {
+		if false {
 			continue
 		}
 		token := config.AgentBotToken(ta.AgentName)
@@ -135,10 +135,10 @@ func (f *TelegramFrontend) RegisterCommands(commands []Command) error {
 		}
 	}
 	// Include notification bot token.
-	team, ok := f.cfg.MCfg.Teams[f.cfg.TeamName]
-	if ok && team.NotificationToken != "" {
+	team := f.cfg.MCfg.Team
+	if team != nil && team.NotificationToken != "" {
 		if _, ok := tokenAgent[team.NotificationToken]; !ok {
-			tokenAgent[team.NotificationToken] = f.cfg.TeamName + "-notify"
+			tokenAgent[team.NotificationToken] = config.DefaultTeamName + "-notify"
 		}
 	}
 
@@ -175,7 +175,7 @@ func (f *TelegramFrontend) Start(ctx context.Context) error {
 	}()
 	f.startPollers()
 	if err := f.StartNotificationPoller(ctx); err != nil {
-		log.Printf("[telegram] StartNotificationPoller for team %s failed: %v", f.cfg.TeamName, err)
+		log.Printf("[telegram] StartNotificationPoller for team %s failed: %v", config.DefaultTeamName, err)
 	}
 	return nil
 }
@@ -183,7 +183,7 @@ func (f *TelegramFrontend) Start(ctx context.Context) error {
 // ClearTracking clears the tracked inbound message for an agent.
 // Called after the agent responds to prevent stale reactions on old messages.
 func (f *TelegramFrontend) ClearTracking(_ context.Context, agentName string) error {
-	f.mt.delete(f.cfg.TeamName, agentName)
+	f.mt.delete(config.DefaultTeamName, agentName)
 	return nil
 }
 
@@ -215,16 +215,16 @@ func (f *TelegramFrontend) SendVoice(_ context.Context, _ string, _ []byte) erro
 
 // SendNotification sends a system notification to this team's notification channel.
 func (f *TelegramFrontend) SendNotification(_ context.Context, text string) error {
-	team, ok := f.cfg.MCfg.Teams[f.cfg.TeamName]
-	if !ok {
-		return fmt.Errorf("no config for team %s", f.cfg.TeamName)
+	team := f.cfg.MCfg.Team
+	if team == nil {
+		return fmt.Errorf("no config for team %s", config.DefaultTeamName)
 	}
 	return notify.SendWithConfig(team.NotificationToken, team.ChatID, text)
 }
 
 // SetReaction sets an emoji reaction on the last tracked inbound message for an agent.
 func (f *TelegramFrontend) SetReaction(_ context.Context, agentName string, emoji string) error {
-	tracked, ok := f.mt.get(f.cfg.TeamName, agentName)
+	tracked, ok := f.mt.get(config.DefaultTeamName, agentName)
 	if !ok {
 		return nil // no tracked message — silently skip
 	}
@@ -233,7 +233,7 @@ func (f *TelegramFrontend) SetReaction(_ context.Context, agentName string, emoj
 
 // findAgent looks up a TeamAgent for the given agent name within this frontend's team.
 func (f *TelegramFrontend) findAgent(agentName string) *config.TeamAgent {
-	ta, ok := f.cfg.MCfg.FindAgentInTeam(f.cfg.TeamName, agentName)
+	ta, ok := f.cfg.MCfg.FindAgent(agentName)
 	if ok {
 		return ta
 	}
@@ -250,7 +250,7 @@ func (f *TelegramFrontend) startPollers() {
 	allAgents := f.cfg.MCfg.AllAgents()
 	var teamAgents []config.TeamAgent
 	for _, ta := range allAgents {
-		if ta.TeamName == f.cfg.TeamName {
+		if true {
 			teamAgents = append(teamAgents, ta)
 		}
 	}
@@ -273,7 +273,7 @@ func buildTokenTargets(allAgents []config.TeamAgent) map[string][]pollerTarget {
 			continue
 		}
 		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
-			teamName:  ta.TeamName,
+			teamName:  config.DefaultTeamName,
 			agentName: ta.AgentName,
 			chatID:    ta.ChatID,
 		})
@@ -389,7 +389,7 @@ func (f *TelegramFrontend) runPoller(botToken string, dispatch map[int64]pollerT
 	)
 
 	for chatID, target := range dispatch {
-		f.registerBotCommandsForAgent(b, target.teamName, target.agentName,
+		f.registerBotCommandsForAgent(b, target.agentName,
 			botToken, target.chatID, chatID, botUsername, dispatch)
 	}
 
@@ -583,7 +583,7 @@ func (f *TelegramFrontend) registerBotCommands(botToken string) error {
 
 // registerBotCommandsForAgent registers each bot command handler on the bot instance for an agent.
 func (f *TelegramFrontend) registerBotCommandsForAgent(
-	b *bot.Bot, teamName, agentName, botToken, chatIDStr string,
+	b *bot.Bot, agentName, botToken, chatIDStr string,
 	chatID int64, botUsername string, dispatch map[int64]pollerTarget,
 ) {
 	matchCommand := func(cmd string) bot.MatchFunc {
@@ -598,7 +598,7 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 	b.RegisterHandlerMatchFunc(matchCommand("status"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			args := parseCommandArgs(update.Message.Text)
-			f.handleStatusCommand(teamName, agentName, botToken, chatIDStr, args)
+			f.handleStatusCommand(agentName, botToken, chatIDStr, args)
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("help"),
@@ -614,24 +614,24 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 	b.RegisterHandlerMatchFunc(matchCommand("new"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			fullCmd := buildSlashCommand("new", update.Message.Text)
-			sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "Sent /new — starting fresh conversation")
+			sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd, "Sent /new — starting fresh conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("compact"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			fullCmd := buildSlashCommand("compact", update.Message.Text)
-			sendKeysToAgent(teamName, agentName, botToken, chatIDStr, fullCmd, "Sent /compact — compacting conversation")
+			sendKeysToAgent(agentName, botToken, chatIDStr, fullCmd, "Sent /compact — compacting conversation")
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("wait"),
 		func(_ context.Context, _ *bot.Bot, _ *models.Update) {
-			sendEscToAgent(teamName, agentName, botToken, chatIDStr)
+			sendEscToAgent(agentName, botToken, chatIDStr)
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("save"),
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			args := parseCommandArgs(update.Message.Text)
-			f.handleSaveCommand(teamName, agentName, botToken, chatIDStr, args)
+			f.handleSaveCommand(agentName, botToken, chatIDStr, args)
 		})
 
 	for _, cmd := range f.allCommands {
@@ -646,18 +646,18 @@ func (f *TelegramFrontend) registerBotCommandsForAgent(
 		b.RegisterHandlerMatchFunc(matchCommand(cmdName),
 			func(_ context.Context, _ *bot.Bot, update *models.Update) {
 				skillCmd := buildSkillGetCommand(origName, update.Message.Text)
-				sendKeysToAgent(teamName, agentName, botToken, chatIDStr, skillCmd, "")
+				sendKeysToAgent(agentName, botToken, chatIDStr, skillCmd, "")
 			})
 	}
 }
 
 // --- Bot command handlers ---
 
-func (f *TelegramFrontend) handleStatusCommand(teamName, _, botToken, chatID string, args []string) {
+func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string, args []string) {
 	var agents []status.AgentStatus
 
 	if len(args) > 0 {
-		s, err := status.ReadAgent(teamName, args[0])
+		s, err := status.ReadAgent("default", args[0])
 		if err != nil {
 			replyTelegram(botToken, chatID, "Error: "+err.Error())
 			return
@@ -668,7 +668,7 @@ func (f *TelegramFrontend) handleStatusCommand(teamName, _, botToken, chatID str
 		}
 		agents = []status.AgentStatus{*s}
 	} else {
-		all, err := status.ReadAll(teamName)
+		all, err := status.ReadAll("default")
 		if err != nil {
 			replyTelegram(botToken, chatID, "Error reading status: "+err.Error())
 			return
@@ -682,7 +682,7 @@ func (f *TelegramFrontend) handleStatusCommand(teamName, _, botToken, chatID str
 	}
 
 	teamPath := ""
-	if team, ok := f.cfg.MCfg.Teams[teamName]; ok {
+	if team := f.cfg.MCfg.Team; team != nil {
 		teamPath = team.TeamPath
 	}
 
@@ -738,7 +738,7 @@ func (f *TelegramFrontend) handleUsageCommand(botToken, chatID string) {
 // flicknoteIDPattern extracts the note ID from flicknote add output.
 var flicknoteIDPattern = regexp.MustCompile(`Created note ([0-9a-f]+)`)
 
-func (f *TelegramFrontend) handleSaveCommand(teamName, agentName, botToken, chatID string, args []string) {
+func (f *TelegramFrontend) handleSaveCommand(agentName, botToken, chatID string, args []string) {
 	if f.cfg.MsgSvc == nil {
 		replyTelegram(botToken, chatID, "Error: message service not available")
 		return
@@ -746,7 +746,7 @@ func (f *TelegramFrontend) handleSaveCommand(teamName, agentName, botToken, chat
 
 	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer dbCancel()
-	msg, err := f.cfg.MsgSvc.LatestFrom(dbCtx, agentName, teamName)
+	msg, err := f.cfg.MsgSvc.LatestFrom(dbCtx, agentName, config.DefaultTeamName)
 	if err != nil {
 		replyTelegram(botToken, chatID, "Error reading last message: "+err.Error())
 		return
@@ -794,8 +794,8 @@ func replyTelegram(botToken, chatID, text string) {
 	}
 }
 
-func sendKeysToAgent(teamName, agentName, botToken, chatID, keys, confirmMsg string) {
-	session := config.AgentSessionName(teamName, agentName)
+func sendKeysToAgent(agentName, botToken, chatID, keys, confirmMsg string) {
+	session := config.AgentSessionName(agentName)
 	if err := tmux.SendKeys(session, agentName, keys); err != nil {
 		replyTelegram(botToken, chatID, "Error: "+err.Error())
 		return
@@ -805,8 +805,8 @@ func sendKeysToAgent(teamName, agentName, botToken, chatID, keys, confirmMsg str
 	}
 }
 
-func sendEscToAgent(teamName, agentName, botToken, chatID string) {
-	session := config.AgentSessionName(teamName, agentName)
+func sendEscToAgent(agentName, botToken, chatID string) {
+	session := config.AgentSessionName(agentName)
 	if err := tmux.SendRawKey(session, agentName, "Escape"); err != nil {
 		replyTelegram(botToken, chatID, "Error: "+err.Error())
 		return
