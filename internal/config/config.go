@@ -336,15 +336,6 @@ const (
 	defaultBreatheThreshold = 40.0 // % context usage below which auto-breathe is skipped
 )
 
-// checkTeamLicense is unused — multi-team licensing is gone.
-// func checkTeamLicense(teamCount int) error {
-// 	lic, err := license.Load()
-// 	if err != nil {
-// 		return fmt.Errorf("license check: %w", err)
-// 	}
-// 	return lic.CheckTeamLimit(teamCount)
-// }
-
 // GetMergeMode returns the resolved merge mode ("auto" if unset).
 // "auto" merges immediately; "manual" sends a notification instead.
 func (c *Config) GetMergeMode() string {
@@ -754,14 +745,6 @@ func (d *DaemonConfig) UserNameForTeam(_ string) string {
 		return d.Team.UserName
 	}
 	return d.Global.UserName()
-}
-
-// DefaultTeamName returns the default team name.
-func (m *DaemonConfig) DefaultTeamName() string {
-	if m.Global.DefaultTeam != "" {
-		return m.Global.DefaultTeam
-	}
-	return defaultTeamName
 }
 
 // TeamAgent pairs an agent with its team context.

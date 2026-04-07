@@ -613,7 +613,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		}
 		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
 			if jobID == "e9d4b7c1" && windowName == "coder" {
-				return "ttal-ttal-yuki", nil
+				return "ttal-default-yuki", nil
 			}
 			return "", errors.New("manager not found")
 		}
@@ -626,11 +626,11 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		if !dispatched {
 			t.Error("expected dispatched=true")
 		}
-		if session != "ttal-ttal-yuki" {
-			t.Errorf("session = %q, want %q", session, "ttal-ttal-yuki")
+		if session != "ttal-default-yuki" {
+			t.Errorf("session = %q, want %q", session, "ttal-default-yuki")
 		}
-		if len(dispatchCalls) != 1 || dispatchCalls[0] != "ttal-ttal-yuki:coder" {
-			t.Errorf("dispatch calls = %v, want [ttal-ttal-yuki:coder]", dispatchCalls)
+		if len(dispatchCalls) != 1 || dispatchCalls[0] != "ttal-default-yuki:coder" {
+			t.Errorf("dispatch calls = %v, want [ttal-default-yuki:coder]", dispatchCalls)
 		}
 	})
 
