@@ -10,7 +10,7 @@ import (
 )
 
 // handleTaskComplete processes a taskComplete HTTP request and delivers
-// task-done notifications to manager agents, optionally the spawner, and frontend.
+// task-done notifications to manager agents, optionally the owner, and frontend.
 func handleTaskComplete(
 	req TaskCompleteRequest, mcfg *config.DaemonConfig,
 	registry *adapterRegistry, frontends map[string]frontend.Frontend,
@@ -39,16 +39,16 @@ func handleTaskComplete(
 	target := prWatchTarget{
 		TaskUUID:    req.TaskUUID,
 		Team:        req.Team,
-		Spawner:     req.Spawner,
+		Owner:       req.Owner,
 		Description: desc,
 		PRIndex:     prIndex,
 	}
 
 	notifyManagerAgents(mcfg, registry, frontends, target)
-	if req.Spawner != "" {
-		notifySpawnerMerged(mcfg, registry, frontends, target)
-		log.Printf("[taskComplete] notified managers + spawner %q for task %s",
-			req.Spawner, shortSHA(req.TaskUUID))
+	if req.Owner != "" {
+		notifyOwnerMerged(mcfg, registry, frontends, target)
+		log.Printf("[taskComplete] notified managers + owner %q for task %s",
+			req.Owner, shortSHA(req.TaskUUID))
 	} else {
 		log.Printf("[taskComplete] notified managers for task %s", shortSHA(req.TaskUUID))
 	}

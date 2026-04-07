@@ -91,7 +91,7 @@ func ListTasksWithPR() ([]Task, error) {
 }
 
 func GetActiveWorkerTasks() ([]Task, error) {
-	tasks, err := exportTasks("status:pending", "+ACTIVE", "spawner.any:", "export")
+	tasks, err := exportTasks("status:pending", "+ACTIVE", "owner.any:", "export")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active worker tasks: %w", err)
 	}

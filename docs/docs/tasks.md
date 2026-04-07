@@ -95,5 +95,8 @@ uda.project_path.label=Project Path
 
 uda.pr_id.type=string
 uda.pr_id.label=PR ID
+
+uda.owner.type=string
+uda.owner.label=Owner
 ```
 

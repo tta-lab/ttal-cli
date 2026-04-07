@@ -67,7 +67,7 @@ type Task struct {
 	Entry       string       `json:"entry,omitempty"`
 	End         string       `json:"end,omitempty"`
 	PRID        string       `json:"pr_id,omitempty"`
-	Spawner     string       `json:"spawner,omitempty"`
+	Owner       string       `json:"owner,omitempty"`
 	ParentID    string       `json:"parent_id,omitempty"`
 	Position    string       `json:"position,omitempty"`
 }
@@ -368,7 +368,7 @@ func VerifyRequiredUDAs() error {
 			"  This prevents creating orphaned sessions that aren't tracked.", err)}
 	}
 
-	required := []string{"pr_id", "spawner"}
+	required := []string{"pr_id", "owner"}
 	var missing []string
 	for _, uda := range required {
 		if !strings.Contains(out, fmt.Sprintf("uda.%s.", uda)) {
@@ -390,11 +390,10 @@ func VerifyRequiredUDAs() error {
 	return nil
 }
 
-// SetSpawner sets the spawner UDA on a task (format: team:agent).
-func SetSpawner(uuid, spawner string) error {
-	_, err := runTask(uuid, "modify", fmt.Sprintf("spawner:%s", spawner))
+func SetOwner(uuid, owner string) error {
+	_, err := runTask(uuid, "modify", fmt.Sprintf("owner:%s", owner))
 	if err != nil {
-		return fmt.Errorf("failed to set spawner on task %s: %w", uuid, err)
+		return fmt.Errorf("failed to set owner on task %s: %w", uuid, err)
 	}
 	return nil
 }

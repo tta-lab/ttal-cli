@@ -7,6 +7,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -254,72 +255,119 @@ func TestHandleToRejectsBareHex(t *testing.T) {
 // TestResolveManagerWindow tests the resolveManagerWindow function with injected mocks.
 const testJobIDA = "e9d4b7c1"
 
+// expectedSessionAstra is the tmux session name for the "astra" agent with empty team name.
+const expectedSessionAstra = "ttal--astra"
+
+// pipelineConfigForTest returns a pipeline.Config with a single stage that is NOT a worker stage.
+func pipelineConfigForTest(workerStage bool) *pipeline.Config {
+	stages := []pipeline.Stage{
+		{Name: "Plan", Assignee: "astra", Reviewer: "plan-review-lead"},
+	}
+	if workerStage {
+		stages = append(stages, pipeline.Stage{Name: "Implement", Assignee: "coder", Worker: true})
+	}
+	return &pipeline.Config{
+		Pipelines: map[string]pipeline.Pipeline{
+			"default": {Tags: []string{"feature"}, Stages: stages},
+		},
+	}
+}
+
+//nolint:gocyclo
 func TestResolveManagerWindow(t *testing.T) {
 	mcfg := &config.DaemonConfig{Global: &config.Config{}}
 
 	origExport := exportTaskByHexIDFn
 	origWindowExists := windowExistsFn
-	origBuildAgentRoles := buildAgentRolesFn
+	origPipelineLoad := pipelineLoadFn
 	t.Cleanup(func() {
 		exportTaskByHexIDFn = origExport
 		windowExistsFn = origWindowExists
-		buildAgentRolesFn = origBuildAgentRoles
+		pipelineLoadFn = origPipelineLoad
 	})
 
 	taskWithOwner := &taskwarrior.Task{
 		UUID:        "e9d4b7c1aabbccddeeff001122334455",
 		Description: "test task",
-		Tags:        []string{"feature", "yuki"},
+		Tags:        []string{"feature", "stage:plan"},
 		Status:      "pending",
+		Owner:       "astra",
 	}
 	taskWithoutOwner := &taskwarrior.Task{
 		UUID:        "e9d4b7c1aabbccddeeff001122334466",
 		Description: "test task no owner",
-		Tags:        []string{"feature"},
+		Tags:        []string{"feature", "stage:plan"},
 		Status:      "pending",
+		Owner:       "",
+	}
+	taskAtWorkerStage := &taskwarrior.Task{
+		UUID:        "e9d4b7c1aabbccddeeff001122334477",
+		Description: "test task at worker stage",
+		Tags:        []string{"feature", "implement"},
+		Status:      "pending",
+		Owner:       "astra",
 	}
 
-	// Inject a buildAgentRolesFn that returns a known role map.
-	injectRoles := func(roles map[string]string) {
-		buildAgentRolesFn = func(teamPath string) map[string]string { return roles }
-	}
-	injectRoles(map[string]string{"yuki": "manager", "kestrel": "fixer"})
-
-	t.Run("returns correct session when task has agent tag and window exists", func(t *testing.T) {
+	t.Run("returns correct session when task has owner and current stage is manager", func(t *testing.T) {
 		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
 			if hexID == testJobIDA {
 				return taskWithOwner, nil
 			}
 			return nil, errors.New("not found")
 		}
-		// TeamName() returns "" for an empty Config, so session is "ttal--yuki".
+		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+			return pipelineConfigForTest(false), nil
+		}
 		windowExistsFn = func(session, window string) bool {
-			return session == "ttal--yuki" && window == "coder"
+			return session == expectedSessionAstra && window == "coder"
 		}
 
 		session, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if session != "ttal--yuki" {
-			t.Errorf("session = %q, want %q", session, "ttal--yuki")
+		if session != expectedSessionAstra {
+			t.Errorf("session = %q, want %q", session, expectedSessionAstra)
 		}
 	})
 
-	t.Run("returns error when no agent tag on task", func(t *testing.T) {
+	t.Run("returns error when no owner on task", func(t *testing.T) {
 		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
 			if hexID == testJobIDA {
 				return taskWithoutOwner, nil
 			}
 			return nil, errors.New("not found")
 		}
+		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+			return pipelineConfigForTest(false), nil
+		}
 
 		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), "no owner agent tag") {
-			t.Errorf("error = %q, want substring %q", err.Error(), "no owner agent tag")
+		if !strings.Contains(err.Error(), "no owner on task") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "no owner on task")
+		}
+	})
+
+	t.Run("returns error when current stage is worker", func(t *testing.T) {
+		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+			if hexID == testJobIDA {
+				return taskAtWorkerStage, nil
+			}
+			return nil, errors.New("not found")
+		}
+		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+			return pipelineConfigForTest(true), nil
+		}
+
+		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "worker stage") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "worker stage")
 		}
 	})
 
@@ -329,6 +377,9 @@ func TestResolveManagerWindow(t *testing.T) {
 				return taskWithOwner, nil
 			}
 			return nil, errors.New("not found")
+		}
+		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+			return pipelineConfigForTest(false), nil
 		}
 		windowExistsFn = func(session, window string) bool {
 			return false // window does not exist
@@ -342,6 +393,33 @@ func TestResolveManagerWindow(t *testing.T) {
 			t.Errorf("error = %q, want substring containing 'window' and 'not found'", err.Error())
 		}
 	})
+
+	t.Run("returns error when no pipeline matches task tags", func(t *testing.T) {
+		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+			if hexID == testJobIDA {
+				return taskWithOwner, nil
+			}
+			return nil, errors.New("not found")
+		}
+		// A pipeline with a different tag — task tags ("feature", "stage:plan") won't match.
+		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+			return &pipeline.Config{
+				Pipelines: map[string]pipeline.Pipeline{
+					"other": {Tags: []string{"chore"}, Stages: []pipeline.Stage{
+						{Name: "Plan", Assignee: "astra"},
+					}},
+				},
+			}, nil
+		}
+
+		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "no pipeline matches") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "no pipeline matches")
+		}
+	})
 }
 
 // TestResolveManagerWindowTaskLookupError verifies that resolveManagerWindow propagates
@@ -350,10 +428,17 @@ func TestResolveManagerWindowTaskLookupError(t *testing.T) {
 	mcfg := &config.DaemonConfig{Global: &config.Config{}}
 
 	origExport := exportTaskByHexIDFn
-	t.Cleanup(func() { exportTaskByHexIDFn = origExport })
+	origPipelineLoad := pipelineLoadFn
+	t.Cleanup(func() {
+		exportTaskByHexIDFn = origExport
+		pipelineLoadFn = origPipelineLoad
+	})
 
 	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
 		return nil, errors.New("task not found")
+	}
+	pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+		return pipelineConfigForTest(false), nil
 	}
 
 	_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
@@ -362,6 +447,97 @@ func TestResolveManagerWindowTaskLookupError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "task lookup") {
 		t.Errorf("error = %q, want substring %q", err.Error(), "task lookup")
+	}
+}
+
+// TestResolveManagerWindowWithTeam verifies AgentSessionName formatting with a non-empty team.
+func TestResolveManagerWindowWithTeam(t *testing.T) {
+	origExport := exportTaskByHexIDFn
+	origWindowExists := windowExistsFn
+	origPipelineLoad := pipelineLoadFn
+	t.Cleanup(func() {
+		exportTaskByHexIDFn = origExport
+		windowExistsFn = origWindowExists
+		pipelineLoadFn = origPipelineLoad
+	})
+
+	cfg := &config.Config{}
+	mcfg := &config.DaemonConfig{Global: cfg}
+
+	taskWithOwner := &taskwarrior.Task{
+		UUID:        testJobIDA + "aabbccddeeff",
+		Description: "test",
+		Tags:        []string{"feature", "stage:plan"},
+		Owner:       "astra",
+		Status:      "pending",
+	}
+
+	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+		if hexID == testJobIDA {
+			return taskWithOwner, nil
+		}
+		return nil, errors.New("not found")
+	}
+	pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+		return pipelineConfigForTest(false), nil
+	}
+	windowExistsFn = func(session, window string) bool {
+		// With empty resolved team name, session is expectedSessionAstra.
+		return strings.HasSuffix(session, "-astra") && window == "subagent"
+	}
+
+	session, err := resolveManagerWindow(testJobIDA, "subagent", mcfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasSuffix(session, "-astra") {
+		t.Errorf("session = %q, want suffix -astra", session)
+	}
+}
+
+// TestResolveManagerWindow_EmptyTeamPath_Regression verifies the ed7975f0 root cause fix:
+// resolveManagerWindowImpl must succeed when mcfg.Global.TeamPath() returns "" as long as
+// task.Owner is set (no dependency on teamPath for agent role discovery).
+func TestResolveManagerWindow_EmptyTeamPath_Regression(t *testing.T) {
+	origExport := exportTaskByHexIDFn
+	origWindowExists := windowExistsFn
+	origPipelineLoad := pipelineLoadFn
+	t.Cleanup(func() {
+		exportTaskByHexIDFn = origExport
+		windowExistsFn = origWindowExists
+		pipelineLoadFn = origPipelineLoad
+	})
+
+	cfg := &config.Config{} // TeamPath() returns "" (empty team path in daemon context)
+	mcfg := &config.DaemonConfig{Global: cfg}
+
+	taskWithOwner := &taskwarrior.Task{
+		UUID:        testJobIDA + "aabbccddeeff",
+		Description: "test",
+		Tags:        []string{"feature", "stage:plan"},
+		Owner:       "astra",
+		Status:      "pending",
+	}
+
+	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+		if hexID == testJobIDA {
+			return taskWithOwner, nil
+		}
+		return nil, errors.New("not found")
+	}
+	pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+		return pipelineConfigForTest(false), nil
+	}
+	windowExistsFn = func(session, window string) bool {
+		return session == expectedSessionAstra && window == "planner"
+	}
+
+	session, err := resolveManagerWindow(testJobIDA, "planner", mcfg)
+	if err != nil {
+		t.Fatalf("expected success (empty teamPath should not break owner-based routing), got error: %v", err)
+	}
+	if session != expectedSessionAstra {
+		t.Errorf("session = %q, want %q", session, expectedSessionAstra)
 	}
 }
 
@@ -467,52 +643,4 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 			t.Errorf("dispatch calls = %v, want []", dispatchCalls)
 		}
 	})
-}
-
-// TestResolveManagerWindowWithTeam verifies AgentSessionName formatting with a non-empty team.
-func TestResolveManagerWindowWithTeam(t *testing.T) {
-	// Build a Config with a resolved team name so AgentSessionName produces "ttal-<team>-<agent>".
-	// We inject buildAgentRolesFn to avoid needing a real agentfs directory.
-	origExport := exportTaskByHexIDFn
-	origWindowExists := windowExistsFn
-	origBuildAgentRoles := buildAgentRolesFn
-	t.Cleanup(func() {
-		exportTaskByHexIDFn = origExport
-		windowExistsFn = origWindowExists
-		buildAgentRolesFn = origBuildAgentRoles
-	})
-
-	cfg := &config.Config{}
-	mcfg := &config.DaemonConfig{Global: cfg}
-
-	taskWithOwner := &taskwarrior.Task{
-		UUID:        testJobIDA + "aabbccddeeff",
-		Description: "test",
-		Tags:        []string{"yuki"},
-		Status:      "pending",
-	}
-
-	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
-		if hexID == testJobIDA {
-			return taskWithOwner, nil
-		}
-		return nil, errors.New("not found")
-	}
-	buildAgentRolesFn = func(teamPath string) map[string]string {
-		return map[string]string{"yuki": "manager"}
-	}
-	windowExistsFn = func(session, window string) bool {
-		// With empty TeamName(), session would be "ttal--yuki".
-		// With real TeamName(), session would be "ttal-ttal-yuki".
-		// We verify the window is found in any case.
-		return strings.HasSuffix(session, "-yuki") && window == "subagent"
-	}
-
-	session, err := resolveManagerWindow(testJobIDA, "subagent", mcfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.HasSuffix(session, "-yuki") {
-		t.Errorf("session = %q, want suffix -yuki", session)
-	}
 }

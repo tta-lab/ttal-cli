@@ -69,8 +69,8 @@ func writeOptionalFields(b *strings.Builder, t *Task) {
 			field(b, "PR:", "    ", "#"+t.PRID)
 		}
 	}
-	if t.Spawner != "" {
-		field(b, "Spawner:", " ", t.Spawner)
+	if t.Owner != "" {
+		field(b, "Owner:", " ", t.Owner)
 	}
 	writeParentField(b, t)
 	if t.Scheduled != "" {

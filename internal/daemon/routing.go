@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -202,7 +203,7 @@ func dispatchToWorkerOrManager(
 	// and manager windows.
 	fallback, mgrErr := resolveManagerWindow(jobID, agentName, mcfg)
 	if mgrErr != nil {
-		return "", false, fmt.Errorf("unknown agent or worker %s: %w", recipient, err)
+		return "", false, fmt.Errorf("unknown agent or worker %s: worker: %w; manager: %w", recipient, err, mgrErr)
 	}
 	return fallback, true, dispatchToWorkerImpl(msgSvc, fallback, agentName, message.CreateParams{
 		Sender: sender, Recipient: "worker:" + recipient, Content: msg,
@@ -352,10 +353,6 @@ func resolveWorkerImpl(idPrefix string) (string, error) {
 	return "", fmt.Errorf("no worker session for %s", idPrefix)
 }
 
-// buildAgentRolesFn is the function used to discover agent roles from the team path.
-// Package-level var for test injection.
-var buildAgentRolesFn = buildAgentRoles
-
 // exportTaskByHexIDFn is the function used to look up a task by hex UUID.
 // Package-level var for test injection.
 var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
@@ -372,23 +369,45 @@ var resolveWorker = resolveWorkerImpl
 // Package-level var for test injection.
 var resolveManagerWindow = resolveManagerWindowImpl
 
+// pipelineLoadFn is the function used to load pipeline config.
+// Package-level var for test injection.
+var pipelineLoadFn = pipeline.Load
+
 // resolveManagerWindowImpl resolves the manager session window for a task's owner agent.
-// It queries taskwarrior for the task by hex ID, finds the owner agent from task tags,
-// resolves the manager session, and verifies the window exists.
+// Reads task.Owner directly (write-once, set at first manager-stage routing).
 // Returns (sessionName, nil) on success or ("", error) on failure.
+// Returns an error if the task is at a worker stage — callers should route to the worker session instead.
 func resolveManagerWindowImpl(jobID, windowName string, mcfg *config.DaemonConfig) (string, error) {
 	team := mcfg.Global.TeamName()
-	teamPath := mcfg.Global.TeamPath()
 	task, err := exportTaskByHexIDFn(jobID, "")
 	if err != nil {
 		return "", fmt.Errorf("resolve manager window: task lookup: %w", err)
 	}
-	agentRoles := buildAgentRolesFn(teamPath)
-	ownerAgent := findAgentTag(task.Tags, agentRoles)
-	if ownerAgent == "" {
-		return "", fmt.Errorf("resolve manager window: no owner agent tag on task %s", jobID)
+	if task.Owner == "" {
+		return "", fmt.Errorf("resolve manager window: no owner on task %s", jobID)
 	}
-	session := config.AgentSessionName(team, ownerAgent)
+
+	// Load pipeline config to determine current stage.
+	pipeCfg, err := pipelineLoadFn(config.DefaultConfigDir())
+	if err != nil {
+		return "", fmt.Errorf("resolve manager window: load pipeline config: %w", err)
+	}
+	_, p, err := pipeCfg.MatchPipeline(task.Tags)
+	if err != nil {
+		return "", fmt.Errorf("resolve manager window: match pipeline: %w", err)
+	}
+	if p == nil {
+		return "", fmt.Errorf("resolve manager window: no pipeline matches task tags %v", task.Tags)
+	}
+	_, stage, err := p.CurrentStage(task.Tags)
+	if err != nil {
+		return "", fmt.Errorf("resolve manager window: current stage: %w", err)
+	}
+	if stage != nil && stage.IsWorker() {
+		return "", fmt.Errorf("resolve manager window: task at worker stage, no manager window for %s", jobID)
+	}
+
+	session := config.AgentSessionName(team, task.Owner)
 	if !windowExistsFn(session, windowName) {
 		return "", fmt.Errorf("resolve manager window: window %s not found in session %s", windowName, session)
 	}

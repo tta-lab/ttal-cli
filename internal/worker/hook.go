@@ -62,8 +62,8 @@ func (t hookTask) PRID() string {
 	return v
 }
 
-func (t hookTask) Spawner() string {
-	v, _ := t["spawner"].(string)
+func (t hookTask) Owner() string {
+	v, _ := t["owner"].(string)
 	return v
 }
 
