@@ -675,6 +675,25 @@ func resolveWorkerAgentRuntime(workerRT, teamPath string, workerAgentPaths []str
 }
 
 // advanceToStage routes the task to the given stage (agent or worker).
+// ensureWorkerStageOwner sets the task owner to callerAgent if the task has no owner yet.
+// Used when routing directly to a worker stage (e.g. hotfix) so the manager who
+// dispatched the task becomes its owner. Write-once — safe to call on every route.
+func ensureWorkerStageOwner(w http.ResponseWriter, task *taskwarrior.Task, callerAgent, stageName string) error {
+	if task.Owner != "" {
+		return nil
+	}
+	if err := setOwnerFn(task.UUID, callerAgent); err != nil {
+		log.Printf("[advance] error: set owner: %v", err)
+		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+			Status:  AdvanceStatusError,
+			Message: fmt.Sprintf("set owner: %v", err),
+		})
+		return fmt.Errorf("set owner: %w", err)
+	}
+	log.Printf("[advance] owner=%s (worker stage, first route) stage=%s", callerAgent, stageName)
+	return nil
+}
+
 func advanceToStage(
 	w http.ResponseWriter,
 	mcfg *config.DaemonConfig,
@@ -686,6 +705,10 @@ func advanceToStage(
 	workerAgentPaths []string,
 ) error {
 	if isWorkerStage(stage, agentRoles) {
+		if err := ensureWorkerStageOwner(w, task, callerAgent, stage.Name); err != nil {
+			return err
+		}
+
 		resolvedRT := resolveWorkerAgentRuntime(
 			workerRuntime, teamPath, workerAgentPaths, stage.Assignee)
 
