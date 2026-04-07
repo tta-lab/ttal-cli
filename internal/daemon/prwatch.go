@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,12 +32,12 @@ type prWatchTarget struct {
 	SessionName  string
 	WindowName   string // tmux window name within the worker session (derived from pipeline assignee)
 	Team         string
-	Owner        string
+	RepoOwner    string
 	Repo         string
 	PRIndex      int64
 	Description  string
 	Provider     string
-	Spawner      string
+	Owner        string // agent owner (write-once, set at first manager-stage routing)
 	ProjectAlias string
 }
 
@@ -151,12 +150,12 @@ func scanTeam(
 			SessionName:  sessionName,
 			WindowName:   windowName,
 			Team:         teamName,
-			Owner:        info.Owner,
+			RepoOwner:    info.Owner,
 			Repo:         info.Repo,
 			PRIndex:      prIndex,
 			Description:  task.Description,
 			Provider:     string(info.Provider),
-			Spawner:      task.Spawner,
+			Owner:        task.Owner,
 			ProjectAlias: task.Project,
 		}
 
@@ -213,7 +212,7 @@ func pollPR(
 			return false
 		case <-deadline.C:
 			log.Printf("[prwatch] timeout for PR #%d %s/%s — stopping",
-				target.PRIndex, target.Owner, target.Repo)
+				target.PRIndex, target.RepoOwner, target.Repo)
 			return false
 		case <-poll.C:
 		}
@@ -226,7 +225,7 @@ func pollPR(
 		}
 
 		// Check PR state
-		fetchedPR, err := provider.GetPR(target.Owner, target.Repo, target.PRIndex)
+		fetchedPR, err := provider.GetPR(target.RepoOwner, target.Repo, target.PRIndex)
 		if err != nil {
 			log.Printf("[prwatch] GetPR error for #%d: %v", target.PRIndex, err)
 			interval = backoff(interval)
@@ -268,7 +267,7 @@ func handleCIStatus(
 	provider gitprovider.Provider, target prWatchTarget,
 	frontends map[string]frontend.Frontend, headSHA string, interval time.Duration,
 ) time.Duration {
-	cs, err := provider.GetCombinedStatus(target.Owner, target.Repo, headSHA)
+	cs, err := provider.GetCombinedStatus(target.RepoOwner, target.Repo, headSHA)
 	if err != nil {
 		log.Printf("[prwatch] GetCombinedStatus error for %s: %v", shortSHA(headSHA), err)
 		return backoff(interval)
@@ -378,28 +377,25 @@ func formatTaskDoneMsg(target prWatchTarget) string {
 	}.Render()
 }
 
-// notifySpawnerMerged delivers a PR-merged message to the spawning agent.
-func notifySpawnerMerged(
+// notifyOwnerMerged delivers a PR-merged message to the owner agent.
+func notifyOwnerMerged(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, target prWatchTarget,
 ) {
-	if target.Spawner == "" {
+	if target.Owner == "" {
 		return
 	}
-	parts := strings.SplitN(target.Spawner, ":", 2)
-	if len(parts) != 2 {
-		log.Printf("[prwatch] notifySpawnerMerged: malformed spawner %q (want team:agent) — notification dropped",
-			target.Spawner)
-		return
+	teamName := target.Team
+	if teamName == "" {
+		teamName = config.DefaultTeamName
 	}
-	teamName, agentName := parts[0], parts[1]
-	if err := deliverToAgent(registry, mcfg, frontends, teamName, agentName, formatTaskDoneMsg(target)); err != nil {
-		log.Printf("[prwatch] failed to notify spawner %s: %v", target.Spawner, err)
+	if err := deliverToAgent(registry, mcfg, frontends, teamName, target.Owner, formatTaskDoneMsg(target)); err != nil {
+		log.Printf("[prwatch] failed to notify owner %s: %v", target.Owner, err)
 	}
 }
 
 // notifyManagerAgents delivers a task-done notification to manager agents in the task's
-// owning team only. Skips any agent that is the same as the spawner (already notified).
+// owning team only. Skips any agent that is the same as the owner (already notified).
 func notifyManagerAgents(
 	mcfg *config.DaemonConfig, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, target prWatchTarget,
@@ -426,9 +422,8 @@ func notifyManagerAgents(
 	}
 	msg := formatTaskDoneMsg(target)
 	for _, agent := range managers {
-		// Skip if this agent is the same as the spawner (already notified by notifySpawnerMerged)
-		spawnerKey := teamName + ":" + agent.Name
-		if spawnerKey == target.Spawner {
+		// Skip if this agent is the same as the owner (already notified by notifyOwnerMerged)
+		if agent.Name == target.Owner {
 			continue
 		}
 		if err := deliverToAgent(registry, mcfg, frontends, teamName, agent.Name, msg); err != nil {

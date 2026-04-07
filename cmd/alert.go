@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -15,12 +16,12 @@ var alertToHuman bool
 
 var alertCmd = &cobra.Command{
 	Use:   "alert [message]",
-	Short: "Send a notification to the spawner agent or team's notification bot",
-	Long: `Send a short alert message. Routes to the spawner agent if running
-inside a worker session (has TTAL_JOB_ID and task has a spawner set).
+	Short: "Send a notification to the owner agent or team's notification bot",
+	Long: `Send a short alert message. Routes to the owner agent if running
+inside a worker session (has TTAL_JOB_ID and task has an owner set).
 Falls back to the team's Telegram notification bot otherwise.
 
-Use --to-human to force Telegram delivery even when a spawner exists.
+Use --to-human to force Telegram delivery even when an owner exists.
 
 Examples:
   ttal alert "build complete"
@@ -41,7 +42,7 @@ Examples:
 			return daemon.Notify(daemon.NotifyRequest{Message: message})
 		}
 
-		routed, err := alertToSpawner(cmd, message)
+		routed, err := alertToOwner(cmd, message)
 		if err != nil {
 			return err // delivery was attempted but failed — don't silently fall back
 		}
@@ -49,17 +50,17 @@ Examples:
 			return nil
 		}
 
-		// No spawner configured — fall through to daemon notification
+		// No owner configured — fall through to daemon notification
 		return daemon.Notify(daemon.NotifyRequest{Message: message})
 	},
 }
 
-// alertToSpawner attempts to route the alert to the spawner agent.
+// alertToOwner attempts to route the alert to the owner agent.
 //
-//   - routed=false, err=nil  → no spawner configured, caller should fall back to Telegram
-//   - routed=true,  err=nil  → delivered to spawner
-//   - routed=false, err!=nil → spawner resolved but delivery failed — surface to caller
-func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error) {
+//   - routed=false, err=nil  → no owner configured, caller should fall back to Telegram
+//   - routed=true,  err=nil  → delivered to owner
+//   - routed=false, err!=nil → owner resolved but delivery failed — surface to caller
+func alertToOwner(cmd *cobra.Command, message string) (routed bool, err error) {
 	sessionID := os.Getenv("TTAL_JOB_ID")
 	if sessionID == "" {
 		return false, nil
@@ -68,14 +69,12 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 	task, twErr := taskwarrior.ExportTaskByHexID(sessionID, "pending")
 	if twErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not resolve task for alert routing: %v\n", twErr)
-		return false, nil // can't determine spawner — fall back gracefully
+		return false, nil // can't determine owner — fall back gracefully
 	}
 
-	if task.Spawner == "" {
+	if task.Owner == "" {
 		return false, nil
 	}
-
-	team, agent := parseSpawner(task.Spawner)
 
 	// Append reply instructions
 	addr := sessionID
@@ -84,9 +83,16 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 	}
 	message += "\n\n" + daemon.ReplyHint(addr)
 
+	cfg, cfgErr := config.Load()
+	if cfgErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not load config for alert routing: %v\n", cfgErr)
+		return false, nil
+	}
+	team := cfg.TeamName()
+
 	if sendErr := daemon.Send(daemon.SendRequest{
 		From:    addr,
-		To:      agent,
+		To:      task.Owner,
 		Team:    team,
 		Message: message,
 	}); sendErr != nil {
@@ -96,17 +102,7 @@ func alertToSpawner(cmd *cobra.Command, message string) (routed bool, err error)
 	return true, nil
 }
 
-// parseSpawner splits a "team:agent" string.
-// Returns empty team when no colon is present — daemon.Send defaults to "default" team.
-func parseSpawner(s string) (team, agent string) {
-	parts := strings.SplitN(s, ":", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return "", s
-}
-
 func init() {
 	rootCmd.AddCommand(alertCmd)
-	alertCmd.Flags().BoolVar(&alertToHuman, "to-human", false, "Force delivery to Telegram instead of spawner agent")
+	alertCmd.Flags().BoolVar(&alertToHuman, "to-human", false, "Force delivery to Telegram instead of owner agent")
 }

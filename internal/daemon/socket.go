@@ -61,7 +61,7 @@ type TaskCompleteRequest struct {
 	Type     string `json:"type"` // "taskComplete"
 	TaskUUID string `json:"task_uuid"`
 	Team     string `json:"team,omitempty"`     // defaults to "default"
-	Spawner  string `json:"spawner,omitempty"`  // "team:agent", optional
+	Owner    string `json:"owner,omitempty"`    // bare agent name
 	Desc     string `json:"desc,omitempty"`     // task description for the notification message
 	PRID     string `json:"pr_id,omitempty"`    // PR number for the notification message
 	PRTitle  string `json:"pr_title,omitempty"` // PR title (preferred over Desc for notifications)

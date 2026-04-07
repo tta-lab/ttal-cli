@@ -561,6 +561,9 @@ func shouldBreathe(team, agentName string, threshold float64) bool {
 // countTasksFn is the function used to count active tasks. Package-level var for test injection.
 var countTasksFn = taskwarrior.CountTasks
 
+// setOwnerFn is the function used to set the owner UDA on a task. Package-level var for test injection.
+var setOwnerFn = taskwarrior.SetOwner
+
 // worktreePathFn is the function used to resolve the worktree directory for a task.
 // Package-level var for test injection.
 var worktreePathFn = worker.WorktreePath
@@ -695,18 +698,12 @@ func advanceToStage(
 			return err
 		}
 
-		spawner := team + ":" + callerAgent
-		if callerAgent == "" {
-			spawner = ""
-		}
-
 		spawnCfg := worker.SpawnConfig{
 			Name:      task.HexID(),
 			Project:   projectPath,
 			TaskUUID:  task.UUID,
 			Worktree:  true,
 			Runtime:   runtime.Runtime(resolvedRT), //nolint:unconvert
-			Spawner:   spawner,
 			AgentName: stage.Assignee,
 		}
 
@@ -734,6 +731,15 @@ func advanceToStage(
 			Message: fmt.Sprintf("find idle agent for role %q: %v", stage.Assignee, err),
 		})
 		return err
+	}
+
+	// Write owner at first manager-stage routing (write-once).
+	if task.Owner == "" && !stage.IsWorker() {
+		if err := setOwnerFn(task.UUID, agent.Name); err != nil {
+			log.Printf("[advance] warning: set owner: %v", err)
+		} else {
+			log.Printf("[advance] owner=%s (first manager route) stage=%s", agent.Name, stage.Name)
+		}
 	}
 
 	if err := taskwarrior.ModifyTags(task.UUID, "+"+agent.Name); err != nil {

@@ -698,6 +698,39 @@ func TestCheckOwnershipGuard(t *testing.T) {
 	})
 }
 
+// TestAdvance_SecondManagerRoute_OwnerUnchanged verifies that setOwnerFn is NOT called
+// when routing a task that already has an owner set (write-once guard).
+func TestAdvance_SecondManagerRoute_OwnerUnchanged(t *testing.T) {
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		t.Errorf("setOwnerFn should not be called on second manager route, got uuid=%s owner=%s", uuid, owner)
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+}
+
+// TestAdvance_WorkerStage_OwnerUnchanged verifies that setOwnerFn is NOT called
+// when advancing to a worker stage.
+func TestAdvance_WorkerStage_OwnerUnchanged(t *testing.T) {
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		t.Errorf("setOwnerFn should not be called at worker stage, got uuid=%s owner=%s", uuid, owner)
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+}
+
+// TestAdvance_WorkerStageFromUnowned_OwnerStaysEmpty verifies that setOwnerFn is NOT called
+// when a task without an owner enters a worker stage (edge case).
+func TestAdvance_WorkerStageFromUnowned_OwnerStaysEmpty(t *testing.T) {
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		t.Errorf("setOwnerFn should not be called for unowned task at worker stage, got uuid=%s owner=%s", uuid, owner)
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+}
+
 // TestFindAgentTag verifies the findAgentTag helper.
 func TestFindAgentTag(t *testing.T) {
 	agentRoles := map[string]string{

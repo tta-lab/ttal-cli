@@ -266,25 +266,13 @@ func (m Model) padToHeight(content string) string {
 }
 
 // resolveAgent returns "emoji name" for the agent working on this task.
-// Checks tags for agent name match, falls back to spawner UDA.
+// Reads task.Owner directly (write-once, set at first manager-stage routing).
 func resolveAgent(t *Task, agentEmojiByName map[string]string) string {
-	for _, tag := range t.Tags {
-		if emoji, ok := agentEmojiByName[tag]; ok {
-			if emoji != "" {
-				return emoji + " " + tag
-			}
-			return tag
+	if t.Owner != "" {
+		if emoji, ok := agentEmojiByName[t.Owner]; ok && emoji != "" {
+			return emoji + " " + t.Owner
 		}
-	}
-	if t.Spawner != "" {
-		parts := strings.SplitN(t.Spawner, ":", 2)
-		if len(parts) == 2 {
-			name := parts[1]
-			if emoji, ok := agentEmojiByName[name]; ok && emoji != "" {
-				return emoji + " " + name
-			}
-			return name
-		}
+		return t.Owner
 	}
 	return ""
 }

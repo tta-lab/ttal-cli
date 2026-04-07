@@ -31,7 +31,6 @@ type SpawnConfig struct {
 	Worktree  bool
 	Force     bool
 	Runtime   runtime.Runtime
-	Spawner   string // team:agent format, set by ttal go
 	AgentName string // CC agent identity from the pipeline stage assignee
 }
 
@@ -360,12 +359,6 @@ func launchTmuxWorker(
 
 	if err := injectSessionEnv(sessionName, task, taskrc); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
-	}
-
-	if cfg.Spawner != "" {
-		if err := taskwarrior.SetSpawner(task.UUID, cfg.Spawner); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to set spawner: %v\n", err)
-		}
 	}
 
 	fmt.Printf("\nWorker '%s' spawned successfully\n", cfg.Name)
