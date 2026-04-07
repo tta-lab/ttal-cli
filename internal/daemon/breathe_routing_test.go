@@ -436,24 +436,44 @@ func TestResolveBreatheSessions(t *testing.T) {
 // sends "Continue with the task." (not bare "go") as the start trigger. This was Fix B
 // in the plan-review-lead async delivery fix.
 func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
-	// Write a minimal config.toml with a team_path so AgentPath() resolves.
-	tmpDir := t.TempDir()
-	xdgDir := filepath.Join(tmpDir, "ttal")
-	if err := os.MkdirAll(xdgDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
+	// Use a real temp directory as the team path so cfg.AgentPath() resolves
+	// and resolveAgentModel can find the agent status file.
+	tmpTeamDir := t.TempDir()
+
+	// Construct a minimal config with resolvedTeamPath set.
+	// resolvedTeamPath is a private field — we can't set it directly on &config.Config{}.
+	// Use config.LoadAll() which properly populates all resolved fields.
+	// config.LoadAll() reads XDG_CONFIG_HOME, so we write the config there.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir: %v", err)
 	}
-	configYAML := `[default_team]
+	configDir := filepath.Join(home, ".config", "ttal")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+
+	// Back up existing config so we can restore it.
+	configPath := filepath.Join(configDir, "config.toml")
+	var backup []byte
+	if oldCfg, err := os.ReadFile(configPath); err == nil {
+		backup = oldCfg
+	}
+	t.Cleanup(func() {
+		if backup != nil {
+			os.WriteFile(configPath, backup, 0o644)
+		} else {
+			os.Remove(configPath)
+		}
+	})
+
+	configYAML := `default_team = ""
 [teams.default]
-team_path = "/tmp/test-team"
+team_path = "` + tmpTeamDir + `"
 `
-	if err := os.WriteFile(filepath.Join(xdgDir, "config.toml"), []byte(configYAML), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configYAML), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
-	oldXDG := os.Getenv("XDG_CONFIG_HOME")
-	if err := os.Setenv("XDG_CONFIG_HOME", tmpDir); err != nil {
-		t.Fatalf("setenv XDG_CONFIG_HOME: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Setenv("XDG_CONFIG_HOME", oldXDG) })
 
 	cfg, err := config.Load()
 	if err != nil {
