@@ -270,7 +270,7 @@ func processStageAdvance(
 			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
 			spawnMsg = " (spawn skipped: daemon config not loaded)"
 		default:
-			err, skipped := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, agentRoles, mcfg.Global)
+			err, skipped := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, mcfg.Global)
 			if err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
 				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
@@ -294,7 +294,7 @@ func processStageAdvance(
 		return
 	}
 
-	cleanupAssigneeTags(task, stage, agentRoles)
+	releaseStageAssignee(task, stage)
 
 	if stage.IsWorker() && task.PRID != "" {
 		if done := handleWorkerPRMerge(w, task); done {
@@ -316,18 +316,17 @@ func processStageAdvance(
 }
 
 // resolveReviewerSession determines which tmux session should host the plan-review window.
-// The reviewer belongs in the task owner's session (the agent whose name tag is on the task),
+// The reviewer belongs in the task owner's session (the agent whose Owner UDA is set),
 // not the caller's session (the agent who ran ttal go).
-// Falls back to callerSession when no agent tag is found on the task or when team is empty.
-func resolveReviewerSession(taskTags []string, agentRoles map[string]string, team, callerSession string) string {
+// Falls back to callerSession when owner is empty or team is empty.
+func resolveReviewerSession(task *taskwarrior.Task, team, callerSession string) string {
 	if team == "" {
 		return callerSession
 	}
-	ownerAgent := findAgentTag(taskTags, agentRoles)
-	if ownerAgent == "" {
+	if task.Owner == "" {
 		return callerSession
 	}
-	return config.AgentSessionName(team, ownerAgent)
+	return config.AgentSessionName(team, task.Owner)
 }
 
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
@@ -340,7 +339,6 @@ func resolveReviewerSession(taskTags []string, agentRoles map[string]string, tea
 func spawnOrRetriggerReviewerFromDaemon(
 	task *taskwarrior.Task, stage *pipeline.Stage,
 	sessionName, workDir, team string,
-	agentRoles map[string]string,
 	cfg *config.Config,
 ) (error, bool) {
 	reviewerAgent := stage.Reviewer
@@ -362,7 +360,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 
 	// Plan-review: resolve the task owner's session instead of using the caller's.
 	// PR-review (above) correctly uses the caller's session — the caller is the worker.
-	targetSession := resolveReviewerSession(task.Tags, agentRoles, team, sessionName)
+	targetSession := resolveReviewerSession(task, team, sessionName)
 	targetWorkDir := workDir
 	if projectPath := projectPkg.ResolveProjectPath(task.Project); projectPath != "" {
 		targetWorkDir = projectPath
@@ -461,7 +459,7 @@ func checkOwnershipGuard(
 	if _, isAgent := agentRoles[callerAgent]; !isAgent {
 		return false // not a recognized manager-plane agent (e.g. worker session name)
 	}
-	ownerAgent := findAgentTag(task.Tags, agentRoles)
+	ownerAgent := task.Owner
 	if ownerAgent == "" || ownerAgent == callerAgent {
 		return false
 	}
@@ -505,18 +503,10 @@ func checkHumanGate(
 	return false
 }
 
-// cleanupAssigneeTags removes the agent assignee tag to free the agent for other tasks.
-// Stage tags are monotonic (never removed). Task is NOT stopped — it stays active
-// throughout the pipeline lifecycle. Worker stages have no agent tag to remove.
-func cleanupAssigneeTags(task *taskwarrior.Task, stage *pipeline.Stage, agentRoles map[string]string) {
-	oldAgentName := findAgentTag(task.Tags, agentRoles)
-	annotateStageCompletion(task.UUID, stage, oldAgentName)
-
-	if oldAgentName != "" {
-		if err := taskwarrior.ModifyTags(task.UUID, "-"+oldAgentName); err != nil {
-			log.Printf("[advance] warning: remove agent tag: %v", err)
-		}
-	}
+// releaseStageAssignee annotates the stage completion with the current owner.
+// The owner UDA is the sole assignment marker; no tag removal is needed.
+func releaseStageAssignee(task *taskwarrior.Task, stage *pipeline.Stage) {
+	annotateStageCompletion(task.UUID, stage, task.Owner)
 }
 
 // handlePipelineComplete writes the pipeline-complete response.
@@ -558,9 +548,6 @@ func shouldBreathe(team, agentName string, threshold float64) bool {
 	return shouldBreatheStatus(agentStatus, threshold)
 }
 
-// countTasksFn is the function used to count active tasks. Package-level var for test injection.
-var countTasksFn = taskwarrior.CountTasks
-
 // setOwnerFn is the function used to set the owner UDA on a task. Package-level var for test injection.
 var setOwnerFn = taskwarrior.SetOwner
 
@@ -573,6 +560,29 @@ var worktreePathFn = worker.WorktreePath
 // SetNotifyFn to close over the default team frontend.
 // Before daemon init, falls back to worker.NotifyTelegram (e.g. in tests).
 var notifyTelegramFn = worker.NotifyTelegram
+
+// pipelineConfig is lazily loaded once per daemon process lifetime.
+var (
+	pipelineConfig    *pipeline.Config
+	pipelineConfigErr error
+)
+
+func getPipelineConfig() (*pipeline.Config, error) {
+	if pipelineConfig == nil && pipelineConfigErr == nil {
+		pipelineConfig, pipelineConfigErr = pipeline.Load(config.DefaultConfigDir())
+	}
+	return pipelineConfig, pipelineConfigErr
+}
+
+// countByOwnerNonWorkerFn counts non-worker active tasks owned by the given agent.
+// Uses the lazily-loaded pipeline config to classify tasks by stage.
+var countByOwnerNonWorkerFn = func(owner string) (int, error) {
+	cfg, err := getPipelineConfig()
+	if err != nil {
+		return 0, err
+	}
+	return pipeline.CountActiveTasksByOwner(cfg, owner)
+}
 
 // SetNotifyFn replaces the default notifyTelegramFn with a frontend-backed
 // implementation. Called by daemon.Run() after frontends are built.
@@ -603,8 +613,8 @@ func resolveHintedAgent(
 			log.Printf("[advance] warning: resolve hinted agent %s: %v", tag, err)
 			return nil
 		}
-		// Check idle/busy.
-		count, err := countTasksFn(fmt.Sprintf("+%s", tag), "+ACTIVE")
+		// Check idle/busy using owner-based counting (excludes worker-stage tasks).
+		count, err := countByOwnerNonWorkerFn(tag)
 		if err != nil {
 			log.Printf("[advance] warning: check idle for hinted agent %s: %v", tag, err)
 			return nil
@@ -748,9 +758,6 @@ func advanceToStage(
 		log.Printf("[advance] owner=%s (first manager route) stage=%s", agent.Name, stage.Name)
 	}
 
-	if err := taskwarrior.ModifyTags(task.UUID, "+"+agent.Name); err != nil {
-		log.Printf("[advance] warning: add agent tag: %v", err)
-	}
 	if err := taskwarrior.ModifyTags(task.UUID, "+"+stage.StageTag()); err != nil {
 		log.Printf("[advance] warning: add stage tag: %v", err)
 	}
@@ -798,7 +805,7 @@ func askHumanGate(
 }
 
 // findIdleAgent finds the first idle agent with the given role.
-// An agent is idle if they have no started pending tasks with their name as a tag.
+// An agent is idle if they have no non-worker active tasks owned by them.
 func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 	agents, err := agentfs.FindByRole(teamPath, role)
 	if err != nil {
@@ -810,7 +817,7 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 
 	var queryErrors []string
 	for i := range agents {
-		count, err := taskwarrior.CountTasks(fmt.Sprintf("+%s", agents[i].Name), "+ACTIVE")
+		count, err := countByOwnerNonWorkerFn(agents[i].Name)
 		if err != nil {
 			queryErrors = append(queryErrors, fmt.Sprintf("%s: %v", agents[i].Name, err))
 			continue
@@ -861,16 +868,6 @@ func hasTag(tags []string, tag string) bool {
 		}
 	}
 	return false
-}
-
-// findAgentTag returns the first tag that matches a known agent name.
-func findAgentTag(tags []string, agentRoles map[string]string) string {
-	for _, t := range tags {
-		if _, ok := agentRoles[t]; ok {
-			return t
-		}
-	}
-	return ""
 }
 
 // ErrCIPending is returned by mergeWorkerPR when a merge attempt is blocked by

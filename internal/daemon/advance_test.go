@@ -152,9 +152,9 @@ func TestResolveHintedAgent_HappyPath(t *testing.T) {
 	}
 	agentRoles := map[string]string{testAgentInke: "designer"}
 
-	orig := countTasksFn
-	countTasksFn = func(filters ...string) (int, error) { return 0, nil }
-	defer func() { countTasksFn = orig }()
+	orig := countByOwnerNonWorkerFn
+	countByOwnerNonWorkerFn = func(owner string) (int, error) { return 0, nil }
+	defer func() { countByOwnerNonWorkerFn = orig }()
 
 	got := resolveHintedAgent(dir, []string{"brainstorm", testAgentInke}, "designer", agentRoles)
 	if got == nil {
@@ -174,9 +174,9 @@ func TestResolveHintedAgent_BusyFallback(t *testing.T) {
 	}
 	agentRoles := map[string]string{testAgentInke: "designer"}
 
-	orig := countTasksFn
-	countTasksFn = func(filters ...string) (int, error) { return 1, nil }
-	defer func() { countTasksFn = orig }()
+	orig := countByOwnerNonWorkerFn
+	countByOwnerNonWorkerFn = func(owner string) (int, error) { return 1, nil }
+	defer func() { countByOwnerNonWorkerFn = orig }()
 
 	got := resolveHintedAgent(dir, []string{"brainstorm", testAgentInke}, "designer", agentRoles)
 	if got != nil {
@@ -578,49 +578,29 @@ func runGit(t *testing.T, args ...string) {
 
 // TestResolveReviewerSession verifies the resolveReviewerSession helper.
 func TestResolveReviewerSession(t *testing.T) {
-	agentRoles := map[string]string{
-		testAgentInke: "designer",
-		"athena":      "researcher",
-	}
 	const team = "default"
 	const callerSession = "ttal-default-yuki"
 
-	t.Run("agent tag found returns owner session", func(t *testing.T) {
-		tags := []string{"feature", testAgentInke, "plan"}
-		got := resolveReviewerSession(tags, agentRoles, team, callerSession)
-		want := config.AgentSessionName(team, testAgentInke)
+	t.Run("owner set returns owner session", func(t *testing.T) {
+		task := &taskwarrior.Task{UUID: "t1", Owner: "inke"}
+		got := resolveReviewerSession(task, team, callerSession)
+		want := config.AgentSessionName(team, "inke")
 		if got != want {
 			t.Errorf("expected %q, got %q", want, got)
 		}
 	})
 
-	t.Run("no agent tag falls back to caller session", func(t *testing.T) {
-		tags := []string{"feature", "plan"}
-		got := resolveReviewerSession(tags, agentRoles, team, callerSession)
-		if got != callerSession {
-			t.Errorf("expected caller session %q, got %q", callerSession, got)
-		}
-	})
-
-	t.Run("tag not in agentRoles falls back to caller session", func(t *testing.T) {
-		tags := []string{"feature", "someothertag", "plan"}
-		got := resolveReviewerSession(tags, agentRoles, team, callerSession)
-		if got != callerSession {
-			t.Errorf("expected caller session %q, got %q", callerSession, got)
-		}
-	})
-
-	t.Run("empty agentRoles falls back to caller session", func(t *testing.T) {
-		tags := []string{"feature", testAgentInke, "plan"}
-		got := resolveReviewerSession(tags, map[string]string{}, team, callerSession)
+	t.Run("owner empty falls back to caller session", func(t *testing.T) {
+		task := &taskwarrior.Task{UUID: "t2"} // no Owner
+		got := resolveReviewerSession(task, team, callerSession)
 		if got != callerSession {
 			t.Errorf("expected caller session %q, got %q", callerSession, got)
 		}
 	})
 
 	t.Run("empty team falls back to caller session", func(t *testing.T) {
-		tags := []string{"feature", testAgentInke, "plan"}
-		got := resolveReviewerSession(tags, agentRoles, "", callerSession)
+		task := &taskwarrior.Task{UUID: "t3", Owner: "inke"}
+		got := resolveReviewerSession(task, "", callerSession)
 		if got != callerSession {
 			t.Errorf("expected caller session %q, got %q", callerSession, got)
 		}
@@ -635,24 +615,24 @@ func TestCheckOwnershipGuard(t *testing.T) {
 		"athena":      "researcher",
 	}
 
-	newTask := func(tags ...string) *taskwarrior.Task {
+	newTask := func(owner string) *taskwarrior.Task {
 		return &taskwarrior.Task{
-			UUID: "abcd1234-0000-0000-0000-000000000000",
-			Tags: tags,
+			UUID:  "abcd1234-0000-0000-0000-000000000000",
+			Owner: owner,
 		}
 	}
 
 	t.Run("owner calls go on own task — allowed", func(t *testing.T) {
-		task := newTask("plan", testAgentInke)
+		task := newTask("inke")
 		w := httptest.NewRecorder()
-		rejected := checkOwnershipGuard(w, task, testAgentInke, agentRoles)
+		rejected := checkOwnershipGuard(w, task, "inke", agentRoles)
 		if rejected {
 			t.Error("owner should be allowed to advance their own task")
 		}
 	})
 
 	t.Run("non-owner manager calls go on owned task — rejected", func(t *testing.T) {
-		task := newTask("plan", testAgentInke) // owned by inke
+		task := newTask("inke") // owned by inke
 		w := httptest.NewRecorder()
 		rejected := checkOwnershipGuard(w, task, "yuki", agentRoles)
 		if !rejected {
@@ -665,13 +645,13 @@ func TestCheckOwnershipGuard(t *testing.T) {
 		if resp.Status != AdvanceStatusRejected {
 			t.Errorf("expected status %q, got %q", AdvanceStatusRejected, resp.Status)
 		}
-		if !strings.Contains(resp.Message, testAgentInke) {
-			t.Errorf("message should name the owner %q: %s", testAgentInke, resp.Message)
+		if !strings.Contains(resp.Message, "inke") {
+			t.Errorf("message should name the owner %q: %s", "inke", resp.Message)
 		}
 	})
 
 	t.Run("unowned task — allowed", func(t *testing.T) {
-		task := newTask("plan", "feature") // no agent tag
+		task := newTask("") // no Owner
 		w := httptest.NewRecorder()
 		rejected := checkOwnershipGuard(w, task, "yuki", agentRoles)
 		if rejected {
@@ -680,7 +660,7 @@ func TestCheckOwnershipGuard(t *testing.T) {
 	})
 
 	t.Run("empty callerAgent (worker) — allowed", func(t *testing.T) {
-		task := newTask("plan", testAgentInke)
+		task := newTask("inke")
 		w := httptest.NewRecorder()
 		rejected := checkOwnershipGuard(w, task, "", agentRoles)
 		if rejected {
@@ -689,7 +669,7 @@ func TestCheckOwnershipGuard(t *testing.T) {
 	})
 
 	t.Run("caller not in agentRoles (worker session name) — allowed", func(t *testing.T) {
-		task := newTask("plan", testAgentInke)
+		task := newTask("inke")
 		w := httptest.NewRecorder()
 		rejected := checkOwnershipGuard(w, task, "3860d481-ttal", agentRoles)
 		if rejected {
@@ -729,27 +709,4 @@ func TestAdvance_WorkerStageFromUnowned_OwnerStaysEmpty(t *testing.T) {
 		return nil
 	}
 	t.Cleanup(func() { setOwnerFn = orig })
-}
-
-// TestFindAgentTag verifies the findAgentTag helper.
-func TestFindAgentTag(t *testing.T) {
-	agentRoles := map[string]string{
-		testAgentInke: "designer",
-		"athena":      "researcher",
-	}
-
-	got := findAgentTag([]string{"feature", testAgentInke, "lgtm"}, agentRoles)
-	if got != testAgentInke {
-		t.Errorf("expected %q, got %q", testAgentInke, got)
-	}
-
-	got = findAgentTag([]string{"feature", "lgtm"}, agentRoles)
-	if got != "" {
-		t.Errorf("expected empty string, got %q", got)
-	}
-
-	got = findAgentTag(nil, agentRoles)
-	if got != "" {
-		t.Errorf("expected empty string for nil tags, got %q", got)
-	}
 }

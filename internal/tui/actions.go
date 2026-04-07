@@ -10,7 +10,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/open"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -58,18 +57,18 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 		})
 	}
 
-	// Fall back to agent session if task has an agent tag.
-	if cfg != nil {
-		if agentSession, found := open.ResolveAgentSession(t.Tags, cfg.TeamName(), cfg.TeamPath()); found {
-			if tmux.SessionExists(agentSession) {
-				c := exec.Command("tmux", "attach-session", "-t", agentSession)
-				return tea.ExecProcess(c, func(err error) tea.Msg {
-					if err != nil {
-						return execFinishedMsg{err: fmt.Errorf("attach agent session %q: %w", agentSession, err)}
-					}
-					return execFinishedMsg{}
-				})
-			}
+	// Fall back to owner agent session if task has owner UDA set.
+	// Worker-stage tasks have no owner written, so this branch is skipped for them.
+	if t.Owner != "" && cfg != nil {
+		ownerSession := config.AgentSessionName(cfg.TeamName(), t.Owner)
+		if tmux.SessionExists(ownerSession) {
+			c := exec.Command("tmux", "attach-session", "-t", ownerSession)
+			return tea.ExecProcess(c, func(err error) tea.Msg {
+				if err != nil {
+					return execFinishedMsg{err: fmt.Errorf("attach agent session %q: %w", ownerSession, err)}
+				}
+				return execFinishedMsg{}
+			})
 		}
 	}
 

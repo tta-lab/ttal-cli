@@ -237,7 +237,12 @@ func resolveCurrentTaskForPrompt() *taskwarrior.Task {
 		return nil
 	}
 
-	tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", "+"+agentName)
+	cfg, err := pipeline.Load(config.DefaultConfigDir())
+	if err != nil {
+		log.Printf("[pipeline prompt] load pipeline config: %v", err)
+		return nil
+	}
+	tasks, err := pipeline.ActiveTasksByOwner(cfg, agentName)
 	if err != nil {
 		log.Printf("[pipeline prompt] task lookup for TTAL_AGENT_NAME=%s failed: %v", agentName, err)
 		return nil
