@@ -203,7 +203,7 @@ func dispatchToWorkerOrManager(
 	// and manager windows.
 	fallback, mgrErr := resolveManagerWindow(jobID, agentName, mcfg)
 	if mgrErr != nil {
-		return "", false, fmt.Errorf("unknown agent or worker %s: %w", recipient, err)
+		return "", false, fmt.Errorf("unknown agent or worker %s: worker: %w; manager: %w", recipient, err, mgrErr)
 	}
 	return fallback, true, dispatchToWorkerImpl(msgSvc, fallback, agentName, message.CreateParams{
 		Sender: sender, Recipient: "worker:" + recipient, Content: msg,
@@ -395,6 +395,9 @@ func resolveManagerWindowImpl(jobID, windowName string, mcfg *config.DaemonConfi
 	_, p, err := pipeCfg.MatchPipeline(task.Tags)
 	if err != nil {
 		return "", fmt.Errorf("resolve manager window: match pipeline: %w", err)
+	}
+	if p == nil {
+		return "", fmt.Errorf("resolve manager window: no pipeline matches task tags %v", task.Tags)
 	}
 	_, stage, err := p.CurrentStage(task.Tags)
 	if err != nil {

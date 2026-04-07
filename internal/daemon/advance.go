@@ -734,12 +734,18 @@ func advanceToStage(
 	}
 
 	// Write owner at first manager-stage routing (write-once).
+	// If this fails, the task has no owner and all subsequent routing will fail with
+	// "no owner on task" — surface the error so the advance is rejected rather than silently orphaned.
 	if task.Owner == "" && !stage.IsWorker() {
 		if err := setOwnerFn(task.UUID, agent.Name); err != nil {
-			log.Printf("[advance] warning: set owner: %v", err)
-		} else {
-			log.Printf("[advance] owner=%s (first manager route) stage=%s", agent.Name, stage.Name)
+			log.Printf("[advance] error: set owner: %v", err)
+			writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
+				Status:  AdvanceStatusError,
+				Message: fmt.Sprintf("set owner: %v", err),
+			})
+			return fmt.Errorf("set owner: %w", err)
 		}
+		log.Printf("[advance] owner=%s (first manager route) stage=%s", agent.Name, stage.Name)
 	}
 
 	if err := taskwarrior.ModifyTags(task.UUID, "+"+agent.Name); err != nil {

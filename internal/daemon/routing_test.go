@@ -273,6 +273,7 @@ func pipelineConfigForTest(workerStage bool) *pipeline.Config {
 	}
 }
 
+//nolint:gocyclo
 func TestResolveManagerWindow(t *testing.T) {
 	mcfg := &config.DaemonConfig{Global: &config.Config{}}
 
@@ -390,6 +391,33 @@ func TestResolveManagerWindow(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "window") || !strings.Contains(err.Error(), "not found") {
 			t.Errorf("error = %q, want substring containing 'window' and 'not found'", err.Error())
+		}
+	})
+
+	t.Run("returns error when no pipeline matches task tags", func(t *testing.T) {
+		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+			if hexID == testJobIDA {
+				return taskWithOwner, nil
+			}
+			return nil, errors.New("not found")
+		}
+		// A pipeline with a different tag — task tags ("feature", "stage:plan") won't match.
+		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+			return &pipeline.Config{
+				Pipelines: map[string]pipeline.Pipeline{
+					"other": {Tags: []string{"chore"}, Stages: []pipeline.Stage{
+						{Name: "Plan", Assignee: "astra"},
+					}},
+				},
+			}, nil
+		}
+
+		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "no pipeline matches") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "no pipeline matches")
 		}
 	})
 }
