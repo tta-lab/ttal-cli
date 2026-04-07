@@ -32,7 +32,6 @@ func SocketPath() (string, error) {
 // Wire format: {"type":"statusUpdate","agent":"kestrel","context_used_pct":45.2,...}
 type StatusUpdateRequest struct {
 	Type                string  `json:"type"`                  // "statusUpdate"
-	Team                string  `json:"team,omitempty"`        // team name (defaults to "default")
 	Agent               string  `json:"agent"`                 // agent name
 	ContextUsedPct      float64 `json:"context_used_pct"`      // percentage of context used
 	ContextRemainingPct float64 `json:"context_remaining_pct"` // percentage remaining
@@ -51,7 +50,6 @@ type StatusUpdateRequest struct {
 type SendRequest struct {
 	From    string `json:"from,omitempty"`
 	To      string `json:"to,omitempty"`
-	Team    string `json:"team,omitempty"`
 	Message string `json:"message"`
 }
 
@@ -60,7 +58,6 @@ type SendRequest struct {
 type TaskCompleteRequest struct {
 	Type     string `json:"type"` // "taskComplete"
 	TaskUUID string `json:"task_uuid"`
-	Team     string `json:"team,omitempty"`     // defaults to "default"
 	Owner    string `json:"owner,omitempty"`    // bare agent name
 	Desc     string `json:"desc,omitempty"`     // task description for the notification message
 	PRID     string `json:"pr_id,omitempty"`    // PR number for the notification message
@@ -203,7 +200,6 @@ type PRCIFailureDetail struct {
 
 // BreatheRequest asks the daemon to restart an agent with a fresh context window.
 type BreatheRequest struct {
-	Team        string `json:"team,omitempty"`         // defaults to "default"
 	Agent       string `json:"agent"`                  // agent name
 	Handoff     string `json:"handoff"`                // handoff prompt content
 	SessionName string `json:"session_name,omitempty"` // current tmux session name (if known)
@@ -301,8 +297,7 @@ type GitTagResponse struct {
 // This is the correct way for CLI commands and workers to send notifications
 // without coupling to a specific transport (Telegram, Matrix, etc).
 type NotifyRequest struct {
-	Team    string `json:"team,omitempty"` // defaults to "default"
-	Message string `json:"message"`        // pre-rendered notification string
+	Message string `json:"message"` // pre-rendered notification string
 }
 
 // KubeLogRequest asks the daemon to fetch pod logs via kubectl.
@@ -992,10 +987,6 @@ func daemonHTTPClientLong(timeout time.Duration) *http.Client {
 // Send connects to the daemon socket and sends a message via HTTP.
 // Returns an error if the daemon is not running or if delivery fails.
 func Send(req SendRequest) error {
-	if req.Team == "" {
-		req.Team = config.DefaultTeamName
-	}
-
 	body, err := json.Marshal(req)
 	if err != nil {
 		return err
@@ -1089,9 +1080,6 @@ func QueryStatus(team, agent string) (*StatusResponse, error) {
 // Breathe sends a breathe request to the daemon, asking it to restart an agent's
 // CC session with a fresh context window and the provided handoff prompt.
 func Breathe(req BreatheRequest) error {
-	if req.Team == "" {
-		req.Team = config.DefaultTeamName
-	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return err

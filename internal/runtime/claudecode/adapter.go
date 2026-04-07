@@ -41,7 +41,7 @@ func (a *Adapter) Start(_ context.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	sessionName := config.AgentSessionName(shellCfg.TeamName(), a.cfg.AgentName)
+	sessionName := config.AgentSessionName(a.cfg.AgentName)
 
 	cmd := "claude --dangerously-skip-permissions"
 	if a.cfg.Model != "" {

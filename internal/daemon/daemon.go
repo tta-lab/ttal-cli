@@ -138,7 +138,7 @@ func Run() error {
 	})
 
 	defaultTeamName := mcfg.DefaultTeamName()
-	commentSync := resolveCommentSync(mcfg, defaultTeamName)
+	commentSync := resolveCommentSync(mcfg)
 
 	handlers := buildHTTPHandlers(
 		ctx, mcfg, shellCfg, defaultFE, frontends,
@@ -371,49 +371,46 @@ func buildFrontends(
 	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service,
 ) map[string]frontend.Frontend {
 	frontends := make(map[string]frontend.Frontend)
-	for teamName, team := range mcfg.Teams {
-		ft := team.Frontend
-		if ft == "" {
-			ft = "telegram" // backward compatible default
+	team := mcfg.Team
+	if team == nil {
+		log.Printf("[daemon] no [teams.default] in config — frontends disabled")
+		return frontends
+	}
+	ft := team.Frontend
+	if ft == "" {
+		ft = "telegram"
+	}
+	onMsg := func(_, agent, text string) {
+		if err := deliverToAgent(registry, mcfg, frontends, agent, text); err != nil {
+			log.Printf("[daemon] deliverToAgent %s failed: %v", agent, err)
 		}
-
-		// onMsg is shared across all frontend types — extract to avoid duplication.
-		onMsg := func(team, agent, text string) {
-			if err := deliverToAgent(registry, mcfg, frontends, team, agent, text); err != nil {
-				log.Printf("[daemon] deliverToAgent %s/%s failed: %v", team, agent, err)
-			}
+	}
+	switch ft {
+	case "telegram":
+		fe := frontend.NewTelegram(frontend.TelegramConfig{
+			MCfg:       mcfg,
+			OnMessage:  onMsg,
+			MsgSvc:     msgSvc,
+			UserNameFn: func() string { return mcfg.Team.UserName },
+			GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
+			RestartFn:  Restart,
+		})
+		frontends[config.DefaultTeamName] = fe
+	case "matrix":
+		fe, err := frontend.NewMatrix(frontend.MatrixConfig{
+			MCfg:       mcfg,
+			OnMessage:  onMsg,
+			MsgSvc:     msgSvc,
+			UserNameFn: func() string { return mcfg.Team.UserName },
+			GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
+			RestartFn:  Restart,
+		})
+		if err != nil {
+			log.Printf("[daemon] matrix frontend failed: %v — skipping", err)
 		}
-
-		switch ft {
-		case "telegram":
-			fe := frontend.NewTelegram(frontend.TelegramConfig{
-				TeamName:   teamName,
-				MCfg:       mcfg,
-				OnMessage:  onMsg,
-				MsgSvc:     msgSvc,
-				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
-				GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
-				RestartFn:  Restart,
-			})
-			frontends[teamName] = fe
-		case "matrix":
-			fe, err := frontend.NewMatrix(frontend.MatrixConfig{
-				TeamName:   teamName,
-				MCfg:       mcfg,
-				OnMessage:  onMsg,
-				MsgSvc:     msgSvc,
-				UserNameFn: func() string { return mcfg.UserNameForTeam(teamName) },
-				GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
-				RestartFn:  Restart,
-			})
-			if err != nil {
-				log.Printf("[daemon] matrix frontend failed for team %s: %v — skipping", teamName, err)
-				continue
-			}
-			frontends[teamName] = fe
-		default:
-			log.Printf("[daemon] unknown frontend %q for team %s — skipping", ft, teamName)
-		}
+		frontends[config.DefaultTeamName] = fe
+	default:
+		log.Printf("[daemon] unknown frontend %q — skipping", ft)
 	}
 	return frontends
 }
@@ -439,9 +436,9 @@ func registerFrontendCommands(frontends map[string]frontend.Frontend, cmds []Bot
 // startFrontends calls Start for every frontend.
 // StartNotificationPoller is called internally by TelegramFrontend.Start.
 // resolveCommentSync returns the comment sync mode for the given team ("pr" by default).
-func resolveCommentSync(mcfg *config.DaemonConfig, teamName string) string {
-	if rt, ok := mcfg.Teams[teamName]; ok && rt.CommentSync != "" {
-		return rt.CommentSync
+func resolveCommentSync(mcfg *config.DaemonConfig) string {
+	if mcfg.Team != nil && mcfg.Team.CommentSync != "" {
+		return mcfg.Team.CommentSync
 	}
 	return "pr"
 }

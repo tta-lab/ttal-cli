@@ -97,7 +97,7 @@ func buildAgentRow(cfg *config.Config, teamName, name string) agentRow {
 		ctxPct:  -1,
 	}
 
-	sessionName := config.AgentSessionName(teamName, name)
+	sessionName := config.AgentSessionName(name)
 	populateCCRow(&row, sessionName, s)
 
 	return row

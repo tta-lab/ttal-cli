@@ -95,8 +95,7 @@ func handlePipelineAdvance(
 		return
 	}
 
-	team := mcfg.DefaultTeamName()
-	teamPath := resolveTeamPath(mcfg, team)
+	teamPath := resolveTeamPath(mcfg)
 
 	task, err := taskwarrior.ExportTask(req.TaskUUID)
 	if err != nil {
@@ -145,7 +144,7 @@ func handlePipelineAdvance(
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
-		err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, team, workerRuntime, teamPath, agentRoles,
+		err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, workerRuntime, teamPath, agentRoles,
 			mcfg.Global.Sync.WorkerAgentPaths)
 		if err != nil {
 			log.Printf("[advance] first stage error: %v", err)
@@ -166,16 +165,15 @@ func handlePipelineAdvance(
 	}
 
 	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
-		req.AgentName, req.SessionName, req.WorkDir, team, workerRuntime, teamPath, agentRoles)
+		req.AgentName, req.SessionName, req.WorkDir, workerRuntime, teamPath, agentRoles)
 }
 
-// resolveTeamPath returns the filesystem path for the given team name.
-func resolveTeamPath(mcfg *config.DaemonConfig, team string) string {
-	resolvedTeam := mcfg.Teams[team]
-	if resolvedTeam == nil {
+// resolveTeamPath returns the filesystem path for the default team.
+func resolveTeamPath(mcfg *config.DaemonConfig) string {
+	if mcfg.Team == nil {
 		return ""
 	}
-	return resolvedTeam.TeamPath
+	return mcfg.Team.TeamPath
 }
 
 // buildAgentRoles discovers agents from the team path and returns a name→role map.
@@ -256,7 +254,7 @@ func processStageAdvance(
 	p *pipeline.Pipeline,
 	idx int,
 	stage *pipeline.Stage,
-	callerAgent, sessionName, workDir, team, workerRuntime, teamPath string,
+	callerAgent, sessionName, workDir, workerRuntime, teamPath string,
 	agentRoles map[string]string,
 ) {
 	if stage.Reviewer != "" && !hasTag(task.Tags, stage.StageLGTMTag()) {
@@ -270,7 +268,7 @@ func processStageAdvance(
 			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
 			spawnMsg = " (spawn skipped: daemon config not loaded)"
 		default:
-			err, skipped := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, team, mcfg.Global)
+			err, skipped := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global)
 			if err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
 				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
@@ -308,7 +306,7 @@ func processStageAdvance(
 		return
 	}
 
-	err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, team, workerRuntime, teamPath, agentRoles,
+	err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, workerRuntime, teamPath, agentRoles,
 		mcfg.Global.Sync.WorkerAgentPaths)
 	if err != nil {
 		log.Printf("[advance] next stage error: %v", err)
@@ -318,15 +316,12 @@ func processStageAdvance(
 // resolveReviewerSession determines which tmux session should host the plan-review window.
 // The reviewer belongs in the task owner's session (the agent whose Owner UDA is set),
 // not the caller's session (the agent who ran ttal go).
-// Falls back to callerSession when owner is empty or team is empty.
-func resolveReviewerSession(task *taskwarrior.Task, team, callerSession string) string {
-	if team == "" {
-		return callerSession
-	}
+// Falls back to callerSession when owner is empty.
+func resolveReviewerSession(task *taskwarrior.Task, callerSession string) string {
 	if task.Owner == "" {
 		return callerSession
 	}
-	return config.AgentSessionName(team, task.Owner)
+	return config.AgentSessionName(task.Owner)
 }
 
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
@@ -338,7 +333,7 @@ func resolveReviewerSession(task *taskwarrior.Task, team, callerSession string) 
 // For PR-review, workDir is used as-is — the caller is the worker.
 func spawnOrRetriggerReviewerFromDaemon(
 	task *taskwarrior.Task, stage *pipeline.Stage,
-	sessionName, workDir, team string,
+	sessionName, workDir string,
 	cfg *config.Config,
 ) (error, bool) {
 	reviewerAgent := stage.Reviewer
@@ -360,7 +355,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 
 	// Plan-review: resolve the task owner's session instead of using the caller's.
 	// PR-review (above) correctly uses the caller's session — the caller is the worker.
-	targetSession := resolveReviewerSession(task, team, sessionName)
+	targetSession := resolveReviewerSession(task, sessionName)
 	targetWorkDir := workDir
 	if projectPath := projectPkg.ResolveProjectPath(task.Project); projectPath != "" {
 		targetWorkDir = projectPath
@@ -539,10 +534,10 @@ func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) boo
 }
 
 // shouldBreathe reads the agent's status file and decides whether to breathe.
-func shouldBreathe(team, agentName string, threshold float64) bool {
-	agentStatus, err := status.ReadAgent(team, agentName)
+func shouldBreathe(agentName string, threshold float64) bool {
+	agentStatus, err := status.ReadAgent(config.DefaultTeamName, agentName)
 	if err != nil {
-		log.Printf("[advance] warning: could not read status for %s/%s, defaulting to breathe: %v", team, agentName, err)
+		log.Printf("[advance] warning: could not read status for default/%s, defaulting to breathe: %v", agentName, err)
 		return true
 	}
 	return shouldBreatheStatus(agentStatus, threshold)
@@ -685,7 +680,7 @@ func advanceToStage(
 	mcfg *config.DaemonConfig,
 	task *taskwarrior.Task,
 	stage *pipeline.Stage,
-	callerAgent, team, workerRuntime string,
+	callerAgent, workerRuntime string,
 	teamPath string,
 	agentRoles map[string]string,
 	workerAgentPaths []string,
@@ -773,7 +768,7 @@ func advanceToStage(
 	}
 
 	cfg := mcfg.Global
-	if err := routeToPersistentAgent(w, cfg, task, agent, "", "", team); err != nil {
+	if err := routeToPersistentAgent(w, cfg, task, agent, teamPath); err != nil {
 		return err
 	}
 
@@ -851,9 +846,9 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 func routeToPersistentAgent(
 	w http.ResponseWriter, cfg *config.Config,
 	_ *taskwarrior.Task, agent *agentfs.AgentInfo,
-	_, _, team string,
+	_ string,
 ) error {
-	if !shouldBreathe(team, agent.Name, cfg.BreatheThreshold()) {
+	if !shouldBreathe(agent.Name, cfg.BreatheThreshold()) {
 		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
 		return nil
 	}

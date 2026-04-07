@@ -54,7 +54,7 @@ func Session(uuid string) error {
 			return fmt.Errorf("could not load config for owner session lookup: %w", err)
 		}
 		if cfg != nil {
-			ownerSession := config.AgentSessionName(cfg.TeamName(), task.Owner)
+			ownerSession := config.AgentSessionName(task.Owner)
 			if sessionExistsFn(ownerSession) {
 				return attachFn(ownerSession)
 			}

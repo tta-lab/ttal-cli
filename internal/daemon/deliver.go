@@ -26,26 +26,26 @@ func formatAgentMessage(fromAgent, text string) string {
 func deliverToAgent(
 	registry *adapterRegistry, mcfg *config.DaemonConfig,
 	frontends map[string]frontend.Frontend,
-	teamName, agentName, text string,
+	agentName, text string,
 ) error {
 	if registry != nil {
-		if adapter, ok := registry.get(teamName, agentName); ok {
+		if adapter, ok := registry.get(config.DefaultTeamName, agentName); ok {
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}
 	// Fallback: tmux for CC agents, frontend notification for others
-	rt := mcfg.RuntimeForAgent(teamName, "", agentName)
+	rt := mcfg.RuntimeForAgent(config.DefaultTeamName, "", agentName)
 	if rt == runtime.ClaudeCode {
-		session := config.AgentSessionName(teamName, agentName)
+		session := config.AgentSessionName(agentName)
 		return tmux.SendKeys(session, agentName, text)
 	}
 	if rt == runtime.Codex {
 		return fmt.Errorf("codex adapter not available for %s (start failed?)", agentName)
 	}
 	// Non-CC agent with no adapter — send via frontend notification
-	fe, ok := frontends[teamName]
+	fe, ok := frontends[config.DefaultTeamName]
 	if !ok {
-		return fmt.Errorf("no frontend for team %s", teamName)
+		return fmt.Errorf("no frontend for team default")
 	}
 	msg := fmt.Sprintf("[undelivered → %s] %s", agentName, text)
 	return fe.SendNotification(context.Background(), msg)

@@ -60,7 +60,7 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 	// Fall back to owner agent session if task has owner UDA set.
 	// Worker-stage tasks have no owner written, so this branch is skipped for them.
 	if t.Owner != "" && cfg != nil {
-		ownerSession := config.AgentSessionName(cfg.TeamName(), t.Owner)
+		ownerSession := config.AgentSessionName(t.Owner)
 		if tmux.SessionExists(ownerSession) {
 			c := exec.Command("tmux", "attach-session", "-t", ownerSession)
 			return tea.ExecProcess(c, func(err error) tea.Msg {

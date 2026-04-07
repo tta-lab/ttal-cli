@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
@@ -54,7 +53,6 @@ func runBreathe(_ *cobra.Command, args []string) error {
 	}
 
 	if err := daemon.Breathe(daemon.BreatheRequest{
-		Team:        config.DefaultTeamName,
 		Agent:       agent,
 		Handoff:     handoff,
 		SessionName: os.Getenv("TTAL_SESSION_NAME"),

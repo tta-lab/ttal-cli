@@ -338,9 +338,8 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
 	}
 
 	if req.Session != "" {
-		defaultTeam := mcfg.DefaultTeamName()
-		team, ok := mcfg.Teams[defaultTeam]
-		if !ok || team.NotificationToken == "" {
+		team := mcfg.Team
+		if team == nil || team.NotificationToken == "" {
 			return "", 0, "", fmt.Errorf("no notification bot configured for default team")
 		}
 		id, parseErr := telegram.ParseChatID(team.ChatID)

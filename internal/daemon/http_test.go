@@ -173,7 +173,7 @@ func TestHTTPTaskComplete(t *testing.T) {
 	}
 	r := newDaemonRouter(h)
 
-	body, _ := json.Marshal(TaskCompleteRequest{TaskUUID: "abc-123", Team: "default"})
+	body, _ := json.Marshal(TaskCompleteRequest{TaskUUID: "abc-123"})
 	req := httptest.NewRequest(http.MethodPost, "/task/complete", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -643,7 +643,7 @@ func TestHTTPNotify_HappyPath(t *testing.T) {
 	}
 	r := newDaemonRouter(h)
 
-	body, _ := json.Marshal(NotifyRequest{Team: "myteam", Message: "hello from worker"})
+	body, _ := json.Marshal(NotifyRequest{Message: "hello from worker"})
 	req := httptest.NewRequest(http.MethodPost, "/notify", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -651,8 +651,8 @@ func TestHTTPNotify_HappyPath(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	if capturedTeam != "myteam" {
-		t.Errorf("expected team=myteam, got %q", capturedTeam)
+	if capturedTeam != "default" {
+		t.Errorf("expected team=default, got %q", capturedTeam)
 	}
 	if capturedMsg != "hello from worker" {
 		t.Errorf("expected msg=hello from worker, got %q", capturedMsg)

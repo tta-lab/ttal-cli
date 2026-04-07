@@ -80,7 +80,6 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 	// team="" should default without panicking — it will fail at CWD fallback
 	// (shellCfg has no resolved team path, so AgentPath returns "").
 	resp := handleBreathe(shellCfg, BreatheRequest{
-		Team:    "",
 		Agent:   "nonexistent-test-agent-xyz",
 		Handoff: "# Handoff",
 	}, nil, nil)
@@ -395,7 +394,6 @@ func TestResolveBreatheSessions(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := loadConfigWithTeamPath(t, tmp)
 	const agent = "astra"
-	const team = "default"
 
 	tests := []struct {
 		name           string
@@ -405,13 +403,13 @@ func TestResolveBreatheSessions(t *testing.T) {
 	}{
 		{
 			name:           "self-breathe → persistent session",
-			req:            BreatheRequest{Agent: agent, Team: team, SessionName: ""},
+			req:            BreatheRequest{Agent: agent, SessionName: ""},
 			wantOldSession: "ttal-default-" + agent,
 			wantNewSession: "ttal-default-" + agent,
 		},
 		{
 			name:           "session name override → use as old session, restart as persistent",
-			req:            BreatheRequest{Agent: agent, Team: team, SessionName: "custom-session-" + agent},
+			req:            BreatheRequest{Agent: agent, SessionName: "custom-session-" + agent},
 			wantOldSession: "custom-session-" + agent,
 			wantNewSession: "ttal-default-" + agent,
 		},
@@ -419,7 +417,7 @@ func TestResolveBreatheSessions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			plan, err := resolveBreatheSessions(tt.req, team, cfg)
+			plan, err := resolveBreatheSessions(tt.req, cfg)
 			if err != nil {
 				t.Fatalf("resolveBreatheSessions error: %v", err)
 			}

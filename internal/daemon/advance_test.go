@@ -578,13 +578,12 @@ func runGit(t *testing.T, args ...string) {
 
 // TestResolveReviewerSession verifies the resolveReviewerSession helper.
 func TestResolveReviewerSession(t *testing.T) {
-	const team = "default"
 	const callerSession = "ttal-default-yuki"
 
 	t.Run("owner set returns owner session", func(t *testing.T) {
 		task := &taskwarrior.Task{UUID: "t1", Owner: "inke"}
-		got := resolveReviewerSession(task, team, callerSession)
-		want := config.AgentSessionName(team, "inke")
+		got := resolveReviewerSession(task, callerSession)
+		want := config.AgentSessionName("inke")
 		if got != want {
 			t.Errorf("expected %q, got %q", want, got)
 		}
@@ -592,15 +591,7 @@ func TestResolveReviewerSession(t *testing.T) {
 
 	t.Run("owner empty falls back to caller session", func(t *testing.T) {
 		task := &taskwarrior.Task{UUID: "t2"} // no Owner
-		got := resolveReviewerSession(task, team, callerSession)
-		if got != callerSession {
-			t.Errorf("expected caller session %q, got %q", callerSession, got)
-		}
-	})
-
-	t.Run("empty team falls back to caller session", func(t *testing.T) {
-		task := &taskwarrior.Task{UUID: "t3", Owner: "inke"}
-		got := resolveReviewerSession(task, "", callerSession)
+		got := resolveReviewerSession(task, callerSession)
 		if got != callerSession {
 			t.Errorf("expected caller session %q, got %q", callerSession, got)
 		}

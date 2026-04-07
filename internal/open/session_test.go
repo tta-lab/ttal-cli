@@ -28,7 +28,7 @@ func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 		return &taskwarrior.Task{UUID: uuid, Owner: "astra", Tags: []string{"feature"}}, nil
 	}
 	sessionExistsFn = func(name string) bool {
-		return name == "ttal-testteam-astra"
+		return name == "ttal-default-astra"
 	}
 	attachFn = func(name string) error {
 		attached = name
@@ -42,8 +42,8 @@ func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if attached != "ttal-testteam-astra" {
-		t.Errorf("expected owner session ttal-testteam-astra, got %q", attached)
+	if attached != "ttal-default-astra" {
+		t.Errorf("expected owner session ttal-default-astra, got %q", attached)
 	}
 }
 

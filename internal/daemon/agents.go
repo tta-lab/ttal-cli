@@ -60,21 +60,21 @@ func initSingleAdapter(
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
-	rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, ta.AgentName)
+	rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, ta.AgentName)
 
 	// CC agents use tmux
 	if rt == runtime.ClaudeCode {
-		sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
+		sessionName := config.AgentSessionName(ta.AgentName)
 		if tmux.SessionExists(sessionName) {
 			log.Printf("[daemon] CC agent %s already running (session: %s)", ta.AgentName, sessionName)
 			return
 		}
-		agentEnv := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+		agentEnv := buildManagerAgentEnv(ta.AgentName, mcfg)
 		shell := mcfg.Global.GetShell()
 		ensureProjectDir(agentPath)
 		mcpPath := mcpPaths[ta.AgentName]
 		// Resume from last session if available.
-		resumeSessionID := lastSessionID(ta.TeamName, ta.AgentName, agentPath)
+		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
 		if err := spawnCCSession(
 			sessionName, ta.AgentName, agentPath,
 			agentEnv, shell, mcpPath, resumeSessionID,
@@ -91,7 +91,7 @@ func initSingleAdapter(
 		cfg := runtime.AdapterConfig{
 			AgentName: ta.AgentName,
 			WorkDir:   agentPath,
-			Env:       buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg),
+			Env:       buildManagerAgentEnv(ta.AgentName, mcfg),
 			TeamPath:  ta.TeamPath,
 		}
 		adapter := codexRuntime.New(cfg)
@@ -99,9 +99,9 @@ func initSingleAdapter(
 			log.Printf("[daemon] failed to start Codex adapter for %s: %v", ta.AgentName, err)
 			return
 		}
-		registry.set(ta.TeamName, ta.AgentName, adapter)
+		registry.set(config.DefaultTeamName, ta.AgentName, adapter)
 		initCodexSession(ctx, ta.AgentName, adapter)
-		go bridgeAdapterEvents(ctx, ta.TeamName, ta.AgentName, adapter, mcfg, frontends, msgSvc)
+		go bridgeAdapterEvents(ctx, ta.AgentName, adapter, mcfg, frontends, msgSvc)
 		log.Printf("[daemon] Codex agent %s running", ta.AgentName)
 		return
 	}
@@ -123,9 +123,10 @@ func initCodexSession(ctx context.Context, agentName string, adapter *codexRunti
 
 // bridgeAdapterEvents routes Codex adapter events to frontends and status.
 func bridgeAdapterEvents(
-	ctx context.Context, teamName, agentName string, adapter *codexRuntime.Adapter,
+	ctx context.Context, agentName string, adapter *codexRuntime.Adapter,
 	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, msgSvc *message.Service,
 ) {
+	fe, hasFE := frontends[config.DefaultTeamName]
 	for {
 		select {
 		case <-ctx.Done():
@@ -134,30 +135,26 @@ func bridgeAdapterEvents(
 			if !ok {
 				return
 			}
-			fe, hasFE := frontends[teamName]
 			switch evt.Type {
 			case runtime.EventText:
 				if hasFE {
 					persistMsg(msgSvc, message.CreateParams{
 						Sender: agentName, Recipient: mcfg.Global.UserName(),
-						Content: evt.Text, Team: teamName, Channel: message.ChannelCLI,
+						Content: evt.Text, Team: config.DefaultTeamName, Channel: message.ChannelCLI,
 					})
 					_ = fe.SendText(ctx, agentName, evt.Text)
 				}
 			case runtime.EventError:
 				log.Printf("[daemon] codex error for %s: %s", agentName, evt.Text)
 			case runtime.EventTool:
-				if hasFE {
-					teamCfg := mcfg.Teams[teamName]
-					if teamCfg != nil && teamCfg.EmojiReactions {
-						emoji := telegram.ToolEmoji(evt.ToolName)
-						if emoji != "" {
-							_ = fe.SetReaction(ctx, agentName, emoji)
-						}
+				if hasFE && mcfg.Team != nil && mcfg.Team.EmojiReactions {
+					emoji := telegram.ToolEmoji(evt.ToolName)
+					if emoji != "" {
+						_ = fe.SetReaction(ctx, agentName, emoji)
 					}
 				}
 			case runtime.EventStatus:
-				if err := status.WriteAgent(teamName, status.AgentStatus{
+				if err := status.WriteAgent(config.DefaultTeamName, status.AgentStatus{
 					Agent:               agentName,
 					ContextUsedPct:      evt.ContextUsedPct,
 					ContextRemainingPct: evt.ContextRemainingPct,
@@ -197,12 +194,12 @@ func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) stri
 }
 
 // buildManagerAgentEnv returns env vars for a manager agent session.
-func buildManagerAgentEnv(agentName, teamName string, mcfg *config.DaemonConfig) []string {
+func buildManagerAgentEnv(agentName string, mcfg *config.DaemonConfig) []string {
 	agentEnv := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
-	if team, ok := mcfg.Teams[teamName]; ok && team.TaskRC != "" {
-		agentEnv = append(agentEnv, fmt.Sprintf("TASKRC=%s", team.TaskRC))
+	if mcfg.Team != nil && mcfg.Team.TaskRC != "" {
+		agentEnv = append(agentEnv, fmt.Sprintf("TASKRC=%s", mcfg.Team.TaskRC))
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
 	agentEnv = append(agentEnv, envpkg.AllowedDotEnvParts()...)
@@ -255,11 +252,11 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, mcpPat
 func collectCCSessions(mcfg *config.DaemonConfig) []string {
 	var sessions []string
 	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, ta.AgentName)
+		rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}
-		sessionName := config.AgentSessionName(ta.TeamName, ta.AgentName)
+		sessionName := config.AgentSessionName(ta.AgentName)
 		if !tmux.SessionExists(sessionName) {
 			continue
 		}
@@ -310,7 +307,7 @@ func initManagerMCPTokens(ctx context.Context, mcfg *config.DaemonConfig) map[st
 	mcpPaths := make(map[string]string)
 
 	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.RuntimeForAgent(ta.TeamName, ta.TeamPath, ta.AgentName)
+		rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}
@@ -323,7 +320,7 @@ func initManagerMCPTokens(ctx context.Context, mcfg *config.DaemonConfig) map[st
 		}
 
 		// Build env for this agent.
-		envSlice := buildManagerAgentEnv(ta.AgentName, ta.TeamName, mcfg)
+		envSlice := buildManagerAgentEnv(ta.AgentName, mcfg)
 		envMap := envpkg.EnvSliceToMap(envSlice)
 
 		mcpJSON, _, err := temenos.RegisterSessionForAgent(ctx, ta.AgentName, nil, "", envMap)
@@ -424,10 +421,10 @@ func sessionJSONLExists(sessionID, agentPath string) bool {
 // lastSessionID reads the persisted CC session ID for an agent from the status file.
 // Returns "" on cold-start (no prior session), on read error (logged as WARN),
 // or when the session's JSONL doesn't exist in the current project dir (CWD change).
-func lastSessionID(teamName, agentName, agentPath string) string {
-	s, err := status.ReadAgent(teamName, agentName)
+func lastSessionID(agentName, agentPath string) string {
+	s, err := status.ReadAgent(config.DefaultTeamName, agentName)
 	if err != nil {
-		log.Printf("[daemon] WARN: could not read status for %s/%s, skipping --resume: %v", teamName, agentName, err)
+		log.Printf("[daemon] WARN: could not read status for %s, skipping --resume: %v", agentName, err)
 		return ""
 	}
 	if s == nil {

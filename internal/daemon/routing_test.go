@@ -255,8 +255,8 @@ func TestHandleToRejectsBareHex(t *testing.T) {
 // TestResolveManagerWindow tests the resolveManagerWindow function with injected mocks.
 const testJobIDA = "e9d4b7c1"
 
-// expectedSessionAstra is the tmux session name for the "astra" agent with empty team name.
-const expectedSessionAstra = "ttal--astra"
+// expectedSessionAstra is the tmux session name for the "astra" agent with default team.
+const expectedSessionAstra = "ttal-default-astra"
 
 // pipelineConfigForTest returns a pipeline.Config with a single stage that is NOT a worker stage.
 func pipelineConfigForTest(workerStage bool) *pipeline.Config {
@@ -495,51 +495,8 @@ func TestResolveManagerWindowWithTeam(t *testing.T) {
 	}
 }
 
-// TestResolveManagerWindow_EmptyTeamPath_Regression verifies the ed7975f0 root cause fix:
-// resolveManagerWindowImpl must succeed when mcfg.Global.TeamPath() returns "" as long as
-// task.Owner is set (no dependency on teamPath for agent role discovery).
-func TestResolveManagerWindow_EmptyTeamPath_Regression(t *testing.T) {
-	origExport := exportTaskByHexIDFn
-	origWindowExists := windowExistsFn
-	origPipelineLoad := pipelineLoadFn
-	t.Cleanup(func() {
-		exportTaskByHexIDFn = origExport
-		windowExistsFn = origWindowExists
-		pipelineLoadFn = origPipelineLoad
-	})
-
-	cfg := &config.Config{} // TeamPath() returns "" (empty team path in daemon context)
-	mcfg := &config.DaemonConfig{Global: cfg}
-
-	taskWithOwner := &taskwarrior.Task{
-		UUID:        testJobIDA + "aabbccddeeff",
-		Description: "test",
-		Tags:        []string{"feature", "stage:plan"},
-		Owner:       "astra",
-		Status:      "pending",
-	}
-
-	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
-		if hexID == testJobIDA {
-			return taskWithOwner, nil
-		}
-		return nil, errors.New("not found")
-	}
-	pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
-		return pipelineConfigForTest(false), nil
-	}
-	windowExistsFn = func(session, window string) bool {
-		return session == expectedSessionAstra && window == "planner"
-	}
-
-	session, err := resolveManagerWindow(testJobIDA, "planner", mcfg)
-	if err != nil {
-		t.Fatalf("expected success (empty teamPath should not break owner-based routing), got error: %v", err)
-	}
-	if session != expectedSessionAstra {
-		t.Errorf("session = %q, want %q", session, expectedSessionAstra)
-	}
-}
+// TestResolveManagerWindow_EmptyTeamPath_Regression is deleted — empty team name is
+// impossible with single-team hardcoded sessions.
 
 // TestDispatchToWorkerOrManager tests the dispatchToWorkerOrManager function.
 //
@@ -576,7 +533,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		}
 
 		session, dispatched, err := dispatchToWorkerOrManager(
-			mcfg, "e9d4b7c1", "coder", nil, "yuki", "ttal", "e9d4b7c1:coder", "result", nil)
+			mcfg, "e9d4b7c1", "coder", nil, "yuki", "ttal", "e9d4b7c1:coder", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -604,7 +561,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		}
 
 		session, dispatched, err := dispatchToWorkerOrManager(
-			mcfg, "e9d4b7c1", "coder", nil, "worker", "ttal", "e9d4b7c1:coder", "result", nil)
+			mcfg, "e9d4b7c1", "coder", nil, "worker", "ttal", "e9d4b7c1:coder", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -629,7 +586,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		}
 
 		session, dispatched, err := dispatchToWorkerOrManager(
-			mcfg, "e9d4b7c1", "coder", nil, "yuki", "ttal", "e9d4b7c1:coder", "result", nil)
+			mcfg, "e9d4b7c1", "coder", nil, "yuki", "ttal", "e9d4b7c1:coder", nil)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
