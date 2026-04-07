@@ -129,13 +129,13 @@ func TestDeleteMCPConfigFile_NoFile(t *testing.T) {
 	DeleteMCPConfigFile("test-delete-nonexistent-xyz")
 }
 
-func TestManagerMCPConfigPath(t *testing.T) {
-	path := ManagerMCPConfigPath()
+func TestAgentMCPConfigPath(t *testing.T) {
+	path := AgentMCPConfigPath("yuki")
 	if path == "" {
-		t.Fatal("ManagerMCPConfigPath returned empty string")
+		t.Fatal("AgentMCPConfigPath returned empty string")
 	}
-	if !strings.HasSuffix(path, "/m.json") {
-		t.Errorf("expected path ending in /m.json, got %q", path)
+	if !strings.HasSuffix(path, "/yuki.json") {
+		t.Errorf("expected path ending in /yuki.json, got %q", path)
 	}
 	if !strings.Contains(path, ".ttal/mcps") {
 		t.Errorf("expected path under .ttal/mcps, got %q", path)

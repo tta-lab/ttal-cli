@@ -258,23 +258,28 @@ func dumpState(sessionName, workDir string) string {
 
 // cleanupWorker kills the tmux session and removes the git worktree + branch.
 // taskHexID is used to delete the worker's MCP config file (~/.ttal/mcps/w-<hexid>.json).
-// annotations are used to extract a temenos session token for cleanup (best-effort).
+// annotations are used to extract temenos session tokens for cleanup (best-effort).
+// Cleans up both the worker token and any reviewer tokens (PR and plan).
 func cleanupWorker(
 	sessionName, workDir, branch, gitRoot, taskHexID string,
 	annotations []taskwarrior.Annotation,
 ) error {
-	// Delete temenos session — best-effort, 8h TTL handles expiry on error.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Delete worker temenos session — best-effort, 8h TTL handles expiry on error.
 	if token := temenos.ExtractToken(annotations); token != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
 		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to delete temenos session (non-fatal): %v\n", err)
 		}
 	}
-	// Delete MCP config file — best-effort.
+	// Delete worker MCP config file.
 	if taskHexID != "" {
 		temenos.DeleteMCPConfigFile("w-" + taskHexID)
 	}
+
+	// Delete reviewer temenos sessions (best-effort).
+	cleanupReviewerTokens(ctx, taskHexID, annotations)
 
 	if tmux.SessionExists(sessionName) {
 		if err := tmux.KillSession(sessionName); err != nil {
@@ -283,6 +288,36 @@ func cleanupWorker(
 	}
 
 	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
+}
+
+// cleanupReviewerTokens scans annotations for reviewer temenos tokens and deletes them.
+// Handles both PR reviewer (temenos_pr_reviewer_token) and plan reviewer (temenos_plan_reviewer_token).
+func cleanupReviewerTokens(ctx context.Context, taskHexID string, annotations []taskwarrior.Annotation) {
+	const (
+		prReviewerPrefix   = "temenos_pr_reviewer_token:"
+		planReviewerPrefix = "temenos_plan_reviewer_token:"
+	)
+
+	for _, ann := range annotations {
+		var token, mcpName string
+		switch {
+		case strings.HasPrefix(ann.Description, prReviewerPrefix):
+			token = strings.TrimPrefix(ann.Description, prReviewerPrefix)
+			mcpName = temenos.ReviewerMCPName(taskHexID, "pr")
+		case strings.HasPrefix(ann.Description, planReviewerPrefix):
+			token = strings.TrimPrefix(ann.Description, planReviewerPrefix)
+			mcpName = temenos.ReviewerMCPName(taskHexID, "plan")
+		default:
+			continue
+		}
+		if token == "" {
+			continue
+		}
+		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to delete reviewer temenos session (non-fatal): %v\n", err)
+		}
+		temenos.DeleteMCPConfigFile(mcpName)
+	}
 }
 
 // deleteTaskPlans deletes flicknote plan/design notes referenced in a task's

@@ -477,15 +477,16 @@ func buildCCRestartCmd(sessionID, model, agent, trigger, mcpConfig string) strin
 	return cmd
 }
 
-// buildCCFreshCmd returns the claude command for a breathe restart without --resume.
-// The CC SessionStart hook (ttal context) injects the session context at startup.
-// trigger, if non-empty, is appended as a positional arg after --.
+// buildCCFreshCmd returns the claude command for a fresh (non-resume) CC start.
+// Matches spawnCCSession's fresh-start command construction.
 // mcpConfig, if non-empty, is appended via --mcp-config.
+// Extracted for unit testing.
 func buildCCFreshCmd(model, agent, trigger, mcpConfig string) string {
-	cmd := fmt.Sprintf(
-		"claude --model %s --dangerously-skip-permissions --agent %s",
-		model, agent,
-	)
+	// Note: --model is intentionally absent — the model is determined by the
+	// agent's CLAUDE.md, not a CLI flag. The 'model' param is kept for signature
+	// compatibility with existing tests.
+	_ = model
+	cmd := "claude --dangerously-skip-permissions --agent " + agent
 	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
@@ -494,7 +495,22 @@ func buildCCFreshCmd(model, agent, trigger, mcpConfig string) string {
 	return cmd
 }
 
-// resolveBrCWD returns the agent's working directory for a breathe restart.
+// buildBreatheEnv returns the env var list for a breathe restart command.
+// Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets.
+// Extracted for unit testing.
+func buildBreatheEnv(agent string, cfg *config.Config) []string {
+	vars := []string{
+		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
+	}
+	if taskRC := cfg.TaskRC(); taskRC != "" {
+		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
+	}
+	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
+	vars = append(vars, env.AllowedDotEnvParts()...)
+	return vars
+}
+
+// diaryAppendHandoff persists the handoff to the agent's diary.
 // It prefers the live pane CWD; if the session is dead or pane CWD is unavailable,
 // it falls back to the registered agent workspace path from config.
 // Returns sessionAlive so the caller can skip KillSession on a dead session.
@@ -633,47 +649,25 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 		}
 	}
 
-	// Session dead or /clear failed — full restart.
-	// Reuse the shared manager MCP config file — token lifecycle is daemon-scoped, not per-breathe.
-	mcpPath := temenos.ManagerMCPConfigPath()
-	if mcpPath == "" {
-		log.Printf("[breathe] %s: MCP config path unavailable — restarting without MCP access", req.Agent)
-	}
-	ccCmd := buildCCFreshCmd(am.model, req.Agent, "", mcpPath)
-	agentEnv := buildBreatheEnv(req.Agent, shellCfg)
-	fullCmd := shellCfg.BuildEnvShellCommand(agentEnv, ccCmd)
-
+	// Session dead or /clear failed — full restart via spawnCCSession.
+	// Uses per-agent MCP config (from daemon init) for session-scoped env.
 	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
 	if sessionAlive {
 		if err := tmux.KillSession(plan.oldSessionName); err != nil {
 			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
 		}
 	}
-
-	if err := tmux.NewSession(plan.newSessionName, plan.windowName, plan.cwd, fullCmd); err != nil {
+	mcpPath := temenos.AgentMCPConfigPath(req.Agent)
+	agentEnv := buildManagerAgentEnv(req.Agent, req.Team, mcfg)
+	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, shellCfg.GetShell(), mcpPath, ""); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
-
 	// Inject secrets into tmux session env for future commands.
 	injectSecretsToSession(plan.newSessionName)
 
 	log.Printf("[breathe] %s: fresh breath taken (restart, session: %s)", req.Agent, plan.newSessionName)
 
 	return SendResponse{OK: true}
-}
-
-// buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets.
-func buildBreatheEnv(agent string, cfg *config.Config) []string {
-	vars := []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
-	}
-	if taskRC := cfg.TaskRC(); taskRC != "" {
-		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
-	}
-	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
-	vars = append(vars, env.AllowedDotEnvParts()...)
-	return vars
 }
 
 // diaryAppendHandoff persists the handoff to the agent's diary. It is a

@@ -48,10 +48,11 @@ func New(socketPath string) *Client {
 
 // registerRequest is the JSON body for POST /session/register.
 type registerRequest struct {
-	Agent      string   `json:"agent"`
-	Access     string   `json:"access"`
-	WritePaths []string `json:"write_paths"`
-	ReadPaths  []string `json:"read_paths,omitempty"`
+	Agent      string            `json:"agent"`
+	Access     string            `json:"access"`
+	WritePaths []string          `json:"write_paths"`
+	ReadPaths  []string          `json:"read_paths,omitempty"`
+	Env        map[string]string `json:"env,omitempty"`
 }
 
 // registerResponse is the JSON body returned by POST /session/register.
@@ -62,12 +63,17 @@ type registerResponse struct {
 // RegisterSession registers a new temenos session and returns the session token.
 // agent is the agent identity name. writePaths are paths the session may write to.
 // readPaths are additional read-only paths beyond the temenos baseline config.
-func (c *Client) RegisterSession(ctx context.Context, agent string, writePaths, readPaths []string) (string, error) {
+// env is an optional map of session-scoped environment variables injected into the sandbox.
+func (c *Client) RegisterSession(
+	ctx context.Context, agent string,
+	writePaths, readPaths []string, env map[string]string,
+) (string, error) {
 	body := registerRequest{
 		Agent:      agent,
 		Access:     "rw",
 		WritePaths: writePaths,
 		ReadPaths:  readPaths,
+		Env:        env,
 	}
 	data, err := json.Marshal(body)
 	if err != nil {

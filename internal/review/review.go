@@ -1,15 +1,18 @@
 package review
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	envpkg "github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -23,6 +26,22 @@ func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
 	return parts
+}
+
+// buildReviewerSessionEnv returns the temenos session env map for a PR reviewer.
+// Includes agent identity, task ID, runtime, and allowlisted .env vars.
+func buildReviewerSessionEnv(task *taskwarrior.Task, agentName string, rt runtime.Runtime) map[string]string {
+	m := map[string]string{
+		"TTAL_AGENT_NAME": agentName,
+		"TTAL_JOB_ID":     task.HexID(),
+		"TTAL_RUNTIME":    string(rt),
+	}
+	if dotEnv := envpkg.AllowedDotEnvMap(); dotEnv != nil {
+		for k, v := range dotEnv {
+			m[k] = v
+		}
+	}
+	return m
 }
 
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
@@ -49,6 +68,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	}
 
 	var shellCmd string
+	var mcpPath string
 
 	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
 
@@ -69,8 +89,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		// Claude Code: direct launch — context and review prompt injected via SessionStart hook
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.", "")
+		// Claude Code: register temenos session for MCP bash, then launch CC.
+		mcpPath = registerReviewerTemenos(ctx.Task, reviewerName, workDir, reviewerRT)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the PR.", mcpPath)
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
@@ -81,6 +102,29 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	fmt.Printf("Reviewer spawned in '%s' window\n", reviewerName)
 	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prIndex, ctx.Owner, ctx.Repo)
 	return nil
+}
+
+// registerReviewerTemenos registers a temenos session for the PR reviewer and writes the MCP config.
+// Best-effort: warns on failure and returns empty string so reviewer still launches.
+func registerReviewerTemenos(task *taskwarrior.Task, reviewerName, workDir string, rt runtime.Runtime) string {
+	ctx := context.Background()
+	env := buildReviewerSessionEnv(task, reviewerName, rt)
+	mcpJSON, token, err := temenos.RegisterSessionForAgent(ctx, reviewerName, []string{workDir}, "", env)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to register temenos session for reviewer (non-fatal): %v\n", err)
+		return ""
+	}
+	// Annotate task with the reviewer token for cleanup on close.
+	if annErr := taskwarrior.AnnotateTask(task.UUID, "temenos_pr_reviewer_token:"+token); annErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with reviewer temenos token: %v\n", annErr)
+	}
+	mcpName := temenos.ReviewerMCPName(task.HexID(), "pr")
+	path, err := temenos.WriteMCPConfigFile(mcpName, mcpJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to write reviewer MCP config (non-fatal): %v\n", err)
+		return ""
+	}
+	return path
 }
 
 // RequestReReview sends a re-review message to the existing reviewer window.

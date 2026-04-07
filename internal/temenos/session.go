@@ -56,15 +56,16 @@ func MCPConfig(port int, token string) string {
 // writePaths are paths the agent may write to (e.g. worktree dir, git common dir).
 // excludeReadPath, if non-empty, is excluded from the read_paths list passed to temenos
 // (typically the worker's own worktree root, which is covered by writePaths).
+// env is an optional map of session-scoped environment variables.
 //
 // Returns the MCP config JSON, the session token, and any error.
 func RegisterSessionForAgent(
-	ctx context.Context, agent string, writePaths []string, excludeReadPath string,
+	ctx context.Context, agent string, writePaths []string, excludeReadPath string, env map[string]string,
 ) (mcpJSON, token string, err error) {
 	readPaths := gatherReadPaths(excludeReadPath)
 
 	c := New("")
-	token, err = c.RegisterSession(ctx, agent, writePaths, readPaths)
+	token, err = c.RegisterSession(ctx, agent, writePaths, readPaths, env)
 	if err != nil {
 		return "", "", fmt.Errorf("temenos: register session for %s: %w", agent, err)
 	}
@@ -122,16 +123,21 @@ func mcpConfigDir() (string, error) {
 	return filepath.Join(home, ".ttal", "mcps"), nil
 }
 
-// ManagerMCPConfigPath returns the path to the shared manager MCP config file.
-// All manager agents share this file — token lifecycle is tied to the daemon, not individual agents.
-// Returns empty string (logged as warning) if the home directory cannot be determined.
-func ManagerMCPConfigPath() string {
+// AgentMCPConfigPath returns the per-agent MCP config file path for a manager agent.
+// Use this instead of ManagerMCPConfigPath when each agent needs its own session token.
+func AgentMCPConfigPath(agentName string) string {
 	dir, err := mcpConfigDir()
 	if err != nil {
 		log.Printf("[temenos] warning: cannot resolve MCP config dir: %v", err)
 		return ""
 	}
-	return filepath.Join(dir, "m.json")
+	return filepath.Join(dir, agentName+".json")
+}
+
+// ReviewerMCPName returns the MCP config file name for a reviewer session.
+// role is "pr" for PR reviewers or "plan" for plan reviewers.
+func ReviewerMCPName(taskHexID, role string) string {
+	return "r-" + taskHexID + "-" + role
 }
 
 // ReadMCPConfigToken reads the session token embedded in ~/.ttal/mcps/<name>.json.

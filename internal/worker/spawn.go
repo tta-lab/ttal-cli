@@ -108,7 +108,9 @@ func spawnWorker(cfg SpawnConfig) error {
 	// Skip temenos session registration for lenos workers (lenos handles its own sandbox).
 	var mcpPath string
 	if cfg.Runtime != runtime.Lenos {
-		mcpPath = registerWorkerSession(agentName, task.UUID, worktreeRoot)
+		shellCfg, _ := config.Load()
+		taskrc := resolveTaskRCFromConfig(shellCfg)
+		mcpPath = registerWorkerSession(agentName, task.UUID, worktreeRoot, taskrc, cfg.Runtime)
 	}
 
 	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpPath)
@@ -156,17 +158,43 @@ func computeSubpath(project, gitRoot string) (string, error) {
 	return "", nil
 }
 
+// buildWorkerSessionEnv returns the env map for a worker's temenos session.
+// Includes agent identity, task ID, runtime hint, taskrc, and allowlisted .env vars.
+// API tokens are excluded by the IsAllowedForSession filter in AllowedDotEnvMap.
+func buildWorkerSessionEnv(agentName, taskHexID string, rt runtime.Runtime, taskRC string) map[string]string {
+	m := map[string]string{
+		"TTAL_AGENT_NAME": agentName,
+		"TTAL_JOB_ID":     taskHexID,
+		"TTAL_RUNTIME":    string(rt),
+	}
+	if taskRC != "" {
+		m["TASKRC"] = taskRC
+	}
+	// Merge allowlisted .env vars (IsAllowedForSession filter already applied).
+	if dotEnv := env.AllowedDotEnvMap(); dotEnv != nil {
+		for k, v := range dotEnv {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 // registerWorkerSession registers a temenos session for a worker, annotates the task
 // with the session token, writes the MCP config to ~/.ttal/mcps/w-<hexid>.json,
 // and returns the file path.
 // Best-effort: logs warnings on failure and returns "" so the worker still launches.
-func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
+func registerWorkerSession(agentName, taskUUID, worktreeRoot string, taskRC string, rt runtime.Runtime) string {
 	writePaths := []string{worktreeRoot}
 	if commonDir := gitutil.LinkedWorktreeCommonDir(worktreeRoot); commonDir != "" {
 		writePaths = append(writePaths, commonDir)
 	}
 	ctx := context.Background()
-	mcpJSON, token, err := temenos.RegisterSessionForAgent(ctx, agentName, writePaths, worktreeRoot)
+	hexID := taskUUID
+	if len(hexID) >= 8 {
+		hexID = hexID[:8]
+	}
+	sessionEnv := buildWorkerSessionEnv(agentName, hexID, rt, taskRC)
+	mcpJSON, token, err := temenos.RegisterSessionForAgent(ctx, agentName, writePaths, worktreeRoot, sessionEnv)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to register temenos session (non-fatal): %v\n", err)
 		return ""
@@ -176,10 +204,6 @@ func registerWorkerSession(agentName, taskUUID, worktreeRoot string) string {
 	// the recovery path (sessions expire automatically if close never runs).
 	if annErr := taskwarrior.AnnotateTask(taskUUID, "temenos_token:"+token); annErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with temenos token: %v\n", annErr)
-	}
-	hexID := taskUUID
-	if len(hexID) >= 8 {
-		hexID = hexID[:8]
 	}
 	path, err := temenos.WriteMCPConfigFile("w-"+hexID, mcpJSON)
 	if err != nil {
