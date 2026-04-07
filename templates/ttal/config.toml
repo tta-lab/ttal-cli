@@ -1,30 +1,28 @@
 #:schema https://ttal.guion.io/schema/config.schema.json
 
-shell = "zsh"
+shell = "fish"
 
 [flicknote]
   # "plan" and "fix" kept for backward compat with existing annotated tasks
   inline_projects = ["plan", "fix", "orientation"]
 
 [sync]
-  worker_agent_paths = ["../../agents"]
-  global_prompt_path = "~/Code/guion-opensource/ttal-cli/templates/ttal/CLAUDE.user.md"
+  worker_agent_paths = ["/Users/neil/Code/guion-opensource/ttal-cli/agents"]
+  global_prompt_path = "/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/CLAUDE.user.md"
   rules_paths = [
     "~/Code/guion-opensource/ttal-cli",
     "~/Code/guion-opensource/organon",
+    "~/Code/guion-opensource/einai",
   ]
 
 [voice]
   vocabulary = ["session", "claude", "codex", "worker", "tmux",
     "taskwarrior", "flicknote"]
 
-[teams.ttal]
+[teams.default]
   chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
   team_path = "/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal"
   data_dir = "~/.ttal"
   taskrc = "~/.taskrc"
   voice_language = "en"
   default_runtime = "claude-code"
-  emoji_reactions = true
-  # notification_token_env = "KESTREL_BOT_TOKEN"
-  # merge_mode = "squash"
