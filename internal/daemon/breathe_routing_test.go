@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -428,5 +429,94 @@ func TestResolveBreatheSessions(t *testing.T) {
 				t.Errorf("newSessionName = %q, want %q", plan.newSessionName, tt.wantNewSession)
 			}
 		})
+	}
+}
+
+// TestHandleBreathe_SendsContinueWithTask verifies that after sending /clear, the daemon
+// sends "Continue with the task." (not bare "go") as the start trigger. This was Fix B
+// in the plan-review-lead async delivery fix.
+func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
+	// Write a minimal config.toml with a team_path so AgentPath() resolves.
+	tmpDir := t.TempDir()
+	xdgDir := filepath.Join(tmpDir, "ttal")
+	if err := os.MkdirAll(xdgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	configYAML := `[default_team]
+[teams.default]
+team_path = "/tmp/test-team"
+`
+	if err := os.WriteFile(filepath.Join(xdgDir, "config.toml"), []byte(configYAML), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+	oldXDG := os.Getenv("XDG_CONFIG_HOME")
+	if err := os.Setenv("XDG_CONFIG_HOME", tmpDir); err != nil {
+		t.Fatalf("setenv XDG_CONFIG_HOME: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Setenv("XDG_CONFIG_HOME", oldXDG) })
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+
+	origSendKeys := tmuxSendKeysFn
+	origSessionExists := tmuxSessionExistsFn
+	t.Cleanup(func() {
+		tmuxSendKeysFn = origSendKeys
+		tmuxSessionExistsFn = origSessionExists
+	})
+
+	var mu sync.Mutex
+	var sendCalls []struct {
+		session string
+		window  string
+		text    string
+	}
+
+	tmuxSendKeysFn = func(session, window, text string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		sendCalls = append(sendCalls, struct {
+			session string
+			window  string
+			text    string
+		}{session, window, text})
+		return nil
+	}
+	// Session exists → /clear path taken
+	tmuxSessionExistsFn = func(name string) bool {
+		return name == "ttal-default-kestrel"
+	}
+
+	// Use SessionName to bypass GetPaneCwd (no real tmux available in test).
+	resp := handleBreathe(cfg, BreatheRequest{
+		Agent:       "kestrel",
+		Handoff:     "# Handoff\n\nNext steps: continue",
+		SessionName: "ttal-default-kestrel",
+	}, nil, nil)
+
+	// handleBreathe returns immediately (trigger is sent async).
+	if !resp.OK {
+		t.Fatalf("handleBreathe returned OK=false: %s", resp.Error)
+	}
+
+	// Wait for the async trigger to fire (clearSettleDelay = 500ms).
+	time.Sleep(600 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Should have exactly two SendKeys calls: /clear then "Continue with the task."
+	if len(sendCalls) < 2 {
+		t.Fatalf("expected at least 2 SendKeys calls, got %d: %v", len(sendCalls), sendCalls)
+	}
+
+	if sendCalls[0].text != "/clear" {
+		t.Errorf("first SendKeys call text = %q, want %q", sendCalls[0].text, "/clear")
+	}
+
+	if sendCalls[1].text != "Continue with the task." {
+		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, "Continue with the task.")
 	}
 }

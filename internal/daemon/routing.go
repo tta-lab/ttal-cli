@@ -350,6 +350,14 @@ var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
 // Package-level var for test injection.
 var windowExistsFn = tmux.WindowExists
 
+// tmuxSendKeysFn sends keys to a tmux session window.
+// Package-level var for test injection.
+var tmuxSendKeysFn = tmux.SendKeys
+
+// tmuxSessionExistsFn checks if a tmux session exists.
+// Package-level var for test injection.
+var tmuxSessionExistsFn = tmux.SessionExists
+
 // resolveWorker is the function used to find a worker tmux session by UUID prefix.
 // Package-level var for test injection.
 var resolveWorker = resolveWorkerImpl
@@ -504,7 +512,7 @@ func buildBreatheEnv(agent string, cfg *config.Config) []string {
 // Returns sessionAlive so the caller can skip KillSession on a dead session.
 func resolveBrCWD(sessionName, windowName, agent string, cfg *config.Config) (string, bool, error) {
 	var cwd string
-	sessionAlive := tmux.SessionExists(sessionName)
+	sessionAlive := tmuxSessionExistsFn(sessionName)
 	if sessionAlive {
 		var err error
 		cwd, err = tmux.GetPaneCwd(sessionName, windowName)
@@ -612,16 +620,16 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 	// Fall back to kill+fresh-start when the session is dead.
 	// Note: diaryAppendHandoff (step 3) runs unconditionally so the handoff is persisted
 	// before both paths — /clear causes the source=clear hook to read the updated diary.
-	sessionAlive := tmux.SessionExists(plan.oldSessionName)
+	sessionAlive := tmuxSessionExistsFn(plan.oldSessionName)
 	if sessionAlive {
 		log.Printf("[breathe] %s: session alive — sending /clear (source=clear hook will re-inject context)", req.Agent)
-		if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
+		if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
 			log.Printf("[breathe] %s: /clear failed (%v), falling back to restart", req.Agent, err)
 		} else {
 			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
 			go func() {
 				time.Sleep(clearSettleDelay)
-				if err := tmux.SendKeys(plan.oldSessionName, plan.windowName, "Continue with the task."); err != nil {
+				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "Continue with the task."); err != nil {
 					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
 				} else {
 					log.Printf("[breathe] %s: start trigger sent", req.Agent)

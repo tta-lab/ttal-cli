@@ -2,6 +2,8 @@ package daemon
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -482,21 +484,106 @@ func TestResolveManagerWindowWithTeam(t *testing.T) {
 		return pipelineConfigForTest(false), nil
 	}
 	windowExistsFn = func(session, window string) bool {
-		// With empty resolved team name, session is expectedSessionAstra.
-		return strings.HasSuffix(session, "-astra") && window == "subagent"
+		// session is always ttal-default-<owner> after single-team collapse
+		return session == expectedSessionAstra && window == "subagent"
 	}
 
 	session, err := resolveManagerWindow(testJobIDA, "subagent", mcfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.HasSuffix(session, "-astra") {
-		t.Errorf("session = %q, want suffix -astra", session)
+	if session != expectedSessionAstra {
+		t.Errorf("session = %q, want %q", session, expectedSessionAstra)
 	}
 }
 
 // TestResolveManagerWindow_EmptyTeamPath_Regression is deleted — empty team name is
 // impossible with single-team hardcoded sessions.
+
+// TestResolveManagerWindow_RealLoadAll exercises AgentSessionName through the real
+// config.LoadAll() path — NOT hand-stuffed mcfg. This is the regression gap PR #516
+// fell into: hand-populated mcfg bypassed LoadAll() and the missing resolvedTeamName
+// was invisible to tests.
+func TestResolveManagerWindow_RealLoadAll(t *testing.T) {
+	// Use XDG_CONFIG_HOME to redirect config loading to our temp dir.
+	// DefaultConfigDir() reads XDG_CONFIG_HOME, and LoadAll() reads from there.
+	tmpDir := t.TempDir()
+	xdgDir := filepath.Join(tmpDir, "ttal")
+	if err := os.MkdirAll(xdgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	// Write minimal config.toml with [teams.default] and a team_path.
+	configYAML := `[default_team]
+[teams.default]
+team_path = "/tmp/ttal-test-team"
+`
+	if err := os.WriteFile(filepath.Join(xdgDir, "config.toml"), []byte(configYAML), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	// Write minimal pipelines.toml so pipelineLoadFn succeeds.
+	pipelineYAML := `[[pipelines]]
+name = "default"
+tag  = "feature"
+stages = [{name = "Design", reviewer = "yuki"}, {name = "Implement", reviewer = "yuki"}]
+`
+	if err := os.WriteFile(filepath.Join(xdgDir, "pipelines.toml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("write pipelines.toml: %v", err)
+	}
+
+	oldXDG := os.Getenv("XDG_CONFIG_HOME")
+	if err := os.Setenv("XDG_CONFIG_HOME", tmpDir); err != nil {
+		t.Fatalf("setenv XDG_CONFIG_HOME: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Setenv("XDG_CONFIG_HOME", oldXDG) })
+
+	// LoadAll() now reads from the temp dir.
+	mcfg, err := config.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+
+	origExport := exportTaskByHexIDFn
+	origWindowExists := windowExistsFn
+	origPipelineLoad := pipelineLoadFn
+	t.Cleanup(func() {
+		exportTaskByHexIDFn = origExport
+		windowExistsFn = origWindowExists
+		pipelineLoadFn = origPipelineLoad
+	})
+
+	taskOwner := &taskwarrior.Task{
+		UUID:        "e9d4b7c1",
+		Description: "test",
+		Tags:        []string{"feature"},
+		Owner:       "kestrel",
+		Status:      "pending",
+	}
+	exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
+		if hexID == "e9d4b7c1" {
+			return taskOwner, nil
+		}
+		return nil, errors.New("not found")
+	}
+	pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
+		return pipelineConfigForTest(false), nil
+	}
+	windowExistsFn = func(session, window string) bool {
+		// Stub — we only check the return value, not this side-effect
+		return true
+	}
+
+	session, err := resolveManagerWindowImpl("e9d4b7c1", "design", mcfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// This is the critical assertion: AgentSessionName must produce "ttal-default-kestrel",
+	// NOT "ttal--kestrel" (double dash from empty team) or "ttal-<team>-kestrel".
+	if session != "ttal-default-kestrel" {
+		t.Errorf("session = %q, want %q", session, "ttal-default-kestrel")
+	}
+}
 
 // TestDispatchToWorkerOrManager tests the dispatchToWorkerOrManager function.
 //
