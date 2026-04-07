@@ -32,17 +32,12 @@ func Install() error {
 		return fmt.Errorf("ttal not found in PATH — install with: make install")
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
 	taskDataDir, err := taskwarrior.ResolveDataLocation()
 	if err != nil {
 		return fmt.Errorf("failed to resolve task data location (is taskwarrior installed and taskrc configured?): %w", err)
 	}
 	hookDir := filepath.Join(taskDataDir, "hooks")
-	teamName := cfg.TeamName()
+	teamName := "default"
 
 	fmt.Printf("Using ttal binary: %s\n", ttalBin)
 	if teamName != config.DefaultTeamName {

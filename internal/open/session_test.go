@@ -7,20 +7,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-type stubConfig struct{ teamName string }
-
-func (c *stubConfig) TeamName() string { return c.teamName }
-
 func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 	origExport := exportTaskFn
 	origExists := sessionExistsFn
 	origAttach := attachFn
-	origLoader := configLoaderFn
 	t.Cleanup(func() {
 		exportTaskFn = origExport
 		sessionExistsFn = origExists
 		attachFn = origAttach
-		configLoaderFn = origLoader
 	})
 
 	var attached string
@@ -34,9 +28,7 @@ func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 		attached = name
 		return nil
 	}
-	configLoaderFn = func() (configWithTeamName, error) {
-		return &stubConfig{teamName: "testteam"}, nil
-	}
+	// configLoaderFn uses the real config.Load() — AgentSessionName returns "ttal-default-<agent>".
 
 	err := Session("aaaa0001")
 	if err != nil {

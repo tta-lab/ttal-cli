@@ -281,7 +281,7 @@ func buildRuntimeShellCommand(
 		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
 
 	case runtime.Lenos:
-		teamName := shellCfg.TeamName()
+		teamName := "default"
 		if teamName == "" {
 			teamName = config.DefaultTeamName
 		}

@@ -422,7 +422,7 @@ type breatheAgentModel struct {
 
 // resolveAgentModel reads the current model/CC version from the agent's status file.
 func resolveAgentModel(agent string) breatheAgentModel {
-	s, err := status.ReadAgent(config.DefaultTeamName, agent)
+	s, err := status.ReadAgent("default", agent)
 	if err != nil {
 		log.Printf("[breathe] %s: warning: could not read status file, using default model: %v", agent, err)
 	}
@@ -603,7 +603,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 	diaryAppendHandoff(req.Agent, req.Handoff)
 
 	// 4. Update status file — clear session ID so the statusline hook populates the real ID.
-	if err := status.WriteAgent(config.DefaultTeamName, status.AgentStatus{
+	if err := status.WriteAgent("default", status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           "", // cleared; CC SessionStart hook populates the real session ID
 		ContextUsedPct:      0,
@@ -718,7 +718,7 @@ func handleStatusUpdate(req StatusUpdateRequest) {
 		SessionID:           req.SessionID,
 		UpdatedAt:           time.Now(),
 	}
-	if err := status.WriteAgent(config.DefaultTeamName, s); err != nil {
+	if err := status.WriteAgent("default", s); err != nil {
 		log.Printf("[daemon] failed to write status for default/%s: %v", req.Agent, err)
 	}
 }

@@ -247,7 +247,7 @@ type CommentListResponse struct {
 }
 
 // CommentGetRequest asks the daemon to get comments for a specific round.
-// Team is omitted — daemon injects from mcfg.DefaultTeamName(), consistent with CommentListRequest.
+// Team is omitted — daemon injects from "default", consistent with CommentListRequest.
 type CommentGetRequest struct {
 	Target string `json:"target"` // taskwarrior task UUID
 	Round  int    `json:"round"`

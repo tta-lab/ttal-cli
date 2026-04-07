@@ -312,12 +312,6 @@ func (c *Config) AgentPath(agentName string) string {
 	return filepath.Join(c.resolvedTeamPath, agentName)
 }
 
-// TeamName returns the default team name.
-// After the single-team collapse, there is only ever "default".
-func (c *Config) TeamName() string {
-	return defaultTeamName
-}
-
 // UserName returns the configured human name, falling back to the $USER env var.
 func (c *Config) UserName() string {
 	if c.User.Name != "" {

@@ -40,7 +40,7 @@ func BuildAgentContext(agentName, teamPath string, env []string) (string, error)
 		return strings.Join(sections, "\n\n---\n\n"), nil
 	}
 	tmpl := cfg.Prompt("context")
-	teamName := cfg.TeamName()
+	teamName := "default"
 	rendered := promptrender.RenderTemplate(tmpl, agentName, teamName, env)
 	if rendered != "" {
 		sections = append(sections, rendered)

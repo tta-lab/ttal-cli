@@ -657,7 +657,7 @@ func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string
 	var agents []status.AgentStatus
 
 	if len(args) > 0 {
-		s, err := status.ReadAgent(config.DefaultTeamName, args[0])
+		s, err := status.ReadAgent("default", args[0])
 		if err != nil {
 			replyTelegram(botToken, chatID, "Error: "+err.Error())
 			return
@@ -668,7 +668,7 @@ func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string
 		}
 		agents = []status.AgentStatus{*s}
 	} else {
-		all, err := status.ReadAll(config.DefaultTeamName)
+		all, err := status.ReadAll("default")
 		if err != nil {
 			replyTelegram(botToken, chatID, "Error reading status: "+err.Error())
 			return

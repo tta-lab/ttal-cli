@@ -112,9 +112,9 @@ func Run() error {
 
 	startUsagePoller(done)
 	startHeartbeatScheduler(mcfg, registry, frontends, done)
-	startCleanupWatcher(frontends, mcfg.DefaultTeamName(), done)
+	startCleanupWatcher(frontends, config.DefaultTeamName, done)
 	startPRWatcher(mcfg, frontends, done)
-	startReminderPoller(mcfg, frontends, done)
+	startReminderPoller(frontends, done)
 	startWatcher(mcfg, frontends, msgSvc, done)
 
 	shellCfg, err := config.Load()
@@ -124,10 +124,10 @@ func Run() error {
 	}
 
 	// Pick a default frontend for HTTP handlers that need one.
-	defaultFE := frontends[mcfg.DefaultTeamName()]
+	defaultFE := frontends[config.DefaultTeamName]
 	if defaultFE == nil {
 		close(done)
-		return fmt.Errorf("default team %q has no frontend — check config", mcfg.DefaultTeamName())
+		return fmt.Errorf("default team %q has no frontend — check config", config.DefaultTeamName)
 	}
 
 	// Rewire advance.go's notifyTelegramFn to route through the frontend abstraction.
@@ -137,7 +137,7 @@ func Run() error {
 		}
 	})
 
-	defaultTeamName := mcfg.DefaultTeamName()
+	defaultTeamName := config.DefaultTeamName
 	commentSync := resolveCommentSync(mcfg)
 
 	handlers := buildHTTPHandlers(
@@ -190,7 +190,7 @@ func buildHTTPHandlers(
 		notify: func(team, msg string) error {
 			t := team
 			if t == "" {
-				t = mcfg.DefaultTeamName()
+				t = config.DefaultTeamName
 			}
 			fe, ok := frontends[t]
 			if !ok {
@@ -202,10 +202,10 @@ func buildHTTPHandlers(
 			return handleCommentAdd(commentSvc, defaultTeamName, commentSync, req)
 		},
 		commentList: func(req CommentListRequest) CommentListResponse {
-			return handleCommentList(commentSvc, mcfg.DefaultTeamName(), req)
+			return handleCommentList(commentSvc, config.DefaultTeamName, req)
 		},
 		commentGet: func(req CommentGetRequest) CommentGetResponse {
-			return handleCommentGet(commentSvc, mcfg.DefaultTeamName(), req)
+			return handleCommentGet(commentSvc, config.DefaultTeamName, req)
 		},
 		closeWindow:           handleCloseWindow,
 		prCreate:              handlePRCreate,

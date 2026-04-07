@@ -46,11 +46,11 @@ func showStatus() error {
 
 	running, _, _ := daemon.IsRunning()
 	if !running {
-		fmt.Printf("Team: %s (daemon not running)\n", cfg.TeamName())
+		fmt.Printf("Team: %s (daemon not running)\n", "default")
 		return nil
 	}
 
-	teamName := cfg.TeamName()
+	teamName := "default"
 	names, _ := agentfs.DiscoverAgents(cfg.TeamPath())
 
 	rows := make([]agentRow, 0, len(names))
@@ -89,7 +89,7 @@ func showStatus() error {
 
 func buildAgentRow(cfg *config.Config, _, name string) agentRow {
 	rt := cfg.DefaultRuntime()
-	s, _ := status.ReadAgent(config.DefaultTeamName, name)
+	s, _ := status.ReadAgent("default", name)
 
 	row := agentRow{
 		name:    name,

@@ -112,7 +112,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	teamName := cfg.TeamName()
+	teamName := "default"
 	if teamName == "" {
 		teamName = config.DefaultTeamName
 	}

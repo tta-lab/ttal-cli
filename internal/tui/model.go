@@ -21,7 +21,10 @@ import (
 )
 
 // refreshInterval is how often the TUI polls taskwarrior for updates.
-const refreshInterval = 500 * time.Millisecond
+const (
+	refreshInterval = 500 * time.Millisecond
+	teamDefault     = "default"
+)
 
 // refreshTickMsg signals that it's time to poll taskwarrior for updates.
 type refreshTickMsg struct{}
@@ -176,7 +179,7 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.agentEmojiByName = msg.agentEmojiByName
 		m.pipelineCfg = msg.pipelineCfg
 		if msg.cfg != nil {
-			m.teamName = msg.cfg.TeamName()
+			m.teamName = teamDefault
 		}
 		return m, nil
 	case autocompleteLoadedMsg:

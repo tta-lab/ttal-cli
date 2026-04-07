@@ -154,7 +154,7 @@ func bridgeAdapterEvents(
 					}
 				}
 			case runtime.EventStatus:
-				if err := status.WriteAgent(config.DefaultTeamName, status.AgentStatus{
+				if err := status.WriteAgent("default", status.AgentStatus{
 					Agent:               agentName,
 					ContextUsedPct:      evt.ContextUsedPct,
 					ContextRemainingPct: evt.ContextRemainingPct,
@@ -422,7 +422,7 @@ func sessionJSONLExists(sessionID, agentPath string) bool {
 // Returns "" on cold-start (no prior session), on read error (logged as WARN),
 // or when the session's JSONL doesn't exist in the current project dir (CWD change).
 func lastSessionID(agentName, agentPath string) string {
-	s, err := status.ReadAgent(config.DefaultTeamName, agentName)
+	s, err := status.ReadAgent("default", agentName)
 	if err != nil {
 		log.Printf("[daemon] WARN: could not read status for %s, skipping --resume: %v", agentName, err)
 		return ""

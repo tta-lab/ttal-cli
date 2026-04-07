@@ -50,11 +50,7 @@ func runRemindAdd(cmd *cobra.Command, args []string) error {
 		scheduled = remindAt
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	teamName := cfg.TeamName()
+	teamName := config.DefaultTeamName
 	project := teamName + ".reminders"
 	if agent := os.Getenv("TTAL_AGENT_NAME"); agent != "" {
 		project = teamName + "." + agent

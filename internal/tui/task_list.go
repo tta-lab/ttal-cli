@@ -15,7 +15,7 @@ func (m Model) viewTaskList() string {
 	// Title bar
 	teamLabel := m.teamName
 	if teamLabel == "" {
-		teamLabel = "default"
+		teamLabel = teamDefault
 	}
 	title := styleTitle.Render(fmt.Sprintf(" TTal [%s]  [%s]", teamLabel, m.filter))
 	count := styleDim.Render(fmt.Sprintf("  %d tasks", len(m.filtered)))
