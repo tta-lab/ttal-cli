@@ -49,15 +49,19 @@ func resolveCurrentTask() (string, error) {
 		return task.UUID, nil
 	}
 	if agent := os.Getenv("TTAL_AGENT_NAME"); agent != "" {
-		tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", "+"+agent)
+		cfg, err := pipeline.Load(config.DefaultConfigDir())
 		if err != nil {
-			return "", fmt.Errorf("taskwarrior query failed: %w", err)
+			return "", fmt.Errorf("load pipeline config: %w", err)
+		}
+		tasks, err := pipeline.ActiveTasksByOwner(cfg, agent)
+		if err != nil {
+			return "", fmt.Errorf("task lookup failed: %w", err)
 		}
 		if len(tasks) == 0 {
-			return "", fmt.Errorf("no active task with +%s tag", agent)
+			return "", fmt.Errorf("no active task owned by %s", agent)
 		}
 		if len(tasks) > 1 {
-			return "", fmt.Errorf("multiple active tasks with +%s tag — expected exactly one", agent)
+			return "", fmt.Errorf("multiple active tasks owned by %s — expected exactly one", agent)
 		}
 		return tasks[0].UUID, nil
 	}

@@ -1,47 +1,62 @@
 package open
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
 
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+// configWithTeamName is the minimal interface needed for session name construction.
+type configWithTeamName interface {
+	TeamName() string
+}
+
+// Package-level overrides for test injection.
+var (
+	exportTaskFn    = taskwarrior.ExportTask
+	sessionExistsFn = tmux.SessionExists
+	attachFn        = attachToSession
+	configLoaderFn  = func() (configWithTeamName, error) {
+		cfg, err := config.Load()
+		return cfg, err
+	}
+)
+
 // Session attaches to the tmux session associated with a task.
-// Checks worker session first, then falls back to agent session.
+// Checks worker session first, then falls back to owner agent session.
 func Session(uuid string) error {
 	if err := taskwarrior.ValidateUUID(uuid); err != nil {
 		return err
 	}
 
-	task, err := taskwarrior.ExportTask(uuid)
+	task, err := exportTaskFn(uuid)
 	if err != nil {
 		return err
 	}
 
 	// Try worker session first.
 	sessionName := task.SessionName()
-	if tmux.SessionExists(sessionName) {
-		return attachToSession(sessionName)
+	if sessionExistsFn(sessionName) {
+		return attachFn(sessionName)
 	}
 
-	// Fall back to agent session if task has an agent tag.
-	// Swallow os.ErrNotExist (first-time setup, config not yet created).
-	// Other errors (corrupted TOML, bad permissions) are surfaced so the user
-	// can diagnose the real problem instead of seeing "no session".
-	cfg, err := config.Load()
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("could not load config for agent session lookup: %w", err)
-	}
-	if err == nil {
-		if agentSession, found := ResolveAgentSession(task.Tags, cfg.TeamName(), cfg.TeamPath()); found {
-			if tmux.SessionExists(agentSession) {
-				return attachToSession(agentSession)
+	// Fall back to owner agent session if task has owner UDA set.
+	// Worker-stage tasks have no owner written (advance.go writes owner only
+	// when !stage.IsWorker()), so this branch is skipped for worker tasks.
+	if task.Owner != "" {
+		cfg, err := configLoaderFn()
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("could not load config for owner session lookup: %w", err)
+		}
+		if cfg != nil {
+			ownerSession := config.AgentSessionName(cfg.TeamName(), task.Owner)
+			if sessionExistsFn(ownerSession) {
+				return attachFn(ownerSession)
 			}
 		}
 	}
@@ -51,23 +66,8 @@ func Session(uuid string) error {
 		"  ttal go %s", uuid)
 }
 
-// ResolveAgentSession checks if any of the given tags match a known agent name.
-// Agent tags are lowercase and exactly match the agent filename stem (e.g. +astra → astra.md).
-// Returns the agent's session name and true if found, or ("", false) otherwise.
-func ResolveAgentSession(tags []string, teamName, teamPath string) (string, bool) {
-	if teamPath == "" {
-		return "", false
-	}
-	for _, tag := range tags {
-		if agentfs.HasAgent(teamPath, tag) {
-			return config.AgentSessionName(teamName, tag), true
-		}
-	}
-	return "", false
-}
-
 func attachToSession(sessionName string) error {
-	tmuxBin, err := lookPath("tmux")
+	tmuxBin, err := exec.LookPath("tmux")
 	if err != nil {
 		return fmt.Errorf("tmux not found in PATH: %w", err)
 	}
