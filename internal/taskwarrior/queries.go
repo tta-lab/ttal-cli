@@ -90,10 +90,8 @@ func ListTasksWithPR() ([]Task, error) {
 	return tasks, nil
 }
 
-// GetOwnedManagerTasks returns pending+active tasks that have an owner UDA set.
-// The name reflects what the query actually selects (owner.any:), not what the
-// caller currently calls them.
-func GetOwnedManagerTasks() ([]Task, error) {
+// GetTasksWithOwner returns pending+active tasks that have an owner UDA set.
+func GetTasksWithOwner() ([]Task, error) {
 	tasks, err := exportTasks("status:pending", "+ACTIVE", "owner.any:", "export")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query owned tasks: %w", err)

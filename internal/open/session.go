@@ -1,7 +1,6 @@
 package open
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +11,22 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+// configWithTeamName is the minimal interface needed for session name construction.
+type configWithTeamName interface {
+	TeamName() string
+}
+
+// Package-level overrides for test injection.
+var (
+	exportTaskFn    = taskwarrior.ExportTask
+	sessionExistsFn = tmux.SessionExists
+	attachFn        = attachToSession
+	configLoaderFn  = func() (configWithTeamName, error) {
+		cfg, err := config.Load()
+		return cfg, err
+	}
+)
+
 // Session attaches to the tmux session associated with a task.
 // Checks worker session first, then falls back to owner agent session.
 func Session(uuid string) error {
@@ -19,29 +34,29 @@ func Session(uuid string) error {
 		return err
 	}
 
-	task, err := taskwarrior.ExportTask(uuid)
+	task, err := exportTaskFn(uuid)
 	if err != nil {
 		return err
 	}
 
 	// Try worker session first.
 	sessionName := task.SessionName()
-	if tmux.SessionExists(sessionName) {
-		return attachToSession(sessionName)
+	if sessionExistsFn(sessionName) {
+		return attachFn(sessionName)
 	}
 
 	// Fall back to owner agent session if task has owner UDA set.
 	// Worker-stage tasks have no owner written (advance.go writes owner only
 	// when !stage.IsWorker()), so this branch is skipped for worker tasks.
 	if task.Owner != "" {
-		cfg, err := config.Load()
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		cfg, err := configLoaderFn()
+		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("could not load config for owner session lookup: %w", err)
 		}
-		if err == nil {
+		if cfg != nil {
 			ownerSession := config.AgentSessionName(cfg.TeamName(), task.Owner)
-			if tmux.SessionExists(ownerSession) {
-				return attachToSession(ownerSession)
+			if sessionExistsFn(ownerSession) {
+				return attachFn(ownerSession)
 			}
 		}
 	}

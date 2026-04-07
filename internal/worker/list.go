@@ -40,7 +40,7 @@ type WorkerInfo struct {
 
 // List queries active worker tasks and prints a table view.
 func List() error {
-	tasks, err := taskwarrior.GetOwnedManagerTasks()
+	tasks, err := taskwarrior.GetTasksWithOwner()
 	if err != nil {
 		return fmt.Errorf("failed to query workers: %w", err)
 	}

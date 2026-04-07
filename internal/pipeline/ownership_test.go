@@ -43,64 +43,23 @@ gate = "auto"
 
 var errTaskwarriorUnavailable = errors.New("taskwarrior unavailable")
 
-// stubTaskwarriorExporter is used by tests to stub taskwarrior.ExportTasksByFilter.
-var stubTaskwarriorExporter func(args ...string) ([]taskwarrior.Task, error)
-
-func init() {
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
-		panic("stubTaskwarriorExporter not stubbed in test")
-	}
-}
-
-// activeTasksByOwnerForTest mirrors ActiveTasksByOwner but accepts an exporter fn
-// so the test can inject fake taskwarrior responses.
-func activeTasksByOwnerForTest(
-	exporter func(args ...string) ([]taskwarrior.Task, error),
-	cfg *Config,
-	owner string, //nolint:unparam // test helper always passes literal, param is for clarity
-) ([]taskwarrior.Task, error) {
-	tasks, err := exporter("status:pending", "+ACTIVE", "owner:"+owner)
-	if err != nil {
-		return nil, err
-	}
-
-	var filtered []taskwarrior.Task
-	for _, task := range tasks {
-		_, p, err := cfg.MatchPipeline(task.Tags)
-		if err != nil || p == nil {
-			filtered = append(filtered, task)
-			continue
-		}
-		_, stage, _ := p.CurrentStage(task.Tags)
-		if stage != nil && stage.IsWorker() {
-			continue
-		}
-		filtered = append(filtered, task)
-	}
-	return filtered, nil
-}
-
-func resetStub() {
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
-		panic("stubTaskwarriorExporter not stubbed in test")
-	}
-}
-
 func TestActiveTasksByOwner_NoWorkerStageTasks(t *testing.T) {
 	cfg, err := Load(writeTempTOML(t, ownershipTOML))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
+	orig := exportTasksByFilterFn
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	exportTasksByFilterFn = func(args ...string) ([]taskwarrior.Task, error) {
 		return []taskwarrior.Task{
 			{UUID: "11111111-0000-0000-0000-000000000001", Tags: []string{"feature", "design"}},
 			{UUID: "11111111-0000-0000-0000-000000000002", Tags: []string{"bugfix", "fix"}},
 		}, nil
 	}
-	t.Cleanup(resetStub)
 
-	got, err := activeTasksByOwnerForTest(stubTaskwarriorExporter, cfg, "inke")
+	got, err := ActiveTasksByOwner(cfg, "inke")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -115,15 +74,17 @@ func TestActiveTasksByOwner_AllWorkerStageTasks(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
+	orig := exportTasksByFilterFn
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	exportTasksByFilterFn = func(args ...string) ([]taskwarrior.Task, error) {
 		return []taskwarrior.Task{
 			{UUID: "22222222-0000-0000-0000-000000000001", Tags: []string{"feature", "implement"}},
 			{UUID: "22222222-0000-0000-0000-000000000002", Tags: []string{"bugfix", "review"}},
 		}, nil
 	}
-	t.Cleanup(resetStub)
 
-	got, err := activeTasksByOwnerForTest(stubTaskwarriorExporter, cfg, "inke")
+	got, err := ActiveTasksByOwner(cfg, "inke")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -138,15 +99,17 @@ func TestActiveTasksByOwner_MixedStages(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
+	orig := exportTasksByFilterFn
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	exportTasksByFilterFn = func(args ...string) ([]taskwarrior.Task, error) {
 		return []taskwarrior.Task{
 			{UUID: "33333333-0000-0000-0000-000000000001", Tags: []string{"feature", "design"}},
 			{UUID: "33333333-0000-0000-0000-000000000002", Tags: []string{"feature", "implement"}},
 		}, nil
 	}
-	t.Cleanup(resetStub)
 
-	got, err := activeTasksByOwnerForTest(stubTaskwarriorExporter, cfg, "inke")
+	got, err := ActiveTasksByOwner(cfg, "inke")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -164,14 +127,16 @@ func TestActiveTasksByOwner_NoPipelineMatch(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
+	orig := exportTasksByFilterFn
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	exportTasksByFilterFn = func(args ...string) ([]taskwarrior.Task, error) {
 		return []taskwarrior.Task{
 			{UUID: "44444444-0000-0000-0000-000000000001", Tags: []string{"random-tag"}},
 		}, nil
 	}
-	t.Cleanup(resetStub)
 
-	got, err := activeTasksByOwnerForTest(stubTaskwarriorExporter, cfg, "inke")
+	got, err := ActiveTasksByOwner(cfg, "inke")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -186,12 +151,14 @@ func TestActiveTasksByOwner_TaskwarriorError(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	stubTaskwarriorExporter = func(args ...string) ([]taskwarrior.Task, error) {
+	orig := exportTasksByFilterFn
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	exportTasksByFilterFn = func(args ...string) ([]taskwarrior.Task, error) {
 		return nil, errTaskwarriorUnavailable
 	}
-	t.Cleanup(resetStub)
 
-	_, err = activeTasksByOwnerForTest(stubTaskwarriorExporter, cfg, "inke")
+	_, err = ActiveTasksByOwner(cfg, "inke")
 	if err == nil {
 		t.Error("expected error from taskwarrior, got nil")
 	}

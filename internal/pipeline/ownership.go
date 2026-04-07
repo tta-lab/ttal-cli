@@ -6,12 +6,16 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+// exportTasksByFilterFn is the function used to query taskwarrior.
+// Package-level var for test injection.
+var exportTasksByFilterFn = taskwarrior.ExportTasksByFilter
+
 // ActiveTasksByOwner returns pending+active tasks owned by the given agent,
 // EXCLUDING tasks currently in a worker:true stage. Worker-stage tasks are driven
 // by a worker session, not the manager agent, so they must not count against the
 // owner's busy quota.
 func ActiveTasksByOwner(cfg *Config, owner string) ([]taskwarrior.Task, error) {
-	tasks, err := taskwarrior.ExportTasksByFilter("status:pending", "+ACTIVE", "owner:"+owner)
+	tasks, err := exportTasksByFilterFn("status:pending", "+ACTIVE", "owner:"+owner)
 	if err != nil {
 		return nil, fmt.Errorf("export tasks for owner %q: %w", owner, err)
 	}

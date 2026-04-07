@@ -568,8 +568,15 @@ var (
 )
 
 func getPipelineConfig() (*pipeline.Config, error) {
-	if pipelineConfig == nil && pipelineConfigErr == nil {
+	if pipelineConfigErr != nil {
+		log.Printf("[advance] pipeline config unavailable: %v", pipelineConfigErr)
+		return nil, pipelineConfigErr
+	}
+	if pipelineConfig == nil {
 		pipelineConfig, pipelineConfigErr = pipeline.Load(config.DefaultConfigDir())
+		if pipelineConfigErr != nil {
+			log.Printf("[advance] pipeline config unavailable: %v", pipelineConfigErr)
+		}
 	}
 	return pipelineConfig, pipelineConfigErr
 }
