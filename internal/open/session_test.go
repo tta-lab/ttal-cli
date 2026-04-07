@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -11,10 +12,12 @@ func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 	origExport := exportTaskFn
 	origExists := sessionExistsFn
 	origAttach := attachFn
+	origLoader := configLoaderFn
 	t.Cleanup(func() {
 		exportTaskFn = origExport
 		sessionExistsFn = origExists
 		attachFn = origAttach
+		configLoaderFn = origLoader
 	})
 
 	var attached string
@@ -28,7 +31,10 @@ func TestSession_OwnerFallback_AttachesOwnerSession(t *testing.T) {
 		attached = name
 		return nil
 	}
-	// configLoaderFn uses the real config.Load() — AgentSessionName returns "ttal-default-<agent>".
+	// Stub config so cfg != nil and the owner-fallback path is entered.
+	configLoaderFn = func() (*config.Config, error) {
+		return &config.Config{}, nil
+	}
 
 	err := Session("aaaa0001")
 	if err != nil {
