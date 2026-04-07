@@ -537,7 +537,7 @@ func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) boo
 
 // shouldBreathe reads the agent's status file and decides whether to breathe.
 func shouldBreathe(agentName string, threshold float64) bool {
-	agentStatus, err := status.ReadAgent("default", agentName)
+	agentStatus, err := status.ReadAgent(config.DefaultTeamName, agentName)
 	if err != nil {
 		log.Printf("[advance] warning: could not read status for default/%s, defaulting to breathe: %v", agentName, err)
 		return true
