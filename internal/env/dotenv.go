@@ -32,6 +32,7 @@ func AllowedDotEnvParts() []string {
 func AllowedDotEnvMap() map[string]string {
 	dotEnv, err := config.LoadDotEnv()
 	if err != nil {
+		log.Printf("[env] warning: failed to load .env, no secrets injected: %v", err)
 		return nil
 	}
 	m := make(map[string]string)
@@ -48,8 +49,8 @@ func AllowedDotEnvMap() map[string]string {
 func EnvSliceToMap(parts []string) map[string]string {
 	m := make(map[string]string, len(parts))
 	for _, p := range parts {
-		if i := strings.IndexByte(p, '='); i >= 0 {
-			m[p[:i]] = p[i+1:]
+		if k, v, ok := strings.Cut(p, "="); ok {
+			m[k] = v
 		}
 	}
 	return m

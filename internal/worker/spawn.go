@@ -159,24 +159,9 @@ func computeSubpath(project, gitRoot string) (string, error) {
 }
 
 // buildWorkerSessionEnv returns the env map for a worker's temenos session.
-// Includes agent identity, task ID, runtime hint, taskrc, and allowlisted .env vars.
-// API tokens are excluded by the IsAllowedForSession filter in AllowedDotEnvMap.
+// Delegates to temenos.BuildSessionEnv with the worker's short hex ID as jobID.
 func buildWorkerSessionEnv(agentName, taskHexID string, rt runtime.Runtime, taskRC string) map[string]string {
-	m := map[string]string{
-		"TTAL_AGENT_NAME": agentName,
-		"TTAL_JOB_ID":     taskHexID,
-		"TTAL_RUNTIME":    string(rt),
-	}
-	if taskRC != "" {
-		m["TASKRC"] = taskRC
-	}
-	// Merge allowlisted .env vars (IsAllowedForSession filter already applied).
-	if dotEnv := env.AllowedDotEnvMap(); dotEnv != nil {
-		for k, v := range dotEnv {
-			m[k] = v
-		}
-	}
-	return m
+	return temenos.BuildSessionEnv(agentName, taskHexID, rt, taskRC)
 }
 
 // registerWorkerSession registers a temenos session for a worker, annotates the task
@@ -199,11 +184,14 @@ func registerWorkerSession(agentName, taskUUID, worktreeRoot string, taskRC stri
 		fmt.Fprintf(os.Stderr, "warning: failed to register temenos session (non-fatal): %v\n", err)
 		return ""
 	}
-	// Store the token so cleanupWorker can delete the session on close.
-	// On annotation failure the token is lost — the 8h TTL on the temenos daemon is
-	// the recovery path (sessions expire automatically if close never runs).
-	if annErr := taskwarrior.AnnotateTask(taskUUID, "temenos_token:"+token); annErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to annotate task with temenos token: %v\n", annErr)
+	// Annotate task with token for cleanup on close.
+	// On failure, roll back the session to avoid leaking it.
+	if annErr := taskwarrior.AnnotateTask(taskUUID, temenos.TokenAnnotationWorker+token); annErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: temenos token annotation failed — rolling back session: %v\n", annErr)
+		if rollbackErr := temenos.DeleteSessionByTokenWithTimeout(ctx, token); rollbackErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: session rollback failed (TTL will reclaim): %v\n", rollbackErr)
+		}
+		return ""
 	}
 	path, err := temenos.WriteMCPConfigFile("w-"+hexID, mcpJSON)
 	if err != nil {
@@ -417,10 +405,10 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 		}
 	}
 
-	setEnv("TTAL_JOB_ID", task.HexID())
+	setEnv(temenos.EnvKeyJobID, task.HexID())
 
 	if taskrc != "" {
-		setEnv("TASKRC", taskrc)
+		setEnv(temenos.EnvKeyTaskRC, taskrc)
 	}
 
 	// Inject allowlisted .env vars at session level (inherited by all windows).

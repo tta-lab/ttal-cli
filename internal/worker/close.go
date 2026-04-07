@@ -269,7 +269,7 @@ func cleanupWorker(
 
 	// Delete worker temenos session — best-effort, 8h TTL handles expiry on error.
 	if token := temenos.ExtractToken(annotations); token != "" {
-		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
+		if err := temenos.DeleteSessionByTokenWithTimeout(ctx, token); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to delete temenos session (non-fatal): %v\n", err)
 		}
 	}
@@ -291,32 +291,31 @@ func cleanupWorker(
 }
 
 // cleanupReviewerTokens scans annotations for reviewer temenos tokens and deletes them.
-// Handles both PR reviewer (temenos_pr_reviewer_token) and plan reviewer (temenos_plan_reviewer_token).
+// Uses constants from temenos package for token prefix strings.
 func cleanupReviewerTokens(ctx context.Context, taskHexID string, annotations []taskwarrior.Annotation) {
-	const (
-		prReviewerPrefix   = "temenos_pr_reviewer_token:"
-		planReviewerPrefix = "temenos_plan_reviewer_token:"
-	)
+	// Each entry: role string → annotation prefix
+	roles := []struct {
+		prefix string
+		role   string
+	}{
+		{temenos.TokenAnnotationPRReviewer, "pr"},
+		{temenos.TokenAnnotationPlanReviewer, "plan"},
+	}
 
 	for _, ann := range annotations {
-		var token, mcpName string
-		switch {
-		case strings.HasPrefix(ann.Description, prReviewerPrefix):
-			token = strings.TrimPrefix(ann.Description, prReviewerPrefix)
-			mcpName = temenos.ReviewerMCPName(taskHexID, "pr")
-		case strings.HasPrefix(ann.Description, planReviewerPrefix):
-			token = strings.TrimPrefix(ann.Description, planReviewerPrefix)
-			mcpName = temenos.ReviewerMCPName(taskHexID, "plan")
-		default:
-			continue
+		for _, r := range roles {
+			if strings.HasPrefix(ann.Description, r.prefix) {
+				token := strings.TrimPrefix(ann.Description, r.prefix)
+				if token == "" {
+					continue
+				}
+				if err := temenos.DeleteSessionByTokenWithTimeout(ctx, token); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to delete reviewer temenos session (non-fatal): %v\n", err)
+				}
+				temenos.DeleteMCPConfigFile(temenos.ReviewerMCPName(taskHexID, r.role))
+				break
+			}
 		}
-		if token == "" {
-			continue
-		}
-		if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to delete reviewer temenos session (non-fatal): %v\n", err)
-		}
-		temenos.DeleteMCPConfigFile(mcpName)
 	}
 }
 

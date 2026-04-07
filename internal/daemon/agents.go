@@ -350,16 +350,15 @@ func shutdownManagerMCPTokens(ctx context.Context, mcpPaths map[string]string) {
 	if mcpPaths == nil {
 		return
 	}
-	for agentName, mcpPath := range mcpPaths {
+	for agentName := range mcpPaths {
 		// Unregister the temenos session.
 		if token := temenos.ReadMCPConfigToken(agentName); token != "" {
-			if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
+			if err := temenos.DeleteSessionByTokenWithTimeout(ctx, token); err != nil {
 				log.Printf("[daemon] warning: failed to unregister MCP token for %s: %v", agentName, err)
 			}
 		}
 		// Delete the config file.
 		temenos.DeleteMCPConfigFile(agentName)
-		_ = mcpPath // suppress unused warning; path known via agentName
 	}
 }
 

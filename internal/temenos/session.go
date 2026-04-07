@@ -8,13 +8,103 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	envpkg "github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const defaultMCPPort = 9783
+
+// Token annotation prefixes used to store session tokens on tasks for cleanup.
+const (
+	TokenAnnotationWorker       = "temenos_token:"
+	TokenAnnotationPRReviewer   = "temenos_pr_reviewer_token:"
+	TokenAnnotationPlanReviewer = "temenos_plan_reviewer_token:"
+)
+
+// Env key constants for session environment variables.
+const (
+	EnvKeyAgentName = "TTAL_AGENT_NAME"
+	EnvKeyJobID     = "TTAL_JOB_ID"
+	EnvKeyRuntime   = "TTAL_RUNTIME"
+	EnvKeyTaskRC    = "TASKRC"
+)
+
+// BuildSessionEnv returns the session-scoped env map for a CC worker, manager, or reviewer.
+// Includes identity vars and allowlisted .env vars. API tokens are excluded by the filter.
+func BuildSessionEnv(agentName, jobID string, rt runtime.Runtime, taskRC string) map[string]string {
+	m := map[string]string{
+		EnvKeyAgentName: agentName,
+		EnvKeyJobID:     jobID,
+		EnvKeyRuntime:   string(rt),
+	}
+	if taskRC != "" {
+		m[EnvKeyTaskRC] = taskRC
+	}
+	if dotEnv := envpkg.AllowedDotEnvMap(); dotEnv != nil {
+		for k, v := range dotEnv {
+			m[k] = v
+		}
+	}
+	return m
+}
+
+// RegisterReviewerTemenos registers a temenos session for a reviewer, annotates the task,
+// writes the MCP config, and returns the path. Rolls back the session on annotation or
+// config-write failure (best-effort).
+func RegisterReviewerTemenos(
+	ctx context.Context, reviewerName string, workDir string,
+	jobID string, annotationPrefix string, rt runtime.Runtime,
+) string {
+	env := BuildSessionEnv(reviewerName, jobID, rt, "")
+	mcpJSON, token, err := RegisterSessionForAgent(ctx, reviewerName, []string{workDir}, "", env)
+	if err != nil {
+		log.Printf("[temenos] warning: failed to register reviewer session (non-fatal): %v", err)
+		return ""
+	}
+
+	// Annotate task with token for cleanup on close.
+	// On failure, roll back the session to avoid leaking it.
+	if annErr := taskwarrior.AnnotateTask(jobID, annotationPrefix+token); annErr != nil {
+		log.Printf("[temenos] warning: reviewer token annotation failed — rolling back session: %v", annErr)
+		if rollbackErr := DeleteSessionByTokenWithTimeout(ctx, token); rollbackErr != nil {
+			log.Printf("[temenos] warning: session rollback failed (TTL will reclaim): %v", rollbackErr)
+		}
+		return ""
+	}
+
+	mcpName := ReviewerMCPName(jobID, reviewerRoleFromPrefix(annotationPrefix))
+	path, err := WriteMCPConfigFile(mcpName, mcpJSON)
+	if err != nil {
+		log.Printf("[temenos] warning: reviewer MCP config write failed (reviewer runs without MCP): %v", err)
+		// Session and annotation persist — reviewer spawns without MCP. Cleanup will find the token.
+		return ""
+	}
+	return path
+}
+
+// reviewerRoleFromPrefix maps a token annotation prefix to the reviewer role string.
+func reviewerRoleFromPrefix(prefix string) string {
+	switch prefix {
+	case TokenAnnotationPRReviewer:
+		return "pr"
+	case TokenAnnotationPlanReviewer:
+		return "plan"
+	default:
+		return "reviewer"
+	}
+}
+
+// DeleteSessionByTokenWithTimeout deletes a session using a fresh 5s-timeout context.
+func DeleteSessionByTokenWithTimeout(ctx context.Context, token string) error {
+	deleteCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return DeleteSessionByToken(deleteCtx, token)
+}
 
 // mcpServerEntry holds the typed fields for one MCP server config entry.
 type mcpServerEntry struct {
