@@ -4,13 +4,12 @@ Follow each task in order: read the plan, make changes, verify, commit.
 Use ttal pr create for pull requests."""
 
 triage = """\
-{{skill:triage}}
+Execute `ttal skill get triage` to load the triage methodology.
 PR review posted. {{review-file}} Read it, assess and fix issues.
 Post your triage update with ttal comment add when done.
 If verdict is LGTM and no remaining issues, merge with: ttal go <uuid>"""
 
 review = """\
-{{skill:pr-review}}
 Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
 Scope: ONLY changes in this PR diff, not the entire codebase.
 Post your review with: ttal comment add "<markdown>"
@@ -18,7 +17,6 @@ End with VERDICT: NEEDS_WORK or VERDICT: LGTM.
 Do NOT merge — the coder handles merging after triage."""
 
 re_review = """\
-{{skill:pr-review}}
 Worker has pushed fixes addressing your review.{{coder-comment}}
 Re-review the changes: {{review-scope}}
 Post updated review with: ttal comment add "<markdown>"
