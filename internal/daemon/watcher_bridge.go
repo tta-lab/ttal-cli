@@ -75,7 +75,7 @@ func startWatcher(
 				log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, toolName, err)
 			}
 		},
-		nil, // cmdFunc — wired by cmdexec bridge in startCmdExec
+		startCmdExec(mcfg),
 	)
 	if err != nil {
 		log.Printf("[daemon] watcher disabled: %v — CC→Telegram bridging will not work", err)
