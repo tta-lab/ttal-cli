@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+
+	"github.com/tta-lab/ttal-cli/internal/cmdexec"
 )
 
 const jsonlTypeAssistant = "assistant"
@@ -48,40 +50,7 @@ func refineBashTool(input json.RawMessage) string {
 	if bi.Command == "" {
 		return toolBash
 	}
-
-	// Normalize: trim leading whitespace
-	cmd := strings.TrimSpace(bi.Command)
-
-	// Handle pipes: "echo x | flicknote add ..." or "cat <<'EOF' | flicknote add ..."
-	// Use LastIndex to find the rightmost pipe — the final command in the pipeline.
-	if idx := strings.LastIndex(cmd, "| "); idx >= 0 {
-		cmd = strings.TrimSpace(cmd[idx+2:])
-	}
-
-	switch {
-	case strings.HasPrefix(cmd, "ttal send "):
-		return "ttal:send"
-	case strings.HasPrefix(cmd, "ttal go "):
-		// ttal go may block on Telegram approval gate; the daemon
-		// handles output. No direct Telegram output from the CLI side.
-		return "ttal:route"
-	case strings.HasPrefix(cmd, "flicknote add "),
-		strings.HasPrefix(cmd, "flicknote modify "),
-		strings.HasPrefix(cmd, "flicknote append "),
-		strings.HasPrefix(cmd, "flicknote insert "),
-		strings.HasPrefix(cmd, "flicknote delete "),
-		strings.HasPrefix(cmd, "flicknote rename "):
-		return "flicknote:write"
-	case strings.HasPrefix(cmd, "flicknote detail "),
-		strings.HasPrefix(cmd, "flicknote content "),
-		cmd == "flicknote list",
-		strings.HasPrefix(cmd, "flicknote list "),
-		strings.HasPrefix(cmd, "flicknote find "),
-		strings.HasPrefix(cmd, "flicknote count"):
-		return "flicknote:read"
-	default:
-		return toolBash
-	}
+	return cmdexec.ClassifyShellCmd(bi.Command)
 }
 
 // extractToolUse detects tool_use blocks in an assistant JSONL entry.
