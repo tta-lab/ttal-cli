@@ -15,17 +15,15 @@ import (
 
 // mockRunner is a logos.CommandRunner for testing.
 type mockRunner struct {
-	results        map[string]*logos.RunResponse
-	err           error
-	calls         []string
-	blockCh       chan struct{}
-	blockRelease  chan struct{}
+	results map[string]*logos.RunResponse
+	err     error
+	calls   []string
 }
 
 func newMockRunner() *mockRunner {
 	return &mockRunner{
 		results: make(map[string]*logos.RunResponse),
-		calls:  []string{},
+		calls:   []string{},
 	}
 }
 
@@ -64,10 +62,10 @@ path = "` + filepath.Join(tmp, "code", "testproj") + `"
 
 	runner := newMockRunner()
 	bridge := &cmdexecBridge{
-		cfg:           nil,
-		runner:        runner,
-		projectStore:  store,
-		agentMutexes:  sync.Map{},
+		cfg:          nil,
+		runner:       runner,
+		projectStore: store,
+		agentMutexes: sync.Map{},
 	}
 	return bridge, runner
 }
@@ -228,7 +226,8 @@ func TestFormatOneResult(t *testing.T) {
 		{name: "success", cmd: "echo hello", output: "hello", exitCode: 0, want: "echo hello\nhello"},
 		{name: "exit code nonzero", cmd: "false", output: "", exitCode: 1, want: "false\n(exit code: 1)"},
 		{name: "exit code -1", cmd: "ls", output: "file.txt", exitCode: -1, want: "ls\nfile.txt"},
-		{name: "error", cmd: "bad cmd", errMsg: "execution error: boom", exitCode: -1, want: "bad cmd\nexecution error: boom"},
+		{name: "error", cmd: "bad cmd", errMsg: "execution error: boom", exitCode: -1,
+			want: "bad cmd\nexecution error: boom"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -27,7 +27,7 @@ var recursionGuard = regexp.MustCompile(`(?i)^\s*ttal\s+go\b`)
 // cmdexecBridge holds state for the cmdexec dispatcher.
 type cmdexecBridge struct {
 	cfg          *config.DaemonConfig
-	runner      logos.CommandRunner
+	runner       logos.CommandRunner
 	projectStore *project.Store
 	agentMutexes sync.Map // map[agentName]*sync.Mutex
 }
@@ -64,10 +64,10 @@ func startCmdExec(mcfg *config.DaemonConfig) watcher.CmdFunc {
 	store := project.NewStore(filepath.Join(config.DefaultConfigDir(), "projects.toml"))
 
 	bridge := &cmdexecBridge{
-		cfg:           mcfg,
-		runner:        runner,
-		projectStore:  store,
-		agentMutexes:  sync.Map{},
+		cfg:          mcfg,
+		runner:       runner,
+		projectStore: store,
+		agentMutexes: sync.Map{},
 	}
 
 	return bridge.dispatch
@@ -160,12 +160,12 @@ func formatOneResult(cmd, output, errMsg string, exitCode int) string {
 		b.WriteString("\n")
 		b.WriteString(output)
 		if exitCode != 0 && exitCode != -1 {
-			b.WriteString(fmt.Sprintf("\n(exit code: %d)", exitCode))
+			fmt.Fprintf(&b, "\n(exit code: %d)", exitCode)
 		}
 	} else {
 		// No output — exit code on its own line if non-zero.
 		if exitCode != 0 && exitCode != -1 {
-			b.WriteString(fmt.Sprintf("\n(exit code: %d)", exitCode))
+			fmt.Fprintf(&b, "\n(exit code: %d)", exitCode)
 		}
 	}
 	return b.String()
@@ -178,4 +178,3 @@ func formatResults(results []string) string {
 	}
 	return "<result>\n" + strings.Join(results, "\n") + "\n</result>"
 }
-

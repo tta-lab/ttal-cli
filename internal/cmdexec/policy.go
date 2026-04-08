@@ -1,7 +1,6 @@
 package cmdexec
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/tta-lab/logos"
@@ -95,16 +94,4 @@ func PolicyForAgentFS(projectsPath, agentCwd string) ([]logos.AllowedPath, bool)
 	}
 
 	return paths, true
-}
-
-// expandHome expands ~ in a path to the user's home directory.
-func expandHome(path string) string {
-	if len(path) < 2 || path[0] != '~' {
-		return path
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return path
-	}
-	return filepath.Join(home, path[1:])
 }

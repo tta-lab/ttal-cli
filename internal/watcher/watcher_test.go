@@ -431,7 +431,7 @@ func TestProcessLinesCmdExtraction(t *testing.T) {
 		var sentText []string
 		var cmdCalls [][]string
 		w := &Watcher{
-			send: func(_, _, text string) { sentText = append(sentText, text) },
+			send:    func(_, _, text string) { sentText = append(sentText, text) },
 			cmdFunc: func(_, _ string, cmds []string) { cmdCalls = append(cmdCalls, cmds) },
 		}
 		w.processLines([]byte(line), AgentInfo{TeamName: "t", AgentName: "a"})
@@ -449,7 +449,8 @@ func TestProcessLinesCmdExtraction(t *testing.T) {
 
 	// Multiple blocks → single cmdFunc call with full slice.
 	t.Run("multiple blocks single cmdFunc call", func(t *testing.T) {
-		line := `{"type":"assistant","message":{"content":[{"type":"text","text":"<cmd>echo a</cmd><cmd>echo b</cmd>"}]}}` + "\n"
+		line := `{"type":"assistant","message":{"content":[{"type":"text","text":"<cmd>echo a</cmd>` +
+			`<cmd>echo b</cmd>"}]}}` + "\n"
 		var cmdCalls [][]string
 		w := &Watcher{
 			cmdFunc: func(_, _ string, cmds []string) { cmdCalls = append(cmdCalls, cmds) },
