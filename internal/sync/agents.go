@@ -14,10 +14,7 @@ type WorkerAgentResult struct {
 	Dest   string
 }
 
-// DeployWorkerAgents scans each path in workerAgentPaths for .md agent files,
-// converts them to CC-native format via GenerateCCVariant, and writes to
-// ~/.claude/agents/{name}.md. Files with managed_by: ttal-sync are tracked as
-// managed by this process.
+// processWorkerAgentFile reads, parses, and writes a single worker agent .md file.
 func processWorkerAgentFile(srcPath, agentsDir string, dryRun bool) (WorkerAgentResult, error) {
 	data, err := os.ReadFile(srcPath)
 	if err != nil {
@@ -44,6 +41,9 @@ func processWorkerAgentFile(srcPath, agentsDir string, dryRun bool) (WorkerAgent
 	return WorkerAgentResult{Source: srcPath, Name: parsed.Frontmatter.Name, Dest: dstPath}, nil
 }
 
+// DeployWorkerAgents scans each path in workerAgentPaths for .md agent files,
+// converts them to CC-native format via GenerateCCVariant, and writes to
+// ~/.claude/agents/{name}.md.
 func DeployWorkerAgents(workerAgentPaths []string, dryRun bool) ([]WorkerAgentResult, error) {
 	if len(workerAgentPaths) == 0 {
 		return nil, nil
@@ -53,8 +53,10 @@ func DeployWorkerAgents(workerAgentPaths []string, dryRun bool) ([]WorkerAgentRe
 	if err != nil {
 		return nil, fmt.Errorf("determine agents dir: %w", err)
 	}
-	if err := os.MkdirAll(agentsDir, 0o755); err != nil && !dryRun {
-		return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
+	if !dryRun {
+		if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
+		}
 	}
 
 	var results []WorkerAgentResult
@@ -94,8 +96,10 @@ func DeployManagerAgents(teamPath string, dryRun bool) ([]WorkerAgentResult, err
 	if err != nil {
 		return nil, fmt.Errorf("determine agents dir: %w", err)
 	}
-	if err := os.MkdirAll(agentsDir, 0o755); err != nil && !dryRun {
-		return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
+	if !dryRun {
+		if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
+		}
 	}
 
 	entries, err := os.ReadDir(teamPath)
