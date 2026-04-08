@@ -27,6 +27,17 @@ All agents use **CC's native sandbox** for file and command operations — the s
 
 **Don't use plan mode for planning tasks** - Use brainstorming skill or writeplan skill instead
 
+## Output Channels
+
+Every token an agent emits goes to one of two channels. Be deliberate about which:
+
+- **→ human** — lands in Neil's context window (Telegram replies, session summaries, blockers, open questions needing a decision). Expensive. Reserve for things Neil must see and act on.
+- **→ persist** — lands in state (taskwarrior annotations, flicknote edits, `ttal comment add`, task tree updates, worker prompts, `ttal go` routing). Cheap, durable, inspectable later.
+
+**Default to persist.** If you're updating state, recording a decision, or handing off to another agent, write it to the persist channel — don't narrate it back to Neil. Only surface to the human channel when (a) Neil asked a direct question, (b) you're blocked and need a decision, or (c) you're delivering a final summary at the end of a phase.
+
+Skills make this split explicit with → human / → persist markers on each step. Follow them.
+
 ## Delegating Coding Work
 
 **Always delegate coding to workers — don't implement yourself.**

@@ -251,12 +251,16 @@ task <uuid> annotate 'orientation: flicknote <hex-id>'
 
 ## After the Plan Is Written
 
-1. **Save the plan:**
-   - Inline: annotate the task directly
-   - Task tree: `cat plan.md | task <parent-uuid> plan` — subtasks are already under the parent
-   - Orientation: `flicknote add --project orientation`, then `task <uuid> annotate '<hex-id>'`
-2. **Review:** Run at least 2 rounds of `ttal go <uuid>`. Revise until the plan passes.
-3. **Execute:** When the plan survives review, run `ttal go <uuid>` to spawn a worker.
+Save the plan first:
+- Inline: annotate the task directly
+- Task tree: `cat plan.md | task <parent-uuid> plan`
+- Orientation: `flicknote add --project orientation`, then `task <uuid> annotate '<hex-id>'`
+
+Then chain into the completion phase — it handles self-review, open questions, summary, and review handoff with proper output-channel partitioning:
+
+    ttal skill get sp-complete-design
+
+Follow every step in that skill. Do not duplicate its logic here.
 
 ## Remember
 
