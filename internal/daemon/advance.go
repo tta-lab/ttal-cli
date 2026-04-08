@@ -668,12 +668,24 @@ func resolveWorkerAgentRuntime(workerRT, teamPath string, workerAgentPaths []str
 	if len(searchPaths) == 0 {
 		searchPaths = []string{teamPath}
 	}
-	if info, err := agentfs.GetFromPaths(searchPaths, assignee); err == nil && info.DefaultRuntime != "" {
-		if rt, err := runtime.Parse(info.DefaultRuntime); err == nil {
-			return string(rt)
-		}
+	info, err := agentfs.GetFromPaths(searchPaths, assignee)
+	if err != nil {
+		log.Printf("[advance] resolveWorkerAgentRuntime: no frontmatter for %q in %v: %v — using team default %q",
+			assignee, searchPaths, err, workerRT)
+		return workerRT
 	}
-	return workerRT
+	if info.DefaultRuntime == "" {
+		log.Printf("[advance] resolveWorkerAgentRuntime: %q has no default_runtime — using team default %q",
+			assignee, workerRT)
+		return workerRT
+	}
+	rt, err := runtime.Parse(info.DefaultRuntime)
+	if err != nil {
+		log.Printf("[advance] resolveWorkerAgentRuntime: invalid default_runtime %q for %q: %v — using team default %q",
+			info.DefaultRuntime, assignee, err, workerRT)
+		return workerRT
+	}
+	return string(rt)
 }
 
 // advanceToStage routes the task to the given stage (agent or worker).

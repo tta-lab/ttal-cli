@@ -41,9 +41,9 @@ func processWorkerAgentFile(srcPath, agentsDir string, dryRun bool) (WorkerAgent
 	return WorkerAgentResult{Source: srcPath, Name: parsed.Frontmatter.Name, Dest: dstPath}, nil
 }
 
-// DeployWorkerAgents scans each path in workerAgentPaths for .md agent files,
-// converts them to CC-native format via GenerateCCVariant, and writes to
-// ~/.claude/agents/{name}.md.
+// DeployWorkerAgents scans each path in workerAgentPaths for workspace subdirectories
+// containing AGENTS.md, converts them to CC-native format via GenerateCCVariant,
+// and writes to ~/.claude/agents/{name}.md. Subdirs without AGENTS.md are silently skipped.
 func DeployWorkerAgents(workerAgentPaths []string, dryRun bool) ([]WorkerAgentResult, error) {
 	if len(workerAgentPaths) == 0 {
 		return nil, nil
@@ -68,11 +68,18 @@ func DeployWorkerAgents(workerAgentPaths []string, dryRun bool) ([]WorkerAgentRe
 		}
 
 		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") || isSkipFile(e.Name()) {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 				continue
 			}
+			srcPath := filepath.Join(srcDir, e.Name(), "AGENTS.md")
+			if _, err := os.Stat(srcPath); err != nil {
+				if os.IsNotExist(err) {
+					continue // not an agent dir — skip
+				}
+				return nil, fmt.Errorf("stat %s: %w", srcPath, err)
+			}
 
-			r, err := processWorkerAgentFile(filepath.Join(srcDir, e.Name()), agentsDir, dryRun)
+			r, err := processWorkerAgentFile(srcPath, agentsDir, dryRun)
 			if err != nil {
 				return nil, err
 			}
@@ -156,14 +163,4 @@ func claudeAgentsDir() (string, error) {
 		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}
 	return filepath.Join(home, ".claude", "agents"), nil
-}
-
-// isSkipFile returns true for known non-agent files to exclude from sync.
-func isSkipFile(name string) bool {
-	switch name {
-	case "CLAUDE.md", "README.md", "CLAUDE.user.md":
-		return true
-	default:
-		return strings.HasPrefix(name, ".")
-	}
 }
