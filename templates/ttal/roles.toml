@@ -1,4 +1,11 @@
+# Skills are role-based, loaded via SessionStart hook.
+# default_skills applies to every agent; extra_skills are role-specific.
+default_skills = ["task-tree", "flicknote", "ei-ask"]
+
 [default]
+prompt = """Manage tasks and coordinate the team."""
+
+[manager]
 prompt = """Manage tasks and coordinate the team."""
 
 [coder]
@@ -20,6 +27,7 @@ Plan workflow:
 
 For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
 For orientation docs and research notes, use flicknote."""
+extra_skills = ["sp-planning"]
 
 [researcher]
 prompt = """Research this topic thoroughly.
@@ -27,6 +35,7 @@ prompt = """Research this topic thoroughly.
 Storage: Save findings via flicknote add 'content' --project research
 Iterate with: flicknote detail <id> --tree, flicknote append <id> 'more content', flicknote modify <id> --section <section-id>
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+extra_skills = ["sp-research"]
 
 [fixer]
 prompt = """Diagnose this bug and write a fix plan.
@@ -37,6 +46,14 @@ Workflow:
 3. View: task <parent-uuid> tree
 
 For simple fixes, annotate the task directly instead of using a task tree."""
+extra_skills = ["sp-debugging"]
+
+[auditor]
+prompt = """Audit this codebase or PR for correctness issues, security gaps, and pattern violations.
+
+When auditing a PR, focus on: correctness, edge cases, error handling, security, and maintainability.
+Post findings with: ttal comment add"""
+extra_skills = ["sp-research"]
 
 [communicator]
 prompt = """Draft outward-facing communication for this task.
@@ -56,6 +73,7 @@ Plan workflow:
 
 For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
 For orientation docs and research notes, use flicknote."""
+extra_skills = ["sp-planning"]
 
 [frontend_designer]
 prompt = """Design a distinctive frontend interface for this task.
@@ -71,3 +89,9 @@ Workflow:
 
 Storage: Save design doc via flicknote add 'content' --project plans
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+extra_skills = ["frontend-design"]
+
+[creator]
+prompt = """Design new agent identities, define their roles, and manage respawn updates across the team.
+
+Coordinate with eve when creating or modifying agent identities."""

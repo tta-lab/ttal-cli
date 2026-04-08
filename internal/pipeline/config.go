@@ -16,13 +16,12 @@ var validStageNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 
 // Stage defines a single stage in a pipeline.
 type Stage struct {
-	Name     string   `toml:"name"`
-	Assignee string   `toml:"assignee"` // role from roles.toml (e.g. "designer") or "coder" (special)
-	Worker   bool     `toml:"worker"`   // marks worker-plane stages
-	Gate     string   `toml:"gate"`     // "human" or "auto"
-	Reviewer string   `toml:"reviewer"` // reviewer agent name (e.g. "plan-review-lead"), optional
-	Skills   []string `toml:"skills"`   // skill names loaded via ttal skill get (optional)
-	Emoji    string   `toml:"emoji"`    // optional display emoji for this stage
+	Name     string `toml:"name"`
+	Assignee string `toml:"assignee"` // role from roles.toml (e.g. "designer") or "coder" (special)
+	Worker   bool   `toml:"worker"`   // marks worker-plane stages
+	Gate     string `toml:"gate"`     // "human" or "auto"
+	Reviewer string `toml:"reviewer"` // reviewer agent name (e.g. "plan-review-lead"), optional
+	Emoji    string `toml:"emoji"`    // optional display emoji for this stage
 }
 
 // IsWorker returns true if this is a worker-plane stage.
@@ -319,11 +318,6 @@ func (c *Config) validate() error {
 			}
 			if s.Gate != "human" && s.Gate != "auto" {
 				return fmt.Errorf("pipeline %q stage %q: gate must be \"human\" or \"auto\", got %q", name, s.Name, s.Gate)
-			}
-			for _, sk := range s.Skills {
-				if sk == "" {
-					return fmt.Errorf("pipeline %q stage %q: skills list contains an empty skill name", name, s.Name)
-				}
 			}
 			// Stage names must be valid taskwarrior tags (alphanumeric + underscore only).
 			if !validStageNamePattern.MatchString(s.Name) {

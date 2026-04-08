@@ -618,7 +618,9 @@ func TestStageIndexForRole_EmptyRoleString(t *testing.T) {
 	}
 }
 
-func TestLoad_WithSkills(t *testing.T) {
+func TestLoad_StageSkillsIgnored(t *testing.T) {
+	// Stage-level skills are no longer loaded; skills are role-based via roles.toml.
+	// Verify TOML stage skills are silently ignored (no error, no crash).
 	dir := writeTempTOML(t, `
 [standard]
 description = "Plan then Implement"
@@ -640,15 +642,10 @@ gate = "auto"
 		t.Fatalf("Load: %v", err)
 	}
 	p := cfg.Pipelines["standard"]
-	if len(p.Stages[0].Skills) != 2 {
-		t.Fatalf("expected 2 skills, got %d", len(p.Stages[0].Skills))
+	if len(p.Stages) != 2 {
+		t.Fatalf("expected 2 stages, got %d", len(p.Stages))
 	}
-	if p.Stages[0].Skills[0] != "sp-planning" || p.Stages[0].Skills[1] != "flicknote" {
-		t.Errorf("unexpected skills: %v", p.Stages[0].Skills)
-	}
-	if len(p.Stages[1].Skills) != 0 {
-		t.Errorf("expected 0 skills for coder stage, got %d", len(p.Stages[1].Skills))
-	}
+	// TOML skills= fields are silently ignored by BurntSushi/toml — no crash.
 }
 
 // TOML fixture for IsWorkerAgent and WorkerAgentName tests.
@@ -732,27 +729,6 @@ func TestWorkerAgentName_NoPipelineMatch(t *testing.T) {
 	name := cfg.WorkerAgentName([]string{"nomatch"})
 	if name != "" {
 		t.Errorf("expected empty string for no pipeline match, got %q", name)
-	}
-}
-
-func TestLoad_WithSkills_EmptySkillName(t *testing.T) {
-	dir := writeTempTOML(t, `
-[standard]
-description = "Bad skills"
-tags = ["feature"]
-
-[[standard.stages]]
-name = "Plan"
-assignee = "designer"
-gate = "human"
-skills = ["sp-planning", ""]
-`)
-	_, err := Load(dir)
-	if err == nil {
-		t.Fatal("expected error for empty skill name, got nil")
-	}
-	if !strings.Contains(err.Error(), "empty skill name") {
-		t.Errorf("error should mention empty skill name, got: %v", err)
 	}
 }
 

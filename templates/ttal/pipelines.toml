@@ -1,7 +1,7 @@
 # Pipeline definitions for ttal task advance.
 # Each pipeline defines a sequence of stages with role-based assignment and gates.
 # Tasks are matched to pipelines by their tags.
-# Skills are loaded per-stage via ttal skill get <name>.
+# Skills are role-based via roles.toml (default_skills + extra_skills); applied unconditionally.
 
 [standard]
 description = "Plan → Implement"
@@ -13,7 +13,6 @@ assignee = "designer"
 emoji = "🧭"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-planning", "flicknote", "task-tree", "ei-ask"]
 
 [[standard.stages]]
 name = "Implement"
@@ -33,7 +32,6 @@ assignee = "fixer"
 emoji = "🔧"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-debugging", "flicknote", "task-tree", "ei-ask"]
 
 [[bugfix.stages]]
 name = "Implement"
@@ -65,7 +63,6 @@ name = "Research"
 assignee = "researcher"
 emoji = "🔭"
 gate = "auto"
-skills = ["sp-research", "flicknote", "ei-ask"]
 
 [audit]
 description = "Audit only"
@@ -76,7 +73,6 @@ name = "Audit"
 assignee = "auditor"
 emoji = "🔍"
 gate = "auto"
-skills = ["ei-ask"]
 
 [comm]
 description = "Communications draft"
@@ -87,7 +83,6 @@ name = "Draft"
 assignee = "communicator"
 emoji = "✏️"
 gate = "human"
-skills = ["flicknote", "ei-ask"]
 
 [brainstorm]
 description = "Brainstorm → Implement"
@@ -99,7 +94,6 @@ assignee = "designer"
 emoji = "💡"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-brainstorming", "flicknote", "task-tree", "ei-ask"]
 
 [[brainstorm.stages]]
 name = "Implement"
@@ -119,7 +113,6 @@ assignee = "devops"
 emoji = "⚓"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-planning", "flicknote", "task-tree", "ei-ask"]
 
 [[devops.stages]]
 name = "Implement"
@@ -139,4 +132,3 @@ description = "Design distinctive frontend UI/UX, write design docs and image pr
 assignee = "frontend_designer"
 emoji = "🦢"
 gate = "auto"
-skills = ["frontend-design", "flicknote", "ei-ask"]

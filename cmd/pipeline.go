@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
@@ -109,10 +110,6 @@ Example:
 // Reviewer info is shown inline when present:
 //
 //	Plan [designer] ──human/plan-review-lead──▸ Implement [coder]
-//
-// Skills are shown in parentheses when present:
-//
-//	Plan [designer] (sp-planning, flicknote) ──human/plan-review-lead──▸ Implement [coder]
 func renderPipelineGraph(p pipeline.Pipeline) {
 	for i, s := range p.Stages {
 		if i > 0 {
@@ -125,9 +122,6 @@ func renderPipelineGraph(p pipeline.Pipeline) {
 			fmt.Printf(" ──%s──▸ ", label)
 		}
 		fmt.Printf("%s [%s]", s.Name, s.Assignee)
-		if len(s.Skills) > 0 {
-			fmt.Printf(" (%s)", strings.Join(s.Skills, ", "))
-		}
 	}
 	fmt.Println()
 }
@@ -153,51 +147,93 @@ is found — always exits 0 (non-zero exits would fail the context hook).`,
 	},
 }
 
-// resolvePipelinePrompt finds the current task and returns the role-specific prompt,
-// or empty string if any step fails or no prompt is configured.
+// resolvePipelinePrompt builds the pipeline prompt for the current session.
+// Skills are always injected based on the agent's role (never by stage).
+// Task-specific content is appended only when a task exists.
+// Exits early with "" when no role prompt is configured (always exits 0 for CC hook).
+//
+//nolint:gocyclo
 func resolvePipelinePrompt() string {
-	task := resolveCurrentTaskForPrompt()
-	if task == nil {
-		return ""
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		log.Printf("[pipeline prompt] config load failed: %v", err)
 		return ""
 	}
 
+	agentName := os.Getenv("TTAL_AGENT_NAME")
+
+	// Always inject role-based skills — unconditional, not gated on task.
+	var skillContent string
+	var role string
+	if agentName != "" {
+		teamPath := cfg.TeamPath()
+		if teamPath != "" {
+			if resolvedRole, err := agentfs.RoleOf(teamPath, agentName); err == nil && resolvedRole != "" {
+				role = resolvedRole
+				if roles := cfg.Roles(); roles != nil {
+					skills := roles.RoleSkills(role)
+					skillContent = skill.FetchContents(skills)
+				}
+			}
+		}
+	}
+
+	task := resolveCurrentTaskForPrompt()
+
+	// No task — output role-based skills only with a base role prompt.
+	if task == nil {
+		// Use role as the prompt key (e.g. "fixer", "designer").
+		// Fall back to agentName if role is empty (shouldn't happen for valid agents).
+		// Reviewer status cannot be determined without a stage, so reviewers
+		// without active tasks get their base role prompt.
+		promptKey := role
+		if promptKey == "" {
+			promptKey = agentName
+		}
+		if promptKey == "" {
+			promptKey = "default"
+		}
+		rolePrompt := cfg.Prompt(promptKey)
+		if skillContent != "" {
+			if rolePrompt != "" {
+				return skillContent + "\n\n---\n\n" + rolePrompt
+			}
+			return skillContent
+		}
+		return rolePrompt
+	}
+
+	// Active task — use existing task-first pipeline path for accurate reviewer detection.
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		log.Printf("[pipeline prompt] pipeline load failed: %v", err)
-		return ""
+		return skillContent
 	}
 
 	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
 	if err != nil {
 		log.Printf("[pipeline prompt] pipeline match failed for task %s: %v", task.HexID(), err)
-		return ""
+		return skillContent
 	}
 	if p == nil {
-		return ""
+		return skillContent
 	}
 
 	_, stage, err := p.CurrentStage(task.Tags)
 	if err != nil {
 		log.Printf("[pipeline prompt] stage resolution failed for task %s: %v", task.HexID(), err)
-		return ""
+		return skillContent
 	}
 	if stage == nil {
-		return ""
+		return skillContent
 	}
 
 	promptKey := resolvePromptKey(stage)
 	rolePrompt := cfg.Prompt(promptKey)
 	if rolePrompt == "" {
-		return ""
+		return skillContent
 	}
 
-	skillContent := skill.FetchContents(stage.Skills)
 	taskPrompt := formatTaskPromptForPipeline(task)
 
 	var combined strings.Builder

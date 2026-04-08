@@ -12,14 +12,20 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-// TestResolvePipelinePrompt_NoEnvVars verifies that resolvePipelinePrompt returns empty
-// when neither TTAL_JOB_ID nor TTAL_AGENT_NAME is set (no-op path 1).
+// TestResolvePipelinePrompt_NoEnvVars verifies that resolvePipelinePrompt returns the default
+// role prompt (not empty) when no env vars are set — skills are unconditional per the new
+// role-based design: idle sessions still get their role's base prompt.
 func TestResolvePipelinePrompt_NoEnvVars(t *testing.T) {
 	t.Setenv("TTAL_JOB_ID", "")
 	t.Setenv("TTAL_AGENT_NAME", "")
 	got := resolvePipelinePrompt()
-	if got != "" {
-		t.Errorf("expected empty output with no env vars, got: %q", got)
+	// With the role-based design, idle sessions get the default role prompt.
+	// Empty output only occurs when config load fails.
+	if got == "" {
+		t.Errorf("expected non-empty output with default role prompt, got empty string")
+	}
+	if !strings.Contains(got, "Manage tasks and coordinate the team") {
+		t.Errorf("expected default role prompt, got: %q", got)
 	}
 }
 
@@ -168,22 +174,5 @@ func TestRenderPipelineGraph_NoReviewer(t *testing.T) {
 	}
 	if strings.Contains(out, "human/") {
 		t.Errorf("should not have reviewer suffix: %s", out)
-	}
-}
-
-func TestRenderPipelineGraph_WithSkills(t *testing.T) {
-	p := pipeline.Pipeline{
-		Stages: []pipeline.Stage{
-			{Name: "Plan", Assignee: "designer", Gate: "human", Skills: []string{"sp-planning", "flicknote"}},
-			{Name: "Implement", Assignee: "coder", Gate: "auto"},
-		},
-	}
-	out := captureStdout(t, func() { renderPipelineGraph(p) })
-	if !strings.Contains(out, "(sp-planning, flicknote)") {
-		t.Errorf("expected skills in parentheses in output: %s", out)
-	}
-	// Coder stage has no skills — no trailing parentheses after [coder].
-	if strings.Contains(out, "[coder] (") {
-		t.Errorf("coder stage should not show skills: %s", out)
 	}
 }
