@@ -27,6 +27,10 @@ import (
 // SessionStart hook to re-inject context before the trigger lands.
 const clearSettleDelay = 500 * time.Millisecond
 
+// breatheStartTrigger is sent to the agent after /clear completes to resume work
+// with fresh context from `ttal task get`.
+const breatheStartTrigger = "Exec `ttal task get(no extra args)` then continue with the task."
+
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.
 func persistMsg(msgSvc *message.Service, p message.CreateParams) {
@@ -629,7 +633,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
 			go func() {
 				time.Sleep(clearSettleDelay)
-				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "Continue with the task."); err != nil {
+				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, breatheStartTrigger); err != nil {
 					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
 				} else {
 					log.Printf("[breathe] %s: start trigger sent", req.Agent)

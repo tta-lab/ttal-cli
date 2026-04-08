@@ -433,8 +433,8 @@ func TestResolveBreatheSessions(t *testing.T) {
 }
 
 // TestHandleBreathe_SendsContinueWithTask verifies that after sending /clear, the daemon
-// sends "Continue with the task." (not bare "go") as the start trigger. This was Fix B
-// in the plan-review-lead async delivery fix.
+// sends the configured start trigger. This ensures agents get fresh context after a
+// breathe cycle.
 func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 	// Use a real temp directory as the team path so cfg.AgentPath() resolves
 	// and resolveAgentModel can find the agent status file.
@@ -536,7 +536,7 @@ team_path = "` + tmpTeamDir + `"
 		t.Errorf("first SendKeys call text = %q, want %q", sendCalls[0].text, "/clear")
 	}
 
-	if sendCalls[1].text != "Continue with the task." {
-		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, "Continue with the task.")
+	if sendCalls[1].text != breatheStartTrigger {
+		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, breatheStartTrigger)
 	}
 }
