@@ -536,7 +536,7 @@ team_path = "` + tmpTeamDir + `"
 		t.Errorf("first SendKeys call text = %q, want %q", sendCalls[0].text, "/clear")
 	}
 
-	if sendCalls[1].text != "Continue with the task." {
-		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, "Continue with the task.")
+	if sendCalls[1].text != "Exec `ttal task get(no extra args)` then continue with the task." {
+		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, "Exec `ttal task get(no extra args)` then continue with the task.")
 	}
 }

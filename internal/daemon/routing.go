@@ -629,7 +629,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, mcfg *config.Dae
 			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
 			go func() {
 				time.Sleep(clearSettleDelay)
-				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "Continue with the task."); err != nil {
+				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "Exec `ttal task get(no extra args)` then continue with the task."); err != nil {
 					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
 				} else {
 					log.Printf("[breathe] %s: start trigger sent", req.Agent)
