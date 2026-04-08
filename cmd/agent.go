@@ -45,7 +45,7 @@ var agentCmd = &cobra.Command{
 var agentAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new agent",
-	Long: `Create a new agent directory with a CLAUDE.md file.
+	Long: `Create a new agent directory with an AGENTS.md file.
 
 Example:
   ttal agent add yuki --voice af_heart --emoji 🐱`,
@@ -73,7 +73,7 @@ Example:
 
 		// Check if agent already exists
 		agentDir := filepath.Join(teamPath, name)
-		claudeMd := filepath.Join(agentDir, "CLAUDE.md")
+		claudeMd := filepath.Join(agentDir, "AGENTS.md")
 		if _, err := os.Stat(claudeMd); err == nil {
 			return fmt.Errorf("agent '%s' already exists at %s", name, agentDir)
 		}
@@ -82,7 +82,7 @@ Example:
 			return fmt.Errorf("create directory: %w", err)
 		}
 
-		// Build CLAUDE.md with optional frontmatter
+		// Build AGENTS.md with optional frontmatter
 		var sb strings.Builder
 		hasFm := agentVoice != "" || agentEmoji != "" || agentDescription != "" || agentRole != ""
 		if hasFm {
@@ -107,7 +107,7 @@ Example:
 		fmt.Fprintf(&sb, "# %s\n", name)
 
 		if err := os.WriteFile(claudeMd, []byte(sb.String()), 0o644); err != nil {
-			return fmt.Errorf("write CLAUDE.md: %w", err)
+			return fmt.Errorf("write AGENTS.md: %w", err)
 		}
 
 		fmt.Printf("Agent '%s' created at %s\n", name, agentDir)
@@ -211,8 +211,8 @@ Example:
 
 var agentModifyCmd = &cobra.Command{
 	Use:   "modify <name> [field:value...]",
-	Short: "Modify agent metadata in CLAUDE.md frontmatter",
-	Long: `Modify agent fields stored in CLAUDE.md frontmatter.
+	Short: "Modify agent metadata in AGENTS.md frontmatter",
+	Long: `Modify agent fields stored in AGENTS.md frontmatter.
 
 Examples:
   ttal agent modify yuki voice:af_heart
@@ -277,7 +277,7 @@ var agentDeleteCmd = &cobra.Command{
 		}
 
 		agentDir := filepath.Join(teamPath, name)
-		if _, err := os.Stat(filepath.Join(agentDir, "CLAUDE.md")); err != nil {
+		if _, err := os.Stat(filepath.Join(agentDir, "AGENTS.md")); err != nil {
 			return fmt.Errorf("agent '%s' not found\n\n  List available agents: ttal agent list", name)
 		}
 

@@ -13,31 +13,15 @@ import (
 
 const frontmatterDelimiter = "---"
 
-// SkipFiles contains known non-agent files to exclude from discovery.
-var SkipFiles = map[string]bool{
-	"CLAUDE":      true,
-	"CLAUDE.user": true,
-	"README":      true,
-}
-
-// isSkipFile returns true if the filename should be excluded from agent discovery.
-func isSkipFile(name string) bool {
-	return SkipFiles[name]
-}
-
-// isAgentFile returns true if the entry is a valid agent .md file.
-func isAgentFile(e fs.DirEntry) (name string, ok bool) {
-	if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+// isAgentDir returns the agent name if the entry is a workspace subdirectory
+// containing an AGENTS.md file. Skips dot-prefixed directories.
+func isAgentDir(teamPath string, e fs.DirEntry) (name string, ok bool) {
+	if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 		return "", false
 	}
-	if !strings.HasSuffix(e.Name(), ".md") {
-		return "", false
-	}
-	name = strings.TrimSuffix(e.Name(), ".md")
-	if isSkipFile(name) {
-		return "", false
-	}
-	return name, true
+	name = e.Name()
+	_, err := os.Stat(filepath.Join(teamPath, name, "AGENTS.md"))
+	return name, err == nil
 }
 
 // AgentInfo holds agent metadata parsed from .md file frontmatter.
@@ -52,8 +36,8 @@ type AgentInfo struct {
 	DefaultRuntime string // per-agent default_runtime override (e.g. "lenos")
 }
 
-// Discover scans teamPath for agents via flat .md files (e.g., yuki.md).
-// Returns sorted list of agents with metadata parsed from frontmatter.
+// Discover scans teamPath for agent workspace subdirectories containing an
+// AGENTS.md file. Returns sorted list of agents with metadata parsed from frontmatter.
 func Discover(teamPath string) ([]AgentInfo, error) {
 	entries, err := os.ReadDir(teamPath)
 	if err != nil {
@@ -63,12 +47,12 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 	agents := make([]AgentInfo, 0, len(entries))
 
 	for _, e := range entries {
-		name, ok := isAgentFile(e)
+		name, ok := isAgentDir(teamPath, e)
 		if !ok {
 			continue
 		}
 
-		mdPath := filepath.Join(teamPath, e.Name())
+		mdPath := filepath.Join(teamPath, name, "AGENTS.md")
 
 		info := AgentInfo{
 			Name: name,
@@ -91,12 +75,12 @@ func Discover(teamPath string) ([]AgentInfo, error) {
 }
 
 // Get returns metadata for a single agent by name.
-// Looks for name.md in team root.
+// Looks for {name}/AGENTS.md under team root.
 func Get(teamPath, name string) (*AgentInfo, error) {
-	mdPath := filepath.Join(teamPath, name+".md")
+	mdPath := filepath.Join(teamPath, name, "AGENTS.md")
 
 	if _, err := os.Stat(mdPath); err != nil {
-		return nil, fmt.Errorf("agent '%s' not found (no %s.md in %s)", name, name, teamPath)
+		return nil, fmt.Errorf("agent '%s' not found (no %s/AGENTS.md in %s)", name, name, teamPath)
 	}
 
 	info := &AgentInfo{
@@ -129,7 +113,7 @@ func GetFromPath(agentPath string) (*AgentInfo, error) {
 	return Get(filepath.Dir(agentPath), filepath.Base(agentPath))
 }
 
-// DiscoverAgents returns sorted agent names from flat .md files in team root.
+// DiscoverAgents returns sorted agent names from workspace subdirectories containing AGENTS.md.
 func DiscoverAgents(teamPath string) ([]string, error) {
 	entries, err := os.ReadDir(teamPath)
 	if err != nil {
@@ -138,7 +122,7 @@ func DiscoverAgents(teamPath string) ([]string, error) {
 
 	var agents []string
 	for _, e := range entries {
-		name, ok := isAgentFile(e)
+		name, ok := isAgentDir(teamPath, e)
 		if !ok {
 			continue
 		}
@@ -150,7 +134,7 @@ func DiscoverAgents(teamPath string) ([]string, error) {
 
 // HasAgent returns true if an agent with the given name exists in teamPath.
 func HasAgent(teamPath, agentName string) bool {
-	agentFile := filepath.Join(teamPath, agentName+".md")
+	agentFile := filepath.Join(teamPath, agentName, "AGENTS.md")
 	_, err := os.Stat(agentFile)
 	return err == nil
 }
@@ -179,7 +163,7 @@ func Count(teamPath string) (int, error) {
 	return len(agents), nil
 }
 
-// SetField updates a single frontmatter field in an agent's .md file.
+// SetField updates a single frontmatter field in an agent's AGENTS.md file.
 // If no frontmatter exists, it adds one. Preserves existing content.
 //
 // SetField only handles flat frontmatter (key: value pairs). It returns an
@@ -187,7 +171,7 @@ func Count(teamPath string) (int, error) {
 // blocks), as SetField would silently corrupt the nested structure. Use direct
 // file editing for files with nested YAML.
 func SetField(teamPath, name, field, value string) error {
-	mdPath := filepath.Join(teamPath, name+".md")
+	mdPath := filepath.Join(teamPath, name, "AGENTS.md")
 	data, err := os.ReadFile(mdPath)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", mdPath, err)

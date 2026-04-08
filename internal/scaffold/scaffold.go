@@ -95,7 +95,7 @@ func List(repoDir string) ([]ScaffoldInfo, error) {
 		readmePath := filepath.Join(repoDir, e.Name(), "README.md")
 		parseReadme(readmePath, &info)
 
-		// Scan for agent directories (subdirs with CLAUDE.md)
+		// Scan for agent directories (subdirs with AGENTS.md)
 		if agents := findAgentDirs(filepath.Join(repoDir, e.Name())); len(agents) > 0 {
 			info.Agents = strings.Join(agents, ", ")
 		}
@@ -192,13 +192,13 @@ func parseFrontmatter(scanner *bufio.Scanner) map[string]string {
 	return fm
 }
 
-// AgentDirs returns sorted names of subdirectories that contain a CLAUDE.md file.
+// AgentDirs returns sorted names of subdirectories that contain an AGENTS.md file.
 // Used both for scaffold metadata and workspace agent discovery.
 func AgentDirs(dir string) []string {
 	return findAgentDirs(dir)
 }
 
-// findAgentDirs returns names of subdirectories that contain a CLAUDE.md file.
+// findAgentDirs returns names of subdirectories that contain an AGENTS.md file.
 func findAgentDirs(dir string) []string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -209,7 +209,7 @@ func findAgentDirs(dir string) []string {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(dir, e.Name(), "CLAUDE.md")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, e.Name(), "AGENTS.md")); err == nil {
 			agents = append(agents, e.Name())
 		}
 	}

@@ -16,7 +16,7 @@ import (
 // Combines: agent identity (.md body after frontmatter) + rules + rendered context template.
 // Layout: Part 1 (identity) + Part 2 (rules) + Part 3 (rendered context), separated by "---".
 func BuildAgentContext(agentName, teamPath string, env []string) (string, error) {
-	mdPath := filepath.Join(teamPath, agentName+".md")
+	mdPath := filepath.Join(teamPath, agentName, "AGENTS.md")
 	data, err := os.ReadFile(mdPath)
 	if err != nil {
 		return "", fmt.Errorf("read agent identity %s: %w", mdPath, err)
@@ -83,7 +83,7 @@ func loadRulesContent() string {
 // ResolveCodexModel reads the codex-specific model from agent frontmatter.
 // Falls back to AdapterConfig.Model if codex section has no model.
 func ResolveCodexModel(agentName, teamPath, fallback string) string {
-	mdPath := filepath.Join(teamPath, agentName+".md")
+	mdPath := filepath.Join(teamPath, agentName, "AGENTS.md")
 	data, err := os.ReadFile(mdPath)
 	if err != nil {
 		return fallback

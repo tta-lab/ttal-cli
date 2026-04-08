@@ -12,13 +12,13 @@ func TestCopyDir(t *testing.T) {
 
 	_ = os.MkdirAll(filepath.Join(src, "agent"), 0o755)
 	_ = os.WriteFile(filepath.Join(src, "config.toml"), []byte("test"), 0o644)
-	_ = os.WriteFile(filepath.Join(src, "agent", "CLAUDE.md"), []byte("# Agent"), 0o644)
+	_ = os.WriteFile(filepath.Join(src, "agent", "AGENTS.md"), []byte("# Agent"), 0o644)
 
 	if err := copyDir(src, dst); err != nil {
 		t.Fatalf("copyDir: %v", err)
 	}
 
-	for _, rel := range []string{"config.toml", "agent/CLAUDE.md"} {
+	for _, rel := range []string{"config.toml", "agent/AGENTS.md"} {
 		if _, err := os.Stat(filepath.Join(dst, rel)); err != nil {
 			t.Errorf("expected %s to exist", rel)
 		}
@@ -63,7 +63,7 @@ func TestApplyScaffold(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(scaffoldDir, "manager"), 0o755)
 	_ = os.WriteFile(filepath.Join(scaffoldDir, "config.toml"), []byte(`default_team = "default"`), 0o644)
 	_ = os.WriteFile(filepath.Join(scaffoldDir, "README.md"), []byte("# Basic — Two agents\n\nA minimal setup."), 0o644)
-	_ = os.WriteFile(filepath.Join(scaffoldDir, "manager", "CLAUDE.md"), []byte("# Manager"), 0o644)
+	_ = os.WriteFile(filepath.Join(scaffoldDir, "manager", "AGENTS.md"), []byte("# Manager"), 0o644)
 
 	// Create shared docs
 	docsDir := filepath.Join(repoDir, "docs", "skills", "git-omz")
@@ -75,8 +75,8 @@ func TestApplyScaffold(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(workspace, "manager", "CLAUDE.md")); err != nil {
-		t.Error("expected manager/CLAUDE.md")
+	if _, err := os.Stat(filepath.Join(workspace, "manager", "AGENTS.md")); err != nil {
+		t.Error("expected manager/AGENTS.md")
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "docs", "skills", "git-omz", "SKILL.md")); err != nil {
 		t.Error("expected docs/skills/git-omz/SKILL.md")
@@ -101,7 +101,7 @@ func TestListScaffoldsFromHeadings(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(basic, "manager"), 0o755)
 	_ = os.WriteFile(filepath.Join(basic, "config.toml"), []byte(""), 0o644)
 	_ = os.WriteFile(filepath.Join(basic, "README.md"), []byte("# Basic — Two agents\n\nA minimal setup."), 0o644)
-	_ = os.WriteFile(filepath.Join(basic, "manager", "CLAUDE.md"), []byte(""), 0o644)
+	_ = os.WriteFile(filepath.Join(basic, "manager", "AGENTS.md"), []byte(""), 0o644)
 
 	// Non-scaffold dir (no config.toml)
 	_ = os.MkdirAll(filepath.Join(repoDir, "docs"), 0o755)
@@ -138,7 +138,7 @@ func TestListScaffoldsWithFrontmatter(t *testing.T) {
 		"description: With personalities\n" +
 		"install_hint: Requires FlickNote CLI\n---\n# Full"
 	_ = os.WriteFile(filepath.Join(ff, "README.md"), []byte(fmContent), 0o644)
-	_ = os.WriteFile(filepath.Join(ff, "hawk", "CLAUDE.md"), []byte(""), 0o644)
+	_ = os.WriteFile(filepath.Join(ff, "hawk", "AGENTS.md"), []byte(""), 0o644)
 
 	scaffolds, err := List(repoDir)
 	if err != nil {

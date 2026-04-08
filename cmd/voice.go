@@ -61,7 +61,7 @@ var voiceSpeakCmd = &cobra.Command{
 	Long: `Convert text to speech and send as a Telegram voice bubble.
 
 Requires TTAL_AGENT_NAME env var to resolve bot token and chat ID.
-Voice priority: --voice flag > TTAL_AGENT_NAME CLAUDE.md lookup > default (af_heart)
+Voice priority: --voice flag > TTAL_AGENT_NAME AGENTS.md lookup > default (af_heart)
 
 Examples:
   ttal voice speak "Hello world"

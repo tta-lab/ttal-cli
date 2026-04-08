@@ -9,7 +9,7 @@ import (
 
 const (
 	testVoiceAfHeart = "af_heart"
-	testEmojiCat     = "\U0001F431" // 🐱
+	testEmojiCat     = "🐱"
 )
 
 // findAgent returns a pointer to the named agent in the slice, or nil.
@@ -25,19 +25,25 @@ func findAgent(agents []AgentInfo, name string) *AgentInfo {
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
-	// Agent with frontmatter (flat .md file)
+	// Agent with frontmatter (workspace subdir + AGENTS.md)
 	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
 		"description: Task orchestration\ncolor: green\ndefault_runtime: codex\n---\n# Yuki")
-	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755)                            //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "yuki", "AGENTS.md"), yukiContent, 0o644) //nolint:errcheck
 
-	// Agent without frontmatter (flat .md file)
-	os.WriteFile(filepath.Join(dir, "kestrel.md"), []byte("# Kestrel\n\nA hawk agent."), 0o644)
+	// Agent without frontmatter (workspace subdir + AGENTS.md)
+	os.MkdirAll(filepath.Join(dir, "kestrel"), 0o755)                                                     //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "kestrel", "AGENTS.md"), []byte("# Kestrel\n\nA hawk agent."), 0o644) //nolint:errcheck
 
-	// Non-agent file (no .md extension)
+	// Non-agent dir (no AGENTS.md — should be skipped)
+	os.MkdirAll(filepath.Join(dir, "noidentity"), 0o755) //nolint:errcheck
+
+	// Dot-prefixed dir (should be skipped)
+	os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755)                                   //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, ".hidden", "AGENTS.md"), []byte("# hidden"), 0o644) //nolint:errcheck
+
+	// Top-level .md file (should be skipped — only subdirs with AGENTS.md are agents)
 	os.WriteFile(filepath.Join(dir, "README.txt"), []byte("readme"), 0o644)
-
-	// Dot file (should be skipped)
-	os.WriteFile(filepath.Join(dir, ".hidden.md"), []byte("# hidden"), 0o644)
 
 	agents, err := Discover(dir)
 	if err != nil {
@@ -81,7 +87,10 @@ func TestDiscover(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "yuki.md"), []byte("---\nvoice: af_sky\ncolor: blue\n---\n# Yuki"), 0o644)
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
+	f, _ := os.Create(filepath.Join(dir, "yuki", "AGENTS.md"))
+	f.Write([]byte("---\nvoice: af_sky\ncolor: blue\n---\n# Yuki")) //nolint:errcheck
+	f.Close()                                                       //nolint:errcheck
 
 	ag, err := Get(dir, "yuki")
 	if err != nil {
@@ -97,10 +106,10 @@ func TestGet(t *testing.T) {
 
 func TestSetFieldColorRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	// Simple fixture — no nested YAML — to verify all fields survive a SetField rewrite
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
 	fixture := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
 		"description: Task orchestration\nrole: manager\ncolor: green\n---\n# Yuki\n\nSome content.")
-	os.WriteFile(filepath.Join(dir, "yuki.md"), fixture, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "yuki", "AGENTS.md"), fixture, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "color", "cyan"); err != nil {
 		t.Fatalf("SetField: %v", err)
@@ -139,10 +148,11 @@ func TestGetNotFound(t *testing.T) {
 func TestCount(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"a", "b", "c"} {
-		os.WriteFile(filepath.Join(dir, name+".md"), []byte("# "+name), 0o644)
+		os.MkdirAll(filepath.Join(dir, name), 0o755)                                  //nolint:errcheck
+		os.WriteFile(filepath.Join(dir, name, "AGENTS.md"), []byte("# "+name), 0o644) //nolint:errcheck
 	}
-	// Non-agent
-	os.WriteFile(filepath.Join(dir, "README.txt"), []byte("readme"), 0o644)
+	// Non-agent dir (no AGENTS.md)
+	os.MkdirAll(filepath.Join(dir, "noidentity"), 0o755) //nolint:errcheck
 
 	n, err := Count(dir)
 	if err != nil {
@@ -155,9 +165,10 @@ func TestCount(t *testing.T) {
 
 func TestSetField(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
 	yukiContent := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat +
 		"\n---\n# Yuki\n\nSome content.")
-	os.WriteFile(filepath.Join(dir, "yuki.md"), yukiContent, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "yuki", "AGENTS.md"), yukiContent, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "voice", "af_sky"); err != nil {
 		t.Fatalf("SetField: %v", err)
@@ -174,8 +185,9 @@ func TestSetField(t *testing.T) {
 
 func TestSetFieldRejectsNestedFrontmatter(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "coder"), 0o755) //nolint:errcheck
 	nested := []byte("---\nname: coder\nrole: worker\nclaude-code:\n  model: sonnet\n---\n# Coder")
-	os.WriteFile(filepath.Join(dir, "coder.md"), nested, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "coder", "AGENTS.md"), nested, 0o644) //nolint:errcheck
 
 	err := SetField(dir, "coder", "color", "green")
 	if err == nil {
@@ -185,7 +197,10 @@ func TestSetFieldRejectsNestedFrontmatter(t *testing.T) {
 
 func TestSetFieldNoFrontmatter(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "yuki.md"), []byte("# Yuki\n\nNo frontmatter here."), 0o644)
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
+	f, _ := os.Create(filepath.Join(dir, "yuki", "AGENTS.md"))
+	f.Write([]byte("# Yuki\n\nNo frontmatter here.")) //nolint:errcheck
+	f.Close()                                         //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "voice", testVoiceAfHeart); err != nil {
 		t.Fatalf("SetField: %v", err)
@@ -196,8 +211,67 @@ func TestSetFieldNoFrontmatter(t *testing.T) {
 		t.Errorf("voice: got %q, want af_heart", ag.Voice)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, "yuki.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "yuki", "AGENTS.md"))
 	if !strings.Contains(string(data), "# Yuki") {
 		t.Error("original content should be preserved")
+	}
+}
+
+func TestDiscoverAgents(t *testing.T) {
+	dir := t.TempDir()
+	// 3 valid agent dirs
+	for _, name := range []string{"yuki", "kestrel", "athena"} {
+		os.MkdirAll(filepath.Join(dir, name), 0o755)                                  //nolint:errcheck
+		os.WriteFile(filepath.Join(dir, name, "AGENTS.md"), []byte("# "+name), 0o644) //nolint:errcheck
+	}
+	// Dir without AGENTS.md — should be skipped
+	os.MkdirAll(filepath.Join(dir, "noidentity"), 0o755) //nolint:errcheck
+	// Dot dir — should be skipped
+	os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755)                                   //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, ".hidden", "AGENTS.md"), []byte("# hidden"), 0o644) //nolint:errcheck
+
+	names, err := DiscoverAgents(dir)
+	if err != nil {
+		t.Fatalf("DiscoverAgents: %v", err)
+	}
+	if len(names) != 3 {
+		t.Fatalf("expected 3 agents, got %d: %v", len(names), names)
+	}
+}
+
+func TestHasAgent(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755)                                 //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "yuki", "AGENTS.md"), []byte("# Yuki"), 0o644) //nolint:errcheck
+	os.MkdirAll(filepath.Join(dir, "noidentity"), 0o755)                           //nolint:errcheck
+
+	if !HasAgent(dir, "yuki") {
+		t.Error("HasAgent(yuki) should be true")
+	}
+	if HasAgent(dir, "nonexistent") {
+		t.Error("HasAgent(nonexistent) should be false")
+	}
+	if HasAgent(dir, "noidentity") {
+		t.Error("HasAgent(noidentity) should be false (dir exists but no AGENTS.md)")
+	}
+}
+
+func TestGetFromPath(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
+	f, _ := os.Create(filepath.Join(dir, "yuki", "AGENTS.md"))
+	f.Write([]byte("---\nvoice: af_heart\nemoji: 🐱\n---\n# Yuki")) //nolint:errcheck
+	f.Close()                                                      //nolint:errcheck
+
+	agentDir := filepath.Join(dir, "yuki")
+	ag, err := GetFromPath(agentDir)
+	if err != nil {
+		t.Fatalf("GetFromPath: %v", err)
+	}
+	if ag.Name != "yuki" {
+		t.Errorf("name: got %q, want yuki", ag.Name)
+	}
+	if ag.Voice != "af_heart" {
+		t.Errorf("voice: got %q, want af_heart", ag.Voice)
 	}
 }

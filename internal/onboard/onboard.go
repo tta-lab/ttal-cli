@@ -37,7 +37,7 @@ func Run(workspace, scaffoldName string) error {
 				return err
 			}
 			if len(dirs) == 0 {
-				fmt.Println("  No agent directories found (expected dirs with CLAUDE.md)")
+				fmt.Println("  No agent directories found (expected dirs with AGENTS.md)")
 			} else {
 				printAgentDirs(dirs)
 			}
@@ -250,7 +250,7 @@ func printNextSteps() {
 
 // --- Helpers ---
 
-// findAgentDirs returns paths to directories containing a CLAUDE.md file.
+// findAgentDirs returns paths to directories containing an AGENTS.md file.
 func findAgentDirs(workspace string) ([]string, error) {
 	entries, err := os.ReadDir(workspace)
 	if err != nil {
@@ -261,8 +261,8 @@ func findAgentDirs(workspace string) ([]string, error) {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		claudeMd := filepath.Join(workspace, e.Name(), "CLAUDE.md")
-		if _, err := os.Stat(claudeMd); err == nil {
+		agentsMd := filepath.Join(workspace, e.Name(), "AGENTS.md")
+		if _, err := os.Stat(agentsMd); err == nil {
 			dirs = append(dirs, filepath.Join(workspace, e.Name()))
 		}
 	}
