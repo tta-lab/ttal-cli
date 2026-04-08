@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/promptrender"
 )
@@ -114,15 +115,24 @@ func runContext(_ *cobra.Command, _ []string) error {
 
 	teamName := config.DefaultTeamName
 
+	// Derive identity env vars for subprocess execution in the template renderer.
+	// Workers (cwd under ~/.ttal/worktrees/) always get TTAL_JOB_ID from the worktree
+	// dir name — they bypass the manager check so $cmd in templates works for them.
+	env := buildContextEnv(agentName, input.CWD)
+
+	// Only manager agents (those with an AGENTS.md under team_path) get the
+	// context template. Workers and unknown agents get a no-op hook response.
+	if extractWorktreeHexID(input.CWD) == "" && !agentfs.HasAgent(cfg.TeamPath(), agentName) {
+		noopHook()
+		return nil
+	}
+
 	tmpl := cfg.Prompt("context")
 	if tmpl == "" {
 		log.Printf("[context] agent=%s: no context template configured", agentName)
 		noopHook()
 		return nil
 	}
-
-	// Derive identity env vars for subprocess execution in the template renderer.
-	env := buildContextEnv(agentName, input.CWD)
 
 	output := promptrender.RenderTemplate(tmpl, agentName, teamName, env)
 	if output == "" {

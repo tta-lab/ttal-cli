@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/tta-lab/ttal-cli/internal/cmdexec"
 )
 
 const jsonlExt = ".jsonl"
@@ -27,6 +28,11 @@ type SendFunc func(teamName, agentName, text string)
 // ToolFunc is called when a tool invocation is detected in CC JSONL.
 type ToolFunc func(teamName, agentName, toolName string)
 
+// CmdFunc is called when one or more <cmd>...</cmd> blocks are detected
+// in an assistant message. cmds contains the extracted command strings in
+// document order.
+type CmdFunc func(teamName, agentName string, cmds []string)
+
 // WatchedAgent pairs agent info with the projects dir and encoded dir name for its JSONL.
 // Exported because daemon.go constructs the map.
 type WatchedAgent struct {
@@ -43,6 +49,7 @@ type Watcher struct {
 	mu       sync.Mutex
 	send     SendFunc
 	onTool   ToolFunc
+	cmdFunc  CmdFunc
 }
 
 // EncodePath converts an absolute path to CC's encoded project directory name.
@@ -56,7 +63,7 @@ func EncodePath(path string) string {
 // New creates a Watcher from a pre-built agent map.
 // Key is composite "teamName/encodedDir" to avoid collisions across teams.
 // Config-driven: no DB or config.Load() required.
-func New(agents map[string]WatchedAgent, send SendFunc, onTool ToolFunc) (*Watcher, error) {
+func New(agents map[string]WatchedAgent, send SendFunc, onTool ToolFunc, cmdFunc CmdFunc) (*Watcher, error) {
 	log.Printf("[watcher] watching %d agents", len(agents))
 
 	dirToKey := make(map[string]string, len(agents))
@@ -71,6 +78,7 @@ func New(agents map[string]WatchedAgent, send SendFunc, onTool ToolFunc) (*Watch
 		offsets:  make(map[string]int64),
 		send:     send,
 		onTool:   onTool,
+		cmdFunc:  cmdFunc,
 	}, nil
 }
 
@@ -205,21 +213,37 @@ func (w *Watcher) handleFileWrite(path string) {
 	w.mu.Unlock()
 }
 
-// processLines processes complete JSONL lines, dispatching tools and text events.
+// processLines processes complete JSONL lines, dispatching tools, cmds, and text events.
 // Returns the number of bytes consumed (including newlines).
 func (w *Watcher) processLines(data []byte, agent AgentInfo) int {
 	consumed := 0
 	for _, line := range splitCompleteLines(data) {
 		consumed += len(line) + 1
 
+		// Tool-use path (CC native tools, not <cmd> blocks).
 		if toolName := extractToolUse(line); toolName != "" {
 			if w.onTool != nil {
 				w.onTool(agent.TeamName, agent.AgentName, toolName)
 			}
 		}
 
-		if text := extractAssistantText(line); text != "" && !isNoisyText(text) {
-			w.send(agent.TeamName, agent.AgentName, text)
+		// <cmd> block extraction — strip cmds from prose, fire callbacks.
+		prose, cmds := extractAssistantTextAndCmds(line)
+		if len(cmds) > 0 {
+			if w.cmdFunc != nil {
+				w.cmdFunc(agent.TeamName, agent.AgentName, cmds)
+			} else {
+				log.Printf("[watcher] cmd block for %s/%s but cmdFunc is nil — cmds discarded", agent.TeamName, agent.AgentName)
+			}
+			// Fire emoji reaction for the first cmd's classification.
+			if w.onTool != nil {
+				w.onTool(agent.TeamName, agent.AgentName, cmdexec.ClassifyShellCmd(cmds[0]))
+			}
+		}
+
+		// Telegram prose — strip cmds so only text reaches the user.
+		if prose != "" && !isNoisyText(prose) {
+			w.send(agent.TeamName, agent.AgentName, prose)
 		}
 	}
 	return consumed

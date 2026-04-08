@@ -1,6 +1,45 @@
 context = """
+# Command Mode
+
+Wrap each command in a <cmd> block:
+
+<cmd>
+ls /path
+</cmd>
+
+Parallel execution: put multiple <cmd> blocks in the same message to run them in parallel. Results come back in order in a single <result> block.
+
+Sequential execution: put commands in separate messages to wait for each result before continuing.
+
+Multi-line bash works inside one block — set -e, loops, heredocs, pipelines all run as one bash script:
+
+<cmd>
+set -e
+cd /tmp/work
+for f in *.go; do gofmt -l "$f"; done
+</cmd>
+
+Heredoc for stdin:
+
+<cmd>
+cat <<'EOF' | jq .
+{"foo": "bar"}
+EOF
+</cmd>
+
+Output appears in the next message wrapped in <result>. Each cmd's output is preceded by the cmd string verbatim, so you can correlate parallel results. Non-zero exit codes appear inline as (exit code: N). Runner errors appear as 'execution error: <msg>'.
+
+Policy: you can READ any registered ttal project and WRITE only to your own workspace (cwd). Each cmd has a 120s timeout.
+
+# Text Mode
+
+Everything outside <cmd> blocks is your response to the human. When you're done running cmds, reply in prose only (no <cmd> blocks) to end the exchange.
+
+---
+
 $ diary {{agent-name}} read
 $ ttal agent list
+$ ttal project list
 ---
 $ ttal pipeline prompt
 """
