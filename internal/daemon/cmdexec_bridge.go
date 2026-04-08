@@ -18,7 +18,8 @@ import (
 )
 
 // maxPayloadBytes is the tmux send-keys safety margin. Payloads larger than this
-// are tail-truncated so the model still sees exit codes and error messages.
+// are head-truncated — the last 64KB (tail) are kept so the model still sees
+// exit codes and error messages that live at the end of the output.
 const maxPayloadBytes = 64 * 1024
 
 // recursionGuard rejects ttal go commands at the bridge layer to prevent feedback loops.
@@ -38,9 +39,9 @@ func (b *cmdexecBridge) getMutex(agentName string) *sync.Mutex {
 	return mu.(*sync.Mutex)
 }
 
-// startCmdExec assembles the cmdexec dispatcher for manager CC sessions and
-// returns a CmdFunc compatible with watcher.New.  Returns nil if the temenos
-// client cannot be constructed — the rest of the daemon continues without cmdexec.
+// startCmdExec assembles the cmdexec dispatcher for CC sessions that have
+// a registered workspace path. Returns nil if the temenos client cannot be
+// constructed — the rest of the daemon continues without cmdexec.
 func startCmdExec(mcfg *config.DaemonConfig) watcher.CmdFunc {
 	runner, err := logos.NewClient("")
 	if err != nil {
@@ -74,8 +75,12 @@ func startCmdExec(mcfg *config.DaemonConfig) watcher.CmdFunc {
 }
 
 // dispatch is the watcher.CmdFunc implementation.
-// ASSISTANT-ONLY: watcher only processes type=assistant entries, so this is safe.
 func (b *cmdexecBridge) dispatch(teamName, agentName string, cmds []string) {
+	if b.cfg == nil {
+		log.Printf("[cmdexec] dispatch called with nil config — skipping")
+		return
+	}
+
 	// Resolve agent workspace from config.
 	agentCwd := b.cfg.Global.AgentPath(agentName)
 	if agentCwd == "" {
@@ -90,8 +95,8 @@ func (b *cmdexecBridge) dispatch(teamName, agentName string, cmds []string) {
 		return
 	}
 
-	// Serialize dispatches per agent.
-	mu := b.getMutex(agentName)
+	// Serialize dispatches per agent (case-normalized to prevent key splits).
+	mu := b.getMutex(strings.ToLower(agentName))
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -105,7 +110,12 @@ func (b *cmdexecBridge) dispatch(teamName, agentName string, cmds []string) {
 	if len(payload) > maxPayloadBytes {
 		truncated := len(payload) - maxPayloadBytes
 		marker := fmt.Sprintf("[truncated %d bytes]\n", truncated)
-		payload = marker + payload[len(payload)-maxPayloadBytes+len(marker):]
+		// Guard: if marker itself exceeds the limit, keep just the payload tail.
+		if len(marker) > maxPayloadBytes {
+			payload = payload[len(payload)-maxPayloadBytes:]
+		} else {
+			payload = marker + payload[len(payload)-maxPayloadBytes+len(marker):]
+		}
 	}
 
 	// Deliver via tmux send-keys.

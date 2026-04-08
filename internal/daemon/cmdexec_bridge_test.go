@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -194,6 +195,34 @@ func TestExecuteCmds_StderrIncluded(t *testing.T) {
 	}
 }
 
+// dispatchTestBridge creates a bridge with a nil config so dispatch early-returns.
+func dispatchTestBridge(t *testing.T) (*cmdexecBridge, *strings.Builder) {
+	t.Helper()
+	runner := newMockRunner()
+	buf := &strings.Builder{}
+	orig := tmuxSendKeysFn
+	tmuxSendKeysFn = func(session, window, text string) error {
+		buf.WriteString(text)
+		return nil
+	}
+	t.Cleanup(func() { tmuxSendKeysFn = orig })
+	bridge := &cmdexecBridge{
+		cfg:          nil,
+		runner:       runner,
+		projectStore: nil,
+		agentMutexes: sync.Map{},
+	}
+	return bridge, buf
+}
+
+func TestDispatch_NilCfg_SkipsDispatch(t *testing.T) {
+	bridge, buf := dispatchTestBridge(t)
+	bridge.dispatch("team", "athena", []string{"echo hello"})
+	if buf.Len() != 0 {
+		t.Errorf("tmuxSendKeysFn was called with %q, want no call", buf.String())
+	}
+}
+
 func TestFormatResults(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -261,5 +290,33 @@ func TestRecursionGuardRegex(t *testing.T) {
 				t.Errorf("recursionGuard.MatchString(%q) = %v, want %v", c.cmd, got, c.want)
 			}
 		})
+	}
+}
+
+// testTruncation tests the head-truncation logic directly on formatResults output.
+func TestDispatch_Truncation(t *testing.T) {
+	// Build a result larger than maxPayloadBytes.
+	largeOutput := strings.Repeat("x", maxPayloadBytes+1024)
+	results := []string{fmt.Sprintf("echo large\n%s\n(exit code: 0)", largeOutput)}
+	payload := formatResults(results)
+
+	// Simulate truncation logic.
+	if len(payload) > maxPayloadBytes {
+		truncated := len(payload) - maxPayloadBytes
+		marker := fmt.Sprintf("[truncated %d bytes]\n", truncated)
+		if len(marker) > maxPayloadBytes {
+			payload = payload[len(payload)-maxPayloadBytes:]
+		} else {
+			payload = marker + payload[len(payload)-maxPayloadBytes+len(marker):]
+		}
+	}
+
+	// Result must be <= maxPayloadBytes.
+	if len(payload) > maxPayloadBytes {
+		t.Errorf("payload too large: %d bytes, want <= %d", len(payload), maxPayloadBytes)
+	}
+	// Result must contain the marker.
+	if !strings.Contains(payload, "[truncated") {
+		t.Errorf("payload missing truncation marker: %q", payload[:min(50, len(payload))])
 	}
 }

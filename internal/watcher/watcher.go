@@ -232,6 +232,8 @@ func (w *Watcher) processLines(data []byte, agent AgentInfo) int {
 		if len(cmds) > 0 {
 			if w.cmdFunc != nil {
 				w.cmdFunc(agent.TeamName, agent.AgentName, cmds)
+			} else {
+				log.Printf("[watcher] cmd block for %s/%s but cmdFunc is nil — cmds discarded", agent.TeamName, agent.AgentName)
 			}
 			// Fire emoji reaction for the first cmd's classification.
 			if w.onTool != nil {

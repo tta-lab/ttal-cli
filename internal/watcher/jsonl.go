@@ -40,7 +40,8 @@ const toolBash = "Bash"
 
 // refineBashTool inspects a Bash tool's input.command and returns a more
 // specific tool identifier for known CLI commands. Falls back to "Bash".
-// Keep the command list in sync with flicknote and ttal subcommands.
+// Keep the command list in sync with flicknote and ttal subcommands
+// (maintained in cmdexec.ClassifyShellCmd).
 func refineBashTool(input json.RawMessage) string {
 	var bi bashInput
 	if err := json.Unmarshal(input, &bi); err != nil {
