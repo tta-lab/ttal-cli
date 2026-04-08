@@ -64,7 +64,7 @@ func startWatcher(
 			if emoji == "" {
 				return
 			}
-			if mcfg.Team != nil && mcfg.Team.EmojiReactions {
+			if mcfg.Team == nil || !mcfg.Team.EmojiReactions {
 				return
 			}
 			fe, ok := frontends[config.DefaultTeamName]
