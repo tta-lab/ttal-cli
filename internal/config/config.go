@@ -810,6 +810,12 @@ func LoadAll() (*DaemonConfig, error) {
 	mcfg.Teams[defaultTeamName] = rt
 	mcfg.Team = rt
 
+	// Mirror resolved team_path onto Global so legacy callers of
+	// (*Config).AgentPath / TeamPath keep working until Step 3 migrates them.
+	// Note: mcfg.Global == &cfg, so writing cfg.resolvedTeamPath here is
+	// observable via mcfg.Global.AgentPath() in cmdexec_bridge and routing.
+	cfg.resolvedTeamPath = rt.TeamPath
+
 	return mcfg, nil
 }
 
