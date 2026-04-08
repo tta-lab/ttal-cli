@@ -213,11 +213,13 @@ task <uuid> annotate 'Fix plan: flicknote <hex-id>'
 
 ## After the Fix Plan Is Written
 
-1. **Save the plan** — inline annotation or flicknote (see above)
-2. **Create a task** (if needed) via `ttal task add --project <alias> "description"`
-3. **Annotate the task** with plan reference (inline or flicknote hex ID)
-4. **Review:** Run at least 1 round of `ttal go <uuid>`. Revise if needed.
-5. **Execute:** When the plan passes review, run `ttal go <uuid>` to spawn a worker.
+Save the plan first (inline annotation or flicknote — see "Inline vs Flicknote Fix Plans" above), create the task if it doesn't already exist, and annotate it with the plan reference.
+
+Then chain into the completion phase — it handles self-review, open questions, summary, and review handoff with proper output-channel partitioning:
+
+    ttal skill get sp-complete-design
+
+The completion steps are the same for a fix plan as for a design plan: re-review as a worker, surface open questions, update state, summarize to Neil, request review. Do not duplicate the logic here.
 
 ## Red Flags — STOP and Return to Phase 1
 
