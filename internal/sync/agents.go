@@ -18,16 +18,43 @@ type WorkerAgentResult struct {
 // converts them to CC-native format via GenerateCCVariant, and writes to
 // ~/.claude/agents/{name}.md. Files with managed_by: ttal-sync are tracked as
 // managed by this process.
+func processWorkerAgentFile(srcPath, agentsDir string, dryRun bool) (WorkerAgentResult, error) {
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return WorkerAgentResult{}, fmt.Errorf("read %s: %w", srcPath, err)
+	}
+
+	parsed, err := ParseAgentFile(string(data))
+	if err != nil {
+		return WorkerAgentResult{}, fmt.Errorf("parse agent file %s: %w", srcPath, err)
+	}
+
+	ccVariant, err := GenerateCCVariant(parsed)
+	if err != nil {
+		return WorkerAgentResult{}, fmt.Errorf("generate CC variant for %s: %w", parsed.Frontmatter.Name, err)
+	}
+
+	dstPath := filepath.Join(agentsDir, parsed.Frontmatter.Name+".md")
+	if !dryRun {
+		if err := os.WriteFile(dstPath, []byte(ccVariant), 0o644); err != nil {
+			return WorkerAgentResult{}, fmt.Errorf("write %s: %w", dstPath, err)
+		}
+	}
+
+	return WorkerAgentResult{Source: srcPath, Name: parsed.Frontmatter.Name, Dest: dstPath}, nil
+}
+
 func DeployWorkerAgents(workerAgentPaths []string, dryRun bool) ([]WorkerAgentResult, error) {
 	if len(workerAgentPaths) == 0 {
 		return nil, nil
 	}
 
-	agentsDir := claudeAgentsDir()
-	if !dryRun {
-		if err := os.MkdirAll(agentsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
-		}
+	agentsDir, err := claudeAgentsDir()
+	if err != nil {
+		return nil, fmt.Errorf("determine agents dir: %w", err)
+	}
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil && !dryRun {
+		return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
 	}
 
 	var results []WorkerAgentResult
@@ -39,41 +66,15 @@ func DeployWorkerAgents(workerAgentPaths []string, dryRun bool) ([]WorkerAgentRe
 		}
 
 		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-				continue
-			}
-			if isSkipFile(e.Name()) {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") || isSkipFile(e.Name()) {
 				continue
 			}
 
-			srcPath := filepath.Join(srcDir, e.Name())
-			data, err := os.ReadFile(srcPath)
+			r, err := processWorkerAgentFile(filepath.Join(srcDir, e.Name()), agentsDir, dryRun)
 			if err != nil {
-				return nil, fmt.Errorf("read %s: %w", srcPath, err)
+				return nil, err
 			}
-
-			parsed, err := ParseAgentFile(string(data))
-			if err != nil {
-				return nil, fmt.Errorf("parse agent file %s: %w", srcPath, err)
-			}
-
-			ccVariant, err := GenerateCCVariant(parsed)
-			if err != nil {
-				return nil, fmt.Errorf("generate CC variant for %s: %w", parsed.Frontmatter.Name, err)
-			}
-
-			dstPath := filepath.Join(agentsDir, parsed.Frontmatter.Name+".md")
-			if !dryRun {
-				if err := os.WriteFile(dstPath, []byte(ccVariant), 0o644); err != nil {
-					return nil, fmt.Errorf("write %s: %w", dstPath, err)
-				}
-			}
-
-			results = append(results, WorkerAgentResult{
-				Source: srcPath,
-				Name:   parsed.Frontmatter.Name,
-				Dest:   dstPath,
-			})
+			results = append(results, r)
 		}
 	}
 
@@ -89,11 +90,12 @@ func DeployManagerAgents(teamPath string, dryRun bool) ([]WorkerAgentResult, err
 		return nil, nil
 	}
 
-	agentsDir := claudeAgentsDir()
-	if !dryRun {
-		if err := os.MkdirAll(agentsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
-		}
+	agentsDir, err := claudeAgentsDir()
+	if err != nil {
+		return nil, fmt.Errorf("determine agents dir: %w", err)
+	}
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil && !dryRun {
+		return nil, fmt.Errorf("creating agents dir %s: %w", agentsDir, err)
 	}
 
 	entries, err := os.ReadDir(teamPath)
@@ -144,9 +146,12 @@ func DeployManagerAgents(teamPath string, dryRun bool) ([]WorkerAgentResult, err
 }
 
 // claudeAgentsDir returns the path to ~/.claude/agents/.
-func claudeAgentsDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".claude", "agents")
+func claudeAgentsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	return filepath.Join(home, ".claude", "agents"), nil
 }
 
 // isSkipFile returns true for known non-agent files to exclude from sync.

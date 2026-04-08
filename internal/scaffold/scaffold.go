@@ -95,7 +95,7 @@ func List(repoDir string) ([]ScaffoldInfo, error) {
 		readmePath := filepath.Join(repoDir, e.Name(), "README.md")
 		parseReadme(readmePath, &info)
 
-		// Scan for agent directories (subdirs with CLAUDE.md)
+		// Scan for agent directories (subdirs with AGENTS.md)
 		if agents := findAgentDirs(filepath.Join(repoDir, e.Name())); len(agents) > 0 {
 			info.Agents = strings.Join(agents, ", ")
 		}

@@ -45,7 +45,7 @@ var agentCmd = &cobra.Command{
 var agentAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new agent",
-	Long: `Create a new agent directory with a CLAUDE.md file.
+	Long: `Create a new agent directory with an AGENTS.md file.
 
 Example:
   ttal agent add yuki --voice af_heart --emoji 🐱`,
@@ -82,7 +82,7 @@ Example:
 			return fmt.Errorf("create directory: %w", err)
 		}
 
-		// Build CLAUDE.md with optional frontmatter
+		// Build AGENTS.md with optional frontmatter
 		var sb strings.Builder
 		hasFm := agentVoice != "" || agentEmoji != "" || agentDescription != "" || agentRole != ""
 		if hasFm {
@@ -211,8 +211,8 @@ Example:
 
 var agentModifyCmd = &cobra.Command{
 	Use:   "modify <name> [field:value...]",
-	Short: "Modify agent metadata in CLAUDE.md frontmatter",
-	Long: `Modify agent fields stored in CLAUDE.md frontmatter.
+	Short: "Modify agent metadata in AGENTS.md frontmatter",
+	Long: `Modify agent fields stored in AGENTS.md frontmatter.
 
 Examples:
   ttal agent modify yuki voice:af_heart

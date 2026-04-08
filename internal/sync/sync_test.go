@@ -182,3 +182,15 @@ func TestDeployManagerAgentsDryRun(t *testing.T) {
 		t.Error("dest file should not exist in dry run")
 	}
 }
+
+func TestDeployManagerAgentsParseError(t *testing.T) {
+	teamPath := t.TempDir()
+	os.MkdirAll(filepath.Join(teamPath, "bad"), 0o755) //nolint:errcheck
+	os.WriteFile(filepath.Join(teamPath, "bad", "AGENTS.md"),
+		[]byte("not valid frontmatter\n\n# No dashes"), 0o644) //nolint:errcheck
+
+	_, err := DeployManagerAgents(teamPath, false)
+	if err == nil {
+		t.Fatal("expected error for malformed AGENTS.md, got nil")
+	}
+}

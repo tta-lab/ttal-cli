@@ -37,7 +37,7 @@ func Run(workspace, scaffoldName string) error {
 				return err
 			}
 			if len(dirs) == 0 {
-				fmt.Println("  No agent directories found (expected dirs with CLAUDE.md)")
+				fmt.Println("  No agent directories found (expected dirs with AGENTS.md)")
 			} else {
 				printAgentDirs(dirs)
 			}

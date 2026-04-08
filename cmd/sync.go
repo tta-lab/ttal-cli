@@ -124,11 +124,13 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 		// Deploy worker agents (from worker_agent_paths) to ~/.claude/agents/.
 		workerAgentCount := 0
+		syncFailed := false
 		if len(syncCfg.WorkerAgentPaths) > 0 {
 			printSyncHeader("worker agents", syncDryRun)
 			workerResults, err := sync.DeployWorkerAgents(syncCfg.WorkerAgentPaths, syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: worker agent sync: %v\n", err)
+				syncFailed = true
 			}
 			for _, r := range workerResults {
 				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
@@ -143,6 +145,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			managerResults, err := sync.DeployManagerAgents(teamPath, syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: manager agent sync: %v\n", err)
+				syncFailed = true
 			}
 			for _, r := range managerResults {
 				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
@@ -167,6 +170,9 @@ Configure source paths in ~/.config/ttal/config.toml:
 		suffix := ""
 		if syncDryRun {
 			suffix = " (dry run)"
+		}
+		if syncFailed {
+			suffix += " [sync warnings — check above]"
 		}
 		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents, %d manager agents.%s\n",
 			configCount, ruleCount, workerAgentCount, managerAgentCount, suffix)
