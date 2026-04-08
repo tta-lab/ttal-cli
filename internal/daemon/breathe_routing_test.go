@@ -527,7 +527,7 @@ team_path = "` + tmpTeamDir + `"
 	mu.Lock()
 	defer mu.Unlock()
 
-	// Should have exactly two SendKeys calls: /clear then "Continue with the task."
+	// Should have exactly two SendKeys calls: /clear then the configured start trigger.
 	if len(sendCalls) < 2 {
 		t.Fatalf("expected at least 2 SendKeys calls, got %d: %v", len(sendCalls), sendCalls)
 	}
