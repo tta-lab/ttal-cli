@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -92,14 +93,7 @@ func TestRolesConfig_RoleSkills(t *testing.T) {
 				t.Errorf("RoleSkills(%q) len = %d, want %d; got %v", tt.role, len(got), tt.wantLen, got)
 			}
 			for _, want := range tt.wantContains {
-				found := false
-				for _, s := range got {
-					if s == want {
-						found = true
-						break
-					}
-				}
-				if !found {
+				if !slices.Contains(got, want) {
 					t.Errorf("RoleSkills(%q) missing expected skill %q; got %v", tt.role, want, got)
 				}
 			}

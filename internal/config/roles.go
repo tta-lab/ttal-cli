@@ -100,7 +100,7 @@ func (r *RolesConfig) RoleSkills(role string) []string {
 		}
 	}
 	if len(result) == 0 {
-		return r.DefaultSkills
+		return append([]string(nil), r.DefaultSkills...)
 	}
 	return result
 }

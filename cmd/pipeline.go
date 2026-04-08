@@ -173,7 +173,12 @@ func resolvePipelinePrompt() string {
 				if roles := cfg.Roles(); roles != nil {
 					skills := roles.RoleSkills(role)
 					skillContent = skill.FetchContents(skills)
+				} else {
+					log.Printf("[pipeline prompt] roles config unavailable (roles.toml missing?); "+
+						"skipping skill injection for %q", agentName)
 				}
+			} else if err != nil {
+				log.Printf("[pipeline prompt] role resolution failed for agent %q: %v", agentName, err)
 			}
 		}
 	}
