@@ -101,7 +101,9 @@ func TestOnAddPipeline_NoPipelinesFile_Passes(t *testing.T) {
 
 func TestTryAutoAdvanceStage0_FixerMatchesStage0(t *testing.T) {
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+	os.MkdirAll(filepath.Join(teamDir, "kestrel"), 0o755) //nolint:errcheck
+	kestrelMd := filepath.Join(teamDir, "kestrel", "AGENTS.md")
+	if err := os.WriteFile(kestrelMd, []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
 		t.Fatalf("write agent file: %v", err)
 	}
 	t.Setenv("TTAL_AGENT_NAME", "kestrel")
@@ -138,8 +140,9 @@ gate = "human"
 
 func TestTryAutoAdvanceStage0_OrchestratorNoMatch(t *testing.T) {
 	teamDir := t.TempDir()
+	os.MkdirAll(filepath.Join(teamDir, "yuki"), 0o755) //nolint:errcheck
 	content := []byte("---\nrole: orchestrator\n---\n")
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), content, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki", "AGENTS.md"), content, 0o644); err != nil {
 		t.Fatalf("write agent file: %v", err)
 	}
 	t.Setenv("TTAL_AGENT_NAME", "yuki")

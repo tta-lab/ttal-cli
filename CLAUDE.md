@@ -298,10 +298,12 @@ agents/                - Subagent definitions (→ ~/.claude/agents/)
   └── ...
 
 templates/
-  ttal/                - Agent identity files (frontmatter + CLAUDE.md)
+  ttal/                - Manager agent identity files (AGENTS.md frontmatter)
     ├── CLAUDE.user.md - Global prompt (→ ~/.claude/CLAUDE.md via sync)
-    ├── yuki.md        - Each agent's full identity, role, decision rules
-    ├── kestrel.md
+    ├── yuki/
+    │   └── AGENTS.md   - Manager agent identity
+    ├── kestrel/
+    │   └── AGENTS.md
     └── ...
 
 skills/                - Skill directories (each has SKILL.md)
@@ -322,7 +324,7 @@ commands/              - Static command .md files (flat)
 | Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `ttal sync` → `~/.claude/CLAUDE.md` |
 | Skills (methodology) | `skills/` | Directory with `SKILL.md` | `ttal skill import skills --apply` |
 | Subagents | `agents/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
-| Agent identities | `templates/ttal/` | Flat `.md` file | `ttal sync` → `~/.claude/agents/{name}.md` |
+| Agent identities | `templates/ttal/{name}/` | Per-agent subdir with `AGENTS.md` | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Config TOMLs | `templates/ttal/` | `.toml` files | `ttal sync` → `~/.config/ttal/` |
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.

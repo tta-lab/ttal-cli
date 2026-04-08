@@ -579,14 +579,16 @@ func TestPromptContext_HasAnyPromptConfigured(t *testing.T) {
 }
 
 func TestRuntimeForAgent(t *testing.T) {
-	// Create temp agent files for testing per-agent override
+	// Create temp agent dirs with AGENTS.md for testing per-agent override
 	dir := t.TempDir()
 
 	// Agent with codex runtime override
-	os.WriteFile(filepath.Join(dir, "codex-agent.md"),
+	os.MkdirAll(filepath.Join(dir, "codex-agent"), 0o755) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "codex-agent", "AGENTS.md"),
 		[]byte("---\nname: codex-agent\ndefault_runtime: codex\n---\n# CodeX Agent"), 0o644) //nolint:errcheck
 	// Agent with no runtime override
-	os.WriteFile(filepath.Join(dir, "cc-agent.md"),
+	os.MkdirAll(filepath.Join(dir, "cc-agent"), 0o755) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "cc-agent", "AGENTS.md"),
 		[]byte("---\nname: cc-agent\n---\n# CC Agent"), 0o644) //nolint:errcheck
 
 	tests := []struct {

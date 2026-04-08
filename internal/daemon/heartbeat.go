@@ -11,7 +11,7 @@ import (
 )
 
 // startHeartbeatScheduler starts a per-agent ticker for agents with heartbeat_interval configured.
-// Interval is read from roles.toml via the agent's role field in CLAUDE.md frontmatter.
+// Interval is read from roles.toml via the agent's role field in AGENTS.md frontmatter.
 // On each tick, delivers heartbeat_prompt (from roles.toml) to the agent via deliverToAgent.
 // Both heartbeat_interval and heartbeat_prompt must be non-empty — skips silently if either is missing.
 // Timer resets on daemon restart (no state persistence — acceptable tradeoff per spec).

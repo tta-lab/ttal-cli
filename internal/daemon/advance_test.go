@@ -147,7 +147,8 @@ func TestHasTag(t *testing.T) {
 func TestResolveHintedAgent_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	agentMD := "---\nrole: designer\n---\n# Inke\n"
-	if err := os.WriteFile(filepath.Join(dir, testAgentInke+".md"), []byte(agentMD), 0o644); err != nil {
+	os.MkdirAll(filepath.Join(dir, testAgentInke), 0o755) //nolint:errcheck
+	if err := os.WriteFile(filepath.Join(dir, testAgentInke, "AGENTS.md"), []byte(agentMD), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	agentRoles := map[string]string{testAgentInke: "designer"}
@@ -169,7 +170,8 @@ func TestResolveHintedAgent_HappyPath(t *testing.T) {
 func TestResolveHintedAgent_BusyFallback(t *testing.T) {
 	dir := t.TempDir()
 	agentMD := "---\nrole: designer\n---\n# Inke\n"
-	if err := os.WriteFile(filepath.Join(dir, testAgentInke+".md"), []byte(agentMD), 0o644); err != nil {
+	os.MkdirAll(filepath.Join(dir, testAgentInke), 0o755) //nolint:errcheck
+	if err := os.WriteFile(filepath.Join(dir, testAgentInke, "AGENTS.md"), []byte(agentMD), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	agentRoles := map[string]string{testAgentInke: "designer"}

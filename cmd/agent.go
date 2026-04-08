@@ -73,7 +73,7 @@ Example:
 
 		// Check if agent already exists
 		agentDir := filepath.Join(teamPath, name)
-		claudeMd := filepath.Join(agentDir, "CLAUDE.md")
+		claudeMd := filepath.Join(agentDir, "AGENTS.md")
 		if _, err := os.Stat(claudeMd); err == nil {
 			return fmt.Errorf("agent '%s' already exists at %s", name, agentDir)
 		}
@@ -107,7 +107,7 @@ Example:
 		fmt.Fprintf(&sb, "# %s\n", name)
 
 		if err := os.WriteFile(claudeMd, []byte(sb.String()), 0o644); err != nil {
-			return fmt.Errorf("write CLAUDE.md: %w", err)
+			return fmt.Errorf("write AGENTS.md: %w", err)
 		}
 
 		fmt.Printf("Agent '%s' created at %s\n", name, agentDir)
@@ -277,7 +277,7 @@ var agentDeleteCmd = &cobra.Command{
 		}
 
 		agentDir := filepath.Join(teamPath, name)
-		if _, err := os.Stat(filepath.Join(agentDir, "CLAUDE.md")); err != nil {
+		if _, err := os.Stat(filepath.Join(agentDir, "AGENTS.md")); err != nil {
 			return fmt.Errorf("agent '%s' not found\n\n  List available agents: ttal agent list", name)
 		}
 

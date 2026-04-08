@@ -391,11 +391,15 @@ func makeTagTask(tags []string) hookTask {
 func TestCheckTagGuard(t *testing.T) {
 	// Set up a temp team dir with a manager and a worker.
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: manager\n---\n"), 0o644); err != nil {
-		t.Fatalf("write yuki.md: %v", err)
+	yukiMd := filepath.Join(teamDir, "yuki", "AGENTS.md")
+	os.MkdirAll(filepath.Join(teamDir, "yuki"), 0o755) //nolint:errcheck
+	if err := os.WriteFile(yukiMd, []byte("---\nrole: manager\n---\n"), 0o644); err != nil {
+		t.Fatalf("write yuki/AGENTS.md: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
-		t.Fatalf("write kestrel.md: %v", err)
+	kestrelMd := filepath.Join(teamDir, "kestrel", "AGENTS.md")
+	os.MkdirAll(filepath.Join(teamDir, "kestrel"), 0o755) //nolint:errcheck
+	if err := os.WriteFile(kestrelMd, []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write kestrel/AGENTS.md: %v", err)
 	}
 	configDir := t.TempDir()
 	configContent := fmt.Sprintf(`
@@ -540,15 +544,17 @@ gate = "auto"
 }
 
 func TestIsManagerRole(t *testing.T) {
-	// Create a temp team dir with two agent .md files — one manager, one fixer.
+	// Create a temp team dir with two agent dirs containing AGENTS.md — one manager, one fixer.
 	teamDir := t.TempDir()
+	os.MkdirAll(filepath.Join(teamDir, "yuki"), 0o755) //nolint:errcheck
 	yukiContent := []byte("---\nrole: manager\n---\n# Yuki\n")
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), yukiContent, 0o644); err != nil {
-		t.Fatalf("write yuki.md: %v", err)
+	if err := os.WriteFile(filepath.Join(teamDir, "yuki", "AGENTS.md"), yukiContent, 0o644); err != nil {
+		t.Fatalf("write yuki/AGENTS.md: %v", err)
 	}
+	os.MkdirAll(filepath.Join(teamDir, "kestrel"), 0o755) //nolint:errcheck
 	kestrelContent := []byte("---\nrole: fixer\n---\n# Kestrel\n")
-	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), kestrelContent, 0o644); err != nil {
-		t.Fatalf("write kestrel.md: %v", err)
+	if err := os.WriteFile(filepath.Join(teamDir, "kestrel", "AGENTS.md"), kestrelContent, 0o644); err != nil {
+		t.Fatalf("write kestrel/AGENTS.md: %v", err)
 	}
 
 	// Create a minimal config.toml pointing to the temp team dir.
@@ -609,11 +615,15 @@ reviewer = "pr-review-lead"
 `
 	// Set up a team dir with a manager and a fixer.
 	teamDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(teamDir, "yuki.md"), []byte("---\nrole: manager\n---\n"), 0o644); err != nil {
-		t.Fatalf("write yuki.md: %v", err)
+	yukiMd := filepath.Join(teamDir, "yuki", "AGENTS.md")
+	os.MkdirAll(filepath.Join(teamDir, "yuki"), 0o755) //nolint:errcheck
+	if err := os.WriteFile(yukiMd, []byte("---\nrole: manager\n---\n"), 0o644); err != nil {
+		t.Fatalf("write yuki/AGENTS.md: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(teamDir, "kestrel.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
-		t.Fatalf("write kestrel.md: %v", err)
+	kestrelMd := filepath.Join(teamDir, "kestrel", "AGENTS.md")
+	os.MkdirAll(filepath.Join(teamDir, "kestrel"), 0o755) //nolint:errcheck
+	if err := os.WriteFile(kestrelMd, []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write kestrel/AGENTS.md: %v", err)
 	}
 
 	// Config dir with pipelines.toml AND config.toml pointing to team dir.

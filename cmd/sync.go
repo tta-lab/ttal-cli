@@ -21,7 +21,7 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Deploy plugin, rules, and configs to runtime directories",
 	Long: `Installs the ttal CC plugin (subagents + SessionStart hook) and deploys
-RULE.md cheat sheets and config TOMLs.
+RULE.md cheat sheets, config TOMLs, and manager agent identities.
 
 Plugin (subagents + hook):
   Installed via CC plugin marketplace (claude plugin install ttal@ttal)
@@ -33,6 +33,8 @@ Rules (RULE.md cheat sheets) are deployed as:
 Config TOMLs are deployed from team_path:
   prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
   config.toml is NOT synced (machine-specific settings).
+
+Manager agent identities ({name}/AGENTS.md) are deployed to ~/.claude/agents/{name}.md.
 
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
@@ -134,6 +136,20 @@ Configure source paths in ~/.config/ttal/config.toml:
 			workerAgentCount = len(workerResults)
 		}
 
+		// Deploy manager agent identities (from team_path/{name}/AGENTS.md) to ~/.claude/agents/.
+		managerAgentCount := 0
+		if teamPath != "" {
+			printSyncHeader("manager agents", syncDryRun)
+			managerResults, err := sync.DeployManagerAgents(teamPath, syncDryRun)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: manager agent sync: %v\n", err)
+			}
+			for _, r := range managerResults {
+				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+			}
+			managerAgentCount = len(managerResults)
+		}
+
 		if syncCfg.GlobalPromptPath != "" {
 			printSyncHeader("global prompt", syncDryRun)
 
@@ -152,8 +168,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncDryRun {
 			suffix = " (dry run)"
 		}
-		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents.%s\n",
-			configCount, ruleCount, workerAgentCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents, %d manager agents.%s\n",
+			configCount, ruleCount, workerAgentCount, managerAgentCount, suffix)
 		return nil
 	},
 }

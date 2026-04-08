@@ -227,9 +227,9 @@ func (m *MatrixTeamConfig) Validate() error {
 	return nil
 }
 
-// AgentConfig is deprecated. Per-agent config now lives in CLAUDE.md frontmatter and roles.toml.
+// AgentConfig is deprecated. Per-agent config now lives in AGENTS.md frontmatter and roles.toml.
 // Kept for backward-compatible TOML parsing only — all fields are ignored at runtime.
-// Agents are discovered from the filesystem: any subdir of team_path with CLAUDE.md is an agent.
+// Agents are discovered from the filesystem: any subdir of team_path with AGENTS.md is an agent.
 type AgentConfig struct {
 	BotToken          string `toml:"-"                jsonschema:"-"`
 	BotTokenEnv       string `toml:"bot_token_env"    jsonschema:"-"`
@@ -902,7 +902,7 @@ func resolveTeam(
 }
 
 // AllAgents returns all agents across all teams, sorted by team then agent name.
-// Agents are discovered from the filesystem: any subdir of team_path containing CLAUDE.md.
+// Agents are discovered from the filesystem: any subdir of team_path containing AGENTS.md.
 func (m *DaemonConfig) AllAgents() []TeamAgent {
 	var agents []TeamAgent
 	for _, team := range m.Teams {

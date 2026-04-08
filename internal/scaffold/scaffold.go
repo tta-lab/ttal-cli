@@ -192,13 +192,13 @@ func parseFrontmatter(scanner *bufio.Scanner) map[string]string {
 	return fm
 }
 
-// AgentDirs returns sorted names of subdirectories that contain a CLAUDE.md file.
+// AgentDirs returns sorted names of subdirectories that contain an AGENTS.md file.
 // Used both for scaffold metadata and workspace agent discovery.
 func AgentDirs(dir string) []string {
 	return findAgentDirs(dir)
 }
 
-// findAgentDirs returns names of subdirectories that contain a CLAUDE.md file.
+// findAgentDirs returns names of subdirectories that contain an AGENTS.md file.
 func findAgentDirs(dir string) []string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -209,7 +209,7 @@ func findAgentDirs(dir string) []string {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(dir, e.Name(), "CLAUDE.md")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, e.Name(), "AGENTS.md")); err == nil {
 			agents = append(agents, e.Name())
 		}
 	}
