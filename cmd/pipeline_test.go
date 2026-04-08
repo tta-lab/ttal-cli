@@ -16,11 +16,19 @@ import (
 // role prompt (not empty) when no env vars are set — skills are unconditional per the new
 // role-based design: idle sessions still get their role's base prompt.
 func TestResolvePipelinePrompt_NoEnvVars(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
 	t.Setenv("TTAL_JOB_ID", "")
 	t.Setenv("TTAL_AGENT_NAME", "")
+	os.MkdirAll(tmp+"/.config/ttal", 0755) //nolint:errcheck
+	teamPath := tmp + "/team"
+	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
+		"\n[teams.default]\nteam_path = \""+teamPath+"\"\n",
+	), 0644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
+prompt = """Manage tasks and coordinate the team."""
+`), 0644) //nolint:errcheck
 	got := resolvePipelinePrompt()
-	// With the role-based design, idle sessions get the default role prompt.
-	// Empty output only occurs when config load fails.
 	if got == "" {
 		t.Errorf("expected non-empty output with default role prompt, got empty string")
 	}
