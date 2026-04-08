@@ -115,6 +115,15 @@ func TestRunContext_AgentWithContextTemplate(t *testing.T) {
 		t.Fatalf("write config.toml: %v", err)
 	}
 
+	// Create kestrel agent dir so agentfs.HasAgent passes (kestrel is a manager).
+	kestrelDir := filepath.Join(tmp, "kestrel")
+	if err := os.MkdirAll(kestrelDir, 0o755); err != nil {
+		t.Fatalf("mkdir kestrel: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(kestrelDir, "AGENTS.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
 	hookInput := testHookInputKestrel
 	output := captureContextOutput(t, hookInput)
 	output = trimNewlines(output)
@@ -133,6 +142,35 @@ func TestRunContext_AgentWithContextTemplate(t *testing.T) {
 	if !strings.Contains(resp.HookSpecificOutput.AdditionalContext, "context-from-hook") {
 		t.Errorf("expected 'context-from-hook' in additionalContext, got: %q",
 			resp.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+// TestRunContext_NonManagerAgent_EmitsNoop verifies that a non-manager agent
+// (no AGENTS.md under team_path) receives a no-op {} response.
+func TestRunContext_NonManagerAgent_EmitsNoop(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	promptsToml := "context = \"$ echo context-from-hook\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
+		t.Fatalf("write prompts.toml: %v", err)
+	}
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	// No manager agent directories created — "coder" has no AGENTS.md, so
+	// agentfs.HasAgent returns false and runContext emits {}.
+	hookInput := `{"agent_type":"coder"}`
+	output := captureContextOutput(t, hookInput)
+	output = trimNewlines(output)
+	if output != "{}" {
+		t.Errorf("expected {} for non-manager agent, got: %q", output)
 	}
 }
 
