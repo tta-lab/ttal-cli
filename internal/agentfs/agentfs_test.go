@@ -275,3 +275,22 @@ func TestGetFromPath(t *testing.T) {
 		t.Errorf("voice: got %q, want af_heart", ag.Voice)
 	}
 }
+
+// TestAgentFS_RequiresSubdirLayout documents the expected layout contract:
+// agentfs.GetFromPaths requires {name}/AGENTS.md and never accepts flat .md files.
+// This test locks in the intentional break — flat files were never supported
+// by GetFromPaths, and the bug was that workers were stored flat, not that
+// GetFromPaths ever accepted them.
+func TestAgentFS_RequiresSubdirLayout(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Write a flat agents/coder.md (the old, broken layout).
+	if err := os.WriteFile(filepath.Join(tmpDir, "coder.md"), []byte("---\nname: coder\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := GetFromPaths([]string{tmpDir}, "coder")
+	if err == nil {
+		t.Error("expected error for flat layout, got nil — flat .md files are not supported by GetFromPaths")
+	}
+}
