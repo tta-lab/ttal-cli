@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+const testTeamDefaultRuntime = "claude-code"
+
 // writeCoderAgent creates a {name}/AGENTS.md file in dir with the given default_runtime.
 // An empty defaultRuntime omits the field from frontmatter.
 func writeCoderAgent(t *testing.T, dir, defaultRuntime string) {
@@ -32,7 +34,7 @@ func TestResolveWorkerAgentRuntime_ReadsFrontmatter(t *testing.T) {
 	tmpDir := t.TempDir()
 	writeCoderAgent(t, tmpDir, "lenos")
 
-	got := resolveWorkerAgentRuntime("claude-code", "", []string{tmpDir}, "coder")
+	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
 	if got != "lenos" {
 		t.Errorf("expected %q, got %q", "lenos", got)
 	}
@@ -48,9 +50,9 @@ func TestResolveWorkerAgentRuntime_FallbackOnMissingAgent(t *testing.T) {
 	log.SetOutput(&buf)
 	t.Cleanup(func() { log.SetOutput(orig) })
 
-	got := resolveWorkerAgentRuntime("claude-code", "", []string{tmpDir}, "coder")
-	if got != "claude-code" {
-		t.Errorf("expected %q (team default), got %q", "claude-code", got)
+	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	if got != testTeamDefaultRuntime {
+		t.Errorf("expected %q (team default), got %q", testTeamDefaultRuntime, got)
 	}
 
 	if !bytes.Contains(buf.Bytes(), []byte("no frontmatter for")) {
@@ -70,9 +72,9 @@ func TestResolveWorkerAgentRuntime_FallbackOnEmptyDefaultRuntime(t *testing.T) {
 	log.SetOutput(&buf)
 	t.Cleanup(func() { log.SetOutput(orig) })
 
-	got := resolveWorkerAgentRuntime("claude-code", "", []string{tmpDir}, "coder")
-	if got != "claude-code" {
-		t.Errorf("expected %q (team default), got %q", "claude-code", got)
+	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	if got != testTeamDefaultRuntime {
+		t.Errorf("expected %q (team default), got %q", testTeamDefaultRuntime, got)
 	}
 
 	if !bytes.Contains(buf.Bytes(), []byte("no default_runtime")) {
@@ -91,9 +93,9 @@ func TestResolveWorkerAgentRuntime_InvalidRuntime(t *testing.T) {
 	log.SetOutput(&buf)
 	t.Cleanup(func() { log.SetOutput(orig) })
 
-	got := resolveWorkerAgentRuntime("claude-code", "", []string{tmpDir}, "coder")
-	if got != "claude-code" {
-		t.Errorf("expected %q (team default), got %q", "claude-code", got)
+	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	if got != testTeamDefaultRuntime {
+		t.Errorf("expected %q (team default), got %q", testTeamDefaultRuntime, got)
 	}
 
 	if !bytes.Contains(buf.Bytes(), []byte("invalid default_runtime")) {
@@ -108,7 +110,7 @@ func TestResolveWorkerAgentRuntime_SecondPathWins(t *testing.T) {
 	dir2 := t.TempDir()
 	writeCoderAgent(t, dir2, "lenos")
 
-	got := resolveWorkerAgentRuntime("claude-code", "", []string{dir1, dir2}, "coder")
+	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{dir1, dir2}, "coder")
 	if got != "lenos" {
 		t.Errorf("expected %q (from dir2 frontmatter), got %q", "lenos", got)
 	}

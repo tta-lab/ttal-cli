@@ -164,4 +164,3 @@ func claudeAgentsDir() (string, error) {
 	}
 	return filepath.Join(home, ".claude", "agents"), nil
 }
-
