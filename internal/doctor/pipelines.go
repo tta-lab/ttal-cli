@@ -5,7 +5,7 @@ package doctor
 const defaultPipelinesContent = `# Pipeline definitions for ttal go.
 # Each pipeline defines a sequence of stages with role-based assignment and gates.
 # Tasks are matched to pipelines by their tags.
-# Skills are inlined per-stage into context at context render time.
+# Skills are role-based via roles.toml (default_skills + extra_skills); applied unconditionally.
 
 [standard]
 description = "Plan → Implement"
@@ -16,7 +16,6 @@ name = "Plan"
 assignee = "designer"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-planning", "flicknote"]
 
 [[standard.stages]]
 name = "Implement"
@@ -34,7 +33,6 @@ name = "Fix"
 assignee = "fixer"
 gate = "human"
 reviewer = "plan-review-lead"
-skills = ["sp-debugging", "flicknote"]
 
 [[bugfix.stages]]
 name = "Implement"

@@ -154,6 +154,17 @@ func FindByRole(teamPath, role string) ([]AgentInfo, error) {
 	return matches, nil
 }
 
+// RoleOf returns the role of an agent by looking up their AGENTS.md frontmatter
+// in teamPath. Returns empty string for unknown agents.
+// Callers handle the fallback to default-only skills via RoleSkills.
+func RoleOf(teamPath, agentName string) (string, error) {
+	info, err := Get(teamPath, agentName)
+	if err != nil {
+		return "", err
+	}
+	return info.Role, nil
+}
+
 // Count returns the number of agent directories in teamPath.
 func Count(teamPath string) (int, error) {
 	agents, err := Discover(teamPath)
