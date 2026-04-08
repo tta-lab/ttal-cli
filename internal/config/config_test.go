@@ -633,3 +633,33 @@ func TestRuntimeForAgent(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadAll_GlobalAgentPathResolved verifies that LoadAll populates
+// cfg.resolvedTeamPath so that (*Config).AgentPath / TeamPath return correct
+// values via mcfg.Global. This was broken because LoadAll did not call
+// cfg.resolve() — only resolveTeam() — leaving resolvedTeamPath empty in the
+// Global Config. Regression test for the cmdexec bridge "no workspace" skip.
+func TestLoadAll_GlobalAgentPathResolved(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	teamPath := filepath.Join(tmp, "team")
+	toml := "[teams.default]\nteam_path = \"" + teamPath + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mcfg, err := LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	want := filepath.Join(teamPath, "yuki")
+	if got := mcfg.Global.AgentPath("yuki"); got != want {
+		t.Errorf("Global.AgentPath = %q, want %q", got, want)
+	}
+	if mcfg.Global.TeamPath() == "" {
+		t.Error("Global.TeamPath() empty after LoadAll")
+	}
+}

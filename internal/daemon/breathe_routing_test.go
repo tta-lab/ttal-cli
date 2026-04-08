@@ -540,3 +540,36 @@ team_path = "` + tmpTeamDir + `"
 		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, breatheStartTrigger)
 	}
 }
+
+// TestResolveBrCWD_LoadAllPath verifies that resolveBrCWD resolves agent paths
+// correctly when passed the Global config from a DaemonConfig produced by
+// LoadAll(). This is the path the daemon actually uses (not config.Load()).
+// Regression test for the resolvedTeamPath mirror bug.
+func TestResolveBrCWD_LoadAllPath(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	toml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	mcfg, err := config.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	agent := "athena"
+	cwd, sessionAlive, err := resolveBrCWD("nonexistent-session-xyz", agent, agent, mcfg.Global)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sessionAlive {
+		t.Error("expected sessionAlive=false for nonexistent session")
+	}
+	want := filepath.Join(tmp, agent)
+	if cwd != want {
+		t.Errorf("cwd = %q, want %q", cwd, want)
+	}
+}
