@@ -183,7 +183,7 @@ func Remove(ids []string) error {
 	return nil
 }
 
-// CompletedCounts returns a map of date → completed task count for the past year.
+// CompletedCounts returns a map of date → completed root-task count for the past year.
 // Date keys are truncated to midnight UTC for consistent lookups.
 func CompletedCounts() (map[time.Time]int, error) {
 	out, err := taskwarrior.Command("status:completed", "end.after:today-1y", "export").Output()
@@ -198,7 +198,8 @@ func CompletedCounts() (map[time.Time]int, error) {
 
 	counts := make(map[time.Time]int)
 	for _, t := range tasks {
-		if t.End == "" {
+		// Skip subtasks — completed subtasks inflate the heatmap counts
+		if t.ParentID != "" || t.End == "" {
 			continue
 		}
 		end, err := taskwarrior.ParseTaskDate(t.End)
