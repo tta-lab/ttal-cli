@@ -6,7 +6,7 @@ role: researcher
 voice: af_sky
 claude-code:
   model: opus
-  tools: [Bash, mcp__temenos__bash]
+  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash]
