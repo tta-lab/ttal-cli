@@ -34,8 +34,8 @@ func TestGetShell(t *testing.T) {
 		want string
 	}{
 		{"empty config defaults to zsh", &Config{}, "zsh"},
-		{"fish override", &Config{Shell: "fish"}, "fish"},
-		{"zsh explicit", &Config{Shell: "zsh"}, "zsh"},
+		{"fish override", &Config{Shell_: "fish"}, "fish"},
+		{"zsh explicit", &Config{Shell_: "zsh"}, "zsh"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -54,8 +54,8 @@ func TestShellCommand(t *testing.T) {
 		wantCmd string
 	}{
 		{"zsh default", &Config{}, "echo hello", "zsh -c 'echo hello'"},
-		{"fish shell", &Config{Shell: "fish"}, "echo hello", "fish -C 'echo hello'"},
-		{"zsh explicit", &Config{Shell: "zsh"}, "echo hello", "zsh -c 'echo hello'"},
+		{"fish shell", &Config{Shell_: "fish"}, "echo hello", "fish -C 'echo hello'"},
+		{"zsh explicit", &Config{Shell_: "zsh"}, "echo hello", "zsh -c 'echo hello'"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -66,16 +66,17 @@ func TestShellCommand(t *testing.T) {
 	}
 }
 
-func TestDefaultRuntime(t *testing.T) {
+func TestLegacyDefaultRuntime(t *testing.T) {
+	// Tests the legacy multi-team resolution path.
 	tests := []struct {
 		name string
-		cfg  *Config
+		cfg  *LegacyConfig
 		want runtime.Runtime
 	}{
-		{"unset defaults to claude-code", &Config{}, runtime.ClaudeCode},
-		{"explicit claude-code", &Config{resolvedDefaultRuntime: "claude-code"}, runtime.ClaudeCode},
-		{"explicit codex", &Config{resolvedDefaultRuntime: "codex"}, runtime.Codex},
-		{"explicit lenos", &Config{resolvedDefaultRuntime: "lenos"}, runtime.Lenos},
+		{"unset defaults to claude-code", &LegacyConfig{}, runtime.ClaudeCode},
+		{"explicit claude-code", &LegacyConfig{legacyResolvedDefaultRuntime: "claude-code"}, runtime.ClaudeCode},
+		{"explicit codex", &LegacyConfig{legacyResolvedDefaultRuntime: "codex"}, runtime.Codex},
+		{"explicit lenos", &LegacyConfig{legacyResolvedDefaultRuntime: "lenos"}, runtime.Lenos},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -87,7 +88,7 @@ func TestDefaultRuntime(t *testing.T) {
 }
 
 func TestDefaultRuntimeRoundTrip(t *testing.T) {
-	cfg := &Config{
+	cfg := &LegacyConfig{
 		DefaultTeam: "default",
 		Teams: map[string]TeamConfig{
 			"default": {
@@ -97,23 +98,24 @@ func TestDefaultRuntimeRoundTrip(t *testing.T) {
 			},
 		},
 	}
-	if err := cfg.resolve(); err != nil {
-		t.Fatalf("resolve() failed: %v", err)
+	if err := cfg.legacyResolve(); err != nil {
+		t.Fatalf("legacyResolve() failed: %v", err)
 	}
 	if got := cfg.DefaultRuntime(); got != runtime.Lenos {
 		t.Errorf("DefaultRuntime() = %q, want %q", got, runtime.Lenos)
 	}
 }
 
-func TestGetMergeMode(t *testing.T) {
+func TestLegacyMergeMode(t *testing.T) {
+	// Tests the legacy multi-team merge mode resolution.
 	tests := []struct {
 		name string
-		cfg  *Config
+		cfg  *LegacyConfig
 		want string
 	}{
-		{"unset defaults to auto", &Config{}, MergeModeAuto},
-		{"explicit auto", &Config{resolvedMergeMode: "auto"}, MergeModeAuto},
-		{"explicit manual", &Config{resolvedMergeMode: "manual"}, MergeModeManual},
+		{"unset defaults to auto", &LegacyConfig{}, MergeModeAuto},
+		{"explicit auto", &LegacyConfig{legacyResolvedMergeMode: "auto"}, MergeModeAuto},
+		{"explicit manual", &LegacyConfig{legacyResolvedMergeMode: "manual"}, MergeModeManual},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,16 +126,16 @@ func TestGetMergeMode(t *testing.T) {
 	}
 }
 
-func TestMergeModeResolution(t *testing.T) {
+func TestLegacyMergeModeResolution(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     *Config
+		cfg     *LegacyConfig
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "team sets merge mode",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
@@ -148,7 +150,7 @@ func TestMergeModeResolution(t *testing.T) {
 		},
 		{
 			name: "team empty defaults to auto",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
@@ -162,7 +164,7 @@ func TestMergeModeResolution(t *testing.T) {
 		},
 		{
 			name: "invalid merge_mode rejected",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
@@ -177,7 +179,7 @@ func TestMergeModeResolution(t *testing.T) {
 		},
 		{
 			name: "both empty defaults to auto",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "test",
 				Teams: map[string]TeamConfig{
 					"test": {
@@ -192,15 +194,15 @@ func TestMergeModeResolution(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.resolve()
+			err := tt.cfg.legacyResolve()
 			if tt.wantErr {
 				if err == nil {
-					t.Fatal("resolve() should have returned an error")
+					t.Fatal("legacyResolve() should have returned an error")
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("resolve() error: %v", err)
+				t.Fatalf("legacyResolve() error: %v", err)
 			}
 			if got := tt.cfg.GetMergeMode(); got != tt.want {
 				t.Errorf("GetMergeMode() = %q, want %q", got, tt.want)
@@ -209,31 +211,20 @@ func TestMergeModeResolution(t *testing.T) {
 	}
 }
 
-func TestFlatConfigRejected(t *testing.T) {
-	cfg := &Config{Shell: "zsh"}
-	err := cfg.resolve()
-	if err == nil {
-		t.Fatal("resolve() should reject flat config (no teams)")
-	}
-	if !strings.Contains(err.Error(), "flat config no longer supported") {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestConventionBasedPaths(t *testing.T) {
+func TestLegacyConventionBasedPaths(t *testing.T) {
 	defDataDir := defaultDataDir()
 	defTaskRC := defaultTaskRC()
 
 	tests := []struct {
 		name         string
-		cfg          *Config
+		cfg          *LegacyConfig
 		wantDataDir  string
 		wantTaskRC   string
 		wantTaskData string
 	}{
 		{
 			name: "default team uses traditional paths",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: DefaultTeamName,
 				Teams: map[string]TeamConfig{
 					DefaultTeamName: {
@@ -249,7 +240,7 @@ func TestConventionBasedPaths(t *testing.T) {
 		},
 		{
 			name: "non-default team uses convention paths",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
@@ -265,7 +256,7 @@ func TestConventionBasedPaths(t *testing.T) {
 		},
 		{
 			name: "explicit data_dir overrides convention",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
@@ -282,7 +273,7 @@ func TestConventionBasedPaths(t *testing.T) {
 		},
 		{
 			name: "explicit taskrc overrides convention",
-			cfg: &Config{
+			cfg: &LegacyConfig{
 				DefaultTeam: "guion",
 				Teams: map[string]TeamConfig{
 					"guion": {
@@ -300,8 +291,8 @@ func TestConventionBasedPaths(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.cfg.resolve(); err != nil {
-				t.Fatalf("resolve() error: %v", err)
+			if err := tt.cfg.legacyResolve(); err != nil {
+				t.Fatalf("legacyResolve() error: %v", err)
 			}
 			if got := tt.cfg.DataDir(); got != tt.wantDataDir {
 				t.Errorf("DataDir() = %q, want %q", got, tt.wantDataDir)
@@ -317,6 +308,7 @@ func TestConventionBasedPaths(t *testing.T) {
 }
 
 func TestAgentPath(t *testing.T) {
+	// Tests the flat Config AgentPath method.
 	tests := []struct {
 		name     string
 		cfg      *Config
@@ -329,15 +321,33 @@ func TestAgentPath(t *testing.T) {
 			"kestrel",
 			"",
 		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.AgentPath(tt.agent); got != tt.wantPath {
+				t.Errorf("AgentPath(%q) = %q, want %q", tt.agent, got, tt.wantPath)
+			}
+		})
+	}
+}
+
+func TestLegacyAgentPath(t *testing.T) {
+	// Tests the legacy multi-team AgentPath resolution.
+	tests := []struct {
+		name     string
+		cfg      *LegacyConfig
+		agent    string
+		wantPath string
+	}{
 		{
 			"normal path joins correctly",
-			&Config{resolvedTeamPath: "/home/user/agents"},
+			&LegacyConfig{legacyResolvedTeamPath: "/home/user/agents"},
 			"kestrel",
 			"/home/user/agents/kestrel",
 		},
 		{
 			"different agent name",
-			&Config{resolvedTeamPath: "/opt/teams/default"},
+			&LegacyConfig{legacyResolvedTeamPath: "/opt/teams/default"},
 			"athena",
 			"/opt/teams/default/athena",
 		},
@@ -351,8 +361,8 @@ func TestAgentPath(t *testing.T) {
 	}
 }
 
-func TestAgentPathFromResolve(t *testing.T) {
-	cfg := &Config{
+func TestLegacyAgentPathFromResolve(t *testing.T) {
+	cfg := &LegacyConfig{
 		DefaultTeam: "test",
 		Teams: map[string]TeamConfig{
 			"test": {
@@ -362,17 +372,17 @@ func TestAgentPathFromResolve(t *testing.T) {
 			},
 		},
 	}
-	if err := cfg.resolve(); err != nil {
-		t.Fatalf("resolve() error: %v", err)
+	if err := cfg.legacyResolve(); err != nil {
+		t.Fatalf("legacyResolve() error: %v", err)
 	}
 
-	// After resolve, team_path with ~ should be expanded
+	// After legacyResolve, team_path with ~ should be expanded
 	got := cfg.AgentPath("kestrel")
 	if got == "" {
-		t.Fatal("AgentPath() returned empty after resolve with team_path set")
+		t.Fatal("AgentPath() returned empty after legacyResolve with team_path set")
 	}
 	if strings.Contains(got, "~") {
-		t.Errorf("AgentPath() = %q, should not contain tilde after resolve", got)
+		t.Errorf("AgentPath() = %q, should not contain tilde after legacyResolve", got)
 	}
 	if !strings.HasSuffix(got, "/kestrel") {
 		t.Errorf("AgentPath() = %q, should end with /kestrel", got)
@@ -396,7 +406,7 @@ func TestBuildEnvShellCommand(t *testing.T) {
 		},
 		{
 			"fish with env",
-			&Config{Shell: "fish"},
+			&Config{Shell_: "fish"},
 			[]string{"FOO=bar"},
 			"echo hello",
 			[]string{"env FOO=bar", "fish -C", "echo hello"},
@@ -410,7 +420,7 @@ func TestBuildEnvShellCommand(t *testing.T) {
 		},
 		{
 			"empty env parts",
-			&Config{Shell: "fish"},
+			&Config{Shell_: "fish"},
 			[]string{},
 			"echo hello",
 			[]string{"fish -C", "echo hello"},
@@ -452,7 +462,7 @@ func TestRolesConfigHeartbeatPrompt(t *testing.T) {
 
 func TestPromptPlanReview(t *testing.T) {
 	cfg := &Config{
-		Prompts: PromptsConfig{
+		Prompts_: PromptsConfig{
 			PlanReview:   "review plan {{task-id}}",
 			PlanReReview: "re-review plan {{task-id}}",
 			PlanTriage:   "triage plan",
@@ -467,34 +477,34 @@ func TestPromptPlanReview(t *testing.T) {
 	if got := cfg.Prompt("plan_triage"); got != "triage plan" {
 		t.Errorf("Prompt(plan_triage) = %q, want %q", got, "triage plan")
 	}
-	if !cfg.hasAnyPromptConfigured() {
-		t.Error("hasAnyPromptConfigured() = false when PlanReview is set, want true")
+	if !cfg.hasAnyPromptConfigured_() {
+		t.Error("hasAnyPromptConfigured_() = false when PlanReview is set, want true")
 	}
-	cfgPlanOnly := &Config{Prompts: PromptsConfig{PlanReview: "x"}}
-	if !cfgPlanOnly.hasAnyPromptConfigured() {
-		t.Error("hasAnyPromptConfigured() = false when only PlanReview is set, want true")
+	cfgPlanOnly := &Config{Prompts_: PromptsConfig{PlanReview: "x"}}
+	if !cfgPlanOnly.hasAnyPromptConfigured_() {
+		t.Error("hasAnyPromptConfigured_() = false when only PlanReview is set, want true")
 	}
-	cfgTriageOnly := &Config{Prompts: PromptsConfig{PlanTriage: "x"}}
-	if !cfgTriageOnly.hasAnyPromptConfigured() {
-		t.Error("hasAnyPromptConfigured() = false when only PlanTriage is set, want true")
+	cfgTriageOnly := &Config{Prompts_: PromptsConfig{PlanTriage: "x"}}
+	if !cfgTriageOnly.hasAnyPromptConfigured_() {
+		t.Error("hasAnyPromptConfigured_() = false when only PlanTriage is set, want true")
 	}
 }
 
-func TestConfigHeartbeatPromptNilGuard(t *testing.T) {
-	// resolvedRoles == nil (e.g. no roles.toml)
-	cfg := &Config{}
+func TestLegacyHeartbeatPromptNilGuard(t *testing.T) {
+	// Tests LegacyConfig HeartbeatPrompt with nil/partial RolesConfig.
+	cfg := &LegacyConfig{}
 	if got := cfg.HeartbeatPrompt("yuki"); got != "" {
 		t.Errorf("HeartbeatPrompt with nil resolvedRoles = %q, want empty", got)
 	}
 
 	// resolvedRoles set but HeartbeatPrompts is nil (should not panic)
-	cfg.resolvedRoles = &RolesConfig{Roles: map[string]string{"yuki": "prompt"}}
+	cfg.legacyResolvedRoles = &RolesConfig{Roles: map[string]string{"yuki": "prompt"}}
 	if got := cfg.HeartbeatPrompt("yuki"); got != "" {
 		t.Errorf("HeartbeatPrompt with nil HeartbeatPrompts = %q, want empty", got)
 	}
 
 	// resolvedRoles and HeartbeatPrompts set, agent present
-	cfg.resolvedRoles = &RolesConfig{
+	cfg.legacyResolvedRoles = &RolesConfig{
 		HeartbeatPrompts: map[string]string{"yuki": "heartbeat msg"},
 	}
 	if got := cfg.HeartbeatPrompt("yuki"); got != "heartbeat msg" {
@@ -551,7 +561,7 @@ func TestCommentSyncResolution(t *testing.T) {
 func TestPromptContext_ReturnsContextField(t *testing.T) {
 	contextPrompt := "$ echo hello\nsome text"
 	cfg := &Config{
-		Prompts: PromptsConfig{Context: contextPrompt},
+		Prompts_: PromptsConfig{Context: contextPrompt},
 	}
 	got := cfg.Prompt("context")
 	if got != contextPrompt {
@@ -571,10 +581,10 @@ func TestPromptContext_NotInheritedFromDefault(t *testing.T) {
 // when only Context is set.
 func TestPromptContext_HasAnyPromptConfigured(t *testing.T) {
 	cfg := &Config{
-		Prompts: PromptsConfig{Context: "$ echo hi"},
+		Prompts_: PromptsConfig{Context: "$ echo hi"},
 	}
-	if !cfg.hasAnyPromptConfigured() {
-		t.Error("hasAnyPromptConfigured() = false when Context is set, want true")
+	if !cfg.hasAnyPromptConfigured_() {
+		t.Error("hasAnyPromptConfigured_() = false when Context is set, want true")
 	}
 }
 
@@ -635,10 +645,8 @@ func TestRuntimeForAgent(t *testing.T) {
 }
 
 // TestLoadAll_GlobalAgentPathResolved verifies that LoadAll populates
-// cfg.resolvedTeamPath so that (*Config).AgentPath / TeamPath return correct
-// values via mcfg.Global. This was broken because LoadAll did not call
-// cfg.resolve() — only resolveTeam() — leaving resolvedTeamPath empty in the
-// Global Config. Regression test for the cmdexec bridge "no workspace" skip.
+// the resolved fields so that AgentPath / TeamPath return correct
+// values via mcfg.Global. Regression test for the cmdexec bridge "no workspace" skip.
 func TestLoadAll_GlobalAgentPathResolved(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)

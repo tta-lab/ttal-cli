@@ -111,7 +111,7 @@ Examples:
 			return err
 		}
 
-		chatIDStr := cfg.ChatID
+		chatIDStr := cfg.ChatID_
 		chatID, err := telegram.ParseChatID(chatIDStr)
 		if err != nil {
 			return err

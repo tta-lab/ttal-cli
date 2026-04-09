@@ -40,7 +40,7 @@ func checkMatrix(fix bool) Section {
 
 	// Find teams with frontend=matrix
 	var matrixTeams []string
-	for name, team := range cfg.Teams {
+	for name, team := range cfg.Teams() {
 		if team.Frontend == "matrix" {
 			matrixTeams = append(matrixTeams, name)
 		}
@@ -61,7 +61,7 @@ func checkMatrix(fix bool) Section {
 
 // checkMatrixTeam runs all Matrix checks for a single team.
 func checkMatrixTeam(section *Section, cfg *config.Config, teamName string, fix bool) {
-	team := cfg.Teams[teamName]
+	team := cfg.Teams()[teamName]
 	if team.Matrix == nil {
 		section.add(LevelError, teamName, "frontend=matrix but no [teams."+teamName+".matrix] config")
 		return
@@ -220,7 +220,7 @@ func provisionMatrixAgent(
 	defer cancel()
 
 	// Get agent info for display name (emoji + capitalized name)
-	teamPath := cfg.Teams[teamName].TeamPath
+	teamPath := cfg.Teams()[teamName].TeamPath
 	if teamPath == "" {
 		teamPath = cfg.TeamPath()
 	}

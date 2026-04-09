@@ -57,13 +57,13 @@ func loadRulesContent() string {
 	if err != nil {
 		return ""
 	}
-	if len(cfg.Sync.RulesPaths) == 0 {
+	if len(cfg.SyncConfig_.RulesPaths) == 0 {
 		return ""
 	}
-	results, err := syncer.DeployRules(cfg.Sync.RulesPaths, true)
+	results, err := syncer.DeployRules(cfg.SyncConfig_.RulesPaths, true)
 	if err != nil || len(results) == 0 {
-		if len(cfg.Sync.RulesPaths) > 0 {
-			log.Printf("[codex] warning: no rules loaded from %v", cfg.Sync.RulesPaths)
+		if len(cfg.SyncConfig_.RulesPaths) > 0 {
+			log.Printf("[codex] warning: no rules loaded from %v", cfg.SyncConfig_.RulesPaths)
 		}
 		return ""
 	}

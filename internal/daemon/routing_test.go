@@ -277,7 +277,7 @@ func pipelineConfigForTest(workerStage bool) *pipeline.Config {
 
 //nolint:gocyclo
 func TestResolveManagerWindow(t *testing.T) {
-	mcfg := &config.DaemonConfig{Global: &config.Config{}}
+	mcfg := &config.DaemonConfig{Global: &config.LegacyConfig{}}
 
 	origExport := exportTaskByHexIDFn
 	origWindowExists := windowExistsFn
@@ -427,7 +427,7 @@ func TestResolveManagerWindow(t *testing.T) {
 // TestResolveManagerWindowTaskLookupError verifies that resolveManagerWindow propagates
 // task lookup errors from the injected exportTaskByHexIDFn.
 func TestResolveManagerWindowTaskLookupError(t *testing.T) {
-	mcfg := &config.DaemonConfig{Global: &config.Config{}}
+	mcfg := &config.DaemonConfig{Global: &config.LegacyConfig{}}
 
 	origExport := exportTaskByHexIDFn
 	origPipelineLoad := pipelineLoadFn
@@ -463,7 +463,7 @@ func TestResolveManagerWindowWithTeam(t *testing.T) {
 		pipelineLoadFn = origPipelineLoad
 	})
 
-	cfg := &config.Config{}
+	cfg := &config.LegacyConfig{}
 	mcfg := &config.DaemonConfig{Global: cfg}
 
 	taskWithOwner := &taskwarrior.Task{
@@ -560,7 +560,7 @@ func TestResolveManagerWindow_RealLoadAll(t *testing.T) {
 //
 //nolint:gocyclo
 func TestDispatchToWorkerOrManager(t *testing.T) {
-	mcfg := &config.DaemonConfig{Global: &config.Config{}}
+	mcfg := &config.DaemonConfig{Global: &config.LegacyConfig{}}
 
 	origResolveWorker := resolveWorker
 	origResolveManagerWindow := resolveManagerWindow

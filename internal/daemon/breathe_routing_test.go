@@ -561,7 +561,7 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 		t.Fatalf("LoadAll: %v", err)
 	}
 	agent := "athena"
-	cwd, sessionAlive, err := resolveBrCWD("nonexistent-session-xyz", agent, agent, mcfg.Global)
+	cwd, sessionAlive, err := resolveBrCWD("nonexistent-session-xyz", agent, agent, mcfg.Global.AsConfig())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

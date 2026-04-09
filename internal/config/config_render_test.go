@@ -89,7 +89,7 @@ func TestRenderSkillPlaceholders(t *testing.T) {
 
 func TestPromptWorkerKeysSkipRolesDefault(t *testing.T) {
 	cfg := &Config{
-		resolvedRoles: &RolesConfig{
+		Roles_: &RolesConfig{
 			Roles: map[string]string{
 				"default": "manager system prompt",
 			},
