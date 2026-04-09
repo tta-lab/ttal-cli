@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,7 +72,7 @@ type UserConfig struct {
 //
 // Requires [teams] sections. After Load(), resolved fields are populated from the active team.
 // Callers access ChatID etc. without caring about which team is active.
-type Config struct {
+type LegacyConfig struct {
 	// Resolved fields — populated from active team after Load(). Not directly settable in TOML.
 	ChatID            string      `toml:"-" json:"-"`
 	LifecycleAgent    string      `toml:"-" json:"-"` // Deprecated: use NotificationToken instead
@@ -100,17 +101,17 @@ type Config struct {
 	// Human user identity (used by GUI ChatService and message queries)
 	User UserConfig `toml:"user"`
 
-	resolvedDataDir          string
-	resolvedTaskRC           string
-	resolvedTaskData         string
-	resolvedDefaultRuntime   string
-	resolvedMergeMode        string
-	resolvedTeamPath         string
-	resolvedProjectsPath     string
-	resolvedTaskSyncURL      string
-	resolvedEmojiReactions   bool
-	resolvedBreatheThreshold float64 // resolved from *float64, default defaultBreatheThreshold
-	resolvedRoles            *RolesConfig
+	legacyResolvedDataDir          string
+	legacyResolvedTaskRC           string
+	legacyResolvedTaskData         string
+	legacyResolvedDefaultRuntime   string
+	legacyResolvedMergeMode        string
+	legacyResolvedTeamPath         string
+	legacyResolvedProjectsPath     string
+	legacyResolvedTaskSyncURL      string
+	legacyResolvedEmojiReactions   bool
+	legacyResolvedBreatheThreshold float64 // resolved from *float64, default defaultBreatheThreshold
+	legacyResolvedRoles            *RolesConfig
 }
 
 // TeamConfig holds per-team configuration.
@@ -154,6 +155,222 @@ type TeamConfig struct {
 	BreatheThreshold *float64 `toml:"breathe_threshold"` //nolint:lll
 }
 
+// Config is the flat, single-team configuration populated by Load().
+// All fields are public and resolved at load time -- no hidden state.
+type Config struct {
+	// Team-scoped (from [teams.default])
+	// Fields that conflict with methods get underscore suffix; others keep original name.
+	TeamPath_          string      // conflict with TeamPath() method → keep
+	DataDir_           string      // conflict with DataDir() method → keep
+	TaskRC_            string      // conflict with TaskRC() method → keep
+	TaskData_          string      // conflict with TaskData() method → keep
+	TaskSyncURL_       string      // conflict with TaskSyncURL() method → keep
+	ChatID_            string      // conflict with ChatID() method → keep
+	LifecycleAgent     string      // no conflict → no underscore
+	NotificationToken  string      // no conflict → no underscore
+	Frontend_          string      // conflict with Frontend() method? no → no underscore
+	DefaultRuntimeVal_ string      // conflict with DefaultRuntime() method → keep
+	MergeMode_         string      // conflict with MergeMode() method → keep
+	CommentSync_       string      // conflict with CommentSync() method → keep
+	EmojiReactions_    bool        // conflict with EmojiReactions() method → keep
+	BreatheThreshold_  float64     // conflict with BreatheThreshold() method → keep
+	UserNameVal_       string      // conflict with UserName() method → keep
+	VoiceResolved      VoiceConfig // no conflict → no underscore
+	Matrix_            *MatrixTeamConfig
+	Voice_             VoiceConfig
+
+	// Global
+	Shell_      string          // conflict with GetShell() → keep
+	SyncConfig_ SyncConfig      // conflict with Sync() method → rename from Sync_
+	Prompts_    PromptsConfig   // conflict with Prompts() method → keep
+	Ask_        AskConfig       // conflict with Ask() method? no → no underscore
+	Flicknote_  FlicknoteConfig // conflict with Flicknote() method → keep
+	Voice       VoiceConfig     // no conflict → no underscore
+	Kubernetes_ KubernetesConfig
+	Roles_      *RolesConfig
+
+	// Derived
+	ProjectsPath string
+}
+
+// Teams returns a synthetic map containing only the "default" team,
+// populated from the flat fields on Config. Used by doctor/matrix_provision.go
+// and other callers that expect the old Teams map.
+func (c *Config) Teams() map[string]TeamConfig {
+	return map[string]TeamConfig{
+		"default": {
+			Frontend: c.Frontend_,
+			Matrix:   c.Matrix_,
+			TeamPath: c.TeamPath_,
+		},
+	}
+}
+
+// --- Accessors ---
+
+// TeamPath returns the resolved team path.
+func (c *Config) TeamPath() string { return c.TeamPath_ }
+
+// AgentPath returns the workspace path for an agent.
+func (c *Config) AgentPath(name string) string {
+	if c.TeamPath_ == "" {
+		return ""
+	}
+	return filepath.Join(c.TeamPath_, name)
+}
+
+// DataDir returns the resolved data directory.
+func (c *Config) DataDir() string { return c.DataDir_ }
+
+// TaskRC returns the resolved taskrc path.
+func (c *Config) TaskRC() string { return c.TaskRC_ }
+
+// TaskData returns the resolved taskwarrior data directory.
+func (c *Config) TaskData() string { return c.TaskData_ }
+
+// TaskSyncURL returns the TaskChampion sync server URL.
+func (c *Config) TaskSyncURL() string { return c.TaskSyncURL_ }
+
+// UserName returns the human identity, falling back to $USER.
+func (c *Config) UserName() string {
+	if c.UserNameVal_ != "" {
+		return c.UserNameVal_
+	}
+	return os.Getenv("USER")
+}
+
+// DefaultRuntime returns the team's default runtime.
+func (c *Config) DefaultRuntime() runtime.Runtime {
+	if c.DefaultRuntimeVal_ != "" {
+		return runtime.Runtime(c.DefaultRuntimeVal_)
+	}
+	return runtime.ClaudeCode
+}
+
+// GetMergeMode returns the resolved merge mode ("auto" if unset).
+func (c *Config) GetMergeMode() string {
+	if c.MergeMode_ != "" {
+		return c.MergeMode_
+	}
+	return MergeModeAuto
+}
+
+// EmojiReactions returns whether emoji reactions are enabled.
+func (c *Config) EmojiReactions() bool { return c.EmojiReactions_ }
+
+// BreatheThreshold returns the context usage % below which auto-breathe is skipped.
+func (c *Config) BreatheThreshold() float64 { return c.BreatheThreshold_ }
+
+// ChatID returns the Telegram chat ID for this team.
+func (c *Config) ChatID() string { return c.ChatID_ }
+
+// Roles returns the resolved roles config.
+func (c *Config) Roles() *RolesConfig { return c.Roles_ }
+
+// HeartbeatPrompt returns the heartbeat_prompt for an agent from roles.toml.
+func (c *Config) HeartbeatPrompt(agentName string) string {
+	if c.Roles_ == nil || c.Roles_.HeartbeatPrompts == nil {
+		return ""
+	}
+	return c.Roles_.HeartbeatPrompts[agentName]
+}
+
+// Prompt returns the prompt template for a key.
+// logic with type-specific field access. Will be eliminated when LegacyConfig is removed.
+//
+//nolint:dupl // Structural duplication with LegacyConfig.Prompt — both serve the same
+func (c *Config) Prompt(key string) string {
+	roles := c.Roles_
+	if roles != nil && roles.Roles != nil {
+		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
+			return prompt
+		}
+		if key != "default" && !workerPromptKeys[key] {
+			if prompt, ok := roles.Roles["default"]; ok && prompt != "" {
+				return prompt
+			}
+		}
+	}
+	if c.hasAnyPromptConfigured_() {
+		promptsMap := map[string]string{
+			"context":        c.Prompts_.Context,
+			"triage":         c.Prompts_.Triage,
+			"review":         c.Prompts_.Review,
+			"re_review":      c.Prompts_.ReReview,
+			"plan_review":    c.Prompts_.PlanReview,
+			"plan_re_review": c.Prompts_.PlanReReview,
+			"plan_triage":    c.Prompts_.PlanTriage,
+		}
+		if prompt, ok := promptsMap[key]; ok {
+			return prompt
+		}
+	}
+	return ""
+}
+
+func (c *Config) hasAnyPromptConfigured_() bool {
+	return c.Prompts_.Context != "" || c.Prompts_.Triage != "" ||
+		c.Prompts_.Review != "" || c.Prompts_.ReReview != "" ||
+		c.Prompts_.PlanReview != "" || c.Prompts_.PlanReReview != "" ||
+		c.Prompts_.PlanTriage != ""
+}
+
+// RenderPrompt resolves {{skill:name}} and {{task-id}} in a prompt template.
+func (c *Config) RenderPrompt(key, taskID string, rt runtime.Runtime) string {
+	tmpl := c.Prompt(key)
+	return RenderTemplate(tmpl, taskID, rt)
+}
+
+// WorkerAgentPaths returns the configured worker agent paths from the sync config.
+func (c *Config) WorkerAgentPaths() []string {
+	return c.SyncConfig_.WorkerAgentPaths
+}
+
+// AskReferencesPath returns the resolved path for cloned reference repos.
+func (c *Config) AskReferencesPath() string {
+	if c.Ask_.ReferencesPath != "" {
+		return expandHome(c.Ask_.ReferencesPath)
+	}
+	return expandHome(defaultAskReferencesPath)
+}
+
+// GetShell returns the configured shell (default: zsh).
+func (c *Config) GetShell() string {
+	if c.Shell_ != "" {
+		if validShells[c.Shell_] {
+			return c.Shell_
+		}
+		fmt.Fprintf(os.Stderr, "warning: invalid shell %q in config, falling back to %s\n", c.Shell_, DefaultShell)
+	}
+	return DefaultShell
+}
+
+// ShellCommand returns a shell -c command string for the configured shell.
+func (c *Config) ShellCommand(cmd string) string {
+	shell := c.GetShell()
+	switch shell {
+	case ShellFish:
+		return fmt.Sprintf("fish -C '%s'", cmd)
+	default:
+		return fmt.Sprintf("zsh -c '%s'", cmd)
+	}
+}
+
+// BuildEnvShellCommand returns a shell command with env vars prepended.
+func (c *Config) BuildEnvShellCommand(envParts []string, cmd string) string {
+	shell := c.GetShell()
+	envStr := ""
+	if len(envParts) > 0 {
+		envStr = fmt.Sprintf("env %s ", strings.Join(envParts, " "))
+	}
+	switch shell {
+	case ShellFish:
+		return fmt.Sprintf("%sfish -C '%s'", envStr, cmd)
+	default:
+		return fmt.Sprintf("%szsh -c '%s'", envStr, cmd)
+	}
+}
+
 // SyncConfig holds paths for subagent and rule deployment.
 type SyncConfig struct {
 	// Directories for worker agent definitions (deployed to ~/.claude/agents/)
@@ -168,7 +385,7 @@ type SyncConfig struct {
 }
 
 // WorkerAgentPaths returns the configured worker agent paths from the sync config.
-func (c *Config) WorkerAgentPaths() []string {
+func (c *LegacyConfig) WorkerAgentPaths() []string {
 	return c.Sync.WorkerAgentPaths
 }
 
@@ -247,9 +464,9 @@ func AgentBotToken(agentName string) string {
 }
 
 // DefaultRuntime returns the team's default runtime ("claude-code" if unset).
-func (c *Config) DefaultRuntime() runtime.Runtime {
-	if c.resolvedDefaultRuntime != "" {
-		return runtime.Runtime(c.resolvedDefaultRuntime)
+func (c *LegacyConfig) DefaultRuntime() runtime.Runtime {
+	if c.legacyResolvedDefaultRuntime != "" {
+		return runtime.Runtime(c.legacyResolvedDefaultRuntime)
 	}
 	return runtime.ClaudeCode
 }
@@ -285,35 +502,35 @@ func loadDotEnvIntoProcess() {
 }
 
 // DataDir returns the resolved data directory for the active team.
-func (c *Config) DataDir() string {
-	return c.resolvedDataDir
+func (c *LegacyConfig) DataDir() string {
+	return c.legacyResolvedDataDir
 }
 
 // TaskRC returns the resolved taskrc path for the active team.
-func (c *Config) TaskRC() string {
-	return c.resolvedTaskRC
+func (c *LegacyConfig) TaskRC() string {
+	return c.legacyResolvedTaskRC
 }
 
 // TaskData returns the resolved taskwarrior data directory for the active team.
-func (c *Config) TaskData() string {
-	return c.resolvedTaskData
+func (c *LegacyConfig) TaskData() string {
+	return c.legacyResolvedTaskData
 }
 
 // TeamPath returns the resolved team path for the active team.
-func (c *Config) TeamPath() string {
-	return c.resolvedTeamPath
+func (c *LegacyConfig) TeamPath() string {
+	return c.legacyResolvedTeamPath
 }
 
 // AgentPath returns the workspace path for an agent, derived from team_path.
-func (c *Config) AgentPath(agentName string) string {
-	if c.resolvedTeamPath == "" {
+func (c *LegacyConfig) AgentPath(agentName string) string {
+	if c.legacyResolvedTeamPath == "" {
 		return ""
 	}
-	return filepath.Join(c.resolvedTeamPath, agentName)
+	return filepath.Join(c.legacyResolvedTeamPath, agentName)
 }
 
 // UserName returns the configured human name, falling back to the $USER env var.
-func (c *Config) UserName() string {
+func (c *LegacyConfig) UserName() string {
 	if c.User.Name != "" {
 		return c.User.Name
 	}
@@ -321,8 +538,8 @@ func (c *Config) UserName() string {
 }
 
 // TaskSyncURL returns the TaskChampion sync server URL for the active team.
-func (c *Config) TaskSyncURL() string {
-	return c.resolvedTaskSyncURL
+func (c *LegacyConfig) TaskSyncURL() string {
+	return c.legacyResolvedTaskSyncURL
 }
 
 const (
@@ -338,21 +555,21 @@ const (
 
 // GetMergeMode returns the resolved merge mode ("auto" if unset).
 // "auto" merges immediately; "manual" sends a notification instead.
-func (c *Config) GetMergeMode() string {
-	if c.resolvedMergeMode != "" {
-		return c.resolvedMergeMode
+func (c *LegacyConfig) GetMergeMode() string {
+	if c.legacyResolvedMergeMode != "" {
+		return c.legacyResolvedMergeMode
 	}
 	return MergeModeAuto
 }
 
 // EmojiReactions returns whether emoji reactions on Telegram tool messages are enabled (default: false).
-func (c *Config) EmojiReactions() bool {
-	return c.resolvedEmojiReactions
+func (c *LegacyConfig) EmojiReactions() bool {
+	return c.legacyResolvedEmojiReactions
 }
 
 // BreatheThreshold returns the context usage % below which auto-breathe is skipped.
-func (c *Config) BreatheThreshold() float64 {
-	return c.resolvedBreatheThreshold
+func (c *LegacyConfig) BreatheThreshold() float64 {
+	return c.legacyResolvedBreatheThreshold
 }
 
 // workerPromptKeys are worker-plane keys that must not inherit roles.toml[default].
@@ -373,8 +590,11 @@ var workerPromptKeys = map[string]bool{
 // Priority: roles.toml[key] > roles.toml[default] > config.toml[prompts]
 // Worker-plane keys (execute, review, re_review, triage) skip roles.toml[default]
 // to prevent manager-plane prompts bleeding into worker sessions.
-func (c *Config) Prompt(key string) string {
-	roles := c.resolvedRoles
+// logic with type-specific field access. Will be eliminated when LegacyConfig is removed.
+//
+//nolint:dupl // Structural duplication with Config.Prompt — both serve the same
+func (c *LegacyConfig) Prompt(key string) string {
+	roles := c.legacyResolvedRoles
 	if roles != nil && roles.Roles != nil {
 		if prompt, ok := roles.Roles[key]; ok && prompt != "" {
 			return prompt
@@ -387,7 +607,7 @@ func (c *Config) Prompt(key string) string {
 		}
 	}
 
-	if c.hasAnyPromptConfigured() {
+	if c.legacyHasAnyPromptConfigured() {
 		promptsMap := map[string]string{
 			"context":        c.Prompts.Context,
 			"triage":         c.Prompts.Triage,
@@ -405,32 +625,24 @@ func (c *Config) Prompt(key string) string {
 	return ""
 }
 
-// Roles returns the resolved roles config for use by external packages.
-func (c *Config) Roles() *RolesConfig {
-	return c.resolvedRoles
-}
-
 // HeartbeatPrompt returns the heartbeat_prompt for an agent's role from roles.toml.
-// agentName is used directly as the role key (e.g. "yuki" → [yuki] in roles.toml).
-// Returns empty string if not configured.
-func (c *Config) HeartbeatPrompt(agentName string) string {
-	if c.resolvedRoles == nil || c.resolvedRoles.HeartbeatPrompts == nil {
+func (c *LegacyConfig) HeartbeatPrompt(agentName string) string {
+	if c.legacyResolvedRoles == nil || c.legacyResolvedRoles.HeartbeatPrompts == nil {
 		return ""
 	}
-	return c.resolvedRoles.HeartbeatPrompts[agentName]
+	return c.legacyResolvedRoles.HeartbeatPrompts[agentName]
 }
 
-func (c *Config) hasAnyPromptConfigured() bool {
+// Roles returns the resolved roles config (exported wrapper for daemon callers).
+func (c *LegacyConfig) Roles() *RolesConfig {
+	return c.legacyResolvedRoles
+}
+
+func (c *LegacyConfig) legacyHasAnyPromptConfigured() bool {
 	return c.Prompts.Context != "" || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
 		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != "" ||
 		c.Prompts.PlanTriage != ""
-}
-
-// RenderPrompt resolves {{task-id}} and {{skill:name}} placeholders in a prompt template.
-func (c *Config) RenderPrompt(key, taskID string, rt runtime.Runtime) string {
-	tmpl := c.Prompt(key)
-	return RenderTemplate(tmpl, taskID, rt)
 }
 
 // RenderTemplate resolves {{skill:name}} and {{task-id}} in an arbitrary template string.
@@ -482,7 +694,7 @@ const (
 
 // AskReferencesPath returns the resolved path for cloned reference repos.
 // Defaults to ~/.ttal/references/ if not configured.
-func (c *Config) AskReferencesPath() string {
+func (c *LegacyConfig) AskReferencesPath() string {
 	if c.Ask.ReferencesPath != "" {
 		return expandHome(c.Ask.ReferencesPath)
 	}
@@ -491,9 +703,11 @@ func (c *Config) AskReferencesPath() string {
 
 const DefaultShell = "zsh"
 
-var validShells = map[string]bool{"zsh": true, "fish": true}
+const ShellFish = "fish"
 
-func (c *Config) GetShell() string {
+var validShells = map[string]bool{"zsh": true, ShellFish: true}
+
+func (c *LegacyConfig) GetShell() string {
 	if c.Shell != "" {
 		if validShells[c.Shell] {
 			return c.Shell
@@ -503,24 +717,24 @@ func (c *Config) GetShell() string {
 	return DefaultShell
 }
 
-func (c *Config) ShellCommand(cmd string) string {
+func (c *LegacyConfig) ShellCommand(cmd string) string {
 	shell := c.GetShell()
 	switch shell {
-	case "fish":
+	case ShellFish:
 		return fmt.Sprintf("fish -C '%s'", cmd)
 	default:
 		return fmt.Sprintf("zsh -c '%s'", cmd)
 	}
 }
 
-func (c *Config) BuildEnvShellCommand(envParts []string, cmd string) string {
+func (c *LegacyConfig) BuildEnvShellCommand(envParts []string, cmd string) string {
 	shell := c.GetShell()
 	envStr := ""
 	if len(envParts) > 0 {
 		envStr = fmt.Sprintf("env %s ", strings.Join(envParts, " "))
 	}
 	switch shell {
-	case "fish":
+	case ShellFish:
 		return fmt.Sprintf("%sfish -C '%s'", envStr, cmd)
 	default:
 		return fmt.Sprintf("%szsh -c '%s'", envStr, cmd)
@@ -536,16 +750,213 @@ func Path() (string, error) {
 	return filepath.Join(home, ".config", "ttal", "config.toml"), nil
 }
 
-// Load reads and validates ~/.config/ttal/config.toml.
-// If the config uses [teams], the active team is resolved and its fields
-// are promoted to the top-level Config fields for backward compatibility.
+// Load reads and validates ~/.config/ttal/config.toml using the flat Config struct.
+// This is the single-team Load() -- LoadAll and DaemonConfig are deprecated.
 func Load() (*Config, error) {
 	path, err := Path()
 	if err != nil {
 		return nil, err
 	}
 
-	var cfg Config
+	var raw rawFile
+	if _, err := toml.DecodeFile(path, &raw); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("config not found: %s (run: ttal daemon install)", path)
+		}
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
+	team, ok := raw.Teams["default"]
+	if !ok {
+		return nil, errors.New("config.toml missing [teams.default]")
+	}
+	if team.TeamPath == "" {
+		return nil, errors.New("[teams.default] missing required field: team_path")
+	}
+
+	loadDotEnvIntoProcess()
+
+	cfg := &Config{
+		TeamPath_:          expandHome(team.TeamPath),
+		Frontend_:          team.Frontend,
+		LifecycleAgent:     team.LifecycleAgent,
+		NotificationToken:  resolveNotificationToken("default", team.NotificationTokenEnv),
+		DefaultRuntimeVal_: team.DefaultRuntime,
+		MergeMode_:         team.MergeMode,
+		CommentSync_:       team.CommentSync,
+		ChatID_:            team.ChatID,
+		Shell_:             raw.Shell,
+		SyncConfig_:        raw.Sync,
+		Ask_:               raw.Ask,
+		Flicknote_:         raw.Flicknote,
+		Kubernetes_:        raw.Kubernetes,
+	}
+
+	// Resolve DataDir
+	if team.DataDir != "" {
+		cfg.DataDir_ = expandHome(team.DataDir)
+	} else {
+		cfg.DataDir_ = defaultDataDir()
+	}
+	cfg.TaskData_ = filepath.Join(cfg.DataDir_, "tasks")
+
+	// Resolve TaskRC
+	if team.TaskRC != "" {
+		cfg.TaskRC_ = expandHome(team.TaskRC)
+	} else {
+		cfg.TaskRC_ = defaultTaskRC()
+	}
+
+	cfg.TaskSyncURL_ = team.TaskSyncURL
+
+	// Resolve emoji reactions
+	cfg.EmojiReactions_ = team.EmojiReactions != nil && *team.EmojiReactions
+
+	// Resolve breathe threshold
+	if team.BreatheThreshold != nil {
+		cfg.BreatheThreshold_ = *team.BreatheThreshold
+	} else {
+		cfg.BreatheThreshold_ = defaultBreatheThreshold
+	}
+
+	// Resolve voice config with merged vocabulary
+	cfg.Voice_ = resolveVoiceConfigFlat(team, raw.Voice)
+	cfg.Matrix_ = convertRawMatrix(team.Matrix)
+
+	// Resolve user name
+	cfg.UserNameVal_ = resolveUserNameFlat(team.User, raw.User)
+
+	// Validate default runtime
+	if err := legacyValidateDefaultRuntime(team.DefaultRuntime); err != nil {
+		return nil, err
+	}
+
+	// Validate merge mode
+	if err := validateMergeMode(cfg.MergeMode_); err != nil {
+		return nil, err
+	}
+
+	// Default flicknote inline projects
+	if len(cfg.Flicknote_.InlineProjects) == 0 {
+		cfg.Flicknote_.InlineProjects = DefaultInlineProjects
+	}
+
+	// Side-loaded files
+	roles, err := LoadRoles()
+	if err != nil {
+		return nil, fmt.Errorf("roles.toml: %w", err)
+	}
+	cfg.Roles_ = roles
+
+	prompts, err := LoadPrompts()
+	if err != nil {
+		return nil, fmt.Errorf("prompts.toml: %w", err)
+	}
+	cfg.Prompts_ = prompts
+
+	// Projects path
+	cfg.ProjectsPath = projectsPathForTeam("default")
+
+	return cfg, nil
+}
+
+// resolveVoiceConfigFlat resolves the voice config for the new flat Config.
+func resolveVoiceConfigFlat(team rawTeam, globalVoice VoiceConfig) VoiceConfig {
+	allAgentNames := make([]string, 0)
+	seenAgents := make(map[string]bool)
+	if team.TeamPath != "" {
+		names, err := agentfs.DiscoverAgents(expandHome(team.TeamPath))
+		if err == nil {
+			for _, name := range names {
+				if !seenAgents[name] {
+					seenAgents[name] = true
+					allAgentNames = append(allAgentNames, name)
+				}
+			}
+		}
+	}
+	mergedVocab := globalVoice.EffectiveVocabulary(team.VoiceVocabulary, []string{defaultTeamName}, allAgentNames)
+	lang := globalVoice.Language
+	if lang == "" {
+		lang = team.VoiceLanguage
+	}
+	return VoiceConfig{
+		Vocabulary: mergedVocab,
+		Language:   lang,
+	}
+}
+
+// resolveUserNameFlat resolves the human identity for the flat Config.
+func resolveUserNameFlat(teamUser UserConfig, globalUser UserConfig) string {
+	if teamUser.Name != "" {
+		return teamUser.Name
+	}
+	if globalUser.Name != "" {
+		return globalUser.Name
+	}
+	return os.Getenv("USER")
+}
+
+// convertRawMatrix converts a rawMatrix (TOML decode target) to MatrixTeamConfig.
+func convertRawMatrix(rm *rawMatrix) *MatrixTeamConfig {
+	if rm == nil {
+		return nil
+	}
+	agents := make(map[string]MatrixAgentConfig)
+	for k, v := range rm.Agents {
+		agents[k] = MatrixAgentConfig(v)
+	}
+	return &MatrixTeamConfig{
+		Homeserver:     rm.Homeserver,
+		NotifyRoom:     rm.NotifyRoom,
+		NotifyTokenEnv: rm.NotifyTokenEnv,
+		HumanUserID:    rm.HumanUserID,
+		Agents:         agents,
+	}
+}
+
+// Load reads and validates ~/.config/ttal/config.toml.
+// If the config uses [teams], the active team is resolved and its fields
+// are promoted to the top-level LegacyConfig fields for backward compatibility.
+// AsConfig converts a LegacyConfig to the new Config type for use with
+// functions that expect *Config. Used during Step 1/4 daemon migration.
+func (c *LegacyConfig) AsConfig() *Config {
+	return &Config{
+		TeamPath_:          c.legacyResolvedTeamPath,
+		DataDir_:           c.legacyResolvedDataDir,
+		TaskRC_:            c.legacyResolvedTaskRC,
+		TaskData_:          c.legacyResolvedTaskData,
+		TaskSyncURL_:       c.legacyResolvedTaskSyncURL,
+		ChatID_:            c.ChatID,
+		LifecycleAgent:     c.LifecycleAgent,
+		NotificationToken:  c.NotificationToken,
+		Frontend_:          c.Teams["default"].Frontend,
+		DefaultRuntimeVal_: c.legacyResolvedDefaultRuntime,
+		MergeMode_:         c.legacyResolvedMergeMode,
+		EmojiReactions_:    c.legacyResolvedEmojiReactions,
+		BreatheThreshold_:  c.legacyResolvedBreatheThreshold,
+		UserNameVal_:       c.UserName(),
+		Voice_:             c.VoiceResolved,
+		Matrix_:            c.Teams["default"].Matrix,
+		Shell_:             c.Shell,
+		SyncConfig_:        c.Sync,
+		Prompts_:           c.Prompts,
+		Ask_:               c.Ask,
+		Flicknote_:         c.Flicknote,
+		Voice:              c.Voice,
+		Kubernetes_:        c.Kubernetes,
+		Roles_:             c.legacyResolvedRoles,
+		ProjectsPath:       c.legacyResolvedProjectsPath,
+	}
+}
+
+func legacyLoad() (*LegacyConfig, error) {
+	path, err := Path()
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg LegacyConfig
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("config not found: %s (run: ttal daemon install)", path)
@@ -553,7 +964,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	if err := cfg.resolve(); err != nil {
+	if err := cfg.legacyResolve(); err != nil {
 		return nil, err
 	}
 
@@ -562,7 +973,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("roles.toml: %w", err)
 	}
-	cfg.resolvedRoles = roles
+	cfg.legacyResolvedRoles = roles
 
 	// Load prompts from dedicated file (prompts.toml overrides config.toml [prompts]).
 	prompts, err := LoadPrompts()
@@ -575,7 +986,7 @@ func Load() (*Config, error) {
 }
 
 // resolve populates resolved fields from the active team config.
-func (c *Config) resolve() error {
+func (c *LegacyConfig) legacyResolve() error {
 	if len(c.Teams) == 0 {
 		return fmt.Errorf("config requires [teams] sections (flat config no longer supported)")
 	}
@@ -602,57 +1013,57 @@ func (c *Config) resolve() error {
 	c.NotificationToken = resolveNotificationToken(teamName, team.NotificationTokenEnv)
 
 	// Resolve voice config with merged vocabulary
-	c.VoiceResolved = c.resolveVoiceConfig(team)
+	c.VoiceResolved = c.legacyResolveVoiceConfig(team)
 
 	// Resolve DataDir: explicit override > convention
 	if team.DataDir != "" {
-		c.resolvedDataDir = expandHome(team.DataDir)
+		c.legacyResolvedDataDir = expandHome(team.DataDir)
 	} else if teamName == defaultTeamName {
-		c.resolvedDataDir = defaultDataDir()
+		c.legacyResolvedDataDir = defaultDataDir()
 	} else {
 		// Non-default teams use convention: ~/.ttal/<teamName>/
-		c.resolvedDataDir = filepath.Join(defaultDataDir(), teamName)
+		c.legacyResolvedDataDir = filepath.Join(defaultDataDir(), teamName)
 	}
 
 	// Resolve TaskRC: explicit override > convention
 	if team.TaskRC != "" {
-		c.resolvedTaskRC = expandHome(team.TaskRC)
+		c.legacyResolvedTaskRC = expandHome(team.TaskRC)
 	} else if teamName == defaultTeamName {
-		c.resolvedTaskRC = defaultTaskRC()
+		c.legacyResolvedTaskRC = defaultTaskRC()
 	} else {
-		c.resolvedTaskRC = filepath.Join(c.resolvedDataDir, "taskrc")
+		c.legacyResolvedTaskRC = filepath.Join(c.legacyResolvedDataDir, "taskrc")
 	}
 
 	// TaskData: always derived from DataDir
-	c.resolvedTaskData = filepath.Join(c.resolvedDataDir, "tasks")
+	c.legacyResolvedTaskData = filepath.Join(c.legacyResolvedDataDir, "tasks")
 
 	// Resolve TeamPath (required — agent paths are derived from it)
 	if team.TeamPath == "" {
 		return fmt.Errorf("team %q missing required field: team_path", teamName)
 	}
-	c.resolvedTeamPath = expandHome(team.TeamPath)
+	c.legacyResolvedTeamPath = expandHome(team.TeamPath)
 
 	// Resolve ProjectsPath: colocated with config.toml in ~/.config/ttal/
-	c.resolvedProjectsPath = projectsPathForTeam(teamName)
+	c.legacyResolvedProjectsPath = projectsPathForTeam(teamName)
 
-	c.resolvedDefaultRuntime = team.DefaultRuntime
-	c.resolvedTaskSyncURL = team.TaskSyncURL
+	c.legacyResolvedDefaultRuntime = team.DefaultRuntime
+	c.legacyResolvedTaskSyncURL = team.TaskSyncURL
 
-	if err := validateDefaultRuntime(team.DefaultRuntime); err != nil {
+	if err := legacyValidateDefaultRuntime(team.DefaultRuntime); err != nil {
 		return err
 	}
 
 	// Merge mode: from team config (defaults to empty = "auto" behavior).
-	c.resolvedMergeMode = team.MergeMode
+	c.legacyResolvedMergeMode = team.MergeMode
 
 	// Emoji reactions: from team config (defaults to false).
-	c.resolvedEmojiReactions = resolveEmojiReactions(team)
+	c.legacyResolvedEmojiReactions = legacyResolveEmojiReactions(team)
 
 	// Breathe threshold: % context usage below which auto-breathe is skipped (default: 40).
 	if team.BreatheThreshold != nil {
-		c.resolvedBreatheThreshold = *team.BreatheThreshold
+		c.legacyResolvedBreatheThreshold = *team.BreatheThreshold
 	} else {
-		c.resolvedBreatheThreshold = defaultBreatheThreshold
+		c.legacyResolvedBreatheThreshold = defaultBreatheThreshold
 	}
 
 	// Default flicknote inline projects to ["plan"] if not configured.
@@ -660,11 +1071,11 @@ func (c *Config) resolve() error {
 		c.Flicknote.InlineProjects = DefaultInlineProjects
 	}
 
-	return c.validateMergeMode()
+	return c.legacyValidateMergeMode()
 }
 
 // resolveVoiceConfig resolves the voice config with merged vocabulary for a team.
-func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
+func (c *LegacyConfig) legacyResolveVoiceConfig(team TeamConfig) VoiceConfig {
 	allAgentNames := make([]string, 0)
 	seenAgents := make(map[string]bool)
 	if team.TeamPath != "" {
@@ -690,12 +1101,21 @@ func (c *Config) resolveVoiceConfig(team TeamConfig) VoiceConfig {
 }
 
 // resolveEmojiReactions resolves whether emoji reactions are enabled for a team.
-func resolveEmojiReactions(team TeamConfig) bool {
+func legacyResolveEmojiReactions(team TeamConfig) bool {
 	return team.EmojiReactions != nil && *team.EmojiReactions
 }
 
-// validateDefaultRuntime returns an error if the given runtime string is set but not valid.
-func validateDefaultRuntime(value string) error {
+// validateMergeMode returns an error if the given merge mode string is invalid.
+func validateMergeMode(mergeMode string) error {
+	if mergeMode != "" && mergeMode != MergeModeAuto && mergeMode != MergeModeManual {
+		return fmt.Errorf("invalid merge_mode %q (must be %q or %q)",
+			mergeMode, MergeModeAuto, MergeModeManual)
+	}
+	return nil
+}
+
+// legacyValidateDefaultRuntime returns an error if the given runtime string is set but not valid.
+func legacyValidateDefaultRuntime(value string) error {
 	if value == "" {
 		return nil
 	}
@@ -705,16 +1125,13 @@ func validateDefaultRuntime(value string) error {
 	return nil
 }
 
-func (c *Config) validateMergeMode() error {
-	if c.resolvedMergeMode != "" && c.resolvedMergeMode != MergeModeAuto && c.resolvedMergeMode != MergeModeManual {
-		return fmt.Errorf("invalid merge_mode %q (must be %q or %q)", c.resolvedMergeMode, MergeModeAuto, MergeModeManual)
-	}
-	return nil
+func (c *LegacyConfig) legacyValidateMergeMode() error {
+	return validateMergeMode(c.legacyResolvedMergeMode)
 }
 
 // DaemonConfig holds the default team's resolved configuration.
 type DaemonConfig struct {
-	Global *Config                  // Raw config (Sync, Shell, Prompts, etc.)
+	Global *LegacyConfig            // Raw config (Sync, Shell, Prompts, etc.)
 	Team   *ResolvedTeam            // Convenience: Teams["default"]
 	Teams  map[string]*ResolvedTeam // TOML decoding artifact only
 }
@@ -762,7 +1179,7 @@ func LoadAll() (*DaemonConfig, error) {
 		return nil, err
 	}
 
-	var cfg Config
+	var cfg LegacyConfig
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("config not found: %s (run: ttal daemon install)", path)
@@ -784,7 +1201,7 @@ func LoadAll() (*DaemonConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("roles.toml: %w", err)
 	}
-	cfg.resolvedRoles = roles
+	cfg.legacyResolvedRoles = roles
 
 	// Load prompts from dedicated file.
 	prompts, err := LoadPrompts()
@@ -812,9 +1229,9 @@ func LoadAll() (*DaemonConfig, error) {
 
 	// Mirror resolved team_path onto Global so legacy callers of
 	// (*Config).AgentPath / TeamPath keep working until Step 3 migrates them.
-	// Note: mcfg.Global == &cfg, so writing cfg.resolvedTeamPath here is
+	// Note: mcfg.Global == &cfg, so writing cfg.legacyResolvedTeamPath here is
 	// observable via mcfg.Global.AgentPath() in cmdexec_bridge and routing.
-	cfg.resolvedTeamPath = rt.TeamPath
+	cfg.legacyResolvedTeamPath = rt.TeamPath
 
 	return mcfg, nil
 }
@@ -878,7 +1295,7 @@ func resolveTeam(
 			Vocabulary: mergedVocab,
 			Language:   lang,
 		},
-		EmojiReactions: resolveEmojiReactions(team),
+		EmojiReactions: legacyResolveEmojiReactions(team),
 		Matrix:         team.Matrix,
 	}
 
@@ -900,7 +1317,7 @@ func resolveTeam(
 		rt.TaskRC = filepath.Join(rt.DataDir, "taskrc")
 	}
 
-	if err := validateDefaultRuntime(team.DefaultRuntime); err != nil {
+	if err := legacyValidateDefaultRuntime(team.DefaultRuntime); err != nil {
 		return nil, err
 	}
 
@@ -1004,16 +1421,16 @@ var resolvedPaths struct {
 	projectsPath string
 }
 
-func ensureResolvedPaths() {
+func legacyEnsureResolvedPaths() {
 	resolvedPaths.once.Do(func() {
-		cfg, err := Load()
+		cfg, err := legacyLoad()
 		if err != nil {
 			resolvedPaths.dir = defaultDataDir()
 			resolvedPaths.projectsPath = filepath.Join(defaultConfigDir(), "projects.toml")
 			return
 		}
-		resolvedPaths.dir = cfg.resolvedDataDir
-		resolvedPaths.projectsPath = cfg.resolvedProjectsPath
+		resolvedPaths.dir = cfg.legacyResolvedDataDir
+		resolvedPaths.projectsPath = cfg.legacyResolvedProjectsPath
 	})
 }
 
@@ -1022,14 +1439,14 @@ func ensureResolvedPaths() {
 // Used by path helpers that need to work before config is loaded (e.g. db.DefaultPath).
 // Result is cached after first call.
 func ResolveDataDir() string {
-	ensureResolvedPaths()
+	legacyEnsureResolvedPaths()
 	return resolvedPaths.dir
 }
 
 // ResolveProjectsPath returns the projects.toml path for the active team.
 // Used by project.Store for default path resolution.
 func ResolveProjectsPath() string {
-	ensureResolvedPaths()
+	legacyEnsureResolvedPaths()
 	return resolvedPaths.projectsPath
 }
 

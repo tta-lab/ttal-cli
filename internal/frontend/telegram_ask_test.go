@@ -192,7 +192,7 @@ func TestBuildAskHumanMessage_WithOptions(t *testing.T) {
 
 func minimalDaemonConfig() *config.DaemonConfig {
 	return &config.DaemonConfig{
-		Global: &config.Config{},
+		Global: &config.LegacyConfig{},
 		Teams:  map[string]*config.ResolvedTeam{},
 	}
 }

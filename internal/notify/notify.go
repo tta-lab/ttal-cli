@@ -18,10 +18,10 @@ func Send(message string) error {
 	if cfg.NotificationToken == "" {
 		return fmt.Errorf("no notification bot token configured")
 	}
-	if cfg.ChatID == "" {
+	if cfg.ChatID_ == "" {
 		return fmt.Errorf("no chat_id configured")
 	}
-	return telegram.SendMessage(cfg.NotificationToken, cfg.ChatID, message)
+	return telegram.SendMessage(cfg.NotificationToken, cfg.ChatID_, message)
 }
 
 // SendWithConfig sends using pre-resolved token and chat ID (for daemon use).

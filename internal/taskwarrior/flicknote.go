@@ -59,8 +59,8 @@ func ShouldInlineNote(note *FlicknoteNote, inlineProjects []string) bool {
 
 func LoadInlineProjects() []string {
 	cfg, err := config.Load()
-	if err == nil && len(cfg.Flicknote.InlineProjects) > 0 {
-		return cfg.Flicknote.InlineProjects
+	if err == nil && len(cfg.Flicknote_.InlineProjects) > 0 {
+		return cfg.Flicknote_.InlineProjects
 	}
 	return config.DefaultInlineProjects
 }

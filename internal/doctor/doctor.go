@@ -254,9 +254,9 @@ func checkConfig(fix bool) Section {
 		}
 	}
 
-	checkPrompts(&section, cfg.Prompts)
+	checkPrompts(&section, cfg.Prompts_)
 
-	if cfg.ChatID == "" {
+	if cfg.ChatID_ == "" {
 		section.add(LevelError, "chat_id", "chat_id not set")
 	} else {
 		section.add(LevelOK, "chat_id", "chat_id set")

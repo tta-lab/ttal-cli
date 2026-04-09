@@ -45,7 +45,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			return err
 		}
 
-		syncCfg := cfg.Sync
+		syncCfg := cfg.SyncConfig_
 		teamPath := cfg.TeamPath()
 
 		// Plugin install always runs (resolves marketplace from project store or URL).
