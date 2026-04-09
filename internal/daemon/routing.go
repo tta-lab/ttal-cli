@@ -502,8 +502,10 @@ func buildBreatheEnv(agent string, cfg *config.Config) []string {
 	vars := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
 	}
-	if taskRC := cfg.TaskRC(); taskRC != "" {
-		vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
+	if cfg != nil {
+		if taskRC := cfg.TaskRC(); taskRC != "" {
+			vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
+		}
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
 	vars = append(vars, env.AllowedDotEnvParts()...)

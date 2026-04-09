@@ -151,13 +151,13 @@ func (b *cmdexecBridge) executeCmds(
 	cmds []string,
 ) []string {
 	results := make([]string, 0, len(cmds))
+	sandboxEnv := b.buildSandboxEnv(agentName)
 	for _, cmd := range cmds {
 		if recursionGuard.MatchString(cmd) {
 			results = append(results, formatOneResult(cmd, "", "ttal go forbidden in cmd block — route via persist channel", -1))
 			continue
 		}
 
-		sandboxEnv := b.buildSandboxEnv(agentName)
 		resp, err := b.runner.Run(ctx, logos.RunRequest{
 			Command:      cmd,
 			Env:          sandboxEnv,

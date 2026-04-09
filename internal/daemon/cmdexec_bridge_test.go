@@ -160,6 +160,21 @@ func TestExecuteCmds_NilConfig_StillForwardsHOME(t *testing.T) {
 	}
 }
 
+func TestExecuteCmds_ForwardsXDGConfigHome(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "/fake/xdg")
+	bridge, runner := setupBridgeWithConfig(t, "/fake/taskrc")
+	runner.setResult("true", &logos.RunResponse{ExitCode: 0})
+
+	agentCwd := filepath.Join(os.TempDir(), "lux")
+	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
+
+	bridge.executeCmds(context.Background(), "lux", policy, []string{"true"})
+
+	if runner.lastEnv["XDG_CONFIG_HOME"] != "/fake/xdg" {
+		t.Errorf("XDG_CONFIG_HOME = %q, want %q", runner.lastEnv["XDG_CONFIG_HOME"], "/fake/xdg")
+	}
+}
+
 func TestExecuteCmds_SingleCmd(t *testing.T) {
 	bridge, runner := setupTestBridge(t)
 	runner.setResult("echo hello", &logos.RunResponse{Stdout: "hello\n", ExitCode: 0})
