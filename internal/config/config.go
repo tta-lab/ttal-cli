@@ -750,7 +750,7 @@ func Path() (string, error) {
 	return filepath.Join(home, ".config", "ttal", "config.toml"), nil
 }
 
-// Load reads// Load reads and validates ~/.config/ttal/config.toml using the flat Config struct.
+// Load reads and validates ~/.config/ttal/config.toml using the flat Config struct.
 // This is the single-team Load() -- LoadAll and DaemonConfig are deprecated.
 func Load() (*Config, error) {
 	path, err := Path()
@@ -1126,12 +1126,7 @@ func legacyValidateDefaultRuntime(value string) error {
 }
 
 func (c *LegacyConfig) legacyValidateMergeMode() error {
-	mm := c.legacyResolvedMergeMode
-	if mm != "" && mm != MergeModeAuto && mm != MergeModeManual {
-		return fmt.Errorf("invalid merge_mode %q (must be %q or %q)",
-			mm, MergeModeAuto, MergeModeManual)
-	}
-	return nil
+	return validateMergeMode(c.legacyResolvedMergeMode)
 }
 
 // DaemonConfig holds the default team's resolved configuration.

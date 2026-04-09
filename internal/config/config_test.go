@@ -588,6 +588,138 @@ func TestPromptContext_HasAnyPromptConfigured(t *testing.T) {
 	}
 }
 
+// TestLoad_MissingTeamsDefault verifies that Load() returns an actionable error
+// when config.toml is missing [teams.default].
+func TestLoad_MissingTeamsDefault(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// config.toml with no teams section
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte("# empty\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() should have returned an error for missing [teams.default]")
+	}
+	if !strings.Contains(err.Error(), "[teams.default]") {
+		t.Errorf("error should mention [teams.default], got: %v", err)
+	}
+}
+
+// TestLoad_MissingTeamPath verifies that Load() returns an actionable error
+// when [teams.default] has an empty team_path.
+func TestLoad_MissingTeamPath(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"),
+		[]byte("[teams.default]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() should have returned an error for missing team_path")
+	}
+	if !strings.Contains(err.Error(), "team_path") {
+		t.Errorf("error should mention team_path, got: %v", err)
+	}
+}
+
+// TestLoad_InvalidMergeMode verifies that Load() rejects invalid merge_mode values
+// with a helpful error message.
+func TestLoad_InvalidMergeMode(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	toml := "[teams.default]\nteam_path = \"/tmp/test\"\nmerge_mode = \"invalid\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() should have returned an error for invalid merge_mode")
+	}
+	if !strings.Contains(err.Error(), "invalid merge_mode") {
+		t.Errorf("error should mention 'invalid merge_mode', got: %v", err)
+	}
+}
+
+// TestLoad_InvalidDefaultRuntime verifies that Load() rejects invalid default_runtime values.
+func TestLoad_InvalidDefaultRuntime(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	toml := "[teams.default]\nteam_path = \"/tmp/test\"\ndefault_runtime = \"not-a-runtime\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() should have returned an error for invalid default_runtime")
+	}
+	if !strings.Contains(err.Error(), "default_runtime") {
+		t.Errorf("error should mention 'default_runtime', got: %v", err)
+	}
+}
+
+// TestLegacyConfigAsConfig_MapsFieldsCorrectly verifies that AsConfig() maps
+// all fields correctly so that Telegram routing and breathe routing work.
+func TestLegacyConfigAsConfig_MapsFieldsCorrectly(t *testing.T) {
+	emoji := true
+	threshold := 50.0
+	cfg := &LegacyConfig{
+		Teams: map[string]TeamConfig{
+			"default": {
+				TeamPath:         "/tmp/team",
+				ChatID:           "123456",
+				Frontend:         "telegram",
+				DefaultRuntime:   "claude-code",
+				MergeMode:        "manual",
+				EmojiReactions:   &emoji,
+				BreatheThreshold: &threshold,
+			},
+		},
+	}
+	if err := cfg.legacyResolve(); err != nil {
+		t.Fatalf("legacyResolve: %v", err)
+	}
+	flat := cfg.AsConfig()
+	if flat.TeamPath() != "/tmp/team" {
+		t.Errorf("TeamPath = %q, want %q", flat.TeamPath(), "/tmp/team")
+	}
+	if flat.ChatID_ != "123456" {
+		t.Errorf("ChatID_ = %q, want %q", flat.ChatID_, "123456")
+	}
+	if flat.Frontend_ != "telegram" {
+		t.Errorf("Frontend_ = %q, want %q", flat.Frontend_, "telegram")
+	}
+	if flat.DefaultRuntime() != runtime.ClaudeCode {
+		t.Errorf("DefaultRuntime = %v, want %v", flat.DefaultRuntime(), runtime.ClaudeCode)
+	}
+	if flat.GetMergeMode() != "manual" {
+		t.Errorf("MergeMode = %q, want %q", flat.GetMergeMode(), "manual")
+	}
+	if !flat.EmojiReactions_ {
+		t.Error("EmojiReactions_ = false, want true")
+	}
+	if flat.BreatheThreshold_ != 50.0 {
+		t.Errorf("BreatheThreshold_ = %v, want %v", flat.BreatheThreshold_, 50.0)
+	}
+}
+
 func TestRuntimeForAgent(t *testing.T) {
 	// Create temp agent dirs with AGENTS.md for testing per-agent override
 	dir := t.TempDir()
