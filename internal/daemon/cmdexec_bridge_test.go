@@ -11,6 +11,7 @@ import (
 
 	"github.com/tta-lab/logos"
 	"github.com/tta-lab/ttal-cli/internal/cmdexec"
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
@@ -19,6 +20,7 @@ type mockRunner struct {
 	results map[string]*logos.RunResponse
 	err     error
 	calls   []string
+	lastEnv map[string]string // captures Env from the most recent Run call
 }
 
 func newMockRunner() *mockRunner {
@@ -30,6 +32,7 @@ func newMockRunner() *mockRunner {
 
 func (m *mockRunner) Run(_ context.Context, req logos.RunRequest) (*logos.RunResponse, error) {
 	m.calls = append(m.calls, req.Command)
+	m.lastEnv = req.Env
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -71,6 +74,92 @@ path = "` + filepath.Join(tmp, "code", "testproj") + `"
 	return bridge, runner
 }
 
+// setupBridgeWithConfig creates a bridge with a mock runner and a real DaemonConfig.
+func setupBridgeWithConfig(t *testing.T, taskRC string) (*cmdexecBridge, *mockRunner) {
+	t.Helper()
+	tmp := t.TempDir()
+
+	storePath := filepath.Join(tmp, "projects.toml")
+	store := project.NewStore(storePath)
+	projectsToml := `[testproj]
+name = "Test Project"
+path = "` + filepath.Join(tmp, "code", "testproj") + `"
+`
+	if err := os.WriteFile(storePath, []byte(projectsToml), 0o644); err != nil {
+		t.Fatalf("write projects.toml: %v", err)
+	}
+	agentWorkspace := filepath.Join(tmp, "code", "testproj")
+	if err := os.MkdirAll(agentWorkspace, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	mcfg := &config.DaemonConfig{
+		Global: &config.LegacyConfig{},
+		Team:   &config.ResolvedTeam{TaskRC: taskRC},
+		Teams: map[string]*config.ResolvedTeam{
+			"default": {TaskRC: taskRC},
+		},
+	}
+	runner := newMockRunner()
+	bridge := &cmdexecBridge{
+		cfg:          mcfg,
+		runner:       runner,
+		projectStore: store,
+		agentMutexes: sync.Map{},
+	}
+	return bridge, runner
+}
+
+func TestExecuteCmds_ForwardsHOMEAndManagerEnv(t *testing.T) {
+	t.Setenv("HOME", "/fake/home")
+
+	bridge, runner := setupBridgeWithConfig(t, "/fake/taskrc")
+	runner.setResult("true", &logos.RunResponse{ExitCode: 0})
+
+	agentCwd := filepath.Join(os.TempDir(), "lux")
+	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
+
+	bridge.executeCmds(context.Background(), "lux", policy, []string{"true"})
+
+	if runner.lastEnv == nil {
+		t.Fatalf("runner.lastEnv is nil, want non-nil")
+	}
+	if runner.lastEnv["HOME"] != "/fake/home" {
+		t.Errorf("HOME = %q, want %q", runner.lastEnv["HOME"], "/fake/home")
+	}
+	if runner.lastEnv["TTAL_AGENT_NAME"] != "lux" {
+		t.Errorf("TTAL_AGENT_NAME = %q, want %q", runner.lastEnv["TTAL_AGENT_NAME"], "lux")
+	}
+	if runner.lastEnv["TASKRC"] != "/fake/taskrc" {
+		t.Errorf("TASKRC = %q, want %q", runner.lastEnv["TASKRC"], "/fake/taskrc")
+	}
+	// Regression guard: no secret keys.
+	for key := range runner.lastEnv {
+		if strings.HasSuffix(key, "_TOKEN") || strings.HasSuffix(key, "_SECRET") || strings.HasSuffix(key, "_PASSWORD") {
+			t.Errorf("secret key %q leaked into sandbox env", key)
+		}
+	}
+}
+
+func TestExecuteCmds_NilConfig_StillForwardsHOME(t *testing.T) {
+	t.Setenv("HOME", "/fake/home")
+
+	bridge, runner := setupTestBridge(t)
+	runner.setResult("true", &logos.RunResponse{ExitCode: 0})
+
+	agentCwd := filepath.Join(os.TempDir(), "athena")
+	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
+
+	bridge.executeCmds(context.Background(), "anything", policy, []string{"true"})
+
+	if runner.lastEnv["HOME"] != "/fake/home" {
+		t.Errorf("HOME = %q, want %q", runner.lastEnv["HOME"], "/fake/home")
+	}
+	if _, ok := runner.lastEnv["TTAL_AGENT_NAME"]; ok {
+		t.Errorf("TTAL_AGENT_NAME should not be set when cfg is nil")
+	}
+}
+
 func TestExecuteCmds_SingleCmd(t *testing.T) {
 	bridge, runner := setupTestBridge(t)
 	runner.setResult("echo hello", &logos.RunResponse{Stdout: "hello\n", ExitCode: 0})
@@ -78,7 +167,7 @@ func TestExecuteCmds_SingleCmd(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"echo hello"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"echo hello"})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -96,7 +185,7 @@ func TestExecuteCmds_MultipleCmds(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"echo a", "echo b"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"echo a", "echo b"})
 
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(results))
@@ -113,7 +202,7 @@ func TestExecuteCmds_RunnerError(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"echo hello"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"echo hello"})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -130,7 +219,7 @@ func TestExecuteCmds_ExitCodeNonZero(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"false"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"false"})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -146,7 +235,7 @@ func TestExecuteCmds_RecursionGuard(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"ttal go abc123"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"ttal go abc123"})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -166,7 +255,7 @@ func TestExecuteCmds_RecursionGuardWithWhitespace(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"  TTAL   GO   uuid123"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"  TTAL   GO   uuid123"})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -185,7 +274,7 @@ func TestExecuteCmds_StderrIncluded(t *testing.T) {
 	agentCwd := filepath.Join(os.TempDir(), "athena")
 	policy, _ := cmdexec.PolicyForAgent(bridge.projectStore, agentCwd)
 
-	results := bridge.executeCmds(context.Background(), policy, []string{"ls /nonexistent"})
+	results := bridge.executeCmds(context.Background(), "testagent", policy, []string{"ls /nonexistent"})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
