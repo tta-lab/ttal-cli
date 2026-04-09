@@ -80,10 +80,29 @@ func TestApplyFilter_PassesThroughTasksWithParentID(t *testing.T) {
 	assert.Equal(t, 3, len(m.filtered)) // all show when loaded (server handles filtering)
 }
 
+func TestApplyFilterActive_IncludesStartedSubtasks(t *testing.T) {
+	// repro: f7e395e6 has parent_id + Start set but was filtered out of active list
+	// because buildLoadTasksArgs added parent_id: restriction for filterActive.
+	// The active view is flat (showActive=true) — subtasks with Start set should appear.
+	m := NewModel()
+	m.filter = filterActive
+	m.tasks = []Task{
+		// applyFilter requires Start != "" for active view
+		{UUID: "root-1", Description: "root task", Status: "pending", Start: "20260409T120000"},
+		{UUID: "child-1", Description: "started subtask", Status: "pending", ParentID: "root-1", Start: "20260409T120000"},
+		{UUID: "root-2", Description: "another root", Status: "pending", Start: "20260409T120000"},
+	}
+	m.applyFilter()
+
+	// All three tasks should appear — active filter is flat and includes subtasks
+	assert.Equal(t, 3, len(m.filtered))
+}
+
 func TestBuildLoadTasksArgs(t *testing.T) {
 	// Verify args structure — IsFork() state determines whether parent_id: is present.
-	// Non-fork: parent_id: absent; Fork: parent_id: present for pending/today/active.
-	for _, filter := range []filterMode{filterPending, filterToday, filterActive} {
+	// Non-fork: parent_id: absent; Fork: parent_id: present for pending/today (not active).
+	// filterActive intentionally omits parent_id: so subtasks appear in the flat list.
+	for _, filter := range []filterMode{filterPending, filterToday} {
 		args := buildLoadTasksArgs(filter, "")
 		if len(args) < 2 {
 			t.Fatalf("filter %v: expected at least [status:pending, ...], got %v", filter, args)
@@ -93,6 +112,21 @@ func TestBuildLoadTasksArgs(t *testing.T) {
 		}
 		if args[len(args)-1] != "export" {
 			t.Errorf("filter %v: expected export last, got %v", filter, args[len(args)-1])
+		}
+	}
+
+	// filterActive: status:pending, no parent_id restriction (flat view includes subtasks)
+	argsActive := buildLoadTasksArgs(filterActive, "")
+	if argsActive[0] != "status:pending" {
+		t.Errorf("filterActive: expected status:pending first, got %v", argsActive[0])
+	}
+	if argsActive[len(argsActive)-1] != "export" {
+		t.Errorf("filterActive: expected export last, got %v", argsActive[len(argsActive)-1])
+	}
+	// filterActive must not include parent_id: — that would exclude subtasks like f7e395e6
+	for _, arg := range argsActive {
+		if arg == "parent_id:" {
+			t.Errorf("filterActive: should not include parent_id:, got %v", argsActive)
 		}
 	}
 
