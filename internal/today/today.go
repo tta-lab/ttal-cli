@@ -183,14 +183,10 @@ func Remove(ids []string) error {
 	return nil
 }
 
-// CompletedCounts returns a map of date → completed root-task count for the past year.
+// CompletedCounts returns a map of date → completed task count for the past year.
 // Date keys are truncated to midnight UTC for consistent lookups.
 func CompletedCounts() (map[time.Time]int, error) {
-	args := []string{"status:completed", "end.after:today-1y"}
-	if taskwarrior.IsFork() {
-		args = append(args, "parent_id:") // root tasks only (fork feature)
-	}
-	out, err := taskwarrior.Command(args...).Output()
+	out, err := taskwarrior.Command("status:completed", "end.after:today-1y", "export").Output()
 	if err != nil {
 		return nil, fmt.Errorf("query completed tasks: %w", err)
 	}
