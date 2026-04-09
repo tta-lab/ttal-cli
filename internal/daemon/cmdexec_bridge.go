@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/tta-lab/logos"
 	"github.com/tta-lab/ttal-cli/internal/cmdexec"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	envpkg "github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
@@ -103,7 +105,7 @@ func (b *cmdexecBridge) dispatch(teamName, agentName string, cmds []string) {
 	ctx := context.Background() // 10 min timeout applied per-cmd by temenos daemon
 
 	// Execute all cmds.
-	results := b.executeCmds(ctx, policy, cmds)
+	results := b.executeCmds(ctx, agentName, policy, cmds)
 
 	// Format and truncate.
 	payload := formatResults(results)
@@ -125,10 +127,31 @@ func (b *cmdexecBridge) dispatch(teamName, agentName string, cmds []string) {
 	}
 }
 
+// buildSandboxEnv constructs the env map forwarded to the temenos sandbox.
+func (b *cmdexecBridge) buildSandboxEnv(agentName string) map[string]string {
+	var envParts []string
+	if b.cfg != nil {
+		envParts = buildManagerAgentEnv(agentName, b.cfg)
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		envParts = append(envParts, "HOME="+home)
+	}
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		envParts = append(envParts, "XDG_CONFIG_HOME="+xdg)
+	}
+	return envpkg.EnvSliceToMap(envParts)
+}
+
 // executeCmds runs each command via the logos runner and returns formatted results.
 // Commands matching the recursion guard return a synthetic error result.
-func (b *cmdexecBridge) executeCmds(ctx context.Context, policy []logos.AllowedPath, cmds []string) []string {
+func (b *cmdexecBridge) executeCmds(
+	ctx context.Context,
+	agentName string,
+	policy []logos.AllowedPath,
+	cmds []string,
+) []string {
 	results := make([]string, 0, len(cmds))
+	sandboxEnv := b.buildSandboxEnv(agentName)
 	for _, cmd := range cmds {
 		if recursionGuard.MatchString(cmd) {
 			results = append(results, formatOneResult(cmd, "", "ttal go forbidden in cmd block — route via persist channel", -1))
@@ -137,7 +160,7 @@ func (b *cmdexecBridge) executeCmds(ctx context.Context, policy []logos.AllowedP
 
 		resp, err := b.runner.Run(ctx, logos.RunRequest{
 			Command:      cmd,
-			Env:          nil, // No ttal env vars in sandbox — security posture.
+			Env:          sandboxEnv,
 			AllowedPaths: policy,
 		})
 		if err != nil {
