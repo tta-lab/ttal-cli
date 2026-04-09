@@ -891,10 +891,13 @@ func buildLoadTasksArgs(filter filterMode, search string) []string {
 		}
 	case filterActive:
 		args = append(args, "status:pending")
-		// Active view is flat (showActive=true) — include subtasks so started
-		// child tasks appear in the list (repro: f7e395e6 filtered out).
+		// filterActive always uses flat mode — no parent_id restriction so subtasks
+		// appear in the list (repro: f7e395e6 filtered out).
 	case filterCompleted:
 		args = append(args, "status:completed")
+		if taskwarrior.IsFork() {
+			args = append(args, "parent_id:") // root tasks only (fork feature)
+		}
 	}
 
 	// Pass search as raw taskwarrior filter args

@@ -4,7 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
+
+const twExportArg = "export"
 
 func TestApplyFilterPendingExcludesActiveTasks(t *testing.T) {
 	m := Model{
@@ -96,12 +99,20 @@ func TestApplyFilterActive_IncludesStartedSubtasks(t *testing.T) {
 
 	// All three tasks should appear — active filter is flat and includes subtasks
 	assert.Equal(t, 3, len(m.filtered))
+
+	// Negative case: tasks without Start are excluded from active filter
+	m2 := NewModel()
+	m2.filter = filterActive
+	m2.tasks = []Task{
+		{UUID: "not-started", Description: "pending but not started", Status: "pending", Start: ""},
+		{UUID: "started-root", Description: "started root", Status: "pending", Start: "20260409T120000"},
+	}
+	m2.applyFilter()
+	assert.Equal(t, 1, len(m2.filtered))
+	assert.Equal(t, "started-root", m2.filtered[0].UUID)
 }
 
-func TestBuildLoadTasksArgs(t *testing.T) {
-	// Verify args structure — IsFork() state determines whether parent_id: is present.
-	// Non-fork: parent_id: absent; Fork: parent_id: present for pending/today (not active).
-	// filterActive intentionally omits parent_id: so subtasks appear in the flat list.
+func TestBuildLoadTasksArgs_PendingAndToday(t *testing.T) {
 	for _, filter := range []filterMode{filterPending, filterToday} {
 		args := buildLoadTasksArgs(filter, "")
 		if len(args) < 2 {
@@ -110,17 +121,19 @@ func TestBuildLoadTasksArgs(t *testing.T) {
 		if args[0] != "status:pending" {
 			t.Errorf("filter %v: expected status:pending first, got %v", filter, args[0])
 		}
-		if args[len(args)-1] != "export" {
+		if args[len(args)-1] != twExportArg {
 			t.Errorf("filter %v: expected export last, got %v", filter, args[len(args)-1])
 		}
 	}
+}
 
+func TestBuildLoadTasksArgs_Active(t *testing.T) {
 	// filterActive: status:pending, no parent_id restriction (flat view includes subtasks)
 	argsActive := buildLoadTasksArgs(filterActive, "")
 	if argsActive[0] != "status:pending" {
 		t.Errorf("filterActive: expected status:pending first, got %v", argsActive[0])
 	}
-	if argsActive[len(argsActive)-1] != "export" {
+	if argsActive[len(argsActive)-1] != twExportArg {
 		t.Errorf("filterActive: expected export last, got %v", argsActive[len(argsActive)-1])
 	}
 	// filterActive must not include parent_id: — that would exclude subtasks like f7e395e6
@@ -130,16 +143,38 @@ func TestBuildLoadTasksArgs(t *testing.T) {
 		}
 	}
 
-	// filterCompleted never includes parent_id:
+	// filterActive with search: search terms pass through correctly
+	argsActiveWithSearch := buildLoadTasksArgs(filterActive, "project:ttal")
+	if argsActiveWithSearch[len(argsActiveWithSearch)-2] != "project:ttal" {
+		t.Errorf("expected search arg before export, got %v", argsActiveWithSearch)
+	}
+}
+
+func TestBuildLoadTasksArgs_Completed(t *testing.T) {
+	// filterCompleted: root tasks only (tree view), includes parent_id: when IsFork
 	argsCompleted := buildLoadTasksArgs(filterCompleted, "")
 	if argsCompleted[0] != "status:completed" {
 		t.Errorf("filterCompleted: expected status:completed first, got %v", argsCompleted[0])
 	}
-	if argsCompleted[len(argsCompleted)-1] != "export" {
+	if argsCompleted[len(argsCompleted)-1] != twExportArg {
 		t.Errorf("filterCompleted: expected export last, got %v", argsCompleted[len(argsCompleted)-1])
 	}
+	// filterCompleted includes parent_id: when IsFork (hides completed subtasks from view)
+	if taskwarrior.IsFork() {
+		hasParentID := false
+		for _, arg := range argsCompleted {
+			if arg == "parent_id:" {
+				hasParentID = true
+				break
+			}
+		}
+		if !hasParentID {
+			t.Errorf("filterCompleted: expected parent_id: when IsFork, got %v", argsCompleted)
+		}
+	}
+}
 
-	// Search is appended before export
+func TestBuildLoadTasksArgs_SearchPassthrough(t *testing.T) {
 	argsWithSearch := buildLoadTasksArgs(filterPending, "project:ttal")
 	if argsWithSearch[len(argsWithSearch)-2] != "project:ttal" {
 		t.Errorf("expected search arg before export, got %v", argsWithSearch)
