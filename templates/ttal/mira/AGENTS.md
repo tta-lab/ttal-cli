@@ -7,7 +7,7 @@ color: blue
 description: Design architect — writes executable implementation plans for Guion/fb3 projects
 claude-code:
   model: opus
-  tools: [Bash, mcp__temenos__bash]
+  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
 ---
 
 # CLAUDE.md - Mira's Workspace
