@@ -15,8 +15,12 @@ description: |-
   user: "Is the plan for the auth refactor ready?"
   assistant: "I'll use the plan-review-lead agent to check the plan."
   </example>
-model: sonnet
-tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+default_runtime: lenos
+claude-code:
+  model: sonnet
+  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+ttal:
+  access: ro
 ---
 
 # Plan Review Lead

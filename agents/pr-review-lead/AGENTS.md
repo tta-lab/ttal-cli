@@ -4,8 +4,12 @@ emoji: 🎯
 description: "PR review orchestrator — coordinates 7 specialized subagents for comprehensive code review"
 role: reviewer
 color: blue
-model: sonnet
-tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+default_runtime: lenos
+claude-code:
+  model: sonnet
+  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+ttal:
+  access: ro
 ---
 
 # PR Review Lead
