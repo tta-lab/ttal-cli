@@ -15,6 +15,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectpkg "github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -163,7 +164,7 @@ func resolvePipelinePrompt() string {
 
 	var role string
 	if agentName != "" {
-		teamPath := cfg.TeamPath()
+		teamPath := cfg.TeamPath
 		if teamPath != "" {
 			if resolvedRole, err := agentfs.RoleOf(teamPath, agentName); err == nil && resolvedRole != "" {
 				role = resolvedRole
@@ -290,7 +291,7 @@ func resolvePromptKey(stage *pipeline.Stage) string {
 // expandPromptVars expands task-specific template variables in the prompt,
 // including {{task-id}}, {{pr-number}}, {{owner}}, {{repo}}, {{branch}}, and {{skill:name}}.
 func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config) string {
-	rt := cfg.DefaultRuntime()
+	rt := runtime.Runtime(cfg.DefaultRuntime)
 
 	// Expand PR vars — soft failure: use empty strings if resolution fails.
 	if task.PRID != "" {
