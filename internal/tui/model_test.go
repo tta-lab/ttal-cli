@@ -92,7 +92,14 @@ func TestApplyFilterActive_IncludesStartedSubtasks(t *testing.T) {
 	m.tasks = []Task{
 		// applyFilter requires Start != "" AND Owner != "" for active view
 		{UUID: "root-1", Description: "root task", Status: "pending", Start: "20260409T120000", Owner: "yuki"},
-		{UUID: "child-1", Description: "started subtask", Status: "pending", ParentID: "root-1", Start: "20260409T120000", Owner: "yuki"},
+		{
+			UUID:        "child-1",
+			Description: "started subtask",
+			Status:      "pending",
+			ParentID:    "root-1",
+			Start:       "20260409T120000",
+			Owner:       "yuki",
+		},
 		{UUID: "root-2", Description: "another root", Status: "pending", Start: "20260409T120000", Owner: "yuki"},
 	}
 	m.applyFilter()
