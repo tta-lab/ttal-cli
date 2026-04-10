@@ -3,7 +3,6 @@ package skill
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,8 +10,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 )
-
-const frontmatterDelimiter = "---"
 
 // Skill holds metadata for a single registered skill.
 type Skill struct {
@@ -217,83 +214,4 @@ func (r *Registry) save() error {
 		return fmt.Errorf("writing skills registry %s: %w", r.path, err)
 	}
 	return nil
-}
-
-// ContentFetcher is the function used to fetch a skill's content by name.
-// It defaults to fetchContentImpl but can be replaced for testing (e.g., to avoid
-// loading the real registry on CI). Callers use FetchContent() which delegates here.
-var ContentFetcher func(name string) string = fetchContentImpl
-
-// FetchContent returns the skill content for a named skill, read from disk.
-func FetchContent(name string) string { return ContentFetcher(name) }
-
-// fetchContentImpl reads skill content from the default skills disk directory.
-// Returns empty string on any error (soft-fail: logs a warning but does not propagate).
-func fetchContentImpl(name string) string {
-	skill, err := GetSkill(DefaultSkillsDir(), name)
-	if err != nil {
-		log.Printf("[skill] warning: could not read skill %q from disk: %v", name, err)
-		return ""
-	}
-	return skill.Content
-}
-
-// FetchContents calls FetchContent for each name in order and concatenates
-// the results, wrapping each skill in a `# <SkillName> [skill]` header.
-// Skips empty results silently.
-func FetchContents(names []string) string {
-	if len(names) == 0 {
-		return ""
-	}
-	var parts []string
-	for _, name := range names {
-		content := FetchContent(name)
-		if content == "" {
-			continue
-		}
-		parts = append(parts, fmt.Sprintf("# %s [skill]\n\n%s", name, content))
-	}
-	return strings.Join(parts, "\n\n")
-}
-
-// ParseFrontmatter extracts name and description from YAML frontmatter,
-// and returns the body content with frontmatter stripped.
-// Used by `add --file` and `migrate` to auto-populate skill metadata
-// and upload only the body to flicknote (no frontmatter pollution).
-//
-// Single-pass over bytes.Split lines so bodyStart tracks real byte offsets.
-// Handles both LF and CRLF line endings correctly.
-func ParseFrontmatter(content []byte) (name, description, category string, body []byte) {
-	lines := bytes.Split(content, []byte("\n"))
-
-	if len(lines) == 0 || strings.TrimSpace(string(lines[0])) != frontmatterDelimiter {
-		return "", "", "", content
-	}
-
-	fm := make(map[string]string)
-	consumed := len(lines[0]) + 1 // opening --- line + \n
-
-	for i := 1; i < len(lines); i++ {
-		line := lines[i]
-		lineLen := len(line) + 1 // +1 for the \n separator (handles CRLF: \r stays in len)
-		trimmed := strings.TrimSpace(string(line))
-
-		if trimmed == frontmatterDelimiter {
-			consumed += lineLen
-			if consumed > len(content) {
-				return fm["name"], fm["description"], fm["category"], []byte{}
-			}
-			return fm["name"], fm["description"], fm["category"], content[consumed:]
-		}
-
-		if idx := bytes.IndexByte(line, ':'); idx > 0 {
-			key := strings.TrimSpace(string(line[:idx]))
-			val := strings.TrimSpace(string(line[idx+1:]))
-			val = strings.Trim(val, "\"'")
-			fm[key] = val
-		}
-		consumed += lineLen
-	}
-
-	return "", "", "", content // unterminated frontmatter
 }
