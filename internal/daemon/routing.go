@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
@@ -27,9 +28,62 @@ import (
 // SessionStart hook to re-inject context before the trigger lands.
 const clearSettleDelay = 500 * time.Millisecond
 
-// breatheStartTrigger is sent to the agent after /clear completes to resume work
-// with fresh context from `ttal task get`.
-const breatheStartTrigger = "Exec `ttal task get(no extra args)` then continue with the task."
+// breatheStartTriggerFallback is the base trigger when skills cannot be resolved.
+const breatheStartTriggerFallback = "Exec `ttal task get(no extra args)` then continue with the task."
+
+// buildBreatheStartTriggerFn resolves an agent's skills and returns the trigger prompt.
+// Injected for testability; defaults to buildBreatheStartTriggerImpl.
+var buildBreatheStartTriggerFn func(agentName string) string
+
+func init() {
+	buildBreatheStartTriggerFn = buildBreatheStartTriggerImpl
+}
+
+// buildBreatheStartTriggerImpl is the default implementation.
+func buildBreatheStartTriggerImpl(agentName string) string {
+	if agentName == "" {
+		return breatheStartTriggerFallback
+	}
+
+	// Load config to find team path.
+	cfg, err := config.Load()
+	if err != nil || cfg == nil {
+		return breatheStartTriggerFallback
+	}
+	teamPath := cfg.TeamPath
+	if teamPath == "" {
+		return breatheStartTriggerFallback
+	}
+
+	// Resolve agent role.
+	role, err := agentfs.RoleOf(teamPath, agentName)
+	if err != nil || role == "" {
+		return breatheStartTriggerFallback
+	}
+
+	// Load role skills.
+	rolesCfg, err := config.LoadRoles()
+	if err != nil || rolesCfg == nil {
+		return breatheStartTriggerFallback
+	}
+	skills := rolesCfg.RoleSkills(role)
+	if len(skills) == 0 {
+		return breatheStartTriggerFallback
+	}
+
+	// Build skill directives.
+	var skillLines []string
+	for _, name := range skills {
+		skillLines = append(skillLines, fmt.Sprintf("- `ttal skill get %s`", name))
+	}
+	skillsBlock := strings.Join(skillLines, "\n")
+
+	return fmt.Sprintf(
+		"Execute the following to load your methodology:\n%s\n\n"+
+			"Then exec `ttal task get(no extra args)` and continue with the task.",
+		skillsBlock,
+	)
+}
 
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.
@@ -631,7 +685,8 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
 			go func() {
 				time.Sleep(clearSettleDelay)
-				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, breatheStartTrigger); err != nil {
+				trigger := buildBreatheStartTriggerFn(req.Agent)
+				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, trigger); err != nil {
 					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
 				} else {
 					log.Printf("[breathe] %s: start trigger sent", req.Agent)
