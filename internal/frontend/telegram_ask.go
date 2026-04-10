@@ -188,7 +188,7 @@ func (f *TelegramFrontend) AskHuman(
 	if botToken == "" {
 		return "", false, fmt.Errorf("no bot token for agent %q", agentName)
 	}
-	chatID, err := telegram.ParseChatID(ta.ChatID)
+	chatID, err := telegram.ParseChatID(f.cfg.MCfg.ChatID)
 	if err != nil {
 		return "", false, fmt.Errorf("invalid chat ID for agent %q: %w", agentName, err)
 	}
@@ -226,7 +226,7 @@ func (f *TelegramFrontend) AskHuman(
 }
 
 // handleHTTPAskHuman is the HTTP handler for POST /ask/human.
-func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.HandlerFunc {
+func handleHTTPAskHuman(store *askHumanStore, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req askHumanHTTPRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -236,7 +236,7 @@ func handleHTTPAskHuman(store *askHumanStore, mcfg *config.DaemonConfig) http.Ha
 			return
 		}
 
-		botToken, chatID, displayName, err := resolveAskHumanTarget(req, mcfg)
+		botToken, chatID, displayName, err := resolveAskHumanTarget(req, cfg)
 		if err != nil {
 			writeAskHumanJSON(w, http.StatusBadRequest, askHumanHTTPResponse{
 				OK: false, Error: err.Error(),
@@ -318,7 +318,7 @@ func writeAskHumanJSON(w http.ResponseWriter, code int, v interface{}) {
 }
 
 // resolveAskHumanTarget resolves bot token, chat ID, and display name from the request.
-func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
+func resolveAskHumanTarget(req askHumanHTTPRequest, cfg *config.Config) (
 	botToken string, chatID int64, displayName string, err error,
 ) {
 	if req.AgentName != "" {
@@ -326,11 +326,11 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
 		if token == "" {
 			return "", 0, "", fmt.Errorf("no bot token for agent %q", req.AgentName)
 		}
-		ta, ok := mcfg.FindAgent(req.AgentName)
+		_, ok := cfg.FindAgent(req.AgentName)
 		if !ok {
 			return "", 0, "", fmt.Errorf("agent %q not found in config", req.AgentName)
 		}
-		id, parseErr := telegram.ParseChatID(ta.ChatID)
+		id, parseErr := telegram.ParseChatID(cfg.ChatID)
 		if parseErr != nil {
 			return "", 0, "", fmt.Errorf("invalid chat ID for agent %q: %w", req.AgentName, parseErr)
 		}
@@ -338,15 +338,14 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, mcfg *config.DaemonConfig) (
 	}
 
 	if req.Session != "" {
-		team := mcfg.Team
-		if team == nil || team.NotificationToken == "" {
+		if cfg.NotificationToken == "" {
 			return "", 0, "", fmt.Errorf("no notification bot configured for default team")
 		}
-		id, parseErr := telegram.ParseChatID(team.ChatID)
+		id, parseErr := telegram.ParseChatID(cfg.ChatID)
 		if parseErr != nil {
 			return "", 0, "", fmt.Errorf("invalid notification chat ID: %w", parseErr)
 		}
-		return team.NotificationToken, id, req.Session, nil
+		return cfg.NotificationToken, id, req.Session, nil
 	}
 
 	return "", 0, "", fmt.Errorf("must set TTAL_AGENT_NAME or be in a tmux session")

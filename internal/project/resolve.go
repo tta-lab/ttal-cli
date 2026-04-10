@@ -30,7 +30,7 @@ func ResolveProjectPathForTeam(projectName, team string) string {
 	if team == "" {
 		return ResolveProjectPath(projectName)
 	}
-	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPathForTeam(team)))
+	return resolveProjectPathWithStore(projectName, NewStore(config.ResolveProjectsPath()))
 }
 
 // ResolveProjectAliasWithStore is like ResolveProjectAlias but accepts an

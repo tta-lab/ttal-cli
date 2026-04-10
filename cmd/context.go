@@ -15,6 +15,9 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/promptrender"
 )
 
+// defaultTeamName is the single, hardcoded team name.
+const defaultTeamName = "default"
+
 // ccHookResponse is the JSON payload for CC SessionStart hooks.
 // hookSpecificOutput.additionalContext is injected into Claude's system context.
 type ccHookResponse struct {
@@ -113,7 +116,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	teamName := config.DefaultTeamName
+	teamName := defaultTeamName
 
 	// Derive identity env vars for subprocess execution in the template renderer.
 	// Workers (cwd under ~/.ttal/worktrees/) always get TTAL_JOB_ID from the worktree
@@ -122,7 +125,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 
 	// Only manager agents (those with an AGENTS.md under team_path) get the
 	// context template. Workers and unknown agents get a no-op hook response.
-	if extractWorktreeHexID(input.CWD) == "" && !agentfs.HasAgent(cfg.TeamPath(), agentName) {
+	if extractWorktreeHexID(input.CWD) == "" && !agentfs.HasAgent(cfg.TeamPath, agentName) {
 		noopHook()
 		return nil
 	}

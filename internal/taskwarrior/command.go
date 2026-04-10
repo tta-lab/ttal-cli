@@ -65,7 +65,7 @@ func resolveTaskRC() string {
 		fmt.Fprintf(os.Stderr, "warning: could not resolve team TASKRC: %v\n", err)
 		return ""
 	}
-	taskrc := cfg.TaskRC()
+	taskrc := cfg.TaskRC
 	if taskrc == config.DefaultTaskRC() {
 		return ""
 	}

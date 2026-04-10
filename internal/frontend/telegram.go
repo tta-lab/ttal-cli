@@ -120,7 +120,7 @@ func NewTelegram(cfg TelegramConfig) *TelegramFrontend {
 func (f *TelegramFrontend) RegisterCommands(commands []Command) error {
 	f.allCommands = commands
 
-	allAgents := f.cfg.MCfg.AllAgents()
+	allAgents := f.cfg.MCfg.Agents()
 	tokenAgent := make(map[string]string)
 	for _, ta := range allAgents {
 		if false {
@@ -135,10 +135,9 @@ func (f *TelegramFrontend) RegisterCommands(commands []Command) error {
 		}
 	}
 	// Include notification bot token.
-	team := f.cfg.MCfg.Team
-	if team != nil && team.NotificationToken != "" {
-		if _, ok := tokenAgent[team.NotificationToken]; !ok {
-			tokenAgent[team.NotificationToken] = config.DefaultTeamName + "-notify"
+	if f.cfg.MCfg.NotificationToken != "" {
+		if _, ok := tokenAgent[f.cfg.MCfg.NotificationToken]; !ok {
+			tokenAgent[f.cfg.MCfg.NotificationToken] = "default-notify"
 		}
 	}
 
@@ -175,7 +174,7 @@ func (f *TelegramFrontend) Start(ctx context.Context) error {
 	}()
 	f.startPollers()
 	if err := f.StartNotificationPoller(ctx); err != nil {
-		log.Printf("[telegram] StartNotificationPoller for team %s failed: %v", config.DefaultTeamName, err)
+		log.Printf("[telegram] StartNotificationPoller for team %s failed: %v", "default", err)
 	}
 	return nil
 }
@@ -183,7 +182,7 @@ func (f *TelegramFrontend) Start(ctx context.Context) error {
 // ClearTracking clears the tracked inbound message for an agent.
 // Called after the agent responds to prevent stale reactions on old messages.
 func (f *TelegramFrontend) ClearTracking(_ context.Context, agentName string) error {
-	f.mt.delete(config.DefaultTeamName, agentName)
+	f.mt.delete("default", agentName)
 	return nil
 }
 
@@ -205,7 +204,7 @@ func (f *TelegramFrontend) SendText(_ context.Context, agentName string, text st
 	if botToken == "" {
 		return fmt.Errorf("agent %s has no telegram bot token configured", agentName)
 	}
-	return telegram.SendMessage(botToken, ta.ChatID, text)
+	return telegram.SendMessage(botToken, f.cfg.MCfg.ChatID, text)
 }
 
 // SendVoice is not yet implemented for Telegram outbound (daemon → human).
@@ -215,16 +214,12 @@ func (f *TelegramFrontend) SendVoice(_ context.Context, _ string, _ []byte) erro
 
 // SendNotification sends a system notification to this team's notification channel.
 func (f *TelegramFrontend) SendNotification(_ context.Context, text string) error {
-	team := f.cfg.MCfg.Team
-	if team == nil {
-		return fmt.Errorf("no config for team %s", config.DefaultTeamName)
-	}
-	return notify.SendWithConfig(team.NotificationToken, team.ChatID, text)
+	return notify.SendWithConfig(f.cfg.MCfg.NotificationToken, f.cfg.MCfg.ChatID, text)
 }
 
 // SetReaction sets an emoji reaction on the last tracked inbound message for an agent.
 func (f *TelegramFrontend) SetReaction(_ context.Context, agentName string, emoji string) error {
-	tracked, ok := f.mt.get(config.DefaultTeamName, agentName)
+	tracked, ok := f.mt.get("default", agentName)
 	if !ok {
 		return nil // no tracked message — silently skip
 	}
@@ -232,13 +227,8 @@ func (f *TelegramFrontend) SetReaction(_ context.Context, agentName string, emoj
 }
 
 // findAgent looks up a TeamAgent for the given agent name within this frontend's team.
-func (f *TelegramFrontend) findAgent(agentName string) *config.TeamAgent {
+func (f *TelegramFrontend) findAgent(agentName string) *config.AgentInfo {
 	ta, ok := f.cfg.MCfg.FindAgent(agentName)
-	if ok {
-		return ta
-	}
-	// Fall back to global search if not found in team.
-	ta, ok = f.cfg.MCfg.FindAgent(agentName)
 	if ok {
 		return ta
 	}
@@ -247,15 +237,8 @@ func (f *TelegramFrontend) findAgent(agentName string) *config.TeamAgent {
 
 // startPollers deduplicates agents by bot token and starts one poller per token.
 func (f *TelegramFrontend) startPollers() {
-	allAgents := f.cfg.MCfg.AllAgents()
-	var teamAgents []config.TeamAgent
-	for _, ta := range allAgents {
-		if true {
-			teamAgents = append(teamAgents, ta)
-		}
-	}
-
-	tokenTargets := buildTokenTargets(teamAgents)
+	allAgents := f.cfg.MCfg.Agents()
+	tokenTargets := buildTokenTargets(allAgents, f.cfg.MCfg.ChatID)
 	for botToken, targets := range tokenTargets {
 		dispatchMap := buildDispatchMap(targets)
 		log.Printf("[telegram] starting multi-agent poller for %d agents on token ...%s",
@@ -264,7 +247,7 @@ func (f *TelegramFrontend) startPollers() {
 	}
 }
 
-func buildTokenTargets(allAgents []config.TeamAgent) map[string][]pollerTarget {
+func buildTokenTargets(allAgents []config.AgentInfo, teamChatID string) map[string][]pollerTarget {
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		token := config.AgentBotToken(ta.AgentName)
@@ -273,9 +256,9 @@ func buildTokenTargets(allAgents []config.TeamAgent) map[string][]pollerTarget {
 			continue
 		}
 		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
-			teamName:  config.DefaultTeamName,
+			teamName:  "default",
 			agentName: ta.AgentName,
-			chatID:    ta.ChatID,
+			chatID:    teamChatID,
 		})
 	}
 	return tokenTargets
@@ -681,10 +664,7 @@ func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string
 		return
 	}
 
-	teamPath := ""
-	if team := f.cfg.MCfg.Team; team != nil {
-		teamPath = team.TeamPath
-	}
+	teamPath := f.cfg.MCfg.TeamPath
 
 	sort.Slice(agents, func(i, j int) bool { return agents[i].ContextUsedPct > agents[j].ContextUsedPct })
 	var sb strings.Builder
@@ -746,7 +726,7 @@ func (f *TelegramFrontend) handleSaveCommand(agentName, botToken, chatID string,
 
 	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer dbCancel()
-	msg, err := f.cfg.MsgSvc.LatestFrom(dbCtx, agentName, config.DefaultTeamName)
+	msg, err := f.cfg.MsgSvc.LatestFrom(dbCtx, agentName, "default")
 	if err != nil {
 		replyTelegram(botToken, chatID, "Error reading last message: "+err.Error())
 		return

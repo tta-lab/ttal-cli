@@ -6,9 +6,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
+
+// defaultTeamName is the single, hardcoded team name.
+const defaultTeamName = "default"
 
 const (
 	onModifyHookName = "on-modify-ttal"
@@ -37,10 +39,10 @@ func Install() error {
 		return fmt.Errorf("failed to resolve task data location (is taskwarrior installed and taskrc configured?): %w", err)
 	}
 	hookDir := filepath.Join(taskDataDir, "hooks")
-	teamName := "default"
+	teamName := defaultTeamName
 
 	fmt.Printf("Using ttal binary: %s\n", ttalBin)
-	if teamName != config.DefaultTeamName {
+	if teamName != defaultTeamName {
 		fmt.Printf("Team: %s\n", teamName)
 	}
 	fmt.Println()

@@ -190,11 +190,8 @@ func TestBuildAskHumanMessage_WithOptions(t *testing.T) {
 
 // --- resolveAskHumanTarget tests ---
 
-func minimalDaemonConfig() *config.DaemonConfig {
-	return &config.DaemonConfig{
-		Global: &config.LegacyConfig{},
-		Teams:  map[string]*config.ResolvedTeam{},
-	}
+func minimalDaemonConfig() *config.Config {
+	return &config.Config{}
 }
 
 func TestResolveAskHumanTarget_NoContext(t *testing.T) {

@@ -30,7 +30,7 @@ func buildPlanReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runt
 func SpawnPlanReviewer(
 	sessionName string, task *taskwarrior.Task, reviewerName string, cfg *config.Config, workDir string,
 ) error {
-	reviewerRT := cfg.DefaultRuntime()
+	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
 
 	ttalBin, err := os.Executable()
 	if err != nil {
@@ -108,7 +108,7 @@ func RequestReReview(sessionName, reviewerName string, designerComment string, c
 	replacer := strings.NewReplacer(
 		"{{designer-comment}}", commentRef,
 	)
-	msg := config.RenderTemplate(replacer.Replace(tmpl), "", cfg.DefaultRuntime())
+	msg := config.RenderTemplate(replacer.Replace(tmpl), "", runtime.Runtime(cfg.DefaultRuntime))
 	return tmux.SendKeys(sessionName, reviewerName, msg)
 }
 

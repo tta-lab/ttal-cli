@@ -43,7 +43,7 @@ type prWatchTarget struct {
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
 // and active tmux sessions, then spawns per-PR polling goroutines.
-func startPRWatcher(_ *config.DaemonConfig, frontends map[string]frontend.Frontend, done <-chan struct{}) {
+func startPRWatcher(_ *config.Config, frontends map[string]frontend.Frontend, done <-chan struct{}) {
 	var mu sync.Mutex
 	active := make(map[string]bool) // task UUID → polling
 
@@ -74,7 +74,7 @@ func scanForPRTasks(
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) {
-	teamName := config.DefaultTeamName
+	teamName := defaultTeamName
 	seen := scanTeam(frontends, teamName, mu, active, done)
 	if seen == nil {
 		// Scan failed — skip pruning this round to avoid orphaning
@@ -355,7 +355,7 @@ func notifyPRStatus(
 ) {
 	team := target.Team
 	if team == "" {
-		team = config.DefaultTeamName
+		team = defaultTeamName
 	}
 
 	fe, ok := frontends[team]
@@ -379,7 +379,7 @@ func formatTaskDoneMsg(target prWatchTarget) string {
 
 // notifyOwnerMerged delivers a PR-merged message to the owner agent.
 func notifyOwnerMerged(
-	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, target prWatchTarget,
 ) {
 	if target.Owner == "" {
@@ -387,7 +387,7 @@ func notifyOwnerMerged(
 	}
 	// teamName is always empty since TaskCompleteRequest no longer carries Team.
 	_ = target.Team // suppress unused field warning
-	if err := deliverToAgent(registry, mcfg, frontends, target.Owner, formatTaskDoneMsg(target)); err != nil {
+	if err := deliverToAgent(registry, cfg, frontends, target.Owner, formatTaskDoneMsg(target)); err != nil {
 		log.Printf("[prwatch] failed to notify owner %s: %v", target.Owner, err)
 	}
 }
@@ -395,25 +395,18 @@ func notifyOwnerMerged(
 // notifyManagerAgents delivers a task-done notification to manager agents in the task's
 // owning team only. Skips any agent that is the same as the owner (already notified).
 func notifyManagerAgents(
-	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, target prWatchTarget,
 ) {
 	teamName := target.Team
-	if teamName == "" {
-		log.Printf("[prwatch] notifyManagerAgents: target.Team empty, falling back to default team")
-		teamName = config.DefaultTeamName
-	}
-	team, ok := mcfg.Teams[teamName]
-	if !ok {
-		log.Printf("[prwatch] notifyManagerAgents: team %q not found in daemon config — notification dropped", teamName)
-		return
-	}
-	if team.TeamPath == "" {
-		log.Printf("[prwatch] notifyManagerAgents: team %q has no TeamPath configured — notification dropped", teamName)
+	// Single-team: use cfg directly
+	_ = teamName // preserved for API compatibility
+	if cfg.TeamPath == "" {
+		log.Printf("[prwatch] notifyManagerAgents: no TeamPath configured — notification dropped")
 		return
 	}
 
-	managers, err := agentfs.FindByRole(team.TeamPath, "manager")
+	managers, err := agentfs.FindByRole(cfg.TeamPath, "manager")
 	if err != nil {
 		log.Printf("[prwatch] notifyManagerAgents: FindByRole for team %s: %v", teamName, err)
 		return
@@ -424,7 +417,7 @@ func notifyManagerAgents(
 		if agent.Name == target.Owner {
 			continue
 		}
-		if err := deliverToAgent(registry, mcfg, frontends, agent.Name, msg); err != nil {
+		if err := deliverToAgent(registry, cfg, frontends, agent.Name, msg); err != nil {
 			log.Printf("[prwatch] notifyManagerAgents: deliver to %s: %v", agent.Name, err)
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -50,7 +49,7 @@ func runRemindAdd(cmd *cobra.Command, args []string) error {
 		scheduled = remindAt
 	}
 
-	teamName := config.DefaultTeamName
+	teamName := defaultTeamName
 	project := teamName + ".reminders"
 	if agent := os.Getenv("TTAL_AGENT_NAME"); agent != "" {
 		project = teamName + "." + agent

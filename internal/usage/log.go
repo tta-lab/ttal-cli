@@ -8,7 +8,6 @@ import (
 	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/ent"
 	_ "modernc.org/sqlite"
 )
@@ -20,7 +19,7 @@ func LogWith(command, subcommand, target string) {
 	if agent == "" {
 		return
 	}
-	team := config.DefaultTeamName
+	team := "default"
 
 	client, err := open()
 	if err != nil {

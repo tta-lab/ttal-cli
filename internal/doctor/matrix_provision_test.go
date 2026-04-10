@@ -145,8 +145,8 @@ func TestCheckMatrix_NoMatrixTeams(t *testing.T) {
 
 	cfgContent := `
 [teams.default]
-frontend = "telegram"
-team_path = "/tmp"
+  frontend = "telegram"
+  team_path = "/tmp"
 `
 	cfgPath := cfgDir + "/config.toml"
 	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
@@ -164,13 +164,13 @@ team_path = "/tmp"
 	// Should have one OK check saying "No Matrix teams configured"
 	found := false
 	for _, ch := range section.Checks {
-		if ch.Level == LevelOK && strings.Contains(ch.Message, "No Matrix teams configured") {
+		if ch.Level == LevelOK && strings.Contains(ch.Message, "frontend is not matrix") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected 'No Matrix teams configured' OK check, got: %+v", section.Checks)
+		t.Errorf("expected 'frontend is not matrix' OK check, got: %+v", section.Checks)
 	}
 }
 

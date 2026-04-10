@@ -12,7 +12,7 @@ import (
 // handleTaskComplete processes a taskComplete HTTP request and delivers
 // task-done notifications to manager agents, optionally the owner, and frontend.
 func handleTaskComplete(
-	req TaskCompleteRequest, mcfg *config.DaemonConfig,
+	req TaskCompleteRequest, cfg *config.Config,
 	registry *adapterRegistry, frontends map[string]frontend.Frontend,
 ) SendResponse {
 	// Use PR title if available, fall back to task description.
@@ -37,9 +37,9 @@ func handleTaskComplete(
 		PRIndex:     prIndex,
 	}
 
-	notifyManagerAgents(mcfg, registry, frontends, target)
+	notifyManagerAgents(cfg, registry, frontends, target)
 	if req.Owner != "" {
-		notifyOwnerMerged(mcfg, registry, frontends, target)
+		notifyOwnerMerged(cfg, registry, frontends, target)
 		log.Printf("[taskComplete] notified managers + owner %q for task %s",
 			req.Owner, shortSHA(req.TaskUUID))
 	} else {
@@ -56,7 +56,7 @@ func handleTaskComplete(
 func notifyTelegramTaskDone(frontends map[string]frontend.Frontend, target prWatchTarget) {
 	teamName := target.Team
 	if teamName == "" {
-		teamName = config.DefaultTeamName
+		teamName = "default"
 	}
 	fe, ok := frontends[teamName]
 	if !ok {

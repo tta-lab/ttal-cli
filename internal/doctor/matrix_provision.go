@@ -38,35 +38,23 @@ func checkMatrix(fix bool) Section {
 		return section
 	}
 
-	// Find teams with frontend=matrix
-	var matrixTeams []string
-	for name, team := range cfg.Teams() {
-		if team.Frontend == "matrix" {
-			matrixTeams = append(matrixTeams, name)
-		}
-	}
-	if len(matrixTeams) == 0 {
-		section.add(LevelOK, "matrix", "No Matrix teams configured — skipping")
+	if cfg.Frontend != "matrix" {
+		section.add(LevelOK, "matrix", "frontend is not matrix — skipping")
 		return section
 	}
 
-	sort.Strings(matrixTeams)
-
-	for _, teamName := range matrixTeams {
-		checkMatrixTeam(&section, cfg, teamName, fix)
-	}
+	checkMatrixTeam(&section, cfg, "default", fix)
 
 	return section
 }
 
 // checkMatrixTeam runs all Matrix checks for a single team.
 func checkMatrixTeam(section *Section, cfg *config.Config, teamName string, fix bool) {
-	team := cfg.Teams()[teamName]
-	if team.Matrix == nil {
+	if cfg.Matrix == nil {
 		section.add(LevelError, teamName, "frontend=matrix but no [teams."+teamName+".matrix] config")
 		return
 	}
-	matrixCfg := team.Matrix
+	matrixCfg := cfg.Matrix
 	if matrixCfg.Homeserver == "" {
 		section.add(LevelError, teamName, "matrix.homeserver not set")
 		return
@@ -81,14 +69,10 @@ func checkMatrixTeam(section *Section, cfg *config.Config, teamName string, fix 
 	checkMatrixConnectivity(section, teamName, matrixCfg.Homeserver)
 
 	// Discover agents from team_path
-	teamPath := team.TeamPath
-	if teamPath == "" {
-		teamPath = cfg.TeamPath()
-	}
-	agentNames, err := agentfs.DiscoverAgents(teamPath)
+	agentNames, err := agentfs.DiscoverAgents(cfg.TeamPath)
 	if err != nil {
 		section.add(LevelError, teamName+".agents",
-			fmt.Sprintf("cannot discover agents at %s: %v", teamPath, err))
+			fmt.Sprintf("cannot discover agents at %s: %v", cfg.TeamPath, err))
 		return
 	}
 	sort.Strings(agentNames)
@@ -220,11 +204,7 @@ func provisionMatrixAgent(
 	defer cancel()
 
 	// Get agent info for display name (emoji + capitalized name)
-	teamPath := cfg.Teams()[teamName].TeamPath
-	if teamPath == "" {
-		teamPath = cfg.TeamPath()
-	}
-	agentInfo, _ := agentfs.Get(teamPath, agentName)
+	agentInfo, _ := agentfs.Get(cfg.TeamPath, agentName)
 	titleCaser := cases.Title(language.English)
 	displayName := titleCaser.String(agentName)
 	if agentInfo != nil && agentInfo.Emoji != "" {

@@ -83,7 +83,7 @@ func AdvanceClient(req AdvanceRequest) (AdvanceResponse, error) {
 // It may block for minutes when a "human" gate requires Telegram approval.
 func handlePipelineAdvance(
 	w http.ResponseWriter, r *http.Request,
-	fe frontend.Frontend, mcfg *config.DaemonConfig,
+	fe frontend.Frontend, cfg *config.Config,
 	workerRuntime string,
 ) {
 	var req AdvanceRequest
@@ -95,7 +95,7 @@ func handlePipelineAdvance(
 		return
 	}
 
-	teamPath := resolveTeamPath(mcfg)
+	teamPath := resolveTeamPath(cfg)
 
 	task, err := taskwarrior.ExportTask(req.TaskUUID)
 	if err != nil {
@@ -144,8 +144,8 @@ func handlePipelineAdvance(
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
-		err := advanceToStage(w, mcfg, task, firstStage, req.AgentName, workerRuntime, teamPath, agentRoles,
-			mcfg.Global.Sync.WorkerAgentPaths)
+		err := advanceToStage(w, cfg, task, firstStage, req.AgentName, workerRuntime, teamPath, agentRoles,
+			cfg.Sync.WorkerAgentPaths)
 		if err != nil {
 			log.Printf("[advance] first stage error: %v", err)
 			return
@@ -165,16 +165,13 @@ func handlePipelineAdvance(
 		return
 	}
 
-	processStageAdvance(r.Context(), w, fe, mcfg, task, p, idx, stage,
+	processStageAdvance(r.Context(), w, fe, cfg, task, p, idx, stage,
 		req.AgentName, req.SessionName, req.WorkDir, workerRuntime, teamPath, agentRoles)
 }
 
 // resolveTeamPath returns the filesystem path for the default team.
-func resolveTeamPath(mcfg *config.DaemonConfig) string {
-	if mcfg.Team == nil {
-		return ""
-	}
-	return mcfg.Team.TeamPath
+func resolveTeamPath(cfg *config.Config) string {
+	return cfg.TeamPath
 }
 
 // buildAgentRoles discovers agents from the team path and returns a name→role map.
@@ -250,7 +247,7 @@ func processStageAdvance(
 	ctx context.Context,
 	w http.ResponseWriter,
 	fe frontend.Frontend,
-	mcfg *config.DaemonConfig,
+	cfg *config.Config,
 	task *taskwarrior.Task,
 	p *pipeline.Pipeline,
 	idx int,
@@ -262,14 +259,11 @@ func processStageAdvance(
 		// Attempt spawn/re-trigger before writing response so we can include the outcome.
 		// Skip when sessionName is empty (old client or non-tmux caller) — backwards compatible.
 		var spawnMsg string
-		switch {
-		case sessionName == "":
-			// Old client or non-tmux caller — skip spawn for backwards compatibility.
-		case mcfg.Global == nil:
-			log.Printf("[advance] skipping reviewer spawn for task %s: global config not loaded", task.UUID)
-			spawnMsg = " (spawn skipped: daemon config not loaded)"
+		switch sessionName {
+		case "":
+			// Old client or non-tmux caller — skip spawn for backwards compatible.
 		default:
-			err, skipped := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, mcfg.Global.AsConfig())
+			err, skipped := spawnOrRetriggerReviewerFromDaemon(task, stage, sessionName, workDir, cfg)
 			if err != nil {
 				log.Printf("[advance] warning: reviewer spawn failed for task %s: %v", task.UUID, err)
 				spawnMsg = fmt.Sprintf(" (spawn failed: %v)", err)
@@ -307,8 +301,8 @@ func processStageAdvance(
 		return
 	}
 
-	err := advanceToStage(w, mcfg, task, &p.Stages[nextIdx], callerAgent, workerRuntime, teamPath, agentRoles,
-		mcfg.Global.Sync.WorkerAgentPaths)
+	err := advanceToStage(w, cfg, task, &p.Stages[nextIdx], callerAgent, workerRuntime, teamPath, agentRoles,
+		cfg.Sync.WorkerAgentPaths)
 	if err != nil {
 		log.Printf("[advance] next stage error: %v", err)
 		return
@@ -537,7 +531,7 @@ func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) boo
 
 // shouldBreathe reads the agent's status file and decides whether to breathe.
 func shouldBreathe(agentName string, threshold float64) bool {
-	agentStatus, err := status.ReadAgent(config.DefaultTeamName, agentName)
+	agentStatus, err := status.ReadAgent("default", agentName)
 	if err != nil {
 		log.Printf("[advance] warning: could not read status for default/%s, defaulting to breathe: %v", agentName, err)
 		return true
@@ -707,7 +701,7 @@ func ensureWorkerStageOwner(task *taskwarrior.Task, callerAgent, stageName strin
 
 func advanceToStage(
 	w http.ResponseWriter,
-	mcfg *config.DaemonConfig,
+	cfg *config.Config,
 	task *taskwarrior.Task,
 	stage *pipeline.Stage,
 	callerAgent, workerRuntime string,
@@ -805,7 +799,6 @@ func advanceToStage(
 		log.Printf("[advance] warning: start task for agent: %v", err)
 	}
 
-	cfg := mcfg.Global.AsConfig()
 	if err := routeToPersistentAgent(w, cfg, task, agent, teamPath); err != nil {
 		return err
 	}
@@ -886,8 +879,8 @@ func routeToPersistentAgent(
 	_ *taskwarrior.Task, agent *agentfs.AgentInfo,
 	_ string,
 ) error {
-	if !shouldBreathe(agent.Name, cfg.BreatheThreshold()) {
-		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold())
+	if !shouldBreathe(agent.Name, cfg.BreatheThreshold) {
+		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold)
 		return nil
 	}
 	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
@@ -925,7 +918,7 @@ func handleWorkerPRMerge(w http.ResponseWriter, task *taskwarrior.Task) bool {
 	if cfgErr != nil {
 		log.Printf("[advance] warning: could not load config, defaulting to auto-merge: %v", cfgErr)
 	}
-	if cfgErr == nil && cfg.GetMergeMode() == config.MergeModeManual {
+	if cfgErr == nil && cfg.MergeMode == config.MergeModeManual {
 		notifyTelegramFn(notification.PRReadyToMerge{
 			Ctx: notification.NewContext(task.Project, task.HexID(), task.Description, ""),
 		}.Render())

@@ -828,7 +828,7 @@ func loadConfig() tea.Cmd {
 		// Agent emojis from frontmatter (depends on cfg.TeamPath())
 		agentEmojiMap := make(map[string]string)
 		if cfg != nil {
-			if agents, err := agentfs.Discover(cfg.TeamPath()); err != nil {
+			if agents, err := agentfs.Discover(cfg.TeamPath); err != nil {
 				log.Printf("failed to discover agents for active view: %v", err)
 			} else {
 				for _, a := range agents {

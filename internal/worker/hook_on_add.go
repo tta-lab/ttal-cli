@@ -92,5 +92,5 @@ func resolveTeamPathForHook() string {
 		hookLogFile("WARN: could not load config for stage-0 enter: " + err.Error())
 		return ""
 	}
-	return cfg.TeamPath()
+	return cfg.TeamPath
 }

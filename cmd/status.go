@@ -50,8 +50,8 @@ func showStatus() error {
 		return nil
 	}
 
-	teamName := "default"
-	names, _ := agentfs.DiscoverAgents(cfg.TeamPath())
+	teamName := defaultTeamName
+	names, _ := agentfs.DiscoverAgents(cfg.TeamPath)
 
 	rows := make([]agentRow, 0, len(names))
 	for _, name := range names {
@@ -88,12 +88,12 @@ func showStatus() error {
 }
 
 func buildAgentRow(cfg *config.Config, _, name string) agentRow {
-	rt := cfg.DefaultRuntime()
+	rt := cfg.DefaultRuntime
 	s, _ := status.ReadAgent("default", name)
 
 	row := agentRow{
 		name:    name,
-		runtime: string(rt),
+		runtime: rt,
 		ctxPct:  -1,
 	}
 

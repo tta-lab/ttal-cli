@@ -45,8 +45,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 			return err
 		}
 
-		syncCfg := cfg.SyncConfig_
-		teamPath := cfg.TeamPath()
+		syncCfg := cfg.Sync
+		teamPath := cfg.TeamPath
 
 		// Plugin install always runs (resolves marketplace from project store or URL).
 		// Only error if there's nothing else to sync either.
@@ -193,12 +193,12 @@ Requires task_sync_url to be set in the team's config.toml section.`,
 			return err
 		}
 
-		syncURL := cfg.TaskSyncURL()
+		syncURL := cfg.TaskSyncURL
 		if syncURL == "" {
 			return fmt.Errorf("task_sync_url not set for team %q — add it to config.toml first", "default")
 		}
 
-		syncFilePath := filepath.Join(cfg.DataDir(), "taskrc.sync")
+		syncFilePath := filepath.Join(cfg.DataDir, "taskrc.sync")
 
 		if _, err := os.Stat(syncFilePath); err == nil {
 			content, err := os.ReadFile(syncFilePath)
@@ -209,13 +209,13 @@ Requires task_sync_url to be set in the team's config.toml section.`,
 			return nil
 		}
 
-		if err := doctor.GenerateSyncCredentials(cfg.DataDir(), syncURL); err != nil {
+		if err := doctor.GenerateSyncCredentials(cfg.DataDir, syncURL); err != nil {
 			return fmt.Errorf("generating credentials: %w", err)
 		}
 		fmt.Printf("Generated sync credentials: %s\n", syncFilePath)
 
 		// Ensure taskrc includes the sync file
-		taskrc := cfg.TaskRC()
+		taskrc := cfg.TaskRC
 		content, err := os.ReadFile(taskrc)
 		if err != nil {
 			return fmt.Errorf("reading taskrc: %w", err)

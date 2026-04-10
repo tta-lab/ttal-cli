@@ -254,9 +254,9 @@ func checkConfig(fix bool) Section {
 		}
 	}
 
-	checkPrompts(&section, cfg.Prompts_)
+	checkPrompts(&section, cfg.Prompts)
 
-	if cfg.ChatID_ == "" {
+	if cfg.ChatID == "" {
 		section.add(LevelError, "chat_id", "chat_id not set")
 	} else {
 		section.add(LevelOK, "chat_id", "chat_id set")
@@ -290,7 +290,7 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 	envPath, _ := config.DotEnvPath()
 
 	// Discover agent names from filesystem for .env template and token checks.
-	agentNames, _ := agentfs.DiscoverAgents(cfg.TeamPath())
+	agentNames, _ := agentfs.DiscoverAgents(cfg.TeamPath)
 	sort.Strings(agentNames)
 
 	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
@@ -376,7 +376,7 @@ func checkTaskwarrior(fix bool) Section {
 		section.add(LevelError, "config", fmt.Sprintf("failed to load config: %v", err))
 		return section
 	}
-	taskrc := cfg.TaskRC()
+	taskrc := cfg.TaskRC
 
 	home, _ := os.UserHomeDir()
 	taskrcTtalPath := home + "/.taskrc.ttal"
@@ -408,7 +408,7 @@ func ensureTaskrc(section *Section, cfg *config.Config, taskrc string, fix bool)
 			fmt.Sprintf("%s not found (run: ttal doctor --fix)", taskrc))
 		return false
 	}
-	taskData := cfg.TaskData()
+	taskData := cfg.TaskData
 	if err := os.MkdirAll(taskData, 0o755); err != nil {
 		section.add(LevelError, "task_data",
 			fmt.Sprintf("failed to create data dir %s: %v", taskData, err))
@@ -423,8 +423,8 @@ func ensureTaskrc(section *Section, cfg *config.Config, taskrc string, fix bool)
 		"data.location=" + taskData + "\n" +
 		"news.version=3.4.2\n\n" +
 		"include ~/.taskrc.ttal\n"
-	if cfg.TaskSyncURL() != "" {
-		syncFilePath := filepath.Join(cfg.DataDir(), "taskrc.sync")
+	if cfg.TaskSyncURL != "" {
+		syncFilePath := filepath.Join(cfg.DataDir, "taskrc.sync")
 		taskrcContent += "include " + syncFilePath + "\n"
 	}
 	if err := os.WriteFile(taskrc, []byte(taskrcContent), 0o644); err != nil {
@@ -467,7 +467,7 @@ func checkTaskrcIncludes(section *Section, cfg *config.Config, taskrc string, fi
 		return false
 	}
 	checkTaskrcInclude(section, taskrc, string(content), "include ~/.taskrc.ttal", fix)
-	syncFilePath := filepath.Join(cfg.DataDir(), "taskrc.sync")
+	syncFilePath := filepath.Join(cfg.DataDir, "taskrc.sync")
 	if _, err := os.Stat(syncFilePath); err == nil {
 		syncInc := "include " + syncFilePath
 		checkTaskrcInclude(section, taskrc, string(content), syncInc, fix)
@@ -495,7 +495,7 @@ func checkUDAs(section *Section, taskrcTtalPath string) {
 func checkTaskDataDir(section *Section, cfg *config.Config, fix bool) {
 	taskData, tdErr := taskwarrior.ResolveDataLocation()
 	if tdErr != nil {
-		taskData = cfg.TaskData()
+		taskData = cfg.TaskData
 	}
 	if _, err := os.Stat(taskData); err == nil {
 		section.add(LevelOK, "task_data",
@@ -561,13 +561,13 @@ func checkTaskSync(fix bool) Section {
 		return section
 	}
 
-	syncURL := cfg.TaskSyncURL()
+	syncURL := cfg.TaskSyncURL
 	if syncURL == "" {
 		section.add(LevelOK, "sync", "sync not configured (no task_sync_url)")
 		return section
 	}
 
-	syncFilePath := filepath.Join(cfg.DataDir(), "taskrc.sync")
+	syncFilePath := filepath.Join(cfg.DataDir, "taskrc.sync")
 
 	if _, err := os.Stat(syncFilePath); err == nil {
 		section.add(LevelOK, "credentials", fmt.Sprintf("sync credentials present: %s", syncFilePath))
@@ -580,7 +580,7 @@ func checkTaskSync(fix bool) Section {
 		return section
 	}
 
-	if err := GenerateSyncCredentials(cfg.DataDir(), syncURL); err != nil {
+	if err := GenerateSyncCredentials(cfg.DataDir, syncURL); err != nil {
 		section.add(LevelError, "credentials", fmt.Sprintf("failed to generate sync credentials: %v", err))
 		return section
 	}
@@ -645,7 +645,7 @@ func checkDatabase() Section {
 	if err != nil {
 		section.add(LevelWarn, "agents", fmt.Sprintf("could not load config for agent count: %v", err))
 	} else {
-		count, err := countAgents(cfg.TeamPath())
+		count, err := countAgents(cfg.TeamPath)
 		if err != nil {
 			section.add(LevelWarn, "agents", fmt.Sprintf("could not count agents: %v", err))
 		} else {

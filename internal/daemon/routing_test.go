@@ -158,7 +158,7 @@ func TestParseWorkerAddress(t *testing.T) {
 // only truly unresolvable senders error — and the error message says
 // "unknown agent or worker".
 func TestHandleAgentToAgentUnknownSender(t *testing.T) {
-	mcfg := &config.DaemonConfig{}
+	mcfg := &config.Config{}
 
 	tests := []struct {
 		name    string
@@ -236,7 +236,7 @@ func TestBareHexError(t *testing.T) {
 // TestHandleToRejectsBareHex verifies that handleTo rejects bare hex UUIDs
 // with a helpful error message.
 func TestHandleToRejectsBareHex(t *testing.T) {
-	mcfg := &config.DaemonConfig{}
+	mcfg := &config.Config{}
 
 	req := SendRequest{
 		To:      "aabbccdd",
@@ -277,7 +277,7 @@ func pipelineConfigForTest(workerStage bool) *pipeline.Config {
 
 //nolint:gocyclo
 func TestResolveManagerWindow(t *testing.T) {
-	mcfg := &config.DaemonConfig{Global: &config.LegacyConfig{}}
+	mcfg := &config.Config{}
 
 	origExport := exportTaskByHexIDFn
 	origWindowExists := windowExistsFn
@@ -427,7 +427,7 @@ func TestResolveManagerWindow(t *testing.T) {
 // TestResolveManagerWindowTaskLookupError verifies that resolveManagerWindow propagates
 // task lookup errors from the injected exportTaskByHexIDFn.
 func TestResolveManagerWindowTaskLookupError(t *testing.T) {
-	mcfg := &config.DaemonConfig{Global: &config.LegacyConfig{}}
+	mcfg := &config.Config{}
 
 	origExport := exportTaskByHexIDFn
 	origPipelineLoad := pipelineLoadFn
@@ -463,8 +463,7 @@ func TestResolveManagerWindowWithTeam(t *testing.T) {
 		pipelineLoadFn = origPipelineLoad
 	})
 
-	cfg := &config.LegacyConfig{}
-	mcfg := &config.DaemonConfig{Global: cfg}
+	cfg := &config.Config{}
 
 	taskWithOwner := &taskwarrior.Task{
 		UUID:        testJobIDA + "aabbccddeeff",
@@ -488,7 +487,7 @@ func TestResolveManagerWindowWithTeam(t *testing.T) {
 		return session == expectedSessionAstra && window == "subagent"
 	}
 
-	session, err := resolveManagerWindow(testJobIDA, "subagent", mcfg)
+	session, err := resolveManagerWindow(testJobIDA, "subagent", cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -501,18 +500,18 @@ func TestResolveManagerWindowWithTeam(t *testing.T) {
 // impossible with single-team hardcoded sessions.
 
 // TestResolveManagerWindow_RealLoadAll exercises AgentSessionName through the real
-// config.LoadAll() path — NOT hand-stuffed mcfg. This is the regression gap PR #516
+// config.Load() path — NOT hand-stuffed mcfg. This is the regression gap PR #516
 // fell into: hand-populated mcfg bypassed LoadAll() and the missing resolvedTeamName
 // was invisible to tests.
 func TestResolveManagerWindow_RealLoadAll(t *testing.T) {
-	// LoadAll() reads ~/.config/ttal/config.toml — skip if absent (CI, bare containers).
+	// Load() reads ~/.config/ttal/config.toml — skip if absent (CI, bare containers).
 	realCfgPath := filepath.Join(config.DefaultConfigDir(), "config.toml")
 	if _, err := os.Stat(realCfgPath); os.IsNotExist(err) {
 		t.Skip("no real config at ~/.config/ttal/config.toml — skipping integration test")
 	}
-	mcfg, err := config.LoadAll()
+	mcfg, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadAll: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
 
 	origExport := exportTaskByHexIDFn
@@ -560,7 +559,7 @@ func TestResolveManagerWindow_RealLoadAll(t *testing.T) {
 //
 //nolint:gocyclo
 func TestDispatchToWorkerOrManager(t *testing.T) {
-	mcfg := &config.DaemonConfig{Global: &config.LegacyConfig{}}
+	mcfg := &config.Config{}
 
 	origResolveWorker := resolveWorker
 	origResolveManagerWindow := resolveManagerWindow
@@ -585,7 +584,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		resolveWorker = func(idPrefix string) (string, error) {
 			return "w-e9d4b7c1-coder", nil
 		}
-		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
+		resolveManagerWindow = func(jobID, windowName string, m *config.Config) (string, error) {
 			t.Fatal("resolveManagerWindow should not be called when worker is found")
 			return "", nil
 		}
@@ -611,7 +610,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		resolveWorker = func(idPrefix string) (string, error) {
 			return "", errors.New("no worker session")
 		}
-		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
+		resolveManagerWindow = func(jobID, windowName string, m *config.Config) (string, error) {
 			if jobID == "e9d4b7c1" && windowName == "coder" {
 				return "ttal-default-yuki", nil
 			}
@@ -639,7 +638,7 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		resolveWorker = func(idPrefix string) (string, error) {
 			return "", errors.New("no worker session")
 		}
-		resolveManagerWindow = func(jobID, windowName string, m *config.DaemonConfig) (string, error) {
+		resolveManagerWindow = func(jobID, windowName string, m *config.Config) (string, error) {
 			return "", errors.New("manager window not found")
 		}
 

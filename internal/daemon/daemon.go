@@ -1,5 +1,7 @@
 package daemon
 
+// defaultTeamName is the single, hardcoded team name.
+
 import (
 	"context"
 	"fmt"
@@ -26,12 +28,14 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// defaultTeamName is the single, hardcoded team name.
+const defaultTeamName = "default"
 const pidFileName = "daemon.pid"
 
 // Run starts the daemon in the foreground. This is what launchd calls.
 // Config-driven: loads all teams from config.toml, no database required.
 func Run() error {
-	mcfg, err := config.LoadAll()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
@@ -75,8 +79,8 @@ func Run() error {
 	msgSvc := message.NewService(entClient)
 	commentSvc := comment.NewService(entClient)
 
-	log.Printf("[daemon] starting — http=%s teams=%d",
-		sockPath, len(mcfg.Teams))
+	log.Printf("[daemon] starting — http=%s teams=1",
+		sockPath)
 
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,11 +103,11 @@ func Run() error {
 	// Build frontends per-team and register commands.
 	// Frontends capture registry and frontends itself via closure, which is
 	// fully populated before Start is called below.
-	frontends := buildFrontends(mcfg, registry, msgSvc)
+	frontends := buildFrontends(cfg, registry, msgSvc)
 	registerFrontendCommands(frontends, AllCommands(discovered))
 
 	// Start adapters after frontends are built — codex needs frontends ready for event bridging.
-	mcpPaths := initAdapters(ctx, mcfg, registry, frontends, msgSvc)
+	mcpPaths := initAdapters(ctx, cfg, registry, frontends, msgSvc)
 
 	// Start all frontends.
 	if err := startFrontends(ctx, done, frontends); err != nil {
@@ -111,23 +115,17 @@ func Run() error {
 	}
 
 	startUsagePoller(done)
-	startHeartbeatScheduler(mcfg, registry, frontends, done)
-	startCleanupWatcher(frontends, config.DefaultTeamName, done)
-	startPRWatcher(mcfg, frontends, done)
+	startHeartbeatScheduler(cfg, registry, frontends, done)
+	startCleanupWatcher(frontends, defaultTeamName, done)
+	startPRWatcher(cfg, frontends, done)
 	startReminderPoller(frontends, done)
-	startWatcher(mcfg, frontends, msgSvc, done)
-
-	shellCfg, err := config.Load()
-	if err != nil {
-		log.Printf("[daemon] warning: failed to load shell config: %v", err)
-		shellCfg = &config.Config{}
-	}
+	startWatcher(cfg, frontends, msgSvc, done)
 
 	// Pick a default frontend for HTTP handlers that need one.
-	defaultFE := frontends[config.DefaultTeamName]
+	defaultFE := frontends[defaultTeamName]
 	if defaultFE == nil {
 		close(done)
-		return fmt.Errorf("default team %q has no frontend — check config", config.DefaultTeamName)
+		return fmt.Errorf("default team %q has no frontend — check config", defaultTeamName)
 	}
 
 	// Rewire advance.go's notifyTelegramFn to route through the frontend abstraction.
@@ -137,12 +135,9 @@ func Run() error {
 		}
 	})
 
-	defaultTeamName := config.DefaultTeamName
-	commentSync := resolveCommentSync(mcfg)
-
 	handlers := buildHTTPHandlers(
-		ctx, mcfg, shellCfg, defaultFE, frontends,
-		registry, msgSvc, commentSvc, defaultTeamName, commentSync,
+		ctx, cfg, cfg, defaultFE, frontends,
+		registry, msgSvc, commentSvc, defaultTeamName, cfg.CommentSync,
 	)
 	srv, err := listenHTTP(sockPath, handlers)
 	if err != nil {
@@ -154,7 +149,7 @@ func Run() error {
 	if err := defaultFE.SendNotification(ctx, notification.DaemonReady{}.Render()); err != nil {
 		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
 	}
-	awaitShutdown(done, cancel, mcfg, registry, srv, mcpPaths)
+	awaitShutdown(done, cancel, cfg, registry, srv, mcpPaths)
 	return nil
 }
 
@@ -162,8 +157,8 @@ func Run() error {
 // Extracted from Run() to reduce cyclomatic complexity.
 func buildHTTPHandlers(
 	ctx context.Context,
-	mcfg *config.DaemonConfig,
-	shellCfg *config.Config,
+	cfg *config.Config,
+	_ *config.Config, // was shellCfg, unused — cfg is unified
 	defaultFE frontend.Frontend,
 	frontends map[string]frontend.Frontend,
 	registry *adapterRegistry,
@@ -174,23 +169,23 @@ func buildHTTPHandlers(
 ) httpHandlers {
 	return httpHandlers{
 		send: func(req SendRequest) error {
-			return handleSend(mcfg, registry, frontends, msgSvc, req)
+			return handleSend(cfg, registry, frontends, msgSvc, req)
 		},
 		statusUpdate: handleStatusUpdate,
 		taskComplete: func(req TaskCompleteRequest) SendResponse {
-			return handleTaskComplete(req, mcfg, registry, frontends)
+			return handleTaskComplete(req, cfg, registry, frontends)
 		},
 		breathe: func(req BreatheRequest) SendResponse {
-			return handleBreathe(shellCfg, req, mcfg, registry)
+			return handleBreathe(cfg, req, cfg, registry)
 		},
 		askHuman: defaultFE.AskHumanHTTPHandler(),
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
-			handlePipelineAdvance(w, r, defaultFE, mcfg, string(shellCfg.DefaultRuntime()))
+			handlePipelineAdvance(w, r, defaultFE, cfg, cfg.DefaultRuntime)
 		},
 		notify: func(team, msg string) error {
 			t := team
 			if t == "" {
-				t = config.DefaultTeamName
+				t = defaultTeamName
 			}
 			fe, ok := frontends[t]
 			if !ok {
@@ -202,10 +197,10 @@ func buildHTTPHandlers(
 			return handleCommentAdd(commentSvc, defaultTeamName, commentSync, req)
 		},
 		commentList: func(req CommentListRequest) CommentListResponse {
-			return handleCommentList(commentSvc, config.DefaultTeamName, req)
+			return handleCommentList(commentSvc, defaultTeamName, req)
 		},
 		commentGet: func(req CommentGetRequest) CommentGetResponse {
-			return handleCommentGet(commentSvc, config.DefaultTeamName, req)
+			return handleCommentGet(commentSvc, defaultTeamName, req)
 		},
 		closeWindow:           handleCloseWindow,
 		prCreate:              handlePRCreate,
@@ -219,8 +214,8 @@ func buildHTTPHandlers(
 		gitTag:                handleGitTag,
 		kubeLog: HandleKubeLog(
 			project.NewStore(config.ResolveProjectsPath()),
-			mcfg.Global.Kubernetes.Context,
-			mcfg.Global.Kubernetes.AllowedNamespaces,
+			cfg.Kubernetes.Context,
+			cfg.Kubernetes.AllowedNamespaces,
 		),
 	}
 }
@@ -312,7 +307,7 @@ func setupDataDir() (string, error) {
 // awaitShutdown waits for SIGINT/SIGTERM and performs graceful shutdown.
 func awaitShutdown(
 	done chan struct{}, cancel context.CancelFunc,
-	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	cfg *config.Config, registry *adapterRegistry,
 	srv *http.Server, mcpPaths map[string]string,
 ) {
 	sig := make(chan os.Signal, 1)
@@ -322,7 +317,7 @@ func awaitShutdown(
 	log.Printf("[daemon] received signal %v — shutting down", s)
 	close(done)
 	cancel()
-	shutdownAgents(mcfg, registry, mcpPaths)
+	shutdownAgents(cfg, registry, mcpPaths)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -368,49 +363,43 @@ func writePID(path string) error {
 // buildFrontends constructs one Frontend per team. The frontends map is passed by
 // reference into the OnMessage closure so message routing can use the full map.
 func buildFrontends(
-	mcfg *config.DaemonConfig, registry *adapterRegistry, msgSvc *message.Service,
+	cfg *config.Config, registry *adapterRegistry, msgSvc *message.Service,
 ) map[string]frontend.Frontend {
 	frontends := make(map[string]frontend.Frontend)
-	team := mcfg.Team
-	if team == nil {
-		log.Printf("[daemon] no [teams.default] in config — frontends disabled")
-		return frontends
-	}
-	ft := team.Frontend
-	if ft == "" {
-		ft = "telegram"
+	if cfg.Frontend == "" {
+		cfg.Frontend = "telegram"
 	}
 	onMsg := func(_, agent, text string) {
-		if err := deliverToAgent(registry, mcfg, frontends, agent, text); err != nil {
+		if err := deliverToAgent(registry, cfg, frontends, agent, text); err != nil {
 			log.Printf("[daemon] deliverToAgent %s failed: %v", agent, err)
 		}
 	}
-	switch ft {
+	switch cfg.Frontend {
 	case "telegram":
 		fe := frontend.NewTelegram(frontend.TelegramConfig{
-			MCfg:       mcfg,
+			MCfg:       cfg,
 			OnMessage:  onMsg,
 			MsgSvc:     msgSvc,
-			UserNameFn: func() string { return mcfg.Team.UserName },
+			UserNameFn: func() string { return cfg.UserName },
 			GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
 			RestartFn:  Restart,
 		})
-		frontends[config.DefaultTeamName] = fe
+		frontends[defaultTeamName] = fe
 	case "matrix":
 		fe, err := frontend.NewMatrix(frontend.MatrixConfig{
-			MCfg:       mcfg,
+			MCfg:       cfg,
 			OnMessage:  onMsg,
 			MsgSvc:     msgSvc,
-			UserNameFn: func() string { return mcfg.Team.UserName },
+			UserNameFn: func() string { return cfg.UserName },
 			GetUsageFn: func() string { return formatUsageString(getUsageCache()) },
 			RestartFn:  Restart,
 		})
 		if err != nil {
 			log.Printf("[daemon] matrix frontend failed: %v — skipping", err)
 		}
-		frontends[config.DefaultTeamName] = fe
+		frontends[defaultTeamName] = fe
 	default:
-		log.Printf("[daemon] unknown frontend %q — skipping", ft)
+		log.Printf("[daemon] unknown frontend %q — skipping", cfg.Frontend)
 	}
 	return frontends
 }
@@ -435,14 +424,6 @@ func registerFrontendCommands(frontends map[string]frontend.Frontend, cmds []Bot
 
 // startFrontends calls Start for every frontend.
 // StartNotificationPoller is called internally by TelegramFrontend.Start.
-// resolveCommentSync returns the comment sync mode for the given team ("pr" by default).
-func resolveCommentSync(mcfg *config.DaemonConfig) string {
-	if mcfg.Team != nil && mcfg.Team.CommentSync != "" {
-		return mcfg.Team.CommentSync
-	}
-	return "pr"
-}
-
 func startFrontends(ctx context.Context, done chan struct{}, frontends map[string]frontend.Frontend) error {
 	for teamName, fe := range frontends {
 		if err := fe.Start(ctx); err != nil {

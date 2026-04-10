@@ -24,7 +24,7 @@ import (
 
 // MatrixConfig holds construction parameters for MatrixFrontend.
 type MatrixConfig struct {
-	MCfg       *config.DaemonConfig
+	MCfg       *config.Config
 	OnMessage  InboundHandler
 	MsgSvc     *message.Service
 	UserNameFn func() string
@@ -66,11 +66,7 @@ func NewMatrix(cfg MatrixConfig) (*MatrixFrontend, error) {
 		return nil, fmt.Errorf("MatrixConfig.UserNameFn is required")
 	}
 
-	team := cfg.MCfg.Team
-	if team == nil {
-		return nil, fmt.Errorf("[teams.default] not found in config")
-	}
-	matrixCfg := team.Matrix
+	matrixCfg := cfg.MCfg.Matrix
 	if matrixCfg == nil {
 		return nil, fmt.Errorf("[teams.default] has frontend=matrix but no [teams.default.matrix] config")
 	}
@@ -213,7 +209,7 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 			Sender:    senderName,
 			Recipient: agentName,
 			Content:   body,
-			Team:      config.DefaultTeamName,
+			Team:      "default",
 			Channel:   message.ChannelMatrix,
 		}); err != nil {
 			log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
@@ -221,12 +217,12 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 	}
 	// Bash mode: "! " prefix sends directly to CC without [matrix from:] wrapper.
 	if strings.HasPrefix(body, bashModePrefix) {
-		f.cfg.OnMessage(config.DefaultTeamName, agentName, body)
+		f.cfg.OnMessage("default", agentName, body)
 		return
 	}
 
 	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, body)
-	f.cfg.OnMessage(config.DefaultTeamName, agentName, formatted)
+	f.cfg.OnMessage("default", agentName, formatted)
 }
 
 // startNotifSync sets up the notification client sync loop with command handlers.
@@ -301,7 +297,7 @@ func (f *MatrixFrontend) SendVoice(_ context.Context, _ string, _ []byte) error 
 // If no notification client is configured, logs a warning and returns nil (not an error).
 func (f *MatrixFrontend) SendNotification(ctx context.Context, text string) error {
 	if f.notifyClient == nil {
-		log.Printf("[matrix] no notification client configured for team %s — dropping notification", config.DefaultTeamName)
+		log.Printf("[matrix] no notification client configured for team %s — dropping notification", "default")
 		return nil // not an error — acceptable in Phase 2
 	}
 	if _, err := f.notifyClient.SendText(ctx, f.notifyRoom, text); err != nil {
@@ -394,7 +390,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 			Sender:    senderName,
 			Recipient: agentName,
 			Content:   rawText,
-			Team:      config.DefaultTeamName,
+			Team:      "default",
 			Channel:   message.ChannelMatrix,
 		}); err != nil {
 			log.Printf("[matrix] voice persist failed: %v", err)
@@ -402,7 +398,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 	}
 
 	formatted := fmt.Sprintf("[matrix from:%s] %s", senderName, rawText)
-	f.cfg.OnMessage(config.DefaultTeamName, agentName, formatted)
+	f.cfg.OnMessage("default", agentName, formatted)
 }
 
 // ClearTracking clears the tracked inbound event ID for an agent.
@@ -456,7 +452,7 @@ func (f *MatrixFrontend) handleMatrixCommand(
 
 	switch cmd {
 	case "status":
-		f.handleMatrixStatusCommand(config.DefaultTeamName, replyFn, args)
+		f.handleMatrixStatusCommand("default", replyFn, args)
 	case "help":
 		f.handleMatrixHelpCommand(replyFn)
 	case "usage":
@@ -583,7 +579,7 @@ func (f *MatrixFrontend) handleNotifCommand(text string) {
 
 	switch cmd {
 	case "status":
-		f.handleMatrixStatusCommand(config.DefaultTeamName, replyFn, args)
+		f.handleMatrixStatusCommand("default", replyFn, args)
 	case "usage":
 		f.handleMatrixUsageCommand(replyFn)
 	case "restart":
