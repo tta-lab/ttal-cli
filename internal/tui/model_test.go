@@ -90,22 +90,30 @@ func TestApplyFilterActive_IncludesStartedSubtasks(t *testing.T) {
 	m := NewModel()
 	m.filter = filterActive
 	m.tasks = []Task{
-		// applyFilter requires Start != "" for active view
-		{UUID: "root-1", Description: "root task", Status: "pending", Start: "20260409T120000"},
-		{UUID: "child-1", Description: "started subtask", Status: "pending", ParentID: "root-1", Start: "20260409T120000"},
-		{UUID: "root-2", Description: "another root", Status: "pending", Start: "20260409T120000"},
+		// applyFilter requires Start != "" AND Owner != "" for active view
+		{UUID: "root-1", Description: "root task", Status: "pending", Start: "20260409T120000", Owner: "yuki"},
+		{
+			UUID:        "child-1",
+			Description: "started subtask",
+			Status:      "pending",
+			ParentID:    "root-1",
+			Start:       "20260409T120000",
+			Owner:       "yuki",
+		},
+		{UUID: "root-2", Description: "another root", Status: "pending", Start: "20260409T120000", Owner: "yuki"},
 	}
 	m.applyFilter()
 
 	// All three tasks should appear — active filter is flat and includes subtasks
 	assert.Equal(t, 3, len(m.filtered))
 
-	// Negative case: tasks without Start are excluded from active filter
+	// Negative case: tasks without Start or Owner are excluded from active filter
 	m2 := NewModel()
 	m2.filter = filterActive
 	m2.tasks = []Task{
 		{UUID: "not-started", Description: "pending but not started", Status: "pending", Start: ""},
-		{UUID: "started-root", Description: "started root", Status: "pending", Start: "20260409T120000"},
+		{UUID: "no-owner", Description: "started but no owner", Status: "pending", Start: "20260409T120000", Owner: ""},
+		{UUID: "started-root", Description: "started root", Status: "pending", Start: "20260409T120000", Owner: "yuki"},
 	}
 	m2.applyFilter()
 	assert.Equal(t, 1, len(m2.filtered))
