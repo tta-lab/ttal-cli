@@ -42,32 +42,38 @@ func init() {
 // buildBreatheStartTriggerImpl is the default implementation.
 func buildBreatheStartTriggerImpl(agentName string) string {
 	if agentName == "" {
+		log.Printf("[breathe] start trigger: empty agent name, using fallback")
 		return breatheStartTriggerFallback
 	}
 
 	// Load config to find team path.
 	cfg, err := config.Load()
 	if err != nil || cfg == nil {
+		log.Printf("[breathe] start trigger: config load failed for %q: %v", agentName, err)
 		return breatheStartTriggerFallback
 	}
 	teamPath := cfg.TeamPath
 	if teamPath == "" {
+		log.Printf("[breathe] start trigger: no team_path for %q, using fallback", agentName)
 		return breatheStartTriggerFallback
 	}
 
 	// Resolve agent role.
 	role, err := agentfs.RoleOf(teamPath, agentName)
 	if err != nil || role == "" {
+		log.Printf("[breathe] start trigger: no role found for %q: %v", agentName, err)
 		return breatheStartTriggerFallback
 	}
 
 	// Load role skills.
 	rolesCfg, err := config.LoadRoles()
 	if err != nil || rolesCfg == nil {
+		log.Printf("[breathe] start trigger: roles load failed for %q: %v", agentName, err)
 		return breatheStartTriggerFallback
 	}
 	skills := rolesCfg.RoleSkills(role)
 	if len(skills) == 0 {
+		log.Printf("[breathe] start trigger: no skills for role %q (agent %q), using fallback", role, agentName)
 		return breatheStartTriggerFallback
 	}
 

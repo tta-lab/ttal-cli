@@ -43,6 +43,7 @@ func FetchContents(names []string) string {
 	for _, name := range names {
 		content := FetchContent(name)
 		if content == "" {
+			log.Printf("[skill] FetchContents: skill %q not found or empty, skipping", name)
 			continue
 		}
 		parts = append(parts, fmt.Sprintf("# %s [skill]\n\n%s", name, content))
