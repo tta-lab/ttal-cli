@@ -15,7 +15,7 @@ import (
 
 // startWatcher initializes the JSONL watcher from config (all teams).
 func startWatcher(
-	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, msgSvc *message.Service, done <-chan struct{},
+	cfg *config.Config, frontends map[string]frontend.Frontend, msgSvc *message.Service, done <-chan struct{},
 ) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -25,14 +25,14 @@ func startWatcher(
 	defaultProjectsDir := filepath.Join(home, ".claude", "projects")
 
 	agentMap := make(map[string]watcher.WatchedAgent)
-	for _, ta := range mcfg.AllAgents() {
+	for _, ta := range cfg.Agents() {
 		encoded := watcher.EncodePath(filepath.Join(ta.TeamPath, ta.AgentName))
 		projectsDir := defaultProjectsDir
 
 		// Composite key avoids collision when multiple teams have same agent name
-		key := config.DefaultTeamName + "/" + encoded
+		key := "default" + "/" + encoded
 		agentMap[key] = watcher.WatchedAgent{
-			AgentInfo:   watcher.AgentInfo{TeamName: config.DefaultTeamName, AgentName: ta.AgentName},
+			AgentInfo:   watcher.AgentInfo{TeamName: "default", AgentName: ta.AgentName},
 			ProjectsDir: projectsDir,
 			EncodedDir:  encoded,
 		}
@@ -40,21 +40,21 @@ func startWatcher(
 
 	w, err := watcher.New(agentMap,
 		func(teamName, agentName, text string) {
-			ta, ok := mcfg.FindAgent(agentName)
+			_, ok := cfg.FindAgent(agentName)
 			if !ok {
 				return
 			}
-			fe, ok := frontends[config.DefaultTeamName]
+			fe, ok := frontends["default"]
 			if !ok {
 				return
 			}
-			rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, agentName)
+			rt := cfg.RuntimeForAgent(agentName)
 			persistMsg(msgSvc, message.CreateParams{
-				Sender: agentName, Recipient: mcfg.Global.UserName(), Content: text,
-				Team: config.DefaultTeamName, Channel: message.ChannelWatcher, Runtime: &rt,
+				Sender: agentName, Recipient: cfg.UserName, Content: text,
+				Team: "default", Channel: message.ChannelWatcher, Runtime: &rt,
 			})
 			if err := fe.SendText(context.Background(), agentName, text); err != nil {
-				log.Printf("[watcher] send error for %s/%s: %v", config.DefaultTeamName, agentName, err)
+				log.Printf("[watcher] send error for %s/%s: %v", "default", agentName, err)
 			} else {
 				_ = fe.ClearTracking(context.Background(), agentName)
 			}
@@ -64,10 +64,10 @@ func startWatcher(
 			if emoji == "" {
 				return
 			}
-			if mcfg.Team == nil || !mcfg.Team.EmojiReactions {
+			if cfg.TeamPath == "" || !cfg.EmojiReactions {
 				return
 			}
-			fe, ok := frontends[config.DefaultTeamName]
+			fe, ok := frontends["default"]
 			if !ok {
 				return
 			}
@@ -75,7 +75,7 @@ func startWatcher(
 				log.Printf("[reactions] tool reaction error for %s (%s): %v", agentName, toolName, err)
 			}
 		},
-		startCmdExec(mcfg),
+		startCmdExec(cfg),
 	)
 	if err != nil {
 		log.Printf("[daemon] watcher disabled: %v — CC→Telegram bridging will not work", err)

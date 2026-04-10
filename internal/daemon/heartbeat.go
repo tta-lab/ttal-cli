@@ -16,13 +16,13 @@ import (
 // Both heartbeat_interval and heartbeat_prompt must be non-empty — skips silently if either is missing.
 // Timer resets on daemon restart (no state persistence — acceptable tradeoff per spec).
 func startHeartbeatScheduler(
-	mcfg *config.DaemonConfig, registry *adapterRegistry,
+	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, done <-chan struct{},
 ) {
 	started, skipped := 0, 0
 
-	roles := mcfg.Global.Roles()
-	for _, ta := range mcfg.AllAgents() {
+	roles := cfg.Roles
+	for _, ta := range cfg.Agents() {
 		if ta.TeamPath == "" {
 			continue
 		}
@@ -44,7 +44,7 @@ func startHeartbeatScheduler(
 			continue
 		}
 
-		prompt := mcfg.Global.HeartbeatPrompt(ta.AgentName)
+		prompt := cfg.HeartbeatPrompt(ta.AgentName)
 		if prompt == "" {
 			log.Printf("[heartbeat] no heartbeat_prompt for %s in roles.toml — skipping", ta.AgentName)
 			skipped++
@@ -54,7 +54,7 @@ func startHeartbeatScheduler(
 		log.Printf("[heartbeat] scheduling %s (role: %s) every %s", ta.AgentName, info.Role, interval)
 		started++
 
-		teamName := config.DefaultTeamName
+		teamName := defaultTeamName
 		agentName := ta.AgentName
 		go func() {
 			ticker := time.NewTicker(interval)
@@ -65,7 +65,7 @@ func startHeartbeatScheduler(
 					return
 				case <-ticker.C:
 					log.Printf("[heartbeat] firing for %s", agentName)
-					if err := deliverToAgent(registry, mcfg, frontends, agentName, prompt); err != nil {
+					if err := deliverToAgent(registry, cfg, frontends, agentName, prompt); err != nil {
 						log.Printf("[heartbeat] deliver failed for %s/%s: %v", teamName, agentName, err)
 					}
 				}

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/statusline"
 )
@@ -70,7 +69,7 @@ func runStatusline(cmd *cobra.Command, args []string) error {
 
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	if agentName != "" {
-		team := config.DefaultTeamName
+		team := defaultTeamName
 		s := status.AgentStatus{
 			Agent:               agentName,
 			ContextUsedPct:      input.ContextWindow.UsedPercentage,

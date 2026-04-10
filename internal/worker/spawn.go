@@ -229,7 +229,7 @@ func resolveRuntime(rt runtime.Runtime, _ *taskwarrior.Task) runtime.Runtime {
 		fmt.Fprintf(os.Stderr, "warning: failed to load config: %v\n", err)
 	}
 	if shellCfg != nil {
-		return shellCfg.DefaultRuntime()
+		return runtime.Runtime(shellCfg.DefaultRuntime)
 	}
 	return runtime.ClaudeCode
 }
@@ -281,7 +281,7 @@ func buildRuntimeShellCommand(
 		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
 
 	case runtime.Lenos:
-		teamName := config.DefaultTeamName
+		teamName := defaultTeamName
 		contextFile, err := writeContextFile(task, agentName, teamName, shellCfg)
 		if err != nil {
 			return "", fmt.Errorf("write lenos context file: %w", err)
@@ -628,7 +628,7 @@ func resolveTaskRCFromConfig(cfg *config.Config) string {
 	if cfg == nil {
 		return ""
 	}
-	taskrc := cfg.TaskRC()
+	taskrc := cfg.TaskRC
 	if taskrc == config.DefaultTaskRC() {
 		return ""
 	}

@@ -93,16 +93,12 @@ path = "` + filepath.Join(tmp, "code", "testproj") + `"
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	mcfg := &config.DaemonConfig{
-		Global: &config.LegacyConfig{},
-		Team:   &config.ResolvedTeam{TaskRC: taskRC},
-		Teams: map[string]*config.ResolvedTeam{
-			"default": {TaskRC: taskRC},
-		},
+	cfg := &config.Config{
+		TaskRC: taskRC,
 	}
 	runner := newMockRunner()
 	bridge := &cmdexecBridge{
-		cfg:          mcfg,
+		cfg:          cfg,
 		runner:       runner,
 		projectStore: store,
 		agentMutexes: sync.Map{},

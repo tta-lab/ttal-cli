@@ -12,6 +12,9 @@ import (
 	syncer "github.com/tta-lab/ttal-cli/internal/sync"
 )
 
+// defaultTeamName is the single, hardcoded team name.
+const defaultTeamName = "default"
+
 // BuildAgentContext assembles the full system prompt for a Codex agent.
 // Combines: agent identity (.md body after frontmatter) + rules + rendered context template.
 // Layout: Part 1 (identity) + Part 2 (rules) + Part 3 (rendered context), separated by "---".
@@ -40,7 +43,7 @@ func BuildAgentContext(agentName, teamPath string, env []string) (string, error)
 		return strings.Join(sections, "\n\n---\n\n"), nil
 	}
 	tmpl := cfg.Prompt("context")
-	teamName := "default"
+	teamName := defaultTeamName
 	rendered := promptrender.RenderTemplate(tmpl, agentName, teamName, env)
 	if rendered != "" {
 		sections = append(sections, rendered)
@@ -57,13 +60,13 @@ func loadRulesContent() string {
 	if err != nil {
 		return ""
 	}
-	if len(cfg.SyncConfig_.RulesPaths) == 0 {
+	if len(cfg.Sync.RulesPaths) == 0 {
 		return ""
 	}
-	results, err := syncer.DeployRules(cfg.SyncConfig_.RulesPaths, true)
+	results, err := syncer.DeployRules(cfg.Sync.RulesPaths, true)
 	if err != nil || len(results) == 0 {
-		if len(cfg.SyncConfig_.RulesPaths) > 0 {
-			log.Printf("[codex] warning: no rules loaded from %v", cfg.SyncConfig_.RulesPaths)
+		if len(cfg.Sync.RulesPaths) > 0 {
+			log.Printf("[codex] warning: no rules loaded from %v", cfg.Sync.RulesPaths)
 		}
 		return ""
 	}

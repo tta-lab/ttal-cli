@@ -408,7 +408,7 @@ func handleHTTPGetStatus() http.HandlerFunc {
 		team := r.URL.Query().Get("team")
 		agent := r.URL.Query().Get("agent")
 		if team == "" {
-			team = config.DefaultTeamName
+			team = defaultTeamName
 		}
 
 		var resp StatusResponse

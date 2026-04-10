@@ -29,7 +29,7 @@ var recursionGuard = regexp.MustCompile(`(?i)^\s*ttal\s+go\b`)
 
 // cmdexecBridge holds state for the cmdexec dispatcher.
 type cmdexecBridge struct {
-	cfg          *config.DaemonConfig
+	cfg          *config.Config
 	runner       logos.CommandRunner
 	projectStore *project.Store
 	agentMutexes sync.Map // map[agentName]*sync.Mutex
@@ -44,7 +44,7 @@ func (b *cmdexecBridge) getMutex(agentName string) *sync.Mutex {
 // startCmdExec assembles the cmdexec dispatcher for CC sessions that have
 // a registered workspace path. Returns nil if the temenos client cannot be
 // constructed — the rest of the daemon continues without cmdexec.
-func startCmdExec(mcfg *config.DaemonConfig) watcher.CmdFunc {
+func startCmdExec(cfg *config.Config) watcher.CmdFunc {
 	runner, err := logos.NewClient("")
 	if err != nil {
 		log.Printf("[cmdexec] temenos client unavailable: %v — cmdexec disabled", err)
@@ -67,7 +67,7 @@ func startCmdExec(mcfg *config.DaemonConfig) watcher.CmdFunc {
 	store := project.NewStore(filepath.Join(config.DefaultConfigDir(), "projects.toml"))
 
 	bridge := &cmdexecBridge{
-		cfg:          mcfg,
+		cfg:          cfg,
 		runner:       runner,
 		projectStore: store,
 		agentMutexes: sync.Map{},
@@ -84,7 +84,7 @@ func (b *cmdexecBridge) dispatch(teamName, agentName string, cmds []string) {
 	}
 
 	// Resolve agent workspace from config.
-	agentCwd := b.cfg.Global.AgentPath(agentName)
+	agentCwd := b.cfg.AgentPath(agentName)
 	if agentCwd == "" {
 		log.Printf("[cmdexec] no workspace for agent %s — skipping dispatch", agentName)
 		return

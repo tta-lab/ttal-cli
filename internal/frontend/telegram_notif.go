@@ -25,31 +25,30 @@ var notifBotCommands = []Command{
 // The notification bot handles /status, /usage, /restart, /help.
 // Skips if the notification token is shared with an agent bot (already polled).
 func (f *TelegramFrontend) StartNotificationPoller(ctx context.Context) error {
-	team := f.cfg.MCfg.Team
-	if team == nil || team.NotificationToken == "" {
+	if f.cfg.MCfg.NotificationToken == "" {
 		return nil
 	}
 
 	// Skip if this token is already used as an agent bot token (already polled).
-	for _, ta := range f.cfg.MCfg.AllAgents() {
-		if config.AgentBotToken(ta.AgentName) == team.NotificationToken {
-			log.Printf("[notifbot] skipping %s — token shared with agent bot (already polled)", config.DefaultTeamName)
+	for _, ta := range f.cfg.MCfg.Agents() {
+		if config.AgentBotToken(ta.AgentName) == f.cfg.MCfg.NotificationToken {
+			log.Printf("[notifbot] skipping %s — token shared with agent bot (already polled)", "default")
 			return nil
 		}
 	}
 
-	if team.ChatID == "" {
-		log.Printf("[notifbot] skipping %s — no chat_id configured", config.DefaultTeamName)
+	if f.cfg.MCfg.ChatID == "" {
+		log.Printf("[notifbot] skipping %s — no chat_id configured", "default")
 		return nil
 	}
-	chatID, err := telegram.ParseChatID(team.ChatID)
+	chatID, err := telegram.ParseChatID(f.cfg.MCfg.ChatID)
 	if err != nil {
-		log.Printf("[notifbot] skipping %s — invalid chat_id: %v", config.DefaultTeamName, err)
+		log.Printf("[notifbot] skipping %s — invalid chat_id: %v", "default", err)
 		return nil
 	}
 
-	log.Printf("[notifbot] starting notification bot poller for team %s", config.DefaultTeamName)
-	f.startNotifBotPoller(team.NotificationToken, chatID, ctx)
+	log.Printf("[notifbot] starting notification bot poller for team %s", "default")
+	f.startNotifBotPoller(f.cfg.MCfg.NotificationToken, chatID, ctx)
 	return nil
 }
 
@@ -57,7 +56,7 @@ func (f *TelegramFrontend) StartNotificationPoller(ctx context.Context) error {
 // Must be called after Start() to ensure f.done is initialised.
 func (f *TelegramFrontend) startNotifBotPoller(botToken string, chatID int64, ctx context.Context) {
 	if f.done == nil {
-		log.Printf("[notifbot] startNotifBotPoller called before Start for team %s — skipping", config.DefaultTeamName)
+		log.Printf("[notifbot] startNotifBotPoller called before Start for team %s — skipping", "default")
 		return
 	}
 	go func() {
@@ -69,7 +68,7 @@ func (f *TelegramFrontend) startNotifBotPoller(botToken string, chatID int64, ct
 			default:
 			}
 			if err := f.runNotifBotPoller(botToken, chatID, ctx); err != nil {
-				log.Printf("[notifbot] poller failed for %s: %v — retrying in %s", config.DefaultTeamName, err, backoff)
+				log.Printf("[notifbot] poller failed for %s: %v — retrying in %s", "default", err, backoff)
 				select {
 				case <-f.done:
 					return
@@ -130,7 +129,7 @@ func (f *TelegramFrontend) runNotifBotPoller(botToken string, chatID int64, pare
 		func(_ context.Context, _ *bot.Bot, update *models.Update) {
 			chatIDStr := fmt.Sprintf("%d", update.Message.Chat.ID)
 			args := parseCommandArgs(update.Message.Text)
-			f.handleStatusCommand(config.DefaultTeamName, botToken, chatIDStr, args)
+			f.handleStatusCommand("default", botToken, chatIDStr, args)
 		})
 
 	b.RegisterHandlerMatchFunc(matchCommand("usage"),

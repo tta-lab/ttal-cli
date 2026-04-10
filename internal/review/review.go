@@ -43,7 +43,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	}
 	prIndex := prInfo.Index
 
-	reviewerRT := cfg.DefaultRuntime()
+	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
 
 	ttalBin, err := os.Executable()
 	if err != nil {
@@ -128,7 +128,7 @@ func RequestReReview(sessionName, reviewerName string, full bool, coderComment s
 		"{{coder-comment}}", commentRef,
 		"{{review-scope}}", scope,
 	)
-	msg := config.RenderTemplate(replacer.Replace(tmpl), "", cfg.DefaultRuntime())
+	msg := config.RenderTemplate(replacer.Replace(tmpl), "", runtime.Runtime(cfg.DefaultRuntime))
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
 	return tmux.SendKeys(sessionName, reviewerName, msg)

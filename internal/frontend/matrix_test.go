@@ -64,11 +64,10 @@ func buildTestFrontend(t *testing.T, srv *httptest.Server, agentName, roomID str
 
 // TestNewMatrix_MissingCallbacks verifies error when required callbacks are nil.
 func TestNewMatrix_MissingCallbacks(t *testing.T) {
-	mcfg := &config.DaemonConfig{
-		Teams: map[string]*config.ResolvedTeam{
-			"myteam": {Name: "myteam", Frontend: "matrix", Matrix: &config.MatrixTeamConfig{
-				Homeserver: "https://matrix.example.com",
-			}},
+	mcfg := &config.Config{
+		Frontend: "matrix",
+		Matrix: &config.MatrixTeamConfig{
+			Homeserver: "https://matrix.example.com",
 		},
 	}
 
@@ -95,10 +94,9 @@ func TestNewMatrix_MissingCallbacks(t *testing.T) {
 
 // TestNewMatrix_MissingConfig verifies error when team has no [matrix] config block.
 func TestNewMatrix_MissingConfig(t *testing.T) {
-	mcfg := &config.DaemonConfig{
-		Teams: map[string]*config.ResolvedTeam{
-			"myteam": {Name: "myteam", Frontend: "matrix", Matrix: nil},
-		},
+	mcfg := &config.Config{
+		Frontend: "matrix",
+		Matrix:   nil,
 	}
 	_, err := NewMatrix(MatrixConfig{
 
@@ -113,15 +111,12 @@ func TestNewMatrix_MissingConfig(t *testing.T) {
 
 // TestNewMatrix_SkipsAgentWithoutToken verifies that agents with unset token env vars are skipped.
 func TestNewMatrix_SkipsAgentWithoutToken(t *testing.T) {
-	mcfg := &config.DaemonConfig{
-		Team: &config.ResolvedTeam{
-			Name:     "default",
-			Frontend: "matrix",
-			Matrix: &config.MatrixTeamConfig{
-				Homeserver: "https://matrix.example.com",
-				Agents: map[string]config.MatrixAgentConfig{
-					"yuki": {AccessTokenEnv: "TTAL_TEST_UNSET_TOKEN_12345", RoomID: "!room:example.com"},
-				},
+	mcfg := &config.Config{
+		Frontend: "matrix",
+		Matrix: &config.MatrixTeamConfig{
+			Homeserver: "https://matrix.example.com",
+			Agents: map[string]config.MatrixAgentConfig{
+				"yuki": {AccessTokenEnv: "TTAL_TEST_UNSET_TOKEN_12345", RoomID: "!room:example.com"},
 			},
 		},
 	}

@@ -186,9 +186,9 @@ func TestHandleSendSystemRouting(t *testing.T) {
 	// handleSystemToAgent, we get "unknown agent: <name>"; if it falls through to
 	// handleAgentToAgent it would also resolve the *From* agent and return
 	// "unknown agent: system" (failing on sender lookup, not recipient).
-	mcfg := &config.DaemonConfig{}
+	cfg := &config.Config{}
 	req := SendRequest{From: "system", To: "athena", Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."} //nolint:lll
-	err := handleSend(mcfg, nil, nil, nil, req)
+	err := handleSend(cfg, nil, nil, nil, req)
 	if err == nil {
 		t.Fatal("expected error for unknown agent, got nil")
 	}
@@ -556,12 +556,12 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	mcfg, err := config.LoadAll()
+	cfg, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadAll: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
 	agent := "athena"
-	cwd, sessionAlive, err := resolveBrCWD("nonexistent-session-xyz", agent, agent, mcfg.Global.AsConfig())
+	cwd, sessionAlive, err := resolveBrCWD("nonexistent-session-xyz", agent, agent, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

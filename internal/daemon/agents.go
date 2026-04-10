@@ -31,21 +31,21 @@ import (
 // CC agents use tmux sessions; Codex agents use the WebSocket adapter.
 // Returns a map of agentName → mcpFilePath for CC agents, used during shutdown.
 func initAdapters(
-	ctx context.Context, mcfg *config.DaemonConfig, registry *adapterRegistry,
+	ctx context.Context, cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, msgSvc *message.Service,
 ) map[string]string {
-	ensureLocalAgentTrust(mcfg)
+	ensureLocalAgentTrust(cfg)
 
 	// Register per-agent MCP tokens at daemon start.
 	// Each CC manager agent gets its own temenos session with its own env.
-	mcpPaths := initManagerMCPTokens(ctx, mcfg)
+	mcpPaths := initManagerMCPTokens(ctx, cfg)
 
 	var wg sync.WaitGroup
-	for _, ta := range mcfg.AllAgents() {
+	for _, ta := range cfg.Agents() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ctx, ta, mcfg, registry, frontends, msgSvc, mcpPaths)
+			initSingleAdapter(ctx, ta, cfg, registry, frontends, msgSvc, mcpPaths)
 		}()
 	}
 	wg.Wait()
@@ -54,13 +54,13 @@ func initAdapters(
 
 // initSingleAdapter initializes a single agent's session (CC via tmux, or Codex via adapter).
 func initSingleAdapter(
-	ctx context.Context, ta config.TeamAgent, mcfg *config.DaemonConfig,
+	ctx context.Context, ta config.AgentInfo, cfg *config.Config,
 	registry *adapterRegistry, frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, mcpPaths map[string]string,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
-	rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, ta.AgentName)
+	rt := cfg.RuntimeForAgent(ta.AgentName)
 
 	// CC agents use tmux
 	if rt == runtime.ClaudeCode {
@@ -69,8 +69,8 @@ func initSingleAdapter(
 			log.Printf("[daemon] CC agent %s already running (session: %s)", ta.AgentName, sessionName)
 			return
 		}
-		agentEnv := buildManagerAgentEnv(ta.AgentName, mcfg)
-		shell := mcfg.Global.GetShell()
+		agentEnv := buildManagerAgentEnv(ta.AgentName, cfg)
+		shell := cfg.GetShell()
 		ensureProjectDir(agentPath)
 		mcpPath := mcpPaths[ta.AgentName]
 		// Resume from last session if available.
@@ -88,20 +88,20 @@ func initSingleAdapter(
 
 	// Codex agents use the WebSocket adapter
 	if rt == runtime.Codex {
-		cfg := runtime.AdapterConfig{
+		codexCfg := runtime.AdapterConfig{
 			AgentName: ta.AgentName,
 			WorkDir:   agentPath,
-			Env:       buildManagerAgentEnv(ta.AgentName, mcfg),
+			Env:       buildManagerAgentEnv(ta.AgentName, cfg),
 			TeamPath:  ta.TeamPath,
 		}
-		adapter := codexRuntime.New(cfg)
+		adapter := codexRuntime.New(codexCfg)
 		if err := adapter.Start(ctx); err != nil {
 			log.Printf("[daemon] failed to start Codex adapter for %s: %v", ta.AgentName, err)
 			return
 		}
-		registry.set(config.DefaultTeamName, ta.AgentName, adapter)
+		registry.set("default", ta.AgentName, adapter)
 		initCodexSession(ctx, ta.AgentName, adapter)
-		go bridgeAdapterEvents(ctx, ta.AgentName, adapter, mcfg, frontends, msgSvc)
+		go bridgeAdapterEvents(ctx, ta.AgentName, adapter, cfg, frontends, msgSvc)
 		log.Printf("[daemon] Codex agent %s running", ta.AgentName)
 		return
 	}
@@ -124,9 +124,9 @@ func initCodexSession(ctx context.Context, agentName string, adapter *codexRunti
 // bridgeAdapterEvents routes Codex adapter events to frontends and status.
 func bridgeAdapterEvents(
 	ctx context.Context, agentName string, adapter *codexRuntime.Adapter,
-	mcfg *config.DaemonConfig, frontends map[string]frontend.Frontend, msgSvc *message.Service,
+	cfg *config.Config, frontends map[string]frontend.Frontend, msgSvc *message.Service,
 ) {
-	fe, hasFE := frontends[config.DefaultTeamName]
+	fe, hasFE := frontends["default"]
 	for {
 		select {
 		case <-ctx.Done():
@@ -139,15 +139,15 @@ func bridgeAdapterEvents(
 			case runtime.EventText:
 				if hasFE {
 					persistMsg(msgSvc, message.CreateParams{
-						Sender: agentName, Recipient: mcfg.Global.UserName(),
-						Content: evt.Text, Team: config.DefaultTeamName, Channel: message.ChannelCLI,
+						Sender: agentName, Recipient: cfg.UserName,
+						Content: evt.Text, Team: "default", Channel: message.ChannelCLI,
 					})
 					_ = fe.SendText(ctx, agentName, evt.Text)
 				}
 			case runtime.EventError:
 				log.Printf("[daemon] codex error for %s: %s", agentName, evt.Text)
 			case runtime.EventTool:
-				if hasFE && mcfg.Team != nil && mcfg.Team.EmojiReactions {
+				if hasFE && cfg.EmojiReactions {
 					emoji := telegram.ToolEmoji(evt.ToolName)
 					if emoji != "" {
 						_ = fe.SetReaction(ctx, agentName, emoji)
@@ -167,20 +167,18 @@ func bridgeAdapterEvents(
 	}
 }
 
-// gatherProjectPaths returns all active project paths across all teams.
-// storePathFn maps a team name to the projects.toml path for that team.
-func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) string) []string {
+// gatherProjectPaths returns all active project paths.
+// Single-team: only "default" team.
+func gatherProjectPaths(_ *config.Config, storePathFn func(string) string) []string {
 	seen := make(map[string]bool)
 	var paths []string
 
-	for teamName := range mcfg.Teams {
-		projectsPath := storePathFn(teamName)
-		store := project.NewStore(projectsPath)
-		projects, err := store.List(false)
-		if err != nil {
-			log.Printf("[daemon] warning: failed to load projects for team %s: %v", teamName, err)
-			continue
-		}
+	projectsPath := storePathFn("default")
+	store := project.NewStore(projectsPath)
+	projects, err := store.List(false)
+	if err != nil {
+		log.Printf("[daemon] warning: failed to load projects for team %s: %v", "default", err)
+	} else {
 		for _, p := range projects {
 			if p.Path != "" && !seen[p.Path] {
 				seen[p.Path] = true
@@ -194,12 +192,13 @@ func gatherProjectPaths(mcfg *config.DaemonConfig, storePathFn func(string) stri
 }
 
 // buildManagerAgentEnv returns env vars for a manager agent session.
-func buildManagerAgentEnv(agentName string, mcfg *config.DaemonConfig) []string {
+func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
 	agentEnv := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 	}
-	if mcfg.Team != nil && mcfg.Team.TaskRC != "" {
-		agentEnv = append(agentEnv, fmt.Sprintf("TASKRC=%s", mcfg.Team.TaskRC))
+	taskrc := cfg.TaskRC
+	if taskrc != "" {
+		agentEnv = append(agentEnv, fmt.Sprintf("TASKRC=%s", taskrc))
 	}
 	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
 	agentEnv = append(agentEnv, envpkg.AllowedDotEnvParts()...)
@@ -208,7 +207,7 @@ func buildManagerAgentEnv(agentName string, mcfg *config.DaemonConfig) []string 
 
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json
 // for all agent workspace paths. Idempotent.
-func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
+func ensureLocalAgentTrust(cfg *config.Config) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Printf("[daemon] warning: cannot get home dir for local agent trust: %v", err)
@@ -216,7 +215,7 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 	}
 
 	var paths []string
-	for _, ta := range mcfg.AllAgents() {
+	for _, ta := range cfg.Agents() {
 		paths = append(paths, filepath.Join(ta.TeamPath, ta.AgentName))
 	}
 	if len(paths) == 0 {
@@ -239,9 +238,9 @@ func ensureLocalAgentTrust(mcfg *config.DaemonConfig) {
 // Local CC sessions are killed directly; status files are preserved so the
 // next spawn can resume with --resume <session-id>.
 // Also unregisters per-agent temenos MCP tokens.
-func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, mcpPaths map[string]string) {
+func shutdownAgents(cfg *config.Config, registry *adapterRegistry, mcpPaths map[string]string) {
 	registry.stopAll(context.Background())
-	sessions := collectCCSessions(mcfg)
+	sessions := collectCCSessions(cfg)
 	if len(sessions) > 0 {
 		shutdownCCSessions(sessions)
 	}
@@ -249,10 +248,10 @@ func shutdownAgents(mcfg *config.DaemonConfig, registry *adapterRegistry, mcpPat
 }
 
 // collectCCSessions returns running CC tmux session names across all teams.
-func collectCCSessions(mcfg *config.DaemonConfig) []string {
+func collectCCSessions(cfg *config.Config) []string {
 	var sessions []string
-	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, ta.AgentName)
+	for _, ta := range cfg.Agents() {
+		rt := cfg.RuntimeForAgent(ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}
@@ -303,11 +302,11 @@ func ensureProjectDir(agentPath string) {
 // initManagerMCPTokens registers a per-agent temenos session for each CC manager agent.
 // Returns a map of agentName → mcpFilePath for passing to spawnCCSession.
 // Best-effort: agents still launch without MCP on error.
-func initManagerMCPTokens(ctx context.Context, mcfg *config.DaemonConfig) map[string]string {
+func initManagerMCPTokens(ctx context.Context, cfg *config.Config) map[string]string {
 	mcpPaths := make(map[string]string)
 
-	for _, ta := range mcfg.AllAgents() {
-		rt := mcfg.RuntimeForAgent(config.DefaultTeamName, ta.TeamPath, ta.AgentName)
+	for _, ta := range cfg.Agents() {
+		rt := cfg.RuntimeForAgent(ta.AgentName)
 		if rt != runtime.ClaudeCode {
 			continue
 		}
@@ -320,7 +319,7 @@ func initManagerMCPTokens(ctx context.Context, mcfg *config.DaemonConfig) map[st
 		}
 
 		// Build env for this agent.
-		envSlice := buildManagerAgentEnv(ta.AgentName, mcfg)
+		envSlice := buildManagerAgentEnv(ta.AgentName, cfg)
 		envMap := envpkg.EnvSliceToMap(envSlice)
 
 		mcpJSON, _, err := temenos.RegisterSessionForAgent(ctx, ta.AgentName, nil, "", envMap)

@@ -82,7 +82,7 @@ Examples:
 
 		// Look up agent voice from CLAUDE.md frontmatter if --voice is not set
 		if voiceID == "" {
-			tp := cfg.TeamPath()
+			tp := cfg.TeamPath
 			if tp != "" {
 				ag, err := agentfs.Get(tp, strings.ToLower(agentName))
 				if err == nil {
@@ -111,7 +111,7 @@ Examples:
 			return err
 		}
 
-		chatIDStr := cfg.ChatID_
+		chatIDStr := cfg.ChatID
 		chatID, err := telegram.ParseChatID(chatIDStr)
 		if err != nil {
 			return err

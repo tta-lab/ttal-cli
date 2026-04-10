@@ -15,7 +15,7 @@ const reminderPollInterval = 2 * time.Minute
 // startReminderPoller polls taskwarrior for due reminders and sends frontend notifications.
 func startReminderPoller(frontends map[string]frontend.Frontend, done <-chan struct{}) {
 	// Validate default team frontend once at startup — misconfiguration should be loud, not a recurring log.
-	defaultTeam := "default"
+	defaultTeam := defaultTeamName
 	fe, ok := frontends[defaultTeam]
 	if !ok {
 		log.Printf("[reminder] WARNING: no frontend for default team %q — reminder poller disabled", defaultTeam)

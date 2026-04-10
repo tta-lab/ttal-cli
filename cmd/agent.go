@@ -29,7 +29,7 @@ func resolveTeamPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("load config: %w", err)
 	}
-	tp := cfg.TeamPath()
+	tp := cfg.TeamPath
 	if tp == "" {
 		return "", fmt.Errorf("team_path not set in config (set it in ~/.config/ttal/config.toml)")
 	}

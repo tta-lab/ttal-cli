@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -50,8 +51,11 @@ func showStatus() error {
 		return nil
 	}
 
-	teamName := "default"
-	names, _ := agentfs.DiscoverAgents(cfg.TeamPath())
+	teamName := defaultTeamName
+	names, err := agentfs.DiscoverAgents(cfg.TeamPath)
+	if err != nil {
+		log.Printf("[status] agent discovery failed: %v", err)
+	}
 
 	rows := make([]agentRow, 0, len(names))
 	for _, name := range names {
@@ -88,12 +92,15 @@ func showStatus() error {
 }
 
 func buildAgentRow(cfg *config.Config, _, name string) agentRow {
-	rt := cfg.DefaultRuntime()
-	s, _ := status.ReadAgent("default", name)
+	rt := cfg.DefaultRuntime
+	s, err := status.ReadAgent("default", name)
+	if err != nil {
+		log.Printf("[status] read agent %q failed: %v", name, err)
+	}
 
 	row := agentRow{
 		name:    name,
-		runtime: string(rt),
+		runtime: rt,
 		ctxPct:  -1,
 	}
 

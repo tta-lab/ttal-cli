@@ -24,17 +24,17 @@ func formatAgentMessage(fromAgent, text string) string {
 // deliverToAgent sends text to an agent via its runtime adapter.
 // Falls back to tmux for CC agents, frontend notification for others.
 func deliverToAgent(
-	registry *adapterRegistry, mcfg *config.DaemonConfig,
+	registry *adapterRegistry, cfg *config.Config,
 	frontends map[string]frontend.Frontend,
 	agentName, text string,
 ) error {
 	if registry != nil {
-		if adapter, ok := registry.get(config.DefaultTeamName, agentName); ok {
+		if adapter, ok := registry.get("default", agentName); ok {
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}
 	// Fallback: tmux for CC agents, frontend notification for others
-	rt := mcfg.RuntimeForAgent(config.DefaultTeamName, "", agentName)
+	rt := cfg.RuntimeForAgent(agentName)
 	if rt == runtime.ClaudeCode {
 		session := config.AgentSessionName(agentName)
 		return tmux.SendKeys(session, agentName, text)
@@ -43,7 +43,7 @@ func deliverToAgent(
 		return fmt.Errorf("codex adapter not available for %s (start failed?)", agentName)
 	}
 	// Non-CC agent with no adapter — send via frontend notification
-	fe, ok := frontends[config.DefaultTeamName]
+	fe, ok := frontends["default"]
 	if !ok {
 		return fmt.Errorf("no frontend for team default")
 	}
