@@ -729,7 +729,7 @@ func (m *Model) applyFilter() {
 				continue
 			}
 		case filterActive:
-			if t.Start == "" {
+			if t.Start == "" || t.Owner == "" {
 				continue
 			}
 		}
