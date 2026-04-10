@@ -59,11 +59,7 @@ ttal sync --dry-run          # preview what would be deployed
 Sources: `agents/` → `~/.claude/agents/`
 Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
 
-Skills are stored in flicknote and accessed at runtime via `ttal skill get <name>`. To import skill files:
-```bash
-ttal skill import skills --apply
-ttal skill import commands --apply --category command
-```
+Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They are accessed at runtime via `ttal skill get <name>`.
 
 ## Task Routing
 

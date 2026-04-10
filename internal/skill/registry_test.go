@@ -3,7 +3,6 @@ package skill_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/skill"
@@ -257,7 +256,7 @@ description: Does something useful
 
 This is the body content.
 `)
-	name, desc, body := skill.ParseFrontmatter(content)
+	name, desc, _, body := skill.ParseFrontmatter(content)
 	if name != "my-skill" {
 		t.Errorf("expected name my-skill, got %q", name)
 	}
@@ -271,7 +270,7 @@ This is the body content.
 
 func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	content := []byte("# Just body\n\nNo frontmatter here.\n")
-	name, desc, body := skill.ParseFrontmatter(content)
+	name, desc, _, body := skill.ParseFrontmatter(content)
 	if name != "" || desc != "" {
 		t.Errorf("expected empty name/desc, got %q/%q", name, desc)
 	}
@@ -282,7 +281,7 @@ func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 
 func TestParseFrontmatter_CRLF(t *testing.T) {
 	content := []byte("---\r\nname: my-skill\r\ndescription: Useful thing\r\n---\r\n# Body\r\n")
-	name, desc, body := skill.ParseFrontmatter(content)
+	name, desc, _, body := skill.ParseFrontmatter(content)
 	if name != "my-skill" {
 		t.Errorf("expected name my-skill, got %q", name)
 	}
@@ -297,7 +296,7 @@ func TestParseFrontmatter_CRLF(t *testing.T) {
 func TestParseFrontmatter_NoTrailingNewline(t *testing.T) {
 	// Frontmatter with no trailing newline after closing ---
 	content := []byte("---\nname: skill\n---")
-	_, _, body := skill.ParseFrontmatter(content)
+	_, _, _, body := skill.ParseFrontmatter(content)
 	// Body should be empty (not a panic or partial content)
 	if len(body) != 0 {
 		t.Errorf("expected empty body, got %q", string(body))
@@ -306,7 +305,7 @@ func TestParseFrontmatter_NoTrailingNewline(t *testing.T) {
 
 func TestParseFrontmatter_Unterminated(t *testing.T) {
 	content := []byte("---\nname: skill\nno closing delimiter\n")
-	name, desc, body := skill.ParseFrontmatter(content)
+	name, desc, _, body := skill.ParseFrontmatter(content)
 	// Unterminated frontmatter returns full content unchanged
 	if name != "" || desc != "" {
 		t.Errorf("expected empty name/desc for unterminated, got %q/%q", name, desc)
@@ -347,100 +346,6 @@ description = "Refresh"
 	s, ok = r.ReverseLookup("a1b2c3d4")
 	if !ok || s.Name != skillBreathe {
 		t.Errorf("expected breathe on prefix match, got %v, %v", s, ok)
-	}
-}
-
-func TestFetchContent_FakeFlicknote(t *testing.T) {
-	// Create a temp dir with a fake flicknote binary
-	tmpDir := t.TempDir()
-	fakeBin := filepath.Join(tmpDir, "flicknote")
-	if err := os.WriteFile(fakeBin, []byte(`#!/bin/sh
-if [ "$1" = "content" ] && [ "$2" = "a1b2c3d4" ]; then
-	echo "# Breathe skill body"
-elif [ "$1" = "content" ] && [ "$2" = "e5f6a7b8" ]; then
-	echo "# SpDebugging content"
-else
-	echo "unknown" >&2
-	exit 1
-fi
-`), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Build new PATH with tmpDir first
-	oldPath := os.Getenv("PATH")
-	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
-	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-
-	// Patch DefaultPath to use a temp registry
-	origDefaultPath := skill.DefaultPath
-	registryPath := writeTOML(t, sampleTOML)
-	skill.DefaultPath = func() string { return registryPath }
-	t.Cleanup(func() { skill.DefaultPath = origDefaultPath })
-
-	content := skill.FetchContent("breathe")
-	if content == "" {
-		t.Fatal("FetchContent returned empty string")
-	}
-	if content != "# Breathe skill body" {
-		t.Errorf("unexpected content: %q", content)
-	}
-}
-
-func TestFetchContent_NotFound(t *testing.T) {
-	// Patch DefaultPath to use a temp registry with no matching skill
-	origDefaultPath := skill.DefaultPath
-	registryPath := writeTOML(t, sampleTOML)
-	skill.DefaultPath = func() string { return registryPath }
-	t.Cleanup(func() { skill.DefaultPath = origDefaultPath })
-
-	// Even without a fake flicknote, FetchContent should not panic on skill-not-found
-	content := skill.FetchContent("nonexistent-skill")
-	if content != "" {
-		t.Errorf("expected empty for nonexistent skill, got: %q", content)
-	}
-}
-
-func TestFetchContents_Multiple(t *testing.T) {
-	tmpDir := t.TempDir()
-	fakeBin := filepath.Join(tmpDir, "flicknote")
-	if err := os.WriteFile(fakeBin, []byte(`#!/bin/sh
-if [ "$1" = "content" ] && [ "$2" = "a1b2c3d4" ]; then
-	echo "breathe body"
-elif [ "$1" = "content" ] && [ "$2" = "e5f6a7b8" ]; then
-	echo "debugging body"
-else
-	echo "unknown" >&2
-	exit 1
-fi
-`), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	oldPath := os.Getenv("PATH")
-	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
-	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-
-	origDefaultPath := skill.DefaultPath
-	registryPath := writeTOML(t, sampleTOML)
-	skill.DefaultPath = func() string { return registryPath }
-	t.Cleanup(func() { skill.DefaultPath = origDefaultPath })
-
-	content := skill.FetchContents([]string{"breathe", "sp-debugging"})
-	if content == "" {
-		t.Fatal("FetchContents returned empty string")
-	}
-	if !strings.Contains(content, "# breathe [skill]") {
-		t.Errorf("missing breathe header: %q", content)
-	}
-	if !strings.Contains(content, "# sp-debugging [skill]") {
-		t.Errorf("missing sp-debugging header: %q", content)
-	}
-	if !strings.Contains(content, "breathe body") {
-		t.Errorf("missing breathe body: %q", content)
-	}
-	if !strings.Contains(content, "debugging body") {
-		t.Errorf("missing debugging body: %q", content)
 	}
 }
 

@@ -2,15 +2,12 @@ package skill
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -227,51 +224,18 @@ func (r *Registry) save() error {
 // loading the real registry on CI). Callers use FetchContent() which delegates here.
 var ContentFetcher func(name string) string = fetchContentImpl
 
-// FetchContent returns the raw flicknote content for a named skill.
+// FetchContent returns the skill content for a named skill, read from disk.
 func FetchContent(name string) string { return ContentFetcher(name) }
 
-// fetchContentImpl loads the default skills registry, looks up the skill by name,
-// and returns its raw flicknote content. Returns empty string on any error
-// (soft-fail: logs a warning but does not propagate the error).
+// fetchContentImpl reads skill content from the default skills disk directory.
+// Returns empty string on any error (soft-fail: logs a warning but does not propagate).
 func fetchContentImpl(name string) string {
-	r, err := Load(DefaultPath())
+	skill, err := GetSkill(DefaultSkillsDir(), name)
 	if err != nil {
-		log.Printf("[skill] warning: could not load skills registry: %v", err)
+		log.Printf("[skill] warning: could not read skill %q from disk: %v", name, err)
 		return ""
 	}
-	s, err := r.Get(name)
-	if err != nil {
-		log.Printf("[skill] warning: skill %q not found in registry: %v", name, err)
-		return ""
-	}
-
-	content, err := FlicknoteFetcher(s.FlicknoteID)
-	if err != nil {
-		log.Printf("[skill] warning: could not fetch flicknote content for %q: %v", name, err)
-		return ""
-	}
-	// Normalize: strip trailing newline so callers get consistent content without trailing \n.
-	return strings.TrimRight(content, "\n")
-}
-
-// FlicknoteFetcher is the function used to fetch skill content from flicknote.
-// It defaults to fetchFlicknoteContent but can be replaced for testing.
-var FlicknoteFetcher func(id string) (string, error) = fetchFlicknoteContent
-
-// fetchFlicknoteContent shells out to `flicknote content <id> --raw` and returns
-// the stdout content.
-func fetchFlicknoteContent(id string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "flicknote", "content", id, "--raw")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("flicknote content %s: %w", id, err)
-	}
-	return strings.TrimSuffix(stdout.String(), "\n"), nil
+	return skill.Content
 }
 
 // FetchContents calls FetchContent for each name in order and concatenates
@@ -299,11 +263,11 @@ func FetchContents(names []string) string {
 //
 // Single-pass over bytes.Split lines so bodyStart tracks real byte offsets.
 // Handles both LF and CRLF line endings correctly.
-func ParseFrontmatter(content []byte) (name, description string, body []byte) {
+func ParseFrontmatter(content []byte) (name, description, category string, body []byte) {
 	lines := bytes.Split(content, []byte("\n"))
 
 	if len(lines) == 0 || strings.TrimSpace(string(lines[0])) != frontmatterDelimiter {
-		return "", "", content
+		return "", "", "", content
 	}
 
 	fm := make(map[string]string)
@@ -317,9 +281,9 @@ func ParseFrontmatter(content []byte) (name, description string, body []byte) {
 		if trimmed == frontmatterDelimiter {
 			consumed += lineLen
 			if consumed > len(content) {
-				return fm["name"], fm["description"], []byte{}
+				return fm["name"], fm["description"], fm["category"], []byte{}
 			}
-			return fm["name"], fm["description"], content[consumed:]
+			return fm["name"], fm["description"], fm["category"], content[consumed:]
 		}
 
 		if idx := bytes.IndexByte(line, ':'); idx > 0 {
@@ -331,5 +295,5 @@ func ParseFrontmatter(content []byte) (name, description string, body []byte) {
 		consumed += lineLen
 	}
 
-	return "", "", content // unterminated frontmatter
+	return "", "", "", content // unterminated frontmatter
 }

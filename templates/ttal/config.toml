@@ -9,6 +9,8 @@ shell = "fish"
 [sync]
   worker_agent_paths = ["/Users/neil/Code/guion-opensource/ttal-cli/agents"]
   global_prompt_path = "/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal/CLAUDE.user.md"
+  skills_paths = ["/Users/neil/Code/guion-opensource/ttal-cli/skills"]
+  skills_dest = "~/.agents/skills"
   rules_paths = [
     "~/Code/guion-opensource/ttal-cli",
     "~/Code/guion-opensource/organon",

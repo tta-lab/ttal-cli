@@ -238,6 +238,16 @@ func (c *Config) WorkerAgentPaths() []string {
 	return c.Sync.WorkerAgentPaths
 }
 
+// SkillsDestDir returns the destination directory for deployed skills.
+// Defaults to ~/.agents/skills if not configured.
+func (c *Config) SkillsDestDir() string {
+	if c.SyncConfig_.SkillsDest != "" {
+		return expandHome(c.SyncConfig_.SkillsDest)
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".agents", "skills")
+}
+
 // AskReferencesPath returns the resolved path for cloned reference repos.
 // Defaults to ~/.ttal/references/ if not configured.
 func (c *Config) AskReferencesPath() string {
@@ -296,6 +306,10 @@ type SyncConfig struct {
 	WorkerAgentPaths []string `toml:"worker_agent_paths"`
 	// Directories for RULE.md files
 	RulesPaths []string `toml:"rules_paths"`
+	// Directories for skill SKILL.md files (deployed to skills_dest)
+	SkillsPaths []string `toml:"skills_paths"`
+	// Destination directory for deployed skills (default: ~/.agents/skills)
+	SkillsDest string `toml:"skills_dest"`
 	// Path to global CLAUDE.md prompt
 	GlobalPromptPath string `toml:"global_prompt_path"`
 	// CC plugin marketplace source — local path or git URL.
