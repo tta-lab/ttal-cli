@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 // captureContextOutput runs runContext and captures stdout.
@@ -319,8 +318,9 @@ func TestRunContext_NoContextKey(t *testing.T) {
 // role-based skills for an idle agent session (no active task).
 //
 // kestrel is role=fixer; fixer gets default_skills + ["sp-debugging"].
-// The test stubs skill.ContentFetcher to return synthetic skill bodies and
-// verifies the skill header appears in the returned string.
+// The fixer role prompt includes a fetch-on-demand instruction; skill bodies are NOT
+// inlined (exceeds CC hook size budget). The test verifies no skill headers appear
+// and the fetch instruction is present.
 //
 //nolint:gocyclo
 func TestContext_SmokeTest_RoleBasedSkills(t *testing.T) {
@@ -332,14 +332,11 @@ func TestContext_SmokeTest_RoleBasedSkills(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	// Write roles.toml: fixer gets sp-debugging extra skill.
-	rolesToml := `
-default_skills = ["task-tree", "flicknote", "ei-ask"]
-
-[fixer]
-prompt = "Diagnose this bug and write a fix plan."
-extra_skills = ["sp-debugging"]
-`
+	// Write roles.toml: fixer gets sp-debugging extra skill with fetch-on-demand instruction.
+	rolesToml := "\ndefault_skills = [\"task-tree\", \"flicknote\", \"ei-ask\"]\n\n[fixer]\n" +
+		"prompt = \"\"\"Execute `ttal skill get sp-debugging` to load the " +
+		"bug-fix-design methodology.\n\nDiagnose this bug and write a fix plan.\"\"\"\n" +
+		"extra_skills = [\"sp-debugging\"]\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "roles.toml"), []byte(rolesToml), 0o644); err != nil {
 		t.Fatalf("write roles.toml: %v", err)
 	}
@@ -379,23 +376,6 @@ gate = "human"
 		t.Fatalf("write pipelines.toml: %v", err)
 	}
 
-	// Stub skill.ContentFetcher to return synthetic content.
-	origFetcher := skill.ContentFetcher
-	skill.ContentFetcher = func(name string) string {
-		switch name {
-		case "task-tree":
-			return "task tree stub content"
-		case "flicknote":
-			return "flicknote stub content"
-		case "ei-ask":
-			return "ei-ask stub content"
-		case "sp-debugging":
-			return "sp-debugging stub content"
-		}
-		return ""
-	}
-	defer func() { skill.ContentFetcher = origFetcher }()
-
 	// Set TTAL_AGENT_NAME so resolvePipelinePrompt uses agent-first path.
 	// Unset TTAL_JOB_ID so resolveCurrentTaskForPrompt returns nil (idle session).
 	t.Setenv("TTAL_AGENT_NAME", "kestrel")
@@ -406,13 +386,19 @@ gate = "human"
 		t.Fatalf("resolvePipelinePrompt() returned empty for idle fixer session")
 	}
 
-	// Role-based extra skill header must appear.
-	if !strings.Contains(got, "# sp-debugging [skill]") {
-		t.Errorf("expected '# sp-debugging [skill]' in output, got: %q", got)
+	// Skill bodies must NOT appear (not inlined — exceeds CC hook size budget).
+	if strings.Contains(got, "# sp-debugging [skill]") {
+		t.Errorf("expected no '# sp-debugging [skill]' in output, got: %q", got)
 	}
-	// Default skill header must appear.
-	if !strings.Contains(got, "# task-tree [skill]") {
-		t.Errorf("expected '# task-tree [skill]' in output, got: %q", got)
+	if strings.Contains(got, "# task-tree [skill]") {
+		t.Errorf("expected no '# task-tree [skill]' in output, got: %q", got)
+	}
+	if strings.Contains(got, "[skill]") {
+		t.Errorf("expected no '[skill]' marker in output, got: %q", got)
+	}
+	// Fetch-on-demand instruction must appear.
+	if !strings.Contains(got, "ttal skill get sp-debugging") {
+		t.Errorf("expected 'ttal skill get sp-debugging' in output, got: %q", got)
 	}
 	// Role prompt must appear.
 	if !strings.Contains(got, "Diagnose this bug") {
@@ -421,6 +407,74 @@ gate = "human"
 	// No task section for idle session.
 	if strings.Contains(got, "## Task") {
 		t.Errorf("expected no '## Task' section for idle session, got: %q", got)
+	}
+}
+
+// TestContext_SmokeTest_ActiveTaskPipeline verifies that resolvePipelinePrompt
+// exercises the active-task branch (task != nil) and returns a combined
+// ## Task + role prompt output with no skill bodies inlined.
+func TestContext_SmokeTest_ActiveTaskPipeline(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	rolesToml := "\ndefault_skills = [\"task-tree\", \"flicknote\", \"ei-ask\"]\n\n[fixer]\n" +
+		"prompt = \"\"\"Execute `ttal skill get sp-debugging` to load the bug-fix-design " +
+		"methodology.\n\nDiagnose this bug and write a fix plan.\"\"\"\n" +
+		"extra_skills = [\"sp-debugging\"]\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "roles.toml"), []byte(rolesToml), 0o644); err != nil {
+		t.Fatalf("write roles.toml: %v", err)
+	}
+
+	promptsToml := `
+default = "Manage tasks."
+fixer = "Diagnose this bug and write a fix plan."
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
+		t.Fatalf("write prompts.toml: %v", err)
+	}
+
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	kestrelDir := filepath.Join(tmp, "kestrel")
+	if err := os.MkdirAll(kestrelDir, 0o755); err != nil {
+		t.Fatalf("mkdir kestrel: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(kestrelDir, "AGENTS.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	pipelinesToml := `
+[bugfix]
+description = "Bug fix pipeline"
+tags = ["bugfix"]
+
+[[bugfix.stages]]
+name = "Fix"
+assignee = "fixer"
+gate = "human"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "pipelines.toml"), []byte(pipelinesToml), 0o644); err != nil {
+		t.Fatalf("write pipelines.toml: %v", err)
+	}
+
+	// Write a fake task UUID so resolveCurrentTaskForPrompt hits the TTAL_JOB_ID path.
+	t.Setenv("TTAL_AGENT_NAME", "kestrel")
+	t.Setenv("TTAL_JOB_ID", "00000000-0000-0000-0000-000000000001")
+
+	got := resolvePipelinePrompt()
+
+	// Active task path is taken even when task export fails (logged, returns nil-ish behavior).
+	// The combined output should not contain skill bodies.
+	if strings.Contains(got, "[skill]") {
+		t.Errorf("expected no '[skill]' marker in active-task output, got: %q", got)
 	}
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	projectpkg "github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/skill"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
@@ -148,7 +147,7 @@ is found — always exits 0 (non-zero exits would fail the context hook).`,
 }
 
 // resolvePipelinePrompt builds the pipeline prompt for the current session.
-// Skills are always injected based on the agent's role (never by stage).
+// Prompt key resolution order: role → agentName → "default".
 // Task-specific content is appended only when a task exists.
 // Exits early with "" when no role prompt is configured (always exits 0 for CC hook).
 //
@@ -162,21 +161,12 @@ func resolvePipelinePrompt() string {
 
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 
-	// Always inject role-based skills — unconditional, not gated on task.
-	var skillContent string
 	var role string
 	if agentName != "" {
 		teamPath := cfg.TeamPath()
 		if teamPath != "" {
 			if resolvedRole, err := agentfs.RoleOf(teamPath, agentName); err == nil && resolvedRole != "" {
 				role = resolvedRole
-				if roles := cfg.Roles(); roles != nil {
-					skills := roles.RoleSkills(role)
-					skillContent = skill.FetchContents(skills)
-				} else {
-					log.Printf("[pipeline prompt] roles config unavailable (roles.toml missing?); "+
-						"skipping skill injection for %q", agentName)
-				}
 			} else if err != nil {
 				log.Printf("[pipeline prompt] role resolution failed for agent %q: %v", agentName, err)
 			}
@@ -185,7 +175,7 @@ func resolvePipelinePrompt() string {
 
 	task := resolveCurrentTaskForPrompt()
 
-	// No task — output role-based skills only with a base role prompt.
+	// No task — output role prompt only.
 	if task == nil {
 		// Use role as the prompt key (e.g. "fixer", "designer").
 		// Fall back to agentName if role is empty (shouldn't happen for valid agents).
@@ -198,62 +188,49 @@ func resolvePipelinePrompt() string {
 		if promptKey == "" {
 			promptKey = "default"
 		}
-		rolePrompt := cfg.Prompt(promptKey)
-		if skillContent != "" {
-			if rolePrompt != "" {
-				return skillContent + "\n\n---\n\n" + rolePrompt
-			}
-			return skillContent
-		}
-		return rolePrompt
+		return cfg.Prompt(promptKey)
 	}
 
 	// Active task — use existing task-first pipeline path for accurate reviewer detection.
 	pipelineCfg, err := pipeline.Load(config.DefaultConfigDir())
 	if err != nil {
 		log.Printf("[pipeline prompt] pipeline load failed: %v", err)
-		return skillContent
+		return ""
 	}
 
-	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
+	pName, p, err := pipelineCfg.MatchPipeline(task.Tags)
 	if err != nil {
 		log.Printf("[pipeline prompt] pipeline match failed for task %s: %v", task.HexID(), err)
-		return skillContent
+		return ""
 	}
 	if p == nil {
-		return skillContent
+		log.Printf("[pipeline prompt] no pipeline matched for task %s (tags: %v)", task.HexID(), task.Tags)
+		return ""
 	}
 
 	_, stage, err := p.CurrentStage(task.Tags)
 	if err != nil {
 		log.Printf("[pipeline prompt] stage resolution failed for task %s: %v", task.HexID(), err)
-		return skillContent
+		return ""
 	}
 	if stage == nil {
-		return skillContent
+		log.Printf("[pipeline prompt] no current stage for task %s in pipeline %s", task.HexID(), pName)
+		return ""
 	}
 
 	promptKey := resolvePromptKey(stage)
 	rolePrompt := cfg.Prompt(promptKey)
 	if rolePrompt == "" {
-		return skillContent
+		log.Printf("[pipeline prompt] no prompt found for key %q (task %s)", promptKey, task.HexID())
+		return ""
 	}
 
 	taskPrompt := formatTaskPromptForPipeline(task)
 
 	var combined strings.Builder
-	if skillContent != "" {
-		combined.WriteString(skillContent)
-	}
 	if taskPrompt != "" {
-		if combined.Len() > 0 {
-			combined.WriteString("\n\n---\n\n## Task\n\n")
-		} else {
-			combined.WriteString("## Task\n\n")
-		}
+		combined.WriteString("## Task\n\n")
 		combined.WriteString(taskPrompt)
-	}
-	if combined.Len() > 0 {
 		combined.WriteString("\n\n---\n\n")
 	}
 	combined.WriteString(rolePrompt)
