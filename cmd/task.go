@@ -122,7 +122,7 @@ func buildSkillsSection() string {
 	if err != nil {
 		return ""
 	}
-	teamPath := cfg.TeamPath()
+	teamPath := cfg.TeamPath
 	if teamPath == "" {
 		return ""
 	}

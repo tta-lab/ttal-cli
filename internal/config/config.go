@@ -241,8 +241,8 @@ func (c *Config) WorkerAgentPaths() []string {
 // SkillsDestDir returns the destination directory for deployed skills.
 // Defaults to ~/.agents/skills if not configured.
 func (c *Config) SkillsDestDir() string {
-	if c.SyncConfig_.SkillsDest != "" {
-		return expandHome(c.SyncConfig_.SkillsDest)
+	if c.Sync.SkillsDest != "" {
+		return expandHome(c.Sync.SkillsDest)
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".agents", "skills")
