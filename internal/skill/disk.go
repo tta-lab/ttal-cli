@@ -10,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-)
 
-const frontmatterDelimiter = "---"
+	"github.com/adrg/frontmatter"
+)
 
 // ContentFetcher is the function used to fetch a skill's content by name.
 // It defaults to fetchContentImpl but can be replaced for testing.
@@ -51,45 +51,24 @@ func FetchContents(names []string) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// ParseFrontmatter extracts name and description from YAML frontmatter,
+// ParseFrontmatter extracts name, description, and category from YAML frontmatter,
 // and returns the body content with frontmatter stripped.
-//
-// Single-pass over bytes.Split lines so bodyStart tracks real byte offsets.
-// Handles both LF and CRLF line endings correctly.
+// Returns all empty strings when no frontmatter is present (body is returned unchanged).
 func ParseFrontmatter(content []byte) (name, description, category string, body []byte) {
-	lines := bytes.Split(content, []byte("\n"))
+	var meta struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+		Category    string `yaml:"category"`
+	}
 
-	if len(lines) == 0 || strings.TrimSpace(string(lines[0])) != frontmatterDelimiter {
+	rest, err := frontmatter.Parse(bytes.NewReader(content), &meta)
+	if err != nil {
+		// No frontmatter or parse error — return content as body
 		return "", "", "", content
 	}
-
-	fm := make(map[string]string)
-	consumed := len(lines[0]) + 1 // opening --- line + \n
-
-	for i := 1; i < len(lines); i++ {
-		line := lines[i]
-		lineLen := len(line) + 1 // +1 for the \n separator (handles CRLF: \r stays in len)
-		trimmed := strings.TrimSpace(string(line))
-
-		if trimmed == frontmatterDelimiter {
-			consumed += lineLen
-			if consumed > len(content) {
-				return fm["name"], fm["description"], fm["category"], []byte{}
-			}
-			return fm["name"], fm["description"], fm["category"], content[consumed:]
-		}
-
-		if idx := bytes.IndexByte(line, ':'); idx > 0 {
-			key := strings.TrimSpace(string(line[:idx]))
-			val := strings.TrimSpace(string(line[idx+1:]))
-			val = strings.Trim(val, "\"'")
-			fm[key] = val
-		}
-		consumed += lineLen
-	}
-
-	return "", "", "", content // unterminated frontmatter
+	return meta.Name, meta.Description, meta.Category, rest
 }
+
 
 // DefaultSkillsDir returns the default path for deployed skills.
 func DefaultSkillsDir() string {
