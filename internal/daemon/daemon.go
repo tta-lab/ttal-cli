@@ -29,7 +29,7 @@ import (
 )
 
 // defaultTeamName is the single, hardcoded team name.
-const defaultTeamName = "default"
+const defaultTeamName = config.DefaultTeamName
 const pidFileName = "daemon.pid"
 
 // Run starts the daemon in the foreground. This is what launchd calls.

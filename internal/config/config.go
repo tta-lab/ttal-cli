@@ -27,8 +27,11 @@ type PromptsConfig struct {
 	PlanTriage   string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                              //nolint:lll
 }
 
-// defaultTeamName is the single, hardcoded team name.
-const defaultTeamName = "default"
+// DefaultTeamName is the single, hardcoded team name.
+const DefaultTeamName = "default"
+
+// defaultTeamName is a package-local alias for backwards compatibility.
+const defaultTeamName = DefaultTeamName
 
 const sessionPrefix = "ttal-default-"
 
@@ -111,6 +114,7 @@ type Config struct {
 }
 
 // AgentInfo describes an agent discovered under TeamPath.
+// TeamPath is included so callers can iterate without holding a *Config ref.
 type AgentInfo struct {
 	AgentName string
 	TeamPath  string
