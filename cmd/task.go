@@ -150,7 +150,9 @@ func buildSkillsSection() string {
 		if err == nil {
 			desc = s.Description
 		}
-		if desc != "" {
+		if err != nil {
+			lines = append(lines, fmt.Sprintf("- `ttal skill get %s` ⚠️ (unavailable: %v)", name, err))
+		} else if desc != "" {
 			lines = append(lines, fmt.Sprintf("- `ttal skill get %s` — %s. Agent fetches on demand.", name, desc))
 		} else {
 			lines = append(lines, fmt.Sprintf("- `ttal skill get %s`", name))

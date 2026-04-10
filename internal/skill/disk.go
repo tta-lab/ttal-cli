@@ -15,7 +15,10 @@ func DefaultSkillsDir() string {
 	if dir := os.Getenv("TTAL_SKILLS_DIR"); dir != "" {
 		return dir
 	}
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.Getenv("HOME"), ".agents", "skills")
+	}
 	return filepath.Join(home, ".agents", "skills")
 }
 

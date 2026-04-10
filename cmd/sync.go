@@ -176,11 +176,12 @@ Configure source paths in ~/.config/ttal/config.toml:
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: skills sync: %v\n", err)
 				syncFailed = true
+			} else {
+				for _, r := range skillsResults {
+					fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+				}
+				skillsCount = len(skillsResults)
 			}
-			for _, r := range skillsResults {
-				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
-			}
-			skillsCount = len(skillsResults)
 		}
 
 		suffix := ""

@@ -1,9 +1,8 @@
-// Package skill provides a runtime-agnostic skill registry backed by flicknote.
+// Package skill provides disk-based skill access for agents.
 //
-// Skills are markdown documents (commands, methodologies, reference sheets)
-// stored in flicknote and accessed by agents via `ttal skill get <name>`.
-// The registry maps human-readable names to flicknote hex IDs and provides
-// per-agent filtering.
+// Skills are markdown files deployed to ~/.agents/skills/ by `ttal sync`.
+// Each file has YAML frontmatter (name, description, category) and a body.
+// Agents fetch skill content via `ttal skill get <name>`.
 //
 // Plane: shared
 package skill

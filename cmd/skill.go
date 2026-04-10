@@ -179,17 +179,11 @@ func printJSON(v any) error {
 	return nil
 }
 
-type matchSource string
-
-const (
-	matchName matchSource = "name"
-)
-
 type findResultDisk struct {
 	Name        string
 	Description string
 	Category    string
-	source      matchSource
+	source      string
 }
 
 // findByNameDesc returns skills whose name or description matches any keyword.
@@ -202,7 +196,7 @@ func findByNameDesc(candidates []skill.DiskSkill, keywords []string) map[string]
 				strings.Contains(strings.ToLower(s.Description), kwLower) {
 				sc := s
 				results[s.Name] = &findResultDisk{Name: sc.Name, Description: sc.Description,
-					Category: sc.Category, source: matchName}
+					Category: sc.Category, source: "name"}
 				break
 			}
 		}
@@ -235,7 +229,7 @@ func runSkillFind(keywords []string) error {
 
 	var rows [][]string
 	for _, res := range sorted {
-		rows = append(rows, []string{res.Name, res.Category, string(res.source), res.Description})
+		rows = append(rows, []string{res.Name, res.Category, res.source, res.Description})
 	}
 
 	lipgloss.Println(buildSkillTable([]string{"Name", "Category", "Match", "Description"}, rows, 1, 2))
