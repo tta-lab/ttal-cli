@@ -1,7 +1,5 @@
 package daemon
 
-// defaultTeamName is the single, hardcoded team name.
-
 import (
 	"context"
 	"fmt"

@@ -76,8 +76,7 @@ type UserConfig struct {
 // Config is the top-level fully-resolved runtime configuration.
 // Populated by [Load] from config.toml, roles.toml, prompts.toml, and .env.
 //
-// Requires [teams.default] section. Callers access fields directly without
-// indirection through LegacyConfig/DaemonConfig wrappers.
+// Requires [teams.default] section. Callers access fields directly.
 type Config struct {
 	// Team-scoped fields (from [teams.default])
 	TeamPath          string
