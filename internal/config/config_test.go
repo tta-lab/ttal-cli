@@ -205,4 +205,3 @@ merge_mode = "invalid"
 		t.Error("Load() = nil, want error for invalid merge_mode")
 	}
 }
-
