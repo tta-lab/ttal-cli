@@ -288,7 +288,7 @@ Generate a template: `ttal doctor --fix`
 
 ## Templates & Skills (SSOT)
 
-The repo contains the **single source of truth** for agent definitions, skills, and subagents. `ttal sync` deploys subagents and rules to `~/.claude/agents/`, etc. Skills are stored in flicknote — use `ttal skill import <folder>` to upload them. **Edit here, not in `~/.claude/`** — runtime copies are overwritten by `ttal sync`.
+The repo contains the **single source of truth** for agent definitions, skills, and subagents. `ttal sync` deploys subagents, rules, and skills to runtime directories. **Edit here, not in `~/.claude/`** — runtime copies are overwritten by `ttal sync`.
 
 ### Source Directories
 
@@ -327,14 +327,14 @@ commands/              - Static command .md files (flat)
 | Type | Location | Format | How to deploy |
 |------|----------|--------|---------------|
 | Global prompt | `templates/ttal/CLAUDE.user.md` | Single `.md` file | `ttal sync` → `~/.claude/CLAUDE.md` |
-| Skills (methodology) | `skills/` | Directory with `SKILL.md` | `ttal skill import skills --apply` |
+| Skills (methodology) | `skills/` | Directory with `SKILL.md` | `ttal sync` |
 | Subagents | `agents/` | `{name}/AGENTS.md` per-agent subdir | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Agent identities | `templates/ttal/{name}/` | Per-agent subdir with `AGENTS.md` | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Config TOMLs | `templates/ttal/` | `.toml` files | `ttal sync` → `~/.config/ttal/` |
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
 
-**Skills:** Skills live in flicknote and are accessed at runtime via `ttal skill get` for standalone use. Skills are NOT auto-inlined at SessionStart — CC's hook `additionalContext` has a size budget that full skill bodies blow past (the content gets persisted to a file and the model only sees a preview). Instead, each role prompt in `roles.toml` includes an `Execute `ttal skill get <name>`` line; agents fetch methodology on demand at session start. `{{skill:name}}` placeholders in `prompts.toml` still exist for explicit opt-in expansion but are unused by current templates. Import from source with `ttal skill import skills --apply`. Dynamic commands also use flicknote — trigger via Telegram sends `run ttal skill get <name>` to the agent.
+**Skills:** Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They are accessed at runtime via `ttal skill get` for standalone use. Skills are NOT auto-inlined at SessionStart — CC's hook `additionalContext` has a size budget that full skill bodies blow past (the content gets persisted to a file and the model only sees a preview). Skill hints are included in `ttal task get` output for manager agents, not in SessionStart context. `{{skill:name}}` placeholders in `prompts.toml` are used for explicit opt-in expansion. Skills on disk retain their YAML frontmatter for metadata; `ttal skill get` strips frontmatter on output.
 
 ## Additional Documentation
 

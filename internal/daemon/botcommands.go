@@ -32,20 +32,20 @@ var registeredCommands = []BotCommand{
 	{Command: "save", Description: "Save agent's last message to FlickNote"},
 }
 
-// DiscoverCommands reads command-category skills from the default skill registry.
+// DiscoverCommands reads command-category skills from the skills directory.
 func DiscoverCommands() []BotCommand {
-	r, err := skill.Load(skill.DefaultPath())
+	skills, err := skill.ListSkills(skill.DefaultSkillsDir())
 	if err != nil {
-		log.Printf("[commands] ERROR: cannot load skill registry — dynamic commands unavailable: %v", err)
+		log.Printf("[commands] ERROR: cannot list skills — dynamic commands unavailable: %v", err)
 		return nil
 	}
-	return discoverCommandsFromRegistry(r)
+	return discoverCommandsFromSkills(skills)
 }
 
-// discoverCommandsFromRegistry extracts command-category skills as BotCommands.
-func discoverCommandsFromRegistry(r *skill.Registry) []BotCommand {
+// discoverCommandsFromSkills extracts command-category skills as BotCommands.
+func discoverCommandsFromSkills(skills []skill.DiskSkill) []BotCommand {
 	var discovered []BotCommand
-	for _, s := range r.List() {
+	for _, s := range skills {
 		if s.Category != "command" {
 			continue
 		}

@@ -54,6 +54,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			syncCfg.GlobalPromptPath == "" && teamPath == "" &&
 			syncCfg.MarketplaceSource == "" &&
 			len(syncCfg.WorkerAgentPaths) == 0 &&
+			len(syncCfg.SkillsPaths) == 0 &&
 			project.ResolveProjectPath("ttal") == ""
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
@@ -167,6 +168,22 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 		}
 
+		// Deploy skills to ~/.agents/skills/
+		skillsCount := 0
+		if len(syncCfg.SkillsPaths) > 0 {
+			printSyncHeader("skills", syncDryRun)
+			skillsResults, err := sync.DeploySkills(syncCfg.SkillsPaths, cfg.SkillsDestDir(), syncDryRun)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: skills sync: %v\n", err)
+				syncFailed = true
+			} else {
+				for _, r := range skillsResults {
+					fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
+				}
+				skillsCount = len(skillsResults)
+			}
+		}
+
 		suffix := ""
 		if syncDryRun {
 			suffix = " (dry run)"
@@ -174,8 +191,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncFailed {
 			suffix += " [sync warnings — check above]"
 		}
-		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents, %d manager agents.%s\n",
-			configCount, ruleCount, workerAgentCount, managerAgentCount, suffix)
+		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents, %d manager agents, %d skills.%s\n",
+			configCount, ruleCount, workerAgentCount, managerAgentCount, skillsCount, suffix)
 		return nil
 	},
 }

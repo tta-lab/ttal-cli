@@ -21,9 +21,7 @@ IMPORTANT: Always use `ttal pr` for PR operations (create, modify) — never use
 IMPORTANT: Use `ttal go` (no extra params) to finalize your work when you finish triage and got lgtm from reviewer"""
 
 [designer]
-prompt = """Execute `ttal skill get sp-planning` to load the planning methodology.
-
-Write an implementation plan for this task.
+prompt = """Write an implementation plan for this task.
 
 Plan workflow:
 1. Orient (complex tasks): flicknote add 'orientation doc' --project orientation -> annotate task with hex ID
@@ -36,9 +34,7 @@ For orientation docs and research notes, use flicknote."""
 extra_skills = ["sp-planning"]
 
 [researcher]
-prompt = """Execute `ttal skill get sp-research` to load the research methodology.
-
-Research this topic thoroughly.
+prompt = """Research this topic thoroughly.
 
 Storage: Save findings via flicknote add 'content' --project research
 Iterate with: flicknote detail <id> --tree, flicknote append <id> 'more content', flicknote modify <id> --section <section-id>
@@ -46,9 +42,7 @@ When done: annotate the task with the flicknote hex ID: task {{task-id}} annotat
 extra_skills = ["sp-research"]
 
 [fixer]
-prompt = """Execute `ttal skill get sp-debugging` to load the bug-fix-design methodology.
-
-Diagnose this bug and write a fix plan.
+prompt = """Diagnose this bug and write a fix plan.
 
 Workflow:
 1. Save diagnosis to flicknote: flicknote add 'findings' --project fixes -> annotate task with hex ID
@@ -59,9 +53,7 @@ For simple fixes, annotate the task directly instead of using a task tree."""
 extra_skills = ["sp-debugging"]
 
 [auditor]
-prompt = """Execute `ttal skill get sp-research` to load the research methodology.
-
-Audit this codebase or PR for correctness issues, security gaps, and pattern violations.
+prompt = """Audit this codebase or PR for correctness issues, security gaps, and pattern violations.
 
 When auditing a PR, focus on: correctness, edge cases, error handling, security, and maintainability.
 Post findings with: ttal comment add"""
@@ -75,9 +67,7 @@ Storage: Save the draft via flicknote add 'content' --project comms
 When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
 
 [devops]
-prompt = """Execute `ttal skill get sp-planning` to load the planning methodology.
-
-Write a devops/infrastructure implementation plan for this task.
+prompt = """Write a devops/infrastructure implementation plan for this task.
 
 Plan workflow:
 1. Orient (complex tasks): flicknote add 'orientation doc' --project orientation -> annotate task with hex ID
@@ -90,9 +80,7 @@ For orientation docs and research notes, use flicknote."""
 extra_skills = ["sp-planning"]
 
 [frontend_designer]
-prompt = """Execute `ttal skill get frontend-design` to load the frontend-design methodology.
-
-Design a distinctive frontend interface for this task.
+prompt = """Design a distinctive frontend interface for this task.
 
 Read the task first: ttal task get
 

@@ -4,281 +4,328 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
-// writeTempRegistry writes a skills.toml to a temp dir and returns the path.
-func withTempRegistry(t *testing.T, content string) string {
+func skillContent(name, desc, category, body string) string {
+	return "---\nname: " + name + "\ndescription: " + desc + "\ncategory: " + category + "\n---\n" + body
+}
+
+func writeSkillFile(t *testing.T, dir, name, content string) {
 	t.Helper()
+	path := filepath.Join(dir, name+".md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("writeSkillFile failed: %v", err)
+	}
+}
+
+func TestSkillList_TableOutput(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "skills.toml")
-	if content != "" {
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return path
-}
+	t.Setenv("TTAL_SKILLS_DIR", dir)
 
-const cmdTestTOML = `
-[skills.breathe]
-id = "a1b2c3d4"
-category = "command"
-description = "Refresh context window"
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	planning := skillContent("sp-planning", "Full planning process", "methodology", "# Planning\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
+	writeSkillFile(t, dir, "sp-planning", planning)
 
-[skills.sp-debugging]
-id = "e5f6a7b8"
-category = "methodology"
-description = "Debug systematically"
-
-[agents]
-yuki = ["breathe"]
-`
-
-func TestSkillList_AllFlag(t *testing.T) {
-	// Tests that runSkillList with all=true returns all skills.
-	// We test via the registry directly since the cmd uses loadRegistry()
-	// which reads DefaultPath. We swap DefaultPath by writing to a temp file
-	// and monkey-patching through the skill package indirectly.
-	//
-	// For this reason we test the business logic of the underlying registry,
-	// which is already covered by internal/skill tests.
-	// The cmd test verifies flag parsing and TTAL_AGENT_NAME filtering.
-
-	registryPath := withTempRegistry(t, cmdTestTOML)
-	r, err := skill.Load(registryPath)
+	err := runSkillList(false, false)
 	if err != nil {
-		t.Fatal(err)
-	}
-
-	// All
-	all := r.List()
-	if len(all) != 2 {
-		t.Errorf("expected 2 skills, got %d", len(all))
-	}
-
-	// Agent filtered
-	filtered := r.ListForAgent("yuki")
-	if len(filtered) != 1 || filtered[0].Name != "breathe" {
-		t.Errorf("expected [breathe] for yuki, got %v", filtered)
-	}
-
-	// Unknown agent gets all
-	unknown := r.ListForAgent("nobody")
-	if len(unknown) != 2 {
-		t.Errorf("expected all 2 for unknown agent, got %d", len(unknown))
+		t.Fatalf("runSkillList failed: %v", err)
 	}
 }
 
-func TestSkillGet_NotFound(t *testing.T) {
-	registryPath := withTempRegistry(t, cmdTestTOML)
-	r, _ := skill.Load(registryPath)
+func TestSkillList_TableWithCategories(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
 
-	_, err := r.Get("nonexistent")
-	if err == nil {
-		t.Error("expected error for unknown skill")
-	}
-}
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
 
-func TestSkillGet_ReturnsCorrectFlicknoteID(t *testing.T) {
-	registryPath := withTempRegistry(t, cmdTestTOML)
-	r, _ := skill.Load(registryPath)
-
-	s, err := r.Get("breathe")
+	err := runSkillList(true, false)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if s.FlicknoteID != "a1b2c3d4" {
-		t.Errorf("expected a1b2c3d4, got %s", s.FlicknoteID)
-	}
-}
-
-func TestSkillAdd_RegistrationPersists(t *testing.T) {
-	registryPath := withTempRegistry(t, cmdTestTOML)
-	r, _ := skill.Load(registryPath)
-
-	err := r.Add(skill.Skill{
-		Name:        "new-skill",
-		FlicknoteID: "c9d0e1f2",
-		Category:    "reference",
-		Description: "New skill",
-	}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	r2, _ := skill.Load(registryPath)
-	s, err := r2.Get("new-skill")
-	if err != nil {
-		t.Fatalf("skill not persisted: %v", err)
-	}
-	if s.FlicknoteID != "c9d0e1f2" {
-		t.Errorf("wrong ID: %s", s.FlicknoteID)
-	}
-}
-
-func TestSkillAdd_ErrorIfExists(t *testing.T) {
-	registryPath := withTempRegistry(t, cmdTestTOML)
-	r, _ := skill.Load(registryPath)
-
-	err := r.Add(skill.Skill{Name: "breathe", FlicknoteID: "xx"}, false)
-	if err == nil {
-		t.Error("expected error adding existing skill without --force")
-	}
-	if !strings.Contains(err.Error(), "already registered") {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestSkillRemove_CleansAgentAllowLists(t *testing.T) {
-	tomlContent := `
-[skills.breathe]
-id = "a1b2c3d4"
-category = "command"
-description = "Refresh"
-
-[skills.sp-debugging]
-id = "e5f6a7b8"
-category = "methodology"
-description = "Debug"
-
-[agents]
-yuki = ["breathe", "sp-debugging"]
-inke = ["breathe"]
-`
-	registryPath := withTempRegistry(t, tomlContent)
-	r, _ := skill.Load(registryPath)
-
-	_, agents, err := r.Remove("breathe")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	agentSet := map[string]bool{}
-	for _, a := range agents {
-		agentSet[a] = true
-	}
-	if !agentSet["yuki"] || !agentSet["inke"] {
-		t.Errorf("expected both yuki and inke in cleaned agents, got %v", agents)
-	}
-
-	r2, _ := skill.Load(registryPath)
-	_, err = r2.Get("breathe")
-	if err == nil {
-		t.Error("breathe should be removed")
-	}
-
-	_, err = r2.Get("sp-debugging")
-	if err != nil {
-		t.Errorf("sp-debugging should still exist: %v", err)
+		t.Fatalf("runSkillList with listAll=true failed: %v", err)
 	}
 }
 
 func TestSkillList_JSON(t *testing.T) {
-	registryPath := withTempRegistry(t, cmdTestTOML)
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
 
-	r, err := skill.Load(registryPath)
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	planning := skillContent("sp-planning", "Full planning", "methodology", "# Planning\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
+	writeSkillFile(t, dir, "sp-planning", planning)
+
+	err := runSkillList(false, true)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("runSkillList JSON failed: %v", err)
 	}
-	skills := r.List()
+}
 
-	// Capture stdout
+func TestSkillGet_ContentOutput(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	content := skillContent("test-skill", "A test skill", "command",
+		"# Test Skill Body\n\nThis is the actual content.")
+	writeSkillFile(t, dir, "test-skill", content)
+
+	err := runSkillGet("test-skill", false)
+	if err != nil {
+		t.Fatalf("runSkillGet failed: %v", err)
+	}
+}
+
+func TestSkillGet_JSONWithContent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	content := skillContent("test-skill", "A test skill", "command",
+		"# Test Skill Body\n\nThis is the actual content.")
+	writeSkillFile(t, dir, "test-skill", content)
+
+	err := runSkillGet("test-skill", true)
+	if err != nil {
+		t.Fatalf("runSkillGet JSON failed: %v", err)
+	}
+}
+
+func TestSkillGet_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	err := runSkillGet("nonexistent-skill", false)
+	if err == nil {
+		t.Error("expected error for nonexistent skill")
+	}
+}
+
+func TestSkillFind_ByName(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	planning := skillContent("sp-planning", "Full planning", "methodology", "# Planning\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
+	writeSkillFile(t, dir, "sp-planning", planning)
+
+	err := runSkillFind([]string{"breathe"})
+	if err != nil {
+		t.Fatalf("runSkillFind failed: %v", err)
+	}
+}
+
+func TestSkillFind_ByDescription(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
+
+	err := runSkillFind([]string{"context"})
+	if err != nil {
+		t.Fatalf("runSkillFind by description failed: %v", err)
+	}
+}
+
+func TestSkillFind_NoMatch(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
+
+	err := runSkillFind([]string{"nonexistent"})
+	if err != nil {
+		t.Fatalf("runSkillFind no match failed: %v", err)
+	}
+}
+
+func TestFindByNameDesc_Direct(t *testing.T) {
+	candidates := []skill.DiskSkill{
+		{Name: "sp-planning", Description: "Full planning process", Category: "methodology"},
+		{Name: "breathe", Description: "Refresh context window", Category: "command"},
+		{Name: "sp-debugging", Description: "Diagnose bugs systematically", Category: "methodology"},
+	}
+
+	results := findByNameDesc(candidates, []string{"planning"})
+	if len(results) != 1 {
+		t.Errorf("expected 1 result for 'planning', got %d", len(results))
+	}
+	if _, ok := results["sp-planning"]; !ok {
+		t.Error("expected sp-planning in results")
+	}
+
+	results = findByNameDesc(candidates, []string{"bugs"})
+	if len(results) != 1 {
+		t.Errorf("expected 1 result for 'bugs', got %d", len(results))
+	}
+
+	results = findByNameDesc(candidates, []string{"nonexistent"})
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for 'nonexistent', got %d", len(results))
+	}
+}
+
+func TestSkillList_EmptyDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	err := runSkillList(false, false)
+	if err != nil {
+		t.Fatalf("runSkillList on empty dir failed: %v", err)
+	}
+}
+
+func TestSkillGet_FileWithoutFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	writeSkillFile(t, dir, "plain-skill", "Plain skill body content.")
+
+	err := runSkillGet("plain-skill", false)
+	if err != nil {
+		t.Fatalf("runSkillGet without frontmatter failed: %v", err)
+	}
+}
+
+func TestSkillList_JSON_Structure(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	writeSkillFile(t, dir, "breathe", breathe)
+
 	old := os.Stdout
 	rPipe, wPipe, _ := os.Pipe()
 	os.Stdout = wPipe
 
-	err = runSkillList(false, true, registryPath)
-	// restore stdout
+	err := runSkillList(false, true)
+
 	wPipe.Close()
 	os.Stdout = old
 
 	if err != nil {
-		t.Fatalf("runSkillList failed: %v", err)
+		t.Fatalf("runSkillList JSON failed: %v", err)
 	}
 
-	var output []skillJSON
-	if err := json.NewDecoder(rPipe).Decode(&output); err != nil {
-		t.Fatalf("failed to decode JSON: %v", err)
+	buf := make([]byte, 4096)
+	n, _ := rPipe.Read(buf)
+	output := string(buf[:n])
+
+	var items []skillJSON
+	if err := json.Unmarshal([]byte(output), &items); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, output)
 	}
 
-	if len(output) != len(skills) {
-		t.Errorf("expected %d skills, got %d", len(skills), len(output))
+	if len(items) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(items))
 	}
-
-	for _, item := range output {
-		if item.Name == "" {
-			t.Error("name field is empty")
-		}
-		if item.FlicknoteID == "" {
-			t.Error("flicknote_id field is empty")
-		}
-		if item.Category == "" {
-			t.Error("category field is empty")
-		}
-		if item.Description == "" {
-			t.Error("description field is empty")
-		}
+	if items[0].Name != "breathe" {
+		t.Errorf("expected name 'breathe', got %q", items[0].Name)
+	}
+	if items[0].Category != "command" {
+		t.Errorf("expected category 'command', got %q", items[0].Category)
 	}
 }
 
-func TestSkillGet_JSON_Metadata(t *testing.T) {
-	registryPath := withTempRegistry(t, cmdTestTOML)
+func TestSkillGet_JSON_Structure(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
 
-	// Verify registry lookup (the jsonOut path uses the same registry lookup).
-	// The jsonOut=true branch additionally calls flicknote and assembles a
-	// skillJSONWithContent struct. We test that assembly here by constructing
-	// the expected struct from the registry data and verifying all fields.
-	r, err := skill.Load(registryPath)
+	body := skillContent("test-skill", "A test skill", "command",
+		"# Test Skill Body\n\nThis is the actual content.")
+	writeSkillFile(t, dir, "test-skill", body)
+
+	old := os.Stdout
+	rPipe, wPipe, _ := os.Pipe()
+	os.Stdout = wPipe
+
+	err := runSkillGet("test-skill", true)
+
+	wPipe.Close()
+	os.Stdout = old
+
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("runSkillGet JSON failed: %v", err)
 	}
 
-	s, err := r.Get("breathe")
+	buf := make([]byte, 4096)
+	n, _ := rPipe.Read(buf)
+	output := string(buf[:n])
+
+	var item skillJSONWithContent
+	if err := json.Unmarshal([]byte(output), &item); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, output)
+	}
+
+	if item.Name != "test-skill" {
+		t.Errorf("expected name 'test-skill', got %q", item.Name)
+	}
+	if item.Content == "" {
+		t.Error("expected non-empty content")
+	}
+}
+
+func TestBuildSkillTable_DimColumns(t *testing.T) {
+	headers := []string{"Name", "Category", "Description"}
+	rows := [][]string{
+		{"breathe", "command", "Refresh context"},
+	}
+	table := buildSkillTable(headers, rows, 1)
+	if table == nil {
+		t.Error("expected non-nil table")
+	}
+}
+
+func TestBuildSkillTable_NoDimColumns(t *testing.T) {
+	headers := []string{"Name", "Description"}
+	rows := [][]string{
+		{"breathe", "Refresh context"},
+	}
+	table := buildSkillTable(headers, rows)
+	if table == nil {
+		t.Error("expected non-nil table")
+	}
+}
+
+func TestSkillFind_MultipleKeywords(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+
+	planning := skillContent("sp-planning", "Full planning process", "methodology", "# Planning\nBody here.")
+	debugging := skillContent("sp-debugging", "Debug systematically", "methodology", "# Debug\nBody here.")
+	breathe := skillContent("breathe", "Refresh context", "command", "# Breathe\nBody here.")
+	writeSkillFile(t, dir, "sp-planning", planning)
+	writeSkillFile(t, dir, "sp-debugging", debugging)
+	writeSkillFile(t, dir, "breathe", breathe)
+
+	err := runSkillFind([]string{"methodology"})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("runSkillFind multiple keywords failed: %v", err)
+	}
+}
+
+func TestFindByNameDesc_CaseInsensitive(t *testing.T) {
+	candidates := []skill.DiskSkill{
+		{Name: "Sp-Planning", Description: "Full Planning Process", Category: "methodology"},
 	}
 
-	// Replicate the skillJSONWithContent struct that runSkillGet assembles
-	// for the jsonOut=true path (flicknote content is tested via the
-	// non-json path in TestSkillGet_NonJSON).
-	expected := skillJSONWithContent{
-		skillJSON: skillJSON{
-			Name:        "breathe",
-			FlicknoteID: "a1b2c3d4",
-			Category:    "command",
-			Description: "Refresh context window",
-		},
-		Content: "", // populated at runtime by flicknote
+	results := findByNameDesc(candidates, []string{"PLANNING"})
+	if len(results) != 1 {
+		t.Errorf("expected 1 result for case-insensitive match, got %d", len(results))
+	}
+}
+
+func TestFindByNameDesc_MultipleMatchesSameSkill(t *testing.T) {
+	candidates := []skill.DiskSkill{
+		{Name: "sp-planning", Description: "Full planning process", Category: "methodology"},
 	}
 
-	if s.Name != expected.Name {
-		t.Errorf("expected name %q, got %q", expected.Name, s.Name)
-	}
-	if s.FlicknoteID != expected.FlicknoteID {
-		t.Errorf("expected flicknote_id %q, got %q", expected.FlicknoteID, s.FlicknoteID)
-	}
-	if s.Category != expected.Category {
-		t.Errorf("expected category %q, got %q", expected.Category, s.Category)
-	}
-	if s.Description != expected.Description {
-		t.Errorf("expected description %q, got %q", expected.Description, s.Description)
-	}
-
-	// Verify the jsonOut=true code path by marshaling the struct and checking it parses
-	data, err := json.Marshal(expected)
-	if err != nil {
-		t.Fatalf("failed to marshal expected JSON: %v", err)
-	}
-	var parsed skillJSONWithContent
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		t.Fatalf("failed to unmarshal JSON: %v", err)
-	}
-	if parsed.Name != expected.Name || parsed.FlicknoteID != expected.FlicknoteID ||
-		parsed.Category != expected.Category || parsed.Description != expected.Description {
-		t.Error("JSON struct fields do not round-trip correctly")
+	results := findByNameDesc(candidates, []string{"planning", "process", "full"})
+	if len(results) != 1 {
+		t.Errorf("expected 1 result (deduplicated), got %d", len(results))
 	}
 }
