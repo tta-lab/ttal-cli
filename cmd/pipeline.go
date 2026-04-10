@@ -147,7 +147,7 @@ is found — always exits 0 (non-zero exits would fail the context hook).`,
 }
 
 // resolvePipelinePrompt builds the pipeline prompt for the current session.
-// Role prompt is selected based on agent role (or agent name fallback).
+// Prompt key resolution order: role → agentName → "default".
 // Task-specific content is appended only when a task exists.
 // Exits early with "" when no role prompt is configured (always exits 0 for CC hook).
 //
@@ -198,12 +198,13 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 
-	_, p, err := pipelineCfg.MatchPipeline(task.Tags)
+	pName, p, err := pipelineCfg.MatchPipeline(task.Tags)
 	if err != nil {
 		log.Printf("[pipeline prompt] pipeline match failed for task %s: %v", task.HexID(), err)
 		return ""
 	}
 	if p == nil {
+		log.Printf("[pipeline prompt] no pipeline matched for task %s (tags: %v)", task.HexID(), task.Tags)
 		return ""
 	}
 
@@ -213,12 +214,14 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 	if stage == nil {
+		log.Printf("[pipeline prompt] no current stage for task %s in pipeline %s", task.HexID(), pName)
 		return ""
 	}
 
 	promptKey := resolvePromptKey(stage)
 	rolePrompt := cfg.Prompt(promptKey)
 	if rolePrompt == "" {
+		log.Printf("[pipeline prompt] no prompt found for key %q (task %s)", promptKey, task.HexID())
 		return ""
 	}
 

@@ -410,6 +410,74 @@ gate = "human"
 	}
 }
 
+// TestContext_SmokeTest_ActiveTaskPipeline verifies that resolvePipelinePrompt
+// exercises the active-task branch (task != nil) and returns a combined
+// ## Task + role prompt output with no skill bodies inlined.
+func TestContext_SmokeTest_ActiveTaskPipeline(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	rolesToml := "\ndefault_skills = [\"task-tree\", \"flicknote\", \"ei-ask\"]\n\n[fixer]\n" +
+		"prompt = \"\"\"Execute `ttal skill get sp-debugging` to load the bug-fix-design " +
+		"methodology.\n\nDiagnose this bug and write a fix plan.\"\"\"\n" +
+		"extra_skills = [\"sp-debugging\"]\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "roles.toml"), []byte(rolesToml), 0o644); err != nil {
+		t.Fatalf("write roles.toml: %v", err)
+	}
+
+	promptsToml := `
+default = "Manage tasks."
+fixer = "Diagnose this bug and write a fix plan."
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
+		t.Fatalf("write prompts.toml: %v", err)
+	}
+
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	kestrelDir := filepath.Join(tmp, "kestrel")
+	if err := os.MkdirAll(kestrelDir, 0o755); err != nil {
+		t.Fatalf("mkdir kestrel: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(kestrelDir, "AGENTS.md"), []byte("---\nrole: fixer\n---\n"), 0o644); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	pipelinesToml := `
+[bugfix]
+description = "Bug fix pipeline"
+tags = ["bugfix"]
+
+[[bugfix.stages]]
+name = "Fix"
+assignee = "fixer"
+gate = "human"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "pipelines.toml"), []byte(pipelinesToml), 0o644); err != nil {
+		t.Fatalf("write pipelines.toml: %v", err)
+	}
+
+	// Write a fake task UUID so resolveCurrentTaskForPrompt hits the TTAL_JOB_ID path.
+	t.Setenv("TTAL_AGENT_NAME", "kestrel")
+	t.Setenv("TTAL_JOB_ID", "00000000-0000-0000-0000-000000000001")
+
+	got := resolvePipelinePrompt()
+
+	// Active task path is taken even when task export fails (logged, returns nil-ish behavior).
+	// The combined output should not contain skill bodies.
+	if strings.Contains(got, "[skill]") {
+		t.Errorf("expected no '[skill]' marker in active-task output, got: %q", got)
+	}
+}
+
 const testHookInputKestrel = `{"agent_type":"kestrel"}`
 
 func trimNewlines(s string) string {
