@@ -61,4 +61,3 @@ func TestShellCommand(t *testing.T) {
 	}
 }
 
-func TestLegacyDefaultRuntime(t *testing.T) {}
