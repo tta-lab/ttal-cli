@@ -5,7 +5,9 @@ package doctor
 const defaultPipelinesContent = `# Pipeline definitions for ttal go.
 # Each pipeline defines a sequence of stages with role-based assignment and gates.
 # Tasks are matched to pipelines by their tags.
-# Skills are role-based via roles.toml (default_skills + extra_skills); applied unconditionally.
+# Skills are declared per-role in roles.toml; role prompts carry
+# "ttal skill get <name>" instructions so agents fetch methodology
+# on demand (not auto-inlined at SessionStart -- exceeds CC hook size budget).
 
 [standard]
 description = "Plan → Implement"

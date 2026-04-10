@@ -334,7 +334,7 @@ commands/              - Static command .md files (flat)
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
 
-**Skills:** Skills live in flicknote and are accessed at runtime via `ttal skill get` for standalone use. Pipeline skills are inlined into agent context automatically at context render time (via `ttal pipeline prompt` and `{{skill:name}}` placeholders in prompts.toml) — agents no longer need to run `ttal skill get` themselves. Import from source with `ttal skill import skills --apply`. Dynamic commands also use flicknote — trigger via Telegram sends `run ttal skill get <name>` to the agent.
+**Skills:** Skills live in flicknote and are accessed at runtime via `ttal skill get` for standalone use. Skills are NOT auto-inlined at SessionStart — CC's hook `additionalContext` has a size budget that full skill bodies blow past (the content gets persisted to a file and the model only sees a preview). Instead, each role prompt in `roles.toml` includes an `Execute `ttal skill get <name>`` line; agents fetch methodology on demand at session start. `{{skill:name}}` placeholders in `prompts.toml` still exist for explicit opt-in expansion but are unused by current templates. Import from source with `ttal skill import skills --apply`. Dynamic commands also use flicknote — trigger via Telegram sends `run ttal skill get <name>` to the agent.
 
 ## Additional Documentation
 
