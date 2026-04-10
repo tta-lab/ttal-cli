@@ -77,7 +77,7 @@ func (r *RolesConfig) HeartbeatIntervalForRole(role string) string {
 }
 
 // RoleSkills returns the effective skill list for a role.
-// It merges DefaultSkills with ExtraSkills[role], deduplicating in order.
+// It merges ExtraSkills[role] with DefaultSkills, with extra skills listed first.
 // Returns DefaultSkills (never nil) for unknown roles.
 func (r *RolesConfig) RoleSkills(role string) []string {
 	if r == nil {
@@ -91,13 +91,15 @@ func (r *RolesConfig) RoleSkills(role string) []string {
 			result = append(result, s)
 		}
 	}
-	for _, s := range r.DefaultSkills {
-		appendUnique(s)
-	}
+	// Extra skills first (role-specific)
 	if extra, ok := r.ExtraSkills[role]; ok {
 		for _, s := range extra {
 			appendUnique(s)
 		}
+	}
+	// Then default skills
+	for _, s := range r.DefaultSkills {
+		appendUnique(s)
 	}
 	if len(result) == 0 {
 		return append([]string(nil), r.DefaultSkills...)

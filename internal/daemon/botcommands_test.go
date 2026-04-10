@@ -57,39 +57,29 @@ func TestIsStaticCommand(t *testing.T) {
 	}
 }
 
-func TestDiscoverCommandsFromRegistry(t *testing.T) {
+func TestDiscoverCommandsFromSkills(t *testing.T) {
 	dir := t.TempDir()
-	registryPath := filepath.Join(dir, "skills.toml")
-	if err := os.WriteFile(registryPath, []byte(`
-[skills.breathe]
-id = "aaa"
-category = "command"
-description = "Refresh context"
 
-[skills.sp-planning]
-id = "bbb"
-category = "methodology"
-description = "Planning skill"
-
-[skills.new]
-id = "ccc"
-category = "command"
-description = "Should be filtered (static)"
-
-[skills.tell-me-more]
-id = "ddd"
-category = "command"
-description = "Elaborate"
-`), 0o644); err != nil {
-		t.Fatal(err)
+	// Create skill files on disk with YAML frontmatter
+	skills := map[string]string{
+		"breathe":      "---\nname: breathe\ncategory: command\ndescription: Refresh context\n---\n# Breathe\nBody",
+		"sp-planning":  "---\nname: sp-planning\ncategory: methodology\ndescription: Planning skill\n---\n# Planning\nBody",
+		"new":          "---\nname: new\ncategory: command\ndescription: Should be filtered (static)\n---\n# New\nBody",
+		"tell-me-more": "---\nname: tell-me-more\ncategory: command\ndescription: Elaborate\n---\n# Elaborate\nBody",
+	}
+	for name, content := range skills {
+		if err := os.WriteFile(filepath.Join(dir, name+".md"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	r, err := skill.Load(registryPath)
+	t.Setenv("TTAL_SKILLS_DIR", dir)
+	diskSkills, err := skill.ListSkills(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cmds := discoverCommandsFromRegistry(r)
+	cmds := discoverCommandsFromSkills(diskSkills)
 
 	// Should find breathe and tell-me-more (commands), skip sp-planning (methodology) and new (static).
 	if len(cmds) != 2 {
