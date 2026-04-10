@@ -69,7 +69,6 @@ func ParseFrontmatter(content []byte) (name, description, category string, body 
 	return meta.Name, meta.Description, meta.Category, rest
 }
 
-
 // DefaultSkillsDir returns the default path for deployed skills.
 func DefaultSkillsDir() string {
 	if dir := os.Getenv("TTAL_SKILLS_DIR"); dir != "" {
