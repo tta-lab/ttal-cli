@@ -172,7 +172,11 @@ Configure source paths in ~/.config/ttal/config.toml:
 		skillsCount := 0
 		if len(syncCfg.SkillsPaths) > 0 {
 			printSyncHeader("skills", syncDryRun)
-			skillsResults, err := sync.DeploySkills(syncCfg.SkillsPaths, cfg.SkillsDestDir(), syncDryRun)
+			expandedPaths := make([]string, len(syncCfg.SkillsPaths))
+			for i, p := range syncCfg.SkillsPaths {
+				expandedPaths[i] = config.ExpandHome(p)
+			}
+			skillsResults, err := sync.DeploySkills(expandedPaths, cfg.SkillsDestDir(), syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: skills sync: %v\n", err)
 				syncFailed = true
