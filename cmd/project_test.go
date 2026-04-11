@@ -5,12 +5,17 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/project"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const (
 	testNewName = "New Name"
 	testNewPath = "/new/path"
+
+	testTaskHex   = "c8c991bd"
+	testTaskOwner = "astra"
 )
 
 func newTestStore(t *testing.T) *project.Store {
@@ -283,5 +288,94 @@ func assertJSONProjectFields(t *testing.T, results []map[string]string) {
 	}
 	if !found {
 		t.Error("expected project proj1 not found in JSON output")
+	}
+}
+
+func TestBuildResolveJSONOutput_AllFieldsPresent(t *testing.T) {
+	proj := &project.Project{Alias: "fb", Path: "/repo/fb"}
+	task := &taskwarrior.Task{
+		UUID:  "c8c991bd-8fb7-4950-b372-2e139ebf2afa",
+		Owner: testTaskOwner,
+		Tags:  []string{"standard", "plan"},
+	}
+	cfg := &pipeline.Config{Pipelines: map[string]pipeline.Pipeline{
+		"standard": {
+			Tags: []string{"standard"},
+			Stages: []pipeline.Stage{
+				{Name: "plan", Assignee: "designer", Gate: "human"},
+				{Name: "implement", Assignee: "coder", Gate: "auto", Worker: true},
+			},
+		},
+	}}
+
+	out := buildResolveJSONOutput("fb", proj, task, cfg)
+	if out.Alias != "fb" {
+		t.Errorf("alias = %q, want fb", out.Alias)
+	}
+	if out.Path != "/repo/fb" {
+		t.Errorf("path = %q, want /repo/fb", out.Path)
+	}
+	if out.TaskID != testTaskHex {
+		t.Errorf("task_id = %q, want %s", out.TaskID, testTaskHex)
+	}
+	if out.Stage != "plan" {
+		t.Errorf("stage = %q, want plan", out.Stage)
+	}
+	if out.Owner != testTaskOwner {
+		t.Errorf("owner = %q, want %s", out.Owner, testTaskOwner)
+	}
+}
+
+func TestBuildResolveJSONOutput_EmptyAlias(t *testing.T) {
+	out := buildResolveJSONOutput("", nil, nil, nil)
+	if out.Alias != "" || out.Path != "" || out.TaskID != "" || out.Stage != "" || out.Owner != "" {
+		t.Errorf("all fields should be empty, got %+v", out)
+	}
+}
+
+func TestBuildResolveJSONOutput_AliasNoTask(t *testing.T) {
+	proj := &project.Project{Alias: "fb", Path: "/repo/fb"}
+	out := buildResolveJSONOutput("fb", proj, nil, nil)
+	if out.Alias != "fb" || out.Path != "/repo/fb" {
+		t.Errorf("alias/path missing: %+v", out)
+	}
+	if out.TaskID != "" || out.Stage != "" || out.Owner != "" {
+		t.Errorf("task-derived fields should be empty, got %+v", out)
+	}
+}
+
+func TestBuildResolveJSONOutput_TaskNoPipelineMatch(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:  "c8c991bd-8fb7-4950-b372-2e139ebf2afa",
+		Owner: testTaskOwner,
+		Tags:  []string{"unmatched_tag"},
+	}
+	cfg := &pipeline.Config{Pipelines: map[string]pipeline.Pipeline{
+		"standard": {
+			Tags:   []string{"standard"},
+			Stages: []pipeline.Stage{{Name: "plan", Assignee: "designer", Gate: "human"}},
+		},
+	}}
+	out := buildResolveJSONOutput("fb", nil, task, cfg)
+	if out.TaskID != testTaskHex || out.Owner != testTaskOwner {
+		t.Errorf("task_id/owner missing: %+v", out)
+	}
+	if out.Stage != "" {
+		t.Errorf("stage should be empty when no pipeline matches, got %q", out.Stage)
+	}
+}
+
+func TestBuildResolveJSONOutput_NilPipelineConfig(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:  "c8c991bd-8fb7-4950-b372-2e139ebf2afa",
+		Owner: testTaskOwner,
+		Tags:  []string{"standard"},
+	}
+	out := buildResolveJSONOutput("fb", nil, task, nil)
+	if out.Stage != "" {
+		t.Errorf("stage should be empty with nil pipeline config, got %q", out.Stage)
+	}
+	if out.TaskID != testTaskHex || out.Owner != testTaskOwner {
+		t.Errorf("non-stage task fields should still populate: %+v", out)
 	}
 }
