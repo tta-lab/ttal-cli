@@ -151,17 +151,17 @@ Worker-plane prompt templates live in `~/.config/ttal/prompts.toml`:
 
 ```toml
 execute = "Implement this task. The plan is in your task context.\nFollow each task in order: read the plan, make changes, verify, commit."
-triage = "{{skill:triage}}\nPR review posted.{{review-file}} Read it and fix issues."
-review = "{{skill:pr-review}}\nReview PR #{{pr-number}}."
-re_review = "{{skill:pr-review}}\nRe-review the fixes: {{review-scope}}"
+triage = "Execute `skill get triage`\n\nPR review posted.{{review-file}} Read it and fix issues."
+review = "Review PR #{{pr-number}}."
+re_review = "Re-review the fixes: {{review-scope}}"
 ```
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `execute` | `ttal go` | `{{task-id}}`, `{{skill:name}}` |
-| `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
-| `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
-| `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}`, `{{skill:name}}` |
+| `execute` | `ttal go` | `{{task-id}}` |
+| `triage` | PR review → coder | `{{review-file}}` |
+| `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}` |
+| `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}` |
 
 See [Prompts](./prompts.md) for full documentation and examples.
 

@@ -22,7 +22,7 @@ $ ttal agent list
 $ ttal pipeline prompt
 """
 
-triage = "{{skill:triage}}\nPR review posted. Read {{review-file}}, assess and fix issues."
+triage = "Execute `skill get triage`\n\nPR review posted. Read {{review-file}}, assess and fix issues."
 review = "You are reviewing PR #{{pr-number}} in {{owner}}/{{repo}}."
 re_review = "Re-review scope: {{review-scope}}"
 ```
@@ -59,25 +59,20 @@ $ ttal pipeline prompt
 ## Template variables
 
 - **`{{task-id}}`** — replaced with the task's short UUID at runtime
-- **`{{skill:name}}`** — replaced with the runtime-appropriate skill invocation (see below)
 
 ### Skill References
 
-Use `{{skill:name}}` to reference skills in prompts. This resolves to the
-skill's raw markdown content (via flicknote), inlined directly into the prompt:
+Skills are referenced via the `skill get` command in prompts. Use `Execute \`skill get <name>\`` literally to instruct the agent to fetch the skill:
 
 ```toml
 triage = """\
-{{skill:triage}}
+Execute `skill get triage`
+
 PR review posted. Read it, assess and fix issues.
 """
 ```
 
-The skill content is wrapped with a `# <SkillName> [skill]` header. If the skill
-is not found, the placeholder is silently replaced with empty string.
-
-> **Note:** `{{skill:name}}` placeholders are used in worker-plane prompts (`prompts.toml`) only.
-> Manager-plane agents receive skills via the `skills` field in `pipelines.toml` stage config.
+> **Note:** Skills are not inlined automatically. Prompts that need skill content tell agents to execute `skill get` explicitly. Manager-plane agents receive skill directives via the `skills` field in `pipelines.toml` stage config.
 
 ## Available Prompt Keys
 
@@ -87,9 +82,9 @@ is not found, the placeholder is silently replaced with empty string.
 | `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}` |
 | `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}` |
 | `coder` | `ttal go` (worker spawn, via `roles.toml`) | `{{task-id}}` |
-| `triage` | PR review → coder | `{{review-file}}`, `{{skill:name}}` |
-| `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}`, `{{skill:name}}` |
-| `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}`, `{{skill:name}}` |
+| `triage` | PR review → coder | `{{review-file}}` |
+| `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}` |
+| `re_review` | Re-review after fixes | `{{review-scope}}`, `{{coder-comment}}` |
 
 ## How each prompt is used
 
@@ -165,7 +160,8 @@ Read the task: ttal task get"""
 ```toml
 # ~/.config/ttal/prompts.toml
 triage = """\
-{{skill:triage}}
+Execute `skill get triage`
+
 PR review posted.{{review-file}} Read it, assess and fix issues.
 Post your triage update with ttal comment add when done."""
 ```
@@ -176,7 +172,7 @@ Post your triage update with ttal comment add when done."""
 # ~/.config/ttal/prompts.toml
 review = """\
 You are reviewing PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}}.
-1. Run {{skill:pr-review}} to review the diff
+1. Execute `skill get pr-review` to review the diff
 2. Post findings with ttal comment add
 3. End with VERDICT: LGTM or VERDICT: NEEDS_WORK"""
 ```
