@@ -36,7 +36,7 @@ Start by understanding the current project context, then ask questions one at a 
 
 Once the design is validated with Neil, chain into the planning skill — it will turn the design into a concrete, executable task-tree plan and then into sp-complete-design for handoff:
 
-    ttal skill get sp-planning
+    skill get sp-planning
 
 Do not write a separate design document or duplicate planning logic here. The brainstorming → planning → completion chain is the path.
 

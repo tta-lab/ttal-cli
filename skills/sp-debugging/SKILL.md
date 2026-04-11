@@ -217,7 +217,7 @@ Save the plan first (inline annotation or flicknote — see "Inline vs Flicknote
 
 Then chain into the completion phase — it handles self-review, open questions, summary, and review handoff with proper output-channel partitioning:
 
-    ttal skill get sp-complete-design
+    skill get sp-complete-design
 
 The completion steps are the same for a fix plan as for a design plan: re-review as a worker, surface open questions, update state, summarize to Neil, request review. Do not duplicate the logic here.
 

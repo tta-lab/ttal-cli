@@ -126,7 +126,7 @@ Per-pipeline stage config lives in `~/.config/ttal/pipelines.toml`:
 | `assignee` | string | Role from roles.toml (e.g. "designer") or "coder" for worker stages |
 | `gate` | string | "human" (requires Telegram approval) or "auto" |
 | `reviewer` | string | Reviewer agent name (optional) |
-| `skills` | string[] | Skill names loaded via `ttal skill get` at stage entry (optional) |
+| `skills` | string[] | Skill names loaded via `skill get` at stage entry (optional) |
 
 ### Stage Skills
 
@@ -142,7 +142,7 @@ skills = ["sp-planning", "flicknote"]
 
 When a task advances to this stage, the skill content (raw markdown from flicknote)
 is inlined into the context alongside the task prompt and role instructions.
-Skills are loaded at context time, not at stage entry via `ttal skill get`.
+Skills are loaded at context time, not at stage entry via `skill get`.
 This ties skills to what the agent is doing (stage), not who they are (role) — the same agent can use different skills at different stages.
 
 ## prompts.toml fields

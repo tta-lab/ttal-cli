@@ -258,7 +258,7 @@ Save the plan first:
 
 Then chain into the completion phase — it handles self-review, open questions, summary, and review handoff with proper output-channel partitioning:
 
-    ttal skill get sp-complete-design
+    skill get sp-complete-design
 
 Follow every step in that skill. Do not duplicate its logic here.
 

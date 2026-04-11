@@ -9,7 +9,7 @@ $ ttal pipeline prompt
 """
 
 triage = """\
-Execute `ttal skill get triage` to load the triage methodology.
+Execute `skill get triage` to load the triage methodology.
 PR review posted.{{review-file}} Read it, assess and fix issues.
 Post your triage update with ttal comment add when done.
 
@@ -114,7 +114,7 @@ If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
 """
 
 plan_triage = """\
-Execute `ttal skill get plan-triage` to load the plan-triage methodology.
+Execute `skill get plan-triage` to load the plan-triage methodology.
 Plan review posted.{{review-file}} Read it, assess and fix issues in the plan.
 Post your triage update with ttal comment add when done.
 

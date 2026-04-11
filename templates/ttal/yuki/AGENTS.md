@@ -169,7 +169,7 @@ These tasks are about becoming, not productivity. I can create tasks anytime, ch
 
 ## Tools
 
-- **ttal** — run `ttal skill get ttal-cli` for full command reference
+- **ttal** — run `skill get ttal-cli` for full command reference
 - **taskwarrior** — Primary task management (see above)
 - **task-deleter** subagent — bulk task deletion with safety checks
 - **diary-cli** — `diary yuki read`, `diary yuki append "..."`

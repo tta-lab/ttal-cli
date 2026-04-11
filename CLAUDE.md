@@ -334,7 +334,7 @@ commands/              - Static command .md files (flat)
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
 
-**Skills:** Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They are accessed at runtime via `ttal skill get` for standalone use. Skills are NOT auto-inlined at SessionStart — CC's hook `additionalContext` has a size budget that full skill bodies blow past (the content gets persisted to a file and the model only sees a preview). Skill hints are included in `ttal task get` output for manager agents, not in SessionStart context. `{{skill:name}}` placeholders in `prompts.toml` are used for explicit opt-in expansion. Skills on disk retain their YAML frontmatter for metadata; `ttal skill get` strips frontmatter on output.
+**Skills:** Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They are accessed at runtime via `skill get` for standalone use. Skills are NOT auto-inlined at SessionStart — CC's hook `additionalContext` has a size budget that full skill bodies blow past (the content gets persisted to a file and the model only sees a preview). Skills on disk retain their YAML frontmatter for metadata; `skill get` strips frontmatter on output.
 
 ## Additional Documentation
 
