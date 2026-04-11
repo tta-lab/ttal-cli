@@ -10,11 +10,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/skill"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/today"
 	"github.com/tta-lab/ttal-cli/internal/tui"
@@ -99,72 +97,14 @@ Examples:
 
 		fmt.Print(task.FormatPrompt())
 
-		// Show skills section and footnote for manager agent sessions.
+		// Show footnote for manager agent sessions.
 		if os.Getenv("TTAL_AGENT_NAME") != "" && os.Getenv("TTAL_JOB_ID") == "" {
-			if skills := buildSkillsSection(); skills != "" {
-				fmt.Print(skills)
-			}
 			fmt.Print("\n---\nThis is the complete task context. Do not run task export, task info, or task " +
 				"annotations — everything is already here. Start working.\n")
 		}
 
 		return nil
 	},
-}
-
-// buildSkillsSection returns a markdown skills section for the current manager agent.
-// Returns empty string if the agent has no skills or skills cannot be resolved.
-func buildSkillsSection() string {
-	agentName := os.Getenv("TTAL_AGENT_NAME")
-	if agentName == "" {
-		return ""
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		return ""
-	}
-	teamPath := cfg.TeamPath
-	if teamPath == "" {
-		return ""
-	}
-
-	role, err := agentfs.RoleOf(teamPath, agentName)
-	if err != nil || role == "" {
-		return ""
-	}
-
-	rolesCfg, err := config.LoadRoles()
-	if err != nil || rolesCfg == nil {
-		return ""
-	}
-
-	skillsList := rolesCfg.RoleSkills(role)
-	if len(skillsList) == 0 {
-		return ""
-	}
-
-	skillsDir := skill.DefaultSkillsDir()
-	var lines []string
-	for _, name := range skillsList {
-		s, err := skill.GetSkill(skillsDir, name)
-		desc := ""
-		if err == nil {
-			desc = s.Description
-		}
-		if err != nil {
-			lines = append(lines, fmt.Sprintf("- `ttal skill get %s` ⚠️ (unavailable: %v)", name, err))
-		} else if desc != "" {
-			lines = append(lines, fmt.Sprintf("- `ttal skill get %s` — %s. Agent fetches on demand.", name, desc))
-		} else {
-			lines = append(lines, fmt.Sprintf("- `ttal skill get %s`", name))
-		}
-	}
-
-	if len(lines) == 0 {
-		return ""
-	}
-	return "\n## Skills\n\n" + strings.Join(lines, "\n") + "\n"
 }
 
 var taskFindCmd = &cobra.Command{
