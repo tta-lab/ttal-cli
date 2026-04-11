@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -85,4 +87,87 @@ func TestDiscoverCommandsFromSkills(t *testing.T) {
 			t.Errorf("expected sanitized command tell_me_more, got %s", c.Command)
 		}
 	}
+}
+
+func TestTruncateDescription(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "under limit",
+			input: "This is a short description",
+			want:  "This is a short description",
+		},
+		{
+			name:  "exactly 256 chars",
+			input: strings.Repeat("a", 256),
+			want:  strings.Repeat("a", 256),
+		},
+		{
+			name:  "over limit truncates with ellipsis",
+			input: strings.Repeat("x", 300),
+			want:  strings.Repeat("x", 253) + "...",
+		},
+		{
+			name:  "newline stripped at first newline",
+			input: "First line\nSecond line here",
+			want:  "First line",
+		},
+		{
+			name:  "newline truncation takes precedence over char limit",
+			input: strings.Repeat("y", 260),
+			want:  strings.Repeat("y", 253) + "...",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := truncateDescription(tc.input)
+			if got != tc.want {
+				t.Errorf("truncateDescription(%q): got %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDiscoverCommandsErrorPaths(t *testing.T) {
+	t.Run("binary not found returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("PATH", tmpDir)
+
+		cmds := DiscoverCommands()
+		if cmds != nil {
+			t.Errorf("expected nil when skill not in PATH, got %v", cmds)
+		}
+	})
+
+	t.Run("binary crash returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		skillPath := tmpDir + "/skill"
+		if err := os.WriteFile(skillPath, []byte("#!/bin/sh\nexit 1"), 0o755); err != nil {
+			t.Fatalf("failed to write mock skill: %v", err)
+		}
+		t.Setenv("PATH", tmpDir)
+
+		cmds := DiscoverCommands()
+		if cmds != nil {
+			t.Errorf("expected nil on exit 1, got %v", cmds)
+		}
+	})
+
+	t.Run("malformed JSON returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		skillPath := tmpDir + "/skill"
+		if err := os.WriteFile(skillPath, []byte("#!/bin/sh\necho not-json"), 0o755); err != nil {
+			t.Fatalf("failed to write mock skill: %v", err)
+		}
+		t.Setenv("PATH", tmpDir)
+
+		cmds := DiscoverCommands()
+		if cmds != nil {
+			t.Errorf("expected nil on malformed JSON, got %v", cmds)
+		}
+	})
 }

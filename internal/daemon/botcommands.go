@@ -1,10 +1,12 @@
 package daemon
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // skillEntry mirrors the JSON schema emitted by `skill list --json`.
@@ -48,9 +50,12 @@ func DiscoverCommands() []BotCommand {
 		return nil
 	}
 
-	out, err := exec.Command(skillPath, "list", "--json").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, skillPath, "list", "--json").CombinedOutput()
 	if err != nil {
-		log.Printf("[commands] ERROR: cannot run 'skill list --json' — dynamic commands unavailable: %v", err)
+		log.Printf("[commands] ERROR: cannot run 'skill list --json' — dynamic commands unavailable: %v\n%s", err, out)
 		return nil
 	}
 
