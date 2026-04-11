@@ -82,6 +82,8 @@ Examples:
 			return err
 		}
 
+		fmt.Printf("Task: %s\n\n", uuid)
+
 		if task.Project != "" {
 			if proj := projectPkg.ResolveProject(task.Project); proj != nil {
 				displayPath := proj.Path
