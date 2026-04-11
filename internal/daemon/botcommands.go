@@ -1,11 +1,19 @@
 package daemon
 
 import (
+	"encoding/json"
 	"log"
+	"os/exec"
 	"strings"
-
-	"github.com/tta-lab/ttal-cli/internal/skill"
 )
+
+// skillEntry mirrors the JSON schema emitted by `skill list --json`.
+type skillEntry struct {
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Source      string `json:"source"`
+	Description string `json:"description"`
+}
 
 // sanitizeCommandName replaces hyphens with underscores to comply with
 // Telegram's command name restriction: only [a-z0-9_] allowed.
@@ -32,18 +40,31 @@ var registeredCommands = []BotCommand{
 	{Command: "save", Description: "Save agent's last message to FlickNote"},
 }
 
-// DiscoverCommands reads command-category skills from the skills directory.
+// DiscoverCommands runs `skill list --json` and extracts command-category skills.
 func DiscoverCommands() []BotCommand {
-	skills, err := skill.ListSkills(skill.DefaultSkillsDir())
+	skillPath, err := exec.LookPath("skill")
 	if err != nil {
-		log.Printf("[commands] ERROR: cannot list skills — dynamic commands unavailable: %v", err)
+		log.Printf("[commands] skill binary not found in PATH — bot commands disabled: %v", err)
 		return nil
 	}
+
+	out, err := exec.Command(skillPath, "list", "--json").Output()
+	if err != nil {
+		log.Printf("[commands] ERROR: cannot run 'skill list --json' — dynamic commands unavailable: %v", err)
+		return nil
+	}
+
+	var skills []skillEntry
+	if err := json.Unmarshal(out, &skills); err != nil {
+		log.Printf("[commands] ERROR: cannot parse 'skill list --json' output: %v", err)
+		return nil
+	}
+
 	return discoverCommandsFromSkills(skills)
 }
 
 // discoverCommandsFromSkills extracts command-category skills as BotCommands.
-func discoverCommandsFromSkills(skills []skill.DiskSkill) []BotCommand {
+func discoverCommandsFromSkills(skills []skillEntry) []BotCommand {
 	var discovered []BotCommand
 	for _, s := range skills {
 		if s.Category != "command" {

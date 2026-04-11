@@ -1,11 +1,7 @@
 package daemon
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 func TestSanitizeCommandName(t *testing.T) {
@@ -58,28 +54,15 @@ func TestIsStaticCommand(t *testing.T) {
 }
 
 func TestDiscoverCommandsFromSkills(t *testing.T) {
-	dir := t.TempDir()
-
-	// Create skill files on disk with YAML frontmatter
-	skills := map[string]string{
-		"breathe":      "---\nname: breathe\ncategory: command\ndescription: Refresh context\n---\n# Breathe\nBody",
-		"sp-planning":  "---\nname: sp-planning\ncategory: methodology\ndescription: Planning skill\n---\n# Planning\nBody",
-		"new":          "---\nname: new\ncategory: command\ndescription: Should be filtered (static)\n---\n# New\nBody",
-		"tell-me-more": "---\nname: tell-me-more\ncategory: command\ndescription: Elaborate\n---\n# Elaborate\nBody",
-	}
-	for name, content := range skills {
-		if err := os.WriteFile(filepath.Join(dir, name+".md"), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	// Test: mix of command/non-command skills → only commands returned
+	skills := []skillEntry{
+		{Name: "breathe", Category: "command", Description: "Refresh context"},
+		{Name: "sp-planning", Category: "methodology", Description: "Planning skill"},
+		{Name: "new", Category: "command", Description: "Should be filtered (static)"},
+		{Name: "tell-me-more", Category: "command", Description: "Elaborate"},
 	}
 
-	t.Setenv("TTAL_SKILLS_DIR", dir)
-	diskSkills, err := skill.ListSkills(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cmds := discoverCommandsFromSkills(diskSkills)
+	cmds := discoverCommandsFromSkills(skills)
 
 	// Should find breathe and tell-me-more (commands), skip sp-planning (methodology) and new (static).
 	if len(cmds) != 2 {
