@@ -883,7 +883,7 @@ func routeToPersistentAgent(
 		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold)
 		return nil
 	}
-	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
+	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
 			Message: fmt.Sprintf("send breathe to %s: %v", agent.Name, err),
