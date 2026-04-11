@@ -19,8 +19,8 @@ type SkillResult struct {
 
 // DeploySkills copies SKILL.md files from skillsPaths source directories
 // to the destDir. Files are copied as-is (frontmatter preserved).
-// For dir-based skills ({name}/SKILL.md), destination is {destDir}/{name}.md.
-// For flat files ({name}.md), destination is {destDir}/{name}.md.
+// For dir-based skills ({name}/SKILL.md), destination is {destDir}/{name}/SKILL.md.
+// For flat files ({name}.md), destination is {destDir}/{name}/SKILL.md.
 func DeploySkills(skillsPaths []string, destDir string, dryRun bool) ([]SkillResult, error) {
 	var results []SkillResult
 
@@ -48,16 +48,16 @@ func DeploySkills(skillsPaths []string, destDir string, dryRun bool) ([]SkillRes
 			var skillName string
 
 			if entry.IsDir() {
-				// Dir-based: {name}/SKILL.md → {destDir}/{name}.md
+				// Dir-based: {name}/SKILL.md → {destDir}/{name}/SKILL.md
 				skillName = entry.Name()
 				srcFile = filepath.Join(src, entry.Name(), "SKILL.md")
-				destFile = filepath.Join(destDir, skillName+".md")
+				destFile = filepath.Join(destDir, skillName, "SKILL.md")
 			} else {
-				// Flat file: {name}.md → {destDir}/{name}.md
+				// Flat file: {name}.md → {destDir}/{name}/SKILL.md
 				stem := strings.TrimSuffix(entry.Name(), ".md")
 				skillName = stem
 				srcFile = filepath.Join(src, entry.Name())
-				destFile = filepath.Join(destDir, stem+".md")
+				destFile = filepath.Join(destDir, stem, "SKILL.md")
 			}
 
 			if _, err := os.Stat(srcFile); os.IsNotExist(err) {
@@ -71,6 +71,9 @@ func DeploySkills(skillsPaths []string, destDir string, dryRun bool) ([]SkillRes
 			})
 
 			if !dryRun {
+				if err := os.MkdirAll(filepath.Dir(destFile), 0o755); err != nil {
+					return nil, fmt.Errorf("creating dest dir for %s: %w", skillName, err)
+				}
 				if err := copyFile(srcFile, destFile); err != nil {
 					return nil, fmt.Errorf("copying %s: %w", srcFile, err)
 				}
