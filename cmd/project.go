@@ -333,6 +333,8 @@ Examples:
 			if alias != "" {
 				if p, err := getProjectStore().Get(alias); err == nil && p != nil {
 					proj = p
+				} else if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to lookup project %q: %v\n", alias, err)
 				}
 
 				tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", fmt.Sprintf("project:%s", alias))
