@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/open"
+	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -32,6 +33,46 @@ var (
 
 func getProjectStore() *project.Store {
 	return project.NewStore(config.ResolveProjectsPath())
+}
+
+// resolveJSONOutput is the JSON payload returned by `ttal project resolve --json`.
+// Every field is an empty string when the underlying data is unavailable — this
+// lets consumers (notably a future tw `task info` patch) shell out to this command
+// as a best-effort black-box enricher and render whatever fields came back.
+type resolveJSONOutput struct {
+	Alias  string `json:"alias"`
+	Path   string `json:"path"`
+	TaskID string `json:"task_id"`
+	Stage  string `json:"stage"`
+	Owner  string `json:"owner"`
+}
+
+// buildResolveJSONOutput assembles the JSON payload from the pieces the
+// `resolve` command has already fetched. Pure function: no I/O, accepts nil
+// values gracefully, never returns an error. The caller does the lookups
+// (store, taskwarrior, pipeline) and decides how to handle their failures.
+func buildResolveJSONOutput(
+	alias string,
+	proj *project.Project,
+	task *taskwarrior.Task,
+	pipelineCfg *pipeline.Config,
+) resolveJSONOutput {
+	out := resolveJSONOutput{Alias: alias}
+	if proj != nil {
+		out.Path = proj.Path
+	}
+	if task != nil {
+		out.TaskID = task.HexID()
+		out.Owner = task.Owner
+		if pipelineCfg != nil {
+			if _, p, err := pipelineCfg.MatchPipeline(task.Tags); err == nil && p != nil {
+				if _, stage, err := p.CurrentStage(task.Tags); err == nil && stage != nil {
+					out.Stage = stage.Name
+				}
+			}
+		}
+	}
+	return out
 }
 
 var projectCmd = &cobra.Command{
@@ -247,10 +288,24 @@ var projectResolveCmd = &cobra.Command{
 	Short: "Resolve project alias from a filesystem path",
 	Long: `Resolve the project alias for a given path (defaults to current directory).
 
+With --json, outputs an enriched payload for the active task in the resolved
+project. Every field is an empty string when the underlying data is unavailable
+(no matching project, no active task, no pipeline match, etc.) — the command
+always exits 0 on a readable cwd.
+
+JSON shape:
+  {
+    "alias":   "fb",
+    "path":    "/Users/neil/Code/guion/flick-backend-31",
+    "task_id": "c8c991bd",
+    "stage":   "Plan",
+    "owner":   "astra"
+  }
+
 Examples:
-  ttal project resolve                       # resolve cwd
-  ttal project resolve /path/to/repo         # resolve explicit path
-  ttal project resolve --json                # output {"alias":"...","task_id":"..."}`,
+  ttal project resolve                       # print alias for cwd
+  ttal project resolve /path/to/repo         # print alias for explicit path
+  ttal project resolve --json                # enriched JSON for cwd's active task`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var workDir string
@@ -271,16 +326,31 @@ Examples:
 		alias := project.ResolveProjectAlias(workDir)
 
 		if resolveJSON {
-			taskID := ""
+			var proj *project.Project
+			var task *taskwarrior.Task
+			var pipelineCfg *pipeline.Config
+
 			if alias != "" {
+				if p, err := getProjectStore().Get(alias); err == nil && p != nil {
+					proj = p
+				}
+
 				tasks, err := taskwarrior.ExportTasksByFilter("+ACTIVE", fmt.Sprintf("project:%s", alias))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to lookup active task: %v\n", err)
 				} else if len(tasks) > 0 {
-					taskID = tasks[0].HexID()
+					task = &tasks[0]
 				}
 			}
-			out, err := json.Marshal(map[string]string{"alias": alias, "task_id": taskID})
+
+			if cfg, err := pipeline.Load(config.DefaultConfigDir()); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to load pipelines.toml: %v\n", err)
+			} else {
+				pipelineCfg = cfg
+			}
+
+			payload := buildResolveJSONOutput(alias, proj, task, pipelineCfg)
+			out, err := json.Marshal(payload)
 			if err != nil {
 				return fmt.Errorf("failed to marshal output: %w", err)
 			}
@@ -346,7 +416,8 @@ func init() {
 	projectAddCmd.Flags().StringVar(&projectPath, "path", "", "Filesystem path")
 	projectListCmd.Flags().BoolVar(&projectJSON, "json", false, "Output as JSON")
 	projectListCmd.Flags().BoolVar(&archivedOnly, "archived", false, "Show only archived projects")
-	projectResolveCmd.Flags().BoolVar(&resolveJSON, "json", false, "Output as JSON with alias and task_id")
+	projectResolveCmd.Flags().BoolVar(&resolveJSON, "json", false,
+		"Output as JSON with alias, path, task_id, stage, and owner")
 }
 
 func parseModifyArgs(args []string) (fieldUpdates map[string]string, err error) {
