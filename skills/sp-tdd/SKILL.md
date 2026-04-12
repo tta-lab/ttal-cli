@@ -1,6 +1,7 @@
 ---
 name: sp-tdd
 description: Use when implementing any feature or bugfix, before writing implementation code
+category: methodology
 ---
 
 # Test-Driven Development (TDD)

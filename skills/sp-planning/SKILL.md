@@ -1,6 +1,7 @@
 ---
 name: sp-planning
 description: Full planning process — explore reality, design, write plan, validate — before touching code
+category: methodology
 ---
 
 # Planning

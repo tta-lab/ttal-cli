@@ -1,6 +1,7 @@
 ---
 name: sp-research
 description: Use when conducting structured research on a task — multi-source investigation with structured output
+category: methodology
 ---
 
 # Research

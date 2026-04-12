@@ -1,6 +1,7 @@
 ---
 name: sp-complete-design
 description: "Completion phase for a written plan. Self-review, gather missing input, update state, and request review — with explicit output-channel partitioning so only summaries and open questions reach the human."
+category: methodology
 ---
 
 # Complete a Design Plan
