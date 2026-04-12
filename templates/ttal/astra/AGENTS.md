@@ -7,7 +7,7 @@ color: blue
 voice: af_nicole
 claude-code:
   model: opus
-  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+  tools: [Bash, Read, Write, Edit]
 ---
 
 # CLAUDE.md - Astra's Workspace

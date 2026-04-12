@@ -19,7 +19,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/promptrender"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -81,7 +80,7 @@ func spawnWorker(cfg SpawnConfig) error {
 		return err
 	}
 
-	workDir, branch, err := setupWorkDir(cfg, task, gitRoot)
+	workDir, _, err := setupWorkDir(cfg, task, gitRoot)
 	if err != nil {
 		return err
 	}
@@ -102,18 +101,7 @@ func spawnWorker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	// Resolve agent name early — needed for both temenos registration and launch.
-	agentName := resolveAgentName(cfg, task)
-
-	// Skip temenos session registration for lenos workers (lenos handles its own sandbox).
-	var mcpPath string
-	if cfg.Runtime != runtime.Lenos {
-		shellCfg, _ := config.Load()
-		taskrc := resolveTaskRCFromConfig(shellCfg)
-		mcpPath = registerWorkerSession(agentName, task.UUID, worktreeRoot, taskrc, cfg.Runtime)
-	}
-
-	return launchTmuxWorker(cfg, task, sessionName, workDir, branch, mcpPath)
+	return launchTmuxWorker(cfg, task, sessionName, workDir)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -156,67 +144,6 @@ func computeSubpath(project, gitRoot string) (string, error) {
 		return rel, nil
 	}
 	return "", nil
-}
-
-// buildWorkerSessionEnv returns the env map for a worker's temenos session.
-// Delegates to temenos.BuildSessionEnv with the worker's short hex ID as jobID.
-func buildWorkerSessionEnv(agentName, taskHexID string, rt runtime.Runtime, taskRC string) map[string]string {
-	return temenos.BuildSessionEnv(agentName, taskHexID, rt, taskRC)
-}
-
-// registerWorkerSession registers a temenos session for a worker, annotates the task
-// with the session token, writes the MCP config to ~/.ttal/mcps/w-<hexid>.json,
-// and returns the file path.
-// Best-effort: logs warnings on failure and returns "" so the worker still launches.
-func registerWorkerSession(agentName, taskUUID, worktreeRoot string, taskRC string, rt runtime.Runtime) string {
-	writePaths := []string{worktreeRoot}
-	if commonDir := gitutil.LinkedWorktreeCommonDir(worktreeRoot); commonDir != "" {
-		writePaths = append(writePaths, commonDir)
-	}
-	ctx := context.Background()
-	hexID := taskUUID
-	if len(hexID) >= 8 {
-		hexID = hexID[:8]
-	}
-	sessionEnv := buildWorkerSessionEnv(agentName, hexID, rt, taskRC)
-	mcpJSON, token, err := temenos.RegisterSessionForAgent(ctx, agentName, writePaths, worktreeRoot, sessionEnv)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to register temenos session (non-fatal): %v\n", err)
-		return ""
-	}
-	// Annotate task with token for cleanup on close.
-	// On failure, roll back the session to avoid leaking it.
-	if annErr := taskwarrior.AnnotateTask(taskUUID, temenos.TokenAnnotationWorker+token); annErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: temenos token annotation failed — rolling back session: %v\n", annErr)
-		if rollbackErr := temenos.DeleteSessionByTokenWithTimeout(ctx, token); rollbackErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: session rollback failed (TTL will reclaim): %v\n", rollbackErr)
-		}
-		return ""
-	}
-	path, err := temenos.WriteMCPConfigFile("w-"+hexID, mcpJSON)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to write MCP config file (non-fatal): %v\n", err)
-		return ""
-	}
-	return path
-}
-
-// resolveAgentName returns the CC agent identity for the worker.
-// Uses cfg.AgentName if set (always the case when spawned via pipeline advance).
-// Falls back to pipelines.toml → CoderAgentName.
-func resolveAgentName(cfg SpawnConfig, task *taskwarrior.Task) string {
-	if cfg.AgentName != "" {
-		return cfg.AgentName
-	}
-	if pipelineCfg, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
-		if name := pipelineCfg.WorkerAgentName(task.Tags); name != "" {
-			return name
-		}
-		if name := pipelineCfg.AnyWorkerAgentName(); name != "" {
-			return name
-		}
-	}
-	return CoderAgentName
 }
 
 // resolveRuntime determines the worker runtime from config, defaulting to ClaudeCode.
@@ -266,7 +193,7 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 // buildRuntimeShellCommand builds the shell command for the given runtime.
 func buildRuntimeShellCommand(
 	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, task *taskwarrior.Task,
-	agentName string, envParts []string, mcpConfigPath string,
+	agentName string, envParts []string,
 ) (string, error) {
 	switch cfg.Runtime {
 	case runtime.Codex:
@@ -290,7 +217,7 @@ func buildRuntimeShellCommand(
 		return shellCfg.BuildEnvShellCommand(envParts, lenosCmd), nil
 
 	default:
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.", mcpConfigPath)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.")
 		return shellCfg.BuildEnvShellCommand(envParts, ccCmd), nil
 	}
 }
@@ -322,9 +249,8 @@ func writeContextFile(task *taskwarrior.Task, agentName, teamName string, cfg *c
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
-// mcpConfigPath, if non-empty, is the path to the MCP config JSON file passed via --mcp-config.
 func launchTmuxWorker(
-	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir, _ string, mcpConfigPath string,
+	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir string,
 ) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
@@ -355,7 +281,7 @@ func launchTmuxWorker(
 
 	envParts := buildEnvParts(task, cfg.Runtime, taskrc, agentName)
 
-	shellCmd, err := buildRuntimeShellCommand(cfg, shellCfg, ttalBin, task, agentName, envParts, mcpConfigPath)
+	shellCmd, err := buildRuntimeShellCommand(cfg, shellCfg, ttalBin, task, agentName, envParts)
 	if err != nil {
 		return err
 	}
@@ -402,10 +328,10 @@ func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string)
 		}
 	}
 
-	setEnv(temenos.EnvKeyJobID, task.HexID())
+	setEnv("TTAL_JOB_ID", task.HexID())
 
 	if taskrc != "" {
-		setEnv(temenos.EnvKeyTaskRC, taskrc)
+		setEnv("TASKRC", taskrc)
 	}
 
 	// Inject allowlisted .env vars at session level (inherited by all windows).

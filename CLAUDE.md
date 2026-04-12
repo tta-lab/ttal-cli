@@ -257,8 +257,8 @@ Find all plane assignments: `grep -r "^// Plane:" internal/*/doc.go`
 
 All secrets live in `~/.config/ttal/.env` — bot tokens, API tokens, credentials.
 They are injected into worker and agent sessions at spawn time.
-Secrets are protected by the temenos sandbox daemon, which enforces filesystem and
-network restrictions for all CC sessions via MCP.
+Secrets are protected by the CC native sandbox, which enforces filesystem and
+network restrictions for all CC sessions.
 
 ```
 # API tokens
@@ -279,7 +279,7 @@ Generate a template: `ttal doctor --fix`
   ├── .env                    - Secrets (bot tokens, API keys)
   ├── config.toml             - Global ttal configuration
   ├── projects.toml           - Active/archived project registry
-  ├── sandbox.toml            - Legacy sandbox path config (no longer synced; temenos handles enforcement)
+  ├── sandbox.toml            - Legacy sandbox path config (no longer synced)
   ├── roles.toml              - Agent role prompt templates (instructional text, no skills)
   ├── prompts.toml            - Prompt templates for agent operations
   └── license                 - License key

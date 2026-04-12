@@ -105,7 +105,7 @@ func Run() error {
 	registerFrontendCommands(frontends, AllCommands(discovered))
 
 	// Start adapters after frontends are built — codex needs frontends ready for event bridging.
-	mcpPaths := initAdapters(ctx, cfg, registry, frontends, msgSvc)
+	initAdapters(ctx, cfg, registry, frontends, msgSvc)
 
 	// Start all frontends.
 	if err := startFrontends(ctx, done, frontends); err != nil {
@@ -147,7 +147,7 @@ func Run() error {
 	if err := defaultFE.SendNotification(ctx, notification.DaemonReady{}.Render()); err != nil {
 		log.Printf("[daemon] warning: failed to send ready notification: %v", err)
 	}
-	awaitShutdown(done, cancel, cfg, registry, srv, mcpPaths)
+	awaitShutdown(done, cancel, cfg, registry, srv)
 	return nil
 }
 
@@ -306,7 +306,7 @@ func setupDataDir() (string, error) {
 func awaitShutdown(
 	done chan struct{}, cancel context.CancelFunc,
 	cfg *config.Config, registry *adapterRegistry,
-	srv *http.Server, mcpPaths map[string]string,
+	srv *http.Server,
 ) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -315,7 +315,7 @@ func awaitShutdown(
 	log.Printf("[daemon] received signal %v — shutting down", s)
 	close(done)
 	cancel()
-	shutdownAgents(cfg, registry, mcpPaths)
+	shutdownAgents(cfg, registry)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {

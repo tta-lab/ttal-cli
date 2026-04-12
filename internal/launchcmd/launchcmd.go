@@ -5,28 +5,12 @@ import (
 	"strings"
 )
 
-// AppendMCPConfig appends --mcp-config <path> to cmd when mcpConfigPath is non-empty.
-// The path points to a JSON file under ~/.ttal/mcps/ — no shell quoting needed
-// because the path contains only safe characters (letters, digits, hyphens, dots, slashes).
-func AppendMCPConfig(cmd, mcpConfigPath string) string {
-	if mcpConfigPath == "" {
-		return cmd
-	}
-	return cmd + " --mcp-config " + mcpConfigPath
-}
-
 // BuildCCDirectCommand builds a gatekeeper-wrapped direct claude command using --agent.
-// This replaces BuildCCSessionCommand for CC workers and reviewers — context is injected
-// via the CC SessionStart hook (ttal context) rather than a synthetic JSONL session.
-// agent: CC agent identity (e.g. "coder", "pr-review-lead"). Required.
-// trigger: positional arg (the initial message; empty = omit).
-// mcpConfigPath: path to MCP config JSON file (e.g. ~/.ttal/mcps/w-abc12345.json). Empty = omit.
-func BuildCCDirectCommand(ttalBin, agent, trigger, mcpConfig string) string {
+func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
 	cmd := fmt.Sprintf(
 		"%s worker gatekeeper -- claude --dangerously-skip-permissions --agent %s",
 		ttalBin, agent,
 	)
-	cmd = AppendMCPConfig(cmd, mcpConfig)
 	if trigger != "" {
 		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
 		cmd += fmt.Sprintf(" -- '%s'", escaped)
@@ -35,7 +19,6 @@ func BuildCCDirectCommand(ttalBin, agent, trigger, mcpConfig string) string {
 }
 
 // BuildLenosCommand builds a lenos launch command via the worker gatekeeper.
-// No MCP config for lenos yet.
 func BuildLenosCommand(ttalBin, agent, trigger, contextFile string) string {
 	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
 	if contextFile != "" {
