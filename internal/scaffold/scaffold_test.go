@@ -66,9 +66,9 @@ func TestApplyScaffold(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(scaffoldDir, "manager", "AGENTS.md"), []byte("# Manager"), 0o644)
 
 	// Create shared docs
-	docsDir := filepath.Join(repoDir, "docs", "skills", "git-omz")
+	docsDir := filepath.Join(repoDir, "docs", "skills", "example-skill")
 	_ = os.MkdirAll(docsDir, 0o755)
-	_ = os.WriteFile(filepath.Join(docsDir, "SKILL.md"), []byte("# Git"), 0o644)
+	_ = os.WriteFile(filepath.Join(docsDir, "SKILL.md"), []byte("# Example"), 0o644)
 
 	err := Apply(repoDir, "basic", workspace)
 	if err != nil {
@@ -78,8 +78,8 @@ func TestApplyScaffold(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(workspace, "manager", "AGENTS.md")); err != nil {
 		t.Error("expected manager/AGENTS.md")
 	}
-	if _, err := os.Stat(filepath.Join(workspace, "docs", "skills", "git-omz", "SKILL.md")); err != nil {
-		t.Error("expected docs/skills/git-omz/SKILL.md")
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "skills", "example-skill", "SKILL.md")); err != nil {
+		t.Error("expected docs/skills/example-skill/SKILL.md")
 	}
 }
 
