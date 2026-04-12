@@ -289,7 +289,7 @@ func resolvePromptKey(stage *pipeline.Stage) string {
 }
 
 // expandPromptVars expands task-specific template variables in the prompt,
-// including {{task-id}}, {{pr-number}}, {{owner}}, {{repo}}, {{branch}}, and {{skill:name}}.
+// including {{task-id}}, {{pr-number}}, {{owner}}, {{repo}}, and {{branch}}.
 func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config) string {
 	rt := runtime.Runtime(cfg.DefaultRuntime)
 

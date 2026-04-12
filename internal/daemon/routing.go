@@ -80,7 +80,7 @@ func buildBreatheStartTriggerImpl(agentName string) string {
 	// Build skill directives.
 	var skillLines []string
 	for _, name := range skills {
-		skillLines = append(skillLines, fmt.Sprintf("- `ttal skill get %s`", name))
+		skillLines = append(skillLines, fmt.Sprintf("- `skill get %s`", name))
 	}
 	skillsBlock := strings.Join(skillLines, "\n")
 

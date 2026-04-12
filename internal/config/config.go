@@ -11,18 +11,17 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 // PromptsConfig holds configurable prompt templates for task routing and worker spawn.
-// Supports {{task-id}} and {{skill:name}} template variables.
+// Supports {{task-id}} template variables.
 // Role-based keys (designer, researcher) come from roles.toml, not config.toml.
 type PromptsConfig struct {
 	Context      string `toml:"context" jsonschema:"description=Universal CC SessionStart context template. Lines prefixed with '$ ' are executed as shell commands."` //nolint:lll
 	Triage       string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                                        //nolint:lll
 	Review       string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"`            //nolint:lll
 	ReReview     string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`                     //nolint:lll
-	PlanReview   string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}} {{skill:plan-review}}"`                                 //nolint:lll
+	PlanReview   string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}}"`                                                       //nolint:lll
 	PlanReReview string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                                   //nolint:lll
 	PlanTriage   string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                              //nolint:lll
 }
@@ -227,7 +226,7 @@ func (c *Config) hasAnyPromptConfigured() bool {
 		c.Prompts.PlanTriage != ""
 }
 
-// RenderPrompt resolves {{skill:name}} and {{task-id}} in a prompt template.
+// RenderPrompt resolves {{task-id}} in a prompt template.
 func (c *Config) RenderPrompt(key, taskID string, rt runtime.Runtime) string {
 	tmpl := c.Prompt(key)
 	return RenderTemplate(tmpl, taskID, rt)
@@ -602,47 +601,9 @@ func convertRawMatrix(rm *rawMatrix) *MatrixTeamConfig {
 	}
 }
 
-// RenderTemplate resolves {{skill:name}} and {{task-id}} in an arbitrary template string.
-// All {{skill:xxx}} placeholders are collected and prepended at the start of the result.
-func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string {
-	result := strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
-
-	// Collect all {{skill:xxx}} and replace with invocation
-	var skills []string
-	for {
-		start := strings.Index(result, "{{skill:")
-		if start == -1 {
-			break
-		}
-		end := strings.Index(result[start:], "}}")
-		if end == -1 {
-			break
-		}
-		end += start + 2
-
-		// Extract skill name
-		skillName := result[start+len("{{skill:") : end-2]
-		if skillName != "" {
-			skillContent := skill.FetchContent(skillName)
-			if skillContent != "" {
-				skills = append(skills, fmt.Sprintf("# %s [skill]\n\n%s", skillName, skillContent))
-			}
-		}
-
-		// Remove the placeholder (including any trailing newline that follows {{skill:xxx}}\n)
-		remainder := result[end:]
-		// Skip leading whitespace/newlines after placeholder removal
-		trimmed := strings.TrimPrefix(remainder, "\n")
-		result = result[:start] + trimmed
-	}
-
-	// Prepend skills at start if any found
-	if len(skills) > 0 {
-		skillLine := strings.Join(skills, "\n\n")
-		result = skillLine + "\n\n" + result
-	}
-
-	return result
+// RenderTemplate resolves {{task-id}} in an arbitrary template string.
+func RenderTemplate(tmpl, taskID string, rt runtime.Runtime) string { //nolint:unparam // kept for stable API signature
+	return strings.ReplaceAll(tmpl, "{{task-id}}", taskID)
 }
 
 // validateMergeMode returns an error if the given merge mode string is invalid.

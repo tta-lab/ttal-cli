@@ -814,12 +814,12 @@ func buildSlashCommand(cmdName, messageText string) string {
 	return "/" + cmdName + joinArgs(args, " ")
 }
 
-// buildSkillGetCommand builds a `run ttal skill get <name>` command for dynamic skills.
+// buildSkillGetCommand builds a `run skill get <name>` command for dynamic skills.
 // Any trailing arguments from the message are appended after the skill name,
 // separated by a newline so the agent sees them as follow-up context.
 func buildSkillGetCommand(skillName, messageText string) string {
 	args := parseCommandArgs(messageText)
-	cmd := "run ttal skill get " + skillName
+	cmd := "run skill get " + skillName
 	if len(args) > 0 {
 		cmd += "\n" + strings.Join(args, " ")
 	}

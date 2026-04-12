@@ -4,7 +4,7 @@ Follow each task in order: read the plan, make changes, verify, commit.
 Use ttal pr create for pull requests."""
 
 triage = """\
-Execute `ttal skill get triage` to load the triage methodology.
+Execute `skill get triage` to load the triage methodology.
 PR review posted. {{review-file}} Read it, assess and fix issues.
 Post your triage update with ttal comment add when done.
 If verdict is LGTM and no remaining issues, merge with: ttal go <uuid>"""

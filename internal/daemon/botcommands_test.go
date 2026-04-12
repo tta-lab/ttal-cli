@@ -2,10 +2,8 @@ package daemon
 
 import (
 	"os"
-	"path/filepath"
+	"strings"
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
 func TestSanitizeCommandName(t *testing.T) {
@@ -58,28 +56,15 @@ func TestIsStaticCommand(t *testing.T) {
 }
 
 func TestDiscoverCommandsFromSkills(t *testing.T) {
-	dir := t.TempDir()
-
-	// Create skill files on disk with YAML frontmatter
-	skills := map[string]string{
-		"breathe":      "---\nname: breathe\ncategory: command\ndescription: Refresh context\n---\n# Breathe\nBody",
-		"sp-planning":  "---\nname: sp-planning\ncategory: methodology\ndescription: Planning skill\n---\n# Planning\nBody",
-		"new":          "---\nname: new\ncategory: command\ndescription: Should be filtered (static)\n---\n# New\nBody",
-		"tell-me-more": "---\nname: tell-me-more\ncategory: command\ndescription: Elaborate\n---\n# Elaborate\nBody",
-	}
-	for name, content := range skills {
-		if err := os.WriteFile(filepath.Join(dir, name+".md"), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	// Test: mix of command/non-command skills → only commands returned
+	skills := []skillEntry{
+		{Name: "breathe", Category: "command", Description: "Refresh context"},
+		{Name: "sp-planning", Category: "methodology", Description: "Planning skill"},
+		{Name: "new", Category: "command", Description: "Should be filtered (static)"},
+		{Name: "tell-me-more", Category: "command", Description: "Elaborate"},
 	}
 
-	t.Setenv("TTAL_SKILLS_DIR", dir)
-	diskSkills, err := skill.ListSkills(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cmds := discoverCommandsFromSkills(diskSkills)
+	cmds := discoverCommandsFromSkills(skills)
 
 	// Should find breathe and tell-me-more (commands), skip sp-planning (methodology) and new (static).
 	if len(cmds) != 2 {
@@ -102,4 +87,87 @@ func TestDiscoverCommandsFromSkills(t *testing.T) {
 			t.Errorf("expected sanitized command tell_me_more, got %s", c.Command)
 		}
 	}
+}
+
+func TestTruncateDescription(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "under limit",
+			input: "This is a short description",
+			want:  "This is a short description",
+		},
+		{
+			name:  "exactly 256 chars",
+			input: strings.Repeat("a", 256),
+			want:  strings.Repeat("a", 256),
+		},
+		{
+			name:  "over limit truncates with ellipsis",
+			input: strings.Repeat("x", 300),
+			want:  strings.Repeat("x", 253) + "...",
+		},
+		{
+			name:  "newline stripped at first newline",
+			input: "First line\nSecond line here",
+			want:  "First line",
+		},
+		{
+			name:  "newline truncation takes precedence over char limit",
+			input: strings.Repeat("y", 260),
+			want:  strings.Repeat("y", 253) + "...",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := truncateDescription(tc.input)
+			if got != tc.want {
+				t.Errorf("truncateDescription(%q): got %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDiscoverCommandsErrorPaths(t *testing.T) {
+	t.Run("binary not found returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("PATH", tmpDir)
+
+		cmds := DiscoverCommands()
+		if cmds != nil {
+			t.Errorf("expected nil when skill not in PATH, got %v", cmds)
+		}
+	})
+
+	t.Run("binary crash returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		skillPath := tmpDir + "/skill"
+		if err := os.WriteFile(skillPath, []byte("#!/bin/sh\nexit 1"), 0o755); err != nil {
+			t.Fatalf("failed to write mock skill: %v", err)
+		}
+		t.Setenv("PATH", tmpDir)
+
+		cmds := DiscoverCommands()
+		if cmds != nil {
+			t.Errorf("expected nil on exit 1, got %v", cmds)
+		}
+	})
+
+	t.Run("malformed JSON returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		skillPath := tmpDir + "/skill"
+		if err := os.WriteFile(skillPath, []byte("#!/bin/sh\necho not-json"), 0o755); err != nil {
+			t.Fatalf("failed to write mock skill: %v", err)
+		}
+		t.Setenv("PATH", tmpDir)
+
+		cmds := DiscoverCommands()
+		if cmds != nil {
+			t.Errorf("expected nil on malformed JSON, got %v", cmds)
+		}
+	})
 }

@@ -30,7 +30,7 @@ func TestDeploySkills_DirBasedLayout(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 
-	want := filepath.Join(destDir, "sp-planning.md")
+	want := filepath.Join(destDir, "sp-planning", "SKILL.md")
 	if results[0].Dest != want {
 		t.Errorf("expected dest %q, got %q", want, results[0].Dest)
 	}
@@ -69,7 +69,7 @@ func TestDeploySkills_FlatFileLayout(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 
-	want := filepath.Join(destDir, "breathe.md")
+	want := filepath.Join(destDir, "breathe", "SKILL.md")
 	if results[0].Dest != want {
 		t.Errorf("expected dest %q, got %q", want, results[0].Dest)
 	}
@@ -94,7 +94,7 @@ func TestDeploySkills_DryRun(t *testing.T) {
 	}
 
 	// Verify file was NOT copied (dry run)
-	want := filepath.Join(destDir, "breathe.md")
+	want := filepath.Join(destDir, "breathe", "SKILL.md")
 	if _, err := os.Stat(want); err == nil {
 		t.Error("dry run should not copy files")
 	}

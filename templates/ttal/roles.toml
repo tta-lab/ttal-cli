@@ -2,7 +2,7 @@
 # CONTENT is NOT inlined into agent SessionStart context (exceeds CC's
 # hook additionalContext size budget — CC persists to a file and the
 # model only sees a ~2KB preview). Each role prompt instead includes an
-# `Execute `ttal skill get <name>`` line; agents fetch the methodology
+# `Execute `skill get <name>`` line; agents fetch the methodology
 # on demand at session start.
 default_skills = ["task-tree", "flicknote", "ei-ask"]
 

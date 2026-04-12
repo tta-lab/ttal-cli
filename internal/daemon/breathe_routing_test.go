@@ -187,7 +187,7 @@ func TestHandleSendSystemRouting(t *testing.T) {
 	// handleAgentToAgent it would also resolve the *From* agent and return
 	// "unknown agent: system" (failing on sender lookup, not recipient).
 	cfg := &config.Config{}
-	req := SendRequest{From: "system", To: "athena", Message: "run ttal skill get breathe\n\nExecute this skill now — your context window needs a refresh."} //nolint:lll
+	req := SendRequest{From: "system", To: "athena", Message: "run skill get breathe\n\nExecute this skill now — your context window needs a refresh."} //nolint:lll
 	err := handleSend(cfg, nil, nil, nil, req)
 	if err == nil {
 		t.Fatal("expected error for unknown agent, got nil")
@@ -570,8 +570,8 @@ func TestBuildBreatheStartTriggerImpl(t *testing.T) {
 	buildBreatheStartTriggerFn = func(agentName string) string {
 		if agentName == "happy-agent" {
 			return "Execute the following to load your methodology:\n" +
-				"- `ttal skill get sp-planning`\n" +
-				"- `ttal skill get sp-debugging`\n\n" +
+				"- `skill get sp-planning`\n" +
+				"- `skill get sp-debugging`\n\n" +
 				"Then exec `ttal task get(no extra args)` and continue with the task."
 		}
 		return breatheStartTriggerFallback
@@ -585,10 +585,10 @@ func TestBuildBreatheStartTriggerImpl(t *testing.T) {
 
 	// Verify happy path produces correct skill directives
 	result = buildBreatheStartTriggerFn("happy-agent")
-	if !strings.Contains(result, "ttal skill get sp-planning") {
+	if !strings.Contains(result, "skill get sp-planning") {
 		t.Errorf("happy path: result should contain skill directive, got %q", result)
 	}
-	if !strings.Contains(result, "ttal skill get sp-debugging") {
+	if !strings.Contains(result, "skill get sp-debugging") {
 		t.Errorf("happy path: result should contain skill directive, got %q", result)
 	}
 	if !strings.Contains(result, "ttal task get") {

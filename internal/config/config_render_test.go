@@ -4,86 +4,13 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	"github.com/tta-lab/ttal-cli/internal/skill"
 )
 
-func TestRenderSkillPlaceholders(t *testing.T) {
-	// Mock flicknote fetcher so tests don't depend on real flicknote content.
-	orig := skill.ContentFetcher
-	t.Cleanup(func() { skill.ContentFetcher = orig })
-	skill.ContentFetcher = func(name string) string {
-		return "SKILL_CONTENT(" + name + ")"
-	}
-
-	tests := []struct {
-		name  string
-		input string
-		rt    runtime.Runtime
-		want  string
-	}{
-		{
-			name:  "CC replaces task-id placeholder",
-			input: "Write a plan for task {{task-id}}",
-			rt:    runtime.ClaudeCode,
-			want:  "Write a plan for task abc123",
-		},
-		{
-			name:  "skill placeholder replaced with content",
-			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
-			rt:    runtime.ClaudeCode,
-			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(sp-planning)\n\nWrite a plan for task abc123",
-		},
-		{
-			name:  "skill placeholder replaced regardless of runtime",
-			input: "{{skill:sp-planning}}\nWrite a plan for task {{task-id}}",
-			rt:    runtime.Codex,
-			want:  "# sp-planning [skill]\n\nSKILL_CONTENT(sp-planning)\n\nWrite a plan for task abc123",
-		},
-		{
-			name:  "multiple skill placeholders",
-			input: "{{skill:sp-planning}}\n{{skill:flicknote}}\nDo the thing",
-			rt:    runtime.Codex,
-			want: "# sp-planning [skill]\n\nSKILL_CONTENT(sp-planning)" +
-				"\n\n# flicknote [skill]\n\nSKILL_CONTENT(flicknote)\n\nDo the thing",
-		},
-		{
-			name:  "no placeholders unchanged",
-			input: "Just a plain prompt",
-			rt:    runtime.ClaudeCode,
-			want:  "Just a plain prompt",
-		},
-		{
-			name:  "empty skill name removed",
-			input: "{{skill:}}\nSome text",
-			rt:    runtime.ClaudeCode,
-			want:  "Some text",
-		},
-		{
-			name:  "unclosed skill placeholder left unchanged",
-			input: "{{skill:broken\nSome text",
-			rt:    runtime.ClaudeCode,
-			want:  "{{skill:broken\nSome text",
-		},
-		{
-			name:  "skill placeholder in middle of text",
-			input: "Start {{skill:triage}} middle end",
-			rt:    runtime.ClaudeCode,
-			want:  "# triage [skill]\n\nSKILL_CONTENT(triage)\n\nStart  middle end",
-		},
-		{
-			name:  "skill placeholder at end of text",
-			input: "Some text {{skill:triage}}",
-			rt:    runtime.Codex,
-			want:  "# triage [skill]\n\nSKILL_CONTENT(triage)\n\nSome text ",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := RenderTemplate(tt.input, "abc123", tt.rt)
-			if got != tt.want {
-				t.Errorf("RenderTemplate() =\n%q\nwant:\n%q", got, tt.want)
-			}
-		})
+func TestRenderTemplate_TaskID(t *testing.T) {
+	got := RenderTemplate("Write a plan for task {{task-id}}", "abc123", runtime.ClaudeCode)
+	want := "Write a plan for task abc123"
+	if got != want {
+		t.Errorf("RenderTemplate() = %q, want %q", got, want)
 	}
 }
 

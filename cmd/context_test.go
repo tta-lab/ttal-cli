@@ -334,7 +334,7 @@ func TestContext_SmokeTest_RoleBasedSkills(t *testing.T) {
 
 	// Write roles.toml: fixer gets sp-debugging extra skill with fetch-on-demand instruction.
 	rolesToml := "\ndefault_skills = [\"task-tree\", \"flicknote\", \"ei-ask\"]\n\n[fixer]\n" +
-		"prompt = \"\"\"Execute `ttal skill get sp-debugging` to load the " +
+		"prompt = \"\"\"Execute `skill get sp-debugging` to load the " +
 		"bug-fix-design methodology.\n\nDiagnose this bug and write a fix plan.\"\"\"\n" +
 		"extra_skills = [\"sp-debugging\"]\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "roles.toml"), []byte(rolesToml), 0o644); err != nil {
@@ -397,8 +397,8 @@ gate = "human"
 		t.Errorf("expected no '[skill]' marker in output, got: %q", got)
 	}
 	// Fetch-on-demand instruction must appear.
-	if !strings.Contains(got, "ttal skill get sp-debugging") {
-		t.Errorf("expected 'ttal skill get sp-debugging' in output, got: %q", got)
+	if !strings.Contains(got, "skill get sp-debugging") {
+		t.Errorf("expected 'skill get sp-debugging' in output, got: %q", got)
 	}
 	// Role prompt must appear.
 	if !strings.Contains(got, "Diagnose this bug") {
@@ -423,7 +423,7 @@ func TestContext_SmokeTest_ActiveTaskPipeline(t *testing.T) {
 	}
 
 	rolesToml := "\ndefault_skills = [\"task-tree\", \"flicknote\", \"ei-ask\"]\n\n[fixer]\n" +
-		"prompt = \"\"\"Execute `ttal skill get sp-debugging` to load the bug-fix-design " +
+		"prompt = \"\"\"Execute `skill get sp-debugging` to load the bug-fix-design " +
 		"methodology.\n\nDiagnose this bug and write a fix plan.\"\"\"\n" +
 		"extra_skills = [\"sp-debugging\"]\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "roles.toml"), []byte(rolesToml), 0o644); err != nil {
