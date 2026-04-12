@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
-
-	"github.com/tta-lab/ttal-cli/internal/cmdexec"
 )
 
 const jsonlTypeAssistant = "assistant"
@@ -38,10 +36,44 @@ type bashInput struct {
 
 const toolBash = "Bash"
 
+// classifyShellCmd returns a refined tool identifier for a shell command string.
+// For example, "ttal send --to foo" → "ttal:send", "flicknote add ..." → "flicknote:write".
+// Returns "Bash" for unknown commands.
+func classifyShellCmd(cmd string) string {
+	if cmd == "" {
+		return toolBash
+	}
+	cmd = strings.TrimSpace(cmd)
+	if idx := strings.LastIndex(cmd, "| "); idx >= 0 {
+		cmd = strings.TrimSpace(cmd[idx+2:])
+	}
+	switch {
+	case strings.HasPrefix(cmd, "ttal send "):
+		return "ttal:send"
+	case strings.HasPrefix(cmd, "ttal go "):
+		return "ttal:route"
+	case strings.HasPrefix(cmd, "flicknote add "),
+		cmd == "flicknote add",
+		strings.HasPrefix(cmd, "flicknote modify "),
+		strings.HasPrefix(cmd, "flicknote append "),
+		strings.HasPrefix(cmd, "flicknote insert "),
+		strings.HasPrefix(cmd, "flicknote delete "),
+		strings.HasPrefix(cmd, "flicknote rename "):
+		return "flicknote:write"
+	case strings.HasPrefix(cmd, "flicknote detail "),
+		strings.HasPrefix(cmd, "flicknote content "),
+		cmd == "flicknote list",
+		strings.HasPrefix(cmd, "flicknote list "),
+		strings.HasPrefix(cmd, "flicknote find "),
+		strings.HasPrefix(cmd, "flicknote count"):
+		return "flicknote:read"
+	default:
+		return toolBash
+	}
+}
+
 // refineBashTool inspects a Bash tool's input.command and returns a more
 // specific tool identifier for known CLI commands. Falls back to "Bash".
-// Keep the command list in sync with flicknote and ttal subcommands
-// (maintained in cmdexec.ClassifyShellCmd).
 func refineBashTool(input json.RawMessage) string {
 	var bi bashInput
 	if err := json.Unmarshal(input, &bi); err != nil {
@@ -51,7 +83,7 @@ func refineBashTool(input json.RawMessage) string {
 	if bi.Command == "" {
 		return toolBash
 	}
-	return cmdexec.ClassifyShellCmd(bi.Command)
+	return classifyShellCmd(bi.Command)
 }
 
 // extractToolUse detects tool_use blocks in an assistant JSONL entry.
@@ -131,137 +163,4 @@ func extractAssistantText(line []byte) string {
 	}
 
 	return strings.Join(texts, "\n\n")
-}
-
-// ParseCmdBlocks extracts the contents of all <cmd>...</cmd> blocks from text,
-// in document order. Each block's content has whitespace trimmed.
-// Nested blocks are preserved as-is (content is not further split).
-// Returns an empty slice if no blocks are found.
-func ParseCmdBlocks(text string) []string {
-	var cmds []string
-	open := "<cmd>"
-	close := "</cmd>"
-	depth := 0
-	searchFrom := 0
-	blockStart := -1
-
-	for {
-		if depth == 0 {
-			idx := strings.Index(text[searchFrom:], open)
-			if idx < 0 {
-				break
-			}
-			depth = 1
-			blockStart = searchFrom + idx + len(open)
-			searchFrom = blockStart
-		} else {
-			nextOpen := strings.Index(text[searchFrom:], open)
-			nextClose := strings.Index(text[searchFrom:], close)
-
-			if nextClose < 0 {
-				break // unclosed block
-			}
-			if nextOpen >= 0 && nextOpen < nextClose {
-				depth++
-				searchFrom = searchFrom + nextOpen + len(open)
-			} else {
-				depth--
-				if depth == 0 {
-					content := strings.TrimSpace(text[blockStart : searchFrom+nextClose])
-					cmds = append(cmds, content)
-					searchFrom = searchFrom + nextClose + len(close)
-				} else {
-					// Still inside a block — keep searching for the outer close.
-					searchFrom = searchFrom + nextClose + len(close)
-				}
-			}
-		}
-	}
-	return cmds
-}
-
-// StripCmdBlocks removes all <cmd>...</cmd> blocks from text and returns
-// the remaining prose. Concatenates prose fragments with a single blank line.
-func StripCmdBlocks(text string) string {
-	open := "<cmd>"
-	close := "</cmd>"
-	var prose []string
-	depth := 0
-	searchFrom := 0
-
-	for {
-		if depth == 0 {
-			idx := strings.Index(text[searchFrom:], open)
-			if idx < 0 {
-				break
-			}
-			fragment := strings.TrimSpace(text[searchFrom : searchFrom+idx])
-			if fragment != "" {
-				prose = append(prose, fragment)
-			}
-			depth = 1
-			searchFrom = searchFrom + idx + len(open)
-		} else {
-			nextOpen := strings.Index(text[searchFrom:], open)
-			nextClose := strings.Index(text[searchFrom:], close)
-
-			if nextClose < 0 {
-				break
-			}
-			if nextOpen >= 0 && nextOpen < nextClose {
-				depth++
-				searchFrom = searchFrom + nextOpen + len(open)
-			} else {
-				depth--
-				if depth == 0 {
-					searchFrom = searchFrom + nextClose + len(close)
-				} else {
-					searchFrom = searchFrom + nextClose + len(close)
-				}
-			}
-		}
-	}
-
-	// Append remaining tail after last closing tag.
-	if tail := strings.TrimSpace(text[searchFrom:]); tail != "" {
-		prose = append(prose, tail)
-	}
-
-	return strings.Join(prose, "\n\n")
-}
-
-// extractAssistantTextAndCmds parses a JSONL line and returns the prose-stripped
-// assistant text and the extracted <cmd> block contents.
-// Prose is empty if the assistant message contains only cmd blocks.
-// Cmds is empty if no cmd blocks are found.
-func extractAssistantTextAndCmds(line []byte) (prose string, cmds []string) {
-	var entry jsonlEntry
-	if err := json.Unmarshal(line, &entry); err != nil || entry.Type != jsonlTypeAssistant {
-		return "", nil
-	}
-
-	var msg assistantMessage
-	if err := json.Unmarshal(entry.Message, &msg); err != nil {
-		return "", nil
-	}
-
-	// Join all text blocks.
-	var texts []string
-	for _, block := range msg.Content {
-		if block.Type == "text" {
-			trimmed := strings.TrimSpace(block.Text)
-			if trimmed != "" {
-				texts = append(texts, trimmed)
-			}
-		}
-	}
-
-	if len(texts) == 0 {
-		return "", nil
-	}
-
-	joined := strings.Join(texts, "\n\n")
-	cmds = ParseCmdBlocks(joined)
-	prose = StripCmdBlocks(joined)
-	return prose, cmds
 }
