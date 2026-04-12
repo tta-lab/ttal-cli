@@ -62,7 +62,7 @@ $ ttal pipeline prompt
 
 ### Skill References
 
-Skills are referenced via the `skill get` command in prompts. Use `Execute \`skill get <name>\`` literally to instruct the agent to fetch the skill:
+Skills are referenced via the `skill get` command in prompts. Use ``Execute `skill get <name>` `` literally to instruct the agent to fetch the skill:
 
 ```toml
 triage = """\
