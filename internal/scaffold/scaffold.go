@@ -23,7 +23,7 @@ type ScaffoldInfo struct {
 	InstallHint string // optional install instructions (from frontmatter)
 }
 
-// Apply copies a scaffold and the shared docs/, skills/, and commands/ directories into the workspace.
+// Apply copies a scaffold and the shared docs/ and skills/ directories into the workspace.
 func Apply(repoDir, scaffoldName, workspace string) error {
 	scaffoldDir := filepath.Join(repoDir, scaffoldName)
 
@@ -49,8 +49,8 @@ func Apply(repoDir, scaffoldName, workspace string) error {
 		return fmt.Errorf("copy scaffold: %w", err)
 	}
 
-	// Copy shared top-level directories (docs/, skills/, commands/) if they exist.
-	for _, dir := range []string{"docs", "skills", "commands"} {
+	// Copy shared top-level directories (docs/, skills/) if they exist.
+	for _, dir := range []string{"docs", "skills"} {
 		if err := copySharedDir(repoDir, workspace, dir); err != nil {
 			return err
 		}

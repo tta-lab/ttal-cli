@@ -315,10 +315,6 @@ skills/                - Skill directories (each has SKILL.md)
   ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
   ├── sp-brainstorming/SKILL.md   - Brainstorming framework
   └── ...
-
-commands/              - Static command .md files (flat)
-  ├── tell-me-more.md  - Elaborate on a concept
-  └── ...
 ```
 
 ### What Goes Where
