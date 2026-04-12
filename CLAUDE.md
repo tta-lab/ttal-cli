@@ -125,7 +125,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | Path | Channel | Handler |
 |---|---|---|
 | JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
-| JSONL watcher (cmd blocks) *(deprecated — do not use in new prompts)* | logos exec + tmux send-keys | `cmdexec_bridge` |
 | `ttal send --to kestrel` | tmux send-keys | `handleTo` |
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
