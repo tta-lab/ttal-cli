@@ -16,7 +16,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -83,7 +82,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	// Force mode: dump + cleanup + exit 0
 	if force {
 		dumpPath := dumpState(sessionName, workDir)
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, task.HexID(), task.Annotations); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
 				Error:     true,
 				Status:    fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -214,11 +213,7 @@ func closeWithPR(
 
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
-		hexID := taskUUID
-		if len(hexID) >= 8 {
-			hexID = hexID[:8]
-		}
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot, hexID, annotations); err != nil {
+		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
 				Error:  true,
 				Status: fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -257,30 +252,7 @@ func dumpState(sessionName, workDir string) string {
 }
 
 // cleanupWorker kills the tmux session and removes the git worktree + branch.
-// taskHexID is used to delete the worker's MCP config file (~/.ttal/mcps/w-<hexid>.json).
-// annotations are used to extract temenos session tokens for cleanup (best-effort).
-// Cleans up both the worker token and any reviewer tokens (PR and plan).
-func cleanupWorker(
-	sessionName, workDir, branch, gitRoot, taskHexID string,
-	annotations []taskwarrior.Annotation,
-) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Delete worker temenos session — best-effort, 8h TTL handles expiry on error.
-	if token := temenos.ExtractToken(annotations); token != "" {
-		if err := temenos.DeleteSessionByTokenWithTimeout(ctx, token); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to delete temenos session (non-fatal): %v\n", err)
-		}
-	}
-	// Delete worker MCP config file.
-	if taskHexID != "" {
-		temenos.DeleteMCPConfigFile("w-" + taskHexID)
-	}
-
-	// Delete reviewer temenos sessions (best-effort).
-	cleanupReviewerTokens(ctx, taskHexID, annotations)
-
+func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 	if tmux.SessionExists(sessionName) {
 		if err := tmux.KillSession(sessionName); err != nil {
 			return fmt.Errorf("failed to kill session: %w", err)
@@ -288,35 +260,6 @@ func cleanupWorker(
 	}
 
 	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
-}
-
-// cleanupReviewerTokens scans annotations for reviewer temenos tokens and deletes them.
-// Uses constants from temenos package for token prefix strings.
-func cleanupReviewerTokens(ctx context.Context, taskHexID string, annotations []taskwarrior.Annotation) {
-	// Each entry: role string → annotation prefix
-	roles := []struct {
-		prefix string
-		role   string
-	}{
-		{temenos.TokenAnnotationPRReviewer, "pr"},
-		{temenos.TokenAnnotationPlanReviewer, "plan"},
-	}
-
-	for _, ann := range annotations {
-		for _, r := range roles {
-			if strings.HasPrefix(ann.Description, r.prefix) {
-				token := strings.TrimPrefix(ann.Description, r.prefix)
-				if token == "" {
-					continue
-				}
-				if err := temenos.DeleteSessionByTokenWithTimeout(ctx, token); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: failed to delete reviewer temenos session (non-fatal): %v\n", err)
-				}
-				temenos.DeleteMCPConfigFile(temenos.ReviewerMCPName(taskHexID, r.role))
-				break
-			}
-		}
-	}
 }
 
 // deleteTaskPlans deletes flicknote plan/design notes referenced in a task's

@@ -7,7 +7,7 @@ color: cyan
 voice: af_nova
 claude-code:
   model: opus
-  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+  tools: [Bash, Read, Write, Edit]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
   tools: [bash]

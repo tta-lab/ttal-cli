@@ -13,13 +13,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
-	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
@@ -514,43 +512,6 @@ func injectSecretsToSession(sessionName string) {
 	}
 }
 
-// buildCCRestartCmd returns the claude --resume command for a breathe restart.
-// trigger, if non-empty, is appended as a positional arg after --.
-// When trigger is empty (self-breathe), no -- separator is added.
-// mcpConfig, if non-empty, is appended via --mcp-config.
-// Extracted for unit testing.
-// Used by spawnCCSession (cold start) via --resume. For breathe restarts use buildCCFreshCmd.
-func buildCCRestartCmd(sessionID, model, agent, trigger, mcpConfig string) string {
-	cmd := fmt.Sprintf(
-		"claude --resume %s --model %s --dangerously-skip-permissions --agent %s",
-		sessionID, model, agent,
-	)
-	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
-	if trigger != "" {
-		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
-		cmd += fmt.Sprintf(" -- '%s'", escaped)
-	}
-	return cmd
-}
-
-// buildCCFreshCmd returns the claude command for a fresh (non-resume) CC start.
-// Matches spawnCCSession's fresh-start command construction.
-// mcpConfig, if non-empty, is appended via --mcp-config.
-// Extracted for unit testing.
-func buildCCFreshCmd(model, agent, trigger, mcpConfig string) string {
-	// Note: --model is intentionally absent — the model is determined by the
-	// agent's CLAUDE.md, not a CLI flag. The 'model' param is kept for signature
-	// compatibility with existing tests.
-	_ = model
-	cmd := "claude --dangerously-skip-permissions --agent " + agent
-	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
-	if trigger != "" {
-		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
-		cmd += fmt.Sprintf(" -- '%s'", escaped)
-	}
-	return cmd
-}
-
 // buildBreatheEnv returns the env var list for a breathe restart command.
 // Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets.
 // Extracted for unit testing.
@@ -705,16 +666,14 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	}
 
 	// Session dead or /clear failed — full restart via spawnCCSession.
-	// Uses per-agent MCP config (from daemon init) for session-scoped env.
 	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
 	if sessionAlive {
 		if err := tmux.KillSession(plan.oldSessionName); err != nil {
 			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
 		}
 	}
-	mcpPath := temenos.AgentMCPConfigPath(req.Agent)
 	agentEnv := buildManagerAgentEnv(req.Agent, cfg)
-	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, shellCfg.GetShell(), mcpPath, ""); err != nil {
+	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, shellCfg.GetShell(), ""); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 	// Inject secrets into tmux session env for future commands.

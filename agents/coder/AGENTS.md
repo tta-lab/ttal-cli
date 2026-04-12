@@ -7,7 +7,7 @@ color: green
 default_runtime: lenos
 claude-code:
   model: sonnet
-  tools: [Bash, Read, Write, Edit, mcp__temenos__bash]
+  tools: [Bash, Read, Write, Edit]
 ttal:
   access: rw
 ---

@@ -15,48 +15,40 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	envpkg "github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
-	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	codexRuntime "github.com/tta-lab/ttal-cli/internal/runtime/codex"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
-	"github.com/tta-lab/ttal-cli/internal/temenos"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 // initAdapters starts all agent sessions in parallel.
 // CC agents use tmux sessions; Codex agents use the WebSocket adapter.
-// Returns a map of agentName → mcpFilePath for CC agents, used during shutdown.
 func initAdapters(
 	ctx context.Context, cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend, msgSvc *message.Service,
-) map[string]string {
+) {
 	ensureLocalAgentTrust(cfg)
-
-	// Register per-agent MCP tokens at daemon start.
-	// Each CC manager agent gets its own temenos session with its own env.
-	mcpPaths := initManagerMCPTokens(ctx, cfg)
 
 	var wg sync.WaitGroup
 	for _, ta := range cfg.Agents() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			initSingleAdapter(ctx, ta, cfg, registry, frontends, msgSvc, mcpPaths)
+			initSingleAdapter(ctx, ta, cfg, registry, frontends, msgSvc)
 		}()
 	}
 	wg.Wait()
-	return mcpPaths
 }
 
 // initSingleAdapter initializes a single agent's session (CC via tmux, or Codex via adapter).
 func initSingleAdapter(
 	ctx context.Context, ta config.AgentInfo, cfg *config.Config,
 	registry *adapterRegistry, frontends map[string]frontend.Frontend,
-	msgSvc *message.Service, mcpPaths map[string]string,
+	msgSvc *message.Service,
 ) {
 	agentPath := filepath.Join(ta.TeamPath, ta.AgentName)
 
@@ -72,12 +64,11 @@ func initSingleAdapter(
 		agentEnv := buildManagerAgentEnv(ta.AgentName, cfg)
 		shell := cfg.GetShell()
 		ensureProjectDir(agentPath)
-		mcpPath := mcpPaths[ta.AgentName]
 		// Resume from last session if available.
 		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
 		if err := spawnCCSession(
 			sessionName, ta.AgentName, agentPath,
-			agentEnv, shell, mcpPath, resumeSessionID,
+			agentEnv, shell, resumeSessionID,
 		); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
@@ -237,14 +228,12 @@ func ensureLocalAgentTrust(cfg *config.Config) {
 // shutdownAgents gracefully shuts down all agent sessions on daemon exit.
 // Local CC sessions are killed directly; status files are preserved so the
 // next spawn can resume with --resume <session-id>.
-// Also unregisters per-agent temenos MCP tokens.
-func shutdownAgents(cfg *config.Config, registry *adapterRegistry, mcpPaths map[string]string) {
+func shutdownAgents(cfg *config.Config, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
 	sessions := collectCCSessions(cfg)
 	if len(sessions) > 0 {
 		shutdownCCSessions(sessions)
 	}
-	shutdownManagerMCPTokens(context.Background(), mcpPaths)
 }
 
 // collectCCSessions returns running CC tmux session names across all teams.
@@ -299,78 +288,17 @@ func ensureProjectDir(agentPath string) {
 	}
 }
 
-// initManagerMCPTokens registers a per-agent temenos session for each CC manager agent.
-// Returns a map of agentName → mcpFilePath for passing to spawnCCSession.
-// Best-effort: agents still launch without MCP on error.
-func initManagerMCPTokens(ctx context.Context, cfg *config.Config) map[string]string {
-	mcpPaths := make(map[string]string)
-
-	for _, ta := range cfg.Agents() {
-		rt := cfg.RuntimeForAgent(ta.AgentName)
-		if rt != runtime.ClaudeCode {
-			continue
-		}
-
-		// Unregister any previous token for this agent.
-		if token := temenos.ReadMCPConfigToken(ta.AgentName); token != "" {
-			if err := temenos.DeleteSessionByToken(ctx, token); err != nil {
-				log.Printf("[daemon] warning: failed to unregister old token for %s (non-fatal): %v", ta.AgentName, err)
-			}
-		}
-
-		// Build env for this agent.
-		envSlice := buildManagerAgentEnv(ta.AgentName, cfg)
-		envMap := envpkg.EnvSliceToMap(envSlice)
-
-		mcpJSON, _, err := temenos.RegisterSessionForAgent(ctx, ta.AgentName, nil, "", envMap)
-		if err != nil {
-			log.Printf("[daemon] warning: failed to register temenos session for %s (non-fatal): %v", ta.AgentName, err)
-			continue
-		}
-
-		path, err := temenos.WriteMCPConfigFile(ta.AgentName, mcpJSON)
-		if err != nil {
-			log.Printf("[daemon] warning: failed to write MCP config for %s (non-fatal): %v", ta.AgentName, err)
-			// Clean up the stale registration to avoid leaking tokens.
-			temenos.DeleteMCPConfigFile(ta.AgentName)
-			continue
-		}
-		mcpPaths[ta.AgentName] = path
-	}
-
-	return mcpPaths
-}
-
-// shutdownManagerMCPTokens unregisters and deletes per-agent MCP config files.
-func shutdownManagerMCPTokens(ctx context.Context, mcpPaths map[string]string) {
-	if mcpPaths == nil {
-		return
-	}
-	for agentName := range mcpPaths {
-		// Unregister the temenos session.
-		if token := temenos.ReadMCPConfigToken(agentName); token != "" {
-			if err := temenos.DeleteSessionByTokenWithTimeout(ctx, token); err != nil {
-				log.Printf("[daemon] warning: failed to unregister MCP token for %s: %v", agentName, err)
-			}
-		}
-		// Delete the config file.
-		temenos.DeleteMCPConfigFile(agentName)
-	}
-}
-
 // spawnCCSession creates a tmux session for a Claude Code agent.
-// mcpConfig, if non-empty, is appended to the claude command via --mcp-config.
 // resumeSessionID, if non-empty, appends --resume <id> (cold-start resume path).
 // When resumeSessionID is empty, starts a fresh session (breathe restart path).
 func spawnCCSession(
 	sessionName, agentName, agentPath string,
-	env []string, shell, mcpConfig, resumeSessionID string,
+	env []string, shell, resumeSessionID string,
 ) error {
 	cmd := "claude --dangerously-skip-permissions --agent " + agentName
 	if resumeSessionID != "" {
 		cmd += " --resume " + resumeSessionID
 	}
-	cmd = launchcmd.AppendMCPConfig(cmd, mcpConfig)
 
 	envStr := ""
 	if len(env) > 0 {
