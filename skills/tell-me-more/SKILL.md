@@ -1,6 +1,7 @@
 ---
 name: tell-me-more
 description: "Elaborate on a concept just mentioned — explain from knowledge, not search"
+category: command
 argument-hint: "[topic]"
 claude-code: {}
 ---

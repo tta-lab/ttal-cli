@@ -1,6 +1,7 @@
 ---
 name: sp-debugging
 description: Diagnose bugs systematically and write bug fix plans for workers to execute — diagnosis + plan writing in one skill
+category: methodology
 ---
 
 # Bug Fix Design

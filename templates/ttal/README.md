@@ -55,7 +55,7 @@ templates/ttal/
 └── quill/CLAUDE.md      # Researcher (linguistic patterns)
 ```
 
-Shared skills, subagents, and commands live in `skills/` and `commands/` at the repo root. All agents in this template use that shared library.
+Shared skills and subagents live in `skills/` at the repo root. All agents in this template use that shared library.
 
 ## Adopting This Template
 
@@ -63,6 +63,6 @@ To use this team as your starting point:
 
 1. Copy `templates/ttal/` to your workspace directory
 2. Update `config.toml`: set `team_path` and `chat_id` for your setup
-3. Run `ttal sync` to deploy skills, subagents, and commands to Claude Code's runtime dirs
+3. Run `ttal sync` to deploy skills and subagents to Claude Code's runtime dirs
 
 See the [ttal documentation](../../README.md) for full setup instructions.
