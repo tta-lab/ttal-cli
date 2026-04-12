@@ -140,9 +140,7 @@ gate = "human"
 skills = ["sp-planning", "flicknote"]
 ```
 
-When a task advances to this stage, the skill content (raw markdown from flicknote)
-is inlined into the context alongside the task prompt and role instructions.
-Skills are loaded at context time, not at stage entry via `skill get`.
+Skills listed here are passed to the agent at stage entry via `skill get`.
 This ties skills to what the agent is doing (stage), not who they are (role) — the same agent can use different skills at different stages.
 
 ## prompts.toml fields
