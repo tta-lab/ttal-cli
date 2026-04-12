@@ -1,6 +1,7 @@
 ---
 name: breathe
 description: "Refresh context window — agent writes handoff and restarts"
+category: command
 claude-code:
   allowed-tools:
     - Bash
