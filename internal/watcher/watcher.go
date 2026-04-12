@@ -212,7 +212,7 @@ func (w *Watcher) processLines(data []byte, agent AgentInfo) int {
 	for _, line := range splitCompleteLines(data) {
 		consumed += len(line) + 1
 
-		// Tool-use path (CC native tools, not <cmd> blocks).
+		// Tool-use path (CC native tools).
 		if toolName := extractToolUse(line); toolName != "" {
 			if w.onTool != nil {
 				w.onTool(agent.TeamName, agent.AgentName, toolName)
