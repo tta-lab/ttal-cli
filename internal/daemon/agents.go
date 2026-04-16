@@ -186,6 +186,11 @@ func gatherProjectPaths(_ *config.Config, storePathFn func(string) string) []str
 func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
 	agentEnv := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
+		// Opt into Claude Code's 1h prompt cache TTL (vs the default 5m).
+		// Manager sessions routinely pause >5m between tool calls, so the
+		// 1h cache avoids full-prefix rewrites that inflate cost and quota.
+		// Requires CC >= v2.1.108. See flicknote 89d9b682 for research.
+		"ENABLE_PROMPT_CACHING_1H=1",
 	}
 	taskrc := cfg.TaskRC
 	if taskrc != "" {

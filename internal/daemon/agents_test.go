@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -60,4 +61,19 @@ func TestGatherProjectPaths_NoProjects(t *testing.T) {
 	if len(paths) != 0 {
 		t.Errorf("expected 0 paths with no teams, got %v", paths)
 	}
+}
+func TestBuildManagerAgentEnv(t *testing.T) {
+	t.Run("includes identity and 1h prompt cache flag", func(t *testing.T) {
+		cfg := &config.Config{}
+		vars := buildManagerAgentEnv("yuki", cfg)
+		joined := strings.Join(vars, "\n")
+
+		if !strings.Contains(joined, "TTAL_AGENT_NAME=yuki") {
+			t.Errorf("TTAL_AGENT_NAME missing from %v", vars)
+		}
+		if !strings.Contains(joined, "ENABLE_PROMPT_CACHING_1H=1") {
+			t.Errorf("ENABLE_PROMPT_CACHING_1H=1 missing from %v — 1h TTL opt-in is required for manager sessions", vars)
+		}
+	})
+
 }
