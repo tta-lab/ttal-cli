@@ -228,41 +228,6 @@ func TestResolveBrCWD(t *testing.T) {
 	})
 }
 
-func TestBuildBreatheEnv(t *testing.T) {
-	t.Run("empty config returns identity vars only", func(t *testing.T) {
-		cfg := &config.Config{}
-		vars := buildBreatheEnv("kestrel", cfg)
-		hasAgent := strings.Contains(strings.Join(vars, "\n"), "TTAL_AGENT_NAME=kestrel")
-		if !hasAgent {
-			t.Errorf("TTAL_AGENT_NAME missing from %v", vars)
-		}
-	})
-
-	t.Run("config with taskrc includes TASKRC var", func(t *testing.T) {
-		tmp := t.TempDir()
-		taskrc := filepath.Join(tmp, "taskrc")
-		// Write a minimal config with both team_path and taskrc.
-		cfgDir := filepath.Join(tmp, ".config", "ttal")
-		if err := os.MkdirAll(cfgDir, 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
-		}
-		tomlContent := "[teams.default]\nteam_path = \"" + tmp + "\"\ntaskrc = \"" + taskrc + "\"\n"
-		if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(tomlContent), 0o644); err != nil {
-			t.Fatalf("write config: %v", err)
-		}
-		t.Setenv("HOME", tmp)
-		cfg, err := config.Load()
-		if err != nil {
-			t.Fatalf("config.Load: %v", err)
-		}
-		vars := buildBreatheEnv("kestrel", cfg)
-		joined := strings.Join(vars, "\n")
-		if !strings.Contains(joined, "TASKRC="+taskrc) {
-			t.Errorf("TASKRC missing or wrong in %v", vars)
-		}
-	})
-}
-
 // TestResolveBreatheSessions verifies session name construction and condition branching.
 // Uses nonexistent session names so resolveBrCWD falls back to team path (no tmux needed).
 func TestResolveBreatheSessions(t *testing.T) {

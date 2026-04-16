@@ -512,23 +512,6 @@ func injectSecretsToSession(sessionName string) {
 	}
 }
 
-// buildBreatheEnv returns the env var list for a breathe restart command.
-// Mirrors buildManagerAgentEnv: agent identity, TASKRC, allowlisted .env secrets.
-// Extracted for unit testing.
-func buildBreatheEnv(agent string, cfg *config.Config) []string {
-	vars := []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agent),
-	}
-	if cfg != nil {
-		if taskRC := cfg.TaskRC; taskRC != "" {
-			vars = append(vars, fmt.Sprintf("TASKRC=%s", taskRC))
-		}
-	}
-	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
-	vars = append(vars, env.AllowedDotEnvParts()...)
-	return vars
-}
-
 // diaryAppendHandoff persists the handoff to the agent's diary.
 // It prefers the live pane CWD; if the session is dead or pane CWD is unavailable,
 // it falls back to the registered agent workspace path from config.
