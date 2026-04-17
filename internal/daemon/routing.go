@@ -11,7 +11,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
@@ -495,23 +494,6 @@ func resolveAgentModel(agent string) breatheAgentModel {
 	return info
 }
 
-// injectSecretsToSession loads .env and injects allowlisted vars into the tmux session environment.
-// Secrets (tokens) are blocked — authenticated operations go through the daemon.
-func injectSecretsToSession(sessionName string) {
-	dotEnv, err := config.LoadDotEnv()
-	if err != nil {
-		log.Printf("[breathe] warning: .env load failed, secrets may be missing: %v", err)
-	}
-	for k, v := range dotEnv {
-		if !env.IsAllowedForSession(k) {
-			continue
-		}
-		if err := tmux.SetEnv(sessionName, k, v); err != nil {
-			log.Printf("[breathe] warning: failed to inject %s into session %s: %v", k, sessionName, err)
-		}
-	}
-}
-
 // diaryAppendHandoff persists the handoff to the agent's diary.
 // It prefers the live pane CWD; if the session is dead or pane CWD is unavailable,
 // it falls back to the registered agent workspace path from config.
@@ -659,9 +641,6 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, shellCfg.GetShell(), ""); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
-	// Inject secrets into tmux session env for future commands.
-	injectSecretsToSession(plan.newSessionName)
-
 	log.Printf("[breathe] %s: fresh breath taken (restart, session: %s)", req.Agent, plan.newSessionName)
 
 	return SendResponse{OK: true}

@@ -27,7 +27,6 @@ Reads pr_id UDA and resolves project path from projects.toml, detects the git re
 to construct the PR URL, and opens it.
 
 Environment variables:
-  FORGEJO_URL            Forgejo instance URL (default: https://git.guion.io)
   FORGEJO_DEFAULT_OWNER  Fallback repo owner (default: neil)
 
 Example:

@@ -194,14 +194,4 @@ func TestWebURL(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("Forgejo with FORGEJO_URL", func(t *testing.T) {
-		t.Setenv("FORGEJO_URL", "https://internal.example.com")
-		repo := &RepoInfo{Owner: "myorg", Repo: "project", Provider: ProviderForgejo, Host: "git.internal.io"}
-		got := repo.WebURL()
-		want := "https://internal.example.com/myorg/project"
-		if got != want {
-			t.Errorf("WebURL() = %v, want %v", got, want)
-		}
-	})
 }

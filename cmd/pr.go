@@ -86,6 +86,7 @@ Examples:
 
 		prResp, err := daemon.PRCreate(daemon.PRCreateRequest{
 			ProviderType: string(ctx.Info.Provider),
+			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
 			Head:         branch,
@@ -170,6 +171,7 @@ Examples:
 
 		prResp, err := daemon.PRModify(daemon.PRModifyRequest{
 			ProviderType: string(ctx.Info.Provider),
+			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
 			Index:        index,

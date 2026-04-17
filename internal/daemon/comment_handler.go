@@ -53,7 +53,7 @@ func handleCommentAdd(svc *comment.Service, team, commentSync string, req Commen
 
 func mirrorCommentToPR(req CommentAddRequest, round int) {
 	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
 	if err != nil {
 		log.Printf("[daemon] mirror comment to PR: create provider: %v", err)
 		return

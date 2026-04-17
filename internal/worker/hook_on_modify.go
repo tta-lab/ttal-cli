@@ -345,6 +345,7 @@ type pathResolver func(projectName string) string
 // Defined here to avoid a worker→daemon circular import.
 type prGetPRPayload struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"`
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
@@ -375,6 +376,7 @@ func defaultPRMergedChecker(projectAlias, projectPath, prID string) (bool, strin
 
 	payload := prGetPRPayload{
 		ProviderType: string(info.Provider),
+		Host:         info.Host,
 		Owner:        info.Owner,
 		Repo:         info.Repo,
 		Index:        prInfo.Index,

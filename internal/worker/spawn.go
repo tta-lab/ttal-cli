@@ -11,7 +11,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/env"
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
@@ -262,8 +261,6 @@ func launchTmuxWorker(
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	taskrc := resolveTaskRCFromConfig(shellCfg)
-
 	// Use cfg.AgentName if set (always the case when spawned via pipeline advance).
 	// Fall back to reading pipelines.toml to avoid hardcoding the agent name.
 	agentName := cfg.AgentName
@@ -279,7 +276,7 @@ func launchTmuxWorker(
 		}
 	}
 
-	envParts := buildEnvParts(task, cfg.Runtime, taskrc, agentName)
+	envParts := buildEnvParts(task, cfg.Runtime, agentName)
 
 	shellCmd, err := buildRuntimeShellCommand(cfg, shellCfg, ttalBin, task, agentName, envParts)
 	if err != nil {
@@ -292,10 +289,6 @@ func launchTmuxWorker(
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
-	if err := injectSessionEnv(sessionName, task, taskrc); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
-	}
-
 	fmt.Printf("\nWorker '%s' spawned successfully\n", cfg.Name)
 	fmt.Printf("  Session: %s\n", sessionName)
 	fmt.Printf("  Work dir: %s\n", workDir)
@@ -306,48 +299,13 @@ func launchTmuxWorker(
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-// workDir is the worker's cwd — used to detect linked worktrees that need
-// write access to the main repo's .git directory.
-// buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, taskrc, agentName string) []string {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string) []string {
 	parts := []string{
 		"TTAL_AGENT_NAME=" + agentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
-	if taskrc != "" {
-		parts = append(parts, fmt.Sprintf("TASKRC=%s", taskrc))
-	}
 	return parts
-}
-
-func injectSessionEnv(sessionName string, task *taskwarrior.Task, taskrc string) error {
-	setEnv := func(key, val string) {
-		if err := tmux.SetEnv(sessionName, key, val); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to set %s: %v\n", key, err)
-		}
-	}
-
-	setEnv("TTAL_JOB_ID", task.HexID())
-
-	if taskrc != "" {
-		setEnv("TASKRC", taskrc)
-	}
-
-	// Inject allowlisted .env vars at session level (inherited by all windows).
-	// Secrets (tokens) are blocked — authenticated operations go through the daemon.
-	dotEnv, err := config.LoadDotEnv()
-	if err != nil {
-		return fmt.Errorf("failed to load .env for worker session: %w", err)
-	}
-	for k, v := range dotEnv {
-		if !env.IsAllowedForSession(k) {
-			continue // not on allowlist — daemon handles these
-		}
-		setEnv(k, v)
-	}
-
-	return nil
 }
 
 // writeTaskFile writes the execute prompt to a temp file for Codex workers.
@@ -546,19 +504,6 @@ func pullLatest(project, projectAlias string) {
 			fmt.Fprintf(os.Stderr, "  output: %s\n", strings.TrimSpace(string(out)))
 		}
 	}
-}
-
-// resolveTaskRCFromConfig returns the taskrc path from the provided config.
-// Returns empty string if using default taskrc.
-func resolveTaskRCFromConfig(cfg *config.Config) string {
-	if cfg == nil {
-		return ""
-	}
-	taskrc := cfg.TaskRC
-	if taskrc == config.DefaultTaskRC() {
-		return ""
-	}
-	return taskrc
 }
 
 func detectBranch(workDir string) string {

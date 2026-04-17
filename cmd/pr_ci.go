@@ -48,6 +48,7 @@ Examples:
 		// Get combined CI status via daemon
 		statusResp, err := daemon.PRGetCombinedStatus(daemon.PRGetCombinedStatusRequest{
 			ProviderType: string(ctx.Info.Provider),
+			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
 			SHA:          sha,
@@ -81,6 +82,7 @@ func resolveCISHA(ctx *pr.Context) (string, error) {
 		} else {
 			resp, err := daemon.PRGetPR(daemon.PRGetPRRequest{
 				ProviderType: string(ctx.Info.Provider),
+				Host:         ctx.Info.Host,
 				Owner:        ctx.Owner,
 				Repo:         ctx.Repo,
 				Index:        idx,
@@ -128,6 +130,7 @@ func printDaemonCIStatus(resp daemon.PRCIStatusResponse, sha string) {
 func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
 	detailResp, err := daemon.PRGetCIFailureDetails(daemon.PRGetCIFailureDetailsRequest{
 		ProviderType: string(ctx.Info.Provider),
+		Host:         ctx.Info.Host,
 		Owner:        ctx.Owner,
 		Repo:         ctx.Repo,
 		SHA:          sha,

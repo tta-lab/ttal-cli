@@ -13,7 +13,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	envpkg "github.com/tta-lab/ttal-cli/internal/env"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/project"
@@ -183,8 +182,8 @@ func gatherProjectPaths(_ *config.Config, storePathFn func(string) string) []str
 }
 
 // buildManagerAgentEnv returns env vars for a manager agent session.
-func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
-	agentEnv := []string{
+func buildManagerAgentEnv(agentName string, _ *config.Config) []string {
+	return []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		// Opt into Claude Code's longer prompt cache TTL for manager sessions.
 		// Managers routinely pause >5 min between tool calls; the longer TTL
@@ -192,13 +191,6 @@ func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
 		// and quota. Requires CC >= 2.1.108 (no-op on older versions).
 		"ENABLE_PROMPT_CACHING_1H=1",
 	}
-	taskrc := cfg.TaskRC
-	if taskrc != "" {
-		agentEnv = append(agentEnv, fmt.Sprintf("TASKRC=%s", taskrc))
-	}
-	// Inject allowlisted .env vars — tokens stay in daemon, not agent sessions.
-	agentEnv = append(agentEnv, envpkg.AllowedDotEnvParts()...)
-	return agentEnv
 }
 
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json

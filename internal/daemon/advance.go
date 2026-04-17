@@ -1020,6 +1020,7 @@ func mergeWorkerPR(task *taskwarrior.Task) error {
 
 	resp := handlePRMerge(PRMergeRequest{
 		ProviderType: string(info.Provider),
+		Host:         info.Host,
 		Owner:        info.Owner,
 		Repo:         info.Repo,
 		Index:        prInfo.Index,
