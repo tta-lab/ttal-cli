@@ -186,8 +186,6 @@ notification_token_env = "MY_CUSTOM_BOT_TOKEN"
 | `TTAL_AGENT_NAME` | Set automatically in agent sessions — identifies the current agent |
 | `TTAL_JOB_ID` | Set automatically in worker sessions — task UUID prefix |
 | `FORGEJO_TOKEN` | Forgejo API token |
-
-> **Out of scope for this change:**
-> - `WOODPECKER_URL` / `WOODPECKER_TOKEN` — `NewWoodpeckerClient()` reads these via `os.Getenv`. Woodpecker runs only in daemon context (`ForgejoProvider.GetCIFailureDetails`), not in agent sessions, so the secret-leak vector does not apply.
+| `FORGEJO_URL` | No longer required — derived automatically from the git remote origin URL |
 
 </div>

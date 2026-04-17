@@ -52,6 +52,12 @@ func handleCommentAdd(svc *comment.Service, team, commentSync string, req Commen
 }
 
 func mirrorCommentToPR(req CommentAddRequest, round int) {
+	// Forgejo requires Host; skip mirroring gracefully if not provided.
+	if req.ProviderType == "forgejo" && req.Host == "" {
+		log.Printf("[daemon] mirror comment to PR: skipping (forgejo host not set)")
+		return
+	}
+
 	token := project.ResolveGitHubToken(req.ProjectAlias)
 	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
 	if err != nil {

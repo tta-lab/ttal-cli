@@ -27,7 +27,6 @@ func TestBuildEnvParts(t *testing.T) {
 		t.Errorf("second part should be TTAL_JOB_ID, got %q", parts[1])
 	}
 
-	// Check TTAL_RUNTIME is included
 	foundRuntime := false
 	for _, p := range parts {
 		if p == "TTAL_RUNTIME=claude-code" {
@@ -39,7 +38,7 @@ func TestBuildEnvParts(t *testing.T) {
 	}
 }
 
-func TestBuildEnvParts_NoTaskRC(t *testing.T) {
+func TestBuildEnvParts_BasicEnvParts(t *testing.T) {
 	task := &taskwarrior.Task{
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
@@ -60,7 +59,6 @@ func TestWriteTaskFile_MissingCoderPrompt(t *testing.T) {
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
 	}
-	// Empty config has no coder prompt configured
 	shellCfg := &config.Config{}
 	_, err := writeTaskFile(task, cfg, shellCfg)
 	if err == nil {
