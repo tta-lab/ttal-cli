@@ -102,6 +102,12 @@ ttal go <uuid>    # spawns a worker in isolated worktree
   - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal go <uuid>`
 - **Use `ttal comment` for task comments**: `ttal comment add "msg"` / `ttal comment list`
 
+## Tips
+
+**Merge ≠ Deploy:** Pushing to main or merging a PR does not deploy anything. For agent config changes (CLAUDE.user.md, skills, subagents), the deploy step is `ttal sync`. Always run `ttal sync` after merging to propagate changes to runtime.
+
+**Coding ≠ Ops:** Writing code and deploying it are separate concerns. Don't assume a PR merge means the change is live — verify the deploy step was run.
+
 ## Comments & Reviews
 
 `ttal comment add` is the unified tool for posting review findings, triage reports, and verdicts — for both plan review and PR review loops. Always post reports via `ttal comment add`, not inline output.
