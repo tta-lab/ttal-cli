@@ -79,7 +79,8 @@ type StatusResponse struct {
 
 // PRCreateRequest asks the daemon to create a PR via the authenticated provider.
 type PRCreateRequest struct {
-	ProviderType string `json:"provider_type"` // "forgejo" or "github"
+	ProviderType string `json:"provider_type"`  // "forgejo" or "github"
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Head         string `json:"head"` // source branch
@@ -92,6 +93,7 @@ type PRCreateRequest struct {
 // PRModifyRequest asks the daemon to edit a PR title/body.
 type PRModifyRequest struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
@@ -103,6 +105,7 @@ type PRModifyRequest struct {
 // PRMergeRequest asks the daemon to squash-merge a PR.
 type PRMergeRequest struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
@@ -113,6 +116,7 @@ type PRMergeRequest struct {
 // PRCheckMergeableRequest asks the daemon to check if a PR is mergeable.
 type PRCheckMergeableRequest struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
@@ -122,6 +126,7 @@ type PRCheckMergeableRequest struct {
 // PRGetPRRequest asks the daemon to fetch a PR (for HeadSHA resolution in CI commands).
 type PRGetPRRequest struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Index        int64  `json:"index"`
@@ -131,6 +136,7 @@ type PRGetPRRequest struct {
 // PRGetCombinedStatusRequest asks the daemon to fetch CI status for a commit.
 type PRGetCombinedStatusRequest struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	SHA          string `json:"sha"`
@@ -140,6 +146,7 @@ type PRGetCombinedStatusRequest struct {
 // PRGetCIFailureDetailsRequest asks the daemon to fetch CI failure details.
 type PRGetCIFailureDetailsRequest struct {
 	ProviderType string `json:"provider_type"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	SHA          string `json:"sha"`
@@ -212,6 +219,7 @@ type CommentAddRequest struct {
 	Body   string `json:"body"`
 	// Optional PR context for mirroring to remote PR
 	ProviderType string `json:"provider_type,omitempty"`
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
 	Owner        string `json:"owner,omitempty"`
 	Repo         string `json:"repo,omitempty"`
 	PRIndex      int64  `json:"pr_index,omitempty"`

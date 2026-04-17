@@ -374,7 +374,7 @@ var projectOpenCmd = &cobra.Command{
 	Long: `Open the project's remote repository URL in the default browser.
 
 Resolves the project path from projects.toml, reads the git remote origin URL,
-and constructs the web URL (github.com for GitHub, FORGEJO_URL for Forgejo repos).
+and constructs the web URL (github.com for GitHub, derived from git remote for Forgejo repos).
 
 Example:
   ttal project open ttal`,

@@ -185,7 +185,7 @@ notification_token_env = "MY_CUSTOM_BOT_TOKEN"
 |----------|-------------|
 | `TTAL_AGENT_NAME` | Set automatically in agent sessions — identifies the current agent |
 | `TTAL_JOB_ID` | Set automatically in worker sessions — task UUID prefix |
-| `FORGEJO_URL` | Forgejo instance URL (for PR commands) |
 | `FORGEJO_TOKEN` | Forgejo API token |
+| `FORGEJO_URL` | No longer required — derived automatically from the git remote origin URL |
 
 </div>

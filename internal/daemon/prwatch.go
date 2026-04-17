@@ -39,6 +39,7 @@ type prWatchTarget struct {
 	Provider     string
 	Owner        string // agent owner (write-once, set at first manager-stage routing)
 	ProjectAlias string
+	Host         string
 }
 
 // startPRWatcher periodically scans taskwarrior for pending tasks with pr_id set
@@ -157,6 +158,7 @@ func scanTeam(
 			Provider:     string(info.Provider),
 			Owner:        task.Owner,
 			ProjectAlias: task.Project,
+			Host:         info.Host,
 		}
 
 		mu.Lock()
@@ -190,7 +192,7 @@ func pollPR(
 	frontends map[string]frontend.Frontend, done <-chan struct{},
 ) bool {
 	token := project.ResolveGitHubTokenForTeam(target.ProjectAlias, target.Team)
-	provider, err := gitprovider.NewProviderByNameWithToken(target.Provider, token)
+	provider, err := gitprovider.NewProviderByNameWithToken(target.Provider, token, target.Host)
 	if err != nil {
 		log.Printf("[prwatch] failed to create provider for %s: %v", target.Provider, err)
 		return false

@@ -8,9 +8,14 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
+// resolveProvider is a helper that resolves a GitHub/Forgejo provider for a request.
+func resolveProvider(projectAlias, providerType, host string) (gitprovider.Provider, error) {
+	token := project.ResolveGitHubToken(projectAlias)
+	return gitprovider.NewProviderByNameWithToken(providerType, token, host)
+}
+
 func handlePRCreate(req PRCreateRequest) PRResponse {
-	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
 	if err != nil {
 		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
@@ -22,8 +27,7 @@ func handlePRCreate(req PRCreateRequest) PRResponse {
 }
 
 func handlePRModify(req PRModifyRequest) PRResponse {
-	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
 	if err != nil {
 		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
@@ -35,8 +39,7 @@ func handlePRModify(req PRModifyRequest) PRResponse {
 }
 
 func handlePRMerge(req PRMergeRequest) PRResponse {
-	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
 	if err != nil {
 		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
@@ -63,8 +66,7 @@ func handlePRMerge(req PRMergeRequest) PRResponse {
 // CIPending is set in the response when CI checks are the sole blocker,
 // allowing callers to distinguish CI-pending from other merge failures.
 func handlePRCheckMergeable(req PRCheckMergeableRequest) PRResponse {
-	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
 	if err != nil {
 		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
@@ -85,7 +87,7 @@ func handlePRCheckMergeable(req PRCheckMergeableRequest) PRResponse {
 
 func handlePRGetPR(req PRGetPRRequest) PRGetPRResponse {
 	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
 	if err != nil {
 		return PRGetPRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
@@ -102,7 +104,7 @@ func handlePRGetPR(req PRGetPRRequest) PRGetPRResponse {
 
 func handlePRGetCombinedStatus(req PRGetCombinedStatusRequest) PRCIStatusResponse {
 	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
 	if err != nil {
 		return PRCIStatusResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
@@ -124,7 +126,7 @@ func handlePRGetCombinedStatus(req PRGetCombinedStatusRequest) PRCIStatusRespons
 
 func handlePRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
 	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token)
+	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
 	if err != nil {
 		return PRCIFailureDetailsResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}

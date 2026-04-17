@@ -3,11 +3,11 @@ package gitprovider
 import (
 	"context"
 	"fmt"
-	urlpkg "net/url"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	urlpkg "net/url"
 )
 
 const remoteTimeout = 10 * time.Second
@@ -24,9 +24,6 @@ type RepoInfo struct {
 func (r *RepoInfo) baseWebURL() string {
 	if r.Provider == ProviderGitHub {
 		return "https://github.com"
-	}
-	if url := os.Getenv("FORGEJO_URL"); url != "" {
-		return url
 	}
 	return "https://" + r.Host
 }
@@ -75,7 +72,6 @@ func detectDefaultBranch(workDir string) string {
 		return "main"
 	}
 
-	// Output is like "refs/remotes/origin/main" — extract the branch name
 	ref := strings.TrimSpace(string(out))
 	const prefix = "refs/remotes/origin/"
 	if !strings.HasPrefix(ref, prefix) {
@@ -158,10 +154,10 @@ func detectProviderFromHost(host string) ProviderType {
 
 // NewProviderByNameWithToken creates a provider by name with an optional GitHub token override.
 // Forgejo ignores the githubToken parameter.
-func NewProviderByNameWithToken(name, githubToken string) (Provider, error) {
+func NewProviderByNameWithToken(name, githubToken, host string) (Provider, error) {
 	switch ProviderType(name) {
 	case ProviderForgejo:
-		return NewForgejoProvider()
+		return NewForgejoProvider(host)
 	case ProviderGitHub:
 		return NewGitHubProviderWithToken(githubToken)
 	default:
@@ -176,7 +172,7 @@ func NewProviderWithToken(info *RepoInfo, githubToken string) (Provider, error) 
 	case ProviderGitHub:
 		return NewGitHubProviderWithToken(githubToken)
 	case ProviderForgejo:
-		return NewForgejoProvider()
+		return NewForgejoProvider(info.Host)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", info.Provider)
 	}

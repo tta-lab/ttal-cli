@@ -15,7 +15,7 @@ func TestBuildEnvParts(t *testing.T) {
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode, "/custom/taskrc", CoderAgentName)
+	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName)
 
 	if len(parts) < 2 {
 		t.Fatal("expected at least TTAL_AGENT_NAME and TTAL_JOB_ID")
@@ -27,7 +27,6 @@ func TestBuildEnvParts(t *testing.T) {
 		t.Errorf("second part should be TTAL_JOB_ID, got %q", parts[1])
 	}
 
-	// Check TTAL_RUNTIME is included
 	foundRuntime := false
 	for _, p := range parts {
 		if p == "TTAL_RUNTIME=claude-code" {
@@ -37,30 +36,19 @@ func TestBuildEnvParts(t *testing.T) {
 	if !foundRuntime {
 		t.Error("expected TTAL_RUNTIME=claude-code in env parts")
 	}
-
-	// Check taskrc is included
-	found := false
-	for _, p := range parts {
-		if p == "TASKRC=/custom/taskrc" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("expected TASKRC=/custom/taskrc in env parts")
-	}
 }
 
-func TestBuildEnvParts_NoTaskRC(t *testing.T) {
+func TestBuildEnvParts_BasicEnvParts(t *testing.T) {
 	task := &taskwarrior.Task{
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode, "", "")
+	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName)
 
 	for _, p := range parts {
 		if strings.HasPrefix(p, "TASKRC=") {
-			t.Error("TASKRC should not be set when empty")
+			t.Error("TASKRC should not be set in env parts")
 		}
 	}
 }
@@ -71,7 +59,6 @@ func TestWriteTaskFile_MissingCoderPrompt(t *testing.T) {
 		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
 		Description: "test task",
 	}
-	// Empty config has no coder prompt configured
 	shellCfg := &config.Config{}
 	_, err := writeTaskFile(task, cfg, shellCfg)
 	if err == nil {

@@ -297,12 +297,11 @@ func TestHandlePRMerge_AlreadyMerged(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-
-	t.Setenv("FORGEJO_URL", srv.URL)
 	t.Setenv("FORGEJO_TOKEN", "test-token")
 
 	resp := handlePRMerge(PRMergeRequest{
 		ProviderType: "forgejo",
+		Host:         srv.URL,
 		Owner:        "o",
 		Repo:         "r",
 		Index:        42,

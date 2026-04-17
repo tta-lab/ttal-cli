@@ -3,6 +3,7 @@ package gitprovider
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	forgejo_sdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
 )
@@ -11,7 +12,11 @@ type ForgejoProvider struct {
 	client *forgejo_sdk.Client
 }
 
-func NewForgejoProvider() (Provider, error) {
+func NewForgejoProvider(host string) (Provider, error) {
+	if host == "" {
+		return nil, fmt.Errorf("host is required for Forgejo provider")
+	}
+
 	token := os.Getenv("FORGEJO_TOKEN")
 	if token == "" {
 		token = os.Getenv("FORGEJO_ACCESS_TOKEN")
@@ -20,9 +25,9 @@ func NewForgejoProvider() (Provider, error) {
 		return nil, fmt.Errorf("FORGEJO_TOKEN or FORGEJO_ACCESS_TOKEN environment variable is required")
 	}
 
-	url := os.Getenv("FORGEJO_URL")
-	if url == "" {
-		return nil, fmt.Errorf("FORGEJO_URL environment variable is required")
+	url := host
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		url = "https://" + host
 	}
 
 	client, err := forgejo_sdk.NewClient(url, forgejo_sdk.SetToken(token))
