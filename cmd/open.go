@@ -26,9 +26,6 @@ var openPRCmd = &cobra.Command{
 Reads pr_id UDA and resolves project path from projects.toml, detects the git remote
 to construct the PR URL, and opens it.
 
-Environment variables:
-  FORGEJO_DEFAULT_OWNER  Fallback repo owner (default: neil)
-
 Example:
   ttal open pr 12345678-1234-1234-1234-123456789abc`,
 	Args: cobra.ExactArgs(1),
