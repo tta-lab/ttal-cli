@@ -21,7 +21,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
-	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 // initAdapters starts all agent sessions in parallel.
@@ -267,7 +266,7 @@ func agentProjectDir(agentPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("get home dir: %w", err)
 	}
-	encoded := watcher.EncodePath(agentPath)
+	encoded := encodeAgentPath(agentPath)
 	return filepath.Join(home, ".claude", "projects", encoded), nil
 }
 
