@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
@@ -102,11 +101,11 @@ Examples:
 
 		body := strings.Join(args, " ")
 		if body == "" {
-			bodyBytes, err := io.ReadAll(os.Stdin)
+			bodyBytes, err := readStdinIfPiped()
 			if err != nil {
 				return fmt.Errorf("failed to read stdin: %w", err)
 			}
-			body = strings.TrimSpace(string(bodyBytes))
+			body = bodyBytes
 		}
 		if body == "" {
 			return fmt.Errorf("comment body is required (pass as argument or pipe via stdin)")
