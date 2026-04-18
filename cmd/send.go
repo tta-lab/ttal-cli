@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -15,10 +13,7 @@ import (
 const sendExample = `ttal send --to kestrel "message"
   ttal send --to abc12345:coder "message"    # worker session`
 
-var (
-	sendTo    string
-	sendStdin bool
-)
+var sendTo string
 
 var sendCmd = &cobra.Command{
 	Use:   "send [message]",
@@ -33,28 +28,43 @@ Agent identity comes from TTAL_AGENT_NAME env var (set automatically in team tmu
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
-  ttal send --to abc12345:coder "worker session message"
   ttal send --to human "compact complete"
-  echo "done" | ttal send --to kestrel --stdin`,
+  ttal send --to abc12345:coder "worker session message"
+
+  # Piped stdin (single line):
+  echo "done" | ttal send --to kestrel
+
+  # Multiline via heredoc:
+  cat <<'EOF' | ttal send --to human
+  ## Status
+  Review complete — 2 findings.
+  EOF`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {
 			return fmt.Errorf("--to is required\n\n  Example: %s", sendExample)
 		}
 
-		var message string
+		piped, err := readStdinIfPiped()
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
 
-		if sendStdin {
-			data, err := io.ReadAll(bufio.NewReader(os.Stdin))
-			if err != nil {
-				return fmt.Errorf("failed to read stdin: %w", err)
-			}
-			message = strings.TrimRight(string(data), "\n")
-		} else {
-			if len(args) == 0 {
-				return fmt.Errorf("message required\n\n  Example: %s\n  Or pipe: echo \"msg\" | ttal send --to kestrel --stdin", sendExample) //nolint:lll
-			}
+		var message string
+		switch {
+		case piped != "" && len(args) > 0:
+			return fmt.Errorf("provide either stdin or positional args, not both")
+		case piped != "":
+			message = piped
+		case len(args) > 0:
 			message = strings.Join(args, " ")
+		default:
+			return fmt.Errorf(
+				"message required (positional argument or piped stdin)\n\n"+
+					"  Example: %s\n"+
+					"  Multiline: cat <<'END' | ttal send --to human\n"+
+					"    ## Status\n    ...\n    END",
+				sendExample)
 		}
 
 		if message == "" {
@@ -63,8 +73,6 @@ Examples:
 
 		from := os.Getenv("TTAL_AGENT_NAME")
 		jobID := os.Getenv("TTAL_JOB_ID")
-		// Workers have both TTAL_AGENT_NAME (e.g. "coder") and TTAL_JOB_ID set.
-		// Construct From as jobID:agentName so the daemon can route replies.
 		if jobID != "" && from != "" {
 			from = jobID + ":" + from
 		}
@@ -85,5 +93,4 @@ Examples:
 func init() {
 	rootCmd.AddCommand(sendCmd)
 	sendCmd.Flags().StringVar(&sendTo, "to", "", "Receiving agent (routes via tmux)")
-	sendCmd.Flags().BoolVar(&sendStdin, "stdin", false, "Read message from stdin")
 }

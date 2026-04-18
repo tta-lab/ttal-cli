@@ -12,13 +12,13 @@ import (
 
 // ReplyHint returns a footer line instructing the receiver how to reply to senderAddr.
 func ReplyHint(senderAddr string) string {
-	return fmt.Sprintf("Reply with: ttal send --to %s \"your message\"", senderAddr)
+	return fmt.Sprintf("<i>--- Reply with: ttal send --to %s \"your message\"</i>", senderAddr)
 }
 
 // formatAgentMessage formats an agent-to-agent message for delivery.
 // Includes a reply hint footer so the receiver knows how to respond.
 func formatAgentMessage(fromAgent, text string) string {
-	return fmt.Sprintf("[agent from:%s]\n%s\n\n---\n%s", fromAgent, text, ReplyHint(fromAgent))
+	return fmt.Sprintf("[agent from:%s]\n%s\n\n%s", fromAgent, text, ReplyHint(fromAgent))
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.

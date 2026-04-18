@@ -175,3 +175,9 @@ Describe the diff, not the journey.
 - Take your time — one task per session
 - When uncertain about requirements, ask Neil
 
+
+## Reaching Neil
+
+Use `ttal send --to human "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
+
+Aim for ≤3 lines. Longer content → flicknote first.

@@ -432,12 +432,12 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			body: "hello",
-			want: "[matrix from:neil] hello",
+			want: "[matrix from:neil] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name: "no space not bash mode",
 			body: "!nospace",
-			want: "[matrix from:neil] !nospace",
+			want: "[matrix from:neil] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name: "prefix only empty command",
@@ -510,5 +510,50 @@ func TestMatrixTeamConfig_Validate(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+// TestMatrixInbound_NormalIncludesHint verifies that normal (non-bash) inbound
+// Matrix messages include the italic reply hint footer.
+func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
+	var got string
+	fe := &MatrixFrontend{
+		cfg: MatrixConfig{
+			UserNameFn: func() string { return testUserName },
+			OnMessage:  func(_, _ string, text string) { got = text },
+		},
+		lastEventID: make(map[string]id.EventID),
+	}
+
+	fe.deliverInboundMessage(context.Background(), "testagent", "hello neil")
+
+	hint := "<i>--- Reply with: ttal send --to human \"your message\"</i>"
+	if !strings.Contains(got, "[matrix from:neil] hello neil") {
+		t.Errorf("expected prefix missing, got %q", got)
+	}
+	if !strings.Contains(got, hint) {
+		t.Errorf("expected italic hint %q missing from %q", hint, got)
+	}
+}
+
+// TestMatrixInbound_BashModeNoHint verifies that bash-mode Matrix messages do NOT
+// include the reply hint footer.
+func TestMatrixInbound_BashModeNoHint(t *testing.T) {
+	var got string
+	fe := &MatrixFrontend{
+		cfg: MatrixConfig{
+			UserNameFn: func() string { return testUserName },
+			OnMessage:  func(_, _ string, text string) { got = text },
+		},
+		lastEventID: make(map[string]id.EventID),
+	}
+
+	fe.deliverInboundMessage(context.Background(), "testagent", "! ls /tmp")
+
+	if got != "! ls /tmp" {
+		t.Errorf("got %q, want %q", got, "! ls /tmp")
+	}
+	if strings.Contains(got, "ttal send") {
+		t.Errorf("bash mode should not contain hint, got %q", got)
 	}
 }

@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/watcher"
 )
 
 func TestSessionJSONLExists(t *testing.T) {
@@ -15,7 +13,7 @@ func TestSessionJSONLExists(t *testing.T) {
 	}
 
 	agentPath := "/tmp/ttal-test-agent-sessionjsonl"
-	encoded := watcher.EncodePath(agentPath)
+	encoded := encodeAgentPath(agentPath)
 	dir := filepath.Join(home, ".claude", "projects", encoded)
 
 	if err := os.MkdirAll(dir, 0o700); err != nil {

@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/go-telegram/bot/models"
@@ -74,18 +75,18 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			text: "hello",
-			want: "[telegram from:testuser] hello",
+			want: "[telegram from:testuser] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name: "no space not bash mode",
 			text: "!nospace",
-			want: "[telegram from:testuser] !nospace",
+			want: "[telegram from:testuser] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			// TrimSpace strips the trailing space, so "! " → "!" which is NOT bash mode.
 			name: "prefix only is not bash mode after trim",
 			text: "! ",
-			want: "[telegram from:testuser] !",
+			want: "[telegram from:testuser] !\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name:         "overrideText bash mode",
@@ -135,3 +136,72 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// TestHandleInboundMessage_NormalIncludesHint verifies that normal (non-bash) inbound
+// messages include the italic reply hint footer.
+func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
+	fe := &TelegramFrontend{
+		cfg: TelegramConfig{
+			UserNameFn: func() string { return "neil" },
+		},
+		mt: newMessageTracker(),
+	}
+
+	var got string
+	onMessage := func(agentName, text string) { got = text }
+
+	msg := &models.Message{
+		ID:   1,
+		Text: "hello there",
+		From: &models.User{Username: "neil"},
+		Chat: models.Chat{ID: 123},
+	}
+
+	fe.handleInboundMessage(
+		context.Background(), nil, msg,
+		"default", "yuki", "token", "123",
+		onMessage, nil,
+	)
+
+	hint := "<i>--- Reply with: ttal send --to human \"your message\"</i>"
+	if !strings.Contains(got, "[telegram from:neil] hello there") {
+		t.Errorf("expected prefix missing, got %q", got)
+	}
+	if !strings.Contains(got, hint) {
+		t.Errorf("expected italic hint %q missing from %q", hint, got)
+	}
+}
+
+// TestHandleInboundMessage_BashModeNoHint verifies that bash-mode messages do NOT
+// include the reply hint footer.
+func TestHandleInboundMessage_BashModeNoHint(t *testing.T) {
+	fe := &TelegramFrontend{
+		cfg: TelegramConfig{
+			UserNameFn: func() string { return "neil" },
+		},
+		mt: newMessageTracker(),
+	}
+
+	var got string
+	onMessage := func(agentName, text string) { got = text }
+
+	msg := &models.Message{
+		ID:   1,
+		Text: "! ls /tmp",
+		From: &models.User{Username: "neil"},
+		Chat: models.Chat{ID: 123},
+	}
+
+	fe.handleInboundMessage(
+		context.Background(), nil, msg,
+		"default", "yuki", "token", "123",
+		onMessage, nil,
+	)
+
+	if got != "! ls /tmp" {
+		t.Errorf("got %q, want %q", got, "! ls /tmp")
+	}
+	if strings.Contains(got, "ttal send") {
+		t.Errorf("bash mode should not contain hint, got %q", got)
+	}
+}

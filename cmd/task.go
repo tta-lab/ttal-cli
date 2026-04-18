@@ -50,7 +50,7 @@ Useful for piping to agents or debugging task content.
 Examples:
   ttal task get abc12345    # specific task by UUID
   ttal task get             # auto-resolves from session context
-  ttal task get | ttal send --to eve --stdin`,
+  ttal task get | ttal send --to eve`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var uuid string

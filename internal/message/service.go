@@ -139,15 +139,15 @@ func (s *Service) ListAgentFeed(ctx context.Context, userName string, limit, off
 		All(ctx)
 }
 
-// LatestFrom returns the most recent watcher message sent by the given agent in the given team.
-// Only returns ChannelWatcher messages (agent → human via CC JSONL bridge).
+// LatestFrom returns the most recent human-facing message sent by the given agent in the given team.
+// Only returns ChannelCLI messages (agent → human via explicit `ttal send --to human`).
 // Returns (nil, nil) if no message is found.
 func (s *Service) LatestFrom(ctx context.Context, sender, team string) (*ent.Message, error) {
 	msg, err := s.client.Message.Query().
 		Where(
 			entmessage.SenderEQ(sender),
 			entmessage.TeamEQ(team),
-			entmessage.ChannelEQ(entmessage.ChannelWatcher),
+			entmessage.ChannelEQ(entmessage.ChannelCli),
 		).
 		Order(ent.Desc(entmessage.FieldCreatedAt)).
 		Limit(1).

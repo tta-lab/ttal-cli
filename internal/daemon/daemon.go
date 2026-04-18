@@ -117,7 +117,6 @@ func Run() error {
 	startCleanupWatcher(frontends, defaultTeamName, done)
 	startPRWatcher(cfg, frontends, done)
 	startReminderPoller(frontends, done)
-	startWatcher(cfg, frontends, msgSvc, done)
 
 	// Pick a default frontend for HTTP handlers that need one.
 	defaultFE := frontends[defaultTeamName]

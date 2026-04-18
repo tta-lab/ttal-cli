@@ -1,13 +1,37 @@
 ---
 title: Messaging
-description: Telegram bridge and agent communication
+description: Agent-to-human and agent-to-agent messaging via explicit ttal send
 ---
 
-ttal provides bidirectional messaging between humans and agents via Telegram, plus agent-to-agent communication via tmux.
+ttal provides bidirectional messaging between humans and agents via Telegram/Matrix, plus agent-to-agent communication via tmux.
 
-## Telegram bridge
+## Outbound: agent → human
 
-The daemon polls each agent's Telegram bot for incoming messages and delivers them to the agent's tmux session.
+`ttal send --to human "message"` is the **only** way to reach Neil. JSONL session output is private workspace — nothing auto-forwards.
+
+```bash
+# One-liner
+ttal send --to human "done, PR ready"
+
+# Piped stdin (auto-detected)
+echo "check complete" | ttal send --to human
+
+# Multiline via heredoc
+cat <<'ENDBASH' | ttal send --to human
+## Status
+Review complete — 2 findings.
+ENDBASH
+```
+
+Long content: write to flicknote first, then send a one-line pointer:
+```bash
+flicknote add "detailed findings..." --project notes
+ttal send --to human "wrote note: flicknote abc12345"
+```
+
+## Inbound: human → agent
+
+The daemon polls each agent's Telegram bot and Matrix rooms for incoming messages and delivers them to the agent's Claude Code session.
 
 ### Setup
 
@@ -37,11 +61,13 @@ The bot handles transcription, file downloads, and delivers everything to your a
 
 ### Message format
 
-Messages arrive in the agent's terminal with prefixes:
+Inbound messages arrive in the agent's session with prefixes:
 
 ```
 [telegram from:neil]
 Can you check the deployment?
+
+<i>--- Reply with: ttal send --to human "your message"</i>
 ```
 
 ### Interactive questions
@@ -56,8 +82,8 @@ Agents communicate with each other directly via `ttal send`:
 # Send a message to another agent
 ttal send --to athena "Can you research the auth library options?"
 
-# Read from stdin
-echo "Task complete" | ttal send --to kestrel --stdin
+# Piped stdin (auto-detected)
+echo "Task complete" | ttal send --to kestrel
 ```
 
 When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient sees attribution:
@@ -65,11 +91,9 @@ When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient 
 ```
 [agent from:inke]
 The design plan is ready for review.
+
+<i>--- Reply with: ttal send --to inke "your message"</i>
 ```
-
-## Agent to human
-
-Agents don't need to call `ttal send` to reach humans. The daemon's JSONL watcher automatically tails active Claude Code session files and sends assistant text blocks to Telegram. Agents just write normal output — the watcher handles routing.
 
 ## CC control commands
 
@@ -78,5 +102,3 @@ From Telegram, you can send bot commands to control the agent's Claude Code sess
 - `/new` — start a new conversation
 - `/compact` — compact the context
 - `/wait` — pause the agent
-
-These commands appear in Telegram's `/` menu automatically.
