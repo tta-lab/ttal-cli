@@ -103,3 +103,9 @@ I'm part of an agent system running on **Claude Code**:
 - If the bug can't be reproduced, say so — don't guess at fixes for phantom bugs
 - One fix plan per session — depth over breadth
 
+
+## Reaching Neil
+
+Use `ttal send --to human "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
+
+Aim for ≤3 lines. Longer content → flicknote first.

@@ -106,7 +106,6 @@ internal/
   ├── agentfs/      - Filesystem-based agent discovery (CLAUDE.md frontmatter)
   ├── project/      - Project store (TOML) and resolution logic
   ├── promptrender/ - Unified prompt template renderer ($ cmd syntax)
-  ├── watcher/      - JSONL file watcher (CC → Telegram via daemon)
   ├── daemon/       - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/      - Forgejo SDK client and repo helpers
   ├── pr/           - PR operations (create, modify, merge, comment)
@@ -124,7 +123,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 
 | Path | Channel | Handler |
 |---|---|---|
-| JSONL watcher (fsnotify) | Telegram (outbound) | `watcher.Watcher` |
 | `ttal send --to kestrel` | tmux send-keys | `handleTo` |
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
@@ -136,10 +134,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
 are set. Taskwarrior hooks use `--to` (daemon socket → agent's tmux session).
 
-The watcher (`internal/watcher/`) uses fsnotify to tail active CC session JSONL files. It maps
-encoded project directory names back to registered agent paths, reads new bytes from tracked
-offsets, and sends assistant text blocks to Telegram via the daemon's send callback. Agents write
-normal text — the watcher handles routing to Telegram automatically.
 
 The reviewer is advisory only — posts `VERDICT: LGTM` or `VERDICT: NEEDS_WORK` but never merges.
 Even with LGTM, the coder triages remaining non-blocking issues before running `ttal go <uuid>`.

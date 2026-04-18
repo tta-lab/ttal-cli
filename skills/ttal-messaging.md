@@ -27,19 +27,19 @@ ttal send --to 1234abcd:coder "check the failing test in auth_test.go"
 
 Worker sessions require explicit `job_id:agent_name` format. The daemon uses the job_id to find the tmux session and the agent_name as the window target. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
 
-## Read message from stdin
+## Piped stdin (auto-detected, no flag needed)
 
 ```bash
-echo "done" | ttal send --to kestrel --stdin
+echo "done" | ttal send --to kestrel
 ```
 
 For multiline messages with special characters, use heredoc:
 
 ```bash
-cat <<'EOF' | ttal send --to kestrel --stdin
+cat <<'ENDBASH' | ttal send --to kestrel
 ## Status Update
 Auth module review complete. Two issues found:
 1. Token expiry not checked
 2. Missing rate limit
-EOF
+ENDBASH
 ```

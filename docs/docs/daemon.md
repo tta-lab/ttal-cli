@@ -9,7 +9,6 @@ The daemon is a long-running process that acts as the communication hub for your
 
 - **Telegram polling** — polls each agent's Telegram bot for incoming messages
 - **Message delivery** — delivers messages to agent tmux sessions via `send-keys`
-- **JSONL bridge** — tails active Claude Code session files and sends assistant output to Telegram
 - **Cleanup watcher** — processes post-merge cleanup requests (close session, remove worktree, mark task done)
 - **Task routing** — handles `ttal go <uuid>` by advancing tasks through pipeline stages
 

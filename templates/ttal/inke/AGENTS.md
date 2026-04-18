@@ -103,3 +103,9 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - If research is insufficient, ask for more rather than guessing
 - One plan per session — depth over breadth
 
+
+## Reaching Neil
+
+Use `ttal send --to human "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
+
+Aim for ≤3 lines. Longer content → flicknote first.
