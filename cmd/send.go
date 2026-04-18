@@ -45,7 +45,6 @@ Examples:
 			return fmt.Errorf("--to is required\n\n  Example: %s", sendExample)
 		}
 
-		// Auto-detect piped stdin
 		piped, err := readStdinIfPiped()
 		if err != nil {
 			return fmt.Errorf("read stdin: %w", err)
@@ -60,7 +59,12 @@ Examples:
 		case len(args) > 0:
 			message = strings.Join(args, " ")
 		default:
-			return fmt.Errorf("message required (positional argument or piped stdin)\n\n  Example: %s\n  Multiline: cat <<'EOF' | ttal send --to human\n  ## Status\n  ...\n  EOF", sendExample)
+			return fmt.Errorf(
+				"message required (positional argument or piped stdin)\n\n"+
+					"  Example: %s\n"+
+					"  Multiline: cat <<'END' | ttal send --to human\n"+
+					"    ## Status\n    ...\n    END",
+				sendExample)
 		}
 
 		if message == "" {
@@ -69,13 +73,11 @@ Examples:
 
 		from := os.Getenv("TTAL_AGENT_NAME")
 		jobID := os.Getenv("TTAL_JOB_ID")
-		// Workers have both TTAL_AGENT_NAME (e.g. "coder") and TTAL_JOB_ID set.
-		// Construct From as jobID:agentName so the daemon can route replies.
 		if jobID != "" && from != "" {
 			from = jobID + ":" + from
 		}
 		if sendTo == "human" && from == "" {
-			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions")
+			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
 		}
 
 		usage.Log("send", sendTo)

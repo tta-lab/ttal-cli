@@ -221,7 +221,9 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 		return
 	}
 
-	formatted := fmt.Sprintf("[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>", senderName, body)
+	formatted := fmt.Sprintf(
+		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+		senderName, body)
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 
@@ -397,7 +399,9 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		}
 	}
 
-	formatted := fmt.Sprintf("[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>", senderName, rawText)
+	formatted := fmt.Sprintf(
+		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+		senderName, rawText)
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 

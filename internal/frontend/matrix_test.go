@@ -519,7 +519,7 @@ func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
 	var got string
 	fe := &MatrixFrontend{
 		cfg: MatrixConfig{
-			UserNameFn: func() string { return "neil" },
+			UserNameFn: func() string { return testUserName },
 			OnMessage:  func(_, _ string, text string) { got = text },
 		},
 		lastEventID: make(map[string]id.EventID),
@@ -542,7 +542,7 @@ func TestMatrixInbound_BashModeNoHint(t *testing.T) {
 	var got string
 	fe := &MatrixFrontend{
 		cfg: MatrixConfig{
-			UserNameFn: func() string { return "neil" },
+			UserNameFn: func() string { return testUserName },
 			OnMessage:  func(_, _ string, text string) { got = text },
 		},
 		lastEventID: make(map[string]id.EventID),

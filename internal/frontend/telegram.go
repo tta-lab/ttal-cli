@@ -556,7 +556,9 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 
 // formatInboundMessage formats a Telegram message for delivery to the agent.
 func formatInboundMessage(senderName, text string) string {
-	return fmt.Sprintf("[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>", senderName, text)
+	return fmt.Sprintf(
+		"[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+		senderName, text)
 }
 
 // registerBotCommands calls Telegram setMyCommands API for this bot token.
