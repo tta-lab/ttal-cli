@@ -6,8 +6,8 @@ import (
 )
 
 // restoreStdin returns a function to restore os.Stdin to its original value.
-// Call via defer: defer restoreStdin(t, oldStdin)()
-func restoreStdin(t *testing.T, old *os.File) func() {
+// Call via defer: defer restoreStdin(oldStdin)()
+func restoreStdin(old *os.File) func() {
 	return func() {
 		os.Stdin = old
 	}
@@ -19,7 +19,7 @@ func TestReadStdinIfPiped_NonEmpty(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	old := os.Stdin
-	defer restoreStdin(t, old)()
+	defer restoreStdin(old)()
 	os.Stdin = r
 	defer r.Close()
 
@@ -43,7 +43,7 @@ func TestReadStdinIfPiped_Multiline(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	old := os.Stdin
-	defer restoreStdin(t, old)()
+	defer restoreStdin(old)()
 	os.Stdin = r
 	defer r.Close()
 
@@ -67,7 +67,7 @@ func TestReadStdinIfPiped_Empty(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	old := os.Stdin
-	defer restoreStdin(t, old)()
+	defer restoreStdin(old)()
 	os.Stdin = r
 	defer r.Close()
 	w.Close()
@@ -87,7 +87,7 @@ func TestReadStdinIfPiped_TrailingBlanks(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	old := os.Stdin
-	defer restoreStdin(t, old)()
+	defer restoreStdin(old)()
 	os.Stdin = r
 	defer r.Close()
 
