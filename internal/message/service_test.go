@@ -61,7 +61,7 @@ func TestCreateWithRuntime(t *testing.T) {
 		Recipient: "neil",
 		Content:   "done with task",
 		Team:      "default",
-		Channel:   message.ChannelWatcher,
+		Channel:   message.ChannelCLI,
 		Runtime:   &rt,
 	})
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestListConversation(t *testing.T) {
 	})
 	require.NoError(t, err)
 	_, err = svc.Create(ctx, message.CreateParams{
-		Sender: "athena", Recipient: "neil", Content: "hello", Team: "default", Channel: message.ChannelWatcher,
+		Sender: "athena", Recipient: "neil", Content: "hello", Team: "default", Channel: message.ChannelCLI,
 	})
 	require.NoError(t, err)
 	// unrelated message
@@ -161,27 +161,27 @@ func TestLatestFrom(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Agent watcher messages (the ones /save targets)
+	// Agent CLI messages (the ones /save targets)
 	_, err = svc.Create(ctx, message.CreateParams{
 		Sender: "astra", Recipient: "neil", Content: "first message",
-		Team: "default", Channel: message.ChannelWatcher,
+		Team: "default", Channel: message.ChannelCLI,
 	})
 	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond) // ensure distinct created_at for ordering
 	_, err = svc.Create(ctx, message.CreateParams{
 		Sender: "astra", Recipient: "neil", Content: "second message",
-		Team: "default", Channel: message.ChannelWatcher,
+		Team: "default", Channel: message.ChannelCLI,
 	})
 	require.NoError(t, err)
 
 	// Different agent
 	_, err = svc.Create(ctx, message.CreateParams{
 		Sender: "kestrel", Recipient: "neil", Content: "kestrel message",
-		Team: "default", Channel: message.ChannelWatcher,
+		Team: "default", Channel: message.ChannelCLI,
 	})
 	require.NoError(t, err)
 
-	// Should return astra's latest watcher message
+	// Should return astra's latest CLI message
 	msg, err := svc.LatestFrom(ctx, "astra", "default")
 	require.NoError(t, err)
 	require.NotNil(t, msg)
