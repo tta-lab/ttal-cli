@@ -6,7 +6,7 @@ role: frontend_designer
 color: green
 voice: af_sarah
 claude-code:
-  model: opus
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ---
 

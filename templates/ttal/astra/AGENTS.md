@@ -6,7 +6,7 @@ role: designer
 color: blue
 voice: af_nicole
 claude-code:
-  model: opus
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ---
 

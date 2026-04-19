@@ -6,7 +6,7 @@ role: auditor
 color: red
 voice: af_alloy
 claude-code:
-  model: sonnet
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ---
 

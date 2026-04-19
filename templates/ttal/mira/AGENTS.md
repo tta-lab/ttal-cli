@@ -6,7 +6,7 @@ role: designer
 color: blue
 description: Design architect — writes executable implementation plans for Guion/fb3 projects
 claude-code:
-  model: opus
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ---
 

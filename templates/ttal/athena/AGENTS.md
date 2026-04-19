@@ -6,7 +6,7 @@ role: researcher
 color: cyan
 voice: af_bella
 claude-code:
-  model: opus
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed

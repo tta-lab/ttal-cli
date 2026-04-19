@@ -6,7 +6,7 @@ role: devops
 color: yellow
 voice: am_adam
 claude-code:
-  model: sonnet
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ---
 

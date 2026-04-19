@@ -6,7 +6,7 @@ role: creator
 color: magenta
 description: Agent creator — designs new agent identities, handles respawn updates across the team
 claude-code:
-  model: sonnet
+  model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
 ttal:
   model: minimax/MiniMax-M2.5-highspeed
