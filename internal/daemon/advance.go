@@ -122,7 +122,7 @@ func handlePipelineAdvance(
 	agentRoles := buildAgentRoles(teamPath)
 
 	// Only resolve current stage when task is active (started).
-	// When not active, agent tags are routing hints, not stage assignments.
+	// A task with no Start has not entered the pipeline yet — treat as first advance.
 	idx := -1
 	var stage *pipeline.Stage
 	if task.Start != "" {
@@ -552,35 +552,9 @@ var worktreePathFn = worker.WorktreePath
 // Before daemon init, falls back to worker.NotifyTelegram (e.g. in tests).
 var notifyTelegramFn = worker.NotifyTelegram
 
-// pipelineConfig is lazily loaded once per daemon process lifetime.
-var (
-	pipelineConfig    *pipeline.Config
-	pipelineConfigErr error
-)
-
-func getPipelineConfig() (*pipeline.Config, error) {
-	if pipelineConfigErr != nil {
-		log.Printf("[advance] pipeline config unavailable: %v", pipelineConfigErr)
-		return nil, pipelineConfigErr
-	}
-	if pipelineConfig == nil {
-		pipelineConfig, pipelineConfigErr = pipeline.Load(config.DefaultConfigDir())
-		if pipelineConfigErr != nil {
-			log.Printf("[advance] pipeline config unavailable: %v", pipelineConfigErr)
-		}
-	}
-	return pipelineConfig, pipelineConfigErr
-}
-
-// countByOwnerNonWorkerFn counts non-worker active tasks owned by the given agent.
-// Uses the lazily-loaded pipeline config to classify tasks by stage.
-var countByOwnerNonWorkerFn = func(owner string) (int, error) {
-	cfg, err := getPipelineConfig()
-	if err != nil {
-		return 0, err
-	}
-	return pipeline.CountActiveTasksByOwner(cfg, owner)
-}
+// countActiveTasksByOwnerFn returns the number of pending +ACTIVE tasks owned
+// by the given agent. Package-level var for test injection.
+var countActiveTasksByOwnerFn = taskwarrior.CountActiveTasksByOwner
 
 // SetNotifyFn replaces the default notifyTelegramFn with a frontend-backed
 // implementation. Called by daemon.Run() after frontends are built.
@@ -588,53 +562,33 @@ func SetNotifyFn(fn func(string)) {
 	notifyTelegramFn = fn
 }
 
-// resolveHintedAgent checks task tags for a routing hint — a tag matching a known
-// agent name with the required role. Returns the agent if found and idle, nil otherwise.
+// resolveStageAgent returns the agent to route to for this stage.
+// Owner UDA is the sole routing signal — no tag hints consulted.
 //
-// Return contract: nil means "no usable hint" — caller MUST fall back to findIdleAgent.
-// Busy agents return nil (soft fallback with log warning), never an error.
+// Empty owner → findIdleAgent picks a candidate (caller writes owner after).
+// Owner set → validate role match; return owner's AgentInfo.
+// Role mismatch or owner-not-recognized → hard error (no fallback).
 //
-// If multiple tags match agents with the required role, the first match wins.
-// Tag ordering in taskwarrior is not guaranteed, so tasks should have at most
-// one agent hint tag per role.
-func resolveHintedAgent(
-	teamPath string, taskTags []string, requiredRole string, agentRoles map[string]string,
-) *agentfs.AgentInfo {
-	for _, tag := range taskTags {
-		role, isAgent := agentRoles[tag]
-		if !isAgent || role != requiredRole {
-			continue
-		}
-		// Found a hint tag — resolve full agent info.
-		agent, err := agentfs.Get(teamPath, tag)
-		if err != nil {
-			log.Printf("[advance] warning: resolve hinted agent %s: %v", tag, err)
-			return nil
-		}
-		// Check idle/busy using owner-based counting (excludes worker-stage tasks).
-		count, err := countByOwnerNonWorkerFn(tag)
-		if err != nil {
-			log.Printf("[advance] warning: check idle for hinted agent %s: %v", tag, err)
-			return nil
-		}
-		if count > 0 {
-			log.Printf("[advance] hinted agent %s is busy (%d active tasks), falling back to role-based routing", tag, count)
-			return nil
-		}
-		log.Printf("[advance] routing to hinted agent %s (role: %s)", tag, requiredRole)
-		return agent
-	}
-	return nil
-}
-
-// resolveStageAgent returns the agent to route to: hinted agent if idle, else any idle agent with the role.
+// No busy check in the owner branch: route-back to an existing owner is not
+// a new assignment. Busy invariant is enforced where owner is written
+// (findIdleAgent + ensureWorkerStageOwner).
 func resolveStageAgent(
-	teamPath string, taskTags []string, assignee string, agentRoles map[string]string,
+	teamPath, taskOwner, assignee string, agentRoles map[string]string,
 ) (*agentfs.AgentInfo, error) {
-	if hinted := resolveHintedAgent(teamPath, taskTags, assignee, agentRoles); hinted != nil {
-		return hinted, nil
+	if taskOwner == "" {
+		return findIdleAgent(teamPath, assignee)
 	}
-	return findIdleAgent(teamPath, assignee)
+	ownerRole, ok := agentRoles[taskOwner]
+	if !ok {
+		return nil, fmt.Errorf("task owner %q is not a recognized agent in this team", taskOwner)
+	}
+	if ownerRole != assignee {
+		return nil, fmt.Errorf(
+			"task owner %q has role %q, but this stage requires role %q — pipeline role mismatch",
+			taskOwner, ownerRole, assignee,
+		)
+	}
+	return agentfs.Get(teamPath, taskOwner)
 }
 
 // isWorkerStage returns true if the stage should be handled as a worker spawn.
@@ -767,12 +721,12 @@ func advanceToStage(
 		return nil
 	}
 
-	// Agent stage: check for routing hint, then fall back to role-based routing.
-	agent, err := resolveStageAgent(teamPath, task.Tags, stage.Assignee, agentRoles)
+	// Agent stage: route by owner UDA (empty → findIdleAgent picks, non-empty → must match role).
+	agent, err := resolveStageAgent(teamPath, task.Owner, stage.Assignee, agentRoles)
 	if err != nil {
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
-			Message: fmt.Sprintf("find idle agent for role %q: %v", stage.Assignee, err),
+			Message: fmt.Sprintf("resolve agent for stage %q: %v", stage.Name, err),
 		})
 		return err
 	}
@@ -850,7 +804,7 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 
 	var queryErrors []string
 	for i := range agents {
-		count, err := countByOwnerNonWorkerFn(agents[i].Name)
+		count, err := countActiveTasksByOwnerFn(agents[i].Name)
 		if err != nil {
 			queryErrors = append(queryErrors, fmt.Sprintf("%s: %v", agents[i].Name, err))
 			continue
