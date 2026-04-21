@@ -132,7 +132,10 @@ Examples:
 				if assignee == "" {
 					assignee = "coder"
 				}
-				worktree, _ := worker.WorktreePath(ctx.Task.UUID, ctx.Task.Project)
+				worktree, err := worker.WorktreePath(ctx.Task.UUID, ctx.Task.Project)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: could not resolve worktree path for task %s: %v\n", ctx.Task.HexID(), err)
+				}
 				msg := pr.BuildOwnerReviewMessage(prResp.PRIndex, prResp.PRURL, title, worktree, ctx.Task.HexID(), assignee)
 				if err := daemon.Send(daemon.SendRequest{From: "system", To: owner, Message: msg}); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: owner-review notification failed: %v\n", err)
