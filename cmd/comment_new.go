@@ -34,7 +34,7 @@ func formatCommentTime(raw string) string {
 
 // resolveCurrentTask returns the task UUID for the current context.
 // Worker plane: TTAL_JOB_ID → session lookup.
-// Manager plane: TTAL_AGENT_NAME → active task with +<agent> tag.
+// Manager plane: TTAL_AGENT_NAME → active task owned by the agent.
 func resolveCurrentTask() (string, error) {
 	if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
 		task, pendingErr := taskwarrior.ExportTaskByHexID(jobID, "pending")
