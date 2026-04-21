@@ -1,9 +1,9 @@
 ---
 title: PR Review Workflow
-description: Autonomous PR creation, review, and merge pipeline
+description: Owner-first PR review with optional specialized reviewer run
 ---
 
-ttal supports an autonomous PR workflow where agents implement features, create PRs, get automated reviews, triage feedback, and merge — all auditable on the PR page.
+ttal supports an owner-first PR workflow where the task owner reviews before specialized reviewers engage.
 
 ## The pipeline
 
@@ -12,11 +12,17 @@ Worker implements task
     ↓
 ttal pr create "feat: add auth"
     ↓
-6 specialized review agents post comments
+Owner notified via ttal send
     ↓
-Worker triages review feedback
+Owner runs skill get sp-review-against-plan
     ↓
-ttal go <uuid> (or approve from Telegram)
+Owner verdict:
+  LGTM      → ttal go <uuid>
+              ↓
+              pr-review-lead spawns for specialized review pass
+  NEED_WORK → ttal send --to <uuid>:coder (blockers)
+              ↓
+              Worker fixes, owner re-reviews
 ```
 
 ## Creating PRs
@@ -33,9 +39,20 @@ ttal pr create "fix: timeout bug" --body "Fixes #42"
 
 The PR context is auto-resolved from the worker's environment: `TTAL_JOB_ID` → task UUID → project path → git remote.
 
-## Automated review
+## Owner review
 
-When a PR is created, specialized review agents analyze the code and post comments directly on the PR:
+When a PR is created, the task owner receives a notification via `ttal send` containing the PR URL, worktree path, and review instructions.
+
+The owner reviews using the `sp-review-against-plan` skill:
+- **In-scope + done** ✓ — no action needed
+- **In-scope + undone** 🔴 — **always blocking**, sends feedback to worker
+- **Cosmetic + no value** ⚪ — not mentioned
+
+LGTM advances the pipeline (`ttal go <uuid>`), which spawns the specialized reviewer pass. NEED_WORK sends blockers directly to the worker via `ttal send`.
+
+## Specialized review
+
+When the owner fires `ttal go <uuid>`, pr-review-lead spawns 6 specialized agents:
 
 1. **Code reviewer** — general quality, style, best practices
 2. **Silent failure hunter** — catch blocks, error suppression, missing error handling
@@ -77,16 +94,8 @@ ttal comment list
 ## Approving from Telegram
 
 You can monitor the entire PR lifecycle from Telegram:
-- Get notified when PRs are created
+- Get notified when PRs are created (owner receives `ttal send`)
 - Read review verdicts
 - Send merge approval
 
 The worker handles the actual merge command — you just give the green light from your phone.
-
-## What makes this different
-
-Most coding agent projects stop at "agent wrote some code." ttal's PR workflow means:
-- Every implementation is a PR with a structured description
-- Every PR gets automated review from 6 specialized agents
-- All review findings and fixes are documented on the PR page
-- The entire journey from task → implementation → review → merge is auditable
