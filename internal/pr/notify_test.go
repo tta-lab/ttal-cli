@@ -7,15 +7,15 @@ import (
 
 func TestBuildOwnerReviewMessage(t *testing.T) {
 	tests := []struct {
-		name      string
-		prNum     int64
-		prURL     string
-		title     string
-		worktree  string
-		hex       string
-		assignee  string
-		checks    []string // substrings that must appear
-		absences  []string // substrings that must NOT appear
+		name     string
+		prNum    int64
+		prURL    string
+		title    string
+		worktree string
+		hex      string
+		assignee string
+		checks   []string // substrings that must appear
+		absences []string // substrings that must NOT appear
 	}{
 		{
 			name:     "happy path",
