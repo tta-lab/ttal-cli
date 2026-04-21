@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,7 +97,6 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 			}
 		}
 		pullMainBranch(gitRoot, task.Project)
-		deleteTaskPlans(task.Annotations)
 		return &CloseResult{
 			Cleaned:   true,
 			Forced:    true,
@@ -133,7 +131,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	return closeWithPR(
 		task.UUID, task.PRID, task.Project,
 		gitRoot, sessionName, workDir, branch,
-		worktreeExists, task.Annotations,
+		worktreeExists,
 	)
 }
 
@@ -155,7 +153,6 @@ func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*
 	if err := taskwarrior.MarkDone(task.UUID); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to mark task done %s: %v\n", task.UUID, err)
 	}
-	deleteTaskPlans(task.Annotations)
 	return &CloseResult{
 		Cleaned: true,
 		Status:  fmt.Sprintf("Worker cleaned up (project %q unresolvable — skipped PR check and git cleanup)", task.Project),
@@ -165,7 +162,7 @@ func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*
 // closeWithPR handles the smart-close path when a PR exists.
 func closeWithPR(
 	taskUUID, prIDStr, projectAlias, gitRoot, sessionName, workDir, branch string,
-	worktreeExists bool, annotations []taskwarrior.Annotation,
+	worktreeExists bool,
 ) (*CloseResult, error) {
 	pridInfo, err := taskwarrior.ParsePRID(prIDStr)
 	if err != nil {
@@ -225,7 +222,6 @@ func closeWithPR(
 			}
 		}
 		pullMainBranch(gitRoot, projectAlias)
-		deleteTaskPlans(annotations)
 		return &CloseResult{
 			Cleaned: true,
 			Status:  "Worker cleaned up (PR merged, worktree clean)",
@@ -260,43 +256,6 @@ func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
 	}
 
 	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
-}
-
-// deleteTaskPlans deletes flicknote plan/design notes referenced in a task's
-// annotations. Best-effort: failures are logged but never returned.
-// Called after successful cleanup so plan notes don't linger after PR merges.
-func deleteTaskPlans(annotations []taskwarrior.Annotation) {
-	if len(annotations) == 0 {
-		return
-	}
-
-	inlineProjects := taskwarrior.LoadInlineProjects()
-
-	for _, ann := range annotations {
-		m := taskwarrior.HexIDPattern.FindStringSubmatch(ann.Description)
-		if len(m) == 0 {
-			continue
-		}
-		hexID := m[1]
-
-		note := taskwarrior.ReadFlicknoteJSON(hexID)
-		if note == nil {
-			log.Printf("[archive] flicknote %s not found or not readable — skipping", hexID)
-			continue
-		}
-		if !taskwarrior.ShouldInlineNote(note, inlineProjects) {
-			continue
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cmd := exec.CommandContext(ctx, "flicknote", "delete", hexID)
-		if err := cmd.Run(); err != nil {
-			log.Printf("[archive] warning: failed to delete flicknote %s: %v", hexID, err)
-		} else {
-			log.Printf("[archive] deleted plan note: %s", hexID)
-		}
-		cancel()
-	}
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.
