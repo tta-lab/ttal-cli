@@ -47,4 +47,3 @@ func HookOnAdd() {
 
 	writeTask(task)
 }
-
