@@ -330,7 +330,6 @@ skills/                - Skill directories (each has SKILL.md)
 - `README.md` - User-facing documentation and usage
 - `CI_CD_SETUP.md` - CI/CD pipeline documentation
 - `TESTING.md` - Testing guidelines
-- `docs/plans/2026-02-17-daemon-design.md` - Daemon design doc (see implementation note at top for API changes)
 - `docs/TELEGRAM_LIB_DECISION.md` - Why we chose go-telegram/bot
 - `docs/ECOSYSTEM.md` - GuionAI ecosystem overview (FlickNote + TTAL)
 - `docs/AIOPS.md` - AIOps system overview and stack

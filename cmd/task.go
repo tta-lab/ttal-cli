@@ -42,7 +42,7 @@ var taskGetCmd = &cobra.Command{
 If a UUID is provided as an argument, that task is used directly.
 Otherwise the task is auto-resolved from the session context:
   - Worker sessions: TTAL_JOB_ID
-  - Agent sessions: TTAL_AGENT_NAME → active task with matching tag
+  - Agent sessions: TTAL_AGENT_NAME → active task owned by the agent
 
 Includes description, annotations, and inlined referenced documentation.
 Useful for piping to agents or debugging task content.

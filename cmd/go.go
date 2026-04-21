@@ -23,7 +23,7 @@ Human gate stages block until Telegram approval is received.
 
 If no UUID is provided, resolves the current task from:
   - TTAL_JOB_ID (worker sessions)
-  - TTAL_AGENT_NAME (manager sessions — active task with matching tag)
+  - TTAL_AGENT_NAME (manager sessions — active task owned by the agent)
 
 Examples:
   ttal go abc12345
