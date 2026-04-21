@@ -48,11 +48,7 @@ func resolveCurrentTask() (string, error) {
 		return task.UUID, nil
 	}
 	if agent := os.Getenv("TTAL_AGENT_NAME"); agent != "" {
-		cfg, err := pipeline.Load(config.DefaultConfigDir())
-		if err != nil {
-			return "", fmt.Errorf("load pipeline config: %w", err)
-		}
-		tasks, err := pipeline.ActiveTasksByOwner(cfg, agent)
+		tasks, err := taskwarrior.ActiveTasksByOwner(agent)
 		if err != nil {
 			return "", fmt.Errorf("task lookup failed: %w", err)
 		}

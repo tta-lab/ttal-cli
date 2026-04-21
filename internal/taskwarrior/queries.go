@@ -99,6 +99,33 @@ func GetTasksWithOwner() ([]Task, error) {
 	return tasks, nil
 }
 
+// exportTasksByFilterFn is the indirection used by ActiveTasksByOwner
+// so tests can inject a fake without touching real taskwarrior.
+// Package-level var for test injection.
+var exportTasksByFilterFn = ExportTasksByFilter
+
+// ActiveTasksByOwner returns pending +ACTIVE tasks owned by the given agent.
+// Uniform busy rule: any such task means the agent is busy (no stage filtering).
+// This intentionally excludes no task type — worker-stage tasks owned by a manager
+// count toward busy quota under the serial-agent model (one active task at a time).
+func ActiveTasksByOwner(owner string) ([]Task, error) {
+	tasks, err := exportTasksByFilterFn("status:pending", "+ACTIVE", "owner:"+owner)
+	if err != nil {
+		return nil, fmt.Errorf("query active tasks for owner %q: %w", owner, err)
+	}
+	return tasks, nil
+}
+
+// CountActiveTasksByOwner is a thin wrapper returning the count only.
+// Used as a busy precondition at owner-write sites.
+func CountActiveTasksByOwner(owner string) (int, error) {
+	tasks, err := ActiveTasksByOwner(owner)
+	if err != nil {
+		return 0, err
+	}
+	return len(tasks), nil
+}
+
 func GetProjects() ([]string, error) {
 	out, err := runTask("_projects")
 	if err != nil {

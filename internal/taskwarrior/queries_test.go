@@ -1,6 +1,8 @@
 package taskwarrior
 
 import (
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +19,57 @@ func TestSortByPosition(t *testing.T) {
 	assert.Equal(t, "first", tasks[0].Description)
 	assert.Equal(t, "second", tasks[1].Description)
 	assert.Equal(t, "third", tasks[2].Description)
+}
+
+func TestActiveTasksByOwner_PassesFilterArgs(t *testing.T) {
+	var gotArgs []string
+	orig := exportTasksByFilterFn
+	exportTasksByFilterFn = func(args ...string) ([]Task, error) {
+		gotArgs = args
+		return []Task{{UUID: "t1"}}, nil
+	}
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	tasks, err := ActiveTasksByOwner("inke")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Errorf("expected 1 task, got %d", len(tasks))
+	}
+	want := []string{"status:pending", "+ACTIVE", "owner:inke"}
+	if !slices.Equal(gotArgs, want) {
+		t.Errorf("filter args = %v, want %v", gotArgs, want)
+	}
+}
+
+func TestCountActiveTasksByOwner_ReturnsLen(t *testing.T) {
+	orig := exportTasksByFilterFn
+	exportTasksByFilterFn = func(args ...string) ([]Task, error) {
+		return []Task{{UUID: "t1"}, {UUID: "t2"}, {UUID: "t3"}}, nil
+	}
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	count, err := CountActiveTasksByOwner("inke")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("count = %d, want 3", count)
+	}
+}
+
+func TestCountActiveTasksByOwner_PropagatesError(t *testing.T) {
+	orig := exportTasksByFilterFn
+	exportTasksByFilterFn = func(args ...string) ([]Task, error) {
+		return nil, fmt.Errorf("boom")
+	}
+	t.Cleanup(func() { exportTasksByFilterFn = orig })
+
+	_, err := CountActiveTasksByOwner("inke")
+	if err == nil {
+		t.Fatal("expected error to propagate")
+	}
 }
 
 func TestSortByPosition_Empty(t *testing.T) {

@@ -143,78 +143,6 @@ func TestHasTag(t *testing.T) {
 	}
 }
 
-// TestResolveHintedAgent_HappyPath verifies that a matching idle agent is returned.
-func TestResolveHintedAgent_HappyPath(t *testing.T) {
-	dir := t.TempDir()
-	agentMD := "---\nrole: designer\n---\n# Inke\n"
-	os.MkdirAll(filepath.Join(dir, testAgentInke), 0o755) //nolint:errcheck
-	if err := os.WriteFile(filepath.Join(dir, testAgentInke, "AGENTS.md"), []byte(agentMD), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	agentRoles := map[string]string{testAgentInke: "designer"}
-
-	orig := countByOwnerNonWorkerFn
-	countByOwnerNonWorkerFn = func(owner string) (int, error) { return 0, nil }
-	defer func() { countByOwnerNonWorkerFn = orig }()
-
-	got := resolveHintedAgent(dir, []string{"brainstorm", testAgentInke}, "designer", agentRoles)
-	if got == nil {
-		t.Fatal("expected hinted agent, got nil")
-	}
-	if got.Name != testAgentInke {
-		t.Errorf("expected agent name %q, got %q", testAgentInke, got.Name)
-	}
-}
-
-// TestResolveHintedAgent_BusyFallback verifies nil is returned when hinted agent is busy.
-func TestResolveHintedAgent_BusyFallback(t *testing.T) {
-	dir := t.TempDir()
-	agentMD := "---\nrole: designer\n---\n# Inke\n"
-	os.MkdirAll(filepath.Join(dir, testAgentInke), 0o755) //nolint:errcheck
-	if err := os.WriteFile(filepath.Join(dir, testAgentInke, "AGENTS.md"), []byte(agentMD), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	agentRoles := map[string]string{testAgentInke: "designer"}
-
-	orig := countByOwnerNonWorkerFn
-	countByOwnerNonWorkerFn = func(owner string) (int, error) { return 1, nil }
-	defer func() { countByOwnerNonWorkerFn = orig }()
-
-	got := resolveHintedAgent(dir, []string{"brainstorm", testAgentInke}, "designer", agentRoles)
-	if got != nil {
-		t.Errorf("expected nil for busy agent, got %v", got)
-	}
-}
-
-// TestResolveHintedAgent_WrongRole verifies hints are ignored when role doesn't match.
-func TestResolveHintedAgent_WrongRole(t *testing.T) {
-	dir := t.TempDir()
-	agentRoles := map[string]string{"athena": "researcher"}
-	got := resolveHintedAgent(dir, []string{"brainstorm", "athena"}, "designer", agentRoles)
-	if got != nil {
-		t.Errorf("expected nil for wrong-role hint, got %v", got)
-	}
-}
-
-// TestResolveHintedAgent_NoHintTag verifies nil when no tag matches an agent.
-func TestResolveHintedAgent_NoHintTag(t *testing.T) {
-	dir := t.TempDir()
-	agentRoles := map[string]string{testAgentInke: "designer"}
-	got := resolveHintedAgent(dir, []string{"brainstorm", "feature"}, "designer", agentRoles)
-	if got != nil {
-		t.Errorf("expected nil when no hint tag, got %v", got)
-	}
-}
-
-// TestResolveHintedAgent_EmptyTeamPath verifies graceful nil return.
-func TestResolveHintedAgent_EmptyTeamPath(t *testing.T) {
-	agentRoles := map[string]string{testAgentInke: "designer"}
-	got := resolveHintedAgent("", []string{testAgentInke}, "designer", agentRoles)
-	if got != nil {
-		t.Errorf("expected nil for empty teamPath, got %v", got)
-	}
-}
-
 // TestCheckCallerPastStage_Rejected verifies rejection when caller's stage is already past.
 func TestCheckCallerPastStage_Rejected(t *testing.T) {
 	p := &pipeline.Pipeline{
@@ -696,6 +624,10 @@ func TestEnsureWorkerStageOwner_WriteOnceGuard(t *testing.T) {
 // TestAdvance_WorkerStageFromUnowned_SetsOwner verifies that setOwnerFn IS called
 // with the caller when an unowned task routes to a worker stage (e.g. hotfix).
 func TestEnsureWorkerStageOwner_SetsOwnerForUnownedTask(t *testing.T) {
+	origCount := countActiveTasksByOwnerFn
+	countActiveTasksByOwnerFn = func(string) (int, error) { return 0, nil }
+	t.Cleanup(func() { countActiveTasksByOwnerFn = origCount })
+
 	var capturedOwner string
 	orig := setOwnerFn
 	setOwnerFn = func(uuid, owner string) error {
@@ -730,5 +662,152 @@ func TestEnsureWorkerStageOwner_SkipsOwnedTask(t *testing.T) {
 	}
 	if called {
 		t.Error("setOwnerFn should not be called for already-owned task")
+	}
+}
+
+// TestResolveStageAgent_OwnerEmpty_PicksIdleAgent verifies that with no owner set,
+// findIdleAgent is called to pick an idle agent.
+func TestResolveStageAgent_OwnerEmpty_PicksIdleAgent(t *testing.T) {
+	dir := t.TempDir()
+	agentMD := "---\nrole: designer\n---\n# Inke\n"
+	os.MkdirAll(filepath.Join(dir, testAgentInke), 0o755) //nolint:errcheck
+	if err := os.WriteFile(filepath.Join(dir, testAgentInke, "AGENTS.md"), []byte(agentMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origCount := countActiveTasksByOwnerFn
+	countActiveTasksByOwnerFn = func(string) (int, error) { return 0, nil }
+	t.Cleanup(func() { countActiveTasksByOwnerFn = origCount })
+
+	agentRoles := map[string]string{testAgentInke: "designer"}
+	agent, err := resolveStageAgent(dir, "", "designer", agentRoles)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if agent.Name != testAgentInke {
+		t.Errorf("expected agent %q, got %q", testAgentInke, agent.Name)
+	}
+}
+
+// TestResolveStageAgent_OwnerSet_RoleMatches verifies that with a set owner whose role
+// matches, the owner agent is returned WITHOUT consulting the busy check.
+func TestResolveStageAgent_OwnerSet_RoleMatches(t *testing.T) {
+	dir := t.TempDir()
+	agentMD := "---\nrole: designer\n---\n# Inke\n"
+	os.MkdirAll(filepath.Join(dir, testAgentInke), 0o755) //nolint:errcheck
+	if err := os.WriteFile(filepath.Join(dir, testAgentInke, "AGENTS.md"), []byte(agentMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// If countActiveTasksByOwnerFn is called, fail the test — owner branch must skip busy check.
+	countActiveTasksByOwnerFn = func(string) (int, error) {
+		t.Fatal("countActiveTasksByOwnerFn should not be called for set owner")
+		return 0, nil
+	}
+	t.Cleanup(func() { countActiveTasksByOwnerFn = func(string) (int, error) { return 0, nil } })
+
+	agentRoles := map[string]string{testAgentInke: "designer"}
+	agent, err := resolveStageAgent(dir, testAgentInke, "designer", agentRoles)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if agent.Name != testAgentInke {
+		t.Errorf("expected agent %q, got %q", testAgentInke, agent.Name)
+	}
+}
+
+// TestResolveStageAgent_OwnerSet_RoleMismatch_Errors verifies that a set owner with a
+// mismatched role returns a hard error, not a fallback.
+func TestResolveStageAgent_OwnerSet_RoleMismatch_Errors(t *testing.T) {
+	agentRoles := map[string]string{testAgentInke: "designer"}
+	_, err := resolveStageAgent("/tmp", testAgentInke, "coder", agentRoles)
+	if err == nil {
+		t.Fatal("expected error for role mismatch, got nil")
+	}
+}
+
+// TestResolveStageAgent_OwnerNotRecognized_Errors verifies that an unknown owner returns
+// a hard error.
+func TestResolveStageAgent_OwnerNotRecognized_Errors(t *testing.T) {
+	agentRoles := map[string]string{testAgentInke: "designer"}
+	_, err := resolveStageAgent("/tmp", "unknown-agent", "designer", agentRoles)
+	if err == nil {
+		t.Fatal("expected error for unrecognized owner, got nil")
+	}
+}
+
+// TestEnsureWorkerStageOwner_CallerBusy_Rejects verifies that a busy caller is rejected
+// and setOwnerFn is NOT called.
+func TestEnsureWorkerStageOwner_CallerBusy_Rejects(t *testing.T) {
+	origCount := countActiveTasksByOwnerFn
+	countActiveTasksByOwnerFn = func(owner string) (int, error) {
+		if owner == "yuki" {
+			return 1, nil
+		}
+		return 0, nil
+	}
+	t.Cleanup(func() { countActiveTasksByOwnerFn = origCount })
+
+	var setCalled bool
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		setCalled = true
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+
+	task := &taskwarrior.Task{UUID: "aaaa0001", Owner: ""}
+	err := ensureWorkerStageOwner(task, "yuki", "Implement")
+	if err == nil {
+		t.Fatal("expected error for busy caller, got nil")
+	}
+	if setCalled {
+		t.Error("setOwnerFn should not be called for busy caller")
+	}
+}
+
+// TestEnsureWorkerStageOwner_CallerIdle_SetsOwner verifies that an idle caller
+// successfully acquires ownership.
+func TestEnsureWorkerStageOwner_CallerIdle_SetsOwner(t *testing.T) {
+	origCount := countActiveTasksByOwnerFn
+	countActiveTasksByOwnerFn = func(string) (int, error) { return 0, nil }
+	t.Cleanup(func() { countActiveTasksByOwnerFn = origCount })
+
+	var capturedOwner string
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		capturedOwner = owner
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+
+	task := &taskwarrior.Task{UUID: "aaaa0001", Owner: ""}
+	err := ensureWorkerStageOwner(task, "yuki", "Implement")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedOwner != "yuki" {
+		t.Errorf("capturedOwner = %q, want %q", capturedOwner, "yuki")
+	}
+}
+
+// TestEnsureWorkerStageOwner_EmptyCaller_Skips verifies that an empty callerAgent
+// skips ownership write without error.
+func TestEnsureWorkerStageOwner_EmptyCaller_Skips(t *testing.T) {
+	var called bool
+	orig := setOwnerFn
+	setOwnerFn = func(uuid, owner string) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { setOwnerFn = orig })
+
+	task := &taskwarrior.Task{UUID: "aaaa0001", Owner: ""}
+	err := ensureWorkerStageOwner(task, "", "Implement")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if called {
+		t.Error("setOwnerFn should not be called for empty callerAgent")
 	}
 }
