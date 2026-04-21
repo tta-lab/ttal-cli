@@ -2,6 +2,7 @@ package taskwarrior
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,7 @@ func TestActiveTasksByOwner_PassesFilterArgs(t *testing.T) {
 		t.Errorf("expected 1 task, got %d", len(tasks))
 	}
 	want := []string{"status:pending", "+ACTIVE", "owner:inke"}
-	if !slicesEqual(gotArgs, want) {
+	if !slices.Equal(gotArgs, want) {
 		t.Errorf("filter args = %v, want %v", gotArgs, want)
 	}
 }
@@ -69,18 +70,6 @@ func TestCountActiveTasksByOwner_PropagatesError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error to propagate")
 	}
-}
-
-func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func TestSortByPosition_Empty(t *testing.T) {

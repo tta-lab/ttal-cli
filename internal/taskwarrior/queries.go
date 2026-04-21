@@ -106,6 +106,8 @@ var exportTasksByFilterFn = ExportTasksByFilter
 
 // ActiveTasksByOwner returns pending +ACTIVE tasks owned by the given agent.
 // Uniform busy rule: any such task means the agent is busy (no stage filtering).
+// This intentionally excludes no task type — worker-stage tasks owned by a manager
+// count toward busy quota under the serial-agent model (one active task at a time).
 func ActiveTasksByOwner(owner string) ([]Task, error) {
 	tasks, err := exportTasksByFilterFn("status:pending", "+ACTIVE", "owner:"+owner)
 	if err != nil {
