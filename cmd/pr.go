@@ -11,7 +11,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/pr"
-	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
@@ -121,21 +120,25 @@ Examples:
 			fmt.Fprintf(os.Stderr, "warning: notification failed: %v\n", err)
 		}
 
-		// Auto-advance pipeline — triggers daemon to spawn PR reviewer.
+		// Notify the task owner so they can review the PR against their plan.
+		// Owner decides when to advance via `ttal go <hex>` (which spawns pr-review-lead).
 		if ctx.Task.UUID != "" {
-			sessionName, _ := review.ResolveSessionName()
-			advResp, advErr := daemon.AdvanceClient(daemon.AdvanceRequest{
-				TaskUUID:    ctx.Task.UUID,
-				AgentName:   os.Getenv("TTAL_AGENT_NAME"),
-				SessionName: sessionName,
-				WorkDir:     workDir,
-			})
-			if advErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: auto-spawn reviewer failed: %v\n", advErr)
-			} else if advResp.Status == daemon.AdvanceStatusAdvanced {
-				fmt.Printf("  Spawning reviewer...\n")
+			// ctx.Task.Owner is the taskwarrior Owner UDA (distinct from ctx.Owner, the repo owner).
+			owner := ctx.Task.Owner
+			if owner == "" {
+				fmt.Fprintf(os.Stderr, "warning: task %s has no owner — skipping owner-review notification\n", ctx.Task.HexID())
 			} else {
-				fmt.Printf("  Pipeline: %s\n", advResp.Status)
+				assignee := os.Getenv("TTAL_AGENT_NAME")
+				if assignee == "" {
+					assignee = "coder"
+				}
+				worktree, _ := worker.WorktreePath(ctx.Task.UUID, ctx.Task.Project)
+				msg := pr.BuildOwnerReviewMessage(prResp.PRIndex, prResp.PRURL, title, worktree, ctx.Task.HexID(), assignee)
+				if err := daemon.Send(daemon.SendRequest{From: "system", To: owner, Message: msg}); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: owner-review notification failed: %v\n", err)
+				} else {
+					fmt.Printf("  Notified %s for review.\n", owner)
+				}
 			}
 		}
 
