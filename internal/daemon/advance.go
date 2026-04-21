@@ -645,6 +645,22 @@ func ensureWorkerStageOwner(task *taskwarrior.Task, callerAgent, stageName strin
 	if task.Owner != "" {
 		return nil
 	}
+	if callerAgent == "" {
+		// No attributable caller (non-agent CLI invocation). Skip owner write — the
+		// task remains unowned and any later advance through a manager stage will
+		// assign an owner via findIdleAgent.
+		return nil
+	}
+	count, err := countActiveTasksByOwnerFn(callerAgent)
+	if err != nil {
+		return fmt.Errorf("check busy for %s: %w", callerAgent, err)
+	}
+	if count > 0 {
+		return fmt.Errorf(
+			"agent %q already owns %d active task(s) — finish or release before dispatching another",
+			callerAgent, count,
+		)
+	}
 	if err := setOwnerFn(task.UUID, callerAgent); err != nil {
 		log.Printf("[advance] error: set owner: %v", err)
 		return fmt.Errorf("set owner: %w", err)

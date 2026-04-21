@@ -624,6 +624,10 @@ func TestEnsureWorkerStageOwner_WriteOnceGuard(t *testing.T) {
 // TestAdvance_WorkerStageFromUnowned_SetsOwner verifies that setOwnerFn IS called
 // with the caller when an unowned task routes to a worker stage (e.g. hotfix).
 func TestEnsureWorkerStageOwner_SetsOwnerForUnownedTask(t *testing.T) {
+	origCount := countActiveTasksByOwnerFn
+	countActiveTasksByOwnerFn = func(string) (int, error) { return 0, nil }
+	t.Cleanup(func() { countActiveTasksByOwnerFn = origCount })
+
 	var capturedOwner string
 	orig := setOwnerFn
 	setOwnerFn = func(uuid, owner string) error {
