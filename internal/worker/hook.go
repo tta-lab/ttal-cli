@@ -72,22 +72,6 @@ func (t hookTask) Start() string {
 	return v
 }
 
-// SetTag appends a tag to the task if not already present.
-func (t hookTask) SetTag(tag string) {
-	for _, existing := range t.Tags() {
-		if existing == tag {
-			return
-		}
-	}
-	raw, _ := t["tags"].([]any)
-	t["tags"] = append(raw, tag)
-}
-
-// SetStart sets the task start timestamp to now (taskwarrior format).
-func (t hookTask) SetStart() {
-	t["start"] = time.Now().UTC().Format("20060102T150405Z")
-}
-
 // readHookInput reads original and modified task JSON from stdin (taskwarrior on-modify protocol).
 // On failure, rawModified contains the raw modified line (if read) so the caller can echo it
 // back to stdout — taskwarrior expects the modified task on stdout even if the hook fails.
