@@ -121,7 +121,7 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Just output text naturally. The bridge picks up your response and delivers it to Telegram automatically. Don't use `ttal send` for this.
+**Replying to humans (Telegram):** Use `ttal send --to human "message"` — this is the only path to Telegram. Don't just output text naturally; the bridge does not auto-forward session output.
 
 **Sending to another agent:**
 ```bash
