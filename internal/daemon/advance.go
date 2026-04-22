@@ -154,7 +154,7 @@ func handlePipelineAdvance(
 	}
 
 	// Guard: reject manager-plane agents whose stage is already complete.
-	if checkCallerPastStage(w, p, idx, req.AgentName, agentRoles, task.UUID, task.Tags) {
+	if checkCallerPastStage(w, p, idx, req.AgentName, agentRoles, task) {
 		return
 	}
 
@@ -426,10 +426,15 @@ func checkCallerPastStage(
 	currentIdx int,
 	callerAgent string,
 	agentRoles map[string]string,
-	taskUUID string,
-	taskTags []string,
+	task *taskwarrior.Task,
 ) bool {
 	if callerAgent == "" {
+		return false
+	}
+	// Owner always retains advance authority over their own task, even if the task has
+	// moved past the stage their role originally handled (e.g. lux advancing Implement→PR-review
+	// on a fix they designed). Stage-index comparison is only meaningful for non-owner agents.
+	if task.Owner == callerAgent {
 		return false
 	}
 	callerRole, ok := agentRoles[callerAgent]
@@ -444,7 +449,7 @@ func checkCallerPastStage(
 		return false
 	}
 	// The current stage is already approved — let processStageAdvance → handlePipelineComplete handle it.
-	if hasTag(taskTags, p.Stages[currentIdx].StageLGTMTag()) {
+	if hasTag(task.Tags, p.Stages[currentIdx].StageLGTMTag()) {
 		return false
 	}
 	callerStageName := p.Stages[callerIdx].Name
@@ -452,7 +457,7 @@ func checkCallerPastStage(
 	writeHTTPJSON(w, http.StatusOK, AdvanceResponse{
 		Status: AdvanceStatusRejected,
 		Message: fmt.Sprintf("Task %s is already at stage %s — your stage (%s) is complete. No action needed.",
-			taskUUID, currentStageName, callerStageName),
+			task.UUID, currentStageName, callerStageName),
 	})
 	return true
 }

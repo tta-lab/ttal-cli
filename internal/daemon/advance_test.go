@@ -154,9 +154,10 @@ func TestCheckCallerPastStage_Rejected(t *testing.T) {
 	}
 	// Caller is "kestrel" with role "fixer" (stage 0), task is at stage 1 (Implement)
 	agentRoles := map[string]string{"kestrel": "fixer"}
+	task := &taskwarrior.Task{UUID: "abc12345-1234-1234-1234-123456789abc"}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, task)
 	if !rejected {
 		t.Error("expected rejection when caller's stage is past")
 	}
@@ -185,9 +186,10 @@ func TestCheckCallerPastStage_AllowedSameStage(t *testing.T) {
 		},
 	}
 	agentRoles := map[string]string{"kestrel": "fixer"}
+	task := &taskwarrior.Task{UUID: "abc12345-1234-1234-1234-123456789abc"}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 0, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	rejected := checkCallerPastStage(w, p, 0, "kestrel", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when caller is at their own stage")
 	}
@@ -201,9 +203,10 @@ func TestCheckCallerPastStage_AllowedNoAgent(t *testing.T) {
 		},
 	}
 	agentRoles := map[string]string{"kestrel": "fixer"}
+	task := &taskwarrior.Task{UUID: "abc12345-1234-1234-1234-123456789abc"}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 0, "", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	rejected := checkCallerPastStage(w, p, 0, "", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when callerAgent is empty (worker/CLI)")
 	}
@@ -219,9 +222,10 @@ func TestCheckCallerPastStage_AllowedRoleNotInPipeline(t *testing.T) {
 	}
 	// Yuki is orchestrator — no matching pipeline stage
 	agentRoles := map[string]string{"yuki": "orchestrator"}
+	task := &taskwarrior.Task{UUID: "abc12345-1234-1234-1234-123456789abc"}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 1, "yuki", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	rejected := checkCallerPastStage(w, p, 1, "yuki", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when caller's role has no pipeline stage")
 	}
@@ -235,9 +239,10 @@ func TestCheckCallerPastStage_AllowedAgentNotInRoles(t *testing.T) {
 		},
 	}
 	agentRoles := map[string]string{}
+	task := &taskwarrior.Task{UUID: "abc12345-1234-1234-1234-123456789abc"}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 0, "unknown", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	rejected := checkCallerPastStage(w, p, 0, "unknown", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when caller is not in agentRoles")
 	}
@@ -253,9 +258,10 @@ func TestCheckCallerPastStage_AllowedFutureStage(t *testing.T) {
 	}
 	// Caller role "coder" is at stage 1, task is currently at stage 0 (Fix)
 	agentRoles := map[string]string{"worker-agent": "coder"}
+	task := &taskwarrior.Task{UUID: "abc12345-1234-1234-1234-123456789abc"}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 0, "worker-agent", agentRoles, "abc12345-1234-1234-1234-123456789abc", nil)
+	rejected := checkCallerPastStage(w, p, 0, "worker-agent", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when caller's stage is in the future")
 	}
@@ -274,9 +280,13 @@ func TestCheckCallerPastStage_AllowedPipelineFullyCompleted(t *testing.T) {
 	// handle pipeline completion via handlePipelineComplete.
 	agentRoles := map[string]string{"kestrel": "fixer"}
 	taskTags := []string{"bugfix", "fix", "fix_lgtm", "implement", "implement_lgtm"}
+	task := &taskwarrior.Task{
+		UUID: "abc12345-1234-1234-1234-123456789abc",
+		Tags: taskTags,
+	}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", taskTags)
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when pipeline is fully completed (all stages have LGTM)")
 	}
@@ -297,11 +307,57 @@ func TestCheckCallerPastStage_AllowedMidPipelineLGTM(t *testing.T) {
 	// Fixer (stage 0) calls ttal go; task is at stage 1 (Review) with review_lgtm set.
 	agentRoles := map[string]string{"kestrel": "fixer"}
 	taskTags := []string{"bugfix", "fix", "fix_lgtm", "review", "review_lgtm"}
+	task := &taskwarrior.Task{
+		UUID: "abc12345-1234-1234-1234-123456789abc",
+		Tags: taskTags,
+	}
 	w := httptest.NewRecorder()
 
-	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, "abc12345-1234-1234-1234-123456789abc", taskTags)
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, task)
 	if rejected {
 		t.Error("should NOT reject when current stage already has LGTM (mid-pipeline bypass)")
+	}
+}
+
+// TestCheckCallerPastStage_OwnerPastOwnStage verifies the owner short-circuit: the task owner
+// is NOT rejected even when their role's stage is behind the task's current stage.
+func TestCheckCallerPastStage_OwnerPastOwnStage(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// lux (the fixer/owner) is at stage 0; task is at stage 1 (Implement).
+	// Owner short-circuit must NOT reject — lux designed the fix, can advance to PR-review.
+	agentRoles := map[string]string{"lux": "fixer"}
+	task := &taskwarrior.Task{UUID: "e9d4b7c1-1234-5678-9abc-def012345678", Owner: "lux"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "lux", agentRoles, task)
+	if rejected {
+		t.Error("should NOT reject when caller is the task owner")
+	}
+}
+
+// TestCheckCallerPastStage_NonOwnerRejected verifies the guard still rejects non-owners
+// whose role's stage is behind the task's current stage.
+func TestCheckCallerPastStage_NonOwnerRejected(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Stages: []pipeline.Stage{
+			{Name: "Fix", Assignee: "fixer", Gate: "human"},
+			{Name: "Implement", Assignee: "coder", Gate: "auto"},
+		},
+	}
+	// lux is owner; kestrel (a different fixer) is not the owner.
+	// kestrel should be rejected at stage 1 since fixer stage is behind.
+	agentRoles := map[string]string{"kestrel": "fixer"}
+	task := &taskwarrior.Task{UUID: "e9d4b7c1-1234-5678-9abc-def012345678", Owner: "lux"}
+	w := httptest.NewRecorder()
+
+	rejected := checkCallerPastStage(w, p, 1, "kestrel", agentRoles, task)
+	if !rejected {
+		t.Error("should reject when caller is not the task owner and their stage is past")
 	}
 }
 
