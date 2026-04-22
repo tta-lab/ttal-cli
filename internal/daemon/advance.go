@@ -320,13 +320,32 @@ func resolveReviewerSession(task *taskwarrior.Task, callerSession string) string
 	return config.AgentSessionName(task.Owner)
 }
 
+// resolveWorkerReviewerTarget returns the tmux session and working directory
+// to use when spawning a PR reviewer for a worker-stage task. Both are derived
+// from the task — the worker's session name and the worker's worktree path —
+// so the reviewer lands alongside the worker regardless of who invoked ttal go.
+// Uses the package-level worktreePathFn var for test injection (matches the
+// pattern used elsewhere in this file).
+func resolveWorkerReviewerTarget(task *taskwarrior.Task) (session, workDir string, err error) {
+	session = task.SessionName()
+	workDir, err = worktreePathFn(task.UUID, task.Project)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve worktree for task %s: %w", task.UUID, err)
+	}
+	return session, workDir, nil
+}
+
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
 // Returns (error, skipped) where skipped=true means the reviewer window already existed and
 // no spawn was needed — caller should update the status message accordingly.
-// workDir is the caller's working directory (passed via AdvanceRequest).
-// For plan-review, workDir is overridden with the project's registered path so the reviewer
-// runs in the correct directory, not the caller's workspace.
-// For PR-review, workDir is used as-is — the caller is the worker.
+//
+// Reviewer placement is derived from the task, not the caller, so placement is invariant
+// with respect to who invoked ttal go:
+//   - PR-review (worker stage)  → worker's session + worktree (via resolveWorkerReviewerTarget)
+//   - Plan-review (manager stage) → owner's session + project path (via resolveReviewerSession)
+//
+// callerSession/workDir (the trailing params) are only consulted as the plan-review fallback
+// when task.Owner is empty.
 func spawnOrRetriggerReviewerFromDaemon(
 	task *taskwarrior.Task, stage *pipeline.Stage,
 	sessionName, workDir string,
@@ -335,22 +354,27 @@ func spawnOrRetriggerReviewerFromDaemon(
 	reviewerAgent := stage.Reviewer
 
 	if stage.IsWorker() {
-		if tmux.WindowExists(sessionName, reviewerAgent) {
-			log.Printf("[advance] reviewer window %s already exists for task %s — "+
-				"skipping (content delivery handled by ttal comment add)",
-				reviewerAgent, task.UUID)
+		targetSession, targetWorkDir, err := resolveWorkerReviewerTarget(task)
+		if err != nil {
+			return fmt.Errorf("resolve worker reviewer target: %w", err), false
+		}
+		if tmux.WindowExists(targetSession, reviewerAgent) {
+			log.Printf("[advance] reviewer window %s already exists in session %q "+
+				"for task %s — skipping (content delivery handled by ttal comment add)",
+				reviewerAgent, targetSession, task.UUID)
 			return nil, true
 		}
-		log.Printf("[advance] spawning PR reviewer %s for task %s", reviewerAgent, task.UUID)
-		ctx, err := buildPRContextFromTask(task, workDir)
+		log.Printf("[advance] spawning PR reviewer %s for task %s in session %q",
+			reviewerAgent, task.UUID, targetSession)
+		ctx, err := buildPRContextFromTask(task, targetWorkDir)
 		if err != nil {
 			return fmt.Errorf("build PR context: %w", err), false
 		}
-		return review.SpawnReviewer(sessionName, ctx, reviewerAgent, cfg, workDir), false
+		return review.SpawnReviewer(targetSession, ctx, reviewerAgent, cfg, targetWorkDir), false
 	}
 
-	// Plan-review: resolve the task owner's session instead of using the caller's.
-	// PR-review (above) correctly uses the caller's session — the caller is the worker.
+	// Plan-review: resolve the task owner's session (PR-review above derives from the task
+	// similarly — both branches are caller-independent).
 	targetSession := resolveReviewerSession(task, sessionName)
 	targetWorkDir := workDir
 	if projectPath := projectPkg.ResolveProjectPath(task.Project); projectPath != "" {
