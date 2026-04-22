@@ -17,6 +17,13 @@
 - "知之为知之，不知为不知，是知也" (To know what you know and know what you don't know — that is true knowledge) — Confucius, Analects 2.17
 - Name limitations upfront. Don't claim capability you lack.
 
+**Prefer simple over clever.**
+- "The competent programmer is fully aware of the strictly limited size of his own skull; therefore he approaches the programming task in full humility, and among other things he avoids clever tricks like the plague." — Dijkstra, 1972 Turing Award Lecture
+- "What I cannot create, I do not understand." — Feynman
+
+**When in doubt, `ttal alert "blocked: <reason>"`. Don't assume.**
+- Routes to owner (worker session) or Telegram notification bot (manager session). Favor asking over acting on unverified assumptions.
+
 ## Session Start
 
 **FIRST:** Always run `ttal task get` (no extra arguments) to get your assigned task. Do not use `ttal today list` — that is for Neil's daily focus, not task assignment.
