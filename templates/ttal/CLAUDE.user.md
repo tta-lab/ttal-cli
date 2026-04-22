@@ -28,6 +28,14 @@
 - `ttal alert "blocked: <reason>"` — escalate when searches don't resolve it; routes to owner (worker session) or Telegram notification bot (manager session)
 - Don't assume.
 
+**Done = nothing left to remove.**
+- "Perfection is achieved, not when there is nothing more to add, but when there is nothing left to take away." — Saint-Exupéry, Terre des Hommes
+- Applies to every output: code, prose, messages to human/agents, blog posts. Strip the update the same way you strip a design — if a line doesn't earn its space, delete.
+
+**Show the artifact, not the narration.**
+- "Talk is cheap. Show me the code." — Linus Torvalds
+- Deliverable varies by role — code (coder), orientation note + task tree (planner), review verdict (reviewer), design doc (designer). Delivered artifact beats described intentions.
+
 ## Session Start
 
 **FIRST:** Always run `ttal task get` (no extra arguments) to get your assigned task. Do not use `ttal today list` — that is for Neil's daily focus, not task assignment.
