@@ -23,7 +23,6 @@ import (
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/review"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/worker"
@@ -549,25 +548,6 @@ func handlePipelineComplete(w http.ResponseWriter, task *taskwarrior.Task, stage
 	})
 }
 
-// shouldBreatheStatus is the pure logic: returns true when the agent should be breathed.
-// Stale (>5min) or nil status defaults to true (breathe when uncertain).
-func shouldBreatheStatus(agentStatus *status.AgentStatus, threshold float64) bool {
-	if agentStatus == nil || agentStatus.IsStale(5*time.Minute) {
-		return true
-	}
-	return agentStatus.ContextUsedPct >= threshold
-}
-
-// shouldBreathe reads the agent's status file and decides whether to breathe.
-func shouldBreathe(agentName string, threshold float64) bool {
-	agentStatus, err := status.ReadAgent("default", agentName)
-	if err != nil {
-		log.Printf("[advance] warning: could not read status for default/%s, defaulting to breathe: %v", agentName, err)
-		return true
-	}
-	return shouldBreatheStatus(agentStatus, threshold)
-}
-
 // setOwnerFn is the function used to set the owner UDA on a task. Package-level var for test injection.
 var setOwnerFn = taskwarrior.SetOwner
 
@@ -869,19 +849,14 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 	return nil, fmt.Errorf("all agents with role %q are busy: %v", role, names)
 }
 
-// routeToPersistentAgent optionally breathes a persistent agent.
-// The route file mechanism has been removed — taskwarrior state (stage tag) is the SSOT.
+// routeToPersistentAgent breathes a persistent agent on pipeline advance.
 // When the agent breathes, ttal context renders the universal context template, and
 // $ ttal pipeline prompt reads the stage tag to output the role-specific prompt.
 func routeToPersistentAgent(
-	w http.ResponseWriter, cfg *config.Config,
+	w http.ResponseWriter, _ *config.Config,
 	_ *taskwarrior.Task, agent *agentfs.AgentInfo,
 	_ string,
 ) error {
-	if !shouldBreathe(agent.Name, cfg.BreatheThreshold) {
-		log.Printf("[advance] skipping breathe for %s (ctx below %.0f%% threshold)", agent.Name, cfg.BreatheThreshold)
-		return nil
-	}
 	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,

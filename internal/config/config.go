@@ -91,7 +91,6 @@ type Config struct {
 	MergeMode         string
 	CommentSync       string
 	EmojiReactions    bool
-	BreatheThreshold  float64
 	UserName          string
 
 	VoiceResolved VoiceConfig
@@ -424,7 +423,6 @@ const (
 	DefaultModel             = "sonnet"
 	MergeModeAuto            = "auto"
 	MergeModeManual          = "manual"
-	defaultBreatheThreshold  = 40.0 // % context usage below which auto-breathe is skipped
 	defaultAskReferencesPath = "~/.ttal/references/"
 )
 
@@ -497,13 +495,6 @@ func Load() (*Config, error) {
 
 	// Resolve emoji reactions
 	cfg.EmojiReactions = team.EmojiReactions != nil && *team.EmojiReactions
-
-	// Resolve breathe threshold
-	if team.BreatheThreshold != nil {
-		cfg.BreatheThreshold = *team.BreatheThreshold
-	} else {
-		cfg.BreatheThreshold = defaultBreatheThreshold
-	}
 
 	// Resolve voice config with merged vocabulary
 	cfg.Voice = resolveVoiceConfigFlat(team, raw.Voice)
