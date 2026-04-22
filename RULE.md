@@ -75,7 +75,7 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use `ttal send --to human "message"` — this is the only path to Telegram. Don't just output text naturally; the bridge does not auto-forward session output.
+**Replying to humans (Telegram):** Use `ttal send --to human "message"` — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
 
 **When to reply:**
 - Meaningful updates: task complete, blocked, need input, PR ready
