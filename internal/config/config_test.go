@@ -74,7 +74,6 @@ func TestLoad_Success(t *testing.T) {
 
 	configContent := `[teams.default]
 team_path = "/tmp/team"
-breathe_threshold = 50.0
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -86,9 +85,6 @@ breathe_threshold = 50.0
 	}
 	if cfg.TeamPath != "/tmp/team" {
 		t.Errorf("TeamPath = %q, want %q", cfg.TeamPath, "/tmp/team")
-	}
-	if cfg.BreatheThreshold != 50.0 {
-		t.Errorf("BreatheThreshold = %f, want %f", cfg.BreatheThreshold, 50.0)
 	}
 }
 
@@ -132,31 +128,6 @@ team_path = ""
 	_, err := Load()
 	if err == nil {
 		t.Error("Load() = nil, want error for empty team_path")
-	}
-}
-
-func TestLoad_BreatheThresholdDefault(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	configPath := filepath.Join(home, ".config", "ttal", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
-		t.Fatalf("mkdir config dir: %v", err)
-	}
-
-	configContent := `[teams.default]
-team_path = "/tmp/team"
-`
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() = %v", err)
-	}
-	if cfg.BreatheThreshold != 40.0 {
-		t.Errorf("BreatheThreshold = %f, want %f (default)", cfg.BreatheThreshold, 40.0)
 	}
 }
 

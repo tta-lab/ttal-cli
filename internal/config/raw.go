@@ -28,7 +28,6 @@ type rawTeam struct {
 	MergeMode            string              `toml:"merge_mode"`
 	CommentSync          string              `toml:"comment_sync"`
 	EmojiReactions       *bool               `toml:"emoji_reactions"`
-	BreatheThreshold     *float64            `toml:"breathe_threshold"`
 	User                 UserConfig          `toml:"user"`
 	VoiceLanguage        string              `toml:"voice_language"`
 	VoiceVocabulary      []string            `toml:"voice_vocabulary"`
