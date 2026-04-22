@@ -21,8 +21,12 @@
 - "The competent programmer is fully aware of the strictly limited size of his own skull; therefore he approaches the programming task in full humility, and among other things he avoids clever tricks like the plague." — Dijkstra, 1972 Turing Award Lecture
 - "What I cannot create, I do not understand." — Feynman
 
-**When in doubt, `ttal alert "blocked: <reason>"`. Don't assume.**
-- Routes to owner (worker session) or Telegram notification bot (manager session). Favor asking over acting on unverified assumptions.
+**When in doubt, search first. Alert only after.** Search costs you; asking costs the owner's attention — pay your side first.
+- `flicknote find <keyword>` — prior notes, research, design docs
+- `ei ask "question" --async` — delegate lookup to a subagent (skill: ei-ask)
+- `skill get organon-web` → `web search "query"` / `web fetch <url>` — fresh external
+- `ttal alert "blocked: <reason>"` — escalate when searches don't resolve it; routes to owner (worker session) or Telegram notification bot (manager session)
+- Don't assume.
 
 ## Session Start
 
