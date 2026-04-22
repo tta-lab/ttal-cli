@@ -322,7 +322,7 @@ func resolveReviewerSession(task *taskwarrior.Task, callerSession string) string
 
 // resolveWorkerReviewerTarget returns the tmux session and working directory
 // to use when spawning a PR reviewer for a worker-stage task. Both are derived
-// from the task — the worker's session name and the worker's worktree path —
+// from the task — the task's session name (w-<hex>-<slug>) and the worker's worktree path —
 // so the reviewer lands alongside the worker regardless of who invoked ttal go.
 // Uses the package-level worktreePathFn var for test injection (matches the
 // pattern used elsewhere in this file).
