@@ -143,7 +143,7 @@ func handlePipelineAdvance(
 		if err := taskwarrior.AnnotateTask(task.UUID, startRecord); err != nil {
 			log.Printf("[advance] warning: annotate pipeline start: %v", err)
 		}
-		err := advanceToStage(w, cfg, task, firstStage, req.AgentName, workerRuntime, teamPath, agentRoles,
+		err := advanceToStage(w, task, firstStage, req.AgentName, workerRuntime, teamPath, agentRoles,
 			cfg.Sync.WorkerAgentPaths)
 		if err != nil {
 			log.Printf("[advance] first stage error: %v", err)
@@ -300,7 +300,7 @@ func processStageAdvance(
 		return
 	}
 
-	err := advanceToStage(w, cfg, task, &p.Stages[nextIdx], callerAgent, workerRuntime, teamPath, agentRoles,
+	err := advanceToStage(w, task, &p.Stages[nextIdx], callerAgent, workerRuntime, teamPath, agentRoles,
 		cfg.Sync.WorkerAgentPaths)
 	if err != nil {
 		log.Printf("[advance] next stage error: %v", err)
@@ -680,7 +680,6 @@ func ensureWorkerStageOwner(task *taskwarrior.Task, callerAgent, stageName strin
 
 func advanceToStage(
 	w http.ResponseWriter,
-	cfg *config.Config,
 	task *taskwarrior.Task,
 	stage *pipeline.Stage,
 	callerAgent, workerRuntime string,
@@ -778,7 +777,7 @@ func advanceToStage(
 		log.Printf("[advance] warning: start task for agent: %v", err)
 	}
 
-	if err := routeToPersistentAgent(w, cfg, task, agent, teamPath); err != nil {
+	if err := routeToPersistentAgent(w, agent); err != nil {
 		return err
 	}
 
@@ -852,11 +851,7 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 // routeToPersistentAgent breathes a persistent agent on pipeline advance.
 // When the agent breathes, ttal context renders the universal context template, and
 // $ ttal pipeline prompt reads the stage tag to output the role-specific prompt.
-func routeToPersistentAgent(
-	w http.ResponseWriter, _ *config.Config,
-	_ *taskwarrior.Task, agent *agentfs.AgentInfo,
-	_ string,
-) error {
+func routeToPersistentAgent(w http.ResponseWriter, agent *agentfs.AgentInfo) error {
 	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{
 			Status:  AdvanceStatusError,
