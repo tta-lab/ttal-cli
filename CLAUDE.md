@@ -304,12 +304,7 @@ templates/
     │   └── AGENTS.md
     └── ...
 
-skills/                - Skill directories (each has SKILL.md)
-  ├── sp-planning/SKILL.md        - Full planning process (explore → design → write → validate)
-  ├── sp-debugging/SKILL.md       - Bug diagnosis + fix plans
-  ├── sp-brainstorming/SKILL.md   - Brainstorming framework
-  ├── sp-review-against-plan/SKILL.md - Owner-first PR review (in-scope undone = blocking)
-  └── ...
+skills/                - Skill directories (each has SKILL.md). Run `ls skills/` for the source list, or `skill list` for what's currently discoverable on disk.
 ```
 
 ### What Goes Where
