@@ -71,9 +71,8 @@ func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 	}
 
 	// Build known lists for error
-	agents := cfg.Agents()
-	agentNames := make([]string, 0, len(agents))
-	for _, a := range agents {
+	agentNames := make([]string, 0, len(cfg.Agents()))
+	for _, a := range cfg.Agents() {
 		agentNames = append(agentNames, a.AgentName)
 	}
 
@@ -83,10 +82,8 @@ func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 		if listErr != nil && !os.IsNotExist(listErr) {
 			return nil, fmt.Errorf("cannot resolve human addressees: %w", listErr)
 		}
-		if humansList != nil {
-			for _, h := range humansList {
-				humanAliases = append(humanAliases, h.Alias)
-			}
+		for _, h := range humansList {
+			humanAliases = append(humanAliases, h.Alias)
 		}
 	}
 	if humansErr != nil && !os.IsNotExist(humansErr) && humanAliases == nil {
