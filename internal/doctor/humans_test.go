@@ -103,6 +103,9 @@ admin = true
 }
 
 func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
+	// Unset USER so we actually test the [user].name read — not the env fallback
+	t.Setenv("USER", "")
+
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -110,7 +113,7 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 	}
 	cfgPath := cfgDir + "/config.toml"
 	config := `[user]
-  name = "Neil"
+  name = "Fiona"
 
 [teams.default]
   frontend = "telegram"
@@ -145,10 +148,10 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 
 	// Verify content
 	content := string(data)
-	if !strings.Contains(content, "[neil]") {
-		t.Errorf("generated content missing [neil]:\n%s", content)
+	if !strings.Contains(content, "[fiona]") {
+		t.Errorf("generated content missing [fiona]:\n%s", content)
 	}
-	if !strings.Contains(content, `name = "neil"`) {
+	if !strings.Contains(content, `name = "Fiona"`) {
 		t.Errorf("generated content missing name field:\n%s", content)
 	}
 	if !strings.Contains(content, `telegram_chat_id = "845849177"`) {
@@ -169,6 +172,7 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 }
 
 func TestFixHumans_MissingChatID(t *testing.T) {
+	t.Setenv("USER", "")
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {

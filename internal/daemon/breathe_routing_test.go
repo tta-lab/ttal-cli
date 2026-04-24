@@ -289,6 +289,28 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 		t.Fatalf("write config.toml: %v", err)
 	}
 
+	// humans.toml is now required by config.Load() — write a minimal fixture.
+	humansPath := filepath.Join(configDir, "humans.toml")
+	var humansBackup []byte
+	if oldHumans, err := os.ReadFile(humansPath); err == nil {
+		humansBackup = oldHumans
+	}
+	t.Cleanup(func() {
+		if humansBackup != nil {
+			os.WriteFile(humansPath, humansBackup, 0o644)
+		} else {
+			os.Remove(humansPath)
+		}
+	})
+	humansContent := `[neil]
+name = "Neil"
+telegram_chat_id = "12345"
+admin = true
+`
+	if err := os.WriteFile(humansPath, []byte(humansContent), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)

@@ -84,9 +84,14 @@ func fixHumans(humansPath string) error {
 
 	// Decode raw config.toml for legacy fields.
 	var raw struct {
-		User  string `toml:"name"`
+		User  struct {
+			Name string `toml:"name"`
+		} `toml:"user"`
 		Teams map[string]struct {
 			ChatID string `toml:"chat_id"`
+			User   struct {
+				Name string `toml:"name"`
+			} `toml:"user"`
 			Matrix *struct {
 				HumanUserID string `toml:"human_user_id"`
 			} `toml:"matrix"`
@@ -101,7 +106,10 @@ func fixHumans(humansPath string) error {
 		return fmt.Errorf("no [teams.default] in %s", cfgPath)
 	}
 
-	name := raw.User
+	name := team.User.Name
+	if name == "" {
+		name = raw.User.Name
+	}
 	if name == "" {
 		name = os.Getenv("USER")
 	}
