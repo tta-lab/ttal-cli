@@ -21,8 +21,12 @@ The daemon injects credentials — workers don't need tokens in their environmen
 
 Equivalent to "git push -u origin <branch>" but credential-safe for worker sessions.
 
+With --force, performs a --force-with-lease push (raw --force is never used).
+Force-push to main or master is blocked unconditionally.
+
 Examples:
-  ttal push`,
+  ttal push
+  ttal push --force    # force-with-lease; blocked on main/master`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContextWithoutProvider()
@@ -40,10 +44,15 @@ Examples:
 			return fmt.Errorf("get current branch: %w", err)
 		}
 
+		force, err := cmd.Flags().GetBool("force")
+		if err != nil {
+			return fmt.Errorf("get --force flag: %w", err)
+		}
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
 			WorkDir:      workDir,
 			Branch:       branch,
 			ProjectAlias: ctx.Alias,
+			Force:        force,
 		})
 		if err != nil {
 			return fmt.Errorf("push failed: %w", err)
@@ -74,5 +83,6 @@ func currentBranch(workDir string) (string, error) {
 }
 
 func init() {
+	pushCmd.Flags().Bool("force", false, "Force push with --force-with-lease. Blocked on main/master.")
 	rootCmd.AddCommand(pushCmd)
 }

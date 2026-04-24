@@ -86,6 +86,7 @@ Messages arrive as prefixed text in your input:
 
 ```bash
 ttal push                              # push current branch to origin via daemon
+ttal push --force                      # force-with-lease; blocked on main/master
 ttal tag v1.0.0 --project <alias>      # create + push git tag via daemon
 ```
 

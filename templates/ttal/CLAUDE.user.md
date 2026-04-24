@@ -155,6 +155,7 @@ ttal go <uuid>    # spawns a worker in isolated worktree
 ## GitHub & Forgejo
 
 - **Use `ttal push` for git push** — always use `ttal push`, never `git push` directly
+- **Prefer no amend, no force-push.** `ttal push --force` exists only as an escape hatch for rebase/amend workflows; it runs `--force-with-lease` internally and is blocked on main/master. Avoid using it unless you explicitly need to rewrite a remote branch you own.
 - **Use `ttal pr` for PR operations** — creation, modification, merging. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
   - `ttal pr create "title" --body "description"` / `ttal pr modify --title "new" --body "new desc"` / `ttal go <uuid>`
 - **Use `ttal comment` for task comments**: `ttal comment add "msg"` / `ttal comment list`
