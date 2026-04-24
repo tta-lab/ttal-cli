@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -78,15 +79,17 @@ func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 
 	var humanAliases []string
 	if humansPath != "" {
-		if humansList, err := humanfs.List(humansPath); err != nil {
-			return nil, fmt.Errorf("cannot resolve human addressees: %w", err)
-		} else {
+		humansList, listErr := humanfs.List(humansPath)
+		if listErr != nil && !os.IsNotExist(listErr) {
+			return nil, fmt.Errorf("cannot resolve human addressees: %w", listErr)
+		}
+		if humansList != nil {
 			for _, h := range humansList {
 				humanAliases = append(humanAliases, h.Alias)
 			}
 		}
 	}
-	if humansErr != nil && humanAliases == nil {
+	if humansErr != nil && !os.IsNotExist(humansErr) && humanAliases == nil {
 		return nil, fmt.Errorf("cannot resolve addressee %q: humans.toml unreadable: %w", name, humansErr)
 	}
 
