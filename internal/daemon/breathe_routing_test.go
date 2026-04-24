@@ -11,6 +11,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
+// testChatID is a placeholder chat ID used across fixture humans.toml entries.
+// goconst linter requires this to be a constant rather than repeated string literals.
+const testChatID = "12345"
+
 func TestHandleBreatheValidation(t *testing.T) {
 	shellCfg := &config.Config{}
 
@@ -165,7 +169,7 @@ func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"
+	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
@@ -302,11 +306,7 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 			os.Remove(humansPath)
 		}
 	})
-	humansContent := `[neil]
-name = "Neil"
-telegram_chat_id = "12345"
-admin = true
-`
+	humansContent := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
 	if err := os.WriteFile(humansPath, []byte(humansContent), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
@@ -450,7 +450,7 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"
+	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
