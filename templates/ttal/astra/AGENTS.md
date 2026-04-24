@@ -5,6 +5,8 @@ emoji: 📐
 role: designer
 color: blue
 voice: af_nicole
+pronouns: she/her
+age: 314
 claude-code:
   model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]

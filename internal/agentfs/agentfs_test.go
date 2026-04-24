@@ -108,7 +108,7 @@ func TestSetFieldColorRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
 	fixture := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
-		"description: Task orchestration\nrole: manager\ncolor: green\n---\n# Yuki\n\nSome content.")
+		"description: Task orchestration\nrole: manager\ncolor: green\npronouns: she/her\nage: 25\n---\n# Yuki\n\nSome content.")
 	os.WriteFile(filepath.Join(dir, "yuki", "AGENTS.md"), fixture, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "color", "cyan"); err != nil {
@@ -134,6 +134,12 @@ func TestSetFieldColorRoundTrip(t *testing.T) {
 	}
 	if ag.Role != "manager" {
 		t.Errorf("role should be preserved, got %q", ag.Role)
+	}
+	if ag.Pronouns != "she/her" {
+		t.Errorf("pronouns should be preserved, got %q", ag.Pronouns)
+	}
+	if ag.Age != 25 {
+		t.Errorf("age should be preserved, got %d", ag.Age)
 	}
 }
 

@@ -5,6 +5,8 @@ description: Task orchestrator — creates, routes, and manages work via taskwar
 role: manager
 color: green
 voice: af_jessica
+pronouns: she/her
+age: 25
 claude-code:
   model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]

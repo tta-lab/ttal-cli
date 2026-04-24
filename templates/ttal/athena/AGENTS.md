@@ -5,6 +5,8 @@ emoji: 🦉
 role: researcher
 color: cyan
 voice: af_bella
+pronouns: she/her
+age: 14
 claude-code:
   model: "opus[1m]"
   tools: [Bash, Read, Write, Edit]
