@@ -44,11 +44,13 @@ type Addressee struct {
 func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 	// Try human first
 	humansPath, err := config.HumansPath()
+	var humansErr error
 	if err == nil {
 		h, err := humanfs.Get(humansPath, name)
 		if err == nil {
 			return &Addressee{Kind: KindHuman, Name: h.Alias, Human: h}, nil
 		}
+		humansErr = err
 	}
 
 	// Try agent
@@ -73,10 +75,18 @@ func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 		agentNames = append(agentNames, a.AgentName)
 	}
 
-	humansList, _ := humanfs.List(humansPath)
-	humanAliases := make([]string, 0, len(humansList))
-	for _, h := range humansList {
-		humanAliases = append(humanAliases, h.Alias)
+	var humanAliases []string
+	if humansPath != "" {
+		if humansList, err := humanfs.List(humansPath); err != nil {
+			return nil, fmt.Errorf("cannot resolve human addressees: %w", err)
+		} else {
+			for _, h := range humansList {
+				humanAliases = append(humanAliases, h.Alias)
+			}
+		}
+	}
+	if humansErr != nil && humanAliases == nil {
+		return nil, fmt.Errorf("cannot resolve addressee %q: humans.toml unreadable: %w", name, humansErr)
 	}
 
 	return nil, fmt.Errorf("unknown addressee: %s (known agents: %v; known humans: %v)",
@@ -207,10 +217,6 @@ func handleFrom(
 	return fe.SendText(context.Background(), ta.AgentName, req.Message)
 }
 
-// handleTo delivers a message to an agent via its runtime adapter.
-// Falls back to worker session delivery when the recipient is job_id:agent_name.
-// Rejects bare hex UUIDs with a helpful error message.
-// Human→worker messages are sent as bare text (no [agent from:] prefix).
 // handleTo delivers a message to an agent, worker, or human via resolveAddressee.
 // Falls back to worker session delivery when the recipient is job_id:agent_name.
 func handleTo(

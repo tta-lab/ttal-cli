@@ -235,9 +235,7 @@ func writeContextFile(task *taskwarrior.Task, agentName, teamName string, cfg *c
 		"TTAL_JOB_ID=" + task.HexID(),
 	}
 	if cfg.AdminHuman != nil {
-		envVars = append(envVars, "TTAL_HUMAN="+cfg.AdminHuman.Alias)
-		envVars = append(envVars, "TTAL_ADMIN_NAME="+cfg.AdminHuman.Name)
-		envVars = append(envVars, "TTAL_ADMIN_HANDLE="+cfg.AdminHuman.Alias)
+		envVars = append(envVars, cfg.AdminHuman.EnvVars()...)
 	}
 	output := promptrender.RenderTemplate(tmpl, agentName, teamName, envVars)
 
@@ -311,9 +309,7 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string,
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
 	}
 	if shellCfg != nil && shellCfg.AdminHuman != nil {
-		parts = append(parts, "TTAL_HUMAN="+shellCfg.AdminHuman.Alias)
-		parts = append(parts, "TTAL_ADMIN_NAME="+shellCfg.AdminHuman.Name)
-		parts = append(parts, "TTAL_ADMIN_HANDLE="+shellCfg.AdminHuman.Alias)
+		parts = append(parts, shellCfg.AdminHuman.EnvVars()...)
 	}
 	return parts
 }

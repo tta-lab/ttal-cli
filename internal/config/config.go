@@ -513,7 +513,7 @@ func Load() (*Config, error) {
 	cfg.Matrix = convertRawMatrix(team.Matrix)
 
 	// Load humans.toml and derive admin/UserName
-	adminHuman, err := loadAdminHuman(team, raw)
+	adminHuman, err := loadAdminHuman()
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +556,7 @@ func Load() (*Config, error) {
 }
 
 // loadAdminHuman loads humans.toml. No legacy fallback — humans.toml is required.
-func loadAdminHuman(_ rawTeam, _ rawFile) (*humanfs.Human, error) {
+func loadAdminHuman() (*humanfs.Human, error) {
 	humansPath, err := HumansPath()
 	if err != nil {
 		return nil, err

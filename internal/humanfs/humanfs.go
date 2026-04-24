@@ -98,3 +98,16 @@ func FindAdmin(humans []Human) (*Human, error) {
 func List(path string) ([]Human, error) {
 	return Load(path)
 }
+
+// EnvVars returns the TTAL_HUMAN, TTAL_ADMIN_NAME, and TTAL_ADMIN_HANDLE
+// env vars for the given human. Returns nil if h is nil.
+func (h *Human) EnvVars() []string {
+	if h == nil {
+		return nil
+	}
+	return []string{
+		"TTAL_HUMAN=" + h.Alias,
+		"TTAL_ADMIN_NAME=" + h.Name,
+		"TTAL_ADMIN_HANDLE=" + h.Alias,
+	}
+}

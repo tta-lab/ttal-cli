@@ -270,6 +270,9 @@ func (f *TelegramFrontend) startPollers() {
 // Each human's chat_id becomes an authorized sender for that human's inbound messages.
 // adminHuman provides the team's default send target (for team-wide broadcasts).
 func buildTokenTargets(allAgents []config.AgentInfo, adminHuman *humanfs.Human) map[string][]pollerTarget {
+	if adminHuman == nil {
+		log.Printf("[telegram] WARNING: adminHuman is nil — no human chat_ids authorized for pollers")
+	}
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		token := config.AgentBotToken(ta.AgentName)
@@ -581,7 +584,6 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 	}
 }
 
-// formatInboundMessage formats a Telegram message for delivery to the agent.
 // formatInboundMessage formats a Telegram message for delivery to the agent.
 // adminAlias is the human's lowercase alias for the reply hint (e.g. "neil").
 func formatInboundMessage(senderName, text, adminAlias string) string {

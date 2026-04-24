@@ -191,9 +191,7 @@ func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
 		"ENABLE_PROMPT_CACHING_1H=1",
 	}
 	if cfg != nil && cfg.AdminHuman != nil {
-		parts = append(parts, "TTAL_HUMAN="+cfg.AdminHuman.Alias)
-		parts = append(parts, "TTAL_ADMIN_NAME="+cfg.AdminHuman.Name)
-		parts = append(parts, "TTAL_ADMIN_HANDLE="+cfg.AdminHuman.Alias)
+		parts = append(parts, cfg.AdminHuman.EnvVars()...)
 	}
 	return parts
 }

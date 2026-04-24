@@ -674,8 +674,7 @@ func extractDomain(homeserverURL string) (string, error) {
 // v1 scope: per-human DM-room provisioning is out of scope.
 func (f *MatrixFrontend) SendToHuman(ctx context.Context, human *humanfs.Human, text string) error {
 	if f.notifyClient == nil {
-		log.Printf("[matrix] no notification client for human %s — dropping message", human.Alias)
-		return nil
+		return fmt.Errorf("matrix notification client not initialized (cannot send to human %s)", human.Alias)
 	}
 	msg := text
 	if human.MatrixUserID != "" {
