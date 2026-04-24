@@ -45,30 +45,9 @@ Examples:
 			return fmt.Errorf("--to is required\n\n  Example: %s", sendExample)
 		}
 
-		piped, err := readStdinIfPiped()
+		message, err := resolveSendMessage(args)
 		if err != nil {
-			return fmt.Errorf("read stdin: %w", err)
-		}
-
-		var message string
-		switch {
-		case piped != "" && len(args) > 0:
-			return fmt.Errorf("provide either stdin or positional args, not both")
-		case piped != "":
-			message = piped
-		case len(args) > 0:
-			message = strings.Join(args, " ")
-		default:
-			return fmt.Errorf(
-				"message required (positional argument or piped stdin)\n\n"+
-					"  Example: %s\n"+
-					"  Multiline: cat <<'END' | ttal send --to human\n"+
-					"    ## Status\n    ...\n    END",
-				sendExample)
-		}
-
-		if message == "" {
-			return fmt.Errorf("message cannot be empty\n\n  Example: %s", sendExample)
+			return err
 		}
 
 		from := os.Getenv("TTAL_AGENT_NAME")
@@ -93,4 +72,33 @@ Examples:
 func init() {
 	rootCmd.AddCommand(sendCmd)
 	sendCmd.Flags().StringVar(&sendTo, "to", "", "Receiving agent (routes via tmux)")
+}
+
+// resolveSendMessage picks the message body from positional args first, falling
+// back to piped stdin only when no args are given. The args-first order is
+// deliberate: callers launched under pueue/systemd/launchd inherit a stdin pipe
+// FD that no one writes to, and io.ReadAll on that FD blocks forever. Reading
+// stdin only when args are empty preserves the `echo ... | ttal send` ergonomic
+// while letting positional-arg callers (e.g. ei .sh scripts) finish promptly.
+func resolveSendMessage(args []string) (string, error) {
+	var message string
+	if len(args) > 0 {
+		message = strings.Join(args, " ")
+	} else {
+		piped, err := readStdinIfPiped()
+		if err != nil {
+			return "", fmt.Errorf("read stdin: %w", err)
+		}
+		message = piped
+	}
+
+	if message == "" {
+		return "", fmt.Errorf(
+			"message required (positional argument or piped stdin)\n\n"+
+				"  Example: %s\n"+
+				"  Multiline: cat <<'END' | ttal send --to human\n"+
+				"    ## Status\n    ...\n    END",
+			sendExample)
+	}
+	return message, nil
 }
