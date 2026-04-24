@@ -42,10 +42,11 @@ type Addressee struct {
 // resolveAddressee resolves a name to an addressee.
 // Resolution order: HUMAN (humanfs) FIRST, then AGENT, then WORKER (jobid:agent).
 func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
-	// Try human first
-	humansPath, err := config.HumansPath()
+	// Try human first (only if config is available)
+	var humansPath string
 	var humansErr error
-	if err == nil {
+	if cfgPath, err := config.HumansPath(); err == nil && cfgPath != "" {
+		humansPath = cfgPath
 		h, err := humanfs.Get(humansPath, name)
 		if err == nil {
 			return &Addressee{Kind: KindHuman, Name: h.Alias, Human: h}, nil
