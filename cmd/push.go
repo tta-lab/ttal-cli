@@ -40,10 +40,12 @@ Examples:
 			return fmt.Errorf("get current branch: %w", err)
 		}
 
+		force, _ := cmd.Flags().GetBool("force")
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
 			WorkDir:      workDir,
 			Branch:       branch,
 			ProjectAlias: ctx.Alias,
+			Force:        force,
 		})
 		if err != nil {
 			return fmt.Errorf("push failed: %w", err)
@@ -74,5 +76,6 @@ func currentBranch(workDir string) (string, error) {
 }
 
 func init() {
+	pushCmd.Flags().Bool("force", false, "Force push with --force-with-lease. Blocked on main/master.")
 	rootCmd.AddCommand(pushCmd)
 }

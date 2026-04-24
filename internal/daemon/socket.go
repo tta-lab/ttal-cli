@@ -280,6 +280,7 @@ type GitPushRequest struct {
 	WorkDir      string `json:"work_dir"`                // absolute path to the git worktree
 	Branch       string `json:"branch"`                  // branch name to push
 	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
+	Force        bool   `json:"force,omitempty"`         // true ⇒ push with --force-with-lease
 }
 
 // GitPushResponse is the daemon's response for a git push operation.
