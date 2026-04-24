@@ -598,7 +598,6 @@ func resolveVoiceConfigFlat(team rawTeam, globalVoice VoiceConfig) VoiceConfig {
 	}
 }
 
-
 // convertRawMatrix converts a rawMatrix (TOML decode target) to MatrixTeamConfig.
 func convertRawMatrix(rm *rawMatrix) *MatrixTeamConfig {
 	if rm == nil {

@@ -84,10 +84,10 @@ func fixHumans(humansPath string) error {
 
 	// Decode raw config.toml for legacy fields.
 	var raw struct {
-		User   string `toml:"name"`
-		Teams  map[string]struct {
-			ChatID  string `toml:"chat_id"`
-			Matrix  *struct {
+		User  string `toml:"name"`
+		Teams map[string]struct {
+			ChatID string `toml:"chat_id"`
+			Matrix *struct {
 				HumanUserID string `toml:"human_user_id"`
 			} `toml:"matrix"`
 		} `toml:"teams"`
