@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -104,6 +105,14 @@ type TelegramFrontend struct {
 	ahs         *askHumanStore
 	mt          *messageTracker
 	allCommands []Command // set by RegisterCommands, used by Start
+}
+
+// adminHumanAlias returns the admin's alias for reply hints, or "human" if not configured.
+func (f *TelegramFrontend) adminHumanAlias() string {
+	if f.cfg.MCfg == nil || f.cfg.MCfg.AdminHuman == nil {
+		return "human"
+	}
+	return f.cfg.MCfg.AdminHuman.Alias
 }
 
 // NewTelegram creates a TelegramFrontend. RegisterCommands must be called before Start.
@@ -482,11 +491,11 @@ func (f *TelegramFrontend) handleInboundMessage(
 		}
 		rawText := "[🎤 voice] " + transcription
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText))
-		return
-	}
+	onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
+	return
+}
 
-	// Handle photo messages.
+// Handle photo messages.
 	if len(msg.Photo) > 0 {
 		photo := msg.Photo[len(msg.Photo)-1]
 		filename := fmt.Sprintf("photo_%d.jpg", msg.ID)
@@ -501,7 +510,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 			rawText += " " + caption
 		}
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText))
+		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
 		return
 	}
 
@@ -522,7 +531,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 			rawText += " " + caption
 		}
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText))
+		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
 		return
 	}
 
@@ -540,7 +549,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 		return
 	}
 
-	onMessage(agentName, formatInboundMessage(senderName, replyCtx+text))
+	onMessage(agentName, formatInboundMessage(senderName, replyCtx+text, f.adminHumanAlias()))
 }
 
 func (f *TelegramFrontend) persistInbound(sender, recipient, team, content string) {
@@ -556,11 +565,17 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 }
 
 // formatInboundMessage formats a Telegram message for delivery to the agent.
-func formatInboundMessage(senderName, text string) string {
+// formatInboundMessage formats a Telegram message for delivery to the agent.
+// adminAlias is the human's lowercase alias for the reply hint (e.g. "neil").
+func formatInboundMessage(senderName, text, adminAlias string) string {
+	if adminAlias == "" {
+		adminAlias = "human"
+	}
 	return fmt.Sprintf(
-		"[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
-		senderName, text)
+		"[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
+		html.EscapeString(senderName), text, adminAlias)
 }
+
 
 // registerBotCommands calls Telegram setMyCommands API for this bot token.
 func (f *TelegramFrontend) registerBotCommands(botToken string) error {

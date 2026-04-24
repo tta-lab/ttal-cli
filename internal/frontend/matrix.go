@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"fmt"
+	"html"
 	"log"
 	"net/url"
 	"os"
@@ -222,9 +223,13 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 		return
 	}
 
+	adminAlias := "human"
+	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
+		adminAlias = f.cfg.MCfg.AdminHuman.Alias
+	}
 	formatted := fmt.Sprintf(
-		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
-		senderName, body)
+		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
+		html.EscapeString(senderName), body, adminAlias)
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 
@@ -400,9 +405,13 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		}
 	}
 
+	adminAlias := "human"
+	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
+		adminAlias = f.cfg.MCfg.AdminHuman.Alias
+	}
 	formatted := fmt.Sprintf(
-		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
-		senderName, rawText)
+		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
+		html.EscapeString(senderName), rawText, adminAlias)
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 

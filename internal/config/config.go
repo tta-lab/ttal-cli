@@ -482,7 +482,6 @@ func Load() (*Config, error) {
 		DefaultRuntime:    team.DefaultRuntime,
 		MergeMode:         team.MergeMode,
 		CommentSync:       team.CommentSync,
-		ChatID:            team.ChatID,
 		Shell:             raw.Shell,
 		Sync:              raw.Sync,
 		Ask:               raw.Ask,
@@ -521,6 +520,7 @@ func Load() (*Config, error) {
 	}
 	cfg.AdminHuman = adminHuman
 	cfg.UserName = adminHuman.Name
+	cfg.ChatID = adminHuman.TelegramChatID
 
 	// Validate default runtime
 	if err := legacyValidateDefaultRuntime(team.DefaultRuntime); err != nil {
