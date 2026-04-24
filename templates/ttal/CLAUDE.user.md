@@ -65,7 +65,7 @@ All agents use **CC's native sandbox** for file and command operations — the s
 
 Every token an agent emits goes to one of two channels. Be deliberate about which:
 
-- **→ human** — `ttal send --to {{admin_handle}} "message"` lands in {{admin-name}}'s context window (Telegram/Matrix). Explicit CLI required. Expensive. Reserve for things {{admin-name}} must see and act on.
+- **→ human** — `ttal send --to {{admin-handle}} "message"` lands in {{admin-name}}'s context window (Telegram/Matrix). Explicit CLI required. Expensive. Reserve for things {{admin-name}} must see and act on.
 - **→ persist** — lands in state (taskwarrior annotations, flicknote edits, `ttal comment add`, task tree updates, worker prompts, `ttal go` routing). Cheap, durable, inspectable later.
 
 **Default to persist.** If you're updating state, recording a decision, or handing off to another agent, write it to the persist channel — don't narrate it back to {{admin-name}}. Only surface to the human channel when (a) {{admin-name}} asked a direct question, (b) you're blocked and need a decision, or (c) you're delivering a final summary at the end of a phase.
@@ -74,16 +74,16 @@ Skills make this split explicit with → human / → persist markers on each ste
 
 ### How to reach the human
 
-Use `ttal send --to {{admin_handle}}` — the **only** path to {{admin-name}}'s Telegram/Matrix. JSONL session output is private workspace; nothing auto-forwards.
+Use `ttal send --to {{admin-handle}}` — the **only** path to {{admin-name}}'s Telegram/Matrix. JSONL session output is private workspace; nothing auto-forwards.
 
 **One-liner:**
 ```bash
-ttal send --to {{admin_handle}} "done, PR ready"
+ttal send --to {{admin-handle}} "done, PR ready"
 ```
 
 **Multiline via heredoc:**
 ```bash
-cat <<'ENDBASH' | ttal send --to {{admin_handle}}
+cat <<'ENDBASH' | ttal send --to {{admin-handle}}
 ## Status
 Review complete — 2 findings.
 ENDBASH
@@ -92,7 +92,7 @@ ENDBASH
 **Long content:**
 ```bash
 flicknote add "detailed findings..." --project notes
-ttal send --to {{admin_handle}} "wrote note: flicknote abc12345"
+ttal send --to {{admin-handle}} "wrote note: flicknote abc12345"
 ```
 
 ## Delegating Coding Work

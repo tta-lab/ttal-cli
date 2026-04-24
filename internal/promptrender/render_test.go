@@ -68,7 +68,7 @@ func TestRenderTemplate_TemplateVarExpansion(t *testing.T) {
 }
 
 func TestRenderTemplate_AdminVars(t *testing.T) {
-	tmpl := "Hello {{admin_name}}, reach out via --to {{admin-handle}}"
+	tmpl := "Hello {{admin-name}}, reach out via --to {{admin-handle}}"
 	env := []string{"TTAL_ADMIN_NAME=Neil", "TTAL_ADMIN_HANDLE=neil"}
 	got := RenderTemplate(tmpl, "myagent", "myteam", env)
 	want := "Hello Neil, reach out via --to neil"

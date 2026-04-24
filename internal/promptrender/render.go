@@ -36,9 +36,7 @@ func RenderTemplate(tmpl, agentName, teamName string, env []string) string {
 		}
 	}
 	expanded = strings.ReplaceAll(expanded, "{{admin-name}}", adminName)
-	expanded = strings.ReplaceAll(expanded, "{{admin_name}}", adminName)
 	expanded = strings.ReplaceAll(expanded, "{{admin-handle}}", adminHandle)
-	expanded = strings.ReplaceAll(expanded, "{{admin_handle}}", adminHandle)
 
 	// Build subprocess env: os.Environ() base + caller-supplied overrides.
 	// We pass env to runCommand so it can merge at exec time.

@@ -44,15 +44,11 @@ type Addressee struct {
 // Resolution order: HUMAN (humanfs) FIRST, then AGENT, then WORKER (jobid:agent).
 func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 	// Try human first (only if config is available)
-	var humansPath string
-	var humansErr error
-	if cfgPath, err := config.HumansPath(); err == nil && cfgPath != "" {
-		humansPath = cfgPath
-		h, err := humanfs.Get(humansPath, name)
-		if err == nil {
-			return &Addressee{Kind: KindHuman, Name: h.Alias, Human: h}, nil
-		}
-		humansErr = err
+	humansPath, humansErr := resolveHumansPathAndGet(name)
+
+	// Return found human immediately
+	if hfe, ok := humansErr.(*humanFoundError); ok {
+		return &Addressee{Kind: KindHuman, Name: hfe.h.Alias, Human: hfe.h}, nil
 	}
 
 	// Try agent
@@ -76,22 +72,52 @@ func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
 		agentNames = append(agentNames, a.AgentName)
 	}
 
-	var humanAliases []string
-	if humansPath != "" {
-		humansList, listErr := humanfs.List(humansPath)
-		if listErr != nil && !os.IsNotExist(listErr) {
-			return nil, fmt.Errorf("cannot resolve human addressees: %w", listErr)
-		}
-		for _, h := range humansList {
-			humanAliases = append(humanAliases, h.Alias)
-		}
-	}
-	if humansErr != nil && !os.IsNotExist(humansErr) && humanAliases == nil {
+	humanAliases := resolveHumanAliases(humansPath)
+	if humansErr != nil && humanAliases == nil {
 		return nil, fmt.Errorf("cannot resolve addressee %q: humans.toml unreadable: %w", name, humansErr)
 	}
 
 	return nil, fmt.Errorf("unknown addressee: %s (known agents: %v; known humans: %v)",
 		name, agentNames, humanAliases)
+}
+
+// resolveHumansPathAndGet tries to resolve a human by name and returns the path and any non-not-exist error.
+func resolveHumansPathAndGet(name string) (string, error) {
+	cfgPath, err := config.HumansPath()
+	if err != nil || cfgPath == "" {
+		return "", nil
+	}
+	h, err := humanfs.Get(cfgPath, name)
+	if err == nil {
+		return cfgPath, &humanFoundError{h: h}
+	}
+	if os.IsNotExist(err) {
+		return cfgPath, nil
+	}
+	return cfgPath, err
+}
+
+// humanFoundError wraps a found human to distinguish it from not-found.
+type humanFoundError struct {
+	h *humanfs.Human
+}
+
+func (e *humanFoundError) Error() string { return "human found" }
+
+// resolveHumanAliases lists human aliases, returning nil on not-exist.
+func resolveHumanAliases(humansPath string) []string {
+	if humansPath == "" {
+		return nil
+	}
+	humansList, listErr := humanfs.List(humansPath)
+	if listErr != nil && !os.IsNotExist(listErr) {
+		return nil
+	}
+	var aliases []string
+	for _, h := range humansList {
+		aliases = append(aliases, h.Alias)
+	}
+	return aliases
 }
 
 // clearSettleDelay is the time to wait after sending /clear before sending
@@ -187,35 +213,11 @@ func handleSend(
 		return handleSystemToAgent(cfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
 		return handleAgentToAgent(cfg, registry, frontends, msgSvc, req)
-	case req.From != "":
-		return handleFrom(cfg, frontends, msgSvc, req)
 	case req.To != "":
 		return handleTo(cfg, registry, frontends, msgSvc, req)
 	default:
 		return fmt.Errorf("send request missing from/to")
 	}
-}
-
-// handleFrom sends a message from an agent to the human via the team's frontend.
-func handleFrom(
-	cfg *config.Config,
-	frontends map[string]frontend.Frontend,
-	msgSvc *message.Service, req SendRequest,
-) error {
-	ta := resolveAgent(cfg, req.From)
-	if ta == nil {
-		return fmt.Errorf("unknown agent: %s", req.From)
-	}
-	fe, ok := frontends["default"]
-	if !ok {
-		return fmt.Errorf("no frontend configured for team default (agent %s)", req.From)
-	}
-	rt := cfg.RuntimeForAgent(req.From)
-	persistMsg(msgSvc, message.CreateParams{
-		Sender: req.From, Recipient: cfg.UserName, Content: req.Message,
-		Team: "default", Channel: message.ChannelCLI, Runtime: &rt,
-	})
-	return fe.SendText(context.Background(), ta.AgentName, req.Message)
 }
 
 // handleTo delivers a message to an agent, worker, or human via resolveAddressee.

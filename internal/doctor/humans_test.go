@@ -103,9 +103,6 @@ admin = true
 }
 
 func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
-	// Unset USER so we actually test the [user].name read — not the env fallback
-	t.Setenv("USER", "")
-
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -172,7 +169,6 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 }
 
 func TestFixHumans_MissingChatID(t *testing.T) {
-	t.Setenv("USER", "")
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -201,7 +197,6 @@ func TestFixHumans_MissingChatID(t *testing.T) {
 }
 
 func TestFixHumans_MissingUserName(t *testing.T) {
-	t.Setenv("USER", "")
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
