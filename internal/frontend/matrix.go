@@ -223,7 +223,7 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 		return
 	}
 
-	adminAlias := "human"
+	adminAlias := fallbackHumanAlias
 	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
 		adminAlias = f.cfg.MCfg.AdminHuman.Alias
 	}
@@ -405,7 +405,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		}
 	}
 
-	adminAlias := "human"
+	adminAlias := fallbackHumanAlias
 	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
 		adminAlias = f.cfg.MCfg.AdminHuman.Alias
 	}

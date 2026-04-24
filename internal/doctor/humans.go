@@ -28,8 +28,8 @@ func checkHumans(fix bool) Section {
 				section.add(LevelOK, "humans_fix", fmt.Sprintf("generated %s — review and apply", humansPath))
 			}
 		} else {
-			section.add(LevelWarn, "humans_toml", fmt.Sprintf(
-				"humans.toml not found (run: ttal doctor --fix to generate from legacy config)"))
+			section.add(LevelWarn, "humans_toml",
+				"humans.toml not found (run: ttal doctor --fix to generate from legacy config)")
 		}
 		return section
 	}
@@ -80,7 +80,7 @@ func fixHumans(humansPath string) error {
 
 	// Use admin human if available
 	if cfg.AdminHuman == nil {
-		return fmt.Errorf("cannot derive human: no admin human found (ensure humans.toml exists or legacy config has user.name and teams.*.chat_id)")
+		return fmt.Errorf("cannot derive human: no admin human found (ensure humans.toml exists)")
 	}
 
 	h := cfg.AdminHuman

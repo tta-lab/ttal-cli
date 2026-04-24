@@ -108,7 +108,8 @@ func TestSetFieldColorRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "yuki"), 0o755) //nolint:errcheck
 	fixture := []byte("---\nvoice: " + testVoiceAfHeart + "\nemoji: " + testEmojiCat + "\n" +
-		"description: Task orchestration\nrole: manager\ncolor: green\npronouns: she/her\nage: 25\n---\n# Yuki\n\nSome content.")
+		"description: Task orchestration\nrole: manager\ncolor: green\npronouns: she/her\nage: 25\n" +
+		"---\n# Yuki\n\nSome content.")
 	os.WriteFile(filepath.Join(dir, "yuki", "AGENTS.md"), fixture, 0o644) //nolint:errcheck
 
 	if err := SetField(dir, "yuki", "color", "cyan"); err != nil {

@@ -121,23 +121,23 @@ admin = true
 	if cfg.AdminHuman == nil {
 		t.Fatal("cfg.AdminHuman is nil")
 	}
-	if cfg.AdminHuman.Alias != "neil" {
+	if cfg.AdminHuman.Alias != "neil" { //nolint:goconst // test fixture uses "neil"
 		t.Errorf("AdminHuman.Alias = %q, want neil", cfg.AdminHuman.Alias)
 	}
-	if cfg.AdminHuman.Name != "Neil" {
+	if cfg.AdminHuman.Name != "Neil" { //nolint:goconst // test fixture uses "Neil"
 		t.Errorf("AdminHuman.Name = %q, want Neil", cfg.AdminHuman.Name)
 	}
-	if cfg.AdminHuman.TelegramChatID != "845849177" {
+	if cfg.AdminHuman.TelegramChatID != "845849177" { //nolint:goconst // test fixture uses "845849177"
 		t.Errorf("AdminHuman.TelegramChatID = %q, want 845849177", cfg.AdminHuman.TelegramChatID)
 	}
 	if !cfg.AdminHuman.Admin {
 		t.Error("AdminHuman.Admin = false, want true")
 	}
 	// humans.toml wins over legacy config
-	if cfg.ChatID != "845849177" {
+	if cfg.ChatID != "845849177" { //nolint:goconst // test fixture uses "845849177"
 		t.Errorf("cfg.ChatID = %q, want 845849177 (from humans.toml)", cfg.ChatID)
 	}
-	if cfg.UserName != "Neil" {
+	if cfg.UserName != "Neil" { //nolint:goconst // test fixture uses "Neil"
 		t.Errorf("cfg.UserName = %q, want Neil", cfg.UserName)
 	}
 }
@@ -167,16 +167,16 @@ name = "Neil"
 	if cfg.AdminHuman == nil {
 		t.Fatal("cfg.AdminHuman is nil")
 	}
-	if cfg.AdminHuman.Alias != "neil" {
+	if cfg.AdminHuman.Alias != "neil" { //nolint:goconst // test fixture uses "neil"
 		t.Errorf("AdminHuman.Alias = %q, want neil", cfg.AdminHuman.Alias)
 	}
-	if cfg.AdminHuman.Name != "Neil" {
+	if cfg.AdminHuman.Name != "Neil" { //nolint:goconst // test fixture uses "Neil"
 		t.Errorf("AdminHuman.Name = %q, want Neil", cfg.AdminHuman.Name)
 	}
-	if cfg.AdminHuman.TelegramChatID != "12345" {
+	if cfg.AdminHuman.TelegramChatID != "12345" { //nolint:goconst // test fixture uses "12345"
 		t.Errorf("AdminHuman.TelegramChatID = %q, want 12345", cfg.AdminHuman.TelegramChatID)
 	}
-	if cfg.UserName != "Neil" {
+	if cfg.UserName != "Neil" { //nolint:goconst // test fixture uses "Neil"
 		t.Errorf("cfg.UserName = %q, want Neil", cfg.UserName)
 	}
 }

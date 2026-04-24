@@ -67,7 +67,7 @@ func TestCheckHumans_WithValidHumans(t *testing.T) {
 		Age:            25,
 		Pronouns:       "he/him",
 		TelegramChatID: "123456",
-		MatrixUserID:    "@neil:ttal.dev",
+		MatrixUserID:   "@neil:ttal.dev",
 		Admin:          true,
 	}
 	if err := os.WriteFile(humansPath, []byte(`[neil]
