@@ -144,17 +144,21 @@ func TestCheckMatrix_NoMatrixTeams(t *testing.T) {
 	}
 
 	cfgContent := `
-[user]
-  name = "neil"
-
 [teams.default]
   frontend = "telegram"
   team_path = "/tmp"
-  chat_id = "123456"
 `
 	cfgPath := cfgDir + "/config.toml"
 	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
+	}
+	humansContent := `[neil]
+name = "Neil"
+telegram_chat_id = "123456"
+admin = true
+`
+	if err := os.WriteFile(cfgDir+"/humans.toml", []byte(humansContent), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 	t.Setenv("HOME", tmpDir)
 

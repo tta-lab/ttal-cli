@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -556,38 +555,21 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// loadAdminHuman loads humans.toml with legacy fallback per Spec G.
-func loadAdminHuman(team rawTeam, raw rawFile) (*humanfs.Human, error) {
+// loadAdminHuman loads humans.toml. No legacy fallback — humans.toml is required.
+func loadAdminHuman(_ rawTeam, _ rawFile) (*humanfs.Human, error) {
 	humansPath, err := HumansPath()
 	if err != nil {
 		return nil, err
 	}
 	humans, err := humanfs.Load(humansPath)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return nil, fmt.Errorf("humans.toml: %w", err)
 	}
-	if err == nil {
-		// humans.toml present — use it
-		admin, err := humanfs.FindAdmin(humans)
-		if err != nil {
-			return nil, fmt.Errorf("humans.toml: %w", err)
-		}
-		return admin, nil
+	admin, err := humanfs.FindAdmin(humans)
+	if err != nil {
+		return nil, fmt.Errorf("humans.toml: %w", err)
 	}
-
-	// Legacy fallback: synthesize admin from [user].name + [teams.default].chat_id
-	legacyUserName := resolveUserNameFlat(team.User, raw.User)
-	legacyChatID := team.ChatID
-	if legacyChatID == "" || legacyUserName == "" {
-		return nil, fmt.Errorf("humans.toml not found and no legacy config to migrate — run: ttal doctor --fix")
-	}
-	log.Printf("config: humans.toml missing — using legacy fallback (run ttal doctor --fix)")
-	return &humanfs.Human{
-		Alias:          strings.ToLower(legacyUserName),
-		Name:           legacyUserName,
-		TelegramChatID: legacyChatID,
-		Admin:          true,
-	}, nil
+	return admin, nil
 }
 
 // resolveVoiceConfigFlat resolves the voice config for the flat Config.
@@ -616,16 +598,6 @@ func resolveVoiceConfigFlat(team rawTeam, globalVoice VoiceConfig) VoiceConfig {
 	}
 }
 
-// resolveUserNameFlat resolves the human identity for the flat Config.
-func resolveUserNameFlat(teamUser UserConfig, globalUser UserConfig) string {
-	if teamUser.Name != "" {
-		return teamUser.Name
-	}
-	if globalUser.Name != "" {
-		return globalUser.Name
-	}
-	return os.Getenv("USER")
-}
 
 // convertRawMatrix converts a rawMatrix (TOML decode target) to MatrixTeamConfig.
 func convertRawMatrix(rm *rawMatrix) *MatrixTeamConfig {

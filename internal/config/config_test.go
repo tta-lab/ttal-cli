@@ -68,17 +68,24 @@ func TestLoad_Success(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	configPath := filepath.Join(home, ".config", "ttal", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+	cfgDir := filepath.Join(home, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
 
 	configContent := `[teams.default]
 team_path = "/tmp/team"
-chat_id = "12345"
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0644); err != nil {
 		t.Fatalf("write config: %v", err)
+	}
+	humansContent := `[neil]
+name = "Neil"
+telegram_chat_id = "12345"
+admin = true
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansContent), 0644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 
 	cfg, err := Load()
@@ -142,8 +149,8 @@ admin = true
 	}
 }
 
-// TestLoad_HumansAbsentLegacyPresent verifies legacy fallback works.
-func TestLoad_HumansAbsentLegacyPresent(t *testing.T) {
+// TestLoad_HumansAbsent verifies error when humans.toml is absent (no legacy fallback).
+func TestLoad_HumansAbsent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	cfgDir := filepath.Join(home, ".config", "ttal")
@@ -160,51 +167,12 @@ name = "Neil"
 		t.Fatalf("write config.toml: %v", err)
 	}
 
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() = %v", err)
-	}
-	if cfg.AdminHuman == nil {
-		t.Fatal("cfg.AdminHuman is nil")
-	}
-	if cfg.AdminHuman.Alias != "neil" { //nolint:goconst // test fixture uses "neil"
-		t.Errorf("AdminHuman.Alias = %q, want neil", cfg.AdminHuman.Alias)
-	}
-	if cfg.AdminHuman.Name != "Neil" { //nolint:goconst // test fixture uses "Neil"
-		t.Errorf("AdminHuman.Name = %q, want Neil", cfg.AdminHuman.Name)
-	}
-	if cfg.AdminHuman.TelegramChatID != "12345" { //nolint:goconst // test fixture uses "12345"
-		t.Errorf("AdminHuman.TelegramChatID = %q, want 12345", cfg.AdminHuman.TelegramChatID)
-	}
-	if cfg.UserName != "Neil" { //nolint:goconst // test fixture uses "Neil"
-		t.Errorf("cfg.UserName = %q, want Neil", cfg.UserName)
-	}
-}
-
-// TestLoad_HumansAbsentLegacyEmpty verifies terminal error when no source available.
-func TestLoad_HumansAbsentLegacyEmpty(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	cfgDir := filepath.Join(home, ".config", "ttal")
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	configContent := `[teams.default]
-team_path = "/tmp/team"
-`
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("write config.toml: %v", err)
-	}
-
 	_, err := Load()
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal("expected error when humans.toml is absent, got nil")
 	}
-	if !strings.Contains(err.Error(), "humans.toml not found") {
-		t.Errorf("error = %q, want substring %q", err.Error(), "humans.toml not found")
-	}
-	if !strings.Contains(err.Error(), "ttal doctor --fix") {
-		t.Errorf("error = %q, want substring %q", err.Error(), "ttal doctor --fix")
+	if !strings.Contains(err.Error(), "humans.toml") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "humans.toml")
 	}
 }
 
