@@ -44,7 +44,10 @@ Examples:
 			return fmt.Errorf("get current branch: %w", err)
 		}
 
-		force, _ := cmd.Flags().GetBool("force")
+		force, err := cmd.Flags().GetBool("force")
+		if err != nil {
+			return fmt.Errorf("get --force flag: %w", err)
+		}
 		resp, err := daemon.GitPush(daemon.GitPushRequest{
 			WorkDir:      workDir,
 			Branch:       branch,

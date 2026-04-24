@@ -265,6 +265,22 @@ func TestHandleGitPush_ForceOnProtectedBranchBlocked(t *testing.T) {
 	}
 }
 
+func TestIsProtectedBranch(t *testing.T) {
+	protected := []string{"main", "master"}
+	allowed := []string{"develop", "feature/x", "release/v1", ""}
+
+	for _, b := range protected {
+		if !isProtectedBranch(b) {
+			t.Errorf("isProtectedBranch(%q) = false, want true", b)
+		}
+	}
+	for _, b := range allowed {
+		if isProtectedBranch(b) {
+			t.Errorf("isProtectedBranch(%q) = true, want false", b)
+		}
+	}
+}
+
 func TestHandleGitPush_NormalPushToMainNotBlockedByPolicy(t *testing.T) {
 	resp := handleGitPush(GitPushRequest{
 		WorkDir: "/tmp/not-a-real-repo", // will fail at RemoteURL, which is fine

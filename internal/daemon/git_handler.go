@@ -16,14 +16,21 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
+// isProtectedBranch returns true if the given branch name is protected by policy.
+// The list is intentionally small — extending it requires a code change.
+func isProtectedBranch(branch string) bool {
+	return branch == "main" || branch == "master"
+}
+
 // handleGitPush executes a git push using daemon-held credentials.
 // WorkDir may be a ttal worktree or any registered project directory.
 // Credentials are injected via GIT_CONFIG env vars — never via URL embedding or keychain.
 func handleGitPush(req GitPushRequest) GitPushResponse {
+	// Validation order: empty branch → protected-branch policy → credentials
 	if req.Branch == "" {
 		return GitPushResponse{Error: "branch must not be empty"}
 	}
-	if req.Force && (req.Branch == "main" || req.Branch == "master") {
+	if req.Force && isProtectedBranch(req.Branch) {
 		return GitPushResponse{Error: fmt.Sprintf("force push to %s blocked by ttal policy", req.Branch)}
 	}
 
