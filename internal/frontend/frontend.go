@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 )
 
@@ -45,7 +46,11 @@ type Frontend interface {
 
 	// AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
 	AskHumanHTTPHandler() http.HandlerFunc
+
+	// SendToHuman sends a message to a human's Telegram/Matrix using their chat_id.
+	SendToHuman(ctx context.Context, human *humanfs.Human, text string) error
 }
+
 
 // Command describes a bot command for registration and handler dispatch.
 type Command struct {

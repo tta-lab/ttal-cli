@@ -161,7 +161,7 @@ func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
-	toml := "[teams.default]\nteam_path = \"" + teamPath + "\"\n"
+	toml := "[teams.default]\nteam_path = \"" + teamPath + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 		}
 	})
 
-	configYAML := "default_team = \"\"\n[teams.default]\nteam_path = \"" + tmpTeamDir + "\"\n"
+	configYAML := "default_team = \"\"\n[teams.default]\nteam_path = \"" + tmpTeamDir + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(configPath, []byte(configYAML), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
-	toml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	toml := "[teams.default]\nteam_path = \"" + tmp + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

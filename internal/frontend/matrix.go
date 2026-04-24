@@ -16,6 +16,7 @@ import (
 	"maunium.net/go/mautrix/id"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -658,4 +659,21 @@ func extractDomain(homeserverURL string) (string, error) {
 		return "", fmt.Errorf("no host in URL (missing scheme?)")
 	}
 	return u.Host, nil
+}
+
+// SendToHuman posts to the notification room and @-mentions the human.
+// v1 scope: per-human DM-room provisioning is out of scope.
+func (f *MatrixFrontend) SendToHuman(ctx context.Context, human *humanfs.Human, text string) error {
+	if f.notifyClient == nil {
+		log.Printf("[matrix] no notification client for human %s — dropping message", human.Alias)
+		return nil
+	}
+	msg := text
+	if human.MatrixUserID != "" {
+		msg = fmt.Sprintf("%s %s", human.MatrixUserID, text)
+	}
+	if _, err := f.notifyClient.SendText(ctx, f.notifyRoom, msg); err != nil {
+		return fmt.Errorf("matrix send to human: %w", err)
+	}
+	return nil
 }

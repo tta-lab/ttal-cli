@@ -109,7 +109,7 @@ func TestRunContext_AgentWithContextTemplate(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
 		t.Fatalf("write prompts.toml: %v", err)
 	}
-	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestRunContext_NonManagerAgent_EmitsNoop(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
 		t.Fatalf("write prompts.toml: %v", err)
 	}
-	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestRunContext_WorkerCWD_SetsJobID(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
 		t.Fatalf("write prompts.toml: %v", err)
 	}
-	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
@@ -348,7 +348,7 @@ func TestContext_SmokeTest_RoleBasedSkills(t *testing.T) {
 	}
 
 	// Write config.toml.
-	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
@@ -438,7 +438,7 @@ fixer = "Diagnose this bug and write a fix plan."
 		t.Fatalf("write prompts.toml: %v", err)
 	}
 
-	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
+	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}

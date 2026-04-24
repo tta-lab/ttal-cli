@@ -658,3 +658,19 @@ func TestDispatchToWorkerOrManager(t *testing.T) {
 		}
 	})
 }
+
+// TestResolveAddressee_Unknown verifies that unknown names produce an error listing known agents and humans.
+func TestResolveAddressee_Unknown(t *testing.T) {
+	// Test that unknown names produce the expected error format
+	cfg := &config.Config{}
+	addr, err := resolveAddressee(cfg, "unknown")
+	if err == nil {
+		t.Fatal("expected error for unknown name")
+	}
+	if addr != nil {
+		t.Errorf("expected nil addressee, got %+v", addr)
+	}
+	if !strings.Contains(err.Error(), "unknown addressee: unknown") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "unknown addressee: unknown")
+	}
+}

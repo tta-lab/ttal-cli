@@ -12,6 +12,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -19,6 +20,68 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
+
+// AddresseeKind classifies what kind of entity a name resolves to.
+type AddresseeKind int
+
+const (
+	KindAgent AddresseeKind = iota // tmux session delivery
+	KindWorker                    // job_id:agent_name → worker tmux or manager window
+	KindHuman                     // frontend delivery (Telegram chat_id / Matrix invite)
+)
+
+// Addressee is a resolved send target.
+type Addressee struct {
+	Kind        AddresseeKind
+	Name        string            // agent name, human alias, or worker:agent name
+	Agent       *config.AgentInfo // populated when Kind == KindAgent
+	Human       *humanfs.Human   // populated when Kind == KindHuman
+	WorkerJobID string            // populated when Kind == KindWorker
+}
+
+// resolveAddressee resolves a name to an addressee.
+// Resolution order: HUMAN (humanfs) FIRST, then AGENT, then WORKER (jobid:agent).
+func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
+	// Try human first
+	humansPath, err := config.HumansPath()
+	if err == nil {
+		h, err := humanfs.Get(humansPath, name)
+		if err == nil {
+			return &Addressee{Kind: KindHuman, Name: h.Alias, Human: h}, nil
+		}
+	}
+
+	// Try agent
+	if ta, ok := cfg.FindAgent(name); ok {
+		return &Addressee{Kind: KindAgent, Name: ta.AgentName, Agent: ta}, nil
+	}
+
+	// Try worker format
+	if jobID, _, ok := parseWorkerAddress(name); ok {
+		return &Addressee{Kind: KindWorker, Name: name, WorkerJobID: jobID}, nil
+	}
+
+	// Bare hex UUID
+	if isBareWorkerHex(name) {
+		return nil, bareHexError(name)
+	}
+
+	// Build known lists for error
+	agents := cfg.Agents()
+	agentNames := make([]string, 0, len(agents))
+	for _, a := range agents {
+		agentNames = append(agentNames, a.AgentName)
+	}
+
+	humansList, _ := humanfs.List(humansPath)
+	humanAliases := make([]string, 0, len(humansList))
+	for _, h := range humansList {
+		humanAliases = append(humanAliases, h.Alias)
+	}
+
+	return nil, fmt.Errorf("unknown addressee: %s (known agents: %v; known humans: %v)",
+		name, agentNames, humanAliases)
+}
 
 // clearSettleDelay is the time to wait after sending /clear before sending
 // the start trigger prompt. Allows CC's /clear to complete and the
@@ -106,11 +169,9 @@ func handleSend(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	// Ordering matters: "system" check must follow To=="human" (system never sends to human)
-	// and precede the generic From+To agent-to-agent case (system is not a named agent).
+	// Remove the "human" literal case — humans are now first-class addressees.
+	// handleAgentToAgent is unchanged: humans are not addressees of agent→agent sends.
 	switch {
-	case req.From != "" && req.To == "human":
-		return handleFrom(cfg, frontends, msgSvc, req)
 	case req.From == "system" && req.To != "":
 		return handleSystemToAgent(cfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
@@ -123,6 +184,7 @@ func handleSend(
 		return fmt.Errorf("send request missing from/to")
 	}
 }
+
 
 // handleFrom sends a message from an agent to the human via the team's frontend.
 func handleFrom(
@@ -150,38 +212,60 @@ func handleFrom(
 // Falls back to worker session delivery when the recipient is job_id:agent_name.
 // Rejects bare hex UUIDs with a helpful error message.
 // Human→worker messages are sent as bare text (no [agent from:] prefix).
+// handleTo delivers a message to an agent, worker, or human via resolveAddressee.
+// Falls back to worker session delivery when the recipient is job_id:agent_name.
 func handleTo(
 	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	ta := resolveAgent(cfg, req.To)
-	if ta == nil {
-		// Try parseWorkerAddress for job_id:agent_name format
-		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
-			session, dispatched, err := dispatchToWorkerOrManager(
-				cfg, jobID, agentName, msgSvc, cfg.UserName, req.To, req.Message, nil)
-			if err != nil {
-				return err
-			}
-			if dispatched {
-				logDispatch("human", cfg.UserName, req.To, session)
-				return nil
-			}
-		}
-		// Bare hex UUID — reject with helpful error
-		if isBareWorkerHex(req.To) {
-			return bareHexError(req.To)
-		}
-		return fmt.Errorf("unknown agent or worker %s", req.To)
+	addr, err := resolveAddressee(cfg, req.To)
+	if err != nil {
+		return err
 	}
-	// Human-originated: no runtime attribution (humans don't have a runtime entry).
+
+	switch addr.Kind {
+	case KindHuman:
+		return handleToHuman(cfg, frontends, msgSvc, addr.Human, req)
+	case KindAgent:
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: cfg.UserName, Recipient: addr.Name, Content: req.Message,
+			Team: "default", Channel: message.ChannelCLI,
+		})
+		return deliverToAgent(registry, cfg, frontends, addr.Name, req.Message)
+	case KindWorker:
+		session, dispatched, err := dispatchToWorkerOrManager(
+			cfg, addr.WorkerJobID, addr.Name, msgSvc, cfg.UserName, req.To, req.Message, nil)
+		if err != nil {
+			return err
+		}
+		if dispatched {
+			logDispatch("human", cfg.UserName, req.To, session)
+			return nil
+		}
+		return fmt.Errorf("worker %s not reachable", addr.Name)
+	default:
+		return fmt.Errorf("unknown addressee kind: %v", addr.Kind)
+	}
+}
+
+// handleToHuman delivers a message to a human via the team's default frontend.
+func handleToHuman(
+	cfg *config.Config,
+	frontends map[string]frontend.Frontend,
+	msgSvc *message.Service, human *humanfs.Human, req SendRequest,
+) error {
+	fe, ok := frontends["default"]
+	if !ok {
+		return fmt.Errorf("no frontend configured (human %s)", human.Alias)
+	}
 	persistMsg(msgSvc, message.CreateParams{
-		Sender: cfg.UserName, Recipient: req.To, Content: req.Message,
+		Sender: req.From, Recipient: human.Alias, Content: req.Message,
 		Team: "default", Channel: message.ChannelCLI,
 	})
-	return deliverToAgent(registry, cfg, frontends, req.To, req.Message)
+	return fe.SendToHuman(context.Background(), human, req.Message)
 }
+
 
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
 // No [agent from:] prefix is added — used for automated triggers like /breathe

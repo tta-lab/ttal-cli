@@ -22,6 +22,7 @@ import (
 	"github.com/go-telegram/bot/models"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/status"
@@ -1087,4 +1088,17 @@ func downloadTelegramFile(
 		return "", fmt.Errorf("close file: %w", err)
 	}
 	return localPath, nil
+}
+
+// SendToHuman sends a message to a human's Telegram chat using the notification bot token.
+func (f *TelegramFrontend) SendToHuman(_ context.Context, human *humanfs.Human, text string) error {
+	if human.TelegramChatID == "" {
+		return fmt.Errorf("human %s has no telegram_chat_id configured", human.Alias)
+	}
+	// Use the notification bot token for human delivery
+	botToken := f.cfg.MCfg.NotificationToken
+	if botToken == "" {
+		return fmt.Errorf("no notification bot token configured for human %s", human.Alias)
+	}
+	return telegram.SendMessage(botToken, human.TelegramChatID, text)
 }

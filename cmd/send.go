@@ -22,20 +22,20 @@ var sendCmd = &cobra.Command{
 
   --to <agent>            delivers to agent via tmux
   --to <job_id>:<agent>   delivers to worker session
-  --to human              sends to human via Telegram
+  --to <human_alias>      sends to human via Telegram/Matrix (see: ttal human list)
 
 Agent identity comes from TTAL_AGENT_NAME env var (set automatically in team tmux sessions).
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
-  ttal send --to human "compact complete"
+  ttal send --to neil "compact complete"
   ttal send --to abc12345:coder "worker session message"
 
   # Piped stdin (single line):
   echo "done" | ttal send --to kestrel
 
   # Multiline via heredoc:
-  cat <<'EOF' | ttal send --to human
+  cat <<'EOF' | ttal send --to neil
   ## Status
   Review complete — 2 findings.
   EOF`,
@@ -55,8 +55,8 @@ Examples:
 		if jobID != "" && from != "" {
 			from = jobID + ":" + from
 		}
-		if sendTo == "human" && from == "" {
-			return fmt.Errorf("TTAL_AGENT_NAME not set — this command sends to Telegram and needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
+		if from == "" {
+			return fmt.Errorf("TTAL_AGENT_NAME not set — this command needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
 		}
 
 		usage.Log("send", sendTo)
@@ -96,7 +96,7 @@ func resolveSendMessage(args []string) (string, error) {
 		return "", fmt.Errorf(
 			"message required (positional argument or piped stdin)\n\n"+
 				"  Example: %s\n"+
-				"  Multiline: cat <<'END' | ttal send --to human\n"+
+				"  Multiline: cat <<'END' | ttal send --to <name>\n"+
 				"    ## Status\n    ...\n    END",
 			sendExample)
 	}
