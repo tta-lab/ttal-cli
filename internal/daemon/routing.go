@@ -25,9 +25,9 @@ import (
 type AddresseeKind int
 
 const (
-	KindAgent AddresseeKind = iota // tmux session delivery
-	KindWorker                    // job_id:agent_name → worker tmux or manager window
-	KindHuman                     // frontend delivery (Telegram chat_id / Matrix invite)
+	KindAgent  AddresseeKind = iota // tmux session delivery
+	KindWorker                      // job_id:agent_name → worker tmux or manager window
+	KindHuman                       // frontend delivery (Telegram chat_id / Matrix invite)
 )
 
 // Addressee is a resolved send target.
@@ -35,7 +35,7 @@ type Addressee struct {
 	Kind        AddresseeKind
 	Name        string            // agent name, human alias, or worker:agent name
 	Agent       *config.AgentInfo // populated when Kind == KindAgent
-	Human       *humanfs.Human   // populated when Kind == KindHuman
+	Human       *humanfs.Human    // populated when Kind == KindHuman
 	WorkerJobID string            // populated when Kind == KindWorker
 }
 
@@ -185,7 +185,6 @@ func handleSend(
 	}
 }
 
-
 // handleFrom sends a message from an agent to the human via the team's frontend.
 func handleFrom(
 	cfg *config.Config,
@@ -226,7 +225,7 @@ func handleTo(
 
 	switch addr.Kind {
 	case KindHuman:
-		return handleToHuman(cfg, frontends, msgSvc, addr.Human, req)
+		return handleToHuman(frontends, msgSvc, addr.Human, req)
 	case KindAgent:
 		persistMsg(msgSvc, message.CreateParams{
 			Sender: cfg.UserName, Recipient: addr.Name, Content: req.Message,
@@ -251,7 +250,6 @@ func handleTo(
 
 // handleToHuman delivers a message to a human via the team's default frontend.
 func handleToHuman(
-	cfg *config.Config,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, human *humanfs.Human, req SendRequest,
 ) error {
@@ -265,7 +263,6 @@ func handleToHuman(
 	})
 	return fe.SendToHuman(context.Background(), human, req.Message)
 }
-
 
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
 // No [agent from:] prefix is added — used for automated triggers like /breathe

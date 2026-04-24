@@ -67,6 +67,16 @@ func TestRenderTemplate_TemplateVarExpansion(t *testing.T) {
 	}
 }
 
+func TestRenderTemplate_AdminVars(t *testing.T) {
+	tmpl := "Hello {{admin_name}}, reach out via --to {{admin-handle}}"
+	env := []string{"TTAL_ADMIN_NAME=Neil", "TTAL_ADMIN_HANDLE=neil"}
+	got := RenderTemplate(tmpl, "myagent", "myteam", env)
+	want := "Hello Neil, reach out via --to neil"
+	if got != want {
+		t.Errorf("admin vars not expanded: got %q, want %q", got, want)
+	}
+}
+
 func TestRenderTemplate_EmptyCommandOutput(t *testing.T) {
 	// Command succeeds but produces no output — should be skipped entirely.
 	tmpl := "before\n$ true\nafter"

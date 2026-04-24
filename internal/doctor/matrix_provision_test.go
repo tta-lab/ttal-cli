@@ -144,9 +144,13 @@ func TestCheckMatrix_NoMatrixTeams(t *testing.T) {
 	}
 
 	cfgContent := `
+[user]
+  name = "neil"
+
 [teams.default]
   frontend = "telegram"
   team_path = "/tmp"
+  chat_id = "123456"
 `
 	cfgPath := cfgDir + "/config.toml"
 	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
