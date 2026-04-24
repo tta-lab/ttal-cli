@@ -87,6 +87,6 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 
 ## Reaching Neil
 
-Use `ttal send --to human "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
+Use `ttal send --to neil "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
 
 Aim for ≤3 lines. Longer content → flicknote first.

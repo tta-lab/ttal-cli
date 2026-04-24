@@ -38,7 +38,7 @@
 
 ## Session Start
 
-**FIRST:** Always run `ttal task get` (no extra arguments) to get your assigned task. Do not use `ttal today list` — that is for Neil's daily focus, not task assignment.
+**FIRST:** Always run `ttal task get` (no extra arguments) to get your assigned task. Do not use `ttal today list` — that is for {{admin_name}}'s daily focus, not task assignment.
 
 ## ttal Two-Plane Architecture
 
@@ -65,16 +65,16 @@ All agents use **CC's native sandbox** for file and command operations — the s
 
 Every token an agent emits goes to one of two channels. Be deliberate about which:
 
-- **→ human** — `ttal send --to human "message"` lands in Neil's context window (Telegram/Matrix). Explicit CLI required. Expensive. Reserve for things Neil must see and act on.
+- **→ human** — `ttal send --to human "message"` lands in {{admin_name}}'s context window (Telegram/Matrix). Explicit CLI required. Expensive. Reserve for things {{admin_name}} must see and act on.
 - **→ persist** — lands in state (taskwarrior annotations, flicknote edits, `ttal comment add`, task tree updates, worker prompts, `ttal go` routing). Cheap, durable, inspectable later.
 
-**Default to persist.** If you're updating state, recording a decision, or handing off to another agent, write it to the persist channel — don't narrate it back to Neil. Only surface to the human channel when (a) Neil asked a direct question, (b) you're blocked and need a decision, or (c) you're delivering a final summary at the end of a phase.
+**Default to persist.** If you're updating state, recording a decision, or handing off to another agent, write it to the persist channel — don't narrate it back to {{admin_name}}. Only surface to the human channel when (a) {{admin_name}} asked a direct question, (b) you're blocked and need a decision, or (c) you're delivering a final summary at the end of a phase.
 
 Skills make this split explicit with → human / → persist markers on each step. Follow them.
 
 ### How to reach the human
 
-Use `ttal send --to human` — the **only** path to Neil's Telegram/Matrix. JSONL session output is private workspace; nothing auto-forwards.
+Use `ttal send --to human` — the **only** path to {{admin_name}}'s Telegram/Matrix. JSONL session output is private workspace; nothing auto-forwards.
 
 **One-liner:**
 ```bash
