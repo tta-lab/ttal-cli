@@ -14,8 +14,9 @@ const commandTimeout = 30 * time.Second
 // RenderTemplate walks a prompt template line-by-line.
 // Lines starting with "$ " are executed as shell commands (via sh -c).
 // All other lines are passed through as-is.
-// Template vars ({{agent-name}}, {{team-name}}) are expanded before execution.
+// Template vars ({{agent-name}}, {{team-name}}, {{admin-name}}, {{admin-handle}}) are expanded.
 // env is a list of KEY=VALUE strings merged into the subprocess environment for $ commands.
+// TTAL_ADMIN_NAME and TTAL_ADMIN_HANDLE from env are used for {{admin-name}} / {{admin-handle}}.
 // Hook-derived vars override any pre-existing session env vars of the same name.
 // Non-zero exit commands are logged and skipped (output not included).
 // Empty command output is omitted (no blank sections).
@@ -23,6 +24,19 @@ func RenderTemplate(tmpl, agentName, teamName string, env []string) string {
 	// Expand template vars in the entire template first.
 	expanded := strings.ReplaceAll(tmpl, "{{agent-name}}", agentName)
 	expanded = strings.ReplaceAll(expanded, "{{team-name}}", teamName)
+	// Admin vars come from env
+	adminName := ""
+	adminHandle := ""
+	for _, e := range env {
+		if strings.HasPrefix(e, "TTAL_ADMIN_NAME=") {
+			adminName = strings.TrimPrefix(e, "TTAL_ADMIN_NAME=")
+		}
+		if strings.HasPrefix(e, "TTAL_ADMIN_HANDLE=") {
+			adminHandle = strings.TrimPrefix(e, "TTAL_ADMIN_HANDLE=")
+		}
+	}
+	expanded = strings.ReplaceAll(expanded, "{{admin-name}}", adminName)
+	expanded = strings.ReplaceAll(expanded, "{{admin-handle}}", adminHandle)
 
 	// Build subprocess env: os.Environ() base + caller-supplied overrides.
 	// We pass env to runCommand so it can merge at exec time.

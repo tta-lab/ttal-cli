@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -67,16 +68,24 @@ func TestLoad_Success(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	configPath := filepath.Join(home, ".config", "ttal", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+	cfgDir := filepath.Join(home, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
 
 	configContent := `[teams.default]
 team_path = "/tmp/team"
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0644); err != nil {
 		t.Fatalf("write config: %v", err)
+	}
+	humansContent := `[neil]
+name = "Neil"
+telegram_chat_id = "12345"
+admin = true
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansContent), 0644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 
 	cfg, err := Load()
@@ -85,6 +94,85 @@ team_path = "/tmp/team"
 	}
 	if cfg.TeamPath != "/tmp/team" {
 		t.Errorf("TeamPath = %q, want %q", cfg.TeamPath, "/tmp/team")
+	}
+}
+
+// TestLoad_HumansTomlPresent verifies humans.toml wins over legacy fields.
+func TestLoad_HumansTomlPresent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfgDir := filepath.Join(home, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	configContent := `[teams.default]
+team_path = "/tmp/team"
+chat_id = "legacy-wrong"
+`
+	humansContent := `[neil]
+name = "Neil"
+telegram_chat_id = "845849177"
+admin = true
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansContent), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+	if cfg.AdminHuman == nil {
+		t.Fatal("cfg.AdminHuman is nil")
+	}
+	if cfg.AdminHuman.Alias != "neil" { //nolint:goconst // test fixture uses "neil"
+		t.Errorf("AdminHuman.Alias = %q, want neil", cfg.AdminHuman.Alias)
+	}
+	if cfg.AdminHuman.Name != "Neil" { //nolint:goconst // test fixture uses "Neil"
+		t.Errorf("AdminHuman.Name = %q, want Neil", cfg.AdminHuman.Name)
+	}
+	if cfg.AdminHuman.TelegramChatID != "845849177" { //nolint:goconst // test fixture uses "845849177"
+		t.Errorf("AdminHuman.TelegramChatID = %q, want 845849177", cfg.AdminHuman.TelegramChatID)
+	}
+	if !cfg.AdminHuman.Admin {
+		t.Error("AdminHuman.Admin = false, want true")
+	}
+	// humans.toml wins over legacy config
+	if cfg.ChatID != "845849177" { //nolint:goconst // test fixture uses "845849177"
+		t.Errorf("cfg.ChatID = %q, want 845849177 (from humans.toml)", cfg.ChatID)
+	}
+	if cfg.UserName != "Neil" { //nolint:goconst // test fixture uses "Neil"
+		t.Errorf("cfg.UserName = %q, want Neil", cfg.UserName)
+	}
+}
+
+// TestLoad_HumansAbsent verifies error when humans.toml is absent (no legacy fallback).
+func TestLoad_HumansAbsent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfgDir := filepath.Join(home, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	configContent := `[teams.default]
+team_path = "/tmp/team"
+chat_id = "12345"
+[user]
+name = "Neil"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error when humans.toml is absent, got nil")
+	}
+	if !strings.Contains(err.Error(), "humans.toml") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "humans.toml")
 	}
 }
 

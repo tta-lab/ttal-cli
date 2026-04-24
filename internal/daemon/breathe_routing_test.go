@@ -11,6 +11,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
+// testChatID is a placeholder chat ID used across fixture humans.toml entries.
+// goconst linter requires this to be a constant rather than repeated string literals.
+const testChatID = "12345"
+
 func TestHandleBreatheValidation(t *testing.T) {
 	shellCfg := &config.Config{}
 
@@ -165,6 +169,10 @@ func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
+	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
@@ -280,9 +288,27 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 		}
 	})
 
-	configYAML := "default_team = \"\"\n[teams.default]\nteam_path = \"" + tmpTeamDir + "\"\n"
+	configYAML := "default_team = \"\"\n[teams.default]\nteam_path = \"" + tmpTeamDir + "\"\nchat_id = \"12345\"\n"
 	if err := os.WriteFile(configPath, []byte(configYAML), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
+	}
+
+	// humans.toml is now required by config.Load() — write a minimal fixture.
+	humansPath := filepath.Join(configDir, "humans.toml")
+	var humansBackup []byte
+	if oldHumans, err := os.ReadFile(humansPath); err == nil {
+		humansBackup = oldHumans
+	}
+	t.Cleanup(func() {
+		if humansBackup != nil {
+			os.WriteFile(humansPath, humansBackup, 0o644)
+		} else {
+			os.Remove(humansPath)
+		}
+	})
+	humansContent := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
+	if err := os.WriteFile(humansPath, []byte(humansContent), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 
 	cfg, err := config.Load()
@@ -423,6 +449,10 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	toml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
+	}
+	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 	cfg, err := config.Load()
 	if err != nil {

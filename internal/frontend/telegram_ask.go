@@ -321,6 +321,12 @@ func writeAskHumanJSON(w http.ResponseWriter, code int, v interface{}) {
 func resolveAskHumanTarget(req askHumanHTTPRequest, cfg *config.Config) (
 	botToken string, chatID int64, displayName string, err error,
 ) {
+	// Resolve chat ID from admin human
+	chatIDStr := ""
+	if cfg.AdminHuman != nil {
+		chatIDStr = cfg.AdminHuman.TelegramChatID
+	}
+
 	if req.AgentName != "" {
 		token := config.AgentBotToken(req.AgentName)
 		if token == "" {
@@ -330,7 +336,7 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, cfg *config.Config) (
 		if !ok {
 			return "", 0, "", fmt.Errorf("agent %q not found in config", req.AgentName)
 		}
-		id, parseErr := telegram.ParseChatID(cfg.ChatID)
+		id, parseErr := telegram.ParseChatID(chatIDStr)
 		if parseErr != nil {
 			return "", 0, "", fmt.Errorf("invalid chat ID for agent %q: %w", req.AgentName, parseErr)
 		}
@@ -341,7 +347,7 @@ func resolveAskHumanTarget(req askHumanHTTPRequest, cfg *config.Config) (
 		if cfg.NotificationToken == "" {
 			return "", 0, "", fmt.Errorf("no notification bot configured for default team")
 		}
-		id, parseErr := telegram.ParseChatID(cfg.ChatID)
+		id, parseErr := telegram.ParseChatID(chatIDStr)
 		if parseErr != nil {
 			return "", 0, "", fmt.Errorf("invalid notification chat ID: %w", parseErr)
 		}

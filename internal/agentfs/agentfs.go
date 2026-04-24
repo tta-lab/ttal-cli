@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -34,6 +35,8 @@ type AgentInfo struct {
 	Role           string // e.g. designer, researcher — matches [prompts] key
 	Color          string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
 	DefaultRuntime string // per-agent default_runtime override (e.g. "lenos")
+	Pronouns       string // free-form pronouns string (e.g. "she/her")
+	Age            int    // agent age in years
 }
 
 // Discover scans teamPath for agent workspace subdirectories containing an
@@ -224,6 +227,10 @@ func applyFrontmatter(info *AgentInfo, fm map[string]string) {
 	info.Role = fm["role"]
 	info.Color = fm["color"]
 	info.DefaultRuntime = fm["default_runtime"]
+	info.Pronouns = fm["pronouns"]
+	if ageStr, ok := fm["age"]; ok {
+		info.Age, _ = strconv.Atoi(ageStr)
+	}
 }
 
 // hasNestedFrontmatter returns true if the content contains indented lines

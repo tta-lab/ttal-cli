@@ -5,8 +5,12 @@ import (
 	"net/http"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 )
+
+// fallbackHumanAlias is used when AdminHuman is nil.
+const fallbackHumanAlias = "human"
 
 // Frontend abstracts a messaging transport (Telegram, Matrix).
 // The daemon initialises one Frontend per team at startup.
@@ -45,6 +49,9 @@ type Frontend interface {
 
 	// AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
 	AskHumanHTTPHandler() http.HandlerFunc
+
+	// SendToHuman sends a message to a human's Telegram/Matrix using their chat_id.
+	SendToHuman(ctx context.Context, human *humanfs.Human, text string) error
 }
 
 // Command describes a bot command for registration and handler dispatch.
@@ -67,4 +74,5 @@ type TelegramConfig struct {
 	UserNameFn func() string
 	GetUsageFn func() string
 	RestartFn  func() error
+	AdminHuman *humanfs.Human // used for reply hints
 }

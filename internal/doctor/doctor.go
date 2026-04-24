@@ -86,6 +86,7 @@ func Run(fix bool) *Report {
 	r := &Report{}
 	r.Sections = append(r.Sections, checkPrerequisites())
 	r.Sections = append(r.Sections, checkConfig(fix))
+	r.Sections = append(r.Sections, checkHumans(fix))
 	r.Sections = append(r.Sections, checkTaskwarrior(fix))
 	r.Sections = append(r.Sections, checkTaskSync(fix))
 	r.Sections = append(r.Sections, checkDatabase())
@@ -255,12 +256,6 @@ func checkConfig(fix bool) Section {
 	}
 
 	checkPrompts(&section, cfg.Prompts)
-
-	if cfg.ChatID == "" {
-		section.add(LevelError, "chat_id", "chat_id not set")
-	} else {
-		section.add(LevelOK, "chat_id", "chat_id set")
-	}
 
 	if cfg.NotificationToken == "" {
 		section.add(LevelWarn, "notification_token",

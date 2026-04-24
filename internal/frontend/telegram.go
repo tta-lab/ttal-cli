@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 	"github.com/go-telegram/bot/models"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notify"
 	"github.com/tta-lab/ttal-cli/internal/status"
@@ -103,6 +105,14 @@ type TelegramFrontend struct {
 	ahs         *askHumanStore
 	mt          *messageTracker
 	allCommands []Command // set by RegisterCommands, used by Start
+}
+
+// adminHumanAlias returns the admin's alias for reply hints, or "human" if not configured.
+func (f *TelegramFrontend) adminHumanAlias() string {
+	if f.cfg.MCfg == nil || f.cfg.MCfg.AdminHuman == nil {
+		return "human"
+	}
+	return f.cfg.MCfg.AdminHuman.Alias
 }
 
 // NewTelegram creates a TelegramFrontend. RegisterCommands must be called before Start.
@@ -204,7 +214,11 @@ func (f *TelegramFrontend) SendText(_ context.Context, agentName string, text st
 	if botToken == "" {
 		return fmt.Errorf("agent %s has no telegram bot token configured", agentName)
 	}
-	return telegram.SendMessage(botToken, f.cfg.MCfg.ChatID, text)
+	chatID := ""
+	if f.cfg.MCfg.AdminHuman != nil {
+		chatID = f.cfg.MCfg.AdminHuman.TelegramChatID
+	}
+	return telegram.SendMessage(botToken, chatID, text)
 }
 
 // SendVoice is not yet implemented for Telegram outbound (daemon → human).
@@ -214,7 +228,11 @@ func (f *TelegramFrontend) SendVoice(_ context.Context, _ string, _ []byte) erro
 
 // SendNotification sends a system notification to this team's notification channel.
 func (f *TelegramFrontend) SendNotification(_ context.Context, text string) error {
-	return notify.SendWithConfig(f.cfg.MCfg.NotificationToken, f.cfg.MCfg.ChatID, text)
+	chatID := ""
+	if f.cfg.MCfg.AdminHuman != nil {
+		chatID = f.cfg.MCfg.AdminHuman.TelegramChatID
+	}
+	return notify.SendWithConfig(f.cfg.MCfg.NotificationToken, chatID, text)
 }
 
 // SetReaction sets an emoji reaction on the last tracked inbound message for an agent.
@@ -238,7 +256,8 @@ func (f *TelegramFrontend) findAgent(agentName string) *config.AgentInfo {
 // startPollers deduplicates agents by bot token and starts one poller per token.
 func (f *TelegramFrontend) startPollers() {
 	allAgents := f.cfg.MCfg.Agents()
-	tokenTargets := buildTokenTargets(allAgents, f.cfg.MCfg.ChatID)
+	adminHuman := f.cfg.MCfg.AdminHuman
+	tokenTargets := buildTokenTargets(allAgents, adminHuman)
 	for botToken, targets := range tokenTargets {
 		dispatchMap := buildDispatchMap(targets)
 		log.Printf("[telegram] starting multi-agent poller for %d agents on token ...%s",
@@ -247,7 +266,13 @@ func (f *TelegramFrontend) startPollers() {
 	}
 }
 
-func buildTokenTargets(allAgents []config.AgentInfo, teamChatID string) map[string][]pollerTarget {
+// buildTokenTargets builds a map from bot token → poller targets for all agents.
+// Each human's chat_id becomes an authorized sender for that human's inbound messages.
+// adminHuman provides the team's default send target (for team-wide broadcasts).
+func buildTokenTargets(allAgents []config.AgentInfo, adminHuman *humanfs.Human) map[string][]pollerTarget {
+	if adminHuman == nil {
+		log.Printf("[telegram] WARNING: adminHuman is nil — no human chat_ids authorized for pollers")
+	}
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
 		token := config.AgentBotToken(ta.AgentName)
@@ -255,11 +280,16 @@ func buildTokenTargets(allAgents []config.AgentInfo, teamChatID string) map[stri
 			log.Printf("[daemon] skipping telegram poller for %s: no bot_token", ta.AgentName)
 			continue
 		}
-		tokenTargets[token] = append(tokenTargets[token], pollerTarget{
-			teamName:  "default",
-			agentName: ta.AgentName,
-			chatID:    teamChatID,
-		})
+		targets := []pollerTarget{}
+		// Add human chat IDs as authorized senders for this agent's token
+		if adminHuman != nil && adminHuman.TelegramChatID != "" {
+			targets = append(targets, pollerTarget{
+				teamName:  "default",
+				agentName: ta.AgentName,
+				chatID:    adminHuman.TelegramChatID,
+			})
+		}
+		tokenTargets[token] = append(tokenTargets[token], targets...)
 	}
 	return tokenTargets
 }
@@ -481,7 +511,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 		}
 		rawText := "[🎤 voice] " + transcription
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText))
+		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
 		return
 	}
 
@@ -500,7 +530,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 			rawText += " " + caption
 		}
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText))
+		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
 		return
 	}
 
@@ -521,7 +551,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 			rawText += " " + caption
 		}
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText))
+		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
 		return
 	}
 
@@ -539,7 +569,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 		return
 	}
 
-	onMessage(agentName, formatInboundMessage(senderName, replyCtx+text))
+	onMessage(agentName, formatInboundMessage(senderName, replyCtx+text, f.adminHumanAlias()))
 }
 
 func (f *TelegramFrontend) persistInbound(sender, recipient, team, content string) {
@@ -555,10 +585,14 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 }
 
 // formatInboundMessage formats a Telegram message for delivery to the agent.
-func formatInboundMessage(senderName, text string) string {
+// adminAlias is the human's lowercase alias for the reply hint (e.g. "neil").
+func formatInboundMessage(senderName, text, adminAlias string) string {
+	if adminAlias == "" {
+		adminAlias = "human"
+	}
 	return fmt.Sprintf(
-		"[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
-		senderName, text)
+		"[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
+		html.EscapeString(senderName), text, adminAlias)
 }
 
 // registerBotCommands calls Telegram setMyCommands API for this bot token.
@@ -1087,4 +1121,17 @@ func downloadTelegramFile(
 		return "", fmt.Errorf("close file: %w", err)
 	}
 	return localPath, nil
+}
+
+// SendToHuman sends a message to a human's Telegram chat using the notification bot token.
+func (f *TelegramFrontend) SendToHuman(_ context.Context, human *humanfs.Human, text string) error {
+	if human.TelegramChatID == "" {
+		return fmt.Errorf("human %s has no telegram_chat_id configured", human.Alias)
+	}
+	// Use the notification bot token for human delivery
+	botToken := f.cfg.MCfg.NotificationToken
+	if botToken == "" {
+		return fmt.Errorf("no notification bot token configured for human %s", human.Alias)
+	}
+	return telegram.SendMessage(botToken, human.TelegramChatID, text)
 }

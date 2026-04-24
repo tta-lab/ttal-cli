@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"fmt"
+	"html"
 	"log"
 	"net/url"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"maunium.net/go/mautrix/id"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -221,9 +223,13 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 		return
 	}
 
+	adminAlias := fallbackHumanAlias
+	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
+		adminAlias = f.cfg.MCfg.AdminHuman.Alias
+	}
 	formatted := fmt.Sprintf(
-		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
-		senderName, body)
+		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
+		html.EscapeString(senderName), body, adminAlias)
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 
@@ -399,9 +405,13 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		}
 	}
 
+	adminAlias := fallbackHumanAlias
+	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
+		adminAlias = f.cfg.MCfg.AdminHuman.Alias
+	}
 	formatted := fmt.Sprintf(
-		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
-		senderName, rawText)
+		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
+		html.EscapeString(senderName), rawText, adminAlias)
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 
@@ -658,4 +668,20 @@ func extractDomain(homeserverURL string) (string, error) {
 		return "", fmt.Errorf("no host in URL (missing scheme?)")
 	}
 	return u.Host, nil
+}
+
+// SendToHuman posts to the notification room and @-mentions the human.
+// v1 scope: per-human DM-room provisioning is out of scope.
+func (f *MatrixFrontend) SendToHuman(ctx context.Context, human *humanfs.Human, text string) error {
+	if f.notifyClient == nil {
+		return fmt.Errorf("matrix notification client not initialized (cannot send to human %s)", human.Alias)
+	}
+	msg := text
+	if human.MatrixUserID != "" {
+		msg = fmt.Sprintf("%s %s", human.MatrixUserID, text)
+	}
+	if _, err := f.notifyClient.SendText(ctx, f.notifyRoom, msg); err != nil {
+		return fmt.Errorf("matrix send to human: %w", err)
+	}
+	return nil
 }

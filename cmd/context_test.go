@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const testHumansToml = "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"
+
 // captureContextOutput runs runContext and captures stdout.
 // stdinJSON is optional hook input JSON to provide via stdin.
 func captureContextOutput(t *testing.T, stdinJSON ...string) string {
@@ -113,6 +115,10 @@ func TestRunContext_AgentWithContextTemplate(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
+	humansToml := testHumansToml
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansToml), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
 
 	// Create kestrel agent dir so agentfs.HasAgent passes (kestrel is a manager).
 	kestrelDir := filepath.Join(tmp, "kestrel")
@@ -161,6 +167,10 @@ func TestRunContext_NonManagerAgent_EmitsNoop(t *testing.T) {
 	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
+	}
+	humansToml := testHumansToml
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansToml), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 
 	// No manager agent directories created — "coder" has no AGENTS.md, so
@@ -263,6 +273,10 @@ func TestRunContext_WorkerCWD_SetsJobID(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
+	humansToml := testHumansToml
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansToml), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
 
 	// Create the worktree directory so the path is valid.
 	worktreeCWD := filepath.Join(tmp, ".ttal", "worktrees", "ab12cd34-ttal")
@@ -352,6 +366,10 @@ func TestContext_SmokeTest_RoleBasedSkills(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
 	}
+	humansToml := testHumansToml
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansToml), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
 
 	// Create kestrel agent dir so agentfs.RoleOf succeeds.
 	kestrelDir := filepath.Join(tmp, "kestrel")
@@ -431,7 +449,7 @@ func TestContext_SmokeTest_ActiveTaskPipeline(t *testing.T) {
 	}
 
 	promptsToml := `
-default = "Manage tasks."
+	default = "Manage tasks."
 fixer = "Diagnose this bug and write a fix plan."
 `
 	if err := os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644); err != nil {
@@ -441,6 +459,10 @@ fixer = "Diagnose this bug and write a fix plan."
 	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configToml), 0o644); err != nil {
 		t.Fatalf("write config.toml: %v", err)
+	}
+	humansToml := testHumansToml
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansToml), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
 	}
 
 	kestrelDir := filepath.Join(tmp, "kestrel")

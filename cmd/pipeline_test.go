@@ -25,6 +25,9 @@ func TestResolvePipelinePrompt_NoEnvVars(t *testing.T) {
 	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
 		"\n[teams.default]\nteam_path = \""+teamPath+"\"\n",
 	), 0644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
+		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
+	), 0644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
 prompt = """Manage tasks and coordinate the team."""
 `), 0644) //nolint:errcheck

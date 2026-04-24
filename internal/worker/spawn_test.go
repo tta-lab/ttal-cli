@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -15,7 +16,7 @@ func TestBuildEnvParts(t *testing.T) {
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName)
+	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName, nil)
 
 	if len(parts) < 2 {
 		t.Fatal("expected at least TTAL_AGENT_NAME and TTAL_JOB_ID")
@@ -44,12 +45,34 @@ func TestBuildEnvParts_BasicEnvParts(t *testing.T) {
 		Description: "test task",
 	}
 
-	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName)
+	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName, nil)
 
 	for _, p := range parts {
 		if strings.HasPrefix(p, "TASKRC=") {
 			t.Error("TASKRC should not be set in env parts")
 		}
+	}
+}
+
+func TestBuildEnvParts_WithAdminHuman(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
+		Description: "test task",
+	}
+	cfg := &config.Config{
+		AdminHuman: &humanfs.Human{Alias: "neil", Name: "Neil"},
+	}
+
+	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName, cfg)
+
+	foundHuman := false
+	for _, p := range parts {
+		if p == "TTAL_HUMAN=neil" {
+			foundHuman = true
+		}
+	}
+	if !foundHuman {
+		t.Error("expected TTAL_HUMAN=neil in env parts")
 	}
 }
 

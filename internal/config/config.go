@@ -10,6 +10,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
@@ -108,6 +109,9 @@ type Config struct {
 
 	// Derived
 	ProjectsPath string
+
+	// Humans
+	AdminHuman *humanfs.Human // the single human with admin=true
 }
 
 // AgentInfo describes an agent discovered under TeamPath.
@@ -435,6 +439,15 @@ func Path() (string, error) {
 	return filepath.Join(home, ".config", "ttal", "config.toml"), nil
 }
 
+// HumansPath returns the default path to humans.toml.
+func HumansPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "ttal", "humans.toml"), nil
+}
+
 // Load reads and validates ~/.config/ttal/config.toml.
 func Load() (*Config, error) {
 	path, err := Path()
@@ -468,7 +481,6 @@ func Load() (*Config, error) {
 		DefaultRuntime:    team.DefaultRuntime,
 		MergeMode:         team.MergeMode,
 		CommentSync:       team.CommentSync,
-		ChatID:            team.ChatID,
 		Shell:             raw.Shell,
 		Sync:              raw.Sync,
 		Ask:               raw.Ask,
@@ -500,8 +512,14 @@ func Load() (*Config, error) {
 	cfg.Voice = resolveVoiceConfigFlat(team, raw.Voice)
 	cfg.Matrix = convertRawMatrix(team.Matrix)
 
-	// Resolve user name
-	cfg.UserName = resolveUserNameFlat(team.User, raw.User)
+	// Load humans.toml and derive admin/UserName
+	adminHuman, err := loadAdminHuman()
+	if err != nil {
+		return nil, err
+	}
+	cfg.AdminHuman = adminHuman
+	cfg.UserName = adminHuman.Name
+	cfg.ChatID = adminHuman.TelegramChatID
 
 	// Validate default runtime
 	if err := legacyValidateDefaultRuntime(team.DefaultRuntime); err != nil {
@@ -537,6 +555,23 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// loadAdminHuman loads humans.toml. No legacy fallback — humans.toml is required.
+func loadAdminHuman() (*humanfs.Human, error) {
+	humansPath, err := HumansPath()
+	if err != nil {
+		return nil, err
+	}
+	humans, err := humanfs.Load(humansPath)
+	if err != nil {
+		return nil, fmt.Errorf("humans.toml: %w", err)
+	}
+	admin, err := humanfs.FindAdmin(humans)
+	if err != nil {
+		return nil, fmt.Errorf("humans.toml: %w", err)
+	}
+	return admin, nil
+}
+
 // resolveVoiceConfigFlat resolves the voice config for the flat Config.
 func resolveVoiceConfigFlat(team rawTeam, globalVoice VoiceConfig) VoiceConfig {
 	allAgentNames := make([]string, 0)
@@ -561,17 +596,6 @@ func resolveVoiceConfigFlat(team rawTeam, globalVoice VoiceConfig) VoiceConfig {
 		Vocabulary: mergedVocab,
 		Language:   lang,
 	}
-}
-
-// resolveUserNameFlat resolves the human identity for the flat Config.
-func resolveUserNameFlat(teamUser UserConfig, globalUser UserConfig) string {
-	if teamUser.Name != "" {
-		return teamUser.Name
-	}
-	if globalUser.Name != "" {
-		return globalUser.Name
-	}
-	return os.Getenv("USER")
 }
 
 // convertRawMatrix converts a rawMatrix (TOML decode target) to MatrixTeamConfig.
