@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
@@ -108,6 +110,9 @@ type Config struct {
 
 	// Derived
 	ProjectsPath string
+
+	// Humans
+	AdminHuman *humanfs.Human // the single human with admin=true
 }
 
 // AgentInfo describes an agent discovered under TeamPath.
@@ -435,6 +440,15 @@ func Path() (string, error) {
 	return filepath.Join(home, ".config", "ttal", "config.toml"), nil
 }
 
+// HumansPath returns the default path to humans.toml.
+func HumansPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "ttal", "humans.toml"), nil
+}
+
 // Load reads and validates ~/.config/ttal/config.toml.
 func Load() (*Config, error) {
 	path, err := Path()
@@ -500,8 +514,13 @@ func Load() (*Config, error) {
 	cfg.Voice = resolveVoiceConfigFlat(team, raw.Voice)
 	cfg.Matrix = convertRawMatrix(team.Matrix)
 
-	// Resolve user name
-	cfg.UserName = resolveUserNameFlat(team.User, raw.User)
+	// Load humans.toml and derive admin/UserName
+	adminHuman, err := loadAdminHuman(team, raw)
+	if err != nil {
+		return nil, err
+	}
+	cfg.AdminHuman = adminHuman
+	cfg.UserName = adminHuman.Name
 
 	// Validate default runtime
 	if err := legacyValidateDefaultRuntime(team.DefaultRuntime); err != nil {
@@ -535,6 +554,40 @@ func Load() (*Config, error) {
 	cfg.ProjectsPath = filepath.Join(defaultConfigDir(), "projects.toml")
 
 	return cfg, nil
+}
+
+// loadAdminHuman loads humans.toml with legacy fallback per Spec G.
+func loadAdminHuman(team rawTeam, raw rawFile) (*humanfs.Human, error) {
+	humansPath, err := HumansPath()
+	if err != nil {
+		return nil, err
+	}
+	humans, err := humanfs.Load(humansPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("humans.toml: %w", err)
+	}
+	if err == nil {
+		// humans.toml present — use it
+		admin, err := humanfs.FindAdmin(humans)
+		if err != nil {
+			return nil, fmt.Errorf("humans.toml: %w", err)
+		}
+		return admin, nil
+	}
+
+	// Legacy fallback: synthesize admin from [user].name + [teams.default].chat_id
+	legacyUserName := resolveUserNameFlat(team.User, raw.User)
+	legacyChatID := team.ChatID
+	if legacyChatID == "" || legacyUserName == "" {
+		return nil, fmt.Errorf("humans.toml not found and no legacy config to migrate — run: ttal doctor --fix")
+	}
+	log.Printf("config: humans.toml missing — using legacy fallback (run ttal doctor --fix)")
+	return &humanfs.Human{
+		Alias:          strings.ToLower(legacyUserName),
+		Name:           legacyUserName,
+		TelegramChatID: legacyChatID,
+		Admin:          true,
+	}, nil
 }
 
 // resolveVoiceConfigFlat resolves the voice config for the flat Config.

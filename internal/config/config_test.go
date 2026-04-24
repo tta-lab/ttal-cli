@@ -74,6 +74,7 @@ func TestLoad_Success(t *testing.T) {
 
 	configContent := `[teams.default]
 team_path = "/tmp/team"
+chat_id = "12345"
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("write config: %v", err)
