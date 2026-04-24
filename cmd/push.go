@@ -21,8 +21,12 @@ The daemon injects credentials — workers don't need tokens in their environmen
 
 Equivalent to "git push -u origin <branch>" but credential-safe for worker sessions.
 
+With --force, performs a --force-with-lease push (raw --force is never used).
+Force-push to main or master is blocked unconditionally.
+
 Examples:
-  ttal push`,
+  ttal push
+  ttal push --force    # force-with-lease; blocked on main/master`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContextWithoutProvider()
