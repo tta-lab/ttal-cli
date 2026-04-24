@@ -23,6 +23,9 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 	if req.Branch == "" {
 		return GitPushResponse{Error: "branch must not be empty"}
 	}
+	if req.Force && (req.Branch == "main" || req.Branch == "master") {
+		return GitPushResponse{Error: fmt.Sprintf("force push to %s blocked by ttal policy", req.Branch)}
+	}
 
 	// Detect remote URL to pick the right token.
 	remoteURL, err := gitutil.RemoteURL(req.WorkDir)
@@ -38,7 +41,12 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "-C", req.WorkDir, "push", "-u", "origin", req.Branch)
+	// Audit trail for force pushes — not unit-tested; verified via daemon.log in manual smoke.
+	if req.Force {
+		log.Printf("[daemon] git push --force-with-lease: workdir=%s branch=%s", req.WorkDir, req.Branch)
+	}
+
+	cmd := exec.CommandContext(ctx, "git", buildGitPushArgs(req)...)
 	cmd.Env = append(os.Environ(), credEnv...)
 
 	var out bytes.Buffer
@@ -126,6 +134,16 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 
 	log.Printf("[daemon] git tag ok: %s → %s", req.Tag, req.WorkDir)
 	return GitTagResponse{OK: true}
+}
+
+// buildGitPushArgs returns the full argv (after "git") for pushing a branch.
+// --force-with-lease is appended when req.Force is set. We never emit a raw --force.
+func buildGitPushArgs(req GitPushRequest) []string {
+	args := []string{"-C", req.WorkDir, "push", "-u", "origin", req.Branch}
+	if req.Force {
+		args = append(args, "--force-with-lease")
+	}
+	return args
 }
 
 // isRegisteredProjectPath checks if the given path is a registered ttal project path.

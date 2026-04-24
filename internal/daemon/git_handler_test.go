@@ -3,9 +3,11 @@ package daemon
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -214,6 +216,103 @@ func TestHTTPGitTag_HappyPath(t *testing.T) {
 	}
 	if received.Tag != "v1.0.0" {
 		t.Errorf("expected Tag=v1.0.0, got %q", received.Tag)
+	}
+}
+
+func TestBuildGitPushArgs(t *testing.T) {
+	cases := []struct {
+		name string
+		req  GitPushRequest
+		want []string
+	}{
+		{
+			"no force",
+			GitPushRequest{WorkDir: "/wd", Branch: "feature/x"},
+			[]string{"-C", "/wd", "push", "-u", "origin", "feature/x"},
+		},
+		{
+			"force appends --force-with-lease",
+			GitPushRequest{WorkDir: "/wd", Branch: "feature/x", Force: true},
+			[]string{"-C", "/wd", "push", "-u", "origin", "feature/x", "--force-with-lease"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildGitPushArgs(tc.req)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("buildGitPushArgs() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestHandleGitPush_ForceOnProtectedBranchBlocked(t *testing.T) {
+	for _, branch := range []string{"main", "master"} {
+		t.Run(branch, func(t *testing.T) {
+			resp := handleGitPush(GitPushRequest{
+				WorkDir: "/tmp/whatever", // never reached
+				Branch:  branch,
+				Force:   true,
+			})
+			if resp.OK {
+				t.Fatalf("expected OK=false for force push to %s", branch)
+			}
+			wantErr := fmt.Sprintf("force push to %s blocked by ttal policy", branch)
+			if resp.Error != wantErr {
+				t.Errorf("error = %q, want %q", resp.Error, wantErr)
+			}
+		})
+	}
+}
+
+func TestHandleGitPush_NormalPushToMainNotBlockedByPolicy(t *testing.T) {
+	resp := handleGitPush(GitPushRequest{
+		WorkDir: "/tmp/not-a-real-repo", // will fail at RemoteURL, which is fine
+		Branch:  "main",
+		Force:   false,
+	})
+	if resp.OK {
+		return
+	}
+	policyErr := "force push to main blocked by ttal policy"
+	if resp.Error == policyErr {
+		t.Errorf("expected Force=false+main to bypass policy guard, got policy error: %q", resp.Error)
+	}
+}
+
+func TestHandleGitPush_ForceWithEmptyBranchReturnsEmptyError(t *testing.T) {
+	resp := handleGitPush(GitPushRequest{
+		WorkDir: "/tmp/whatever",
+		Branch:  "",
+		Force:   true,
+	})
+	if resp.OK {
+		t.Fatal("expected OK=false for empty branch")
+	}
+	if resp.Error != "branch must not be empty" {
+		t.Errorf("expected empty-branch error to win over policy, got %q", resp.Error)
+	}
+}
+
+func TestHTTPGitPush_ForceFlagFlowsThrough(t *testing.T) {
+	h := testHandlers(nil)
+	var received GitPushRequest
+	h.gitPush = func(req GitPushRequest) GitPushResponse {
+		received = req
+		return GitPushResponse{OK: true}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(GitPushRequest{WorkDir: "/wd", Branch: "feature/x", Force: true})
+	req := httptest.NewRequest(http.MethodPost, "/git/push", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !received.Force {
+		t.Error("expected Force=true on handler, got false")
 	}
 }
 
