@@ -200,6 +200,31 @@ func TestFixHumans_MissingChatID(t *testing.T) {
 	assert.Contains(t, err.Error(), "chat_id is empty")
 }
 
+func TestFixHumans_MissingUserName(t *testing.T) {
+	t.Setenv("USER", "")
+	tmpDir := t.TempDir()
+	cfgDir := tmpDir + "/.config/ttal"
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cfgPath := cfgDir + "/config.toml"
+	// No [user].name and no [teams.default].user.name — should error
+	config := `[teams.default]
+  chat_id = "12345"
+`
+	if err := os.WriteFile(cfgPath, []byte(config), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	oldHome := os.Getenv("HOME")
+	t.Setenv("HOME", tmpDir)
+	t.Cleanup(func() { t.Setenv("HOME", oldHome) })
+
+	humansPath := cfgDir + "/humans.toml"
+	err := fixHumans(humansPath)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot derive user name")
+}
+
 func TestCheckHumans_NoAdmin(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"

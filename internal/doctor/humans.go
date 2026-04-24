@@ -111,10 +111,7 @@ func fixHumans(humansPath string) error {
 		name = raw.User.Name
 	}
 	if name == "" {
-		name = os.Getenv("USER")
-	}
-	if name == "" {
-		return fmt.Errorf("cannot derive user name from %s or $USER", cfgPath)
+		return fmt.Errorf("cannot derive user name from %s — set [user].name or [teams.default].user.name", cfgPath)
 	}
 	if team.ChatID == "" {
 		return fmt.Errorf("[teams.default].chat_id is empty in %s — cannot migrate", cfgPath)
