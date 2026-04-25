@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -54,27 +53,6 @@ func TestBuildEnvParts_BasicEnvParts(t *testing.T) {
 	}
 }
 
-func TestBuildEnvParts_WithAdminHuman(t *testing.T) {
-	task := &taskwarrior.Task{
-		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-		Description: "test task",
-	}
-	cfg := &config.Config{
-		AdminHuman: &humanfs.Human{Alias: "neil", Name: "Neil"},
-	}
-
-	parts := buildEnvParts(task, runtime.ClaudeCode, CoderAgentName, cfg)
-
-	foundHuman := false
-	for _, p := range parts {
-		if p == "TTAL_HUMAN=neil" {
-			foundHuman = true
-		}
-	}
-	if !foundHuman {
-		t.Error("expected TTAL_HUMAN=neil in env parts")
-	}
-}
 
 func TestWriteTaskFile_MissingCoderPrompt(t *testing.T) {
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.Codex}

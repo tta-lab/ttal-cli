@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
@@ -74,18 +73,6 @@ func TestBuildManagerAgentEnv(t *testing.T) {
 		}
 		if !strings.Contains(joined, "ENABLE_PROMPT_CACHING_1H=1") {
 			t.Errorf("ENABLE_PROMPT_CACHING_1H=1 missing from %v — 1h TTL opt-in is required for manager sessions", vars)
-		}
-	})
-
-	t.Run("includes TTAL_HUMAN when admin human is set", func(t *testing.T) {
-		cfg := &config.Config{
-			AdminHuman: &humanfs.Human{Alias: "neil", Name: "Neil"},
-		}
-		vars := buildManagerAgentEnv("yuki", cfg)
-		joined := strings.Join(vars, "\n")
-
-		if !strings.Contains(joined, "TTAL_HUMAN=neil") {
-			t.Errorf("TTAL_HUMAN=neil missing from %v", vars)
 		}
 	})
 

@@ -190,9 +190,6 @@ func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
 		// and quota. Requires CC >= 2.1.108 (no-op on older versions).
 		"ENABLE_PROMPT_CACHING_1H=1",
 	}
-	if cfg != nil && cfg.AdminHuman != nil {
-		parts = append(parts, cfg.AdminHuman.EnvVars()...)
-	}
 	return parts
 }
 
