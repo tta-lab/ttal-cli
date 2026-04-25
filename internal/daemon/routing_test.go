@@ -721,7 +721,6 @@ telegram_chat_id = "12345"
 	return "neil"
 }
 
-// fakeFrontend captures SendToHuman calls so tests can assert without real Telegram.
 type sendCall struct {
 	From *addressee.Addressee
 	To   *addressee.Addressee

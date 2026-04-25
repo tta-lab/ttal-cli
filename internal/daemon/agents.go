@@ -132,11 +132,13 @@ func bridgeAdapterEvents(
 						Sender: agentName, Recipient: cfg.UserName,
 						Content: evt.Text, Team: "default", Channel: message.ChannelCLI,
 					})
-					_ = fe.SendText(ctx,
+					if err := fe.SendText(ctx,
 						&addressee.Addressee{Kind: addressee.KindAgent, Name: agentName},
 						&addressee.Addressee{Kind: addressee.KindHuman, Human: cfg.AdminHuman},
 						evt.Text,
-					)
+					); err != nil {
+						log.Printf("[daemon] codex-to-human send failed for %s: %v", agentName, err)
+					}
 				}
 			case runtime.EventError:
 				log.Printf("[daemon] codex error for %s: %s", agentName, evt.Text)
