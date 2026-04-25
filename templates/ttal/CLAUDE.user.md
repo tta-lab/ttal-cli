@@ -72,18 +72,7 @@ Every token an agent emits goes to one of two channels. Be deliberate about whic
 
 Skills make this split explicit with → human / → persist markers on each step. Follow them.
 
-### How to reach the human
 
-Use `ttal send --to {{admin-handle}}` — the **only** path to {{admin-name}}'s Telegram/Matrix. JSONL session output is private workspace; nothing auto-forwards.
-
-**One-liner:**
-```bash
-ttal send --to {{admin-handle}} "done, PR ready"
-```
-
-**Multiline via heredoc:**
-```bash
-cat <<'ENDBASH' | ttal send --to {{admin-handle}}
 ## Status
 Review complete — 2 findings.
 ENDBASH

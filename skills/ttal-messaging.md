@@ -13,10 +13,10 @@ Send messages to agents or humans.
 ttal send --to <agent-name> "can you review my auth module?"
 ```
 
-## Send to human via Telegram
+## Send to a human via Telegram
 
 ```bash
-ttal send --to human "message"
+ttal send --to <alias> "message"
 ```
 
 ## Send to a worker session

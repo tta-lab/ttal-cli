@@ -7,17 +7,17 @@ ttal provides bidirectional messaging between humans and agents via Telegram/Mat
 
 ## Outbound: agent → human
 
-`ttal send --to human "message"` is the **only** way to reach Neil. JSONL session output is private workspace — nothing auto-forwards.
+`ttal send --to <alias> "message"` is the only way to reach a human (e.g. `ttal send --to neil`). JSONL session output is private workspace — nothing auto-forwards.
 
 ```bash
 # One-liner
-ttal send --to human "done, PR ready"
+ttal send --to neil "done, PR ready"
 
 # Piped stdin (auto-detected)
-echo "check complete" | ttal send --to human
+echo "check complete" | ttal send --to neil
 
 # Multiline via heredoc
-cat <<'ENDBASH' | ttal send --to human
+cat <<'ENDBASH' | ttal send --to neil
 ## Status
 Review complete — 2 findings.
 ENDBASH
@@ -26,7 +26,7 @@ ENDBASH
 Long content: write to flicknote first, then send a one-line pointer:
 ```bash
 flicknote add "detailed findings..." --project notes
-ttal send --to human "wrote note: flicknote abc12345"
+ttal send --to neil "wrote note: flicknote abc12345"
 ```
 
 ## Inbound: human → agent
@@ -67,7 +67,7 @@ Inbound messages arrive in the agent's session with prefixes:
 [telegram from:neil]
 Can you check the deployment?
 
-<i>--- Reply with: ttal send --to human "your message"</i>
+<i>--- Reply with: ttal send --to neil "your message"</i>
 ```
 
 ### Interactive questions

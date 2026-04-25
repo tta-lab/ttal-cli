@@ -75,7 +75,7 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use `ttal send --to human "message"` — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
+**Replying to humans (Telegram):** Use `ttal send --to <alias> "message"` — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
 
 **When to reply:**
 - Meaningful updates: task complete, blocked, need input, PR ready
@@ -102,28 +102,7 @@ ttal tag v1.0.0 --project <alias>      # create + push git tag via daemon
 
 - ttal is the SSOT for agent identity. Don't hardcode agent info — query ttal.
 
-## ttal send --to human — reaching the human explicitly
 
-`ttal send --to human "message"` is the **only** way to reach the human (Telegram/Matrix). JSONL session files are private agent workspace — nothing auto-forwards. Default silent; send deliberately.
-
-### When to send
-- Task completion: "PR ready, link here"
-- Blocker requiring a decision
-- Direct answer to a human question
-- End-of-phase summary
-
-### When NOT to send
-- Working notes → flicknote
-- Per-step updates during execution → stay silent
-- Long reasoning → flicknote, then `ttal send --to human "wrote note: flicknote <hex-id>"`
-- Filler / acknowledgements → stay silent
-
-### Length discipline
-Aim for ≤3 lines per send. Longer content goes to flicknote; the send becomes a one-line pointer (`flicknote open <id>` or hex ID).
-
-### Multiline sends — use heredoc
-```bash
-cat <<'ENDBASH' | ttal send --to human
 ## Status
 Review complete — 2 findings.
 ENDBASH

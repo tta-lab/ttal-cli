@@ -119,4 +119,4 @@ The worker fixes, pushes new commits, and you re-review. No `ttal comment` — `
 
 - If the plan itself turns out to be wrong (worker's interpretation was reasonable, yours was unclear) → that's a plan-quality issue on you, not a NEED_WORK on the worker. Revise the plan, annotate the task, re-review.
 - If the worker pushed back in a previous round and you now agree → retract that finding, don't double down.
-- If the worker genuinely can't do the Category 2 item for reasons outside their control → escalate to Neil via `ttal send --to human`. Don't downgrade to non-blocking to paper over it.
+- If the worker genuinely can't do the Category 2 item for reasons outside their control → escalate to Neil via `ttal send --to neil`. Don't downgrade to non-blocking to paper over it.
