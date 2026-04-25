@@ -319,7 +319,7 @@ func dispatchSystemSend(
 			Sender: "system", Recipient: req.To, Content: req.Message,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
-		return deliverToAgent(registry, cfg, frontends, addr.Name, req.Message)
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, req.Message)
 	case KindWorker:
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
@@ -460,7 +460,7 @@ func dispatchSend(
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
 		log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-		return deliverToAgent(registry, cfg, frontends, addr.Name, msg)
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, msg)
 	case KindWorker:
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
@@ -544,6 +544,10 @@ var resolveWorker = resolveWorkerImpl
 // resolveManagerWindow is the function used to resolve the manager session window for a task.
 // Package-level var for test injection.
 var resolveManagerWindow = resolveManagerWindowImpl
+
+// deliverToAgentFn delivers a message to an agent session.
+// Package-level var for test injection.
+var deliverToAgentFn = deliverToAgent
 
 // pipelineLoadFn is the function used to load pipeline config.
 // Package-level var for test injection.

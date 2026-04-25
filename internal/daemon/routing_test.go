@@ -800,3 +800,40 @@ func TestHandleToHuman_NoFrontend(t *testing.T) {
 		t.Errorf("error = %q, want substring %q", err.Error(), "no frontend configured")
 	}
 }
+
+func TestDispatchSend_RoutesToAgent(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	for _, name := range []string{"astra", "kestrel"} {
+		dir := filepath.Join(tmp, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"),
+			[]byte("---\nname: "+name+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := &config.Config{TeamPath: tmp}
+
+	var captured struct{ to, msg string }
+	orig := deliverToAgentFn
+	deliverToAgentFn = func(_ *adapterRegistry, _ *config.Config, _ map[string]frontend.Frontend, to, msg string) error {
+		captured.to = to
+		captured.msg = msg
+		return nil
+	}
+	t.Cleanup(func() { deliverToAgentFn = orig })
+
+	req := SendRequest{From: "astra", To: "kestrel", Message: "ping"}
+	if err := dispatchSend(cfg, nil, nil, nil, req); err != nil {
+		t.Fatalf("dispatchSend: %v", err)
+	}
+	if captured.to != "kestrel" {
+		t.Errorf("delivered to %q, want kestrel", captured.to)
+	}
+	if !strings.Contains(captured.msg, "ping") {
+		t.Errorf("msg = %q, want substring ping", captured.msg)
+	}
+}
