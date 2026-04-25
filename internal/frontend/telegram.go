@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
@@ -31,6 +32,9 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/voice"
 )
+
+// sendMessageFn is overridable in tests to capture outbound Telegram calls.
+var sendMessageFn = telegram.SendMessage
 
 // chatTypeGroup and chatTypeSupergroup are Telegram chat type strings for group chats.
 const (
@@ -204,21 +208,50 @@ func (f *TelegramFrontend) Stop(_ context.Context) error {
 	return nil
 }
 
-// SendText sends a text message to an agent's Telegram chat.
-func (f *TelegramFrontend) SendText(_ context.Context, agentName string, text string) error {
-	ta := f.findAgent(agentName)
-	if ta == nil {
-		return fmt.Errorf("unknown agent: %s", agentName)
+// SendText delivers text. `from` selects the bot/session (agent's bot when
+// from.Kind==KindAgent; notification bot when from is nil or non-agent).
+// `to` selects the destination chat/room (human chat_id when to.Kind==KindHuman;
+// admin chat fallback when to is nil/non-human).
+func (f *TelegramFrontend) SendText(_ context.Context, from, to *addressee.Addressee, text string) error {
+	botToken, err := f.resolveBotToken(from)
+	if err != nil {
+		return err
 	}
-	botToken := config.AgentBotToken(agentName)
-	if botToken == "" {
-		return fmt.Errorf("agent %s has no telegram bot token configured", agentName)
+	chatID, err := f.resolveChatID(to)
+	if err != nil {
+		return err
 	}
-	chatID := ""
-	if f.cfg.MCfg.AdminHuman != nil {
-		chatID = f.cfg.MCfg.AdminHuman.TelegramChatID
+	return sendMessageFn(botToken, chatID, text)
+}
+
+func (f *TelegramFrontend) resolveBotToken(from *addressee.Addressee) (string, error) {
+	if from != nil && from.Kind == addressee.KindAgent && from.Name != "" {
+		if f.findAgent(from.Name) == nil {
+			return "", fmt.Errorf("unknown sender agent: %s", from.Name)
+		}
+		token := config.AgentBotToken(from.Name)
+		if token == "" {
+			return "", fmt.Errorf("agent %s has no telegram bot token configured", from.Name)
+		}
+		return token, nil
 	}
-	return telegram.SendMessage(botToken, chatID, text)
+	// Non-agent senders (system, human-initiated forwards, nil) → notification bot.
+	if f.cfg.MCfg.NotificationToken == "" {
+		return "", fmt.Errorf("no notification bot token configured")
+	}
+	return f.cfg.MCfg.NotificationToken, nil
+}
+
+func (f *TelegramFrontend) resolveChatID(to *addressee.Addressee) (string, error) {
+	if to != nil && to.Kind == addressee.KindHuman && to.Human != nil {
+		if human, ok := to.Human.(*humanfs.Human); ok && human.TelegramChatID != "" {
+			return human.TelegramChatID, nil
+		}
+	}
+	if f.cfg.MCfg.AdminHuman != nil && f.cfg.MCfg.AdminHuman.TelegramChatID != "" {
+		return f.cfg.MCfg.AdminHuman.TelegramChatID, nil
+	}
+	return "", fmt.Errorf("no telegram chat_id resolvable")
 }
 
 // SendVoice is not yet implemented for Telegram outbound (daemon → human).
@@ -1121,17 +1154,4 @@ func downloadTelegramFile(
 		return "", fmt.Errorf("close file: %w", err)
 	}
 	return localPath, nil
-}
-
-// SendToHuman sends a message to a human's Telegram chat using the notification bot token.
-func (f *TelegramFrontend) SendToHuman(_ context.Context, human *humanfs.Human, text string) error {
-	if human.TelegramChatID == "" {
-		return fmt.Errorf("human %s has no telegram_chat_id configured", human.Alias)
-	}
-	// Use the notification bot token for human delivery
-	botToken := f.cfg.MCfg.NotificationToken
-	if botToken == "" {
-		return fmt.Errorf("no notification bot token configured for human %s", human.Alias)
-	}
-	return telegram.SendMessage(botToken, human.TelegramChatID, text)
 }

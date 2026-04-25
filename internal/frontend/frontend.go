@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -21,8 +22,14 @@ type Frontend interface {
 	// Stop gracefully shuts down the frontend.
 	Stop(ctx context.Context) error
 
-	// SendText sends a text message to an agent's chat/room.
-	SendText(ctx context.Context, agentName string, text string) error
+	// SendText delivers text. `from` selects the bot/session (agent's bot when
+	// from.Kind==KindAgent; notification bot when from is nil or non-agent).
+	// `to` selects the destination chat/room (human chat_id when to.Kind==KindHuman;
+	// admin chat fallback when to is nil/non-human).
+	// Note: agent→agent delivery continues via deliverToAgent / tmux send-keys
+	// (not through this interface). This unification only affects KindHuman
+	// destinations and the Codex agent-event forwarder (agents.go).
+	SendText(ctx context.Context, from, to *addressee.Addressee, text string) error
 
 	// SendVoice sends voice audio to an agent's chat/room.
 	SendVoice(ctx context.Context, agentName string, data []byte) error
@@ -49,9 +56,6 @@ type Frontend interface {
 
 	// AskHumanHTTPHandler returns an http.HandlerFunc for POST /ask/human.
 	AskHumanHTTPHandler() http.HandlerFunc
-
-	// SendToHuman sends a message to a human's Telegram/Matrix using their chat_id.
-	SendToHuman(ctx context.Context, human *humanfs.Human, text string) error
 }
 
 // Command describes a bot command for registration and handler dispatch.

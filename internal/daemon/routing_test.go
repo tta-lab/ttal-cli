@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
@@ -721,17 +722,24 @@ telegram_chat_id = "12345"
 }
 
 // fakeFrontend captures SendToHuman calls so tests can assert without real Telegram.
-type fakeFrontend struct {
-	sendToHumanCalls []struct {
-		h   *humanfs.Human
-		msg string
-	}
-	sendToHumanErr error
+type sendCall struct {
+	From *addressee.Addressee
+	To   *addressee.Addressee
+	Text string
 }
 
-func (f *fakeFrontend) Start(_ context.Context) error                 { return nil }
-func (f *fakeFrontend) Stop(_ context.Context) error                  { return nil }
-func (f *fakeFrontend) SendText(_ context.Context, _, _ string) error { return nil }
+// fakeFrontend captures SendText calls so tests can assert without real Telegram.
+type fakeFrontend struct {
+	sendCalls    []sendCall
+	sendCallsErr error
+}
+
+func (f *fakeFrontend) SendText(_ context.Context, from, to *addressee.Addressee, text string) error {
+	f.sendCalls = append(f.sendCalls, sendCall{From: from, To: to, Text: text})
+	return f.sendCallsErr
+}
+func (f *fakeFrontend) Start(_ context.Context) error { return nil }
+func (f *fakeFrontend) Stop(_ context.Context) error  { return nil }
 func (f *fakeFrontend) SendVoice(_ context.Context, _ string, _ []byte) error {
 	return nil
 }
@@ -744,13 +752,6 @@ func (f *fakeFrontend) ClearTracking(_ context.Context, _ string) error { return
 func (f *fakeFrontend) RegisterCommands(_ []frontend.Command) error     { return nil }
 func (f *fakeFrontend) AskHumanHTTPHandler() http.HandlerFunc {
 	return func(http.ResponseWriter, *http.Request) {}
-}
-func (f *fakeFrontend) SendToHuman(_ context.Context, h *humanfs.Human, text string) error {
-	f.sendToHumanCalls = append(f.sendToHumanCalls, struct {
-		h   *humanfs.Human
-		msg string
-	}{h, text})
-	return f.sendToHumanErr
 }
 
 func TestDispatchSend_RoutesToHuman(t *testing.T) {
@@ -774,14 +775,15 @@ func TestDispatchSend_RoutesToHuman(t *testing.T) {
 	if err := dispatchSend(cfg, nil, frontends, nil, req); err != nil {
 		t.Fatalf("dispatchSend: %v", err)
 	}
-	if len(fe.sendToHumanCalls) != 1 {
-		t.Fatalf("expected 1 SendToHuman call, got %d", len(fe.sendToHumanCalls))
+	if len(fe.sendCalls) != 1 {
+		t.Fatalf("expected 1 SendText call, got %d", len(fe.sendCalls))
 	}
-	if fe.sendToHumanCalls[0].h.Alias != alias {
-		t.Errorf("Human.Alias = %q, want %q", fe.sendToHumanCalls[0].h.Alias, alias)
+	if fe.sendCalls[0].Text != "hello neil" {
+		t.Errorf("Text = %q, want %q", fe.sendCalls[0].Text, "hello neil")
 	}
-	if fe.sendToHumanCalls[0].msg != "hello neil" {
-		t.Errorf("msg = %q, want %q", fe.sendToHumanCalls[0].msg, "hello neil")
+	// Regression guard: from agent must be propagated for per-agent bot attribution.
+	if fe.sendCalls[0].From == nil || fe.sendCalls[0].From.Name != "astra" {
+		t.Errorf("from agent not propagated: got %v", fe.sendCalls[0].From)
 	}
 }
 
@@ -795,11 +797,11 @@ func TestDispatchSystemSend_RoutesToHuman(t *testing.T) {
 	if err := dispatchSystemSend(cfg, nil, frontends, nil, req); err != nil {
 		t.Fatalf("dispatchSystemSend: %v", err)
 	}
-	if len(fe.sendToHumanCalls) != 1 {
-		t.Fatalf("expected 1 SendToHuman call, got %d", len(fe.sendToHumanCalls))
+	if len(fe.sendCalls) != 1 {
+		t.Fatalf("expected 1 SendText call, got %d", len(fe.sendCalls))
 	}
-	if fe.sendToHumanCalls[0].msg != "system alert" {
-		t.Errorf("msg = %q, want %q", fe.sendToHumanCalls[0].msg, "system alert")
+	if fe.sendCalls[0].Text != "system alert" {
+		t.Errorf("Text = %q, want %q", fe.sendCalls[0].Text, "system alert")
 	}
 }
 

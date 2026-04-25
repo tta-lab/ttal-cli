@@ -16,6 +16,7 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
+	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -281,19 +282,41 @@ func (f *MatrixFrontend) Stop(_ context.Context) error {
 	return nil
 }
 
-// SendText sends a text message to an agent's Matrix room.
-// Long messages are split at natural boundaries to stay within the 65535-byte limit.
-func (f *MatrixFrontend) SendText(ctx context.Context, agentName, text string) error {
-	sess, ok := f.sessions[agentName]
-	if !ok {
-		return fmt.Errorf("no Matrix session for agent %s", agentName)
+// SendText delivers text. `from` selects the bot/session (agent's bot when
+// from.Kind==KindAgent; notification bot when from is nil or non-agent).
+// `to` selects the destination chat/room (human chat_id when to.Kind==KindHuman;
+// admin chat fallback when to is nil/non-human).
+func (f *MatrixFrontend) SendText(ctx context.Context, from, to *addressee.Addressee, text string) error {
+	client, roomID, err := f.resolveSession(from)
+	if err != nil {
+		return err
 	}
-	for _, chunk := range splitMatrixMessage(text) {
-		if _, err := sess.client.SendText(ctx, sess.roomID, chunk); err != nil {
-			return fmt.Errorf("matrix send to %s: %w", agentName, err)
+	msg := text
+	if to != nil && to.Kind == addressee.KindHuman && to.Human != nil {
+		if human, ok := to.Human.(*humanfs.Human); ok && human.MatrixUserID != "" {
+			msg = fmt.Sprintf("%s %s", human.MatrixUserID, text)
+		}
+	}
+	for _, chunk := range splitMatrixMessage(msg) {
+		if _, err := client.SendText(ctx, roomID, chunk); err != nil {
+			return fmt.Errorf("matrix send (from=%v to=%v): %w", from, to, err)
 		}
 	}
 	return nil
+}
+
+func (f *MatrixFrontend) resolveSession(from *addressee.Addressee) (*mautrix.Client, id.RoomID, error) {
+	if from != nil && from.Kind == addressee.KindAgent && from.Name != "" {
+		sess, ok := f.sessions[from.Name]
+		if !ok {
+			return nil, "", fmt.Errorf("no Matrix session for agent %s", from.Name)
+		}
+		return sess.client, sess.roomID, nil
+	}
+	if f.notifyClient == nil {
+		return nil, "", fmt.Errorf("matrix notification client not initialized")
+	}
+	return f.notifyClient, f.notifyRoom, nil
 }
 
 // SendVoice is a no-op stub — Phase 4 will implement voice message uploads.
@@ -668,20 +691,4 @@ func extractDomain(homeserverURL string) (string, error) {
 		return "", fmt.Errorf("no host in URL (missing scheme?)")
 	}
 	return u.Host, nil
-}
-
-// SendToHuman posts to the notification room and @-mentions the human.
-// v1 scope: per-human DM-room provisioning is out of scope.
-func (f *MatrixFrontend) SendToHuman(ctx context.Context, human *humanfs.Human, text string) error {
-	if f.notifyClient == nil {
-		return fmt.Errorf("matrix notification client not initialized (cannot send to human %s)", human.Alias)
-	}
-	msg := text
-	if human.MatrixUserID != "" {
-		msg = fmt.Sprintf("%s %s", human.MatrixUserID, text)
-	}
-	if _, err := f.notifyClient.SendText(ctx, f.notifyRoom, msg); err != nil {
-		return fmt.Errorf("matrix send to human: %w", err)
-	}
-	return nil
 }
