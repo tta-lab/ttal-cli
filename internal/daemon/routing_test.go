@@ -681,6 +681,21 @@ func TestResolveAddressee_Unknown(t *testing.T) {
 	}
 }
 
+// setupAgentDirs creates agent workspace directories with minimal AGENTS.md files.
+func setupAgentDirs(t *testing.T, tmp string, names ...string) {
+	t.Helper()
+	for _, name := range names {
+		dir := filepath.Join(tmp, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"),
+			[]byte("---\nname: "+name+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // writeHumansFixture writes a humans.toml under tmpDir/.config/ttal/ and points
 // HOME at tmpDir for the duration of the test. Returns the human alias so callers
 // can assert against it.
@@ -801,30 +816,26 @@ func TestHandleToHuman_NoFrontend(t *testing.T) {
 	}
 }
 
+// setupAgentDeliverToAgentCapture sets up a mock for deliverToAgentFn and returns
+// a pointer to a capture struct. Caller runs t.Cleanup(restore) after setup.
+func setupAgentDeliverToAgentCapture() (captured *struct{ to, msg string }, restore func()) {
+	c := &struct{ to, msg string }{}
+	orig := deliverToAgentFn
+	deliverToAgentFn = func(_ *adapterRegistry, _ *config.Config, _ map[string]frontend.Frontend, to, msg string) error {
+		c.to = to
+		c.msg = msg
+		return nil
+	}
+	return c, func() { deliverToAgentFn = orig }
+}
+
 func TestDispatchSend_RoutesToAgent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-
-	for _, name := range []string{"astra", "kestrel"} {
-		dir := filepath.Join(tmp, name)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"),
-			[]byte("---\nname: "+name+"\n---\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
+	setupAgentDirs(t, tmp, "astra", "kestrel")
 	cfg := &config.Config{TeamPath: tmp}
-
-	var captured struct{ to, msg string }
-	orig := deliverToAgentFn
-	deliverToAgentFn = func(_ *adapterRegistry, _ *config.Config, _ map[string]frontend.Frontend, to, msg string) error {
-		captured.to = to
-		captured.msg = msg
-		return nil
-	}
-	t.Cleanup(func() { deliverToAgentFn = orig })
+	captured, restore := setupAgentDeliverToAgentCapture()
+	t.Cleanup(restore)
 
 	req := SendRequest{From: "astra", To: "kestrel", Message: "ping"}
 	if err := dispatchSend(cfg, nil, nil, nil, req); err != nil {
@@ -835,5 +846,26 @@ func TestDispatchSend_RoutesToAgent(t *testing.T) {
 	}
 	if !strings.Contains(captured.msg, "ping") {
 		t.Errorf("msg = %q, want substring ping", captured.msg)
+	}
+}
+
+func TestDispatchSystemSend_RoutesToAgent(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	setupAgentDirs(t, tmp, "astra", "kestrel")
+	cfg := &config.Config{TeamPath: tmp}
+	captured, restore := setupAgentDeliverToAgentCapture()
+	t.Cleanup(restore)
+
+	// dispatchSystemSend uses bare message (no [agent from:] prefix).
+	req := SendRequest{From: "system", To: "kestrel", Message: "system alert"}
+	if err := dispatchSystemSend(cfg, nil, nil, nil, req); err != nil {
+		t.Fatalf("dispatchSystemSend: %v", err)
+	}
+	if captured.to != "kestrel" {
+		t.Errorf("delivered to %q, want kestrel", captured.to)
+	}
+	if !strings.Contains(captured.msg, "system alert") {
+		t.Errorf("msg = %q, want substring system alert", captured.msg)
 	}
 }
