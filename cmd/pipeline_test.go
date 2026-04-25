@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -185,5 +186,26 @@ func TestRenderPipelineGraph_NoReviewer(t *testing.T) {
 	}
 	if strings.Contains(out, "human/") {
 		t.Errorf("should not have reviewer suffix: %s", out)
+	}
+}
+
+func TestFormatTaskPromptForPipeline_PairLine(t *testing.T) {
+	task := &taskwarrior.Task{UUID: "abc12345-1234-5678-abcd-ef0123456789"}
+	cfg := &config.Config{AdminHuman: &humanfs.Human{Alias: "neil", Name: "Neil"}}
+	got := formatTaskPromptForPipeline(task, cfg)
+	if !strings.Contains(got, "Pairing with **neil** on this task") {
+		t.Errorf("pair line missing: %s", got)
+	}
+	if !strings.Contains(got, `ttal send --to neil`) {
+		t.Errorf("send line missing: %s", got)
+	}
+}
+
+func TestFormatTaskPromptForPipeline_NoAdminHuman(t *testing.T) {
+	task := &taskwarrior.Task{UUID: "abc12345-1234-5678-abcd-ef0123456789"}
+	cfg := &config.Config{}
+	got := formatTaskPromptForPipeline(task, cfg)
+	if strings.Contains(got, "Pairing with") {
+		t.Errorf("pair line should be absent: %s", got)
 	}
 }

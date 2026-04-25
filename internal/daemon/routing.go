@@ -22,6 +22,24 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+// All actors in ttal are agents — humans, AI managers, and workers alike.
+// They differ along three orthogonal dimensions:
+//
+//   - identity: a unique alias (e.g. "neil", "yuki", "27ee75a8:coder")
+//   - kind:     Human / Agent / Worker — what they are (AddresseeKind)
+//   - channel:  Telegram/Matrix (Human), tmux send-keys (Agent, Worker)
+//
+// The sender never cares which kind the recipient is. `ttal send --to <alias>`
+// works uniformly. The daemon picks the channel from addr.Kind:
+//
+//   Human  → frontend.SendToHuman (Telegram chat_id / Matrix invite)
+//   Agent  → tmux send-keys to the persistent agent session
+//   Worker → tmux send-keys to the worker session, with manager-window fallback
+//
+// dispatchSend (agent-originated) and dispatchSystemSend (system-originated)
+// both resolve via resolveAddressee and switch on Kind. handleTo (bare-shell
+// path) follows the same pattern.
+
 // AddresseeKind classifies what kind of entity a name resolves to.
 type AddresseeKind int
 
@@ -207,12 +225,12 @@ func handleSend(
 	msgSvc *message.Service, req SendRequest,
 ) error {
 	// Remove the "human" literal case — humans are now first-class addressees.
-	// handleAgentToAgent is unchanged: humans are not addressees of agent→agent sends.
+	// dispatchSend handles all kinds via resolveAddressee + Kind switch.
 	switch {
 	case req.From == "system" && req.To != "":
-		return handleSystemToAgent(cfg, registry, frontends, msgSvc, req)
+		return dispatchSystemSend(cfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgent(cfg, registry, frontends, msgSvc, req)
+		return dispatchSend(cfg, registry, frontends, msgSvc, req)
 	case req.To != "":
 		return handleTo(cfg, registry, frontends, msgSvc, req)
 	default:
@@ -276,27 +294,48 @@ func handleToHuman(
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
 // No [agent from:] prefix is added — used for automated triggers like /breathe
 // where CC must receive raw text to recognize it as a skill trigger.
-func handleSystemToAgent(
+// dispatchSystemSend delivers a system-originated message to its addressee.
+// Bare text is preserved on the agent path (no [agent from:] prefix) — used
+// for automated triggers like /breathe where CC must recognize raw text.
+// No From validation — system sender is trusted via socket transport (daemon
+// socket is 0o600 local-only). Future readers: don't add From checks here,
+// that's intentional.
+func dispatchSystemSend(
 	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	ta := resolveAgent(cfg, req.To)
-	if ta == nil {
-		return fmt.Errorf("unknown agent: %s", req.To)
+	addr, err := resolveAddressee(cfg, req.To)
+	if err != nil {
+		return err
 	}
-	rt := cfg.RuntimeForAgent(req.To)
-	persistMsg(msgSvc, message.CreateParams{
-		Sender: "system", Recipient: req.To, Content: req.Message,
-		Team: "default", Channel: message.ChannelCLI, Runtime: &rt,
-	})
-	return deliverToAgent(registry, cfg, frontends, req.To, req.Message)
-}
 
-// handleAgentToAgent delivers a message from one agent to another.
-// Falls back to worker session delivery when the recipient is job_id:agent_name.
-// Rejects bare hex UUIDs with a helpful error message.
-// The sender may also be a worker job_id:agent_name (e.g. from ttal alert in a worker session).
+	switch addr.Kind {
+	case KindHuman:
+		return handleToHuman(frontends, msgSvc, addr.Human, req)
+	case KindAgent:
+		rt := cfg.RuntimeForAgent(req.To)
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: "system", Recipient: req.To, Content: req.Message,
+			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		})
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, req.Message)
+	case KindWorker:
+		jobID, agentName, _ := parseWorkerAddress(req.To)
+		session, dispatched, err := dispatchToWorkerOrManager(
+			cfg, jobID, agentName, msgSvc, "system", req.To, req.Message, nil)
+		if err != nil {
+			return err
+		}
+		if !dispatched {
+			return fmt.Errorf("worker %s not reachable", req.To)
+		}
+		logDispatch("system", "system", req.To, session)
+		return nil
+	default:
+		return fmt.Errorf("unknown addressee kind: %v", addr.Kind)
+	}
+}
 
 // isValidHexPrefix reports whether s (case-insensitive) is at least 8 lowercase hex characters.
 func isValidHexPrefix(s string) bool {
@@ -381,69 +420,62 @@ func logDispatch(source, sender, to, session string) {
 	}
 }
 
-//nolint:gocyclo // handleAgentToAgent is a message routing dispatcher with inherently many branches
-func handleAgentToAgent(
+//nolint:gocyclo // dispatcher with inherently many branches
+func dispatchSend(
 	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	// Validate From.
+	// Validate From — keep existing block verbatim.
 	if isBareWorkerHex(req.From) {
 		return bareHexError(req.From)
 	}
-	var fromTA *config.AgentInfo
 	if jobID, _, ok := parseWorkerAddress(req.From); ok {
 		if _, err := resolveWorker(jobID); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
-	} else if fromTA = resolveAgent(cfg, req.From); fromTA == nil {
+	} else if _, agentOK := cfg.FindAgent(req.From); !agentOK {
 		if _, err := resolveWorker(req.From); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
 	}
-	senderTeam := defaultTeamName
-	if fromTA != nil {
-		senderTeam = defaultTeamName
+
+	// Resolve To via the unified addressee resolver.
+	addr, err := resolveAddressee(cfg, req.To)
+	if err != nil {
+		return err
 	}
 
-	toTA := resolveAgent(cfg, req.To)
 	msg := formatAgentMessage(req.From, req.Message)
-	if toTA == nil {
-		// Try parseWorkerAddress for To: job_id:agent_name
-		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
-			rt := cfg.RuntimeForAgent(req.From)
-			session, dispatched, err := dispatchToWorkerOrManager(
-				cfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
-			if err != nil {
-				return err
-			}
-			if dispatched {
-				logDispatch("agent", req.From, req.To, session)
-				return nil
-			}
-		}
-		// Bare hex UUID — reject with helpful error
-		if isBareWorkerHex(req.To) {
-			return bareHexError(req.To)
-		}
-		return fmt.Errorf("unknown agent or worker %s", req.To)
-	}
 	rt := cfg.RuntimeForAgent(req.From)
-	persistMsg(msgSvc, message.CreateParams{
-		Sender: req.From, Recipient: req.To, Content: req.Message,
-		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
-	})
-	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, cfg, frontends, req.To, msg)
-}
 
-// resolveAgent finds an agent by name, using team hint if provided.
-func resolveAgent(cfg *config.Config, agentName string) *config.AgentInfo {
-	ta, ok := cfg.FindAgent(agentName)
-	if ok {
-		return ta
+	switch addr.Kind {
+	case KindHuman:
+		return handleToHuman(frontends, msgSvc, addr.Human, SendRequest{
+			From: req.From, To: req.To, Message: req.Message,
+		})
+	case KindAgent:
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: req.From, Recipient: req.To, Content: req.Message,
+			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		})
+		log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, msg)
+	case KindWorker:
+		jobID, agentName, _ := parseWorkerAddress(req.To)
+		session, dispatched, err := dispatchToWorkerOrManager(
+			cfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
+		if err != nil {
+			return err
+		}
+		if !dispatched {
+			return fmt.Errorf("worker %s not reachable", req.To)
+		}
+		logDispatch("agent", req.From, req.To, session)
+		return nil
+	default:
+		return fmt.Errorf("unknown addressee kind: %v", addr.Kind)
 	}
-	return nil
 }
 
 // parseWorkerAddress returns the job ID and agent name from a worker address string.
@@ -512,6 +544,10 @@ var resolveWorker = resolveWorkerImpl
 // resolveManagerWindow is the function used to resolve the manager session window for a task.
 // Package-level var for test injection.
 var resolveManagerWindow = resolveManagerWindowImpl
+
+// deliverToAgentFn delivers a message to an agent session.
+// Package-level var for test injection.
+var deliverToAgentFn = deliverToAgent
 
 // pipelineLoadFn is the function used to load pipeline config.
 // Package-level var for test injection.

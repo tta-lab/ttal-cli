@@ -234,9 +234,6 @@ func writeContextFile(task *taskwarrior.Task, agentName, teamName string, cfg *c
 		"TTAL_AGENT_NAME=" + agentName,
 		"TTAL_JOB_ID=" + task.HexID(),
 	}
-	if cfg.AdminHuman != nil {
-		envVars = append(envVars, cfg.AdminHuman.EnvVars()...)
-	}
 	output := promptrender.RenderTemplate(tmpl, agentName, teamName, envVars)
 
 	f, err := os.CreateTemp("", "lenos-context-*.md")
@@ -302,14 +299,11 @@ func launchTmuxWorker(
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string, shellCfg *config.Config) []string {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string, _ *config.Config) []string {
 	parts := []string{
 		"TTAL_AGENT_NAME=" + agentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
 		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
-	if shellCfg != nil && shellCfg.AdminHuman != nil {
-		parts = append(parts, shellCfg.AdminHuman.EnvVars()...)
 	}
 	return parts
 }

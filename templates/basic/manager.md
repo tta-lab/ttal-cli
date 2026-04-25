@@ -53,6 +53,6 @@ Use conventional commits: `feat(scope):`, `fix(scope):`, `chore(scope):`
 
 ## Communication
 
-- Reply to humans with `ttal send --to human "your message"` — this is the only path. Default silent; send deliberately.
+- Reply to a human with `ttal send --to <alias> "your message"` (e.g. `ttal send --to neil`) — this is the only path. Default silent; send deliberately.
 - Send to other agents: `ttal send --to designer "message"`
 - Keep replies concise and actionable

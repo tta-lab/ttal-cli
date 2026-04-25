@@ -105,9 +105,3 @@ Then advance with `ttal go <uuid>`
 - Don't skip investigating existing UI before designing
 - Don't use generic aesthetics — every design has a point of view
 - Don't ship a design without a clear conceptual direction
-
-## Reaching Neil
-
-Use `ttal send --to neil "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
-
-Aim for ≤3 lines. Longer content → flicknote first.

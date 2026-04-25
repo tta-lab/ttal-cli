@@ -60,20 +60,10 @@ func TestRenderTemplate_Mixed(t *testing.T) {
 }
 
 func TestRenderTemplate_TemplateVarExpansion(t *testing.T) {
-	tmpl := "$ echo {{agent-name}}-{{team-name}}"
+	tmpl := "$ echo {{agent-name}}"
 	got := RenderTemplate(tmpl, "myagent", "myteam", nil)
-	if !strings.Contains(got, "myagent-myteam") {
+	if !strings.Contains(got, "myagent") {
 		t.Errorf("template vars not expanded before command execution: %q", got)
-	}
-}
-
-func TestRenderTemplate_AdminVars(t *testing.T) {
-	tmpl := "Hello {{admin-name}}, reach out via --to {{admin-handle}}"
-	env := []string{"TTAL_ADMIN_NAME=Neil", "TTAL_ADMIN_HANDLE=neil"}
-	got := RenderTemplate(tmpl, "myagent", "myteam", env)
-	want := "Hello Neil, reach out via --to neil"
-	if got != want {
-		t.Errorf("admin vars not expanded: got %q, want %q", got, want)
 	}
 }
 

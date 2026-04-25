@@ -15,6 +15,8 @@ const sendExample = `ttal send --to kestrel "message"
 
 var sendTo string
 
+var daemonSendFn = daemon.Send // inject point for tests
+
 var sendCmd = &cobra.Command{
 	Use:   "send [message]",
 	Short: "Send a message between agents or to a human",
@@ -22,9 +24,10 @@ var sendCmd = &cobra.Command{
 
   --to <agent>            delivers to agent via tmux
   --to <job_id>:<agent>   delivers to worker session
-  --to <human_alias>      sends to human via Telegram/Matrix (see: ttal human list)
+  --to <alias>            resolves human-first via humans.toml, then AI via team_path (see: ttal agent list)
 
-Agent identity comes from TTAL_AGENT_NAME env var (set automatically in team tmux sessions).
+Sender identity: TTAL_AGENT_NAME env var when set; falls back to "system" for bare
+  shell sends, scripts, hooks, and automation.
 
 Examples:
   ttal send --to kestrel "task started: implement auth"
@@ -56,12 +59,12 @@ Examples:
 			from = jobID + ":" + from
 		}
 		if from == "" {
-			return fmt.Errorf("TTAL_AGENT_NAME not set — this command needs agent identity\nThis is set automatically in agent sessions") //nolint:lll
+			from = "system"
 		}
 
 		usage.Log("send", sendTo)
 
-		return daemon.Send(daemon.SendRequest{
+		return daemonSendFn(daemon.SendRequest{
 			From:    from,
 			To:      sendTo,
 			Message: message,

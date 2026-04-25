@@ -226,7 +226,7 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 
-	taskPrompt := formatTaskPromptForPipeline(task)
+	taskPrompt := formatTaskPromptForPipeline(task, cfg)
 
 	var combined strings.Builder
 	if taskPrompt != "" {
@@ -311,17 +311,25 @@ func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config)
 // formatTaskPromptForPipeline formats a task into a pipeline prompt block.
 // Resolves project path and uses task.FormatPrompt() for the task content.
 // Returns empty string if task cannot be resolved (non-fatal).
-func formatTaskPromptForPipeline(task *taskwarrior.Task) string {
+func formatTaskPromptForPipeline(task *taskwarrior.Task, cfg *config.Config) string {
 	if task == nil {
 		return ""
+	}
+	pairLine := ""
+	if cfg != nil && cfg.AdminHuman != nil {
+		alias := cfg.AdminHuman.Alias
+		pairLine = fmt.Sprintf(
+			"Pairing with **%s** on this task. Reach via `ttal send --to %s \"...\"`.\\n\\n",
+			alias, alias,
+		)
 	}
 	projPath := projectpkg.ResolveProjectPath(task.Project)
 	proj := projectpkg.ResolveProject(task.Project)
 	if proj != nil && projPath != "" {
-		return fmt.Sprintf("Project: %s — %s\\nPath: %s\\n\\n%s",
-			task.Project, proj.Name, projPath, task.FormatPrompt())
+		return fmt.Sprintf("Project: %s — %s\\nPath: %s\\n\\n%s%s",
+			task.Project, proj.Name, projPath, pairLine, task.FormatPrompt())
 	}
-	return task.FormatPrompt()
+	return pairLine + task.FormatPrompt()
 }
 
 // resolvePROwnerRepo resolves the owner and repo for a task's project.

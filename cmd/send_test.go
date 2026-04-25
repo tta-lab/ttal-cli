@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
 // TestSendStdinAutoDetect_BothStdinAndArgs verifies that when both stdin is
@@ -122,5 +124,43 @@ func TestResolveSendMessage_NoArgsNoStdinErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "message required") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestSendCmd_NoEnvSendsAsSystem(t *testing.T) {
+	calls := make([]daemon.SendRequest, 0)
+	orig := daemonSendFn
+	daemonSendFn = func(req daemon.SendRequest) error {
+		calls = append(calls, req)
+		return nil
+	}
+	t.Cleanup(func() { daemonSendFn = orig })
+
+	sendTo = "neil"
+	t.Setenv("TTAL_AGENT_NAME", "")
+	t.Setenv("TTAL_JOB_ID", "")
+
+	// Capture args for RunE
+	cmd := sendCmd
+	args := []string{"hello from bare shell"}
+	oldArgs := os.Args
+	os.Args = append([]string{"ttal"}, args...)
+	defer func() { os.Args = oldArgs }()
+
+	err := cmd.RunE(cmd, args)
+	if err != nil {
+		t.Fatalf("sendCmd.RunE: %v", err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(calls))
+	}
+	if calls[0].From != "system" {
+		t.Errorf("From = %q, want %q", calls[0].From, "system")
+	}
+	if calls[0].To != "neil" {
+		t.Errorf("To = %q, want %q", calls[0].To, "neil")
+	}
+	if calls[0].Message != "hello from bare shell" {
+		t.Errorf("Message = %q, want %q", calls[0].Message, "hello from bare shell")
 	}
 }

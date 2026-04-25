@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 )
 
@@ -95,4 +98,85 @@ func TestAgentfsSetField(t *testing.T) {
 	if ag.Voice != "af_sky" {
 		t.Errorf("agent voice = %v, want af_sky", ag.Voice)
 	}
+}
+
+func TestAgentList_RenderNoPanic(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	// Write humans.toml fixture
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	humansBody := `[neil]
+name = "Neil"
+age = 30
+pronouns = "he/him"
+admin = true
+telegram_chat_id = "12345"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansBody), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
+
+	// Set up config with team_path pointing to temp agent dirs
+	tmpCfgDir := filepath.Join(tmp, ".config", "ttal2")
+	if err := os.MkdirAll(tmpCfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cfgBody := fmt.Sprintf("team_path = %q\n", tmp)
+	if err := os.WriteFile(filepath.Join(tmpCfgDir, "config.toml"), []byte(cfgBody), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+	// Override TTAL_CONFIG_DIR for this test
+	t.Setenv("TTAL_CONFIG_DIR", tmpCfgDir)
+
+	// Write agent dir
+	agentDir := filepath.Join(tmpCfgDir, "..", "agents", "astra")
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(agentDir, "AGENTS.md"),
+		[]byte("---\nname: astra\nrole: designer\ndescription: Design architect\n---\n"), 0o644); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+}
+
+func TestAgentList_StyleFuncBoundsGuard(t *testing.T) {
+	// Build a 2-row table exactly as the list cmd does and verify StyleFunc
+	// doesn't panic on edge indices.
+	rows := [][]string{
+		{"neil", "human", "", "Neil"},
+		{"astra", "ai", "designer", "Design architect"},
+	}
+	dimColor := lipgloss.Color("252")
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
+	cellStyle := lipgloss.NewStyle().Foreground(dimColor)
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+
+	//nolint:unparam // styleFn result intentionally unused; testing bounds guards only
+	styleFn := func(row, col int) lipgloss.Style {
+		if row == table.HeaderRow {
+			return headerStyle
+		}
+		if row < 0 || row >= len(rows) {
+			return cellStyle
+		}
+		if col == 0 {
+			return dimStyle
+		}
+		return cellStyle
+	}
+
+	// Header row
+	_ = styleFn(table.HeaderRow, 0) // -1, header path
+	// Data rows
+	_ = styleFn(0, 0)
+	_ = styleFn(0, 3)
+	_ = styleFn(1, 0)
+	_ = styleFn(1, 3)
+	// Out of bounds
+	_ = styleFn(2, 0)  // beyond last row
+	_ = styleFn(-2, 0) // negative non-header
 }
