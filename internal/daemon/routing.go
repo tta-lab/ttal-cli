@@ -225,10 +225,10 @@ func handleSend(
 	msgSvc *message.Service, req SendRequest,
 ) error {
 	// Remove the "human" literal case — humans are now first-class addressees.
-	// handleAgentToAgent is unchanged: humans are not addressees of agent→agent sends.
+	// dispatchSend handles all kinds via resolveAddressee + Kind switch.
 	switch {
 	case req.From == "system" && req.To != "":
-		return handleSystemToAgent(cfg, registry, frontends, msgSvc, req)
+		return dispatchSystemSend(cfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
 		return dispatchSend(cfg, registry, frontends, msgSvc, req)
 	case req.To != "":
@@ -294,27 +294,48 @@ func handleToHuman(
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
 // No [agent from:] prefix is added — used for automated triggers like /breathe
 // where CC must receive raw text to recognize it as a skill trigger.
-func handleSystemToAgent(
+// dispatchSystemSend delivers a system-originated message to its addressee.
+// Bare text is preserved on the agent path (no [agent from:] prefix) — used
+// for automated triggers like /breathe where CC must recognize raw text.
+// No From validation — system sender is trusted via socket transport (daemon
+// socket is 0o600 local-only). Future readers: don't add From checks here,
+// that's intentional.
+func dispatchSystemSend(
 	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	ta := resolveAgent(cfg, req.To)
-	if ta == nil {
-		return fmt.Errorf("unknown agent: %s", req.To)
+	addr, err := resolveAddressee(cfg, req.To)
+	if err != nil {
+		return err
 	}
-	rt := cfg.RuntimeForAgent(req.To)
-	persistMsg(msgSvc, message.CreateParams{
-		Sender: "system", Recipient: req.To, Content: req.Message,
-		Team: "default", Channel: message.ChannelCLI, Runtime: &rt,
-	})
-	return deliverToAgent(registry, cfg, frontends, req.To, req.Message)
-}
 
-// handleAgentToAgent delivers a message from one agent to another.
-// Falls back to worker session delivery when the recipient is job_id:agent_name.
-// Rejects bare hex UUIDs with a helpful error message.
-// The sender may also be a worker job_id:agent_name (e.g. from ttal alert in a worker session).
+	switch addr.Kind {
+	case KindHuman:
+		return handleToHuman(frontends, msgSvc, addr.Human, req)
+	case KindAgent:
+		rt := cfg.RuntimeForAgent(req.To)
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: "system", Recipient: req.To, Content: req.Message,
+			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		})
+		return deliverToAgent(registry, cfg, frontends, addr.Name, req.Message)
+	case KindWorker:
+		jobID, agentName, _ := parseWorkerAddress(req.To)
+		session, dispatched, err := dispatchToWorkerOrManager(
+			cfg, jobID, agentName, msgSvc, "system", req.To, req.Message, nil)
+		if err != nil {
+			return err
+		}
+		if !dispatched {
+			return fmt.Errorf("worker %s not reachable", req.To)
+		}
+		logDispatch("system", "system", req.To, session)
+		return nil
+	default:
+		return fmt.Errorf("unknown addressee kind: %v", addr.Kind)
+	}
+}
 
 // isValidHexPrefix reports whether s (case-insensitive) is at least 8 lowercase hex characters.
 func isValidHexPrefix(s string) bool {
