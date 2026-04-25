@@ -235,11 +235,10 @@ func handleTo(
 
 	switch addr.Kind {
 	case addressee.KindHuman:
-		human, ok := addr.Human.(*humanfs.Human)
-		if !ok || human == nil {
-			return fmt.Errorf("addressee %s: KindHuman but Human field is not *humanfs.Human", addr.Name)
+		if addr.Human == nil {
+			return fmt.Errorf("addressee %s: KindHuman but Human field is nil", addr.Name)
 		}
-		return handleToHuman(frontends, msgSvc, human, req)
+		return handleToHuman(frontends, msgSvc, addr.Human, req)
 	case addressee.KindAgent:
 		persistMsg(msgSvc, message.CreateParams{
 			Sender: cfg.UserName, Recipient: addr.Name, Content: req.Message,
@@ -308,11 +307,10 @@ func dispatchSystemSend(
 
 	switch addr.Kind {
 	case addressee.KindHuman:
-		human, ok := addr.Human.(*humanfs.Human)
-		if !ok || human == nil {
-			return fmt.Errorf("addressee %s: KindHuman but Human field is not *humanfs.Human", addr.Name)
+		if addr.Human == nil {
+			return fmt.Errorf("addressee %s: KindHuman but Human field is nil", addr.Name)
 		}
-		return handleToHuman(frontends, msgSvc, human, req)
+		return handleToHuman(frontends, msgSvc, addr.Human, req)
 	case addressee.KindAgent:
 		rt := cfg.RuntimeForAgent(req.To)
 		persistMsg(msgSvc, message.CreateParams{
@@ -451,11 +449,10 @@ func dispatchSend(
 
 	switch addr.Kind {
 	case addressee.KindHuman:
-		human, ok := addr.Human.(*humanfs.Human)
-		if !ok || human == nil {
-			return fmt.Errorf("addressee %s: KindHuman but Human field is not *humanfs.Human", addr.Name)
+		if addr.Human == nil {
+			return fmt.Errorf("addressee %s: KindHuman but Human field is nil", addr.Name)
 		}
-		return handleToHuman(frontends, msgSvc, human, SendRequest{
+		return handleToHuman(frontends, msgSvc, addr.Human, SendRequest{
 			From: req.From, To: req.To, Message: req.Message,
 		})
 	case addressee.KindAgent:
