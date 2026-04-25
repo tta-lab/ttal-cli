@@ -181,7 +181,7 @@ func gatherProjectPaths(_ *config.Config, storePathFn func(string) string) []str
 }
 
 // buildManagerAgentEnv returns env vars for a manager agent session.
-func buildManagerAgentEnv(agentName string, cfg *config.Config) []string {
+func buildManagerAgentEnv(agentName string, _ *config.Config) []string {
 	parts := []string{
 		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
 		// Opt into Claude Code's longer prompt cache TTL for manager sessions.

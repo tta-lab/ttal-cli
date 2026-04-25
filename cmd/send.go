@@ -26,7 +26,8 @@ var sendCmd = &cobra.Command{
   --to <job_id>:<agent>   delivers to worker session
   --to <alias>            resolves human-first via humans.toml, then AI via team_path (see: ttal agent list)
 
-Sender identity: TTAL_AGENT_NAME env var when set (agent or worker session); falls back to "system" for bare-shell sends, scripts, hooks, and automation.
+Sender identity: TTAL_AGENT_NAME env var when set; falls back to "system" for bare
+  shell sends, scripts, hooks, and automation.
 
 Examples:
   ttal send --to kestrel "task started: implement auth"

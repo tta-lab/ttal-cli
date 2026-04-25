@@ -310,13 +310,6 @@ func printHumanInfo(h *humanfs.Human) error {
 	return nil
 }
 
-func truncate(s string, max int) string {
-	if len(s) > max {
-		return s[:max] + "…"
-	}
-	return s
-}
-
 var agentDeleteCmd = &cobra.Command{
 	Use:   "delete <name>",
 	Short: "Permanently delete an agent directory",

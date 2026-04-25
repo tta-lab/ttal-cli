@@ -67,7 +67,6 @@ func TestRenderTemplate_TemplateVarExpansion(t *testing.T) {
 	}
 }
 
-
 func TestRenderTemplate_EmptyCommandOutput(t *testing.T) {
 	// Command succeeds but produces no output — should be skipped entirely.
 	tmpl := "before\n$ true\nafter"

@@ -53,7 +53,6 @@ func TestBuildEnvParts_BasicEnvParts(t *testing.T) {
 	}
 }
 
-
 func TestWriteTaskFile_MissingCoderPrompt(t *testing.T) {
 	cfg := SpawnConfig{Name: "test", Runtime: runtime.Codex}
 	task := &taskwarrior.Task{

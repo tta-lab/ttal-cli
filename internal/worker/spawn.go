@@ -299,7 +299,7 @@ func launchTmuxWorker(
 }
 
 // buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string, shellCfg *config.Config) []string {
+func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string, _ *config.Config) []string {
 	parts := []string{
 		"TTAL_AGENT_NAME=" + agentName,
 		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),

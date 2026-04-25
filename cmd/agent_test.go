@@ -155,6 +155,7 @@ func TestAgentList_StyleFuncBoundsGuard(t *testing.T) {
 	cellStyle := lipgloss.NewStyle().Foreground(dimColor)
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 
+	//nolint:unparam // styleFn result intentionally unused; testing bounds guards only
 	styleFn := func(row, col int) lipgloss.Style {
 		if row == table.HeaderRow {
 			return headerStyle
@@ -176,6 +177,6 @@ func TestAgentList_StyleFuncBoundsGuard(t *testing.T) {
 	_ = styleFn(1, 0)
 	_ = styleFn(1, 3)
 	// Out of bounds
-	_ = styleFn(2, 0)   // beyond last row
-	_ = styleFn(-2, 0)   // negative non-header
+	_ = styleFn(2, 0)  // beyond last row
+	_ = styleFn(-2, 0) // negative non-header
 }

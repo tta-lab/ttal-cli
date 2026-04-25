@@ -1,13 +1,17 @@
 package daemon
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -674,5 +678,125 @@ func TestResolveAddressee_Unknown(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown addressee: unknown") {
 		t.Errorf("error = %q, want substring %q", err.Error(), "unknown addressee: unknown")
+	}
+}
+
+// writeHumansFixture writes a humans.toml under tmpDir/.config/ttal/ and points
+// HOME at tmpDir for the duration of the test. Returns the human alias so callers
+// can assert against it.
+func writeHumansFixture(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfgDir := filepath.Join(tmp, ".config", "ttal")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", cfgDir, err)
+	}
+	body := `[neil]
+name = "Neil"
+age = 30
+pronouns = "he/him"
+admin = true
+telegram_chat_id = "12345"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write humans.toml: %v", err)
+	}
+	return "neil"
+}
+
+// fakeFrontend captures SendToHuman calls so tests can assert without real Telegram.
+type fakeFrontend struct {
+	sendToHumanCalls []struct {
+		h   *humanfs.Human
+		msg string
+	}
+	sendToHumanErr error
+}
+
+func (f *fakeFrontend) Start(_ context.Context) error                 { return nil }
+func (f *fakeFrontend) Stop(_ context.Context) error                  { return nil }
+func (f *fakeFrontend) SendText(_ context.Context, _, _ string) error { return nil }
+func (f *fakeFrontend) SendVoice(_ context.Context, _ string, _ []byte) error {
+	return nil
+}
+func (f *fakeFrontend) SendNotification(_ context.Context, _ string) error { return nil }
+func (f *fakeFrontend) SetReaction(_ context.Context, _, _ string) error   { return nil }
+func (f *fakeFrontend) AskHuman(_ context.Context, _, _ string, _ []string) (string, bool, error) {
+	return "", false, nil
+}
+func (f *fakeFrontend) ClearTracking(_ context.Context, _ string) error { return nil }
+func (f *fakeFrontend) RegisterCommands(_ []frontend.Command) error     { return nil }
+func (f *fakeFrontend) AskHumanHTTPHandler() http.HandlerFunc {
+	return func(http.ResponseWriter, *http.Request) {}
+}
+func (f *fakeFrontend) SendToHuman(_ context.Context, h *humanfs.Human, text string) error {
+	f.sendToHumanCalls = append(f.sendToHumanCalls, struct {
+		h   *humanfs.Human
+		msg string
+	}{h, text})
+	return f.sendToHumanErr
+}
+
+func TestDispatchSend_RoutesToHuman(t *testing.T) {
+	alias := writeHumansFixture(t)
+	fe := &fakeFrontend{}
+	frontends := map[string]frontend.Frontend{"default": fe}
+
+	// Set up a temp team_path with a fake agent so dispatchSend's From validation passes.
+	tmp := t.TempDir()
+	agentDir := filepath.Join(tmp, "astra")
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(agentDir, "AGENTS.md"), []byte("---\nname: astra\n---\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg := &config.Config{TeamPath: tmp}
+
+	req := SendRequest{From: "astra", To: alias, Message: "hello neil"}
+	if err := dispatchSend(cfg, nil, frontends, nil, req); err != nil {
+		t.Fatalf("dispatchSend: %v", err)
+	}
+	if len(fe.sendToHumanCalls) != 1 {
+		t.Fatalf("expected 1 SendToHuman call, got %d", len(fe.sendToHumanCalls))
+	}
+	if fe.sendToHumanCalls[0].h.Alias != alias {
+		t.Errorf("Human.Alias = %q, want %q", fe.sendToHumanCalls[0].h.Alias, alias)
+	}
+	if fe.sendToHumanCalls[0].msg != "hello neil" {
+		t.Errorf("msg = %q, want %q", fe.sendToHumanCalls[0].msg, "hello neil")
+	}
+}
+
+func TestDispatchSystemSend_RoutesToHuman(t *testing.T) {
+	alias := writeHumansFixture(t)
+	fe := &fakeFrontend{}
+	frontends := map[string]frontend.Frontend{"default": fe}
+	cfg := &config.Config{}
+
+	req := SendRequest{From: "system", To: alias, Message: "system alert"}
+	if err := dispatchSystemSend(cfg, nil, frontends, nil, req); err != nil {
+		t.Fatalf("dispatchSystemSend: %v", err)
+	}
+	if len(fe.sendToHumanCalls) != 1 {
+		t.Fatalf("expected 1 SendToHuman call, got %d", len(fe.sendToHumanCalls))
+	}
+	if fe.sendToHumanCalls[0].msg != "system alert" {
+		t.Errorf("msg = %q, want %q", fe.sendToHumanCalls[0].msg, "system alert")
+	}
+}
+
+func TestHandleToHuman_NoFrontend(t *testing.T) {
+	frontends := map[string]frontend.Frontend{} // no "default" key
+	dummy := &humanfs.Human{Alias: "neil", Name: "Neil", TelegramChatID: "1"}
+	req := SendRequest{From: "astra", To: "neil", Message: "test"}
+	err := handleToHuman(frontends, nil, dummy, req)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no frontend configured") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "no frontend configured")
 	}
 }

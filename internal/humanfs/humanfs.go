@@ -98,4 +98,3 @@ func FindAdmin(humans []Human) (*Human, error) {
 func List(path string) ([]Human, error) {
 	return Load(path)
 }
-
