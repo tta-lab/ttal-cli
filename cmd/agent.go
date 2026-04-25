@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/format"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/license"
 	"github.com/tta-lab/ttal-cli/internal/voice"
 )
@@ -117,7 +119,7 @@ Example:
 
 var agentListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List agents",
+	Short: "List agents (humans + AIs)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		teamPath, err := resolveTeamPath()
 		if err != nil {
@@ -129,20 +131,34 @@ var agentListCmd = &cobra.Command{
 			return fmt.Errorf("discover agents: %w", err)
 		}
 
-		if len(agents) == 0 {
-			fmt.Println("No agents found")
+		// Load humans (best-effort — empty if humans.toml absent).
+		var humans []humanfs.Human
+		if humansPath, herr := config.HumansPath(); herr == nil {
+			if loaded, lerr := humanfs.Load(humansPath); lerr == nil {
+				humans = loaded
+			} else if !os.IsNotExist(lerr) {
+				log.Printf("[agent list] warning: humans.toml unreadable: %v", lerr)
+			}
+		}
+
+		if len(agents) == 0 && len(humans) == 0 {
+			fmt.Println("No agents or humans found")
 			return nil
 		}
 
 		dimColor, headerStyle, cellStyle, dimStyle := format.TableStyles()
 
-		rows := make([][]string, 0, len(agents))
+		// Build rows: humans first (alphabetical), then AIs (alphabetical from Discover).
+		rows := make([][]string, 0, len(humans)+len(agents))
+		for _, h := range humans {
+			rows = append(rows, []string{h.Alias, "human", "", h.Name})
+		}
 		for _, a := range agents {
 			name := a.Name
 			if a.Emoji != "" {
 				name = a.Emoji + " " + a.Name
 			}
-			rows = append(rows, []string{name, a.Role, a.Description})
+			rows = append(rows, []string{name, "ai", a.Role, a.Description})
 		}
 
 		tbl := table.New().
@@ -152,60 +168,55 @@ var agentListCmd = &cobra.Command{
 				if row == table.HeaderRow {
 					return headerStyle
 				}
+				if row < 0 || row >= len(rows) {
+					return cellStyle
+				}
 				if col == 0 {
 					return dimStyle
 				}
 				return cellStyle
 			}).
-			Headers("NAME", "ROLE", "DESCRIPTION").
+			Headers("NAME", "TYPE", "ROLE", "DESCRIPTION").
 			Rows(rows...)
 
 		lipgloss.Println(tbl)
-		fmt.Printf("\n%d %s\n", len(agents), format.Plural(len(agents), "agent", "agents"))
+		fmt.Printf("\n%d %s (%d %s, %d %s)\n",
+			len(rows), format.Plural(len(rows), "addressee", "addressees"),
+			len(humans), format.Plural(len(humans), "human", "humans"),
+			len(agents), format.Plural(len(agents), "ai", "ais"))
 		return nil
 	},
 }
 
 var agentInfoCmd = &cobra.Command{
 	Use:   "info <name>",
-	Short: "Get agent details",
-	Long: `Get detailed information about an agent.
+	Short: "Get addressee details (human or ai)",
+	Long: `Get detailed information about an agent or human.
 
 Example:
-  ttal agent info yuki`,
+  ttal agent info yuki
+  ttal agent info neil`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := strings.ToLower(args[0])
 
+		// Try human first (matches resolveAddressee order).
+		if humansPath, err := config.HumansPath(); err == nil {
+			if h, herr := humanfs.Get(humansPath, name); herr == nil {
+				return printHumanInfo(h)
+			}
+		}
+
+		// Fall back to AI agent.
 		teamPath, err := resolveTeamPath()
 		if err != nil {
 			return err
 		}
-
 		ag, err := agentfs.Get(teamPath, name)
 		if err != nil {
 			return err
 		}
-
-		displayName := ag.Name
-		if ag.Emoji != "" {
-			displayName = ag.Emoji + " " + displayName
-		}
-		fmt.Printf("Name:      %s\n", displayName)
-		fmt.Printf("Path:      %s\n", filepath.Join(teamPath, ag.Name))
-		if ag.Role != "" {
-			fmt.Printf("Role:      %s\n", ag.Role)
-		}
-		if ag.Description != "" {
-			fmt.Printf("About:     %s\n", ag.Description)
-		}
-		if ag.Voice != "" {
-			fmt.Printf("Voice:     %s\n", ag.Voice)
-		}
-		if ag.Color != "" {
-			fmt.Printf("Color:     %s\n", ag.Color)
-		}
-		return nil
+		return printAgentInfo(teamPath, ag)
 	},
 }
 
@@ -262,6 +273,48 @@ Examples:
 		}
 		return nil
 	},
+}
+
+func printAgentInfo(teamPath string, ag *agentfs.AgentInfo) error {
+	displayName := ag.Name
+	if ag.Emoji != "" {
+		displayName = ag.Emoji + " " + displayName
+	}
+	fmt.Printf("Name:      %s\n", displayName)
+	fmt.Printf("Path:      %s\n", filepath.Join(teamPath, ag.Name))
+	if ag.Role != "" {
+		fmt.Printf("Role:      %s\n", ag.Role)
+	}
+	if ag.Description != "" {
+		fmt.Printf("About:     %s\n", ag.Description)
+	}
+	if ag.Voice != "" {
+		fmt.Printf("Voice:     %s\n", ag.Voice)
+	}
+	if ag.Color != "" {
+		fmt.Printf("Color:     %s\n", ag.Color)
+	}
+	return nil
+}
+
+func printHumanInfo(h *humanfs.Human) error {
+	label := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
+	value := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	fmt.Printf("%s  %s\n", label.Render("Alias:"), value.Render(h.Alias))
+	fmt.Printf("%s  %s\n", label.Render("Name:"), value.Render(h.Name))
+	fmt.Printf("%s  %s\n", label.Render("Age:"), value.Render(fmt.Sprintf("%d", h.Age)))
+	fmt.Printf("%s  %s\n", label.Render("Pronouns:"), value.Render(h.Pronouns))
+	fmt.Printf("%s  %s\n", label.Render("Admin:"), value.Render(fmt.Sprintf("%t", h.Admin)))
+	fmt.Printf("%s  %s\n", label.Render("Telegram:"), value.Render(h.TelegramChatID))
+	fmt.Printf("%s  %s\n", label.Render("Matrix:"), value.Render(h.MatrixUserID))
+	return nil
+}
+
+func truncate(s string, max int) string {
+	if len(s) > max {
+		return s[:max] + "…"
+	}
+	return s
 }
 
 var agentDeleteCmd = &cobra.Command{
