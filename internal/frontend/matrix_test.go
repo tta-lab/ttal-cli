@@ -12,6 +12,7 @@ import (
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/id"
 
+	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 )
 
@@ -142,7 +143,8 @@ func TestMatrixFrontend_SendText(t *testing.T) {
 
 	fe := buildTestFrontend(t, srv, "yuki", "!testroom:test")
 
-	if err := fe.SendText(context.Background(), "yuki", "hello world"); err != nil {
+	if err := fe.SendText(context.Background(),
+		&addressee.Addressee{Kind: addressee.KindAgent, Name: "yuki"}, nil, "hello world"); err != nil {
 		t.Fatalf("SendText: %v", err)
 	}
 	if len(bodies) != 1 {
@@ -162,7 +164,8 @@ func TestMatrixFrontend_SendText_UnknownAgent(t *testing.T) {
 		sessions:    map[string]agentSession{},
 		lastEventID: make(map[string]id.EventID),
 	}
-	if err := fe.SendText(context.Background(), "unknown", "hi"); err == nil {
+	if err := fe.SendText(context.Background(),
+		&addressee.Addressee{Kind: addressee.KindAgent, Name: "unknown"}, nil, "hi"); err == nil {
 		t.Fatal("expected error for unknown agent, got nil")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
@@ -32,7 +33,7 @@ import (
 // The sender never cares which kind the recipient is. `ttal send --to <alias>`
 // works uniformly. The daemon picks the channel from addr.Kind:
 //
-//   Human  → frontend.SendToHuman (Telegram chat_id / Matrix invite)
+//   Human  → frontend.SendText (Telegram chat_id / Matrix invite)
 //   Agent  → tmux send-keys to the persistent agent session
 //   Worker → tmux send-keys to the worker session, with manager-window fallback
 //
@@ -40,43 +41,25 @@ import (
 // both resolve via resolveAddressee and switch on Kind. handleTo (bare-shell
 // path) follows the same pattern.
 
-// AddresseeKind classifies what kind of entity a name resolves to.
-type AddresseeKind int
-
-const (
-	KindAgent  AddresseeKind = iota // tmux session delivery
-	KindWorker                      // job_id:agent_name → worker tmux or manager window
-	KindHuman                       // frontend delivery (Telegram chat_id / Matrix invite)
-)
-
-// Addressee is a resolved send target.
-type Addressee struct {
-	Kind        AddresseeKind
-	Name        string            // agent name, human alias, or worker:agent name
-	Agent       *config.AgentInfo // populated when Kind == KindAgent
-	Human       *humanfs.Human    // populated when Kind == KindHuman
-	WorkerJobID string            // populated when Kind == KindWorker
-}
-
 // resolveAddressee resolves a name to an addressee.
 // Resolution order: HUMAN (humanfs) FIRST, then AGENT, then WORKER (jobid:agent).
-func resolveAddressee(cfg *config.Config, name string) (*Addressee, error) {
+func resolveAddressee(cfg *config.Config, name string) (*addressee.Addressee, error) {
 	// Try human first (only if config is available)
 	humansPath, humansErr := resolveHumansPathAndGet(name)
 
 	// Return found human immediately
 	if hfe, ok := humansErr.(*humanFoundError); ok {
-		return &Addressee{Kind: KindHuman, Name: hfe.h.Alias, Human: hfe.h}, nil
+		return &addressee.Addressee{Kind: addressee.KindHuman, Name: hfe.h.Alias, Human: hfe.h}, nil
 	}
 
 	// Try agent
 	if ta, ok := cfg.FindAgent(name); ok {
-		return &Addressee{Kind: KindAgent, Name: ta.AgentName, Agent: ta}, nil
+		return &addressee.Addressee{Kind: addressee.KindAgent, Name: ta.AgentName, Agent: ta}, nil
 	}
 
 	// Try worker format
 	if jobID, _, ok := parseWorkerAddress(name); ok {
-		return &Addressee{Kind: KindWorker, Name: name, WorkerJobID: jobID}, nil
+		return &addressee.Addressee{Kind: addressee.KindWorker, Name: name, WorkerJobID: jobID}, nil
 	}
 
 	// Bare hex UUID
@@ -251,15 +234,19 @@ func handleTo(
 	}
 
 	switch addr.Kind {
-	case KindHuman:
-		return handleToHuman(frontends, msgSvc, addr.Human, req)
-	case KindAgent:
+	case addressee.KindHuman:
+		human, ok := addr.Human.(*humanfs.Human)
+		if !ok || human == nil {
+			return fmt.Errorf("addressee %s: KindHuman but Human field is not *humanfs.Human", addr.Name)
+		}
+		return handleToHuman(frontends, msgSvc, human, req)
+	case addressee.KindAgent:
 		persistMsg(msgSvc, message.CreateParams{
 			Sender: cfg.UserName, Recipient: addr.Name, Content: req.Message,
 			Team: "default", Channel: message.ChannelCLI,
 		})
 		return deliverToAgent(registry, cfg, frontends, addr.Name, req.Message)
-	case KindWorker:
+	case addressee.KindWorker:
 		session, dispatched, err := dispatchToWorkerOrManager(
 			cfg, addr.WorkerJobID, addr.Name, msgSvc, cfg.UserName, req.To, req.Message, nil)
 		if err != nil {
@@ -288,7 +275,16 @@ func handleToHuman(
 		Sender: req.From, Recipient: human.Alias, Content: req.Message,
 		Team: "default", Channel: message.ChannelCLI,
 	})
-	return fe.SendToHuman(context.Background(), human, req.Message)
+	fromAddr := &addressee.Addressee{Kind: addressee.KindAgent, Name: req.From}
+	if req.From == "" || req.From == "system" {
+		fromAddr = nil // frontend uses notification bot for non-agent senders
+	}
+	return fe.SendText(
+		context.Background(),
+		fromAddr,
+		&addressee.Addressee{Kind: addressee.KindHuman, Name: human.Alias, Human: human},
+		req.Message,
+	)
 }
 
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
@@ -311,16 +307,20 @@ func dispatchSystemSend(
 	}
 
 	switch addr.Kind {
-	case KindHuman:
-		return handleToHuman(frontends, msgSvc, addr.Human, req)
-	case KindAgent:
+	case addressee.KindHuman:
+		human, ok := addr.Human.(*humanfs.Human)
+		if !ok || human == nil {
+			return fmt.Errorf("addressee %s: KindHuman but Human field is not *humanfs.Human", addr.Name)
+		}
+		return handleToHuman(frontends, msgSvc, human, req)
+	case addressee.KindAgent:
 		rt := cfg.RuntimeForAgent(req.To)
 		persistMsg(msgSvc, message.CreateParams{
 			Sender: "system", Recipient: req.To, Content: req.Message,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
 		return deliverToAgentFn(registry, cfg, frontends, addr.Name, req.Message)
-	case KindWorker:
+	case addressee.KindWorker:
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
 			cfg, jobID, agentName, msgSvc, "system", req.To, req.Message, nil)
@@ -450,18 +450,22 @@ func dispatchSend(
 	rt := cfg.RuntimeForAgent(req.From)
 
 	switch addr.Kind {
-	case KindHuman:
-		return handleToHuman(frontends, msgSvc, addr.Human, SendRequest{
+	case addressee.KindHuman:
+		human, ok := addr.Human.(*humanfs.Human)
+		if !ok || human == nil {
+			return fmt.Errorf("addressee %s: KindHuman but Human field is not *humanfs.Human", addr.Name)
+		}
+		return handleToHuman(frontends, msgSvc, human, SendRequest{
 			From: req.From, To: req.To, Message: req.Message,
 		})
-	case KindAgent:
+	case addressee.KindAgent:
 		persistMsg(msgSvc, message.CreateParams{
 			Sender: req.From, Recipient: req.To, Content: req.Message,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
 		log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 		return deliverToAgentFn(registry, cfg, frontends, addr.Name, msg)
-	case KindWorker:
+	case addressee.KindWorker:
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
 			cfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
