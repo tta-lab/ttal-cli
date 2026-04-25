@@ -230,7 +230,7 @@ func handleSend(
 	case req.From == "system" && req.To != "":
 		return handleSystemToAgent(cfg, registry, frontends, msgSvc, req)
 	case req.From != "" && req.To != "":
-		return handleAgentToAgent(cfg, registry, frontends, msgSvc, req)
+		return dispatchSend(cfg, registry, frontends, msgSvc, req)
 	case req.To != "":
 		return handleTo(cfg, registry, frontends, msgSvc, req)
 	default:
@@ -399,60 +399,62 @@ func logDispatch(source, sender, to, session string) {
 	}
 }
 
-//nolint:gocyclo // handleAgentToAgent is a message routing dispatcher with inherently many branches
-func handleAgentToAgent(
+//nolint:gocyclo // dispatcher with inherently many branches
+func dispatchSend(
 	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	// Validate From.
+	// Validate From — keep existing block verbatim.
 	if isBareWorkerHex(req.From) {
 		return bareHexError(req.From)
 	}
-	var fromTA *config.AgentInfo
 	if jobID, _, ok := parseWorkerAddress(req.From); ok {
 		if _, err := resolveWorker(jobID); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
-	} else if fromTA = resolveAgent(cfg, req.From); fromTA == nil {
+	} else if _, agentOK := cfg.FindAgent(req.From); !agentOK {
 		if _, err := resolveWorker(req.From); err != nil {
 			return fmt.Errorf("unknown agent or worker: %s", req.From)
 		}
 	}
-	senderTeam := defaultTeamName
-	if fromTA != nil {
-		senderTeam = defaultTeamName
+
+	// Resolve To via the unified addressee resolver.
+	addr, err := resolveAddressee(cfg, req.To)
+	if err != nil {
+		return err
 	}
 
-	toTA := resolveAgent(cfg, req.To)
 	msg := formatAgentMessage(req.From, req.Message)
-	if toTA == nil {
-		// Try parseWorkerAddress for To: job_id:agent_name
-		if jobID, agentName, ok := parseWorkerAddress(req.To); ok {
-			rt := cfg.RuntimeForAgent(req.From)
-			session, dispatched, err := dispatchToWorkerOrManager(
-				cfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
-			if err != nil {
-				return err
-			}
-			if dispatched {
-				logDispatch("agent", req.From, req.To, session)
-				return nil
-			}
-		}
-		// Bare hex UUID — reject with helpful error
-		if isBareWorkerHex(req.To) {
-			return bareHexError(req.To)
-		}
-		return fmt.Errorf("unknown agent or worker %s", req.To)
-	}
 	rt := cfg.RuntimeForAgent(req.From)
-	persistMsg(msgSvc, message.CreateParams{
-		Sender: req.From, Recipient: req.To, Content: req.Message,
-		Team: senderTeam, Channel: message.ChannelCLI, Runtime: &rt,
-	})
-	log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-	return deliverToAgent(registry, cfg, frontends, req.To, msg)
+
+	switch addr.Kind {
+	case KindHuman:
+		return handleToHuman(frontends, msgSvc, addr.Human, SendRequest{
+			From: req.From, To: req.To, Message: req.Message,
+		})
+	case KindAgent:
+		persistMsg(msgSvc, message.CreateParams{
+			Sender: req.From, Recipient: req.To, Content: req.Message,
+			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
+		})
+		log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
+		return deliverToAgent(registry, cfg, frontends, addr.Name, msg)
+	case KindWorker:
+		jobID, agentName, _ := parseWorkerAddress(req.To)
+		session, dispatched, err := dispatchToWorkerOrManager(
+			cfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
+		if err != nil {
+			return err
+		}
+		if !dispatched {
+			return fmt.Errorf("worker %s not reachable", req.To)
+		}
+		logDispatch("agent", req.From, req.To, session)
+		return nil
+	default:
+		return fmt.Errorf("unknown addressee kind: %v", addr.Kind)
+	}
 }
 
 // resolveAgent finds an agent by name, using team hint if provided.

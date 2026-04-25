@@ -149,15 +149,15 @@ func TestParseWorkerAddress(t *testing.T) {
 	}
 }
 
-// TestHandleAgentToAgentUnknownSender verifies the negative-path behaviour for
-// the From field in handleAgentToAgent after the worker-hex-ID fix.
+// TestDispatchSend_UnknownSender verifies the negative-path behaviour for
+// the From field in dispatchSend after the worker-hex-ID fix.
 //
 // Success-path verification (a real worker session sending an alert) requires a
 // live tmux server and cannot run in CI. These tests cover the regression:
 // before the fix, any unknown From returned "unknown agent: X". After the fix,
 // only truly unresolvable senders error — and the error message says
 // "unknown agent or worker".
-func TestHandleAgentToAgentUnknownSender(t *testing.T) {
+func TestDispatchSend_UnknownSender(t *testing.T) {
 	mcfg := &config.Config{}
 
 	tests := []struct {
@@ -204,7 +204,7 @@ func TestHandleAgentToAgentUnknownSender(t *testing.T) {
 				To:      "kestrel",
 				Message: "test",
 			}
-			err := handleAgentToAgent(mcfg, nil, nil, nil, req)
+			err := dispatchSend(mcfg, nil, nil, nil, req)
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

@@ -68,16 +68,16 @@ func TestHandleBreatheTeamDefault(t *testing.T) {
 	}
 }
 
-// TestHandleSendSystemRouting verifies that From=="system" routes to handleSystemToAgent
-// and not to handleAgentToAgent (which would add an [agent from:] prefix).
+// TestHandleSendSystemRouting verifies that From=="system" routes to dispatchSystemSend
+// and not to dispatchSend (which would add an [agent from:] prefix).
 func TestHandleSendSystemRouting(t *testing.T) {
 	// handleSend with From="system" and a known agent should return an error about
 	// the agent not being found (no daemon config in test) — NOT a "send request missing"
-	// error, and NOT fall through to handleAgentToAgent logic.
+	// error, and NOT fall through to dispatchSend logic.
 	//
 	// We verify the routing by checking the error message: if it routes to
-	// handleSystemToAgent, we get "unknown agent: <name>"; if it falls through to
-	// handleAgentToAgent it would also resolve the *From* agent and return
+	// dispatchSystemSend, we get "unknown agent: <name>"; if it falls through to
+	// dispatchSend it would also resolve the *From* agent and return
 	// "unknown agent: system" (failing on sender lookup, not recipient).
 	cfg := &config.Config{}
 	req := SendRequest{From: "system", To: "athena", Message: "run skill get breathe\n\nExecute this skill now — your context window needs a refresh."} //nolint:lll
@@ -85,14 +85,14 @@ func TestHandleSendSystemRouting(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unknown agent, got nil")
 	}
-	// handleSystemToAgent resolves the To agent — error must reference the recipient.
+	// dispatchSystemSend resolves the To agent — error must reference the recipient.
 	if !strings.Contains(err.Error(), "athena") {
 		t.Errorf("expected error about recipient agent 'athena', got: %v", err)
 	}
-	// Must NOT reference "system" as an unknown agent (which handleAgentToAgent would do
+	// Must NOT reference "system" as an unknown agent (which dispatchSend would do
 	// when it tries to resolve the From agent first).
 	if strings.Contains(err.Error(), "unknown agent: system") {
-		t.Errorf("routed to handleAgentToAgent instead of handleSystemToAgent: %v", err)
+		t.Errorf("routed to dispatchSend instead of dispatchSystemSend: %v", err)
 	}
 }
 
