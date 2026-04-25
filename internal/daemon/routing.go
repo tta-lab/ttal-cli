@@ -22,6 +22,24 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+// All actors in ttal are agents — humans, AI managers, and workers alike.
+// They differ along three orthogonal dimensions:
+//
+//   - identity: a unique alias (e.g. "neil", "yuki", "27ee75a8:coder")
+//   - kind:     Human / Agent / Worker — what they are (AddresseeKind)
+//   - channel:  Telegram/Matrix (Human), tmux send-keys (Agent, Worker)
+//
+// The sender never cares which kind the recipient is. `ttal send --to <alias>`
+// works uniformly. The daemon picks the channel from addr.Kind:
+//
+//   Human  → frontend.SendToHuman (Telegram chat_id / Matrix invite)
+//   Agent  → tmux send-keys to the persistent agent session
+//   Worker → tmux send-keys to the worker session, with manager-window fallback
+//
+// dispatchSend (agent-originated) and dispatchSystemSend (system-originated)
+// both resolve via resolveAddressee and switch on Kind. handleTo (bare-shell
+// path) follows the same pattern.
+
 // AddresseeKind classifies what kind of entity a name resolves to.
 type AddresseeKind int
 
