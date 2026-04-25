@@ -478,15 +478,6 @@ func dispatchSend(
 	}
 }
 
-// resolveAgent finds an agent by name, using team hint if provided.
-func resolveAgent(cfg *config.Config, agentName string) *config.AgentInfo {
-	ta, ok := cfg.FindAgent(agentName)
-	if ok {
-		return ta
-	}
-	return nil
-}
-
 // parseWorkerAddress returns the job ID and agent name from a worker address string.
 // Returns true when s matches "<8+ hex chars>:<non-empty name>".
 func parseWorkerAddress(s string) (jobID, agentName string, ok bool) {
