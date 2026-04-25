@@ -18,7 +18,6 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -292,10 +291,8 @@ func (f *MatrixFrontend) SendText(ctx context.Context, from, to *addressee.Addre
 		return err
 	}
 	msg := text
-	if to != nil && to.Kind == addressee.KindHuman && to.Human != nil {
-		if human, ok := to.Human.(*humanfs.Human); ok && human.MatrixUserID != "" {
-			msg = fmt.Sprintf("%s %s", human.MatrixUserID, text)
-		}
+	if to != nil && to.Human != nil && to.Human.MatrixUserID != "" {
+		msg = fmt.Sprintf("%s %s", to.Human.MatrixUserID, text)
 	}
 	for _, chunk := range splitMatrixMessage(msg) {
 		if _, err := client.SendText(ctx, roomID, chunk); err != nil {

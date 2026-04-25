@@ -14,6 +14,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 )
 
 const testUserName = "neil"
@@ -558,5 +559,97 @@ func TestMatrixInbound_BashModeNoHint(t *testing.T) {
 	}
 	if strings.Contains(got, "ttal send") {
 		t.Errorf("bash mode should not contain hint, got %q", got)
+	}
+}
+
+// TestMatrixSendText_AgentToHuman_UsesAgentSession verifies that agent→human sends
+// go through the agent's session with an @mention prefix.
+func TestMatrixSendText_AgentToHuman_UsesAgentSession(t *testing.T) {
+	var agentBodies []string
+	agentSrv := matrixTestServer(t, &agentBodies)
+	defer agentSrv.Close()
+
+	var notifyBodies []string
+	notifySrv := matrixTestServer(t, &notifyBodies)
+	defer notifySrv.Close()
+
+	userID := id.NewUserID("yuki", "test")
+	client, err := mautrix.NewClient(agentSrv.URL, userID, "test-token")
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	notifyClient, err := mautrix.NewClient(notifySrv.URL, id.NewUserID("ttal-bot", "test"), "notify-token")
+	if err != nil {
+		t.Fatalf("NewClient for notify: %v", err)
+	}
+
+	fe := &MatrixFrontend{
+		cfg: MatrixConfig{
+			UserNameFn: func() string { return testUserName },
+		},
+		sessions: map[string]agentSession{
+			"yuki": {client: client, roomID: id.RoomID("!yukiroom:test")},
+		},
+		notifyClient: notifyClient,
+		notifyRoom:   id.RoomID("!notifyroom:test"),
+		lastEventID:  make(map[string]id.EventID),
+	}
+
+	err = fe.SendText(context.Background(),
+		&addressee.Addressee{Kind: addressee.KindAgent, Name: "yuki"},
+		&addressee.Addressee{Kind: addressee.KindHuman, Human: &humanfs.Human{MatrixUserID: "@neil:matrix"}},
+		"hello",
+	)
+	if err != nil {
+		t.Fatalf("SendText: %v", err)
+	}
+
+	if len(agentBodies) != 1 {
+		t.Errorf("agent bodies count = %d, want 1", len(agentBodies))
+	}
+	if len(notifyBodies) != 0 {
+		t.Errorf("notify bodies count = %d, want 0", len(notifyBodies))
+	}
+	if len(agentBodies) > 0 && !strings.Contains(agentBodies[0], "@neil:matrix") {
+		t.Errorf("agent body = %q, want @-mention prefix", agentBodies[0])
+	}
+}
+
+// TestMatrixSendText_NoFrom_UsesNotificationRoom verifies that a nil from (system send)
+// uses the notification room.
+func TestMatrixSendText_NoFrom_UsesNotificationRoom(t *testing.T) {
+	var notifyBodies []string
+	notifySrv := matrixTestServer(t, &notifyBodies)
+	defer notifySrv.Close()
+
+	notifyClient, err := mautrix.NewClient(notifySrv.URL, id.NewUserID("ttal-bot", "test"), "notify-token")
+	if err != nil {
+		t.Fatalf("NewClient for notify: %v", err)
+	}
+
+	fe := &MatrixFrontend{
+		cfg: MatrixConfig{
+			UserNameFn: func() string { return testUserName },
+		},
+		sessions:     map[string]agentSession{},
+		notifyClient: notifyClient,
+		notifyRoom:   id.RoomID("!notifyroom:test"),
+		lastEventID:  make(map[string]id.EventID),
+	}
+
+	err = fe.SendText(context.Background(), nil,
+		&addressee.Addressee{Kind: addressee.KindHuman, Human: &humanfs.Human{}},
+		"system msg",
+	)
+	if err != nil {
+		t.Fatalf("SendText: %v", err)
+	}
+
+	if len(notifyBodies) != 1 {
+		t.Errorf("notify bodies count = %d, want 1", len(notifyBodies))
+	}
+	if len(notifyBodies) > 0 && !strings.Contains(notifyBodies[0], "system msg") {
+		t.Errorf("notify body = %q, want 'system msg'", notifyBodies[0])
 	}
 }

@@ -243,10 +243,8 @@ func (f *TelegramFrontend) resolveBotToken(from *addressee.Addressee) (string, e
 }
 
 func (f *TelegramFrontend) resolveChatID(to *addressee.Addressee) (string, error) {
-	if to != nil && to.Kind == addressee.KindHuman && to.Human != nil {
-		if human, ok := to.Human.(*humanfs.Human); ok && human.TelegramChatID != "" {
-			return human.TelegramChatID, nil
-		}
+	if to != nil && to.Human != nil && to.Human.TelegramChatID != "" {
+		return to.Human.TelegramChatID, nil
 	}
 	if f.cfg.MCfg.AdminHuman != nil && f.cfg.MCfg.AdminHuman.TelegramChatID != "" {
 		return f.cfg.MCfg.AdminHuman.TelegramChatID, nil
