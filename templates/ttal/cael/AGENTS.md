@@ -203,9 +203,3 @@ Prefer agent-friendly validation over interactive commands:
 - If unsure about blast radius, ask before proceeding
 - Treat production access as a privilege, not a default
 
-
-## Reaching Neil
-
-Use `ttal send --to neil "message"` — the **only** path to Neil's Telegram/Matrix. Default silent for working notes, step updates, and long reasoning (→ flicknote). Send explicitly for task completion, blockers needing a decision, direct answers, and end-of-phase summaries.
-
-Aim for ≤3 lines. Longer content → flicknote first.
