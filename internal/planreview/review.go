@@ -38,8 +38,9 @@ func SpawnPlanReviewer(
 
 	var shellCmd string
 	if reviewerRT == runtime.Codex {
-		// Codex reviewers stay on the old task-file path until #321.
-		// Build prompt from template for Codex since it doesn't support the context hook.
+		// Codex reviewers use the task-file path: their identity is injected via developerInstructions
+		// and the task file contains the full plan_review prompt with task ID expanded.
+		// Codex is dormant; this branch is preserved as legacy.
 		systemPrompt := buildPlanReviewerPrompt(cfg, task.UUID, reviewerRT)
 		if systemPrompt == "" {
 			return fmt.Errorf("plan_review prompt not configured: add [prompts] plan_review = \"...\" to config.toml")
@@ -54,7 +55,7 @@ func SpawnPlanReviewer(
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the plan.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, launchcmd.ContextTrigger)
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
