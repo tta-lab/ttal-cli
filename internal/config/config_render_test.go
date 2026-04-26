@@ -23,7 +23,7 @@ func TestPromptWorkerKeysSkipRolesDefault(t *testing.T) {
 		},
 	}
 	// Worker-plane keys must NOT inherit [default]
-	for _, key := range []string{"context", "review", "re_review", "triage"} {
+	for _, key := range []string{"context_manager", "context_worker", "review", "re_review", "triage"} {
 		if got := cfg.Prompt(key); got != "" {
 			t.Errorf("Prompt(%q) = %q, want empty (must not inherit [default])", key, got)
 		}

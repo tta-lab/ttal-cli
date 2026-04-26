@@ -18,13 +18,14 @@ import (
 // Supports {{task-id}} template variables.
 // Role-based keys (designer, researcher) come from roles.toml, not config.toml.
 type PromptsConfig struct {
-	Context      string `toml:"context" jsonschema:"description=Universal CC SessionStart context template. Lines prefixed with '$ ' are executed as shell commands."` //nolint:lll
-	Triage       string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                                        //nolint:lll
-	Review       string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"`            //nolint:lll
-	ReReview     string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`                     //nolint:lll
-	PlanReview   string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}}"`                                                       //nolint:lll
-	PlanReReview string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                                   //nolint:lll
-	PlanTriage   string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                              //nolint:lll
+	ContextManager string `toml:"context_manager" jsonschema:"description=Manager-agent SessionStart context template (rendered by ttal context for manager sessions)"` //nolint:lll
+	ContextWorker  string `toml:"context_worker" jsonschema:"description=Worker-agent SessionStart context template (rendered by ttal context for worker sessions)"`    //nolint:lll
+	Triage         string `toml:"triage" jsonschema:"description=Prompt sent to coder after PR review. Supports {{review-file}}"`                                       //nolint:lll
+	Review         string `toml:"review" jsonschema:"description=Initial reviewer prompt. Supports {{pr-number}} {{pr-title}} {{owner}} {{repo}} {{branch}}"`           //nolint:lll
+	ReReview       string `toml:"re_review" jsonschema:"description=Re-review prompt sent to reviewer. Supports {{review-scope}} {{coder-comment}}"`                    //nolint:lll
+	PlanReview     string `toml:"plan_review" jsonschema:"description=Plan reviewer prompt. Supports {{task-id}}"`                                                      //nolint:lll
+	PlanReReview   string `toml:"plan_re_review" jsonschema:"description=Plan re-review prompt. Supports {{task-id}}"`                                                  //nolint:lll
+	PlanTriage     string `toml:"plan_triage" jsonschema:"description=Prompt sent to designer after plan review. Supports {{review-file}}"`                             //nolint:lll
 }
 
 // DefaultTeamName is the single, hardcoded team name.
@@ -176,14 +177,15 @@ func (c *Config) HeartbeatPrompt(agentName string) string {
 // The default manager-plane prompt must not bleed into worker prompts.
 // Keep in sync with PromptsConfig fields and the promptsMap in Prompt() below.
 var workerPromptKeys = map[string]bool{
-	"coder":          true,
-	"context":        true,
-	"review":         true,
-	"re_review":      true,
-	"triage":         true,
-	"plan_review":    true,
-	"plan_re_review": true,
-	"plan_triage":    true,
+	"coder":           true,
+	"context_manager": true,
+	"context_worker":  true,
+	"review":          true,
+	"re_review":       true,
+	"triage":          true,
+	"plan_review":     true,
+	"plan_re_review":  true,
+	"plan_triage":     true,
 }
 
 // Prompt returns the prompt template for a given key.
@@ -206,13 +208,14 @@ func (c *Config) Prompt(key string) string {
 
 	if c.hasAnyPromptConfigured() {
 		promptsMap := map[string]string{
-			"context":        c.Prompts.Context,
-			"triage":         c.Prompts.Triage,
-			"review":         c.Prompts.Review,
-			"re_review":      c.Prompts.ReReview,
-			"plan_review":    c.Prompts.PlanReview,
-			"plan_re_review": c.Prompts.PlanReReview,
-			"plan_triage":    c.Prompts.PlanTriage,
+			"context_manager": c.Prompts.ContextManager,
+			"context_worker":  c.Prompts.ContextWorker,
+			"triage":          c.Prompts.Triage,
+			"review":          c.Prompts.Review,
+			"re_review":       c.Prompts.ReReview,
+			"plan_review":     c.Prompts.PlanReview,
+			"plan_re_review":  c.Prompts.PlanReReview,
+			"plan_triage":     c.Prompts.PlanTriage,
 		}
 		if prompt, ok := promptsMap[key]; ok {
 			return prompt
@@ -223,7 +226,7 @@ func (c *Config) Prompt(key string) string {
 }
 
 func (c *Config) hasAnyPromptConfigured() bool {
-	return c.Prompts.Context != "" || c.Prompts.Triage != "" ||
+	return (c.Prompts.ContextManager != "" || c.Prompts.ContextWorker != "") || c.Prompts.Triage != "" ||
 		c.Prompts.Review != "" || c.Prompts.ReReview != "" ||
 		c.Prompts.PlanReview != "" || c.Prompts.PlanReReview != "" ||
 		c.Prompts.PlanTriage != ""
