@@ -79,8 +79,6 @@ extra_skills = ["sp-planning"]
 [frontend_designer]
 prompt = """Design a distinctive frontend interface for this task.
 
-Read the task first: ttal task get
-
 Workflow:
 1. Understand the context: what problem does this interface solve? Who uses it?
 2. Investigate existing UI: ei ask "show me the current UI for X" --project <alias>

@@ -13,8 +13,9 @@ import (
 
 // GatekeeperConfig holds configuration for the gatekeeper process.
 type GatekeeperConfig struct {
-	// TaskFile is used only for Codex workers until #321 (Codex JSONL resume support).
-	// CC workers deliver prompts via synthetic JSONL sessions (claude --resume).
+	// TaskFile is used only for Codex workers — they read it as the initial prompt
+	// (which says `Run ttal context for your briefing`). CC and Lenos workers
+	// receive the same trigger via the shell command's `-- '<trigger>'` arg instead.
 	TaskFile string
 	Command  []string
 }
@@ -32,7 +33,7 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	args := make([]string, len(cfg.Command))
 	copy(args, cfg.Command)
 
-	// Append task file content to command args (Codex only — CC uses JSONL sessions).
+	// Append task file content to command args (Codex only — CC/Lenos receive the trigger via shell command arg).
 	if cfg.TaskFile != "" {
 		content, err := os.ReadFile(cfg.TaskFile)
 		if err != nil {

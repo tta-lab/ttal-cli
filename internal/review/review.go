@@ -14,6 +14,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
+var (
+	tmuxNewWindowFn = tmux.NewWindow
+	osExecFn        = os.Executable
+)
+
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ttal pipeline prompt.
 func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
@@ -42,7 +47,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 
 	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
 
-	ttalBin, err := os.Executable()
+	ttalBin, err := osExecFn()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
@@ -52,8 +57,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
 
 	if reviewerRT == runtime.Codex {
-		// Codex reviewers stay on the old task-file path until #321.
-		// Build prompt from template for Codex since it doesn't support the context hook.
+		// Codex reviewers use the task-file path: their identity is injected via developerInstructions
+		// and the task file contains the full review prompt with PR vars expanded.
+		// Codex is dormant; this branch is preserved as legacy.
 		systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
 		if systemPrompt == "" {
 			return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
@@ -68,12 +74,11 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, trigger)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, launchcmd.ContextTrigger)
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
-	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
+	if err := tmuxNewWindowFn(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 

@@ -12,6 +12,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
+var (
+	tmuxNewWindowFn = tmux.NewWindow
+	osExecFn        = os.Executable
+)
+
 // buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
 // TTAL_JOB_ID is set from task.HexID() so the reviewer can resolve the task context.
 func buildPlanReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
@@ -29,7 +34,7 @@ func SpawnPlanReviewer(
 ) error {
 	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
 
-	ttalBin, err := os.Executable()
+	ttalBin, err := osExecFn()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
@@ -38,8 +43,9 @@ func SpawnPlanReviewer(
 
 	var shellCmd string
 	if reviewerRT == runtime.Codex {
-		// Codex reviewers stay on the old task-file path until #321.
-		// Build prompt from template for Codex since it doesn't support the context hook.
+		// Codex reviewers use the task-file path: their identity is injected via developerInstructions
+		// and the task file contains the full plan_review prompt with task ID expanded.
+		// Codex is dormant; this branch is preserved as legacy.
 		systemPrompt := buildPlanReviewerPrompt(cfg, task.UUID, reviewerRT)
 		if systemPrompt == "" {
 			return fmt.Errorf("plan_review prompt not configured: add [prompts] plan_review = \"...\" to config.toml")
@@ -54,11 +60,11 @@ func SpawnPlanReviewer(
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, "Review the plan.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, launchcmd.ContextTrigger)
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
-	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
+	if err := tmuxNewWindowFn(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create plan-review window: %w", err)
 	}
 
