@@ -399,7 +399,6 @@ func TestBuildBreatheStartTrigger(t *testing.T) {
 	}
 }
 
-
 // TestResolveBrCWD_LoadAllPath verifies that resolveBrCWD resolves agent paths
 // correctly when passed the Global config from a DaemonConfig produced by
 // LoadAll(). This is the path the daemon actually uses (not config.Load()).

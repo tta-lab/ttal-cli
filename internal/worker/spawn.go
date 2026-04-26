@@ -292,7 +292,6 @@ func writeTaskFile() (string, error) {
 	return taskFile.Name(), nil
 }
 
-
 func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {
 	root := config.WorktreesRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
