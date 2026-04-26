@@ -318,15 +318,9 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 
 	origSendKeys := tmuxSendKeysFn
 	origSessionExists := tmuxSessionExistsFn
-	origBuildTrigger := buildBreatheStartTriggerFn
-	// Inject a deterministic trigger for testing.
-	buildBreatheStartTriggerFn = func(agentName string) string {
-		return "Test trigger for " + agentName
-	}
 	t.Cleanup(func() {
 		tmuxSendKeysFn = origSendKeys
 		tmuxSessionExistsFn = origSessionExists
-		buildBreatheStartTriggerFn = origBuildTrigger
 	})
 
 	var mu sync.Mutex
@@ -378,27 +372,27 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 		t.Errorf("first SendKeys call text = %q, want %q", sendCalls[0].text, "/clear")
 	}
 
-	wantTrigger := "Test trigger for kestrel"
-	if sendCalls[1].text != wantTrigger {
-		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, wantTrigger)
+	// All breathe paths now return the single ttal context trigger.
+	if sendCalls[1].text != breatheStartTriggerFallback {
+		t.Errorf("second SendKeys call text = %q, want %q", sendCalls[1].text, breatheStartTriggerFallback)
 	}
 }
 
-// TestBuildBreatheStartTriggerImpl tests the buildBreatheStartTriggerImpl function.
-func TestBuildBreatheStartTriggerImpl(t *testing.T) {
+// TestBuildBreatheStartTrigger tests the buildBreatheStartTrigger function.
+func TestBuildBreatheStartTrigger(t *testing.T) {
 	// Guard: the fallback constant must be the canonical ttal context trigger.
 	if breatheStartTriggerFallback != "Run `ttal context` for your briefing, then act on the role prompt." {
 		t.Errorf("fallback not ttal context trigger: got %q", breatheStartTriggerFallback)
 	}
 
 	// Test: empty agent name returns fallback
-	result := buildBreatheStartTriggerImpl("")
+	result := buildBreatheStartTrigger("")
 	if result != breatheStartTriggerFallback {
 		t.Errorf("empty agent name: got %q, want fallback %q", result, breatheStartTriggerFallback)
 	}
 
 	// Test: nonexistent agent returns fallback (no valid config)
-	result = buildBreatheStartTriggerImpl("nonexistent-agent")
+	result = buildBreatheStartTrigger("nonexistent-agent")
 	if result != breatheStartTriggerFallback {
 		t.Errorf("nonexistent agent: got %q, want fallback %q", result, breatheStartTriggerFallback)
 	}

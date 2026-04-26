@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/addressee"
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
@@ -122,72 +121,25 @@ func resolveHumanAliases(humansPath string) []string {
 }
 
 // clearSettleDelay is the time to wait after sending /clear before sending
-// the start trigger prompt. Allows CC's /clear to complete and the
-// SessionStart hook to re-inject context before the trigger lands.
+// the start trigger prompt. Allows CC's /clear to complete before the
+// `Run ttal context` trigger lands. The agent runs ttal context themselves
+// to get diary, agents, projects, pairing, role, and task.
 const clearSettleDelay = 500 * time.Millisecond
 
-// breatheStartTriggerFallback is the base trigger when skills cannot be resolved.
-const breatheStartTriggerFallback = "Exec `ttal task get(no extra args)` then continue with the task."
+const breatheStartTriggerFallback = "Run `ttal context` for your briefing, then act on the role prompt."
 
-// buildBreatheStartTriggerFn resolves an agent's skills and returns the trigger prompt.
-// Injected for testability; defaults to buildBreatheStartTriggerImpl.
-var buildBreatheStartTriggerFn func(agentName string) string
-
-func init() {
-	buildBreatheStartTriggerFn = buildBreatheStartTriggerImpl
-}
-
-// buildBreatheStartTriggerImpl is the default implementation.
-func buildBreatheStartTriggerImpl(agentName string) string {
+// buildBreatheStartTrigger returns the wake-orientation trigger for the given agent.
+// All wake paths emit the same trigger — ttal context is the single source of
+// truth for wake orientation and renders diary, agents, projects, pairing, role,
+// and task itself. Per-role skill inlining happens inside ttal pipeline prompt,
+// which ttal context shells out to.
+func buildBreatheStartTrigger(agentName string) string {
 	if agentName == "" {
 		log.Printf("[breathe] start trigger: empty agent name, using fallback")
-		return breatheStartTriggerFallback
 	}
-
-	// Load config to find team path.
-	cfg, err := config.Load()
-	if err != nil || cfg == nil {
-		log.Printf("[breathe] start trigger: config load failed for %q: %v", agentName, err)
-		return breatheStartTriggerFallback
-	}
-	teamPath := cfg.TeamPath
-	if teamPath == "" {
-		log.Printf("[breathe] start trigger: no team_path for %q, using fallback", agentName)
-		return breatheStartTriggerFallback
-	}
-
-	// Resolve agent role.
-	role, err := agentfs.RoleOf(teamPath, agentName)
-	if err != nil || role == "" {
-		log.Printf("[breathe] start trigger: no role found for %q: %v", agentName, err)
-		return breatheStartTriggerFallback
-	}
-
-	// Load role skills.
-	rolesCfg, err := config.LoadRoles()
-	if err != nil || rolesCfg == nil {
-		log.Printf("[breathe] start trigger: roles load failed for %q: %v", agentName, err)
-		return breatheStartTriggerFallback
-	}
-	skills := rolesCfg.RoleSkills(role)
-	if len(skills) == 0 {
-		log.Printf("[breathe] start trigger: no skills for role %q (agent %q), using fallback", role, agentName)
-		return breatheStartTriggerFallback
-	}
-
-	// Build skill directives.
-	var skillLines []string
-	for _, name := range skills {
-		skillLines = append(skillLines, fmt.Sprintf("- `skill get %s`", name))
-	}
-	skillsBlock := strings.Join(skillLines, "\n")
-
-	return fmt.Sprintf(
-		"Execute the following to load your methodology:\n%s\n\n"+
-			"Then exec `ttal task get(no extra args)` and continue with the task.",
-		skillsBlock,
-	)
+	return breatheStartTriggerFallback
 }
+
 
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.
@@ -682,8 +634,8 @@ func resolveBreatheSessions(
 }
 
 // handleBreathe sends a handoff to an agent's CC session via tmux.
-// Context injection is handled by the CC SessionStart hook (ttal context) which
-// evaluates breathe_context commands and consumes any pending route file.
+// On restart the agent's spawn trigger says `Run ttal context for your briefing`,
+// and the agent invokes ttal context themselves to render diary + role + task.
 // shellCfg is loaded once at daemon startup and passed in — never loaded per-request.
 //
 //nolint:gocyclo,lll
@@ -744,7 +696,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
 			go func() {
 				time.Sleep(clearSettleDelay)
-				trigger := buildBreatheStartTriggerFn(req.Agent)
+				trigger := buildBreatheStartTrigger(req.Agent)
 				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, trigger); err != nil {
 					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
 				} else {
