@@ -9,8 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/doctor"
-	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/sync"
+	syncer "github.com/tta-lab/ttal-cli/internal/sync"
 )
 
 var (
@@ -19,12 +18,8 @@ var (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Deploy plugin, rules, and configs to runtime directories",
-	Long: `Installs the ttal CC plugin (subagents + SessionStart hook) and deploys
-RULE.md cheat sheets, config TOMLs, and manager agent identities.
-
-Plugin (subagents + hook):
-  Installed via CC plugin marketplace (claude plugin install ttal@ttal)
+	Short: "Deploy rules, configs, and agent identities to runtime directories",
+	Long: `Deploys RULE.md cheat sheets, config TOMLs, and agent identities to runtime directories.
 
 Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
@@ -34,7 +29,7 @@ Config TOMLs are deployed from team_path:
   prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
   config.toml is NOT synced (machine-specific settings).
 
-Manager agent identities ({name}/AGENTS.md) are deployed to ~/.claude/agents/{name}.md.
+Manager and worker agent identities ({name}/AGENTS.md) are deployed to ~/.claude/agents/{name}.md.
 
 Configure source paths in ~/.config/ttal/config.toml:
   [sync]
@@ -48,14 +43,11 @@ Configure source paths in ~/.config/ttal/config.toml:
 		syncCfg := cfg.Sync
 		teamPath := cfg.TeamPath
 
-		// Plugin install always runs (resolves marketplace from project store or URL).
-		// Only error if there's nothing else to sync either.
+		// Only error if there's nothing to sync.
 		hasNoPaths := len(syncCfg.RulesPaths) == 0 &&
 			syncCfg.GlobalPromptPath == "" && teamPath == "" &&
-			syncCfg.MarketplaceSource == "" &&
 			len(syncCfg.WorkerAgentPaths) == 0 &&
-			len(syncCfg.SkillsPaths) == 0 &&
-			project.ResolveProjectPath("ttal") == ""
+			len(syncCfg.SkillsPaths) == 0
 		if hasNoPaths {
 			return fmt.Errorf("no sync paths configured\n\n" +
 				"Add to ~/.config/ttal/config.toml:\n" +
@@ -66,37 +58,11 @@ Configure source paths in ~/.config/ttal/config.toml:
 		configCount := 0
 		ruleCount := 0
 
-		// Install/update ttal CC plugin (subagents + SessionStart hook).
-		printSyncHeader("plugin", syncDryRun)
-		marketplaceSrc := syncCfg.MarketplaceSource
-		if marketplaceSrc == "" {
-			// Resolve from project store — local clone preferred.
-			marketplaceSrc = project.ResolveProjectPath("ttal")
-		}
-		if marketplaceSrc == "" {
-			marketplaceSrc = "https://github.com/tta-lab/ttal-cli"
-		}
-		pluginResult, err := sync.InstallPlugin(marketplaceSrc, syncDryRun)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: plugin sync failed: %v\n", err)
-		} else {
-			if pluginResult.MarketplaceAdded {
-				fmt.Printf("  Marketplace registered: %s\n", shortenHome(marketplaceSrc))
-			}
-			if pluginResult.PluginInstalled {
-				fmt.Printf("  Plugin installed: ttal (%d agents, SessionStart hook)\n", pluginResult.AgentCount)
-			} else if pluginResult.PluginUpdated {
-				fmt.Printf("  Plugin updated: ttal (%d agents, SessionStart hook)\n", pluginResult.AgentCount)
-			} else {
-				fmt.Printf("  Plugin: ttal (up to date, %d agents)\n", pluginResult.AgentCount)
-			}
-		}
-
 		// Deploy config TOMLs from team_path to ~/.config/ttal/
 		if teamPath != "" {
 			printSyncHeader("configs", syncDryRun)
 
-			configResults, err := sync.DeployConfigs(teamPath, config.DefaultConfigDir(), syncDryRun)
+			configResults, err := syncer.DeployConfigs(teamPath, config.DefaultConfigDir(), syncDryRun)
 			if err != nil {
 				return fmt.Errorf("config sync failed: %w", err)
 			}
@@ -109,7 +75,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if len(syncCfg.RulesPaths) > 0 {
 			printSyncHeader("rules", syncDryRun)
 
-			rules, err := sync.DeployRules(syncCfg.RulesPaths, syncDryRun)
+			rules, err := syncer.DeployRules(syncCfg.RulesPaths, syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: rule deployment: %v\n", err)
 			}
@@ -118,7 +84,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			}
 			ruleCount = len(rules)
 
-			if err := sync.DeployCodexRules(rules, syncDryRun); err != nil {
+			if err := syncer.DeployCodexRules(rules, syncDryRun); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: codex rules: %v\n", err)
 			}
 		}
@@ -128,7 +94,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		syncFailed := false
 		if len(syncCfg.WorkerAgentPaths) > 0 {
 			printSyncHeader("worker agents", syncDryRun)
-			workerResults, err := sync.DeployWorkerAgents(syncCfg.WorkerAgentPaths, syncDryRun)
+			workerResults, err := syncer.DeployWorkerAgents(syncCfg.WorkerAgentPaths, syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: worker agent sync: %v\n", err)
 				syncFailed = true
@@ -143,7 +109,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		managerAgentCount := 0
 		if teamPath != "" {
 			printSyncHeader("manager agents", syncDryRun)
-			managerResults, err := sync.DeployManagerAgents(teamPath, syncDryRun)
+			managerResults, err := syncer.DeployManagerAgents(teamPath, syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: manager agent sync: %v\n", err)
 				syncFailed = true
@@ -157,7 +123,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncCfg.GlobalPromptPath != "" {
 			printSyncHeader("global prompt", syncDryRun)
 
-			results, err := sync.DeployGlobalPrompt(syncCfg.GlobalPromptPath, syncDryRun)
+			results, err := syncer.DeployGlobalPrompt(syncCfg.GlobalPromptPath, syncDryRun)
 			if err != nil {
 				return fmt.Errorf("global prompt sync failed: %w", err)
 			}
@@ -176,7 +142,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 			for i, p := range syncCfg.SkillsPaths {
 				expandedPaths[i] = config.ExpandHome(p)
 			}
-			skillsResults, err := sync.DeploySkills(expandedPaths, cfg.SkillsDestDir(), syncDryRun)
+			skillsResults, err := syncer.DeploySkills(expandedPaths, cfg.SkillsDestDir(), syncDryRun)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: skills sync: %v\n", err)
 				syncFailed = true
