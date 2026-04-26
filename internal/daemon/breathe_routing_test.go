@@ -386,11 +386,10 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 
 // TestBuildBreatheStartTriggerImpl tests the buildBreatheStartTriggerImpl function.
 func TestBuildBreatheStartTriggerImpl(t *testing.T) {
-	origFn := buildBreatheStartTriggerFn
-	if origFn == nil {
-		origFn = buildBreatheStartTriggerImpl
+	// Guard: the fallback constant must be the canonical ttal context trigger.
+	if breatheStartTriggerFallback != "Run `ttal context` for your briefing, then act on the role prompt." {
+		t.Errorf("fallback not ttal context trigger: got %q", breatheStartTriggerFallback)
 	}
-	defer func() { buildBreatheStartTriggerFn = origFn }()
 
 	// Test: empty agent name returns fallback
 	result := buildBreatheStartTriggerImpl("")
@@ -403,37 +402,8 @@ func TestBuildBreatheStartTriggerImpl(t *testing.T) {
 	if result != breatheStartTriggerFallback {
 		t.Errorf("nonexistent agent: got %q, want fallback %q", result, breatheStartTriggerFallback)
 	}
-
-	// Test: happy path via injectable fn — verify the fn path works end-to-end
-	// by injecting a deterministic mock that mirrors the real output format.
-	buildBreatheStartTriggerFn = func(agentName string) string {
-		if agentName == "happy-agent" {
-			return "Execute the following to load your methodology:\n" +
-				"- `skill get sp-planning`\n" +
-				"- `skill get sp-debugging`\n\n" +
-				"Then exec `ttal task get(no extra args)` and continue with the task."
-		}
-		return breatheStartTriggerFallback
-	}
-
-	// Verify fallback path still works via injectable fn
-	result = buildBreatheStartTriggerFn("unknown")
-	if result != breatheStartTriggerFallback {
-		t.Errorf("fallback path: got %q, want fallback %q", result, breatheStartTriggerFallback)
-	}
-
-	// Verify happy path produces correct skill directives
-	result = buildBreatheStartTriggerFn("happy-agent")
-	if !strings.Contains(result, "skill get sp-planning") {
-		t.Errorf("happy path: result should contain skill directive, got %q", result)
-	}
-	if !strings.Contains(result, "skill get sp-debugging") {
-		t.Errorf("happy path: result should contain skill directive, got %q", result)
-	}
-	if !strings.Contains(result, "ttal task get") {
-		t.Errorf("happy path: result should contain task get directive, got %q", result)
-	}
 }
+
 
 // TestResolveBrCWD_LoadAllPath verifies that resolveBrCWD resolves agent paths
 // correctly when passed the Global config from a DaemonConfig produced by
