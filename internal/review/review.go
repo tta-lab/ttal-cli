@@ -52,8 +52,9 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
 
 	if reviewerRT == runtime.Codex {
-		// Codex reviewers stay on the old task-file path until #321.
-		// Build prompt from template for Codex since it doesn't support the context hook.
+		// Codex reviewers use the task-file path: their identity is injected via developerInstructions
+		// and the task file contains the full review prompt with PR vars expanded.
+		// Codex is dormant; this branch is preserved as legacy.
 		systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
 		if systemPrompt == "" {
 			return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")

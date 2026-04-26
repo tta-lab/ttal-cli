@@ -13,8 +13,9 @@ import (
 
 // GatekeeperConfig holds configuration for the gatekeeper process.
 type GatekeeperConfig struct {
-	// TaskFile is used only for Codex workers until #321 (Codex JSONL resume support).
-	// CC workers deliver prompts via synthetic JSONL sessions (claude --resume).
+	// TaskFile is used only for Codex workers — they read it as the initial prompt
+	// (which says `Run ttal context for your briefing`). CC and Lenos workers
+	// receive the same trigger via the shell command's `-- '<trigger>'` arg instead.
 	TaskFile string
 	Command  []string
 }
