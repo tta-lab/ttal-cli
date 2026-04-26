@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -270,5 +271,65 @@ func TestResolvePipelinePrompt_SkillInlineGracefulFailure(t *testing.T) {
 	// Role prompt still emitted despite skill failure.
 	if !strings.Contains(got, "You are a coder.") {
 		t.Errorf("expected role prompt despite skill failure, got: %q", got)
+	}
+}
+
+// TestResolvePipelinePrompt_InlinesSkills verifies that resolvePipelinePrompt
+// appends skill bodies from `skill get <name>` to the role prompt output.
+func TestResolvePipelinePrompt_InlinesSkills(t *testing.T) {
+	tmp := t.TempDir()
+	binDir := filepath.Join(tmp, "bin")
+	os.MkdirAll(binDir, 0o755) //nolint:errcheck
+	fakeSkill := "#!/bin/sh\necho '# sp-planning'\necho 'Planning body.'\n"
+	os.WriteFile(filepath.Join(binDir, "skill"), []byte(fakeSkill), 0o755) //nolint:errcheck
+
+	t.Setenv("HOME", tmp)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	t.Setenv("TTAL_JOB_ID", "")
+	t.Setenv("TTAL_AGENT_NAME", "")
+
+	// Mock all task/key lookups so we don't need agentfs or pipelines.toml.
+	origExportFn := exportTaskByHexIDFn
+	origActiveFn := activeTasksByOwnerFn
+	origPromptKeyFn := promptKeyFn
+	exportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
+		return nil, nil // no task by ID
+	}
+	activeTasksByOwnerFn = func(_ string) ([]taskwarrior.Task, error) {
+		return nil, nil // no active tasks
+	}
+	promptKeyFn = func(_ *pipeline.Stage) string { return "default" }
+	defer func() {
+		exportTaskByHexIDFn = origExportFn
+		activeTasksByOwnerFn = origActiveFn
+		promptKeyFn = origPromptKeyFn
+	}()
+
+	os.MkdirAll(tmp+"/.config/ttal", 0o755) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
+		"\n[teams.default]\nteam_path = \""+tmp+"\"\n",
+	), 0o644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
+		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"1\"\nadmin = true\n",
+	), 0o644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
+prompt = """You are a designer."""
+default_skills = []
+extra_skills = ["sp-planning"]
+`), 0o644) //nolint:errcheck
+
+	got := resolvePipelinePrompt()
+
+	if !strings.Contains(got, "You are a designer.") {
+		t.Errorf("missing role prompt: %q", got)
+	}
+	if !strings.Contains(got, "# sp-planning") {
+		t.Errorf("missing inlined skill body: %q", got)
+	}
+	if !strings.Contains(got, "Planning body.") {
+		t.Errorf("missing skill body content: %q", got)
+	}
+	if strings.Contains(got, "## Task") {
+		t.Errorf("unexpected ## Task block: %q", got)
 	}
 }
