@@ -68,8 +68,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		}
 		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
 	} else {
-		const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, trigger)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, launchcmd.ContextTrigger)
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 

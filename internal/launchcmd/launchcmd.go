@@ -5,6 +5,14 @@ import (
 	"strings"
 )
 
+// ContextTrigger is the wake-orientation trigger sent to every spawned or breathed
+// CC/Lenos/Codex agent as their first user message. The agent runs `ttal context`
+// to render diary, agents, projects, pairing, role prompt, and task in one bundle.
+//
+// This is the single source of truth for the trigger string — all spawn and breathe
+// paths must reference this constant rather than duplicating the literal.
+const ContextTrigger = "Run `ttal context` for your briefing, then act on the role prompt."
+
 // BuildCCDirectCommand builds a gatekeeper-wrapped direct claude command using --agent.
 func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
 	cmd := fmt.Sprintf(

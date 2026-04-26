@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 )
 
 // testChatID is a placeholder chat ID used across fixture humans.toml entries.
@@ -380,8 +381,8 @@ func TestHandleBreathe_SendsContinueWithTask(t *testing.T) {
 
 // TestBuildBreatheStartTrigger tests the buildBreatheStartTrigger function.
 func TestBuildBreatheStartTrigger(t *testing.T) {
-	// Guard: the fallback constant must be the canonical ttal context trigger.
-	if breatheStartTriggerFallback != "Run `ttal context` for your briefing, then act on the role prompt." {
+	// Guard: the fallback must equal launchcmd.ContextTrigger.
+	if breatheStartTriggerFallback != launchcmd.ContextTrigger {
 		t.Errorf("fallback not ttal context trigger: got %q", breatheStartTriggerFallback)
 	}
 

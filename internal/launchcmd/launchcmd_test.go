@@ -6,8 +6,7 @@ import (
 )
 
 func TestBuildCCDirectCommand_WithTrigger(t *testing.T) {
-	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
-	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", trigger)
+	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", ContextTrigger)
 	if !strings.Contains(got, "--agent coder") {
 		t.Errorf("missing --agent coder: %q", got)
 	}
@@ -37,8 +36,7 @@ func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
 }
 
 func TestBuildLenosCommand_Basic(t *testing.T) {
-	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", trigger)
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger)
 	if !strings.Contains(got, "--agent coder") {
 		t.Errorf("missing --agent coder: %q", got)
 	}

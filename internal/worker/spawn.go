@@ -193,7 +193,6 @@ func buildRuntimeShellCommand(
 	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, _ *taskwarrior.Task,
 	agentName string, envParts []string,
 ) (string, error) {
-	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
 	switch cfg.Runtime {
 	case runtime.Codex:
 		taskFile, err := writeTaskFile()
@@ -207,11 +206,11 @@ func buildRuntimeShellCommand(
 		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
 
 	case runtime.Lenos:
-		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, trigger)
+		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, launchcmd.ContextTrigger)
 		return shellCfg.BuildEnvShellCommand(envParts, lenosCmd), nil
 
 	default:
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, trigger)
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, launchcmd.ContextTrigger)
 		return shellCfg.BuildEnvShellCommand(envParts, ccCmd), nil
 	}
 }
@@ -281,19 +280,18 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string,
 // Codex uses the task file as its initial prompt; the trigger tells Codex to run
 // `ttal context` for its briefing.
 func writeTaskFile() (string, error) {
-	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
-
 	taskFile, err := os.CreateTemp("", "codex-task-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create task file: %w", err)
 	}
-	if _, err := taskFile.WriteString(trigger); err != nil {
+	if _, err := taskFile.WriteString(launchcmd.ContextTrigger); err != nil {
 		_ = taskFile.Close()
 		return "", fmt.Errorf("failed to write task file: %w", err)
 	}
 	_ = taskFile.Close()
 	return taskFile.Name(), nil
 }
+
 
 func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {
 	root := config.WorktreesRoot()

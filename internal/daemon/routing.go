@@ -12,6 +12,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
@@ -126,7 +127,7 @@ func resolveHumanAliases(humansPath string) []string {
 // to get diary, agents, projects, pairing, role, and task.
 const clearSettleDelay = 500 * time.Millisecond
 
-const breatheStartTriggerFallback = "Run `ttal context` for your briefing, then act on the role prompt."
+var breatheStartTriggerFallback = launchcmd.ContextTrigger
 
 // buildBreatheStartTrigger returns the wake-orientation trigger for the given agent.
 // All wake paths emit the same trigger — ttal context is the single source of
