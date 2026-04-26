@@ -38,7 +38,7 @@
 
 ## Session Start
 
-**FIRST:** Always run `ttal task get` (no extra arguments) to get your assigned task. Do not use `ttal today list` — that is for {{admin-name}}'s daily focus, not task assignment.
+**FIRST:** Always run `ttal context` (no extra arguments) to get your wake-orientation briefing — diary, agent list, project list, pairing, role prompt, and task. Do not use `ttal today list` — that is for {{admin-name}}'s daily focus, not task assignment.
 
 ## ttal Two-Plane Architecture
 
