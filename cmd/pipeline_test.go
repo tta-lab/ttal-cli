@@ -8,30 +8,28 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // TestResolvePipelinePrompt_NoEnvVars verifies that resolvePipelinePrompt returns the default
-// role prompt (not empty) when no env vars are set — skills are unconditional per the new
-// role-based design: idle sessions still get their role's base prompt.
+// role prompt (not empty) when no env vars are set.
 func TestResolvePipelinePrompt_NoEnvVars(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	t.Setenv("TTAL_JOB_ID", "")
 	t.Setenv("TTAL_AGENT_NAME", "")
-	os.MkdirAll(tmp+"/.config/ttal", 0755) //nolint:errcheck
+	os.MkdirAll(tmp+"/.config/ttal", 0o755) //nolint:errcheck
 	teamPath := tmp + "/team"
 	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
 		"\n[teams.default]\nteam_path = \""+teamPath+"\"\n",
-	), 0644) //nolint:errcheck
+	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
 		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
-	), 0644) //nolint:errcheck
+	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
 prompt = """Manage tasks and coordinate the team."""
-`), 0644) //nolint:errcheck
+`), 0o644) //nolint:errcheck
 	got := resolvePipelinePrompt()
 	if got == "" {
 		t.Errorf("expected non-empty output with default role prompt, got empty string")
@@ -84,8 +82,7 @@ func TestResolvePromptKey_DesignerAssignee(t *testing.T) {
 }
 
 // TestExpandPromptVars_PRIDVars verifies that {{pr-number}} and {{pr-title}} are expanded
-// when the task has a valid PRID. Branch/owner/repo use soft failure (empty string) since
-// no git repo or worktree exists in test context.
+// when the task has a valid PRID.
 func TestExpandPromptVars_PRIDVars(t *testing.T) {
 	task := &taskwarrior.Task{
 		UUID:        "ab12cd34-0000-0000-0000-000000000000",
@@ -115,7 +112,6 @@ func TestExpandPromptVars_NoPRID(t *testing.T) {
 	cfg := &config.Config{}
 
 	got := expandPromptVars(prompt, task, cfg)
-	// Without PRID, PR vars should remain as literal placeholders (not expanded).
 	if strings.Contains(got, "42") {
 		t.Errorf("expected no PR number expansion without PRID, got: %q", got)
 	}
@@ -166,7 +162,6 @@ func TestRenderPipelineGraph_SingleStage(t *testing.T) {
 	if !strings.Contains(out, "Implement [coder]") {
 		t.Errorf("expected 'Implement [coder]' in output: %s", out)
 	}
-	// Single stage should have no arrow.
 	if strings.Contains(out, "──") {
 		t.Errorf("single stage should have no arrow: %s", out)
 	}
@@ -180,7 +175,6 @@ func TestRenderPipelineGraph_NoReviewer(t *testing.T) {
 		},
 	}
 	out := captureStdout(t, func() { renderPipelineGraph(p) })
-	// Arrow should show gate only, no reviewer suffix.
 	if !strings.Contains(out, "──human──") {
 		t.Errorf("expected '──human──' without reviewer in arrow: %s", out)
 	}
@@ -189,23 +183,55 @@ func TestRenderPipelineGraph_NoReviewer(t *testing.T) {
 	}
 }
 
-func TestFormatTaskPromptForPipeline_PairLine(t *testing.T) {
-	task := &taskwarrior.Task{UUID: "abc12345-1234-5678-abcd-ef0123456789"}
-	cfg := &config.Config{AdminHuman: &humanfs.Human{Alias: "neil", Name: "Neil"}}
-	got := formatTaskPromptForPipeline(task, cfg)
-	if !strings.Contains(got, "Pairing with **neil** on this task") {
-		t.Errorf("pair line missing: %s", got)
+// TestResolvePipelinePrompt_NoTaskRolePrompt verifies that resolvePipelinePrompt
+// returns the role prompt when no task exists.
+func TestResolvePipelinePrompt_NoTaskRolePrompt(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("TTAL_JOB_ID", "")
+	t.Setenv("TTAL_AGENT_NAME", "")
+	os.MkdirAll(tmp+"/.config/ttal", 0o755) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
+		"\n[teams.default]\nteam_path = \""+tmp+"\"\n",
+	), 0o644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
+		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
+	), 0o644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
+prompt = """You are a designer."""
+`), 0o644) //nolint:errcheck
+	got := resolvePipelinePrompt()
+	// Role prompt must appear (from roles.toml[default].prompt).
+	if !strings.Contains(got, "You are a designer.") {
+		t.Errorf("expected role prompt in output, got: %q", got)
 	}
-	if !strings.Contains(got, `ttal send --to neil`) {
-		t.Errorf("send line missing: %s", got)
+	// NO ## Task block (task moved to ttal task get).
+	if strings.Contains(got, "## Task") {
+		t.Errorf("expected no '## Task' in output, got: %q", got)
 	}
 }
 
-func TestFormatTaskPromptForPipeline_NoAdminHuman(t *testing.T) {
-	task := &taskwarrior.Task{UUID: "abc12345-1234-5678-abcd-ef0123456789"}
-	cfg := &config.Config{}
-	got := formatTaskPromptForPipeline(task, cfg)
-	if strings.Contains(got, "Pairing with") {
-		t.Errorf("pair line should be absent: %s", got)
+// TestResolvePipelinePrompt_SkillInlineGracefulFailure verifies that when skill get
+// fails, the role prompt is still emitted and no error is returned.
+func TestResolvePipelinePrompt_SkillInlineGracefulFailure(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("PATH", "") // force skill cmd lookup to fail
+	t.Setenv("TTAL_JOB_ID", "")
+	t.Setenv("TTAL_AGENT_NAME", "")
+	os.MkdirAll(tmp+"/.config/ttal", 0o755) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
+		"\n[teams.default]\nteam_path = \""+tmp+"\"\n",
+	), 0o644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
+		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
+	), 0o644) //nolint:errcheck
+	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
+prompt = """You are a designer."""
+`), 0o644) //nolint:errcheck
+	got := resolvePipelinePrompt()
+	// Role prompt still emitted despite skill failure.
+	if !strings.Contains(got, "You are a designer.") {
+		t.Errorf("expected role prompt despite skill failure, got: %q", got)
 	}
 }

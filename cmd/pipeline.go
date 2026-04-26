@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -126,18 +127,20 @@ func renderPipelineGraph(p pipeline.Pipeline) {
 	fmt.Println()
 }
 
-// pipelinePromptCmd outputs the role-specific prompt for the current task and pipeline stage.
-// It is called by the CC SessionStart hook (via the context template's $ ttal pipeline prompt line)
-// and must produce empty output when no relevant task or stage is found.
+// pipelinePromptCmd outputs the role-specific prompt for the current session.
+// Called by ttal context (via the manager/worker context template) to emit the
+// role-specific prompt with inlined skill bodies. Reads TTAL_JOB_ID (worker) or
+// TTAL_AGENT_NAME (manager) to find the current task. Outputs nothing when no
+// task or stage is found — always exits 0.
 var pipelinePromptCmd = &cobra.Command{
 	Use:   "prompt",
 	Short: "Output the role prompt for the current task's pipeline stage",
 	Long: `Output the role-specific prompt for the current task's pipeline stage.
 
-Called by the CC SessionStart hook via the context template. Reads TTAL_JOB_ID
-(worker/reviewer path) or TTAL_AGENT_NAME (manager path) to find the current task.
-Outputs the role prompt with skills prepended. Outputs nothing when no task or stage
-is found — always exits 0 (non-zero exits would fail the context hook).`,
+Called by ttal context (via the manager/worker context template) to emit the
+role-specific prompt with inlined skill bodies. Reads TTAL_JOB_ID (worker) or
+TTAL_AGENT_NAME (manager) to find the current task. Outputs nothing when no
+task or stage is found — always exits 0.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		prompt := resolvePipelinePrompt()
 		if prompt != "" {
@@ -149,8 +152,9 @@ is found — always exits 0 (non-zero exits would fail the context hook).`,
 
 // resolvePipelinePrompt builds the pipeline prompt for the current session.
 // Prompt key resolution order: role → agentName → "default".
-// Task-specific content is appended only when a task exists.
-// Exits early with "" when no role prompt is configured (always exits 0 for CC hook).
+// Skills are inlined via shell-out to `skill get <name>` per the role's
+// extra_skills and default_skills from roles.toml.
+// Exits early with "" when no role prompt is configured (always exits 0 for hook callers).
 //
 //nolint:gocyclo
 func resolvePipelinePrompt() string {
@@ -178,10 +182,6 @@ func resolvePipelinePrompt() string {
 
 	// No task — output role prompt only.
 	if task == nil {
-		// Use role as the prompt key (e.g. "fixer", "designer").
-		// Fall back to agentName if role is empty (shouldn't happen for valid agents).
-		// Reviewer status cannot be determined without a stage, so reviewers
-		// without active tasks get their base role prompt.
 		promptKey := role
 		if promptKey == "" {
 			promptKey = agentName
@@ -189,7 +189,8 @@ func resolvePipelinePrompt() string {
 		if promptKey == "" {
 			promptKey = "default"
 		}
-		return cfg.Prompt(promptKey)
+		rolePrompt := cfg.Prompt(promptKey)
+		return inlineSkills(rolePrompt, promptKey, cfg)
 	}
 
 	// Active task — use existing task-first pipeline path for accurate reviewer detection.
@@ -226,17 +227,43 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 
-	taskPrompt := formatTaskPromptForPipeline(task, cfg)
+	prompt := inlineSkills(rolePrompt, promptKey, cfg)
+	return expandPromptVars(prompt, task, cfg)
+}
+
+// inlineSkills fetches skill bodies via `skill get <name>` for each skill
+// listed in roles.toml for the given role and appends them after the role prompt.
+// Soft failure: logs and skips individual skill failures; returns rolePrompt unchanged.
+func inlineSkills(rolePrompt, promptKey string, cfg *config.Config) string {
+	if cfg.Roles == nil {
+		return rolePrompt
+	}
+	skills := cfg.Roles.RoleSkills(promptKey)
+	if len(skills) == 0 {
+		return rolePrompt
+	}
+
+	var skillBodies []string
+	for _, name := range skills {
+		body, err := exec.Command("skill", "get", name).Output()
+		if err != nil {
+			log.Printf("[pipeline prompt] skill get %s failed: %v", name, err)
+			continue
+		}
+		skillBodies = append(skillBodies, strings.TrimSpace(string(body)))
+	}
+
+	if len(skillBodies) == 0 {
+		return rolePrompt
+	}
 
 	var combined strings.Builder
-	if taskPrompt != "" {
-		combined.WriteString("## Task\n\n")
-		combined.WriteString(taskPrompt)
-		combined.WriteString("\n\n---\n\n")
-	}
 	combined.WriteString(rolePrompt)
-
-	return expandPromptVars(combined.String(), task, cfg)
+	for _, body := range skillBodies {
+		combined.WriteString("\n\n---\n\n")
+		combined.WriteString(body)
+	}
+	return combined.String()
 }
 
 // resolveCurrentTaskForPrompt finds the task for the current session via TTAL_JOB_ID or TTAL_AGENT_NAME.
@@ -306,30 +333,6 @@ func expandPromptVars(prompt string, task *taskwarrior.Task, cfg *config.Config)
 	}
 
 	return config.RenderTemplate(prompt, task.HexID(), rt)
-}
-
-// formatTaskPromptForPipeline formats a task into a pipeline prompt block.
-// Resolves project path and uses task.FormatPrompt() for the task content.
-// Returns empty string if task cannot be resolved (non-fatal).
-func formatTaskPromptForPipeline(task *taskwarrior.Task, cfg *config.Config) string {
-	if task == nil {
-		return ""
-	}
-	pairLine := ""
-	if cfg != nil && cfg.AdminHuman != nil {
-		alias := cfg.AdminHuman.Alias
-		pairLine = fmt.Sprintf(
-			"Pairing with **%s** on this task. Reach via `ttal send --to %s \"...\"`.\\n\\n",
-			alias, alias,
-		)
-	}
-	projPath := projectpkg.ResolveProjectPath(task.Project)
-	proj := projectpkg.ResolveProject(task.Project)
-	if proj != nil && projPath != "" {
-		return fmt.Sprintf("Project: %s — %s\\nPath: %s\\n\\n%s%s",
-			task.Project, proj.Name, projPath, pairLine, task.FormatPrompt())
-	}
-	return pairLine + task.FormatPrompt()
 }
 
 // resolvePROwnerRepo resolves the owner and repo for a task's project.
