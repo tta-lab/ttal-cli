@@ -849,8 +849,9 @@ func findIdleAgent(teamPath, role string) (*agentfs.AgentInfo, error) {
 }
 
 // routeToPersistentAgent breathes a persistent agent on pipeline advance.
-// When the agent breathes, ttal context renders the universal context template, and
-// $ ttal pipeline prompt reads the stage tag to output the role-specific prompt.
+// When the agent breathes, the spawn trigger tells them to run ttal context.
+// ttal context picks the manager template, which shells out to ttal pipeline prompt
+// for the stage role prompt (role prompt + inlined skills via skill get <name>).
 func routeToPersistentAgent(w http.ResponseWriter, agent *agentfs.AgentInfo) error {
 	if err := Send(SendRequest{From: "system", To: agent.Name, Message: "run skill get breathe\n\nExecute this skill now — your context window needs a refresh."}); err != nil { //nolint:lll
 		writeHTTPJSON(w, http.StatusInternalServerError, AdvanceResponse{

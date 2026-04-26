@@ -12,14 +12,31 @@ ttal lets you customize the prompts sent to agents when routing tasks. This cont
 Create `~/.config/ttal/prompts.toml` with your prompt templates:
 
 ```toml
-context = """
-$ diary {{agent-name}} read
-$ ttal agent list
+context_manager = """
 ---
-
-## New Task Assignment
-
+§ Diary
+$ diary {{agent-name}} read
+§ Agents
+$ ttal agent list
+§ Projects
+$ ttal project list
+---
+§ Pairing
+$ ttal pair
+§ Role
 $ ttal pipeline prompt
+§ Task
+$ ttal task get
+"""
+
+context_worker = """
+---
+§ Pairing
+$ ttal pair
+§ Role
+$ ttal pipeline prompt
+§ Task
+$ ttal task get
 """
 
 triage = "Execute `skill get triage`\n\nPR review posted. Read {{review-file}}, assess and fix issues."
@@ -29,9 +46,9 @@ re_review = "Re-review scope: {{review-scope}}"
 
 > **Note:** Prompts live in a dedicated `prompts.toml` file rather than `config.toml`, keeping your main config file focused on settings and team configuration. Role-based prompts (for agents with `role: designer` or `role: researcher`) live in `roles.toml`, not `prompts.toml`. The `coder` role prompt also lives in `roles.toml`.
 
-## Context Template (`context`)
+## Context Templates (`context_manager` / `context_worker`)
 
-The `context` prompt is the universal CC SessionStart template. It is rendered for every agent session and supports two line types:
+`ttal context` picks one of two templates based on whether the agent has an `AGENTS.md` in the team path (manager) or not (worker). Each template supports three line types:
 
 - **`$ <cmd>`** — shell command, executed and replaced with its stdout (header: `--- <cmd> ---`)
 - **Plain text** — passed through as-is
@@ -78,7 +95,8 @@ PR review posted. Read it, assess and fix issues.
 
 | Key | Used by | Template variables |
 |-----|---------|-------------------|
-| `context` | CC SessionStart hook (all agents) | `{{agent-name}}`, `{{team-name}}`, `$ cmd` |
+| `context_manager` | `ttal context` (manager agents) | `{{agent-name}}`, `{{team-name}}`, `$ cmd` |
+| `context_worker` | `ttal context` (worker/reviewer agents) | `{{agent-name}}`, `{{team-name}}`, `$ cmd` |
 | `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}` |
 | `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}` |
 | `coder` | `ttal go` (worker spawn, via `roles.toml`) | `{{task-id}}` |
@@ -88,15 +106,15 @@ PR review posted. Read it, assess and fix issues.
 
 ## How each prompt is used
 
-### `context`
+### `context_manager` / `context_worker`
 
-The universal SessionStart template. Rendered for every agent session via the CC hook.
-Lines starting with `$ ` are executed as shell commands. The `$ ttal pipeline prompt` line
-outputs the role-specific prompt (coder instructions, review prompt, plan review prompt, etc.)
-based on the current task's pipeline stage.
+`ttal context` picks the template by checking agentfs for an `AGENTS.md` under the team path.
+Manager template includes diary, agent list, project list. Worker template is leaner — just
+pairing, role prompt, and task. Both templates shell out to `$ ttal pipeline prompt` for the
+role-specific prompt with inlined skills, and `$ ttal task get` for the task body.
 
-Workers get `TTAL_JOB_ID` derived from their worktree path. Managers and reviewers get
-`TTAL_AGENT_NAME` from their `--agent` flag. Both are available as env vars during `$ cmd` execution.
+Lines starting with `$ ` are executed as shell commands. The `§` prefix marks section headers
+and is passed through verbatim.
 
 ### `coder` (in `roles.toml`)
 
@@ -131,16 +149,23 @@ Sent to the reviewer when the coder pushes fixes and requests a re-review. Conta
 
 ## Examples
 
-### Custom context template with diary and task list
+### Custom context_manager template
 
 ```toml
 # ~/.config/ttal/prompts.toml
-context = """
-$ diary {{agent-name}} read
-$ ttal today list
+context_manager = """
 ---
-
+§ Diary
+$ diary {{agent-name}} read
+§ Projects
+$ ttal project list
+---
+§ Pairing
+$ ttal pair
+§ Role
 $ ttal pipeline prompt
+§ Task
+$ ttal task get
 """
 ```
 
