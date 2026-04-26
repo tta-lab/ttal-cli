@@ -24,3 +24,125 @@ $ ttal pipeline prompt
 § Task
 $ ttal task get
 """
+
+triage = """\
+Execute `skill get triage` to load the triage methodology.
+PR review posted.{{review-file}} Read it, assess and fix issues.
+Post your triage update with ttal comment add when done.
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Triage Update
+### Fixed
+- [x] Issue — fix details
+### Remaining
+- [ ] Issue
+EOF
+```
+If verdict is LGTM and no remaining issues, merge with: ttal go"""
+
+review = """\
+Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
+
+Scope: ONLY changes in this PR diff, not the entire codebase.
+Post your review with: ttal comment add "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Review
+### Critical Issues
+- None
+### Important Issues
+- [file:line] Description
+### VERDICT: LGTM
+EOF
+```
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+"""
+
+re_review = """\
+Worker has pushed fixes addressing your review.{{coder-comment}}
+Re-review the changes: {{review-scope}}
+
+Post updated review with: ttal comment add "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Re-review
+### Fixed
+- [x] Issue from previous review
+### Remaining
+- [ ] New issue
+### VERDICT: LGTM
+EOF
+
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+```"""
+
+plan_review = """\
+Review the plan.
+
+Run `ttal task get` (no extra params) to see the full task and plan.
+If the plan uses a task tree, also run `task <uuid> tree` to see the subtask structure.
+Investigate the codebase as needed to verify assumptions.
+
+Post your review with: ttal comment add "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Plan Review
+### Critical Issues
+- None
+### Important Issues
+- [file:line] Description
+### VERDICT: LGTM
+EOF
+```
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+
+"""
+
+plan_re_review = """\
+The designer has updated the plan for the task based on your previous review.
+{{designer-comment}}
+Run `ttal task get` (no extra params) to see the updated plan.
+If the plan uses a task tree, also run `task <uuid> tree` to see the updated subtask structure.
+Check whether the issues you raised have been addressed.
+
+Post your updated review with: ttal comment add "<markdown>"
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Plan Re-review
+### Resolved
+- [x] Issue from previous review
+### Remaining
+- [ ] Unresolved issue
+### VERDICT: LGTM
+EOF
+```
+If verdict is LGTM and no remaining issues, use `ttal comment lgtm`
+
+"""
+
+plan_triage = """\
+Execute `skill get plan-triage` to load the plan-triage methodology.
+Plan review posted.{{review-file}} Read it, assess and fix issues in the plan.
+Post your triage update with ttal comment add when done.
+
+For multiline comments, use heredoc:
+```
+cat <<'EOF' | ttal comment add
+## Plan Triage
+### Fixed
+- [x] Issue — fix details
+### Remaining
+- [ ] Issue
+EOF
+```
+If verdict is LGTM and no remaining issues, advance with: ttal go"""
