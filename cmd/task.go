@@ -80,8 +80,6 @@ Examples:
 			return err
 		}
 
-		fmt.Printf("Task: %s\n\n", uuid)
-
 		if task.Project != "" {
 			if proj := projectPkg.ResolveProject(task.Project); proj != nil {
 				displayPath := proj.Path
@@ -96,12 +94,6 @@ Examples:
 		}
 
 		fmt.Print(task.FormatPrompt())
-
-		// Show footnote for manager agent sessions.
-		if os.Getenv("TTAL_AGENT_NAME") != "" && os.Getenv("TTAL_JOB_ID") == "" {
-			fmt.Print("\n---\nThis is the complete task context. Do not run task export, task info, or task " +
-				"annotations — everything is already here. Start working.\n")
-		}
 
 		return nil
 	},

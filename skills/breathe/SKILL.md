@@ -70,43 +70,42 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 
 ## What Happens After
 
-### Manager path (uses SessionStart hook)
+### Manager path
 
 1. The daemon receives your handoff
 2. Daemon persists your handoff to diary
 3. Status file session ID is cleared
 4. Your CC session is killed
 5. A new CC session starts fresh (no `--resume`)
-6. CC fires the SessionStart hook: `ttal context` renders the universal `context` template, executing `$ cmd` lines (diary read, agent list, pipeline prompt) to build the system message
-7. You wake up in a fresh context window with the session context injected by the hook
+6. Your spawn trigger says to run `ttal context` for your briefing
+7. `ttal context` picks the manager template, renders it (diary read, agent list, project list, pairing, role prompt, task), and prints the bundle
+8. You wake up in a fresh context window
 
 Your handoff is saved in diary — it persists across sessions.
 
-### Worker and reviewer path (uses SessionStart hook)
+### Worker and reviewer path
 
-Workers and reviewers also use the CC SessionStart hook. On session start:
-- The hook renders the `context` template
-- `TTAL_JOB_ID` is derived from the worktree CWD (workers) or session env (reviewers)
-- `$ ttal pipeline prompt` outputs the role-specific prompt (coder instructions, review prompt, etc.)
+Workers and reviewers wake via the unified spawn trigger. On session start:
+- Run `ttal context` — it picks the worker template and prints the bundle
+- `TTAL_JOB_ID` is set by the spawn parent (or derived from worktree CWD)
+- Pairing, role prompt with inlined skills, and task body are in the output
 
 ## Auto-Breathe on Route
 
 When a task is routed via `ttal go`, the agent is asked to breathe so they start fresh.
 The stage tag is already written to taskwarrior before breathe is triggered.
-On next startup, the SessionStart hook renders the context template and `$ ttal pipeline prompt`
-reads the stage tag to output the role-specific prompt. No route file needed — taskwarrior
-state is the single source of truth.
+On next startup, your spawn trigger says to run `ttal context`.
+`ttal context` picks the right template and prints the bundle — pairing, role prompt with
+inlined skills, and task. No route file needed — taskwarrior state is the single source of truth.
 
 To skip: `ttal go <uuid> --no-breathe`
 
 ## Unified Context Injection
 
-All session types (manager, worker, reviewer) use the same `context` template rendered by
-the CC SessionStart hook:
+All session types (manager, worker, reviewer) use `ttal context`:
 
-1. Daemon kills old session (managers) or worker spawns directly with `--agent`
-2. CC starts, fires SessionStart hook
-3. `ttal context` renders the `context` template — `$ cmd` lines executed with agent env vars
-4. System message injected into the session
-
-The SessionStart hook is installed via `ttal sync` (not `ttal doctor --fix`).
+1. Spawn trigger: "Run `ttal context` for your briefing, then act on the role prompt."
+2. Agent runs `ttal context`
+3. Picks manager or worker template by checking agentfs for an AGENTS.md under team_path
+4. Renders the template — `$ cmd` lines execute with agent env vars (TTAL_AGENT_NAME, TTAL_JOB_ID)
+5. Prints the bundle to stdout — no hook, no size budget

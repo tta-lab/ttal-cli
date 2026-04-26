@@ -8,17 +8,14 @@ import (
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/promptrender"
 	syncer "github.com/tta-lab/ttal-cli/internal/sync"
 )
 
-// defaultTeamName is the single, hardcoded team name.
-const defaultTeamName = "default"
-
 // BuildAgentContext assembles the full system prompt for a Codex agent.
-// Combines: agent identity (.md body after frontmatter) + rules + rendered context template.
-// Layout: Part 1 (identity) + Part 2 (rules) + Part 3 (rendered context), separated by "---".
-func BuildAgentContext(agentName, teamPath string, env []string) (string, error) {
+// Combines: agent identity (.md body after frontmatter) + rules.
+// Codex agents wake via the unified trigger and run `ttal context` themselves.
+// Layout: Part 1 (identity) + Part 2 (rules), separated by "---".
+func BuildAgentContext(agentName, teamPath string, _ []string) (string, error) {
 	mdPath := filepath.Join(teamPath, agentName, "AGENTS.md")
 	data, err := os.ReadFile(mdPath)
 	if err != nil {
@@ -35,18 +32,6 @@ func BuildAgentContext(agentName, teamPath string, env []string) (string, error)
 	rules := loadRulesContent()
 	if rules != "" {
 		sections = append(sections, rules)
-	}
-
-	// Part 3: Rendered context template (shells out to $ commands)
-	cfg, err := config.Load()
-	if err != nil {
-		return strings.Join(sections, "\n\n---\n\n"), nil
-	}
-	tmpl := cfg.Prompt("context")
-	teamName := defaultTeamName
-	rendered := promptrender.RenderTemplate(tmpl, agentName, teamName, env)
-	if rendered != "" {
-		sections = append(sections, rendered)
 	}
 
 	return strings.Join(sections, "\n\n---\n\n"), nil

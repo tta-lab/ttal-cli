@@ -15,7 +15,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
-	"github.com/tta-lab/ttal-cli/internal/promptrender"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -191,12 +190,13 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 
 // buildRuntimeShellCommand builds the shell command for the given runtime.
 func buildRuntimeShellCommand(
-	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, task *taskwarrior.Task,
+	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, _ *taskwarrior.Task,
 	agentName string, envParts []string,
 ) (string, error) {
+	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
 	switch cfg.Runtime {
 	case runtime.Codex:
-		taskFile, err := writeTaskFile(task, cfg, shellCfg)
+		taskFile, err := writeTaskFile()
 		if err != nil {
 			return "", err
 		}
@@ -207,44 +207,13 @@ func buildRuntimeShellCommand(
 		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
 
 	case runtime.Lenos:
-		teamName := defaultTeamName
-		contextFile, err := writeContextFile(task, agentName, teamName, shellCfg)
-		if err != nil {
-			return "", fmt.Errorf("write lenos context file: %w", err)
-		}
-		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, "Begin implementation.", contextFile)
+		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, trigger)
 		return shellCfg.BuildEnvShellCommand(envParts, lenosCmd), nil
 
 	default:
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, "Begin implementation.")
+		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, trigger)
 		return shellCfg.BuildEnvShellCommand(envParts, ccCmd), nil
 	}
-}
-
-// writeContextFile renders the context template to a temp file for lenos workers.
-// Lenos reads the context via --context-file instead of a CC-style SessionStart hook.
-func writeContextFile(task *taskwarrior.Task, agentName, teamName string, cfg *config.Config) (string, error) {
-	tmpl := cfg.Prompt("context")
-	if tmpl == "" {
-		// No context template — return empty path; lenos will start without context
-		return "", nil
-	}
-
-	envVars := []string{
-		"TTAL_AGENT_NAME=" + agentName,
-		"TTAL_JOB_ID=" + task.HexID(),
-	}
-	output := promptrender.RenderTemplate(tmpl, agentName, teamName, envVars)
-
-	f, err := os.CreateTemp("", "lenos-context-*.md")
-	if err != nil {
-		return "", fmt.Errorf("create temp context file: %w", err)
-	}
-	defer f.Close()
-	if _, err := f.WriteString(output); err != nil {
-		return "", fmt.Errorf("write context file: %w", err)
-	}
-	return f.Name(), nil
 }
 
 // launchTmuxWorker spawns a worker in a tmux session.
@@ -308,23 +277,17 @@ func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string,
 	return parts
 }
 
-// writeTaskFile writes the execute prompt to a temp file for Codex workers.
-// Codex does not support the context hook (#321), so it uses the legacy task-file pattern.
-func writeTaskFile(task *taskwarrior.Task, cfg SpawnConfig, shellCfg *config.Config) (string, error) {
-	shortID := task.UUID
-	if len(shortID) > 8 {
-		shortID = shortID[:8]
-	}
-	prompt := shellCfg.RenderPrompt("coder", shortID, cfg.Runtime)
-	if prompt == "" {
-		return "", fmt.Errorf("coder prompt not configured: add [coder] to roles.toml")
-	}
+// writeTaskFile writes the unified spawn trigger to a temp file for Codex workers.
+// Codex uses the task file as its initial prompt; the trigger tells Codex to run
+// `ttal context` for its briefing.
+func writeTaskFile() (string, error) {
+	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
 
-	taskFile, err := os.CreateTemp("", "claude-task-*.txt")
+	taskFile, err := os.CreateTemp("", "codex-task-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create task file: %w", err)
 	}
-	if _, err := taskFile.WriteString(prompt); err != nil {
+	if _, err := taskFile.WriteString(trigger); err != nil {
 		_ = taskFile.Close()
 		return "", fmt.Errorf("failed to write task file: %w", err)
 	}

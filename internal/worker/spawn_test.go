@@ -1,10 +1,10 @@
 package worker
 
 import (
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -53,19 +53,20 @@ func TestBuildEnvParts_BasicEnvParts(t *testing.T) {
 	}
 }
 
-func TestWriteTaskFile_MissingCoderPrompt(t *testing.T) {
-	cfg := SpawnConfig{Name: "test", Runtime: runtime.Codex}
-	task := &taskwarrior.Task{
-		UUID:        "abcdef01-2345-6789-abcd-ef0123456789",
-		Description: "test task",
+func TestWriteTaskFile_Codex(t *testing.T) {
+	path, err := writeTaskFile()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	shellCfg := &config.Config{}
-	_, err := writeTaskFile(task, cfg, shellCfg)
-	if err == nil {
-		t.Fatal("expected error when coder prompt not configured")
+	if path == "" {
+		t.Fatal("expected non-empty path")
 	}
-	if !strings.Contains(err.Error(), "coder prompt not configured") {
-		t.Errorf("unexpected error message: %v", err)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read task file: %v", err)
+	}
+	if !strings.Contains(string(content), "ttal context") {
+		t.Errorf("expected trigger with ttal context in task file, got: %s", content)
 	}
 }
 

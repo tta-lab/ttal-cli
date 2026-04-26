@@ -1,9 +1,6 @@
 # default_skills / extra_skills declare which skills a role uses. Skill
-# CONTENT is NOT inlined into agent SessionStart context (exceeds CC's
-# hook additionalContext size budget — CC persists to a file and the
-# model only sees a ~2KB preview). Each role prompt instead includes an
-# `Execute `skill get <name>`` line; agents fetch the methodology
-# on demand at session start.
+# content is inlined into ttal pipeline prompt output (shelled out to
+# skill get <name>). They appear in the §Role section of ttal context.
 default_skills = ["task-tree", "flicknote", "ei-ask"]
 
 [default]

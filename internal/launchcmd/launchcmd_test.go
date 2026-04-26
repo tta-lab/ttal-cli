@@ -6,12 +6,13 @@ import (
 )
 
 func TestBuildCCDirectCommand_WithTrigger(t *testing.T) {
-	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", "Begin implementation.")
+	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
+	got := BuildCCDirectCommand("/usr/bin/ttal", "coder", trigger)
 	if !strings.Contains(got, "--agent coder") {
 		t.Errorf("missing --agent coder: %q", got)
 	}
-	if !strings.Contains(got, "-- 'Begin implementation.'") {
-		t.Errorf("missing trigger: %q", got)
+	if !strings.Contains(got, "ttal context") {
+		t.Errorf("missing ttal context trigger: %q", got)
 	}
 	if strings.Contains(got, "--resume") {
 		t.Errorf("should not contain --resume: %q", got)
@@ -36,24 +37,18 @@ func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
 }
 
 func TestBuildLenosCommand_Basic(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", "Begin implementation.", "")
-	want := "/usr/bin/ttal worker gatekeeper -- lenos --agent coder -- 'Begin implementation.'"
-	if got != want {
-		t.Fatalf("unexpected command\nwant: %s\n got: %s", want, got)
+	const trigger = "Run `ttal context` for your briefing, then act on the role prompt."
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", trigger)
+	if !strings.Contains(got, "--agent coder") {
+		t.Errorf("missing --agent coder: %q", got)
 	}
-}
-
-func TestBuildLenosCommand_WithContextFile(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", "Begin.", "/tmp/lenos-context-abc123.md")
-	want := "/usr/bin/ttal worker gatekeeper -- lenos --agent coder " +
-		"--context-file /tmp/lenos-context-abc123.md -- 'Begin.'"
-	if got != want {
-		t.Fatalf("unexpected command\nwant: %s\n got: %s", want, got)
+	if !strings.Contains(got, "ttal context") {
+		t.Errorf("missing ttal context trigger: %q", got)
 	}
 }
 
 func TestBuildLenosCommand_ApostropheEscaping(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test", "")
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test")
 	if !strings.Contains(got, "it'\\''s a test") {
 		t.Errorf("apostrophe not escaped correctly: %q", got)
 	}

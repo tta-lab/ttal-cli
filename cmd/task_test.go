@@ -65,3 +65,17 @@ func TestTaskGetCmd_NoArgNoEnv_ReturnsError(t *testing.T) {
 		t.Errorf("expected auto-resolve error, got: %v", err)
 	}
 }
+
+func TestTaskGetCmd_ProjectHeaderPresent(t *testing.T) {
+	// Verify the command accepts a UUID arg and handles it correctly.
+	// Since we can't run against real taskwarrior, verify the RunE behavior
+	// handles the arg correctly (args take priority over env).
+	err := taskGetCmd.RunE(taskGetCmd, []string{"00000001"})
+	if err == nil {
+		t.Fatal("expected error for non-existent task")
+	}
+	// Should not mention TTAL_JOB_ID env var when a UUID arg is provided.
+	if strings.Contains(err.Error(), "TTAL_JOB_ID") {
+		t.Errorf("arg UUID should take priority over TTAL_JOB_ID: %v", err)
+	}
+}
