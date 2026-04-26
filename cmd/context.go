@@ -39,11 +39,13 @@ func init() {
 func runContext(_ *cobra.Command, _ []string) error {
 	cfg, err := config.Load()
 	if err != nil {
+		log.Printf("[context] config load failed: %v", err)
 		return nil
 	}
 
 	agentName := os.Getenv("TTAL_AGENT_NAME")
 	if agentName == "" {
+		log.Printf("[context] TTAL_AGENT_NAME not set — skipping context")
 		return nil
 	}
 
@@ -55,6 +57,7 @@ func runContext(_ *cobra.Command, _ []string) error {
 		tmpl = cfg.Prompt("context_worker")
 	}
 	if tmpl == "" {
+		log.Printf("[context] no template found for agent=%s (manager=%v)", agentName, isManager)
 		return nil
 	}
 

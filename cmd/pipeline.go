@@ -220,7 +220,7 @@ func resolvePipelinePrompt() string {
 		return ""
 	}
 
-	promptKey := resolvePromptKey(stage)
+	promptKey := promptKeyFn(stage)
 	rolePrompt := cfg.Prompt(promptKey)
 	if rolePrompt == "" {
 		log.Printf("[pipeline prompt] no prompt found for key %q (task %s)", promptKey, task.HexID())
@@ -266,11 +266,17 @@ func inlineSkills(rolePrompt, promptKey string, cfg *config.Config) string {
 	return combined.String()
 }
 
+// activeTasksByOwnerFn allows test injection of the active tasks lookup.
+var activeTasksByOwnerFn = taskwarrior.ActiveTasksByOwner
+
+// promptKeyFn is the injectable version of resolvePromptKey used by resolvePipelinePrompt.
+var promptKeyFn = resolvePromptKey //nolint:revive
+
 // resolveCurrentTaskForPrompt finds the task for the current session via TTAL_JOB_ID or TTAL_AGENT_NAME.
 // Returns nil when no task is found (non-fatal).
 func resolveCurrentTaskForPrompt() *taskwarrior.Task {
 	if hexID := os.Getenv("TTAL_JOB_ID"); hexID != "" {
-		task, err := taskwarrior.ExportTaskByHexID(hexID, "")
+		task, err := exportTaskByHexIDFn(hexID, "")
 		if err != nil {
 			log.Printf("[pipeline prompt] task lookup by TTAL_JOB_ID=%s failed: %v", hexID, err)
 			return nil
@@ -283,7 +289,7 @@ func resolveCurrentTaskForPrompt() *taskwarrior.Task {
 		return nil
 	}
 
-	tasks, err := taskwarrior.ActiveTasksByOwner(agentName)
+	tasks, err := activeTasksByOwnerFn(agentName)
 	if err != nil {
 		log.Printf("[pipeline prompt] task lookup for TTAL_AGENT_NAME=%s failed: %v", agentName, err)
 		return nil

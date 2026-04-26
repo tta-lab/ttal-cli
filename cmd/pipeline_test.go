@@ -211,27 +211,64 @@ prompt = """You are a designer."""
 	}
 }
 
+// TestResolvePipelinePrompt_SkillInlineHappyPath verifies that when skill get succeeds,
+// the skill body is appended to the role prompt output.
+func TestResolvePipelinePrompt_SkillInlineHappyPath(t *testing.T) {
+	tmp := t.TempDir()
+	binDir := tmp + "/bin"
+	os.MkdirAll(binDir, 0o755) //nolint:errcheck
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	cfg := &config.Config{
+		Roles: &config.RolesConfig{
+			ExtraSkills: map[string][]string{
+				"coder": {"task-tree"},
+			},
+		},
+	}
+	// Fake skill binary that outputs skill body.
+	fakeSkill := "#!/bin/sh\necho '# sp-task-tree'\necho 'Task tree usage.'\n"
+	os.WriteFile(binDir+"/skill", []byte(fakeSkill), 0o755) //nolint:errcheck
+
+	got := inlineSkills("You are a coder.", "coder", cfg)
+
+	// Role prompt present.
+	if !strings.Contains(got, "You are a coder.") {
+		t.Errorf("expected role prompt in output, got: %q", got)
+	}
+	// Skill body inlined.
+	if !strings.Contains(got, "sp-task-tree") {
+		t.Errorf("expected inlined skill body, got: %q", got)
+	}
+	if !strings.Contains(got, "Task tree usage.") {
+		t.Errorf("expected skill body content, got: %q", got)
+	}
+}
+
 // TestResolvePipelinePrompt_SkillInlineGracefulFailure verifies that when skill get
 // fails, the role prompt is still emitted and no error is returned.
 func TestResolvePipelinePrompt_SkillInlineGracefulFailure(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
-	t.Setenv("PATH", "") // force skill cmd lookup to fail
-	t.Setenv("TTAL_JOB_ID", "")
-	t.Setenv("TTAL_AGENT_NAME", "")
-	os.MkdirAll(tmp+"/.config/ttal", 0o755) //nolint:errcheck
-	os.WriteFile(tmp+"/.config/ttal/config.toml", []byte(
-		"\n[teams.default]\nteam_path = \""+tmp+"\"\n",
-	), 0o644) //nolint:errcheck
-	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
-		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
-	), 0o644) //nolint:errcheck
-	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
-prompt = """You are a designer."""
-`), 0o644) //nolint:errcheck
-	got := resolvePipelinePrompt()
+	binDir := tmp + "/bin"
+	os.MkdirAll(binDir, 0o755) //nolint:errcheck
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	cfg := &config.Config{
+		Roles: &config.RolesConfig{
+			ExtraSkills: map[string][]string{
+				"coder": {"task-tree"},
+			},
+		},
+	}
+
+	// Fake skill binary that fails.
+	fakeSkill := "#!/bin/sh\nexit 1\n"
+	os.WriteFile(binDir+"/skill", []byte(fakeSkill), 0o755) //nolint:errcheck
+
+	got := inlineSkills("You are a coder.", "coder", cfg)
+
 	// Role prompt still emitted despite skill failure.
-	if !strings.Contains(got, "You are a designer.") {
+	if !strings.Contains(got, "You are a coder.") {
 		t.Errorf("expected role prompt despite skill failure, got: %q", got)
 	}
 }

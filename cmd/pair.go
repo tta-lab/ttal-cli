@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -30,12 +31,14 @@ If the target is empty, outputs nothing and exits 0.`,
 		if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
 			task, err := exportTaskByHexIDFn(jobID, "")
 			if err != nil {
-				return nil // soft failure — empty output
+				log.Printf("[pair] task lookup failed: %v", err)
+				return nil
 			}
 			target = task.Owner
 		} else {
 			cfg, err := config.Load()
 			if err != nil {
+				log.Printf("[pair] config load failed: %v", err)
 				return nil
 			}
 			if cfg.AdminHuman != nil {
