@@ -49,7 +49,9 @@ Worktree rules:
 
 ### Load Context
 
-**Always use `ttal task get` with no extra params** — the env var `TTAL_JOB_ID` handles UUID resolution automatically. Never pass a UUID manually.
+You wake via `Run ttal context for your briefing` — `ttal context` renders pairing, role prompt with inlined skills, and task body in one bundle. Run it first.
+
+To re-fetch only the task body mid-work, use `ttal task get` (no params — the `TTAL_JOB_ID` env var handles UUID resolution automatically). Never pass a UUID manually.
 
 Load the plan — check task annotations for context:
 - **Flicknote plan:** If annotations contain a flicknote hex ID, read it: `flicknote detail <hex-id>`

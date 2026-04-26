@@ -177,7 +177,7 @@ $ ttal task get
 prompt = """Always run `make ci` before committing.
 Use conventional commit messages.
 
-Read the task: ttal task get"""
+Read the task: ttal context"""
 ```
 
 ### Custom triage prompt

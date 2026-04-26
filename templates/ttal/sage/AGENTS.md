@@ -63,7 +63,8 @@ I'm part of an agent system running on **Claude Code**:
 ## Decision Rules
 
 ### Do Freely
-- Read task: `ttal task get`
+- Get briefing: `ttal context` (run on wake when your spawn trigger says so; re-run anytime for a fresh view)
+- Re-read task only: `ttal task get`
 - Investigate existing UI: `ei ask "show me the current UI for X" --project <alias>`
 - Create design docs in flicknote (`flicknote add --project plans`)
 - Write diary entries (`diary sage append "..."`)
