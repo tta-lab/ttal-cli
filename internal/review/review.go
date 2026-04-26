@@ -14,6 +14,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
+var (
+	tmuxNewWindowFn = tmux.NewWindow
+	osExecFn        = os.Executable
+)
+
 // buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
 // TTAL_JOB_ID is set so the reviewer can resolve the task context via ttal pipeline prompt.
 func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
@@ -42,7 +47,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 
 	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
 
-	ttalBin, err := os.Executable()
+	ttalBin, err := osExecFn()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
@@ -73,7 +78,7 @@ func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg
 		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
 	}
 
-	if err := tmux.NewWindow(sessionName, reviewerName, workDir, shellCmd); err != nil {
+	if err := tmuxNewWindowFn(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 

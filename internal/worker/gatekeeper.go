@@ -33,7 +33,7 @@ func Gatekeeper(cfg GatekeeperConfig) int {
 	args := make([]string, len(cfg.Command))
 	copy(args, cfg.Command)
 
-	// Append task file content to command args (Codex only — CC uses JSONL sessions).
+	// Append task file content to command args (Codex only — CC/Lenos receive the trigger via shell command arg).
 	if cfg.TaskFile != "" {
 		content, err := os.ReadFile(cfg.TaskFile)
 		if err != nil {
