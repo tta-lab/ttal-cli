@@ -20,8 +20,8 @@ const debounceWindow = 200 * time.Millisecond
 // written, debounced by debounceWindow.
 //
 // On any setup failure (no PowerSync configured, watcher error, etc.) it
-// returns an error; the caller should log and proceed — manual Ctrl+R remains
-// available as a refresh fallback.
+// returns an error; the caller should propagate it from RunE so the TUI
+// exits with a clear, actionable error rather than silently degrading.
 func StartWatcher(p *tea.Program) (func(), error) {
 	dbPath, err := taskwarrior.ResolvePowerSyncDBPath()
 	if err != nil {
