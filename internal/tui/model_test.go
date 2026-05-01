@@ -264,3 +264,19 @@ func TestApplyFilterCompletedSortsByEndDescending(t *testing.T) {
 	assert.Equal(t, "cc000003", m.filtered[1].UUID, "second most recent should be second")
 	assert.Equal(t, "aa000001", m.filtered[2].UUID, "oldest should be last")
 }
+
+func TestRefreshTickMsg_GuardsNonTaskListStates(t *testing.T) {
+	m := Model{state: stateTaskList}
+	_, cmd := m.Update(refreshTickMsg{})
+	if cmd == nil {
+		t.Fatal("expected cmd when in stateTaskList")
+	}
+
+	for _, s := range []viewState{stateTaskDetail, stateSearch, stateModify, stateAnnotate, stateConfirmDelete, stateHelp, stateHeatmap} {
+		m := Model{state: s}
+		_, cmd = m.Update(refreshTickMsg{})
+		if cmd != nil {
+			t.Errorf("expected nil cmd in state %v, got %v", s, cmd)
+		}
+	}
+}

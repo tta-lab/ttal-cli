@@ -142,9 +142,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
 		return m, cmd
 	case refreshTickMsg:
-		// Externally triggered by the fsnotify watcher when the taskwarrior WAL
-		// file is written. Only reload when the task list is visible — overlays,
-		// detail, help, and heatmap views own their own state.
+		// Only reload when the task list is visible. Other views (detail, search,
+		// modify, annotate, confirm, help, heatmap) own their own data state.
 		if m.state != stateTaskList {
 			return m, nil
 		}
