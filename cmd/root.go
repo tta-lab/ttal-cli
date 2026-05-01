@@ -21,7 +21,12 @@ Running ttal with no subcommand launches the interactive TUI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		m := tui.NewModel()
 		p := tea.NewProgram(m)
-		_, err := p.Run()
+		stop, err := tui.StartWatcher(p)
+		if err != nil {
+			return fmt.Errorf("watcher: %w", err)
+		}
+		defer stop()
+		_, err = p.Run()
 		return err
 	},
 	// PersistentPreRunE removed — .env is loaded only by commands that need it
