@@ -272,7 +272,11 @@ func TestRefreshTickMsg_GuardsNonTaskListStates(t *testing.T) {
 		t.Fatal("expected cmd when in stateTaskList")
 	}
 
-	for _, s := range []viewState{stateTaskDetail, stateSearch, stateModify, stateAnnotate, stateConfirmDelete, stateHelp, stateHeatmap} {
+	nonTaskListStates := []viewState{
+		stateTaskDetail, stateSearch, stateModify, stateAnnotate,
+		stateConfirmDelete, stateHelp, stateHeatmap,
+	}
+	for _, s := range nonTaskListStates {
 		m := Model{state: s}
 		_, cmd = m.Update(refreshTickMsg{})
 		if cmd != nil {
