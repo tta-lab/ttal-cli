@@ -46,46 +46,8 @@ func StartWatcher(p *tea.Program) (func(), error) {
 
 	// Debouncer goroutine.
 	go runDebouncer(raw, out, debounceWindow, stop)
-
-	// Sender goroutine: forwards debounced signals to the bubbletea program.
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case <-out:
-				p.Send(refreshTickMsg{})
-			}
-		}
-	}()
-
-	// Watcher goroutine: filters fsnotify events into the raw channel.
-	go func() {
-		defer w.Close()
-		for {
-			select {
-			case <-stop:
-				return
-			case ev, ok := <-w.Events:
-				if !ok {
-					return
-				}
-				if !isWALEvent(ev, walName) {
-					continue
-				}
-				select {
-				case raw <- struct{}{}:
-				default:
-					// Channel full — burst already in progress; drop is safe.
-				}
-			case err, ok := <-w.Errors:
-				if !ok {
-					return
-				}
-				log.Printf("[tui watcher] %v", err)
-			}
-		}
-	}()
+	go watchEvents(w, walName, raw, stop)
+	go sendDebounced(p, out, stop)
 
 	stopOnce := func() {
 		select {
@@ -96,6 +58,45 @@ func StartWatcher(p *tea.Program) (func(), error) {
 		}
 	}
 	return stopOnce, nil
+}
+
+// watchEvents drains the fsnotify watcher, filtering WAL events into raw.
+func watchEvents(w *fsnotify.Watcher, walName string, raw, stop chan struct{}) {
+	defer w.Close()
+	for {
+		select {
+		case <-stop:
+			return
+		case ev, ok := <-w.Events:
+			if !ok {
+				return
+			}
+			if !isWALEvent(ev, walName) {
+				continue
+			}
+			select {
+			case raw <- struct{}{}:
+			default:
+			}
+		case err, ok := <-w.Errors:
+			if !ok {
+				return
+			}
+			log.Printf("[tui watcher] %v", err)
+		}
+	}
+}
+
+// sendDebounced drains out and forwards debounced signals to the bubbletea program.
+func sendDebounced(p *tea.Program, out, stop chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		case <-out:
+			p.Send(refreshTickMsg{})
+		}
+	}
 }
 
 func isWALEvent(ev fsnotify.Event, walName string) bool {
