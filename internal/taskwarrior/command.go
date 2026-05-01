@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -55,6 +56,29 @@ func ResolveDataLocation() (string, error) {
 		return "", fmt.Errorf("task data.location is empty")
 	}
 	return loc, nil
+}
+
+// ResolvePowerSyncDBPath asks taskwarrior for the active replica's PowerSync DB
+// path (rc.powersync.db_path), expanding ~ to $HOME. The tw fork uses this
+// path as its PowerSync replica; watching its WAL file (path + "-wal") is the
+// SSOT for taskwarrior change events.
+func ResolvePowerSyncDBPath() (string, error) {
+	out, err := Command("_get", "rc.powersync.db_path").Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to query task powersync.db_path: %w", err)
+	}
+	p := strings.TrimSpace(string(out))
+	if p == "" {
+		return "", fmt.Errorf("task powersync.db_path is empty")
+	}
+	if strings.HasPrefix(p, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("expand ~: %w", err)
+		}
+		p = filepath.Join(home, p[2:])
+	}
+	return p, nil
 }
 
 // resolveTaskRC returns the active team's taskrc path if it differs
