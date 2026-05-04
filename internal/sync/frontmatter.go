@@ -98,7 +98,7 @@ func ParseAgentFile(content string) (*ParsedAgent, error) {
 // Includes shared fields (name, description, color) plus claude-code specific fields.
 //
 // default_runtime is intentionally not forwarded to the CC-native variant — it is a
-// ttal-only field consumed by daemon.resolveWorkerAgentRuntime via agentfs, which reads
+// ttal-only field consumed by agentfs.ResolveRuntime, which reads
 // from source workerAgentPaths directly (not from deployed ~/.claude/agents/ files).
 func GenerateCCVariant(agent *ParsedAgent) (string, error) {
 	fm := make(map[string]interface{})
