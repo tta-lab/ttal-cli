@@ -6,7 +6,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
-
 func TestResolveRuntime(t *testing.T) {
 	tests := []struct {
 		name     string

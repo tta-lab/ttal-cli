@@ -188,7 +188,6 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 	return project, detectBranch(project), nil
 }
 
-
 // launchTmuxWorker spawns a worker in a tmux session.
 func launchTmuxWorker(
 	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir string,
@@ -240,8 +239,6 @@ func launchTmuxWorker(
 
 	return nil
 }
-
-
 
 func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {
 	root := config.WorktreesRoot()

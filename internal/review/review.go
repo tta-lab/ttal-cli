@@ -21,7 +21,10 @@ var (
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
 // rt is the pre-resolved runtime for the reviewer agent (caller resolves via agentfs.ResolveRuntime).
-func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, rt runtime.Runtime, cfg *config.Config, workDir string) error {
+func SpawnReviewer(
+	sessionName string, ctx *pr.Context, reviewerName string,
+	rt runtime.Runtime, cfg *config.Config, workDir string,
+) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}

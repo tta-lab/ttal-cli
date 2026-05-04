@@ -55,7 +55,6 @@ func TestBuildLenosCommand_ApostropheEscaping(t *testing.T) {
 	}
 }
 
-
 // --- New tests for step 2 additions ---
 
 func TestSingleQuoteShell_Empty(t *testing.T) {

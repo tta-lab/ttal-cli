@@ -21,7 +21,8 @@ var (
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
 // rt is the pre-resolved runtime for the reviewer agent (caller resolves via agentfs.ResolveRuntime).
 func SpawnPlanReviewer(
-	sessionName string, task *taskwarrior.Task, reviewerName string, rt runtime.Runtime, cfg *config.Config, workDir string,
+	sessionName string, task *taskwarrior.Task, reviewerName string,
+	rt runtime.Runtime, cfg *config.Config, workDir string,
 ) error {
 	ttalBin, err := osExecFn()
 	if err != nil {

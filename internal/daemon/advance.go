@@ -623,7 +623,6 @@ func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
 	return true
 }
 
-
 // advanceToStage routes the task to the given stage (agent or worker).
 // ensureWorkerStageOwner sets the task owner to callerAgent if the task has no owner yet.
 // Used when routing directly to a worker stage (e.g. hotfix) so the manager who
