@@ -55,16 +55,6 @@ func TestBuildLenosCommand_ApostropheEscaping(t *testing.T) {
 	}
 }
 
-func TestBuildCodexGatekeeperCommand(t *testing.T) {
-	got, err := BuildCodexGatekeeperCommand("ttal", "/tmp/task.txt")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	want := "ttal worker gatekeeper --task-file /tmp/task.txt -- codex --yolo --"
-	if got != want {
-		t.Fatalf("unexpected command\nwant: %s\n got: %s", want, got)
-	}
-}
 
 // --- New tests for step 2 additions ---
 

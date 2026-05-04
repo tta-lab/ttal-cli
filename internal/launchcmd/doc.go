@@ -6,7 +6,6 @@
 // BuildAgentLaunchCommand is the SSOT switch — chooses the command by runtime
 // (Lenos or ClaudeCode); returns an error for unsupported runtimes (Codex).
 // BuildEnvParts returns the SSOT env vars (TTAL_AGENT_NAME, TTAL_JOB_ID, TTAL_RUNTIME).
-// BuildCodexGatekeeperCommand is a legacy path for manager-plane codex only.
 //
 // Every spawned worker-plane agent receives ContextTrigger (`ttal context`) as
 // its wake-orientation — no pre-rendered prompt files.

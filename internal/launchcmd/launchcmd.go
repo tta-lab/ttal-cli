@@ -69,10 +69,3 @@ func BuildAgentLaunchCommand(rt runtime.Runtime, ttalBin, agentName string) (str
 	}
 }
 
-// BuildCodexGatekeeperCommand builds a gatekeeper-wrapped codex command
-// using the task-file pattern.
-func BuildCodexGatekeeperCommand(ttalBin, taskFile string) (string, error) {
-	return fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- codex --yolo --",
-		ttalBin, taskFile), nil
-}

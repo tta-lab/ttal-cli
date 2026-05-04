@@ -352,6 +352,11 @@ func spawnOrRetriggerReviewerFromDaemon(
 ) (error, bool) {
 	reviewerAgent := stage.Reviewer
 
+	// Resolve the reviewer's runtime from agentfs frontmatter (same pattern as worker).
+	reviewerRT := runtime.Runtime(agentfs.ResolveRuntime(
+		cfg.DefaultRuntime, cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerAgent,
+	))
+
 	if stage.IsWorker() {
 		targetSession, targetWorkDir, err := resolveWorkerReviewerTarget(task)
 		if err != nil {
@@ -369,7 +374,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 		if err != nil {
 			return fmt.Errorf("build PR context: %w", err), false
 		}
-		return review.SpawnReviewer(targetSession, ctx, reviewerAgent, cfg, targetWorkDir), false
+		return review.SpawnReviewer(targetSession, ctx, reviewerAgent, reviewerRT, cfg, targetWorkDir), false
 	}
 
 	// Plan-review: resolve the task owner's session (PR-review above derives from the task
@@ -388,7 +393,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 	}
 	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q",
 		reviewerAgent, task.UUID, targetSession)
-	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, cfg, targetWorkDir), false
+	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, reviewerRT, cfg, targetWorkDir), false
 }
 
 // buildPRContextFromTask builds a PR context from a task and working directory.

@@ -17,52 +17,23 @@ var (
 	osExecFn        = os.Executable
 )
 
-// buildPlanReviewerEnvParts constructs the environment variable list for a plan-reviewer session.
-// TTAL_JOB_ID is set from task.HexID() so the reviewer can resolve the task context.
-func buildPlanReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
-	return []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
-		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
-		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
-}
-
 // SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
+// rt is the pre-resolved runtime for the reviewer agent (caller resolves via agentfs.ResolveRuntime).
 func SpawnPlanReviewer(
-	sessionName string, task *taskwarrior.Task, reviewerName string, cfg *config.Config, workDir string,
+	sessionName string, task *taskwarrior.Task, reviewerName string, rt runtime.Runtime, cfg *config.Config, workDir string,
 ) error {
-	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
-
 	ttalBin, err := osExecFn()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	envParts := buildPlanReviewerEnvParts(task, reviewerName, reviewerRT)
-
-	var shellCmd string
-	if reviewerRT == runtime.Codex {
-		// Codex reviewers use the task-file path: their identity is injected via developerInstructions
-		// and the task file contains the full plan_review prompt with task ID expanded.
-		// Codex is dormant; this branch is preserved as legacy.
-		systemPrompt := buildPlanReviewerPrompt(cfg, task.UUID, reviewerRT)
-		if systemPrompt == "" {
-			return fmt.Errorf("plan_review prompt not configured: add [prompts] plan_review = \"...\" to config.toml")
-		}
-		promptFile, err := writePromptFile(systemPrompt)
-		if err != nil {
-			return err
-		}
-		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, promptFile)
-		if err != nil {
-			return err
-		}
-		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
-	} else {
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, launchcmd.ContextTrigger)
-		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
+	envParts := launchcmd.BuildEnvParts(task.HexID(), reviewerName, rt)
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName)
+	if err != nil {
+		return fmt.Errorf("build plan-reviewer launch command: %w", err)
 	}
+	shellCmd := cfg.BuildEnvShellCommand(envParts, launchCmd)
 
 	if err := tmuxNewWindowFn(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create plan-review window: %w", err)
@@ -78,8 +49,6 @@ func SpawnPlanReviewer(
 func RequestReReview(sessionName, reviewerName string, designerComment string, cfg *config.Config) error {
 	var commentRef string
 	if designerComment != "" {
-		// Temp file is intentionally not deleted — the reviewer reads it at their
-		// own pace and OS /tmp cleanup handles eventual removal (mirrors PR loop pattern).
 		f, err := os.CreateTemp("", "ttal-designer-comment-*.md")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to create designer comment temp file: %v\n", err)
@@ -105,26 +74,4 @@ func RequestReReview(sessionName, reviewerName string, designerComment string, c
 	)
 	msg := config.RenderTemplate(replacer.Replace(tmpl), "", runtime.Runtime(cfg.DefaultRuntime))
 	return tmux.SendKeys(sessionName, reviewerName, msg)
-}
-
-func buildPlanReviewerPrompt(cfg *config.Config, taskUUID string, rt runtime.Runtime) string {
-	tmpl := cfg.Prompt("plan_review")
-	if tmpl == "" {
-		return ""
-	}
-	replacer := strings.NewReplacer("{{task-id}}", taskUUID)
-	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
-}
-
-func writePromptFile(prompt string) (string, error) {
-	f, err := os.CreateTemp("", "plan-review-prompt-*.txt")
-	if err != nil {
-		return "", fmt.Errorf("failed to create plan review prompt file: %w", err)
-	}
-	if _, err := f.WriteString(prompt); err != nil {
-		_ = f.Close()
-		return "", fmt.Errorf("failed to write plan review prompt: %w", err)
-	}
-	_ = f.Close()
-	return f.Name(), nil
 }
