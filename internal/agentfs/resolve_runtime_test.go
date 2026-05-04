@@ -105,6 +105,18 @@ func TestResolveRuntime_InvalidRuntime(t *testing.T) {
 
 // TestResolveRuntime_SecondPathWins verifies that ordered path
 // search finds an agent in the second directory when absent from the first.
+// TestResolveRuntime_EmptyWorkerAgentPaths verifies that when workerAgentPaths
+// is empty, the function falls back to teamPath for agent discovery.
+func TestResolveRuntime_EmptyWorkerAgentPaths(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeCoderAgent(t, tmpDir, "lenos")
+
+	got := ResolveRuntime(testTeamDefaultRuntime, tmpDir, nil, "coder")
+	if got != "lenos" {
+		t.Errorf("expected %q (from teamPath fallback), got %q", "lenos", got)
+	}
+}
+
 func TestResolveRuntime_SecondPathWins(t *testing.T) {
 	dir1 := t.TempDir() // no coder agent
 	dir2 := t.TempDir()
