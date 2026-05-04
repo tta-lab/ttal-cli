@@ -10,13 +10,11 @@ import (
 // validateRuntime checks that the runtime is valid for workers and its binary is available.
 func validateRuntime(rt runtime.Runtime) error {
 	if !rt.IsWorkerRuntime() {
-		return fmt.Errorf("runtime %q cannot be used for workers (use claude-code, codex, or lenos)", rt)
+		return fmt.Errorf("runtime %q cannot be used for workers (use claude-code or lenos)", rt)
 	}
 
 	bin := "claude"
 	switch rt {
-	case runtime.Codex:
-		bin = "codex"
 	case runtime.Lenos:
 		bin = "lenos"
 	}

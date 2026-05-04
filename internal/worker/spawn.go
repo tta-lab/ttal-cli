@@ -188,32 +188,6 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 	return project, detectBranch(project), nil
 }
 
-// buildRuntimeShellCommand builds the shell command for the given runtime.
-func buildRuntimeShellCommand(
-	cfg SpawnConfig, shellCfg *config.Config, ttalBin string, _ *taskwarrior.Task,
-	agentName string, envParts []string,
-) (string, error) {
-	switch cfg.Runtime {
-	case runtime.Codex:
-		taskFile, err := writeTaskFile()
-		if err != nil {
-			return "", err
-		}
-		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, taskFile)
-		if err != nil {
-			return "", err
-		}
-		return shellCfg.BuildEnvShellCommand(envParts, codexCmd), nil
-
-	case runtime.Lenos:
-		lenosCmd := launchcmd.BuildLenosCommand(ttalBin, agentName, launchcmd.ContextTrigger)
-		return shellCfg.BuildEnvShellCommand(envParts, lenosCmd), nil
-
-	default:
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, agentName, launchcmd.ContextTrigger)
-		return shellCfg.BuildEnvShellCommand(envParts, ccCmd), nil
-	}
-}
 
 // launchTmuxWorker spawns a worker in a tmux session.
 func launchTmuxWorker(
@@ -244,12 +218,13 @@ func launchTmuxWorker(
 		}
 	}
 
-	envParts := buildEnvParts(task, cfg.Runtime, agentName, shellCfg)
+	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
 
-	shellCmd, err := buildRuntimeShellCommand(cfg, shellCfg, ttalBin, task, agentName, envParts)
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(cfg.Runtime, ttalBin, agentName)
 	if err != nil {
 		return err
 	}
+	shellCmd := shellCfg.BuildEnvShellCommand(envParts, launchCmd)
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
@@ -266,31 +241,7 @@ func launchTmuxWorker(
 	return nil
 }
 
-// buildEnvParts returns the shared env vars for any runtime.
-func buildEnvParts(task *taskwarrior.Task, rt runtime.Runtime, agentName string, _ *config.Config) []string {
-	parts := []string{
-		"TTAL_AGENT_NAME=" + agentName,
-		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
-		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
-	return parts
-}
 
-// writeTaskFile writes the unified spawn trigger to a temp file for Codex workers.
-// Codex uses the task file as its initial prompt; the trigger tells Codex to run
-// `ttal context` for its briefing.
-func writeTaskFile() (string, error) {
-	taskFile, err := os.CreateTemp("", "codex-task-*.txt")
-	if err != nil {
-		return "", fmt.Errorf("failed to create task file: %w", err)
-	}
-	if _, err := taskFile.WriteString(launchcmd.ContextTrigger); err != nil {
-		_ = taskFile.Close()
-		return "", fmt.Errorf("failed to write task file: %w", err)
-	}
-	_ = taskFile.Close()
-	return taskFile.Name(), nil
-}
 
 func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {
 	root := config.WorktreesRoot()

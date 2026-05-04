@@ -55,7 +55,7 @@ func Validate(s string) error {
 // IsWorkerRuntime returns true if the runtime can be used for workers.
 func (r Runtime) IsWorkerRuntime() bool {
 	switch r {
-	case ClaudeCode, Codex, Lenos:
+	case ClaudeCode, Lenos:
 		return true
 	default:
 		return false
