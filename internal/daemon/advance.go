@@ -352,6 +352,11 @@ func spawnOrRetriggerReviewerFromDaemon(
 ) (error, bool) {
 	reviewerAgent := stage.Reviewer
 
+	// Resolve the reviewer's runtime from agentfs frontmatter (same pattern as worker).
+	reviewerRT := runtime.Runtime(agentfs.ResolveRuntime(
+		cfg.DefaultRuntime, cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerAgent,
+	))
+
 	if stage.IsWorker() {
 		targetSession, targetWorkDir, err := resolveWorkerReviewerTarget(task)
 		if err != nil {
@@ -369,7 +374,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 		if err != nil {
 			return fmt.Errorf("build PR context: %w", err), false
 		}
-		return review.SpawnReviewer(targetSession, ctx, reviewerAgent, cfg, targetWorkDir), false
+		return review.SpawnReviewer(targetSession, ctx, reviewerAgent, reviewerRT, cfg, targetWorkDir), false
 	}
 
 	// Plan-review: resolve the task owner's session (PR-review above derives from the task
@@ -388,7 +393,7 @@ func spawnOrRetriggerReviewerFromDaemon(
 	}
 	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q",
 		reviewerAgent, task.UUID, targetSession)
-	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, cfg, targetWorkDir), false
+	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, reviewerRT, cfg, targetWorkDir), false
 }
 
 // buildPRContextFromTask builds a PR context from a task and working directory.
@@ -618,33 +623,6 @@ func isWorkerStage(stage *pipeline.Stage, agentRoles map[string]string) bool {
 	return true
 }
 
-// resolveWorkerAgentRuntime resolves the runtime for a worker stage.
-// It checks per-agent frontmatter override, then falls back to the team default.
-func resolveWorkerAgentRuntime(workerRT, teamPath string, workerAgentPaths []string, assignee string) string {
-	searchPaths := workerAgentPaths
-	if len(searchPaths) == 0 {
-		searchPaths = []string{teamPath}
-	}
-	info, err := agentfs.GetFromPaths(searchPaths, assignee)
-	if err != nil {
-		log.Printf("[advance] resolveWorkerAgentRuntime: no frontmatter for %q in %v: %v — using team default %q",
-			assignee, searchPaths, err, workerRT)
-		return workerRT
-	}
-	if info.DefaultRuntime == "" {
-		log.Printf("[advance] resolveWorkerAgentRuntime: %q has no default_runtime — using team default %q",
-			assignee, workerRT)
-		return workerRT
-	}
-	rt, err := runtime.Parse(info.DefaultRuntime)
-	if err != nil {
-		log.Printf("[advance] resolveWorkerAgentRuntime: invalid default_runtime %q for %q: %v — using team default %q",
-			info.DefaultRuntime, assignee, err, workerRT)
-		return workerRT
-	}
-	return string(rt)
-}
-
 // advanceToStage routes the task to the given stage (agent or worker).
 // ensureWorkerStageOwner sets the task owner to callerAgent if the task has no owner yet.
 // Used when routing directly to a worker stage (e.g. hotfix) so the manager who
@@ -696,7 +674,7 @@ func advanceToStage(
 			return err
 		}
 
-		resolvedRT := resolveWorkerAgentRuntime(
+		resolvedRT := agentfs.ResolveRuntime(
 			workerRuntime, teamPath, workerAgentPaths, stage.Assignee)
 
 		// Worker stage: start task and spawn.

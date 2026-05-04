@@ -1,4 +1,4 @@
-package daemon
+package agentfs
 
 import (
 	"bytes"
@@ -8,7 +8,10 @@ import (
 	"testing"
 )
 
-const testTeamDefaultRuntime = "claude-code"
+const (
+	testTeamDefaultRuntime = "claude-code"
+	testLenosRuntime       = "lenos"
+)
 
 // writeCoderAgent creates a {name}/AGENTS.md file in dir with the given default_runtime.
 // An empty defaultRuntime omits the field from frontmatter.
@@ -28,21 +31,21 @@ func writeCoderAgent(t *testing.T, dir, defaultRuntime string) {
 	}
 }
 
-// TestResolveWorkerAgentRuntime_ReadsFrontmatter verifies that a valid
+// TestResolveRuntime_ReadsFrontmatter verifies that a valid
 // default_runtime in frontmatter overrides the team default.
-func TestResolveWorkerAgentRuntime_ReadsFrontmatter(t *testing.T) {
+func TestResolveRuntime_ReadsFrontmatter(t *testing.T) {
 	tmpDir := t.TempDir()
 	writeCoderAgent(t, tmpDir, "lenos")
 
-	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
-	if got != "lenos" {
-		t.Errorf("expected %q, got %q", "lenos", got)
+	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	if got != testLenosRuntime {
+		t.Errorf("expected %q, got %q", testLenosRuntime, got)
 	}
 }
 
-// TestResolveWorkerAgentRuntime_FallbackOnMissingAgent verifies that when
+// TestResolveRuntime_FallbackOnMissingAgent verifies that when
 // no agent is found in the search paths, the team default is preserved.
-func TestResolveWorkerAgentRuntime_FallbackOnMissingAgent(t *testing.T) {
+func TestResolveRuntime_FallbackOnMissingAgent(t *testing.T) {
 	tmpDir := t.TempDir() // empty — no agent subdirs
 
 	var buf bytes.Buffer
@@ -50,7 +53,7 @@ func TestResolveWorkerAgentRuntime_FallbackOnMissingAgent(t *testing.T) {
 	log.SetOutput(&buf)
 	t.Cleanup(func() { log.SetOutput(orig) })
 
-	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
 	if got != testTeamDefaultRuntime {
 		t.Errorf("expected %q (team default), got %q", testTeamDefaultRuntime, got)
 	}
@@ -60,10 +63,10 @@ func TestResolveWorkerAgentRuntime_FallbackOnMissingAgent(t *testing.T) {
 	}
 }
 
-// TestResolveWorkerAgentRuntime_FallbackOnEmptyDefaultRuntime verifies that
+// TestResolveRuntime_FallbackOnEmptyDefaultRuntime verifies that
 // when the agent has frontmatter but no default_runtime field, the team default
 // is used and a log line is emitted.
-func TestResolveWorkerAgentRuntime_FallbackOnEmptyDefaultRuntime(t *testing.T) {
+func TestResolveRuntime_FallbackOnEmptyDefaultRuntime(t *testing.T) {
 	tmpDir := t.TempDir()
 	writeCoderAgent(t, tmpDir, "") // no default_runtime field
 
@@ -72,7 +75,7 @@ func TestResolveWorkerAgentRuntime_FallbackOnEmptyDefaultRuntime(t *testing.T) {
 	log.SetOutput(&buf)
 	t.Cleanup(func() { log.SetOutput(orig) })
 
-	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
 	if got != testTeamDefaultRuntime {
 		t.Errorf("expected %q (team default), got %q", testTeamDefaultRuntime, got)
 	}
@@ -82,9 +85,9 @@ func TestResolveWorkerAgentRuntime_FallbackOnEmptyDefaultRuntime(t *testing.T) {
 	}
 }
 
-// TestResolveWorkerAgentRuntime_InvalidRuntime verifies that an unrecognized
+// TestResolveRuntime_InvalidRuntime verifies that an unrecognized
 // default_runtime value falls back to the team default with a warning log.
-func TestResolveWorkerAgentRuntime_InvalidRuntime(t *testing.T) {
+func TestResolveRuntime_InvalidRuntime(t *testing.T) {
 	tmpDir := t.TempDir()
 	writeCoderAgent(t, tmpDir, "bogus-value")
 
@@ -93,7 +96,7 @@ func TestResolveWorkerAgentRuntime_InvalidRuntime(t *testing.T) {
 	log.SetOutput(&buf)
 	t.Cleanup(func() { log.SetOutput(orig) })
 
-	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
+	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
 	if got != testTeamDefaultRuntime {
 		t.Errorf("expected %q (team default), got %q", testTeamDefaultRuntime, got)
 	}
@@ -103,15 +106,27 @@ func TestResolveWorkerAgentRuntime_InvalidRuntime(t *testing.T) {
 	}
 }
 
-// TestResolveWorkerAgentRuntime_SecondPathWins verifies that ordered path
+// TestResolveRuntime_SecondPathWins verifies that ordered path
 // search finds an agent in the second directory when absent from the first.
-func TestResolveWorkerAgentRuntime_SecondPathWins(t *testing.T) {
+// TestResolveRuntime_EmptyWorkerAgentPaths verifies that when workerAgentPaths
+// is empty, the function falls back to teamPath for agent discovery.
+func TestResolveRuntime_EmptyWorkerAgentPaths(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeCoderAgent(t, tmpDir, "lenos")
+
+	got := ResolveRuntime(testTeamDefaultRuntime, tmpDir, nil, "coder")
+	if got != testLenosRuntime {
+		t.Errorf("expected %q (from teamPath fallback), got %q", testLenosRuntime, got)
+	}
+}
+
+func TestResolveRuntime_SecondPathWins(t *testing.T) {
 	dir1 := t.TempDir() // no coder agent
 	dir2 := t.TempDir()
 	writeCoderAgent(t, dir2, "lenos")
 
-	got := resolveWorkerAgentRuntime(testTeamDefaultRuntime, "", []string{dir1, dir2}, "coder")
-	if got != "lenos" {
-		t.Errorf("expected %q (from dir2 frontmatter), got %q", "lenos", got)
+	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{dir1, dir2}, "coder")
+	if got != testLenosRuntime {
+		t.Errorf("expected %q (from dir2 frontmatter), got %q", testLenosRuntime, got)
 	}
 }

@@ -3,6 +3,8 @@ package launchcmd
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // ContextTrigger is the wake-orientation trigger sent to every spawned or breathed
@@ -20,8 +22,7 @@ func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
 		ttalBin, agent,
 	)
 	if trigger != "" {
-		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
-		cmd += fmt.Sprintf(" -- '%s'", escaped)
+		cmd += " -- " + singleQuoteShell(trigger)
 	}
 	return cmd
 }
@@ -30,16 +31,40 @@ func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
 func BuildLenosCommand(ttalBin, agent, trigger string) string {
 	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
 	if trigger != "" {
-		escaped := strings.ReplaceAll(trigger, "'", "'\\''")
-		cmd += fmt.Sprintf(" -- '%s'", escaped)
+		cmd += " -- " + singleQuoteShell(trigger)
 	}
 	return cmd
 }
 
-// BuildCodexGatekeeperCommand builds a gatekeeper-wrapped codex command
-// using the task-file pattern.
-func BuildCodexGatekeeperCommand(ttalBin, taskFile string) (string, error) {
-	return fmt.Sprintf(
-		"%s worker gatekeeper --task-file %s -- codex --yolo --",
-		ttalBin, taskFile), nil
+// singleQuoteShell returns s wrapped in single quotes with embedded apostrophes
+// escaped as close-quote, escaped-quote, reopen-quote. Safe for use as one shell
+// argument inside a command string passed to exec via tmux/sh -c.
+// Backticks, $vars, ;, && are all literal inside single quotes.
+func singleQuoteShell(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// BuildEnvParts returns the SSOT env vars every spawned agent receives:
+// TTAL_AGENT_NAME, TTAL_JOB_ID, TTAL_RUNTIME.
+func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
+	return []string{
+		"TTAL_AGENT_NAME=" + agentName,
+		"TTAL_JOB_ID=" + taskHexID,
+		"TTAL_RUNTIME=" + string(rt),
+	}
+}
+
+// BuildAgentLaunchCommand builds the gatekeeper-wrapped shell command for
+// launching an agent at the given runtime. Returns an error for runtimes not
+// supported in the worker plane (Codex). Trigger is hardcoded to ContextTrigger —
+// every spawned worker-plane agent runs `ttal context` as its wake-orientation.
+func BuildAgentLaunchCommand(rt runtime.Runtime, ttalBin, agentName string) (string, error) {
+	switch rt {
+	case runtime.Lenos:
+		return BuildLenosCommand(ttalBin, agentName, ContextTrigger), nil
+	case runtime.ClaudeCode:
+		return BuildCCDirectCommand(ttalBin, agentName, ContextTrigger), nil
+	default:
+		return "", fmt.Errorf("runtime %q is not supported in the worker plane", rt)
+	}
 }

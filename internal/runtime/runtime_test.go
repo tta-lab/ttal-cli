@@ -42,7 +42,7 @@ func TestValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"claude-code valid", "claude-code", false},
-		{"codex valid", "codex", false},
+		{"codex not valid for workers", "codex", true},
 		{"lenos valid", "lenos", false},
 		{"alias not valid for Validate", "cc", true},
 		{"alias not valid for Validate", "cx", true},
@@ -90,8 +90,8 @@ func TestIsWorkerRuntime(t *testing.T) {
 	if got := ClaudeCode.IsWorkerRuntime(); got != true {
 		t.Errorf("ClaudeCode.IsWorkerRuntime() = %v, want true", got)
 	}
-	if got := Codex.IsWorkerRuntime(); got != true {
-		t.Errorf("Codex.IsWorkerRuntime() = %v, want true", got)
+	if got := Codex.IsWorkerRuntime(); got != false {
+		t.Errorf("Codex.IsWorkerRuntime() = %v, want false", got)
 	}
 	if got := Lenos.IsWorkerRuntime(); got != true {
 		t.Errorf("Lenos.IsWorkerRuntime() = %v, want true", got)

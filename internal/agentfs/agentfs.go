@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 const frontmatterDelimiter = "---"
@@ -307,4 +309,36 @@ func splitFrontmatter(content string) (map[string]string, string) {
 	}
 
 	return fm, content
+}
+
+// ResolveRuntime returns the runtime for an agent, reading per-agent default_runtime
+// from the agent's AGENTS.md frontmatter via GetFromPaths. Falls back to teamDefault
+// when frontmatter is missing, default_runtime is empty, or the value fails to parse.
+// Logs a warning at each fallback point so silent regressions are visible.
+//
+// Search order: workerAgentPaths in order, then teamPath as final fallback.
+// If workerAgentPaths is empty, only teamPath is searched.
+func ResolveRuntime(teamDefault, teamPath string, workerAgentPaths []string, agent string) string {
+	searchPaths := workerAgentPaths
+	if len(searchPaths) == 0 {
+		searchPaths = []string{teamPath}
+	}
+	info, err := GetFromPaths(searchPaths, agent)
+	if err != nil {
+		log.Printf("[agentfs] ResolveRuntime: no frontmatter for %q in %v: %v — using team default %q",
+			agent, searchPaths, err, teamDefault)
+		return teamDefault
+	}
+	if info.DefaultRuntime == "" {
+		log.Printf("[agentfs] ResolveRuntime: %q has no default_runtime — using team default %q",
+			agent, teamDefault)
+		return teamDefault
+	}
+	rt, err := runtime.Parse(info.DefaultRuntime)
+	if err != nil {
+		log.Printf("[agentfs] ResolveRuntime: invalid default_runtime %q for %q: %v — using team default %q",
+			info.DefaultRuntime, agent, err, teamDefault)
+		return teamDefault
+	}
+	return string(rt)
 }

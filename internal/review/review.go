@@ -11,7 +11,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
-	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 var (
@@ -19,71 +18,40 @@ var (
 	osExecFn        = os.Executable
 )
 
-// buildReviewerEnvParts constructs the environment variable list for a PR reviewer session.
-// TTAL_JOB_ID is set so the reviewer can resolve the task context via ttal pipeline prompt.
-func buildReviewerEnvParts(task *taskwarrior.Task, agentName string, rt runtime.Runtime) []string {
-	return []string{
-		fmt.Sprintf("TTAL_AGENT_NAME=%s", agentName),
-		fmt.Sprintf("TTAL_JOB_ID=%s", task.HexID()),
-		fmt.Sprintf("TTAL_RUNTIME=%s", rt),
-	}
-}
-
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
-func SpawnReviewer(sessionName string, ctx *pr.Context, reviewerName string, cfg *config.Config, workDir string) error {
+// rt is the pre-resolved runtime for the reviewer agent (caller resolves via agentfs.ResolveRuntime).
+func SpawnReviewer(
+	sessionName string, ctx *pr.Context, reviewerName string,
+	rt runtime.Runtime, cfg *config.Config, workDir string,
+) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
 	}
-
-	// Compute branch at runtime — works in both worktree and non-worktree setups.
-	gitBranch := worker.CurrentBranch(ctx.Task.UUID, ctx.Task.Project, workDir)
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)
 	if err != nil {
 		return fmt.Errorf("invalid pr_id %q: %w", ctx.Task.PRID, err)
 	}
-	prIndex := prInfo.Index
-
-	reviewerRT := runtime.Runtime(cfg.DefaultRuntime)
 
 	ttalBin, err := osExecFn()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	var shellCmd string
-
-	envParts := buildReviewerEnvParts(ctx.Task, reviewerName, reviewerRT)
-
-	if reviewerRT == runtime.Codex {
-		// Codex reviewers use the task-file path: their identity is injected via developerInstructions
-		// and the task file contains the full review prompt with PR vars expanded.
-		// Codex is dormant; this branch is preserved as legacy.
-		systemPrompt := buildReviewerPrompt(cfg, ctx, prIndex, reviewerRT, gitBranch)
-		if systemPrompt == "" {
-			return fmt.Errorf("review prompt not configured: add [prompts] review = \"...\" to config.toml")
-		}
-		promptFile, err := writePromptFile(systemPrompt)
-		if err != nil {
-			return err
-		}
-		codexCmd, err := launchcmd.BuildCodexGatekeeperCommand(ttalBin, promptFile)
-		if err != nil {
-			return err
-		}
-		shellCmd = cfg.BuildEnvShellCommand(envParts, codexCmd)
-	} else {
-		ccCmd := launchcmd.BuildCCDirectCommand(ttalBin, reviewerName, launchcmd.ContextTrigger)
-		shellCmd = cfg.BuildEnvShellCommand(envParts, ccCmd)
+	envParts := launchcmd.BuildEnvParts(ctx.Task.HexID(), reviewerName, rt)
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName)
+	if err != nil {
+		return fmt.Errorf("build reviewer launch command: %w", err)
 	}
+	shellCmd := cfg.BuildEnvShellCommand(envParts, launchCmd)
 
 	if err := tmuxNewWindowFn(sessionName, reviewerName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create reviewer window: %w", err)
 	}
 
 	fmt.Printf("Reviewer spawned in '%s' window\n", reviewerName)
-	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prIndex, ctx.Owner, ctx.Repo)
+	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prInfo.Index, ctx.Owner, ctx.Repo)
 	return nil
 }
 
@@ -127,31 +95,6 @@ func RequestReReview(sessionName, reviewerName string, full bool, coderComment s
 
 	fmt.Println("Sending re-review request to existing reviewer window...")
 	return tmux.SendKeys(sessionName, reviewerName, msg)
-}
-
-func buildReviewerPrompt(cfg *config.Config, ctx *pr.Context, prIndex int64, rt runtime.Runtime, branch string) string {
-	tmpl := cfg.Prompt("review")
-	replacer := strings.NewReplacer(
-		"{{pr-number}}", fmt.Sprintf("%d", prIndex),
-		"{{pr-title}}", ctx.Task.Description,
-		"{{owner}}", ctx.Owner,
-		"{{repo}}", ctx.Repo,
-		"{{branch}}", branch,
-	)
-	return config.RenderTemplate(replacer.Replace(tmpl), "", rt)
-}
-
-func writePromptFile(prompt string) (string, error) {
-	f, err := os.CreateTemp("", "review-prompt-*.txt")
-	if err != nil {
-		return "", fmt.Errorf("failed to create review prompt file: %w", err)
-	}
-	if _, err := f.WriteString(prompt); err != nil {
-		_ = f.Close()
-		return "", fmt.Errorf("failed to write review prompt: %w", err)
-	}
-	_ = f.Close()
-	return f.Name(), nil
 }
 
 // ResolveSessionName returns the name of the current tmux session.

@@ -10,7 +10,7 @@ type Runtime string
 
 const (
 	ClaudeCode Runtime = "claude-code"
-	Codex      Runtime = "codex"
+	Codex      Runtime = "codex" // Codex is retained for config backward compat; NOT supported in the worker plane.
 	Lenos      Runtime = "lenos"
 )
 
@@ -27,6 +27,11 @@ func Values() []string {
 		out[i] = string(r)
 	}
 	return out
+}
+
+// String returns the runtime string representation.
+func (r Runtime) String() string {
+	return string(r)
 }
 
 // Parse converts a string to a Runtime, defaulting to ClaudeCode.
@@ -55,7 +60,7 @@ func Validate(s string) error {
 // IsWorkerRuntime returns true if the runtime can be used for workers.
 func (r Runtime) IsWorkerRuntime() bool {
 	switch r {
-	case ClaudeCode, Codex, Lenos:
+	case ClaudeCode, Lenos:
 		return true
 	default:
 		return false
