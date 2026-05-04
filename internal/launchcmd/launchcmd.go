@@ -37,8 +37,8 @@ func BuildLenosCommand(ttalBin, agent, trigger string) string {
 }
 
 // singleQuoteShell returns s wrapped in single quotes with embedded apostrophes
-// escaped as '\'' (close quote, escaped quote, reopen quote). Result is safe for
-// use as one shell argument inside a command string passed to exec via tmux/sh -c.
+// escaped as close-quote, escaped-quote, reopen-quote. Safe for use as one shell
+// argument inside a command string passed to exec via tmux/sh -c.
 // Backticks, $vars, ;, && are all literal inside single quotes.
 func singleQuoteShell(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"

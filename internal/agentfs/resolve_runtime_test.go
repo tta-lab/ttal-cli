@@ -8,7 +8,10 @@ import (
 	"testing"
 )
 
-const testTeamDefaultRuntime = "claude-code"
+const (
+	testTeamDefaultRuntime = "claude-code"
+	testLenosRuntime       = "lenos"
+)
 
 // writeCoderAgent creates a {name}/AGENTS.md file in dir with the given default_runtime.
 // An empty defaultRuntime omits the field from frontmatter.
@@ -35,8 +38,8 @@ func TestResolveRuntime_ReadsFrontmatter(t *testing.T) {
 	writeCoderAgent(t, tmpDir, "lenos")
 
 	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{tmpDir}, "coder")
-	if got != "lenos" {
-		t.Errorf("expected %q, got %q", "lenos", got)
+	if got != testLenosRuntime {
+		t.Errorf("expected %q, got %q", testLenosRuntime, got)
 	}
 }
 
@@ -112,8 +115,8 @@ func TestResolveRuntime_EmptyWorkerAgentPaths(t *testing.T) {
 	writeCoderAgent(t, tmpDir, "lenos")
 
 	got := ResolveRuntime(testTeamDefaultRuntime, tmpDir, nil, "coder")
-	if got != "lenos" {
-		t.Errorf("expected %q (from teamPath fallback), got %q", "lenos", got)
+	if got != testLenosRuntime {
+		t.Errorf("expected %q (from teamPath fallback), got %q", testLenosRuntime, got)
 	}
 }
 
@@ -123,7 +126,7 @@ func TestResolveRuntime_SecondPathWins(t *testing.T) {
 	writeCoderAgent(t, dir2, "lenos")
 
 	got := ResolveRuntime(testTeamDefaultRuntime, "", []string{dir1, dir2}, "coder")
-	if got != "lenos" {
-		t.Errorf("expected %q (from dir2 frontmatter), got %q", "lenos", got)
+	if got != testLenosRuntime {
+		t.Errorf("expected %q (from dir2 frontmatter), got %q", testLenosRuntime, got)
 	}
 }
