@@ -58,7 +58,6 @@ type SendRequest struct {
 	UserInitiated bool   `json:"user_initiated,omitempty"`
 }
 
-
 // TaskCompleteRequest notifies the daemon that a task has been marked done.
 // Wire format: {"type":"taskComplete","task_uuid":"...","team":"default",...}
 type TaskCompleteRequest struct {

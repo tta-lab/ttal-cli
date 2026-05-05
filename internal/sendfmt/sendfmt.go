@@ -11,10 +11,10 @@ var nowFn = time.Now
 
 // Envelope describes a delivery message before rendering.
 type Envelope struct {
-	Channel    string // "agent" | "telegram" | "matrix" | "" (no header)
-	SenderName string // displayed after "from:"; required when Channel != ""
-	Body       string // user-supplied content
-	ReplyAlias string // shown in reply hint; "" -> no reply hint
+	Channel    string    // "agent" | "telegram" | "matrix" | "" (no header)
+	SenderName string    // displayed after "from:"; required when Channel != ""
+	Body       string    // user-supplied content
+	ReplyAlias string    // shown in reply hint; "" -> no reply hint
 	Now        time.Time // timestamp source; zero value -> nowFn()
 }
 

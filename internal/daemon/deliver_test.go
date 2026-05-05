@@ -30,7 +30,6 @@ func TestReplyHint_HintIsItalic(t *testing.T) {
 	}
 }
 
-
 // TestFormatAgentMessage_NewSingleLineFormat pins the post-refactor layout —
 // header and timestamp on one line, then body, then reply hint. Catches future
 // reverts to the old two-line "[agent from:X]\n<body>" shape.
