@@ -1,5 +1,6 @@
 #:schema https://ttal.guion.io/schema/config.schema.json
 
+# shell for ttal open term — any path or bare name (e.g. zsh, fish, /bin/bash)
 shell = "fish"
 
 [flicknote]

@@ -717,7 +717,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 		}
 	}
 	agentEnv := buildManagerAgentEnv(req.Agent, cfg)
-	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, shellCfg.GetShell(), ""); err != nil {
+	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, ""); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 	log.Printf("[breathe] %s: fresh breath taken (restart, session: %s)", req.Agent, plan.newSessionName)

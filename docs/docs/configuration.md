@@ -28,7 +28,7 @@ Skills are configured per-stage in `pipelines.toml`, not per-role in `roles.toml
 ## Basic structure
 
 ```toml
-shell = "zsh"           # Shell used in tmux sessions (zsh or fish)
+shell = "zsh"           # Shell used by ttal open term (any shell binary; falls back to $SHELL > /bin/sh when unset)
 default_team = "default"
 
 [teams.default]
@@ -62,7 +62,7 @@ Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/t
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `shell` | string | Shell for tmux sessions: `zsh` or `fish` |
+| `shell` | string | Default shell for `ttal open term` (falls back to $SHELL, then /bin/sh) |
 
 ## Team fields
 

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,40 +26,18 @@ func TestAgentSessionName(t *testing.T) {
 	}
 }
 
-func TestGetShell(t *testing.T) {
+func TestShellField(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *Config
 		want string
 	}{
-		{"empty config defaults to zsh", &Config{}, "zsh"},
-		{"fish override", &Config{Shell: "fish"}, "fish"},
-		{"zsh explicit", &Config{Shell: "zsh"}, "zsh"},
+		{"empty config empty shell", &Config{}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.GetShell(); got != tt.want {
-				t.Errorf("GetShell() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestShellCommand(t *testing.T) {
-	tests := []struct {
-		name    string
-		cfg     *Config
-		cmd     string
-		wantCmd string
-	}{
-		{"zsh default", &Config{}, "echo hello", "zsh -c 'echo hello'"},
-		{"fish shell", &Config{Shell: "fish"}, "echo hello", "fish -C 'echo hello'"},
-		{"zsh explicit", &Config{Shell: "zsh"}, "echo hello", "zsh -c 'echo hello'"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.cfg.ShellCommand(tt.cmd); got != tt.wantCmd {
-				t.Errorf("ShellCommand() = %q, want %q", got, tt.wantCmd)
+			if got := tt.cfg.Shell; got != tt.want {
+				t.Errorf("Config.Shell = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -262,5 +241,44 @@ merge_mode = "invalid"
 	_, err := Load()
 	if err == nil {
 		t.Error("Load() = nil, want error for invalid merge_mode")
+	}
+}
+
+func TestBuildEnvShellCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *Config
+		envParts []string
+		cmd      string
+		want     string
+	}{
+		{"no env, simple command", &Config{}, nil, "echo hi", "echo hi"},
+		{"with env prefix", &Config{}, []string{"A=1"}, "echo hi", "env A=1 echo hi"},
+		{"trigger with inner quotes", &Config{}, nil,
+			"lenos -- 'Run `ttal context` for your briefing'",
+			"lenos -- 'Run `ttal context` for your briefing'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.cfg.BuildEnvShellCommand(tt.envParts, tt.cmd)
+			if got != tt.want {
+				t.Errorf("BuildEnvShellCommand() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildEnvShellCommand_NestedSingleQuotes_RoundTrip(t *testing.T) {
+	cfg := &Config{}
+	trigger := "Run `ttal context` for your briefing, then act on the role prompt."
+	inner := "/bin/echo '" + trigger + "'"
+	wrapped := cfg.BuildEnvShellCommand([]string{"FOO=bar"}, inner)
+	out, err := exec.Command("/bin/sh", "-c", wrapped).Output()
+	if err != nil {
+		t.Fatalf("exec failed: %v\nstdout: %s", err, out)
+	}
+	got := strings.TrimSpace(string(out))
+	if got != trigger {
+		t.Errorf("trigger corrupted in nested-single-quote round-trip:\n  want: %q\n  got:  %q", trigger, got)
 	}
 }

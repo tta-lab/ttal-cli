@@ -61,13 +61,12 @@ func initSingleAdapter(
 			return
 		}
 		agentEnv := buildManagerAgentEnv(ta.AgentName, cfg)
-		shell := cfg.GetShell()
 		ensureProjectDir(agentPath)
 		// Resume from last session if available.
 		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
 		if err := spawnCCSession(
 			sessionName, ta.AgentName, agentPath,
-			agentEnv, shell, resumeSessionID,
+			agentEnv, resumeSessionID,
 		); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
@@ -297,26 +296,21 @@ func ensureProjectDir(agentPath string) {
 // When resumeSessionID is empty, starts a fresh session (breathe restart path).
 func spawnCCSession(
 	sessionName, agentName, agentPath string,
-	env []string, shell, resumeSessionID string,
+	env []string, resumeSessionID string,
 ) error {
 	cmd := "claude --dangerously-skip-permissions --agent " + agentName
 	if resumeSessionID != "" {
 		cmd += " --resume " + resumeSessionID
 	}
 
-	envStr := ""
+	var fullCmd string
 	if len(env) > 0 {
-		envStr = fmt.Sprintf("env %s ", strings.Join(env, " "))
-	}
-	var shellCmd string
-	switch shell {
-	case "fish":
-		shellCmd = fmt.Sprintf("%sfish -C '%s'", envStr, cmd)
-	default:
-		shellCmd = fmt.Sprintf("%szsh -c '%s'", envStr, cmd)
+		fullCmd = fmt.Sprintf("env %s %s", strings.Join(env, " "), cmd)
+	} else {
+		fullCmd = cmd
 	}
 
-	if err := tmux.NewSession(sessionName, agentName, agentPath, shellCmd); err != nil {
+	if err := tmux.NewSession(sessionName, agentName, agentPath, fullCmd); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 	for _, e := range env {

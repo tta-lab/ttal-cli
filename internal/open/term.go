@@ -5,6 +5,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -48,6 +49,16 @@ func Term(uuid string) error {
 }
 
 func resolveShell() string {
+	cfg, err := config.Load()
+	return resolveShellWithConfig(cfg, err)
+}
+
+// resolveShellWithConfig returns the shell to use based on priority:
+// 1. Config.Shell (if set), 2. $SHELL env var, 3. /bin/sh fallback.
+func resolveShellWithConfig(cfg *config.Config, loadErr error) string {
+	if loadErr == nil && cfg != nil && cfg.Shell != "" {
+		return cfg.Shell
+	}
 	if s := os.Getenv("SHELL"); s != "" {
 		return s
 	}
