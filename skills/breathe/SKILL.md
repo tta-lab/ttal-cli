@@ -6,10 +6,9 @@ claude-code:
   allowed-tools:
     - Bash
 ---
-
 # Breathe — Session Handoff
 
-When your context window is getting heavy, use this to write a handoff prompt and restart your session with a clean context window. You keep all important state — just shed the conversation weight.
+When your context window is getting heavy, use this to write a handoff to your diary and restart your session with a clean context window. You keep all important state — just shed the conversation weight.
 
 **Announce at start:** "Taking a breath — writing handoff for session restart."
 
@@ -21,14 +20,14 @@ When your context window is getting heavy, use this to write a handoff prompt an
 
 ## Steps
 
-1. **Write the handoff** as a markdown string (see format below)
-2. **Call `ttal breathe`** with the handoff via stdin
-3. **Stop** — the daemon will kill this session and restart you with the handoff
+1. **Write the handoff to your diary** via heredoc into `diary <agent> append`
+2. **Call `ttal breathe`** (no arguments)
+3. **Stop** — the daemon will kill this session and restart you with a fresh context window
 
 ## How to Call
 
 ```bash
-cat <<'HANDOFF_EOF' | ttal breathe
+cat <<'HANDOFF_EOF' | diary $TTAL_AGENT_NAME append
 # Session Handoff
 
 ## Active Task
@@ -49,6 +48,8 @@ cat <<'HANDOFF_EOF' | ttal breathe
 ## Important Context
 [non-obvious things that would be lost — gotchas, workarounds]
 HANDOFF_EOF
+
+ttal breathe
 ```
 
 ## Quality Checklist
@@ -72,16 +73,15 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 
 ### Manager path
 
-1. The daemon receives your handoff
-2. Daemon persists your handoff to diary
-3. Status file session ID is cleared
-4. Your session is killed
-5. A new session starts fresh (same runtime, no resume)
-6. Your spawn trigger says to run `ttal context` for your briefing
-7. `ttal context` picks the manager template, renders it (diary read, agent list, project list, pairing, role prompt, task), and prints the bundle
-8. You wake up in a fresh context window
+1. The daemon receives your `ttal breathe` request
+2. Status file session ID is cleared
+3. Your session is killed
+4. A new session starts fresh (same runtime, no resume)
+5. Your spawn trigger says to run `ttal context` for your briefing
+6. `ttal context` picks the manager template, renders it (diary read, agent list, project list, pairing, role prompt, task), and prints the bundle
+7. You wake up in a fresh context window
 
-Your handoff is saved in diary — it persists across sessions.
+Your handoff is in your diary — you wrote it there in step 1, and `ttal context` reads diary as part of the wake bundle.
 
 ### Worker and reviewer path
 
