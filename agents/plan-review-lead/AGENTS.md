@@ -72,16 +72,11 @@ ei agent run --async plan-security-reviewer "Review plan at flicknote/<id> for p
 ei agent run --async plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
 ```
 
-Each call returns immediately with `"Queued."` — jobs run in the background. When each job finishes, a notification is injected into your terminal:
-```
-# ✅ plan-gap-finder finished. Read result: cat <full_path_provided_in_notification>
-```
+Each call returns `"Queued."`. **End your turn after dispatching all calls.** You'll be notified when each subagent completes — read the result file from each notification, then continue to Phase 3.
 
-**Wait for ALL notifications to arrive, then read each output file using the full path shown in the notification.** Do NOT post any verdict, summary, or `ttal comment add` until every dispatched subagent has finished and you've read its output.
+### Phase 3: Synthesize & Aggregate (after all subagents complete)
 
-### Phase 3: Synthesize & Aggregate (after all agents complete)
-
-**Only begin aggregation after ALL Phase 2 subagent calls have completed. If any call is still running, wait.**
+Begin aggregation only after every dispatched subagent has reported completion and you've read each output.
 
 **Engineering calibration** — classify the plan as one of:
 - **Over-engineered** — too many abstractions, premature generalization
