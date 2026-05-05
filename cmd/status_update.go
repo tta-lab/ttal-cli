@@ -10,6 +10,9 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
+// statusUpdater is the daemon hop. Tests swap it via captureStatusUpdater.
+var statusUpdater = daemon.StatusUpdate
+
 // postStepEnvelope is the lenos hook's stdin contract (v1).
 // Schema is locked by lenos (orientation flicknote 518a51ac); this consumer
 // cherry-picks the schema-mapped subset. Unknown / forward-compat fields are
@@ -65,7 +68,7 @@ func statusUpdateFromReader(r io.Reader, agent string) error {
 		return fmt.Errorf("ttal status update: unsupported envelope version %d (want 1)", env.Version)
 	}
 
-	return daemon.StatusUpdate(daemon.StatusUpdateRequest{
+	return statusUpdater(daemon.StatusUpdateRequest{
 		Type:                "statusUpdate",
 		Agent:               agent,
 		ContextUsedPct:      env.ContextUsedPct,

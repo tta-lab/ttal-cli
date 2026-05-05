@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
-	"net"
-	"net/http"
+	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/daemon"
@@ -29,39 +26,18 @@ const validEnvelope = `{
   "timestamp": "2026-05-05T08:08:00Z"
 }`
 
-// startFakeDaemon mounts a /status/update handler on a TCP loopback socket.
-// TCP is used because the CC sandbox blocks unix socket creation
-// ("bind: operation not permitted").
-func startFakeDaemon(t *testing.T) (*sync.Mutex, *daemon.StatusUpdateRequest) {
+// captureStatusUpdater swaps the package-level statusUpdater for a capture
+// mock; returns a pointer the test asserts against. Restored via t.Cleanup.
+func captureStatusUpdater(t *testing.T) *daemon.StatusUpdateRequest {
 	t.Helper()
-	mu := &sync.Mutex{}
 	captured := &daemon.StatusUpdateRequest{}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/status/update", func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		defer mu.Unlock()
-		if err := json.NewDecoder(r.Body).Decode(captured); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(daemon.SendResponse{OK: true})
-	})
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen tcp: %v", err)
+	orig := statusUpdater
+	statusUpdater = func(req daemon.StatusUpdateRequest) error {
+		*captured = req
+		return nil
 	}
-
-	addr := ln.Addr().String()
-	t.Setenv("TTAL_TEST_DAEMON_URL", "http://"+addr)
-
-	srv := &http.Server{Handler: mux}
-	go func() { _ = srv.Serve(ln) }()
-	t.Cleanup(func() { _ = srv.Close() })
-
-	return mu, captured
+	t.Cleanup(func() { statusUpdater = orig })
+	return captured
 }
 
 func TestStatusUpdate_MissingAgent(t *testing.T) {
@@ -106,7 +82,7 @@ func TestStatusUpdate_VersionMismatch(t *testing.T) {
 }
 
 func TestStatusUpdate_DaemonNotRunning(t *testing.T) {
-	t.Setenv("TTAL_SOCKET_PATH", "/nonexistent/ttal-test.sock")
+	t.Setenv("TTAL_SOCKET_PATH", filepath.Join(t.TempDir(), "n.sock"))
 
 	err := statusUpdateFromReader(strings.NewReader(validEnvelope), "mira")
 	if err == nil {
@@ -118,14 +94,12 @@ func TestStatusUpdate_DaemonNotRunning(t *testing.T) {
 }
 
 func TestStatusUpdate_HappyPath(t *testing.T) {
-	mu, captured := startFakeDaemon(t)
+	captured := captureStatusUpdater(t)
 
 	if err := statusUpdateFromReader(strings.NewReader(validEnvelope), "mira"); err != nil {
 		t.Fatalf("happy path error: %v", err)
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
 	want := daemon.StatusUpdateRequest{
 		Type:                "statusUpdate",
 		Agent:               "mira",
@@ -140,14 +114,12 @@ func TestStatusUpdate_HappyPath(t *testing.T) {
 }
 
 func TestStatusUpdate_MinimalEnvelope(t *testing.T) {
-	mu, captured := startFakeDaemon(t)
+	captured := captureStatusUpdater(t)
 
 	if err := statusUpdateFromReader(strings.NewReader(`{"version": 1}`), "mira"); err != nil {
 		t.Fatalf("minimal envelope error: %v", err)
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
 	want := daemon.StatusUpdateRequest{
 		Type:                "statusUpdate",
 		Agent:               "mira",
@@ -162,7 +134,7 @@ func TestStatusUpdate_MinimalEnvelope(t *testing.T) {
 }
 
 func TestStatusUpdate_ForwardCompatFields(t *testing.T) {
-	t.Setenv("TTAL_SOCKET_PATH", "/nonexistent/ttal-fwd.sock")
+	t.Setenv("TTAL_SOCKET_PATH", filepath.Join(t.TempDir(), "n.sock"))
 
 	payload := `{"version": 1, "session_id": "s", "model_id": "m", "context_used_pct": 1.0, "context_remaining_pct": 99.0,
 "weird_new_field": 42}`
