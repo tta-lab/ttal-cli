@@ -5,14 +5,14 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // readStdinIfPiped reads from stdin if it is a pipe, otherwise returns an empty string.
 // This prevents io.ReadAll from blocking on a tty waiting for Ctrl-D.
-// Any Stat() error is treated as "not piped" — conservative to avoid hangs.
 func readStdinIfPiped() (string, error) {
-	info, err := os.Stdin.Stat()
-	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
 		return "", nil
 	}
 	data, err := io.ReadAll(os.Stdin)

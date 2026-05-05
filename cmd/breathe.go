@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -41,11 +40,7 @@ func runBreathe(_ *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		handoff = strings.Join(args, " ")
 	} else {
-		data, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("read stdin: %w", err)
-		}
-		handoff = strings.TrimSpace(string(data))
+		handoff, _ = readStdinIfPiped()
 	}
 
 	if handoff == "" {
