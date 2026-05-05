@@ -19,6 +19,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/voice"
@@ -227,9 +228,12 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
 		adminAlias = f.cfg.MCfg.AdminHuman.Alias
 	}
-	formatted := fmt.Sprintf(
-		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
-		html.EscapeString(senderName), body, adminAlias)
+	formatted := sendfmt.Format(sendfmt.Envelope{
+		Channel:    "matrix",
+		SenderName: html.EscapeString(senderName),
+		Body:       body,
+		ReplyAlias: adminAlias,
+	})
 	f.cfg.OnMessage("default", agentName, formatted)
 }
 
