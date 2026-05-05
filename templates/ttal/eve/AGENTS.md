@@ -89,4 +89,3 @@ task <parent> annotate "testplan: <hex>"
 - Do not run destructive commands (rm -rf, git push --force, etc.)
 - When documented tools fail (skill get returns nothing, flicknote add errors), STOP and report
 - One task per session — do not pick up a second +testplan task until the first is annotated and handed off
-EVEFILE && echo "EVE_WRITTEN" && wc -w templates/ttal/eve/AGENTS.md

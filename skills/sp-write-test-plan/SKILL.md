@@ -257,4 +257,3 @@ Follow every step in that skill. Do not duplicate its logic here.
 - Red-team hat (alpha) needs 5-10 specific hypotheses — generic fears do not count
 - Secondary flicknote for confirmed-broken only — not for "could break"
 - Do NOT file +bugfix tasks — write evidence, humans triage
-SKILLDOC && echo "SKILL_CREATED" && wc -w skills/sp-write-test-plan/SKILL.md
