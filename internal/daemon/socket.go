@@ -967,12 +967,16 @@ func listenHTTP(sockPath string, handlers httpHandlers) (*http.Server, error) {
 
 // daemonBaseURL is the HTTP base URL for the daemon server.
 // The host is ignored — connections go via unix socket.
-const daemonBaseURL = "http://daemon"
+var daemonBaseURL = "http://daemon"
 
 // daemonHTTPClient returns an http.Client configured to connect via unix socket.
 // Note: SocketPath() wraps config.SocketPath() which always succeeds (returns
 // a default path on error), so the error discard is safe.
 func daemonHTTPClient() *http.Client {
+	// Test override: TTAL_TEST_DAEMON_URL routes to a TCP endpoint instead of unix.
+	if u := os.Getenv("TTAL_TEST_DAEMON_URL"); u != "" {
+		return &http.Client{Timeout: socketTimeout}
+	}
 	sockPath, _ := SocketPath()
 	return &http.Client{
 		Timeout: socketTimeout,
@@ -983,6 +987,7 @@ func daemonHTTPClient() *http.Client {
 		},
 	}
 }
+
 
 // daemonHTTPClientLong returns an http.Client with a custom timeout for long-blocking
 // requests (e.g. /ask/human which waits up to 5 minutes for a human reply).
@@ -1031,8 +1036,12 @@ func StatusUpdate(req StatusUpdateRequest) error {
 	if err != nil {
 		return fmt.Errorf("marshal status update request: %w", err)
 	}
+	baseURL := daemonBaseURL
+	if u := os.Getenv("TTAL_TEST_DAEMON_URL"); u != "" {
+		baseURL = u
+	}
 	client := daemonHTTPClient()
-	resp, err := client.Post(daemonBaseURL+"/status/update", "application/json", bytes.NewReader(body))
+	resp, err := client.Post(baseURL+"/status/update", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("daemon not running: %w", err)
 	}
