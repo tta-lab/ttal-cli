@@ -1,12 +1,14 @@
 package daemon
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 )
 
 const testChatID = "12345"
@@ -378,5 +380,34 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	want := filepath.Join(tmp, agent)
 	if cwd != want {
 		t.Errorf("cwd = %q, want %q", cwd, want)
+	}
+}
+
+// recordingAdapter captures SendMessage calls for testing.
+type recordingAdapter struct {
+	*stubAdapter
+	sentMessages []string
+}
+
+func (r *recordingAdapter) SendMessage(_ context.Context, text string) error {
+	r.sentMessages = append(r.sentMessages, text)
+	return nil
+}
+
+func TestHandleCodexBreathe_FirstTurnIsContextTrigger(t *testing.T) {
+	rec := &recordingAdapter{stubAdapter: &stubAdapter{}}
+	registry := newAdapterRegistry()
+	registry.set("default", "codex-test-agent", rec)
+
+	resp := handleCodexBreathe(BreatheRequest{Agent: "codex-test-agent"}, registry)
+
+	if !resp.OK {
+		t.Fatalf("expected OK=true, got error: %s", resp.Error)
+	}
+	if len(rec.sentMessages) != 1 {
+		t.Fatalf("expected 1 SendMessage call, got %d", len(rec.sentMessages))
+	}
+	if rec.sentMessages[0] != launchcmd.ContextTrigger {
+		t.Errorf("expected first turn = ContextTrigger (%q), got %q", launchcmd.ContextTrigger, rec.sentMessages[0])
 	}
 }
