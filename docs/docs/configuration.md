@@ -28,7 +28,7 @@ Skills are configured per-stage in `pipelines.toml`, not per-role in `roles.toml
 ## Basic structure
 
 ```toml
-shell = "zsh"           # Default shell for ttal open term (zsh, fish, or any /opt/homebrew/bin/fish)
+shell = "zsh"           # Shell used by ttal open term (any shell binary; falls back to $SHELL > /bin/sh when unset)
 default_team = "default"
 
 [teams.default]

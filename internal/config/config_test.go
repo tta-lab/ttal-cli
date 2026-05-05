@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -264,5 +265,20 @@ func TestBuildEnvShellCommand(t *testing.T) {
 				t.Errorf("BuildEnvShellCommand() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildEnvShellCommand_NestedSingleQuotes_RoundTrip(t *testing.T) {
+	cfg := &Config{}
+	trigger := "Run `ttal context` for your briefing, then act on the role prompt."
+	inner := "/bin/echo '" + trigger + "'"
+	wrapped := cfg.BuildEnvShellCommand([]string{"FOO=bar"}, inner)
+	out, err := exec.Command("/bin/sh", "-c", wrapped).Output()
+	if err != nil {
+		t.Fatalf("exec failed: %v\nstdout: %s", err, out)
+	}
+	got := strings.TrimSpace(string(out))
+	if got != trigger {
+		t.Errorf("trigger corrupted in nested-single-quote round-trip:\n  want: %q\n  got:  %q", trigger, got)
 	}
 }

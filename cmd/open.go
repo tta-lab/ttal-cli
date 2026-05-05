@@ -75,7 +75,7 @@ var openTermCmd = &cobra.Command{
 Detects worktree from branch UDA. Falls back to the project root
 if no worktree is found.
 
-Shell priority: SHELL > /bin/sh
+Shell priority: ~/.config/ttal/config.toml shell > $SHELL > /bin/sh
 
 Example:
   ttal open term 12345678-1234-1234-1234-123456789abc`,
