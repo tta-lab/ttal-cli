@@ -75,8 +75,8 @@ Target: **50-200 lines** — enough to be useful, short enough to leave room for
 1. The daemon receives your handoff
 2. Daemon persists your handoff to diary
 3. Status file session ID is cleared
-4. Your CC session is killed
-5. A new CC session starts fresh (no `--resume`)
+4. Your session is killed
+5. A new session starts fresh (same runtime, no resume)
 6. Your spawn trigger says to run `ttal context` for your briefing
 7. `ttal context` picks the manager template, renders it (diary read, agent list, project list, pairing, role prompt, task), and prints the bundle
 8. You wake up in a fresh context window

@@ -16,11 +16,15 @@ import (
 const ContextTrigger = "Run `ttal context` for your briefing, then act on the role prompt."
 
 // BuildCCDirectCommand builds a gatekeeper-wrapped direct claude command using --agent.
-func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
+// resumeSessionID, if non-empty, appends --resume <id> before the trigger separator.
+func BuildCCDirectCommand(ttalBin, agent, trigger, resumeSessionID string) string {
 	cmd := fmt.Sprintf(
 		"%s worker gatekeeper -- claude --dangerously-skip-permissions --agent %s",
 		ttalBin, agent,
 	)
+	if resumeSessionID != "" {
+		cmd += " --resume " + resumeSessionID
+	}
 	if trigger != "" {
 		cmd += " -- " + singleQuoteShell(trigger)
 	}
@@ -30,10 +34,14 @@ func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
 // BuildLenosCommand builds a lenos launch command via the worker gatekeeper.
 // When readOnly is true, appends --readonly to enforce read-only filesystem
 // access via the temenos sandbox.
-func BuildLenosCommand(ttalBin, agent, trigger string, readOnly bool) string {
+// resumeSessionID, if non-empty, appends --session <id> before the trigger separator.
+func BuildLenosCommand(ttalBin, agent, trigger string, readOnly bool, resumeSessionID string) string {
 	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
 	if readOnly {
 		cmd += " --readonly"
+	}
+	if resumeSessionID != "" {
+		cmd += " --session " + resumeSessionID
 	}
 	if trigger != "" {
 		cmd += " -- " + singleQuoteShell(trigger)
@@ -66,12 +74,16 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 //
 // readOnly is forwarded to lenos via --readonly when rt is Lenos; ignored for
 // other runtimes (Claude Code has no equivalent sandbox-enforced flag).
-func BuildAgentLaunchCommand(rt runtime.Runtime, ttalBin, agentName string, readOnly bool) (string, error) {
+// resumeSessionID, if non-empty, is forwarded as --resume (CC) or --session (Lenos).
+func BuildAgentLaunchCommand(
+	rt runtime.Runtime, ttalBin, agentName string,
+	readOnly bool, trigger, resumeSessionID string,
+) (string, error) {
 	switch rt {
 	case runtime.Lenos:
-		return BuildLenosCommand(ttalBin, agentName, ContextTrigger, readOnly), nil
+		return BuildLenosCommand(ttalBin, agentName, trigger, readOnly, resumeSessionID), nil
 	case runtime.ClaudeCode:
-		return BuildCCDirectCommand(ttalBin, agentName, ContextTrigger), nil
+		return BuildCCDirectCommand(ttalBin, agentName, trigger, resumeSessionID), nil
 	default:
 		return "", fmt.Errorf("runtime %q is not supported in the worker plane", rt)
 	}

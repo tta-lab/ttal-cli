@@ -122,26 +122,6 @@ func resolveHumanAliases(humansPath string) []string {
 	return aliases
 }
 
-// clearSettleDelay is the time to wait after sending /clear before sending
-// the start trigger prompt. Allows CC's /clear to complete before the
-// `Run ttal context` trigger lands. The agent runs ttal context themselves
-// to get diary, agents, projects, pairing, role, and task.
-const clearSettleDelay = 500 * time.Millisecond
-
-var breatheStartTriggerFallback = launchcmd.ContextTrigger
-
-// buildBreatheStartTrigger returns the wake-orientation trigger for the given agent.
-// All wake paths emit the same trigger — ttal context is the single source of
-// truth for wake orientation and renders diary, agents, projects, pairing, role,
-// and task itself. Per-role skill inlining happens inside ttal pipeline prompt,
-// which ttal context shells out to.
-func buildBreatheStartTrigger(agentName string) string {
-	if agentName == "" {
-		log.Printf("[breathe] start trigger: empty agent name, using fallback")
-	}
-	return breatheStartTriggerFallback
-}
-
 // persistMsg persists a message and logs a warning if it fails.
 // msgSvc may be nil in tests — the call is a no-op in that case.
 func persistMsg(msgSvc *message.Service, p message.CreateParams) {
@@ -497,13 +477,13 @@ var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
 // Package-level var for test injection.
 var windowExistsFn = tmux.WindowExists
 
-// tmuxSendKeysFn sends keys to a tmux session window.
-// Package-level var for test injection.
-var tmuxSendKeysFn = tmux.SendKeys
-
 // tmuxSessionExistsFn checks if a tmux session exists.
 // Package-level var for test injection.
 var tmuxSessionExistsFn = tmux.SessionExists
+
+// tmuxKillSessionFn kills a tmux session.
+// Package-level var for test injection.
+var tmuxKillSessionFn = tmux.KillSession
 
 // resolveWorker is the function used to find a worker tmux session by UUID prefix.
 // Package-level var for test injection.
@@ -698,45 +678,26 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 		log.Printf("[breathe] warning: failed to write status for default/%s: %v", req.Agent, err)
 	}
 
-	// 5. Breathe: prefer /clear on a live session (hook re-injects context without restart).
-	// Fall back to kill+fresh-start when the session is dead.
-	// Note: diaryAppendHandoff (step 3) runs unconditionally so the handoff is persisted
-	// before both paths — /clear causes the source=clear hook to read the updated diary.
+	// 5. Breathe: always KillSession (if alive) + respawn by runtime.
+	// No /clear — too runtime-specific (CC accepts /clear; lenos doesn't).
+	// diaryAppendHandoff (step 3) ran unconditionally so handoff is persisted.
 	sessionAlive := tmuxSessionExistsFn(plan.oldSessionName)
+	log.Printf("[breathe] %s: respawning as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
 	if sessionAlive {
-		log.Printf("[breathe] %s: session alive — sending /clear (source=clear hook will re-inject context)", req.Agent)
-		if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, "/clear"); err != nil {
-			log.Printf("[breathe] %s: /clear failed (%v), falling back to restart", req.Agent, err)
-		} else {
-			log.Printf("[breathe] %s: /clear sent, scheduling start trigger after %v", req.Agent, clearSettleDelay)
-			go func() {
-				time.Sleep(clearSettleDelay)
-				trigger := buildBreatheStartTrigger(req.Agent)
-				if err := tmuxSendKeysFn(plan.oldSessionName, plan.windowName, trigger); err != nil {
-					log.Printf("[breathe] %s: start trigger after /clear failed: %v", req.Agent, err)
-				} else {
-					log.Printf("[breathe] %s: start trigger sent", req.Agent)
-				}
-			}()
-			// Return OK immediately: the start trigger is best-effort and sent async.
-			// Callers must not assume the agent is ready to receive work at this point.
-			return SendResponse{OK: true}
-		}
-	}
-
-	// Session dead or /clear failed — full restart via spawnCCSession.
-	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
-	if sessionAlive {
-		if err := tmux.KillSession(plan.oldSessionName); err != nil {
+		if err := tmuxKillSessionFn(plan.oldSessionName); err != nil {
 			log.Printf("[breathe] %s: kill session warning (may already be dead): %v", req.Agent, err)
 		}
 	}
 	agentEnv := buildManagerAgentEnv(req.Agent, cfg)
-	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, ""); err != nil {
+
+	rt := runtime.ClaudeCode
+	if cfg != nil {
+		rt = cfg.RuntimeForAgent(req.Agent)
+	}
+	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.ContextTrigger); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
-	log.Printf("[breathe] %s: fresh breath taken (restart, session: %s)", req.Agent, plan.newSessionName)
-
+	log.Printf("[breathe] %s: fresh breath taken (respawn, session: %s)", req.Agent, plan.newSessionName)
 	return SendResponse{OK: true}
 }
 

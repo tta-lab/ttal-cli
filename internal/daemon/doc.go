@@ -1,6 +1,6 @@
 // Package daemon implements the long-running ttal manager-plane process.
 //
-// The daemon starts all agent sessions (tmux for Claude Code), bridges messages
+// The daemon starts all agent sessions (tmux for Claude Code and Lenos, WebSocket adapter for Codex), bridges messages
 // between Telegram and agent runtimes via a Unix socket, watches JSONL output
 // files to forward agent responses to Telegram, and manages the worker lifecycle
 // through fsnotify-based cleanup and PR watchers.

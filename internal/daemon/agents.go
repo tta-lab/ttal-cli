@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -64,13 +66,33 @@ func initSingleAdapter(
 		ensureProjectDir(agentPath)
 		// Resume from last session if available.
 		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
-		if err := spawnCCSession(
-			sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID,
+		if err := spawnAgentSession(
+			runtime.ClaudeCode, sessionName, ta.AgentName, agentPath,
+			agentEnv, resumeSessionID, "",
 		); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
 			log.Printf("[daemon] CC agent %s running (session: %s)", ta.AgentName, sessionName)
+		}
+		return
+	}
+
+	// Lenos agents use tmux (mirrors CC pattern, but invokes lenos)
+	if rt == runtime.Lenos {
+		sessionName := config.AgentSessionName(ta.AgentName)
+		if tmux.SessionExists(sessionName) {
+			log.Printf("[daemon] lenos agent %s already running (session: %s)", ta.AgentName, sessionName)
+			return
+		}
+		agentEnv := buildManagerAgentEnv(ta.AgentName, cfg)
+		resumeSessionID := lastLenosSessionID(ta.AgentName)
+		if err := spawnAgentSession(
+			runtime.Lenos, sessionName, ta.AgentName, agentPath,
+			agentEnv, resumeSessionID, "",
+		); err != nil {
+			log.Printf("[daemon] failed to start lenos session for %s: %v", ta.AgentName, err)
+		} else {
+			log.Printf("[daemon] lenos agent %s running (session: %s)", ta.AgentName, sessionName)
 		}
 		return
 	}
@@ -229,26 +251,27 @@ func ensureLocalAgentTrust(cfg *config.Config) {
 }
 
 // shutdownAgents gracefully shuts down all agent sessions on daemon exit.
-// Local CC sessions are killed directly; status files are preserved so the
-// next spawn can resume with --resume <session-id>.
+// Local CC and Lenos tmux sessions are killed directly; status files are
+// preserved so the next spawn can resume with --resume/--session <id>.
 func shutdownAgents(cfg *config.Config, registry *adapterRegistry) {
 	registry.stopAll(context.Background())
-	sessions := collectCCSessions(cfg)
+	sessions := collectTmuxSessions(cfg)
 	if len(sessions) > 0 {
-		shutdownCCSessions(sessions)
+		shutdownTmuxSessions(sessions)
 	}
 }
 
-// collectCCSessions returns running CC tmux session names across all teams.
-func collectCCSessions(cfg *config.Config) []string {
+// collectTmuxSessions returns running CC and Lenos tmux session names across
+// all teams. Codex agents are excluded — Codex shutdown runs via registry.stopAll.
+func collectTmuxSessions(cfg *config.Config) []string {
 	var sessions []string
 	for _, ta := range cfg.Agents() {
 		rt := cfg.RuntimeForAgent(ta.AgentName)
-		if rt != runtime.ClaudeCode {
+		if rt != runtime.ClaudeCode && rt != runtime.Lenos {
 			continue
 		}
 		sessionName := config.AgentSessionName(ta.AgentName)
-		if !tmux.SessionExists(sessionName) {
+		if !tmuxSessionExistsFn(sessionName) {
 			continue
 		}
 		sessions = append(sessions, sessionName)
@@ -256,13 +279,15 @@ func collectCCSessions(cfg *config.Config) []string {
 	return sessions
 }
 
-// shutdownCCSessions kills CC tmux sessions directly.
-func shutdownCCSessions(sessions []string) {
+// shutdownTmuxSessions kills CC and Lenos tmux sessions directly via
+// tmux.KillSession (runtime-agnostic; both manager runtimes share the
+// tmux session lifecycle).
+func shutdownTmuxSessions(sessions []string) {
 	for _, s := range sessions {
 		if err := tmux.KillSession(s); err != nil {
 			log.Printf("[daemon] failed to kill session %s: %v", s, err)
 		} else {
-			log.Printf("[daemon] killed CC session %s", s)
+			log.Printf("[daemon] killed tmux session %s", s)
 		}
 	}
 }
@@ -278,8 +303,8 @@ func agentProjectDir(agentPath string) (string, error) {
 }
 
 // ensureProjectDir creates the CC JSONL project directory for an agent.
-// Called before spawnCCSession so the dir exists when CC starts and is
-// ready for the watcher to monitor.
+// Called before spawnAgentSession with runtime.ClaudeCode so the dir
+// exists when CC starts and is ready for the watcher to monitor.
 func ensureProjectDir(agentPath string) {
 	dir, err := agentProjectDir(agentPath)
 	if err != nil {
@@ -291,16 +316,47 @@ func ensureProjectDir(agentPath string) {
 	}
 }
 
-// spawnCCSession creates a tmux session for a Claude Code agent.
-// resumeSessionID, if non-empty, appends --resume <id> (cold-start resume path).
-// When resumeSessionID is empty, starts a fresh session (breathe restart path).
-func spawnCCSession(
-	sessionName, agentName, agentPath string,
-	env []string, resumeSessionID string,
+// Package-level function variables for test injection (tmux operations).
+var tmuxNewSessionFn = tmux.NewSession
+var tmuxSetEnvFn = tmux.SetEnv
+
+// spawnAgentSession creates a tmux session for a manager-plane agent via the
+// gatekeeper-wrapped launchcmd pipeline. Supports both Lenos and Claude Code
+// runtimes. resumeSessionID is forwarded as --session (Lenos) or --resume (CC);
+// trigger is the wake-orientation message (empty at startup, ContextTrigger on
+// breathe). readOnly is false for manager plane (rw access).
+func spawnAgentSession(
+	rt runtime.Runtime, sessionName, agentName, agentPath string,
+	env []string, resumeSessionID, trigger string,
 ) error {
-	cmd := "claude --dangerously-skip-permissions --agent " + agentName
-	if resumeSessionID != "" {
-		cmd += " --resume " + resumeSessionID
+	// Fail-fast if the runtime binary is not in PATH.
+	switch rt {
+	case runtime.Lenos:
+		if _, err := exec.LookPath("lenos"); err != nil {
+			return fmt.Errorf(
+				"binary %q not found in PATH (configure launchctl setenv PATH"+
+					" or install to a launchd-default location): %w",
+				"lenos", err,
+			)
+		}
+	case runtime.ClaudeCode:
+		if _, err := exec.LookPath("claude"); err != nil {
+			return fmt.Errorf(
+				"binary %q not found in PATH (configure launchctl setenv PATH"+
+					" or install to a launchd-default location): %w",
+				"claude", err,
+			)
+		}
+	}
+
+	ttalBin, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
+	}
+
+	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, trigger, resumeSessionID)
+	if err != nil {
+		return fmt.Errorf("build launch command: %w", err)
 	}
 
 	var fullCmd string
@@ -310,13 +366,13 @@ func spawnCCSession(
 		fullCmd = cmd
 	}
 
-	if err := tmux.NewSession(sessionName, agentName, agentPath, fullCmd); err != nil {
+	if err := tmuxNewSessionFn(sessionName, agentName, agentPath, fullCmd); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 	for _, e := range env {
 		parts := strings.SplitN(e, "=", 2)
 		if len(parts) == 2 {
-			_ = tmux.SetEnv(sessionName, parts[0], parts[1])
+			_ = tmuxSetEnvFn(sessionName, parts[0], parts[1])
 		}
 	}
 	return nil
@@ -361,6 +417,22 @@ func lastSessionID(agentName, agentPath string) string {
 	if !sessionJSONLExists(s.SessionID, agentPath) {
 		dir, _ := agentProjectDir(agentPath)
 		log.Printf("[daemon] session %s not found in %s — starting fresh", s.SessionID, filepath.Base(dir))
+		return ""
+	}
+	return s.SessionID
+}
+
+// lastLenosSessionID reads the persisted Lenos session ID for an agent from the
+// status file. Returns "" on cold-start (no prior session) or on read error
+// (logged as WARN). Pass-and-hope on stale IDs — no JSONL existence check
+// (lenos session storage is internal to lenos, no project-dir layout to verify).
+func lastLenosSessionID(agentName string) string {
+	s, err := status.ReadAgent("default", agentName)
+	if err != nil {
+		log.Printf("[daemon] WARN: could not read status for %s, skipping --session: %v", agentName, err)
+		return ""
+	}
+	if s == nil {
 		return ""
 	}
 	return s.SessionID
