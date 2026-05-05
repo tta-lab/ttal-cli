@@ -262,47 +262,12 @@ func (c *Config) AskReferencesPath() string {
 	return expandHome(defaultAskReferencesPath)
 }
 
-const DefaultShell = "zsh"
-
-const ShellFish = "fish"
-
-var validShells = map[string]bool{"zsh": true, ShellFish: true}
-
-// GetShell returns the configured shell (default: zsh).
-func (c *Config) GetShell() string {
-	if c.Shell != "" {
-		if validShells[c.Shell] {
-			return c.Shell
-		}
-		fmt.Fprintf(os.Stderr, "warning: invalid shell %q in config, falling back to %s\n", c.Shell, DefaultShell)
-	}
-	return DefaultShell
-}
-
-// ShellCommand returns a shell -c command string for the configured shell.
-func (c *Config) ShellCommand(cmd string) string {
-	shell := c.GetShell()
-	switch shell {
-	case ShellFish:
-		return fmt.Sprintf("fish -C '%s'", cmd)
-	default:
-		return fmt.Sprintf("zsh -c '%s'", cmd)
-	}
-}
-
 // BuildEnvShellCommand returns a shell command with env vars prepended.
 func (c *Config) BuildEnvShellCommand(envParts []string, cmd string) string {
-	shell := c.GetShell()
-	envStr := ""
-	if len(envParts) > 0 {
-		envStr = fmt.Sprintf("env %s ", strings.Join(envParts, " "))
+	if len(envParts) == 0 {
+		return cmd
 	}
-	switch shell {
-	case ShellFish:
-		return fmt.Sprintf("%sfish -C '%s'", envStr, cmd)
-	default:
-		return fmt.Sprintf("%szsh -c '%s'", envStr, cmd)
-	}
+	return fmt.Sprintf("env %s %s", strings.Join(envParts, " "), cmd)
 }
 
 // SyncConfig holds paths for subagent and rule deployment.
