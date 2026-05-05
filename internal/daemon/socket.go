@@ -46,12 +46,18 @@ type StatusUpdateRequest struct {
 //	To only:         system/hook → agent via tmux
 //	From + To:       agent → agent via tmux with attribution
 //
+// UserInitiated marks user-driven CLI sends; the daemon wraps these with
+// sendfmt (timestamp + optional [from:] header). Internal triggers leave it
+// false so their messages stay raw — CC must see plain trigger text.
+//
 // Team disambiguates when agent names collide across teams.
 type SendRequest struct {
-	From    string `json:"from,omitempty"`
-	To      string `json:"to,omitempty"`
-	Message string `json:"message"`
+	From          string `json:"from,omitempty"`
+	To            string `json:"to,omitempty"`
+	Message       string `json:"message"`
+	UserInitiated bool   `json:"user_initiated,omitempty"`
 }
+
 
 // TaskCompleteRequest notifies the daemon that a task has been marked done.
 // Wire format: {"type":"taskComplete","task_uuid":"...","team":"default",...}

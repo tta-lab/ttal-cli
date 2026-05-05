@@ -163,4 +163,7 @@ func TestSendCmd_NoEnvSendsAsSystem(t *testing.T) {
 	if calls[0].Message != "hello from bare shell" {
 		t.Errorf("Message = %q, want %q", calls[0].Message, "hello from bare shell")
 	}
+	if !calls[0].UserInitiated {
+		t.Errorf("UserInitiated = false, want true (CLI must flag every ttal send)")
+	}
 }
