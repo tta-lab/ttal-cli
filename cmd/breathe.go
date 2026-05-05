@@ -3,62 +3,62 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 )
 
+var breatheFn = daemon.Breathe
+
 var breatheCmd = &cobra.Command{
-	Use:   "breathe [handoff-prompt]",
+	Use:   "breathe",
 	Short: "Restart session with fresh context — exhale heavy context, take a fresh breath",
-	Long: `Breathe triggers a context window refresh for the calling agent.
+	Long: `Restart your session with a fresh context window.
 
-The agent writes a handoff prompt describing current state, decisions, and
-next steps. ttal sends this to the daemon, which restarts the CC session
-with the handoff as the initial message via --resume.
+Handoff persistence is agent-side: write your handoff to your diary
+BEFORE calling breathe, then call breathe with no arguments. The daemon
+respawns your session and the new instance reads diary on wake via
+ttal context.
 
-Usage from within an agent session:
-  ttal breathe "# Handoff ..."
-  echo "handoff content" | ttal breathe
-  cat handoff.md | ttal breathe`,
+Run "skill get breathe" for the full ritual.
+
+Examples:
+  ttal breathe                    # self-breathe (uses TTAL_AGENT_NAME)
+  ttal breathe --agent kestrel    # force-breathe another agent`,
 	RunE: runBreathe,
 }
 
 func init() {
 	rootCmd.AddCommand(breatheCmd)
+	breatheCmd.Flags().String("agent", "", "Force-breathe another agent (escape hatch for inter-agent use)")
 }
 
-func runBreathe(_ *cobra.Command, args []string) error {
-	agent := os.Getenv("TTAL_AGENT_NAME")
-	if agent == "" {
-		return fmt.Errorf("TTAL_AGENT_NAME not set — ttal breathe must be called from within an agent session")
-	}
-
-	// Read handoff: positional args or stdin
-	var handoff string
+func resolveBreatheTarget(cmd *cobra.Command, args []string) (string, error) {
 	if len(args) > 0 {
-		handoff = strings.Join(args, " ")
-	} else {
-		piped, err := readStdinIfPiped()
-		if err != nil {
-			return fmt.Errorf("read stdin: %w", err)
-		}
-		handoff = piped
+		return "", fmt.Errorf("ttal breathe no longer accepts handoff arguments — write your handoff to diary first, then run `ttal breathe`. See: skill get breathe")
+	}
+	if agent, _ := cmd.Flags().GetString("agent"); agent != "" {
+		return agent, nil
+	}
+	if env := os.Getenv("TTAL_AGENT_NAME"); env != "" {
+		return env, nil
+	}
+	return "", fmt.Errorf("must run from within an agent session, or pass --agent <name>")
+}
+
+func runBreathe(cmd *cobra.Command, args []string) error {
+	target, err := resolveBreatheTarget(cmd, args)
+	if err != nil {
+		return err
 	}
 
-	if handoff == "" {
-		return fmt.Errorf("handoff prompt is required\n\n  Example: ttal breathe \"summary of current state and next steps\"")
-	}
-
-	if err := daemon.Breathe(daemon.BreatheRequest{
-		Agent:       agent,
-		Handoff:     handoff,
+	if err := breatheFn(daemon.BreatheRequest{
+		Agent:       target,
 		SessionName: os.Getenv("TTAL_SESSION_NAME"),
 	}); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Handoff sent — taking a fresh breath...\n")
+	fmt.Fprintf(os.Stderr, "Breathing — see you on the other side...\n")
 	return nil
 }
