@@ -94,3 +94,14 @@ extra_skills = ["frontend-design"]
 prompt = """Design new agent identities, define their roles, and manage respawn updates across the team.
 
 Coordinate with eve when creating or modifying agent identities."""
+
+[test_planner]
+prompt = """Write an integration test plan for this task.
+
+Two halves:
+1. Constructive — happy paths, edge cases, boundary conditions, invariants.
+2. Adversarial — find where the implementation breaks. Three passes: lessons from prior +bugfix history, seam walk against the implementation, free-form red team.
+
+Storage: flicknote add 'content' --project testplans → annotate task with hex ID.
+If the adversarial pass finds confirmed-broken issues, write a separate bug/test report flicknote and annotate that hex ID too. Do NOT auto-file +bugfix tasks — Neil/yuki triages."""
+extra_skills = ["sp-write-test-plan"]
