@@ -31,7 +31,7 @@ func TestSpawnPlanReviewer_ClaudeCodeBranch(t *testing.T) {
 	task := &taskwarrior.Task{UUID: "abcd1234-0000-0000-0000-000000000000"}
 	cfg := &config.Config{DefaultRuntime: "claude-code"}
 
-	err := SpawnPlanReviewer("test-session", task, "plan-review-lead", runtime.ClaudeCode, cfg, "/tmp")
+	err := SpawnPlanReviewer("test-session", task, "plan-review-lead", runtime.ClaudeCode, false, cfg, "/tmp")
 	if err != nil {
 		t.Fatalf("SpawnPlanReviewer: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestSpawnPlanReviewer_LenosBranch(t *testing.T) {
 	task := &taskwarrior.Task{UUID: "abcd1234-0000-0000-0000-000000000000"}
 	cfg := &config.Config{DefaultRuntime: "lenos"}
 
-	err := SpawnPlanReviewer("test-session", task, "plan-review-lead", runtime.Lenos, cfg, "/tmp")
+	err := SpawnPlanReviewer("test-session", task, "plan-review-lead", runtime.Lenos, true, cfg, "/tmp")
 	if err != nil {
 		t.Fatalf("SpawnPlanReviewer: %v", err)
 	}

@@ -21,9 +21,11 @@ var (
 // SpawnReviewer creates a new tmux window configured as a PR reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
 // rt is the pre-resolved runtime for the reviewer agent (caller resolves via agentfs.ResolveRuntime).
+// readOnly is the pre-resolved sandbox access flag (caller resolves via agentfs.ResolveAccess);
+// when true and rt is Lenos, --readonly is forwarded to lenos for temenos sandbox enforcement.
 func SpawnReviewer(
 	sessionName string, ctx *pr.Context, reviewerName string,
-	rt runtime.Runtime, cfg *config.Config, workDir string,
+	rt runtime.Runtime, readOnly bool, cfg *config.Config, workDir string,
 ) error {
 	if ctx.Task.PRID == "" {
 		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
@@ -40,7 +42,7 @@ func SpawnReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(ctx.Task.HexID(), reviewerName, rt)
-	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName)
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName, readOnly)
 	if err != nil {
 		return fmt.Errorf("build reviewer launch command: %w", err)
 	}

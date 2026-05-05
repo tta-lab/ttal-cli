@@ -37,6 +37,7 @@ type AgentInfo struct {
 	Role           string // e.g. designer, researcher — matches [prompts] key
 	Color          string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
 	DefaultRuntime string // per-agent default_runtime override (e.g. "lenos")
+	Access         string // lenos sandbox access level: "ro" or "rw" (empty = unset)
 	Pronouns       string // free-form pronouns string (e.g. "she/her")
 	Age            int    // agent age in years
 }
@@ -229,6 +230,7 @@ func applyFrontmatter(info *AgentInfo, fm map[string]string) {
 	info.Role = fm["role"]
 	info.Color = fm["color"]
 	info.DefaultRuntime = fm["default_runtime"]
+	info.Access = fm["access"]
 	info.Pronouns = fm["pronouns"]
 	if ageStr, ok := fm["age"]; ok {
 		info.Age, _ = strconv.Atoi(ageStr)
@@ -341,4 +343,45 @@ func ResolveRuntime(teamDefault, teamPath string, workerAgentPaths []string, age
 		return teamDefault
 	}
 	return string(rt)
+}
+
+// ResolveAccess returns the sandbox access level for an agent, reading per-agent
+// `lenos.access` from the agent's AGENTS.md frontmatter via GetFromPaths. Returns
+// "ro" or "rw". Falls back to "rw" when frontmatter is missing, access is empty,
+// or the value is not "ro"/"rw" — matching the implicit pre-plumbing default
+// (no --readonly was passed) for backward compatibility.
+//
+// Logs a warning at each fallback point so misconfigured agents are visible.
+//
+// Note on parser limitations: ttal-cli's hand-rolled flat YAML parser does not
+// distinguish parent blocks (`ttal: access:` vs `lenos: access:` both map to
+// the same flat key `access`). This is acceptable because the canonical home
+// for this field is `lenos.access` (per ei's strict YAML reader); legacy
+// `ttal.access` blocks are functionally equivalent under this parser.
+//
+// Search order: workerAgentPaths in order, then teamPath as final fallback.
+// If workerAgentPaths is empty, only teamPath is searched.
+func ResolveAccess(teamPath string, workerAgentPaths []string, agent string) string {
+	const defaultAccess = "rw"
+	searchPaths := workerAgentPaths
+	if len(searchPaths) == 0 {
+		searchPaths = []string{teamPath}
+	}
+	info, err := GetFromPaths(searchPaths, agent)
+	if err != nil {
+		log.Printf("[agentfs] ResolveAccess: no frontmatter for %q in %v: %v — using default %q",
+			agent, searchPaths, err, defaultAccess)
+		return defaultAccess
+	}
+	if info.Access == "" {
+		log.Printf("[agentfs] ResolveAccess: %q has no lenos.access — using default %q",
+			agent, defaultAccess)
+		return defaultAccess
+	}
+	if info.Access != "ro" && info.Access != "rw" {
+		log.Printf("[agentfs] ResolveAccess: invalid lenos.access %q for %q (want ro or rw) — using default %q",
+			info.Access, agent, defaultAccess)
+		return defaultAccess
+	}
+	return info.Access
 }

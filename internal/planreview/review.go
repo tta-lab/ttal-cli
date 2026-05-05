@@ -20,9 +20,11 @@ var (
 // SpawnPlanReviewer creates a new tmux window configured as a plan reviewer.
 // workDir is the caller's working directory (project path) — used as the reviewer's cwd.
 // rt is the pre-resolved runtime for the reviewer agent (caller resolves via agentfs.ResolveRuntime).
+// readOnly is the pre-resolved sandbox access flag (caller resolves via agentfs.ResolveAccess);
+// when true and rt is Lenos, --readonly is forwarded to lenos for temenos sandbox enforcement.
 func SpawnPlanReviewer(
 	sessionName string, task *taskwarrior.Task, reviewerName string,
-	rt runtime.Runtime, cfg *config.Config, workDir string,
+	rt runtime.Runtime, readOnly bool, cfg *config.Config, workDir string,
 ) error {
 	ttalBin, err := osExecFn()
 	if err != nil {
@@ -30,7 +32,7 @@ func SpawnPlanReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), reviewerName, rt)
-	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName)
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName, readOnly)
 	if err != nil {
 		return fmt.Errorf("build plan-reviewer launch command: %w", err)
 	}
