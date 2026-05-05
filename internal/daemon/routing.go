@@ -724,7 +724,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 		}
 	}
 
-	// Session dead or /clear failed — full restart via spawnCCSession.
+	// Full respawn via spawnAgentSession (runtime-agnostic — dispatches to lenos or CC).
 	log.Printf("[breathe] %s: restarting as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
 	if sessionAlive {
 		if err := tmux.KillSession(plan.oldSessionName); err != nil {
@@ -732,7 +732,12 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 		}
 	}
 	agentEnv := buildManagerAgentEnv(req.Agent, cfg)
-	if err := spawnCCSession(plan.newSessionName, req.Agent, plan.cwd, agentEnv, ""); err != nil {
+
+	rt := runtime.ClaudeCode
+	if cfg != nil {
+		rt = cfg.RuntimeForAgent(req.Agent)
+	}
+	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.ContextTrigger); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 	log.Printf("[breathe] %s: fresh breath taken (restart, session: %s)", req.Agent, plan.newSessionName)
