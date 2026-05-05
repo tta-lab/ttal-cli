@@ -132,3 +132,13 @@ description = "Design distinctive frontend UI/UX, write design docs and image pr
 assignee = "frontend_designer"
 emoji = "🦢"
 gate = "auto"
+
+[testplan]
+description = "Test plan only"
+tags = ["testplan"]
+
+[[testplan.stages]]
+name = "TestPlan"
+assignee = "test_planner"
+emoji = "🧪"
+gate = "auto"

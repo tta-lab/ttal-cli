@@ -94,3 +94,7 @@ extra_skills = ["frontend-design"]
 prompt = """Design new agent identities, define their roles, and manage respawn updates across the team.
 
 Coordinate with eve when creating or modifying agent identities."""
+
+[test_planner]
+prompt = """Write an integration test plan using sp-write-test-plan methodology. Store in flicknote --project testplans and annotate the task. If the adversarial pass surfaces confirmed-broken behavior, write a separate flicknote — do not auto-file +bugfix tasks. Neil or yuki triages those."""
+extra_skills = ["sp-write-test-plan"]
