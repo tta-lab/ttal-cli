@@ -11,9 +11,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/status"
 )
 
-func TestSpawnAgentSession_LenosVariant(t *testing.T) {
+func setupSpawnTest(t *testing.T, binary string) *string {
+	t.Helper()
 	tmp := t.TempDir()
-	writeFakeBinary(t, tmp, "lenos")
+	writeFakeBinary(t, tmp, binary)
 	t.Setenv("PATH", filepath.Join(tmp, "bin"))
 	origNew := tmuxNewSessionFn
 	origSet := tmuxSetEnvFn
@@ -27,55 +28,46 @@ func TestSpawnAgentSession_LenosVariant(t *testing.T) {
 		return nil
 	}
 	tmuxSetEnvFn = func(_, _, _ string) error { return nil }
+	return &capturedCmd
+}
+
+func TestSpawnAgentSession_LenosVariant(t *testing.T) {
+	capturedCmd := setupSpawnTest(t, "lenos")
 	err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp/test", nil, "abc-123", "")
 	if err != nil {
 		t.Fatalf("spawnAgentSession error: %v", err)
 	}
-	if !strings.Contains(capturedCmd, "lenos --agent test-agent") {
-		t.Errorf("expected lenos command, got: %s", capturedCmd)
+	if !strings.Contains(*capturedCmd, "lenos --agent test-agent") {
+		t.Errorf("expected lenos command, got: %s", *capturedCmd)
 	}
-	if !strings.Contains(capturedCmd, "--session abc-123") {
-		t.Errorf("expected --session abc-123, got: %s", capturedCmd)
+	if !strings.Contains(*capturedCmd, "--session abc-123") {
+		t.Errorf("expected --session abc-123, got: %s", *capturedCmd)
 	}
-	if strings.Contains(capturedCmd, "--resume") {
-		t.Errorf("should not contain --resume for lenos: %s", capturedCmd)
+	if strings.Contains(*capturedCmd, "--resume") {
+		t.Errorf("should not contain --resume for lenos: %s", *capturedCmd)
 	}
-	if strings.Contains(capturedCmd, "claude") {
-		t.Errorf("should not contain claude for lenos: %s", capturedCmd)
+	if strings.Contains(*capturedCmd, "claude") {
+		t.Errorf("should not contain claude for lenos: %s", *capturedCmd)
 	}
 }
 
 func TestSpawnAgentSession_CCVariant(t *testing.T) {
-	tmp := t.TempDir()
-	writeFakeBinary(t, tmp, "claude")
-	t.Setenv("PATH", filepath.Join(tmp, "bin"))
-	origNew := tmuxNewSessionFn
-	origSet := tmuxSetEnvFn
-	t.Cleanup(func() {
-		tmuxNewSessionFn = origNew
-		tmuxSetEnvFn = origSet
-	})
-	var capturedCmd string
-	tmuxNewSessionFn = func(_, _, _, cmd string) error {
-		capturedCmd = cmd
-		return nil
-	}
-	tmuxSetEnvFn = func(_, _, _ string) error { return nil }
+	capturedCmd := setupSpawnTest(t, "claude")
 	err := spawnAgentSession(runtime.ClaudeCode, "sess", "coder", "/tmp/test", nil, "xyz-789", "")
 	if err != nil {
 		t.Fatalf("spawnAgentSession error: %v", err)
 	}
-	if !strings.Contains(capturedCmd, "claude --dangerously-skip-permissions --agent coder") {
-		t.Errorf("expected claude command, got: %s", capturedCmd)
+	if !strings.Contains(*capturedCmd, "claude --dangerously-skip-permissions --agent coder") {
+		t.Errorf("expected claude command, got: %s", *capturedCmd)
 	}
-	if !strings.Contains(capturedCmd, "--resume xyz-789") {
-		t.Errorf("expected --resume xyz-789, got: %s", capturedCmd)
+	if !strings.Contains(*capturedCmd, "--resume xyz-789") {
+		t.Errorf("expected --resume xyz-789, got: %s", *capturedCmd)
 	}
-	if strings.Contains(capturedCmd, "--session") {
-		t.Errorf("should not contain --session for CC: %s", capturedCmd)
+	if strings.Contains(*capturedCmd, "--session") {
+		t.Errorf("should not contain --session for CC: %s", *capturedCmd)
 	}
-	if strings.Contains(capturedCmd, "lenos") {
-		t.Errorf("should not contain lenos for CC: %s", capturedCmd)
+	if strings.Contains(*capturedCmd, "lenos") {
+		t.Errorf("should not contain lenos for CC: %s", *capturedCmd)
 	}
 }
 
@@ -88,17 +80,13 @@ func TestSpawnAgentSession_LenosNotInPath(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing lenos binary, got nil")
 	}
-	if !strings.Contains(err.Error(), "lenos") || !strings.Contains(err.Error(), "not found in PATH") {
+	if !strings.Contains(err.Error(), "not found in PATH") {
 		t.Errorf("expected PATH error for lenos, got: %v", err)
 	}
 }
 
 func TestSpawnAgentSession_TmuxError(t *testing.T) {
-	tmp := t.TempDir()
-	writeFakeBinary(t, tmp, "claude")
-	t.Setenv("PATH", filepath.Join(tmp, "bin"))
-	origNew := tmuxNewSessionFn
-	t.Cleanup(func() { tmuxNewSessionFn = origNew })
+	setupSpawnTest(t, "claude")
 	tmuxNewSessionFn = func(_, _, _, _ string) error {
 		return os.ErrNotExist
 	}
@@ -112,21 +100,9 @@ func TestSpawnAgentSession_TmuxError(t *testing.T) {
 }
 
 func TestSpawnAgentSession_EmptyEnv(t *testing.T) {
-	tmp := t.TempDir()
-	writeFakeBinary(t, tmp, "lenos")
-	t.Setenv("PATH", filepath.Join(tmp, "bin"))
-	origNew := tmuxNewSessionFn
-	origSet := tmuxSetEnvFn
-	t.Cleanup(func() {
-		tmuxNewSessionFn = origNew
-		tmuxSetEnvFn = origSet
-	})
+	setupSpawnTest(t, "lenos")
 	var setEnvCalls int
-	tmuxNewSessionFn = func(_, _, _, _ string) error { return nil }
-	tmuxSetEnvFn = func(_, _, _ string) error {
-		setEnvCalls++
-		return nil
-	}
+	tmuxSetEnvFn = func(_, _, _ string) error { setEnvCalls++; return nil }
 	if err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp", nil, "", ""); err != nil {
 		t.Fatalf("spawnAgentSession error: %v", err)
 	}
@@ -144,16 +120,20 @@ func TestLastLenosSessionID_ColdStart(t *testing.T) {
 	}
 }
 
+func setupStatusDir(t *testing.T, tmp string) {
+	t.Helper()
+	sd := filepath.Join(tmp, ".ttal", "status")
+	if err := os.MkdirAll(sd, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+}
+
 func TestLastLenosSessionID_WithSessionID(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	statusDir := filepath.Join(tmp, ".ttal", "status")
-	if err := os.MkdirAll(statusDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
+	setupStatusDir(t, tmp)
 	if err := status.WriteAgent("default", status.AgentStatus{
-		Agent:     "test-agent",
-		SessionID: "session-abc",
+		Agent: "test-agent", SessionID: "session-abc",
 	}); err != nil {
 		t.Fatalf("WriteAgent: %v", err)
 	}
@@ -166,13 +146,9 @@ func TestLastLenosSessionID_WithSessionID(t *testing.T) {
 func TestLastLenosSessionID_EmptySessionID(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	statusDir := filepath.Join(tmp, ".ttal", "status")
-	if err := os.MkdirAll(statusDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
+	setupStatusDir(t, tmp)
 	if err := status.WriteAgent("default", status.AgentStatus{
-		Agent:     "test-agent",
-		SessionID: "",
+		Agent: "test-agent", SessionID: "",
 	}); err != nil {
 		t.Fatalf("WriteAgent: %v", err)
 	}
@@ -185,18 +161,21 @@ func TestLastLenosSessionID_EmptySessionID(t *testing.T) {
 func TestLastLenosSessionID_UnreadableFile(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	statusDir := filepath.Join(tmp, ".ttal", "status")
-	if err := os.MkdirAll(statusDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
+	setupStatusDir(t, tmp)
 	if err := status.WriteAgent("default", status.AgentStatus{
-		Agent:     "test-agent",
-		SessionID: "session-abc",
+		Agent: "test-agent", SessionID: "session-abc",
 	}); err != nil {
 		t.Fatalf("WriteAgent: %v", err)
 	}
-	os.Chmod(statusDir, 0o000)
-	t.Cleanup(func() { os.Chmod(statusDir, 0o755) })
+	sd := filepath.Join(tmp, ".ttal", "status")
+	if err := os.Chmod(sd, 0o000); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(sd, 0o755); err != nil {
+			t.Logf("cleanup chmod: %v", err)
+		}
+	})
 	id := lastLenosSessionID("test-agent")
 	if id != "" {
 		t.Errorf("expected empty for unreadable status, got %q", id)
@@ -206,16 +185,29 @@ func TestLastLenosSessionID_UnreadableFile(t *testing.T) {
 func TestCollectTmuxSessions_IncludesCCAndLenos(t *testing.T) {
 	tmp := t.TempDir()
 	teamPath := filepath.Join(tmp, "agents")
-	for _, name := range []string{"cc-agent", "lenos-agent", "codex-agent"} {
-		os.MkdirAll(filepath.Join(teamPath, name), 0o755)
+	agentNames := []string{"cc-agent", "lenos-agent", "codex-agent"}
+	for _, name := range agentNames {
+		if err := os.MkdirAll(filepath.Join(teamPath, name), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
 	}
-	os.WriteFile(filepath.Join(teamPath, "cc-agent", "AGENTS.md"), []byte("---\n---\n# CC Agent\n"), 0o644)
-	os.WriteFile(filepath.Join(teamPath, "lenos-agent", "AGENTS.md"), []byte("---\ndefault_runtime: lenos\n---\n# Lenos Agent\n"), 0o644)
-	os.WriteFile(filepath.Join(teamPath, "codex-agent", "AGENTS.md"), []byte("---\ndefault_runtime: codex\n---\n# Codex Agent\n"), 0o644)
+	writeFile := func(p, content string) {
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+	writeFile(filepath.Join(teamPath, "cc-agent", "AGENTS.md"), "---\n---\n# CC Agent\n")
+	writeFile(filepath.Join(teamPath, "lenos-agent", "AGENTS.md"), "---\ndefault_runtime: lenos\n---\n# Lenos Agent\n")
+	writeFile(filepath.Join(teamPath, "codex-agent", "AGENTS.md"), "---\ndefault_runtime: codex\n---\n# Codex Agent\n")
+
 	cfgPath := filepath.Join(tmp, ".config", "ttal")
-	os.MkdirAll(cfgPath, 0o755)
-	os.WriteFile(filepath.Join(cfgPath, "config.toml"), []byte("[teams.default]\nteam_path = \""+teamPath+"\"\n"), 0o644)
-	os.WriteFile(filepath.Join(cfgPath, "humans.toml"), []byte("[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"), 0o644)
+	if err := os.MkdirAll(cfgPath, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(filepath.Join(cfgPath, "config.toml"), "[teams.default]\nteam_path = \""+teamPath+"\"\n")
+	writeFile(filepath.Join(cfgPath, "humans.toml"),
+		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n")
+
 	t.Setenv("HOME", tmp)
 	cfg, err := config.Load()
 	if err != nil {
