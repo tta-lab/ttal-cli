@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -230,11 +231,16 @@ func handleToHuman(
 	if req.From == "" || req.From == "system" {
 		fromAddr = nil // frontend uses notification bot for non-agent senders
 	}
+
+	wireMsg := req.Message
+	if req.UserInitiated {
+		wireMsg = sendfmt.Format(sendfmt.Envelope{Body: req.Message})
+	}
 	return fe.SendText(
 		context.Background(),
 		fromAddr,
 		&addressee.Addressee{Kind: addressee.KindHuman, Name: human.Alias, Human: human},
-		req.Message,
+		wireMsg,
 	)
 }
 
@@ -257,6 +263,11 @@ func dispatchSystemSend(
 		return err
 	}
 
+	wireMsg := req.Message
+	if req.UserInitiated {
+		wireMsg = sendfmt.Format(sendfmt.Envelope{Body: req.Message})
+	}
+
 	switch addr.Kind {
 	case addressee.KindHuman:
 		if addr.Human == nil {
@@ -269,11 +280,11 @@ func dispatchSystemSend(
 			Sender: "system", Recipient: req.To, Content: req.Message,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
-		return deliverToAgentFn(registry, cfg, frontends, addr.Name, req.Message)
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, wireMsg)
 	case addressee.KindWorker:
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
-			cfg, jobID, agentName, msgSvc, "system", req.To, req.Message, nil)
+			cfg, jobID, agentName, msgSvc, "system", req.To, wireMsg, nil)
 		if err != nil {
 			return err
 		}
@@ -406,6 +417,7 @@ func dispatchSend(
 		}
 		return handleToHuman(frontends, msgSvc, addr.Human, SendRequest{
 			From: req.From, To: req.To, Message: req.Message,
+			UserInitiated: req.UserInitiated,
 		})
 	case addressee.KindAgent:
 		persistMsg(msgSvc, message.CreateParams{
