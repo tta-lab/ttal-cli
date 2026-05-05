@@ -271,7 +271,7 @@ func collectTmuxSessions(cfg *config.Config) []string {
 			continue
 		}
 		sessionName := config.AgentSessionName(ta.AgentName)
-		if !tmux.SessionExists(sessionName) {
+		if !tmuxSessionExistsFn(sessionName) {
 			continue
 		}
 		sessions = append(sessions, sessionName)

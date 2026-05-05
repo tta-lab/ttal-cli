@@ -250,3 +250,46 @@ func TestBuildLenosCommand_AdversarialTrigger_RoundTrip(t *testing.T) {
 		os.Remove("/tmp/should-not-exist")
 	}
 }
+
+func TestBuildCCDirectCommand_WithResume(t *testing.T) {
+	got := BuildCCDirectCommand("/usr/bin/ttal", "kestrel", "", "abc-123")
+	if !strings.Contains(got, "--resume abc-123") {
+		t.Errorf("expected --resume abc-123, got: %q", got)
+	}
+	if strings.Contains(got, "--session") {
+		t.Errorf("should not contain --session for CC: %q", got)
+	}
+}
+
+func TestBuildLenosCommand_WithResume(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "kestrel", "", false, "xyz-789")
+	if !strings.Contains(got, "--session xyz-789") {
+		t.Errorf("expected --session xyz-789, got: %q", got)
+	}
+	if strings.Contains(got, "--resume") {
+		t.Errorf("should not contain --resume for Lenos: %q", got)
+	}
+}
+
+func TestBuildCCDirectCommand_WithResumeAndTrigger(t *testing.T) {
+	got := BuildCCDirectCommand("/usr/bin/ttal", "kestrel", ContextTrigger, "abc-123")
+	if !strings.Contains(got, "--resume abc-123") {
+		t.Errorf("expected --resume abc-123, got: %q", got)
+	}
+	if !strings.Contains(got, "ttal context") {
+		t.Errorf("expected trigger, got: %q", got)
+	}
+}
+
+func TestBuildLenosCommand_WithResumeAndTrigger(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "kestrel", ContextTrigger, true, "xyz-789")
+	if !strings.Contains(got, "--session xyz-789") {
+		t.Errorf("expected --session xyz-789, got: %q", got)
+	}
+	if !strings.Contains(got, "--readonly") {
+		t.Errorf("expected --readonly, got: %q", got)
+	}
+	if !strings.Contains(got, "ttal context") {
+		t.Errorf("expected trigger, got: %q", got)
+	}
+}
