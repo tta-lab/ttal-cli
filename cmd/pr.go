@@ -16,12 +16,22 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
+var (
+	daemonPRCreateFn   = daemon.PRCreate                  // inject point for tests
+	daemonPRModifyFn   = daemon.PRModify                  // inject point for tests
+	prResolveContextFn = pr.ResolveContextWithoutProvider // inject point for tests
+	currentBranchFn    = worker.CurrentBranch             // inject point for tests
+	gitPushFn          = daemon.GitPush                   // inject point for tests
+	setPRIDFn          = taskwarrior.SetPRID              // inject point for tests
+	daemonNotifyFn     = daemon.Notify                    // inject point for tests
+)
+
 var prCmd = &cobra.Command{
 	Use:   "pr",
 	Short: "Manage pull requests for the current worker task",
 	Long: `Create, modify, and comment on pull requests.
 
-Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
+Context is auto-resolved from the current worktree path (hex ID in directory name).
 Provider is auto-detected from git remote URL (github.com → GitHub, else → Forgejo).
 
 All authenticated API calls are proxied through the daemon for token isolation.`,
@@ -30,29 +40,33 @@ All authenticated API calls are proxied through the daemon for token isolation.`
 var prCreateCmd = &cobra.Command{
 	Use:   "create <title>",
 	Short: "Create a PR from the current branch",
-	Long: `Creates a Forgejo PR using the current branch and project path.
+	Long: `Creates a PR using the current branch and project path.
 Stores the PR index in the task's pr_id UDA for future commands.
 
 Works in both worktree and non-worktree setups.
 
+Body is read from stdin (heredoc). Title is the positional argument.
+
 Examples:
   ttal pr create "feat: add user authentication"
-  ttal pr create "fix: resolve timeout bug" --body "Fixes #42"`,
+  echo "Fixes #42" | ttal pr create "fix: resolve timeout bug"
+  cat <<'BODY' | ttal pr create "feat: major refactor"
+  Comprehensive description spanning multiple lines.
+  BODY`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
+		ctx, err := prResolveContextFn()
 		if err != nil {
 			return err
 		}
 
-		// Get workDir first for branch detection
 		workDir, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("get working directory: %w", err)
 		}
 
 		// Use CurrentBranch which supports both worktree and non-worktree setups
-		branch := worker.CurrentBranch(ctx.Task.UUID, ctx.Task.Project, workDir)
+		branch := currentBranchFn(ctx.Task.UUID, ctx.Task.Project, workDir)
 		if branch == "" {
 			return fmt.Errorf(
 				"cannot determine branch — ensure you're in a git repo with an active branch: %s",
@@ -62,7 +76,7 @@ Examples:
 
 		// Push branch to origin before creating PR
 		fmt.Println("Pushing branch to origin...")
-		resp, err := daemon.GitPush(daemon.GitPushRequest{
+		resp, err := gitPushFn(daemon.GitPushRequest{
 			WorkDir:      workDir,
 			Branch:       branch,
 			ProjectAlias: ctx.Alias,
@@ -76,14 +90,17 @@ Examples:
 		fmt.Println("Pushed.")
 
 		title := strings.Join(args, " ")
-		body, _ := cmd.Flags().GetString("body")
+		body, err := readStdinIfPiped()
+		if err != nil {
+			return fmt.Errorf("read PR body from stdin: %w", err)
+		}
 
 		base := ctx.Info.DefaultBranch
 		if base == "" {
 			base = "main"
 		}
 
-		prResp, err := daemon.PRCreate(daemon.PRCreateRequest{
+		prResp, err := daemonPRCreateFn(daemon.PRCreateRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,
@@ -104,13 +121,13 @@ Examples:
 
 		// Store PRID in taskwarrior
 		if ctx.Task.UUID != "" {
-			if err := taskwarrior.SetPRID(ctx.Task.UUID, strconv.FormatInt(prResp.PRIndex, 10)); err != nil {
+			if err := setPRIDFn(ctx.Task.UUID, strconv.FormatInt(prResp.PRIndex, 10)); err != nil {
 				fmt.Printf("warning: PR created but failed to update task: %v\n", err)
 			}
 		}
 
 		// Notify lifecycle agent
-		if err := daemon.Notify(daemon.NotifyRequest{
+		if err := daemonNotifyFn(daemon.NotifyRequest{
 			Message: notification.PRCreated{
 				Ctx:   notification.NewContext(ctx.Task.Project, ctx.Task.HexID(), title, ""),
 				Title: title,
@@ -137,7 +154,7 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: could not resolve worktree path for task %s: %v\n", ctx.Task.HexID(), err)
 				}
 				msg := pr.BuildOwnerReviewMessage(prResp.PRIndex, prResp.PRURL, title, worktree, ctx.Task.HexID(), assignee)
-				if err := daemon.Send(daemon.SendRequest{From: "system", To: owner, Message: msg}); err != nil {
+				if err := daemonSendFn(daemon.SendRequest{From: "system", To: owner, Message: msg}); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: owner-review notification failed: %v\n", err)
 				} else {
 					fmt.Printf("  Notified %s for review.\n", owner)
@@ -154,20 +171,39 @@ var prModifyCmd = &cobra.Command{
 	Short: "Update the PR title or body",
 	Long: `Updates the PR associated with the current task.
 
+Title is set with --title. Body is read from stdin (heredoc). At least one of --title or stdin must be provided.
+
 Examples:
-  ttal pr modify --title "new title"
-  ttal pr modify --body "updated description"`,
+  echo "Updated body content" | ttal pr modify --title "new title"
+  cat <<'BODY' | ttal pr modify
+  New PR body content.
+  BODY`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
+		title, _ := cmd.Flags().GetString("title")
+		body, err := readStdinIfPiped()
+		if err != nil {
+			return fmt.Errorf("read PR body from stdin: %w", err)
+		}
+
+		if title == "" && body == "" {
+			return fmt.Errorf("nothing to update — provide --title and/or pipe body via stdin\n\n" +
+				"  Title only:  ttal pr modify --title \"new title\"\n" +
+				"  Body only:   echo \"new body\" | ttal pr modify\n" +
+				"  Both:        echo \"new body\" | ttal pr modify --title \"new title\"\n" +
+				"  Heredoc:     cat <<'EOF' | ttal pr modify --title \"new title\"\n" +
+				"                 ## Updated\n" +
+				"                 ...\n" +
+				"               EOF")
+		}
+
+		ctx, err := prResolveContextFn()
 		if err != nil {
 			return err
 		}
 
-		title, _ := cmd.Flags().GetString("title")
-		body, _ := cmd.Flags().GetString("body")
-
-		if title == "" && body == "" {
-			return fmt.Errorf("specify --title, --body, or both\n\n  Example: ttal pr modify --title \"new title\" --body \"updated description\"") //nolint:lll
+		// --pr-id overrides PR lookup (for non-worktree use)
+		if prIDFlag := cmd.Flag("pr-id").Value.String(); prIDFlag != "" {
+			ctx.Task.PRID = prIDFlag
 		}
 
 		index, err := pr.PRIndex(ctx)
@@ -175,7 +211,7 @@ Examples:
 			return err
 		}
 
-		prResp, err := daemon.PRModify(daemon.PRModifyRequest{
+		prResp, err := daemonPRModifyFn(daemon.PRModifyRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,
@@ -232,9 +268,8 @@ func loadConfigAndCoderRuntime() (*config.Config, runtime.Runtime) {
 func init() {
 	rootCmd.AddCommand(prCmd)
 
-	prCreateCmd.Flags().String("body", "", "PR body/description")
 	prModifyCmd.Flags().String("title", "", "New PR title")
-	prModifyCmd.Flags().String("body", "", "New PR body")
+	prModifyCmd.Flags().String("pr-id", "", "PR number override (for non-worktree use)")
 
 	prCICmd.Flags().BoolVar(&prCIShowLog, "log", false, "Include failure details and log tails")
 

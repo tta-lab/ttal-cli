@@ -33,11 +33,11 @@ From a worker session:
 # Create PR with title
 ttal pr create "feat: add user authentication"
 
-# Create PR with description
-ttal pr create "fix: timeout bug" --body "Fixes #42"
+# Create PR with body from stdin
+echo "Fixes #42" | ttal pr create "fix: timeout bug"
 ```
 
-The PR context is auto-resolved from the worker's environment: `TTAL_JOB_ID` → task UUID → project path → git remote.
+The PR context is auto-resolved from the worktree path (hex ID in directory name).
 
 ## Owner review
 

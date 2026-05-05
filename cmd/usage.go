@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/usage"
+	"golang.org/x/term"
 )
 
 var usageCmd = &cobra.Command{
@@ -51,9 +52,8 @@ var usageLogTarget string
 // extractTargetFromStdin reads the first line of stdin, parses as JSON,
 // and returns the "id" field. Returns "" on any failure.
 func extractTargetFromStdin() string {
-	info, err := os.Stdin.Stat()
-	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
-		return "" // stat failed or no piped input
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		return "" // no piped input
 	}
 	return extractIDFromReader(os.Stdin)
 }

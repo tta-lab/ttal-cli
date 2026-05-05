@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/promptrender"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // defaultTeamName is the single, hardcoded team name.
@@ -75,29 +74,8 @@ func buildContextEnv(agentName, cwd string) []string {
 	env := []string{
 		"TTAL_AGENT_NAME=" + agentName,
 	}
-	if hexID := extractWorktreeHexID(cwd); hexID != "" {
+	if hexID := worker.TaskHexFromCwd(cwd); hexID != "" {
 		env = append(env, "TTAL_JOB_ID="+hexID)
 	}
 	return env
-}
-
-// extractWorktreeHexID extracts the hex task ID from a worktree CWD path.
-// Worktree dirs follow the pattern ~/.ttal/worktrees/<hexID>-<alias>.
-func extractWorktreeHexID(cwd string) string {
-	if cwd == "" {
-		return ""
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Printf("[context] could not resolve home dir: %v", err)
-		return ""
-	}
-	worktreesRoot := filepath.Join(home, ".ttal", "worktrees")
-	if !strings.HasPrefix(cwd, worktreesRoot+string(filepath.Separator)) {
-		return ""
-	}
-	rel := strings.TrimPrefix(cwd, worktreesRoot+string(filepath.Separator))
-	dirName := strings.SplitN(rel, string(filepath.Separator), 2)[0]
-	parts := strings.SplitN(dirName, "-", 2)
-	return parts[0]
 }

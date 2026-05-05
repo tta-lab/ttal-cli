@@ -30,6 +30,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/gorilla/websocket v1.5.3
 	github.com/tta-lab/codex-server-go v0.1.0
+	golang.org/x/term v0.42.0
 )
 
 require (
@@ -85,7 +86,7 @@ require (
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
