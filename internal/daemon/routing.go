@@ -214,6 +214,16 @@ func handleTo(
 	}
 }
 
+// wrapIfUserInitiated returns req.Message wrapped with sendfmt (timestamp prefix)
+// when req.UserInitiated is true. Internal triggers (UserInitiated=false) pass
+// through raw — CC must see plain trigger text for /breathe etc.
+func wrapIfUserInitiated(req SendRequest) string {
+	if req.UserInitiated {
+		return sendfmt.Format(sendfmt.Envelope{Body: req.Message})
+	}
+	return req.Message
+}
+
 // handleToHuman delivers a message to a human via the team's default frontend.
 func handleToHuman(
 	frontends map[string]frontend.Frontend,
@@ -232,15 +242,11 @@ func handleToHuman(
 		fromAddr = nil // frontend uses notification bot for non-agent senders
 	}
 
-	wireMsg := req.Message
-	if req.UserInitiated {
-		wireMsg = sendfmt.Format(sendfmt.Envelope{Body: req.Message})
-	}
 	return fe.SendText(
 		context.Background(),
 		fromAddr,
 		&addressee.Addressee{Kind: addressee.KindHuman, Name: human.Alias, Human: human},
-		wireMsg,
+		wrapIfUserInitiated(req),
 	)
 }
 
@@ -263,10 +269,7 @@ func dispatchSystemSend(
 		return err
 	}
 
-	wireMsg := req.Message
-	if req.UserInitiated {
-		wireMsg = sendfmt.Format(sendfmt.Envelope{Body: req.Message})
-	}
+	wireMsg := wrapIfUserInitiated(req)
 
 	switch addr.Kind {
 	case addressee.KindHuman:
