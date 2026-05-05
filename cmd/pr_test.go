@@ -173,6 +173,14 @@ func TestPRCreate_PipedBody(t *testing.T) {
 	}
 	w.Close()
 
+	defer stubCurrentBranch(t, func(uuid, alias, workDir string) string {
+		return "test-branch"
+	})()
+
+	defer stubGitPush(t, func(req daemon.GitPushRequest) (daemon.GitPushResponse, error) {
+		return daemon.GitPushResponse{OK: true}, nil
+	})()
+
 	resolveCalled := false
 	defer stubPRResolveContext(t, func() (*pr.Context, error) {
 		resolveCalled = true
@@ -196,7 +204,18 @@ func TestPRCreate_PipedBody(t *testing.T) {
 		return daemon.PRResponse{OK: true, PRIndex: 99, PRURL: "https://pr/99"}, nil
 	})()
 
-	prCreateCmd.SetArgs([]string{"feat: test"})
+	defer stubSetPRID(t, func(uuid, prID string) error {
+		return nil
+	})()
+
+	defer stubDaemonNotify(t, func(req daemon.NotifyRequest) error {
+		return nil
+	})()
+
+	defer stubDaemonSend(t, func(req daemon.SendRequest) error {
+		return nil
+	})()
+
 	err = prCreateCmd.RunE(prCreateCmd, []string{"feat: test"})
 	if err != nil {
 		t.Fatalf("RunE: %v", err)
@@ -207,4 +226,39 @@ func TestPRCreate_PipedBody(t *testing.T) {
 	if !createCalled {
 		t.Error("daemon PRCreate should be called")
 	}
+}
+
+func stubCurrentBranch(t *testing.T, fn func(uuid, alias, workDir string) string) func() {
+	t.Helper()
+	orig := currentBranchFn
+	currentBranchFn = fn
+	return func() { currentBranchFn = orig }
+}
+
+func stubGitPush(t *testing.T, fn func(req daemon.GitPushRequest) (daemon.GitPushResponse, error)) func() {
+	t.Helper()
+	orig := gitPushFn
+	gitPushFn = fn
+	return func() { gitPushFn = orig }
+}
+
+func stubSetPRID(t *testing.T, fn func(uuid, prID string) error) func() {
+	t.Helper()
+	orig := setPRIDFn
+	setPRIDFn = fn
+	return func() { setPRIDFn = orig }
+}
+
+func stubDaemonNotify(t *testing.T, fn func(req daemon.NotifyRequest) error) func() {
+	t.Helper()
+	orig := daemonNotifyFn
+	daemonNotifyFn = fn
+	return func() { daemonNotifyFn = orig }
+}
+
+func stubDaemonSend(t *testing.T, fn func(req daemon.SendRequest) error) func() {
+	t.Helper()
+	orig := daemonSendFn
+	daemonSendFn = fn
+	return func() { daemonSendFn = orig }
 }

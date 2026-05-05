@@ -20,6 +20,10 @@ var (
 	daemonPRCreateFn   = daemon.PRCreate                  // inject point for tests
 	daemonPRModifyFn   = daemon.PRModify                  // inject point for tests
 	prResolveContextFn = pr.ResolveContextWithoutProvider // inject point for tests
+	currentBranchFn    = worker.CurrentBranch             // inject point for tests
+	gitPushFn          = daemon.GitPush                   // inject point for tests
+	setPRIDFn          = taskwarrior.SetPRID              // inject point for tests
+	daemonNotifyFn     = daemon.Notify                    // inject point for tests
 )
 
 var prCmd = &cobra.Command{
@@ -62,7 +66,7 @@ Examples:
 		}
 
 		// Use CurrentBranch which supports both worktree and non-worktree setups
-		branch := worker.CurrentBranch(ctx.Task.UUID, ctx.Task.Project, workDir)
+		branch := currentBranchFn(ctx.Task.UUID, ctx.Task.Project, workDir)
 		if branch == "" {
 			return fmt.Errorf(
 				"cannot determine branch — ensure you're in a git repo with an active branch: %s",
@@ -72,7 +76,7 @@ Examples:
 
 		// Push branch to origin before creating PR
 		fmt.Println("Pushing branch to origin...")
-		resp, err := daemon.GitPush(daemon.GitPushRequest{
+		resp, err := gitPushFn(daemon.GitPushRequest{
 			WorkDir:      workDir,
 			Branch:       branch,
 			ProjectAlias: ctx.Alias,
@@ -117,13 +121,13 @@ Examples:
 
 		// Store PRID in taskwarrior
 		if ctx.Task.UUID != "" {
-			if err := taskwarrior.SetPRID(ctx.Task.UUID, strconv.FormatInt(prResp.PRIndex, 10)); err != nil {
+			if err := setPRIDFn(ctx.Task.UUID, strconv.FormatInt(prResp.PRIndex, 10)); err != nil {
 				fmt.Printf("warning: PR created but failed to update task: %v\n", err)
 			}
 		}
 
 		// Notify lifecycle agent
-		if err := daemon.Notify(daemon.NotifyRequest{
+		if err := daemonNotifyFn(daemon.NotifyRequest{
 			Message: notification.PRCreated{
 				Ctx:   notification.NewContext(ctx.Task.Project, ctx.Task.HexID(), title, ""),
 				Title: title,
@@ -150,7 +154,7 @@ Examples:
 					fmt.Fprintf(os.Stderr, "warning: could not resolve worktree path for task %s: %v\n", ctx.Task.HexID(), err)
 				}
 				msg := pr.BuildOwnerReviewMessage(prResp.PRIndex, prResp.PRURL, title, worktree, ctx.Task.HexID(), assignee)
-				if err := daemon.Send(daemon.SendRequest{From: "system", To: owner, Message: msg}); err != nil {
+				if err := daemonSendFn(daemon.SendRequest{From: "system", To: owner, Message: msg}); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: owner-review notification failed: %v\n", err)
 				} else {
 					fmt.Printf("  Notified %s for review.\n", owner)
