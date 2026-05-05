@@ -1,12 +1,10 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -568,7 +566,7 @@ func resolveAgentModel(agent string) breatheAgentModel {
 	return info
 }
 
-// diaryAppendHandoff persists the handoff to the agent's diary.
+// resolveBrCWD resolves the working directory for a breathe session.
 // It prefers the live pane CWD; if the session is dead or pane CWD is unavailable,
 // it falls back to the registered agent workspace path from config.
 // Returns sessionAlive so the caller can skip KillSession on a dead session.
@@ -638,9 +636,6 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	if req.Agent == "" {
 		return SendResponse{OK: false, Error: "missing agent name"}
 	}
-	if req.Handoff == "" {
-		return SendResponse{OK: false, Error: "empty handoff prompt"}
-	}
 
 	// Dispatch to codex handler if agent uses Codex runtime
 	if cfg != nil {
@@ -661,10 +656,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	// 2. Get model info.
 	am := resolveAgentModel(req.Agent)
 
-	// 3. Persist handoff to diary (write-side persistence).
-	diaryAppendHandoff(req.Agent, req.Handoff)
-
-	// 4. Update status file — clear session ID so the statusline hook populates the real ID.
+	// 3. Update status file — clear session ID so the statusline hook populates the real ID.
 	if err := status.WriteAgent("default", status.AgentStatus{
 		Agent:               req.Agent,
 		SessionID:           "", // cleared; CC SessionStart hook populates the real session ID
@@ -680,7 +672,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 
 	// 5. Breathe: always KillSession (if alive) + respawn by runtime.
 	// No /clear — too runtime-specific (CC accepts /clear; lenos doesn't).
-	// diaryAppendHandoff (step 3) ran unconditionally so handoff is persisted.
+	// Diary write is agent-side via the breathe skill (before calling ttal breathe).
 	sessionAlive := tmuxSessionExistsFn(plan.oldSessionName)
 	log.Printf("[breathe] %s: respawning as %s in %s (model: %s)", req.Agent, plan.newSessionName, plan.cwd, am.model)
 	if sessionAlive {
@@ -701,36 +693,14 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	return SendResponse{OK: true}
 }
 
-// diaryAppendHandoff persists the handoff to the agent's diary. It is a
-// best-effort side effect — if the diary binary is not found or the append
-// fails, a warning is logged and the caller continues unchanged.
-func diaryAppendHandoff(agent, handoff string) {
-	diaryPath, err := exec.LookPath("diary")
-	if err != nil {
-		log.Printf("[breathe] %s: diary binary not found — skipping diary persistence", agent)
-		return
-	}
-
-	cmd := exec.Command(diaryPath, agent, "append")
-	cmd.Stdin = bytes.NewBufferString(handoff)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("[breathe] %s: diary append failed — %v: %s", agent, err, strings.TrimSpace(string(out)))
-		return
-	}
-	log.Printf("[breathe] %s: diary handoff persisted", agent)
-}
-
 // handleCodexBreathe performs a breathe restart for a Codex agent.
 // Creates a new thread (auto-injecting identity via developerInstructions) and sends
-// the handoff as the first turn.
+// launchcmd.ContextTrigger as the first turn — symmetric with CC tmux first input.
 func handleCodexBreathe(req BreatheRequest, registry *adapterRegistry) SendResponse {
 	adapter, ok := registry.get("default", req.Agent)
 	if !ok {
 		return SendResponse{OK: false, Error: "codex adapter not found for " + req.Agent}
 	}
-
-	// Persist handoff to diary
-	diaryAppendHandoff(req.Agent, req.Handoff)
 
 	// Create a new thread — CreateSession auto-injects developerInstructions
 	ctx := context.Background()
@@ -738,12 +708,12 @@ func handleCodexBreathe(req BreatheRequest, registry *adapterRegistry) SendRespo
 		return SendResponse{OK: false, Error: fmt.Sprintf("codex create session: %v", err)}
 	}
 
-	// Send handoff as first turn in the new thread
-	if err := adapter.SendMessage(ctx, req.Handoff); err != nil {
-		return SendResponse{OK: false, Error: fmt.Sprintf("codex send handoff: %v", err)}
+	// Send ContextTrigger as first turn in the new thread (symmetric with CC tmux first input)
+	if err := adapter.SendMessage(ctx, launchcmd.ContextTrigger); err != nil {
+		return SendResponse{OK: false, Error: fmt.Sprintf("codex send context trigger: %v", err)}
 	}
 
-	log.Printf("[breathe] %s: codex breathe done (new thread, handoff sent)", req.Agent)
+	log.Printf("[breathe] %s: codex breathe done (new thread, context trigger sent)", req.Agent)
 	return SendResponse{OK: true}
 }
 

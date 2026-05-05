@@ -226,7 +226,7 @@ func TestHTTPBreatheRoute(t *testing.T) {
 	}
 	r := newDaemonRouter(h)
 
-	body, _ := json.Marshal(BreatheRequest{Agent: testAgentName, Handoff: "# Handoff\n\nNext steps: continue"})
+	body, _ := json.Marshal(BreatheRequest{Agent: testAgentName})
 	req := httptest.NewRequest(http.MethodPost, "/breathe", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -265,7 +265,7 @@ func TestHTTPBreatheRoute_HandlerError(t *testing.T) {
 	}
 	r := newDaemonRouter(h)
 
-	body, _ := json.Marshal(BreatheRequest{Agent: testAgentName, Handoff: "handoff"})
+	body, _ := json.Marshal(BreatheRequest{Agent: testAgentName})
 	req := httptest.NewRequest(http.MethodPost, "/breathe", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

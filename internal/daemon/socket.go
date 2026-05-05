@@ -213,7 +213,6 @@ type PRCIFailureDetail struct {
 // BreatheRequest asks the daemon to restart an agent with a fresh context window.
 type BreatheRequest struct {
 	Agent       string `json:"agent"`                  // agent name
-	Handoff     string `json:"handoff"`                // handoff prompt content
 	SessionName string `json:"session_name,omitempty"` // current tmux session name (if known)
 }
 

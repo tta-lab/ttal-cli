@@ -1,12 +1,14 @@
 package daemon
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 )
 
 const testChatID = "12345"
@@ -21,17 +23,12 @@ func TestHandleBreatheValidation(t *testing.T) {
 	}{
 		{
 			name:    "missing agent",
-			req:     BreatheRequest{Agent: "", Handoff: "# Handoff"},
+			req:     BreatheRequest{Agent: ""},
 			wantErr: "missing agent name",
 		},
 		{
-			name:    "empty handoff",
-			req:     BreatheRequest{Agent: "kestrel", Handoff: ""},
-			wantErr: "empty handoff prompt",
-		},
-		{
 			name:    "no tmux + empty team path falls back to agent path error",
-			req:     BreatheRequest{Agent: "nonexistent-test-agent-xyz", Handoff: "# Handoff\n\nNext steps: continue"},
+			req:     BreatheRequest{Agent: "nonexistent-test-agent-xyz"},
 			wantErr: "cannot resolve agent workspace path",
 		},
 	}
@@ -51,8 +48,7 @@ func TestHandleBreatheValidation(t *testing.T) {
 func TestHandleBreatheTeamDefault(t *testing.T) {
 	shellCfg := &config.Config{}
 	resp := handleBreathe(shellCfg, BreatheRequest{
-		Agent:   "nonexistent-test-agent-xyz",
-		Handoff: "# Handoff",
+		Agent: "nonexistent-test-agent-xyz",
 	}, nil, nil)
 	if resp.OK {
 		t.Fatalf("expected OK=false, got OK=true")
@@ -72,58 +68,6 @@ func TestHandleSendSystemRouting(t *testing.T) {
 	if strings.Contains(err.Error(), "unknown agent: system") {
 		t.Errorf("routed to dispatchSend instead of dispatchSystemSend: %v", err)
 	}
-}
-
-func writeFakeDiary(t *testing.T, tmpDir, mode, readOutput string) {
-	t.Helper()
-	outputFile := filepath.Join(tmpDir, "diary-read-output")
-	if err := os.WriteFile(outputFile, []byte(readOutput), 0o644); err != nil {
-		t.Fatalf("write diary read output file: %v", err)
-	}
-	var script string
-	switch mode {
-	case "ok":
-		script = strings.Join([]string{
-			"#!/bin/sh",
-			`if [ "$2" = "append" ]; then cat > /dev/null; exit 0; fi`,
-			`if [ "$2" = "read" ]; then cat '` + outputFile + `'; exit 0; fi`,
-			"exit 1",
-		}, "\n") + "\n"
-	case "fail-append":
-		script = "#!/bin/sh\necho 'text required' >&2; exit 1\n"
-	case "empty-read":
-		script = strings.Join([]string{
-			"#!/bin/sh",
-			`if [ "$2" = "append" ]; then cat > /dev/null; exit 0; fi`,
-			`if [ "$2" = "read" ]; then exit 0; fi`,
-			"exit 1",
-		}, "\n") + "\n"
-	case "fail-read":
-		script = strings.Join([]string{
-			"#!/bin/sh",
-			"if [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi",
-			"if [ \"$2\" = \"read\" ]; then echo 'error' >&2; exit 1; fi",
-			"exit 1",
-		}, "\n") + "\n"
-	}
-	diaryPath := filepath.Join(tmpDir, "diary")
-	if err := os.WriteFile(diaryPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("write fake diary: %v", err)
-	}
-}
-
-func TestDiaryAppendHandoff(t *testing.T) {
-	const handoff = "# Handoff\n\nDid some work."
-	t.Run("diary not on PATH is a no-op", func(t *testing.T) {
-		t.Setenv("PATH", "/nonexistent-path-xyz")
-		diaryAppendHandoff("kestrel", handoff)
-	})
-	t.Run("diary append failure does not panic", func(t *testing.T) {
-		tmp := t.TempDir()
-		writeFakeDiary(t, tmp, "fail-append", "")
-		t.Setenv("PATH", tmp+":"+os.Getenv("PATH"))
-		diaryAppendHandoff("kestrel", handoff)
-	})
 }
 
 func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
@@ -266,7 +210,6 @@ func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
 
 	resp := handleBreathe(cfg, BreatheRequest{
 		Agent:       "kestrel",
-		Handoff:     "# Handoff\n\nNext steps: continue",
 		SessionName: testKestrelSession,
 	}, nil, nil)
 
@@ -320,7 +263,6 @@ func TestHandleBreathe_DeadSessionPath(t *testing.T) {
 
 	resp := handleBreathe(cfg, BreatheRequest{
 		Agent:       "kestrel",
-		Handoff:     "# Handoff\n\nNext steps: continue",
 		SessionName: testKestrelSession,
 	}, nil, nil)
 
@@ -394,7 +336,6 @@ func TestHandleBreathe_LenosRespawn(t *testing.T) {
 
 	resp := handleBreathe(cfg, BreatheRequest{
 		Agent:       "lenos-agent",
-		Handoff:     "# Handoff\n\nNext steps: review",
 		SessionName: "ttal-default-lenos-agent",
 	}, cfg, nil)
 
@@ -439,5 +380,34 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	want := filepath.Join(tmp, agent)
 	if cwd != want {
 		t.Errorf("cwd = %q, want %q", cwd, want)
+	}
+}
+
+// recordingAdapter captures SendMessage calls for testing.
+type recordingAdapter struct {
+	*stubAdapter
+	sentMessages []string
+}
+
+func (r *recordingAdapter) SendMessage(_ context.Context, text string) error {
+	r.sentMessages = append(r.sentMessages, text)
+	return nil
+}
+
+func TestHandleCodexBreathe_FirstTurnIsContextTrigger(t *testing.T) {
+	rec := &recordingAdapter{stubAdapter: &stubAdapter{}}
+	registry := newAdapterRegistry()
+	registry.set("default", "codex-test-agent", rec)
+
+	resp := handleCodexBreathe(BreatheRequest{Agent: "codex-test-agent"}, registry)
+
+	if !resp.OK {
+		t.Fatalf("expected OK=true, got error: %s", resp.Error)
+	}
+	if len(rec.sentMessages) != 1 {
+		t.Fatalf("expected 1 SendMessage call, got %d", len(rec.sentMessages))
+	}
+	if rec.sentMessages[0] != launchcmd.ContextTrigger {
+		t.Errorf("expected first turn = ContextTrigger (%q), got %q", launchcmd.ContextTrigger, rec.sentMessages[0])
 	}
 }
