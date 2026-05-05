@@ -39,19 +39,38 @@ func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
 }
 
 func TestBuildLenosCommand_Basic(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger)
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false)
 	if !strings.Contains(got, "--agent coder") {
 		t.Errorf("missing --agent coder: %q", got)
 	}
 	if !strings.Contains(got, "ttal context") {
 		t.Errorf("missing ttal context trigger: %q", got)
 	}
+	if strings.Contains(got, "--readonly") {
+		t.Errorf("should not contain --readonly when readOnly=false: %q", got)
+	}
 }
 
 func TestBuildLenosCommand_ApostropheEscaping(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test")
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test", false)
 	if !strings.Contains(got, "it'\\''s a test") {
 		t.Errorf("apostrophe not escaped correctly: %q", got)
+	}
+}
+
+func TestBuildLenosCommand_ReadOnly(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "pr-review-lead", ContextTrigger, true)
+	if !strings.Contains(got, "--agent pr-review-lead") {
+		t.Errorf("missing --agent: %q", got)
+	}
+	if !strings.Contains(got, "--readonly") {
+		t.Errorf("missing --readonly when readOnly=true: %q", got)
+	}
+	// --readonly should appear before the trigger separator
+	idxReadOnly := strings.Index(got, "--readonly")
+	idxTrigger := strings.Index(got, "ttal context")
+	if idxReadOnly == -1 || idxTrigger == -1 || idxReadOnly > idxTrigger {
+		t.Errorf("--readonly should come before trigger: %q", got)
 	}
 }
 
@@ -156,7 +175,7 @@ func TestBuildEnvParts_Lenos(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_ClaudeCode(t *testing.T) {
-	got, err := BuildAgentLaunchCommand("claude-code", "/usr/bin/ttal", "coder")
+	got, err := BuildAgentLaunchCommand("claude-code", "/usr/bin/ttal", "coder", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +191,7 @@ func TestBuildAgentLaunchCommand_ClaudeCode(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_Lenos(t *testing.T) {
-	got, err := BuildAgentLaunchCommand("lenos", "/usr/bin/ttal", "plan-review-lead")
+	got, err := BuildAgentLaunchCommand("lenos", "/usr/bin/ttal", "plan-review-lead", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,7 +207,7 @@ func TestBuildAgentLaunchCommand_Lenos(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_CodexRejected(t *testing.T) {
-	_, err := BuildAgentLaunchCommand("codex", "/usr/bin/ttal", "coder")
+	_, err := BuildAgentLaunchCommand("codex", "/usr/bin/ttal", "coder", false)
 	if err == nil {
 		t.Fatal("expected error for codex runtime, got nil")
 	}
@@ -198,7 +217,7 @@ func TestBuildAgentLaunchCommand_CodexRejected(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_EmptyRejected(t *testing.T) {
-	_, err := BuildAgentLaunchCommand("", "/usr/bin/ttal", "coder")
+	_, err := BuildAgentLaunchCommand("", "/usr/bin/ttal", "coder", false)
 	if err == nil {
 		t.Fatal("expected error for empty runtime, got nil")
 	}

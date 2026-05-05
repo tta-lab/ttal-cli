@@ -28,8 +28,13 @@ func BuildCCDirectCommand(ttalBin, agent, trigger string) string {
 }
 
 // BuildLenosCommand builds a lenos launch command via the worker gatekeeper.
-func BuildLenosCommand(ttalBin, agent, trigger string) string {
+// When readOnly is true, appends --readonly to enforce read-only filesystem
+// access via the temenos sandbox.
+func BuildLenosCommand(ttalBin, agent, trigger string, readOnly bool) string {
 	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
+	if readOnly {
+		cmd += " --readonly"
+	}
 	if trigger != "" {
 		cmd += " -- " + singleQuoteShell(trigger)
 	}
@@ -58,10 +63,13 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 // launching an agent at the given runtime. Returns an error for runtimes not
 // supported in the worker plane (Codex). Trigger is hardcoded to ContextTrigger —
 // every spawned worker-plane agent runs `ttal context` as its wake-orientation.
-func BuildAgentLaunchCommand(rt runtime.Runtime, ttalBin, agentName string) (string, error) {
+//
+// readOnly is forwarded to lenos via --readonly when rt is Lenos; ignored for
+// other runtimes (Claude Code has no equivalent sandbox-enforced flag).
+func BuildAgentLaunchCommand(rt runtime.Runtime, ttalBin, agentName string, readOnly bool) (string, error) {
 	switch rt {
 	case runtime.Lenos:
-		return BuildLenosCommand(ttalBin, agentName, ContextTrigger), nil
+		return BuildLenosCommand(ttalBin, agentName, ContextTrigger, readOnly), nil
 	case runtime.ClaudeCode:
 		return BuildCCDirectCommand(ttalBin, agentName, ContextTrigger), nil
 	default:

@@ -19,7 +19,7 @@ default_runtime: lenos
 claude-code:
   model: sonnet
   tools: [Bash, Read, Write, Edit]
-ttal:
+lenos:
   access: ro
 ---
 

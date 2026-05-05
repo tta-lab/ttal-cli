@@ -41,7 +41,7 @@ func TestSpawnReviewer_ClaudeCodeBranch(t *testing.T) {
 		Repo:  "test-repo",
 	}
 
-	err := SpawnReviewer("test-session", ctx, "pr-review-lead", runtime.ClaudeCode, cfg, "/tmp")
+	err := SpawnReviewer("test-session", ctx, "pr-review-lead", runtime.ClaudeCode, false, cfg, "/tmp")
 	if err != nil {
 		t.Fatalf("SpawnReviewer: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 		Repo:  "test-repo",
 	}
 
-	err := SpawnReviewer("test-session", ctx, "pr-review-lead", runtime.Lenos, cfg, "/tmp")
+	err := SpawnReviewer("test-session", ctx, "pr-review-lead", runtime.Lenos, true, cfg, "/tmp")
 	if err != nil {
 		t.Fatalf("SpawnReviewer: %v", err)
 	}

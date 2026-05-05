@@ -29,6 +29,7 @@ type SpawnConfig struct {
 	Force     bool
 	Runtime   runtime.Runtime
 	AgentName string // CC agent identity from the pipeline stage assignee
+	ReadOnly  bool   // when true and Runtime is Lenos, --readonly is forwarded to lenos
 }
 
 // Spawn creates a new worker: validates task, sets up worktree, launches tmux session,
@@ -219,7 +220,7 @@ func launchTmuxWorker(
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
 
-	launchCmd, err := launchcmd.BuildAgentLaunchCommand(cfg.Runtime, ttalBin, agentName)
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(cfg.Runtime, ttalBin, agentName, cfg.ReadOnly)
 	if err != nil {
 		return err
 	}

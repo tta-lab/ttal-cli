@@ -357,6 +357,11 @@ func spawnOrRetriggerReviewerFromDaemon(
 		cfg.DefaultRuntime, cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerAgent,
 	))
 
+	// Resolve sandbox access (lenos.access) from frontmatter; "ro" → --readonly on lenos spawn.
+	reviewerReadOnly := agentfs.ResolveAccess(
+		cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerAgent,
+	) == "ro"
+
 	if stage.IsWorker() {
 		targetSession, targetWorkDir, err := resolveWorkerReviewerTarget(task)
 		if err != nil {
@@ -374,7 +379,9 @@ func spawnOrRetriggerReviewerFromDaemon(
 		if err != nil {
 			return fmt.Errorf("build PR context: %w", err), false
 		}
-		return review.SpawnReviewer(targetSession, ctx, reviewerAgent, reviewerRT, cfg, targetWorkDir), false
+		return review.SpawnReviewer(
+			targetSession, ctx, reviewerAgent, reviewerRT, reviewerReadOnly, cfg, targetWorkDir,
+		), false
 	}
 
 	// Plan-review: resolve the task owner's session (PR-review above derives from the task
@@ -393,7 +400,9 @@ func spawnOrRetriggerReviewerFromDaemon(
 	}
 	log.Printf("[advance] spawning plan reviewer %s for task %s in session %q",
 		reviewerAgent, task.UUID, targetSession)
-	return planreview.SpawnPlanReviewer(targetSession, task, reviewerAgent, reviewerRT, cfg, targetWorkDir), false
+	return planreview.SpawnPlanReviewer(
+		targetSession, task, reviewerAgent, reviewerRT, reviewerReadOnly, cfg, targetWorkDir,
+	), false
 }
 
 // buildPRContextFromTask builds a PR context from a task and working directory.
@@ -677,6 +686,10 @@ func advanceToStage(
 		resolvedRT := agentfs.ResolveRuntime(
 			workerRuntime, teamPath, workerAgentPaths, stage.Assignee)
 
+		// Resolve sandbox access (lenos.access) from frontmatter; "ro" → --readonly on lenos spawn.
+		resolvedReadOnly := agentfs.ResolveAccess(
+			teamPath, workerAgentPaths, stage.Assignee) == "ro"
+
 		// Worker stage: start task and spawn.
 		if err := taskwarrior.StartTask(task.UUID); err != nil {
 			log.Printf("[advance] warning: start task: %v", err)
@@ -705,6 +718,7 @@ func advanceToStage(
 			Worktree:  true,
 			Runtime:   runtime.Runtime(resolvedRT), //nolint:unconvert
 			AgentName: stage.Assignee,
+			ReadOnly:  resolvedReadOnly,
 		}
 
 		if err := worker.Spawn(spawnCfg); err != nil {
