@@ -220,7 +220,10 @@ func launchTmuxWorker(
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
 
-	launchCmd, err := launchcmd.BuildAgentLaunchCommand(cfg.Runtime, ttalBin, agentName, cfg.ReadOnly, launchcmd.ContextTrigger, "")
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
+		cfg.Runtime, ttalBin, agentName,
+		cfg.ReadOnly, launchcmd.ContextTrigger, "",
+	)
 	if err != nil {
 		return err
 	}

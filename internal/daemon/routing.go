@@ -477,10 +477,6 @@ var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
 // Package-level var for test injection.
 var windowExistsFn = tmux.WindowExists
 
-// tmuxSendKeysFn sends keys to a tmux session window.
-// Package-level var for test injection.
-var tmuxSendKeysFn = tmux.SendKeys
-
 // tmuxSessionExistsFn checks if a tmux session exists.
 // Package-level var for test injection.
 var tmuxSessionExistsFn = tmux.SessionExists

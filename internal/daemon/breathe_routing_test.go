@@ -10,6 +10,7 @@ import (
 )
 
 const testChatID = "12345"
+const testKestrelSession = "ttal-default-kestrel"
 
 func TestHandleBreatheValidation(t *testing.T) {
 	shellCfg := &config.Config{}
@@ -82,13 +83,28 @@ func writeFakeDiary(t *testing.T, tmpDir, mode, readOutput string) {
 	var script string
 	switch mode {
 	case "ok":
-		script = "#!/bin/sh\nif [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi\nif [ \"$2\" = \"read\" ]; then cat '" + outputFile + "'; exit 0; fi\nexit 1\n"
+		script = strings.Join([]string{
+			"#!/bin/sh",
+			`if [ "$2" = "append" ]; then cat > /dev/null; exit 0; fi`,
+			`if [ "$2" = "read" ]; then cat '` + outputFile + `'; exit 0; fi`,
+			"exit 1",
+		}, "\n") + "\n"
 	case "fail-append":
 		script = "#!/bin/sh\necho 'text required' >&2; exit 1\n"
 	case "empty-read":
-		script = "#!/bin/sh\nif [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi\nif [ \"$2\" = \"read\" ]; then exit 0; fi\nexit 1\n"
+		script = strings.Join([]string{
+			"#!/bin/sh",
+			`if [ "$2" = "append" ]; then cat > /dev/null; exit 0; fi`,
+			`if [ "$2" = "read" ]; then exit 0; fi`,
+			"exit 1",
+		}, "\n") + "\n"
 	case "fail-read":
-		script = "#!/bin/sh\nif [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi\nif [ \"$2\" = \"read\" ]; then echo 'error' >&2; exit 1; fi\nexit 1\n"
+		script = strings.Join([]string{
+			"#!/bin/sh",
+			"if [ \"$2\" = \"append\" ]; then cat > /dev/null; exit 0; fi",
+			"if [ \"$2\" = \"read\" ]; then echo 'error' >&2; exit 1; fi",
+			"exit 1",
+		}, "\n") + "\n"
 	}
 	diaryPath := filepath.Join(tmpDir, "diary")
 	if err := os.WriteFile(diaryPath, []byte(script), 0o755); err != nil {
@@ -237,7 +253,7 @@ func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
 		return nil
 	}
 	tmuxSessionExistsFn = func(name string) bool {
-		return name == "ttal-default-kestrel"
+		return name == testKestrelSession
 	}
 	var capturedCmd string
 	tmuxNewSessionFn = func(_, _, _, cmd string) error {
@@ -251,7 +267,7 @@ func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
 	resp := handleBreathe(cfg, BreatheRequest{
 		Agent:       "kestrel",
 		Handoff:     "# Handoff\n\nNext steps: continue",
-		SessionName: "ttal-default-kestrel",
+		SessionName: testKestrelSession,
 	}, nil, nil)
 
 	if !resp.OK {
@@ -260,8 +276,8 @@ func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
 	if !killCalled {
 		t.Error("expected KillSession called (session alive)")
 	}
-	if killedSession != "ttal-default-kestrel" {
-		t.Errorf("killed session = %q, want %q", killedSession, "ttal-default-kestrel")
+	if killedSession != testKestrelSession {
+		t.Errorf("killed session = %q, want %q", killedSession, testKestrelSession)
 	}
 	if !strings.Contains(capturedCmd, "claude --dangerously-skip-permissions --agent kestrel") {
 		t.Errorf("expected claude command, got: %s", capturedCmd)
@@ -305,7 +321,7 @@ func TestHandleBreathe_DeadSessionPath(t *testing.T) {
 	resp := handleBreathe(cfg, BreatheRequest{
 		Agent:       "kestrel",
 		Handoff:     "# Handoff\n\nNext steps: continue",
-		SessionName: "ttal-default-kestrel",
+		SessionName: testKestrelSession,
 	}, nil, nil)
 
 	if !resp.OK {
@@ -357,7 +373,9 @@ func TestHandleBreathe_LenosRespawn(t *testing.T) {
 	if err := os.MkdirAll(agentPath, 0o755); err != nil {
 		t.Fatalf("mkdir agent: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(agentPath, "AGENTS.md"), []byte("---\ndefault_runtime: lenos\n---\n# Lenos Agent\n"), 0o644); err != nil {
+	agentsMD := "---\ndefault_runtime: lenos\n---\n# Lenos Agent\n"
+	agentsFile := filepath.Join(agentPath, "AGENTS.md")
+	if err := os.WriteFile(agentsFile, []byte(agentsMD), 0o644); err != nil {
 		t.Fatalf("write AGENTS.md: %v", err)
 	}
 

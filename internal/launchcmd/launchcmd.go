@@ -75,7 +75,10 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 // readOnly is forwarded to lenos via --readonly when rt is Lenos; ignored for
 // other runtimes (Claude Code has no equivalent sandbox-enforced flag).
 // resumeSessionID, if non-empty, is forwarded as --resume (CC) or --session (Lenos).
-func BuildAgentLaunchCommand(rt runtime.Runtime, ttalBin, agentName string, readOnly bool, trigger, resumeSessionID string) (string, error) {
+func BuildAgentLaunchCommand(
+	rt runtime.Runtime, ttalBin, agentName string,
+	readOnly bool, trigger, resumeSessionID string,
+) (string, error) {
 	switch rt {
 	case runtime.Lenos:
 		return BuildLenosCommand(ttalBin, agentName, trigger, readOnly, resumeSessionID), nil

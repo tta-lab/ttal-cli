@@ -333,11 +333,19 @@ func spawnAgentSession(
 	switch rt {
 	case runtime.Lenos:
 		if _, err := exec.LookPath("lenos"); err != nil {
-			return fmt.Errorf("binary %q not found in PATH (configure launchctl setenv PATH or install to a launchd-default location): %w", "lenos", err)
+			return fmt.Errorf(
+				"binary %q not found in PATH (configure launchctl setenv PATH"+
+					" or install to a launchd-default location): %w",
+				"lenos", err,
+			)
 		}
 	case runtime.ClaudeCode:
 		if _, err := exec.LookPath("claude"); err != nil {
-			return fmt.Errorf("binary %q not found in PATH (configure launchctl setenv PATH or install to a launchd-default location): %w", "claude", err)
+			return fmt.Errorf(
+				"binary %q not found in PATH (configure launchctl setenv PATH"+
+					" or install to a launchd-default location): %w",
+				"claude", err,
+			)
 		}
 	}
 
