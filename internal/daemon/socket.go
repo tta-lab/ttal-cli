@@ -988,7 +988,6 @@ func daemonHTTPClient() *http.Client {
 	}
 }
 
-
 // daemonHTTPClientLong returns an http.Client with a custom timeout for long-blocking
 // requests (e.g. /ask/human which waits up to 5 minutes for a human reply).
 func daemonHTTPClientLong(timeout time.Duration) *http.Client {
