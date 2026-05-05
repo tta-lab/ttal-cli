@@ -27,6 +27,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notify"
+	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -617,13 +618,18 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 
 // formatInboundMessage formats a Telegram message for delivery to the agent.
 // adminAlias is the human's lowercase alias for the reply hint (e.g. "neil").
+// Routes through sendfmt for the canonical [<channel> from:X] [hh:mm:ss] body
+// layout shared with matrix inbound and outbound agent-to-agent.
 func formatInboundMessage(senderName, text, adminAlias string) string {
 	if adminAlias == "" {
 		adminAlias = "human"
 	}
-	return fmt.Sprintf(
-		"[telegram from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
-		html.EscapeString(senderName), text, adminAlias)
+	return sendfmt.Format(sendfmt.Envelope{
+		Channel:    "telegram",
+		SenderName: html.EscapeString(senderName),
+		Body:       text,
+		ReplyAlias: adminAlias,
+	})
 }
 
 // registerBotCommands calls Telegram setMyCommands API for this bot token.

@@ -7,18 +7,27 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
+	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 )
 
-// ReplyHint returns a footer line instructing the receiver how to reply to senderAddr.
+// ReplyHint is a thin wrapper around sendfmt.ReplyHint, kept for back-compat
+// with cmd/alert.go which composes its own alert body and appends the canonical
+// hint. New code should call sendfmt.ReplyHint directly.
 func ReplyHint(senderAddr string) string {
-	return fmt.Sprintf("<i>--- Reply with: ttal send --to %s \"your message\"</i>", senderAddr)
+	return sendfmt.ReplyHint(senderAddr)
 }
 
 // formatAgentMessage formats an agent-to-agent message for delivery.
-// Includes a reply hint footer so the receiver knows how to respond.
+// Delegates to sendfmt.Format with channel="agent" so the layout matches
+// telegram/matrix inbound formatters (single-line header).
 func formatAgentMessage(fromAgent, text string) string {
-	return fmt.Sprintf("[agent from:%s]\n%s\n\n%s", fromAgent, text, ReplyHint(fromAgent))
+	return sendfmt.Format(sendfmt.Envelope{
+		Channel:    "agent",
+		SenderName: fromAgent,
+		Body:       text,
+		ReplyAlias: fromAgent,
+	})
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.

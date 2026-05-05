@@ -5,11 +5,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-telegram/bot/models"
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
+	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 )
 
@@ -134,6 +136,11 @@ func TestBuildFullCommand(t *testing.T) {
 // TestHandleInboundMessage_BashMode verifies that messages starting with "! " are delivered
 // directly to the agent without the [telegram from:] wrapper.
 func TestHandleInboundMessage_BashMode(t *testing.T) {
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
+	})
+	t.Cleanup(func() { restore() })
+
 	tests := []struct {
 		name         string
 		text         string
@@ -149,18 +156,18 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			text: "hello",
-			want: "[telegram from:testuser] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[telegram from:testuser] [14:32:05] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name: "no space not bash mode",
 			text: "!nospace",
-			want: "[telegram from:testuser] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[telegram from:testuser] [14:32:05] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			// TrimSpace strips the trailing space, so "! " → "!" which is NOT bash mode.
 			name: "prefix only is not bash mode after trim",
 			text: "! ",
-			want: "[telegram from:testuser] !\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[telegram from:testuser] [14:32:05] !\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name:         "overrideText bash mode",
@@ -214,6 +221,11 @@ func strPtr(s string) *string { return &s }
 // TestHandleInboundMessage_NormalIncludesHint verifies that normal (non-bash) inbound
 // messages include the italic reply hint footer.
 func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
+	})
+	t.Cleanup(func() { restore() })
+
 	fe := &TelegramFrontend{
 		cfg: TelegramConfig{
 			UserNameFn: func() string { return "neil" },
@@ -238,7 +250,7 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 	)
 
 	hint := "<i>--- Reply with: ttal send --to human \"your message\"</i>"
-	if !strings.Contains(got, "[telegram from:neil] hello there") {
+	if !strings.Contains(got, "[telegram from:neil] [14:32:05] hello there") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, hint) {

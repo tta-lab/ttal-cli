@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/id"
@@ -15,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
+	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 )
 
 const testUserName = "neil"
@@ -423,6 +425,11 @@ func TestMatrixFrontend_ClearTracking(t *testing.T) {
 // TestDeliverInboundMessage_BashMode verifies that messages starting with "! " are delivered
 // directly to the agent without the [matrix from:] wrapper.
 func TestDeliverInboundMessage_BashMode(t *testing.T) {
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
+	})
+	t.Cleanup(func() { restore() })
+
 	tests := []struct {
 		name string
 		body string
@@ -436,12 +443,12 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			body: "hello",
-			want: "[matrix from:neil] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[matrix from:neil] [14:32:05] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name: "no space not bash mode",
 			body: "!nospace",
-			want: "[matrix from:neil] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[matrix from:neil] [14:32:05] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
 		},
 		{
 			name: "prefix only empty command",
@@ -520,6 +527,11 @@ func TestMatrixTeamConfig_Validate(t *testing.T) {
 // TestMatrixInbound_NormalIncludesHint verifies that normal (non-bash) inbound
 // Matrix messages include the italic reply hint footer.
 func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
+	})
+	t.Cleanup(func() { restore() })
+
 	var got string
 	fe := &MatrixFrontend{
 		cfg: MatrixConfig{
@@ -532,7 +544,7 @@ func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
 	fe.deliverInboundMessage(context.Background(), "testagent", "hello neil")
 
 	hint := "<i>--- Reply with: ttal send --to human \"your message\"</i>"
-	if !strings.Contains(got, "[matrix from:neil] hello neil") {
+	if !strings.Contains(got, "[matrix from:neil] [14:32:05] hello neil") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, hint) {

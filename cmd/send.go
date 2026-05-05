@@ -65,9 +65,10 @@ Examples:
 		usage.Log("send", sendTo)
 
 		return daemonSendFn(daemon.SendRequest{
-			From:    from,
-			To:      sendTo,
-			Message: message,
+			From:          from,
+			To:            sendTo,
+			Message:       message,
+			UserInitiated: true,
 		})
 	},
 }
