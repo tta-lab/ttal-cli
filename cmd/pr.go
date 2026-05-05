@@ -16,6 +16,12 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
+var (
+	daemonPRCreateFn   = daemon.PRCreate                  // inject point for tests
+	daemonPRModifyFn   = daemon.PRModify                  // inject point for tests
+	prResolveContextFn = pr.ResolveContextWithoutProvider // inject point for tests
+)
+
 var prCmd = &cobra.Command{
 	Use:   "pr",
 	Short: "Manage pull requests for the current worker task",
@@ -45,12 +51,11 @@ Examples:
   BODY`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
+		ctx, err := prResolveContextFn()
 		if err != nil {
 			return err
 		}
 
-		// Get workDir first for branch detection
 		workDir, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("get working directory: %w", err)
@@ -81,14 +86,17 @@ Examples:
 		fmt.Println("Pushed.")
 
 		title := strings.Join(args, " ")
-		body, _ := readStdinIfPiped()
+		body, err := readStdinIfPiped()
+		if err != nil {
+			return fmt.Errorf("read PR body from stdin: %w", err)
+		}
 
 		base := ctx.Info.DefaultBranch
 		if base == "" {
 			base = "main"
 		}
 
-		prResp, err := daemon.PRCreate(daemon.PRCreateRequest{
+		prResp, err := daemonPRCreateFn(daemon.PRCreateRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,
@@ -167,24 +175,31 @@ Examples:
   New PR body content.
   BODY`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
+		title, _ := cmd.Flags().GetString("title")
+		body, err := readStdinIfPiped()
+		if err != nil {
+			return fmt.Errorf("read PR body from stdin: %w", err)
+		}
+
+		if title == "" && body == "" {
+			return fmt.Errorf("nothing to update — provide --title and/or pipe body via stdin\n\n" +
+				"  Title only:  ttal pr modify --title \"new title\"\n" +
+				"  Body only:   echo \"new body\" | ttal pr modify\n" +
+				"  Both:        echo \"new body\" | ttal pr modify --title \"new title\"\n" +
+				"  Heredoc:     cat <<'EOF' | ttal pr modify --title \"new title\"\n" +
+				"                 ## Updated\n" +
+				"                 ...\n" +
+				"               EOF")
+		}
+
+		ctx, err := prResolveContextFn()
 		if err != nil {
 			return err
 		}
 
-		title, _ := cmd.Flags().GetString("title")
-		body, _ := readStdinIfPiped()
-
 		// --pr-id overrides PR lookup (for non-worktree use)
 		if prIDFlag := cmd.Flag("pr-id").Value.String(); prIDFlag != "" {
 			ctx.Task.PRID = prIDFlag
-		}
-
-		if title == "" && body == "" {
-			return fmt.Errorf("body required from stdin (heredoc) or use --title\n\n" +
-				"  Example: echo 'new body' | ttal pr modify\n" +
-				"  Example: cat <<'BODY' | ttal pr modify --title 'new title'\n" +
-				"  ...\n  BODY")
 		}
 
 		index, err := pr.PRIndex(ctx)
@@ -192,7 +207,7 @@ Examples:
 			return err
 		}
 
-		prResp, err := daemon.PRModify(daemon.PRModifyRequest{
+		prResp, err := daemonPRModifyFn(daemon.PRModifyRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Host:         ctx.Info.Host,
 			Owner:        ctx.Owner,

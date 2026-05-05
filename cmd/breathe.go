@@ -40,7 +40,11 @@ func runBreathe(_ *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		handoff = strings.Join(args, " ")
 	} else {
-		handoff, _ = readStdinIfPiped()
+		piped, err := readStdinIfPiped()
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+		handoff = piped
 	}
 
 	if handoff == "" {
