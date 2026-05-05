@@ -38,7 +38,7 @@ func TestRunBreathe_RejectsPositionalArgs(t *testing.T) {
 func TestRunBreathe_AgentFlagWins(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "bar")
 	t.Setenv("TTAL_SESSION_NAME", "")
-	breatheCmd.Flags().Set("agent", "")
+	_ = breatheCmd.Flags().Set("agent", "")
 
 	var captured daemon.BreatheRequest
 	saved := breatheFn
@@ -48,7 +48,7 @@ func TestRunBreathe_AgentFlagWins(t *testing.T) {
 	}
 	defer func() { breatheFn = saved }()
 
-	breatheCmd.Flags().Set("agent", "foo")
+	_ = breatheCmd.Flags().Set("agent", "foo")
 
 	err := runBreathe(breatheCmd, nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func TestRunBreathe_AgentFlagWins(t *testing.T) {
 func TestRunBreathe_EnvFallback(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "bar")
 	t.Setenv("TTAL_SESSION_NAME", "")
-	breatheCmd.Flags().Set("agent", "")
+	_ = breatheCmd.Flags().Set("agent", "")
 
 	var captured daemon.BreatheRequest
 	saved := breatheFn

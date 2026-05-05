@@ -35,7 +35,8 @@ func init() {
 
 func resolveBreatheTarget(cmd *cobra.Command, args []string) (string, error) {
 	if len(args) > 0 {
-		return "", fmt.Errorf("ttal breathe no longer accepts handoff arguments — write your handoff to diary first, then run `ttal breathe`. See: skill get breathe")
+		return "", fmt.Errorf("ttal breathe no longer accepts handoff arguments" +
+			" — write your handoff to diary first, then run `ttal breathe`. See: skill get breathe")
 	}
 	if agent, _ := cmd.Flags().GetString("agent"); agent != "" {
 		return agent, nil
