@@ -1023,6 +1023,30 @@ func Send(req SendRequest) error {
 	return nil
 }
 
+// StatusUpdate sends an agent status update to the daemon.
+// Used by hook-style consumers (e.g. ttal status update from lenos post_step).
+// Single-shot per invocation — no retries; fail-fast on connection errors.
+func StatusUpdate(req StatusUpdateRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal status update request: %w", err)
+	}
+	client := daemonHTTPClient()
+	resp, err := client.Post(daemonBaseURL+"/status/update", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("daemon not running: %w", err)
+	}
+	defer resp.Body.Close()
+	var result SendResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("invalid response from daemon: %w", err)
+	}
+	if !result.OK {
+		return fmt.Errorf("status update: %s", result.Error)
+	}
+	return nil
+}
+
 // prClientTimeout is the total request timeout for PR operations.
 // PR creation involves a network API call to Forgejo/GitHub which can take
 // several seconds, so we use a generous timeout to avoid spurious failures.
