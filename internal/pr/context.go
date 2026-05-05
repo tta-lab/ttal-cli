@@ -7,6 +7,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 type Context struct {
@@ -21,25 +22,22 @@ type Context struct {
 // without creating an authenticated provider. Used by CLI commands that
 // proxy API calls through the daemon.
 func ResolveContextWithoutProvider() (*Context, error) {
-	jobID := os.Getenv("TTAL_JOB_ID")
-	if jobID == "" {
-		return resolveFromCwdWithoutProvider()
-	}
-	return resolveFromTaskWithoutProvider(jobID)
-}
-
-func resolveFromTaskWithoutProvider(jobID string) (*Context, error) {
-	task, info, err := resolveTaskInfo(jobID)
+	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot determine working directory: %w", err)
 	}
-	return &Context{
-		Task:  task,
-		Owner: info.Owner,
-		Repo:  info.Repo,
-		Info:  info,
-		Alias: task.Project,
-	}, nil
+	if hexID := worker.TaskHexFromCwd(cwd); hexID != "" {
+		if task, info, err := resolveTaskInfo(hexID); err == nil {
+			return &Context{
+				Task:  task,
+				Owner: info.Owner,
+				Repo:  info.Repo,
+				Info:  info,
+				Alias: task.Project,
+			}, nil
+		}
+	}
+	return resolveFromCwdWithoutProvider()
 }
 
 func resolveFromCwdWithoutProvider() (*Context, error) {

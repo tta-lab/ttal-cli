@@ -21,7 +21,7 @@ var prCmd = &cobra.Command{
 	Short: "Manage pull requests for the current worker task",
 	Long: `Create, modify, and comment on pull requests.
 
-Context is auto-resolved from TTAL_JOB_ID (task UUID prefix).
+Context is auto-resolved from the current worktree path (hex ID in directory name).
 Provider is auto-detected from git remote URL (github.com → GitHub, else → Forgejo).
 
 All authenticated API calls are proxied through the daemon for token isolation.`,
@@ -30,14 +30,19 @@ All authenticated API calls are proxied through the daemon for token isolation.`
 var prCreateCmd = &cobra.Command{
 	Use:   "create <title>",
 	Short: "Create a PR from the current branch",
-	Long: `Creates a Forgejo PR using the current branch and project path.
+	Long: `Creates a PR using the current branch and project path.
 Stores the PR index in the task's pr_id UDA for future commands.
 
 Works in both worktree and non-worktree setups.
 
+Body is read from stdin (heredoc). Title is the positional argument.
+
 Examples:
   ttal pr create "feat: add user authentication"
-  ttal pr create "fix: resolve timeout bug" --body "Fixes #42"`,
+  echo "Fixes #42" | ttal pr create "fix: resolve timeout bug"
+  cat <<'BODY' | ttal pr create "feat: major refactor"
+  Comprehensive description spanning multiple lines.
+  BODY`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContextWithoutProvider()
@@ -76,7 +81,7 @@ Examples:
 		fmt.Println("Pushed.")
 
 		title := strings.Join(args, " ")
-		body, _ := cmd.Flags().GetString("body")
+		body, _ := readStdinIfPiped()
 
 		base := ctx.Info.DefaultBranch
 		if base == "" {
@@ -154,9 +159,13 @@ var prModifyCmd = &cobra.Command{
 	Short: "Update the PR title or body",
 	Long: `Updates the PR associated with the current task.
 
+Title is set with --title. Body is read from stdin (heredoc). At least one of --title or stdin must be provided.
+
 Examples:
-  ttal pr modify --title "new title"
-  ttal pr modify --body "updated description"`,
+  echo "Updated body content" | ttal pr modify --title "new title"
+  cat <<'BODY' | ttal pr modify
+  New PR body content.
+  BODY`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContextWithoutProvider()
 		if err != nil {
@@ -164,10 +173,18 @@ Examples:
 		}
 
 		title, _ := cmd.Flags().GetString("title")
-		body, _ := cmd.Flags().GetString("body")
+		body, _ := readStdinIfPiped()
+
+		// --pr-id overrides PR lookup (for non-worktree use)
+		if prIDFlag := cmd.Flag("pr-id").Value.String(); prIDFlag != "" {
+			ctx.Task.PRID = prIDFlag
+		}
 
 		if title == "" && body == "" {
-			return fmt.Errorf("specify --title, --body, or both\n\n  Example: ttal pr modify --title \"new title\" --body \"updated description\"") //nolint:lll
+			return fmt.Errorf("body required from stdin (heredoc) or use --title\n\n" +
+				"  Example: echo 'new body' | ttal pr modify\n" +
+				"  Example: cat <<'BODY' | ttal pr modify --title 'new title'\n" +
+				"  ...\n  BODY")
 		}
 
 		index, err := pr.PRIndex(ctx)
@@ -232,9 +249,8 @@ func loadConfigAndCoderRuntime() (*config.Config, runtime.Runtime) {
 func init() {
 	rootCmd.AddCommand(prCmd)
 
-	prCreateCmd.Flags().String("body", "", "PR body/description")
 	prModifyCmd.Flags().String("title", "", "New PR title")
-	prModifyCmd.Flags().String("body", "", "New PR body")
+	prModifyCmd.Flags().String("pr-id", "", "PR number override (for non-worktree use)")
 
 	prCICmd.Flags().BoolVar(&prCIShowLog, "log", false, "Include failure details and log tails")
 
