@@ -42,6 +42,10 @@ func TestFormatAge_RecentTimestamp(t *testing.T) {
 }
 
 func TestFormatAge_Zero(t *testing.T) {
+	// Documented behavior: FormatAge has no defensive guard for zero time.
+	// We do NOT assert the exact value (it is the X-day value of
+	// time.Since(time.Time{}) which depends on the wall clock at test
+	// execution). We only verify that the result has the Xd suffix shape.
 	got := FormatAge(time.Time{})
 	if len(got) < 2 || got[len(got)-1] != 'd' {
 		t.Errorf("FormatAge(zero time) = %q, want a Xd value", got)
