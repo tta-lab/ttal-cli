@@ -188,6 +188,9 @@ Write the test plan as a single flicknote with two sections (Constructive and Ad
 ### Pass alpha — Red team hypotheses
 | Hypothesis | Falsifying test | Status |
 |------------|-----------------|--------|
+
+## Friction notes
+Things the skill could have surfaced earlier, places the methodology felt heavy or thin, gaps in the storage template. Concrete enough to land as edits to `skills/sp-write-test-plan/SKILL.md` in a follow-up.
 ```
 
 ### Storage
@@ -238,10 +241,7 @@ Before declaring the test plan done:
 - [ ] Adversarial pass alpha ran (5-10 hypotheses, each with a falsifying test)
 - [ ] Test plan flicknote written and annotated on parent task
 - [ ] If confirmed-broken found: separate bug or test report flicknote written and annotated
-
-## Testing and Iteration
-
-No synthetic subagent tests for this skill. Friction observed during real invocations feeds skill revision via direct edits to this file (`skills/sp-write-test-plan/SKILL.md`) — the SSOT is filesystem, deployed to runtime by `ttal sync`. Capture friction notes in the test plan flicknote's final section so each invocation contributes a check on the methodology.
+- [ ] Friction notes captured in the test plan (skill-level gaps surfaced this invocation, concrete enough to land as edits to this skill)
 
 ## After the Test Plan Is Written
 
