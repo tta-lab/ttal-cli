@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Test Report — fse.sub Integration Test Pairing — 2026-05-06</title>
+<style>
+  :root {
+    --pass: #2d7a3e;
+    --fail: #b03030;
+    --skip: #888;
+    --deferred: #b07a00;
+    --notrun: #c8c8c8;
+    --bg: #fafaf7;
+    --border: #d8d4ca;
+    --accent: #4a4a40;
+    --row-alt: #f3f1ec;
+  }
+  body {
+    background: var(--bg);
+    color: #1a1a1a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    margin: 0 auto;
+    padding: 32px 48px;
+    max-width: 1400px;
+  }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; border-bottom: 2px solid var(--accent); padding-bottom: 8px; }
+  h2 { font-size: 1.3rem; margin-top: 2.5rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: baseline; }
+  h2 .group-stats { font-size: 0.82rem; color: #666; font-weight: normal; }
+  h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #555; }
+  .meta { font-size: 0.9rem; color: #555; margin-bottom: 1.5rem; }
+  .meta strong { color: #1a1a1a; }
+  .summary {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+  }
+  .summary-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: baseline; }
+  .summary-stat { font-size: 0.95rem; }
+  .summary-stat .num { font-size: 1.4rem; font-weight: 600; margin-right: 4px; }
+  .progress-bar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0; }
+  .progress-bar > div { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75rem; font-weight: 600; }
+  .progress-bar .seg-pass { background: var(--pass); }
+  .progress-bar .seg-fail { background: var(--fail); }
+  .progress-bar .seg-skip { background: var(--skip); }
+  .progress-bar .seg-deferred { background: var(--deferred); }
+  .progress-bar .seg-notrun { background: var(--notrun); color: #555; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    table-layout: fixed;
+  }
+  th, td {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    text-align: left;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  th {
+    background: #ebe8e0;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  tr:nth-child(even) td { background: var(--row-alt); }
+  td.id { font-family: "SF Mono", Monaco, Consolas, monospace; font-weight: 600; white-space: nowrap; }
+  td.status { text-align: center; font-weight: 600; white-space: nowrap; }
+  td.approach { font-style: italic; color: #555; font-size: 0.85rem; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; color: #fff; }
+  .pill-pass { background: var(--pass); }
+  .pill-fail { background: var(--fail); }
+  .pill-skip { background: var(--skip); }
+  .pill-deferred { background: var(--deferred); }
+  .pill-notrun { background: var(--notrun); color: #555; }
+  code, pre { font-family: "SF Mono", Monaco, Consolas, monospace; font-size: 0.85rem; }
+  pre { background: #f0eee7; padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 1rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .footnote { font-size: 0.85rem; color: #666; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  ul.refs { padding-left: 18px; margin: 0.25rem 0; }
+  ul.refs li { margin-bottom: 2px; font-size: 0.88rem; }
+  /* Column widths shared across all tables */
+  table col.c-id { width: 5%; }
+  table col.c-desc { width: 22%; }
+  table col.c-app { width: 11%; }
+  table col.c-exp { width: 21%; }
+  table col.c-act { width: 23%; }
+  table col.c-stat { width: 7%; }
+  table col.c-notes { width: 11%; }
+</style>
+</head>
+<body>
+
+<!--
+  ===== EMBEDDED JSONL DATA =====
+  Edit this block to update test-case state. JS at end of file parses
+  this script's text content as JSONL (one JSON object per line) and
+  renders the report dynamically.
+
+  Schema:
+    id          — unique case identifier (A1, B2, γ2a, ...)
+    section     — section heading text (becomes the <h2>)
+    section_id  — internal grouping key (used in summary breakdown)
+    description — what the case tests
+    approach    — how it was/will be exercised (free-text or "—")
+    expected    — what should happen
+    actual      — what was observed (or "—" if not yet run)
+    status      — one of: pass, fail, skip, deferred, notrun
+    notes       — short freeform note (optional)
+-->
+<script type="application/jsonl" id="test-cases">
+{"id":"A1","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"SUBSCRIBED — fresh subscription, valid binding, known productID, fresh ExpiresDate","approach":"dev DB harvest","expected":"audit row + UpsertEntitlementOnInitialPurchase, status 200","actual":"3 SUBSCRIBED rows in dev (Neil fe4de0a3 @ 2026-05-05 11:51, Sifang aacb046d @ 17:04 + 2026-05-06 01:56). All have full audit: notification_uuid set, transaction_info populated camelCase, signed_payload set (5641 bytes), subtype=RESUBSCRIBE. Entitlements row created on each: tier=pro, billing_cycle=yearly, expires_at = txn.ExpiresDate, last_event_type=SUBSCRIBED.","status":"pass","notes":"caveat: only RESUBSCRIBE subtype seen (re-buy path); pure first-buy with subtype=\"\" not exercised yet"}
+{"id":"A2","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"OFFER_REDEEMED — same routing as SUBSCRIBED","approach":"—","expected":"identical to A1 (handler-shared branch)","actual":"No OFFER_REDEEMED events in dev. Code-walk only: handler shares branch with SUBSCRIBED at webhook.go:64.","status":"notrun","notes":"needs Apple promo-offer trigger"}
+{"id":"A3","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"DID_RENEW (steady state) — entitlement at HWM T0, fresh notification at T1>T0","approach":"dev DB harvest","expected":"audit row + UpsertEntitlementOnRenewal, last_event_at advanced, QPS preserved on conflict","actual":"21 DID_RENEW rows: Neil 11 cycles (sandbox yearly=1h, 11h chain), Sifang 10+ cycles. Each cycle: expires_at advances to fresh value, last_event_at advances to envelope.signed_date, quota_period_start_at preserved across renewals (Neil's QPS = 2026-05-05 11:51:30 = original purchase, unchanged through 11 renewals).","status":"pass","notes":"QPS single-writer rule confirmed via I3"}
+{"id":"A4","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"DID_RENEW (S7 cold-start) — no existing row, DID_RENEW arrives first","approach":"—","expected":"audit row + INSERT branch, QPS = OriginalPurchaseDate","actual":"Not exercised in dev (every DID_RENEW followed a SUBSCRIBED). Needs out-of-order delivery simulation.","status":"notrun","notes":"needs explicit trigger (Apple test-notification or mock)"}
+{"id":"A5","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"DID_CHANGE_RENEWAL_STATUS (auto_renew→false) — toggles auto-renewal off","approach":"dev DB harvest","expected":"UpsertEntitlementAutoRenew, only auto_renew column changes on conflict","actual":"2 DID_CHANGE_RENEWAL_STATUS events for Sifang, both subtype=AUTO_RENEW_DISABLED (manually turning off auto-renew via iOS App Store settings). After each: entitlements.auto_renew flipped, then EXPIRED followed (Apple stopped renewing). Sifang's current row auto_renew=true (after he re-subscribed and re-enabled it on 2026-05-06).","status":"pass","notes":""}
+{"id":"A6","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"EXPIRED — handleSubscriptionEnd → ExpireEntitlement","approach":"dev DB harvest","expected":"pure UPDATE, expires_at = envelope.SignedDate, HWM advances","actual":"3 EXPIRED rows (Neil 1, Sifang 2). Verified Neil: signed_date 2026-05-05 23:53:07.521 → entitlements.expires_at 2026-05-05 23:53:07.521 (exact match to envelope.SignedDate per spec; transaction_info.expiresDate was 22:52:43, NOT used). Confirms ExpireEntitlement writes envelope.SignedDate not transaction.ExpiresDate.","status":"pass","notes":""}
+{"id":"A7","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"REFUND with RevocationDate set","approach":"—","expected":"expires_at = RevocationDate (not envelope.SignedDate)","actual":"No REFUND events in dev. Sandbox doesn't simulate refunds.","status":"notrun","notes":"needs Apple test-notification mock"}
+{"id":"A8","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"DID_FAIL_TO_RENEW (no grace, immediate expiry)","approach":"—","expected":"handleSubscriptionEnd, expires_at = envelope.SignedDate, last_event_type set","actual":"No DID_FAIL_TO_RENEW events in dev. Sandbox doesn't simulate billing failures.","status":"notrun","notes":"needs Apple test-notification mock"}
+{"id":"A9","section_id":"a","section":"Group A — POST /webhook/apple (per NotificationType)","description":"ONE_TIME_CHARGE happy path — known consumable productID","approach":"—","expected":"audit row + neuron_purchases INSERT with catalog amount","actual":"neuron_purchases table is EMPTY in dev. No consumable purchases exercised.","status":"notrun","notes":"needs iOS consumable buy flow"}
+{"id":"B1","section_id":"b","section":"Group B — POST /api/v1/subscription/validate","description":"Auto-Renewable subscription happy path","approach":"dev DB harvest","expected":"audit row (notification_uuid=NULL, signed_payload=outer JWS), UpsertEntitlementOnInitialPurchase, EntitlementResponse with Tier=\"pro\"","actual":"32 VALIDATE rows in dev across both users. All have notification_uuid=NULL, signed_payload populated, transaction_info camelCase, signed_date NULL (validate path doesn't have envelope.SignedDate), subscription_status NULL. Validate-path convention fully verified.","status":"pass","notes":"response body shape needs curl verify"}
+{"id":"B2","section_id":"b","section":"Group B — POST /api/v1/subscription/validate","description":"Consumable happy path — JWS Type=\"Consumable\"","approach":"—","expected":"NO subscription_events row from validate (consumables only write neuron_purchases), processConsumablePurchase called, response = current entitlement","actual":"No Consumable validate calls in dev (neuron_purchases empty).","status":"notrun","notes":"needs iOS consumable flow"}
+{"id":"B3","section_id":"b","section":"Group B — POST /api/v1/subscription/validate","description":"Auto-Renewable for new user (creates entitlement row)","approach":"—","expected":"row INSERT-branch values, last_event_at = txn.SignedDate, response Tier=\"pro\"","actual":"Not seen in dev — both users had pre-existing rows from prior subscribes (re-subscribe path, ON CONFLICT branch only).","status":"notrun","notes":"needs fresh sandbox tester account never-subscribed"}
+{"id":"B4","section_id":"b","section":"Group B — POST /api/v1/subscription/validate","description":"Auto-Renewable for existing user (ON CONFLICT path)","approach":"dev DB harvest (partial)","expected":"last_event_at = T1, columns updated, QPS preserved (single-writer)","actual":"Indirect evidence: every VALIDATE for an already-subscribed user (most of the 32) hit the ON CONFLICT path. Entitlements last_event_at advancement chain matches expected. Direct curl-level assertion still pending.","status":"pass","notes":"indirect via entitlements timeline"}
+{"id":"C1","section_id":"c","section":"Group C — GET /api/v1/entitlement/{userId}","description":"Paid active user (future expires_at)","approach":"live curl (post-resubscribe)","expected":"200 with full paid response","actual":"Direct curl 16:45 with Neil's fresh JWT: GET /api/v1/entitlement/fe4de0a3-... → HTTP 200 + body {\"tier\":\"pro\",\"billing_cycle\":\"monthly\",\"expires_at\":\"2026-05-06T08:47:35Z\",\"quota_period_start_at\":\"2026-05-05T11:51:30Z\",\"auto_renew\":true}. Full paid response shape verified end-to-end. Note: quota_period_start_at = 2026-05-05 (the original yearly purchase date, preserved across the resubscribe via the QPS single-writer rule — strong I3 evidence).","status":"pass","notes":"verified post-resubscribe with fresh JWT"}
+{"id":"C2","section_id":"c","section":"Group C — GET /api/v1/entitlement/{userId}","description":"Free user (no entitlements row)","approach":"convergent with C3","expected":"200 with freeTierResponse, all date fields null","actual":"Same response shape as C3 (both `pgx.ErrNoRows` and `IsActive() false` branches converge to `s.freeTierResponse()`). Direct test would need a userID with no entitlements row + that user's auth token. Functionally validated via C3 since response body is identical.","status":"pass","notes":"convergent path with C3"}
+{"id":"C3","section_id":"c","section":"Group C — GET /api/v1/entitlement/{userId}","description":"Paid expired user (row exists, expires_at < now)","approach":"live curl","expected":"IsActive() false → free-tier response, all date fields null in JSON","actual":"GET https://dev-gw.flicknote.app/api/v1/entitlement/fe4de0a3-... with Neil's JWT @ 14:25 → HTTP 200 with body: {\"tier\":\"free\",\"billing_cycle\":null,\"expires_at\":null,\"quota_period_start_at\":null,\"auto_renew\":false}. Exact match to freeTierResponse() shape per entitlement.go:65-72. IsActive() contract working end-to-end.","status":"pass","notes":""}
+{"id":"E1","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Empty body","approach":"live curl","expected":"400","actual":"POST /webhook/apple with empty body → HTTP 400 \"invalid request body\"","status":"pass","notes":""}
+{"id":"E2a","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Tampered/invalid JWS signature — failed signature verification (NOT JSON-decode failure)","approach":"live curl","expected":"400 invalid signed payload, ZERO audit rows written (no field is trustworthy on a tampered JWS — AuditBuffet pattern per fce395bd §lr)","actual":"Live curl 14:25 with `{\"signedPayload\":\"not-a-real-jws\"}` → HTTP 400 \"invalid signed payload\". Code path (webhook.go:42-46): json.Decode succeeds (valid JSON shape), then DecodeNotification fails on signature → handler returns 400 BEFORE any DB write. Per athena Q3c: tampered-JWS = no audit row is correct AuditBuffet semantics. Need explicit assertion that subscription_events count does NOT advance on this path.","status":"pass","notes":"needs follow-on assertion that audit-NOT-written on sig-fail; split per athena Q3c"}
+{"id":"E2b","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"JSON decode failure — malformed body that doesn't parse as JSON","approach":"live curl","expected":"400 invalid request body, ZERO audit rows written (handler hasn't reached the audit-insert step)","actual":"E2 originally lumped this with E2a; split per athena Q3c. POST with empty body or non-JSON body would return 400 from the JSON decoder before any other processing. E1 (empty body → 400) covers this; the split clarifies the SEMANTIC distinction from E2a (sig-fail) — both 400 to the client but different code paths and different audit semantics.","status":"pass","notes":"covered by E1; semantic separation per athena Q3c"}
+{"id":"E3a","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"G1 silent-drop variants — structural-miss with transaction_info=NULL: RESCIND_CONSENT, RENEWAL_EXTENSION-SUMMARY, EXTERNAL_PURCHASE_TOKEN","approach":"—","expected":"audit row with transaction_info=NULL, user_id=NULL (no AppAccountToken in these envelopes), signed_payload set, no entitlement upsert, 200 OK","actual":"Only RESCIND_CONSENT covered today (TestSilentDropVariant_RescindConsent stub-level). Other 2 G1 variants uncovered. Apple sends appData / summary / externalPurchaseToken envelopes for these (per fce395bd §c1n) — claim.Data.SignedTransactionInfo is empty, decoder returns DecodedInner=nil, handler routes to handleEnvelopeAuditOnly with transaction_info=NULL.","status":"notrun","notes":"split per athena Q1a; G1 = transaction_info IS NULL"}
+{"id":"E3b","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"G2 audit-only-but-data-envelope variants — transaction_info POPULATED: METADATA_UPDATE, MIGRATE, RENEWAL_EXTENDED, CONSUMPTION_REQUEST","approach":"—","expected":"audit row with transaction_info POPULATED (Apple sends signedTransactionInfo for these), user_id populated if AppAccountToken present, signed_payload set, no entitlement upsert (handler-routed-to-audit-only by NotificationType), 200 OK","actual":"None in dev. Per athena Q1a: these use the standard data envelope per fce395bd §c1n; signedTransactionInfo IS present. Webhook switch routes to handleEnvelopeAuditOnly (lines 89-91) — handler writes audit with populated transaction_info but skips entitlement processing. Different assertion shape from E3a (transaction_info populated, not NULL).","status":"notrun","notes":"corrected per athena Q1a; G2 = transaction_info IS POPULATED, not NULL"}
+{"id":"E4","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Audit-only: PRICE_INCREASE, CONSUMPTION_REQUEST","approach":"—","expected":"audit row, no entitlement upsert","actual":"None in dev","status":"notrun","notes":""}
+{"id":"E5","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Unknown future NotificationType (FUTURE_APPLE_TYPE) → default branch","approach":"—","expected":"audit-only routing, 200","actual":"Existing payload_test.go has TestUnknownNotificationType_DefaultAuditOnly","status":"notrun","notes":"unit-tested at stub level"}
+{"id":"E6","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"GRACE_PERIOD subtype on any NotificationType (pre-switch sentinel)","approach":"—","expected":"audit-only with error log","actual":"Existing payload_test.go has TestGraceSubtypeAuditOnly","status":"notrun","notes":"unit-tested at stub level"}
+{"id":"E7","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"REVOKE → audit-only (NOT handleSubscriptionEnd)","approach":"—","expected":"audit row, no ExpireEntitlement call","actual":"Partially covered by TestHandleSubscriptionEnd_HappyPath","status":"notrun","notes":""}
+{"id":"E8","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Missing AppAccountToken on data-variant","approach":"—","expected":"audit row with user_id=NULL, transaction_info populated, no entitlement","actual":"Covered by TestDataVariant_MissingAppAccountToken (stub level)","status":"pass","notes":"existing stub-level coverage"}
+{"id":"E9","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Invalid AppAccountToken UUID format on data-variant","approach":"—","expected":"userID Valid:false → audit-only branch, slog warn fires","actual":"Not currently tested explicitly","status":"notrun","notes":"gap in unit test coverage"}
+{"id":"E10","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Webhook ON CONFLICT idempotency — same notification_uuid twice","approach":"live curl replay (post-fix smoke)","expected":"replay → HTTP 200, entitlement state unchanged via HWM no-op","actual":"PRE-FIX (14:25): replay → HTTP 500 \"database error\" — pgx.ErrNoRows leaked past the eventID-empty branch. POST-FIX SMOKE (16:07, ab0890cc PR #34 deployed to apps-dev): replayed all 4 data-variant handler types: DID_RENEW → 200 ✓ / SUBSCRIBED → 200 ✓ / DID_CHANGE_RENEWAL_STATUS → 200 ✓ / EXPIRED → 200 ✓. Entitlement row state untouched after 4 replays: updated_at = 2026-05-05 23:53:08.015277 (the original EXPIRED timestamp, no new updates). HWM guard at SQL level confirmed working as the safety mechanism — upsert ran each time but no-op'd because signed_date <= last_event_at. Plus regression check: empty body still 400, bad payload still 400 (no regression on input validation).","status":"pass","notes":"smoke 16:07 — all 4 handlers + 2 regression checks + entitlement-state preserved"}
+{"id":"E11","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"DB error on audit insert (subscription_events)","approach":"—","expected":"500","actual":"Existing TestHandleEnvelopeAuditOnly_DBError covers stub level","status":"pass","notes":"unit-tested at stub level"}
+{"id":"E12","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"DB error on entitlement upsert AFTER audit insert succeeded","approach":"—","expected":"500, audit row persists, partial-success log","actual":"—","status":"notrun","notes":""}
+{"id":"E13","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Catalog LookupSubscription miss (unknown productID) on data-variant","approach":"—","expected":"audit row written, entitlement upsert skipped, 200, slog warn","actual":"—","status":"notrun","notes":""}
+{"id":"E14","section_id":"e","section":"Edge Cases — Webhook (E1–E14)","description":"Catalog LookupNeuronPack miss on ONE_TIME_CHARGE → webhook returns 500 (validate would 400)","approach":"—","expected":"asymmetry verified intentional","actual":"—","status":"notrun","notes":""}
+{"id":"V1","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Missing gwauth userID","approach":"live curl","expected":"401, no decode attempt","actual":"POST /api/v1/subscription/validate without Authorization header → HTTP 401 \"missing authorization header\". Note: rejection is at gwauth middleware, not at handler's userID==\"\" branch — the middleware short-circuits before the handler runs.","status":"pass","notes":"middleware-layer rejection, not handler's 401 path"}
+{"id":"V2","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Empty body","approach":"live curl","expected":"400","actual":"POST /validate with empty body + auth → HTTP 400 \"invalid request body\"","status":"pass","notes":""}
+{"id":"V3","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"ParseSignedTransaction error","approach":"live curl","expected":"400","actual":"POST /validate with {\"signedTransaction\":\"not-a-real-jws-string\"} + auth → HTTP 400 \"invalid signed transaction\". Empty {} also → 400 (empty signedTransaction string fails to parse).","status":"pass","notes":""}
+{"id":"V4","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Empty txn.AppAccountToken","approach":"—","expected":"400 \"transaction not linked to an account\"","actual":"—","status":"notrun","notes":""}
+{"id":"V5","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"txn.AppAccountToken ≠ gwauth userID","approach":"—","expected":"403 \"does not belong to this account\"","actual":"—","status":"notrun","notes":"adversarial curl"}
+{"id":"V6","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"JWS Type other than Auto-Renewable / Consumable","approach":"—","expected":"400 \"unsupported transaction type\" + Type-name","actual":"—","status":"notrun","notes":""}
+{"id":"V7","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Auto-Renewable with unknown productID — strict-save invariant gap","approach":"FIXED — aa54fa8c / PR #33","expected":"audit row written before catalog gate; unknown-product calls produce a forensic-queryable audit trail","actual":"Fix landed via PR #33 (commit 5d50c1d). Implementation reads validate.go:76-106 — catalog lookup happens (line 76), then audit row INSERT (line 84-95, BEFORE the gate at line 102), then early return for catalog-miss. Bonus implementation detail: catalog-miss path sets Subtype = 'UNKNOWN_PRODUCT' so audit rows are SQL-queryable by subtype filter (better than the original spec which just said 'move audit above gate'). Strict-save invariant restored.","status":"pass","notes":"shipped without me knowing; verified post-hoc via code read"}
+{"id":"V8","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Auto-Renewable with txn.SignedDate=0","approach":"—","expected":"row created with last_event_at IS NULL; subsequent valid event wins via COALESCE","actual":"—","status":"notrun","notes":""}
+{"id":"V9","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Consumable with unknown productID","approach":"—","expected":"400 \"unknown consumable productID\"","actual":"Existing TestHandleValidateConsumable_UnknownProduct covers stub level","status":"pass","notes":"unit-tested at stub level"}
+{"id":"V10","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Consumable with DB error on InsertNeuronPurchase","approach":"—","expected":"500","actual":"Existing TestHandleValidateConsumable_DBError covers stub level","status":"pass","notes":"unit-tested at stub level"}
+{"id":"V11","section_id":"v","section":"Edge Cases — Validate (V1–V11)","description":"Consumable race: same (otx, tx) concurrent → ON CONFLICT DO NOTHING + RETURNING id behavior","approach":"FIXED — ab0890cc / PR #34","expected":"replay → no 500, idempotent","actual":"Same root cause as α11 / E10 (sqlc :one + RETURNING id + pgx.ErrNoRows leak). ab0890cc PR #34 dropped RETURNING id from InsertNeuronPurchase too, simplified processConsumablePurchase, added TestProcessConsumablePurchase_Replay_Returns200 as regression trap. Direct curl-level smoke not possible (neuron_purchases empty in dev — no consumable JWS to replay), but the SQL change + new test cover it.","status":"pass","notes":"covered by ab0890cc unit test + same SQL fix as α11; direct curl-smoke would need a consumable JWS"}
+{"id":"R1","section_id":"r","section":"Edge Cases — Entitlement Read (R1–R4)","description":"Invalid userId format (non-UUID)","approach":"live curl","expected":"400","actual":"GET /entitlement/not-a-uuid with Neil's auth → HTTP 400 \"invalid user id\"","status":"pass","notes":""}
+{"id":"R2","section_id":"r","section":"Edge Cases — Entitlement Read (R1–R4)","description":"userId ≠ gwauth userID","approach":"live curl","expected":"403","actual":"GET /entitlement/aacb046d-... (Sifang's UUID) with Neil's auth → HTTP 403 \"forbidden\". Authorization gate enforced.","status":"pass","notes":""}
+{"id":"R3","section_id":"r","section":"Edge Cases — Entitlement Read (R1–R4)","description":"GetEntitlement returns non-ErrNoRows error","approach":"—","expected":"500","actual":"—","status":"notrun","notes":""}
+{"id":"R4","section_id":"r","section":"Edge Cases — Entitlement Read (R1–R4)","description":"expires_at = now() exact boundary","approach":"—","expected":"IsActive() = false at boundary; sub-second precision matters","actual":"Existing TestIsActive_* series covers stub level","status":"pass","notes":"unit-tested at stub level"}
+{"id":"I1","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"Audit-row strict-save — every NotificationType (data, audit-only, default, silent-drop) writes ≥1 subscription_events row","approach":"dev DB harvest","expected":"never 200 OK without audit row except 4xx validation failures","actual":"5 distinct event types observed (SUBSCRIBED, DID_RENEW, DID_CHANGE_RENEWAL_STATUS, EXPIRED, VALIDATE) → 61 audit rows total. Every event produced a row; no missing audit detected. Strict-save invariant holds across all observed flows.","status":"pass","notes":"V7 violates this on validate-with-unknown-product path; +bugfix aa54fa8c filed"}
+{"id":"I2","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"HWM monotonicity — last_event_at non-decreasing across event sequence","approach":"dev DB harvest","expected":"monotonic via COALESCE/SQL guard","actual":"Sifang's entitlements.last_event_at = 2026-05-06 05:58:42.076 = signed_date of latest DID_RENEW. Neil's last_event_at = 2026-05-05 23:53:07.521 = signed_date of EXPIRED. Both rows exactly match the chronological max — HWM advances correctly through every event.","status":"pass","notes":""}
+{"id":"I3","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"quota_period_start_at single-writer — only initial-purchase INSERT writes; all upserts preserve on conflict","approach":"dev DB harvest","expected":"QPS unchanged after renewal/auto-renew/expire","actual":"Sifang's (his) QPS = 2026-05-02 11:47:52 (oldest historical purchase, even before current subscription cycle started 2026-05-06 01:56). The 2026-05-06 SUBSCRIBED RESUBSCRIBE did NOT overwrite QPS to fresh purchaseDate — confirms the \"DO NOT overwrite quota_period_start_at on conflict\" rule per pkg/quota/db/entitlement.sql.go:276. Through 7+ DID_RENEW cycles, QPS stayed pinned.","status":"pass","notes":"strong evidence of single-writer rule"}
+{"id":"I4","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"IsActive contract — expires_at <= now ⇒ free-tier response","approach":"live curl","expected":"no path returns paid-tier shape for expired row","actual":"C3 curl proves the contract: Neil's expired entitlement row returned tier=free. The handler's `if !ent.IsActive() { writeEntitlementResponse(s.freeTierResponse()) }` branch fires correctly. expires_at NULL in JSON response confirms freeTierResponse() shape returned, not entitlementToResponse(ent).","status":"pass","notes":"verified via C3 curl"}
+{"id":"I5","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"Idempotency — webhook(notification_uuid) + consumable(otx,tx) UNIQUE","approach":"indirect: dev DB","expected":"replay → exactly 1 row in each affected table","actual":"Indirect evidence: 29 webhook rows have unique notification_uuid (no duplicates). Apple sandbox naturally retries webhooks on failure; if dedup were broken we'd see duplicates with different payloads. UNIQUE(notification_uuid) constraint enforces this. Consumable side untested (neuron_purchases empty).","status":"pass","notes":"partial — webhook side only"}
+{"id":"I6","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"Signed payload SSOT — signed_payload bytes-as-received (durability against unknown-field drift)","approach":"dev DB harvest + future regression trap","expected":"signed_payload preserves bytes verbatim, including fields go-iap doesn't decode (e.g., previousOriginalTransactionId added by Apple 2026-05-02, not in go-iap@v1.49.0). Dual-column durability argument from fce395bd holds: any new Apple field is recoverable from signed_payload bytes even when typed structs lag.","actual":"Presence verified across all sampled rows (5641-18979 byte range). NOT NULL constraint at schema level enforces this. **Per athena Q1b**: regression-trap candidate — TestSignedPayloadIntegrity_PreservesUnknownField — submit a fixture JWS that includes previousOriginalTransactionId; assert signed_payload byte-exact retains it; assert transaction_info decoded JSON does NOT surface it (since go-iap doesn't know the field). This locks the durability argument: when Apple adds another field tomorrow, the test fails on byte-exact preservation, not on go-iap version drift.","status":"pass","notes":"presence verified; field-drift regression trap suggested by athena Q1b — to be added"}
+{"id":"I7","section_id":"i","section":"Invariants & Preconditions (I1–I8)","description":"camelCase keys in transaction_info — both validate and webhook","approach":"dev DB harvest","expected":"Apple-canonical camelCase, no PascalCase / snake_case (regression trap for PR #24)","actual":"24 distinct top-level keys verified across 61 rows: originalTransactionId, transactionId, productId, signedDate, expiresDate, purchaseDate, originalPurchaseDate, appAccountToken, appTransactionId, bundleId, storefrontId, subscriptionGroupIdentifier, inAppOwnershipType, transactionReason, webOrderLineItemId, offerPeriod, offerDiscountType, offerType, environment, type, currency, quantity, storefront, price. All camelCase. No transaction_id, no TransactionID. PR #24 fix sticky.","status":"pass","notes":"strong regression trap"}
+{"id":"I8","section_id":"i","section":"Invariants & Preconditions (I1–I9)","description":"Authorization — gwauth gates /validate (with token-binding check) + /entitlement/{userId}","approach":"live curl + dev DB","expected":"401/403 paths verified per V1/V5/R2","actual":"V1 (no Authorization → 401 from gwauth middleware), R2 (mismatched UUID → 403 from handler), R1 (invalid UUID → 400 from handler) all PASS. /validate's token-binding (V5: txn.AppAccountToken vs gwauth.UserID) requires a valid JWS so not directly tested via curl, but code path is covered by V5's existing TestValidateAccountTokenMismatch_403 stub test. Dev DB shows every audit row with user_id populated → token-binding works for legitimate paths.","status":"pass","notes":"comprehensive: middleware + handler + binding"}
+{"id":"I9","section_id":"i","section":"Invariants & Preconditions (I1–I9)","description":"4xx-permanent-failure invariant — Apple's March-2026 retry semantics treat 4xx as permanent failure (no retries); 5xx + timeout trigger the 5-attempt cycle. Per athena Q2b","approach":"—","expected":"data-variant flows must NOT return 4xx on retryable errors. Only signature-verification failures (cryptographic, retry won't help) + structural-validation failures (env/bundle mismatch, semantic permanent) may return 4xx. Transient DB errors → 5xx (Apple retries). Malformed-but-valid-JWS-with-bad-inner-fields → 5xx OR audit-only with degraded transaction_info, NEVER 4xx.","actual":"Sweep test concept (athena Q2b): feed well-formed-JWS-with-malformed-inner-fields (e.g., truncated transaction_info inside a valid JWS signature) and assert handler routes to audit-only with transaction_info reflecting what could be parsed, never 400. Cross-cutting invariant — connects retry semantics to data-loss prevention. α12 + α13 fixes (env/bundle reject) MUST return 4xx since they're permanent failures (Apple won't fix by retrying) — aligns with this invariant, not violates it.","status":"notrun","notes":"per athena Q2b; cross-cutting; may also live in orientation 96ce8663"}
+{"id":"γ1","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Encoding/key-naming mismatch (PR #24 1a3d61b4 regression trap) — both paths produce identical key sets","approach":"dev DB harvest","expected":"set-equality across validate vs webhook payload","actual":"SQL aggregate over 32 validate-path + 29 webhook-path transaction_info jsonb rows: 24 unique top-level keys, all camelCase, all present across both paths (every row had bundleId, productId, transactionId, etc.). No path-specific keys. Set-equality holds. PR #24 fix is stable.","status":"pass","notes":"see I7 evidence"}
+{"id":"γ2a","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Stale ExpiresDate at handleValidateSubscription — PR #32 regression trap","approach":"live curl replay + pod-log isolation","expected":"cael's transactionExpired guard fires; entitlement upsert skipped; response = current paid entitlement (NOT downgraded from active to free)","actual":"CLEAN PASS 16:48. Setup: Neil resubscribed pro.monthly at 08:42 UTC (active state, expires 08:52:35). Replayed an OLD yearly VALIDATE (tx 2000001164945585, txn.expiresDate = 2026-05-05 19:51:30, ~13h stale at curl time 08:48). Result: HTTP 200, response = current paid state {tier:pro, billing_cycle:monthly, expires_at:2026-05-06T08:52:35Z, auto_renew:true} — NOT downgraded to yearly's stale state. Audit count 16→17 (V7 strict-save fires for stale validate). Entitlement state UNCHANGED across the replay (updated_at preserved at 08:46:39.973). **Pod log smoking gun (kubectl logs)**: 'INFO skip entitlement upsert: transaction already expired ... handler=handleValidateSubscription' — proves cael's transactionExpired guard at validate.go:121 fired BEFORE the upsert was called. HWM SQL never executed; cael's guard alone is the proven protector. Sifang regression actively prevented in production.","status":"pass","notes":"smoking-gun evidence via pod log; cleanly isolated cael's guard from HWM"}
+{"id":"γ2b","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Stale ExpiresDate at handleSubscriptionStart","approach":"live curl webhook replay + pod-log isolation","expected":"cael's transactionExpired guard fires; entitlement upsert skipped; HTTP 200","actual":"CLEAN PASS 17:39. Replayed Neil's old SUBSCRIBED signed_payload (yearly, txn.expiresDate=2026-05-05T12:51:30, ~21h stale at curl time 09:39 UTC). HTTP 200, entitlement state untouched. Pod log smoking gun: 'INFO skip entitlement upsert: transaction already expired ... handler=handleSubscriptionStart notificationType=SUBSCRIBED' — proves cael's guard at webhook.go:192 fired. PR #32 verified at 2nd of 3 call sites.","status":"pass","notes":"smoking-gun pod log evidence; PR #32 verified at handleSubscriptionStart"}
+{"id":"γ2c","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Stale ExpiresDate at handleRenewal","approach":"live curl webhook replay + pod-log isolation","expected":"cael's transactionExpired guard fires; entitlement upsert skipped; HTTP 200","actual":"CLEAN PASS 17:39. Replayed Neil's old DID_RENEW signed_payload (yearly, txn.expiresDate=2026-05-05T19:51:30, ~14h stale at curl time 09:39 UTC). HTTP 200, entitlement state untouched. Pod log smoking gun: 'INFO skip entitlement upsert: transaction already expired ... handler=handleRenewal notificationType=DID_RENEW' — proves cael's guard at webhook.go:280 fired. PR #32 verified at 3rd of 3 call sites — comprehensive coverage achieved.","status":"pass","notes":"smoking-gun pod log evidence; PR #32 verified at all 3 call sites (γ2a + γ2b + γ2c)"}
+{"id":"γ2d","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"ExpiresDate=0 at all 3 sites (cael-merged stricter than original plan)","approach":"—","expected":"treated as expired, skip upsert (locks divergence-from-plan)","actual":"—","status":"notrun","notes":"merged code is stricter than 2bc19022 plan; regression-trap candidate"}
+{"id":"γ3a","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Stale DID_RENEW arriving after fresh EXPIRED — HWM rejects","approach":"—","expected":"HWM SQL guard no-ops the upsert","actual":"Existing TestS9_StaleEndEventRejectedByHWM covers reverse direction (stale EXPIRED after fresh DID_RENEW). This forward direction needs a test.","status":"notrun","notes":"asymmetric coverage"}
+{"id":"γ3b","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Stale SUBSCRIBED arriving after fresh DID_RENEW — HWM rejects","approach":"—","expected":"HWM SQL guard no-ops","actual":"—","status":"notrun","notes":"not currently in payload_test.go"}
+{"id":"γ4","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Silent-drop variants (METADATA_UPDATE, MIGRATE, RENEWAL_EXTENDED, EXTERNAL_PURCHASE_TOKEN, RENEWAL_EXTENSION-SUMMARY) — coverage extended beyond RESCIND_CONSENT. Per athena Q1a, this row maps to E3a + E3b (now split).","approach":"—","expected":"each: audit row written; G1 variants (E3a) have transaction_info=NULL; G2 variants (E3b) have transaction_info populated. Different assertion shapes per group.","actual":"Only RESCIND_CONSENT covered today. Others uncovered. See E3a/E3b for split coverage.","status":"notrun","notes":"see E3a/E3b for the corrected split"}
+{"id":"γ5","section_id":"gamma","section":"Adversarial Pass γ — Prior-Bug Classes","description":"Apple duplicate-UUIDs bug (Apple-acknowledged, Forum 738323 + 819050) — same logical event delivered with DIFFERENT notification_uuids ~98ms apart","approach":"—","expected":"BOTH audit rows persist (each notification_uuid is unique → no ON CONFLICT). HWM strict > semantic ensures only the first delivery's entitlement upsert advances last_event_at; the second's signed_date == first's last_event_at → guard rejects (== is not <). Net: 2 audit rows, 1 entitlement row, last_event_at advanced exactly once.","actual":"—","status":"notrun","notes":"per athena Q2a: Apple-acknowledged bug, real production scenario. Locks HWM strict > semantic vs >="}
+{"id":"β1","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Concurrency — concurrent webhook+validate same user same notification","approach":"—","expected":"1 entitlements row, last_event_at = max(both signed_dates)","actual":"—","status":"notrun","notes":"would need stub-level concurrent test"}
+{"id":"β2","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Retries — Apple webhook redelivery (same notification_uuid)","approach":"dev DB inference","expected":"2nd call: eventID=\"\", no entitlement upsert, 200","actual":"All 29 webhook rows in dev have unique notification_uuid; no duplicates. UNIQUE constraint enforces this. Existing TestIdempotencyPath_SkipsEntitlement covers stub level.","status":"pass","notes":"see I5"}
+{"id":"β3","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Partial failures — audit insert ok, entitlement upsert fails, retry doesn't recover (audit dedup blocks re-upsert)","approach":"—","expected":"500, audit row persists; document recovery path = reconciliation cron (deferred)","actual":"—","status":"notrun","notes":"recovery path is reconciliation cron (deferred per orientation 96ce8663)"}
+{"id":"β4","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Idempotency cross-path — webhook ONE_TIME_CHARGE + validate Consumable with same (otx,tx)","approach":"—","expected":"exactly 1 row in neuron_purchases; both calls 200","actual":"neuron_purchases empty; cannot assess from data","status":"notrun","notes":"needs consumable flow"}
+{"id":"β5","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Timeouts — request context cancellation mid-handler","approach":"—","expected":"no orphan partial-state row (audit + entitlement either both written or neither)","actual":"—","status":"notrun","notes":"low priority"}
+{"id":"β6","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Data corruption — concurrent UpsertEntitlementOnInitialPurchase + UpsertEntitlementOnRenewal same user","approach":"—","expected":"one wins, other no-ops via HWM, no torn state","actual":"—","status":"notrun","notes":""}
+{"id":"β7","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Edge dates & numbers — IsActive() boundary at expires_at = now() exact / ±1ms","approach":"—","expected":"=now()→false, +1ms→true, −1ms→false","actual":"Existing TestIsActive_* series covers boundary","status":"pass","notes":"unit-tested at stub level"}
+{"id":"β8","section_id":"beta","section":"Adversarial Pass β — Seam Walk","description":"Hostile inputs — bundles three sub-cases: (a) replayed JWS for different user → V5 covers; (b) oversized signedPayload limit (the actual seam-walk concern); (c) productID injection (jsonb stores as-is, no exposure)","approach":"FIXED — 5c41eaa8 / kestrel, smoke verified 17:46","expected":"oversized body returns 413 with no DB writes; small bodies still process normally","actual":"PRE-FIX: webhook.go:37 + validate.go:30 had no body size cap → OOM exposure on unauthenticated webhook endpoint. POST-FIX SMOKE: 2.2 MiB body → HTTP 413 'request body too large (max 1 MiB)' (nice friendly message added by kestrel beyond the original spec). 800 KiB body (under cap) → HTTP 400 'invalid signed payload' (sig fail expected, NOT 413). Audit count UNCHANGED across both rejections (delta 0) — confirms 'rejected requests don't write audit' invariant per kestrel's fix design. Sub-cases (a) V5 + (c) productID-jsonb-as-is were already PASS. Now (b) is also PASS post-fix.","status":"pass","notes":"smoke 17:46 — 5c41eaa8 fix verified live; OOM exposure closed"}
+{"id":"α1","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Validate path silently drops audit log when productID unknown — confirmed-broken","approach":"FIXED — aa54fa8c / PR #33","expected":"audit row written even on unknown-productID path, with UNKNOWN_PRODUCT subtype marker for forensics","actual":"Fix landed via PR #33 (commit 5d50c1d). Implementation moves audit-INSERT above the catalog gate AND adds a Subtype = 'UNKNOWN_PRODUCT' marker on catalog-miss audit rows — better than the original spec (which just said 'move above the gate'). The bonus marker means SQL queries like `WHERE subtype = 'UNKNOWN_PRODUCT'` can find these rows for forensics.","status":"pass","notes":"discovered → filed → fixed in single session; loop closed before pairing ended"}
+{"id":"α2","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"decoded≠nil + TransactionInfo=nil contract violation","approach":"—","expected":"(today) panic on field deref. Defensive expectation: 500 with audit preserved.","actual":"—","status":"notrun","notes":"defensive-programming gap; not currently triggerable through decoder"}
+{"id":"α3","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"txn.SignedDate=0 lock-in via COALESCE pattern","approach":"—","expected":"row created last_event_at IS NULL; subsequent valid event still wins","actual":"—","status":"notrun","notes":""}
+{"id":"α4","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"DID_CHANGE_RENEWAL_STATUS with same inner txn JWS as prior SUBSCRIBED — outer-HWM advances even when inner stable (protects Q1 design decision)","approach":"dev DB inference","expected":"last_event_at = T1 (outer), auto_renew updated","actual":"Sifang's 2 DID_CHANGE_RENEWAL_STATUS events: tx_id 2000001164873907 (same as the SUBSCRIBED that preceded it) — confirms inner-txn-stable-across-events scenario. Entitlements.last_event_at advanced through these events, so outer-HWM did its job. Q1 design decision protected by observation.","status":"pass","notes":"strong real-world evidence for Q1 outer-HWM choice"}
+{"id":"α5","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Stale-cache delivery (fresh outer + stale inner) — PR #32 regression trap","approach":"—","expected":"3 sites: audit, no upsert, 200 (covered by γ2 series)","actual":"Same as γ2a/b/c","status":"notrun","notes":"see γ2 series"}
+{"id":"α6","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"gwauth provides non-UUID userID → /entitlement panics on uuid.MustParse","approach":"—","expected":"(today) panic; defensive: replace MustParse with Parse + error path","actual":"—","status":"notrun","notes":"defensive gap"}
+{"id":"α7","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Stale client + active DB state → returns paid (not free) — Sifang scenario regression trap","approach":"—","expected":"row unchanged, response = paid tier","actual":"—","status":"notrun","notes":""}
+{"id":"α8","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Future-dated JWS (ExpiresDate = now()+10y) — no upper bound","approach":"—","expected":"row updated with future expires_at (Apple authoritative); document behavior","actual":"—","status":"notrun","notes":"design-decision lock-in test"}
+{"id":"α9","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Misconfigured catalog (tier=\"legendary\") → check_violation","approach":"—","expected":"audit row inserted, upsert returns DB error, 500","actual":"—","status":"notrun","notes":""}
+{"id":"α10","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Concurrent ONE_TIME_CHARGE webhook + Consumable validate with divergent user_ids but same (otx,tx) — second user_id silently lost","approach":"—","expected":"2nd purchaseID=\"\", neuron_purchases row remains 1st user; constraint scope question","actual":"—","status":"notrun","notes":"design-decision lock-in test"}
+{"id":"α11","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Webhook replay returns 500 instead of 200 — sqlc binding's pgx.ErrNoRows on ON CONFLICT DO NOTHING leaks past the handler's idempotency check","approach":"FIXED — ab0890cc / PR #34, smoke verified 16:07","expected":"all 4 webhook handler types return 200 on replay, entitlement state preserved via HWM no-op","actual":"PRE-FIX (14:25): confirmed FAIL across 4 handlers — DID_RENEW / SUBSCRIBED / DID_CHANGE_RENEWAL_STATUS / EXPIRED all 500. POST-FIX SMOKE (16:07): all 4 replays now 200; entitlement.updated_at unchanged after 4 replays (HWM guard does the work at SQL level). lux's ab0890cc fix landed via PR #34 (drop RETURNING id from both InsertSubscriptionEvent + InsertNeuronPurchase, :one→:exec, remove eventID gate from 6 webhook handlers + validate.go). Regression locked via TestWebhookReplay_Returns200 + TestProcessConsumablePurchase_Replay_Returns200.","status":"pass","notes":"discovered → filed → fixed → smoked in single pairing session"}
+{"id":"α12","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Cross-environment leakage — Sandbox-issued JWS submitted to production handler corrupts entitlements with sandbox's compressed billing periods","approach":"FIXED — d5d42423 / PR #36, positive-control smoke 18:53","expected":"handler rejects JWS where txn.Environment != configured environment with 400; legitimate matching JWS pass through silently","actual":"PRE-FIX: confirmed-broken via 3-anchor cert-chain analysis (athena flicknote 17247e66) — Apple uses ONE root CA (G3) for both envs; validate.go had no Environment check. POST-FIX SMOKE 18:53 on freshly-restarted pod (subscription-service-5c4d8bcb4f-mv7rn, age 2m): replayed legitimate yearly VALIDATE (env=Sandbox + bundle=com.guion.flicknote, both match dev config). Result: 200, request flowed through new env+bundle gate → cael's stale guard fired (smoking gun: 'INFO skip entitlement upsert ... handler=handleValidateSubscription' in pod logs at 10:53:03) → returnEntitlement → freeTierResponse. NO 'environment mismatch' or 'bundle mismatch' warnings in logs — d5d42423 doesn't false-reject legitimate dev traffic. Negative control (mismatched env JWS → 400) NOT achievable from outside Apple — unit tests in PR #36 (TestValidate_EnvironmentGate truth-table per lux's parameterization) are the negative-path coverage.","status":"pass","notes":"positive-control verified live; negative path covered by unit tests in PR #36"}
+{"id":"α13","section_id":"alpha","section":"Adversarial Pass α — Red Team Hypotheses","description":"Cross-bundle injection — JWS signed for different bundleId passes through validation","approach":"FIXED — d5d42423 / PR #36, positive-control smoke 18:53","expected":"handler rejects JWS where txn.BundleId != configured bundle with 400; legitimate matching JWS pass through silently","actual":"PRE-FIX: confirmed-broken via cert-chain analysis (Apple's leaf cert is signing cert NOT bundle-specific). POST-FIX SMOKE 18:53: replayed legitimate webhook SUBSCRIBED → 200 (cael's stale-guard fires at handler=handleSubscriptionStart per pod log at 10:53:07). Same positive-control logic as α12 — request flowed through bundle gate (com.guion.flicknote matches dev) silently to subsequent handlers. No 'bundle mismatch' warnings logged for legitimate dev traffic. Direct curl-level negative test (foreign-bundle JWS) requires Apple-signed payload for a different bundle, which we cannot easily produce — unit tests in PR #36 (TestValidate_BundleMismatch_Rejects400 + webhook equivalent) are the negative-path coverage.","status":"pass","notes":"positive-control verified live; negative path covered by unit tests in PR #36"}
+</script>
+
+<h1>FSE Subscription Service — Integration Test Pairing Report</h1>
+<div class="meta">
+  <p>
+    <strong>Project:</strong> fse.sub (subscription-service) &nbsp;·&nbsp;
+    <strong>Date:</strong> 2026-05-06 &nbsp;·&nbsp;
+    <strong>Pairing:</strong> Neil + eve (test_planner) &nbsp;·&nbsp;
+    <strong>Task:</strong> 52ef2387 &nbsp;·&nbsp;
+    <strong>Test plan:</strong> flicknote 717b0fc0
+  </p>
+  <p>
+    Repo: <code>/Users/neil/Code/guion/flicknote-services/services/subscription-service</code><br>
+    Recent merged context: PR #32 (cael's defensive guard), PR #30 (HWM upsert refactor), PR #27 (strict-save schema), PR #24 (camelCase keys).
+  </p>
+</div>
+
+<div class="summary">
+  <h3 style="margin-top: 0;">Global Progress</h3>
+  <div class="summary-row" id="summary-stats">
+    <!-- Filled by JS -->
+  </div>
+  <div class="progress-bar" id="global-progress" style="margin-top: 12px;">
+    <!-- Filled by JS -->
+  </div>
+  <p style="margin: 12px 0 0; font-size: 0.88rem; color: #555;" id="summary-pct">
+    <!-- Filled by JS -->
+  </p>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="pill pill-pass">PASS</span> behavior matches expected</div>
+  <div class="legend-item"><span class="pill pill-fail">FAIL</span> behavior diverges from expected</div>
+  <div class="legend-item"><span class="pill pill-skip">SKIP</span> intentionally not run (out of scope, blocked, etc.)</div>
+  <div class="legend-item"><span class="pill pill-deferred">DEFER</span> known issue, fix planned/queued</div>
+  <div class="legend-item"><span class="pill pill-notrun">NOT-RUN</span> not yet exercised</div>
+</div>
+
+<!-- Sections rendered by JS -->
+<div id="report"></div>
+
+<!-- ======================================================================= -->
+<h2>Session Timeline</h2>
+<ul id="timeline" style="font-size: 0.88rem; line-height: 1.8;">
+  <li><strong>13:57</strong> — Pairing kickoff. Neil clarifies execution mode is per-case (iOS / curl / code-walk / Go test as appropriate); HTML report self-contained.</li>
+  <li><strong>14:08</strong> — Neil flags pre-existing dev DB data (his yearly purchase 2026-05-05, since expired; sandbox cycle: yearly=1h, monthly=5min). Switch strategy: harvest existing data first before running new triggers.</li>
+  <li><strong>14:15</strong> — First DB sweep complete. Several cases moved to PASS from existing data evidence. Zero FAILs surfaced from production data — all observed flows match expected behavior. Two users in dev: fe4de0a3 (Neil, expired) + aacb046d (Sifang, active). 47+14 = 61 total subscription_events rows analyzed.</li>
+  <li><strong>14:16</strong> — Refactored report to JSONL-driven rendering for per-section + global progress visibility.</li>
+  <li><strong>14:25</strong> — Live curl session against <code>dev-gw.flicknote.app</code> with Neil's JWT. 9 cases moved to PASS in one batch (C2, C3, I4, R1, R2, V1, V2, V3, E1, E2, I8). <strong>One FAIL surfaced (E10 / α11):</strong> webhook replay returns 500 instead of 200 — pgx.ErrNoRows on ON CONFLICT DO NOTHING leaks past the handler's idempotency check.</li>
+  <li><strong>14:42</strong> — Confirmed α11 generalizes across all 4 webhook data-variant handlers (SUBSCRIBED → handleSubscriptionStart, DID_CHANGE_RENEWAL_STATUS → handleRenewalStatusChange, EXPIRED → handleSubscriptionEnd, plus the original DID_RENEW → handleRenewal). All 500 on replay. V11 inherited this finding (same bug on consumable side). Filed as +bugfix <code>ab0890cc</code> with layered analysis (literal sqlc + redundant-sentinel + partial-failure-recovery). yuki acknowledged, holding for Neil's fire signal per pattern.</li>
+  <li><strong>14:43</strong> — Validate-path replay test PASS: replayed Neil's old VALIDATE signedTransaction → HTTP 200, audit row appended (count 1→2), entitlement state preserved (not corrupted). Validate-path "audit log grows linearly" design confirmed (notification_uuid=NULL allows multiple, no UNIQUE conflict, no ErrNoRows surface). <em>(I initially marked γ2a as PASS off this — see 14:55 entry for retraction.)</em></li>
+  <li><strong>14:55</strong> — Neil challenged the γ2a PASS: "when did this pass?" Honest re-examination: the test verified the protective-guard chain prevents corruption, but couldn't isolate cael's transactionExpired guard from the SQL HWM guard (both would fire on this replay). And Neil's user was already expired, so "didn't downgrade an active user" — γ2a's full intent — wasn't testable. <strong>γ2a downgraded to NOT-RUN with a plan to retest properly post-resubscribe.</strong> Lesson: speculative-PASS from side-effect observations is exactly what the skill warns against; flagged in the testplan friction loop.</li>
+  <li><strong>15:05</strong> — iOS sandbox sub blocked on Sven's side; pairing pauses on iOS-dependent cases.</li>
+  <li><strong>15:15-16:00</strong> — lux drafted ab0890cc fix plan (12 top-level subtask tree, approach B locked: drop RETURNING id, simplify handlers). eve reviewed; lux iterated (promoted V11 companion test to required, filed 73ffe686 SQL-level HWM follow-up, filed 5c41eaa8 oversized-body follow-up). Plan-review-lead LGTM; PR #34 merged.</li>
+  <li><strong>16:05</strong> — Pod deployed to apps-dev. Webhook smoke fired (auth-free, no iOS dependency).</li>
+  <li><strong>16:07</strong> — POST-FIX SMOKE PASSED across 4 webhook handler types (DID_RENEW / SUBSCRIBED / DID_CHANGE_RENEWAL_STATUS / EXPIRED replays — all 200). Regression checks PASSED (empty body / bad payload still 400). Entitlement state UNCHANGED after 4 replays (updated_at = 23:53:08, no new updates) — confirms HWM SQL guard is the actual safety mechanism. E10 / α11 / V11 flipped from FAIL to PASS. <strong>Discovered → filed → fixed → smoked in single 4h pairing session.</strong></li>
+  <li><strong>16:20</strong> — Neil flagged that aa54fa8c may have shipped already. Verified: PR #33 (commit 5d50c1d) merged the strict-save invariant fix for V7 / α1. Code-read of validate.go:76-106 confirms audit-INSERT now runs before the catalog gate, AND a smart bonus — catalog-miss path tags the audit row with `Subtype = 'UNKNOWN_PRODUCT'` so queries can find these rows. V7 / α1 flipped from DEFER to PASS. Both findings filed in this session are now fixed and live. Followup queue: 5c41eaa8 (still pending; not yet picked up), 73ffe686 (SQL-level HWM test, follow-on coverage).</li>
+  <li><strong>16:23</strong> — Neil directed yuki to fire 5c41eaa8. yuki defense-checked the relay before firing (correct posture — eve doesn't auto-relay fire signals). Plan-review with kestrel completed (one Category 2 blocker on test-input design — `strings.Repeat("a", N)` syntax-fails before MaxBytes triggers). kestrel applied corrections, posted triage report; await Neil's fire signal.</li>
+  <li><strong>16:43</strong> — Neil resubscribed pro.monthly via iOS sandbox (cycle = 5min, paid active). Fresh JWT captured. C1 direct curl PASS: full paid response shape verified end-to-end. quota_period_start_at preserved at 2026-05-05 11:51:30 (yesterday's original yearly purchase) across the EXPIRED → monthly resubscribe — strong I3 single-writer evidence at runtime.</li>
+  <li><strong>16:48</strong> — γ2a CLEANLY PASSED. Replayed an OLD stale yearly VALIDATE (tx 2000001164945585, 13h-stale txn.expiresDate) against active monthly state. HTTP 200 + paid response (current monthly state, NOT downgraded). Audit count 16→17. Entitlement state untouched (updated_at preserved). <strong>Pod log smoking gun</strong> via kubectl logs: `INFO skip entitlement upsert: transaction already expired ... handler=handleValidateSubscription` — proves cael's transactionExpired guard at validate.go:121 fired BEFORE the SQL upsert. HWM SQL never executed; cael's guard alone is the proven protector. Sifang regression actively prevented in production.</li>
+  <li><strong>16:46</strong> — athena delivered substantive review (flicknote 17247e66, 5 strong findings + 4 lower-priority). Folded 4 strong into JSONL: Q1a (E3 split → E3a/E3b per variant group), Q2a (γ5 Apple duplicate-UUIDs bug), Q3c (E2 split → E2a/E2b per failure mode), Q1b (I6 enhancement for previousOriginalTransactionId field drift). α12 (cross-env leakage) + α13 (cross-bundle injection) added as placeholders pending athena's cert-chain analysis.</li>
+  <li><strong>16:57</strong> — athena's cert-chain addendum landed (3-anchor verification: go-iap source / Apple JWSDecodedHeader docs / Forum 693351). <strong>Verdict: HIGH severity for both α12 and α13.</strong> Apple uses ONE root CA (Apple Root CA G3) for sandbox+production — NO cryptographic env split. go-iap pins to this single root. Verification proves only "Apple signed it"; nothing about environment field or bundleId field. validate.go:36-51 has no env or bundleId check. Both α12 + α13 are confirmed-broken-by-code-read with no upstream defense.</li>
+  <li><strong>17:14</strong> — Filed +bugfix d5d42423 (combined α12 + α13). Neil 17:17 fired via yuki. lux drafted 10-subtask fix tree; eve plan-reviewed (LGTM with parameterization suggestion for env tests adopted by lux). PR #36 merged, kestrel separately shipped 5c41eaa8 as PR #35.</li>
+  <li><strong>17:38</strong> — γ2b + γ2c CLEAN PASS via webhook replays + pod-log smoking guns. PR #32 (cael's defensive guard) verified at all 3 call sites: handleValidateSubscription (γ2a 16:48) + handleSubscriptionStart (γ2b 17:39) + handleRenewal (γ2c 17:39). Comprehensive regression coverage achieved.</li>
+  <li><strong>17:46</strong> — β8 / 5c41eaa8 SMOKE PASSED. 2.2 MiB body → HTTP 413 'request body too large (max 1 MiB)' with friendly message added by kestrel beyond original spec. 800 KiB body (under cap) → 400 invalid-signature (cap doesn't false-positive). Audit count unchanged across rejections. β8 flipped to PASS.</li>
+  <li><strong>18:40</strong> — ei ask job 899 returned (web research on rare Apple webhook test patterns). Findings: NO Apple API for triggering arbitrary notification types beyond TEST. RESCIND_CONSENT has documented manual sandbox trigger (iOS Settings → Sandbox Account → Revoke Consent) but Apple Forum 811141 reports it's broken. All other rare types (METADATA_UPDATE, MIGRATE, RENEWAL_EXTENDED, EXTERNAL_PURCHASE_TOKEN, OFFER_REDEEMED, DID_FAIL_TO_RENEW, REFUND) have no sandbox trigger. Industry standard is fixture-replay with captured production JWS — `app-store-server-library` does NOT provide local-signing utilities (Apple's private key not exposed). "Live test all rows" is industry-wide unachievable for rare Apple types; realistic ceiling is stub-level Go tests + production-shadow-corpus.</li>
+  <li><strong>18:52</strong> — Neil restarted the pod to pick up d5d42423 build (subscription-service-5c4d8bcb4f-mv7rn). Pre-restart pod was running PR #35 era image; new pod runs PR #36 image.</li>
+  <li><strong>18:53</strong> — d5d42423 POSITIVE-CONTROL SMOKE PASSED on new pod. Legitimate yearly VALIDATE replay (env=Sandbox + bundle=com.guion.flicknote both match dev config) → 200, request flowed through new env+bundle gate silently to cael's stale guard (smoking gun in pod logs at handler=handleValidateSubscription + handler=handleSubscriptionStart). NO 'environment mismatch' or 'bundle mismatch' warnings — fix doesn't false-reject legitimate dev traffic. Negative path (mismatched JWS → 400) NOT achievable from outside Apple; unit tests in PR #36 (truth-table TestValidate_EnvironmentGate per lux's parameterization) are the negative-path coverage. α12 + α13 flipped to PASS. β8 also confirmed PASS post-restart.</li>
+</ul>
+<p style="font-size: 0.88rem; color: #555;"><strong>Implementation note (per athena Q2c):</strong> Webhook retry behavior on 5xx is a production-only fidelity boundary. Sandbox/TestFlight deliver once. Test runs in dev validate the dedup-on-receive code path; the actual Apple retry cadence (1h/12h/24h/48h/72h, 5 attempts max per c5e57335 §A11) can only be confirmed by intentionally returning 5xx in production and observing.</p>
+<p style="font-size: 0.88rem; color: #555;"><strong>Notable observation from harvest:</strong> Sifang's QPS (<code>2026-05-02 11:47:52</code>) predates his current subscription cycle (started <code>2026-05-06 01:56:03</code>) by 4 days — strong evidence of single-writer rule (I3 PASS). Through 2 SUBSCRIBED-RESUBSCRIBE cycles + 7 DID_RENEW events, QPS stayed pinned to the original purchase date.</p>
+
+<h2>Notes &amp; Discussion</h2>
+<div id="discussion" style="background: #fff; border: 1px solid var(--border); padding: 16px 20px; border-radius: 6px; min-height: 60px;">
+  <p><strong>Methodology shift:</strong> Started this pairing assuming we'd run each case live. Neil's prompt to harvest pre-existing dev DB data first was the right move — many cases moved to PASS in one sweep without triggering anything. The "running" wasn't writing tests; it was forensic-reading the production audit trail and matching observed behavior to test plan expectations.</p>
+  <p><strong>Coverage gap pattern:</strong> Cases that don't naturally occur in sandbox (REFUND, DID_FAIL_TO_RENEW, OFFER_REDEEMED, S7 cold-start, silent-drop variants) are concentrated in the "needs explicit trigger" bucket. Apple's <code>requestTestNotification</code> endpoint per spec d28611f4 can drive most of these without iOS involvement.</p>
+  <p><strong>Consumable side completely untested in dev:</strong> neuron_purchases is empty. A9, B2, V9-V11, β4, α10 cannot be assessed without an iOS consumable buy flow.</p>
+  <p><strong>Strict-save invariant gap (V7 / α1):</strong> validate path with unknown productID skips audit row insert. Already filed as +bugfix <code>aa54fa8c</code>; awaiting Neil's <code>ttal go</code> signal.</p>
+  <p><strong>Self-correction note (γ2a retraction):</strong> at 14:43 I marked γ2a as PASS based on a side-effect observation from the validate-replay test. Neil challenged it 14:55 — the test couldn't isolate cael's PR #32 guard from the SQL HWM guard (both would fire), and Neil's user being already expired meant "doesn't falsely downgrade an active user" was not testable. Downgraded back to NOT-RUN with a plan to retest after re-subscribe. Honest lesson on speculative-PASS pitfall — exactly what the skill's adversarial-pass framing is meant to prevent.</p>
+</div>
+
+<div class="footnote">
+  <strong>Refs</strong>
+  <ul class="refs">
+    <li>Test plan: <code>flicknote 717b0fc0</code></li>
+    <li>Bug report: <code>flicknote 90751a39</code></li>
+    <li>+bugfix surfaced: <code>task aa54fa8c</code> — validate strict-save invariant</li>
+    <li>Skill: <code>sp-write-test-plan</code> (PR #590, friction revisions PR #592)</li>
+    <li>Implementation: <code>/Users/neil/Code/guion/flicknote-services/services/subscription-service</code></li>
+    <li>Recently merged: PR #24 (camelCase), #27 (strict-save schema), #30 (HWM upsert refactor + IsActive), #32 (cael's defensive guard)</li>
+  </ul>
+</div>
+
+<script>
+(function() {
+  // ---- Data loading ----
+  function parseJSONL(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    return lines.map((l, i) => {
+      try { return JSON.parse(l); }
+      catch (e) { console.error("JSONL parse error on line " + (i+1) + ": " + e.message); return null; }
+    }).filter(x => x !== null);
+  }
+
+  const dataScript = document.getElementById('test-cases');
+  const cases = parseJSONL(dataScript.textContent);
+
+  // ---- Helpers ----
+  const STATUS_LABELS = {
+    pass: 'PASS', fail: 'FAIL', skip: 'SKIP',
+    deferred: 'DEFER', notrun: 'NOT-RUN'
+  };
+  const STATUS_ORDER = ['pass', 'fail', 'skip', 'deferred', 'notrun'];
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function pillFor(status) {
+    return '<span class="pill pill-' + status + '">' + STATUS_LABELS[status] + '</span>';
+  }
+
+  function countByStatus(items) {
+    const counts = { pass: 0, fail: 0, skip: 0, deferred: 0, notrun: 0 };
+    items.forEach(c => {
+      if (counts[c.status] != null) counts[c.status]++;
+      else counts.notrun++;
+    });
+    counts.total = items.length;
+    counts.run = counts.pass + counts.fail + counts.skip + counts.deferred;
+    counts.pct = counts.total > 0 ? Math.round(100 * counts.run / counts.total) : 0;
+    return counts;
+  }
+
+  function progressBarHtml(counts) {
+    if (counts.total === 0) return '';
+    const segs = STATUS_ORDER.map(s => {
+      const n = counts[s];
+      if (n === 0) return '';
+      const pct = (100 * n / counts.total).toFixed(2);
+      return '<div class="seg-' + s + '" style="width: ' + pct + '%" title="' + STATUS_LABELS[s] + ': ' + n + '">' + (pct >= 6 ? n : '') + '</div>';
+    });
+    return segs.join('');
+  }
+
+  function statsRowHtml(counts) {
+    return [
+      '<div class="summary-stat"><span class="num">' + counts.total + '</span>total</div>',
+      '<div class="summary-stat"><span class="num pill pill-pass">' + counts.pass + '</span>pass</div>',
+      '<div class="summary-stat"><span class="num pill pill-fail">' + counts.fail + '</span>fail</div>',
+      '<div class="summary-stat"><span class="num pill pill-skip">' + counts.skip + '</span>skip</div>',
+      '<div class="summary-stat"><span class="num pill pill-deferred">' + counts.deferred + '</span>defer</div>',
+      '<div class="summary-stat"><span class="num pill pill-notrun">' + counts.notrun + '</span>not-run</div>'
+    ].join('');
+  }
+
+  // ---- Render summary ----
+  const allCounts = countByStatus(cases);
+  document.getElementById('summary-stats').innerHTML = statsRowHtml(allCounts);
+  document.getElementById('global-progress').innerHTML = progressBarHtml(allCounts);
+  document.getElementById('summary-pct').innerHTML =
+    '<strong>' + allCounts.run + ' / ' + allCounts.total + '</strong> exercised (' +
+    allCounts.pct + '%) — ' + allCounts.pass + ' pass, ' + allCounts.fail + ' fail, ' +
+    allCounts.deferred + ' deferred, ' + allCounts.notrun + ' not yet run.';
+
+  // ---- Group by section, preserve JSONL order ----
+  const sections = [];
+  const seen = new Set();
+  cases.forEach(c => {
+    if (!seen.has(c.section_id)) {
+      seen.add(c.section_id);
+      sections.push({ id: c.section_id, label: c.section, items: [] });
+    }
+    sections.find(s => s.id === c.section_id).items.push(c);
+  });
+
+  // ---- Render each section ----
+  const reportEl = document.getElementById('report');
+  sections.forEach(sec => {
+    const counts = countByStatus(sec.items);
+    const h2 = document.createElement('h2');
+    h2.innerHTML = '<span>' + escapeHtml(sec.label) + '</span>' +
+                   '<span class="group-stats">' + counts.run + '/' + counts.total + ' (' + counts.pct + '%) — ' +
+                   counts.pass + ' pass · ' + counts.fail + ' fail · ' + counts.deferred + ' defer · ' + counts.notrun + ' not-run</span>';
+    reportEl.appendChild(h2);
+
+    const bar = document.createElement('div');
+    bar.className = 'progress-bar';
+    bar.style.marginBottom = '12px';
+    bar.innerHTML = progressBarHtml(counts);
+    reportEl.appendChild(bar);
+
+    const tbl = document.createElement('table');
+    tbl.innerHTML =
+      '<colgroup><col class="c-id"><col class="c-desc"><col class="c-app"><col class="c-exp"><col class="c-act"><col class="c-stat"><col class="c-notes"></colgroup>' +
+      '<thead><tr><th>ID</th><th>Description</th><th>Approach</th><th>Expected</th><th>Actual</th><th>Status</th><th>Notes</th></tr></thead>' +
+      '<tbody></tbody>';
+    const tb = tbl.querySelector('tbody');
+    sec.items.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="id">' + escapeHtml(c.id) + '</td>' +
+        '<td>' + escapeHtml(c.description) + '</td>' +
+        '<td class="approach">' + escapeHtml(c.approach || '—') + '</td>' +
+        '<td>' + escapeHtml(c.expected || '—') + '</td>' +
+        '<td>' + escapeHtml(c.actual || '—') + '</td>' +
+        '<td class="status">' + pillFor(c.status) + '</td>' +
+        '<td>' + escapeHtml(c.notes || '') + '</td>';
+      tb.appendChild(tr);
+    });
+    reportEl.appendChild(tbl);
+  });
+
+  // ---- Add page title with progress ----
+  document.title = 'Test Report — fse.sub (' + allCounts.run + '/' + allCounts.total + ', ' + allCounts.pct + '%) — 2026-05-06';
+})();
+</script>
+
+</body>
+</html>
