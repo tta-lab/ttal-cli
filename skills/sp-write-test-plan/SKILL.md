@@ -251,6 +251,79 @@ Chain into the completion phase for self-review, open questions, summary, and re
 
 Follow every step in that skill. Do not duplicate its logic here.
 
+## Phase 6: Execute (optional — when authoring meets running)
+
+The skill's primary deliverable is the test plan. But sometimes the planner is also asked to **run** the plan, not just hand it off — pairing with a human, smoking findings, or running the adversarial passes against live infrastructure. When that happens, lessons from the first real-world execution session (eve+Neil 2026-05-06, fse.sub) apply:
+
+### Forensic harvest before live tests
+
+Read existing production state (DB rows, logs, audit trails) BEFORE running new tests. Many "NOT-RUN" rows can be promoted to PASS using evidence that already exists. Example: 12 cases moved to PASS in one DB sweep (event-type counts, key-set verification, HWM monotonicity check, signed_payload presence) without firing a single curl. The "running" wasn't writing tests; it was forensic-reading the production audit trail and matching observed behavior to test plan expectations.
+
+**Practical pattern:** before each adversarial pass, query the relevant tables. Look for:
+- Event-type distribution (which paths are exercised; where coverage gaps live in production traffic)
+- Recent state transitions (do invariants hold across observed sequences?)
+- Constraint outputs (UNIQUE-key dedup, NOT NULL enforcement, generated columns)
+- Key-shape consistency (camelCase vs snake_case, populated vs NULL)
+
+### Speculative-PASS pitfall
+
+When a test scenario produces an observation that could be explained by multiple protective layers, **you have not verified the layer you intended**. Mark NOT-RUN with a caveat, not PASS.
+
+Example failure mode (eve 16:43→16:55 on fse.sub): replayed an old VALIDATE while user was already expired; observed entitlement state preserved. Marked PASS for "cael's defensive guard works." Neil challenged "when did this PASS?" — re-examination showed the SQL HWM guard alone would have rejected the upsert independently of cael's guard, AND the user being already-expired meant the "doesn't downgrade an active user" assertion couldn't be tested. Retracted to NOT-RUN with a plan to retest properly post-resubscribe.
+
+**Practical pattern:** before marking PASS, ask "which layer am I claiming this verifies, and could another layer also have produced this observation?" If yes, isolate before claiming.
+
+### Pod-log smoking-gun pattern
+
+When multiple protective layers chain (e.g., a defensive guard + an SQL HWM check), the response code alone won't distinguish which layer fired. Use slog evidence in pod logs as the tie-breaker.
+
+Example: cael's `transactionExpired` guard logs `INFO skip entitlement upsert: transaction already expired ... handler=handleValidateSubscription` when it fires. Grep `kubectl logs` after the test to confirm that exact line appeared, not just "the response was 200." This is the proof that the specific layer you wanted to verify was the one doing the work.
+
+### Pod-restart vs merge gap
+
+`:latest` tag doesn't auto-rollout in Kubernetes. A merged PR's image won't reach the running pod until the deployment is restarted (`kubectl rollout restart deployment/<name>` or equivalent). Smoking against the wrong build looks like the fix worked when it didn't (or looks like the bug is still there when it isn't).
+
+**Practical pattern:** before smoking a fix, verify pod age vs PR merge time. If `kubectl get pod -o jsonpath='{.metadata.creationTimestamp}'` predates the merge commit, the new image isn't running. Surface to whoever owns the deploy step (the Merge ≠ Deploy rule).
+
+### FAIL vs NOT-RUN distinction
+
+Confirmed-broken via code-read or analysis = **FAIL**, not NOT-RUN. NOT-RUN means "haven't exercised yet, don't know the outcome." FAIL means "outcome confirmed to diverge from expected, regardless of whether a test program ran."
+
+Example: α12/α13 (cross-tenant injection) were originally NOT-RUN with notes about pending cert-chain analysis. After researcher verified no cryptographic defense exists and code-walk confirmed no app-side check, status flipped to FAIL — the bug is real even though no integration test exists yet. The fix-PR's unit tests are the regression coverage; integration smoke is positive-control only.
+
+### Negative-control achievability gates
+
+Some adversarial cases can't have a direct integration smoke (e.g., env-mismatch JWS requires Apple's private signing key for a different environment, which no team has). Recognize this upfront in the plan:
+- Smoke covers POSITIVE control (legitimate paths still work post-fix)
+- NEGATIVE control (rejection on bad input) lives in unit tests in the fix PR
+- Don't chase a smoke gap that's not achievable
+
+**Practical pattern:** when the fix PR ships with unit tests covering the negative path, accept those as the regression coverage. Live integration smoke is regression-on-positive-control, not exhaustive proof.
+
+### Industry-wide unachievable scope
+
+Some test-coverage goals are unachievable in any environment, by anyone. Recognize and document, don't chase. Example (fse.sub Apple webhook variants): RESCIND_CONSENT, METADATA_UPDATE, MIGRATE, RENEWAL_EXTENDED, EXTERNAL_PURCHASE_TOKEN, OFFER_REDEEMED, DID_FAIL_TO_RENEW, REFUND have no sandbox trigger mechanism per Apple. The industry-standard ceiling is fixture-replay with captured production JWS — which requires production traffic to accumulate. Pre-prod-deploy, this is unreachable.
+
+**Practical pattern:** for plans covering Apple/Stripe/payment-processor webhooks (or similar third-party-controlled sources), add a "Realistic Completion Model" section noting which cases are sandbox-testable, which need fixture-corpus, and which have no path. Sets expectations for the next planner.
+
+### Discover → file → fix → smoke loop in single session
+
+Integration plans can produce immediate-value bugs, not just future test code. When the adversarial pass surfaces confirmed-broken behavior, the file-fix-deploy loop can close before the session ends. Example session (eve+Neil 2026-05-06): 4 +bugfix tasks filed, all 4 PR-merged + deployed within ~5 hours.
+
+**Practical pattern:** when running adversarial passes live, expect to surface real bugs. Have the +bugfix-filing path warmed up (annotation template ready). Coordinate with manager/fixer agents (yuki, lux, kestrel) for the file-design-implement chain.
+
+### Cross-agent collaboration during execution
+
+Researchers (athena/quill) and fixers (lux/cael/kestrel) have specialized depth worth tapping. The skill's adversarial pass can be reinforced by an external researcher's review (different mental model surfaces different gaps). Plan-review handoffs to fixers during fix design close the loop on quality of recommendations.
+
+**Practical pattern:** when scope warrants, loop in a researcher for adversarial review of the plan, and a fixer for plan-review of any +bugfix designs that come out of the plan. Document their contributions in the test plan flicknote (cross-reference researcher review notes, fixer plan-review threads).
+
+### Living test report artifact
+
+If running a paired session with the human, consider a JSONL-driven HTML report as a living artifact. Each curl converts a row from NOT-RUN to PASS in real-time; pod-log evidence pastes into the actual column. Different from a write-once test plan flicknote — this is execution-phase tracking with progress visualization.
+
+**Practical pattern:** template at `templates/ttal/<agent>/test-report-<project>-<date>.html` (per-agent workspace, single self-contained file with embedded JSONL data + JS rendering). Don't conflate with the test plan flicknote — the flicknote is the methodology output, the HTML is the execution log.
+
 ## Remember
 
 - Constructive without adversarial is half a job — run all three passes
@@ -259,3 +332,4 @@ Follow every step in that skill. Do not duplicate its logic here.
 - Red-team hat (alpha) needs 5-10 specific hypotheses — generic fears do not count
 - Secondary flicknote for confirmed-broken only — not for "could break"
 - Do NOT file +bugfix tasks — write evidence, humans triage
+- When executing the plan: forensic-harvest first, isolate-before-PASS, smoking-gun-via-logs, watch the merge≠deploy gap
