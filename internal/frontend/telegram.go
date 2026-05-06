@@ -719,7 +719,7 @@ func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string
 			return
 		}
 		if s == nil {
-			replyTelegram(botToken, chatID, args[0]+": no status data")
+			replyTelegram(botToken, chatID, args[0]+": (stale)")
 			return
 		}
 		agents = []status.AgentStatus{*s}
@@ -742,11 +742,6 @@ func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string
 	sort.Slice(agents, func(i, j int) bool { return agents[i].ContextUsedPct > agents[j].ContextUsedPct })
 	var sb strings.Builder
 	for _, a := range agents {
-		staleMarker := ""
-		if a.IsStale(5 * time.Minute) {
-			staleMarker = " (stale)"
-		}
-
 		emoji := ""
 		role := ""
 		if teamPath != "" {
@@ -760,7 +755,7 @@ func (f *TelegramFrontend) handleStatusCommand(_ string, botToken, chatID string
 			}
 		}
 
-		fmt.Fprintf(&sb, "%s%s%s — %.0f%% ctx%s\n", emoji, a.Agent, role, a.ContextUsedPct, staleMarker)
+		fmt.Fprintf(&sb, "%s%s%s — %.0f%% ctx | %s\n", emoji, a.Agent, role, a.ContextUsedPct, status.FormatAge(a.UpdatedAt))
 	}
 	replyTelegram(botToken, chatID, sb.String())
 }

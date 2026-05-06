@@ -37,8 +37,9 @@ Before writing any test plan, confirm the target project:
 1. **Run `ttal project list`** — see all available projects
 2. **Check the task project field** — if it has one, use it as a hint for the target alias
 3. **Validate the repo exists** — run `ttal project get <alias>` to confirm the path
+4. **Disambiguate scope when the task description references multiple feature or table names.** Wording like "sub command + neuron consume" or "purchases + consumptions" can map to different code surfaces (e.g., `neuron_purchases` writes vs `neuron_consumptions` writes — different services). If the description is ambiguous, ask the requester to confirm the exact scope BEFORE Phase 1. Ambiguous scope confirmed late costs more than confirmed early.
 
-**Hard rule:** Do NOT proceed past this gate without a confirmed single target repo.
+**Hard rule:** Do NOT proceed past this gate without a confirmed single target repo AND an unambiguous feature scope.
 
 If the task touches multiple repos, stop and flag it: a single test plan must cover a single project. Split the task into per-repo test plans.
 
@@ -48,9 +49,10 @@ BEFORE writing any test plan, understand what exists. Do not design tests in the
 
 1. **Read implementation files** — find and read the files and modules under test. Understand data flow, entry points, error paths, dependencies.
 2. **Read related task tree** — `task <uuid> tree` — understand what steps the implementation went through, what decisions were made.
-3. **Read orientation flicknotes** — `flicknote find <keywords>` — search for orientation docs, design docs, research notes related to this domain.
+3. **Read orientation flicknotes** — `flicknote find <keywords>` — search for orientation docs, design docs, research notes related to this domain. **For non-obvious choices visible in the implementation, search for Q-numbered decisions** (e.g., "Q1 RESOLVED", "Q3 decision" — orientation flicknotes often record locked design choices this way). The Q-numbered entry is where the rationale lives; without it, code can look arbitrary.
 4. **Read prior bugfix history** — `task +bugfix project:<alias> status:completed export` — extract descriptions of every past bug in this project.
-5. **Map test surface** — what are the integration boundaries? External services, databases, file systems, network calls, async queues. List them.
+5. **Diff merged code against recent design plans.** If you found a design plan flicknote referencing a PR that's now merged, run `git log --oneline path/to/changed/files` and read the actual current code — divergences from the plan (stricter guards, reordered operations, additional defensive checks) are regression-trap candidates. Surface them in pass γ. The plan describes intent; the merged code is reality.
+6. **Map test surface** — what are the integration boundaries? External services, databases, file systems, network calls, async queues. List them.
 
 ### Red Flags — STOP and Investigate
 
@@ -180,12 +182,15 @@ Write the test plan as a single flicknote with two sections (Constructive and Ad
 |-----------|-------------|----------------------|---------------|
 
 ### Pass beta — Seam walk
-| Seam | Vulnerability | Test to write |
-|------|---------------|---------------|
+| Seam | What to check | Vulnerability | Test to write |
+|------|---------------|---------------|---------------|
 
 ### Pass alpha — Red team hypotheses
 | Hypothesis | Falsifying test | Status |
 |------------|-----------------|--------|
+
+## Friction notes
+Things the skill could have surfaced earlier, places the methodology felt heavy or thin, gaps in the storage template. Concrete enough to land as edits to `skills/sp-write-test-plan/SKILL.md` in a follow-up.
 ```
 
 ### Storage
@@ -236,10 +241,7 @@ Before declaring the test plan done:
 - [ ] Adversarial pass alpha ran (5-10 hypotheses, each with a falsifying test)
 - [ ] Test plan flicknote written and annotated on parent task
 - [ ] If confirmed-broken found: separate bug or test report flicknote written and annotated
-
-## Testing and Iteration
-
-No synthetic subagent tests for this skill. Per the team brainstorm verdict, the FSE sub plus neuron consume first-use IS the test. Friction observed during the first invocation feeds skill revision via flicknote-edit on this skill itself.
+- [ ] Friction notes captured in the test plan (skill-level gaps surfaced this invocation, concrete enough to land as edits to this skill)
 
 ## After the Test Plan Is Written
 

@@ -522,7 +522,7 @@ func (f *MatrixFrontend) handleMatrixStatusCommand(teamName string, replyFn func
 			return
 		}
 		if s == nil {
-			replyFn(args[0] + ": no status data")
+			replyFn(args[0] + ": (stale)")
 			return
 		}
 		agents = []status.AgentStatus{*s}
@@ -541,11 +541,7 @@ func (f *MatrixFrontend) handleMatrixStatusCommand(teamName string, replyFn func
 	sort.Slice(agents, func(i, j int) bool { return agents[i].ContextUsedPct > agents[j].ContextUsedPct })
 	var sb strings.Builder
 	for _, a := range agents {
-		staleMarker := ""
-		if a.IsStale(5 * time.Minute) {
-			staleMarker = " (stale)"
-		}
-		fmt.Fprintf(&sb, "%s: %.0f%% ctx | %s%s\n", a.Agent, a.ContextUsedPct, a.ModelName, staleMarker)
+		fmt.Fprintf(&sb, "%s: %.0f%% ctx | %s | %s\n", a.Agent, a.ContextUsedPct, a.ModelName, status.FormatAge(a.UpdatedAt))
 	}
 	replyFn(sb.String())
 }
