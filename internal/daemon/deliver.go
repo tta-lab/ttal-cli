@@ -44,7 +44,7 @@ func deliverToAgent(
 	}
 	// Fallback: tmux for local runtimes, frontend notification for others.
 	rt := cfg.RuntimeForAgent(agentName)
-	if rt == runtime.ClaudeCode || rt == runtime.Lenos {
+	if rt.IsTmuxBacked() {
 		session := config.AgentSessionName(agentName)
 		return tmux.SendKeys(session, agentName, text)
 	}

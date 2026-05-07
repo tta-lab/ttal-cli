@@ -97,3 +97,15 @@ func TestIsWorkerRuntime(t *testing.T) {
 		t.Errorf("Lenos.IsWorkerRuntime() = %v, want true", got)
 	}
 }
+
+func TestIsTmuxBacked(t *testing.T) {
+	if got := ClaudeCode.IsTmuxBacked(); got != true {
+		t.Errorf("ClaudeCode.IsTmuxBacked() = %v, want true", got)
+	}
+	if got := Lenos.IsTmuxBacked(); got != true {
+		t.Errorf("Lenos.IsTmuxBacked() = %v, want true", got)
+	}
+	if got := Codex.IsTmuxBacked(); got != false {
+		t.Errorf("Codex.IsTmuxBacked() = %v, want false", got)
+	}
+}

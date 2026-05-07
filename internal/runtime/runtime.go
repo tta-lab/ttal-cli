@@ -67,6 +67,17 @@ func (r Runtime) IsWorkerRuntime() bool {
 	}
 }
 
+// IsTmuxBacked reports whether manager sessions for this runtime are delivered
+// through local tmux panes.
+func (r Runtime) IsTmuxBacked() bool {
+	switch r {
+	case ClaudeCode, Lenos:
+		return true
+	default:
+		return false
+	}
+}
+
 func joinRuntimes() string {
 	all := All()
 	strs := make([]string, len(all))
