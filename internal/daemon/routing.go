@@ -271,12 +271,12 @@ func dispatchSystemSend(
 		return handleToHuman(frontends, msgSvc, addr.Human, req)
 	case addressee.KindAgent:
 		rt := cfg.RuntimeForAgent(req.To)
-		overflowContent := applyOverflow(req.Message)
+		overflowWire := applyOverflow(wireMsg)
 		persistMsg(msgSvc, message.CreateParams{
-			Sender: "system", Recipient: req.To, Content: overflowContent,
+			Sender: "system", Recipient: req.To, Content: overflowWire,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
-		return deliverToAgentFn(registry, cfg, frontends, addr.Name, wireMsg)
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, overflowWire)
 	case addressee.KindWorker:
 		overflowWire := applyOverflow(wireMsg)
 		jobID, agentName, _ := parseWorkerAddress(req.To)
