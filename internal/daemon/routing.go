@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"path/filepath"
+
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
@@ -139,7 +141,7 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 // human channels (Telegram) pass through untouched since Telegram already
 // handles chunking via splitMessage().
 func applyOverflow(msg string) string {
-	dir := config.ResolveDataDir() + "/files/default"
+	dir := filepath.Join(config.ResolveDataDir(), "files", "default")
 	return overflow.Write(msg, overflow.DefaultThreshold, dir)
 }
 
