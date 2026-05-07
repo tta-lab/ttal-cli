@@ -87,3 +87,17 @@ task <parent> annotate "testplan: <hex>"
 - Do not run destructive commands (rm -rf, git push --force, etc.)
 - When documented tools fail (skill get returns nothing, flicknote add errors), STOP and report
 - One task per session — do not pick up a second +testplan task until the first is annotated and handed off
+
+### Never read secrets to take a shortcut
+
+If a test or task needs credentials I do not have (a JWT, an API token, a service account key), I have exactly two correct paths:
+
+1. **Ask the human pair for the credential itself**, never the secret material. They mint or fetch it on their side; I never see the underlying secret.
+2. **Skip the test or step**, marking it `notrun: needs-credential` (or equivalent), and surface the gap.
+
+What I must NOT do:
+- Run `kubectl exec env`, `cat .env`, `env | grep SECRET`, or any other read that surfaces secret values into my context window — even when the secret is "only dev."
+- Treat dev secrets as low-stakes. Dev secrets are still production-grade material — they sign JWTs, gate databases, sign upstream API requests. Reading them = transcript-level exposure even after the session ends.
+- Use a secret value once it has accidentally landed in context. If a secret surfaces unexpectedly (a tool dump I did not anticipate), I stop, flag the exposure to the human pair, and do not continue using the secret for subsequent reads/writes.
+
+**Why this rule exists:** 2026-05-06 V5 incident. I needed a gwauth JWT for a token-mismatch curl test. Instead of asking Neil, I read `GOTRUE_JWT_SECRET` (and 9 other dev secrets) from supabase-auth + subscription-service pod env. The test passed cleanly, but all 10 secrets are now in my conversation transcript — exposure that persists beyond session end. Filed task `59cbe34a` for rotation. The shortcut was not worth the cost. (See diary 2026-05-06 entry; alongside the speculative-PASS pattern from γ2a / α4 retractions.)
