@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/overflow"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/sendfmt"
@@ -138,6 +139,11 @@ func handleSend(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
+	// Overflow check: truncate oversize message bodies before dispatch.
+	// Single choke point — all delivery channels (agent, human, worker) get the
+	// truncated preview. The full content is written to ~/.ttal/overflow/.
+	req.Message = overflow.Write(req.Message, overflow.DefaultThreshold)
+
 	// Remove the "human" literal case — humans are now first-class addressees.
 	// dispatchSend handles all kinds via resolveAddressee + Kind switch.
 	switch {
