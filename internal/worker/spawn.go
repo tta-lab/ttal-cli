@@ -189,11 +189,19 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 	return project, detectBranch(project), nil
 }
 
+// tmuxNewSessionFn is the function used to create a tmux session.
+// Package-level var for test injection.
+var tmuxNewSessionFn = tmux.NewSession
+
+// osExecFnWorker is the function used to resolve the ttal binary path.
+// Package-level var for test injection.
+var osExecFnWorker = os.Executable
+
 // launchTmuxWorker spawns a worker in a tmux session.
 func launchTmuxWorker(
 	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir string,
 ) error {
-	ttalBin, err := os.Executable()
+	ttalBin, err := osExecFnWorker()
 	if err != nil {
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
@@ -231,7 +239,7 @@ func launchTmuxWorker(
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, agentName, workDir, shellCmd); err != nil {
+	if err := tmuxNewSessionFn(sessionName, agentName, workDir, shellCmd); err != nil {
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
