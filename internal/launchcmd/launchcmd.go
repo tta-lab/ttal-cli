@@ -32,11 +32,15 @@ func BuildCCDirectCommand(ttalBin, agent, trigger, resumeSessionID string) strin
 }
 
 // BuildLenosCommand builds a lenos launch command via the worker gatekeeper.
+// When smallModel is true, appends --small-model to select the small-tier model.
 // When readOnly is true, appends --readonly to enforce read-only filesystem
 // access via the temenos sandbox.
 // resumeSessionID, if non-empty, appends --session <id> before the trigger separator.
-func BuildLenosCommand(ttalBin, agent, trigger string, readOnly bool, resumeSessionID string) string {
+func BuildLenosCommand(ttalBin, agent, trigger string, readOnly bool, smallModel bool, resumeSessionID string) string {
 	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
+	if smallModel {
+		cmd += " --small-model"
+	}
 	if readOnly {
 		cmd += " --readonly"
 	}
@@ -72,16 +76,18 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 // supported in the worker plane (Codex). Trigger is hardcoded to ContextTrigger —
 // every spawned worker-plane agent runs `ttal context` as its wake-orientation.
 //
+// smallModel is forwarded to lenos when rt is Lenos (worker-plane agents use
+// the small-tier model); ignored for Claude Code.
 // readOnly is forwarded to lenos via --readonly when rt is Lenos; ignored for
 // other runtimes (Claude Code has no equivalent sandbox-enforced flag).
 // resumeSessionID, if non-empty, is forwarded as --resume (CC) or --session (Lenos).
 func BuildAgentLaunchCommand(
 	rt runtime.Runtime, ttalBin, agentName string,
-	readOnly bool, trigger, resumeSessionID string,
+	readOnly bool, smallModel bool, trigger, resumeSessionID string,
 ) (string, error) {
 	switch rt {
 	case runtime.Lenos:
-		return BuildLenosCommand(ttalBin, agentName, trigger, readOnly, resumeSessionID), nil
+		return BuildLenosCommand(ttalBin, agentName, trigger, readOnly, smallModel, resumeSessionID), nil
 	case runtime.ClaudeCode:
 		return BuildCCDirectCommand(ttalBin, agentName, trigger, resumeSessionID), nil
 	default:

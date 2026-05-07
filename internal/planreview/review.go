@@ -32,7 +32,9 @@ func SpawnPlanReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), reviewerName, rt)
-	launchCmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, reviewerName, readOnly, launchcmd.ContextTrigger, "")
+	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
+		rt, ttalBin, reviewerName, readOnly, true, launchcmd.ContextTrigger, "",
+	)
 	if err != nil {
 		return fmt.Errorf("build plan-reviewer launch command: %w", err)
 	}

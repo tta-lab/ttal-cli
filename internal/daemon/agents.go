@@ -354,7 +354,7 @@ func spawnAgentSession(
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, trigger, resumeSessionID)
+	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, false, trigger, resumeSessionID)
 	if err != nil {
 		return fmt.Errorf("build launch command: %w", err)
 	}
