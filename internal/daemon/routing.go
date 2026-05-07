@@ -134,16 +134,22 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 
 // handleSend routes an incoming SendRequest based on From/To fields.
 // Resolves team from agent name or the Team field in the request.
+// applyOverflow truncates oversize message bodies and writes the full content
+// to the overflow directory. Only applied to agent/worker (tmux) channels —
+// human channels (Telegram) pass through untouched since Telegram already
+// handles chunking via splitMessage().
+func applyOverflow(msg string) string {
+	dir := config.ResolveDataDir() + "/files/default"
+	return overflow.Write(msg, overflow.DefaultThreshold, dir)
+}
+
+// handleSend routes an incoming SendRequest based on From/To fields.
+// Resolves team from agent name or the Team field in the request.
 func handleSend(
 	cfg *config.Config, registry *adapterRegistry,
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	// Overflow check: truncate oversize message bodies before dispatch.
-	// Single choke point — all delivery channels (agent, human, worker) get the
-	// truncated preview. The full content is written to ~/.ttal/overflow/.
-	req.Message = overflow.Write(req.Message, overflow.DefaultThreshold)
-
 	// Remove the "human" literal case — humans are now first-class addressees.
 	// dispatchSend handles all kinds via resolveAddressee + Kind switch.
 	switch {
@@ -177,14 +183,16 @@ func handleTo(
 		}
 		return handleToHuman(frontends, msgSvc, addr.Human, req)
 	case addressee.KindAgent:
+		overflowMsg := applyOverflow(req.Message)
 		persistMsg(msgSvc, message.CreateParams{
-			Sender: cfg.UserName, Recipient: addr.Name, Content: req.Message,
+			Sender: cfg.UserName, Recipient: addr.Name, Content: overflowMsg,
 			Team: "default", Channel: message.ChannelCLI,
 		})
-		return deliverToAgent(registry, cfg, frontends, addr.Name, req.Message)
+		return deliverToAgent(registry, cfg, frontends, addr.Name, overflowMsg)
 	case addressee.KindWorker:
+		overflowMsg := applyOverflow(req.Message)
 		session, dispatched, err := dispatchToWorkerOrManager(
-			cfg, addr.WorkerJobID, addr.Name, msgSvc, cfg.UserName, req.To, req.Message, nil)
+			cfg, addr.WorkerJobID, addr.Name, msgSvc, cfg.UserName, req.To, overflowMsg, nil)
 		if err != nil {
 			return err
 		}
@@ -263,15 +271,17 @@ func dispatchSystemSend(
 		return handleToHuman(frontends, msgSvc, addr.Human, req)
 	case addressee.KindAgent:
 		rt := cfg.RuntimeForAgent(req.To)
+		overflowContent := applyOverflow(req.Message)
 		persistMsg(msgSvc, message.CreateParams{
-			Sender: "system", Recipient: req.To, Content: req.Message,
+			Sender: "system", Recipient: req.To, Content: overflowContent,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
 		return deliverToAgentFn(registry, cfg, frontends, addr.Name, wireMsg)
 	case addressee.KindWorker:
+		overflowWire := applyOverflow(wireMsg)
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
-			cfg, jobID, agentName, msgSvc, "system", req.To, wireMsg, nil)
+			cfg, jobID, agentName, msgSvc, "system", req.To, overflowWire, nil)
 		if err != nil {
 			return err
 		}
@@ -407,16 +417,18 @@ func dispatchSend(
 			UserInitiated: req.UserInitiated,
 		})
 	case addressee.KindAgent:
+		overflowMsg := applyOverflow(msg)
 		persistMsg(msgSvc, message.CreateParams{
-			Sender: req.From, Recipient: req.To, Content: req.Message,
+			Sender: req.From, Recipient: req.To, Content: overflowMsg,
 			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
 		})
 		log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
-		return deliverToAgentFn(registry, cfg, frontends, addr.Name, msg)
+		return deliverToAgentFn(registry, cfg, frontends, addr.Name, overflowMsg)
 	case addressee.KindWorker:
+		overflowMsg := applyOverflow(msg)
 		jobID, agentName, _ := parseWorkerAddress(req.To)
 		session, dispatched, err := dispatchToWorkerOrManager(
-			cfg, jobID, agentName, msgSvc, req.From, req.To, msg, &rt)
+			cfg, jobID, agentName, msgSvc, req.From, req.To, overflowMsg, &rt)
 		if err != nil {
 			return err
 		}
