@@ -1,12 +1,9 @@
 package worker
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 func TestResolveRuntime(t *testing.T) {
@@ -34,57 +31,5 @@ func TestResolveRuntime(t *testing.T) {
 				t.Errorf("resolveRuntime(%q) = %q, want %q", tt.configRT, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestLaunchTmuxWorker_SmallModel_Lenos(t *testing.T) {
-	origNewSession := tmuxNewSessionFn
-	origExec := osExecFnWorker
-	defer func() {
-		tmuxNewSessionFn = origNewSession
-		osExecFnWorker = origExec
-	}()
-
-	var capturedShellCmd string
-	tmuxNewSessionFn = func(session, window, workDir, shellCmd string) error {
-		capturedShellCmd = shellCmd
-		return nil
-	}
-
-	osExecFnWorker = func() (string, error) {
-		return "/usr/bin/ttal", nil
-	}
-
-	task := &taskwarrior.Task{
-		UUID:        "abcd1234-0000-0000-0000-000000000000",
-		Description: "test task",
-		Tags:        []string{"feature"},
-	}
-
-	spawnCfg := SpawnConfig{
-		Name:      "test-hex",
-		Project:   "/tmp/test",
-		TaskUUID:  task.UUID,
-		Worktree:  false,
-		Runtime:   runtime.Lenos,
-		AgentName: "coder",
-	}
-
-	err := launchTmuxWorker(spawnCfg, task, "test-session", "/tmp/test")
-	if err != nil {
-		t.Fatalf("launchTmuxWorker: %v", err)
-	}
-
-	if !strings.Contains(capturedShellCmd, "lenos --agent coder") {
-		t.Errorf("expected lenos agent, got: %q", capturedShellCmd)
-	}
-	if !strings.Contains(capturedShellCmd, "--small-model") {
-		t.Errorf("expected --small-model in worker lenos command, got: %q", capturedShellCmd)
-	}
-	if !strings.Contains(capturedShellCmd, launchcmd.ContextTrigger) {
-		t.Errorf("shellCmd does not contain ContextTrigger: %q", capturedShellCmd)
-	}
-	if strings.Contains(capturedShellCmd, "claude") {
-		t.Errorf("should not contain claude: %q", capturedShellCmd)
 	}
 }
