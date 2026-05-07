@@ -31,7 +31,7 @@ func formatAgentMessage(fromAgent, text string) string {
 }
 
 // deliverToAgent sends text to an agent via its runtime adapter.
-// Falls back to tmux for CC agents, frontend notification for others.
+// Falls back to tmux for local tmux-backed runtimes, frontend notification for others.
 func deliverToAgent(
 	registry *adapterRegistry, cfg *config.Config,
 	frontends map[string]frontend.Frontend,
@@ -42,9 +42,9 @@ func deliverToAgent(
 			return adapter.SendMessage(context.Background(), text)
 		}
 	}
-	// Fallback: tmux for CC agents, frontend notification for others
+	// Fallback: tmux for local runtimes, frontend notification for others.
 	rt := cfg.RuntimeForAgent(agentName)
-	if rt == runtime.ClaudeCode {
+	if rt.IsTmuxBacked() {
 		session := config.AgentSessionName(agentName)
 		return tmux.SendKeys(session, agentName, text)
 	}

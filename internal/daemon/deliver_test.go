@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 )
 
@@ -44,5 +46,17 @@ func TestFormatAgentMessage_NewSingleLineFormat(t *testing.T) {
 		`<i>--- Reply with: ttal send --to yuki "your message"</i>`
 	if got != want {
 		t.Errorf("formatAgentMessage mismatch\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+func TestDeliverToAgent_LenosUsesTmux(t *testing.T) {
+	cfg := &config.Config{DefaultRuntime: string(runtime.Lenos)}
+
+	err := deliverToAgent(nil, cfg, nil, "no-such-lenos-test-agent", "hello")
+	if err == nil {
+		t.Fatal("expected tmux delivery error for missing test session, got nil")
+	}
+	if strings.Contains(err.Error(), "no frontend") {
+		t.Fatalf("lenos delivery used frontend fallback instead of tmux: %v", err)
 	}
 }
