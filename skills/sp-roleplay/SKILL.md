@@ -167,6 +167,7 @@ For both freedom AND coherence: pick a tight-world + sandbox-structure setting.
 For deep emotional landing: pick tight-world + plot-canon, accept invention constraint.
 For pure relaxation: pick loose-world + sandbox, lower the canon-fidelity bar.
 
-## Reference: Scratch Template
+## Reference
 
-See `scratch.template.md` in this skill directory. Copy at scene start, fill Phase 0 sections, append turn entries as you go.
+- **`scratch.template.md`** — copy at scene start, fill Phase 0 sections, append turn entries as you go.
+- **`example.md`** — a real 4-round session scratch (Neil + Yuki, 2026-05-06) showing the discipline applied incrementally across Round 1 (no scratch, 5 errors) → Round 4 (full scratch, 2 errors + 1 craft bug). Useful as a concrete reference for what the scratch looks like in flight.
