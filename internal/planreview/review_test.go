@@ -80,6 +80,9 @@ func TestSpawnPlanReviewer_LenosBranch(t *testing.T) {
 	if !strings.Contains(capturedShellCmd, "lenos --agent plan-review-lead") {
 		t.Errorf("expected lenos agent, got: %q", capturedShellCmd)
 	}
+	if !strings.Contains(capturedShellCmd, "--small-model") {
+		t.Errorf("expected --small-model in plan-reviewer lenos command, got: %q", capturedShellCmd)
+	}
 	if strings.Contains(capturedShellCmd, "claude") {
 		t.Errorf("should not contain claude: %q", capturedShellCmd)
 	}
