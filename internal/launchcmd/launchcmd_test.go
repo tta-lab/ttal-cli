@@ -76,6 +76,21 @@ func TestBuildLenosCommand_ReadOnly(t *testing.T) {
 		t.Errorf("--readonly should come before trigger: %q", got)
 	}
 }
+func TestBuildLenosCommand_SmallModel(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false, true, "")
+	if !strings.Contains(got, "--small-model") {
+		t.Errorf("expected --small-model in lenos command, got: %q", got)
+	}
+	if !strings.Contains(got, "lenos --agent coder") {
+		t.Errorf("expected lenos agent, got: %q", got)
+	}
+	// --small-model should appear before --readonly (not set here) and trigger
+	idxSmall := strings.Index(got, "--small-model")
+	idxTrigger := strings.Index(got, "ttal context")
+	if idxSmall == -1 || idxTrigger == -1 || idxSmall > idxTrigger {
+		t.Errorf("--small-model should come before trigger: %q", got)
+	}
+}
 
 // --- New tests for step 2 additions ---
 
