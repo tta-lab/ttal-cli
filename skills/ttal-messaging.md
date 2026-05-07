@@ -10,19 +10,25 @@ Send messages to agents or humans.
 ## Send to another agent
 
 ```bash
-ttal send --to <agent-name> "can you review my auth module?"
+cat <<'EOF' | ttal send --to <agent-name>
+can you review my auth module?
+EOF
 ```
 
 ## Send to a human via Telegram
 
 ```bash
-ttal send --to <alias> "message"
+cat <<'EOF' | ttal send --to <alias>
+message
+EOF
 ```
 
 ## Send to a worker session
 
 ```bash
-ttal send --to 1234abcd:coder "check the failing test in auth_test.go"
+cat <<'EOF' | ttal send --to 1234abcd:coder
+check the failing test in auth_test.go
+EOF
 ```
 
 Worker sessions require explicit `job_id:agent_name` format. The daemon uses the job_id to find the tmux session and the agent_name as the window target. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.

@@ -14,6 +14,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/overflow"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
@@ -869,4 +870,45 @@ func TestDispatchSystemSend_RoutesToAgent(t *testing.T) {
 	if !strings.Contains(captured.msg, "system alert") {
 		t.Errorf("msg = %q, want substring system alert", captured.msg)
 	}
+}
+
+func TestHandleSend_OverflowTruncation(t *testing.T) {
+	t.Run("truncates large message body", func(t *testing.T) {
+		tmp := t.TempDir()
+		t.Setenv("HOME", tmp)
+		setupAgentDirs(t, tmp, "astra", "kestrel")
+		cfg := &config.Config{TeamPath: tmp}
+		captured, restore := setupAgentDeliverToAgentCapture()
+		t.Cleanup(restore)
+
+		body := strings.Repeat("x", overflow.DefaultThreshold+1)
+		req := SendRequest{From: "astra", To: "kestrel", Message: body}
+		if err := handleSend(cfg, nil, nil, nil, req); err != nil {
+			t.Fatalf("handleSend: %v", err)
+		}
+		if len(captured.msg) >= len(body) {
+			t.Errorf("message was not truncated: len(captured.msg)=%d, want < %d", len(captured.msg), len(body))
+		}
+		if !strings.Contains(captured.msg, "[message truncated") {
+			t.Errorf("truncation notice missing from delivered message: %s", captured.msg)
+		}
+	})
+
+	t.Run("passes through small message unchanged", func(t *testing.T) {
+		tmp := t.TempDir()
+		t.Setenv("HOME", tmp)
+		setupAgentDirs(t, tmp, "astra", "kestrel")
+		cfg := &config.Config{TeamPath: tmp}
+		captured, restore := setupAgentDeliverToAgentCapture()
+		t.Cleanup(restore)
+
+		body := "small message"
+		req := SendRequest{From: "astra", To: "kestrel", Message: body}
+		if err := handleSend(cfg, nil, nil, nil, req); err != nil {
+			t.Fatalf("handleSend: %v", err)
+		}
+		if !strings.Contains(captured.msg, body) {
+			t.Errorf("small message should pass through unchanged, got %q", captured.msg)
+		}
+	})
 }
