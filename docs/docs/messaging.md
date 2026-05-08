@@ -64,10 +64,12 @@ The bot handles transcription, file downloads, and delivers everything to your a
 Inbound messages arrive in the agent's session with prefixes:
 
 ```
-[telegram from:neil]
-Can you check the deployment?
+[telegram from:neil] [14:32:05] Can you check the deployment?
 
-<i>--- Reply with: ttal send --to neil "your message"</i>
+<i>--- Reply with:
+cat <<'EOF' | ttal send --to neil
+your message
+EOF</i>
 ```
 
 ### Interactive questions
@@ -89,10 +91,12 @@ echo "Task complete" | ttal send --to kestrel
 When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient sees attribution:
 
 ```
-[agent from:inke]
-The design plan is ready for review.
+[agent from:inke] [14:32:05] The design plan is ready for review.
 
-<i>--- Reply with: ttal send --to inke "your message"</i>
+<i>--- Reply with:
+cat <<'EOF' | ttal send --to inke
+your message
+EOF</i>
 ```
 
 ## CC control commands

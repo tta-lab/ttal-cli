@@ -14,7 +14,7 @@ import (
 // hint in literal <i>...</i> tags.
 func TestFormatAgentMessage_HintIsItalic(t *testing.T) {
 	got := formatAgentMessage("yuki", "hello")
-	hint := "<i>--- Reply with: ttal send --to yuki \"your message\"</i>"
+	hint := "<i>--- Reply with:\ncat <<'EOF' | ttal send --to yuki\nyour message\nEOF</i>"
 	if !strings.Contains(got, hint) {
 		t.Errorf("expected italic hint %q in output:\n%s", hint, got)
 	}
@@ -26,7 +26,10 @@ func TestFormatAgentMessage_HintIsItalic(t *testing.T) {
 // TestReplyHint_HintIsItalic verifies ReplyHint itself wraps in italic tags.
 func TestReplyHint_HintIsItalic(t *testing.T) {
 	got := ReplyHint("astra")
-	want := `<i>--- Reply with: ttal send --to astra "your message"</i>`
+	want := `<i>--- Reply with:
+cat <<'EOF' | ttal send --to astra
+your message
+EOF</i>`
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -43,7 +46,10 @@ func TestFormatAgentMessage_NewSingleLineFormat(t *testing.T) {
 
 	got := formatAgentMessage("yuki", "hello")
 	want := "[agent from:yuki] [14:32:05] hello\n\n" +
-		`<i>--- Reply with: ttal send --to yuki "your message"</i>`
+		`<i>--- Reply with:
+cat <<'EOF' | ttal send --to yuki
+your message
+EOF</i>`
 	if got != want {
 		t.Errorf("formatAgentMessage mismatch\n  got:  %q\n  want: %q", got, want)
 	}

@@ -224,17 +224,20 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 		return
 	}
 
+	f.cfg.OnMessage("default", agentName, f.formatMatrixInboundMessage(senderName, body))
+}
+
+func (f *MatrixFrontend) formatMatrixInboundMessage(senderName, body string) string {
 	adminAlias := fallbackHumanAlias
 	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
 		adminAlias = f.cfg.MCfg.AdminHuman.Alias
 	}
-	formatted := sendfmt.Format(sendfmt.Envelope{
+	return sendfmt.Format(sendfmt.Envelope{
 		Channel:    "matrix",
 		SenderName: html.EscapeString(senderName),
 		Body:       body,
 		ReplyAlias: adminAlias,
 	})
-	f.cfg.OnMessage("default", agentName, formatted)
 }
 
 // startNotifSync sets up the notification client sync loop with command handlers.
@@ -429,14 +432,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		}
 	}
 
-	adminAlias := fallbackHumanAlias
-	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
-		adminAlias = f.cfg.MCfg.AdminHuman.Alias
-	}
-	formatted := fmt.Sprintf(
-		"[matrix from:%s] %s\n\n<i>--- Reply with: ttal send --to %s \"your message\"</i>",
-		html.EscapeString(senderName), rawText, adminAlias)
-	f.cfg.OnMessage("default", agentName, formatted)
+	f.cfg.OnMessage("default", agentName, f.formatMatrixInboundMessage(senderName, rawText))
 }
 
 // ClearTracking clears the tracked inbound event ID for an agent.
