@@ -121,11 +121,10 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use heredoc to `ttal send --to <human-alias>` (for example `ttal send --to neil`). This is the only path that reaches them on Telegram. There is no passive delivery.
+Use the same explicit command for humans and agents. The recipient is a human alias, agent name, or worker address (`<uuid>:<agent-name>`). Session output is not delivered passively.
 
-**Sending to another agent:**
 ```bash
-cat <<'EOF' | ttal send --to <agent-name>
+cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
 ```
@@ -222,7 +221,7 @@ post = post updates with `ttal comment add`
 ## Messaging
 
 ```bash
-cat <<'EOF' | ttal send --to <agent>
+cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
 ```

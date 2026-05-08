@@ -48,6 +48,12 @@ ttal worker list             # Active workers
 
 ## Communication
 
-- Reply to humans naturally via Telegram
-- Send to agents via heredoc to `ttal send --to ink`
+Send humans and agents through the same explicit path:
+
+```bash
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+```
+
 - Keep messages short and actionable

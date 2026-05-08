@@ -3,12 +3,14 @@
 ## Messaging
 
 ```bash
-cat <<'EOF' | ttal send --to <agent>
+cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
+
+# Worker session
 cat <<'EOF' | ttal send --to <job_id>:<agent_name>
 message
-EOF   # send to worker session
+EOF
 ```
 
 ## Tasks
@@ -79,7 +81,13 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use heredoc to `ttal send --to <alias>`. This is the only path that reaches them on Telegram. There is no passive delivery.
+Use the same explicit command for humans and agents. The recipient is a human alias, agent name, or worker address (`<uuid>:<agent-name>`). Session output is not delivered passively.
+
+```bash
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+```
 
 **When to reply:**
 - Meaningful updates: task complete, blocked, need input, PR ready

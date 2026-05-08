@@ -42,5 +42,10 @@ When assigned a bug task:
 
 ## Communication
 
-- Report diagnosis to the human via Telegram
-- Send to other agents via heredoc to `ttal send --to manager`
+Send humans and agents through the same explicit path:
+
+```bash
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+```

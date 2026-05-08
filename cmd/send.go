@@ -43,7 +43,7 @@ Examples:
   task started: implement auth
   EOF
 
-  cat <<'EOF' | ttal send --to neil
+  cat <<'EOF' | ttal send --to <human-alias>
   compact complete
   EOF
 
