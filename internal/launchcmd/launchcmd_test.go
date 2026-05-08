@@ -162,8 +162,8 @@ func TestSingleQuoteShell_SpecialChars(t *testing.T) {
 
 func TestBuildEnvParts_ClaudeCode(t *testing.T) {
 	parts := BuildEnvParts("abc123", "coder", "claude-code")
-	if len(parts) != 3 {
-		t.Fatalf("expected 3 parts, got %d", len(parts))
+	if len(parts) != 4 {
+		t.Fatalf("expected 4 parts, got %d", len(parts))
 	}
 	if parts[0] != "TTAL_AGENT_NAME=coder" {
 		t.Errorf("agent name: want %q, got %q", "TTAL_AGENT_NAME=coder", parts[0])
@@ -174,12 +174,16 @@ func TestBuildEnvParts_ClaudeCode(t *testing.T) {
 	if parts[2] != "TTAL_RUNTIME=claude-code" {
 		t.Errorf("runtime: want %q, got %q", "TTAL_RUNTIME=claude-code", parts[2])
 	}
+	joined := strings.Join(parts, " ")
+	if !strings.Contains(joined, "KUBECONFIG=") {
+		t.Fatal("missing KUBECONFIG")
+	}
 }
 
 func TestBuildEnvParts_Lenos(t *testing.T) {
 	parts := BuildEnvParts("def456", "plan-review-lead", "lenos")
-	if len(parts) != 3 {
-		t.Fatalf("expected 3 parts, got %d", len(parts))
+	if len(parts) != 4 {
+		t.Fatalf("expected 4 parts, got %d", len(parts))
 	}
 	if parts[0] != "TTAL_AGENT_NAME=plan-review-lead" {
 		t.Errorf("agent name: want %q, got %q", "TTAL_AGENT_NAME=plan-review-lead", parts[0])
@@ -189,6 +193,10 @@ func TestBuildEnvParts_Lenos(t *testing.T) {
 	}
 	if parts[2] != "TTAL_RUNTIME=lenos" {
 		t.Errorf("runtime: want %q, got %q", "TTAL_RUNTIME=lenos", parts[2])
+	}
+	joined := strings.Join(parts, " ")
+	if !strings.Contains(joined, "KUBECONFIG=") {
+		t.Fatal("missing KUBECONFIG")
 	}
 }
 
