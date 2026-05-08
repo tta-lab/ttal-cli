@@ -68,6 +68,7 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 		"TTAL_AGENT_NAME=" + agentName,
 		"TTAL_JOB_ID=" + taskHexID,
 		"TTAL_RUNTIME=" + string(rt),
+		"KUBECONFIG=$HOME/.ttal/kubeconfig",
 	}
 }
 
