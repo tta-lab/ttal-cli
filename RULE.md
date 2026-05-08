@@ -75,7 +75,7 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use `ttal send --to <alias> "message"` — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
+**Replying to humans (Telegram):** Use heredoc to `ttal send --to <alias>`. This is the only path that reaches them on Telegram. There is no passive delivery.
 
 **When to reply:**
 - Meaningful updates: task complete, blocked, need input, PR ready

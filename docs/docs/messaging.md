@@ -7,16 +7,18 @@ ttal provides bidirectional messaging between humans and agents via Telegram/Mat
 
 ## Outbound: agent → human
 
-`ttal send --to <alias> "message"` is the only way to reach a human (e.g. `ttal send --to neil`). JSONL session output is private workspace — nothing auto-forwards.
+Heredoc to `ttal send --to <alias>` is the only way to reach a human (e.g. `ttal send --to neil`). JSONL session output is private workspace — nothing auto-forwards.
 
 ```bash
-# One-liner
-ttal send --to neil "done, PR ready"
+# Multiline via heredoc
+cat <<'ENDBASH' | ttal send --to neil
+done, PR ready
+ENDBASH
 
 # Piped stdin (auto-detected)
 echo "check complete" | ttal send --to neil
 
-# Multiline via heredoc
+# Longer message
 cat <<'ENDBASH' | ttal send --to neil
 ## Status
 Review complete — 2 findings.
@@ -26,7 +28,9 @@ ENDBASH
 Long content: write to flicknote first, then send a one-line pointer:
 ```bash
 flicknote add "detailed findings..." --project notes
-ttal send --to neil "wrote note: flicknote abc12345"
+cat <<'EOF' | ttal send --to neil
+wrote note: flicknote abc12345
+EOF
 ```
 
 ## Inbound: human → agent
