@@ -174,9 +174,8 @@ func TestBuildEnvParts_ClaudeCode(t *testing.T) {
 	if parts[2] != "TTAL_RUNTIME=claude-code" {
 		t.Errorf("runtime: want %q, got %q", "TTAL_RUNTIME=claude-code", parts[2])
 	}
-	joined := strings.Join(parts, " ")
-	if !strings.Contains(joined, "KUBECONFIG=") {
-		t.Fatal("missing KUBECONFIG")
+	if parts[3] != "KUBECONFIG=$HOME/.ttal/kubeconfig" {
+		t.Fatalf("kubeconfig: want %q, got %q", "KUBECONFIG=$HOME/.ttal/kubeconfig", parts[3])
 	}
 }
 
@@ -194,9 +193,8 @@ func TestBuildEnvParts_Lenos(t *testing.T) {
 	if parts[2] != "TTAL_RUNTIME=lenos" {
 		t.Errorf("runtime: want %q, got %q", "TTAL_RUNTIME=lenos", parts[2])
 	}
-	joined := strings.Join(parts, " ")
-	if !strings.Contains(joined, "KUBECONFIG=") {
-		t.Fatal("missing KUBECONFIG")
+	if parts[3] != "KUBECONFIG=$HOME/.ttal/kubeconfig" {
+		t.Fatalf("kubeconfig: want %q, got %q", "KUBECONFIG=$HOME/.ttal/kubeconfig", parts[3])
 	}
 }
 
