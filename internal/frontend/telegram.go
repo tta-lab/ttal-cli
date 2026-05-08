@@ -112,12 +112,9 @@ type TelegramFrontend struct {
 	allCommands []Command // set by RegisterCommands, used by Start
 }
 
-// adminHumanAlias returns the admin's alias for reply hints, or "human" if not configured.
+// adminHumanAlias returns the admin's alias for reply hints.
 func (f *TelegramFrontend) adminHumanAlias() string {
-	if f.cfg.MCfg == nil || f.cfg.MCfg.AdminHuman == nil {
-		return "human"
-	}
-	return f.cfg.MCfg.AdminHuman.Alias
+	return replyHumanAlias(f.cfg.MCfg)
 }
 
 // NewTelegram creates a TelegramFrontend. RegisterCommands must be called before Start.
@@ -621,9 +618,6 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 // Routes through sendfmt for the canonical [<channel> from:X] [hh:mm:ss] body
 // layout shared with matrix inbound and outbound agent-to-agent.
 func formatInboundMessage(senderName, text, adminAlias string) string {
-	if adminAlias == "" {
-		adminAlias = "human"
-	}
 	return sendfmt.Format(sendfmt.Envelope{
 		Channel:    "telegram",
 		SenderName: html.EscapeString(senderName),

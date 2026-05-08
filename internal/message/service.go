@@ -140,7 +140,7 @@ func (s *Service) ListAgentFeed(ctx context.Context, userName string, limit, off
 }
 
 // LatestFrom returns the most recent human-facing message sent by the given agent in the given team.
-// Only returns ChannelCLI messages (agent → human via explicit `ttal send --to human`).
+// Only returns ChannelCLI messages (agent → human via explicit `ttal send --to <alias>`).
 // Returns (nil, nil) if no message is found.
 func (s *Service) LatestFrom(ctx context.Context, sender, team string) (*ent.Message, error) {
 	msg, err := s.client.Message.Query().

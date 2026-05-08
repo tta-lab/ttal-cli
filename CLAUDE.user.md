@@ -121,7 +121,7 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use `ttal send --to human "message"` — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
+**Replying to humans (Telegram):** Use `ttal send --to <human-alias> "message"` (for example `ttal send --to neil "message"`) — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
 
 **Sending to another agent:**
 ```bash

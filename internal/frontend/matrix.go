@@ -228,15 +228,11 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 }
 
 func (f *MatrixFrontend) formatMatrixInboundMessage(senderName, body string) string {
-	adminAlias := fallbackHumanAlias
-	if f.cfg.MCfg != nil && f.cfg.MCfg.AdminHuman != nil {
-		adminAlias = f.cfg.MCfg.AdminHuman.Alias
-	}
 	return sendfmt.Format(sendfmt.Envelope{
 		Channel:    "matrix",
 		SenderName: html.EscapeString(senderName),
 		Body:       body,
-		ReplyAlias: adminAlias,
+		ReplyAlias: replyHumanAlias(f.cfg.MCfg),
 	})
 }
 

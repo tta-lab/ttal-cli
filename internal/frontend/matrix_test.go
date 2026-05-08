@@ -443,12 +443,12 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			body: "hello",
-			want: "[matrix from:neil] [14:32:05] hello\n\n" + humanReplyHint,
+			want: "[matrix from:neil] [14:32:05] hello\n\n" + neilReplyHint,
 		},
 		{
 			name: "no space not bash mode",
 			body: "!nospace",
-			want: "[matrix from:neil] [14:32:05] !nospace\n\n" + humanReplyHint,
+			want: "[matrix from:neil] [14:32:05] !nospace\n\n" + neilReplyHint,
 		},
 		{
 			name: "prefix only empty command",
@@ -462,7 +462,7 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 			var got string
 			fe := &MatrixFrontend{
 				cfg: MatrixConfig{
-
+					MCfg:       &config.Config{AdminHuman: &humanfs.Human{Alias: "neil"}},
 					UserNameFn: func() string { return testUserName },
 					OnMessage:  func(_, agentName, text string) { got = text },
 				},
@@ -560,6 +560,7 @@ func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
 	var got string
 	fe := &MatrixFrontend{
 		cfg: MatrixConfig{
+			MCfg:       &config.Config{AdminHuman: &humanfs.Human{Alias: "neil"}},
 			UserNameFn: func() string { return testUserName },
 			OnMessage:  func(_, _ string, text string) { got = text },
 		},
@@ -571,8 +572,8 @@ func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
 	if !strings.Contains(got, "[matrix from:neil] [14:32:05] hello neil") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
-	if !strings.Contains(got, humanReplyHint) {
-		t.Errorf("expected italic hint %q missing from %q", humanReplyHint, got)
+	if !strings.Contains(got, neilReplyHint) {
+		t.Errorf("expected italic hint %q missing from %q", neilReplyHint, got)
 	}
 }
 
