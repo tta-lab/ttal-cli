@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
@@ -22,7 +21,7 @@ var sendTo string
 var daemonSendFn = daemon.Send // inject point for tests
 
 var sendCmd = &cobra.Command{
-	Use:   "send [message]",
+	Use:   "send",
 	Short: "Send a message between agents or to a human",
 	Long: `Send a message with explicit direction:
 
@@ -32,6 +31,12 @@ var sendCmd = &cobra.Command{
 
 Sender identity: TTAL_AGENT_NAME env var when set; falls back to "system" for bare
   shell sends, scripts, hooks, and automation.
+
+Boundary:
+  This CLI reads message bodies from stdin only. It is intended for controlled
+  agent runtimes that invoke shell commands and provide heredoc/pipe input.
+  Other process-style integrations should call the ttal daemon directly rather
+  than shelling out to ttal send.
 
 Examples:
   cat <<'EOF' | ttal send --to kestrel
@@ -81,27 +86,33 @@ func init() {
 	sendCmd.Flags().StringVar(&sendTo, "to", "", "Receiving agent (routes via tmux)")
 }
 
-// resolveSendMessage picks the message body from positional args first, falling
-// back to piped stdin only when no args are given. The args-first order is
-// deliberate: callers launched under pueue/systemd/launchd inherit a stdin pipe
-// FD that no one writes to, and io.ReadAll on that FD blocks forever. Reading
-// stdin only when args are empty preserves the `echo ... | ttal send` ergonomic
-// while letting positional-arg callers (e.g. ei .sh scripts) finish promptly.
+// resolveSendMessage enforces the stdin-only contract for ttal send.
+//
+// Boundary: this command is for controlled agent runtimes that can provide a
+// heredoc or pipe. It is intentionally not a generic "ttal send \"message\""
+// wrapper for arbitrary process callers; those should reach the daemon API
+// directly instead of going through shell argument parsing here.
+//
+// Positional args therefore fail fast with actionable heredoc guidance.
 func resolveSendMessage(args []string) (string, error) {
-	var message string
 	if len(args) > 0 {
-		message = strings.Join(args, " ")
-	} else {
-		piped, err := readStdinIfPiped()
-		if err != nil {
-			return "", fmt.Errorf("read stdin: %w", err)
-		}
-		message = piped
+		return "", fmt.Errorf(
+			"ttal send reads stdin only; positional arguments are not supported\n\n" +
+				"  Use heredoc:\n" +
+				"    cat <<'EOF' | ttal send --to <name>\n" +
+				"    message\n" +
+				"    EOF")
 	}
 
+	piped, err := readStdinIfPiped()
+	if err != nil {
+		return "", fmt.Errorf("read stdin: %w", err)
+	}
+
+	message := piped
 	if message == "" {
 		return "", fmt.Errorf(
-			"message required (positional argument or piped stdin)\n\n"+
+			"message required on stdin\n\n"+
 				"  Example: %s\n"+
 				"  Multiline: cat <<'END' | ttal send --to <name>\n"+
 				"    ## Status\n    ...\n    END",

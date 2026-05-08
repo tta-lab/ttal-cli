@@ -36,19 +36,18 @@ func TestSendStdinAutoDetect_BothStdinAndArgs(t *testing.T) {
 	}
 }
 
-// TestResolveSendMessage_ArgsWinOverOpenPipe is the regression guard for the
-// pueue-stdin-hang bug. It swaps os.Stdin for a pipe whose writer stays open
-// forever — the exact FD shape a pueue-launched bash subprocess inherits. If
-// resolveSendMessage ever regresses to reading stdin before checking args, the
-// io.ReadAll call blocks indefinitely and this test deadlocks. The 2s timeout
-// converts the hang into a failure.
-func TestResolveSendMessage_ArgsWinOverOpenPipe(t *testing.T) {
+// TestResolveSendMessage_ArgsErrorWithoutTouchingOpenPipe verifies the current
+// stdin-only contract: positional args are rejected immediately, before any
+// stdin read is attempted. The still-open pipe is a guard against accidental
+// regressions back to "args plus opportunistic stdin probing".
+func TestResolveSendMessage_ArgsErrorWithoutTouchingOpenPipe(t *testing.T) {
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
 	defer r.Close()
-	// IMPORTANT: do NOT close w — this simulates pueue's never-closed stdin pipe.
+	// IMPORTANT: do NOT close w — if resolveSendMessage touched stdin here, it
+	// would block waiting for EOF and the test would fail on timeout.
 	defer w.Close()
 
 	old := os.Stdin
@@ -56,26 +55,25 @@ func TestResolveSendMessage_ArgsWinOverOpenPipe(t *testing.T) {
 	os.Stdin = r
 
 	type result struct {
-		msg string
 		err error
 	}
 	done := make(chan result, 1)
 	go func() {
-		msg, err := resolveSendMessage([]string{"hello", "world"})
-		done <- result{msg, err}
+		_, err := resolveSendMessage([]string{"hello", "world"})
+		done <- result{err: err}
 	}()
 
 	select {
 	case got := <-done:
-		if got.err != nil {
-			t.Fatalf("resolveSendMessage: %v", got.err)
+		if got.err == nil {
+			t.Fatal("expected positional-args error, got nil")
 		}
-		if got.msg != "hello world" {
-			t.Errorf("got %q, want %q", got.msg, "hello world")
+		if !strings.Contains(got.err.Error(), "reads stdin only") {
+			t.Fatalf("expected stdin-only guidance, got: %v", got.err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("resolveSendMessage hung on stdin while positional args were present — " +
-			"args must win without touching stdin (pueue-stdin-hang regression)")
+			"it must error before touching stdin")
 	}
 }
 
@@ -146,14 +144,27 @@ func TestSendCmd_NoEnvSendsAsSystem(t *testing.T) {
 	t.Setenv("TTAL_AGENT_NAME", "")
 	t.Setenv("TTAL_JOB_ID", "")
 
-	// Capture args for RunE
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdin := os.Stdin
+	defer func() { os.Stdin = oldStdin }()
+	os.Stdin = r
+	defer r.Close()
+
+	if _, err := w.WriteString("hello from bare shell\n"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	w.Close()
+
 	cmd := sendCmd
-	args := []string{"hello from bare shell"}
+	args := []string{}
 	oldArgs := os.Args
 	os.Args = append([]string{"ttal"}, args...)
 	defer func() { os.Args = oldArgs }()
 
-	err := cmd.RunE(cmd, args)
+	err = cmd.RunE(cmd, args)
 	if err != nil {
 		t.Fatalf("sendCmd.RunE: %v", err)
 	}
