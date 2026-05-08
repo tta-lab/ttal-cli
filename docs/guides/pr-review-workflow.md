@@ -20,9 +20,15 @@ Owner verdict:
   LGTM      → ttal go <uuid>
               ↓
               pr-review-lead spawns for specialized review pass
-  NEED_WORK → ttal send --to <uuid>:coder (blockers)
+  NEED_WORK → send blockers to <uuid>:coder with ttal send
               ↓
               Worker fixes, owner re-reviews
+```
+
+```bash
+cat <<'EOF' | ttal send --to <uuid>:coder
+blockers
+EOF
 ```
 
 ## Creating PRs

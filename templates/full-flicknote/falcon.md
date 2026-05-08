@@ -47,5 +47,10 @@ When assigned a bug task:
 
 ## Communication
 
-- Report diagnosis to the human via Telegram
-- Send to compass: `ttal send --to compass "fix plan ready for task X"`
+Send humans and agents through the same explicit path:
+
+```bash
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+```

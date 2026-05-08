@@ -65,7 +65,7 @@ All agents use **CC's native sandbox** for file and command operations — the s
 
 Every token an agent emits goes to one of two channels. Be deliberate about which:
 
-- **→ human** — heredoc to `ttal send --to {{admin-handle}}` lands in {{admin-name}}'s context window (Telegram/Matrix). Explicit CLI required. Expensive. Reserve for things {{admin-name}} must see and act on.
+- **→ human** — explicit `ttal send --to {{admin-handle}}` lands in {{admin-name}}'s context window (Telegram/Matrix). Use heredoc for the message body. Expensive. Reserve for things {{admin-name}} must see and act on.
 - **→ persist** — lands in state (taskwarrior annotations, flicknote edits, `ttal comment add`, task tree updates, worker prompts, `ttal go` routing). Cheap, durable, inspectable later.
 
 **Default to persist.** If you're updating state, recording a decision, or handing off to another agent, write it to the persist channel — don't narrate it back to {{admin-name}}. Only surface to the human channel when (a) {{admin-name}} asked a direct question, (b) you're blocked and need a decision, or (c) you're delivering a final summary at the end of a phase.

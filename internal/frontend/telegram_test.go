@@ -15,6 +15,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 )
 
+const neilReplyHint = "<i>--- Reply with:\ncat <<'EOF' | ttal send --to neil\nyour message\nEOF</i>"
+
 func TestTelegramSendText_AgentToHuman_UsesAgentBot(t *testing.T) {
 	t.Setenv("YUKI_BOT_TOKEN", "yuki-bot-secret")
 	var captured struct{ token, chatID, text string }
@@ -156,18 +158,18 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			text: "hello",
-			want: "[telegram from:testuser] [14:32:05] hello\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[telegram from:testuser] [14:32:05] hello\n\n" + neilReplyHint,
 		},
 		{
 			name: "no space not bash mode",
 			text: "!nospace",
-			want: "[telegram from:testuser] [14:32:05] !nospace\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[telegram from:testuser] [14:32:05] !nospace\n\n" + neilReplyHint,
 		},
 		{
 			// TrimSpace strips the trailing space, so "! " → "!" which is NOT bash mode.
 			name: "prefix only is not bash mode after trim",
 			text: "! ",
-			want: "[telegram from:testuser] [14:32:05] !\n\n<i>--- Reply with: ttal send --to human \"your message\"</i>",
+			want: "[telegram from:testuser] [14:32:05] !\n\n" + neilReplyHint,
 		},
 		{
 			name:         "overrideText bash mode",
@@ -187,6 +189,7 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fe := &TelegramFrontend{
 				cfg: TelegramConfig{
+					MCfg:       &config.Config{AdminHuman: &humanfs.Human{Alias: "neil"}},
 					UserNameFn: func() string { return "testuser" },
 				},
 				mt: newMessageTracker(),
@@ -228,6 +231,7 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 
 	fe := &TelegramFrontend{
 		cfg: TelegramConfig{
+			MCfg:       &config.Config{AdminHuman: &humanfs.Human{Alias: "neil"}},
 			UserNameFn: func() string { return "neil" },
 		},
 		mt: newMessageTracker(),
@@ -249,12 +253,11 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 		onMessage, nil,
 	)
 
-	hint := "<i>--- Reply with: ttal send --to human \"your message\"</i>"
 	if !strings.Contains(got, "[telegram from:neil] [14:32:05] hello there") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
-	if !strings.Contains(got, hint) {
-		t.Errorf("expected italic hint %q missing from %q", hint, got)
+	if !strings.Contains(got, neilReplyHint) {
+		t.Errorf("expected italic hint %q missing from %q", neilReplyHint, got)
 	}
 }
 

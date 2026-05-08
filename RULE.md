@@ -3,8 +3,14 @@
 ## Messaging
 
 ```bash
-ttal send --to <agent> "message"
-ttal send --to <job_id>:<agent_name> "message"   # send to worker session
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+
+# Worker session
+cat <<'EOF' | ttal send --to <job_id>:<agent_name>
+message
+EOF
 ```
 
 ## Tasks
@@ -75,7 +81,13 @@ Messages arrive as prefixed text in your input:
 - `[telegram from:<name>]` — from a human via Telegram
 - `[agent from:<name>]` — from another agent
 
-**Replying to humans (Telegram):** Use `ttal send --to <alias> "message"` — explicit delivery is reliable and intentional. Natural session output is passively forwarded but may be delayed or bundled with other output.
+Use the same explicit command for humans and agents. The recipient is a human alias, agent name, or worker address (`<uuid>:<agent-name>`). Session output is not delivered passively.
+
+```bash
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+```
 
 **When to reply:**
 - Meaningful updates: task complete, blocked, need input, PR ready

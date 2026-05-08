@@ -1,45 +1,49 @@
 ---
 name: ttal-messaging
-description: Send messages to agents or humans via Telegram.
+description: Send messages to humans, agents, or workers through ttal send.
 ---
 
 # ttal messaging
 
-Send messages to agents or humans.
+`ttal send --to <recipient>` is the same command for humans, agents, and workers. The recipient is a human alias, agent name, or worker address (`<job_id>:<agent_name>`).
 
-## Send to another agent
-
-```bash
-cat <<'EOF' | ttal send --to <agent-name>
-can you review my auth module?
-EOF
-```
-
-## Send to a human via Telegram
+## Send
 
 ```bash
-cat <<'EOF' | ttal send --to <alias>
+cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
 ```
 
-## Send to a worker session
+Examples:
 
 ```bash
+cat <<'EOF' | ttal send --to <human-alias>
+done, PR ready
+EOF
+
+cat <<'EOF' | ttal send --to <agent-name>
+can you review my auth module?
+EOF
+
 cat <<'EOF' | ttal send --to 1234abcd:coder
 check the failing test in auth_test.go
 EOF
 ```
 
+## Worker Sessions
+
 Worker sessions require explicit `job_id:agent_name` format. The daemon uses the job_id to find the tmux session and the agent_name as the window target. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
 
-## Piped stdin (auto-detected, no flag needed)
+## Stdin (preferred: heredoc)
 
 ```bash
-echo "done" | ttal send --to kestrel
+cat <<'EOF' | ttal send --to kestrel
+done
+EOF
 ```
 
-For multiline messages with special characters, use heredoc:
+For longer messages, use the same heredoc form:
 
 ```bash
 cat <<'ENDBASH' | ttal send --to kestrel

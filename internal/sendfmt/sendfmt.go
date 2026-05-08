@@ -22,7 +22,10 @@ type Envelope struct {
 //
 //	[<channel> from:<sender>] [<hh:mm:ss>] <body>
 //
-//	<i>--- Reply with: ttal send --to <alias> "your message"</i>
+//	<i>--- Reply with:
+//	cat <<'EOF' | ttal send --to <alias>
+//	your message
+//	EOF</i>
 //
 // Header is omitted when Channel == ""; reply hint is omitted when ReplyAlias == "".
 // Body is preserved verbatim (no escaping, no rewriting).
@@ -48,7 +51,10 @@ func Format(env Envelope) string {
 // Exposed for callers (e.g. cmd/alert.go) that compose their own message but
 // still want the canonical hint string.
 func ReplyHint(alias string) string {
-	return fmt.Sprintf(`<i>--- Reply with: ttal send --to %s "your message"</i>`, alias)
+	return fmt.Sprintf(`<i>--- Reply with:
+cat <<'EOF' | ttal send --to %s
+your message
+EOF</i>`, alias)
 }
 
 // SetNowForTest replaces the package clock; returns the previous value so tests

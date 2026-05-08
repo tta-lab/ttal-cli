@@ -5,28 +5,34 @@ description: Agent-to-human and agent-to-agent messaging via explicit ttal send
 
 ttal provides bidirectional messaging between humans and agents via Telegram/Matrix, plus agent-to-agent communication via tmux.
 
-## Outbound: agent → human
+## Outbound: any recipient
 
-`ttal send --to <alias> "message"` is the only way to reach a human (e.g. `ttal send --to neil`). JSONL session output is private workspace — nothing auto-forwards.
+`ttal send --to <recipient>` is the one explicit send path for humans and agents. The recipient can be a human alias, an agent name, or a worker address (`<uuid>:<agent-name>`). JSONL session output is private workspace — nothing auto-forwards.
 
 ```bash
-# One-liner
-ttal send --to neil "done, PR ready"
+# Human alias
+cat <<'EOF' | ttal send --to <human-alias>
+done, PR ready
+EOF
 
-# Piped stdin (auto-detected)
-echo "check complete" | ttal send --to neil
+# Agent name
+cat <<'EOF' | ttal send --to <agent-name>
+Can you research the auth library options?
+EOF
 
-# Multiline via heredoc
-cat <<'ENDBASH' | ttal send --to neil
+# Worker address
+cat <<'EOF' | ttal send --to <uuid>:<agent-name>
 ## Status
 Review complete — 2 findings.
-ENDBASH
+EOF
 ```
 
 Long content: write to flicknote first, then send a one-line pointer:
 ```bash
 flicknote add "detailed findings..." --project notes
-ttal send --to neil "wrote note: flicknote abc12345"
+cat <<'EOF' | ttal send --to <recipient>
+wrote note: flicknote abc12345
+EOF
 ```
 
 ## Inbound: human → agent
@@ -63,11 +69,13 @@ The bot handles transcription, file downloads, and delivers everything to your a
 
 Inbound messages arrive in the agent's session with prefixes:
 
-```
-[telegram from:neil]
-Can you check the deployment?
+```text
+[telegram from:<human-alias>] [14:32:05] Can you check the deployment?
 
-<i>--- Reply with: ttal send --to neil "your message"</i>
+<i>--- Reply with:
+cat <<'EOF' | ttal send --to <human-alias>
+your message
+EOF</i>
 ```
 
 ### Interactive questions
@@ -76,23 +84,27 @@ When Claude Code uses `AskUserQuestion`, ttal displays it in Telegram with inlin
 
 ## Agent-to-agent messaging
 
-Agents communicate with each other directly via `ttal send`:
+Agents use the same `ttal send` shape for other agents:
 
 ```bash
-# Send a message to another agent
-ttal send --to athena "Can you research the auth library options?"
+cat <<'EOF' | ttal send --to <agent-name>
+Can you research the auth library options?
+EOF
 
-# Piped stdin (auto-detected)
-echo "Task complete" | ttal send --to kestrel
+cat <<'EOF' | ttal send --to <agent-name>
+Task complete
+EOF
 ```
 
 When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient sees attribution:
 
-```
-[agent from:inke]
-The design plan is ready for review.
+```text
+[agent from:<agent-name>] [14:32:05] The design plan is ready for review.
 
-<i>--- Reply with: ttal send --to inke "your message"</i>
+<i>--- Reply with:
+cat <<'EOF' | ttal send --to <agent-name>
+your message
+EOF</i>
 ```
 
 ## CC control commands

@@ -48,6 +48,12 @@ ttal worker list             # Active workers
 
 ## Communication
 
-- Reply to humans naturally via Telegram
-- Send to agents: `ttal send --to ink "new design task ready"`
+Send humans and agents through the same explicit path:
+
+```bash
+cat <<'EOF' | ttal send --to <recipient>
+message
+EOF
+```
+
 - Keep messages short and actionable

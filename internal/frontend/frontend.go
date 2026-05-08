@@ -10,9 +10,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/message"
 )
 
-// fallbackHumanAlias is used when AdminHuman is nil.
-const fallbackHumanAlias = "human"
-
 // Frontend abstracts a messaging transport (Telegram, Matrix).
 // The daemon initialises one Frontend per team at startup.
 type Frontend interface {
@@ -79,4 +76,11 @@ type TelegramConfig struct {
 	GetUsageFn func() string
 	RestartFn  func() error
 	AdminHuman *humanfs.Human // used for reply hints
+}
+
+func replyHumanAlias(cfg *config.Config) string {
+	if cfg == nil || cfg.AdminHuman == nil {
+		return ""
+	}
+	return cfg.AdminHuman.Alias
 }
