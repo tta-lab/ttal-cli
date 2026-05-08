@@ -217,6 +217,7 @@ func buildManagerAgentEnv(agentName string, _ *config.Config) []string {
 		// survives those gaps and avoids full-prefix rewrites that inflate cost
 		// and quota. Requires CC >= 2.1.108 (no-op on older versions).
 		"ENABLE_PROMPT_CACHING_1H=1",
+		"KUBECONFIG=$HOME/.ttal/kubeconfig",
 	}
 	return parts
 }
