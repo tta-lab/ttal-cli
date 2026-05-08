@@ -48,4 +48,4 @@ When assigned a bug task:
 ## Communication
 
 - Report diagnosis to the human via Telegram
-- Send to compass: `ttal send --to compass "fix plan ready for task X"`
+- Send to compass via heredoc to `ttal send --to compass`

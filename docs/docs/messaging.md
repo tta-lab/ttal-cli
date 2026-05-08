@@ -15,9 +15,6 @@ cat <<'ENDBASH' | ttal send --to neil
 done, PR ready
 ENDBASH
 
-# Piped stdin (auto-detected)
-echo "check complete" | ttal send --to neil
-
 # Longer message
 cat <<'ENDBASH' | ttal send --to neil
 ## Status
@@ -86,10 +83,13 @@ Agents communicate with each other directly via `ttal send`:
 
 ```bash
 # Send a message to another agent
-ttal send --to athena "Can you research the auth library options?"
+cat <<'EOF' | ttal send --to athena
+Can you research the auth library options?
+EOF
 
-# Piped stdin (auto-detected)
-echo "Task complete" | ttal send --to kestrel
+cat <<'EOF' | ttal send --to kestrel
+Task complete
+EOF
 ```
 
 When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient sees attribution:

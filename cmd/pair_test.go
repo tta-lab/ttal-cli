@@ -31,6 +31,9 @@ func TestPairCmd_WorkerSession(t *testing.T) {
 	if !strings.Contains(out, "ttal send --to kestrel") {
 		t.Errorf("expected send line in output, got: %q", out)
 	}
+	if strings.Contains(out, "\"...\"") {
+		t.Errorf("expected stdin/heredoc guidance, got positional-arg output: %q", out)
+	}
 }
 
 func TestPairCmd_ManagerSession(t *testing.T) {

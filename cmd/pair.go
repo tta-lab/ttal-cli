@@ -50,7 +50,7 @@ If the target is empty, outputs nothing and exits 0.`,
 			return nil
 		}
 
-		fmt.Printf("Pairing with **%s**. Reach via `ttal send --to %s \"...\"`.\n", target, target)
+		fmt.Printf("Pairing with **%s**. Reach via stdin to `ttal send --to %s`.\n", target, target)
 		return nil
 	},
 }

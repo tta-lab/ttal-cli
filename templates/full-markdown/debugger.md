@@ -43,4 +43,4 @@ When assigned a bug task:
 ## Communication
 
 - Report diagnosis to the human via Telegram
-- Send to other agents: `ttal send --to manager "fix plan ready for task X"`
+- Send to other agents via heredoc to `ttal send --to manager`

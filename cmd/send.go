@@ -10,8 +10,12 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
 
-const sendExample = `ttal send --to kestrel "message"
-  ttal send --to abc12345:coder "message"    # worker session`
+const sendExample = `cat <<'EOF' | ttal send --to kestrel
+message
+EOF
+  cat <<'EOF' | ttal send --to abc12345:coder
+  worker session message
+  EOF`
 
 var sendTo string
 
@@ -30,17 +34,16 @@ Sender identity: TTAL_AGENT_NAME env var when set; falls back to "system" for ba
   shell sends, scripts, hooks, and automation.
 
 Examples:
-  ttal send --to kestrel "task started: implement auth"
-  ttal send --to neil "compact complete"
-  ttal send --to abc12345:coder "worker session message"
+  cat <<'EOF' | ttal send --to kestrel
+  task started: implement auth
+  EOF
 
-  # Piped stdin (single line):
-  echo "done" | ttal send --to kestrel
-
-  # Multiline via heredoc:
   cat <<'EOF' | ttal send --to neil
-  ## Status
-  Review complete — 2 findings.
+  compact complete
+  EOF
+
+  cat <<'EOF' | ttal send --to abc12345:coder
+  worker session message
   EOF`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {

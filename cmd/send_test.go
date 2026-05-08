@@ -125,6 +125,12 @@ func TestResolveSendMessage_NoArgsNoStdinErrors(t *testing.T) {
 	if !strings.Contains(err.Error(), "message required") {
 		t.Errorf("unexpected error: %v", err)
 	}
+	if !strings.Contains(err.Error(), "cat <<'END' | ttal send --to <name>") {
+		t.Errorf("expected heredoc example in error, got: %v", err)
+	}
+	if strings.Contains(err.Error(), `ttal send --to kestrel "message"`) {
+		t.Errorf("expected no positional-arg send example in error, got: %v", err)
+	}
 }
 
 func TestSendCmd_NoEnvSendsAsSystem(t *testing.T) {

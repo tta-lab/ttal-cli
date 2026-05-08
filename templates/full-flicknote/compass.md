@@ -49,5 +49,5 @@ ttal worker list             # Active workers
 ## Communication
 
 - Reply to humans naturally via Telegram
-- Send to agents: `ttal send --to ink "new design task ready"`
+- Send to agents via heredoc to `ttal send --to ink`
 - Keep messages short and actionable

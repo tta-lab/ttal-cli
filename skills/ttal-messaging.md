@@ -33,13 +33,15 @@ EOF
 
 Worker sessions require explicit `job_id:agent_name` format. The daemon uses the job_id to find the tmux session and the agent_name as the window target. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
 
-## Piped stdin (auto-detected, no flag needed)
+## Stdin (preferred: heredoc)
 
 ```bash
-echo "done" | ttal send --to kestrel
+cat <<'EOF' | ttal send --to kestrel
+done
+EOF
 ```
 
-For multiline messages with special characters, use heredoc:
+For longer messages, use the same heredoc form:
 
 ```bash
 cat <<'ENDBASH' | ttal send --to kestrel

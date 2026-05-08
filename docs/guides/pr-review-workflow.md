@@ -20,7 +20,7 @@ Owner verdict:
   LGTM      → ttal go <uuid>
               ↓
               pr-review-lead spawns for specialized review pass
-  NEED_WORK → ttal send --to <uuid>:coder (blockers)
+  NEED_WORK → heredoc to ttal send --to <uuid>:coder (blockers)
               ↓
               Worker fixes, owner re-reviews
 ```

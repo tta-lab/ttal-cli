@@ -125,7 +125,9 @@ Messages arrive as prefixed text in your input:
 
 **Sending to another agent:**
 ```bash
-ttal send --to <agent-name> "message"
+cat <<'EOF' | ttal send --to <agent-name>
+message
+EOF
 ```
 
 **When to reply:**
@@ -220,7 +222,9 @@ post = post updates with `ttal comment add`
 ## Messaging
 
 ```bash
-ttal send --to <agent> "message"
+cat <<'EOF' | ttal send --to <agent>
+message
+EOF
 ```
 
 ## Tasks

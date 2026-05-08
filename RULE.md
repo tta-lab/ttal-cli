@@ -3,8 +3,12 @@
 ## Messaging
 
 ```bash
-ttal send --to <agent> "message"
-ttal send --to <job_id>:<agent_name> "message"   # send to worker session
+cat <<'EOF' | ttal send --to <agent>
+message
+EOF
+cat <<'EOF' | ttal send --to <job_id>:<agent_name>
+message
+EOF   # send to worker session
 ```
 
 ## Tasks
