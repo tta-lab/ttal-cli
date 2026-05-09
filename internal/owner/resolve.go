@@ -1,6 +1,7 @@
 package owner
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -22,16 +23,19 @@ func ResolveOwner() string {
 	if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
 		task, err := ExportTaskByHexIDFn(jobID, "")
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "[owner] ExportTaskByHexIDFn(%q) failed: %v\n", jobID, err)
 			return FallbackOwner
 		}
 		if task.Owner != "" {
 			return task.Owner
 		}
+		fmt.Fprintf(os.Stderr, "[owner] ExportTaskByHexIDFn(%q) returned task with empty owner\n", jobID)
 		return FallbackOwner
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[owner] config.Load() failed: %v\n", err)
 		return FallbackOwner
 	}
 	if cfg.AdminHuman != nil && cfg.AdminHuman.Alias != "" {
