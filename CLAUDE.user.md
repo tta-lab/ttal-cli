@@ -134,11 +134,8 @@ EOF
 - Keep replies concise
 - You don't need to reply to every message — use judgement
 
-### Tasks & Today
+### Tasks
 ```bash
-ttal today list              # show today's focus tasks
-ttal today add <uuid>...     # add tasks to today
-ttal today completed         # what got done today
 ttal task find <keywords>    # find tasks by keyword (OR match)
 ttal task get                # get formatted task prompt
 ```
@@ -169,12 +166,6 @@ ei ask "what is the latest Go generics syntax?" --web
 ```bash
 ttal project list            # list all projects
 ttal project get <name>      # project details (path, tags, etc.)
-```
-
-### Voice
-```bash
-ttal voice speak "text"      # TTS → Telegram voice message
-ttal voice speak "text" --voice af_heart  # specific voice
 ```
 
 ### Sync (deploy skills & config)
@@ -253,21 +244,6 @@ ttal agent info <name>                 # agent details
 ttal agent list                        # all agents
 ```
 
-## Today
-
-```bash
-ttal today list                        # tasks scheduled today
-ttal today add <uuid>                  # schedule for today
-ttal today completed                   # done today
-```
-
-## Voice
-
-```bash
-ttal voice speak "text"                # speak with your voice
-ttal voice speak "text" --voice <id>   # specific voice
-ttal voice status                      # check server
-```
 
 ### flicknote-cli
 

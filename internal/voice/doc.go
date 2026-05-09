@@ -1,8 +1,7 @@
-// Package voice provides text-to-speech generation via a local Kokoro-compatible server.
+// Package voice provides speech-to-text transcription and audio conversion utilities.
 //
-// It sends TTS requests to a locally running speech server, receives WAV audio,
-// and converts it to OGG/Opus format via ffmpeg for delivery as Telegram voice
-// messages. It also maintains the list of available voice IDs and their metadata.
+// It supports STT via OpenAI-compatible speech transcription, and converts WAV audio
+// to OGG/Opus format via ffmpeg for Telegram voice message delivery.
 //
 // Plane: shared
 package voice

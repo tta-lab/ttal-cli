@@ -1,11 +1,5 @@
 package voice
 
-import (
-	"fmt"
-	"os"
-	"text/tabwriter"
-)
-
 const DefaultVoice = "af_heart"
 
 type VoiceInfo struct {
@@ -59,14 +53,4 @@ func IsValidVoice(id string) bool {
 		}
 	}
 	return false
-}
-
-// PrintVoiceList prints the available voices in a table.
-func PrintVoiceList() {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "ID\tGENDER\tACCENT\tNOTE")
-	for _, v := range Voices {
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", v.ID, v.Gender, v.Accent, v.Note)
-	}
-	_ = w.Flush()
 }

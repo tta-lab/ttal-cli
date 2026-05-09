@@ -12,7 +12,7 @@ import (
 )
 
 // ReplyHint is a thin wrapper around sendfmt.ReplyHint, kept for back-compat
-// with cmd/alert.go which composes its own alert body and appends the canonical
+// with cmd/send.go which composes its own alert body and appends the canonical
 // hint. New code should call sendfmt.ReplyHint directly.
 func ReplyHint(senderAddr string) string {
 	return sendfmt.ReplyHint(senderAddr)

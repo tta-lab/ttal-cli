@@ -48,7 +48,7 @@ func Format(env Envelope) string {
 }
 
 // ReplyHint returns the literal italic reply-hint footer used across deliveries.
-// Exposed for callers (e.g. cmd/alert.go) that compose their own message but
+// Exposed for callers (e.g. cmd/send.go) that compose their own message but
 // still want the canonical hint string.
 func ReplyHint(alias string) string {
 	return fmt.Sprintf(`<i>--- Reply with:

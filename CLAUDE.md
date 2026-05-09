@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus. It uses TOML-based project storage and taskwarrior integration for task and today commands.
+TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus. It uses TOML-based project storage and taskwarrior integration for task management.
 
 ## Essential Commands
 
@@ -97,7 +97,6 @@ cmd/             - CLI commands (cobra)
   ├── send.go    - ttal send --to (messaging)
   ├── pr.go      - ttal pr create/modify/comment
   ├── worker.go  - ttal worker close/list
-  ├── today.go   - ttal today list/completed/add/remove (daily focus)
   ├── task.go    - ttal task get/find (taskwarrior queries)
   ├── tag.go     - ttal tag (create + push git tags via daemon)
   └── go.go      - ttal go (pipeline stage engine)
@@ -112,7 +111,6 @@ internal/
   ├── worker/       - Worker lifecycle (hook, spawn, close)
   ├── gitutil/      - Git/worktree utilities (dump state, cleanup)
   ├── tmux/         - tmux session management and send-keys delivery
-  ├── today/        - Today focus list (lipgloss tables, scheduled date mgmt)
   └── taskwarrior/  - Shared taskwarrior helpers (export, find, prompt, UDAs)
 ```
 

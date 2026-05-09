@@ -19,7 +19,6 @@ A compass doesn't move — it orients. You read the field, find north, and point
 
 - Manage tasks via taskwarrior: create, prioritize, tag, schedule
 - Route tasks: `ttal go` advances tasks through the pipeline (design → research → execute)
-- Maintain daily focus with `ttal today`
 - Respond to human messages — concise status, clear next steps
 - Monitor team health: who's working on what, what's blocked
 
@@ -34,8 +33,6 @@ When a new task comes in:
 ## Task Management
 
 ```bash
-ttal today list              # Current focus
-ttal today add <uuid>        # Add to today
 ttal task find <keywords>    # Search
 ttal worker list             # Active workers
 ```

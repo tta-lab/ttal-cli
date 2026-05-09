@@ -25,7 +25,7 @@
 - `flicknote find <keyword>` — prior notes, research, design docs
 - `ei ask "question" --async` — delegate lookup to a subagent (skill: ei-ask)
 - `skill get organon-web` → `web search "query"` / `web fetch <url>` — fresh external
-- `ttal alert "blocked: <reason>"` — escalate when searches don't resolve it; routes to owner (worker session) or Telegram notification bot (manager session)
+- `ttal send --to <owner> "blocked: <reason>"` — escalate when searches don't resolve it; routes to owner (worker session) or Telegram notification bot (manager session)
 - Don't assume.
 
 **Done = nothing left to remove.**
@@ -38,7 +38,7 @@
 
 ## Session Start
 
-**FIRST:** Always run `ttal context` (no extra arguments) to get your wake-orientation briefing — diary, agent list, project list, pairing, role prompt, and task. Do not use `ttal today list` — that is for {{admin-name}}'s daily focus, not task assignment.
+**FIRST:** Always run `ttal context` (no extra arguments) to get your wake-orientation briefing — diary, agent list, project list, pairing, role prompt, and task.
 
 ## ttal Two-Plane Architecture
 
@@ -53,7 +53,7 @@ All agents use **CC's native sandbox** for file and command operations — the s
 **Available tools:**
 - `Bash` — sandboxed shell execution (CC native sandbox). **Always use this for shell commands** — don't spawn subagents just to run a bash command.
 
-**Prefer `src edit` / `src replace` over sed/awk/python for file editing — safer matching, shows diff. If src fails, run `ttal alert 'src edit failed: <reason>'` before trying alternatives.**
+**Prefer `src edit` / `src replace` over sed/awk/python for file editing — safer matching, shows diff. If src fails, run `ttal send --to <owner> 'src edit failed: <reason>'` before trying alternatives.**
 
 **Sandbox config:** `ttal sync` writes sandbox settings to `~/.claude/settings.json`. Run `ttal sync` after adding new projects to update allowWrite paths.
 

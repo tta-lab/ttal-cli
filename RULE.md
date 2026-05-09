@@ -40,21 +40,7 @@ ttal agent info <name>                 # agent details
 ttal agent list                        # all agents
 ```
 
-## Today
 
-```bash
-ttal today list                        # tasks scheduled today
-ttal today add <uuid>                  # schedule for today
-ttal today completed                   # done today
-```
-
-## Voice
-
-```bash
-ttal voice speak "text"                # speak with your voice
-ttal voice speak "text" --voice <id>   # specific voice
-ttal voice status                      # check server
-```
 
 ## Sync
 

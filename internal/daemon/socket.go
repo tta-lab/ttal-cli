@@ -899,7 +899,7 @@ func CloseWindow(req CloseWindowRequest) error {
 // without coupling to a specific transport (Telegram, Matrix, etc).
 // Returns error if the daemon is not running or delivery fails.
 // Fire-and-forget callers (cmd/pr.go, worker/hook.go) should log and continue.
-// User-facing callers (cmd/alert.go) should propagate the error.
+// User-facing callers (cmd/send.go) should propagate the error.
 func Notify(req NotifyRequest) error {
 	body, err := json.Marshal(req)
 	if err != nil {

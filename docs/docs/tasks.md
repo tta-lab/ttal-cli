@@ -55,23 +55,6 @@ role: researcher
 
 Use `ttal go <uuid>` to route to any agent by name (role determines which prompt is used).
 
-## Today's focus
-
-Manage your daily task focus using taskwarrior's `scheduled` date:
-
-```bash
-# List today's focus tasks (sorted by urgency)
-ttal today list
-
-# Show tasks completed today
-ttal today completed
-
-# Add tasks to today's focus
-ttal today add <uuid> [uuid...]
-
-# Remove from today
-ttal today remove <uuid> [uuid...]
-```
 
 ## Enrichment hooks
 

@@ -20,8 +20,8 @@ func TestParseModifyArgs(t *testing.T) {
 	}{
 		{
 			name:       "field updates only",
-			args:       []string{"voice:af_heart", "emoji:🐱"},
-			wantFields: map[string]string{"voice": "af_heart", "emoji": "🐱"},
+			args:       []string{"emoji:🐱"},
+			wantFields: map[string]string{"emoji": "🐱"},
 		},
 		{
 			name:       "field with spaces",
@@ -45,7 +45,7 @@ func TestParseModifyArgs(t *testing.T) {
 		},
 		{
 			name:    "mixed tags and fields returns error",
-			args:    []string{"+backend", "voice:af_heart"},
+			args:    []string{"+backend", "emoji:🐱"},
 			wantErr: true,
 		},
 	}
@@ -85,7 +85,7 @@ func TestAgentfsSetField(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Update voice
+	// Update field
 	if err := agentfs.SetField(dir, "test-agent", "voice", "af_sky"); err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
