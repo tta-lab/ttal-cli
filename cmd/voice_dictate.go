@@ -31,5 +31,5 @@ Build with: go build -tags voice_dictate`,
 }
 
 func init() {
-	voiceCmd.AddCommand(voiceDictateCmd)
+	rootCmd.AddCommand(voiceDictateCmd)
 }
