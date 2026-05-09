@@ -324,7 +324,7 @@ var tmuxSetEnvFn = tmux.SetEnv
 // spawnAgentSession creates a tmux session for a manager-plane agent via the
 // gatekeeper-wrapped launchcmd pipeline. Supports both Lenos and Claude Code
 // runtimes. resumeSessionID is forwarded as --session (Lenos) or --resume (CC);
-// trigger is the wake-orientation message (empty at startup, ContextTrigger on
+// trigger is the wake-orientation message (empty at startup, WakeTrigger result on
 // breathe). readOnly is false for manager plane (rw access).
 func spawnAgentSession(
 	rt runtime.Runtime, sessionName, agentName, agentPath string,

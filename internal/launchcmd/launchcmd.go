@@ -94,8 +94,8 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 
 // BuildAgentLaunchCommand builds the gatekeeper-wrapped shell command for
 // launching an agent at the given runtime. Returns an error for runtimes not
-// supported in the worker plane (Codex). Trigger is hardcoded to ContextTrigger —
-// every spawned worker-plane agent runs `ttal context` as its wake-orientation.
+// supported in the worker plane (Codex). Trigger is resolved via WakeTrigger() —
+// every spawned worker-plane agent runs `ttal wake` as its wake-orientation.
 //
 // smallModel is forwarded to lenos when rt is Lenos (worker-plane agents use
 // the small-tier model); ignored for Claude Code.
