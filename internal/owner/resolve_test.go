@@ -11,11 +11,11 @@ func TestResolveOwner_WorkerPlane(t *testing.T) {
 	t.Setenv("TTAL_JOB_ID", "227b31a9")
 	t.Setenv("TTAL_AGENT_NAME", "coder")
 
-	origFn := exportTaskByHexIDFn
-	exportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
+	origFn := ExportTaskByHexIDFn
+	ExportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
 		return &taskwarrior.Task{UUID: "227b31a9-bb81-4862-9122-893a1698c127", Owner: "kestrel"}, nil
 	}
-	defer func() { exportTaskByHexIDFn = origFn }()
+	defer func() { ExportTaskByHexIDFn = origFn }()
 
 	got := ResolveOwner()
 	if got != "kestrel" {
@@ -26,30 +26,30 @@ func TestResolveOwner_WorkerPlane(t *testing.T) {
 func TestResolveOwner_WorkerNoOwner(t *testing.T) {
 	t.Setenv("TTAL_JOB_ID", "227b31a9")
 
-	origFn := exportTaskByHexIDFn
-	exportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
+	origFn := ExportTaskByHexIDFn
+	ExportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
 		return &taskwarrior.Task{UUID: "227b31a9-bb81-4862-9122-893a1698c127", Owner: ""}, nil
 	}
-	defer func() { exportTaskByHexIDFn = origFn }()
+	defer func() { ExportTaskByHexIDFn = origFn }()
 
 	got := ResolveOwner()
-	if got != "system" {
-		t.Errorf("ResolveOwner() = %q, want %q", got, "system")
+	if got != FallbackOwner {
+		t.Errorf("ResolveOwner() = %q, want %q", got, FallbackOwner)
 	}
 }
 
 func TestResolveOwner_WorkerExportError(t *testing.T) {
 	t.Setenv("TTAL_JOB_ID", "deadbeef")
 
-	origFn := exportTaskByHexIDFn
-	exportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
+	origFn := ExportTaskByHexIDFn
+	ExportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
 		return nil, os.ErrNotExist
 	}
-	defer func() { exportTaskByHexIDFn = origFn }()
+	defer func() { ExportTaskByHexIDFn = origFn }()
 
 	got := ResolveOwner()
-	if got != "system" {
-		t.Errorf("ResolveOwner() = %q, want %q", got, "system")
+	if got != FallbackOwner {
+		t.Errorf("ResolveOwner() = %q, want %q", got, FallbackOwner)
 	}
 }
 
@@ -95,8 +95,8 @@ func TestResolveOwner_ManagerNoAdmin(t *testing.T) {
 	// No humans.toml — adminHuman will be nil.
 
 	got := ResolveOwner()
-	if got != "system" {
-		t.Errorf("ResolveOwner() = %q, want %q", got, "system")
+	if got != FallbackOwner {
+		t.Errorf("ResolveOwner() = %q, want %q", got, FallbackOwner)
 	}
 }
 
@@ -108,7 +108,7 @@ func TestResolveOwner_ConfigLoadError(t *testing.T) {
 	// No config.toml at all — config.Load will fail.
 
 	got := ResolveOwner()
-	if got != "system" {
-		t.Errorf("ResolveOwner() = %q, want %q", got, "system")
+	if got != FallbackOwner {
+		t.Errorf("ResolveOwner() = %q, want %q", got, FallbackOwner)
 	}
 }
