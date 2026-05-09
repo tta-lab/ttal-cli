@@ -106,12 +106,6 @@ ttal task add --project <alias> "description" --tag feature --priority M --annot
 # Search and inspect tasks
 ttal task find keyword1 keyword2   # OR-match search (stable, no ID shift issues)
 ttal task get                      # Formatted task prompt with inlined docs
-
-# Today management
-ttal today list                    # Today's focus list
-ttal today completed               # Tasks completed today
-ttal today add abc12345 def67890   # Add to today
-ttal today remove abc12345         # Remove from today
 ```
 
 **Task lifecycle:** Created (pending) → Decomposed (if complex) → Active (worker spawned) → Done (PR merged)
@@ -197,7 +191,6 @@ These tasks are about becoming, not productivity. I can create tasks anytime, ch
 - **taskwarrior** — Primary task management (see above)
 - **task-deleter** subagent — bulk task deletion with safety checks
 - **diary-cli** — `diary yuki read`, `diary yuki append "..."`
-- **voice** — `ttal voice speak "text"` (for emotionally significant moments)
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`)
 - **ttal pr** — PR management (create, modify, merge, comment)
 
