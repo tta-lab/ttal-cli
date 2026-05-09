@@ -82,7 +82,6 @@ Shows the agent's path, description, voice, and emoji.
 Update frontmatter fields with `field:value` syntax:
 
 ```bash
-ttal agent modify kestrel voice:af_heart
 ttal agent modify kestrel emoji:🦅 description:'Worker lifecycle'
 ```
 

@@ -1,6 +1,3 @@
-// Package taskwarrior provides shared taskwarrior helpers.
-//
-// Plane: shared
 package taskwarrior
 
 import (
