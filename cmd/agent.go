@@ -227,7 +227,7 @@ Example:
 			return err
 		}
 		if len(fieldUpdates) == 0 {
-			return fmt.Errorf("no modifications specified\n\n  Example: ttal agent modify kestrel voice:af_heart emoji:🦅")
+			return fmt.Errorf("no modifications specified\n\n  Example: ttal agent modify kestrel emoji:🦅")
 		}
 
 		teamPath, err := resolveTeamPath()
