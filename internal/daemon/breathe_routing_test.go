@@ -395,6 +395,11 @@ func (r *recordingAdapter) SendMessage(_ context.Context, text string) error {
 }
 
 func TestHandleCodexBreathe_FirstTurnIsContextTrigger(t *testing.T) {
+	// WakeTrigger shells out — inject a stub that returns ContextTrigger for testing.
+	orig := launchcmd.WakeTriggerFn
+	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerFn = orig }()
+
 	rec := &recordingAdapter{stubAdapter: &stubAdapter{}}
 	registry := newAdapterRegistry()
 	registry.set("default", "codex-test-agent", rec)

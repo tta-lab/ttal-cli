@@ -12,22 +12,30 @@ import (
 
 // ContextTrigger is the wake-orientation trigger sent to every spawned or breathed
 // CC/Lenos/Codex agent as their first user message. The agent runs `ttal context`
-// to render diary, agents, projects, pairing, role prompt, and task in one bundle.
+// to render diary, agents, projects, role prompt, and task in one bundle.
 //
 // This is the single source of truth for the trigger string — all spawn and breathe
 // paths must reference this constant rather than duplicating the literal.
 const ContextTrigger = "Run `ttal context` for your briefing, then act on the role prompt."
 
+// WakeTriggerFn is the injectable implementation of WakeTrigger.
+// Tests set this to return ContextTrigger to avoid shelling out.
+var WakeTriggerFn = wakeTriggerImpl
+
 // WakeTrigger shell-calls ttal wake to produce the formatted trigger prompt
 // (with owner, timestamp, and reply hint). Falls back to ContextTrigger if
 // ttal wake fails (e.g. binary not yet built, config missing).
 func WakeTrigger() string {
-	ttalBin, err := os.Executable()
+	return WakeTriggerFn()
+}
+
+func wakeTriggerImpl() string {
+	binary, err := os.Executable()
 	if err != nil {
 		log.Printf("[launchcmd] os.Executable() failed: %v", err)
 		return ContextTrigger
 	}
-	out, err := exec.Command(ttalBin, "wake").Output()
+	out, err := exec.Command(binary, "wake").Output()
 	if err != nil {
 		log.Printf("[launchcmd] ttal wake failed: %v", err)
 		return ContextTrigger
