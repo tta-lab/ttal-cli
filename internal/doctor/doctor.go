@@ -92,7 +92,6 @@ func Run(fix bool) *Report {
 	r.Sections = append(r.Sections, checkDatabase())
 	r.Sections = append(r.Sections, checkDaemon())
 	r.Sections = append(r.Sections, checkEnvironment())
-	r.Sections = append(r.Sections, checkVoice())
 	r.Sections = append(r.Sections, checkMatrix(fix))
 	r.Sections = append(r.Sections, checkCCIntegration(fix))
 	r.Sections = append(r.Sections, checkHooks(fix))
@@ -139,7 +138,7 @@ var prerequisites = []prerequisite{
 	{"tmux", "tmux", true, "brew install tmux"},
 	{"taskwarrior", "task", true, "brew install task"},
 	{"git", "git", true, "brew install git"},
-	{"ffmpeg", "ffmpeg", false, "brew install ffmpeg (needed for voice)"},
+	{"ffmpeg", "ffmpeg", false, "brew install ffmpeg (needed for dictation)"},
 }
 
 func checkPrerequisites() Section {
@@ -701,21 +700,6 @@ func checkEnvironment() Section {
 		section.add(LevelOK, "FORGEJO_TOKEN", "FORGEJO_TOKEN set")
 	} else {
 		section.add(LevelError, "FORGEJO_TOKEN", "FORGEJO_TOKEN not set (required for PR operations)")
-	}
-
-	return section
-}
-
-// --- Voice (optional) ---
-
-func checkVoice() Section {
-	section := Section{Name: "Voice (optional)"}
-
-	// Check voice server
-	if isVoiceServerRunning() {
-		section.add(LevelOK, "voice_server", "voice server running")
-	} else {
-		section.add(LevelWarn, "voice_server", "voice server not running (ttal voice install to set up)")
 	}
 
 	return section
