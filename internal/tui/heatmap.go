@@ -8,7 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/tta-lab/ttal-cli/internal/today"
+	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 // GitHub green color scale — 5 levels from empty to high.
@@ -245,7 +245,7 @@ type heatmapLoadedMsg struct {
 // loadHeatmapCmd returns a tea.Cmd that loads heatmap data asynchronously.
 func loadHeatmapCmd() tea.Cmd {
 	return func() tea.Msg {
-		counts, err := today.CompletedCounts()
+		counts, err := taskwarrior.CompletedCounts()
 		if err != nil {
 			return heatmapLoadedMsg{err: err}
 		}

@@ -14,7 +14,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/format"
 	projectPkg "github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
-	"github.com/tta-lab/ttal-cli/internal/today"
 	"github.com/tta-lab/ttal-cli/internal/tui"
 	"github.com/tta-lab/ttal-cli/internal/usage"
 )
@@ -243,7 +242,7 @@ var taskHeatmapCmd = &cobra.Command{
 Example:
   ttal task heatmap`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		counts, err := today.CompletedCounts()
+		counts, err := taskwarrior.CompletedCounts()
 		if err != nil {
 			return fmt.Errorf("loading completed tasks: %w", err)
 		}
