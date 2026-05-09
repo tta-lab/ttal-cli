@@ -15,11 +15,9 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/format"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/license"
-	"github.com/tta-lab/ttal-cli/internal/voice"
 )
 
 var (
-	agentVoice       string
 	agentEmoji       string
 	agentDescription string
 	agentRole        string
@@ -50,7 +48,7 @@ var agentAddCmd = &cobra.Command{
 	Long: `Create a new agent directory with an AGENTS.md file.
 
 Example:
-  ttal agent add yuki --voice af_heart --emoji 🐱`,
+  ttal agent add yuki --emoji 🐱`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := strings.ToLower(args[0])
@@ -86,7 +84,7 @@ Example:
 
 		// Build AGENTS.md with optional frontmatter
 		var sb strings.Builder
-		hasFm := agentVoice != "" || agentEmoji != "" || agentDescription != "" || agentRole != ""
+		hasFm := agentEmoji != "" || agentDescription != "" || agentRole != ""
 		if hasFm {
 			sb.WriteString("---\n")
 			if agentDescription != "" {
@@ -97,12 +95,6 @@ Example:
 			}
 			if agentRole != "" {
 				fmt.Fprintf(&sb, "role: %s\n", agentRole)
-			}
-			if agentVoice != "" {
-				if !voice.IsValidVoice(agentVoice) {
-					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", agentVoice)
-				}
-				fmt.Fprintf(&sb, "voice: %s\n", agentVoice)
 			}
 			sb.WriteString("---\n")
 		}
@@ -225,8 +217,7 @@ var agentModifyCmd = &cobra.Command{
 	Short: "Modify agent metadata in AGENTS.md frontmatter",
 	Long: `Modify agent fields stored in AGENTS.md frontmatter.
 
-Examples:
-  ttal agent modify yuki voice:af_heart
+Example:
   ttal agent modify yuki emoji:🐱 description:'Task orchestration'`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -251,14 +242,10 @@ Examples:
 
 		for field, value := range fieldUpdates {
 			switch field {
-			case "voice":
-				if !voice.IsValidVoice(value) {
-					return fmt.Errorf("unknown voice '%s' — run 'ttal voice list' to see available voices", value)
-				}
 			case "emoji", "description", "role", "color":
-				// valid fields — color accepts any string; no validation (unlike voice)
+				// valid fields
 			default:
-				return fmt.Errorf("unknown field '%s' (available: voice, emoji, description, role, color)", field)
+				return fmt.Errorf("unknown field '%s' (available: emoji, description, role, color)", field)
 			}
 
 			if err := agentfs.SetField(teamPath, name, field, value); err != nil {
@@ -349,7 +336,6 @@ func init() {
 	agentCmd.AddCommand(agentModifyCmd)
 	agentCmd.AddCommand(agentDeleteCmd)
 
-	agentAddCmd.Flags().StringVar(&agentVoice, "voice", "", "Kokoro TTS voice ID (e.g. af_heart, af_sky)")
 	agentAddCmd.Flags().StringVar(&agentEmoji, "emoji", "", "Display emoji (e.g. 🐱, 🦅)")
 	agentAddCmd.Flags().StringVar(&agentDescription, "description", "", "Short role summary")
 	agentAddCmd.Flags().StringVar(&agentRole, "role", "", "Agent role (matches [prompts] key, e.g. designer, researcher)")
