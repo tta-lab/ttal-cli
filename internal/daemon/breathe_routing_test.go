@@ -174,6 +174,10 @@ func writeFakeBinary(t *testing.T, tmpDir, name string) {
 }
 
 func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
+	origWake := launchcmd.WakeTriggerFn
+	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerFn = origWake }()
+
 	tmp := t.TempDir()
 	writeFakeBinary(t, tmp, "claude")
 	t.Setenv("PATH", filepath.Join(tmp, "bin"))
@@ -231,6 +235,10 @@ func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
 }
 
 func TestHandleBreathe_DeadSessionPath(t *testing.T) {
+	origWake := launchcmd.WakeTriggerFn
+	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerFn = origWake }()
+
 	tmp := t.TempDir()
 	writeFakeBinary(t, tmp, "claude")
 	t.Setenv("PATH", filepath.Join(tmp, "bin"))
@@ -278,6 +286,10 @@ func TestHandleBreathe_DeadSessionPath(t *testing.T) {
 }
 
 func TestHandleBreathe_LenosRespawn(t *testing.T) {
+	origWake := launchcmd.WakeTriggerFn
+	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerFn = origWake }()
+
 	tmp := t.TempDir()
 	writeFakeBinary(t, tmp, "lenos")
 	writeFakeBinary(t, tmp, "claude")
