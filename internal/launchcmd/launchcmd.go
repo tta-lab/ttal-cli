@@ -2,6 +2,9 @@ package launchcmd
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -14,6 +17,23 @@ import (
 // This is the single source of truth for the trigger string — all spawn and breathe
 // paths must reference this constant rather than duplicating the literal.
 const ContextTrigger = "Run `ttal context` for your briefing, then act on the role prompt."
+
+// WakeTrigger shell-calls ttal wake to produce the formatted trigger prompt
+// (with owner, timestamp, and reply hint). Falls back to ContextTrigger if
+// ttal wake fails (e.g. binary not yet built, config missing).
+func WakeTrigger() string {
+	ttalBin, err := os.Executable()
+	if err != nil {
+		log.Printf("[launchcmd] os.Executable() failed: %v", err)
+		return ContextTrigger
+	}
+	out, err := exec.Command(ttalBin, "wake").Output()
+	if err != nil {
+		log.Printf("[launchcmd] ttal wake failed: %v", err)
+		return ContextTrigger
+	}
+	return strings.TrimSpace(string(out))
+}
 
 // BuildCCDirectCommand builds a gatekeeper-wrapped direct claude command using --agent.
 // resumeSessionID, if non-empty, appends --resume <id> before the trigger separator.
