@@ -222,7 +222,7 @@ func launchTmuxWorker(
 
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
 		cfg.Runtime, ttalBin, agentName,
-		cfg.ReadOnly, true, launchcmd.ContextTrigger, "",
+		cfg.ReadOnly, true, launchcmd.WakeTrigger(), "",
 	)
 	if err != nil {
 		return err

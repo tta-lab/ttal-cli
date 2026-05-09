@@ -24,8 +24,8 @@ Picks the manager or worker template based on whether the agent has an AGENTS.md
 under team_path, then renders the template — $ cmd lines are executed with agent
 env vars. Outputs plain markdown to stdout.
 
-Managers get: diary + agent list + project list + pairing + role prompt + task.
-Workers get: pairing + role prompt + task.
+Managers get: diary + agent list + project list + role prompt + task.
+Workers get: role prompt + task.
 
 Always exits 0.`,
 	RunE: runContext,

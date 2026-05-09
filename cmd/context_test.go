@@ -13,7 +13,7 @@ import (
 const testHumansToml = "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"
 
 // TestContext_ManagerTemplate verifies that runContext emits the manager template
-// (contains § Diary, § Pairing, § Role, § Task) for a manager agent.
+// (contains § Diary, § Role, § Task) for a manager agent.
 func TestContext_ManagerTemplate(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
@@ -23,8 +23,7 @@ func TestContext_ManagerTemplate(t *testing.T) {
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
 	_ = os.MkdirAll(cfgDir, 0o755) //nolint:errcheck
 
-	promptsToml := "context_manager = \"§ Diary\\n$ echo diary\\n§ Pairing\\n" +
-		"$ echo pairing\\n§ Role\\n$ echo role\\n§ Task\\n$ echo task\\n\""
+	promptsToml := "context_manager = \"§ Diary\\n$ echo diary\\n§ Role\\n$ echo role\\n§ Task\\n$ echo task\\n\""
 	_ = os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644) //nolint:errcheck
 
 	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
@@ -54,9 +53,6 @@ func TestContext_ManagerTemplate(t *testing.T) {
 	if !strings.Contains(got, "§ Diary") {
 		t.Errorf("expected § Diary in output, got: %q", got)
 	}
-	if !strings.Contains(got, "§ Pairing") {
-		t.Errorf("expected § Pairing in output, got: %q", got)
-	}
 	if !strings.Contains(got, "§ Role") {
 		t.Errorf("expected § Role in output, got: %q", got)
 	}
@@ -76,7 +72,7 @@ func TestContext_WorkerTemplate(t *testing.T) {
 	cfgDir := filepath.Join(tmp, ".config", "ttal")
 	_ = os.MkdirAll(cfgDir, 0o755) //nolint:errcheck
 
-	promptsToml := "context_worker = \"§ Pairing\\n$ echo pairing\\n§ Role\\n$ echo role\\n§ Task\\n$ echo task\\n\""
+	promptsToml := "context_worker = \"§ Role\\n$ echo role\\n§ Task\\n$ echo task\\n\""
 	_ = os.WriteFile(filepath.Join(cfgDir, "prompts.toml"), []byte(promptsToml), 0o644) //nolint:errcheck
 
 	configToml := "[teams.default]\nteam_path = \"" + tmp + "\"\n"
@@ -98,9 +94,6 @@ func TestContext_WorkerTemplate(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got = buf.String()
 
-	if !strings.Contains(got, "§ Pairing") {
-		t.Errorf("expected § Pairing in output, got: %q", got)
-	}
 	if !strings.Contains(got, "§ Role") {
 		t.Errorf("expected § Role in output, got: %q", got)
 	}

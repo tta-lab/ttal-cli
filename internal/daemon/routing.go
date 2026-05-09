@@ -706,7 +706,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	if cfg != nil {
 		rt = cfg.RuntimeForAgent(req.Agent)
 	}
-	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.ContextTrigger); err != nil {
+	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.WakeTrigger()); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 	log.Printf("[breathe] %s: fresh breath taken (respawn, session: %s)", req.Agent, plan.newSessionName)
@@ -728,8 +728,8 @@ func handleCodexBreathe(req BreatheRequest, registry *adapterRegistry) SendRespo
 		return SendResponse{OK: false, Error: fmt.Sprintf("codex create session: %v", err)}
 	}
 
-	// Send ContextTrigger as first turn in the new thread (symmetric with CC tmux first input)
-	if err := adapter.SendMessage(ctx, launchcmd.ContextTrigger); err != nil {
+	// Send WakeTrigger as first turn in the new thread (symmetric with CC tmux first input)
+	if err := adapter.SendMessage(ctx, launchcmd.WakeTrigger()); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("codex send context trigger: %v", err)}
 	}
 

@@ -272,6 +272,9 @@ var activeTasksByOwnerFn = taskwarrior.ActiveTasksByOwner
 // promptKeyFn is the injectable version of resolvePromptKey used by resolvePipelinePrompt.
 var promptKeyFn = resolvePromptKey //nolint:revive
 
+// exportTaskByHexIDFn allows test injection of the task lookup function.
+var exportTaskByHexIDFn = taskwarrior.ExportTaskByHexID
+
 // resolveCurrentTaskForPrompt finds the task for the current session via TTAL_JOB_ID or TTAL_AGENT_NAME.
 // Returns nil when no task is found (non-fatal).
 func resolveCurrentTaskForPrompt() *taskwarrior.Task {

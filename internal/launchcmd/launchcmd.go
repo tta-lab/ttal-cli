@@ -2,6 +2,9 @@ package launchcmd
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -9,11 +12,36 @@ import (
 
 // ContextTrigger is the wake-orientation trigger sent to every spawned or breathed
 // CC/Lenos/Codex agent as their first user message. The agent runs `ttal context`
-// to render diary, agents, projects, pairing, role prompt, and task in one bundle.
+// to render diary, agents, projects, role prompt, and task in one bundle.
 //
 // This is the single source of truth for the trigger string — all spawn and breathe
 // paths must reference this constant rather than duplicating the literal.
 const ContextTrigger = "Run `ttal context` for your briefing, then act on the role prompt."
+
+// WakeTriggerFn is the injectable implementation of WakeTrigger.
+// Tests set this to return ContextTrigger to avoid shelling out.
+var WakeTriggerFn = wakeTriggerImpl
+
+// WakeTrigger shell-calls ttal wake to produce the formatted trigger prompt
+// (with owner, timestamp, and reply hint). Falls back to ContextTrigger if
+// ttal wake fails (e.g. binary not yet built, config missing).
+func WakeTrigger() string {
+	return WakeTriggerFn()
+}
+
+func wakeTriggerImpl() string {
+	binary, err := os.Executable()
+	if err != nil {
+		log.Printf("[launchcmd] os.Executable() failed: %v", err)
+		return ContextTrigger
+	}
+	out, err := exec.Command(binary, "wake").Output()
+	if err != nil {
+		log.Printf("[launchcmd] ttal wake failed: %v", err)
+		return ContextTrigger
+	}
+	return strings.TrimSpace(string(out))
+}
 
 // BuildCCDirectCommand builds a gatekeeper-wrapped direct claude command using --agent.
 // resumeSessionID, if non-empty, appends --resume <id> before the trigger separator.
@@ -74,8 +102,8 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 
 // BuildAgentLaunchCommand builds the gatekeeper-wrapped shell command for
 // launching an agent at the given runtime. Returns an error for runtimes not
-// supported in the worker plane (Codex). Trigger is hardcoded to ContextTrigger —
-// every spawned worker-plane agent runs `ttal context` as its wake-orientation.
+// supported in the worker plane (Codex). Trigger is resolved via WakeTrigger() —
+// every spawned worker-plane agent runs `ttal wake` as its wake-orientation.
 //
 // smallModel is forwarded to lenos when rt is Lenos (worker-plane agents use
 // the small-tier model); ignored for Claude Code.

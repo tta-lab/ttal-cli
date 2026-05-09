@@ -13,10 +13,13 @@ import (
 func TestSpawnPlanReviewer_ClaudeCodeBranch(t *testing.T) {
 	origNewWindow := tmuxNewWindowFn
 	origExec := osExecFn
+	origWake := launchcmd.WakeTriggerFn
 	defer func() {
 		tmuxNewWindowFn = origNewWindow
 		osExecFn = origExec
+		launchcmd.WakeTriggerFn = origWake
 	}()
+	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
 
 	var capturedShellCmd string
 	tmuxNewWindowFn = func(session, window, workDir, shellCmd string) error {
@@ -54,10 +57,13 @@ func TestSpawnPlanReviewer_ClaudeCodeBranch(t *testing.T) {
 func TestSpawnPlanReviewer_LenosBranch(t *testing.T) {
 	origNewWindow := tmuxNewWindowFn
 	origExec := osExecFn
+	origWake := launchcmd.WakeTriggerFn
 	defer func() {
 		tmuxNewWindowFn = origNewWindow
 		osExecFn = origExec
+		launchcmd.WakeTriggerFn = origWake
 	}()
+	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
 
 	var capturedShellCmd string
 	tmuxNewWindowFn = func(session, window, workDir, shellCmd string) error {
