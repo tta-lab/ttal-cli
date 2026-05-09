@@ -1,0 +1,171 @@
+# ============================================================
+# Agent RBAC — single shared ServiceAccount for ttal agents
+#
+# Scope: apps-dev, supa-dev, apps-share, infra-dev
+# Blocks: secrets, roles/rolebindings
+# Allows: read all other resources, pod restart, port-forward
+# Exec: infra-dev only (dev PG, Redis, ClickHouse, etc.)
+# ============================================================
+
+---
+# 1. Meta namespace + shared SA
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-rbac
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent
+  namespace: agent-rbac
+
+---
+# 2. Single ClusterRole — what the agent SA can do
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent
+rules:
+# --- Read access (get/list/watch) on common resources ---
+# Excludes: secrets, roles, rolebindings, clusterroles, clusterrolebindings
+- apiGroups: [""]
+  resources:
+  - pods
+  - pods/log
+  - services
+  - endpoints
+  - configmaps
+  - persistentvolumeclaims
+  - serviceaccounts
+  - namespaces
+  - nodes
+  - events
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources:
+  - deployments
+  - statefulsets
+  - daemonsets
+  - replicasets
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - ingresses
+  - networkpolicies
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources:
+  - poddisruptionbudgets
+  verbs: ["get", "list", "watch"]
+
+# --- Rollout restart (kubectl rollout restart → delete pod + patch deployment) ---
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets", "daemonsets"]
+  verbs: ["patch"]
+
+# --- Port-forward ---
+- apiGroups: [""]
+  resources: ["pods/portforward"]
+  verbs: ["create"]
+
+# NOT in shared ClusterRole: pods/exec
+# Exec is allowed in infra-dev only via namespace-scoped Role below
+
+---
+# 3. infra-dev: exec for PG queries and debugging
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-exec
+  namespace: infra-dev
+rules:
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["get", "create"]
+
+---
+# 4. RoleBindings — one per dev namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent
+  namespace: apps-dev
+subjects:
+- kind: ServiceAccount
+  name: agent
+  namespace: agent-rbac
+roleRef:
+  kind: ClusterRole
+  name: agent
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent
+  namespace: supa-dev
+subjects:
+- kind: ServiceAccount
+  name: agent
+  namespace: agent-rbac
+roleRef:
+  kind: ClusterRole
+  name: agent
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent
+  namespace: apps-share
+subjects:
+- kind: ServiceAccount
+  name: agent
+  namespace: agent-rbac
+roleRef:
+  kind: ClusterRole
+  name: agent
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent
+  namespace: infra-dev
+subjects:
+- kind: ServiceAccount
+  name: agent
+  namespace: agent-rbac
+roleRef:
+  kind: ClusterRole
+  name: agent
+  apiGroup: rbac.authorization.k8s.io
+---
+# infra-dev: additional exec binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-exec
+  namespace: infra-dev
+subjects:
+- kind: ServiceAccount
+  name: agent
+  namespace: agent-rbac
+roleRef:
+  kind: Role
+  name: agent-exec
+  apiGroup: rbac.authorization.k8s.io
