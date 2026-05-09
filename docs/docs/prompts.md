@@ -21,8 +21,6 @@ $ ttal agent list
 § Projects
 $ ttal project list
 ---
-§ Pairing
-$ ttal pair
 § Role
 $ ttal pipeline prompt
 § Task
@@ -31,8 +29,6 @@ $ ttal task get
 
 context_worker = """
 ---
-§ Pairing
-$ ttal pair
 § Role
 $ ttal pipeline prompt
 § Task
@@ -160,8 +156,6 @@ $ diary {{agent-name}} read
 § Projects
 $ ttal project list
 ---
-§ Pairing
-$ ttal pair
 § Role
 $ ttal pipeline prompt
 § Task
