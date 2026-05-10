@@ -49,7 +49,7 @@ Worktree rules:
 
 ### Load Context
 
-You wake via `Run ttal context for your briefing` — `ttal context` renders pairing, role prompt with inlined skills, and task body in one bundle. Run it first.
+Use the task body provided in your prompt as the source of truth.
 
 To re-fetch only the task body mid-work, use `ttal task get` (no params — the `TTAL_JOB_ID` env var handles UUID resolution automatically). Never pass a UUID manually.
 
