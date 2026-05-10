@@ -5,9 +5,6 @@ description: "Worker agent — executes provided implementation plans in isolate
 role: worker
 color: green
 default_runtime: lenos
-claude-code:
-  model: sonnet
-  tools: [Bash]
 lenos:
   access: rw
 ---
@@ -107,13 +104,3 @@ Don't guess your way through blockers — escalate and wait.
 - Work on main branch
 - Use `gh` or `tea` for PR operations
 - Pass extra params to `ttal go`
-
-## Tools
-
-- `src <file>` / `src edit` — inspect and edit source files
-- `Bash` — run `src`, build/test commands, git, and ttal commands
-- `task <subtask-uuid> done` — mark a completed subtask when the prompt provides one
-- `ttal pr create` / `ttal pr modify` — PR operations (never use `gh` or `tea`)
-- `ttal comment add` — post progress, triage updates (mirrors to GitHub/Forgejo)
-- `ttal send --to <owner>` — escalate blockers to the planner/parent agent
-- `ttal go` — finalize after LGTM (**no extra params**)
