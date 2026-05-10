@@ -49,21 +49,12 @@ Worktree rules:
 
 ### Load Context
 
-Use the task body provided in your prompt as the source of truth.
-
-To re-fetch only the task body mid-work, use `ttal task get` (no params — the `TTAL_JOB_ID` env var handles UUID resolution automatically). Never pass a UUID manually.
-
-Load the plan — check task annotations for context:
-- **Flicknote plan:** If annotations contain a flicknote hex ID, read it: `flicknote detail <hex-id>`
-- **Task tree plan:** Check for subtasks: `task $TTAL_JOB_ID tree` — if subtasks exist, they ARE your work items. Each subtask = a step to execute.
-- **Inline plan:** If no flicknote ID and no subtasks, read the task annotation for inline steps.
-
-If both flicknote and subtask tree exist, the subtask tree is your execution tracker and the flicknote is supplementary context.
-
 Verify you're in the correct project: does the codebase in `pwd` match what the plan describes? If not:
 ```bash
 ttal send --to <owner> "wrong project: plan describes <X> but spawned in <actual path>"
 ```
+
+If the project is correct, inspect the task-relevant files and execute the work step by step.
 
 ### Execute
 
