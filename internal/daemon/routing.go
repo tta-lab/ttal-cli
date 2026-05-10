@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/tta-lab/ttal-cli/internal/addressee"
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
@@ -406,8 +407,7 @@ func dispatchSend(
 		return err
 	}
 
-	msg := formatAgentMessage(req.From, req.Message)
-	rt := cfg.RuntimeForAgent(req.From)
+	senderRT := cfg.RuntimeForAgent(req.From)
 
 	switch addr.Kind {
 	case addressee.KindHuman:
@@ -419,18 +419,23 @@ func dispatchSend(
 			UserInitiated: req.UserInitiated,
 		})
 	case addressee.KindAgent:
+		msg := formatAgentMessage(req.From, req.Message, cfg.RuntimeForAgent(addr.Name))
 		overflowMsg := applyOverflow(msg)
 		persistMsg(msgSvc, message.CreateParams{
 			Sender: req.From, Recipient: req.To, Content: overflowMsg,
-			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &rt,
+			Team: defaultTeamName, Channel: message.ChannelCLI, Runtime: &senderRT,
 		})
 		log.Printf("[daemon] agent-to-agent: %s → %s", req.From, req.To)
 		return deliverToAgentFn(registry, cfg, frontends, addr.Name, overflowMsg)
 	case addressee.KindWorker:
-		overflowMsg := applyOverflow(msg)
 		jobID, agentName, _ := parseWorkerAddress(req.To)
+		recipientRT := runtime.Runtime(agentfs.ResolveRuntime(
+			cfg.DefaultRuntime, cfg.TeamPath, cfg.Sync.WorkerAgentPaths, agentName,
+		))
+		msg := formatAgentMessage(req.From, req.Message, recipientRT)
+		overflowMsg := applyOverflow(msg)
 		session, dispatched, err := dispatchToWorkerOrManager(
-			cfg, jobID, agentName, msgSvc, req.From, req.To, overflowMsg, &rt)
+			cfg, jobID, agentName, msgSvc, req.From, req.To, overflowMsg, &senderRT)
 		if err != nil {
 			return err
 		}

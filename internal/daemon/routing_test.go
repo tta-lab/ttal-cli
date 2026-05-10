@@ -16,6 +16,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/overflow"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
@@ -848,6 +849,81 @@ func TestDispatchSend_RoutesToAgent(t *testing.T) {
 	}
 	if !strings.Contains(captured.msg, "ping") {
 		t.Errorf("msg = %q, want substring ping", captured.msg)
+	}
+}
+
+func TestDispatchSend_ToLenosAgentUsesNarrateReplyHint(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	setupAgentDirs(t, tmp, "astra", "kestrel")
+	if err := os.WriteFile(filepath.Join(tmp, "kestrel", "AGENTS.md"),
+		[]byte("---\nname: kestrel\ndefault_runtime: lenos\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{TeamPath: tmp, DefaultRuntime: string(runtime.ClaudeCode)}
+	captured, restore := setupAgentDeliverToAgentCapture()
+	t.Cleanup(restore)
+
+	req := SendRequest{From: "astra", To: "kestrel", Message: "ping"}
+	if err := dispatchSend(cfg, nil, nil, nil, req); err != nil {
+		t.Fatalf("dispatchSend: %v", err)
+	}
+	if !strings.Contains(captured.msg, "narrate --to astra <<'EOF'") {
+		t.Errorf("msg = %q, want lenos narrate reply hint", captured.msg)
+	}
+	if strings.Contains(captured.msg, "ttal send --to astra") {
+		t.Errorf("msg = %q, should not contain ttal send reply hint for lenos recipient", captured.msg)
+	}
+}
+
+func TestDispatchSend_ToLenosWorkerUsesNarrateReplyHint(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	setupAgentDirs(t, tmp, "astra")
+	workerAgents := filepath.Join(tmp, "worker-agents")
+	coderDir := filepath.Join(workerAgents, "coder")
+	if err := os.MkdirAll(coderDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(coderDir, "AGENTS.md"),
+		[]byte("---\nname: coder\ndefault_runtime: lenos\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		TeamPath:       tmp,
+		DefaultRuntime: string(runtime.ClaudeCode),
+		Sync:           config.SyncConfig{WorkerAgentPaths: []string{workerAgents}},
+	}
+
+	origResolveWorker := resolveWorker
+	origDispatchImpl := dispatchToWorkerImpl
+	t.Cleanup(func() {
+		resolveWorker = origResolveWorker
+		dispatchToWorkerImpl = origDispatchImpl
+	})
+	resolveWorker = func(idPrefix string) (string, error) {
+		if idPrefix != "abc12345" {
+			t.Fatalf("idPrefix = %q, want abc12345", idPrefix)
+		}
+		return "w-abc12345-coder", nil
+	}
+	var captured string
+	dispatchToWorkerImpl = func(
+		msgSvc *message.Service, session, windowName string, params message.CreateParams, text string,
+	) error {
+		captured = text
+		return nil
+	}
+
+	req := SendRequest{From: "astra", To: "abc12345:coder", Message: "ping"}
+	if err := dispatchSend(cfg, nil, nil, nil, req); err != nil {
+		t.Fatalf("dispatchSend: %v", err)
+	}
+	if !strings.Contains(captured, "narrate --to astra <<'EOF'") {
+		t.Errorf("captured = %q, want lenos narrate reply hint", captured)
+	}
+	if strings.Contains(captured, "ttal send --to astra") {
+		t.Errorf("captured = %q, should not contain ttal send reply hint for lenos worker", captured)
 	}
 }
 
