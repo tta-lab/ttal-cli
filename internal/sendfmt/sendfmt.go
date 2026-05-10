@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 // nowFn is the package clock; tests stub this for deterministic output.
@@ -11,11 +13,12 @@ var nowFn = time.Now
 
 // Envelope describes a delivery message before rendering.
 type Envelope struct {
-	Channel    string    // "agent" | "telegram" | "matrix" | "" (no header)
-	SenderName string    // displayed after "from:"; required when Channel != ""
-	Body       string    // user-supplied content
-	ReplyAlias string    // shown in reply hint; "" -> no reply hint
-	Now        time.Time // timestamp source; zero value -> nowFn()
+	Channel      string          // "agent" | "telegram" | "matrix" | "" (no header)
+	SenderName   string          // displayed after "from:"; required when Channel != ""
+	Body         string          // user-supplied content
+	ReplyAlias   string          // shown in reply hint; "" -> no reply hint
+	ReplyRuntime runtime.Runtime // recipient runtime for reply hint; "" -> ttal send
+	Now          time.Time       // timestamp source; zero value -> nowFn()
 }
 
 // Format renders the envelope as:
@@ -42,9 +45,17 @@ func Format(env Envelope) string {
 	head = append(head, env.Body)
 	out := strings.Join(head, " ")
 	if env.ReplyAlias != "" {
-		out += "\n\n" + ReplyHint(env.ReplyAlias)
+		out += "\n\n" + ReplyHintForRuntime(env.ReplyAlias, env.ReplyRuntime)
 	}
 	return out
+}
+
+// ReplyHintForRuntime returns the reply-hint footer for the recipient runtime.
+func ReplyHintForRuntime(alias string, rt runtime.Runtime) string {
+	if rt == runtime.Lenos {
+		return NarrateReplyHint(alias)
+	}
+	return ReplyHint(alias)
 }
 
 // ReplyHint returns the literal italic reply-hint footer used across deliveries.
@@ -53,6 +64,14 @@ func Format(env Envelope) string {
 func ReplyHint(alias string) string {
 	return fmt.Sprintf(`<i>--- Reply with:
 cat <<'EOF' | ttal send --to %s
+your message
+EOF</i>`, alias)
+}
+
+// NarrateReplyHint returns the Lenos-native reply hint.
+func NarrateReplyHint(alias string) string {
+	return fmt.Sprintf(`<i>--- Reply with:
+narrate --to %s <<'EOF'
 your message
 EOF</i>`, alias)
 }

@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 func TestFormat_AllShapes(t *testing.T) {
@@ -112,5 +114,16 @@ your message
 EOF</i>`
 	if got != want {
 		t.Errorf("ReplyHint = %q, want %q", got, want)
+	}
+}
+
+func TestReplyHintForRuntime_LenosUsesNarrate(t *testing.T) {
+	got := ReplyHintForRuntime("neil", runtime.Lenos)
+	want := `<i>--- Reply with:
+narrate --to neil <<'EOF'
+your message
+EOF</i>`
+	if got != want {
+		t.Errorf("ReplyHintForRuntime = %q, want %q", got, want)
 	}
 }

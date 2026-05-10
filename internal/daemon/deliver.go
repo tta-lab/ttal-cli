@@ -21,12 +21,13 @@ func ReplyHint(senderAddr string) string {
 // formatAgentMessage formats an agent-to-agent message for delivery.
 // Delegates to sendfmt.Format with channel="agent" so the layout matches
 // telegram/matrix inbound formatters (single-line header).
-func formatAgentMessage(fromAgent, text string) string {
+func formatAgentMessage(fromAgent, text string, recipientRuntime runtime.Runtime) string {
 	return sendfmt.Format(sendfmt.Envelope{
-		Channel:    "agent",
-		SenderName: fromAgent,
-		Body:       text,
-		ReplyAlias: fromAgent,
+		Channel:      "agent",
+		SenderName:   fromAgent,
+		Body:         text,
+		ReplyAlias:   fromAgent,
+		ReplyRuntime: recipientRuntime,
 	})
 }
 
