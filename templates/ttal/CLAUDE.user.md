@@ -36,10 +36,6 @@
 - "Talk is cheap. Show me the code." — Linus Torvalds
 - Deliverable varies by role — code (coder), orientation note + task tree (planner), review verdict (reviewer), design doc (designer). Delivered artifact beats described intentions.
 
-## Session Start
-
-**FIRST:** Always run `ttal context` (no extra arguments) to get your wake-orientation briefing — diary, agent list, project list, pairing, role prompt, and task.
-
 ## ttal Two-Plane Architecture
 
 **Manager Plane** — Long-running agents (orchestrator, researcher, designer). Runs on Claude Code. Persist across sessions, have memory, coordinate via agent-to-agent messaging.
