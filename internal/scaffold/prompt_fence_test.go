@@ -16,6 +16,20 @@ func TestPromptSourcesDoNotContainCopyableFences(t *testing.T) {
 	}
 
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	bashFenceOffenders, promptFenceOffenders, err := findCopyableFenceOffenders(root)
+	if err != nil {
+		t.Fatalf("walk prompt sources: %v", err)
+	}
+
+	if len(bashFenceOffenders) > 0 {
+		t.Fatalf("bash fences in markdown/templates:\n%s", strings.Join(bashFenceOffenders, "\n"))
+	}
+	if len(promptFenceOffenders) > 0 {
+		t.Fatalf("copyable fences in prompt files:\n%s", strings.Join(promptFenceOffenders, "\n"))
+	}
+}
+
+func findCopyableFenceOffenders(root string) ([]string, []string, error) {
 	var bashFenceOffenders []string
 	var promptFenceOffenders []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -49,15 +63,9 @@ func TestPromptSourcesDoNotContainCopyableFences(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("walk prompt sources: %v", err)
+		return nil, nil, err
 	}
-
-	if len(bashFenceOffenders) > 0 {
-		t.Fatalf("bash fences in markdown/templates:\n%s", strings.Join(bashFenceOffenders, "\n"))
-	}
-	if len(promptFenceOffenders) > 0 {
-		t.Fatalf("copyable fences in prompt files:\n%s", strings.Join(promptFenceOffenders, "\n"))
-	}
+	return bashFenceOffenders, promptFenceOffenders, nil
 }
 
 func isPromptSource(rel string) bool {
