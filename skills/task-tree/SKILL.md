@@ -21,7 +21,7 @@ Two tools, two purposes:
 
 Pipe markdown to `task <parent-uuid> plan`:
 
-```bash
+```
 cat <<'PLAN' | task <parent-uuid> plan
 ## Add validation layer
 Add input validation to the API handler. Check required fields, validate types, return 400 on failure.
@@ -36,7 +36,7 @@ PLAN
 
 View what you created:
 
-```bash
+```
 task <parent-uuid> tree
 ```
 
@@ -53,7 +53,7 @@ Each `##` heading becomes a direct subtask. Body text becomes the subtask's anno
 
 ## Iterating on a Plan
 
-```bash
+```
 # Replace the entire subtask tree with a new version
 # ⚠️ Destructive: drops ALL existing subtasks before creating new ones
 cat updated-plan.md | task <parent-uuid> plan replace
@@ -77,7 +77,7 @@ task <subtask-uuid> modify parent_id:
 
 ## Viewing and Checking
 
-```bash
+```
 # View the full subtask tree
 task <uuid> tree
 
@@ -90,7 +90,7 @@ task <uuid> information
 
 ## Completing Work
 
-```bash
+```
 # Complete a parent -- cascades to ALL descendants automatically
 task <parent-uuid> done
 
@@ -109,7 +109,7 @@ Workers read their subtask tree to know what to do. The plan review process uses
 `task plan` (without `replace`) **appends** subtasks. `task plan replace` **replaces the entire tree**. Neither is safe for editing one subtask's details — you'd lose the rest of the tree.
 
 For editing individual subtask details, use:
-```bash
+```
 # Update a subtask's description
 task <subtask-uuid> modify "Updated description"
 

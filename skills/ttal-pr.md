@@ -9,7 +9,7 @@ Manage pull requests from your worker session. Context is auto-resolved from the
 
 ## Create a PR
 
-```bash
+```
 ttal pr create "feat: add user authentication"
 echo "Fixes #42" | ttal pr create "fix: timeout bug"
 
@@ -23,7 +23,7 @@ Creates a PR using your task's branch. The PR index is stored in the task automa
 
 ## Modify a PR
 
-```bash
+```
 # Update title
 ttal pr modify --title "updated title"
 
@@ -41,7 +41,7 @@ The daemon squash-merges the PR and requests cleanup — no separate merge comma
 
 ## Comment on a task
 
-```bash
+```
 ttal comment add "LGTM — no critical issues"
 ttal comment list
 ```

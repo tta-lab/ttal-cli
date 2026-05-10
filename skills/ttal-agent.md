@@ -7,13 +7,13 @@ description: List and get info about agents in your team.
 
 ## List all agents
 
-```bash
+```
 ttal agent list
 ```
 
 ## Get agent info
 
-```bash
+```
 ttal agent info <name>
 ```
 

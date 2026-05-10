@@ -49,7 +49,7 @@ Operational config (prompts, heartbeat) lives in `~/.config/ttal/roles.toml` per
 
 ## Adding agents
 
-```bash
+```
 # Create an agent .md file
 ttal agent add kestrel --emoji 🦅 --description "Worker lifecycle"
 
@@ -65,13 +65,13 @@ EOF
 
 ## Listing agents
 
-```bash
+```
 ttal agent list
 ```
 
 ## Agent info
 
-```bash
+```
 ttal agent info kestrel
 ```
 
@@ -81,7 +81,7 @@ Shows the agent's path, description, voice, and emoji.
 
 Update frontmatter fields with `field:value` syntax:
 
-```bash
+```
 ttal agent modify kestrel emoji:🦅 description:'Worker lifecycle'
 ```
 

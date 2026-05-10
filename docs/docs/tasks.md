@@ -7,7 +7,7 @@ ttal integrates with [Taskwarrior](https://taskwarrior.org/) for task-driven age
 
 ## Finding tasks
 
-```bash
+```
 # Search by keyword (OR logic, case-insensitive)
 ttal task find auth login
 
@@ -17,7 +17,7 @@ ttal task find auth --completed
 
 ## Getting task details
 
-```bash
+```
 ttal task get
 ```
 
@@ -31,7 +31,7 @@ The UUID is auto-resolved from `$TTAL_JOB_ID` (worker sessions) or `$TTAL_AGENT_
 
 Route tasks to specialized agents based on what needs to happen:
 
-```bash
+```
 # Advance to next pipeline stage (routes to agent or spawns worker)
 ttal go <uuid>
 ```

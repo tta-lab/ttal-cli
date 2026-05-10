@@ -58,19 +58,17 @@ Do NOT launch any Agent calls in this phase.
 
 Run all applicable reviewers **in parallel** using `ei agent run --async`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
-```bash
-# Always run these two in parallel:
-ei agent run --async plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
-ei agent run --async plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
+    # Always run these two in parallel:
+    ei agent run --async plan-gap-finder "Review plan at flicknote/<id> for project at <path>. Check for structural gaps, ambiguities, and scope issues."
+    ei agent run --async plan-code-reviewer "Review plan at flicknote/<id> for project at <path>. Verify technical accuracy against the codebase."
 
-# Conditional — include in the same parallel batch if applicable:
-# If plan has implementation tasks:
-ei agent run --async plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
-# If plan touches auth, APIs, secrets, or user input:
-ei agent run --async plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
-# If repo has CLAUDE.md, skills, or subagents:
-ei agent run --async plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
-```
+    # Conditional — include in the same parallel batch if applicable:
+    # If plan has implementation tasks:
+    ei agent run --async plan-test-reviewer "Review plan at flicknote/<id> for project at <path>. Evaluate test strategy and edge case coverage."
+    # If plan touches auth, APIs, secrets, or user input:
+    ei agent run --async plan-security-reviewer "Review plan at flicknote/<id> for project at <path>. Check for security concerns."
+    # If repo has CLAUDE.md, skills, or subagents:
+    ei agent run --async plan-docs-reviewer "Review plan at flicknote/<id> for project at <path>. Check for documentation impacts."
 
 Each call returns `"Queued."`. **End your turn after dispatching all calls.** You'll be notified when each subagent completes — read the result file from each notification, then continue to Phase 3.
 
@@ -85,7 +83,6 @@ Begin aggregation only after every dispatched subagent has reported completion a
 
 **Post this summary via `ttal comment add`** — don't just output it inline. The comment system is how the review loop communicates.
 
-```markdown
 # Plan Review: <plan title>
 
 ## Critical Issues (blocks execution)
@@ -111,35 +108,30 @@ Begin aggregation only after every dispatched subagent has reported completion a
 
 ## Verdict
 **Ready / Needs revision / Needs rethink**
-```
 
 Post via heredoc:
-```bash
+
 cat <<'REVIEW' | ttal comment add
 # Plan Review: <title>
 ...full report...
 REVIEW
-```
 
 ### Phase 4: Post Verdict
 
 If the plan passes review:
-```bash
-ttal comment add "LGTM — plan is ready for execution"
-ttal comment lgtm
-```
+
+    ttal comment add "LGTM — plan is ready for execution"
+    ttal comment lgtm
 
 If the plan needs work:
-```bash
-ttal comment add "Needs revision: <specific feedback>"
-```
+
+    ttal comment add "Needs revision: <specific feedback>"
 
 ## Round Tracking
 
 If this is a re-review (round 2+), include the round number in the header:
-```markdown
+
 # Plan Review: <title> (Round 2)
-```
 
 Compare against the previous round's issues:
 - **Resolved** — fixed since last round
@@ -162,9 +154,7 @@ Compare against the previous round's issues:
 
 Invoke specialist reviewers via Bash. Always use `--async` — jobs run in the background, results land in `~/.einai/outputs/`, and a `✅` notification is injected into your terminal when each finishes. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
-```bash
-ei agent run --async <name> "<prompt with plan ID and project path>"
-```
+    ei agent run --async <name> "<prompt with plan ID and project path>"
 
 > **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
 

@@ -7,20 +7,20 @@ description: Install ttal and set up your first agent team
 
 ### Homebrew (macOS/Linux)
 
-```bash
+```
 brew tap tta-lab/ttal
 brew install ttal
 ```
 
 ### Via `go install`
 
-```bash
+```
 go install github.com/tta-lab/ttal-cli@latest
 ```
 
 ### From source
 
-```bash
+```
 git clone https://github.com/tta-lab/ttal-cli.git
 cd ttal-cli
 make install
@@ -41,7 +41,7 @@ ttal requires these tools in your `$PATH`:
 
 The simplest path — clone ttal-cli, open it in Claude Code, and run the setup skill:
 
-```bash
+```
 git clone https://github.com/tta-lab/ttal-cli.git
 cd ttal-cli
 # Open in Claude Code, then run:
@@ -54,7 +54,7 @@ The `/setup` skill handles installation, onboarding, and Telegram configuration.
 
 The fastest way to get started — pick a scaffold and go:
 
-```bash
+```
 # See available scaffolds interactively
 ttal init
 
@@ -70,7 +70,7 @@ When running from a cloned ttal-cli repo, templates are read from `templates/` l
 
 For a guided setup that also installs prerequisites and the daemon:
 
-```bash
+```
 # Default: basic scaffold
 ttal onboard
 
@@ -95,19 +95,19 @@ Onboarding walks through:
 
 ### Register a project
 
-```bash
+```
 ttal project add myapp --path=/path/to/project
 ```
 
 ### Start the daemon
 
-```bash
+```
 ttal daemon status   # Check if it's running
 ```
 
 If the daemon isn't running, launchd should start it automatically after `ttal daemon install`. For debugging, you can run it in the foreground:
 
-```bash
+```
 ttal daemon
 ```
 

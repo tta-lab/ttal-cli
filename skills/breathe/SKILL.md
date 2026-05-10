@@ -26,7 +26,7 @@ When your context window is getting heavy, use this to write a handoff to your d
 
 ## How to Call
 
-```bash
+```
 cat <<'HANDOFF_EOF' | diary $TTAL_AGENT_NAME append
 # Session Handoff
 

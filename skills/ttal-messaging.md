@@ -9,7 +9,7 @@ description: Send messages to humans, agents, or workers through ttal send.
 
 ## Send
 
-```bash
+```
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
@@ -17,7 +17,7 @@ EOF
 
 Examples:
 
-```bash
+```
 cat <<'EOF' | ttal send --to <human-alias>
 done, PR ready
 EOF
@@ -37,7 +37,7 @@ Worker sessions require explicit `job_id:agent_name` format. The daemon uses the
 
 ## Stdin (preferred: heredoc)
 
-```bash
+```
 cat <<'EOF' | ttal send --to kestrel
 done
 EOF
@@ -45,7 +45,7 @@ EOF
 
 For longer messages, use the same heredoc form:
 
-```bash
+```
 cat <<'ENDBASH' | ttal send --to kestrel
 ## Status Update
 Auth module review complete. Two issues found:

@@ -83,19 +83,19 @@ task done  → on-modify hook → cleanup → archive
 
 Need all high-priority bugs in the webapp project?
 
-```bash
+```
 task project:webapp +bug priority:H list
 ```
 
 Need tasks I touched this week?
 
-```bash
+```
 task modified:week list
 ```
 
 Need custom output format?
 
-```bash
+```
 task project:webapp export
 ```
 
@@ -117,7 +117,7 @@ Here's where it gets interesting for agents. Taskwarrior auto-calculates an **ur
 
 Query by urgency and the most important task floats to the top:
 
-```bash
+```
 task limit:1 export   # Returns highest urgency task as JSON
 ```
 
@@ -127,7 +127,7 @@ Agents don't need to figure out what to work on—Taskwarrior tells them. And th
 
 This isn't just for programmers. Taskwarrior's UDAs (User Defined Attributes) let you add custom fields for any domain:
 
-```bash
+```
 # Define a phase field with your workflow stages
 uda.phase.type=string
 uda.phase.values=draft,edit,review,publish
@@ -153,7 +153,7 @@ Here's the insight that changes everything: **annotations are a shared communica
 
 Humans, orchestrator agents, and workers all write to the same task annotations. Every important message about a task lives in one place:
 
-```bash
+```
 task 1 annotate "Design: Use webhook pattern for loose coupling"
 task 1 annotate "Worker: PR #42 created, awaiting review"
 task 1 annotate "Decision: Approved by human, proceed with merge"
@@ -162,7 +162,7 @@ task 1 annotate "Worker: Merged and deployed to staging"
 
 Query any task and you see the full conversation:
 
-```bash
+```
 task 1 info
 # Shows: description, project, tags, all annotations with timestamps
 ```

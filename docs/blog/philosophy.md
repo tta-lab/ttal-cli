@@ -49,7 +49,7 @@ This isn't theoretical. The `docs/plans/` directory is full of design documents 
 
 This creates a concrete constraint on design: ttal must be ergonomic for both humans and agents. Commands need to be callable by scripts, not just people. Output needs to be parseable. The CLI is the API.
 
-```bash
+```
 # An agent running ttal to spawn another agent's work
 ttal go a1b2c3d4
 

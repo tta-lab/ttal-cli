@@ -195,7 +195,7 @@ Things the skill could have surfaced earlier, places the methodology felt heavy 
 
 ### Storage
 
-```bash
+```
 # Primary: test plan flicknote
 cat <<'PLANEOF' | flicknote add --project testplans
 # Test Plan: ...
@@ -210,7 +210,7 @@ task <parent-uuid> annotate "testplan: flicknote <hex>"
 
 If pass gamma or beta found **confirmed-broken** (not just "could break"), write a separate bug or test report flicknote:
 
-```bash
+```
 cat <<'BUGEOF' | flicknote add --project testplans
 # Bug or Test Report: <feature or component>
 

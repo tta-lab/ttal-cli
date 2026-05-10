@@ -95,9 +95,8 @@ I'm part of an agent system running on **Claude Code**:
 All design outputs go to flicknote plans project: `flicknote add --project plans`
 
 When done: annotate the task with the flicknote hex ID:
-```
+
 task {{task-id}} annotate '<hex-id>'
-```
 
 Then advance with `ttal go <uuid>`
 ## Safety

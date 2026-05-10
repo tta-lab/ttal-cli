@@ -18,7 +18,7 @@ task → research → design → implement → review → merge → cleanup
 - **Manage from Telegram** — approve, merge, redirect, all from your phone
 - **One command drives everything** — `ttal go` advances any task through its pipeline
 
-```bash
+```
 # Create a task
 ttal task add --project myapp "Add JWT authentication to the API"
 
@@ -112,20 +112,20 @@ We built TTal with TTal. 476 PRs merged, 42k lines of Go — last 30 days. Then 
 
 ## Install
 
-```bash
+```
 brew tap tta-lab/ttal
 brew install ttal
 ```
 
 Or from source:
 
-```bash
+```
 go install github.com/tta-lab/ttal-cli@latest
 ```
 
 ## Quick start
 
-```bash
+```
 git clone https://github.com/tta-lab/ttal-cli.git && cd ttal-cli
 # Open in Claude Code, then: /setup
 ```
@@ -134,7 +134,7 @@ The setup skill installs TTal, configures hooks, and walks you through Telegram 
 
 Or manually:
 
-```bash
+```
 ttal doctor --fix      # install hooks
 ttal daemon install    # start the communication hub
 ttal sync              # generate sandbox config from project registry

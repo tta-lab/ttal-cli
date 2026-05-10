@@ -33,9 +33,9 @@ Bug reported → debugger diagnoses, writes fix plan → you approve → manager
 ## Quick start
 
 1. Set up your workspace:
-   ```bash
-   ttal onboard --scaffold full-markdown
-   ```
+
+       ttal onboard --scaffold full-markdown
+
 2. Edit `~/.config/ttal/config.toml`:
    - Set `chat_id` and `team_path`
 3. Create 4 Telegram bots via @BotFather

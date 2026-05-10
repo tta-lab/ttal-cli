@@ -11,7 +11,7 @@ ttal supports different team shapes depending on your workflow. Start simple and
 
 The simplest setup. One persistent agent handles orchestration, and workers are spawned for individual tasks.
 
-```bash
+```
 ttal agent add kestrel --role orchestrator
 ```
 
@@ -23,7 +23,7 @@ Kestrel manages your tasks, responds to Telegram messages, and spawns workers wh
 
 Add specialized agents for research and design phases before execution.
 
-```bash
+```
 ttal agent add athena --role researcher
 ttal agent add inke --role designer
 ttal agent add kestrel --role orchestrator
@@ -31,7 +31,7 @@ ttal agent add kestrel --role orchestrator
 
 Set roles in agent frontmatter so routing resolves automatically:
 
-```bash
+```
 ttal agent modify inke role:designer
 ttal agent modify athena role:researcher
 ```
@@ -44,7 +44,7 @@ Now `ttal go <uuid>` advances the task through pipeline stages: routes to Athena
 
 The full setup with dedicated review agents.
 
-```bash
+```
 ttal agent add kestrel --role orchestrator
 ttal agent add athena --role researcher
 ttal agent add inke --role designer
@@ -67,7 +67,7 @@ Talk to [@BotFather](https://t.me/BotFather) on Telegram:
 
 ### 2. Register the agent
 
-```bash
+```
 ttal agent add athena --role researcher
 ```
 

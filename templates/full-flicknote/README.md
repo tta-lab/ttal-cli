@@ -31,9 +31,9 @@ flicknote detail <hex-id> --tree                 # See structure
 ## Quick start
 
 1. Set up your workspace:
-   ```bash
-   ttal onboard --scaffold full-flicknote
-   ```
+
+       ttal onboard --scaffold full-flicknote
+
 2. Edit `~/.config/ttal/config.toml`:
    - Set `chat_id` and `team_path`
 3. Create 4 Telegram bots via @BotFather (give them matching names!)
