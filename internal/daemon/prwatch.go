@@ -118,8 +118,13 @@ func scanTeam(
 			continue
 		}
 
-		sessionName := task.SessionName()
-		if !tmux.SessionExists(sessionName) {
+		target, err := worker.ResolveTmuxTarget(&task)
+		if err != nil {
+			log.Printf("[prwatch] task %s: cannot resolve tmux target: %v — skipping PR watch",
+				shortSHA(task.UUID), err)
+			continue
+		}
+		if !tmux.WindowExists(target.Session, target.Window) {
 			continue
 		}
 
@@ -145,11 +150,10 @@ func scanTeam(
 			continue
 		}
 
-		windowName := resolveWorkerWindowName(task.Tags)
-		target := prWatchTarget{
+		wt := prWatchTarget{
 			TaskUUID:     task.UUID,
-			SessionName:  sessionName,
-			WindowName:   windowName,
+			SessionName:  target.Session,
+			WindowName:   target.Window,
 			Team:         teamName,
 			RepoOwner:    info.Owner,
 			Repo:         info.Repo,
@@ -165,18 +169,16 @@ func scanTeam(
 		active[task.UUID] = true
 		mu.Unlock()
 
-		log.Printf("[prwatch] starting poll: PR #%d %s/%s session=%s",
-			prIndex, info.Owner, info.Repo, sessionName)
+		log.Printf("[prwatch] starting poll: PR #%d %s/%s session=%s window=%s",
+			prIndex, info.Owner, info.Repo, target.Session, target.Window)
 
 		go func() {
-			keep := pollPR(target, frontends, done)
+			keep := pollPR(wt, frontends, done)
 			if !keep {
 				mu.Lock()
-				delete(active, target.TaskUUID)
+				delete(active, wt.TaskUUID)
 				mu.Unlock()
 			}
-			// If keep=true, UUID stays in active until task is no longer
-			// returned by ListTasksWithPR (i.e. marked done), preventing re-spawn.
 		}()
 	}
 
@@ -219,10 +221,10 @@ func pollPR(
 		case <-poll.C:
 		}
 
-		// Worker session gone → stop polling
-		if !tmux.SessionExists(target.SessionName) {
-			log.Printf("[prwatch] session %s gone — stopping PR #%d poll",
-				target.SessionName, target.PRIndex)
+		// Worker window gone → stop polling
+		if !tmux.WindowExists(target.SessionName, target.WindowName) {
+			log.Printf("[prwatch] window %s:%s gone — stopping PR #%d poll",
+				target.SessionName, target.WindowName, target.PRIndex)
 			return false
 		}
 

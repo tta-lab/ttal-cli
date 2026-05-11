@@ -326,12 +326,11 @@ func resolveReviewerSession(task *taskwarrior.Task, callerSession string) string
 // Uses the package-level worktreePathFn var for test injection (matches the
 // pattern used elsewhere in this file).
 func resolveWorkerReviewerTarget(task *taskwarrior.Task) (session, workDir string, err error) {
-	session = task.SessionName()
-	workDir, err = worktreePathFn(task.UUID, task.Project)
+	target, err := worker.ResolveTmuxTarget(task)
 	if err != nil {
-		return "", "", fmt.Errorf("resolve worktree for task %s: %w", task.UUID, err)
+		return "", "", fmt.Errorf("resolve tmux target for task %s: %w", task.UUID, err)
 	}
-	return session, workDir, nil
+	return target.Session, target.WorkDir, nil
 }
 
 // spawnOrRetriggerReviewerFromDaemon spawns or re-triggers a reviewer from the daemon process.
