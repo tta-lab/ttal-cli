@@ -10,6 +10,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 func PR(uuid string) error {
@@ -24,6 +25,13 @@ func PR(uuid string) error {
 
 	if task.PRID == "" {
 		msg := "no PR associated with this task"
+		// Check for worker window in owner manager session first
+		if task.Owner != "" {
+			if wt, err := worker.ResolveTmuxTarget(task); err == nil && tmux.WindowExists(wt.Session, wt.Window) {
+				msg += fmt.Sprintf("\n\n  Worker window '%s:%s' is active but hasn't created a PR yet.", wt.Session, wt.Window)
+				return fmt.Errorf("%s", msg)
+			}
+		}
 		sessionName := task.SessionName()
 		if tmux.SessionExists(sessionName) {
 			msg += fmt.Sprintf("\n\n  Worker session '%s' is active but hasn't created a PR yet.", sessionName)

@@ -252,7 +252,7 @@ func dumpState(target TmuxTarget, workDir string) string {
 	return path
 }
 
-// cleanupWorker kills the tmux session and removes the git worktree + branch.
+// cleanupWorker kills the worker's tmux window and removes the git worktree + branch.
 func cleanupWorker(target TmuxTarget, workDir, branch, gitRoot string) error {
 	if tmux.WindowExists(target.Session, target.Window) {
 		if err := tmux.KillWindow(target.Session, target.Window); err != nil {
