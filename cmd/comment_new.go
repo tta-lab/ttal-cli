@@ -441,15 +441,18 @@ func notifyReviewer(sessionName, body string, cfg *config.Config, reviewerWindow
 }
 
 func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
-	// Designer/planner is always the first window — it is created at session spawn time
-	// (internal/daemon/advance.go via tmux.NewSession) before any reviewer window is
-	// added later (tmux.NewWindow appends). FirstWindow is safe without exclusion.
-	designerWindow, err := tmux.FirstWindow(sessionName)
-	if err != nil || designerWindow == "" {
-		if err != nil {
-			log.Printf("warning: could not find designer window in %s: %v", sessionName, err)
+	// Designer/planner is the task owner's agent. Use the agent name from env
+	// when available, or fall back to the first window in the session.
+	designerWindow := os.Getenv("TTAL_AGENT_NAME")
+	if designerWindow == "" {
+		var err error
+		designerWindow, err = tmux.FirstWindow(sessionName)
+		if err != nil || designerWindow == "" {
+			if err != nil {
+				log.Printf("warning: could not find designer window in %s: %v", sessionName, err)
+			}
+			return
 		}
-		return
 	}
 	tmpl := cfg.Prompt("plan_triage")
 	if tmpl == "" {
