@@ -105,9 +105,9 @@ func ResolveTmuxTargetForAgent(task *taskwarrior.Task, agentName string) (TmuxTa
 	return target, nil
 }
 
-// resolveWorkerAgentName determines the worker agent name from the task's tags
+// ResolveWorkerAgentName determines the worker agent name from the task's tags
 // via pipeline config, falling back to AnyWorkerAgentName, then CoderAgentName.
-var resolveWorkerAgentName = func(task *taskwarrior.Task) string {
+func ResolveWorkerAgentName(task *taskwarrior.Task) string {
 	if pc, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
 		if name := pc.WorkerAgentName(task.Tags); name != "" {
 			return name
@@ -118,3 +118,7 @@ var resolveWorkerAgentName = func(task *taskwarrior.Task) string {
 	}
 	return CoderAgentName
 }
+
+// resolveWorkerAgentName is the package-level seam used by ResolveTmuxTarget.
+// Set to ResolveWorkerAgentName by default; overridable in tests.
+var resolveWorkerAgentName = ResolveWorkerAgentName

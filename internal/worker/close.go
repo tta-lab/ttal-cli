@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/config"
 	gitroot "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -50,13 +52,19 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return result, fmt.Errorf("task not found")
 	}
 
-	// Resolve the tmux target (session + window + workdir)
+	// Resolve the tmux target (session + window + workdir).
+	// If owner-based resolution fails (e.g. legacy task without owner UDA), fall back
+	// to the task's SessionName() and worktree path for backward compatibility.
 	target, err := ResolveTmuxTarget(task)
 	if err != nil {
-		return &CloseResult{
-			Error:  true,
-			Status: fmt.Sprintf("Failed to resolve tmux target for task: %v", err),
-		}, fmt.Errorf("resolve target: %w", err)
+		sessionName := task.SessionName()
+		legacyWorkDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+		target = TmuxTarget{
+			Session: sessionName,
+			Window:  "",
+			WorkDir: legacyWorkDir,
+		}
+		_ = target.Validate() // legacy session may have empty window — non-fatal
 	}
 
 	workDir := target.WorkDir

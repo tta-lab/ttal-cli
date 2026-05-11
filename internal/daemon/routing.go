@@ -540,18 +540,11 @@ func resolveWorkerWindowByTarget(hexID string) (string, error) {
 	return session, nil
 }
 
-// resolveWorkerAgentNameForTask resolves the worker agent name for a task,
-// checking pipeline config first and falling back to CoderAgentName.
+// resolveWorkerAgentNameForTask resolves the worker agent name for a task.
+// Delegates to worker.ResolveWorkerAgentName which handles pipeline config and
+// fallback logic. This is the single source of truth for agent-name resolution.
 func resolveWorkerAgentNameForTask(task *taskwarrior.Task) string {
-	if pc, err := pipelineLoadFn(config.DefaultConfigDir()); err == nil {
-		if name := pc.WorkerAgentName(task.Tags); name != "" {
-			return name
-		}
-		if name := pc.AnyWorkerAgentName(); name != "" {
-			return name
-		}
-	}
-	return worker.CoderAgentName
+	return worker.ResolveWorkerAgentName(task)
 }
 
 // exportTaskByHexIDFn is the function used to look up a task by hex UUID.
