@@ -81,7 +81,8 @@ func spawnWorker(cfg SpawnConfig) error {
 	}
 
 	fmt.Printf("Spawning %s worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Runtime, cfg.Name, project, task.Description)
-	fmt.Printf("Creating tmux window: %s:%s (in owner manager session for worker '%s')\n", target.Session, target.Window, cfg.Name)
+	fmt.Printf("Creating tmux window: %s:%s (owner manager session for worker '%s')\n",
+		target.Session, target.Window, cfg.Name)
 
 	if err := ensureWindowAvailable(cfg, target); err != nil {
 		return err
