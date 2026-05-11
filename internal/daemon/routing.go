@@ -24,6 +24,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // All actors in ttal are agents — humans, AI managers, and workers alike.
@@ -374,11 +375,7 @@ var dispatchToWorkerImpl = func(
 // logDispatch logs the dispatch message. source is the sender kind ("human" or "agent");
 // the function infers the full label from the session type (worker vs manager window).
 func logDispatch(source, sender, to, session string) {
-	if strings.HasPrefix(session, "w-") {
-		log.Printf("[daemon] %s-to-worker: %s → %s (%s)", source, sender, to, session)
-	} else {
-		log.Printf("[daemon] %s-to-manager-window: %s → %s:%s", source, sender, to, session)
-	}
+	log.Printf("[daemon] %s-to-worker: %s → %s (%s)", source, sender, to, session)
 }
 
 //nolint:gocyclo // dispatcher with inherently many branches
@@ -478,21 +475,8 @@ func resolveWorkerImpl(idPrefix string) (string, error) {
 	}
 
 	// New model: resolve via worker target (owner session + agent window).
-	if task, err := exportTaskByHexIDFn(normalized[:8], "pending"); err == nil && task.Owner != "" {
-		agentName := ""
-		if pc, pcErr := pipelineLoadFn(config.DefaultConfigDir()); pcErr == nil {
-			agentName = pc.WorkerAgentName(task.Tags)
-			if agentName == "" {
-				agentName = pc.AnyWorkerAgentName()
-			}
-		}
-		if agentName == "" {
-			agentName = "coder"
-		}
-		session := config.AgentSessionName(task.Owner)
-		if tmux.WindowExists(session, agentName) {
-			return session, nil
-		}
+	if session, err := resolveWorkerWindowByTarget(normalized[:8]); err == nil {
+		return session, nil
 	}
 
 	// Legacy fallback: check for w-{uuid[:8]}-{slug} sessions.
@@ -510,6 +494,36 @@ func resolveWorkerImpl(idPrefix string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no worker session for %s", idPrefix)
+}
+
+// resolveWorkerWindowByTarget resolves a worker's owner-session window target.
+// Returns the owner manager session if the worker window exists, or an error.
+func resolveWorkerWindowByTarget(hexID string) (string, error) {
+	task, err := exportTaskByHexIDFn(hexID, "pending")
+	if err != nil || task.Owner == "" {
+		return "", fmt.Errorf("task not found or no owner")
+	}
+
+	agentName := resolveWorkerAgentNameForTask(task)
+	session := config.AgentSessionName(task.Owner)
+	if !tmux.WindowExists(session, agentName) {
+		return "", fmt.Errorf("window %s not found in session %s", agentName, session)
+	}
+	return session, nil
+}
+
+// resolveWorkerAgentNameForTask resolves the worker agent name for a task,
+// checking pipeline config first and falling back to CoderAgentName.
+func resolveWorkerAgentNameForTask(task *taskwarrior.Task) string {
+	if pc, err := pipelineLoadFn(config.DefaultConfigDir()); err == nil {
+		if name := pc.WorkerAgentName(task.Tags); name != "" {
+			return name
+		}
+		if name := pc.AnyWorkerAgentName(); name != "" {
+			return name
+		}
+	}
+	return worker.CoderAgentName
 }
 
 // exportTaskByHexIDFn is the function used to look up a task by hex UUID.

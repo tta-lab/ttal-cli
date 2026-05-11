@@ -268,7 +268,7 @@ const testJobIDA = "e9d4b7c1"
 const expectedSessionAstra = "ttal-default-astra"
 
 // pipelineConfigForTest returns a pipeline.Config with a single stage that is NOT a worker stage.
-func pipelineConfigForTest(workerStage bool) *pipeline.Config {
+func pipelineConfigForTest(workerStage bool) *pipeline.Config { //nolint:unparam
 	stages := []pipeline.Stage{
 		{Name: "Plan", Assignee: "astra", Reviewer: "plan-review-lead"},
 	}

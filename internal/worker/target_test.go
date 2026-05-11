@@ -82,7 +82,7 @@ func TestResolveTmuxTarget_OwnerAstra(t *testing.T) {
 	// Stub resolveWorkerAgentName to return a known value
 	orig := resolveWorkerAgentName
 	resolveWorkerAgentName = func(task *taskwarrior.Task) string {
-		return "coder"
+		return CoderAgentName
 	}
 	defer func() { resolveWorkerAgentName = orig }()
 
