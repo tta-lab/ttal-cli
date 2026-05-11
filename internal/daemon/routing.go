@@ -246,10 +246,10 @@ func handleToHuman(
 }
 
 // handleSystemToAgent delivers a system-originated message to an agent as bare text.
-// No [agent from:] prefix is added — used for automated triggers like /breathe
+// No attribution prefix is added — used for automated triggers like /breathe
 // where CC must receive raw text to recognize it as a skill trigger.
 // dispatchSystemSend delivers a system-originated message to its addressee.
-// Bare text is preserved on the agent path (no [agent from:] prefix) — used
+// Bare text is preserved on the agent path (no attribution prefix) — used
 // for automated triggers like /breathe where CC must recognize raw text.
 // No From validation — system sender is trusted via socket transport (daemon
 // socket is 0o600 local-only). Future readers: don't add From checks here,
@@ -711,7 +711,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	if cfg != nil {
 		rt = cfg.RuntimeForAgent(req.Agent)
 	}
-	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.WakeTrigger()); err != nil {
+	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.WakeTriggerForRuntime(rt)); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 	log.Printf("[breathe] %s: fresh breath taken (respawn, session: %s)", req.Agent, plan.newSessionName)
@@ -734,7 +734,7 @@ func handleCodexBreathe(req BreatheRequest, registry *adapterRegistry) SendRespo
 	}
 
 	// Send WakeTrigger as first turn in the new thread (symmetric with CC tmux first input)
-	if err := adapter.SendMessage(ctx, launchcmd.WakeTrigger()); err != nil {
+	if err := adapter.SendMessage(ctx, launchcmd.WakeTriggerForRuntime(runtime.Codex)); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("codex send context trigger: %v", err)}
 	}
 

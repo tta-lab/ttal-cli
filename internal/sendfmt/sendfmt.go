@@ -23,7 +23,7 @@ type Envelope struct {
 
 // Format renders the envelope as:
 //
-//	[<channel> from:<sender>] [<hh:mm:ss>] <body>
+//	<- <source> [<hh:mm:ss>] <body>
 //
 //	<i>--- Reply with:
 //	cat <<'EOF' | ttal send --to <alias>
@@ -38,8 +38,8 @@ func Format(env Envelope) string {
 		now = nowFn()
 	}
 	var head []string
-	if env.Channel != "" && env.SenderName != "" {
-		head = append(head, fmt.Sprintf("[%s from:%s]", env.Channel, env.SenderName))
+	if header := attributionHeader(env.Channel, env.SenderName); header != "" {
+		head = append(head, header)
 	}
 	head = append(head, fmt.Sprintf("[%s]", now.Format("15:04:05")))
 	head = append(head, env.Body)
@@ -48,6 +48,16 @@ func Format(env Envelope) string {
 		out += "\n\n" + ReplyHintForRuntime(env.ReplyAlias, env.ReplyRuntime)
 	}
 	return out
+}
+
+func attributionHeader(channel, senderName string) string {
+	if channel == "" || senderName == "" {
+		return ""
+	}
+	if channel == "agent" {
+		return "<- " + senderName
+	}
+	return fmt.Sprintf("<- %s:%s", senderName, channel)
 }
 
 // ReplyHintForRuntime returns the reply-hint footer for the recipient runtime.

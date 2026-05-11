@@ -20,7 +20,14 @@ const ContextTrigger = "Run `ttal context` for your briefing, then act on the ro
 
 // WakeTriggerFn is the injectable implementation of WakeTrigger.
 // Tests set this to return ContextTrigger to avoid shelling out.
-var WakeTriggerFn = wakeTriggerImpl
+var WakeTriggerFn = func() string {
+	return wakeTriggerImpl("")
+}
+
+// WakeTriggerForRuntimeFn is the injectable implementation of
+// WakeTriggerForRuntime. Tests set this to return ContextTrigger to avoid
+// shelling out.
+var WakeTriggerForRuntimeFn = wakeTriggerImpl
 
 // WakeTrigger shell-calls ttal wake to produce the formatted trigger prompt
 // (with owner, timestamp, and reply hint). Falls back to ContextTrigger if
@@ -29,13 +36,23 @@ func WakeTrigger() string {
 	return WakeTriggerFn()
 }
 
-func wakeTriggerImpl() string {
+// WakeTriggerForRuntime shell-calls ttal wake with TTAL_RUNTIME set so the
+// reply hint matches the runtime that will receive the trigger.
+func WakeTriggerForRuntime(rt runtime.Runtime) string {
+	return WakeTriggerForRuntimeFn(rt)
+}
+
+func wakeTriggerImpl(rt runtime.Runtime) string {
 	binary, err := os.Executable()
 	if err != nil {
 		log.Printf("[launchcmd] os.Executable() failed: %v", err)
 		return ContextTrigger
 	}
-	out, err := exec.Command(binary, "wake").Output()
+	cmd := exec.Command(binary, "wake")
+	if rt != "" {
+		cmd.Env = append(os.Environ(), "TTAL_RUNTIME="+string(rt))
+	}
+	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("[launchcmd] ttal wake failed: %v", err)
 		return ContextTrigger
@@ -102,11 +119,12 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 
 // BuildAgentLaunchCommand builds the gatekeeper-wrapped shell command for
 // launching an agent at the given runtime. Returns an error for runtimes not
-// supported in the worker plane (Codex). Trigger is resolved via WakeTrigger() —
-// every spawned worker-plane agent runs `ttal wake` as its wake-orientation.
+// supported in the worker plane (Codex). Trigger is resolved via
+// WakeTriggerForRuntime so `ttal wake` can render runtime-specific reply hints.
 //
-// smallModel is forwarded to lenos when rt is Lenos (worker-plane agents use
-// the small-tier model); ignored for Claude Code.
+// smallModel is forwarded to lenos when rt is Lenos; ignored for Claude Code.
+// Callers choose this per role: normal worker spawns pass true, reviewers pass
+// false.
 // readOnly is forwarded to lenos via --readonly when rt is Lenos; ignored for
 // other runtimes (Claude Code has no equivalent sandbox-enforced flag).
 // resumeSessionID, if non-empty, is forwarded as --resume (CC) or --session (Lenos).

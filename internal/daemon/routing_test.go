@@ -935,7 +935,7 @@ func TestDispatchSystemSend_RoutesToAgent(t *testing.T) {
 	captured, restore := setupAgentDeliverToAgentCapture()
 	t.Cleanup(restore)
 
-	// dispatchSystemSend uses bare message (no [agent from:] prefix).
+	// dispatchSystemSend uses bare message (no attribution prefix).
 	req := SendRequest{From: "system", To: "kestrel", Message: "system alert"}
 	if err := dispatchSystemSend(cfg, nil, nil, nil, req); err != nil {
 		t.Fatalf("dispatchSystemSend: %v", err)

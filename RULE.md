@@ -64,8 +64,8 @@ ttal go <uuid>    # advance task through pipeline stage (route to agent or spawn
 ## Messaging Context
 
 Messages arrive as prefixed text in your input:
-- `[telegram from:<name>]` — from a human via Telegram
-- `[agent from:<name>]` — from another agent
+- `<- <name>:telegram` — from a human via Telegram
+- `<- <agent-name>` — from another agent
 
 Use the same explicit command for humans and agents. The recipient is a human alias, agent name, or worker address (`<uuid>:<agent-name>`). Session output is not delivered passively.
 

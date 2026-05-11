@@ -70,7 +70,7 @@ The bot handles transcription, file downloads, and delivers everything to your a
 Inbound messages arrive in the agent's session with prefixes:
 
 ```text
-[telegram from:<human-alias>] [14:32:05] Can you check the deployment?
+<- <human-alias>:telegram [14:32:05] Can you check the deployment?
 
 <i>--- Reply with:
 cat <<'EOF' | ttal send --to <human-alias>
@@ -99,7 +99,7 @@ EOF
 When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient sees attribution:
 
 ```text
-[agent from:<agent-name>] [14:32:05] The design plan is ready for review.
+<- <agent-name> [14:32:05] The design plan is ready for review.
 
 <i>--- Reply with:
 cat <<'EOF' | ttal send --to <agent-name>
