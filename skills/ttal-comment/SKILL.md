@@ -10,7 +10,7 @@ ttal comment is the unified tool for posting and reading review comments in the 
 
 ## Commands
 
-```bash
+```
 ttal comment list                    # list all comments on current task
 ttal comment get <round>             # read specific review round
 ttal comment add "message"           # post comment (short messages)
@@ -18,7 +18,7 @@ ttal comment lgtm                    # approve current pipeline stage (reviewers
 ```
 
 For multiline reports, use heredoc:
-```bash
+```
 cat <<'REVIEW' | ttal comment add
 ## Review Findings
 **Verdict:** Ready
@@ -34,7 +34,7 @@ When receiving a review comment with findings:
 3. Fix what needs fixing
 4. Post a structured triage update:
 
-```bash
+```
 cat <<'TRIAGE' | ttal comment add
 ## Triage Report (Round N)
 

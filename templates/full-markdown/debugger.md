@@ -44,8 +44,6 @@ When assigned a bug task:
 
 Send humans and agents through the same explicit path:
 
-```bash
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
-```

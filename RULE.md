@@ -2,7 +2,7 @@
 
 ## Messaging
 
-```bash
+```
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
@@ -15,7 +15,7 @@ EOF
 
 ## Tasks
 
-```bash
+```
 ttal task add --project <alias> "description" --tag <tag> --priority M --annotate "note"
 ttal task get                           # rich prompt with inlined docs
 ttal task find <keyword>                # search pending tasks
@@ -25,7 +25,7 @@ ttal go <uuid>                    # advance task through pipeline stage
 
 ## PRs
 
-```bash
+```
 ttal pr create "title" --body "description"
 ttal pr modify --title "new" --body "new"
 ttal go <uuid>                          # squash merge
@@ -34,7 +34,7 @@ ttal go <uuid>                          # squash merge
 
 ## Projects & Agents
 
-```bash
+```
 ttal project list                      # all active projects with paths
 ttal agent info <name>                 # agent details
 ttal agent list                        # all agents
@@ -44,7 +44,7 @@ ttal agent list                        # all agents
 
 ## Sync
 
-```bash
+```
 ttal sync                    # deploy subagents + config TOMLs to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
@@ -57,7 +57,7 @@ Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They 
 
 Route tasks to the right agent instead of doing everything yourself.
 
-```bash
+```
 ttal go <uuid>    # advance task through pipeline stage (route to agent or spawn worker)
 ```
 
@@ -69,7 +69,7 @@ Messages arrive as prefixed text in your input:
 
 Use the same explicit command for humans and agents. The recipient is a human alias, agent name, or worker address (`<uuid>:<agent-name>`). Session output is not delivered passively.
 
-```bash
+```
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
@@ -82,7 +82,7 @@ EOF
 
 ## Git
 
-```bash
+```
 ttal push                              # push current branch to origin via daemon
 ttal push --force                      # force-with-lease; blocked on main/master
 ttal tag v1.0.0 --project <alias>      # create + push git tag via daemon

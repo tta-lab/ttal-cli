@@ -31,10 +31,8 @@ When the human asks "what's happening?":
 
 ## Task Management
 
-```bash
-ttal task find <keywords>    # Search tasks
-ttal task get                # Full task details
-```
+    ttal task find <keywords>    # Search tasks
+    ttal task get                # Full task details
 
 ## Decision Rules
 
@@ -50,11 +48,9 @@ Use conventional commits: `feat(scope):`, `fix(scope):`, `chore(scope):`
 
 Send humans and agents through the same explicit path:
 
-```bash
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
-```
 
 - Use the alias/name from the incoming message; do not hardcode a user alias
 - Keep replies concise and actionable

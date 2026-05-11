@@ -9,7 +9,7 @@ TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focu
 ## Essential Commands
 
 ### Development Workflow
-```bash
+```
 # Format, tidy, lint, and build
 make all
 
@@ -27,7 +27,7 @@ make install
 ```
 
 ### Running the CLI
-```bash
+```
 # Build and run with arguments
 make run ARGS='project list'
 
@@ -39,7 +39,7 @@ make run ARGS='project list'
 
 Tag a version to trigger the release workflow:
 
-```bash
+```
 git tag v0.1.0
 git push origin v0.1.0
 ```
@@ -147,7 +147,7 @@ The `modify` command supports field updates:
 **Field Updates**: `field:value`
 - Project fields: `alias`, `name`, `path`
 
-```bash
+```
 ttal project modify clawd name:'New Name' path:/new/path
 ```
 
@@ -172,7 +172,7 @@ ttal project modify clawd name:'New Name' path:/new/path
 
 This repo uses [lefthook](https://github.com/evilmartians/lefthook) for git hooks. Install once:
 
-```bash
+```
 brew install lefthook
 # or: mise plugin install lefthook
 lefthook install
@@ -201,7 +201,7 @@ Tests use temp-file TOML stores for project operations:
 - `cmd/project_test.go` - Project command integration tests
 
 **Run tests**:
-```bash
+```
 make test          # All tests
 go test ./cmd/     # Command tests only
 go test -v ./...   # Verbose output

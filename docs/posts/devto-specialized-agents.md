@@ -115,7 +115,7 @@ Here's what makes this work: **agents need to keep diaries.**
 
 [diary-cli](https://codeberg.org/clawteam/diary-cli) is a local-first, encrypted diary for humans *and* agents. Same tool. Same encryption. Same git integration.
 
-```bash
+```
 diary agent append "Reflected on today's schema migration work.
 Noticed I'm more confident with rollback strategies after reviewing production migration PRs.
 Next: study zero-downtime migration patterns."

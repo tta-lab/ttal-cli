@@ -25,7 +25,7 @@ Owner verdict:
               Worker fixes, owner re-reviews
 ```
 
-```bash
+```
 cat <<'EOF' | ttal send --to <uuid>:coder
 blockers
 EOF
@@ -35,7 +35,7 @@ EOF
 
 From a worker session:
 
-```bash
+```
 # Create PR with title
 ttal pr create "feat: add user authentication"
 
@@ -80,7 +80,7 @@ The reviewer is advisory only — they post a verdict but never merge:
 
 ## Merging
 
-```bash
+```
 # Squash-merge the PR (branch deleted automatically)
 ttal go <uuid>
 ```
@@ -89,7 +89,7 @@ After merge, `ttal go <uuid>` drops a cleanup request file to `~/.ttal/cleanup/`
 
 ## Managing comments
 
-```bash
+```
 # Add a comment
 ttal comment add "Fixed the auth timeout. Ready for re-review."
 

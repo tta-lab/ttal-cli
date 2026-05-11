@@ -62,7 +62,7 @@ Format: `[ASK] <summary> — <question for Neil>`
 
 Address all `[FIX]` items directly in the plan using flicknote:
 
-```bash
+```
 # Update a section
 echo "updated content" | flicknote modify <id> --section <section-id>
 
@@ -108,13 +108,13 @@ For each fix:
 
 Post the triage report via `ttal comment add` so the plan-reviewer can see it and trigger re-review:
 
-```bash
+```
 ttal comment add "<triage report markdown>"
 ```
 
 Or via heredoc for multiline:
 
-```bash
+```
 cat <<'TRIAGE' | ttal comment add
 ## Plan Triage: <plan title>
 ...

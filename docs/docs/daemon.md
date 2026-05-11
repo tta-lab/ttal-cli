@@ -14,7 +14,7 @@ The daemon is a long-running process that acts as the communication hub for your
 
 ## Installation
 
-```bash
+```
 # Install launchd plist and create config template
 ttal daemon install
 
@@ -29,13 +29,13 @@ ttal daemon uninstall
 
 For debugging, run the daemon in the foreground:
 
-```bash
+```
 ttal daemon
 ```
 
 ## Logs
 
-```bash
+```
 tail -f ~/.ttal/daemon.log
 ```
 
@@ -51,7 +51,7 @@ Routes:
 - `GET /health` — health check
 
 Debug with curl:
-```bash
+```
 curl --unix-socket ~/.ttal/daemon.sock http://daemon/health
 curl --unix-socket ~/.ttal/daemon.sock http://daemon/status
 ```

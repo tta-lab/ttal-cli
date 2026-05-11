@@ -9,7 +9,7 @@ The typical ttal workflow follows three phases: research the problem, design the
 
 ### 1. Research
 
-```bash
+```
 ttal go <uuid>
 ```
 
@@ -21,7 +21,7 @@ Research: ~/clawd/docs/research/2026-03-01-auth-options.md
 
 ### 2. Design
 
-```bash
+```
 ttal go <uuid>
 ```
 
@@ -33,7 +33,7 @@ Plan: ~/clawd/docs/plans/2026-03-01-auth-implementation.md
 
 ### 3. Execute
 
-```bash
+```
 ttal go <uuid>
 ```
 
@@ -55,13 +55,13 @@ The worker's prompt automatically includes the full content of those files. No m
 
 ### Step 1: Create the task
 
-```bash
+```
 ttal task add --project myapp "Add JWT authentication to the API"
 ```
 
 ### Step 2: Research
 
-```bash
+```
 ttal go <uuid>
 ```
 
@@ -69,7 +69,7 @@ Athena (the research agent) investigates JWT libraries, compares options, and wr
 
 ### Step 3: Design
 
-```bash
+```
 ttal go <uuid>
 ```
 
@@ -77,7 +77,7 @@ Inke (the design agent) reads Athena's research, writes an implementation plan w
 
 ### Step 4: Execute
 
-```bash
+```
 ttal go <uuid>
 ```
 

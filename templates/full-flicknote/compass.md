@@ -32,10 +32,8 @@ When a new task comes in:
 
 ## Task Management
 
-```bash
-ttal task find <keywords>    # Search
-ttal worker list             # Active workers
-```
+    ttal task find <keywords>    # Search
+    ttal worker list             # Active workers
 
 ## Decision Rules
 
@@ -47,10 +45,8 @@ ttal worker list             # Active workers
 
 Send humans and agents through the same explicit path:
 
-```bash
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
-```
 
 - Keep messages short and actionable

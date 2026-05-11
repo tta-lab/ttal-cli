@@ -54,7 +54,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 4. Create GitHub/Forgejo release with binaries
 
 **Usage:**
-```bash
+```
 git tag v1.0.0
 git push origin v1.0.0
 # Release is automatically created
@@ -113,7 +113,7 @@ Tests are CI-only and do not run in git hooks.
 
 ### New Targets
 
-```bash
+```
 # CI - runs all checks (same as CI workflow)
 make ci
 
@@ -129,7 +129,7 @@ make lint
 
 ### Complete Target List
 
-```bash
+```
 make build         # Build the ttal binary
 make install       # Install ttal to GOPATH/bin
 make run           # Run ttal (usage: make run ARGS='project list')
@@ -174,7 +174,7 @@ Added exclusions for:
 
 ### Standard Flow
 
-```bash
+```
 # 1. Install lefthook hooks (one-time)
 brew install lefthook && lefthook install
 

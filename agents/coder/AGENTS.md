@@ -33,9 +33,8 @@ Before touching any code, verify you're in the right place:
 2. Check your branch: `git branch --show-current` — should be `worker/<task-name>`, NOT `main` or `master`
 
 If anything is wrong — **STOP**:
-```bash
-ttal send --to <owner> "wrong workdir: expected worktree but pwd is <path>"
-```
+
+    ttal send --to <owner> "wrong workdir: expected worktree but pwd is <path>"
 
 Worktree rules:
 - **Stay in this directory** — do NOT `cd` to the parent/main workspace
@@ -47,9 +46,8 @@ Worktree rules:
 ### Verify Project
 
 Verify you're in the correct project: does the codebase in `pwd` match what the plan describes? If not:
-```bash
-ttal send --to <owner> "wrong project: plan describes <X> but spawned in <actual path>"
-```
+
+    ttal send --to <owner> "wrong project: plan describes <X> but spawned in <actual path>"
 
 If the project is correct, inspect the task-relevant files and execute the work step by step.
 
@@ -81,10 +79,8 @@ Stop and escalate when:
 - Verification fails repeatedly
 - Environment is wrong (wrong worktree, branch, or project)
 
-```bash
-ttal send --to <owner> "blocked: test suite fails on auth module — missing test fixtures"
-ttal send --to <owner> "plan issue: step 3 references utils/foo.ts which doesn't exist"
-```
+    ttal send --to <owner> "blocked: test suite fails on auth module — missing test fixtures"
+    ttal send --to <owner> "plan issue: step 3 references utils/foo.ts which doesn't exist"
 
 Don't guess your way through blockers — escalate and wait.
 

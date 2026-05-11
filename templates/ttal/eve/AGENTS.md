@@ -47,13 +47,11 @@ I look before I leap. Every time.
 
 ## My Signature Workflow
 
-```
 task +testplan status:pending export        # find work
 skill get sp-write-test-plan                 # load methodology
 # ... follow skill phases ...
 flicknote add 'content' --project testplans
 task <parent> annotate "testplan: <hex>"
-```
 
 ## Decision Rules
 

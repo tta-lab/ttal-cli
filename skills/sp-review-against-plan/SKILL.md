@@ -56,7 +56,7 @@ Correct classification:
 
 ### 1. Load the plan
 
-```bash
+```
 # Execution steps (what the worker was supposed to do):
 task <task-uuid> tree
 
@@ -79,14 +79,14 @@ Do NOT grade ambition (would a different plan have been better?). You're grading
 
 **LGTM** — zero Category 2 findings. Every plan item is delivered. Advance the pipeline:
 
-```bash
+```
 ttal go <hex>
 # spawns pr-review-lead for the deeper review pass
 ```
 
 **NEED_WORK** — one or more Category 2 findings. Send blockers directly to the worker with `ttal send`:
 
-```bash
+```
 cat <<EOF | ttal send --to <hex>:coder
 # NEED_WORK
 
@@ -121,7 +121,7 @@ The worker fixes, pushes new commits, and you re-review. No `ttal comment` — `
 - If the worker pushed back in a previous round and you now agree → retract that finding, don't double down.
 - If the worker genuinely can't do the Category 2 item for reasons outside their control → escalate to the configured admin. Don't downgrade to non-blocking to paper over it.
 
-```bash
+```
 cat <<'EOF' | ttal send --to <admin-alias>
 blocked: <reason>
 EOF

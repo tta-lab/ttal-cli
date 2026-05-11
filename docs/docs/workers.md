@@ -9,7 +9,7 @@ Workers are isolated coding sessions. Each worker runs in its own tmux session w
 
 The primary way to spawn a worker is through task execution:
 
-```bash
+```
 ttal go <uuid>
 ```
 
@@ -19,7 +19,7 @@ This reads the task's metadata (project path, branch name) and spawns a worker w
 
 For more control:
 
-```bash
+```
 ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 ```
 
@@ -44,7 +44,7 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 
 ## Listing workers
 
-```bash
+```
 ttal worker list
 ```
 
@@ -54,7 +54,7 @@ Shows all active worker sessions with their task UUIDs and branches.
 
 ### Smart close
 
-```bash
+```
 ttal worker close <session-name>
 ```
 
@@ -64,7 +64,7 @@ Smart close checks the PR status:
 
 ### Force close
 
-```bash
+```
 ttal worker close <session-name> --force
 ```
 
@@ -89,7 +89,7 @@ After a PR is merged, the typical cleanup flow is:
 
 ### Processing pending cleanups
 
-```bash
+```
 ttal worker cleanup
 ```
 
@@ -99,7 +99,7 @@ This processes any pending cleanup request files that the daemon hasn't handled 
 
 Spawn a worker to implement a task:
 
-```bash
+```
 ttal go <uuid>
 ```
 

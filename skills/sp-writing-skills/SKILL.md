@@ -223,7 +223,7 @@ Use words Claude would search for:
 **Techniques:**
 
 **Move details to tool help:**
-```bash
+```
 # ❌ BAD: Document all flags in SKILL.md
 search-conversations supports --text, --both, --after DATE, --before DATE, --limit N
 
@@ -260,7 +260,7 @@ You: Searching...
 - Don't include multiple examples of same pattern
 
 **Verification:**
-```bash
+```
 wc -w skills/path/SKILL.md
 # getting-started workflows: aim for <150 each
 # Other frequently-loaded: aim for <200 total
@@ -317,7 +317,7 @@ digraph when_flowchart {
 See @graphviz-conventions.dot for graphviz style rules.
 
 **Visualizing for your human partner:** Use `render-graphs.js` in this directory to render a skill's flowcharts to SVG:
-```bash
+```
 ./render-graphs.js ../some-skill           # Each diagram separately
 ./render-graphs.js ../some-skill --combine # All diagrams in one SVG
 ```

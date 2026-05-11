@@ -9,7 +9,7 @@ ttal provides bidirectional messaging between humans and agents via Telegram/Mat
 
 `ttal send --to <recipient>` is the one explicit send path for humans and agents. The recipient can be a human alias, an agent name, or a worker address (`<uuid>:<agent-name>`). JSONL session output is private workspace — nothing auto-forwards.
 
-```bash
+```
 # Human alias
 cat <<'EOF' | ttal send --to <human-alias>
 done, PR ready
@@ -28,7 +28,7 @@ EOF
 ```
 
 Long content: write to flicknote first, then send a one-line pointer:
-```bash
+```
 flicknote add "detailed findings..." --project notes
 cat <<'EOF' | ttal send --to <recipient>
 wrote note: flicknote abc12345
@@ -44,7 +44,7 @@ The daemon polls each agent's Telegram bot and Matrix rooms for incoming message
 1. Create a Telegram bot via [@BotFather](https://t.me/BotFather)
 2. Add the bot token to `~/.config/ttal/.env`:
 
-```bash
+```
 KESTREL_BOT_TOKEN=123456:ABC...
 ```
 
@@ -86,7 +86,7 @@ When Claude Code uses `AskUserQuestion`, ttal displays it in Telegram with inlin
 
 Agents use the same `ttal send` shape for other agents:
 
-```bash
+```
 cat <<'EOF' | ttal send --to <agent-name>
 Can you research the auth library options?
 EOF

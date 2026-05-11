@@ -13,7 +13,7 @@ description: Task management using taskwarrior with smart notifications and mark
 
 ### Creating Tasks
 
-```bash
+```
 # Simple task
 task add "Fix bug in worker status" project:clawd +bugfix priority:H due:tomorrow
 
@@ -30,7 +30,7 @@ task 1 annotate "Design: ~/clawd/docs/plans/2026-01-31-oauth-refresh-design.md"
 
 ### Managing Tasks
 
-```bash
+```
 # Mark as active
 task 1 start
 
@@ -49,7 +49,7 @@ task 1 modify wait:1week
 
 ### Viewing Tasks
 
-```bash
+```
 # List all pending tasks
 task
 
@@ -80,12 +80,12 @@ task 1
 ### Three Task Patterns
 
 **Pattern 1: Simple tasks** - No extra context needed
-```bash
+```
 task add "Update README" project:clawd priority:L
 ```
 
 **Pattern 2: Tasks with inline notes** - Context fits in annotations
-```bash
+```
 task add "Investigate performance issue" project:clawd +bugfix priority:H
 task 1 annotate "User reports slow response on large datasets
 Check database query optimization
@@ -93,7 +93,7 @@ Profile API endpoint response times"
 ```
 
 **Pattern 3: Tasks with external docs** - Complex planning needs separate file
-```bash
+```
 task add "Design new feature architecture" project:clawd +design priority:H
 task 1 annotate "Design: ~/clawd/docs/plans/2026-01-31-feature-design.md"
 # View with: ~/clawd/skills/taskwarrior/scripts/task-open.py 1
@@ -126,7 +126,7 @@ Taskwarrior has built-in dependency tracking. **Never duplicate dependency infor
 
 ### ✅ Correct Way
 
-```bash
+```
 # Create tasks
 task add "Fix authentication bug" project:clawd +bugfix priority:H
 task add "Deploy authentication fix" project:clawd +deployment priority:H
@@ -139,7 +139,7 @@ task 2 annotate "Need staging environment approval before production deploy"
 ```
 
 **Result:**
-```bash
+```
 task list
 # Shows:
 # 1 [H] Fix authentication bug
@@ -150,7 +150,7 @@ Task 2 automatically shows as BLOCKED until task 1 is completed.
 
 ### ❌ Wrong Way - Don't Do This!
 
-```bash
+```
 # BAD: Putting dependency info in annotations
 task 2 annotate "Blocked by: Task #1 (authentication bug fix)"
 task 2 modify depends:1  # Already tracked by taskwarrior!
@@ -164,7 +164,7 @@ task 2 modify depends:1  # Already tracked by taskwarrior!
 
 ### Managing Dependencies
 
-```bash
+```
 # View dependencies
 task 2 info  # Shows "Depends on: 1"
 
@@ -182,7 +182,7 @@ task +BLOCKED list
 
 When working on a task, you can easily create a follow-up task that depends on the current one:
 
-```bash
+```
 # From within a worker session:
 create_dependent_task.py "Add timeouts to subprocess calls" --priority H
 ```
@@ -194,7 +194,7 @@ create_dependent_task.py "Add timeouts to subprocess calls" --priority H
 - New task is BLOCKED until current task completes
 
 **Example workflow:**
-```bash
+```
 # Current task: "Migrate to taskwarrior UDAs"
 create_dependent_task.py "Add error handling improvements" --priority M
 
@@ -211,7 +211,7 @@ This is much easier than manually querying the current task UUID and setting dep
 
 ### When Task Completes
 
-```bash
+```
 task 1 done
 # Task 2 automatically becomes unblocked!
 ```
@@ -228,14 +228,14 @@ task 1 done
 - Dependencies use UUIDs internally (safe to use `depends:1`)
 
 **❌ Bad - Don't do this:**
-```bash
+```
 task add "Implement feature" project:clawd
 task 5 annotate "Depends on task #3 to be completed first"
 # ↑ If task 3 completes, it might become task 2, reference breaks!
 ```
 
 **✅ Good - Use depends: field:**
-```bash
+```
 task add "Implement feature" project:clawd
 task 5 modify depends:3  # Uses UUID internally, safe!
 task 5 annotate "Requires authentication system to be in place"
@@ -303,7 +303,7 @@ DUE TODAY:
 
 Taskwarrior has excellent built-in reporting:
 
-```bash
+```
 # Task status breakdown by project
 task summary
 
@@ -330,7 +330,7 @@ task history
 ### Planning Workflow
 
 1. Create task with external doc reference:
-   ```bash
+   ```
    task add "Implement new feature" project:clawd +implementation priority:H
    task annotate "Design: ~/clawd/docs/plans/2026-01-31-feature-design.md"
    ```
@@ -338,18 +338,18 @@ task history
 2. Write detailed design in markdown file
 
 3. View complete context:
-   ```bash
+   ```
    ~/clawd/skills/taskwarrior/scripts/task-open.py 1
    ```
 
 4. Start implementation:
-   ```bash
+   ```
    task 1 start
    ```
 
 ### Weekly Review
 
-```bash
+```
 # See what was completed this week
 task end.after:today-7days completed
 
@@ -367,7 +367,7 @@ task burndown.weekly
 **Purpose:** Smart notification checker for cron
 
 **Usage:**
-```bash
+```
 ~/clawd/skills/taskwarrior/scripts/check-urgent-tasks.py
 ```
 
@@ -376,7 +376,7 @@ task burndown.weekly
 - 1: Urgent tasks exist
 
 **Run manually:**
-```bash
+```
 # Test notifications
 ~/clawd/skills/taskwarrior/scripts/check-urgent-tasks.py
 echo $?  # Check exit code
@@ -387,12 +387,12 @@ echo $?  # Check exit code
 **Purpose:** Display task with inline markdown documentation
 
 **Usage:**
-```bash
+```
 ~/clawd/skills/taskwarrior/scripts/task-open.py <task_id>
 ```
 
 **Example:**
-```bash
+```
 # View task #5 with all referenced documentation
 ~/clawd/skills/taskwarrior/scripts/task-open.py 5
 ```
@@ -405,7 +405,7 @@ Notifications run automatically twice daily:
 - **Afternoon check**: 2:00 PM Asia/Taipei
 
 Setup commands (already configured):
-```bash
+```
 openclaw cron add "Morning task check" \
   --cron "0 8 * * *" \
   --session main \
@@ -447,14 +447,14 @@ Taskwarrior works out of the box, no custom configuration needed.
 ### Projects and Tags
 
 **Projects** are hierarchical:
-```bash
+```
 task add "..." project:clawd
 task add "..." project:clawd.skills
 task add "..." project:guion.flicknote
 ```
 
 **Tags** are flat and combinable:
-```bash
+```
 task add "..." +bugfix +urgent
 task add "..." +research +documentation
 ```
@@ -469,7 +469,7 @@ task add "..." +research +documentation
 ### Due Dates
 
 Be realistic with due dates:
-```bash
+```
 due:today
 due:tomorrow
 due:3days
@@ -482,14 +482,14 @@ Overuse of due dates leads to "due date fatigue". Only set when genuinely time-s
 ### Annotations
 
 Multiline annotations work:
-```bash
+```
 task 1 annotate "First line
 Second line
 Third line"
 ```
 
 Link to files for complex context:
-```bash
+```
 task 1 annotate "Design: ~/clawd/docs/plans/2026-01-31-design.md"
 ```
 
@@ -523,7 +523,7 @@ When you start a task (`task N start`), a worker is automatically spawned. When 
 
 The hooks are managed by **chezmoi** in `~/clawd/dotfiles/dot_task/hooks/`:
 
-```bash
+```
 # Hooks are automatically applied by chezmoi
 chezmoi apply ~/.task/hooks
 
@@ -543,7 +543,7 @@ task diagnostics | grep hooks
 
 The `worker-lifecycle` OpenClaw agent handles spawn decisions and cleanup.
 
-```bash
+```
 # Check agent exists
 openclaw agents list
 # Should show: worker-lifecycle
@@ -559,7 +559,7 @@ Agent configuration in `~/.openclaw/agents/worker-lifecycle/SOUL.md` defines:
 
 ### Monitoring
 
-```bash
+```
 # View hook logs
 tail -f ~/.task/hooks.log
 
@@ -569,7 +569,7 @@ cat ~/.clawd-zellij/worker-tracking.json
 
 ### Example Workflow
 
-```bash
+```
 # Start a task
 task add "Implement user profile" project:clawd +feature priority:H
 task 1 start
@@ -597,7 +597,7 @@ task 1 done
 ### Troubleshooting
 
 **Hook not triggering:**
-```bash
+```
 # Check hook is executable
 ls -l ~/.task/hooks/on-modify-worker-lifecycle
 # Should show: -rwxr-xr-x
@@ -610,7 +610,7 @@ tail ~/.task/hooks.log
 ```
 
 **Worker not spawning:**
-```bash
+```
 # Check agent exists
 openclaw agents list
 
@@ -622,7 +622,7 @@ openclaw agent --message "Test" --agent worker-lifecycle --deliver
 ```
 
 **Cleanup not working:**
-```bash
+```
 # Check ttal is installed
 which ttal
 
@@ -651,7 +651,7 @@ See [Taskwarrior documentation](https://taskwarrior.org/docs/) for details.
 
 ### Task command not found
 
-```bash
+```
 # Check if taskwarrior is installed
 which task
 
@@ -661,13 +661,13 @@ brew install task
 
 ### Python scripts not executable
 
-```bash
+```
 chmod +x ~/clawd/skills/taskwarrior/scripts/*.py
 ```
 
 ### Cron jobs not triggering
 
-```bash
+```
 # List configured cron jobs
 openclaw cron list
 

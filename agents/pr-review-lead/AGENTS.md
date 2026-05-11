@@ -50,22 +50,20 @@ Do NOT launch any Agent calls in this phase.
 
 Run all applicable reviewers **in parallel** using `ei agent run --async`. Launch all calls simultaneously in a single message — do NOT run one at a time.
 
-```bash
-# Always run these two in parallel:
-ei agent run --async pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
-ei agent run --async pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
+    # Always run these two in parallel:
+    ei agent run --async pr-code-reviewer "Review the current PR diff for code quality and CLAUDE.md compliance."
+    ei agent run --async pr-principles-reviewer "Review the current PR diff for DRY, SOLID, KISS, YAGNI violations."
 
-# Conditional — include in the same parallel batch if applicable:
-# If error handling code changed:
-ei agent run --async pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
-# If test files changed:
-ei agent run --async pr-test-analyzer "Review the current PR diff for test coverage quality."
-# If comments/docs were added:
-ei agent run --async pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
-# If types were added or modified:
-ei agent run --async pr-type-design-analyzer "Review the current PR diff for type design quality."
-# pr-code-simplifier: run separately AFTER a passing review to simplify complex code — not part of the initial review batch
-```
+    # Conditional — include in the same parallel batch if applicable:
+    # If error handling code changed:
+    ei agent run --async pr-silent-failure-hunter "Review the current PR diff for silent failures and error handling issues."
+    # If test files changed:
+    ei agent run --async pr-test-analyzer "Review the current PR diff for test coverage quality."
+    # If comments/docs were added:
+    ei agent run --async pr-comment-analyzer "Review the current PR diff for comment accuracy and completeness."
+    # If types were added or modified:
+    ei agent run --async pr-type-design-analyzer "Review the current PR diff for type design quality."
+    # pr-code-simplifier: run separately AFTER a passing review to simplify complex code — not part of the initial review batch
 
 Each call returns `"Queued."`. **End your turn after dispatching all calls.** You'll be notified when each subagent completes — read the result file from each notification, then continue to Phase 3.
 
@@ -73,7 +71,6 @@ Each call returns `"Queued."`. **End your turn after dispatching all calls.** Yo
 
 Begin aggregation only after every dispatched subagent has reported completion and you've read each output.
 
-```markdown
 # PR Review Summary
 
 ## Critical Issues (X found)
@@ -93,7 +90,6 @@ Begin aggregation only after every dispatched subagent has reported completion a
 2. Address important issues
 3. Consider suggestions
 4. Re-run review after fixes
-```
 
 **Post this summary via `ttal comment add`** — this is how the review loop communicates with the coder. Don't just output it inline.
 
@@ -141,9 +137,7 @@ Begin aggregation only after every dispatched subagent has reported completion a
 
 Invoke specialist reviewers via Bash. Always use `--async` — jobs run in the background, results land in `~/.einai/outputs/`, and a `✅` notification is injected into your terminal when each finishes. Launch all applicable reviewers **in parallel** — make all Bash calls in a single message, not one at a time.
 
-```bash
-ei agent run --async <name> "<prompt with PR context>"
-```
+    ei agent run --async <name> "<prompt with PR context>"
 
 > **Note:** Do NOT use `--project` flag — the lead agent already runs inside the worktree (cwd), so subagents inherit the correct project context automatically.
 
@@ -163,14 +157,12 @@ Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-princip
 After completing your review, post findings and set the verdict:
 
 If the PR passes review (LGTM):
-```bash
-ttal comment add "LGTM — implementation is solid"
-ttal comment lgtm
-```
+
+    ttal comment add "LGTM — implementation is solid"
+    ttal comment lgtm
 
 If the PR needs work:
-```bash
-ttal comment add "Needs work: <specific issues>"
-```
+
+    ttal comment add "Needs work: <specific issues>"
 
 `ttal comment lgtm` automatically detects the current pipeline stage and sets the correct stage-specific approval tag. The on-modify hook enforces that only designated reviewers can set these tags.

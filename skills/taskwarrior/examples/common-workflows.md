@@ -4,7 +4,7 @@ Practical examples of everyday task management patterns.
 
 ## Quick Reference
 
-```bash
+```
 # Create task
 task add "Description" project:name +tag priority:H due:tomorrow
 
@@ -35,7 +35,7 @@ task burndown.weekly          # Burndown chart
 
 **Situation:** User reports a bug that needs immediate attention.
 
-```bash
+```
 # 1. Create high-priority bug task
 task add "Fix authentication timeout on large datasets" \
   project:guion.api \
@@ -65,7 +65,7 @@ task 42 done
 
 **Situation:** Planning and implementing a complex new feature.
 
-```bash
+```
 # 1. Create design task with external documentation
 task add "Design real-time notification system" \
   project:guion \
@@ -103,7 +103,7 @@ task 16 done
 
 **Situation:** Need to research a technology before making a decision.
 
-```bash
+```
 # 1. Create research task
 task add "Research Effect.ts error handling patterns" \
   project:clawd \
@@ -142,7 +142,7 @@ task 17 done
 
 **Situation:** Start of week, planning what to work on.
 
-```bash
+```
 # 1. Review all pending tasks
 task
 
@@ -168,7 +168,7 @@ task 12 start
 
 **Situation:** Preparing for daily standup meeting.
 
-```bash
+```
 # 1. What I completed yesterday
 task end.after:yesterday completed
 
@@ -186,7 +186,7 @@ task status:pending priority:H
 
 **Situation:** Friday afternoon, reviewing the week's progress.
 
-```bash
+```
 # 1. See what was completed this week
 task end.after:today-7days completed
 
@@ -207,7 +207,7 @@ task 25 modify due:monday
 
 **Situation:** Need to switch between different projects.
 
-```bash
+```
 # 1. See all tasks for specific project
 task project:clawd
 
@@ -229,7 +229,7 @@ task 30 start
 
 **Situation:** Working on task A, urgent task B comes in.
 
-```bash
+```
 # Current: Working on task 10
 task 10 status:active
 
@@ -253,7 +253,7 @@ task 10 start
 
 **Situation:** Breaking down large task into subtasks.
 
-```bash
+```
 # Main task
 task add "Migrate authentication to OAuth 2.1" \
   project:guion \
@@ -289,7 +289,7 @@ task 51 annotate "Subtasks: #52, #53, #54, #55"
 
 **Situation:** Task requires detailed documentation.
 
-```bash
+```
 # 1. Create task with doc reference
 task add "Implement caching layer" \
   project:guion \
@@ -314,7 +314,7 @@ task 60 annotate "Reference: ~/clawd/docs/architecture/caching-strategy.md"
 
 **Situation:** Want to check notifications outside scheduled times.
 
-```bash
+```
 # Run notification script manually
 ~/clawd/skills/taskwarrior/scripts/check-urgent-tasks.py
 
@@ -335,7 +335,7 @@ fi
 
 **Situation:** Removing tasks that are no longer relevant.
 
-```bash
+```
 # 1. Review old pending tasks (created >30 days ago)
 task entry.before:today-30days status:pending
 
@@ -351,7 +351,7 @@ task status:waiting
 
 ## Advanced Filtering
 
-```bash
+```
 # Combine multiple filters
 task project:guion priority:H due.before:3days
 
@@ -375,7 +375,7 @@ task '(priority:H or due.before:tomorrow)' status:pending -waiting
 
 ### Bulk Operations
 
-```bash
+```
 # Modify multiple tasks at once
 task +old-tag modify +new-tag
 task project:old modify project:new
@@ -384,7 +384,7 @@ task priority:L modify priority:M
 
 ### Counting Tasks
 
-```bash
+```
 # Count tasks matching criteria
 task +bugfix count
 task project:clawd status:pending count
@@ -392,7 +392,7 @@ task project:clawd status:pending count
 
 ### Sorting and Limiting
 
-```bash
+```
 # Sort by urgency (taskwarrior's calculated field)
 task list urgency
 
@@ -402,7 +402,7 @@ task limit:5 urgency
 
 ### Exporting Data
 
-```bash
+```
 # Export all tasks as JSON
 task export > tasks-backup.json
 
@@ -414,7 +414,7 @@ task project:clawd export > clawd-tasks.json
 
 ### Git Commit Workflow
 
-```bash
+```
 # Reference task in commit message
 git commit -m "fix(auth): resolve timeout issue
 
@@ -428,7 +428,7 @@ task 42 done
 
 ### Note-Taking Integration
 
-```bash
+```
 # Link to external notes
 task 80 annotate "Notes: ~/Documents/meeting-notes-2026-01-31.md"
 
@@ -438,7 +438,7 @@ task 80 annotate "Notes: ~/Documents/meeting-notes-2026-01-31.md"
 
 ### Calendar Integration
 
-```bash
+```
 # Tasks with due dates can sync to calendar
 # (Requires third-party tools like taskwarrior-calendar-sync)
 
@@ -451,14 +451,14 @@ task calendar
 ### Over-using Due Dates
 
 ❌ Bad:
-```bash
+```
 task add "Learn new framework" due:tomorrow
 task add "Read documentation" due:tomorrow
 task add "Write example code" due:tomorrow
 ```
 
 ✅ Good:
-```bash
+```
 task add "Learn new framework" priority:M
 task add "Implement feature X with new framework" due:friday priority:H
 ```
@@ -468,14 +468,14 @@ task add "Implement feature X with new framework" due:friday priority:H
 ### Vague Descriptions
 
 ❌ Bad:
-```bash
+```
 task add "Fix bug"
 task add "Update code"
 task add "Check thing"
 ```
 
 ✅ Good:
-```bash
+```
 task add "Fix authentication timeout on large datasets" +bugfix
 task add "Update OAuth library to v2.1" +upgrade
 task add "Check database query performance" +investigation
@@ -484,13 +484,13 @@ task add "Check database query performance" +investigation
 ### Putting Everything in Annotations
 
 ❌ Bad:
-```bash
+```
 task add "Task" project:x
 task 1 annotate "This task is about implementing the new authentication system which will replace the old one. The new system will use OAuth 2.1 instead of OAuth 2.0. We need to update the library first, then implement PKCE flow, then migrate existing sessions. The deadline is next Friday because the client needs it urgently. Also need to update documentation and write tests."
 ```
 
 ✅ Good:
-```bash
+```
 task add "Migrate authentication to OAuth 2.1" project:x priority:H due:friday
 task 1 annotate "Design: ~/clawd/docs/plans/auth-migration.md"
 # Put detailed planning in the markdown file
@@ -499,7 +499,7 @@ task 1 annotate "Design: ~/clawd/docs/plans/auth-migration.md"
 ### Not Using Projects
 
 ❌ Bad:
-```bash
+```
 task add "Fix login bug" +bug
 task add "Implement user profile" +feature
 task add "Update database schema" +refactor
@@ -507,7 +507,7 @@ task add "Update database schema" +refactor
 ```
 
 ✅ Good:
-```bash
+```
 task add "Fix login bug" project:guion.auth +bug
 task add "Implement user profile" project:guion.user +feature
 task add "Update database schema" project:guion.db +refactor

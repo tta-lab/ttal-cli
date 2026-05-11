@@ -27,9 +27,9 @@ You create a task
 ## Quick start
 
 1. Set up your workspace:
-   ```bash
-   ttal onboard --scaffold basic
-   ```
+
+       ttal onboard --scaffold basic
+
 2. Edit `~/.config/ttal/config.toml`:
    - Set `chat_id` (your Telegram chat ID — get from @userinfobot)
    - Set `team_path` (path to your workspace, e.g. `~/ttal-workspace`)
@@ -47,10 +47,8 @@ You create a task
 
 Create a new directory with a `CLAUDE.md` file, then register it:
 
-```bash
-mkdir researcher
-# Write researcher/CLAUDE.md
-ttal agent add researcher +core
-```
+    mkdir researcher
+    # Write researcher/CLAUDE.md
+    ttal agent add researcher +core
 
 Consider upgrading to the `full-markdown` or `full-flicknote` scaffold when you need more agents.

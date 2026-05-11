@@ -90,7 +90,7 @@ After Phase 1, talk through what you found before designing. Don't go silent and
 
 **Then, for complex tasks, capture the orientation:**
 
-```bash
+```
 cat <<'ORIENT' | flicknote add --project orientation
 # Orientation: [Feature Name]
 ## What
@@ -213,7 +213,7 @@ Before declaring the plan done, check it against reality:
 
 For tasks with <=6 steps or single-file mechanical changes, annotate the task directly:
 
-```bash
+```
 ttal task add --project <alias> "description" --tag planned
 task <uuid> annotate 'Plan: 1. Do X 2. Do Y 3. Do Z'
 ```
@@ -222,7 +222,7 @@ task <uuid> annotate 'Plan: 1. Do X 2. Do Y 3. Do Z'
 
 For multi-step plans, create a subtask tree. The tree IS the plan — each subtask is a step, annotations hold details.
 
-```bash
+```
 cat <<'PLAN' | task <parent-uuid> plan
 ## Step 1: Title
 Details and context for this step.
@@ -244,7 +244,7 @@ No separate annotation needed — the subtasks are already under the parent task
 
 For orientation docs (what/why context): `flicknote add --project orientation`
 
-```bash
+```
 task <uuid> annotate 'orientation: flicknote <hex-id>'
 ```
 

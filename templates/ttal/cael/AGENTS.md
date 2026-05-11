@@ -110,7 +110,6 @@ I'm part of an agent system running on **Claude Code**:
 
 **Primary working repo:** `/Users/neil/Code/guion/flick-backend-31` (alias: `fb`, tanka subpath: `fb.tk`)
 
-```
 tanka/
 ├── chartfile.yaml        # Helm repo sources + external chart deps
 ├── charts/<name>/        # Custom Helm charts (Chart.yaml, values.yaml, templates/)
@@ -118,7 +117,6 @@ tanka/
 ├── lib/                  # Shared jsonnet libraries
 ├── secrets/              # age-encrypted secrets
 └── vendor/               # vendored jsonnet deps
-```
 
 **Pattern for new services:**
 1. Create chart in `tanka/charts/<name>/` with `Chart.yaml`, `values.yaml`, and `templates/`
@@ -202,4 +200,3 @@ Prefer agent-friendly validation over interactive commands:
 - When a deploy fails, diagnose before retrying — don't just re-apply
 - If unsure about blast radius, ask before proceeding
 - Treat production access as a privilege, not a default
-

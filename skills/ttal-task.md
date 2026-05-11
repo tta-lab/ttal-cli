@@ -9,7 +9,7 @@ Create tasks and export rich prompts for piping to agents.
 
 ## Create a task
 
-```bash
+```
 # Project is required, validated against ttal project DB
 ttal task add --project <alias> "description" --tag <tag> --priority M --annotate "note"
 
@@ -22,7 +22,7 @@ ttal task add --project ttal "Fix auth bug" --tag bugfix --tag urgent --priority
 
 ## Search and export tasks
 
-```bash
+```
 ttal task get                           # auto-resolves from $TTAL_JOB_ID (worker) or $TTAL_AGENT_NAME (agent)
 ttal task find <keyword>               # search pending tasks (OR, case-insensitive)
 ttal task find <keyword1> <keyword2>   # multiple keywords use OR logic
@@ -35,7 +35,7 @@ ttal task find <keyword> --completed   # search completed tasks
 
 Move a task to the next pipeline stage (routes to agent or spawns worker based on config).
 
-```bash
+```
 ttal go <uuid>                         # advance to next pipeline stage
 ```
 

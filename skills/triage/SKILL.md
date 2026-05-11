@@ -85,7 +85,7 @@ Post a status update to the PR with what's done, what's remaining, and what you'
 
 ### Gather Evidence
 
-```bash
+```
 # View comments
 ttal comment list
 
@@ -100,7 +100,7 @@ For each item, verify against code: search for implementations, check tests, con
 
 Post your triage update to trigger re-review:
 
-```bash
+```
 ttal comment add "<markdown>"
 ```
 

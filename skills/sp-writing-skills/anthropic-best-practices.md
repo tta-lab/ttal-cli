@@ -117,7 +117,7 @@ Example:
 
 Run exactly this script:
 
-```bash
+```
 python scripts/migrate.py --verify --backup
 ```
 
@@ -322,7 +322,7 @@ bigquery-skill/
 
 Find specific metrics using grep:
 
-```bash
+```
 grep -i "revenue" reference/finance.md
 grep -i "pipeline" reference/sales.md
 grep -i "api usage" reference/product.md
@@ -934,7 +934,7 @@ For most utility scripts, execution is preferred because it's more reliable and 
 
 **analyze_form.py**: Extract all form fields from PDF
 
-```bash
+```
 python scripts/analyze_form.py input.pdf > fields.json
 ```
 
@@ -948,14 +948,14 @@ Output format:
 
 **validate_boxes.py**: Check for overlapping bounding boxes
 
-```bash
+```
 python scripts/validate_boxes.py fields.json
 # Returns: "OK" or lists conflicts
 ```
 
 **fill_form.py**: Apply field values to PDF
 
-```bash
+```
 python scripts/fill_form.py input.pdf fields.json output.pdf
 ```
 ````
@@ -968,7 +968,7 @@ When inputs can be rendered as images, have Claude analyze them:
 ## Form layout analysis
 
 1. Convert PDF to images:
-   ```bash
+   ```
    python scripts/pdf_to_images.py form.pdf
    ```
 

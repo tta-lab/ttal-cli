@@ -9,14 +9,14 @@ CLI-first image manipulation using ImageMagick (raster) and vtracer (raster-to-v
 
 ## Prerequisites
 
-```bash
+```
 # Check if installed
 which magick && echo "imagemagick OK" || echo "need: brew install imagemagick"
 which vtracer && echo "vtracer OK" || echo "need: cargo install vtracer"
 ```
 
 Install if missing:
-```bash
+```
 brew install imagemagick    # raster image editing
 cargo install vtracer       # raster-to-vector conversion (Rust)
 ```
@@ -26,7 +26,7 @@ cargo install vtracer       # raster-to-vector conversion (Rust)
 ### Simple flat icon (single/few colors)
 Best for logos, icons, flat illustrations:
 
-```bash
+```
 vtracer --input input.png --output output.svg \
   --colormode color \
   --filter_speckle 10 \
@@ -39,7 +39,7 @@ vtracer --input input.png --output output.svg \
 ### High-detail image
 For complex images, increase precision:
 
-```bash
+```
 vtracer --input input.png --output output.svg \
   --colormode color \
   --filter_speckle 4 \
@@ -51,7 +51,7 @@ vtracer --input input.png --output output.svg \
 ### Black-and-white / monochrome
 For line art, text, or single-color designs:
 
-```bash
+```
 vtracer --input input.png --output output.svg --colormode bw
 ```
 
@@ -65,7 +65,7 @@ vtracer --input input.png --output output.svg --colormode bw
 ### Remove watermark / overlay
 Paint over a region with a solid color (e.g. matching background):
 
-```bash
+```
 # Get image dimensions first
 magick identify input.png
 
@@ -74,7 +74,7 @@ magick input.png -fill "#0F0F0F" -draw "rectangle 1180,1180 1280,1280" output.pn
 ```
 
 ### Resize
-```bash
+```
 # Resize to specific width, maintain aspect ratio
 magick input.png -resize 512x output.png
 
@@ -86,7 +86,7 @@ magick input.png -resize 512x512\> output.png
 ```
 
 ### Crop
-```bash
+```
 # Crop to 500x500 from top-left
 magick input.png -crop 500x500+0+0 output.png
 
@@ -95,19 +95,19 @@ magick input.png -gravity center -crop 500x500+0+0 output.png
 ```
 
 ### Format conversion
-```bash
+```
 magick input.png output.jpg
 magick input.jpg output.webp
 magick input.png -quality 85 output.jpg
 ```
 
 ### Trim whitespace / transparent borders
-```bash
+```
 magick input.png -trim +repage output.png
 ```
 
 ### Threshold (prepare for BW tracing)
-```bash
+```
 magick input.png -threshold 50% output.pbm
 ```
 
@@ -116,7 +116,7 @@ magick input.png -threshold 50% output.pbm
 ### Clean image then convert to SVG
 When source image has watermarks, logos, or artifacts:
 
-```bash
+```
 # 1. Check dimensions
 magick identify input.jpg
 
@@ -133,7 +133,7 @@ ls -la output.svg
 ```
 
 ### Create favicon from logo
-```bash
+```
 # Resize to favicon sizes
 magick logo.png -resize 32x32 favicon-32.png
 magick logo.png -resize 16x16 favicon-16.png
