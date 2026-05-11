@@ -7,21 +7,21 @@ ttal provides bidirectional messaging between humans and agents via Telegram/Mat
 
 ## Outbound: any recipient
 
-`ttal send --to {recipient}` is the one explicit send path for humans and agents. The recipient can be a human alias, an agent name, or a worker address (`{uuid}:{agent}`). JSONL session output is private workspace — nothing auto-forwards.
+`ttal send --to <recipient>` is the one explicit send path for humans and agents. The recipient can be a human alias, an agent name, or a worker address (`<uuid>:<agent-name>`). JSONL session output is private workspace — nothing auto-forwards.
 
 ```
 # Human alias
-cat <<'EOF' | ttal send --to {human-alias}
+cat <<'EOF' | ttal send --to <human-alias>
 done, PR ready
 EOF
 
 # Agent name
-cat <<'EOF' | ttal send --to {agent}
+cat <<'EOF' | ttal send --to <agent-name>
 Can you research the auth library options?
 EOF
 
 # Worker address
-cat <<'EOF' | ttal send --to {uuid}:{agent}
+cat <<'EOF' | ttal send --to <uuid>:<agent-name>
 ## Status
 Review complete — 2 findings.
 EOF
@@ -30,7 +30,7 @@ EOF
 Long content: write to flicknote first, then send a one-line pointer:
 ```
 flicknote add "detailed findings..." --project notes
-cat <<'EOF' | ttal send --to {recipient}
+cat <<'EOF' | ttal send --to <recipient>
 wrote note: flicknote abc12345
 EOF
 ```
@@ -70,10 +70,10 @@ The bot handles transcription, file downloads, and delivers everything to your a
 Inbound messages arrive in the agent's session with prefixes:
 
 ```text
-<- {human-alias}:telegram [14:32:05] Can you check the deployment?
+<- <human-alias>:telegram [14:32:05] Can you check the deployment?
 
 <i>--- Reply with:
-cat <<'EOF' | ttal send --to {human-alias}
+cat <<'EOF' | ttal send --to <human-alias>
 your message
 EOF</i>
 ```
@@ -87,11 +87,11 @@ When Claude Code uses `AskUserQuestion`, ttal displays it in Telegram with inlin
 Agents use the same `ttal send` shape for other agents:
 
 ```
-cat <<'EOF' | ttal send --to {agent}
+cat <<'EOF' | ttal send --to <agent-name>
 Can you research the auth library options?
 EOF
 
-cat <<'EOF' | ttal send --to {agent}
+cat <<'EOF' | ttal send --to <agent-name>
 Task complete
 EOF
 ```
@@ -99,10 +99,10 @@ EOF
 When sent from an agent session (where `TTAL_AGENT_NAME` is set), the recipient sees attribution:
 
 ```text
-<- {agent} [14:32:05] The design plan is ready for review.
+<- <agent-name> [14:32:05] The design plan is ready for review.
 
 <i>--- Reply with:
-cat <<'EOF' | ttal send --to {agent}
+cat <<'EOF' | ttal send --to <agent-name>
 your message
 EOF</i>
 ```

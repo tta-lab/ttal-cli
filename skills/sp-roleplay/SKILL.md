@@ -16,7 +16,7 @@ This skill encodes that discipline. Five bug-types × five mitigations, applied 
 
 **Announce at start:** "I am using sp-roleplay to maintain narrative coherence across this scene."
 
-**First action:** Create the scratch file at your workspace (e.g. `templates/ttal/{agent}/roleplay-scratch.md`), copy the template from `scratch.template.md` in this skill directory, and fill in Phase 0 sections BEFORE writing the first in-scene turn.
+**First action:** Create the scratch file at your workspace (e.g. `templates/ttal/<agent>/roleplay-scratch.md`), copy the template from `scratch.template.md` in this skill directory, and fill in Phase 0 sections BEFORE writing the first in-scene turn.
 
 ## When to Use
 

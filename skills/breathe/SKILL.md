@@ -20,7 +20,7 @@ When your context window is getting heavy, use this to write a handoff to your d
 
 ## Steps
 
-1. **Write the handoff to your diary** via heredoc into `diary {agent} append`
+1. **Write the handoff to your diary** via heredoc into `diary <agent> append`
 2. **Call `ttal breathe`** (no arguments)
 3. **Stop** — the daemon will kill this session and restart you with a fresh context window
 
@@ -98,7 +98,7 @@ On next startup, your spawn trigger says to run `ttal context`.
 `ttal context` picks the right template and prints the bundle — pairing, role prompt with
 inlined skills, and task. No route file needed — taskwarrior state is the single source of truth.
 
-To skip: `ttal go {uuid} --no-breathe`
+To skip: `ttal go <uuid> --no-breathe`
 
 ## Unified Context Injection
 

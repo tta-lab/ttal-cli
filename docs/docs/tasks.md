@@ -33,7 +33,7 @@ Route tasks to specialized agents based on what needs to happen:
 
 ```
 # Advance to next pipeline stage (routes to agent or spawns worker)
-ttal go {uuid}
+ttal go <uuid>
 ```
 
 ### Configuring route targets
@@ -53,7 +53,7 @@ role: researcher
 ---
 ```
 
-Use `ttal go {uuid}` to route to any agent by name (role determines which prompt is used).
+Use `ttal go <uuid>` to route to any agent by name (role determines which prompt is used).
 
 
 ## Enrichment hooks

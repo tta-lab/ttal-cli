@@ -5,12 +5,12 @@ description: Send messages to humans, agents, or workers through ttal send.
 
 # ttal messaging
 
-`ttal send --to {recipient}` is the same command for humans, agents, and workers. The recipient is a human alias, agent name, or worker address (`{job-id}:<agent_name>`).
+`ttal send --to <recipient>` is the same command for humans, agents, and workers. The recipient is a human alias, agent name, or worker address (`<job_id>:<agent_name>`).
 
 ## Send
 
 ```
-cat <<'EOF' | ttal send --to {recipient}
+cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
 ```
@@ -18,11 +18,11 @@ EOF
 Examples:
 
 ```
-cat <<'EOF' | ttal send --to {human-alias}
+cat <<'EOF' | ttal send --to <human-alias>
 done, PR ready
 EOF
 
-cat <<'EOF' | ttal send --to {agent}
+cat <<'EOF' | ttal send --to <agent-name>
 can you review my auth module?
 EOF
 
@@ -33,7 +33,7 @@ EOF
 
 ## Worker Sessions
 
-Worker addresses use `job_id:agent_name` format. The daemon resolves the task owner's manager session (ttal-default-{owner}) and validates the exact agent-name window before routing. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
+Worker addresses use `job_id:agent_name` format. The daemon resolves the task owner's manager session (`ttal-default-{owner}`) and validates the exact agent-name window before routing. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
 
 ## Stdin (preferred: heredoc)
 

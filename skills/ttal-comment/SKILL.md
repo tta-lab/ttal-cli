@@ -50,12 +50,12 @@ cat <<'TRIAGE' | ttal comment add
 TRIAGE
 ```
 
-5. If no remaining blocking issues: run `ttal go {uuid}` to advance the pipeline
+5. If no remaining blocking issues: run `ttal go <uuid>` to advance the pipeline
 
 ## After LGTM
 
 When a reviewer posts LGTM with no remaining blocking issues:
-- Run `ttal go {uuid}` to advance the pipeline (reviewers use `ttal comment lgtm` which sets the tag automatically)
+- Run `ttal go <uuid>` to advance the pipeline (reviewers use `ttal comment lgtm` which sets the tag automatically)
 - You do NOT need to post anything — the pipeline advances on the lgtm tag
 
 ## Rules
@@ -63,4 +63,4 @@ When a reviewer posts LGTM with no remaining blocking issues:
 - Always post via `ttal comment add` — never output findings inline only
 - Use heredoc for any report longer than one line
 - Reviewers: always call `ttal comment lgtm` after approving — this sets the correct pipeline tag
-- Coders: after receiving LGTM, run `ttal go {uuid}` to finalize
+- Coders: after receiving LGTM, run `ttal go <uuid>` to finalize

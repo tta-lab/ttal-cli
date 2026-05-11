@@ -50,9 +50,9 @@ Results land in `~/.einai/outputs/`. Fold findings back into the plan. Do not na
 Apply everything from steps 1–3 directly to the task tree / flicknote / annotations. Silent persist work:
 
 ```
-task {uuid} plan
+task <uuid> plan
 flicknote modify <id>
-task {uuid} annotate '<note>'
+task <uuid> annotate '<note>'
 ```
 
 ### Step 5: Present the Summary  (→ human)
@@ -67,7 +67,7 @@ Keep it under ~200 words. No code blocks, no file paths, no step-by-step detail.
 
 ### Step 6: Request Review  (→ persist)
 
-Run `ttal go {uuid}` to route the task to the plan reviewer. No human-channel output — the command itself is the handoff.
+Run `ttal go <uuid>` to route the task to the plan reviewer. No human-channel output — the command itself is the handoff.
 
 ---
 
@@ -77,6 +77,6 @@ Run `ttal go {uuid}` to route the task to the plan reviewer. No human-channel ou
 - [ ] Only open questions hit human in step 2 — no reasoning or alternatives surfaced
 - [ ] Research dispatched async and folded into persist — no narrated findings to Neil
 - [ ] Human-channel summary ≤200 words with no execution detail or file paths
-- [ ] `ttal go {uuid}` ran cleanly in step 6
+- [ ] `ttal go <uuid>` ran cleanly in step 6
 
 > **Reminder:** If persist-bound content leaked to the human channel, you burned Neil's context window.

@@ -200,14 +200,14 @@ Each step is one action (2-5 minutes):
 **Small fixes (≤6 steps, single file or mechanical changes):** Use inline plans — annotate the task directly. No flicknote needed.
 
 ```
-task {uuid} annotate 'Fix (inline): Root cause: nil pointer in auth middleware. Fix: 1. Add nil check in middleware.go:42 2. Add test 3. Run tests'
+task <uuid> annotate 'Fix (inline): Root cause: nil pointer in auth middleware. Fix: 1. Add nil check in middleware.go:42 2. Add test 3. Run tests'
 ```
 
 **Large fixes (multi-file, needs diagnosis context, trade-off analysis):** Use flicknote — save full fix plan, annotate task with hex ID.
 
 ```
 flicknote add 'full fix plan content' --project fixes
-task {uuid} annotate 'Fix plan: flicknote <hex-id>'
+task <uuid> annotate 'Fix plan: flicknote <hex-id>'
 ```
 
 **Decision rule:** If the plan fits in 1-2 task annotations and a worker can execute it without ambiguity, inline it. If it needs headings, code examples, trade-off analysis, or context sections — use flicknote.

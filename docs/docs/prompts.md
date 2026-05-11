@@ -46,7 +46,7 @@ re_review = "Re-review scope: {{review-scope}}"
 
 `ttal context` picks one of two templates based on whether the agent has an `AGENTS.md` in the team path (manager) or not (worker). Each template supports three line types:
 
-- **`$ {cmd}`** — shell command, executed and replaced with its stdout (header: `--- {cmd} ---`)
+- **`$ <cmd>`** — shell command, executed and replaced with its stdout (header: `--- <cmd> ---`)
 - **Plain text** — passed through as-is
 
 Template vars `{{agent-name}}` and `{{team-name}}` are expanded before execution.
@@ -75,7 +75,7 @@ $ ttal pipeline prompt
 
 ### Skill References
 
-Skills are referenced via the `skill get` command in prompts. Use ``Execute `skill get {name}` `` literally to instruct the agent to fetch the skill:
+Skills are referenced via the `skill get` command in prompts. Use ``Execute `skill get <name>` `` literally to instruct the agent to fetch the skill:
 
 ```toml
 triage = """\
@@ -93,8 +93,8 @@ PR review posted. Read it, assess and fix issues.
 |-----|---------|-------------------|
 | `context_manager` | `ttal context` (manager agents) | `{{agent-name}}`, `{{team-name}}`, `$ cmd` |
 | `context_worker` | `ttal context` (worker/reviewer agents) | `{{agent-name}}`, `{{team-name}}`, `$ cmd` |
-| `designer` | `ttal go {uuid}` (agent with `role: designer`) | `{{task-id}}` |
-| `researcher` | `ttal go {uuid}` (agent with `role: researcher`) | `{{task-id}}` |
+| `designer` | `ttal go <uuid>` (agent with `role: designer`) | `{{task-id}}` |
+| `researcher` | `ttal go <uuid>` (agent with `role: researcher`) | `{{task-id}}` |
 | `coder` | `ttal go` (worker spawn, via `roles.toml`) | `{{task-id}}` |
 | `triage` | PR review → coder | `{{review-file}}` |
 | `review` | Reviewer initial prompt | `{{pr-number}}`, `{{pr-title}}`, `{{owner}}`, `{{repo}}`, `{{branch}}` |
@@ -121,13 +121,13 @@ Default: instructs the coder agent to implement the task using the plan from the
 
 ### `designer`
 
-Controls what gets sent when you run `ttal go {uuid}` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
+Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
 
 Default: asks the agent to write a plan document and annotate the task with its path.
 
 ### `researcher`
 
-Controls what gets sent when you run `ttal go {uuid}` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
+Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
 
 Default: asks the agent to research the topic and annotate the task with the findings path.
 
