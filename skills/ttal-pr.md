@@ -36,7 +36,7 @@ echo "new body" | ttal pr modify --pr-id 42
 
 ## Merge a PR (squash)
 
-Merging is handled automatically by `ttal go <uuid>` when `+lgtm` is set on the task.
+Merging is handled automatically by `ttal go {uuid}` when `+lgtm` is set on the task.
 The daemon squash-merges the PR and requests cleanup — no separate merge command needed.
 
 ## Comment on a task

@@ -17,23 +17,23 @@ Owner notified via ttal send
 Owner runs skill get sp-review-against-plan
     ↓
 Owner verdict:
-  LGTM      → ttal go <uuid>
+  LGTM      → ttal go {uuid}
               ↓
               pr-review-lead spawns for specialized review pass
-  NEED_WORK → send blockers to <uuid>:coder with ttal send
+  NEED_WORK → send blockers to {uuid}:coder with ttal send
               ↓
               Worker fixes, owner re-reviews
 ```
 
 ```
-cat <<'EOF' | ttal send --to <uuid>:coder
+cat <<'EOF' | ttal send --to {uuid}:coder
 blockers
 EOF
 ```
 
 ## Creating PRs
 
-From a worker window (ttal-default-<owner>:coder):
+From a worker window (ttal-default-{owner}:coder):
 
 ```
 # Create PR with title
@@ -54,11 +54,11 @@ The owner reviews using the `sp-review-against-plan` skill:
 - **In-scope + undone** 🔴 — **always blocking**, sends feedback to worker
 - **Cosmetic + no value** ⚪ — not mentioned
 
-LGTM advances the pipeline (`ttal go <uuid>`), which spawns the specialized reviewer pass. NEED_WORK sends blockers directly to the worker via `ttal send`.
+LGTM advances the pipeline (`ttal go {uuid}`), which spawns the specialized reviewer pass. NEED_WORK sends blockers directly to the worker via `ttal send`.
 
 ## Specialized review
 
-When the owner fires `ttal go <uuid>`, pr-review-lead spawns 6 specialized agents:
+When the owner fires `ttal go {uuid}`, pr-review-lead spawns 6 specialized agents:
 
 1. **Code reviewer** — general quality, style, best practices
 2. **Silent failure hunter** — catch blocks, error suppression, missing error handling
@@ -82,10 +82,10 @@ The reviewer is advisory only — they post a verdict but never merge:
 
 ```
 # Squash-merge the PR (branch deleted automatically)
-ttal go <uuid>
+ttal go {uuid}
 ```
 
-After merge, `ttal go <uuid>` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.
+After merge, `ttal go {uuid}` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.
 
 ## Managing comments
 

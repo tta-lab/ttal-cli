@@ -48,7 +48,7 @@ If the task touches multiple repos, stop and flag it: a single test plan must co
 BEFORE writing any test plan, understand what exists. Do not design tests in the abstract — read the implementation.
 
 1. **Read implementation files** — find and read the files and modules under test. Understand data flow, entry points, error paths, dependencies.
-2. **Read related task tree** — `task <uuid> tree` — understand what steps the implementation went through, what decisions were made.
+2. **Read related task tree** — `task {uuid} tree` — understand what steps the implementation went through, what decisions were made.
 3. **Read orientation flicknotes** — `flicknote find <keywords>` — search for orientation docs, design docs, research notes related to this domain. **For non-obvious choices visible in the implementation, search for Q-numbered decisions** (e.g., "Q1 RESOLVED", "Q3 decision" — orientation flicknotes often record locked design choices this way). The Q-numbered entry is where the rationale lives; without it, code can look arbitrary.
 4. **Read prior bugfix history** — `task +bugfix project:<alias> status:completed export` — extract descriptions of every past bug in this project.
 5. **Diff merged code against recent design plans.** If you found a design plan flicknote referencing a PR that's now merged, run `git log --oneline path/to/changed/files` and read the actual current code — divergences from the plan (stricter guards, reordered operations, additional defensive checks) are regression-trap candidates. Surface them in pass γ. The plan describes intent; the merged code is reality.
@@ -281,7 +281,7 @@ Example: cael's `transactionExpired` guard logs `INFO skip entitlement upsert: t
 
 ### Pod-restart vs merge gap
 
-`:latest` tag doesn't auto-rollout in Kubernetes. A merged PR's image won't reach the running pod until the deployment is restarted (`kubectl rollout restart deployment/<name>` or equivalent). Smoking against the wrong build looks like the fix worked when it didn't (or looks like the bug is still there when it isn't).
+`:latest` tag doesn't auto-rollout in Kubernetes. A merged PR's image won't reach the running pod until the deployment is restarted (`kubectl rollout restart deployment/{name}` or equivalent). Smoking against the wrong build looks like the fix worked when it didn't (or looks like the bug is still there when it isn't).
 
 **Practical pattern:** before smoking a fix, verify pod age vs PR merge time. If `kubectl get pod -o jsonpath='{.metadata.creationTimestamp}'` predates the merge commit, the new image isn't running. Surface to whoever owns the deploy step (the Merge ≠ Deploy rule).
 
@@ -322,7 +322,7 @@ Researchers (athena/quill) and fixers (lux/cael/kestrel) have specialized depth 
 
 If running a paired session with the human, consider a JSONL-driven HTML report as a living artifact. Each curl converts a row from NOT-RUN to PASS in real-time; pod-log evidence pastes into the actual column. Different from a write-once test plan flicknote — this is execution-phase tracking with progress visualization.
 
-**Practical pattern:** template at `templates/ttal/<agent>/test-report-<project>-<date>.html` (per-agent workspace, single self-contained file with embedded JSONL data + JS rendering). Don't conflate with the test plan flicknote — the flicknote is the methodology output, the HTML is the execution log.
+**Practical pattern:** template at `templates/ttal/{agent}/test-report-<project>-<date>.html` (per-agent workspace, single self-contained file with embedded JSONL data + JS rendering). Don't conflate with the test plan flicknote — the flicknote is the methodology output, the HTML is the execution log.
 
 ## Remember
 

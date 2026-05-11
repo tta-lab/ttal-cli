@@ -36,7 +36,7 @@ ttal task find <keyword> --completed   # search completed tasks
 Move a task to the next pipeline stage (routes to agent or spawns worker based on config).
 
 ```
-ttal go <uuid>                         # advance to next pipeline stage
+ttal go {uuid}                         # advance to next pipeline stage
 ```
 
 **When to use:**

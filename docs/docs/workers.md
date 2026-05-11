@@ -10,7 +10,7 @@ Workers are isolated coding sessions. Each worker runs in its own tmux session w
 The primary way to spawn a worker is through task execution:
 
 ```
-ttal go <uuid>
+ttal go {uuid}
 ```
 
 This reads the task's metadata (project path, branch name) and spawns a worker with the right context.
@@ -20,7 +20,7 @@ This reads the task's metadata (project path, branch name) and spawns a worker w
 For more control:
 
 ```
-ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
+ttal worker spawn --name fix-auth --project ~/code/myapp --task {uuid}
 ```
 
 #### Spawn flags
@@ -37,8 +37,8 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 
 ## What happens on spawn
 
-1. A new git branch is created: `worker/<name>`
-2. A git worktree is set up in `~/.ttal/worktrees/<name>`
+1. A new git branch is created: `worker/{name}`
+2. A git worktree is set up in `~/.ttal/worktrees/{name}`
 3. A tmux session is created with the coding runtime (Claude Code by default)
 4. The task prompt is sent to the agent, including any inlined plan/research docs from annotations
 
@@ -55,7 +55,7 @@ Shows all active worker targets (session:window format) with their task UUIDs an
 ### Smart close
 
 ```
-ttal worker close <session-name>
+ttal worker close {session-name}
 ```
 
 Smart close checks the PR status:
@@ -65,7 +65,7 @@ Smart close checks the PR status:
 ### Force close
 
 ```
-ttal worker close <session-name> --force
+ttal worker close {session-name} --force
 ```
 
 Force close dumps the session state and cleans up regardless of PR status.
@@ -82,7 +82,7 @@ Force close dumps the session state and cleans up regardless of PR status.
 
 After a PR is merged, the typical cleanup flow is:
 
-1. Run `ttal go <uuid>` from the worker window (e.g. in `ttal-default-<owner>:coder`)
+1. Run `ttal go {uuid}` from the worker window (e.g. in `ttal-default-{owner}:coder`)
 2. This drops a cleanup request file to `~/.ttal/cleanup/`
 3. The daemon picks it up via fsnotify
 4. Daemon runs: close tmux session → remove worktree → mark task done
@@ -100,7 +100,7 @@ This processes any pending cleanup request files that the daemon hasn't handled 
 Spawn a worker to implement a task:
 
 ```
-ttal go <uuid>
+ttal go {uuid}
 ```
 
 Without `--yes`, shows the project path and prompts for confirmation.

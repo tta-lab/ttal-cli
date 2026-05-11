@@ -42,7 +42,7 @@ If a task touches multiple projects/repos, the scope is too big for a single pla
 
 1. **Identify the repos involved** — list every repo the task would touch
 2. **Extract separate tasks** — one task per repo, each with its own clear goal
-3. **Set task dependencies** — use `task <uuid> modify depends:<other-uuid>` so phases execute in order (`ttal` doesn't expose `depends` — use taskwarrior directly for this)
+3. **Set task dependencies** — use `task {uuid} modify depends:<other-uuid>` so phases execute in order (`ttal` doesn't expose `depends` — use taskwarrior directly for this)
 4. **Write separate plans** — one plan per task, each scoped to its single repo
 5. **Link plans via `Depends on`** — reference the other plan/task in the header
 
@@ -104,7 +104,7 @@ What is this NOT doing? (Prevents scope creep during implementation.)
 ORIENT
 ```
 
-Annotate the task: `task <uuid> annotate "orientation: <flicknote-hex-id>"`
+Annotate the task: `task {uuid} annotate "orientation: <flicknote-hex-id>"`
 
 **When to skip the orientation doc:** Simple bug fixes, mechanical refactors, tasks where what/why is obvious from the description. If the task description already answers what/why/approach, skip the doc. The conversational checkpoint still happens.
 
@@ -163,7 +163,7 @@ When writing a flicknote orientation doc alongside the task tree, start with:
 
 ### Task Structure (task tree format)
 
-Each `##` heading becomes a subtask. Body text becomes the subtask's annotation. Workers see these via `task <uuid> tree` and mark each done on completion.
+Each `##` heading becomes a subtask. Body text becomes the subtask's annotation. Workers see these via `task {uuid} tree` and mark each done on completion.
 
 ```markdown
 ## Add validation layer
@@ -187,7 +187,7 @@ Step 3: Commit — `test(api): add validation integration tests`
 
 Each subtask is self-contained: files, steps, commit message. The worker executes them in order and marks each done with `task <subtask-uuid> done`.
 
-Subtasks execute in tree order — arrange them accordingly. For hard ordering constraints, use `task <uuid> modify depends:<other-uuid>`.
+Subtasks execute in tree order — arrange them accordingly. For hard ordering constraints, use `task {uuid} modify depends:<other-uuid>`.
 
 ### Bite-Sized Task Granularity
 
@@ -215,7 +215,7 @@ For tasks with <=6 steps or single-file mechanical changes, annotate the task di
 
 ```
 ttal task add --project <alias> "description" --tag planned
-task <uuid> annotate 'Plan: 1. Do X 2. Do Y 3. Do Z'
+task {uuid} annotate 'Plan: 1. Do X 2. Do Y 3. Do Z'
 ```
 
 ### Task Tree Plans (default for structured plans)
@@ -245,7 +245,7 @@ No separate annotation needed — the subtasks are already under the parent task
 For orientation docs (what/why context): `flicknote add --project orientation`
 
 ```
-task <uuid> annotate 'orientation: flicknote <hex-id>'
+task {uuid} annotate 'orientation: flicknote <hex-id>'
 ```
 
 **Decision rule:** If the plan fits in annotations → inline. If it's an ordered set of execution steps → task tree. If you need to capture what/why/trade-offs separately → flicknote orientation alongside a task tree.
@@ -255,7 +255,7 @@ task <uuid> annotate 'orientation: flicknote <hex-id>'
 Save the plan first:
 - Inline: annotate the task directly
 - Task tree: `cat plan.md | task <parent-uuid> plan`
-- Orientation: `flicknote add --project orientation`, then `task <uuid> annotate '<hex-id>'`
+- Orientation: `flicknote add --project orientation`, then `task {uuid} annotate '<hex-id>'`
 
 Then chain into the completion phase — it handles self-review, open questions, summary, and review handoff with proper output-channel partitioning:
 

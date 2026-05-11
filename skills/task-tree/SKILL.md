@@ -79,13 +79,13 @@ task <subtask-uuid> modify parent_id:
 
 ```
 # View the full subtask tree
-task <uuid> tree
+task {uuid} tree
 
 # View tree filtered by project
 task project:ttal tree
 
 # View task details including parent and children
-task <uuid> information
+task {uuid} information
 ```
 
 ## Completing Work
@@ -100,7 +100,7 @@ task <subtask-uuid> done
 
 ## Handoff to Workers
 
-Workers read their subtask tree to know what to do. The plan review process uses `task <uuid> tree` to review the plan structure. No separate annotation linking is needed — the subtasks are already under the parent task.
+Workers read their subtask tree to know what to do. The plan review process uses `task {uuid} tree` to review the plan structure. No separate annotation linking is needed — the subtasks are already under the parent task.
 
 ## Common Mistakes
 

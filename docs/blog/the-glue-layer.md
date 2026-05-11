@@ -66,7 +66,7 @@ The key components:
 |-----------|--------------|
 | **Daemon** | Long-running process; handles socket connections, Telegram, fsnotify watchers |
 | **on-add-ttal hook** | Fires when a task is created; enriches with project path and branch |
-| **Worker spawn** | `ttal go <uuid>` → tmux session + git worktree + coding agent |
+| **Worker spawn** | `ttal go {uuid}` → tmux session + git worktree + coding agent |
 | **Cleanup watcher** | Watches for worker completion; closes session, removes worktree, marks task done |
 | **ttal send** | Agent-to-agent messaging via daemon socket |
 
@@ -138,7 +138,7 @@ coding agent: reads task prompt, implements, creates PR
   ↓
 reviewer: posts verdict as PR comment
   ↓
-ttal go <uuid>: drops cleanup request to ~/.ttal/cleanup/
+ttal go {uuid}: drops cleanup request to ~/.ttal/cleanup/
   ↓
 daemon cleanup watcher: closes session, removes worktree, marks task done
   ↓

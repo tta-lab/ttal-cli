@@ -508,7 +508,7 @@ When you start a task (`task N start`), a worker is automatically spawned. When 
 2. Sends task context to `worker-lifecycle` agent
 3. Agent analyzes task and derives worker name/project
 4. Agent calls `ttal worker spawn`
-5. Task gets annotated with `Worker: <session-name>`
+5. Task gets annotated with `Worker: {session-name}`
 6. Telegram notification sent
 
 **Task Complete → Auto Cleanup:**

@@ -14,7 +14,7 @@ ttal agent list
 ## Get agent info
 
 ```
-ttal agent info <name>
+ttal agent info {name}
 ```
 
 Returns: name, path, voice, role, and description.
