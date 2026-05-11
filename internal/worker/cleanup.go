@@ -56,20 +56,23 @@ func CleanupDir() (string, error) {
 	return filepath.Join(config.DefaultDataDir(), cleanupDir), nil
 }
 
+// closeFn is the function used to close a worker. Package-level var for test injection.
+var closeFn = Close
+
 // ExecuteCleanup processes a parsed cleanup request: closes the worker, and
 // removes the request file. Returns error for callers that need it (CLI).
 // The force parameter controls whether worker.Close uses force mode.
 func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
 	// Prefer TaskUUID-based resolution (new-style), fall back to SessionID (legacy).
 	if req.TaskUUID != "" {
-		if _, err := Close(req.TaskUUID[:8], force); err != nil {
+		if _, err := closeFn(req.TaskUUID[:8], force); err != nil {
 			return fmt.Errorf("close failed for task %s: %w", req.TaskUUID, err)
 		}
 		return os.Remove(path)
 	}
 
 	if req.SessionID != "" {
-		if _, err := Close(req.SessionID, force); err != nil {
+		if _, err := closeFn(req.SessionID, force); err != nil {
 			return fmt.Errorf("close failed for session %s: %w", req.SessionID, err)
 		}
 		return os.Remove(path)

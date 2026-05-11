@@ -93,13 +93,23 @@ func scanForPRTasks(
 	mu.Unlock()
 }
 
+// Package-level function vars for test injection.
+var (
+	listTasksWithPRFn     = taskwarrior.ListTasksWithPR
+	parsePRIDFn           = taskwarrior.ParsePRID
+	resolveProjectPathFn  = project.ResolveProjectPath
+	detectProviderFn      = gitprovider.DetectProvider
+	resolveTmuxTargetFn   = worker.ResolveTmuxTarget
+	windowExistsPrWatchFn = tmux.WindowExists
+)
+
 func scanTeam(
 	frontends map[string]frontend.Frontend,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
-	tasks, err := taskwarrior.ListTasksWithPR()
+	tasks, err := listTasksWithPRFn()
 	if err != nil {
 		log.Printf("[prwatch] failed to list PR tasks for team %s: %v", teamName, err)
 		return nil // nil signals caller to skip pruning pass
@@ -117,17 +127,17 @@ func scanTeam(
 			continue
 		}
 
-		target, err := worker.ResolveTmuxTarget(&task)
+		target, err := resolveTmuxTargetFn(&task)
 		if err != nil {
 			log.Printf("[prwatch] task %s: cannot resolve tmux target: %v — skipping PR watch",
 				shortSHA(task.UUID), err)
 			continue
 		}
-		if !tmux.WindowExists(target.Session, target.Window) {
+		if !windowExistsPrWatchFn(target.Session, target.Window) {
 			continue
 		}
 
-		prInfo, err := taskwarrior.ParsePRID(task.PRID)
+		prInfo, err := parsePRIDFn(task.PRID)
 		if err != nil {
 			log.Printf("[prwatch] task %s has invalid pr_id %q: %v — skipping",
 				task.UUID, task.PRID, err)
@@ -136,13 +146,13 @@ func scanTeam(
 		prIndex := prInfo.Index
 
 		// Detect provider from project path
-		projectPath := project.ResolveProjectPath(task.Project)
+		projectPath := resolveProjectPathFn(task.Project)
 		if projectPath == "" {
 			log.Printf("[prwatch] task %s: project %q not found in projects.toml — skipping PR watch",
 				shortSHA(task.UUID), task.Project)
 			continue
 		}
-		info, err := gitprovider.DetectProvider(projectPath)
+		info, err := detectProviderFn(projectPath)
 		if err != nil {
 			log.Printf("[prwatch] cannot detect provider for task %s: %v",
 				shortSHA(task.UUID), err)

@@ -26,23 +26,6 @@ func TestResolveWorkerWindowName_FromTask(t *testing.T) {
 	}
 }
 
-func TestScanTeam_NoPRID_Skips(t *testing.T) {
-	task := taskwarrior.Task{
-		UUID:  "abc12345-0000-0000-0000-000000000000",
-		Owner: "astra",
-		Tags:  []string{"feature"},
-		PRID:  "",
-	}
-	// Task with no PR should not be picked up by ListTasksWithPR
-	result, err := worker.ResolveTmuxTarget(&task)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Session != "ttal-default-astra" {
-		t.Errorf("session = %q, want %q", result.Session, "ttal-default-astra")
-	}
-}
-
 func TestDeliverToWorkerSession(t *testing.T) {
 	target := prWatchTarget{
 		SessionName: "ttal-default-astra",

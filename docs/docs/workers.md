@@ -85,7 +85,7 @@ After a PR is merged, the typical cleanup flow is:
 1. Run `ttal go {uuid}` from the worker window (e.g. in `ttal-default-{owner}:coder`)
 2. This drops a cleanup request file to `~/.ttal/cleanup/`
 3. The daemon picks it up via fsnotify
-4. Daemon runs: close tmux session → remove worktree → mark task done
+4. Daemon runs: close worker window → remove worktree → mark task done
 
 ### Processing pending cleanups
 

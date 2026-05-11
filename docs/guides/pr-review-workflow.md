@@ -85,7 +85,7 @@ The reviewer is advisory only — they post a verdict but never merge:
 ttal go {uuid}
 ```
 
-After merge, `ttal go {uuid}` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close tmux session, remove worktree, mark task done.
+After merge, `ttal go {uuid}` drops a cleanup request file to `~/.ttal/cleanup/`. The daemon picks it up and handles the full lifecycle: close worker window, remove worktree, mark task done.
 
 ## Managing comments
 
