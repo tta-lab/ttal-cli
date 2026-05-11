@@ -33,7 +33,7 @@ EOF
 
 ## Creating PRs
 
-From a worker session:
+From a worker window (ttal-default-<owner>:coder):
 
 ```
 # Create PR with title

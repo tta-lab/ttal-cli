@@ -342,17 +342,26 @@ func dispatchToWorkerOrManager(
 	msgSvc *message.Service, sender, recipient string,
 	msg string, rt *runtime.Runtime,
 ) (string, bool, error) {
-	session, err := resolveWorker(jobID)
+	// Try new model first: resolve the worker window in the owner manager session.
+	// This validates that the exact agent-name window exists in ttal-default-<owner>.
+	session, err := resolveWorkerWindowTarget(jobID, agentName)
 	if err == nil {
 		return session, true, dispatchToWorkerImpl(msgSvc, session, agentName, message.CreateParams{
 			Sender: sender, Recipient: "worker:" + recipient, Content: msg,
 			Team: "default", Channel: message.ChannelCLI, Runtime: rt,
 		}, msg)
 	}
-	// Fall back to manager window — subagent results return to the task
-	// owner's session after the worker session is gone. dispatchToWorkerImpl is
-	// generic tmux send-keys delivery and works for both worker sessions
-	// and manager windows.
+
+	// Legacy fallback: try w-{uuid[:8]}-{slug} session.
+	session, err = resolveWorker(jobID)
+	if err == nil {
+		return session, true, dispatchToWorkerImpl(msgSvc, session, agentName, message.CreateParams{
+			Sender: sender, Recipient: "worker:" + recipient, Content: msg,
+			Team: "default", Channel: message.ChannelCLI, Runtime: rt,
+		}, msg)
+	}
+
+	// Fall back to manager window.
 	fallback, mgrErr := resolveManagerWindow(jobID, agentName, cfg)
 	if mgrErr != nil {
 		return "", false, fmt.Errorf("unknown agent or worker %s: worker: %w; manager: %w", recipient, err, mgrErr)
@@ -496,8 +505,24 @@ func resolveWorkerImpl(idPrefix string) (string, error) {
 	return "", fmt.Errorf("no worker session for %s", idPrefix)
 }
 
-// resolveWorkerWindowByTarget resolves a worker's owner-session window target.
-// Returns the owner manager session if the worker window exists, or an error.
+// resolveWorkerWindowTarget resolves a worker's owner-session window target,
+// validating that the exact agentName window exists in the task owner's session.
+// This is the primary resolver for worker addresses (hex:agent format).
+func resolveWorkerWindowTarget(jobID, agentName string) (string, error) {
+	task, err := exportTaskByHexIDFn(jobID, "pending")
+	if err != nil || task.Owner == "" {
+		return "", fmt.Errorf("task not found or no owner")
+	}
+
+	session := config.AgentSessionName(task.Owner)
+	if !tmux.WindowExists(session, agentName) {
+		return "", fmt.Errorf("window %q not found in session %q for task %s", agentName, session, jobID)
+	}
+	return session, nil
+}
+
+// resolveWorkerWindowByTarget resolves a worker's owner-session window target
+// from the task's pipeline-assigned worker agent name. Used by resolveWorkerImpl.
 func resolveWorkerWindowByTarget(hexID string) (string, error) {
 	task, err := exportTaskByHexIDFn(hexID, "pending")
 	if err != nil || task.Owner == "" {

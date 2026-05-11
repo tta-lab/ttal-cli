@@ -12,7 +12,8 @@ import (
 
 const cleanupDir = "cleanup"
 
-// CleanupRequest is written to ~/.ttal/cleanup/<session>.json by workers after merge.
+// CleanupRequest is written to ~/.ttal/cleanup/<taskUUID>.json by workers after merge.
+// Legacy requests use <sessionID>.json — both formats are handled by ExecuteCleanup.
 type CleanupRequest struct {
 	SessionID string    `json:"session_id"`
 	TaskUUID  string    `json:"task_uuid"`

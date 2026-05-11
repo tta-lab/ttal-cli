@@ -48,7 +48,7 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 ttal worker list
 ```
 
-Shows all active worker sessions with their task UUIDs and branches.
+Shows all active worker targets (session:window format) with their task UUIDs and branches.
 
 ## Closing a worker
 
@@ -82,7 +82,7 @@ Force close dumps the session state and cleans up regardless of PR status.
 
 After a PR is merged, the typical cleanup flow is:
 
-1. Run `ttal go <uuid>` from the worker session
+1. Run `ttal go <uuid>` from the worker window (e.g. in `ttal-default-<owner>:coder`)
 2. This drops a cleanup request file to `~/.ttal/cleanup/`
 3. The daemon picks it up via fsnotify
 4. Daemon runs: close tmux session → remove worktree → mark task done
