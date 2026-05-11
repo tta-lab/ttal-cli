@@ -57,7 +57,7 @@ func attributionHeader(channel, senderName string) string {
 	if channel == "agent" {
 		return "<- " + senderName
 	}
-	return fmt.Sprintf("<- %s:%s", channel, senderName)
+	return fmt.Sprintf("<- %s:%s", senderName, channel)
 }
 
 // ReplyHintForRuntime returns the reply-hint footer for the recipient runtime.

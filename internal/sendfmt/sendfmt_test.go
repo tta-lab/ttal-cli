@@ -42,7 +42,7 @@ EOF</i>`
 				Channel: "telegram", SenderName: "Neil",
 				Body: "hello", ReplyAlias: "neil", Now: fixed,
 			},
-			want: `<- telegram:Neil [14:32:05] hello` + "\n\n" + replyHintNeil,
+			want: `<- Neil:telegram [14:32:05] hello` + "\n\n" + replyHintNeil,
 		},
 		{
 			name: "matrix inbound — header + reply hint to admin",
@@ -50,7 +50,7 @@ EOF</i>`
 				Channel: "matrix", SenderName: "Neil",
 				Body: "hello", ReplyAlias: "neil", Now: fixed,
 			},
-			want: `<- matrix:Neil [14:32:05] hello` + "\n\n" + replyHintNeil,
+			want: `<- Neil:matrix [14:32:05] hello` + "\n\n" + replyHintNeil,
 		},
 		{
 			name: "header without reply hint — defensive shape, no current caller",

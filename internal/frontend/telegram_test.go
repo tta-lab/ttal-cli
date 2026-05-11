@@ -159,18 +159,18 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			text: "hello",
-			want: "<- telegram:testuser [14:32:05] hello\n\n" + neilReplyHint,
+			want: "<- testuser:telegram [14:32:05] hello\n\n" + neilReplyHint,
 		},
 		{
 			name: "no space not bash mode",
 			text: "!nospace",
-			want: "<- telegram:testuser [14:32:05] !nospace\n\n" + neilReplyHint,
+			want: "<- testuser:telegram [14:32:05] !nospace\n\n" + neilReplyHint,
 		},
 		{
 			// TrimSpace strips the trailing space, so "! " → "!" which is NOT bash mode.
 			name: "prefix only is not bash mode after trim",
 			text: "! ",
-			want: "<- telegram:testuser [14:32:05] !\n\n" + neilReplyHint,
+			want: "<- testuser:telegram [14:32:05] !\n\n" + neilReplyHint,
 		},
 		{
 			name:         "overrideText bash mode",
@@ -254,7 +254,7 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 		onMessage, nil,
 	)
 
-	if !strings.Contains(got, "<- telegram:neil [14:32:05] hello there") {
+	if !strings.Contains(got, "<- neil:telegram [14:32:05] hello there") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, neilReplyHint) {
@@ -302,7 +302,7 @@ func TestHandleInboundMessage_LenosAgentUsesNarrateHint(t *testing.T) {
 		onMessage, nil,
 	)
 
-	if !strings.Contains(got, "<- telegram:neil [14:32:05] hello there") {
+	if !strings.Contains(got, "<- neil:telegram [14:32:05] hello there") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, neilNarrateReplyHint) {

@@ -444,12 +444,12 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			body: "hello",
-			want: "<- matrix:neil [14:32:05] hello\n\n" + neilReplyHint,
+			want: "<- neil:matrix [14:32:05] hello\n\n" + neilReplyHint,
 		},
 		{
 			name: "no space not bash mode",
 			body: "!nospace",
-			want: "<- matrix:neil [14:32:05] !nospace\n\n" + neilReplyHint,
+			want: "<- neil:matrix [14:32:05] !nospace\n\n" + neilReplyHint,
 		},
 		{
 			name: "prefix only empty command",
@@ -494,7 +494,7 @@ func TestFormatMatrixInboundMessage_UsesCanonicalLayout(t *testing.T) {
 	}
 
 	got := fe.formatMatrixInboundMessage("alice", "[🎤 voice] hello")
-	want := "<- matrix:alice [14:32:05] [🎤 voice] hello\n\n" +
+	want := "<- alice:matrix [14:32:05] [🎤 voice] hello\n\n" +
 		`<i>--- Reply with:
 cat <<'EOF' | ttal send --to neil
 your message
@@ -570,7 +570,7 @@ func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
 
 	fe.deliverInboundMessage(context.Background(), "testagent", "hello neil")
 
-	if !strings.Contains(got, "<- matrix:neil [14:32:05] hello neil") {
+	if !strings.Contains(got, "<- neil:matrix [14:32:05] hello neil") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, neilReplyHint) {
@@ -606,7 +606,7 @@ func TestMatrixInbound_LenosAgentUsesNarrateHint(t *testing.T) {
 
 	fe.deliverInboundMessage(context.Background(), "testagent", "hello neil")
 
-	if !strings.Contains(got, "<- matrix:neil [14:32:05] hello neil") {
+	if !strings.Contains(got, "<- neil:matrix [14:32:05] hello neil") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, neilNarrateReplyHint) {

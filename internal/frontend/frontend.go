@@ -64,7 +64,7 @@ type Command struct {
 
 // InboundHandler is called when a message arrives from the human.
 // The frontend formats the message with the correct transport prefix before calling this.
-// e.g. "<- telegram:neil [12:34:56] hello" or "<- matrix:neil [12:34:56] hello".
+// e.g. "<- neil:telegram [12:34:56] hello" or "<- neil:matrix [12:34:56] hello".
 type InboundHandler func(teamName, agentName, text string)
 
 // TelegramConfig holds construction parameters for TelegramFrontend.

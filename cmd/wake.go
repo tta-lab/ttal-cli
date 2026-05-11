@@ -22,7 +22,7 @@ Manager plane: resolves owner from admin human alias.
 Worker plane: resolves owner from the task owner UDA (TTAL_JOB_ID).
 
 Output format:
-  <- telegram:<owner> [HH:MM:SS] Run ` + "`ttal context`" + ` for your briefing, then act on the role prompt.
+  <- <owner>:telegram [HH:MM:SS] Run ` + "`ttal context`" + ` for your briefing, then act on the role prompt.
 
   <i>--- Reply with:
   cat <<'EOF' | ttal send --to <owner>

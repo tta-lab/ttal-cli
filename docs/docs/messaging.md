@@ -70,7 +70,7 @@ The bot handles transcription, file downloads, and delivers everything to your a
 Inbound messages arrive in the agent's session with prefixes:
 
 ```text
-<- telegram:<human-alias> [14:32:05] Can you check the deployment?
+<- <human-alias>:telegram [14:32:05] Can you check the deployment?
 
 <i>--- Reply with:
 cat <<'EOF' | ttal send --to <human-alias>

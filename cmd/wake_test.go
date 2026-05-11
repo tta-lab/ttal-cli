@@ -41,7 +41,7 @@ func TestWakeCmd_ManagerPlane(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "<- telegram:neil [14:30:00]") {
+	if !strings.Contains(out, "<- neil:telegram [14:30:00]") {
 		t.Errorf("expected manager prefix in output, got: %q", out)
 	}
 	if !strings.Contains(out, "ttal send --to neil") {
@@ -74,7 +74,7 @@ func TestWakeCmd_WorkerPlane(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "<- telegram:kestrel [10:15:00]") {
+	if !strings.Contains(out, "<- kestrel:telegram [10:15:00]") {
 		t.Errorf("expected worker prefix in output, got: %q", out)
 	}
 	if !strings.Contains(out, "ttal send --to kestrel") {
@@ -99,7 +99,7 @@ func TestWakeCmd_FallbackToSystem(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "<- telegram:system [12:00:00]") {
+	if !strings.Contains(out, "<- system:telegram [12:00:00]") {
 		t.Errorf("expected system fallback prefix, got: %q", out)
 	}
 	if !strings.Contains(out, "ttal send --to system") {
@@ -137,7 +137,7 @@ func TestWakeCmd_OutputShape(t *testing.T) {
 	})
 
 	expectedLines := []string{
-		"<- telegram:neil [08:05:30] Run `ttal context` for your briefing, then act on the role prompt.",
+		"<- neil:telegram [08:05:30] Run `ttal context` for your briefing, then act on the role prompt.",
 		"<i>--- Reply with:",
 		"cat <<'EOF' | ttal send --to neil",
 		"your message",
@@ -179,7 +179,7 @@ func TestWakeCmd_LenosRuntimeUsesNarrateReplyHint(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "<- telegram:neil [09:15:00]") {
+	if !strings.Contains(out, "<- neil:telegram [09:15:00]") {
 		t.Errorf("expected manager prefix in output, got: %q", out)
 	}
 	if !strings.Contains(out, "narrate --to neil <<'EOF'") {
