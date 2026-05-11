@@ -1,3 +1,4 @@
+//nolint:goconst // test clarity prefers inline strings over constants
 package daemon
 
 import (
@@ -599,9 +600,8 @@ func TestResolveWorkerReviewerTarget(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	wantSession := "ttal-default-astra"
-	if session != wantSession {
-		t.Errorf("session = %q, want %q", session, wantSession)
+	if session != expectedSessionAstra {
+		t.Errorf("session = %q, want %q", session, expectedSessionAstra)
 	}
 
 	wantWorkDir := config.WorktreesRoot() + "/e9d4b7c1-ttal"

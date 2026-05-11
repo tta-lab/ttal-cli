@@ -1,3 +1,4 @@
+//nolint:goconst // test clarity prefers inline strings over constants
 package open
 
 import (
