@@ -69,7 +69,7 @@ func TestScanTeam_OwnerWorkerWindowStartsPolling(t *testing.T) {
 		}, nil
 	}
 	windowExistsPrWatchFn = func(session, window string) bool {
-		return session == "ttal-default-astra" && window == "coder"
+		return session == "ttal-default-astra" && window == "coder" //nolint:goconst
 	}
 	parsePRIDFn = func(prid string) (taskwarrior.PRIDInfo, error) {
 		return taskwarrior.PRIDInfo{Index: 123}, nil

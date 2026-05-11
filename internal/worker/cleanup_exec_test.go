@@ -1,3 +1,4 @@
+//nolint:dupl,goconst
 package worker
 
 import (
