@@ -1,3 +1,4 @@
+//nolint:goconst // test clarity prefers inline strings over constants
 package open
 
 import (
@@ -27,10 +28,10 @@ func TestSession_ManagerWindowFirst(t *testing.T) {
 		return &taskwarrior.Task{UUID: uuid, Owner: "astra", Tags: []string{"feature"}}, nil
 	}
 	windowExistsFn = func(session, window string) bool {
-		return session == "ttal-default-astra" && window == "coder"
+		return session == "ttal-default-astra" && window == "coder" //nolint:goconst
 	}
 	resolveTargetFn = func(task *taskwarrior.Task) (worker.TmuxTarget, error) {
-		return worker.TmuxTarget{Session: "ttal-default-astra", Window: "coder", WorkDir: "/tmp/wt"}, nil
+		return worker.TmuxTarget{Session: "ttal-default-astra", Window: "coder", WorkDir: "/tmp/wt"}, nil //nolint:goconst
 	}
 	attachWindowFn = func(session, window string) error {
 		attachWindowCalled = true
