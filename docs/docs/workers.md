@@ -3,7 +3,7 @@ title: Workers
 description: Worker lifecycle — spawn, work, cleanup
 ---
 
-Workers are isolated coding sessions. Each worker runs in its own tmux session with a dedicated git worktree, so multiple agents can work on different tasks in the same repository simultaneously.
+Workers are isolated coding sessions. Each worker runs in a named tmux window within the owner manager session (`ttal-default-{owner}:{agent}`) with a dedicated git worktree, so multiple agents can work on different tasks in the same repository simultaneously.
 
 ## Spawning a worker
 
@@ -31,7 +31,7 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task {uuid}
 | `--project` | required | Project directory path |
 | `--task` | required | Taskwarrior task UUID |
 | `--worktree` | `true` | Create git worktree for isolation |
-| `--force` | `false` | Force respawn (close existing session) |
+| `--force` | `false` | Force respawn (close existing window) |
 | `--yolo` | `true` | Skip Claude Code permission prompts |
 | `--brainstorm` | `false` | Use brainstorming skill before implementation |
 
@@ -39,7 +39,7 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task {uuid}
 
 1. A new git branch is created: `worker/{name}`
 2. A git worktree is set up in `~/.ttal/worktrees/{name}`
-3. A tmux session is created with the coding runtime (Claude Code by default)
+3. A tmux window is created in `ttal-default-{owner}:{agent}` with the coding runtime (Claude Code by default)
 4. The task prompt is sent to the agent, including any inlined plan/research docs from annotations
 
 ## Listing workers
