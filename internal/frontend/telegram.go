@@ -48,7 +48,7 @@ const (
 )
 
 // bashModePrefix is the prefix that triggers CC bash mode delivery.
-// Messages starting with this are sent directly without the [telegram/matrix from:] wrapper.
+// Messages starting with this are sent directly without attribution.
 const bashModePrefix = "! "
 
 // pollerTarget groups agent info for Telegram poller dispatch by chat ID.
