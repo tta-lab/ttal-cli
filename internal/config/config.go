@@ -39,8 +39,8 @@ const sessionPrefix = "ttal-default-"
 // AgentSessionName returns the tmux session name for an agent.
 // Convention: "ttal-default-<agent>" (e.g. "ttal-default-athena", "ttal-default-mira").
 //
-// This is distinct from worker sessions which use "w-<uuid[:8]>-<slug>"
-// (e.g. "w-e9d4b7c1-fix-auth"). See taskwarrior.Task.SessionName().
+// Workers now live in windows within this session (e.g. "ttal-default-astra:coder").
+// Task.SessionName() is retained as a legacy naming helper (w-<uuid[:8]>-<slug>).
 func AgentSessionName(agent string) string {
 	return sessionPrefix + agent
 }

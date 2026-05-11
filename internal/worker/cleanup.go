@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
 const cleanupDir = "cleanup"
 
-// CleanupRequest is written to ~/.ttal/cleanup/<session>.json by workers after merge.
+// CleanupRequest is written to ~/.ttal/cleanup/<taskUUID>.json by workers after merge.
+// Legacy requests use <sessionID>.json — both formats are handled by ExecuteCleanup.
 type CleanupRequest struct {
 	SessionID string    `json:"session_id"`
 	TaskUUID  string    `json:"task_uuid"`
@@ -23,6 +23,8 @@ type CleanupRequest struct {
 // RequestCleanup writes a cleanup request file for the daemon to process.
 // This is fire-and-forget — the file persists even if the daemon is down.
 // All teams share a single cleanup dir (~/.ttal/cleanup/) — requests are globally unique.
+// The filename is task-based (<taskUUID>.json) so it doesn't depend on session names.
+// sessionID is kept for legacy compatibility (cleaned up if taskUUID is set).
 func RequestCleanup(sessionID, taskUUID string) error {
 	dir := filepath.Join(config.DefaultDataDir(), cleanupDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -40,7 +42,12 @@ func RequestCleanup(sessionID, taskUUID string) error {
 		return err
 	}
 
-	path := filepath.Join(dir, sessionID+".json")
+	// Use task UUID as filename when available (preferred), fall back to session ID for legacy.
+	filename := taskUUID
+	if filename == "" {
+		filename = sessionID
+	}
+	path := filepath.Join(dir, filename+".json")
 	return os.WriteFile(path, data, 0o644)
 }
 
@@ -49,23 +56,29 @@ func CleanupDir() (string, error) {
 	return filepath.Join(config.DefaultDataDir(), cleanupDir), nil
 }
 
+// closeFn is the function used to close a worker. Package-level var for test injection.
+var closeFn = Close
+
 // ExecuteCleanup processes a parsed cleanup request: closes the worker, and
 // removes the request file. Returns error for callers that need it (CLI).
 // The force parameter controls whether worker.Close uses force mode.
 func ExecuteCleanup(req CleanupRequest, path string, force bool) error {
-	if req.SessionID == "" {
-		if req.TaskUUID != "" {
-			if err := taskwarrior.MarkDone(req.TaskUUID); err != nil {
-				return fmt.Errorf("failed to mark task done %s: %w", req.TaskUUID, err)
-			}
+	// Prefer TaskUUID-based resolution (new-style), fall back to SessionID (legacy).
+	if req.TaskUUID != "" {
+		if _, err := closeFn(req.TaskUUID[:8], force); err != nil {
+			return fmt.Errorf("close failed for task %s: %w", req.TaskUUID, err)
 		}
 		return os.Remove(path)
 	}
 
-	if _, err := Close(req.SessionID, force); err != nil {
-		return fmt.Errorf("close failed for %s: %w", req.SessionID, err)
+	if req.SessionID != "" {
+		if _, err := closeFn(req.SessionID, force); err != nil {
+			return fmt.Errorf("close failed for session %s: %w", req.SessionID, err)
+		}
+		return os.Remove(path)
 	}
 
+	// Neither set — just clean up the request file
 	return os.Remove(path)
 }
 

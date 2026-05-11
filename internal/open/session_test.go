@@ -1,3 +1,4 @@
+//nolint:goconst // test clarity prefers inline strings over constants
 package open
 
 import (
@@ -93,7 +94,7 @@ func TestSession_NoOwner_ReturnsNoSessionError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for task with no owner and no worker session")
 	}
-	if !strings.Contains(err.Error(), "no worker or agent session") {
+	if !strings.Contains(err.Error(), "no worker window") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

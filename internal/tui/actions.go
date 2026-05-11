@@ -13,6 +13,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
 // runTtalCommand runs a ttal subcommand and returns combined output.
@@ -45,7 +46,26 @@ func openPR(uuid string) tea.Cmd {
 }
 
 func openSession(t *Task, cfg *config.Config) tea.Cmd {
-	// Try worker session first.
+	// First, try to resolve the worker window (manager session + agent-name window).
+	if t.Owner != "" {
+		wt, err := worker.ResolveTmuxTarget(t)
+		if err == nil && tmux.WindowExists(wt.Session, wt.Window) {
+			// Select the target window first, then attach to the session.
+			selectCmd := exec.Command("tmux", "select-window", "-t", wt.Session+":"+wt.Window)
+			c := exec.Command("tmux", "attach-session", "-t", wt.Session)
+			return func() tea.Msg {
+				_ = selectCmd.Run() // best-effort window selection
+				return tea.ExecProcess(c, func(err error) tea.Msg {
+					if err != nil {
+						return execFinishedMsg{err: fmt.Errorf("attach %s:%s: %w", wt.Session, wt.Window, err)}
+					}
+					return execFinishedMsg{}
+				})()
+			}
+		}
+	}
+
+	// Legacy fallback: check for old w-* session naming.
 	sessionName := t.SessionName()
 	if tmux.SessionExists(sessionName) {
 		c := exec.Command("tmux", "attach-session", "-t", sessionName)
@@ -58,7 +78,6 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 	}
 
 	// Fall back to owner agent session if task has owner UDA set.
-	// Worker-stage tasks have no owner written, so this branch is skipped for them.
 	if t.Owner != "" && cfg != nil {
 		ownerSession := config.AgentSessionName(t.Owner)
 		if tmux.SessionExists(ownerSession) {
@@ -73,7 +92,7 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		return actionResultMsg{err: fmt.Errorf("no worker or agent session for this task")}
+		return actionResultMsg{err: fmt.Errorf("no worker window or agent session for this task")}
 	}
 }
 

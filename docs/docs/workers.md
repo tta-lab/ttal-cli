@@ -3,14 +3,14 @@ title: Workers
 description: Worker lifecycle — spawn, work, cleanup
 ---
 
-Workers are isolated coding sessions. Each worker runs in its own tmux session with a dedicated git worktree, so multiple agents can work on different tasks in the same repository simultaneously.
+Workers are isolated coding sessions. Each worker runs in a named tmux window within the owner manager session (`ttal-default-{owner}:{agent}`) with a dedicated git worktree, so multiple agents can work on different tasks in the same repository simultaneously.
 
 ## Spawning a worker
 
 The primary way to spawn a worker is through task execution:
 
 ```
-ttal go <uuid>
+ttal go {uuid}
 ```
 
 This reads the task's metadata (project path, branch name) and spawns a worker with the right context.
@@ -20,7 +20,7 @@ This reads the task's metadata (project path, branch name) and spawns a worker w
 For more control:
 
 ```
-ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
+ttal worker spawn --name fix-auth --project ~/code/myapp --task {uuid}
 ```
 
 #### Spawn flags
@@ -31,15 +31,15 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 | `--project` | required | Project directory path |
 | `--task` | required | Taskwarrior task UUID |
 | `--worktree` | `true` | Create git worktree for isolation |
-| `--force` | `false` | Force respawn (close existing session) |
+| `--force` | `false` | Force respawn (close existing window) |
 | `--yolo` | `true` | Skip Claude Code permission prompts |
 | `--brainstorm` | `false` | Use brainstorming skill before implementation |
 
 ## What happens on spawn
 
-1. A new git branch is created: `worker/<name>`
-2. A git worktree is set up in `~/.ttal/worktrees/<name>`
-3. A tmux session is created with the coding runtime (Claude Code by default)
+1. A new git branch is created: `worker/{name}`
+2. A git worktree is set up in `~/.ttal/worktrees/{name}`
+3. A tmux window is created in `ttal-default-{owner}:{agent}` with the coding runtime (Claude Code by default)
 4. The task prompt is sent to the agent, including any inlined plan/research docs from annotations
 
 ## Listing workers
@@ -48,14 +48,14 @@ ttal worker spawn --name fix-auth --project ~/code/myapp --task <uuid>
 ttal worker list
 ```
 
-Shows all active worker sessions with their task UUIDs and branches.
+Shows all active worker targets (session:window format) with their task UUIDs and branches.
 
 ## Closing a worker
 
 ### Smart close
 
 ```
-ttal worker close <session-name>
+ttal worker close {session-name}
 ```
 
 Smart close checks the PR status:
@@ -65,7 +65,7 @@ Smart close checks the PR status:
 ### Force close
 
 ```
-ttal worker close <session-name> --force
+ttal worker close {session-name} --force
 ```
 
 Force close dumps the session state and cleans up regardless of PR status.
@@ -82,10 +82,10 @@ Force close dumps the session state and cleans up regardless of PR status.
 
 After a PR is merged, the typical cleanup flow is:
 
-1. Run `ttal go <uuid>` from the worker session
+1. Run `ttal go {uuid}` from the worker window (e.g. in `ttal-default-{owner}:coder`)
 2. This drops a cleanup request file to `~/.ttal/cleanup/`
 3. The daemon picks it up via fsnotify
-4. Daemon runs: close tmux session → remove worktree → mark task done
+4. Daemon runs: close worker window → remove worktree → mark task done
 
 ### Processing pending cleanups
 
@@ -100,7 +100,7 @@ This processes any pending cleanup request files that the daemon hasn't handled 
 Spawn a worker to implement a task:
 
 ```
-ttal go <uuid>
+ttal go {uuid}
 ```
 
 Without `--yes`, shows the project path and prompts for confirmation.

@@ -52,10 +52,22 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 		return result, fmt.Errorf("task not found")
 	}
 
-	sessionName := task.SessionName()
+	// Resolve the tmux target (session + window + workdir).
+	// If owner-based resolution fails (e.g. legacy task without owner UDA), fall back
+	// to the task's SessionName() and worktree path for backward compatibility.
+	target, err := ResolveTmuxTarget(task)
+	if err != nil {
+		sessionName := task.SessionName()
+		legacyWorkDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+		target = TmuxTarget{
+			Session: sessionName,
+			Window:  "",
+			WorkDir: legacyWorkDir,
+		}
+		_ = target.Validate() // legacy session may have empty window — non-fatal
+	}
 
-	// Derive work_dir from task UUID and project alias
-	workDir := filepath.Join(config.WorktreesRoot(), fmt.Sprintf("%s-%s", task.UUID[:8], task.Project))
+	workDir := target.WorkDir
 
 	// Compute branch at runtime from the worktree (no branch UDA needed)
 	branch := gitutil.BranchName(workDir)
@@ -67,7 +79,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 	projectPath := project.ResolveProjectPath(task.Project)
 	if projectPath == "" {
 		fmt.Fprintf(os.Stderr, "warning: project %q not found in projects.toml\n", task.Project)
-		return closeWithoutProject(task, sessionName, workDir)
+		return closeWithoutProject(task, target, workDir)
 	}
 
 	// Resolve git root — projectPath may be a subpath in a monorepo.
@@ -80,8 +92,8 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 
 	// Force mode: dump + cleanup + exit 0
 	if force {
-		dumpPath := dumpState(sessionName, workDir)
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
+		dumpPath := dumpState(target, workDir)
+		if err := cleanupWorker(target, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
 				Error:     true,
 				Status:    fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -119,7 +131,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 				fmt.Fprintf(os.Stderr, "warning: %v\n", cleanErr)
 			}
 		}
-		dumpPath := dumpState(sessionName, workDir)
+		dumpPath := dumpState(target, workDir)
 		return &CloseResult{
 			Merged:    "no_pr",
 			Clean:     clean,
@@ -130,7 +142,7 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 
 	return closeWithPR(
 		task.UUID, task.PRID, task.Project,
-		gitRoot, sessionName, workDir, branch,
+		gitRoot, target, workDir, branch,
 		worktreeExists,
 	)
 }
@@ -139,10 +151,10 @@ func Close(sessionID string, force bool) (*CloseResult, error) {
 // Cleanup requests are only created after successful merge, so the PR is already merged.
 // Performs best-effort cleanup: kills the tmux session, removes the worktree directory,
 // and marks the task done — skipping git operations that require a valid repo root.
-func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*CloseResult, error) {
-	if tmux.SessionExists(sessionName) {
-		if err := tmux.KillSession(sessionName); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to kill session %s: %v\n", sessionName, err)
+func closeWithoutProject(task *taskwarrior.Task, target TmuxTarget, workDir string) (*CloseResult, error) {
+	if tmux.WindowExists(target.Session, target.Window) {
+		if err := tmux.KillWindow(target.Session, target.Window); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to kill window %s:%s: %v\n", target.Session, target.Window, err)
 		}
 	}
 	if err := os.RemoveAll(workDir); err != nil {
@@ -161,7 +173,7 @@ func closeWithoutProject(task *taskwarrior.Task, sessionName, workDir string) (*
 
 // closeWithPR handles the smart-close path when a PR exists.
 func closeWithPR(
-	taskUUID, prIDStr, projectAlias, gitRoot, sessionName, workDir, branch string,
+	taskUUID, prIDStr, projectAlias, gitRoot string, target TmuxTarget, workDir, branch string,
 	worktreeExists bool,
 ) (*CloseResult, error) {
 	pridInfo, err := taskwarrior.ParsePRID(prIDStr)
@@ -199,7 +211,7 @@ func closeWithPR(
 	}
 
 	if !fetchedPR.Merged {
-		dumpPath := dumpState(sessionName, workDir)
+		dumpPath := dumpState(target, workDir)
 		return &CloseResult{
 			Merged:    "false",
 			Clean:     clean,
@@ -210,7 +222,7 @@ func closeWithPR(
 
 	// PR is merged + worktree clean → auto-cleanup
 	if clean {
-		if err := cleanupWorker(sessionName, workDir, branch, gitRoot); err != nil {
+		if err := cleanupWorker(target, workDir, branch, gitRoot); err != nil {
 			return &CloseResult{
 				Error:  true,
 				Status: fmt.Sprintf("Worker cleanup failed: %v", err),
@@ -229,7 +241,7 @@ func closeWithPR(
 	}
 
 	// PR merged but worktree dirty
-	dumpPath := dumpState(sessionName, workDir)
+	dumpPath := dumpState(target, workDir)
 	return &CloseResult{
 		Merged:    "true",
 		Clean:     false,
@@ -239,23 +251,24 @@ func closeWithPR(
 }
 
 // dumpState captures worker git state, logging any errors to stderr.
-func dumpState(sessionName, workDir string) string {
-	path, err := gitutil.DumpWorkerState(sessionName, workDir, sessionName)
+func dumpState(target TmuxTarget, workDir string) string {
+	sessionWindow := target.Session + ":" + target.Window
+	path, err := gitutil.DumpWorkerState(sessionWindow, workDir, sessionWindow)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to dump worker state: %v\n", err)
 	}
 	return path
 }
 
-// cleanupWorker kills the tmux session and removes the git worktree + branch.
-func cleanupWorker(sessionName, workDir, branch, gitRoot string) error {
-	if tmux.SessionExists(sessionName) {
-		if err := tmux.KillSession(sessionName); err != nil {
-			return fmt.Errorf("failed to kill session: %w", err)
+// cleanupWorker kills the worker's tmux window and removes the git worktree + branch.
+func cleanupWorker(target TmuxTarget, workDir, branch, gitRoot string) error {
+	if tmuxWindowExistsFn(target.Session, target.Window) {
+		if err := tmuxKillWindowFn(target.Session, target.Window); err != nil {
+			return fmt.Errorf("failed to kill window %s:%s: %w", target.Session, target.Window, err)
 		}
 	}
 
-	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
+	return removeWorktreeFn(gitRoot, workDir, branch)
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.
@@ -296,6 +309,9 @@ func dirExists(path string) bool {
 
 // ErrNeedsDecision indicates the worker needs manual intervention (exit code 1).
 var ErrNeedsDecision = fmt.Errorf("needs manual decision")
+
+// Package-level overrides for test injection.
+var removeWorktreeFn = gitutil.RemoveWorktree
 
 // PrintResult outputs the close result in a machine-parseable format matching
 // the Python script's output format.

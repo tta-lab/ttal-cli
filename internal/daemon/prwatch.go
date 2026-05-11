@@ -11,7 +11,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/notification"
-	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -94,13 +93,23 @@ func scanForPRTasks(
 	mu.Unlock()
 }
 
+// Package-level function vars for test injection.
+var (
+	listTasksWithPRFn     = taskwarrior.ListTasksWithPR
+	parsePRIDFn           = taskwarrior.ParsePRID
+	resolveProjectPathFn  = project.ResolveProjectPath
+	detectProviderFn      = gitprovider.DetectProvider
+	resolveTmuxTargetFn   = worker.ResolveTmuxTarget
+	windowExistsPrWatchFn = tmux.WindowExists
+)
+
 func scanTeam(
 	frontends map[string]frontend.Frontend,
 	teamName string,
 	mu *sync.Mutex, active map[string]bool,
 	done <-chan struct{},
 ) map[string]bool {
-	tasks, err := taskwarrior.ListTasksWithPR()
+	tasks, err := listTasksWithPRFn()
 	if err != nil {
 		log.Printf("[prwatch] failed to list PR tasks for team %s: %v", teamName, err)
 		return nil // nil signals caller to skip pruning pass
@@ -118,12 +127,17 @@ func scanTeam(
 			continue
 		}
 
-		sessionName := task.SessionName()
-		if !tmux.SessionExists(sessionName) {
+		target, err := resolveTmuxTargetFn(&task)
+		if err != nil {
+			log.Printf("[prwatch] task %s: cannot resolve tmux target: %v — skipping PR watch",
+				shortSHA(task.UUID), err)
+			continue
+		}
+		if !windowExistsPrWatchFn(target.Session, target.Window) {
 			continue
 		}
 
-		prInfo, err := taskwarrior.ParsePRID(task.PRID)
+		prInfo, err := parsePRIDFn(task.PRID)
 		if err != nil {
 			log.Printf("[prwatch] task %s has invalid pr_id %q: %v — skipping",
 				task.UUID, task.PRID, err)
@@ -132,24 +146,23 @@ func scanTeam(
 		prIndex := prInfo.Index
 
 		// Detect provider from project path
-		projectPath := project.ResolveProjectPath(task.Project)
+		projectPath := resolveProjectPathFn(task.Project)
 		if projectPath == "" {
 			log.Printf("[prwatch] task %s: project %q not found in projects.toml — skipping PR watch",
 				shortSHA(task.UUID), task.Project)
 			continue
 		}
-		info, err := gitprovider.DetectProvider(projectPath)
+		info, err := detectProviderFn(projectPath)
 		if err != nil {
 			log.Printf("[prwatch] cannot detect provider for task %s: %v",
 				shortSHA(task.UUID), err)
 			continue
 		}
 
-		windowName := resolveWorkerWindowName(task.Tags)
-		target := prWatchTarget{
+		wt := prWatchTarget{
 			TaskUUID:     task.UUID,
-			SessionName:  sessionName,
-			WindowName:   windowName,
+			SessionName:  target.Session,
+			WindowName:   target.Window,
 			Team:         teamName,
 			RepoOwner:    info.Owner,
 			Repo:         info.Repo,
@@ -165,18 +178,16 @@ func scanTeam(
 		active[task.UUID] = true
 		mu.Unlock()
 
-		log.Printf("[prwatch] starting poll: PR #%d %s/%s session=%s",
-			prIndex, info.Owner, info.Repo, sessionName)
+		log.Printf("[prwatch] starting poll: PR #%d %s/%s session=%s window=%s",
+			prIndex, info.Owner, info.Repo, target.Session, target.Window)
 
 		go func() {
-			keep := pollPR(target, frontends, done)
+			keep := pollPR(wt, frontends, done)
 			if !keep {
 				mu.Lock()
-				delete(active, target.TaskUUID)
+				delete(active, wt.TaskUUID)
 				mu.Unlock()
 			}
-			// If keep=true, UUID stays in active until task is no longer
-			// returned by ListTasksWithPR (i.e. marked done), preventing re-spawn.
 		}()
 	}
 
@@ -219,10 +230,10 @@ func pollPR(
 		case <-poll.C:
 		}
 
-		// Worker session gone → stop polling
-		if !tmux.SessionExists(target.SessionName) {
-			log.Printf("[prwatch] session %s gone — stopping PR #%d poll",
-				target.SessionName, target.PRIndex)
+		// Worker window gone → stop polling
+		if !tmux.WindowExists(target.SessionName, target.WindowName) {
+			log.Printf("[prwatch] window %s:%s gone — stopping PR #%d poll",
+				target.SessionName, target.WindowName, target.PRIndex)
 			return false
 		}
 
@@ -325,22 +336,6 @@ func checkMergeConflict(
 	notifyPRStatus(frontends, target, conflictMsg)
 	log.Printf("[prwatch] PR #%d has merge conflicts (sha=%s)", target.PRIndex, shortSHA(pr.HeadSHA))
 	return true
-}
-
-// resolveWorkerWindowName returns the worker agent name (= tmux window name) for the given
-// task tags by reading pipelines.toml. Falls back to worker.CoderAgentName if unavailable.
-func resolveWorkerWindowName(taskTags []string) string {
-	cfg, err := pipeline.Load(config.DefaultConfigDir())
-	if err != nil {
-		return worker.CoderAgentName
-	}
-	if name := cfg.WorkerAgentName(taskTags); name != "" {
-		return name
-	}
-	if name := cfg.AnyWorkerAgentName(); name != "" {
-		return name
-	}
-	return worker.CoderAgentName
 }
 
 // deliverToWorkerSession sends a message to the worker window of a worker tmux session.

@@ -268,7 +268,7 @@ const testJobIDA = "e9d4b7c1"
 const expectedSessionAstra = "ttal-default-astra"
 
 // pipelineConfigForTest returns a pipeline.Config with a single stage that is NOT a worker stage.
-func pipelineConfigForTest(workerStage bool) *pipeline.Config {
+func pipelineConfigForTest(workerStage bool) *pipeline.Config { //nolint:unparam
 	stages := []pipeline.Stage{
 		{Name: "Plan", Assignee: "astra", Reviewer: "plan-review-lead"},
 	}
@@ -360,23 +360,23 @@ func TestResolveManagerWindow(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error when current stage is worker", func(t *testing.T) {
+	t.Run("returns error when window not found in session (worker stage task)", func(t *testing.T) {
 		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
 			if hexID == testJobIDA {
 				return taskAtWorkerStage, nil
 			}
 			return nil, errors.New("not found")
 		}
-		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
-			return pipelineConfigForTest(true), nil
+		windowExistsFn = func(session, window string) bool {
+			return false // window does not exist
 		}
 
 		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), "worker stage") {
-			t.Errorf("error = %q, want substring %q", err.Error(), "worker stage")
+		if !strings.Contains(err.Error(), "window") || !strings.Contains(err.Error(), "not found") {
+			t.Errorf("error = %q, want substring containing 'window' and 'not found'", err.Error())
 		}
 	})
 
@@ -403,30 +403,23 @@ func TestResolveManagerWindow(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error when no pipeline matches task tags", func(t *testing.T) {
+	t.Run("returns error when window not found in session (no pipeline match)", func(t *testing.T) {
 		exportTaskByHexIDFn = func(hexID, status string) (*taskwarrior.Task, error) {
 			if hexID == testJobIDA {
 				return taskWithOwner, nil
 			}
 			return nil, errors.New("not found")
 		}
-		// A pipeline with a different tag — task tags ("feature", "stage:plan") won't match.
-		pipelineLoadFn = func(dir string) (*pipeline.Config, error) {
-			return &pipeline.Config{
-				Pipelines: map[string]pipeline.Pipeline{
-					"other": {Tags: []string{"chore"}, Stages: []pipeline.Stage{
-						{Name: "Plan", Assignee: "astra"},
-					}},
-				},
-			}, nil
+		windowExistsFn = func(session, window string) bool {
+			return false
 		}
 
 		_, err := resolveManagerWindow(testJobIDA, "coder", mcfg)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), "no pipeline matches") {
-			t.Errorf("error = %q, want substring %q", err.Error(), "no pipeline matches")
+		if !strings.Contains(err.Error(), "window") || !strings.Contains(err.Error(), "not found") {
+			t.Errorf("error = %q, want substring containing 'window' and 'not found'", err.Error())
 		}
 	})
 }

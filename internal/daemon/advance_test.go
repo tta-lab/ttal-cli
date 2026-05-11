@@ -1,9 +1,9 @@
+//nolint:goconst // test clarity prefers inline strings over constants
 package daemon
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -588,16 +588,11 @@ func TestResolveReviewerSession(t *testing.T) {
 // TestResolveWorkerReviewerTarget verifies the worker-stage reviewer target
 // is derived from the task, independent of any caller session/workDir.
 func TestResolveWorkerReviewerTarget(t *testing.T) {
-	orig := worktreePathFn
-	t.Cleanup(func() { worktreePathFn = orig })
-	worktreePathFn = func(uuid, alias string) (string, error) {
-		return "/tmp/fake-worktrees/" + uuid[:8] + "-" + alias, nil
-	}
-
 	task := &taskwarrior.Task{
 		UUID:        "e9d4b7c1-1234-5678-9abc-def012345678",
 		Project:     "ttal",
 		Description: "fix auth",
+		Owner:       "astra",
 	}
 
 	session, workDir, err := resolveWorkerReviewerTarget(task)
@@ -605,12 +600,11 @@ func TestResolveWorkerReviewerTarget(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	wantSession := task.SessionName() // "w-e9d4b7c1-fix-auth"
-	if session != wantSession {
-		t.Errorf("session = %q, want %q", session, wantSession)
+	if session != expectedSessionAstra {
+		t.Errorf("session = %q, want %q", session, expectedSessionAstra)
 	}
 
-	wantWorkDir := "/tmp/fake-worktrees/e9d4b7c1-ttal"
+	wantWorkDir := config.WorktreesRoot() + "/e9d4b7c1-ttal"
 	if workDir != wantWorkDir {
 		t.Errorf("workDir = %q, want %q", workDir, wantWorkDir)
 	}
@@ -618,16 +612,15 @@ func TestResolveWorkerReviewerTarget(t *testing.T) {
 
 // TestResolveWorkerReviewerTarget_WorktreePathError ensures errors from the
 // worktree resolver propagate up rather than being swallowed.
-func TestResolveWorkerReviewerTarget_WorktreePathError(t *testing.T) {
-	orig := worktreePathFn
-	t.Cleanup(func() { worktreePathFn = orig })
-	worktreePathFn = func(uuid, alias string) (string, error) {
-		return "", fmt.Errorf("synthetic worktree failure")
+func TestResolveWorkerReviewerTarget_MissingOwner(t *testing.T) {
+	task := &taskwarrior.Task{
+		UUID:        "e9d4b7c1-1234-5678-9abc-def012345678",
+		Project:     "ttal",
+		Description: "x",
+		// no Owner set — should fail
 	}
-
-	task := &taskwarrior.Task{UUID: "e9d4b7c1", Project: "ttal", Description: "x"}
 	if _, _, err := resolveWorkerReviewerTarget(task); err == nil {
-		t.Fatal("expected error from stubbed worktreePathFn, got nil")
+		t.Fatal("expected error for missing owner, got nil")
 	}
 }
 

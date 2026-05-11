@@ -33,7 +33,7 @@ EOF
 
 ## Worker Sessions
 
-Worker sessions require explicit `job_id:agent_name` format. The daemon uses the job_id to find the tmux session and the agent_name as the window target. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
+Worker addresses use `job_id:agent_name` format. The daemon resolves the task owner's manager session (`ttal-default-{owner}`) and validates the exact agent-name window before routing. Workers construct their From address as `job_id:agent_name` so reply hints are always actionable.
 
 ## Stdin (preferred: heredoc)
 

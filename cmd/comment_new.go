@@ -441,14 +441,12 @@ func notifyReviewer(sessionName, body string, cfg *config.Config, reviewerWindow
 }
 
 func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Runtime) {
-	// Designer/planner is always the first window — it is created at session spawn time
-	// (internal/daemon/advance.go via tmux.NewSession) before any reviewer window is
-	// added later (tmux.NewWindow appends). FirstWindow is safe without exclusion.
-	designerWindow, err := tmux.FirstWindow(sessionName)
-	if err != nil || designerWindow == "" {
-		if err != nil {
-			log.Printf("warning: could not find designer window in %s: %v", sessionName, err)
-		}
+	// Designer/planner is the task owner's agent. Resolve from the current task
+	// owner when available, falling back to the first window in the session.
+	// Do NOT use TTAL_AGENT_NAME here: in a reviewer process (e.g. plan-review-lead),
+	// that env var is the reviewer's name, not the designer's.
+	designerWindow := resolveDesignerWindow(sessionName)
+	if designerWindow == "" {
 		return
 	}
 	tmpl := cfg.Prompt("plan_triage")
@@ -463,6 +461,38 @@ func notifyDesigner(sessionName, body string, cfg *config.Config, rt runtime.Run
 	if err := tmux.SendKeys(sessionName, designerWindow, notification); err != nil {
 		log.Printf("warning: notify designer failed: %v", err)
 	}
+}
+
+// resolveDesignerWindow returns the designer/manager window name for the current session.
+// Tries resolving from the current task owner's agent identity first, then falls back
+// to the first window in the session (safe for plan-review sessions where the first
+// window is always the owner/designer created by tmux.NewSession).
+func resolveDesignerWindow(sessionName string) string {
+	// Try resolving from the current task's owner.
+	if taskTags := resolveTaskTags(); taskTags != nil {
+		if jobID := os.Getenv("TTAL_JOB_ID"); jobID != "" {
+			task, err := taskwarrior.ExportTaskByHexID(jobID, "pending")
+			if err != nil {
+				task, _ = taskwarrior.ExportTaskByHexID(jobID, "completed")
+			}
+			if task != nil && task.Owner != "" {
+				ownerAgent := task.Owner
+				if tmux.WindowExists(sessionName, ownerAgent) {
+					return ownerAgent
+				}
+			}
+		}
+	}
+
+	// Fall back to first window in the session (owner/designer).
+	designerWindow, err := tmux.FirstWindow(sessionName)
+	if err != nil || designerWindow == "" {
+		if err != nil {
+			log.Printf("warning: could not find designer window in %s: %v", sessionName, err)
+		}
+		return ""
+	}
+	return designerWindow
 }
 
 func notifyPlanReviewer(sessionName, body string, cfg *config.Config, reviewerWindow string) {
@@ -488,13 +518,9 @@ func notifyLgtm(reviewer string) {
 		return
 	}
 
-	designerWindow, err := tmux.FirstWindow(sessionName)
-	if err != nil {
-		log.Printf("warning: notifyLgtm: could not find designer window in %s: %v", sessionName, err)
-		return
-	}
+	designerWindow := resolveDesignerWindow(sessionName)
 	if designerWindow == "" {
-		log.Printf("warning: notifyLgtm: session %s has no windows — designer notification skipped", sessionName)
+		log.Printf("warning: notifyLgtm: could not find designer window in %s — skipping", sessionName)
 		return
 	}
 

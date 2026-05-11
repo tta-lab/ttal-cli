@@ -110,6 +110,7 @@ func formatPRCell(prid string, tags []string) string {
 	return fmt.Sprintf("#%d", info.Index)
 }
 
+//nolint:gocyclo // pre-existing complexity from table formatting
 func printWorkerTable(workers []WorkerInfo) {
 	// Count by status
 	counts := map[WorkerStatus]int{}
@@ -165,7 +166,14 @@ func printWorkerTable(workers []WorkerInfo) {
 			desc = desc[:57] + "..."
 		}
 
-		rows = append(rows, []string{t.SessionName(), info.Status.String(), pr, branch, projectDisplay, desc})
+		target := t.SessionName()
+		// Show manager session:agent-name window for tasks with owners
+		if t.Owner != "" {
+			if wt, err := ResolveTmuxTarget(&t); err == nil {
+				target = wt.Session + ":" + wt.Window
+			}
+		}
+		rows = append(rows, []string{target, info.Status.String(), pr, branch, projectDisplay, desc})
 	}
 
 	tbl := table.New().
@@ -182,7 +190,7 @@ func printWorkerTable(workers []WorkerInfo) {
 				return cellStyle
 			}
 		}).
-		Headers("SESSION", "STATUS", "PR", "BRANCH", "PROJECT", "TASK").
+		Headers("TARGET", "STATUS", "PR", "BRANCH", "PROJECT", "TASK").
 		Rows(rows...)
 
 	lipgloss.Println(tbl)

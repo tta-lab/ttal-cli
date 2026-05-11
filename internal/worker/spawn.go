@@ -14,7 +14,6 @@ import (
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
-	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -70,12 +69,22 @@ func spawnWorker(cfg SpawnConfig) error {
 		return err
 	}
 
-	sessionName := task.SessionName()
+	// Resolve worker agent name before target so we can use cfg.AgentName
+	// if set (pipeline advance sets it), falling back to pipeline config.
+	agentName := cfg.AgentName
+	if agentName == "" {
+		agentName = resolveWorkerAgentName(task)
+	}
+	target, err := ResolveTmuxTargetForAgent(task, agentName)
+	if err != nil {
+		return fmt.Errorf("resolve tmux target: %w", err)
+	}
 
 	fmt.Printf("Spawning %s worker: %s\n  Project: %s\n  Task: %s\n\n", cfg.Runtime, cfg.Name, project, task.Description)
-	fmt.Printf("Creating tmux session: %s (from task UUID for worker '%s')\n", sessionName, cfg.Name)
+	fmt.Printf("Creating tmux window: %s:%s (owner manager session for worker '%s')\n",
+		target.Session, target.Window, cfg.Name)
 
-	if err := ensureSessionAvailable(cfg, sessionName, project); err != nil {
+	if err := ensureWindowAvailable(cfg, target); err != nil {
 		return err
 	}
 
@@ -100,7 +109,7 @@ func spawnWorker(cfg SpawnConfig) error {
 		runWorktreeSetupWithFallback(workDir, worktreeRoot)
 	}
 
-	return launchTmuxWorker(cfg, task, sessionName, workDir)
+	return launchTmuxWorker(cfg, task, target, workDir)
 }
 
 func loadAndValidateTask(cfg SpawnConfig) (*taskwarrior.Task, error) {
@@ -160,20 +169,32 @@ func resolveRuntime(rt runtime.Runtime, _ *taskwarrior.Task) runtime.Runtime {
 	return runtime.ClaudeCode
 }
 
-func ensureSessionAvailable(cfg SpawnConfig, sessionName, project string) error {
-	if !tmux.SessionExists(sessionName) {
+var (
+	tmuxSessionExistsFn = tmux.SessionExists
+	tmuxWindowExistsFn  = tmux.WindowExists
+	tmuxKillWindowFn    = tmux.KillWindow
+)
+
+func ensureWindowAvailable(cfg SpawnConfig, target TmuxTarget) error {
+	if !tmuxSessionExistsFn(target.Session) {
+		return fmt.Errorf("owner session '%s' does not exist\n"+
+			"  Start the agent session (e.g. `breathe` or `ttal context`), then rerun `ttal go <uuid>`\n"+
+			"  Re-run reuses the existing worktree safely without duplicating stage tags", target.Session)
+	}
+
+	if !tmuxWindowExistsFn(target.Session, target.Window) {
 		return nil
 	}
 
 	if cfg.Force {
-		fmt.Printf("Session '%s' exists, closing it (--force)\n", sessionName)
-		return tmux.KillSession(sessionName)
+		fmt.Printf("Window '%s:%s' exists, closing it (--force)\n", target.Session, target.Window)
+		return tmuxKillWindowFn(target.Session, target.Window)
 	}
 
-	return fmt.Errorf("session '%s' already exists\n"+
-		"  Worker '%s' in project '%s' is already running\n"+
-		"  Use --force to respawn",
-		sessionName, cfg.Name, filepath.Base(project))
+	return fmt.Errorf("window '%s:%s' already exists\n"+
+		"  Another task for owner '%s' and agent '%s' is already running\n"+
+		"  Use --force to close that window and spawn a new one",
+		target.Session, target.Window, filepath.Base(target.Session), target.Window)
 }
 
 func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (workDir, branch string, err error) {
@@ -191,7 +212,7 @@ func setupWorkDir(cfg SpawnConfig, task *taskwarrior.Task, project string) (work
 
 // launchTmuxWorker spawns a worker in a tmux session.
 func launchTmuxWorker(
-	cfg SpawnConfig, task *taskwarrior.Task, sessionName, workDir string,
+	cfg SpawnConfig, task *taskwarrior.Task, target TmuxTarget, workDir string,
 ) error {
 	ttalBin, err := os.Executable()
 	if err != nil {
@@ -203,20 +224,7 @@ func launchTmuxWorker(
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Use cfg.AgentName if set (always the case when spawned via pipeline advance).
-	// Fall back to reading pipelines.toml to avoid hardcoding the agent name.
-	agentName := cfg.AgentName
-	if agentName == "" {
-		if pipelineCfg, err := pipeline.Load(config.DefaultConfigDir()); err == nil {
-			agentName = pipelineCfg.WorkerAgentName(task.Tags)
-			if agentName == "" {
-				agentName = pipelineCfg.AnyWorkerAgentName()
-			}
-		}
-		if agentName == "" {
-			agentName = CoderAgentName
-		}
-	}
+	agentName := target.Window
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
 
@@ -231,15 +239,16 @@ func launchTmuxWorker(
 
 	fmt.Printf("\nLaunching %s with task: %s\n", cfg.Runtime, task.Description)
 
-	if err := tmux.NewSession(sessionName, agentName, workDir, shellCmd); err != nil {
-		return fmt.Errorf("failed to create tmux session: %w", err)
+	if err := tmux.NewWindow(target.Session, target.Window, workDir, shellCmd); err != nil {
+		return fmt.Errorf("failed to create tmux window: %w", err)
 	}
 
 	fmt.Printf("\nWorker '%s' spawned successfully\n", cfg.Name)
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Printf("  Session: %s\n", target.Session)
+	fmt.Printf("  Window: %s\n", target.Window)
 	fmt.Printf("  Work dir: %s\n", workDir)
 	fmt.Printf("\nTo attach:\n")
-	fmt.Printf("  tmux attach -t %s\n", sessionName)
+	fmt.Printf("  tmux attach -t %s\n", target.Session)
 
 	return nil
 }
