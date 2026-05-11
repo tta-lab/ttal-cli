@@ -464,8 +464,8 @@ func parseWorkerAddress(s string) (jobID, agentName string, ok bool) {
 }
 
 // resolveWorkerImpl finds a tmux session for a worker identified by hex UUID prefix.
-// Session names follow the format: w-{uuid[:8]}-{slug}.
-// idPrefix must be at least 8 hex characters (case-insensitive).
+// First tries the new model: owner manager session + agent-name window.
+// Falls back to legacy w-{uuid[:8]}-{slug} session naming.
 func resolveWorkerImpl(idPrefix string) (string, error) {
 	normalized := strings.ToLower(idPrefix)
 	if len(normalized) < 8 {
@@ -476,6 +476,26 @@ func resolveWorkerImpl(idPrefix string) (string, error) {
 			return "", fmt.Errorf("not a worker UUID: %q", idPrefix)
 		}
 	}
+
+	// New model: resolve via worker target (owner session + agent window).
+	if task, err := exportTaskByHexIDFn(normalized[:8], "pending"); err == nil && task.Owner != "" {
+		agentName := ""
+		if pc, pcErr := pipelineLoadFn(config.DefaultConfigDir()); pcErr == nil {
+			agentName = pc.WorkerAgentName(task.Tags)
+			if agentName == "" {
+				agentName = pc.AnyWorkerAgentName()
+			}
+		}
+		if agentName == "" {
+			agentName = "coder"
+		}
+		session := config.AgentSessionName(task.Owner)
+		if tmux.WindowExists(session, agentName) {
+			return session, nil
+		}
+	}
+
+	// Legacy fallback: check for w-{uuid[:8]}-{slug} sessions.
 	sessions, err := tmux.ListSessions()
 	if err != nil {
 		return "", fmt.Errorf("list tmux sessions: %w", err)
@@ -537,26 +557,7 @@ func resolveManagerWindowImpl(jobID, windowName string, cfg *config.Config) (str
 		return "", fmt.Errorf("resolve manager window: no owner on task %s", jobID)
 	}
 
-	// Load pipeline config to determine current stage.
-	pipeCfg, err := pipelineLoadFn(config.DefaultConfigDir())
-	if err != nil {
-		return "", fmt.Errorf("resolve manager window: load pipeline config: %w", err)
-	}
-	_, p, err := pipeCfg.MatchPipeline(task.Tags)
-	if err != nil {
-		return "", fmt.Errorf("resolve manager window: match pipeline: %w", err)
-	}
-	if p == nil {
-		return "", fmt.Errorf("resolve manager window: no pipeline matches task tags %v", task.Tags)
-	}
-	_, stage, err := p.CurrentStage(task.Tags)
-	if err != nil {
-		return "", fmt.Errorf("resolve manager window: current stage: %w", err)
-	}
-	if stage != nil && stage.IsWorker() {
-		return "", fmt.Errorf("resolve manager window: task at worker stage, no manager window for %s", jobID)
-	}
-
+	// Worker-stage tasks intentionally live in the owner manager session (new model).
 	session := config.AgentSessionName(task.Owner)
 	if !windowExistsFn(session, windowName) {
 		return "", fmt.Errorf("resolve manager window: window %s not found in session %s", windowName, session)
