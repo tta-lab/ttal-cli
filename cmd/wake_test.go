@@ -16,6 +16,7 @@ func TestWakeCmd_ManagerPlane(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("TTAL_JOB_ID", "")
 	t.Setenv("TTAL_AGENT_NAME", "astra")
+	t.Setenv("TTAL_RUNTIME", "")
 
 	cfgDir := tmp + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -40,7 +41,7 @@ func TestWakeCmd_ManagerPlane(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "[telegram from:neil] [14:30:00]") {
+	if !strings.Contains(out, "<- telegram:neil [14:30:00]") {
 		t.Errorf("expected manager prefix in output, got: %q", out)
 	}
 	if !strings.Contains(out, "ttal send --to neil") {
@@ -56,6 +57,7 @@ func TestWakeCmd_WorkerPlane(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("TTAL_JOB_ID", "227b31a9")
 	t.Setenv("TTAL_AGENT_NAME", "coder")
+	t.Setenv("TTAL_RUNTIME", "")
 
 	origFn := owner.ExportTaskByHexIDFn
 	owner.ExportTaskByHexIDFn = func(_ string, _ string) (*taskwarrior.Task, error) {
@@ -72,7 +74,7 @@ func TestWakeCmd_WorkerPlane(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "[telegram from:kestrel] [10:15:00]") {
+	if !strings.Contains(out, "<- telegram:kestrel [10:15:00]") {
 		t.Errorf("expected worker prefix in output, got: %q", out)
 	}
 	if !strings.Contains(out, "ttal send --to kestrel") {
@@ -85,6 +87,7 @@ func TestWakeCmd_FallbackToSystem(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("TTAL_JOB_ID", "")
 	t.Setenv("TTAL_AGENT_NAME", "astra")
+	t.Setenv("TTAL_RUNTIME", "")
 	// No config — owner resolution falls back to "system"
 
 	restore := sendfmt.SetNowForTest(func() time.Time {
@@ -96,7 +99,7 @@ func TestWakeCmd_FallbackToSystem(t *testing.T) {
 		_ = wakeCmd.RunE(wakeCmd, nil)
 	})
 
-	if !strings.Contains(out, "[telegram from:system] [12:00:00]") {
+	if !strings.Contains(out, "<- telegram:system [12:00:00]") {
 		t.Errorf("expected system fallback prefix, got: %q", out)
 	}
 	if !strings.Contains(out, "ttal send --to system") {
@@ -109,6 +112,7 @@ func TestWakeCmd_OutputShape(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("TTAL_JOB_ID", "")
 	t.Setenv("TTAL_AGENT_NAME", "astra")
+	t.Setenv("TTAL_RUNTIME", "")
 
 	cfgDir := tmp + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -133,7 +137,7 @@ func TestWakeCmd_OutputShape(t *testing.T) {
 	})
 
 	expectedLines := []string{
-		"[telegram from:neil] [08:05:30] Run `ttal context` for your briefing, then act on the role prompt.",
+		"<- telegram:neil [08:05:30] Run `ttal context` for your briefing, then act on the role prompt.",
 		"<i>--- Reply with:",
 		"cat <<'EOF' | ttal send --to neil",
 		"your message",
@@ -143,5 +147,45 @@ func TestWakeCmd_OutputShape(t *testing.T) {
 		if !strings.Contains(out, line) {
 			t.Errorf("expected output to contain %q, got: %q", line, out)
 		}
+	}
+}
+
+func TestWakeCmd_LenosRuntimeUsesNarrateReplyHint(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("TTAL_JOB_ID", "")
+	t.Setenv("TTAL_AGENT_NAME", "astra")
+	t.Setenv("TTAL_RUNTIME", "lenos")
+
+	cfgDir := tmp + "/.config/ttal"
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(cfgDir+"/config.toml",
+		[]byte("[teams.default]\nteam_path = \""+tmp+"\"\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.WriteFile(cfgDir+"/humans.toml",
+		[]byte("[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"), 0o644); err != nil {
+		t.Fatalf("write humans: %v", err)
+	}
+
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 9, 9, 15, 0, 0, time.Local)
+	})
+	defer restore()
+
+	out := captureStdout(t, func() {
+		_ = wakeCmd.RunE(wakeCmd, nil)
+	})
+
+	if !strings.Contains(out, "<- telegram:neil [09:15:00]") {
+		t.Errorf("expected manager prefix in output, got: %q", out)
+	}
+	if !strings.Contains(out, "narrate --to neil <<'EOF'") {
+		t.Errorf("expected lenos narrate reply hint, got: %q", out)
+	}
+	if strings.Contains(out, "ttal send --to neil") {
+		t.Errorf("expected no ttal send reply hint for lenos runtime, got: %q", out)
 	}
 }

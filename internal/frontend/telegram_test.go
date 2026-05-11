@@ -16,6 +16,7 @@ import (
 )
 
 const neilReplyHint = "<i>--- Reply with:\ncat <<'EOF' | ttal send --to neil\nyour message\nEOF</i>"
+const neilNarrateReplyHint = "<i>--- Reply with:\nnarrate --to neil <<'EOF'\nyour message\nEOF</i>"
 
 func TestTelegramSendText_AgentToHuman_UsesAgentBot(t *testing.T) {
 	t.Setenv("YUKI_BOT_TOKEN", "yuki-bot-secret")
@@ -136,7 +137,7 @@ func TestBuildFullCommand(t *testing.T) {
 }
 
 // TestHandleInboundMessage_BashMode verifies that messages starting with "! " are delivered
-// directly to the agent without the [telegram from:] wrapper.
+// directly to the agent without the Telegram attribution wrapper.
 func TestHandleInboundMessage_BashMode(t *testing.T) {
 	restore := sendfmt.SetNowForTest(func() time.Time {
 		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
@@ -158,18 +159,18 @@ func TestHandleInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			text: "hello",
-			want: "[telegram from:testuser] [14:32:05] hello\n\n" + neilReplyHint,
+			want: "<- telegram:testuser [14:32:05] hello\n\n" + neilReplyHint,
 		},
 		{
 			name: "no space not bash mode",
 			text: "!nospace",
-			want: "[telegram from:testuser] [14:32:05] !nospace\n\n" + neilReplyHint,
+			want: "<- telegram:testuser [14:32:05] !nospace\n\n" + neilReplyHint,
 		},
 		{
 			// TrimSpace strips the trailing space, so "! " → "!" which is NOT bash mode.
 			name: "prefix only is not bash mode after trim",
 			text: "! ",
-			want: "[telegram from:testuser] [14:32:05] !\n\n" + neilReplyHint,
+			want: "<- telegram:testuser [14:32:05] !\n\n" + neilReplyHint,
 		},
 		{
 			name:         "overrideText bash mode",
@@ -232,7 +233,7 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 	fe := &TelegramFrontend{
 		cfg: TelegramConfig{
 			MCfg:       &config.Config{AdminHuman: &humanfs.Human{Alias: "neil"}},
-			UserNameFn: func() string { return "neil" },
+			UserNameFn: func() string { return testUserName },
 		},
 		mt: newMessageTracker(),
 	}
@@ -243,7 +244,7 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 	msg := &models.Message{
 		ID:   1,
 		Text: "hello there",
-		From: &models.User{Username: "neil"},
+		From: &models.User{Username: testUserName},
 		Chat: models.Chat{ID: 123},
 	}
 
@@ -253,11 +254,62 @@ func TestHandleInboundMessage_NormalIncludesHint(t *testing.T) {
 		onMessage, nil,
 	)
 
-	if !strings.Contains(got, "[telegram from:neil] [14:32:05] hello there") {
+	if !strings.Contains(got, "<- telegram:neil [14:32:05] hello there") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, neilReplyHint) {
 		t.Errorf("expected italic hint %q missing from %q", neilReplyHint, got)
+	}
+}
+
+func TestHandleInboundMessage_LenosAgentUsesNarrateHint(t *testing.T) {
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
+	})
+	t.Cleanup(func() { restore() })
+
+	tmp := t.TempDir()
+	agentDir := tmp + "/yuki"
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(agentDir+"/AGENTS.md",
+		[]byte("---\nname: yuki\ndefault_runtime: lenos\n---\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	fe := &TelegramFrontend{
+		cfg: TelegramConfig{
+			MCfg:       &config.Config{TeamPath: tmp, AdminHuman: &humanfs.Human{Alias: "neil"}},
+			UserNameFn: func() string { return testUserName },
+		},
+		mt: newMessageTracker(),
+	}
+
+	var got string
+	onMessage := func(agentName, text string) { got = text }
+
+	msg := &models.Message{
+		ID:   1,
+		Text: "hello there",
+		From: &models.User{Username: testUserName},
+		Chat: models.Chat{ID: 123},
+	}
+
+	fe.handleInboundMessage(
+		context.Background(), nil, msg,
+		"default", "yuki", "token", "123",
+		onMessage, nil,
+	)
+
+	if !strings.Contains(got, "<- telegram:neil [14:32:05] hello there") {
+		t.Errorf("expected prefix missing, got %q", got)
+	}
+	if !strings.Contains(got, neilNarrateReplyHint) {
+		t.Errorf("expected lenos narrate hint %q missing from %q", neilNarrateReplyHint, got)
+	}
+	if strings.Contains(got, "ttal send --to neil") {
+		t.Errorf("expected no ttal send reply hint for lenos agent, got %q", got)
 	}
 }
 

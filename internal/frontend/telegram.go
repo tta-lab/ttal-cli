@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"log"
 	"net/http"
@@ -27,7 +26,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/notify"
-	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/telegram"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -110,11 +108,6 @@ type TelegramFrontend struct {
 	ahs         *askHumanStore
 	mt          *messageTracker
 	allCommands []Command // set by RegisterCommands, used by Start
-}
-
-// adminHumanAlias returns the admin's alias for reply hints.
-func (f *TelegramFrontend) adminHumanAlias() string {
-	return replyHumanAlias(f.cfg.MCfg)
 }
 
 // NewTelegram creates a TelegramFrontend. RegisterCommands must be called before Start.
@@ -540,7 +533,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 		}
 		rawText := "[🎤 voice] " + transcription
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
+		onMessage(agentName, f.formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
 
@@ -559,7 +552,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 			rawText += " " + caption
 		}
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
+		onMessage(agentName, f.formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
 
@@ -580,7 +573,7 @@ func (f *TelegramFrontend) handleInboundMessage(
 			rawText += " " + caption
 		}
 		f.persistInbound(senderName, agentName, teamName, rawText)
-		onMessage(agentName, formatInboundMessage(senderName, replyCtx+rawText, f.adminHumanAlias()))
+		onMessage(agentName, f.formatInboundMessage(agentName, senderName, replyCtx+rawText))
 		return
 	}
 
@@ -592,13 +585,13 @@ func (f *TelegramFrontend) handleInboundMessage(
 	}
 	f.persistInbound(senderName, agentName, teamName, text)
 
-	// Bash mode: "! " prefix sends directly to CC without [telegram from:] wrapper.
+	// Bash mode: "! " prefix sends directly to the agent without attribution.
 	if strings.HasPrefix(text, bashModePrefix) {
 		onMessage(agentName, text)
 		return
 	}
 
-	onMessage(agentName, formatInboundMessage(senderName, replyCtx+text, f.adminHumanAlias()))
+	onMessage(agentName, f.formatInboundMessage(agentName, senderName, replyCtx+text))
 }
 
 func (f *TelegramFrontend) persistInbound(sender, recipient, team, content string) {
@@ -614,16 +607,10 @@ func (f *TelegramFrontend) persistInbound(sender, recipient, team, content strin
 }
 
 // formatInboundMessage formats a Telegram message for delivery to the agent.
-// adminAlias is the human's lowercase alias for the reply hint (e.g. "neil").
-// Routes through sendfmt for the canonical [<channel> from:X] [hh:mm:ss] body
+// Routes through sendfmt for the canonical attribution + timestamp body
 // layout shared with matrix inbound and outbound agent-to-agent.
-func formatInboundMessage(senderName, text, adminAlias string) string {
-	return sendfmt.Format(sendfmt.Envelope{
-		Channel:    "telegram",
-		SenderName: html.EscapeString(senderName),
-		Body:       text,
-		ReplyAlias: adminAlias,
-	})
+func (f *TelegramFrontend) formatInboundMessage(agentName, senderName, text string) string {
+	return formatInboundForAgent(f.cfg.MCfg, "telegram", agentName, senderName, text)
 }
 
 // registerBotCommands calls Telegram setMyCommands API for this bot token.

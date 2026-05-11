@@ -9,6 +9,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
 const testChatID = "12345"
@@ -174,9 +175,9 @@ func writeFakeBinary(t *testing.T, tmpDir, name string) {
 }
 
 func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
-	origWake := launchcmd.WakeTriggerFn
-	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
-	defer func() { launchcmd.WakeTriggerFn = origWake }()
+	origWake := launchcmd.WakeTriggerForRuntimeFn
+	launchcmd.WakeTriggerForRuntimeFn = func(runtime.Runtime) string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerForRuntimeFn = origWake }()
 
 	tmp := t.TempDir()
 	writeFakeBinary(t, tmp, "claude")
@@ -235,9 +236,9 @@ func TestHandleBreathe_RespawnsCleanly(t *testing.T) {
 }
 
 func TestHandleBreathe_DeadSessionPath(t *testing.T) {
-	origWake := launchcmd.WakeTriggerFn
-	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
-	defer func() { launchcmd.WakeTriggerFn = origWake }()
+	origWake := launchcmd.WakeTriggerForRuntimeFn
+	launchcmd.WakeTriggerForRuntimeFn = func(runtime.Runtime) string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerForRuntimeFn = origWake }()
 
 	tmp := t.TempDir()
 	writeFakeBinary(t, tmp, "claude")
@@ -286,9 +287,9 @@ func TestHandleBreathe_DeadSessionPath(t *testing.T) {
 }
 
 func TestHandleBreathe_LenosRespawn(t *testing.T) {
-	origWake := launchcmd.WakeTriggerFn
-	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
-	defer func() { launchcmd.WakeTriggerFn = origWake }()
+	origWake := launchcmd.WakeTriggerForRuntimeFn
+	launchcmd.WakeTriggerForRuntimeFn = func(runtime.Runtime) string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerForRuntimeFn = origWake }()
 
 	tmp := t.TempDir()
 	writeFakeBinary(t, tmp, "lenos")
@@ -408,9 +409,9 @@ func (r *recordingAdapter) SendMessage(_ context.Context, text string) error {
 
 func TestHandleCodexBreathe_FirstTurnIsContextTrigger(t *testing.T) {
 	// WakeTrigger shells out — inject a stub that returns ContextTrigger for testing.
-	orig := launchcmd.WakeTriggerFn
-	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
-	defer func() { launchcmd.WakeTriggerFn = orig }()
+	orig := launchcmd.WakeTriggerForRuntimeFn
+	launchcmd.WakeTriggerForRuntimeFn = func(runtime.Runtime) string { return launchcmd.ContextTrigger }
+	defer func() { launchcmd.WakeTriggerForRuntimeFn = orig }()
 
 	rec := &recordingAdapter{stubAdapter: &stubAdapter{}}
 	registry := newAdapterRegistry()

@@ -14,13 +14,13 @@ import (
 func TestSpawnReviewer_ClaudeCodeBranch(t *testing.T) {
 	origNewWindow := tmuxNewWindowFn
 	origExec := osExecFn
-	origWake := launchcmd.WakeTriggerFn
+	origWake := launchcmd.WakeTriggerForRuntimeFn
 	defer func() {
 		tmuxNewWindowFn = origNewWindow
 		osExecFn = origExec
-		launchcmd.WakeTriggerFn = origWake
+		launchcmd.WakeTriggerForRuntimeFn = origWake
 	}()
-	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
+	launchcmd.WakeTriggerForRuntimeFn = func(runtime.Runtime) string { return launchcmd.ContextTrigger }
 
 	var capturedShellCmd string
 	tmuxNewWindowFn = func(session, window, workDir, shellCmd string) error {
@@ -64,13 +64,13 @@ func TestSpawnReviewer_ClaudeCodeBranch(t *testing.T) {
 func TestSpawnReviewer_LenosBranch(t *testing.T) {
 	origNewWindow := tmuxNewWindowFn
 	origExec := osExecFn
-	origWake := launchcmd.WakeTriggerFn
+	origWake := launchcmd.WakeTriggerForRuntimeFn
 	defer func() {
 		tmuxNewWindowFn = origNewWindow
 		osExecFn = origExec
-		launchcmd.WakeTriggerFn = origWake
+		launchcmd.WakeTriggerForRuntimeFn = origWake
 	}()
-	launchcmd.WakeTriggerFn = func() string { return launchcmd.ContextTrigger }
+	launchcmd.WakeTriggerForRuntimeFn = func(runtime.Runtime) string { return launchcmd.ContextTrigger }
 
 	var capturedShellCmd string
 	tmuxNewWindowFn = func(session, window, workDir, shellCmd string) error {
@@ -102,8 +102,8 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 	if !strings.Contains(capturedShellCmd, "lenos --agent pr-review-lead") {
 		t.Errorf("expected lenos agent, got: %q", capturedShellCmd)
 	}
-	if !strings.Contains(capturedShellCmd, "--small-model") {
-		t.Errorf("expected --small-model in reviewer lenos command, got: %q", capturedShellCmd)
+	if strings.Contains(capturedShellCmd, "--small-model") {
+		t.Errorf("reviewer lenos command should not use --small-model, got: %q", capturedShellCmd)
 	}
 	if strings.Contains(capturedShellCmd, "claude") {
 		t.Errorf("should not contain claude: %q", capturedShellCmd)

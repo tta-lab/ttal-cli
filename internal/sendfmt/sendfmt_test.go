@@ -34,7 +34,7 @@ EOF</i>`
 				Channel: "agent", SenderName: "yuki",
 				Body: "hello", ReplyAlias: "yuki", Now: fixed,
 			},
-			want: `[agent from:yuki] [14:32:05] hello` + "\n\n" + replyHintYuki,
+			want: `<- yuki [14:32:05] hello` + "\n\n" + replyHintYuki,
 		},
 		{
 			name: "telegram inbound — header + reply hint to admin",
@@ -42,7 +42,7 @@ EOF</i>`
 				Channel: "telegram", SenderName: "Neil",
 				Body: "hello", ReplyAlias: "neil", Now: fixed,
 			},
-			want: `[telegram from:Neil] [14:32:05] hello` + "\n\n" + replyHintNeil,
+			want: `<- telegram:Neil [14:32:05] hello` + "\n\n" + replyHintNeil,
 		},
 		{
 			name: "matrix inbound — header + reply hint to admin",
@@ -50,7 +50,7 @@ EOF</i>`
 				Channel: "matrix", SenderName: "Neil",
 				Body: "hello", ReplyAlias: "neil", Now: fixed,
 			},
-			want: `[matrix from:Neil] [14:32:05] hello` + "\n\n" + replyHintNeil,
+			want: `<- matrix:Neil [14:32:05] hello` + "\n\n" + replyHintNeil,
 		},
 		{
 			name: "header without reply hint — defensive shape, no current caller",
@@ -58,7 +58,7 @@ EOF</i>`
 				Channel: "agent", SenderName: "yuki",
 				Body: "hello", Now: fixed,
 			},
-			want: `[agent from:yuki] [14:32:05] hello`,
+			want: `<- yuki [14:32:05] hello`,
 		},
 	}
 	for _, tc := range cases {
@@ -100,7 +100,7 @@ func TestFormat_HeaderShape(t *testing.T) {
 		Channel: "agent", SenderName: "yuki", Body: "any body content",
 		ReplyAlias: "yuki", Now: time.Now(),
 	})
-	re := regexp.MustCompile(`^\[agent from:yuki\] \[\d{2}:\d{2}:\d{2}\] any body content`)
+	re := regexp.MustCompile(`^<- yuki \[\d{2}:\d{2}:\d{2}\] any body content`)
 	if !re.MatchString(got) {
 		t.Errorf("header shape mismatch: %q", got)
 	}

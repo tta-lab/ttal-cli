@@ -3,7 +3,6 @@ package frontend
 import (
 	"context"
 	"fmt"
-	"html"
 	"log"
 	"net/url"
 	"os"
@@ -19,7 +18,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/addressee"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/message"
-	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 	"github.com/tta-lab/ttal-cli/internal/status"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
 	"github.com/tta-lab/ttal-cli/internal/voice"
@@ -218,22 +216,21 @@ func (f *MatrixFrontend) deliverInboundMessage(ctx context.Context, agentName, b
 			log.Printf("[matrix] message persist failed (sender=%s): %v", senderName, err)
 		}
 	}
-	// Bash mode: "! " prefix sends directly to CC without [matrix from:] wrapper.
+	// Bash mode: "! " prefix sends directly to the agent without attribution.
 	if strings.HasPrefix(body, bashModePrefix) {
 		f.cfg.OnMessage("default", agentName, body)
 		return
 	}
 
-	f.cfg.OnMessage("default", agentName, f.formatMatrixInboundMessage(senderName, body))
+	f.cfg.OnMessage("default", agentName, f.formatMatrixInboundMessageForAgent(agentName, senderName, body))
 }
 
 func (f *MatrixFrontend) formatMatrixInboundMessage(senderName, body string) string {
-	return sendfmt.Format(sendfmt.Envelope{
-		Channel:    "matrix",
-		SenderName: html.EscapeString(senderName),
-		Body:       body,
-		ReplyAlias: replyHumanAlias(f.cfg.MCfg),
-	})
+	return formatInboundForAgent(f.cfg.MCfg, "matrix", "", senderName, body)
+}
+
+func (f *MatrixFrontend) formatMatrixInboundMessageForAgent(agentName, senderName, body string) string {
+	return formatInboundForAgent(f.cfg.MCfg, "matrix", agentName, senderName, body)
 }
 
 // startNotifSync sets up the notification client sync loop with command handlers.
@@ -428,7 +425,7 @@ func (f *MatrixFrontend) handleMatrixVoice(
 		}
 	}
 
-	f.cfg.OnMessage("default", agentName, f.formatMatrixInboundMessage(senderName, rawText))
+	f.cfg.OnMessage("default", agentName, f.formatMatrixInboundMessageForAgent(agentName, senderName, rawText))
 }
 
 // ClearTracking clears the tracked inbound event ID for an agent.

@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/owner"
+	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/sendfmt"
 )
 
@@ -21,7 +22,7 @@ Manager plane: resolves owner from admin human alias.
 Worker plane: resolves owner from the task owner UDA (TTAL_JOB_ID).
 
 Output format:
-  [telegram from:<owner>] [HH:MM:SS] Run ` + "`ttal context`" + ` for your briefing, then act on the role prompt.
+  <- telegram:<owner> [HH:MM:SS] Run ` + "`ttal context`" + ` for your briefing, then act on the role prompt.
 
   <i>--- Reply with:
   cat <<'EOF' | ttal send --to <owner>
@@ -31,15 +32,24 @@ Output format:
 		ownerName := owner.ResolveOwner()
 
 		envelope := sendfmt.Envelope{
-			Channel:    "telegram",
-			SenderName: ownerName,
-			Body:       wakeTrigger,
-			ReplyAlias: ownerName,
+			Channel:      "telegram",
+			SenderName:   ownerName,
+			Body:         wakeTrigger,
+			ReplyAlias:   ownerName,
+			ReplyRuntime: wakeReplyRuntime(),
 		}
 
 		_, err := os.Stdout.WriteString(sendfmt.Format(envelope) + "\n")
 		return err
 	},
+}
+
+func wakeReplyRuntime() runtime.Runtime {
+	rt, err := runtime.Parse(os.Getenv("TTAL_RUNTIME"))
+	if err != nil {
+		return runtime.ClaudeCode
+	}
+	return rt
 }
 
 func init() {

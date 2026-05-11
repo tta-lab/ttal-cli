@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -423,7 +424,7 @@ func TestMatrixFrontend_ClearTracking(t *testing.T) {
 }
 
 // TestDeliverInboundMessage_BashMode verifies that messages starting with "! " are delivered
-// directly to the agent without the [matrix from:] wrapper.
+// directly to the agent without the Matrix attribution wrapper.
 func TestDeliverInboundMessage_BashMode(t *testing.T) {
 	restore := sendfmt.SetNowForTest(func() time.Time {
 		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
@@ -443,12 +444,12 @@ func TestDeliverInboundMessage_BashMode(t *testing.T) {
 		{
 			name: "normal text",
 			body: "hello",
-			want: "[matrix from:neil] [14:32:05] hello\n\n" + neilReplyHint,
+			want: "<- matrix:neil [14:32:05] hello\n\n" + neilReplyHint,
 		},
 		{
 			name: "no space not bash mode",
 			body: "!nospace",
-			want: "[matrix from:neil] [14:32:05] !nospace\n\n" + neilReplyHint,
+			want: "<- matrix:neil [14:32:05] !nospace\n\n" + neilReplyHint,
 		},
 		{
 			name: "prefix only empty command",
@@ -493,7 +494,7 @@ func TestFormatMatrixInboundMessage_UsesCanonicalLayout(t *testing.T) {
 	}
 
 	got := fe.formatMatrixInboundMessage("alice", "[🎤 voice] hello")
-	want := "[matrix from:alice] [14:32:05] [🎤 voice] hello\n\n" +
+	want := "<- matrix:alice [14:32:05] [🎤 voice] hello\n\n" +
 		`<i>--- Reply with:
 cat <<'EOF' | ttal send --to neil
 your message
@@ -569,11 +570,50 @@ func TestMatrixInbound_NormalIncludesHint(t *testing.T) {
 
 	fe.deliverInboundMessage(context.Background(), "testagent", "hello neil")
 
-	if !strings.Contains(got, "[matrix from:neil] [14:32:05] hello neil") {
+	if !strings.Contains(got, "<- matrix:neil [14:32:05] hello neil") {
 		t.Errorf("expected prefix missing, got %q", got)
 	}
 	if !strings.Contains(got, neilReplyHint) {
 		t.Errorf("expected italic hint %q missing from %q", neilReplyHint, got)
+	}
+}
+
+func TestMatrixInbound_LenosAgentUsesNarrateHint(t *testing.T) {
+	restore := sendfmt.SetNowForTest(func() time.Time {
+		return time.Date(2026, 5, 5, 14, 32, 5, 0, time.UTC)
+	})
+	t.Cleanup(func() { restore() })
+
+	tmp := t.TempDir()
+	agentDir := tmp + "/testagent"
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(agentDir+"/AGENTS.md",
+		[]byte("---\nname: testagent\ndefault_runtime: lenos\n---\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	var got string
+	fe := &MatrixFrontend{
+		cfg: MatrixConfig{
+			MCfg:       &config.Config{TeamPath: tmp, AdminHuman: &humanfs.Human{Alias: "neil"}},
+			UserNameFn: func() string { return testUserName },
+			OnMessage:  func(_, _ string, text string) { got = text },
+		},
+		lastEventID: make(map[string]id.EventID),
+	}
+
+	fe.deliverInboundMessage(context.Background(), "testagent", "hello neil")
+
+	if !strings.Contains(got, "<- matrix:neil [14:32:05] hello neil") {
+		t.Errorf("expected prefix missing, got %q", got)
+	}
+	if !strings.Contains(got, neilNarrateReplyHint) {
+		t.Errorf("expected lenos narrate hint %q missing from %q", neilNarrateReplyHint, got)
+	}
+	if strings.Contains(got, "ttal send --to neil") {
+		t.Errorf("expected no ttal send reply hint for lenos agent, got %q", got)
 	}
 }
 
