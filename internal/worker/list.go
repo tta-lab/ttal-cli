@@ -110,6 +110,7 @@ func formatPRCell(prid string, tags []string) string {
 	return fmt.Sprintf("#%d", info.Index)
 }
 
+//nolint:gocyclo // pre-existing complexity from table formatting
 func printWorkerTable(workers []WorkerInfo) {
 	// Count by status
 	counts := map[WorkerStatus]int{}
