@@ -15,7 +15,7 @@ The simplest setup. One persistent agent handles orchestration, and workers are 
 ttal agent add kestrel --role orchestrator
 ```
 
-Kestrel manages your tasks, responds to Telegram messages, and spawns workers when you run `ttal go`. Each worker is isolated in its own tmux session and git worktree.
+Kestrel manages your tasks, responds to Telegram messages, and spawns workers when you run `ttal go`. Each worker is isolated in its own git worktree within a named tmux window in the owner manager session (ttal-default-<owner>:<agent-name>).
 
 **Best for:** Individual developers who want mobile access and task-driven workflows.
 

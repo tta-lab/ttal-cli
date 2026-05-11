@@ -393,13 +393,16 @@ func dispatchSend(
 	frontends map[string]frontend.Frontend,
 	msgSvc *message.Service, req SendRequest,
 ) error {
-	// Validate From — keep existing block verbatim.
+	// Validate From — validate worker address with exact agent-name window lookup.
 	if isBareWorkerHex(req.From) {
 		return bareHexError(req.From)
 	}
-	if jobID, _, ok := parseWorkerAddress(req.From); ok {
-		if _, err := resolveWorker(jobID); err != nil {
-			return fmt.Errorf("unknown agent or worker: %s", req.From)
+	if jobID, agentName, ok := parseWorkerAddress(req.From); ok {
+		if _, err := resolveWorkerWindowTarget(jobID, agentName); err != nil {
+			// Fall back to legacy w-* session lookup for compatibility.
+			if _, legacyErr := resolveWorker(jobID); legacyErr != nil {
+				return fmt.Errorf("unknown agent or worker: %s", req.From)
+			}
 		}
 	} else if _, agentOK := cfg.FindAgent(req.From); !agentOK {
 		if _, err := resolveWorker(req.From); err != nil {

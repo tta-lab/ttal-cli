@@ -254,13 +254,13 @@ func dumpState(target TmuxTarget, workDir string) string {
 
 // cleanupWorker kills the worker's tmux window and removes the git worktree + branch.
 func cleanupWorker(target TmuxTarget, workDir, branch, gitRoot string) error {
-	if tmux.WindowExists(target.Session, target.Window) {
-		if err := tmux.KillWindow(target.Session, target.Window); err != nil {
+	if tmuxWindowExistsFn(target.Session, target.Window) {
+		if err := tmuxKillWindowFn(target.Session, target.Window); err != nil {
 			return fmt.Errorf("failed to kill window %s:%s: %w", target.Session, target.Window, err)
 		}
 	}
 
-	return gitutil.RemoveWorktree(gitRoot, workDir, branch)
+	return removeWorktreeFn(gitRoot, workDir, branch)
 }
 
 // pullMainBranch pulls latest changes in the main project directory after cleanup.
@@ -301,6 +301,9 @@ func dirExists(path string) bool {
 
 // ErrNeedsDecision indicates the worker needs manual intervention (exit code 1).
 var ErrNeedsDecision = fmt.Errorf("needs manual decision")
+
+// Package-level overrides for test injection.
+var removeWorktreeFn = gitutil.RemoveWorktree
 
 // PrintResult outputs the close result in a machine-parseable format matching
 // the Python script's output format.

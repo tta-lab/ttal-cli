@@ -37,7 +37,7 @@ Plan: ~/clawd/docs/plans/2026-03-01-auth-implementation.md
 ttal go <uuid>
 ```
 
-This spawns a worker in a tmux session with a git worktree. The worker receives the full task context — including the research findings and implementation plan, automatically inlined from annotations.
+This spawns a worker in a tmux window (ttal-default-<owner>:coder) with a git worktree. The worker receives the full task context — including the research findings and implementation plan, automatically inlined from annotations.
 
 ## Automatic context flow
 

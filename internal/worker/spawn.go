@@ -169,20 +169,26 @@ func resolveRuntime(rt runtime.Runtime, _ *taskwarrior.Task) runtime.Runtime {
 	return runtime.ClaudeCode
 }
 
+var (
+	tmuxSessionExistsFn = tmux.SessionExists
+	tmuxWindowExistsFn  = tmux.WindowExists
+	tmuxKillWindowFn    = tmux.KillWindow
+)
+
 func ensureWindowAvailable(cfg SpawnConfig, target TmuxTarget) error {
-	if !tmux.SessionExists(target.Session) {
+	if !tmuxSessionExistsFn(target.Session) {
 		return fmt.Errorf("owner session '%s' does not exist\n"+
 			"  Start the agent session (e.g. `breathe` or `ttal context`), then rerun `ttal go <uuid>`\n"+
 			"  Re-run reuses the existing worktree safely without duplicating stage tags", target.Session)
 	}
 
-	if !tmux.WindowExists(target.Session, target.Window) {
+	if !tmuxWindowExistsFn(target.Session, target.Window) {
 		return nil
 	}
 
 	if cfg.Force {
 		fmt.Printf("Window '%s:%s' exists, closing it (--force)\n", target.Session, target.Window)
-		return tmux.KillWindow(target.Session, target.Window)
+		return tmuxKillWindowFn(target.Session, target.Window)
 	}
 
 	return fmt.Errorf("window '%s:%s' already exists\n"+

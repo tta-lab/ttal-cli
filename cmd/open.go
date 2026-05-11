@@ -13,7 +13,7 @@ var openCmd = &cobra.Command{
 These commands are designed to be called from taskwarrior-tui shortcuts:
 
   ttal open pr <uuid>        Open the Forgejo PR in browser
-  ttal open session <uuid>   Attach to the tmux worker session
+  ttal open session <uuid>   Attach to the task's tmux target (session:window)
   ttal open editor <uuid>    Open the project/worktree in your editor
   ttal open term <uuid>      Open a shell in the worker directory`,
 }
@@ -36,8 +36,8 @@ Example:
 
 var openSessionCmd = &cobra.Command{
 	Use:   "session <uuid>",
-	Short: "Attach to worker tmux session",
-	Long: `Attach to the tmux session associated with a task's worker.
+	Short: "Attach to task tmux window",
+	Long: `Attach to the tmux session/window associated with a task.
 
 Derives session name from task UUID and exec's into tmux attach.
 
