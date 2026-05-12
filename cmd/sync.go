@@ -18,16 +18,12 @@ var (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Deploy rules, configs, and agent identities to runtime directories",
-	Long: `Deploys RULE.md cheat sheets, config TOMLs, and agent identities to runtime directories.
+	Short: "Deploy rules, skills, and agent identities to runtime directories",
+	Long: `Deploys RULE.md cheat sheets, skills, and agent identities to runtime directories.
 
 Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
   Codex       → inlined into ~/.codex/AGENTS.md
-
-Config TOMLs are deployed from team_path:
-  prompts.toml, roles.toml, pipelines.toml → ~/.config/ttal/
-  config.toml is NOT synced (machine-specific settings).
 
 Manager and worker agent identities ({name}/AGENTS.md) are deployed to ~/.claude/agents/{name}.md.
 
@@ -55,22 +51,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 				"  rules_paths = [\"~/path/to/rules\"]")
 		}
 
-		configCount := 0
 		ruleCount := 0
-
-		// Deploy config TOMLs from team_path to ~/.config/ttal/
-		if teamPath != "" {
-			printSyncHeader("configs", syncDryRun)
-
-			configResults, err := syncer.DeployConfigs(teamPath, config.DefaultConfigDir(), syncDryRun)
-			if err != nil {
-				return fmt.Errorf("config sync failed: %w", err)
-			}
-			for _, r := range configResults {
-				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
-			}
-			configCount = len(configResults)
-		}
 
 		if len(syncCfg.RulesPaths) > 0 {
 			printSyncHeader("rules", syncDryRun)
@@ -161,8 +142,8 @@ Configure source paths in ~/.config/ttal/config.toml:
 		if syncFailed {
 			suffix += " [sync warnings — check above]"
 		}
-		fmt.Printf("\nSynced %d configs, %d rules, %d worker agents, %d manager agents, %d skills.%s\n",
-			configCount, ruleCount, workerAgentCount, managerAgentCount, skillsCount, suffix)
+		fmt.Printf("\nSynced %d rules, %d worker agents, %d manager agents, %d skills.%s\n",
+			ruleCount, workerAgentCount, managerAgentCount, skillsCount, suffix)
 		return nil
 	},
 }

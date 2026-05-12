@@ -45,11 +45,11 @@ ttal agent list                        # all agents
 ## Sync
 
 ```
-ttal sync                    # deploy subagents + config TOMLs to runtime dirs
+ttal sync                    # deploy subagents, rules, and skills to runtime dirs
 ttal sync --dry-run          # preview what would be deployed
 ```
 Sources: `agents/` → `~/.claude/agents/`
-Config TOMLs (prompts.toml, roles.toml, pipelines.toml) are deployed from team_path → `~/.config/ttal/`.
+TTAL config TOMLs are managed outside `ttal sync` so Nix/home-manager can own `~/.config/ttal/`.
 
 Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They are accessed at runtime via `skill get <name>`.
 

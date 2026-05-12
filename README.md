@@ -137,7 +137,7 @@ Or manually:
 ```
 ttal doctor --fix      # install hooks
 ttal daemon install    # start the communication hub
-ttal sync              # generate sandbox config from project registry
+ttal sync              # deploy rules, skills, and agent identities
 ```
 
 ## Open source, sustainably
