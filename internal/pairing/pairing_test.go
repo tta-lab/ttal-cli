@@ -10,6 +10,11 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+const (
+	testCoder = "coder"
+	testOwner = "astra"
+)
+
 func TestManagerUsesAdminHumanAlias(t *testing.T) {
 	cfg := &config.Config{AdminHuman: &humanfs.Human{Alias: "neil", Admin: true}}
 
@@ -29,25 +34,25 @@ func TestManagerMissingAdminReturnsEmpty(t *testing.T) {
 }
 
 func TestPlanReviewerUsesTaskOwner(t *testing.T) {
-	task := &taskwarrior.Task{Owner: "astra"}
+	task := &taskwarrior.Task{Owner: testOwner}
 
 	got := PlanReviewer(task)
-	if got != "astra" {
+	if got != testOwner {
 		t.Errorf("expected task owner astra, got %q", got)
 	}
 }
 
 func TestWorkerCoderUsesTaskOwner(t *testing.T) {
-	task := &taskwarrior.Task{Owner: "astra"}
+	task := &taskwarrior.Task{Owner: testOwner}
 
-	got := Worker(&config.Config{}, "coder", task)
-	if got != "astra" {
+	got := Worker(&config.Config{}, testCoder, task)
+	if got != testOwner {
 		t.Errorf("expected coder to pair with task owner astra, got %q", got)
 	}
 }
 
 func TestWorkerCoderWithoutOwnerReturnsEmpty(t *testing.T) {
-	got := Worker(&config.Config{}, "coder", &taskwarrior.Task{})
+	got := Worker(&config.Config{}, testCoder, &taskwarrior.Task{})
 	if got != "" {
 		t.Errorf("expected empty pair target without task owner, got %q", got)
 	}
@@ -55,7 +60,7 @@ func TestWorkerCoderWithoutOwnerReturnsEmpty(t *testing.T) {
 
 func TestReviewerPRReviewLeadPairsWithCoder(t *testing.T) {
 	got := Reviewer(&config.Config{}, "pr-review-lead")
-	if got != "coder" {
+	if got != testCoder {
 		t.Errorf("expected pr-review-lead to pair with coder, got %q", got)
 	}
 }
@@ -73,10 +78,10 @@ func TestCustomAgentUsesFrontmatter(t *testing.T) {
 	}
 	cfg := &config.Config{Sync: config.SyncConfig{WorkerAgentPaths: []string{tmpDir}}}
 
-	if got := Worker(cfg, "custom-reviewer", &taskwarrior.Task{Owner: "astra"}); got != "coder" {
+	if got := Worker(cfg, "custom-reviewer", &taskwarrior.Task{Owner: testOwner}); got != testCoder {
 		t.Errorf("expected custom worker to use frontmatter target coder, got %q", got)
 	}
-	if got := Reviewer(cfg, "custom-reviewer"); got != "coder" {
+	if got := Reviewer(cfg, "custom-reviewer"); got != testCoder {
 		t.Errorf("expected custom reviewer to use frontmatter target coder, got %q", got)
 	}
 }
