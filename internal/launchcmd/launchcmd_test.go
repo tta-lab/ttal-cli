@@ -218,7 +218,9 @@ func TestBuildEnvParts_Lenos(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_ClaudeCode(t *testing.T) {
-	got, err := BuildAgentLaunchCommand("claude-code", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "manager", "")
+	got, err := BuildAgentLaunchCommand(
+		"claude-code", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "manager", "",
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -240,7 +242,9 @@ func TestBuildAgentLaunchCommand_ClaudeCode(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_Lenos(t *testing.T) {
-	got, err := BuildAgentLaunchCommand("lenos", "/usr/bin/ttal", "plan-review-lead", false, false, ContextTrigger, "manager", "")
+	got, err := BuildAgentLaunchCommand(
+		"lenos", "/usr/bin/ttal", "plan-review-lead", false, false, ContextTrigger, "manager", "",
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
