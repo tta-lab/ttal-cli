@@ -312,7 +312,7 @@ skills/                - Skill directories (each has SKILL.md). Run `ls skills/`
 | Skills (methodology) | `skills/` | Directory with `SKILL.md` | `ttal sync` |
 | Subagents | `agents/` | `{name}/AGENTS.md` per-agent subdir | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Agent identities | `templates/ttal/{name}/` | Per-agent subdir with `AGENTS.md` | `ttal sync` → `~/.claude/agents/{name}.md` |
-| Config TOMLs | `templates/ttal/` | `.toml` files | `ttal sync` → `~/.config/ttal/` |
+| Config TOMLs | `templates/ttal/` | `.toml` files | Managed outside `ttal sync` (for example, by Nix/home-manager) |
 
 **Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
 
