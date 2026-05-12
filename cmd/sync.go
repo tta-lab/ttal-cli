@@ -25,8 +25,6 @@ Rules (RULE.md cheat sheets) are deployed as:
   Claude Code → ~/.claude/rules/{name}.md
   Codex       → inlined into ~/.codex/AGENTS.md
 
-TTAL config TOMLs are managed outside ttal sync.
-
 Manager and worker agent identities ({name}/AGENTS.md) are deployed to ~/.claude/agents/{name}.md.
 
 Configure source paths in ~/.config/ttal/config.toml:
