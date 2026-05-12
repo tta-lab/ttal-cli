@@ -289,63 +289,9 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 	agentNames, _ := agentfs.DiscoverAgents(cfg.TeamPath)
 	sort.Strings(agentNames)
 
-	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
-		if fix {
-			lines := make([]string, 0, 8+len(agentNames))
-			lines = append(lines, "# ttal secrets — ~/.config/ttal/.env")
-			lines = append(lines, "# All entries are injected into worker and agent sessions.")
-			lines = append(lines, "")
-			lines = append(lines, "# API tokens")
-			lines = append(lines, "GITHUB_TOKEN=")
-			lines = append(lines, "FORGEJO_TOKEN=")
-			lines = append(lines, "")
-			lines = append(lines, "# Woodpecker CI")
-			lines = append(lines, "WOODPECKER_URL=")
-			lines = append(lines, "WOODPECKER_TOKEN=")
-			lines = append(lines, "")
-			lines = append(lines, "# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN")
-			for _, name := range agentNames {
-				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
-				lines = append(lines, envKey+"=")
-			}
-			if cfg.AdminHuman != nil && cfg.AdminHuman.Alias != "" {
-				lines = append(lines, "")
-				lines = append(lines, "# Human Telegram chat IDs — convention: {UPPER_HUMAN_ALIAS}_CHAT_ID")
-				lines = append(lines, humanfs.TelegramChatIDEnvKey(cfg.AdminHuman.Alias)+"=")
-			}
-			content := strings.Join(lines, "\n") + "\n"
-			if writeErr := os.MkdirAll(filepath.Dir(envPath), 0o755); writeErr != nil {
-				section.add(LevelError, "dotenv", fmt.Sprintf("failed to create dir: %v", writeErr))
-			} else if writeErr := os.WriteFile(envPath, []byte(content), 0o600); writeErr != nil {
-				section.add(LevelError, "dotenv", fmt.Sprintf("failed to create .env: %v", writeErr))
-			} else {
-				section.add(LevelWarn, "dotenv", fmt.Sprintf("created template .env: %s", envPath))
-			}
-		} else {
-			section.add(LevelError, "dotenv",
-				fmt.Sprintf(".env file missing: %s (run: ttal doctor --fix)", envPath))
-		}
-	} else {
-		section.add(LevelOK, "dotenv", fmt.Sprintf(".env file: %s", envPath))
-	}
-
-	// Check bot tokens using convention: {UPPER_NAME}_BOT_TOKEN.
-	for _, name := range agentNames {
-		if config.AgentBotToken(name) == "" {
-			section.add(LevelError, name,
-				fmt.Sprintf("Agent %s: bot token not found in .env", name))
-		} else {
-			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token set", name))
-		}
-	}
-	if cfg.AdminHuman != nil && cfg.AdminHuman.Alias != "" {
-		envKey := humanfs.TelegramChatIDEnvKey(cfg.AdminHuman.Alias)
-		if humanfs.TelegramChatID(cfg.AdminHuman.Alias) == "" {
-			section.add(LevelError, envKey, fmt.Sprintf("%s not found in .env", envKey))
-		} else {
-			section.add(LevelOK, envKey, fmt.Sprintf("%s set", envKey))
-		}
-	}
+	ensureDotEnv(section, envPath, agentNames, cfg.AdminHuman, fix)
+	checkAgentBotTokens(section, agentNames)
+	checkAdminChatID(section, cfg.AdminHuman)
 
 	// Check common API tokens (warn, not error — not all setups need both)
 	env, loadErr := config.LoadDotEnv()
@@ -372,6 +318,81 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 		section.add(LevelWarn, "woodpecker_token", "WOODPECKER_TOKEN not set in .env")
 	} else {
 		section.add(LevelOK, "woodpecker_token", "WOODPECKER_TOKEN set in .env")
+	}
+}
+
+func ensureDotEnv(section *Section, envPath string, agentNames []string, adminHuman *humanfs.Human, fix bool) {
+	if _, statErr := os.Stat(envPath); statErr == nil {
+		section.add(LevelOK, "dotenv", fmt.Sprintf(".env file: %s", envPath))
+		return
+	} else if !os.IsNotExist(statErr) {
+		section.add(LevelWarn, "dotenv", fmt.Sprintf(".env stat error: %v", statErr))
+		return
+	}
+
+	if !fix {
+		section.add(LevelError, "dotenv", fmt.Sprintf(".env file missing: %s (run: ttal doctor --fix)", envPath))
+		return
+	}
+
+	content := buildDotEnvTemplate(agentNames, adminHuman)
+	if writeErr := os.MkdirAll(filepath.Dir(envPath), 0o755); writeErr != nil {
+		section.add(LevelError, "dotenv", fmt.Sprintf("failed to create dir: %v", writeErr))
+	} else if writeErr := os.WriteFile(envPath, []byte(content), 0o600); writeErr != nil {
+		section.add(LevelError, "dotenv", fmt.Sprintf("failed to create .env: %v", writeErr))
+	} else {
+		section.add(LevelWarn, "dotenv", fmt.Sprintf("created template .env: %s", envPath))
+	}
+}
+
+func buildDotEnvTemplate(agentNames []string, adminHuman *humanfs.Human) string {
+	lines := make([]string, 0, 11+len(agentNames))
+	lines = append(lines,
+		"# ttal secrets — ~/.config/ttal/.env",
+		"# All entries are injected into worker and agent sessions.",
+		"",
+		"# API tokens",
+		"GITHUB_TOKEN=",
+		"FORGEJO_TOKEN=",
+		"",
+		"# Woodpecker CI",
+		"WOODPECKER_URL=",
+		"WOODPECKER_TOKEN=",
+		"",
+		"# Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN",
+	)
+	for _, name := range agentNames {
+		lines = append(lines, strings.ToUpper(name)+"_BOT_TOKEN=")
+	}
+	if adminHuman != nil && adminHuman.Alias != "" {
+		lines = append(lines,
+			"",
+			"# Human Telegram chat IDs — convention: {UPPER_HUMAN_ALIAS}_CHAT_ID",
+			humanfs.TelegramChatIDEnvKey(adminHuman.Alias)+"=",
+		)
+	}
+	return strings.Join(lines, "\n") + "\n"
+}
+
+func checkAgentBotTokens(section *Section, agentNames []string) {
+	for _, name := range agentNames {
+		if config.AgentBotToken(name) == "" {
+			section.add(LevelError, name, fmt.Sprintf("Agent %s: bot token not found in .env", name))
+		} else {
+			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token set", name))
+		}
+	}
+}
+
+func checkAdminChatID(section *Section, adminHuman *humanfs.Human) {
+	if adminHuman == nil || adminHuman.Alias == "" {
+		return
+	}
+	envKey := humanfs.TelegramChatIDEnvKey(adminHuman.Alias)
+	if humanfs.TelegramChatID(adminHuman.Alias) == "" {
+		section.add(LevelError, envKey, fmt.Sprintf("%s not found in .env", envKey))
+	} else {
+		section.add(LevelOK, envKey, fmt.Sprintf("%s set", envKey))
 	}
 }
 
