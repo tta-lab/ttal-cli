@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	codexRuntime "github.com/tta-lab/ttal-cli/internal/runtime/codex"
@@ -68,7 +69,7 @@ func initSingleAdapter(
 		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
 		if err := spawnAgentSession(
 			runtime.ClaudeCode, sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID, "", managerPairWith(cfg),
+			agentEnv, resumeSessionID, "", pairing.Manager(cfg),
 		); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
@@ -88,7 +89,7 @@ func initSingleAdapter(
 		resumeSessionID := lastLenosSessionID(ta.AgentName)
 		if err := spawnAgentSession(
 			runtime.Lenos, sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID, "", managerPairWith(cfg),
+			agentEnv, resumeSessionID, "", pairing.Manager(cfg),
 		); err != nil {
 			log.Printf("[daemon] failed to start lenos session for %s: %v", ta.AgentName, err)
 		} else {
@@ -220,13 +221,6 @@ func buildManagerAgentEnv(agentName string, _ *config.Config) []string {
 		"KUBECONFIG=$HOME/.ttal/kubeconfig",
 	}
 	return parts
-}
-
-func managerPairWith(cfg *config.Config) string {
-	if cfg == nil || cfg.AdminHuman == nil {
-		return ""
-	}
-	return strings.TrimSpace(cfg.AdminHuman.Alias)
 }
 
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json

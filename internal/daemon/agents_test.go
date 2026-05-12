@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
@@ -77,24 +76,4 @@ func TestBuildManagerAgentEnv(t *testing.T) {
 		}
 	})
 
-}
-
-func TestManagerPairWithUsesAdminHumanAlias(t *testing.T) {
-	cfg := &config.Config{
-		AdminHuman: &humanfs.Human{Alias: "neil", Admin: true},
-	}
-
-	got := managerPairWith(cfg)
-	if got != "neil" {
-		t.Errorf("expected admin alias neil, got %q", got)
-	}
-}
-
-func TestManagerPairWithMissingAdminReturnsEmpty(t *testing.T) {
-	if got := managerPairWith(&config.Config{}); got != "" {
-		t.Errorf("expected empty pair target without admin human, got %q", got)
-	}
-	if got := managerPairWith(nil); got != "" {
-		t.Errorf("expected empty pair target without config, got %q", got)
-	}
 }

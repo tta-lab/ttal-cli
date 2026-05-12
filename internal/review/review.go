@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
@@ -43,7 +43,7 @@ func SpawnReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(ctx.Task.HexID(), reviewerName, rt)
-	pairWith := resolveReviewerPairWith(cfg, reviewerName)
+	pairWith := pairing.Reviewer(cfg, reviewerName)
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
 		rt, ttalBin, reviewerName, readOnly, false, launchcmd.WakeTriggerForRuntime(rt), pairWith, "",
 	)
@@ -59,16 +59,6 @@ func SpawnReviewer(
 	fmt.Printf("Reviewer spawned in '%s' window\n", reviewerName)
 	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prInfo.Index, ctx.Owner, ctx.Repo)
 	return nil
-}
-
-func resolveReviewerPairWith(cfg *config.Config, reviewerName string) string {
-	if reviewerName == "pr-review-lead" {
-		return "coder"
-	}
-	if cfg == nil {
-		return ""
-	}
-	return agentfs.ResolvePairWith(cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerName)
 }
 
 // RequestReReview sends a re-review message to the existing reviewer window.

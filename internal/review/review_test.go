@@ -115,10 +115,3 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 		t.Errorf("shellCmd does not contain ContextTrigger:\n  got: %q", capturedShellCmd)
 	}
 }
-
-func TestResolveReviewerPairWith_BuiltInPRReviewLeadPairsWithCoder(t *testing.T) {
-	got := resolveReviewerPairWith(&config.Config{}, "pr-review-lead")
-	if got != "coder" {
-		t.Errorf("expected pr-review-lead to pair with coder, got %q", got)
-	}
-}

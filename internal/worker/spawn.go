@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -228,7 +228,7 @@ func launchTmuxWorker(
 	agentName := target.Window
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
-	pairWith := resolveWorkerPairWith(shellCfg, agentName, task.Owner)
+	pairWith := pairing.Worker(shellCfg, agentName, task)
 
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
 		cfg.Runtime, ttalBin, agentName,
@@ -253,16 +253,6 @@ func launchTmuxWorker(
 	fmt.Printf("  tmux attach -t %s\n", target.Session)
 
 	return nil
-}
-
-func resolveWorkerPairWith(shellCfg *config.Config, agentName, taskOwner string) string {
-	if agentName == "coder" {
-		return strings.TrimSpace(taskOwner)
-	}
-	if shellCfg == nil {
-		return ""
-	}
-	return agentfs.ResolvePairWith(shellCfg.TeamPath, shellCfg.Sync.WorkerAgentPaths, agentName)
 }
 
 func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {

@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/overflow"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/sendfmt"
@@ -749,7 +750,7 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	}
 	if err := spawnAgentSession(
 		rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "",
-		launchcmd.WakeTriggerForRuntime(rt), managerPairWith(cfg),
+		launchcmd.WakeTriggerForRuntime(rt), pairing.Manager(cfg),
 	); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
