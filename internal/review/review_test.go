@@ -1,8 +1,6 @@
 package review
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -89,20 +87,7 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 		PRID:    "42",
 		Project: "test-project",
 	}
-	agentRoot := t.TempDir()
-	agentDir := filepath.Join(agentRoot, "pr-review-lead")
-	if err := os.MkdirAll(agentDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(agentDir, "AGENTS.md"),
-		[]byte("---\nname: pr-review-lead\nlenos:\n  pair_with: coder\n---\n# PR Review\n"),
-		0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg := &config.Config{
-		DefaultRuntime: "lenos",
-		Sync:           config.SyncConfig{WorkerAgentPaths: []string{agentRoot}},
-	}
+	cfg := &config.Config{DefaultRuntime: "lenos"}
 	ctx := &pr.Context{
 		Task:  task,
 		Owner: "test-owner",
@@ -128,5 +113,12 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 	}
 	if !strings.Contains(capturedShellCmd, launchcmd.ContextTrigger) {
 		t.Errorf("shellCmd does not contain ContextTrigger:\n  got: %q", capturedShellCmd)
+	}
+}
+
+func TestResolveReviewerPairWith_BuiltInPRReviewLeadPairsWithCoder(t *testing.T) {
+	got := resolveReviewerPairWith(&config.Config{}, "pr-review-lead")
+	if got != "coder" {
+		t.Errorf("expected pr-review-lead to pair with coder, got %q", got)
 	}
 }

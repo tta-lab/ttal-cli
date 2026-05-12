@@ -44,13 +44,13 @@ Lenos supports `--pair-with`, which sets the default target for `narrate` calls 
 | Team-path agent session | Admin human alias | The single human in `humans.toml` with `admin = true` |
 | `plan-review-lead` | Task owner | Taskwarrior `owner` UDA (`task.Owner`) |
 | `coder` | Task owner | Taskwarrior `owner` UDA (`task.Owner`) |
-| `pr-review-lead` | `coder` | `lenos.pair_with` in `agents/pr-review-lead/AGENTS.md` |
+| `pr-review-lead` | `coder` | Built-in TTAL routing rule |
 
-For other Lenos worker/reviewer agents, set `lenos.pair_with` in the agent frontmatter:
+For custom Lenos worker/reviewer agents with a static pair target, set `lenos.pair_with` in the agent frontmatter:
 
 ```yaml
 ---
-name: pr-review-lead
+name: custom-reviewer
 default_runtime: lenos
 lenos:
   pair_with: coder

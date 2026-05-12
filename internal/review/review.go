@@ -43,7 +43,7 @@ func SpawnReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(ctx.Task.HexID(), reviewerName, rt)
-	pairWith := agentfs.ResolvePairWith(cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerName)
+	pairWith := resolveReviewerPairWith(cfg, reviewerName)
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
 		rt, ttalBin, reviewerName, readOnly, false, launchcmd.WakeTriggerForRuntime(rt), pairWith, "",
 	)
@@ -59,6 +59,16 @@ func SpawnReviewer(
 	fmt.Printf("Reviewer spawned in '%s' window\n", reviewerName)
 	fmt.Printf("  Reviewing PR #%d in %s/%s\n", prInfo.Index, ctx.Owner, ctx.Repo)
 	return nil
+}
+
+func resolveReviewerPairWith(cfg *config.Config, reviewerName string) string {
+	if reviewerName == "pr-review-lead" {
+		return "coder"
+	}
+	if cfg == nil {
+		return ""
+	}
+	return agentfs.ResolvePairWith(cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerName)
 }
 
 // RequestReReview sends a re-review message to the existing reviewer window.
