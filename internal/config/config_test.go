@@ -272,7 +272,11 @@ func TestBuildEnvShellCommand(t *testing.T) {
 func TestBuildEnvShellCommand_NestedSingleQuotes_RoundTrip(t *testing.T) {
 	cfg := &Config{}
 	trigger := "Run `ttal context` for your briefing, then act on the role prompt."
-	inner := "/bin/echo '" + trigger + "'"
+	echoPath, err := exec.LookPath("echo")
+	if err != nil {
+		t.Fatalf("echo not found in PATH: %v", err)
+	}
+	inner := echoPath + " '" + trigger + "'"
 	wrapped := cfg.BuildEnvShellCommand([]string{"FOO=bar"}, inner)
 	out, err := exec.Command("/bin/sh", "-c", wrapped).Output()
 	if err != nil {
