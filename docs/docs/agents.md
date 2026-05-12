@@ -99,3 +99,9 @@ ATHENA_BOT_TOKEN=789012:DEF-uvw
 No configuration in `config.toml` is needed — the convention is the only way.
 
 Create a bot via [@BotFather](https://t.me/BotFather) on Telegram for each agent.
+
+Human Telegram chat IDs use the same env-var convention in `~/.config/ttal/.env`:
+
+```env
+NEIL_CHAT_ID=123456789
+```

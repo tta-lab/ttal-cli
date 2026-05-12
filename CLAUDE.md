@@ -259,6 +259,9 @@ FORGEJO_TOKEN=abc123...
 # Bot tokens — convention: {UPPER_AGENT}_BOT_TOKEN
 KESTREL_BOT_TOKEN=7123456:AAF...
 ATHENA_BOT_TOKEN=7234567:AAG...
+
+# Human Telegram chat IDs — convention: {UPPER_HUMAN_ALIAS}_CHAT_ID
+NEIL_CHAT_ID=845849177
 ```
 
 Generate a template: `ttal doctor --fix`

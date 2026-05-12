@@ -23,7 +23,6 @@ shell = "fish"
     "taskwarrior", "flicknote"]
 
 [teams.default]
-  chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
   team_path = "/Users/neil/Code/guion-opensource/ttal-cli/templates/ttal"
   data_dir = "~/.ttal"
   taskrc = "~/.taskrc"

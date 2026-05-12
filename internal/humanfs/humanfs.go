@@ -15,19 +15,18 @@ type Human struct {
 	Name           string `toml:"name"`
 	Age            int    `toml:"age"`
 	Pronouns       string `toml:"pronouns"`
-	TelegramChatID string `toml:"telegram_chat_id"`
+	TelegramChatID string `toml:"-"` // resolved from {UPPER_ALIAS}_CHAT_ID
 	MatrixUserID   string `toml:"matrix_user_id"`
 	Admin          bool   `toml:"admin"`
 }
 
 // humanEntry is the on-disk TOML structure for a single human.
 type humanEntry struct {
-	Name           string `toml:"name"`
-	Age            int    `toml:"age"`
-	Pronouns       string `toml:"pronouns"`
-	TelegramChatID string `toml:"telegram_chat_id"`
-	MatrixUserID   string `toml:"matrix_user_id"`
-	Admin          bool   `toml:"admin"`
+	Name         string `toml:"name"`
+	Age          int    `toml:"age"`
+	Pronouns     string `toml:"pronouns"`
+	MatrixUserID string `toml:"matrix_user_id"`
+	Admin        bool   `toml:"admin"`
 }
 
 // humansFile is the on-disk TOML structure.
@@ -53,7 +52,7 @@ func Load(path string) ([]Human, error) {
 			Name:           entry.Name,
 			Age:            entry.Age,
 			Pronouns:       entry.Pronouns,
-			TelegramChatID: entry.TelegramChatID,
+			TelegramChatID: TelegramChatID(alias),
 			MatrixUserID:   entry.MatrixUserID,
 			Admin:          entry.Admin,
 		})
@@ -97,4 +96,14 @@ func FindAdmin(humans []Human) (*Human, error) {
 // List is a convenience wrapper over Load.
 func List(path string) ([]Human, error) {
 	return Load(path)
+}
+
+// TelegramChatIDEnvKey returns the environment variable used for a human's Telegram chat ID.
+func TelegramChatIDEnvKey(alias string) string {
+	return strings.ToUpper(alias) + "_CHAT_ID"
+}
+
+// TelegramChatID returns a human's Telegram chat ID from the process environment.
+func TelegramChatID(alias string) string {
+	return os.Getenv(TelegramChatIDEnvKey(alias))
 }

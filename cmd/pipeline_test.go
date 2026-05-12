@@ -26,7 +26,7 @@ func TestResolvePipelinePrompt_NoEnvVars(t *testing.T) {
 		"\n[teams.default]\nteam_path = \""+teamPath+"\"\n",
 	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
-		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
+		"[neil]\nname = \"Neil\"\nadmin = true\n",
 	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
 prompt = """Manage tasks and coordinate the team."""
@@ -196,7 +196,7 @@ func TestResolvePipelinePrompt_NoTaskRolePrompt(t *testing.T) {
 		"\n[teams.default]\nteam_path = \""+tmp+"\"\n",
 	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
-		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n",
+		"[neil]\nname = \"Neil\"\nadmin = true\n",
 	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
 prompt = """You are a designer."""
@@ -310,7 +310,7 @@ func TestResolvePipelinePrompt_InlinesSkills(t *testing.T) {
 		"\n[teams.default]\nteam_path = \""+tmp+"\"\n",
 	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/humans.toml", []byte(
-		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"1\"\nadmin = true\n",
+		"[neil]\nname = \"Neil\"\nadmin = true\n",
 	), 0o644) //nolint:errcheck
 	os.WriteFile(tmp+"/.config/ttal/roles.toml", []byte(`[default]
 prompt = """You are a designer."""

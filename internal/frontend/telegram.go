@@ -201,7 +201,7 @@ func (f *TelegramFrontend) Stop(_ context.Context) error {
 
 // SendText delivers text. `from` selects the bot/session (agent's bot when
 // from.Kind==KindAgent; notification bot when from is nil or non-agent).
-// `to` selects the destination chat/room (human chat_id when to.Kind==KindHuman;
+// `to` selects the destination chat/room (human chat ID when to.Kind==KindHuman;
 // admin chat fallback when to is nil/non-human).
 func (f *TelegramFrontend) SendText(_ context.Context, from, to *addressee.Addressee, text string) error {
 	botToken, err := f.resolveBotToken(from)
@@ -240,7 +240,7 @@ func (f *TelegramFrontend) resolveChatID(to *addressee.Addressee) (string, error
 	if f.cfg.MCfg.AdminHuman != nil && f.cfg.MCfg.AdminHuman.TelegramChatID != "" {
 		return f.cfg.MCfg.AdminHuman.TelegramChatID, nil
 	}
-	return "", fmt.Errorf("no telegram chat_id resolvable")
+	return "", fmt.Errorf("no Telegram chat ID resolvable")
 }
 
 // SendVoice is not yet implemented for Telegram outbound (daemon → human).
@@ -289,11 +289,11 @@ func (f *TelegramFrontend) startPollers() {
 }
 
 // buildTokenTargets builds a map from bot token → poller targets for all agents.
-// Each human's chat_id becomes an authorized sender for that human's inbound messages.
+// Each human's chat ID becomes an authorized sender for that human's inbound messages.
 // adminHuman provides the team's default send target (for team-wide broadcasts).
 func buildTokenTargets(allAgents []config.AgentInfo, adminHuman *humanfs.Human) map[string][]pollerTarget {
 	if adminHuman == nil {
-		log.Printf("[telegram] WARNING: adminHuman is nil — no human chat_ids authorized for pollers")
+		log.Printf("[telegram] WARNING: adminHuman is nil — no human chat IDs authorized for pollers")
 	}
 	tokenTargets := make(map[string][]pollerTarget)
 	for _, ta := range allAgents {
@@ -321,7 +321,7 @@ func buildDispatchMap(targets []pollerTarget) map[int64]pollerTarget {
 	for _, t := range targets {
 		chatID, err := telegram.ParseChatID(t.chatID)
 		if err != nil {
-			log.Printf("[daemon] invalid chat_id for %s: %v", t.agentName, err)
+			log.Printf("[daemon] invalid chat ID for %s: %v", t.agentName, err)
 			continue
 		}
 		if existing, ok := dispatchMap[chatID]; ok {

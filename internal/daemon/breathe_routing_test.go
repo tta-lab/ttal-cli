@@ -83,7 +83,7 @@ func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
+	humans := "[neil]\nname = \"Neil\"\nadmin = true\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestHandleBreathe_LenosRespawn(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
+	humans := "[neil]\nname = \"Neil\"\nadmin = true\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
+	humans := "[neil]\nname = \"Neil\"\nadmin = true\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}

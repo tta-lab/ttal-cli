@@ -20,7 +20,6 @@ type rawTeam struct {
 	DataDir              string              `toml:"data_dir"`
 	TaskRC               string              `toml:"taskrc"`
 	TaskSyncURL          string              `toml:"task_sync_url"`
-	ChatID               string              `toml:"chat_id"`
 	Frontend             string              `toml:"frontend"`
 	LifecycleAgent       string              `toml:"lifecycle_agent"`
 	NotificationTokenEnv string              `toml:"notification_token_env"`

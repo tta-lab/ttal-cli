@@ -206,7 +206,7 @@ func TestCollectTmuxSessions_IncludesCCAndLenos(t *testing.T) {
 	}
 	writeFile(filepath.Join(cfgPath, "config.toml"), "[teams.default]\nteam_path = \""+teamPath+"\"\n")
 	writeFile(filepath.Join(cfgPath, "humans.toml"),
-		"[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n")
+		"[neil]\nname = \"Neil\"\nadmin = true\n")
 
 	t.Setenv("HOME", tmp)
 	cfg, err := config.Load()

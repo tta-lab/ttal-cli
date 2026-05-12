@@ -8,7 +8,6 @@
   worker_agent_paths = ["./docs/agents"]
 
 [teams.default]
-  chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Get from @userinfobot on Telegram
   team_path = ""                     # Path to your workspace (e.g. ~/ttal-workspace)
   data_dir = "~/.ttal"
   taskrc = "~/.taskrc"
@@ -19,6 +18,7 @@
   emoji_reactions = true
   # notification_token_env = "DEFAULT_NOTIFICATION_BOT_TOKEN"
 
-# Bot tokens go in ~/.config/ttal/.env, not here.
+# Telegram bot tokens and human chat IDs go in ~/.config/ttal/.env, not here.
 # Convention: {UPPER_AGENT}_BOT_TOKEN=<telegram_token>
+# Convention: {UPPER_HUMAN_ALIAS}_CHAT_ID=<telegram chat ID>
 # Run 'ttal doctor --fix' to generate a template .env file.

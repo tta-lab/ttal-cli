@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tta-lab/ttal-cli/internal/humanfs"
 )
 
 func TestCheckHumans_MissingFile(t *testing.T) {
@@ -24,7 +23,6 @@ func TestCheckHumans_MissingFile(t *testing.T) {
 [teams.default]
   frontend = "telegram"
   team_path = "/tmp"
-  chat_id = "123456"
 `), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -57,33 +55,22 @@ func TestCheckHumans_WithValidHumans(t *testing.T) {
 [teams.default]
   frontend = "telegram"
   team_path = "/tmp"
-  chat_id = "123456"
 `), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	humansPath := filepath.Join(cfgDir, "humans.toml")
-	neil := humanfs.Human{
-		Alias:          "neil",
-		Name:           "Neil",
-		Age:            25,
-		Pronouns:       "he/him",
-		TelegramChatID: "123456",
-		MatrixUserID:   "@neil:ttal.dev",
-		Admin:          true,
-	}
 	if err := os.WriteFile(humansPath, []byte(`[neil]
 name = "Neil"
 age = 25
 pronouns = "he/him"
-telegram_chat_id = "123456"
 matrix_user_id = "@neil:ttal.dev"
 admin = true
 `), 0o644); err != nil {
 		t.Fatalf("write humans: %v", err)
 	}
-	_ = neil
 
 	t.Setenv("HOME", tmpDir)
+	t.Setenv("NEIL_CHAT_ID", "123456")
 
 	section := checkHumans(false)
 	assert.Equal(t, "Humans", section.Name)
@@ -115,7 +102,6 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 [teams.default]
   frontend = "telegram"
   team_path = "/tmp"
-  chat_id = "845849177"
 
 [teams.default.matrix]
   human_user_id = "@neil:ttal.dev"
@@ -151,8 +137,8 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 	if !strings.Contains(content, `name = "Fiona"`) {
 		t.Errorf("generated content missing name field:\n%s", content)
 	}
-	if !strings.Contains(content, `telegram_chat_id = "845849177"`) {
-		t.Errorf("generated content missing telegram_chat_id:\n%s", content)
+	if strings.Contains(content, `telegram_chat_id`) {
+		t.Errorf("generated content should not include telegram_chat_id:\n%s", content)
 	}
 	if !strings.Contains(content, `matrix_user_id = "@neil:ttal.dev"`) {
 		t.Errorf("generated content missing matrix_user_id:\n%s", content)
@@ -168,7 +154,7 @@ func TestFixHumans_BootstrapsFromLegacy(t *testing.T) {
 	}
 }
 
-func TestFixHumans_MissingChatID(t *testing.T) {
+func TestCheckHumans_MissingChatIDEnv(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgDir := tmpDir + "/.config/ttal"
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -190,10 +176,22 @@ func TestFixHumans_MissingChatID(t *testing.T) {
 	t.Cleanup(func() { t.Setenv("HOME", oldHome) })
 
 	humansPath := cfgDir + "/humans.toml"
+	if err := os.WriteFile(humansPath, []byte(`[neil]
+name = "Neil"
+admin = true
+`), 0o644); err != nil {
+		t.Fatalf("write humans: %v", err)
+	}
 
-	err := fixHumans(humansPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "chat_id is empty")
+	section := checkHumans(false)
+	found := false
+	for _, ch := range section.Checks {
+		if ch.Name == "human:neil" && ch.Level == LevelError && strings.Contains(ch.Message, "NEIL_CHAT_ID") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected error about missing NEIL_CHAT_ID")
 }
 
 func TestFixHumans_MissingUserName(t *testing.T) {
@@ -205,7 +203,6 @@ func TestFixHumans_MissingUserName(t *testing.T) {
 	cfgPath := cfgDir + "/config.toml"
 	// No [user].name and no [teams.default].user.name — should error
 	config := `[teams.default]
-  chat_id = "12345"
 `
 	if err := os.WriteFile(cfgPath, []byte(config), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -238,7 +235,6 @@ func TestCheckHumans_NoAdmin(t *testing.T) {
 	if err := os.WriteFile(humansPath, []byte(`[neil]
 name = "Neil"
 age = 25
-telegram_chat_id = "123456"
 admin = false
 `), 0o644); err != nil {
 		t.Fatalf("write humans: %v", err)

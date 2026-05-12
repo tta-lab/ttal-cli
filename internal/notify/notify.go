@@ -19,7 +19,7 @@ func Send(message string) error {
 		return fmt.Errorf("no notification bot token configured")
 	}
 	if cfg.ChatID == "" {
-		return fmt.Errorf("no chat_id configured")
+		return fmt.Errorf("no human chat ID configured")
 	}
 	return telegram.SendMessage(cfg.NotificationToken, cfg.ChatID, message)
 }

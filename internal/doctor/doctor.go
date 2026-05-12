@@ -19,6 +19,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/humanfs"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/worker"
@@ -280,7 +281,7 @@ func checkPrompts(section *Section, prompts config.PromptsConfig) {
 	section.add(LevelOK, "prompts", "prompts.toml loaded")
 }
 
-// checkDotEnv verifies ~/.config/ttal/.env exists and agents have bot tokens.
+// checkDotEnv verifies ~/.config/ttal/.env exists and has runtime secrets.
 func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 	envPath, _ := config.DotEnvPath()
 
@@ -307,6 +308,11 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 				envKey := strings.ToUpper(name) + "_BOT_TOKEN"
 				lines = append(lines, envKey+"=")
 			}
+			if cfg.AdminHuman != nil && cfg.AdminHuman.Alias != "" {
+				lines = append(lines, "")
+				lines = append(lines, "# Human Telegram chat IDs — convention: {UPPER_HUMAN_ALIAS}_CHAT_ID")
+				lines = append(lines, humanfs.TelegramChatIDEnvKey(cfg.AdminHuman.Alias)+"=")
+			}
 			content := strings.Join(lines, "\n") + "\n"
 			if writeErr := os.MkdirAll(filepath.Dir(envPath), 0o755); writeErr != nil {
 				section.add(LevelError, "dotenv", fmt.Sprintf("failed to create dir: %v", writeErr))
@@ -330,6 +336,14 @@ func checkDotEnv(section *Section, cfg *config.Config, fix bool) {
 				fmt.Sprintf("Agent %s: bot token not found in .env", name))
 		} else {
 			section.add(LevelOK, name, fmt.Sprintf("Agent %s: bot_token set", name))
+		}
+	}
+	if cfg.AdminHuman != nil && cfg.AdminHuman.Alias != "" {
+		envKey := humanfs.TelegramChatIDEnvKey(cfg.AdminHuman.Alias)
+		if humanfs.TelegramChatID(cfg.AdminHuman.Alias) == "" {
+			section.add(LevelError, envKey, fmt.Sprintf("%s not found in .env", envKey))
+		} else {
+			section.add(LevelOK, envKey, fmt.Sprintf("%s set", envKey))
 		}
 	}
 

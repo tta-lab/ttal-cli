@@ -38,12 +38,12 @@ func (f *TelegramFrontend) StartNotificationPoller(ctx context.Context) error {
 	}
 
 	if f.cfg.MCfg.ChatID == "" {
-		log.Printf("[notifbot] skipping %s — no chat_id configured", "default")
+		log.Printf("[notifbot] skipping %s — no human chat ID configured", "default")
 		return nil
 	}
 	chatID, err := telegram.ParseChatID(f.cfg.MCfg.ChatID)
 	if err != nil {
-		log.Printf("[notifbot] skipping %s — invalid chat_id: %v", "default", err)
+		log.Printf("[notifbot] skipping %s — invalid chat ID: %v", "default", err)
 		return nil
 	}
 

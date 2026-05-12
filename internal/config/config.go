@@ -75,7 +75,7 @@ type UserConfig struct {
 }
 
 // Config is the top-level fully-resolved runtime configuration.
-// Populated by [Load] from config.toml, roles.toml, prompts.toml, and .env.
+// Populated by [Load] from config.toml, humans.toml, roles.toml, prompts.toml, and .env.
 //
 // Requires [teams.default] section. Callers access fields directly.
 type Config struct {
@@ -85,7 +85,7 @@ type Config struct {
 	TaskRC            string
 	TaskData          string
 	TaskSyncURL       string
-	ChatID            string
+	ChatID            string // Admin human Telegram chat ID resolved from {UPPER_ALIAS}_CHAT_ID
 	LifecycleAgent    string
 	NotificationToken string
 	Frontend          string
