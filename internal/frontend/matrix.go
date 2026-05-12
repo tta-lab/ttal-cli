@@ -283,7 +283,7 @@ func (f *MatrixFrontend) Stop(_ context.Context) error {
 
 // SendText delivers text. `from` selects the bot/session (agent's bot when
 // from.Kind==KindAgent; notification bot when from is nil or non-agent).
-// `to` selects the destination chat/room (human chat_id when to.Kind==KindHuman;
+// `to` selects the destination chat/room (human chat ID when to.Kind==KindHuman;
 // admin chat fallback when to is nil/non-human).
 func (f *MatrixFrontend) SendText(ctx context.Context, from, to *addressee.Addressee, text string) error {
 	client, roomID, err := f.resolveSession(from)

@@ -35,10 +35,11 @@ flicknote detail <hex-id> --tree                 # See structure
        ttal onboard --scaffold full-flicknote
 
 2. Edit `~/.config/ttal/config.toml`:
-   - Set `chat_id` and `team_path`
+   - Set `team_path`
 3. Create 4 Telegram bots via @BotFather (give them matching names!)
-4. Add tokens to `~/.config/ttal/.env`:
+4. Add tokens and your chat ID to `~/.config/ttal/.env`:
    ```
+   NEIL_CHAT_ID=...
    COMPASS_BOT_TOKEN=...
    INK_BOT_TOKEN=...
    OWL_BOT_TOKEN=...

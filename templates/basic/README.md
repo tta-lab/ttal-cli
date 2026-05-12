@@ -31,11 +31,11 @@ You create a task
        ttal onboard --scaffold basic
 
 2. Edit `~/.config/ttal/config.toml`:
-   - Set `chat_id` (your Telegram chat ID — get from @userinfobot)
    - Set `team_path` (path to your workspace, e.g. `~/ttal-workspace`)
 3. Create Telegram bots via @BotFather (one per agent)
-4. Add bot tokens to `~/.config/ttal/.env`:
+4. Add bot tokens and your chat ID to `~/.config/ttal/.env`:
    ```
+   NEIL_CHAT_ID=123456789
    MANAGER_BOT_TOKEN=123:ABC...
    DESIGNER_BOT_TOKEN=456:DEF...
    DEFAULT_NOTIFICATION_BOT_TOKEN=789:GHI...   # Team notifications (worker status, PR events)

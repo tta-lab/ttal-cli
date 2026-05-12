@@ -62,7 +62,8 @@ Shared skills and subagents live in `skills/` at the repo root. All agents in th
 To use this team as your starting point:
 
 1. Copy `templates/ttal/` to your workspace directory
-2. Update `config.toml`: set `team_path` and `chat_id` for your setup
-3. Run `ttal sync` to deploy skills and subagents to Claude Code's runtime dirs
+2. Update `config.toml`: set `team_path` for your setup
+3. Add `{UPPER_HUMAN_ALIAS}_CHAT_ID` and bot tokens to `~/.config/ttal/.env`
+4. Run `ttal sync` to deploy skills and subagents to Claude Code's runtime dirs
 
 See the [ttal documentation](../../README.md) for full setup instructions.

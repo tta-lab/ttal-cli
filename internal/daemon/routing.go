@@ -37,7 +37,7 @@ import (
 // The sender never cares which kind the recipient is. `ttal send --to <alias>`
 // works uniformly. The daemon picks the channel from addr.Kind:
 //
-//   Human  → frontend.SendText (Telegram chat_id / Matrix invite)
+//   Human  → frontend.SendText (Telegram chat ID / Matrix invite)
 //   Agent  → tmux send-keys to the persistent agent session
 //   Worker → tmux send-keys to the worker session, with manager-window fallback
 //

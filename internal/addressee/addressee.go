@@ -11,7 +11,7 @@ type AddresseeKind int
 const (
 	KindAgent  AddresseeKind = iota // tmux session delivery
 	KindWorker                      // job_id:agent_name → worker tmux or manager window
-	KindHuman                       // frontend delivery (Telegram chat_id / Matrix invite)
+	KindHuman                       // frontend delivery (Telegram chat ID / Matrix invite)
 )
 
 // Addressee is a resolved send target.

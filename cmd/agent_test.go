@@ -114,7 +114,6 @@ name = "Neil"
 age = 30
 pronouns = "he/him"
 admin = true
-telegram_chat_id = "12345"
 `
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansBody), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)

@@ -87,9 +87,9 @@ Onboarding walks through:
 
 ### After init or onboard
 
-1. **Edit config** — `~/.config/ttal/config.toml`: set `chat_id` and `team_path`
+1. **Edit config** — `~/.config/ttal/config.toml`: set `team_path`
 2. **Create Telegram bots** via @BotFather (one per agent)
-3. **Add bot tokens** to `~/.config/ttal/.env`
+3. **Add bot tokens and human chat IDs** to `~/.config/ttal/.env`
 4. **Verify**: `ttal doctor`
 5. **Start daemon**: `ttal daemon start`
 

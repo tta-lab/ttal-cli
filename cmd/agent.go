@@ -191,6 +191,9 @@ Example:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := strings.ToLower(args[0])
+		if err := config.InjectDotEnvFallback(); err != nil {
+			log.Printf("[agent info] warning: .env unreadable: %v", err)
+		}
 
 		// Try human first (matches resolveAddressee order).
 		if humansPath, err := config.HumansPath(); err == nil {
@@ -292,7 +295,11 @@ func printHumanInfo(h *humanfs.Human) error {
 	fmt.Printf("%s  %s\n", label.Render("Age:"), value.Render(fmt.Sprintf("%d", h.Age)))
 	fmt.Printf("%s  %s\n", label.Render("Pronouns:"), value.Render(h.Pronouns))
 	fmt.Printf("%s  %s\n", label.Render("Admin:"), value.Render(fmt.Sprintf("%t", h.Admin)))
-	fmt.Printf("%s  %s\n", label.Render("Telegram:"), value.Render(h.TelegramChatID))
+	telegramStatus := humanfs.TelegramChatIDEnvKey(h.Alias)
+	if h.TelegramChatID != "" {
+		telegramStatus += " (set)"
+	}
+	fmt.Printf("%s  %s\n", label.Render("Telegram:"), value.Render(telegramStatus))
 	fmt.Printf("%s  %s\n", label.Render("Matrix:"), value.Render(h.MatrixUserID))
 	return nil
 }

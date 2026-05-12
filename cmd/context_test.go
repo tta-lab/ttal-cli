@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const testHumansToml = "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"
+const testHumansToml = "[neil]\nname = \"Neil\"\nadmin = true\n"
 
 // TestContext_ManagerTemplate verifies that runContext emits the manager template
 // (contains § Diary, § Role, § Task) for a manager agent.

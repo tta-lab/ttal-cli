@@ -112,9 +112,9 @@ func runInit() error {
 	fmt.Println()
 	fmt.Println("Next steps:")
 	fmt.Printf("  1. Edit ~/.config/ttal/config.toml"+
-		" — set chat_id and team_path to %s\n", workspace)
+		" — set team_path to %s\n", workspace)
 	fmt.Println("  2. Create Telegram bots via @BotFather (one per agent)")
-	fmt.Println("  3. Add bot tokens to ~/.config/ttal/.env")
+	fmt.Println("  3. Add bot tokens and human chat IDs to ~/.config/ttal/.env")
 	fmt.Println("  4. Run: ttal sync          (deploy skills and commands)")
 	fmt.Println("  5. Run: ttal doctor         (verify everything is green)")
 	fmt.Println("  6. Run: ttal daemon start   (start the daemon)")

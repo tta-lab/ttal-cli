@@ -12,8 +12,10 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
-const testChatID = "12345"
-const testKestrelSession = "ttal-default-kestrel"
+const (
+	testKestrelSession = "ttal-default-kestrel"
+	testHumansToml     = "[neil]\nname = \"Neil\"\nadmin = true\n"
+)
 
 func TestHandleBreatheValidation(t *testing.T) {
 	shellCfg := &config.Config{}
@@ -83,8 +85,7 @@ func loadConfigWithTeamPath(t *testing.T, teamPath string) *config.Config {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(testHumansToml), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
 	cfg, err := config.Load()
@@ -338,8 +339,7 @@ func TestHandleBreathe_LenosRespawn(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(testHumansToml), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
 	cfg, err := config.Load()
@@ -374,8 +374,7 @@ func TestResolveBrCWD_LoadAllPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(toml), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	humans := "[neil]\nname = \"Neil\"\ntelegram_chat_id = \"" + testChatID + "\"\nadmin = true\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humans), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(testHumansToml), 0o644); err != nil {
 		t.Fatalf("write humans.toml: %v", err)
 	}
 	cfg, err := config.Load()

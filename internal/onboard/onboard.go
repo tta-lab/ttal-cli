@@ -242,8 +242,8 @@ func verify() error {
 func printNextSteps() {
 	fmt.Println("Next steps:")
 	fmt.Println("  1. Create Telegram bots via @BotFather (one per agent)")
-	fmt.Println("  2. Add bot tokens to ~/.config/ttal/config.toml")
-	fmt.Println("  3. Add your Telegram chat_id to config")
+	fmt.Println("  2. Add bot tokens to ~/.config/ttal/.env")
+	fmt.Println("  3. Add your Telegram chat ID as {UPPER_HUMAN_ALIAS}_CHAT_ID in ~/.config/ttal/.env")
 	fmt.Println("  4. Run: ttal doctor  (verify everything is green)")
 	fmt.Println("  5. Run: ttal daemon start")
 }

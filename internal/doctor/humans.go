@@ -24,7 +24,7 @@ func checkHumans(fix bool) Section {
 
 	if _, err := os.Stat(humansPath); os.IsNotExist(err) {
 		if fix {
-			section.add(LevelWarn, "humans_toml", "humans.toml not found — generating from legacy config")
+			section.add(LevelWarn, "humans_toml", "humans.toml not found — generating from config")
 			if err := fixHumans(humansPath); err != nil {
 				section.add(LevelError, "humans_fix", fmt.Sprintf("failed to generate humans.toml: %v", err))
 			} else {
@@ -32,7 +32,7 @@ func checkHumans(fix bool) Section {
 			}
 		} else {
 			section.add(LevelWarn, "humans_toml",
-				"humans.toml not found (run: ttal doctor --fix to generate from legacy config)")
+				"humans.toml not found (run: ttal doctor --fix to generate from config)")
 		}
 		return section
 	}
@@ -67,14 +67,15 @@ func checkHumans(fix bool) Section {
 			section.add(LevelError, "human:"+h.Alias, "name is required")
 		}
 		if h.TelegramChatID == "" {
-			section.add(LevelError, "human:"+h.Alias, "telegram_chat_id is required")
+			section.add(LevelError, "human:"+h.Alias,
+				fmt.Sprintf("%s is required in ~/.config/ttal/.env", humanfs.TelegramChatIDEnvKey(h.Alias)))
 		}
 	}
 
 	return section
 }
 
-// fixHumans generates a humans.toml from legacy config fields.
+// fixHumans generates a humans.toml from config fields.
 // Bypasses config.Load() since humans.toml may be absent — reads config.toml directly.
 func fixHumans(humansPath string) error {
 	cfgPath, err := config.Path()
@@ -88,8 +89,7 @@ func fixHumans(humansPath string) error {
 			Name string `toml:"name"`
 		} `toml:"user"`
 		Teams map[string]struct {
-			ChatID string `toml:"chat_id"`
-			User   struct {
+			User struct {
 				Name string `toml:"name"`
 			} `toml:"user"`
 			Matrix *struct {
@@ -113,9 +113,6 @@ func fixHumans(humansPath string) error {
 	if name == "" {
 		return fmt.Errorf("cannot derive user name from %s — set [user].name or [teams.default].user.name", cfgPath)
 	}
-	if team.ChatID == "" {
-		return fmt.Errorf("[teams.default].chat_id is empty in %s — cannot migrate", cfgPath)
-	}
 
 	matrixUserID := ""
 	if team.Matrix != nil {
@@ -130,10 +127,9 @@ func fixHumans(humansPath string) error {
 name = %q
 age = 0
 pronouns = ""
-telegram_chat_id = %q
 matrix_user_id = %q
 admin = true
-`, alias, name, team.ChatID, matrixUserID)
+`, alias, name, matrixUserID)
 
 	outPath := humansPath + ".generated"
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {

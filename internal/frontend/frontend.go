@@ -21,7 +21,7 @@ type Frontend interface {
 
 	// SendText delivers text. `from` selects the bot/session (agent's bot when
 	// from.Kind==KindAgent; notification bot when from is nil or non-agent).
-	// `to` selects the destination chat/room (human chat_id when to.Kind==KindHuman;
+	// `to` selects the destination chat/room (human chat ID when to.Kind==KindHuman;
 	// admin chat fallback when to is nil/non-human).
 	// Note: agent→agent delivery continues via deliverToAgent / tmux send-keys
 	// (not through this interface). This unification only affects KindHuman

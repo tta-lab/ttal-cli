@@ -46,6 +46,7 @@ func TestShellField(t *testing.T) {
 func TestLoad_Success(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("NEIL_CHAT_ID", "12345")
 
 	cfgDir := filepath.Join(home, ".config", "ttal")
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
@@ -60,7 +61,6 @@ team_path = "/tmp/team"
 	}
 	humansContent := `[neil]
 name = "Neil"
-telegram_chat_id = "12345"
 admin = true
 `
 	if err := os.WriteFile(filepath.Join(cfgDir, "humans.toml"), []byte(humansContent), 0644); err != nil {
@@ -76,10 +76,11 @@ admin = true
 	}
 }
 
-// TestLoad_HumansTomlPresent verifies humans.toml wins over legacy fields.
-func TestLoad_HumansTomlPresent(t *testing.T) {
+// TestLoad_HumanChatIDFromEnv verifies chat IDs come from env, not TOML/config.
+func TestLoad_HumanChatIDFromEnv(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("NEIL_CHAT_ID", "845849177")
 	cfgDir := filepath.Join(home, ".config", "ttal")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -90,7 +91,7 @@ chat_id = "legacy-wrong"
 `
 	humansContent := `[neil]
 name = "Neil"
-telegram_chat_id = "845849177"
+telegram_chat_id = "legacy-wrong"
 admin = true
 `
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0o644); err != nil {
@@ -119,9 +120,9 @@ admin = true
 	if !cfg.AdminHuman.Admin {
 		t.Error("AdminHuman.Admin = false, want true")
 	}
-	// humans.toml wins over legacy config
+	// Env wins over legacy TOML/config fields.
 	if cfg.ChatID != "845849177" { //nolint:goconst // test fixture uses "845849177"
-		t.Errorf("cfg.ChatID = %q, want 845849177 (from humans.toml)", cfg.ChatID)
+		t.Errorf("cfg.ChatID = %q, want 845849177 (from NEIL_CHAT_ID)", cfg.ChatID)
 	}
 	if cfg.UserName != "Neil" { //nolint:goconst // test fixture uses "Neil"
 		t.Errorf("cfg.UserName = %q, want Neil", cfg.UserName)
@@ -271,7 +272,11 @@ func TestBuildEnvShellCommand(t *testing.T) {
 func TestBuildEnvShellCommand_NestedSingleQuotes_RoundTrip(t *testing.T) {
 	cfg := &Config{}
 	trigger := "Run `ttal context` for your briefing, then act on the role prompt."
-	inner := "/bin/echo '" + trigger + "'"
+	echoPath, err := exec.LookPath("echo")
+	if err != nil {
+		t.Fatalf("echo not found in PATH: %v", err)
+	}
+	inner := echoPath + " '" + trigger + "'"
 	wrapped := cfg.BuildEnvShellCommand([]string{"FOO=bar"}, inner)
 	out, err := exec.Command("/bin/sh", "-c", wrapped).Output()
 	if err != nil {

@@ -37,10 +37,11 @@ Bug reported → debugger diagnoses, writes fix plan → you approve → manager
        ttal onboard --scaffold full-markdown
 
 2. Edit `~/.config/ttal/config.toml`:
-   - Set `chat_id` and `team_path`
+   - Set `team_path`
 3. Create 4 Telegram bots via @BotFather
-4. Add tokens to `~/.config/ttal/.env`:
+4. Add tokens and your chat ID to `~/.config/ttal/.env`:
    ```
+   NEIL_CHAT_ID=...
    MANAGER_BOT_TOKEN=...
    RESEARCHER_BOT_TOKEN=...
    DESIGNER_BOT_TOKEN=...

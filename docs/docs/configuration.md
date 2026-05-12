@@ -34,7 +34,6 @@ default_team = "default"
 [teams.default]
 data_dir = "~/.ttal"
 taskrc = "~/.taskrc"
-chat_id = "123456789"           # Global Telegram chat ID
 team_path = "~/clawd"           # Root path for agent workspaces
 default_runtime = "claude-code"  # Default runtime for agents and workers (claude-code, codex, lenos)
 ```
@@ -56,7 +55,12 @@ Agent configuration lives in two places:
 - **CLAUDE.md frontmatter** — identity (role, emoji, voice, description)
 - **roles.toml** — operational config per role (prompts, heartbeat_interval)
 
-Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/ttal/.env`.
+Bot tokens and human Telegram chat IDs follow naming conventions in `~/.config/ttal/.env`:
+
+```env
+KESTREL_BOT_TOKEN=123456:ABC-xyz
+NEIL_CHAT_ID=123456789
+```
 
 ## Global fields
 
@@ -70,7 +74,6 @@ Bot tokens follow the naming convention `{UPPER_NAME}_BOT_TOKEN` in `~/.config/t
 |-------|------|-------------|
 | `data_dir` | string | Data directory (default: `~/.ttal`) |
 | `taskrc` | string | Path to taskwarrior config |
-| `chat_id` | string | Telegram chat ID |
 | `notification_token_env` | string | Override env var for notification bot token (default: `DEFAULT_NOTIFICATION_BOT_TOKEN`) |
 | `default_runtime` | string | Default runtime for agents and workers (`claude-code`, `codex`, `lenos`) |
 | `voice_language` | string | ISO 639-1 language code for STT, or `auto` |

@@ -68,7 +68,7 @@ func TestResolveOwner_ManagerPlane(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 	if err := os.WriteFile(cfgDir+"/humans.toml",
-		[]byte("[neil]\nname = \"Neil\"\ntelegram_chat_id = \"12345\"\nadmin = true\n"), 0o644); err != nil {
+		[]byte("[neil]\nname = \"Neil\"\nadmin = true\n"), 0o644); err != nil {
 		t.Fatalf("write humans: %v", err)
 	}
 

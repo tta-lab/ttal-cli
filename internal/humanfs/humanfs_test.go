@@ -8,13 +8,14 @@ import (
 func TestLoad(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/humans.toml"
+	t.Setenv("NEIL_CHAT_ID", "845849177")
+	t.Setenv("ATHENA_CHAT_ID", "987654321")
 
 	// Happy path: multi-human TOML
 	content := `[neil]
 name = "Neil"
 age = 25
 pronouns = "he/him"
-telegram_chat_id = "845849177"
 matrix_user_id = "@neil:ttal.dev"
 admin = true
 
@@ -22,7 +23,6 @@ admin = true
 name = "Athena"
 age = 14
 pronouns = "she/her"
-telegram_chat_id = "987654321"
 matrix_user_id = "@athena:ttal.dev"
 admin = false
 `
@@ -57,7 +57,7 @@ admin = false
 		t.Errorf("pronouns: got %q, want he/him", neil.Pronouns)
 	}
 	if neil.TelegramChatID != "845849177" {
-		t.Errorf("telegram_chat_id: got %q, want 845849177", neil.TelegramChatID)
+		t.Errorf("TelegramChatID: got %q, want 845849177", neil.TelegramChatID)
 	}
 	if neil.MatrixUserID != "@neil:ttal.dev" {
 		t.Errorf("matrix_user_id: got %q, want @neil:ttal.dev", neil.MatrixUserID)
@@ -140,7 +140,6 @@ func TestLoadMissingRequired(t *testing.T) {
 
 	// Missing name
 	content := `[neil]
-telegram_chat_id = "845849177"
 admin = true
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -166,7 +165,6 @@ func TestAliasNormalization(t *testing.T) {
 	// Uppercase table key — must be rejected
 	content := `[Neil]
 name = "Neil"
-telegram_chat_id = "845849177"
 admin = true
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -192,10 +190,10 @@ func TestLoadNotFound(t *testing.T) {
 func TestGet(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/humans.toml"
+	t.Setenv("NEIL_CHAT_ID", "845849177")
 
 	content := `[neil]
 name = "Neil"
-telegram_chat_id = "845849177"
 admin = true
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -210,6 +208,9 @@ admin = true
 	if h.Alias != "neil" {
 		t.Errorf("alias: got %q, want neil", h.Alias)
 	}
+	if h.TelegramChatID != "845849177" {
+		t.Errorf("TelegramChatID: got %q, want 845849177", h.TelegramChatID)
+	}
 
 	_, err = Get(path, "unknown")
 	if err == nil {
@@ -223,12 +224,10 @@ func TestList(t *testing.T) {
 
 	content := `[neil]
 name = "Neil"
-telegram_chat_id = "845849177"
 admin = true
 
 [athena]
 name = "Athena"
-telegram_chat_id = "987654321"
 admin = false
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -241,6 +240,34 @@ admin = false
 	}
 	if len(humans) != 2 {
 		t.Fatalf("expected 2 humans, got %d", len(humans))
+	}
+}
+
+func TestLoadIgnoresLegacyTelegramChatID(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/humans.toml"
+
+	content := `[neil]
+name = "Neil"
+telegram_chat_id = "legacy"
+admin = true
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	humans, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if humans[0].TelegramChatID != "" {
+		t.Errorf("TelegramChatID should come from env only, got %q", humans[0].TelegramChatID)
+	}
+}
+
+func TestTelegramChatIDEnvKey(t *testing.T) {
+	if got := TelegramChatIDEnvKey("neil"); got != "NEIL_CHAT_ID" {
+		t.Errorf("TelegramChatIDEnvKey = %q, want NEIL_CHAT_ID", got)
 	}
 }
 
