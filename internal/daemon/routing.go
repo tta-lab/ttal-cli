@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
 	"github.com/tta-lab/ttal-cli/internal/overflow"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/pipeline"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/sendfmt"
@@ -747,7 +748,10 @@ func handleBreathe(shellCfg *config.Config, req BreatheRequest, cfg *config.Conf
 	if cfg != nil {
 		rt = cfg.RuntimeForAgent(req.Agent)
 	}
-	if err := spawnAgentSession(rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "", launchcmd.WakeTriggerForRuntime(rt)); err != nil {
+	if err := spawnAgentSession(
+		rt, plan.newSessionName, req.Agent, plan.cwd, agentEnv, "",
+		launchcmd.WakeTriggerForRuntime(rt), pairing.Manager(cfg),
+	); err != nil {
 		return SendResponse{OK: false, Error: fmt.Sprintf("create session: %v", err)}
 	}
 	log.Printf("[breathe] %s: fresh breath taken (respawn, session: %s)", req.Agent, plan.newSessionName)

@@ -18,6 +18,7 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/frontend"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/message"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/project"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	codexRuntime "github.com/tta-lab/ttal-cli/internal/runtime/codex"
@@ -68,7 +69,7 @@ func initSingleAdapter(
 		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
 		if err := spawnAgentSession(
 			runtime.ClaudeCode, sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID, "",
+			agentEnv, resumeSessionID, "", pairing.Manager(cfg),
 		); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
@@ -88,7 +89,7 @@ func initSingleAdapter(
 		resumeSessionID := lastLenosSessionID(ta.AgentName)
 		if err := spawnAgentSession(
 			runtime.Lenos, sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID, "",
+			agentEnv, resumeSessionID, "", pairing.Manager(cfg),
 		); err != nil {
 			log.Printf("[daemon] failed to start lenos session for %s: %v", ta.AgentName, err)
 		} else {
@@ -328,7 +329,7 @@ var tmuxSetEnvFn = tmux.SetEnv
 // breathe). readOnly is false for manager plane (rw access).
 func spawnAgentSession(
 	rt runtime.Runtime, sessionName, agentName, agentPath string,
-	env []string, resumeSessionID, trigger string,
+	env []string, resumeSessionID, trigger, pairWith string,
 ) error {
 	// Fail-fast if the runtime binary is not in PATH.
 	switch rt {
@@ -355,7 +356,7 @@ func spawnAgentSession(
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, false, trigger, resumeSessionID)
+	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, false, trigger, pairWith, resumeSessionID)
 	if err != nil {
 		return fmt.Errorf("build launch command: %w", err)
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -32,8 +33,9 @@ func SpawnPlanReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), reviewerName, rt)
+	pairWith := pairing.PlanReviewer(task)
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
-		rt, ttalBin, reviewerName, readOnly, false, launchcmd.WakeTriggerForRuntime(rt), "",
+		rt, ttalBin, reviewerName, readOnly, false, launchcmd.WakeTriggerForRuntime(rt), pairWith, "",
 	)
 	if err != nil {
 		return fmt.Errorf("build plan-reviewer launch command: %w", err)

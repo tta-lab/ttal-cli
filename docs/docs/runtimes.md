@@ -35,6 +35,30 @@ default_runtime: lenos
 ---
 ```
 
+## Lenos Pairing
+
+Lenos supports `--pair-with`, which sets the default target for `narrate` calls that do not pass `--to`. TTAL fills this flag when it starts Lenos sessions.
+
+| Session | Pair target | Source |
+|---------|-------------|--------|
+| Team-path agent session | Admin human alias | The single human in `humans.toml` with `admin = true` |
+| `plan-review-lead` | Task owner | Taskwarrior `owner` UDA (`task.Owner`) |
+| `coder` | Task owner | Taskwarrior `owner` UDA (`task.Owner`) |
+| `pr-review-lead` | `coder` | Built-in TTAL routing rule |
+
+For custom Lenos worker/reviewer agents with a static pair target, set `lenos.pair_with` in the agent frontmatter:
+
+```yaml
+---
+name: custom-reviewer
+default_runtime: lenos
+lenos:
+  pair_with: coder
+---
+```
+
+Do not use a placeholder such as `task_owner` in frontmatter. Task-owner pairing is resolved by TTAL from the taskwarrior owner UDA at spawn time.
+
 ## How the adapter works
 
 Each runtime adapter knows how to:

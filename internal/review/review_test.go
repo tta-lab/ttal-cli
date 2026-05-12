@@ -105,6 +105,9 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 	if strings.Contains(capturedShellCmd, "--small-model") {
 		t.Errorf("reviewer lenos command should not use --small-model, got: %q", capturedShellCmd)
 	}
+	if !strings.Contains(capturedShellCmd, "--pair-with 'coder'") {
+		t.Errorf("expected PR reviewer pair target, got: %q", capturedShellCmd)
+	}
 	if strings.Contains(capturedShellCmd, "claude") {
 		t.Errorf("should not contain claude: %q", capturedShellCmd)
 	}

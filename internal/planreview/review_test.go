@@ -75,7 +75,7 @@ func TestSpawnPlanReviewer_LenosBranch(t *testing.T) {
 		return "/usr/bin/ttal", nil
 	}
 
-	task := &taskwarrior.Task{UUID: "abcd1234-0000-0000-0000-000000000000"}
+	task := &taskwarrior.Task{UUID: "abcd1234-0000-0000-0000-000000000000", Owner: "astra"}
 	cfg := &config.Config{DefaultRuntime: "lenos"}
 
 	err := SpawnPlanReviewer("test-session", task, "plan-review-lead", runtime.Lenos, true, cfg, "/tmp")
@@ -88,6 +88,9 @@ func TestSpawnPlanReviewer_LenosBranch(t *testing.T) {
 	}
 	if strings.Contains(capturedShellCmd, "--small-model") {
 		t.Errorf("plan-reviewer lenos command should not use --small-model, got: %q", capturedShellCmd)
+	}
+	if !strings.Contains(capturedShellCmd, "--pair-with 'astra'") {
+		t.Errorf("expected plan reviewer pair target, got: %q", capturedShellCmd)
 	}
 	if strings.Contains(capturedShellCmd, "claude") {
 		t.Errorf("should not contain claude: %q", capturedShellCmd)

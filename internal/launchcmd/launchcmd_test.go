@@ -39,7 +39,7 @@ func TestBuildCCDirectCommand_ApostropheEscaping(t *testing.T) {
 }
 
 func TestBuildLenosCommand_Basic(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false, false, "")
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false, false, "", "")
 	if !strings.Contains(got, "--agent coder") {
 		t.Errorf("missing --agent coder: %q", got)
 	}
@@ -55,14 +55,14 @@ func TestBuildLenosCommand_Basic(t *testing.T) {
 }
 
 func TestBuildLenosCommand_ApostropheEscaping(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test", false, false, "")
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "it's a test", false, false, "", "")
 	if !strings.Contains(got, "it'\\''s a test") {
 		t.Errorf("apostrophe not escaped correctly: %q", got)
 	}
 }
 
 func TestBuildLenosCommand_ReadOnly(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "pr-review-lead", ContextTrigger, true, false, "")
+	got := BuildLenosCommand("/usr/bin/ttal", "pr-review-lead", ContextTrigger, true, false, "", "")
 	if !strings.Contains(got, "--agent pr-review-lead") {
 		t.Errorf("missing --agent: %q", got)
 	}
@@ -77,7 +77,7 @@ func TestBuildLenosCommand_ReadOnly(t *testing.T) {
 	}
 }
 func TestBuildLenosCommand_SmallModel(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false, true, "")
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false, true, "", "")
 	if !strings.Contains(got, "--small-model") {
 		t.Errorf("expected --small-model in lenos command, got: %q", got)
 	}
@@ -89,6 +89,25 @@ func TestBuildLenosCommand_SmallModel(t *testing.T) {
 	idxTrigger := strings.Index(got, "ttal context")
 	if idxSmall == -1 || idxTrigger == -1 || idxSmall > idxTrigger {
 		t.Errorf("--small-model should come before trigger: %q", got)
+	}
+}
+
+func TestBuildLenosCommand_PairWith(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", ContextTrigger, false, false, "manager", "")
+	if !strings.Contains(got, "--pair-with 'manager'") {
+		t.Errorf("expected --pair-with manager in lenos command, got: %q", got)
+	}
+	idxPair := strings.Index(got, "--pair-with 'manager'")
+	idxTrigger := strings.Index(got, "ttal context")
+	if idxPair == -1 || idxTrigger == -1 || idxPair > idxTrigger {
+		t.Errorf("--pair-with should come before trigger: %q", got)
+	}
+}
+
+func TestBuildLenosCommand_PairWithEscaping(t *testing.T) {
+	got := BuildLenosCommand("/usr/bin/ttal", "coder", "", false, false, "manager's window", "")
+	if !strings.Contains(got, "--pair-with 'manager'\\''s window'") {
+		t.Errorf("pair_with target not escaped correctly: %q", got)
 	}
 }
 
@@ -199,7 +218,9 @@ func TestBuildEnvParts_Lenos(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_ClaudeCode(t *testing.T) {
-	got, err := BuildAgentLaunchCommand("claude-code", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "")
+	got, err := BuildAgentLaunchCommand(
+		"claude-code", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "manager", "",
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -215,10 +236,15 @@ func TestBuildAgentLaunchCommand_ClaudeCode(t *testing.T) {
 	if strings.Contains(got, "--resume") {
 		t.Errorf("should not contain --resume when resumeSessionID is empty: %q", got)
 	}
+	if strings.Contains(got, "--pair-with") {
+		t.Errorf("claude command should not contain --pair-with: %q", got)
+	}
 }
 
 func TestBuildAgentLaunchCommand_Lenos(t *testing.T) {
-	got, err := BuildAgentLaunchCommand("lenos", "/usr/bin/ttal", "plan-review-lead", false, false, ContextTrigger, "")
+	got, err := BuildAgentLaunchCommand(
+		"lenos", "/usr/bin/ttal", "plan-review-lead", false, false, ContextTrigger, "manager", "",
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -231,10 +257,13 @@ func TestBuildAgentLaunchCommand_Lenos(t *testing.T) {
 	if !strings.Contains(got, "ttal context") {
 		t.Errorf("missing context trigger: %q", got)
 	}
+	if !strings.Contains(got, "--pair-with 'manager'") {
+		t.Errorf("expected lenos pair target: %q", got)
+	}
 }
 
 func TestBuildAgentLaunchCommand_CodexRejected(t *testing.T) {
-	_, err := BuildAgentLaunchCommand("codex", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "")
+	_, err := BuildAgentLaunchCommand("codex", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "", "")
 	if err == nil {
 		t.Fatal("expected error for codex runtime, got nil")
 	}
@@ -244,7 +273,7 @@ func TestBuildAgentLaunchCommand_CodexRejected(t *testing.T) {
 }
 
 func TestBuildAgentLaunchCommand_EmptyRejected(t *testing.T) {
-	_, err := BuildAgentLaunchCommand("", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "")
+	_, err := BuildAgentLaunchCommand("", "/usr/bin/ttal", "coder", false, false, ContextTrigger, "", "")
 	if err == nil {
 		t.Fatal("expected error for empty runtime, got nil")
 	}
@@ -283,7 +312,7 @@ func TestBuildCCDirectCommand_WithResume(t *testing.T) {
 }
 
 func TestBuildLenosCommand_WithResume(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "kestrel", "", false, false, "xyz-789")
+	got := BuildLenosCommand("/usr/bin/ttal", "kestrel", "", false, false, "", "xyz-789")
 	if !strings.Contains(got, "--session xyz-789") {
 		t.Errorf("expected --session xyz-789, got: %q", got)
 	}
@@ -303,7 +332,7 @@ func TestBuildCCDirectCommand_WithResumeAndTrigger(t *testing.T) {
 }
 
 func TestBuildLenosCommand_WithResumeAndTrigger(t *testing.T) {
-	got := BuildLenosCommand("/usr/bin/ttal", "kestrel", ContextTrigger, true, false, "xyz-789")
+	got := BuildLenosCommand("/usr/bin/ttal", "kestrel", ContextTrigger, true, false, "", "xyz-789")
 	if !strings.Contains(got, "--session xyz-789") {
 		t.Errorf("expected --session xyz-789, got: %q", got)
 	}

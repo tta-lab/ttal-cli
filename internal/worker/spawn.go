@@ -14,6 +14,7 @@ import (
 	git "github.com/tta-lab/ttal-cli/internal/git"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
+	"github.com/tta-lab/ttal-cli/internal/pairing"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 	"github.com/tta-lab/ttal-cli/internal/tmux"
@@ -227,10 +228,11 @@ func launchTmuxWorker(
 	agentName := target.Window
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
+	pairWith := pairing.Worker(shellCfg, agentName, task)
 
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
 		cfg.Runtime, ttalBin, agentName,
-		cfg.ReadOnly, true, launchcmd.WakeTriggerForRuntime(cfg.Runtime), "",
+		cfg.ReadOnly, true, launchcmd.WakeTriggerForRuntime(cfg.Runtime), pairWith, "",
 	)
 	if err != nil {
 		return err

@@ -80,9 +80,18 @@ func BuildCCDirectCommand(ttalBin, agent, trigger, resumeSessionID string) strin
 // When smallModel is true, appends --small-model to select the small-tier model.
 // When readOnly is true, appends --readonly to enforce read-only filesystem
 // access via the temenos sandbox.
+// pairWith, if non-empty, appends --pair-with <target> so lenos narrate calls
+// without --to default to that target.
 // resumeSessionID, if non-empty, appends --session <id> before the trigger separator.
-func BuildLenosCommand(ttalBin, agent, trigger string, readOnly bool, smallModel bool, resumeSessionID string) string {
+func BuildLenosCommand(
+	ttalBin, agent, trigger string,
+	readOnly bool, smallModel bool,
+	pairWith, resumeSessionID string,
+) string {
 	cmd := fmt.Sprintf("%s worker gatekeeper -- lenos --agent %s", ttalBin, agent)
+	if pairWith != "" {
+		cmd += " --pair-with " + singleQuoteShell(pairWith)
+	}
 	if smallModel {
 		cmd += " --small-model"
 	}
@@ -127,14 +136,16 @@ func BuildEnvParts(taskHexID, agentName string, rt runtime.Runtime) []string {
 // false.
 // readOnly is forwarded to lenos via --readonly when rt is Lenos; ignored for
 // other runtimes (Claude Code has no equivalent sandbox-enforced flag).
+// pairWith is forwarded to lenos via --pair-with when rt is Lenos; ignored for
+// other runtimes.
 // resumeSessionID, if non-empty, is forwarded as --resume (CC) or --session (Lenos).
 func BuildAgentLaunchCommand(
 	rt runtime.Runtime, ttalBin, agentName string,
-	readOnly bool, smallModel bool, trigger, resumeSessionID string,
+	readOnly bool, smallModel bool, trigger, pairWith, resumeSessionID string,
 ) (string, error) {
 	switch rt {
 	case runtime.Lenos:
-		return BuildLenosCommand(ttalBin, agentName, trigger, readOnly, smallModel, resumeSessionID), nil
+		return BuildLenosCommand(ttalBin, agentName, trigger, readOnly, smallModel, pairWith, resumeSessionID), nil
 	case runtime.ClaudeCode:
 		return BuildCCDirectCommand(ttalBin, agentName, trigger, resumeSessionID), nil
 	default:
