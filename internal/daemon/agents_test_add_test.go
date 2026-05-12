@@ -33,7 +33,7 @@ func setupSpawnTest(t *testing.T, binary string) *string {
 
 func TestSpawnAgentSession_LenosVariant(t *testing.T) {
 	capturedCmd := setupSpawnTest(t, "lenos")
-	err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp/test", nil, "abc-123", "")
+	err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp/test", nil, "abc-123", "", "")
 	if err != nil {
 		t.Fatalf("spawnAgentSession error: %v", err)
 	}
@@ -51,9 +51,21 @@ func TestSpawnAgentSession_LenosVariant(t *testing.T) {
 	}
 }
 
+func TestSpawnAgentSession_LenosPairWithArg(t *testing.T) {
+	capturedCmd := setupSpawnTest(t, "lenos")
+
+	err := spawnAgentSession(runtime.Lenos, "sess", "any-agent", "/tmp/test", nil, "", "", "neil")
+	if err != nil {
+		t.Fatalf("spawnAgentSession error: %v", err)
+	}
+	if !strings.Contains(*capturedCmd, "--pair-with 'neil'") {
+		t.Errorf("expected lenos pair target, got: %s", *capturedCmd)
+	}
+}
+
 func TestSpawnAgentSession_CCVariant(t *testing.T) {
 	capturedCmd := setupSpawnTest(t, "claude")
-	err := spawnAgentSession(runtime.ClaudeCode, "sess", "coder", "/tmp/test", nil, "xyz-789", "")
+	err := spawnAgentSession(runtime.ClaudeCode, "sess", "coder", "/tmp/test", nil, "xyz-789", "", "")
 	if err != nil {
 		t.Fatalf("spawnAgentSession error: %v", err)
 	}
@@ -76,7 +88,7 @@ func TestSpawnAgentSession_LenosNotInPath(t *testing.T) {
 	origNew := tmuxNewSessionFn
 	t.Cleanup(func() { tmuxNewSessionFn = origNew })
 	tmuxNewSessionFn = func(_, _, _, _ string) error { return nil }
-	err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp", nil, "", "")
+	err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp", nil, "", "", "")
 	if err == nil {
 		t.Fatal("expected error for missing lenos binary, got nil")
 	}
@@ -90,7 +102,7 @@ func TestSpawnAgentSession_TmuxError(t *testing.T) {
 	tmuxNewSessionFn = func(_, _, _, _ string) error {
 		return os.ErrNotExist
 	}
-	err := spawnAgentSession(runtime.ClaudeCode, "sess", "coder", "/tmp", nil, "", "")
+	err := spawnAgentSession(runtime.ClaudeCode, "sess", "coder", "/tmp", nil, "", "", "")
 	if err == nil {
 		t.Fatal("expected error from tmuxNewSessionFn, got nil")
 	}
@@ -103,7 +115,7 @@ func TestSpawnAgentSession_EmptyEnv(t *testing.T) {
 	setupSpawnTest(t, "lenos")
 	var setEnvCalls int
 	tmuxSetEnvFn = func(_, _, _ string) error { setEnvCalls++; return nil }
-	if err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp", nil, "", ""); err != nil {
+	if err := spawnAgentSession(runtime.Lenos, "sess", "test-agent", "/tmp", nil, "", "", ""); err != nil {
 		t.Fatalf("spawnAgentSession error: %v", err)
 	}
 	if setEnvCalls != 0 {

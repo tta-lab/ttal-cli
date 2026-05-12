@@ -10,6 +10,7 @@ claude-code:
   tools: [Bash, Read, Write, Edit]
 lenos:
   access: ro
+  pair_with: coder
 ---
 
 # PR Review Lead

@@ -1,6 +1,8 @@
 package review
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -87,7 +89,20 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 		PRID:    "42",
 		Project: "test-project",
 	}
-	cfg := &config.Config{DefaultRuntime: "lenos"}
+	agentRoot := t.TempDir()
+	agentDir := filepath.Join(agentRoot, "pr-review-lead")
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentDir, "AGENTS.md"),
+		[]byte("---\nname: pr-review-lead\nlenos:\n  pair_with: coder\n---\n# PR Review\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		DefaultRuntime: "lenos",
+		Sync:           config.SyncConfig{WorkerAgentPaths: []string{agentRoot}},
+	}
 	ctx := &pr.Context{
 		Task:  task,
 		Owner: "test-owner",
@@ -104,6 +119,9 @@ func TestSpawnReviewer_LenosBranch(t *testing.T) {
 	}
 	if strings.Contains(capturedShellCmd, "--small-model") {
 		t.Errorf("reviewer lenos command should not use --small-model, got: %q", capturedShellCmd)
+	}
+	if !strings.Contains(capturedShellCmd, "--pair-with 'coder'") {
+		t.Errorf("expected PR reviewer pair target, got: %q", capturedShellCmd)
 	}
 	if strings.Contains(capturedShellCmd, "claude") {
 		t.Errorf("should not contain claude: %q", capturedShellCmd)

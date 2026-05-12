@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/claudeconfig"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	git "github.com/tta-lab/ttal-cli/internal/git"
@@ -227,10 +228,11 @@ func launchTmuxWorker(
 	agentName := target.Window
 
 	envParts := launchcmd.BuildEnvParts(task.HexID(), agentName, cfg.Runtime)
+	pairWith := resolveWorkerPairWith(shellCfg, agentName, task.Owner)
 
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
 		cfg.Runtime, ttalBin, agentName,
-		cfg.ReadOnly, true, launchcmd.WakeTriggerForRuntime(cfg.Runtime), "",
+		cfg.ReadOnly, true, launchcmd.WakeTriggerForRuntime(cfg.Runtime), pairWith, "",
 	)
 	if err != nil {
 		return err
@@ -251,6 +253,16 @@ func launchTmuxWorker(
 	fmt.Printf("  tmux attach -t %s\n", target.Session)
 
 	return nil
+}
+
+func resolveWorkerPairWith(shellCfg *config.Config, agentName, taskOwner string) string {
+	if agentName == "coder" {
+		return strings.TrimSpace(taskOwner)
+	}
+	if shellCfg == nil {
+		return ""
+	}
+	return agentfs.ResolvePairWith(shellCfg.TeamPath, shellCfg.Sync.WorkerAgentPaths, agentName)
 }
 
 func setupWorktree(project, dirName, branchName, projectAlias string) (string, error) {

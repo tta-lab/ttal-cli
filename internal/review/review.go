@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tta-lab/ttal-cli/internal/agentfs"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/launchcmd"
 	"github.com/tta-lab/ttal-cli/internal/pr"
@@ -42,8 +43,9 @@ func SpawnReviewer(
 	}
 
 	envParts := launchcmd.BuildEnvParts(ctx.Task.HexID(), reviewerName, rt)
+	pairWith := agentfs.ResolvePairWith(cfg.TeamPath, cfg.Sync.WorkerAgentPaths, reviewerName)
 	launchCmd, err := launchcmd.BuildAgentLaunchCommand(
-		rt, ttalBin, reviewerName, readOnly, false, launchcmd.WakeTriggerForRuntime(rt), "",
+		rt, ttalBin, reviewerName, readOnly, false, launchcmd.WakeTriggerForRuntime(rt), pairWith, "",
 	)
 	if err != nil {
 		return fmt.Errorf("build reviewer launch command: %w", err)

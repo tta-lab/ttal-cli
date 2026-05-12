@@ -38,6 +38,7 @@ type AgentInfo struct {
 	Color          string // Claude Code UI color (blue, cyan, green, yellow, red, magenta)
 	DefaultRuntime string // per-agent default_runtime override (e.g. "lenos")
 	Access         string // lenos sandbox access level: "ro" or "rw" (empty = unset)
+	PairWith       string // lenos default narrate target (empty = unset)
 	Pronouns       string // free-form pronouns string (e.g. "she/her")
 	Age            int    // agent age in years
 }
@@ -231,10 +232,20 @@ func applyFrontmatter(info *AgentInfo, fm map[string]string) {
 	info.Color = fm["color"]
 	info.DefaultRuntime = fm["default_runtime"]
 	info.Access = fm["access"]
+	info.PairWith = firstNonEmpty(fm["pair_with"], fm["pair-with"])
 	info.Pronouns = fm["pronouns"]
 	if ageStr, ok := fm["age"]; ok {
 		info.Age, _ = strconv.Atoi(ageStr)
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 // hasNestedFrontmatter returns true if the content contains indented lines
@@ -384,4 +395,25 @@ func ResolveAccess(teamPath string, workerAgentPaths []string, agent string) str
 		return defaultAccess
 	}
 	return info.Access
+}
+
+// ResolvePairWith returns the default Lenos narrate target for an agent, reading
+// `lenos.pair_with` from the agent's AGENTS.md frontmatter via GetFromPaths.
+// Missing agents and empty fields are valid and return an empty string.
+//
+// The flat frontmatter parser accepts either pair_with or pair-with under the
+// lenos block.
+func ResolvePairWith(teamPath string, workerAgentPaths []string, agent string) string {
+	searchPaths := workerAgentPaths
+	if len(searchPaths) == 0 {
+		searchPaths = []string{teamPath}
+	}
+	info, err := GetFromPaths(searchPaths, agent)
+	if err != nil {
+		return ""
+	}
+	if pairWith := strings.TrimSpace(info.PairWith); pairWith != "" {
+		return pairWith
+	}
+	return ""
 }

@@ -68,7 +68,7 @@ func initSingleAdapter(
 		resumeSessionID := lastSessionID(ta.AgentName, agentPath)
 		if err := spawnAgentSession(
 			runtime.ClaudeCode, sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID, "",
+			agentEnv, resumeSessionID, "", managerPairWith(cfg),
 		); err != nil {
 			log.Printf("[daemon] failed to start CC session for %s: %v", ta.AgentName, err)
 		} else {
@@ -88,7 +88,7 @@ func initSingleAdapter(
 		resumeSessionID := lastLenosSessionID(ta.AgentName)
 		if err := spawnAgentSession(
 			runtime.Lenos, sessionName, ta.AgentName, agentPath,
-			agentEnv, resumeSessionID, "",
+			agentEnv, resumeSessionID, "", managerPairWith(cfg),
 		); err != nil {
 			log.Printf("[daemon] failed to start lenos session for %s: %v", ta.AgentName, err)
 		} else {
@@ -222,6 +222,13 @@ func buildManagerAgentEnv(agentName string, _ *config.Config) []string {
 	return parts
 }
 
+func managerPairWith(cfg *config.Config) string {
+	if cfg == nil || cfg.AdminHuman == nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.AdminHuman.Alias)
+}
+
 // ensureLocalAgentTrust adds hasTrustDialogAccepted entries to ~/.claude.json
 // for all agent workspace paths. Idempotent.
 func ensureLocalAgentTrust(cfg *config.Config) {
@@ -328,7 +335,7 @@ var tmuxSetEnvFn = tmux.SetEnv
 // breathe). readOnly is false for manager plane (rw access).
 func spawnAgentSession(
 	rt runtime.Runtime, sessionName, agentName, agentPath string,
-	env []string, resumeSessionID, trigger string,
+	env []string, resumeSessionID, trigger, pairWith string,
 ) error {
 	// Fail-fast if the runtime binary is not in PATH.
 	switch rt {
@@ -355,7 +362,7 @@ func spawnAgentSession(
 		return fmt.Errorf("failed to resolve ttal binary path: %w", err)
 	}
 
-	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, false, trigger, resumeSessionID)
+	cmd, err := launchcmd.BuildAgentLaunchCommand(rt, ttalBin, agentName, false, false, trigger, pairWith, resumeSessionID)
 	if err != nil {
 		return fmt.Errorf("build launch command: %w", err)
 	}
