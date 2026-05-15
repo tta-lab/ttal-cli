@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -14,6 +16,49 @@ const (
 	cmdTimeout    = 10 * time.Second
 	sendKeysDelay = 500 * time.Millisecond
 )
+
+// Env returns the process environment for tmux commands.
+//
+// TTAL uses one tmux socket namespace for daemon and CLI commands. If the user
+// already set TMUX_TMPDIR, preserve it. Otherwise default to a TTAL-specific
+// directory under XDG_RUNTIME_DIR, with a /tmp fallback for non-systemd hosts.
+func Env() []string {
+	if value := os.Getenv("TMUX_TMPDIR"); value != "" {
+		return os.Environ()
+	}
+
+	dir := defaultTmpDir()
+	if dir == "" {
+		return os.Environ()
+	}
+	_ = os.MkdirAll(dir, 0o700)
+	return append(envWithout("TMUX_TMPDIR"), "TMUX_TMPDIR="+dir)
+}
+
+func defaultTmpDir() string {
+	if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" {
+		return filepath.Join(runtimeDir, "ttal-tmux")
+	}
+	return filepath.Join(os.TempDir(), "ttal-tmux-"+strconv.Itoa(os.Getuid()))
+}
+
+func commandContext(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd.Env = Env()
+	return cmd
+}
+
+func envWithout(key string) []string {
+	prefix := key + "="
+	var env []string
+	for _, part := range os.Environ() {
+		if strings.HasPrefix(part, prefix) {
+			continue
+		}
+		env = append(env, part)
+	}
+	return env
+}
 
 // SendKeys sends text to a tmux pane, then sends Enter.
 // target format: "session:window" or "session:window.pane"
@@ -28,7 +73,7 @@ func SendKeys(session, window, text string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "tmux", "send-keys", "-l", "-t", target, safe)
+	cmd := commandContext(ctx, "send-keys", "-l", "-t", target, safe)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("send-keys failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -37,7 +82,7 @@ func SendKeys(session, window, text string) error {
 
 	ctx2, cancel2 := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel2()
-	cmd = exec.CommandContext(ctx2, "tmux", "send-keys", "-t", target, "Enter")
+	cmd = commandContext(ctx2, "send-keys", "-t", target, "Enter")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("send-keys Enter failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -49,7 +94,7 @@ func SendKeys(session, window, text string) error {
 func SessionExists(name string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "tmux", "has-session", "-t", "="+name)
+	cmd := commandContext(ctx, "has-session", "-t", "="+name)
 	return cmd.Run() == nil
 }
 
@@ -64,7 +109,7 @@ func NewSession(session, window, workDir, command string) error {
 		args = append(args, command)
 	}
 
-	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd := commandContext(ctx, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("new-session failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -81,7 +126,7 @@ func NewWindow(session, window, workDir, command string) error {
 		args = append(args, command)
 	}
 
-	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd := commandContext(ctx, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("new-window failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -93,7 +138,7 @@ func WindowExists(session, window string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "list-windows", "-t", session, "-F", "#{window_name}")
+	cmd := commandContext(ctx, "list-windows", "-t", session, "-F", "#{window_name}")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
@@ -113,7 +158,7 @@ func FirstWindow(session string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "list-windows", "-t", session, "-F", "#{window_name}")
+	cmd := commandContext(ctx, "list-windows", "-t", session, "-F", "#{window_name}")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("tmux list-windows for %q: %w", session, err)
@@ -130,7 +175,7 @@ func KillWindow(session, window string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "kill-window", "-t", session+":"+window)
+	cmd := commandContext(ctx, "kill-window", "-t", session+":"+window)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("kill-window failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -142,7 +187,7 @@ func KillSession(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "kill-session", "-t", "="+name)
+	cmd := commandContext(ctx, "kill-session", "-t", "="+name)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("kill-session failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -154,7 +199,7 @@ func ListSessions() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "list-sessions", "-F", "#{session_name}")
+	cmd := commandContext(ctx, "list-sessions", "-F", "#{session_name}")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(out), "no server running") {
@@ -182,7 +227,7 @@ func SendRawKey(session, window, key string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, key)
+	cmd := commandContext(ctx, "send-keys", "-t", target, key)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("send-keys failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -195,7 +240,7 @@ func SetEnv(session, key, value string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "set-environment", "-t", session, key, value)
+	cmd := commandContext(ctx, "set-environment", "-t", session, key, value)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("set-environment failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -212,7 +257,7 @@ func CurrentSession() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-p", "#{session_name}")
+	cmd := commandContext(ctx, "display-message", "-p", "#{session_name}")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get session name: %w: %s", err, strings.TrimSpace(string(out)))
@@ -238,7 +283,7 @@ func CurrentWindow() (string, error) {
 	}
 	args = append(args, "-p", "#{window_name}")
 
-	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd := commandContext(ctx, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get window name: %w: %s", err, strings.TrimSpace(string(out)))
@@ -256,7 +301,7 @@ func GetPaneCwd(session, window string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-t", target, "-p", "#{pane_current_path}")
+	cmd := commandContext(ctx, "display-message", "-t", target, "-p", "#{pane_current_path}")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("get pane cwd: %w: %s", err, strings.TrimSpace(string(out)))
@@ -276,7 +321,7 @@ func RespawnWindow(session, window, workDir, command string) error {
 	}
 	args = append(args, command)
 
-	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd := commandContext(ctx, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("respawn-window failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
