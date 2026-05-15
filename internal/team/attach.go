@@ -23,5 +23,5 @@ func Attach(agent string) error {
 	}
 
 	args := []string{"tmux", "attach-session", "-t", sessionName}
-	return syscall.Exec(tmuxBin, args, tmux.Env())
+	return syscall.Exec(tmuxBin, args, tmux.IsolatedEnv())
 }

@@ -79,7 +79,7 @@ func attachToSession(sessionName string) error {
 
 	return syscall.Exec(tmuxBin, []string{
 		"tmux", "attach-session", "-t", sessionName,
-	}, tmux.Env())
+	}, tmux.IsolatedEnv())
 }
 
 // attachToWindowSelect first selects the target window in the session, then
@@ -93,12 +93,12 @@ func attachToWindowSelect(session, window string) error {
 
 	// First select the target window
 	selectCmd := exec.Command(tmuxBin, "select-window", "-t", session+":"+window)
-	selectCmd.Env = tmux.Env()
+	selectCmd.Env = tmux.IsolatedEnv()
 	if err := selectCmd.Run(); err != nil {
 		return fmt.Errorf("failed to select window %s:%s: %w", session, window, err)
 	}
 
 	return syscall.Exec(tmuxBin, []string{
 		"tmux", "attach-session", "-t", session,
-	}, tmux.Env())
+	}, tmux.IsolatedEnv())
 }

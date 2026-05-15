@@ -13,7 +13,7 @@ func TestEnvDefaultsTmuxTmpdirFromXDGRuntimeDir(t *testing.T) {
 	t.Setenv("TMUX_TMPDIR", "")
 	t.Setenv("TMUX", filepath.Join(runtimeDir, "tmux-1000", "default")+",123,0")
 
-	env := Env()
+	env := IsolatedEnv()
 	want := filepath.Join(runtimeDir, "ttal-tmux")
 
 	if got := envValue(env, "TMUX_TMPDIR"); got != want {
@@ -38,7 +38,7 @@ func TestEnvIgnoresAmbientTmuxTmpdir(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	t.Setenv("TMUX_TMPDIR", ambient)
 
-	env := Env()
+	env := IsolatedEnv()
 	want := filepath.Join(runtimeDir, "ttal-tmux")
 
 	if got := envValue(env, "TMUX_TMPDIR"); got != want {
@@ -56,7 +56,7 @@ func TestEnvAllowsTtalSpecificTmpdirOverride(t *testing.T) {
 	t.Setenv("TMUX_TMPDIR", filepath.Join(t.TempDir(), "ambient-tmux"))
 	t.Setenv("TTAL_TMUX_TMPDIR", override)
 
-	env := Env()
+	env := IsolatedEnv()
 
 	if got := envValue(env, "TMUX_TMPDIR"); got != override {
 		t.Fatalf("TMUX_TMPDIR = %q, want %q", got, override)

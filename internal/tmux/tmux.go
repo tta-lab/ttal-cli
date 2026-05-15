@@ -17,13 +17,13 @@ const (
 	sendKeysDelay = 500 * time.Millisecond
 )
 
-// Env returns the process environment for tmux commands.
+// IsolatedEnv returns the process environment for TTAL-owned tmux commands.
 //
 // TTAL uses one tmux socket namespace for daemon and CLI commands. Ambient
 // TMUX and TMUX_TMPDIR are ignored so user tmux sessions cannot pick TTAL's
 // namespace. Set TTAL_TMUX_TMPDIR to override the TTAL socket directory
 // deliberately.
-func Env() []string {
+func IsolatedEnv() []string {
 	dir := defaultTmpDir()
 	if dir == "" {
 		return os.Environ()
@@ -44,7 +44,7 @@ func defaultTmpDir() string {
 
 func commandContext(ctx context.Context, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "tmux", args...)
-	cmd.Env = Env()
+	cmd.Env = IsolatedEnv()
 	return cmd
 }
 
@@ -257,7 +257,9 @@ func SetEnv(session, key, value string) error {
 	return nil
 }
 
-// CurrentSession returns the name of the tmux session this process is running in.
+// CurrentSession returns the name of the ambient tmux session this process is running in.
+// It deliberately uses the caller's TMUX environment instead of TTAL's isolated
+// server, because it answers "where is this command running now?"
 // Returns ("", nil) if not inside tmux. Returns an error if tmux command fails.
 func CurrentSession() (string, error) {
 	if os.Getenv("TMUX") == "" {
@@ -275,7 +277,9 @@ func CurrentSession() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// CurrentWindow returns the name of the tmux window this process is running in.
+// CurrentWindow returns the name of the ambient tmux window this process is running in.
+// It deliberately uses the caller's TMUX environment instead of TTAL's isolated
+// server, because it answers "where is this command running now?"
 // Uses TMUX_PANE to target the actual pane, not the active window — without -t,
 // display-message returns whichever window the user is looking at.
 // Returns ("", nil) if not inside tmux.
