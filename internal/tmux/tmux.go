@@ -20,15 +20,16 @@ const (
 // Env returns the process environment for tmux commands.
 //
 // TTAL uses one tmux socket namespace for daemon and CLI commands. Ambient
-// TMUX_TMPDIR is ignored so user tmux sessions cannot pick TTAL's namespace.
-// Set TTAL_TMUX_TMPDIR to override the TTAL socket directory deliberately.
+// TMUX and TMUX_TMPDIR are ignored so user tmux sessions cannot pick TTAL's
+// namespace. Set TTAL_TMUX_TMPDIR to override the TTAL socket directory
+// deliberately.
 func Env() []string {
 	dir := defaultTmpDir()
 	if dir == "" {
 		return os.Environ()
 	}
 	_ = os.MkdirAll(dir, 0o700)
-	return append(envWithout("TMUX_TMPDIR"), "TMUX_TMPDIR="+dir)
+	return append(envWithout("TMUX", "TMUX_TMPDIR"), "TMUX_TMPDIR="+dir)
 }
 
 func defaultTmpDir() string {
@@ -47,14 +48,24 @@ func commandContext(ctx context.Context, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func envWithout(key string) []string {
-	prefix := key + "="
+func envWithout(keys ...string) []string {
+	drop := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		drop[key+"="] = true
+	}
+
 	var env []string
 	for _, part := range os.Environ() {
-		if strings.HasPrefix(part, prefix) {
-			continue
+		keep := true
+		for prefix := range drop {
+			if strings.HasPrefix(part, prefix) {
+				keep = false
+				break
+			}
 		}
-		env = append(env, part)
+		if keep {
+			env = append(env, part)
+		}
 	}
 	return env
 }
@@ -256,7 +267,7 @@ func CurrentSession() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
 
-	cmd := commandContext(ctx, "display-message", "-p", "#{session_name}")
+	cmd := exec.CommandContext(ctx, "tmux", "display-message", "-p", "#{session_name}")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get session name: %w: %s", err, strings.TrimSpace(string(out)))
@@ -282,7 +293,7 @@ func CurrentWindow() (string, error) {
 	}
 	args = append(args, "-p", "#{window_name}")
 
-	cmd := commandContext(ctx, args...)
+	cmd := exec.CommandContext(ctx, "tmux", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get window name: %w: %s", err, strings.TrimSpace(string(out)))

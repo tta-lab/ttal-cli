@@ -11,6 +11,7 @@ func TestEnvDefaultsTmuxTmpdirFromXDGRuntimeDir(t *testing.T) {
 	runtimeDir := t.TempDir()
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	t.Setenv("TMUX_TMPDIR", "")
+	t.Setenv("TMUX", filepath.Join(runtimeDir, "tmux-1000", "default")+",123,0")
 
 	env := Env()
 	want := filepath.Join(runtimeDir, "ttal-tmux")
@@ -20,6 +21,9 @@ func TestEnvDefaultsTmuxTmpdirFromXDGRuntimeDir(t *testing.T) {
 	}
 	if got := envCount(env, "TMUX_TMPDIR"); got != 1 {
 		t.Fatalf("TMUX_TMPDIR entry count = %d, want 1", got)
+	}
+	if got := envValue(env, "TMUX"); got != "" {
+		t.Fatalf("TMUX = %q, want empty", got)
 	}
 	if info, err := os.Stat(want); err != nil {
 		t.Fatalf("expected tmux tmpdir to be created: %v", err)
