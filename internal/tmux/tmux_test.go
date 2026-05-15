@@ -28,19 +28,37 @@ func TestEnvDefaultsTmuxTmpdirFromXDGRuntimeDir(t *testing.T) {
 	}
 }
 
-func TestEnvPreservesExplicitTmuxTmpdir(t *testing.T) {
+func TestEnvIgnoresAmbientTmuxTmpdir(t *testing.T) {
 	runtimeDir := t.TempDir()
-	explicit := filepath.Join(t.TempDir(), "custom-tmux")
+	ambient := filepath.Join(t.TempDir(), "ambient-tmux")
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
-	t.Setenv("TMUX_TMPDIR", explicit)
+	t.Setenv("TMUX_TMPDIR", ambient)
+
+	env := Env()
+	want := filepath.Join(runtimeDir, "ttal-tmux")
+
+	if got := envValue(env, "TMUX_TMPDIR"); got != want {
+		t.Fatalf("TMUX_TMPDIR = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("expected ttal tmux tmpdir to be created: %v", err)
+	}
+}
+
+func TestEnvAllowsTtalSpecificTmpdirOverride(t *testing.T) {
+	runtimeDir := t.TempDir()
+	override := filepath.Join(t.TempDir(), "ttal-custom-tmux")
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+	t.Setenv("TMUX_TMPDIR", filepath.Join(t.TempDir(), "ambient-tmux"))
+	t.Setenv("TTAL_TMUX_TMPDIR", override)
 
 	env := Env()
 
-	if got := envValue(env, "TMUX_TMPDIR"); got != explicit {
-		t.Fatalf("TMUX_TMPDIR = %q, want %q", got, explicit)
+	if got := envValue(env, "TMUX_TMPDIR"); got != override {
+		t.Fatalf("TMUX_TMPDIR = %q, want %q", got, override)
 	}
 	if _, err := os.Stat(filepath.Join(runtimeDir, "ttal-tmux")); !os.IsNotExist(err) {
-		t.Fatalf("default tmux tmpdir should not be created when TMUX_TMPDIR is explicit")
+		t.Fatalf("default tmux tmpdir should not be created when TTAL_TMUX_TMPDIR is set")
 	}
 }
 

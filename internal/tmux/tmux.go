@@ -19,14 +19,10 @@ const (
 
 // Env returns the process environment for tmux commands.
 //
-// TTAL uses one tmux socket namespace for daemon and CLI commands. If the user
-// already set TMUX_TMPDIR, preserve it. Otherwise default to a TTAL-specific
-// directory under XDG_RUNTIME_DIR, with a /tmp fallback for non-systemd hosts.
+// TTAL uses one tmux socket namespace for daemon and CLI commands. Ambient
+// TMUX_TMPDIR is ignored so user tmux sessions cannot pick TTAL's namespace.
+// Set TTAL_TMUX_TMPDIR to override the TTAL socket directory deliberately.
 func Env() []string {
-	if value := os.Getenv("TMUX_TMPDIR"); value != "" {
-		return os.Environ()
-	}
-
 	dir := defaultTmpDir()
 	if dir == "" {
 		return os.Environ()
@@ -36,6 +32,9 @@ func Env() []string {
 }
 
 func defaultTmpDir() string {
+	if override := os.Getenv("TTAL_TMUX_TMPDIR"); override != "" {
+		return override
+	}
 	if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" {
 		return filepath.Join(runtimeDir, "ttal-tmux")
 	}
