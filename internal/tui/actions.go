@@ -52,7 +52,9 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 		if err == nil && tmux.WindowExists(wt.Session, wt.Window) {
 			// Select the target window first, then attach to the session.
 			selectCmd := exec.Command("tmux", "select-window", "-t", wt.Session+":"+wt.Window)
+			selectCmd.Env = tmux.IsolatedEnv()
 			c := exec.Command("tmux", "attach-session", "-t", wt.Session)
+			c.Env = tmux.IsolatedEnv()
 			return func() tea.Msg {
 				_ = selectCmd.Run() // best-effort window selection
 				return tea.ExecProcess(c, func(err error) tea.Msg {
@@ -69,6 +71,7 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 	sessionName := t.SessionName()
 	if tmux.SessionExists(sessionName) {
 		c := exec.Command("tmux", "attach-session", "-t", sessionName)
+		c.Env = tmux.IsolatedEnv()
 		return tea.ExecProcess(c, func(err error) tea.Msg {
 			if err != nil {
 				return execFinishedMsg{err: fmt.Errorf("attach worker session %q: %w", sessionName, err)}
@@ -82,6 +85,7 @@ func openSession(t *Task, cfg *config.Config) tea.Cmd {
 		ownerSession := config.AgentSessionName(t.Owner)
 		if tmux.SessionExists(ownerSession) {
 			c := exec.Command("tmux", "attach-session", "-t", ownerSession)
+			c.Env = tmux.IsolatedEnv()
 			return tea.ExecProcess(c, func(err error) tea.Msg {
 				if err != nil {
 					return execFinishedMsg{err: fmt.Errorf("attach agent session %q: %w", ownerSession, err)}

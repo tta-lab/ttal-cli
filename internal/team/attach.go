@@ -2,7 +2,6 @@ package team
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"syscall"
 
@@ -24,5 +23,5 @@ func Attach(agent string) error {
 	}
 
 	args := []string{"tmux", "attach-session", "-t", sessionName}
-	return syscall.Exec(tmuxBin, args, os.Environ())
+	return syscall.Exec(tmuxBin, args, tmux.IsolatedEnv())
 }
