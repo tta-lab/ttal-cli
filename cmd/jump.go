@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
@@ -44,11 +43,12 @@ Designed to be wrapped in a shell function that performs the cd:
   fish — add to ~/.config/fish/config.fish:
     ttal jump --init fish | source
 
-Then use: t <alias>   (e.g. t ttal, t fn-cli)
+Then use: t <alias> or t <org/repo>   (e.g. t ttal, t crush, t charmbracelet/crush)
 
 Resolution order:
   1. Exact project alias match (projects.toml)
-  2. Bare repo name in ~/.ttal/references/ (already-cloned repos)`,
+  2. Bare repo name in ~/.ttal/references/ (already-cloned repos)
+  3. GitHub org/repo in ~/.ttal/references/github.com/ (clone if missing)`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runJump,
 }
@@ -79,16 +79,19 @@ func runJump(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// 2. Try bare repo name in references directory.
+	// 2. Try reference repo. Bare names must already exist; org/repo clones on miss.
 	// AskReferencesPath handles the default (~/.ttal/references/) on a zero-value Config,
 	// so this works even when config.toml doesn't exist.
 	cfg, cfgErr := config.Load()
-	if cfgErr != nil && !errors.Is(cfgErr, os.ErrNotExist) {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: config load failed, using default references path: %v\n", cfgErr)
+	if cfgErr != nil {
+		cfg = &config.Config{}
+		if !strings.Contains(cfgErr.Error(), "config not found") {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: config load failed, using default references path: %v\n", cfgErr)
+		}
 	}
 	refsPath := cfg.AskReferencesPath()
 
-	repoPath, repoErr := reporef.FindClonedRepo(target, refsPath)
+	repoPath, repoErr := reporef.ResolveOrCloneRepo(target, refsPath)
 	if repoErr == nil {
 		fmt.Println(repoPath)
 		return nil
@@ -96,6 +99,9 @@ func runJump(cmd *cobra.Command, args []string) error {
 
 	// Surface repo lookup failure to help debug references path issues.
 	fmt.Fprintf(cmd.ErrOrStderr(), "note: repo lookup also failed: %v\n", repoErr)
+	if strings.Contains(target, "/") {
+		return repoErr
+	}
 
 	// Return the project error — more actionable than the repo error.
 	return err
