@@ -455,6 +455,9 @@ func Load() (*Config, error) {
 		Flicknote:         raw.Flicknote,
 		Kubernetes:        raw.Kubernetes,
 	}
+	if cfg.Ask.ReferencesPath == "" {
+		cfg.Ask.ReferencesPath = raw.ReferencesPath
+	}
 
 	// Resolve DataDir
 	if team.DataDir != "" {

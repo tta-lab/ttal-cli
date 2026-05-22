@@ -1,5 +1,7 @@
 #:schema https://ttal.guion.io/schema/config.schema.json
 
+references_path = "~/code/references"
+
 [flicknote]
   # "plan" and "fix" kept for backward compat with existing annotated tasks
   inline_projects = ["plan", "fix", "orientation"]
