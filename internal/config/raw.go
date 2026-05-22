@@ -3,15 +3,15 @@ package config
 // rawFile is the TOML decode target for config.toml.
 // Private struct — fields are populated from toml tags, then converted to Config in Load().
 type rawFile struct {
-	DefaultTeam string             `toml:"default_team"`
-	User        UserConfig         `toml:"user"`
-	Voice       VoiceConfig        `toml:"voice"`
-	Sync        SyncConfig         `toml:"sync"`
-	Shell       string             `toml:"shell"`
-	Ask         AskConfig          `toml:"ask"`
-	Flicknote   FlicknoteConfig    `toml:"flicknote"`
-	Kubernetes  KubernetesConfig   `toml:"kubernetes"`
-	Teams       map[string]rawTeam `toml:"teams"`
+	DefaultTeam    string             `toml:"default_team"`
+	User           UserConfig         `toml:"user"`
+	Voice          VoiceConfig        `toml:"voice"`
+	Sync           SyncConfig         `toml:"sync"`
+	Shell          string             `toml:"shell"`
+	ReferencesPath string             `toml:"references_path"`
+	Flicknote      FlicknoteConfig    `toml:"flicknote"`
+	Kubernetes     KubernetesConfig   `toml:"kubernetes"`
+	Teams          map[string]rawTeam `toml:"teams"`
 }
 
 // rawTeam is the TOML decode target for a [teams.<name>] section.

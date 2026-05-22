@@ -80,7 +80,7 @@ func runJump(cmd *cobra.Command, args []string) error {
 	}
 
 	// 2. Try reference repo. Bare names must already exist; org/repo clones on miss.
-	// AskReferencesPath handles the default (~/.ttal/references/) on a zero-value Config,
+	// ResolvedReferencesPath handles the default (~/.ttal/references/) on a zero-value Config,
 	// so this works even when config.toml doesn't exist.
 	cfg, cfgErr := config.Load()
 	if cfgErr != nil {
@@ -89,7 +89,7 @@ func runJump(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: config load failed, using default references path: %v\n", cfgErr)
 		}
 	}
-	refsPath := cfg.AskReferencesPath()
+	refsPath := cfg.ResolvedReferencesPath()
 
 	repoPath, repoErr := reporef.ResolveOrCloneRepo(target, refsPath)
 	if repoErr == nil {

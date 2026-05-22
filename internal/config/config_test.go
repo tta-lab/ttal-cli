@@ -53,7 +53,9 @@ func TestLoad_Success(t *testing.T) {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
 
-	configContent := `[teams.default]
+	configContent := `references_path = "~/code/references"
+
+[teams.default]
 team_path = "/tmp/team"
 `
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(configContent), 0644); err != nil {
@@ -73,6 +75,10 @@ admin = true
 	}
 	if cfg.TeamPath != "/tmp/team" {
 		t.Errorf("TeamPath = %q, want %q", cfg.TeamPath, "/tmp/team")
+	}
+	wantRefs := filepath.Join(home, "code", "references")
+	if got := cfg.ResolvedReferencesPath(); got != wantRefs {
+		t.Errorf("ResolvedReferencesPath() = %q, want %q", got, wantRefs)
 	}
 }
 
