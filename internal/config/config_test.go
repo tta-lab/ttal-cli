@@ -77,8 +77,8 @@ admin = true
 		t.Errorf("TeamPath = %q, want %q", cfg.TeamPath, "/tmp/team")
 	}
 	wantRefs := filepath.Join(home, "code", "references")
-	if got := cfg.AskReferencesPath(); got != wantRefs {
-		t.Errorf("AskReferencesPath() = %q, want %q", got, wantRefs)
+	if got := cfg.ResolvedReferencesPath(); got != wantRefs {
+		t.Errorf("ResolvedReferencesPath() = %q, want %q", got, wantRefs)
 	}
 }
 

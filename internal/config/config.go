@@ -48,12 +48,6 @@ func AgentSessionName(agent string) string {
 // DefaultInlineProjects is the default set of flicknote project keywords to inline.
 var DefaultInlineProjects = []string{"plan"}
 
-// AskConfig holds settings for reference repo resolution (used by ttal jump).
-type AskConfig struct {
-	// Local path for cloned OSS reference repos (default: ~/.ttal/references/)
-	ReferencesPath string `toml:"references_path"`
-}
-
 // FlicknoteConfig holds flicknote-related settings.
 type FlicknoteConfig struct {
 	// Project substrings to inline (default: plan)
@@ -100,13 +94,14 @@ type Config struct {
 	Voice         VoiceConfig
 
 	// Global fields (from top-level config.toml)
-	Shell      string
-	Sync       SyncConfig
-	Prompts    PromptsConfig
-	Ask        AskConfig
-	Flicknote  FlicknoteConfig
-	Kubernetes KubernetesConfig
-	Roles      *RolesConfig
+	Shell   string
+	Sync    SyncConfig
+	Prompts PromptsConfig
+	// Local path for cloned reference repos (default: ~/.ttal/references/).
+	ReferencesPath string
+	Flicknote      FlicknoteConfig
+	Kubernetes     KubernetesConfig
+	Roles          *RolesConfig
 
 	// Derived
 	ProjectsPath string
@@ -253,13 +248,13 @@ func (c *Config) SkillsDestDir() string {
 	return filepath.Join(home, ".agents", "skills")
 }
 
-// AskReferencesPath returns the resolved path for cloned reference repos.
+// ResolvedReferencesPath returns the resolved path for cloned reference repos.
 // Defaults to ~/.ttal/references/ if not configured.
-func (c *Config) AskReferencesPath() string {
-	if c.Ask.ReferencesPath != "" {
-		return expandHome(c.Ask.ReferencesPath)
+func (c *Config) ResolvedReferencesPath() string {
+	if c.ReferencesPath != "" {
+		return expandHome(c.ReferencesPath)
 	}
-	return expandHome(defaultAskReferencesPath)
+	return expandHome(defaultReferencesPath)
 }
 
 // BuildEnvShellCommand returns a shell command with env vars prepended.
@@ -392,10 +387,10 @@ func loadDotEnvIntoProcess() {
 }
 
 const (
-	DefaultModel             = "sonnet"
-	MergeModeAuto            = "auto"
-	MergeModeManual          = "manual"
-	defaultAskReferencesPath = "~/.ttal/references/"
+	DefaultModel          = "sonnet"
+	MergeModeAuto         = "auto"
+	MergeModeManual       = "manual"
+	defaultReferencesPath = "~/.ttal/references/"
 )
 
 // Path returns the default path to config.toml.
@@ -451,12 +446,9 @@ func Load() (*Config, error) {
 		CommentSync:       team.CommentSync,
 		Shell:             raw.Shell,
 		Sync:              raw.Sync,
-		Ask:               raw.Ask,
+		ReferencesPath:    raw.ReferencesPath,
 		Flicknote:         raw.Flicknote,
 		Kubernetes:        raw.Kubernetes,
-	}
-	if cfg.Ask.ReferencesPath == "" {
-		cfg.Ask.ReferencesPath = raw.ReferencesPath
 	}
 
 	// Resolve DataDir

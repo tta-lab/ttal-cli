@@ -9,7 +9,6 @@ type rawFile struct {
 	Sync           SyncConfig         `toml:"sync"`
 	Shell          string             `toml:"shell"`
 	ReferencesPath string             `toml:"references_path"`
-	Ask            AskConfig          `toml:"ask"`
 	Flicknote      FlicknoteConfig    `toml:"flicknote"`
 	Kubernetes     KubernetesConfig   `toml:"kubernetes"`
 	Teams          map[string]rawTeam `toml:"teams"`
