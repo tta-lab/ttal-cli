@@ -87,3 +87,65 @@ func TestFindClonedRepo_MultipleMatches(t *testing.T) {
 		t.Errorf("error should mention ambiguity, got: %v", err)
 	}
 }
+
+func TestResolveOrCloneRepo_OrgRepoExisting(t *testing.T) {
+	tempDir := t.TempDir()
+	repoPath := filepath.Join(tempDir, "github.com", "charmbracelet", "crush")
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		t.Fatalf("failed to create repo directory: %v", err)
+	}
+
+	result, err := ResolveOrCloneRepo("charmbracelet/crush", tempDir)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != repoPath {
+		t.Errorf("expected %q, got %q", repoPath, result)
+	}
+}
+
+func TestResolveOrCloneRepo_OrgRepoClonesWhenMissing(t *testing.T) {
+	tempDir := t.TempDir()
+	var gotURL, gotDest string
+	oldClone := cloneGitRepo
+	cloneGitRepo = func(url, dest string) error {
+		gotURL = url
+		gotDest = dest
+		return os.MkdirAll(dest, 0755)
+	}
+	t.Cleanup(func() { cloneGitRepo = oldClone })
+
+	result, err := ResolveOrCloneRepo("charmbracelet/crush", tempDir)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantPath := filepath.Join(tempDir, "github.com", "charmbracelet", "crush")
+	if result != wantPath {
+		t.Errorf("expected %q, got %q", wantPath, result)
+	}
+	if gotURL != "https://github.com/charmbracelet/crush.git" {
+		t.Errorf("clone url = %q, want GitHub URL", gotURL)
+	}
+	if gotDest != wantPath {
+		t.Errorf("clone dest = %q, want %q", gotDest, wantPath)
+	}
+}
+
+func TestResolveOrCloneRepo_BareNameUsesExistingLookup(t *testing.T) {
+	tempDir := t.TempDir()
+	repoPath := filepath.Join(tempDir, "github.com", "charmbracelet", "crush")
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		t.Fatalf("failed to create repo directory: %v", err)
+	}
+
+	result, err := ResolveOrCloneRepo("crush", tempDir)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != repoPath {
+		t.Errorf("expected %q, got %q", repoPath, result)
+	}
+}

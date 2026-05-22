@@ -3,9 +3,61 @@ package reporef
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
+
+var cloneGitRepo = func(url, dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("create clone parent: %w", err)
+	}
+	cmd := exec.Command("git", "clone", url, dest)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// ResolveOrCloneRepo resolves target as either a bare repo name or an org/repo
+// GitHub reference. Bare names only resolve existing unique local clones.
+// org/repo targets clone from GitHub when missing locally.
+func ResolveOrCloneRepo(target, referencesPath string) (string, error) {
+	if org, repo, ok := parseOrgRepo(target); ok {
+		repoPath := filepath.Join(referencesPath, "github.com", org, repo)
+		if info, err := os.Stat(repoPath); err == nil {
+			if !info.IsDir() {
+				return "", fmt.Errorf("repo path exists but is not a directory: %s", repoPath)
+			}
+			return repoPath, nil
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("checking repo path %s: %w", repoPath, err)
+		}
+
+		url := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
+		if err := cloneGitRepo(url, repoPath); err != nil {
+			return "", fmt.Errorf("clone %s into %s: %w", url, repoPath, err)
+		}
+		return repoPath, nil
+	}
+
+	return FindClonedRepo(target, referencesPath)
+}
+
+func parseOrgRepo(target string) (string, string, bool) {
+	parts := strings.Split(target, "/")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	org, repo := parts[0], parts[1]
+	if !isSafePathPart(org) || !isSafePathPart(repo) {
+		return "", "", false
+	}
+	return org, repo, true
+}
+
+func isSafePathPart(part string) bool {
+	return part != "" && part != "." && part != ".." && !strings.Contains(part, string(filepath.Separator))
+}
 
 // FindClonedRepo scans the references directory for an already-cloned repo
 // matching the bare name (case-sensitive). Returns the local path if exactly
