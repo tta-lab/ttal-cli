@@ -47,11 +47,53 @@ func handlePRFind(req PRFindRequest) PRFindResponse {
 	if state == "" {
 		state = "open"
 	}
-	result, err := provider.FindPRByState(req.Owner, req.Repo, req.Head, req.Base, state)
+	result, err := findPRByBranchOrCommit(provider, req.Owner, req.Repo, req.Head, req.Base, state, req.HeadSHA)
 	if err != nil {
 		return PRFindResponse{OK: false, Error: fmt.Sprintf("find PR: %v", err)}
 	}
 	return PRFindResponse{OK: true, PRURL: result.HTMLURL, PRIndex: result.Index, Merged: result.Merged}
+}
+
+type commitPRFinder interface {
+	FindPRByCommit(owner, repo, sha string) (*gitprovider.PullRequest, error)
+}
+
+func findPRByBranchOrCommit(
+	provider gitprovider.Provider,
+	owner, repo, head, base, state, headSHA string,
+) (*gitprovider.PullRequest, error) {
+	if finder, ok := provider.(commitPRFinder); ok {
+		if headSHA == "" {
+			return nil, fmt.Errorf("head_sha is required for %s PR lookup", provider.Name())
+		}
+		commitPR, err := finder.FindPRByCommit(owner, repo, headSHA)
+		if err != nil {
+			return nil, err
+		}
+		if commitPR == nil {
+			return nil, fmt.Errorf("no PR found for commit %s", headSHA)
+		}
+		if commitPR.Head != head {
+			return nil, fmt.Errorf("PR for commit %s has head %s, want %s", headSHA, commitPR.Head, head)
+		}
+		if !prMatches(commitPR, base, state) {
+			return nil, fmt.Errorf("PR for commit %s does not match base %s and state %s", headSHA, base, state)
+		}
+		return commitPR, nil
+	}
+
+	result, err := provider.FindPRByState(owner, repo, head, base, state)
+	if err == nil {
+		return result, nil
+	}
+	return nil, err
+}
+
+func prMatches(pr *gitprovider.PullRequest, base, state string) bool {
+	if pr.Base != base {
+		return false
+	}
+	return state == "" || state == "all" || pr.State == state
 }
 
 func handlePRMerge(req PRMergeRequest) PRResponse {

@@ -17,6 +17,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
+var gitCommandContext = exec.CommandContext
+
 // isProtectedBranch returns true if the given branch name is protected by policy.
 // The list is intentionally small — extending it requires a code change.
 func isProtectedBranch(branch string) bool {
@@ -169,7 +171,7 @@ func handleGitPull(req GitPullRequest) GitPullResponse {
 	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 
 	if req.Mode == GitPullModeCleanupMerged {
-		if err := ensureCleanBranchForCleanup(req.WorkDir, req.Branch); err != nil {
+		if err := ensureCleanBranchForCleanup(req.WorkDir, req.Branch, credEnv); err != nil {
 			return GitPullResponse{Error: err.Error()}
 		}
 	}
@@ -239,11 +241,11 @@ func runGitPullCommand(workDir string, args []string, credEnv []string) error {
 	return nil
 }
 
-func ensureCleanBranchForCleanup(workDir, branch string) error {
+func ensureCleanBranchForCleanup(workDir, branch string, credEnv []string) error {
 	if err := ensureWorktreeClean(workDir); err != nil {
 		return err
 	}
-	exists, err := refreshRemoteBranchForCleanup(workDir, branch)
+	exists, err := refreshRemoteBranchForCleanup(workDir, branch, credEnv)
 	if err != nil {
 		return err
 	}
@@ -253,11 +255,12 @@ func ensureCleanBranchForCleanup(workDir, branch string) error {
 	return ensureBranchNotAheadOfOrigin(workDir, branch)
 }
 
-func refreshRemoteBranchForCleanup(workDir, branch string) (bool, error) {
+func refreshRemoteBranchForCleanup(workDir, branch string, credEnv []string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "fetch", "--prune", "origin")
+	cmd := gitCommandContext(ctx, "git", "-C", workDir, "fetch", "--prune", "origin")
+	cmd.Env = append(os.Environ(), credEnv...)
 	var fetchOut bytes.Buffer
 	cmd.Stdout = &fetchOut
 	cmd.Stderr = &fetchOut
@@ -270,7 +273,7 @@ func refreshRemoteBranchForCleanup(workDir, branch string) (bool, error) {
 		)
 	}
 
-	cmd = exec.CommandContext(ctx, "git", "-C", workDir, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
+	cmd = gitCommandContext(ctx, "git", "-C", workDir, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
 	if err := cmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 			return false, nil
