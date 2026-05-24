@@ -80,57 +80,6 @@ cat <<'EOF' | ttal send --to {{admin-handle}}
 wrote note: flicknote abc12345
 EOF
 
-## Delegating Coding Work
-
-**Always delegate coding to workers — don't implement yourself.**
-
-### Step 1: Create the task
-
-    ttal task add --project <alias> "description"
-
-### Step 2: Document context (choose by task size)
-
-**Small task** — annotate inline:
-
-    ttal task add --project <alias> "description" --annotate "specific details, edge cases, approach"
-
-**Large task** — use task tree for the plan, flicknote for supplemental context:
-
-    # Diagnosis notes (bug fixes)
-    flicknote add "findings..." --project fixes
-
-    # Annotate the task with the flicknote hex ID
-    task <uuid> annotate "<hex-id>"
-Plans go in the task tree (see below), not flicknote. Use flicknote for diagnosis notes (`fixes`) and orientation docs (`orientation`) that supplement the task tree.
-
-**Task tree plan** (tw fork) — create subtask tree under the parent:
-
-    # Write orientation doc (optional, for complex tasks)
-cat <<'ORIENT' | flicknote add --project orientation
-# Orientation: Feature Name
-## What -- goal
-## Why -- motivation
-## Anti-goals -- what this is NOT
-ORIENT
-
-    # Create the plan as a subtask tree
-cat <<'PLAN' | task <parent-uuid> plan
-## Step 1 title
-Details for this step.
-
-## Step 2 title
-Details for this step.
-PLAN
-
-    # View the plan
-    task <parent-uuid> tree
-
-The subtask tree IS the plan — no separate annotation needed. Each subtask is a step, annotations hold details.
-
-### Step 3: Execute
-
-    ttal go <uuid>    # spawns a worker in isolated worktree
-
 ## GitHub & Forgejo
 
 - **Use `ttal push` for git push** — always use `ttal push`, never `git push` directly
