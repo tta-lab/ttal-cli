@@ -38,6 +38,18 @@ func handlePRModify(req PRModifyRequest) PRResponse {
 	return PRResponse{OK: true, PRURL: result.HTMLURL, PRIndex: result.Index}
 }
 
+func handlePRFind(req PRFindRequest) PRFindResponse {
+	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
+	if err != nil {
+		return PRFindResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
+	}
+	result, err := provider.FindPR(req.Owner, req.Repo, req.Head, req.Base)
+	if err != nil {
+		return PRFindResponse{OK: false, Error: fmt.Sprintf("find PR: %v", err)}
+	}
+	return PRFindResponse{OK: true, PRURL: result.HTMLURL, PRIndex: result.Index}
+}
+
 func handlePRMerge(req PRMergeRequest) PRResponse {
 	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
 	if err != nil {

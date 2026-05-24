@@ -107,6 +107,17 @@ type PRModifyRequest struct {
 	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
+// PRFindRequest asks the daemon to find an open PR by source and target branch.
+type PRFindRequest struct {
+	ProviderType string `json:"provider_type"`  // "forgejo" or "github"
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Head         string `json:"head"`                    // source branch
+	Base         string `json:"base"`                    // target branch
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
+}
+
 // PRMergeRequest asks the daemon to squash-merge a PR.
 type PRMergeRequest struct {
 	ProviderType string `json:"provider_type"`
@@ -177,6 +188,14 @@ type PRGetPRResponse struct {
 	Merged    bool   `json:"merged,omitempty"`
 	Mergeable bool   `json:"mergeable,omitempty"`
 	Title     string `json:"title,omitempty"`
+}
+
+// PRFindResponse is the daemon's response for finding a PR by branch.
+type PRFindResponse struct {
+	OK      bool   `json:"ok"`
+	Error   string `json:"error,omitempty"`
+	PRURL   string `json:"pr_url,omitempty"`
+	PRIndex int64  `json:"pr_index,omitempty"`
 }
 
 // PRCIStatusResponse is the daemon's response for GetCombinedStatus.
@@ -347,6 +366,7 @@ type httpHandlers struct {
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
+	prFind                func(PRFindRequest) PRFindResponse
 	prMerge               func(PRMergeRequest) PRResponse
 	prCheckMergeable      func(PRCheckMergeableRequest) PRResponse
 	prGetPR               func(PRGetPRRequest) PRGetPRResponse
@@ -384,6 +404,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// PR routes (proxied through daemon for token isolation)
 	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
 	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
+	r.Post("/pr/find", handleHTTPPRFind(handlers))
 	r.Post("/pr/merge", handleHTTPPR("prMerge", handlers.prMerge))
 	r.Post("/pr/check-mergeable", handleHTTPPR("prCheckMergeable", handlers.prCheckMergeable))
 	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
@@ -582,6 +603,19 @@ func handleHTTPPRGetPR(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
+func handleHTTPPRFind(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req PRFindRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				PRFindResponse{OK: false, Error: "invalid prFind JSON: " + err.Error()})
+			return
+		}
+		result := handlers.prFind(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
+	}
+}
+
 func handleHTTPPRCIStatus(handlers httpHandlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req PRGetCombinedStatusRequest
@@ -775,6 +809,11 @@ func PRCreate(req PRCreateRequest) (PRResponse, error) {
 // PRModify asks the daemon to edit a PR title/body.
 func PRModify(req PRModifyRequest) (PRResponse, error) {
 	return prCall("/pr/modify", req)
+}
+
+// PRFind asks the daemon to find an open PR by branch.
+func PRFind(req PRFindRequest) (PRFindResponse, error) {
+	return prCallTyped("/pr/find", req, func(r PRFindResponse) string { return r.Error })
 }
 
 // PRMerge asks the daemon to squash-merge a PR.

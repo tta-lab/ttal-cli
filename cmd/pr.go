@@ -19,6 +19,7 @@ import (
 var (
 	daemonPRCreateFn   = daemon.PRCreate                  // inject point for tests
 	daemonPRModifyFn   = daemon.PRModify                  // inject point for tests
+	daemonPRFindFn     = daemon.PRFind                    // inject point for tests
 	prResolveContextFn = pr.ResolveContextWithoutProvider // inject point for tests
 	currentBranchFn    = worker.CurrentBranch             // inject point for tests
 	gitPushFn          = daemon.GitPush                   // inject point for tests
@@ -206,7 +207,7 @@ Examples:
 			ctx.Task.PRID = prIDFlag
 		}
 
-		index, err := pr.PRIndex(ctx)
+		index, err := resolvePRIndexForModify(ctx)
 		if err != nil {
 			return err
 		}
@@ -228,6 +229,47 @@ Examples:
 		fmt.Printf("PR #%d updated: %s\n", prResp.PRIndex, prResp.PRURL)
 		return nil
 	},
+}
+
+func resolvePRIndexForModify(ctx *pr.Context) (int64, error) {
+	if ctx.Task.PRID != "" {
+		return pr.PRIndex(ctx)
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		return 0, fmt.Errorf("get working directory: %w", err)
+	}
+	projectAlias := ctx.Task.Project
+	if projectAlias == "" {
+		projectAlias = ctx.Alias
+	}
+	branch := currentBranchFn(ctx.Task.UUID, projectAlias, workDir)
+	if branch == "" {
+		return 0, pr.ErrNoPR
+	}
+
+	base := ctx.Info.DefaultBranch
+	if base == "" {
+		base = "main"
+	}
+
+	resp, err := daemonPRFindFn(daemon.PRFindRequest{
+		ProviderType: string(ctx.Info.Provider),
+		Host:         ctx.Info.Host,
+		Owner:        ctx.Owner,
+		Repo:         ctx.Repo,
+		Head:         branch,
+		Base:         base,
+		ProjectAlias: ctx.Alias,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("find PR for branch %s: %w", branch, err)
+	}
+	if !resp.OK {
+		return 0, fmt.Errorf("find PR for branch %s: %s", branch, resp.Error)
+	}
+	return resp.PRIndex, nil
 }
 
 func writeReviewFile(body string) (string, error) {

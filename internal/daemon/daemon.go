@@ -202,6 +202,7 @@ func buildHTTPHandlers(
 		closeWindow:           handleCloseWindow,
 		prCreate:              handlePRCreate,
 		prModify:              handlePRModify,
+		prFind:                handlePRFind,
 		prMerge:               handlePRMerge,
 		prCheckMergeable:      handlePRCheckMergeable,
 		prGetPR:               handlePRGetPR,

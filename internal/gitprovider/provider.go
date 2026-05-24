@@ -68,6 +68,7 @@ type JobFailure struct {
 type Provider interface {
 	Name() string
 	CreatePR(owner, repo, head, base, title, body string) (*PullRequest, error)
+	FindPR(owner, repo, head, base string) (*PullRequest, error)
 	EditPR(owner, repo string, index int64, title, body string) (*PullRequest, error)
 	GetPR(owner, repo string, index int64) (*PullRequest, error)
 	MergePR(owner, repo string, index int64, deleteBranch bool) error

@@ -54,6 +54,14 @@ func (p *ForgejoProvider) CreatePR(owner, repo, head, base, title, body string) 
 	return toPullRequest(pr), nil
 }
 
+func (p *ForgejoProvider) FindPR(owner, repo, head, base string) (*PullRequest, error) {
+	pr, _, err := p.client.GetPullRequestByBaseAndHead(owner, repo, base, head)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PR for %s -> %s: %w", head, base, err)
+	}
+	return toPullRequest(pr), nil
+}
+
 func (p *ForgejoProvider) EditPR(owner, repo string, index int64, title, body string) (*PullRequest, error) {
 	opt := forgejo_sdk.EditPullRequestOption{}
 	if title != "" {

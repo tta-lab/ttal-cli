@@ -29,6 +29,7 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		// PR handlers — always wired to avoid nil dereference when tests exercise the router.
 		prCreate:         func(req PRCreateRequest) PRResponse { return PRResponse{OK: true} },
 		prModify:         func(req PRModifyRequest) PRResponse { return PRResponse{OK: true} },
+		prFind:           func(req PRFindRequest) PRFindResponse { return PRFindResponse{OK: true} },
 		prMerge:          func(req PRMergeRequest) PRResponse { return PRResponse{OK: true} },
 		prCheckMergeable: func(req PRCheckMergeableRequest) PRResponse { return PRResponse{OK: true} },
 		prGetPR: func(req PRGetPRRequest) PRGetPRResponse {
