@@ -20,9 +20,11 @@ var (
 	daemonPRCreateFn   = daemon.PRCreate                  // inject point for tests
 	daemonPRModifyFn   = daemon.PRModify                  // inject point for tests
 	daemonPRFindFn     = daemon.PRFind                    // inject point for tests
+	daemonPRGetPRFn    = daemon.PRGetPR                   // inject point for tests
 	prResolveContextFn = pr.ResolveContextWithoutProvider // inject point for tests
 	currentBranchFn    = worker.CurrentBranch             // inject point for tests
 	gitPushFn          = daemon.GitPush                   // inject point for tests
+	gitPullFn          = daemon.GitPull                   // inject point for tests
 	setPRIDFn          = taskwarrior.SetPRID              // inject point for tests
 	daemonNotifyFn     = daemon.Notify                    // inject point for tests
 )

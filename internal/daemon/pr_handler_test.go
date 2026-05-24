@@ -25,6 +25,9 @@ func (s *stubProvider) CreatePR(_, _, _, _, _, _ string) (*gitprovider.PullReque
 func (s *stubProvider) FindPR(_, _, _, _ string) (*gitprovider.PullRequest, error) {
 	panic("not implemented")
 }
+func (s *stubProvider) FindPRByState(_, _, _, _, _ string) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
 func (s *stubProvider) EditPR(_, _ string, _ int64, _, _ string) (*gitprovider.PullRequest, error) {
 	panic("not implemented")
 }

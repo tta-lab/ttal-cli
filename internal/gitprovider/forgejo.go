@@ -55,6 +55,40 @@ func (p *ForgejoProvider) CreatePR(owner, repo, head, base, title, body string) 
 }
 
 func (p *ForgejoProvider) FindPR(owner, repo, head, base string) (*PullRequest, error) {
+	return p.FindPRByState(owner, repo, head, base, "open")
+}
+
+func (p *ForgejoProvider) FindPRByState(owner, repo, head, base, state string) (*PullRequest, error) {
+	if state == "" || state == "open" {
+		return p.findOpenPR(owner, repo, head, base)
+	}
+	stateType := forgejo_sdk.StateType(state)
+	if state == "all" {
+		stateType = ""
+	}
+	prs, _, err := p.client.ListRepoPullRequests(owner, repo, forgejo_sdk.ListPullRequestsOptions{
+		State: stateType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PR for %s -> %s: %w", head, base, err)
+	}
+	var matches []*PullRequest
+	for _, candidate := range prs {
+		pr := toPullRequest(candidate)
+		if pr.Head == head && pr.Base == base {
+			matches = append(matches, pr)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no %s PR found for %s -> %s", state, head, base)
+	}
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("multiple %s PRs found for %s -> %s", state, head, base)
+	}
+	return matches[0], nil
+}
+
+func (p *ForgejoProvider) findOpenPR(owner, repo, head, base string) (*PullRequest, error) {
 	pr, _, err := p.client.GetPullRequestByBaseAndHead(owner, repo, base, head)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find PR for %s -> %s: %w", head, base, err)

@@ -219,6 +219,33 @@ func TestHTTPGitTag_HappyPath(t *testing.T) {
 	}
 }
 
+func TestHTTPGitPull_HappyPath(t *testing.T) {
+	h := testHandlers(nil)
+	var received GitPullRequest
+	h.gitPull = func(req GitPullRequest) GitPullResponse {
+		received = req
+		return GitPullResponse{OK: true, Action: GitPullActionPulledBranch}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(GitPullRequest{
+		WorkDir:       "/some/worktree",
+		Branch:        "feature/x",
+		DefaultBranch: "main",
+		Mode:          GitPullModeBranch,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/git/pull", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if received.WorkDir != "/some/worktree" || received.Branch != "feature/x" || received.Mode != GitPullModeBranch {
+		t.Errorf("unexpected request: %+v", received)
+	}
+}
+
 func TestBuildGitPushArgs(t *testing.T) {
 	cases := []struct {
 		name string
@@ -243,6 +270,59 @@ func TestBuildGitPushArgs(t *testing.T) {
 				t.Errorf("buildGitPushArgs() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestBuildGitPullCommands(t *testing.T) {
+	cases := []struct {
+		name string
+		req  GitPullRequest
+		want [][]string
+	}{
+		{
+			"default branch",
+			GitPullRequest{WorkDir: "/wd", Branch: "main", DefaultBranch: "main", Mode: GitPullModeDefault},
+			[][]string{{"-C", "/wd", "pull", "--ff-only", "origin", "main"}},
+		},
+		{
+			"current branch",
+			GitPullRequest{WorkDir: "/wd", Branch: "feature/x", DefaultBranch: "main", Mode: GitPullModeBranch},
+			[][]string{{"-C", "/wd", "pull", "--ff-only", "origin", "feature/x"}},
+		},
+		{
+			"cleanup merged branch",
+			GitPullRequest{WorkDir: "/wd", Branch: "feature/x", DefaultBranch: "main", Mode: GitPullModeCleanupMerged},
+			[][]string{
+				{"-C", "/wd", "switch", "main"},
+				{"-C", "/wd", "pull", "--ff-only", "origin", "main"},
+				{"-C", "/wd", "branch", "-D", "feature/x"},
+				{"-C", "/wd", "push", "origin", "--delete", "feature/x"},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildGitPullCommands(tc.req)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("buildGitPullCommands() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsMissingRemoteBranchDelete(t *testing.T) {
+	missing := []string{
+		"error: unable to delete 'feature/x': remote ref does not exist",
+		"error: unable to delete 'feature/x': remote ref does not exist\nerror: failed to push some refs",
+	}
+	for _, out := range missing {
+		if !isMissingRemoteBranchDelete(out) {
+			t.Errorf("isMissingRemoteBranchDelete(%q) = false, want true", out)
+		}
+	}
+
+	if isMissingRemoteBranchDelete("fatal: Authentication failed") {
+		t.Error("auth failures must not be treated as missing remote branches")
 	}
 }
 

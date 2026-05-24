@@ -143,6 +143,46 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 	return GitTagResponse{OK: true}
 }
 
+// handleGitPull runs the pull workflow selected by the CLI.
+func handleGitPull(req GitPullRequest) GitPullResponse {
+	if req.WorkDir == "" {
+		return GitPullResponse{Error: "work_dir must not be empty"}
+	}
+	if req.Branch == "" {
+		return GitPullResponse{Error: "branch must not be empty"}
+	}
+	if req.DefaultBranch == "" {
+		req.DefaultBranch = "main"
+	}
+	if req.Mode == "" {
+		req.Mode = GitPullModeBranch
+	}
+
+	remoteURL, err := gitutil.RemoteURL(req.WorkDir)
+	if err != nil {
+		return GitPullResponse{Error: fmt.Sprintf("get remote URL: %v", err)}
+	}
+	if !gitutil.GitCredEnvHasToken(remoteURL, req.ProjectAlias) {
+		return GitPullResponse{Error: fmt.Sprintf("no token for %s (project: %s)", remoteURL, req.ProjectAlias)}
+	}
+	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
+
+	for _, args := range buildGitPullCommands(req) {
+		if err := runGitPullCommand(req.WorkDir, args, credEnv); err != nil {
+			return GitPullResponse{Error: err.Error()}
+		}
+	}
+
+	switch req.Mode {
+	case GitPullModeDefault:
+		return GitPullResponse{OK: true, Action: GitPullActionPulledDefault}
+	case GitPullModeCleanupMerged:
+		return GitPullResponse{OK: true, Action: GitPullActionCleanedMergedBranch}
+	default:
+		return GitPullResponse{OK: true, Action: GitPullActionPulledBranch}
+	}
+}
+
 // buildGitPushArgs returns the full argv (after "git") for pushing a branch.
 // --force-with-lease is appended when req.Force is set. We never emit a raw --force.
 func buildGitPushArgs(req GitPushRequest) []string {
@@ -151,6 +191,58 @@ func buildGitPushArgs(req GitPushRequest) []string {
 		args = append(args, "--force-with-lease")
 	}
 	return args
+}
+
+// buildGitPullCommands returns each git argv (after "git") for the selected pull mode.
+func buildGitPullCommands(req GitPullRequest) [][]string {
+	switch req.Mode {
+	case GitPullModeDefault:
+		return [][]string{{"-C", req.WorkDir, "pull", "--ff-only", "origin", req.DefaultBranch}}
+	case GitPullModeCleanupMerged:
+		return [][]string{
+			{"-C", req.WorkDir, "switch", req.DefaultBranch},
+			{"-C", req.WorkDir, "pull", "--ff-only", "origin", req.DefaultBranch},
+			{"-C", req.WorkDir, "branch", "-D", req.Branch},
+			{"-C", req.WorkDir, "push", "origin", "--delete", req.Branch},
+		}
+	default:
+		return [][]string{{"-C", req.WorkDir, "pull", "--ff-only", "origin", req.Branch}}
+	}
+}
+
+func runGitPullCommand(workDir string, args []string, credEnv []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Env = append(os.Environ(), credEnv...)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		if isRemoteDeleteCommand(args) && isMissingRemoteBranchDelete(out.String()) {
+			log.Printf("[daemon] remote branch already absent for %s: git %v", workDir, args)
+			return nil
+		}
+		log.Printf("[daemon] git pull workflow failed for %s: git %v: %v — %s", workDir, args, err, out.String())
+		return fmt.Errorf("git %s: %v\n%s", strings.Join(args, " "), err, strings.TrimSpace(out.String()))
+	}
+	return nil
+}
+
+func isRemoteDeleteCommand(args []string) bool {
+	for i := 0; i < len(args)-2; i++ {
+		if args[i] == "push" && args[i+1] == "origin" && args[i+2] == "--delete" {
+			return true
+		}
+	}
+	return false
+}
+
+func isMissingRemoteBranchDelete(output string) bool {
+	return strings.Contains(strings.ToLower(output), "remote ref does not exist")
 }
 
 // isRegisteredProjectPath checks if the given path is a registered ttal project path.
