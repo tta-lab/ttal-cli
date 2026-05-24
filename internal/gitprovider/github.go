@@ -300,6 +300,10 @@ func toGitHubPullRequest(pr *github.PullRequest) *PullRequest {
 	if pr.Mergeable != nil {
 		mergeable = *pr.Mergeable
 	}
+	merged := pr.GetMerged()
+	if !merged {
+		merged = !pr.GetMergedAt().IsZero()
+	}
 	return &PullRequest{
 		Index:     int64(pr.GetNumber()),
 		Title:     pr.GetTitle(),
@@ -310,7 +314,7 @@ func toGitHubPullRequest(pr *github.PullRequest) *PullRequest {
 		HeadSHA:   headSHA,
 		Base:      base,
 		Mergeable: mergeable,
-		Merged:    pr.GetMerged(),
+		Merged:    merged,
 	}
 }
 

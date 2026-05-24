@@ -25,7 +25,7 @@ func TestGitHubProviderFindPRByCommit(t *testing.T) {
 			"title": "fix pull",
 			"state": "closed",
 			"html_url": "https://github.com/o/r/pull/56",
-			"merged": true,
+			"merged_at": "2026-05-24T09:16:33Z",
 			"head": {"ref": "feature/deleted-remote", "sha": "abc123"},
 			"base": {"ref": "main"}
 		}]`))
