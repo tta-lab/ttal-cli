@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -219,6 +222,33 @@ func TestHTTPGitTag_HappyPath(t *testing.T) {
 	}
 }
 
+func TestHTTPGitPull_HappyPath(t *testing.T) {
+	h := testHandlers(nil)
+	var received GitPullRequest
+	h.gitPull = func(req GitPullRequest) GitPullResponse {
+		received = req
+		return GitPullResponse{OK: true, Action: GitPullActionPulledBranch}
+	}
+	r := newDaemonRouter(h)
+
+	body, _ := json.Marshal(GitPullRequest{
+		WorkDir:       "/some/worktree",
+		Branch:        "feature/x",
+		DefaultBranch: "main",
+		Mode:          GitPullModeBranch,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/git/pull", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if received.WorkDir != "/some/worktree" || received.Branch != "feature/x" || received.Mode != GitPullModeBranch {
+		t.Errorf("unexpected request: %+v", received)
+	}
+}
+
 func TestBuildGitPushArgs(t *testing.T) {
 	cases := []struct {
 		name string
@@ -243,6 +273,178 @@ func TestBuildGitPushArgs(t *testing.T) {
 				t.Errorf("buildGitPushArgs() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestBuildGitPullCommands(t *testing.T) {
+	cases := []struct {
+		name string
+		req  GitPullRequest
+		want [][]string
+	}{
+		{
+			"default branch",
+			GitPullRequest{WorkDir: "/wd", Branch: "main", DefaultBranch: "main", Mode: GitPullModeDefault},
+			[][]string{{"-C", "/wd", "pull", "--ff-only", "origin", "main"}},
+		},
+		{
+			"current branch",
+			GitPullRequest{WorkDir: "/wd", Branch: "feature/x", DefaultBranch: "main", Mode: GitPullModeBranch},
+			[][]string{{"-C", "/wd", "pull", "--ff-only", "origin", "feature/x"}},
+		},
+		{
+			"cleanup merged branch",
+			GitPullRequest{WorkDir: "/wd", Branch: "feature/x", DefaultBranch: "main", Mode: GitPullModeCleanupMerged},
+			[][]string{
+				{"-C", "/wd", "switch", "main"},
+				{"-C", "/wd", "pull", "--ff-only", "origin", "main"},
+				{"-C", "/wd", "branch", "-D", "feature/x"},
+				{"-C", "/wd", "push", "origin", "--delete", "feature/x"},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildGitPullCommands(tc.req)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("buildGitPullCommands() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseLocalAheadCount(t *testing.T) {
+	got, err := parseLocalAheadCount("3\n")
+	if err != nil {
+		t.Fatalf("parseLocalAheadCount: %v", err)
+	}
+	if got != 3 {
+		t.Fatalf("parseLocalAheadCount = %d, want 3", got)
+	}
+}
+
+func TestParseLocalAheadCountRejectsBadOutput(t *testing.T) {
+	_, err := parseLocalAheadCount("not-a-number\n")
+	if err == nil {
+		t.Fatal("expected error for invalid rev-list output")
+	}
+}
+
+func TestEnsureBranchNotAheadOfOriginBlocksLocalCommits(t *testing.T) {
+	repo := initAheadOfOriginRepo(t)
+
+	err := ensureBranchNotAheadOfOrigin(repo, "feature/x")
+	if err == nil {
+		t.Fatal("expected ahead branch to be rejected")
+	}
+	if !strings.Contains(err.Error(), "has 1 local commit(s) not on origin/feature/x") {
+		t.Fatalf("error = %q, want ahead-count message", err)
+	}
+}
+
+func TestEnsureCleanBranchForCleanupAllowsDeletedRemoteBranch(t *testing.T) {
+	repo := initRepoWithDeletedOriginBranch(t)
+
+	err := ensureCleanBranchForCleanup(repo, "feature/x")
+	if err != nil {
+		t.Fatalf("expected deleted remote branch to be cleanup-safe: %v", err)
+	}
+}
+
+func TestEnsureCleanBranchForCleanupBlocksDirtyWorktree(t *testing.T) {
+	repo := initSyncedBranchRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\ndirty\n"), 0o600); err != nil {
+		t.Fatalf("dirty file: %v", err)
+	}
+
+	err := ensureCleanBranchForCleanup(repo, "feature/x")
+	if err == nil {
+		t.Fatal("expected dirty worktree to be rejected")
+	}
+	if !strings.Contains(err.Error(), "worktree has uncommitted changes") {
+		t.Fatalf("error = %q, want dirty-worktree message", err)
+	}
+}
+
+func TestIsMissingRemoteBranchDelete(t *testing.T) {
+	missing := []string{
+		"error: unable to delete 'feature/x': remote ref does not exist",
+		"error: unable to delete 'feature/x': remote ref does not exist\nerror: failed to push some refs",
+	}
+	for _, out := range missing {
+		if !isMissingRemoteBranchDelete(out) {
+			t.Errorf("isMissingRemoteBranchDelete(%q) = false, want true", out)
+		}
+	}
+
+	if isMissingRemoteBranchDelete("fatal: Authentication failed") {
+		t.Error("auth failures must not be treated as missing remote branches")
+	}
+}
+
+func initAheadOfOriginRepo(t *testing.T) string {
+	t.Helper()
+	repo := initSyncedBranchRepo(t)
+
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\nlocal\n"), 0o600); err != nil {
+		t.Fatalf("write local file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "local")
+
+	return repo
+}
+
+func initRepoWithDeletedOriginBranch(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	remote := filepath.Join(dir, "origin.git")
+	repo := filepath.Join(dir, "repo")
+
+	runGitTestCmd(t, dir, "init", "--bare", remote)
+	runGitTestCmd(t, dir, "clone", remote, repo)
+	runGitTestCmd(t, repo, "config", "user.email", "test@example.com")
+	runGitTestCmd(t, repo, "config", "user.name", "Test User")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatalf("write base file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "base")
+	runGitTestCmd(t, repo, "branch", "-M", "main")
+	runGitTestCmd(t, repo, "push", "-u", "origin", "main")
+	runGitTestCmd(t, repo, "switch", "-c", "feature/x")
+	runGitTestCmd(t, repo, "push", "-u", "origin", "feature/x")
+	runGitTestCmd(t, repo, "push", "origin", "--delete", "feature/x")
+
+	return repo
+}
+
+func initSyncedBranchRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+
+	runGitTestCmd(t, dir, "init", repo)
+	runGitTestCmd(t, repo, "config", "user.email", "test@example.com")
+	runGitTestCmd(t, repo, "config", "user.name", "Test User")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatalf("write base file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "base")
+	runGitTestCmd(t, repo, "switch", "-c", "feature/x")
+	runGitTestCmd(t, repo, "update-ref", "refs/remotes/origin/feature/x", "HEAD")
+
+	return repo
+}
+
+func runGitTestCmd(t *testing.T, workDir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v\n%s", args, err, out)
 	}
 }
 

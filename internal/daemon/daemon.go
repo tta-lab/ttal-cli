@@ -202,6 +202,7 @@ func buildHTTPHandlers(
 		closeWindow:           handleCloseWindow,
 		prCreate:              handlePRCreate,
 		prModify:              handlePRModify,
+		prFind:                handlePRFind,
 		prMerge:               handlePRMerge,
 		prCheckMergeable:      handlePRCheckMergeable,
 		prGetPR:               handlePRGetPR,
@@ -209,6 +210,7 @@ func buildHTTPHandlers(
 		prGetCIFailureDetails: handlePRGetCIFailureDetails,
 		gitPush:               handleGitPush,
 		gitTag:                handleGitTag,
+		gitPull:               handleGitPull,
 		kubeLog: HandleKubeLog(
 			project.NewStore(config.ResolveProjectsPath()),
 			cfg.Kubernetes.Context,

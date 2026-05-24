@@ -54,6 +54,22 @@ func (p *ForgejoProvider) CreatePR(owner, repo, head, base, title, body string) 
 	return toPullRequest(pr), nil
 }
 
+func (p *ForgejoProvider) FindPR(owner, repo, head, base string) (*PullRequest, error) {
+	return p.FindPRByState(owner, repo, head, base, "open")
+}
+
+func (p *ForgejoProvider) FindPRByState(owner, repo, head, base, state string) (*PullRequest, error) {
+	pr, _, err := p.client.GetPullRequestByBaseAndHead(owner, repo, base, head)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PR for %s -> %s: %w", head, base, err)
+	}
+	result := toPullRequest(pr)
+	if state == "" || state == "all" || result.State == state {
+		return result, nil
+	}
+	return nil, fmt.Errorf("no %s PR found for %s -> %s", state, head, base)
+}
+
 func (p *ForgejoProvider) EditPR(owner, repo string, index int64, title, body string) (*PullRequest, error) {
 	opt := forgejo_sdk.EditPullRequestOption{}
 	if title != "" {

@@ -43,6 +43,35 @@ func (p *GitHubProvider) CreatePR(owner, repo, head, base, title, body string) (
 	return toGitHubPullRequest(pr), nil
 }
 
+func (p *GitHubProvider) FindPR(owner, repo, head, base string) (*PullRequest, error) {
+	return p.FindPRByState(owner, repo, head, base, "open")
+}
+
+func (p *GitHubProvider) FindPRByState(owner, repo, head, base, state string) (*PullRequest, error) {
+	if state == "" {
+		state = "open"
+	}
+	headFilter := owner + ":" + head
+	prs, _, err := p.client.PullRequests.List(context.Background(), owner, repo, &github.PullRequestListOptions{
+		State: state,
+		Head:  headFilter,
+		Base:  base,
+		ListOptions: github.ListOptions{
+			PerPage: 2,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PR for %s -> %s: %w", head, base, err)
+	}
+	if len(prs) == 0 {
+		return nil, fmt.Errorf("no %s PR found for %s -> %s", state, head, base)
+	}
+	if len(prs) > 1 {
+		return nil, fmt.Errorf("multiple %s PRs found for %s -> %s", state, head, base)
+	}
+	return toGitHubPullRequest(prs[0]), nil
+}
+
 func (p *GitHubProvider) EditPR(owner, repo string, index int64, title, body string) (*PullRequest, error) {
 	opt := &github.PullRequest{}
 	if title != "" {

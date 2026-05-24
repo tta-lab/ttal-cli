@@ -107,6 +107,18 @@ type PRModifyRequest struct {
 	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
+// PRFindRequest asks the daemon to find an open PR by source and target branch.
+type PRFindRequest struct {
+	ProviderType string `json:"provider_type"`  // "forgejo" or "github"
+	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
+	Owner        string `json:"owner"`
+	Repo         string `json:"repo"`
+	Head         string `json:"head"`                    // source branch
+	Base         string `json:"base"`                    // target branch
+	State        string `json:"state,omitempty"`         // open (default), closed, or all
+	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
+}
+
 // PRMergeRequest asks the daemon to squash-merge a PR.
 type PRMergeRequest struct {
 	ProviderType string `json:"provider_type"`
@@ -177,6 +189,15 @@ type PRGetPRResponse struct {
 	Merged    bool   `json:"merged,omitempty"`
 	Mergeable bool   `json:"mergeable,omitempty"`
 	Title     string `json:"title,omitempty"`
+}
+
+// PRFindResponse is the daemon's response for finding a PR by branch.
+type PRFindResponse struct {
+	OK      bool   `json:"ok"`
+	Error   string `json:"error,omitempty"`
+	PRURL   string `json:"pr_url,omitempty"`
+	PRIndex int64  `json:"pr_index,omitempty"`
+	Merged  bool   `json:"merged,omitempty"`
 }
 
 // PRCIStatusResponse is the daemon's response for GetCombinedStatus.
@@ -306,6 +327,38 @@ type GitTagResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
+type GitPullMode string
+
+const (
+	GitPullModeDefault       GitPullMode = "default"
+	GitPullModeBranch        GitPullMode = "branch"
+	GitPullModeCleanupMerged GitPullMode = "cleanup_merged"
+)
+
+type GitPullAction string
+
+const (
+	GitPullActionPulledDefault       GitPullAction = "pulled_default"
+	GitPullActionPulledBranch        GitPullAction = "pulled_branch"
+	GitPullActionCleanedMergedBranch GitPullAction = "cleaned_merged_branch"
+)
+
+// GitPullRequest asks the daemon to pull through daemon-held credentials.
+type GitPullRequest struct {
+	WorkDir       string      `json:"work_dir"`
+	Branch        string      `json:"branch"`
+	DefaultBranch string      `json:"default_branch"`
+	ProjectAlias  string      `json:"project_alias,omitempty"`
+	Mode          GitPullMode `json:"mode"`
+}
+
+// GitPullResponse is the daemon's response for a git pull workflow.
+type GitPullResponse struct {
+	OK     bool          `json:"ok"`
+	Error  string        `json:"error,omitempty"`
+	Action GitPullAction `json:"action,omitempty"`
+}
+
 // NotifyRequest sends a pre-rendered notification string through the daemon's frontend.
 // This is the correct way for CLI commands and workers to send notifications
 // without coupling to a specific transport (Telegram, Matrix, etc).
@@ -347,6 +400,7 @@ type httpHandlers struct {
 	// PR operations (daemon-proxied for token isolation)
 	prCreate              func(PRCreateRequest) PRResponse
 	prModify              func(PRModifyRequest) PRResponse
+	prFind                func(PRFindRequest) PRFindResponse
 	prMerge               func(PRMergeRequest) PRResponse
 	prCheckMergeable      func(PRCheckMergeableRequest) PRResponse
 	prGetPR               func(PRGetPRRequest) PRGetPRResponse
@@ -355,6 +409,7 @@ type httpHandlers struct {
 	// Git operations (daemon-proxied for credential isolation)
 	gitPush func(GitPushRequest) GitPushResponse
 	gitTag  func(GitTagRequest) GitTagResponse
+	gitPull func(GitPullRequest) GitPullResponse
 	// Kubernetes log proxy
 	kubeLog func(KubeLogRequest) KubeLogResponse
 	// notify routes a pre-rendered notification string through the frontend abstraction.
@@ -384,6 +439,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// PR routes (proxied through daemon for token isolation)
 	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
 	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
+	r.Post("/pr/find", handleHTTPPRFind(handlers))
 	r.Post("/pr/merge", handleHTTPPR("prMerge", handlers.prMerge))
 	r.Post("/pr/check-mergeable", handleHTTPPR("prCheckMergeable", handlers.prCheckMergeable))
 	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
@@ -392,6 +448,7 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// Git operations (proxied through daemon for credential isolation)
 	r.Post("/git/push", handleHTTPGitPush(handlers))
 	r.Post("/git/tag", handleHTTPGitTag(handlers))
+	r.Post("/git/pull", handleHTTPGitPull(handlers))
 	// Kubernetes log proxy
 	r.Post("/kube/log", handleHTTPKubeLog(handlers))
 	// Notify routes a pre-rendered message through the frontend abstraction.
@@ -582,6 +639,19 @@ func handleHTTPPRGetPR(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
+func handleHTTPPRFind(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req PRFindRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				PRFindResponse{OK: false, Error: "invalid prFind JSON: " + err.Error()})
+			return
+		}
+		result := handlers.prFind(req)
+		writeHTTPJSON(w, prOKStatus(result.OK), result)
+	}
+}
+
 func handleHTTPPRCIStatus(handlers httpHandlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req PRGetCombinedStatusRequest
@@ -642,6 +712,23 @@ func handleHTTPGitTag(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
+func handleHTTPGitPull(handlers httpHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req GitPullRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeHTTPJSON(w, http.StatusBadRequest,
+				GitPullResponse{OK: false, Error: "invalid gitPull JSON: " + err.Error()})
+			return
+		}
+		result := handlers.gitPull(req)
+		code := http.StatusOK
+		if !result.OK {
+			code = http.StatusInternalServerError
+		}
+		writeHTTPJSON(w, code, result)
+	}
+}
+
 func handleHTTPKubeLog(handlers httpHandlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req KubeLogRequest
@@ -671,6 +758,15 @@ func GitPush(req GitPushRequest) (GitPushResponse, error) {
 // GitTag asks the daemon to create and push a git tag via daemon-held credentials.
 func GitTag(req GitTagRequest) (GitTagResponse, error) {
 	return gitCallTyped("/git/tag", req, func(r GitTagResponse) string { return r.Error })
+}
+
+// GitPull asks the daemon to pull or clean up a merged branch via daemon-held credentials.
+func GitPull(req GitPullRequest) (GitPullResponse, error) {
+	return daemonCallTyped("/git/pull", req, func(r GitPullResponse) string { return r.Error },
+		gitClientTimeout,
+		fmt.Sprintf("git pull timed out after %s — daemon is running but pull is slow", gitClientTimeout),
+		"daemon not running — ttal pull requires the daemon",
+	)
 }
 
 // daemonCallTyped is the shared retry-with-backoff HTTP helper for long-running daemon operations.
@@ -775,6 +871,11 @@ func PRCreate(req PRCreateRequest) (PRResponse, error) {
 // PRModify asks the daemon to edit a PR title/body.
 func PRModify(req PRModifyRequest) (PRResponse, error) {
 	return prCall("/pr/modify", req)
+}
+
+// PRFind asks the daemon to find an open PR by branch.
+func PRFind(req PRFindRequest) (PRFindResponse, error) {
+	return prCallTyped("/pr/find", req, func(r PRFindResponse) string { return r.Error })
 }
 
 // PRMerge asks the daemon to squash-merge a PR.
