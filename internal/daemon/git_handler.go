@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -167,6 +168,12 @@ func handleGitPull(req GitPullRequest) GitPullResponse {
 	}
 	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 
+	if req.Mode == GitPullModeCleanupMerged {
+		if err := ensureBranchNotAheadOfOrigin(req.WorkDir, req.Branch); err != nil {
+			return GitPullResponse{Error: err.Error()}
+		}
+	}
+
 	for _, args := range buildGitPullCommands(req) {
 		if err := runGitPullCommand(req.WorkDir, args, credEnv); err != nil {
 			return GitPullResponse{Error: err.Error()}
@@ -230,6 +237,50 @@ func runGitPullCommand(workDir string, args []string, credEnv []string) error {
 		return fmt.Errorf("git %s: %v\n%s", strings.Join(args, " "), err, strings.TrimSpace(out.String()))
 	}
 	return nil
+}
+
+func ensureBranchNotAheadOfOrigin(workDir, branch string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	refRange := fmt.Sprintf("origin/%s...%s", branch, branch)
+	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "rev-list", "--right-only", "--count", refRange)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf(
+			"refusing merged-branch cleanup: cannot verify %s is synced with origin/%s: %v\n%s",
+			branch,
+			branch,
+			err,
+			strings.TrimSpace(out.String()),
+		)
+	}
+
+	ahead, err := parseLocalAheadCount(out.String())
+	if err != nil {
+		return fmt.Errorf("refusing merged-branch cleanup: parse ahead count for %s: %w", branch, err)
+	}
+	if ahead > 0 {
+		return fmt.Errorf(
+			"refusing merged-branch cleanup: %s has %d local commit(s) not on origin/%s",
+			branch,
+			ahead,
+			branch,
+		)
+	}
+	return nil
+}
+
+func parseLocalAheadCount(output string) (int, error) {
+	count, err := strconv.Atoi(strings.TrimSpace(output))
+	if err != nil {
+		return 0, fmt.Errorf("git rev-list returned %q: %w", strings.TrimSpace(output), err)
+	}
+	return count, nil
 }
 
 func isRemoteDeleteCommand(args []string) bool {

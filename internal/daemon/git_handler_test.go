@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
@@ -310,6 +313,35 @@ func TestBuildGitPullCommands(t *testing.T) {
 	}
 }
 
+func TestParseLocalAheadCount(t *testing.T) {
+	got, err := parseLocalAheadCount("3\n")
+	if err != nil {
+		t.Fatalf("parseLocalAheadCount: %v", err)
+	}
+	if got != 3 {
+		t.Fatalf("parseLocalAheadCount = %d, want 3", got)
+	}
+}
+
+func TestParseLocalAheadCountRejectsBadOutput(t *testing.T) {
+	_, err := parseLocalAheadCount("not-a-number\n")
+	if err == nil {
+		t.Fatal("expected error for invalid rev-list output")
+	}
+}
+
+func TestEnsureBranchNotAheadOfOriginBlocksLocalCommits(t *testing.T) {
+	repo := initAheadOfOriginRepo(t)
+
+	err := ensureBranchNotAheadOfOrigin(repo, "feature/x")
+	if err == nil {
+		t.Fatal("expected ahead branch to be rejected")
+	}
+	if !strings.Contains(err.Error(), "has 1 local commit(s) not on origin/feature/x") {
+		t.Fatalf("error = %q, want ahead-count message", err)
+	}
+}
+
 func TestIsMissingRemoteBranchDelete(t *testing.T) {
 	missing := []string{
 		"error: unable to delete 'feature/x': remote ref does not exist",
@@ -323,6 +355,41 @@ func TestIsMissingRemoteBranchDelete(t *testing.T) {
 
 	if isMissingRemoteBranchDelete("fatal: Authentication failed") {
 		t.Error("auth failures must not be treated as missing remote branches")
+	}
+}
+
+func initAheadOfOriginRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+
+	runGitTestCmd(t, dir, "init", repo)
+	runGitTestCmd(t, repo, "config", "user.email", "test@example.com")
+	runGitTestCmd(t, repo, "config", "user.name", "Test User")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatalf("write base file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "base")
+	runGitTestCmd(t, repo, "switch", "-c", "feature/x")
+	runGitTestCmd(t, repo, "update-ref", "refs/remotes/origin/feature/x", "HEAD")
+
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\nlocal\n"), 0o600); err != nil {
+		t.Fatalf("write local file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "local")
+
+	return repo
+}
+
+func runGitTestCmd(t *testing.T, workDir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v\n%s", args, err, out)
 	}
 }
 
