@@ -12,10 +12,10 @@ import (
 )
 
 func TestPullCmd_MainPullsDefaultBranch(t *testing.T) {
-	defer stubPullContext(t, "main", &pr.Context{
+	defer stubPullContext(t, defaultBranchName, &pr.Context{
 		Task:  &taskwarrior.Task{},
-		Info:  &gitprovider.RepoInfo{Owner: "owner", Repo: "repo", DefaultBranch: "main"},
-		Alias: "ttal",
+		Info:  &gitprovider.RepoInfo{Owner: testPROwner, Repo: testPRRepo, DefaultBranch: defaultBranchName},
+		Alias: testPRAlias,
 	})()
 
 	var got daemon.GitPullRequest
@@ -32,7 +32,7 @@ func TestPullCmd_MainPullsDefaultBranch(t *testing.T) {
 		t.Fatalf("RunE: %v", err)
 	}
 
-	if got.Branch != "main" || got.DefaultBranch != "main" || got.Mode != daemon.GitPullModeDefault {
+	if got.Branch != defaultBranchName || got.DefaultBranch != defaultBranchName || got.Mode != daemon.GitPullModeDefault {
 		t.Fatalf("request = %+v, want main/default pull", got)
 	}
 	if !strings.Contains(out.String(), "Pulled main") {
@@ -43,12 +43,12 @@ func TestPullCmd_MainPullsDefaultBranch(t *testing.T) {
 func TestPullCmd_OpenPRPullsCurrentBranch(t *testing.T) {
 	defer stubPullContext(t, "feature/x", &pr.Context{
 		Task:  &taskwarrior.Task{},
-		Owner: "owner",
-		Repo:  "repo",
+		Owner: testPROwner,
+		Repo:  testPRRepo,
 		Info: &gitprovider.RepoInfo{
-			Owner: "owner", Repo: "repo", DefaultBranch: "main", Provider: gitprovider.ProviderGitHub,
+			Owner: testPROwner, Repo: testPRRepo, DefaultBranch: defaultBranchName, Provider: gitprovider.ProviderGitHub,
 		},
-		Alias: "ttal",
+		Alias: testPRAlias,
 	})()
 
 	defer stubDaemonPRFindForPull(t, func(req daemon.PRFindRequest) (daemon.PRFindResponse, error) {
@@ -79,12 +79,12 @@ func TestPullCmd_OpenPRPullsCurrentBranch(t *testing.T) {
 func TestPullCmd_MergedPRCleansBranch(t *testing.T) {
 	defer stubPullContext(t, "feature/x", &pr.Context{
 		Task:  &taskwarrior.Task{PRID: "34"},
-		Owner: "owner",
-		Repo:  "repo",
+		Owner: testPROwner,
+		Repo:  testPRRepo,
 		Info: &gitprovider.RepoInfo{
-			Owner: "owner", Repo: "repo", DefaultBranch: "main", Provider: gitprovider.ProviderGitHub,
+			Owner: testPROwner, Repo: testPRRepo, DefaultBranch: defaultBranchName, Provider: gitprovider.ProviderGitHub,
 		},
-		Alias: "ttal",
+		Alias: testPRAlias,
 	})()
 
 	defer stubDaemonPRGetForPull(t, func(req daemon.PRGetPRRequest) (daemon.PRGetPRResponse, error) {
@@ -104,7 +104,7 @@ func TestPullCmd_MergedPRCleansBranch(t *testing.T) {
 		t.Fatalf("RunE: %v", err)
 	}
 
-	if got.Mode != daemon.GitPullModeCleanupMerged || got.Branch != "feature/x" || got.DefaultBranch != "main" {
+	if got.Mode != daemon.GitPullModeCleanupMerged || got.Branch != "feature/x" || got.DefaultBranch != defaultBranchName {
 		t.Fatalf("request = %+v, want merged cleanup", got)
 	}
 	if !strings.Contains(out.String(), "Deleted feature/x") {

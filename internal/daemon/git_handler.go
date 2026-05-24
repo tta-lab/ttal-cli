@@ -243,7 +243,41 @@ func ensureCleanBranchForCleanup(workDir, branch string) error {
 	if err := ensureWorktreeClean(workDir); err != nil {
 		return err
 	}
+	exists, err := refreshRemoteBranchForCleanup(workDir, branch)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
 	return ensureBranchNotAheadOfOrigin(workDir, branch)
+}
+
+func refreshRemoteBranchForCleanup(workDir, branch string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "fetch", "--prune", "origin")
+	var fetchOut bytes.Buffer
+	cmd.Stdout = &fetchOut
+	cmd.Stderr = &fetchOut
+	if err := cmd.Run(); err != nil {
+		return false, fmt.Errorf(
+			"refusing merged-branch cleanup: cannot refresh origin before deleting %s: %v\n%s",
+			branch,
+			err,
+			strings.TrimSpace(fetchOut.String()),
+		)
+	}
+
+	cmd = exec.CommandContext(ctx, "git", "-C", workDir, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, fmt.Errorf("refusing merged-branch cleanup: cannot check origin/%s: %v", branch, err)
+	}
+	return true, nil
 }
 
 func ensureWorktreeClean(workDir string) error {

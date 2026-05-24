@@ -39,7 +39,7 @@ On another branch:
 
 		defaultBranch := ctx.Info.DefaultBranch
 		if defaultBranch == "" {
-			defaultBranch = "main"
+			defaultBranch = defaultBranchName
 		}
 
 		mode := daemon.GitPullModeBranch

@@ -342,6 +342,15 @@ func TestEnsureBranchNotAheadOfOriginBlocksLocalCommits(t *testing.T) {
 	}
 }
 
+func TestEnsureCleanBranchForCleanupAllowsDeletedRemoteBranch(t *testing.T) {
+	repo := initRepoWithDeletedOriginBranch(t)
+
+	err := ensureCleanBranchForCleanup(repo, "feature/x")
+	if err != nil {
+		t.Fatalf("expected deleted remote branch to be cleanup-safe: %v", err)
+	}
+}
+
 func TestEnsureCleanBranchForCleanupBlocksDirtyWorktree(t *testing.T) {
 	repo := initSyncedBranchRepo(t)
 	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\ndirty\n"), 0o600); err != nil {
@@ -382,6 +391,30 @@ func initAheadOfOriginRepo(t *testing.T) string {
 	}
 	runGitTestCmd(t, repo, "add", "file.txt")
 	runGitTestCmd(t, repo, "commit", "-m", "local")
+
+	return repo
+}
+
+func initRepoWithDeletedOriginBranch(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	remote := filepath.Join(dir, "origin.git")
+	repo := filepath.Join(dir, "repo")
+
+	runGitTestCmd(t, dir, "init", "--bare", remote)
+	runGitTestCmd(t, dir, "clone", remote, repo)
+	runGitTestCmd(t, repo, "config", "user.email", "test@example.com")
+	runGitTestCmd(t, repo, "config", "user.name", "Test User")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatalf("write base file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "base")
+	runGitTestCmd(t, repo, "branch", "-M", "main")
+	runGitTestCmd(t, repo, "push", "-u", "origin", "main")
+	runGitTestCmd(t, repo, "switch", "-c", "feature/x")
+	runGitTestCmd(t, repo, "push", "-u", "origin", "feature/x")
+	runGitTestCmd(t, repo, "push", "origin", "--delete", "feature/x")
 
 	return repo
 }

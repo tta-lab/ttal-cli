@@ -11,6 +11,13 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
+const (
+	testPRTaskUUID = "abc12345-0000-0000-0000-000000000000"
+	testPROwner    = "owner"
+	testPRRepo     = "repo"
+	testPRAlias    = "ttal"
+)
+
 func TestPRModifyCmd_FlagRegistration(t *testing.T) {
 	titleFlag := prModifyCmd.Flag("title")
 	if titleFlag == nil {
@@ -182,51 +189,26 @@ func TestPRModify_ResolvesPRFromCurrentBranchWhenPRIDMissing(t *testing.T) {
 
 	defer stubPRResolveContext(t, func() (*pr.Context, error) {
 		return &pr.Context{
-			Task:  &taskwarrior.Task{UUID: "abc12345-0000-0000-0000-000000000000", Project: "ttal"},
-			Owner: "owner",
-			Repo:  "repo",
+			Task:  &taskwarrior.Task{UUID: testPRTaskUUID, Project: testPRAlias},
+			Owner: testPROwner,
+			Repo:  testPRRepo,
 			Info: &gitprovider.RepoInfo{
-				Owner:         "owner",
-				Repo:          "repo",
+				Owner:         testPROwner,
+				Repo:          testPRRepo,
 				Provider:      gitprovider.ProviderForgejo,
 				Host:          "git.example.test",
-				DefaultBranch: "main",
+				DefaultBranch: defaultBranchName,
 			},
-			Alias: "ttal",
+			Alias: testPRAlias,
 		}, nil
 	})()
 
-	defer stubCurrentBranch(t, func(uuid, alias, workDir string) string {
-		if uuid != "abc12345-0000-0000-0000-000000000000" {
-			t.Errorf("uuid = %q", uuid)
-		}
-		if alias != "ttal" {
-			t.Errorf("alias = %q", alias)
-		}
-		return "feat/current-work"
-	})()
+	defer stubCurrentBranchForPRModifyResolution(t)()
 
 	findCalled := false
 	defer stubDaemonPRFind(t, func(req daemon.PRFindRequest) (daemon.PRFindResponse, error) {
 		findCalled = true
-		if req.ProviderType != "forgejo" {
-			t.Errorf("ProviderType = %q, want forgejo", req.ProviderType)
-		}
-		if req.Host != "git.example.test" {
-			t.Errorf("Host = %q", req.Host)
-		}
-		if req.Owner != "owner" || req.Repo != "repo" {
-			t.Errorf("repo = %s/%s, want owner/repo", req.Owner, req.Repo)
-		}
-		if req.Head != "feat/current-work" {
-			t.Errorf("Head = %q", req.Head)
-		}
-		if req.Base != "main" {
-			t.Errorf("Base = %q", req.Base)
-		}
-		if req.ProjectAlias != "ttal" {
-			t.Errorf("ProjectAlias = %q", req.ProjectAlias)
-		}
+		assertPRFindCurrentBranchRequest(t, req)
 		return daemon.PRFindResponse{OK: true, PRIndex: 24, PRURL: "https://pr/24"}, nil
 	})()
 
@@ -248,6 +230,41 @@ func TestPRModify_ResolvesPRFromCurrentBranchWhenPRIDMissing(t *testing.T) {
 	}
 	if !modifyCalled {
 		t.Error("daemon PRModify should be called")
+	}
+}
+
+func stubCurrentBranchForPRModifyResolution(t *testing.T) func() {
+	t.Helper()
+	return stubCurrentBranch(t, func(uuid, alias, workDir string) string {
+		if uuid != testPRTaskUUID {
+			t.Errorf("uuid = %q", uuid)
+		}
+		if alias != testPRAlias {
+			t.Errorf("alias = %q", alias)
+		}
+		return "feat/current-work"
+	})
+}
+
+func assertPRFindCurrentBranchRequest(t *testing.T, req daemon.PRFindRequest) {
+	t.Helper()
+	if req.ProviderType != "forgejo" {
+		t.Errorf("ProviderType = %q, want forgejo", req.ProviderType)
+	}
+	if req.Host != "git.example.test" {
+		t.Errorf("Host = %q", req.Host)
+	}
+	if req.Owner != testPROwner || req.Repo != testPRRepo {
+		t.Errorf("repo = %s/%s, want owner/repo", req.Owner, req.Repo)
+	}
+	if req.Head != "feat/current-work" {
+		t.Errorf("Head = %q", req.Head)
+	}
+	if req.Base != defaultBranchName {
+		t.Errorf("Base = %q", req.Base)
+	}
+	if req.ProjectAlias != testPRAlias {
+		t.Errorf("ProjectAlias = %q", req.ProjectAlias)
 	}
 }
 
@@ -277,10 +294,10 @@ func TestPRCreate_PipedBody(t *testing.T) {
 	defer stubPRResolveContext(t, func() (*pr.Context, error) {
 		resolveCalled = true
 		return &pr.Context{
-			Task:  &taskwarrior.Task{PRID: "42", UUID: "abc12345-0000-0000-0000-000000000000"},
-			Owner: "owner",
-			Repo:  "repo",
-			Info:  &gitprovider.RepoInfo{Owner: "owner", Repo: "repo", DefaultBranch: "main"},
+			Task:  &taskwarrior.Task{PRID: "42", UUID: testPRTaskUUID},
+			Owner: testPROwner,
+			Repo:  testPRRepo,
+			Info:  &gitprovider.RepoInfo{Owner: testPROwner, Repo: testPRRepo, DefaultBranch: defaultBranchName},
 		}, nil
 	})()
 

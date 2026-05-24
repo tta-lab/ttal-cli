@@ -16,6 +16,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
+const defaultBranchName = "main"
+
 var (
 	daemonPRCreateFn   = daemon.PRCreate                  // inject point for tests
 	daemonPRModifyFn   = daemon.PRModify                  // inject point for tests
@@ -100,7 +102,7 @@ Examples:
 
 		base := ctx.Info.DefaultBranch
 		if base == "" {
-			base = "main"
+			base = defaultBranchName
 		}
 
 		prResp, err := daemonPRCreateFn(daemon.PRCreateRequest{
@@ -253,7 +255,7 @@ func resolvePRIndexForModify(ctx *pr.Context) (int64, error) {
 
 	base := ctx.Info.DefaultBranch
 	if base == "" {
-		base = "main"
+		base = defaultBranchName
 	}
 
 	resp, err := daemonPRFindFn(daemon.PRFindRequest{
