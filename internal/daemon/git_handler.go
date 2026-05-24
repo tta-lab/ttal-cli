@@ -169,7 +169,7 @@ func handleGitPull(req GitPullRequest) GitPullResponse {
 	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 
 	if req.Mode == GitPullModeCleanupMerged {
-		if err := ensureBranchNotAheadOfOrigin(req.WorkDir, req.Branch); err != nil {
+		if err := ensureCleanBranchForCleanup(req.WorkDir, req.Branch); err != nil {
 			return GitPullResponse{Error: err.Error()}
 		}
 	}
@@ -235,6 +235,35 @@ func runGitPullCommand(workDir string, args []string, credEnv []string) error {
 		}
 		log.Printf("[daemon] git pull workflow failed for %s: git %v: %v — %s", workDir, args, err, out.String())
 		return fmt.Errorf("git %s: %v\n%s", strings.Join(args, " "), err, strings.TrimSpace(out.String()))
+	}
+	return nil
+}
+
+func ensureCleanBranchForCleanup(workDir, branch string) error {
+	if err := ensureWorktreeClean(workDir); err != nil {
+		return err
+	}
+	return ensureBranchNotAheadOfOrigin(workDir, branch)
+}
+
+func ensureWorktreeClean(workDir string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "status", "--porcelain")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf(
+			"refusing merged-branch cleanup: cannot verify worktree is clean: %v\n%s",
+			err,
+			strings.TrimSpace(out.String()),
+		)
+	}
+	if strings.TrimSpace(out.String()) != "" {
+		return fmt.Errorf("refusing merged-branch cleanup: worktree has uncommitted changes")
 	}
 	return nil
 }

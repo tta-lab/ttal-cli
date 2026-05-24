@@ -342,6 +342,21 @@ func TestEnsureBranchNotAheadOfOriginBlocksLocalCommits(t *testing.T) {
 	}
 }
 
+func TestEnsureCleanBranchForCleanupBlocksDirtyWorktree(t *testing.T) {
+	repo := initSyncedBranchRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\ndirty\n"), 0o600); err != nil {
+		t.Fatalf("dirty file: %v", err)
+	}
+
+	err := ensureCleanBranchForCleanup(repo, "feature/x")
+	if err == nil {
+		t.Fatal("expected dirty worktree to be rejected")
+	}
+	if !strings.Contains(err.Error(), "worktree has uncommitted changes") {
+		t.Fatalf("error = %q, want dirty-worktree message", err)
+	}
+}
+
 func TestIsMissingRemoteBranchDelete(t *testing.T) {
 	missing := []string{
 		"error: unable to delete 'feature/x': remote ref does not exist",
@@ -360,6 +375,19 @@ func TestIsMissingRemoteBranchDelete(t *testing.T) {
 
 func initAheadOfOriginRepo(t *testing.T) string {
 	t.Helper()
+	repo := initSyncedBranchRepo(t)
+
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\nlocal\n"), 0o600); err != nil {
+		t.Fatalf("write local file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "local")
+
+	return repo
+}
+
+func initSyncedBranchRepo(t *testing.T) string {
+	t.Helper()
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 
@@ -373,12 +401,6 @@ func initAheadOfOriginRepo(t *testing.T) string {
 	runGitTestCmd(t, repo, "commit", "-m", "base")
 	runGitTestCmd(t, repo, "switch", "-c", "feature/x")
 	runGitTestCmd(t, repo, "update-ref", "refs/remotes/origin/feature/x", "HEAD")
-
-	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\nlocal\n"), 0o600); err != nil {
-		t.Fatalf("write local file: %v", err)
-	}
-	runGitTestCmd(t, repo, "add", "file.txt")
-	runGitTestCmd(t, repo, "commit", "-m", "local")
 
 	return repo
 }
