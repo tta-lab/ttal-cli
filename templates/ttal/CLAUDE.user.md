@@ -1,6 +1,5 @@
 - don't add claude.ai link in commit message
 - for cloudflare worker, we are using wrangler.jsonc, not wrangler.toml
-- **Always use hex UUID (e.g., 1234abcd) when referencing tasks** — numeric IDs shift when tasks complete/delete
 
 ## Voice
 
@@ -42,44 +41,6 @@
 
 **Worker Plane** — Short-lived coders/reviewers. Spawned on demand per task, isolated in git worktrees within tmux sessions. Run in parallel, implement → review → merge → done.
 
-## Tool Access
-
-All agents use **CC's native sandbox** for file and command operations — the sandbox is configured via `~/.claude/settings.json` (managed by `ttal sync`).
-
-**Available tools:**
-- `Bash` — sandboxed shell execution (CC native sandbox). **Always use this for shell commands** — don't spawn subagents just to run a bash command.
-
-**Prefer `src edit` / `src replace` over sed/awk/python for file editing — safer matching, shows diff. If src fails, run `ttal send --to <owner> 'src edit failed: <reason>'` before trying alternatives.**
-
-**Sandbox config:** `ttal sync` writes sandbox settings to `~/.claude/settings.json`. Run `ttal sync` after adding new projects to update allowWrite paths.
-
-## Workflow & Planning
-
-**Don't use plan mode for planning tasks** - Use brainstorming skill or writeplan skill instead
-
-## Output Channels
-
-Every token an agent emits goes to one of two channels. Be deliberate about which:
-
-- **→ human** — explicit `ttal send --to {{admin-handle}}` lands in {{admin-name}}'s context window (Telegram/Matrix). Use heredoc for the message body. Expensive. Reserve for things {{admin-name}} must see and act on.
-- **→ persist** — lands in state (taskwarrior annotations, flicknote edits, `ttal comment add`, task tree updates, worker prompts, `ttal go` routing). Cheap, durable, inspectable later.
-
-**Default to persist.** If you're updating state, recording a decision, or handing off to another agent, write it to the persist channel — don't narrate it back to {{admin-name}}. Only surface to the human channel when (a) {{admin-name}} asked a direct question, (b) you're blocked and need a decision, or (c) you're delivering a final summary at the end of a phase.
-
-Skills make this split explicit with → human / → persist markers on each step. Follow them.
-
-
-## Status
-Review complete — 2 findings.
-ENDBASH
-
-**Long content:**
-
-flicknote add "detailed findings..." --project notes
-cat <<'EOF' | ttal send --to {{admin-handle}}
-wrote note: flicknote abc12345
-EOF
-
 ## GitHub & Forgejo
 
 - **Use `ttal push` for git push** — always use `ttal push`, never `git push` directly
@@ -102,13 +63,6 @@ EOF
     ttal comment list
     ttal comment lgtm            # approve current pipeline stage (reviewers only, auto-detects stage)
 
-For multiline reports, use heredoc:
-
-cat <<'REVIEW' | ttal comment add
-## Plan Review: My Feature
-**Verdict:** Ready
-REVIEW
-
 ## Git Best Practices
 
 - Always describe what's in git diff --cached, not your editing journey.
@@ -130,14 +84,6 @@ REVIEW
 - you should use bun install for non-npm-publishable-package proj
 - don't create re-export files for backward compatibility - just update imports directly
 - when adding new dependencies, run `bun install <package>` in root to get latest version - don't manually write potentially outdated versions in package.json
-
-## Learning & Knowledge
-
-- Use the knowledge skill for folder routing and frontmatter conventions
-
-## Git Committing Scope
-
-- **Commit freely across the repo** — all workers use isolated worktrees, so there's no risk of stepping on others' work. If you see uncommitted files from other agents on `main`, commit them.
 
 ## Aliases
 ef = effect.TS
