@@ -233,6 +233,55 @@ func TestPRModify_ResolvesPRFromCurrentBranchWhenPRIDMissing(t *testing.T) {
 	}
 }
 
+func TestPRModify_GitHubResolutionSendsHeadSHA(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	old := os.Stdin
+	defer restoreStdin(old)()
+	os.Stdin = r
+
+	if _, err := w.WriteString("new body content\n"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	w.Close()
+
+	defer stubPRResolveContext(t, func() (*pr.Context, error) {
+		return &pr.Context{
+			Task:  &taskwarrior.Task{UUID: testPRTaskUUID, Project: testPRAlias},
+			Owner: testPROwner,
+			Repo:  testPRRepo,
+			Info: &gitprovider.RepoInfo{
+				Owner:         testPROwner,
+				Repo:          testPRRepo,
+				Provider:      gitprovider.ProviderGitHub,
+				DefaultBranch: defaultBranchName,
+			},
+			Alias: testPRAlias,
+		}, nil
+	})()
+	defer stubCurrentBranchForPRModifyResolution(t)()
+	defer stubCurrentBranchHeadSHA(t, func(workDir, branch string) (string, error) {
+		return testHeadSHA, nil
+	})()
+
+	defer stubDaemonPRFind(t, func(req daemon.PRFindRequest) (daemon.PRFindResponse, error) {
+		if req.HeadSHA != testHeadSHA {
+			t.Errorf("HeadSHA = %q, want %s", req.HeadSHA, testHeadSHA)
+		}
+		return daemon.PRFindResponse{OK: true, PRIndex: 24, PRURL: "https://pr/24"}, nil
+	})()
+	defer stubDaemonPRModify(t, func(req daemon.PRModifyRequest) (daemon.PRResponse, error) {
+		return daemon.PRResponse{OK: true, PRIndex: 24, PRURL: "https://pr/24"}, nil
+	})()
+
+	prModifyCmd.SetArgs([]string{})
+	if err := prModifyCmd.RunE(prModifyCmd, nil); err != nil {
+		t.Fatalf("RunE: %v", err)
+	}
+}
+
 func stubCurrentBranchForPRModifyResolution(t *testing.T) func() {
 	t.Helper()
 	return stubCurrentBranch(t, func(uuid, alias, workDir string) string {

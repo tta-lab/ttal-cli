@@ -11,11 +11,18 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 )
 
+const testBaseBranch = "main"
+const testClosedState = "closed"
+
 // stubProvider is a minimal gitprovider.Provider for unit testing diagnosePRMergeFailure.
 // Only GetCombinedStatus is used by that function; all other methods panic.
 type stubProvider struct {
 	combinedStatus *gitprovider.CombinedStatus
 	statusErr      error
+	findPR         *gitprovider.PullRequest
+	findErr        error
+	findCommitPR   *gitprovider.PullRequest
+	findCommitErr  error
 }
 
 func (s *stubProvider) Name() string { return "stub" }
@@ -26,7 +33,7 @@ func (s *stubProvider) FindPR(_, _, _, _ string) (*gitprovider.PullRequest, erro
 	panic("not implemented")
 }
 func (s *stubProvider) FindPRByState(_, _, _, _, _ string) (*gitprovider.PullRequest, error) {
-	panic("not implemented")
+	return s.findPR, s.findErr
 }
 func (s *stubProvider) EditPR(_, _ string, _ int64, _, _ string) (*gitprovider.PullRequest, error) {
 	panic("not implemented")
@@ -46,6 +53,125 @@ func (s *stubProvider) GetCombinedStatus(_, _, _ string) (*gitprovider.CombinedS
 }
 func (s *stubProvider) GetCIFailureDetails(_, _, _ string) ([]*gitprovider.JobFailure, error) {
 	panic("not implemented")
+}
+
+func (s *stubProvider) FindPRByCommit(_, _, _ string) (*gitprovider.PullRequest, error) {
+	return s.findCommitPR, s.findCommitErr
+}
+
+func TestFindPRByBranchOrCommitUsesCommitSHAWhenProviderSupportsIt(t *testing.T) {
+	provider := &stubProvider{
+		findErr: errors.New("no all PR found for deleted head"),
+		findCommitPR: &gitprovider.PullRequest{
+			Index:  56,
+			Head:   "feature/deleted-remote",
+			Base:   testBaseBranch,
+			Merged: true,
+		},
+	}
+
+	got, err := findPRByBranchOrCommit(provider, "o", "r", "feature/deleted-remote", testBaseBranch, "all", "abc123")
+	if err != nil {
+		t.Fatalf("findPRByBranchOrCommit: %v", err)
+	}
+	if got.Index != 56 || !got.Merged {
+		t.Fatalf("PR = %+v, want merged PR #56", got)
+	}
+}
+
+func TestFindPRByBranchOrCommitDoesNotFallbackToBranchWhenCommitSupported(t *testing.T) {
+	provider := &stubProvider{
+		findPR: &gitprovider.PullRequest{
+			Index:  57,
+			Head:   "feature/open",
+			Base:   testBaseBranch,
+			Merged: false,
+		},
+		findCommitErr: errors.New("no PR found for commit abc123"),
+	}
+
+	_, err := findPRByBranchOrCommit(provider, "o", "r", "feature/open", testBaseBranch, "all", "abc123")
+	if err == nil {
+		t.Fatal("expected commit lookup error")
+	}
+	if !strings.Contains(err.Error(), "no PR found for commit") {
+		t.Fatalf("error = %q, want commit lookup error", err)
+	}
+}
+
+func TestFindPRByBranchOrCommitRejectsCommitPRForDifferentHead(t *testing.T) {
+	provider := &stubProvider{
+		findCommitPR: &gitprovider.PullRequest{
+			Index:  58,
+			Head:   "feature/other",
+			Base:   testBaseBranch,
+			State:  testClosedState,
+			Merged: true,
+		},
+	}
+
+	_, err := findPRByBranchOrCommit(provider, "o", "r", "feature/current", testBaseBranch, "all", "abc123")
+	if err == nil {
+		t.Fatal("expected different-head PR to be rejected")
+	}
+	if !strings.Contains(err.Error(), "has head feature/other, want feature/current") {
+		t.Fatalf("error = %q, want head mismatch message", err)
+	}
+}
+
+type branchOnlyStubProvider struct {
+	findPR *gitprovider.PullRequest
+}
+
+func (s *branchOnlyStubProvider) Name() string { return "branch-only" }
+func (s *branchOnlyStubProvider) CreatePR(_, _, _, _, _, _ string) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) FindPR(_, _, _, _ string) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) FindPRByState(_, _, _, _, _ string) (*gitprovider.PullRequest, error) {
+	return s.findPR, nil
+}
+func (s *branchOnlyStubProvider) EditPR(_, _ string, _ int64, _, _ string) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) GetPR(_, _ string, _ int64) (*gitprovider.PullRequest, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) MergePR(_, _ string, _ int64, _ bool) error {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) CreateComment(_, _ string, _ int64, _ string) (*gitprovider.Comment, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) ListComments(_, _ string, _ int64) ([]*gitprovider.Comment, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) GetCombinedStatus(_, _, _ string) (*gitprovider.CombinedStatus, error) {
+	panic("not implemented")
+}
+func (s *branchOnlyStubProvider) GetCIFailureDetails(_, _, _ string) ([]*gitprovider.JobFailure, error) {
+	panic("not implemented")
+}
+
+func TestFindPRByBranchOrCommitUsesBranchLookupWithoutCommitSupport(t *testing.T) {
+	provider := &branchOnlyStubProvider{
+		findPR: &gitprovider.PullRequest{
+			Index:  57,
+			Head:   "feature/open",
+			Base:   testBaseBranch,
+			Merged: false,
+		},
+	}
+
+	got, err := findPRByBranchOrCommit(provider, "o", "r", "feature/open", testBaseBranch, "all", "")
+	if err != nil {
+		t.Fatalf("findPRByBranchOrCommit: %v", err)
+	}
+	if got.Index != 57 {
+		t.Fatalf("PR = %+v, want PR #57", got)
+	}
 }
 
 // TestDiagnosePRMergeFailure_CIPending exercises the (string, bool) return of

@@ -72,6 +72,26 @@ func (p *GitHubProvider) FindPRByState(owner, repo, head, base, state string) (*
 	return toGitHubPullRequest(prs[0]), nil
 }
 
+func (p *GitHubProvider) FindPRByCommit(owner, repo, sha string) (*PullRequest, error) {
+	prs, _, err := p.client.PullRequests.ListPullRequestsWithCommit(
+		context.Background(),
+		owner,
+		repo,
+		sha,
+		&github.ListOptions{PerPage: 2},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PR for commit %s: %w", sha, err)
+	}
+	if len(prs) == 0 {
+		return nil, fmt.Errorf("no PR found for commit %s", sha)
+	}
+	if len(prs) > 1 {
+		return nil, fmt.Errorf("multiple PRs found for commit %s", sha)
+	}
+	return toGitHubPullRequest(prs[0]), nil
+}
+
 func (p *GitHubProvider) EditPR(owner, repo string, index int64, title, body string) (*PullRequest, error) {
 	opt := &github.PullRequest{}
 	if title != "" {

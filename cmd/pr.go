@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
+	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/notification"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 	"github.com/tta-lab/ttal-cli/internal/runtime"
@@ -253,6 +254,18 @@ func resolvePRIndexForModify(ctx *pr.Context) (int64, error) {
 		return 0, pr.ErrNoPR
 	}
 
+	headSHA := ""
+	if ctx.Info.Provider == gitprovider.ProviderGitHub {
+		var err error
+		headSHA, err = currentBranchHeadSHAFn(workDir, branch)
+		if err != nil {
+			return 0, fmt.Errorf("cannot verify local branch %s: %w", branch, err)
+		}
+		if headSHA == "" {
+			return 0, fmt.Errorf("cannot verify local branch %s: resolved empty HEAD SHA", branch)
+		}
+	}
+
 	base := ctx.Info.DefaultBranch
 	if base == "" {
 		base = defaultBranchName
@@ -264,6 +277,7 @@ func resolvePRIndexForModify(ctx *pr.Context) (int64, error) {
 		Owner:        ctx.Owner,
 		Repo:         ctx.Repo,
 		Head:         branch,
+		HeadSHA:      headSHA,
 		Base:         base,
 		ProjectAlias: ctx.Alias,
 	})

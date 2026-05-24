@@ -114,6 +114,7 @@ type PRFindRequest struct {
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	Head         string `json:"head"`                    // source branch
+	HeadSHA      string `json:"head_sha,omitempty"`      // source branch HEAD commit
 	Base         string `json:"base"`                    // target branch
 	State        string `json:"state,omitempty"`         // open (default), closed, or all
 	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -345,10 +347,47 @@ func TestEnsureBranchNotAheadOfOriginBlocksLocalCommits(t *testing.T) {
 func TestEnsureCleanBranchForCleanupAllowsDeletedRemoteBranch(t *testing.T) {
 	repo := initRepoWithDeletedOriginBranch(t)
 
-	err := ensureCleanBranchForCleanup(repo, "feature/x")
+	err := ensureCleanBranchForCleanup(repo, "feature/x", nil)
 	if err != nil {
 		t.Fatalf("expected deleted remote branch to be cleanup-safe: %v", err)
 	}
+}
+
+func TestRefreshRemoteBranchForCleanupUsesCredentialEnv(t *testing.T) {
+	t.Setenv("GO_WANT_GIT_COMMAND_HELPER", "1")
+	orig := gitCommandContext
+	t.Cleanup(func() { gitCommandContext = orig })
+	gitCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		helperArgs := append([]string{"-test.run=TestGitCommandHelper", "--", name}, args...)
+		return exec.CommandContext(ctx, os.Args[0], helperArgs...)
+	}
+
+	_, err := refreshRemoteBranchForCleanup("/work", "feature/x", []string{"TTAL_TEST_CRED=yes"})
+	if err != nil {
+		t.Fatalf("expected credential env to be passed to cleanup fetch: %v", err)
+	}
+}
+
+func TestGitCommandHelper(t *testing.T) {
+	if os.Getenv("GO_WANT_GIT_COMMAND_HELPER") != "1" {
+		return
+	}
+	args := os.Args
+	sep := slices.Index(args, "--")
+	if sep == -1 || sep+1 >= len(args) {
+		os.Exit(2)
+	}
+	gitArgs := args[sep+1:]
+	if slices.Contains(gitArgs, "fetch") {
+		if os.Getenv("TTAL_TEST_CRED") != "yes" {
+			os.Exit(3)
+		}
+		os.Exit(0)
+	}
+	if slices.Contains(gitArgs, "show-ref") {
+		os.Exit(1)
+	}
+	os.Exit(2)
 }
 
 func TestEnsureCleanBranchForCleanupBlocksDirtyWorktree(t *testing.T) {
@@ -357,7 +396,7 @@ func TestEnsureCleanBranchForCleanupBlocksDirtyWorktree(t *testing.T) {
 		t.Fatalf("dirty file: %v", err)
 	}
 
-	err := ensureCleanBranchForCleanup(repo, "feature/x")
+	err := ensureCleanBranchForCleanup(repo, "feature/x", nil)
 	if err == nil {
 		t.Fatal("expected dirty worktree to be rejected")
 	}
