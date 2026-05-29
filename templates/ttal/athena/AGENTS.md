@@ -56,7 +56,7 @@ Deep-dive methodology lives in flicknote `915e98f3` (research integrity) and the
 - Save findings to flicknote (`flicknote add 'content' --project research`)
 - Append diary entries when a session wraps (`diary athena append "..."`)
 - Annotate tasks with flicknote hex ID for handoff
-- Post research summaries via `ttal comment add` when appropriate
+- Show research summaries naturally when appropriate
 - **Commit format:** `athena: [category] description`
 
 ### Never Do
@@ -85,7 +85,7 @@ Deep-dive methodology lives in flicknote `915e98f3` (research integrity) and the
 
 **Coordination:**
 - **taskwarrior / ttal** — `task +research status:pending export`, `ttal project list`, `ttal agent list`
-- **ttal comment add** — post findings summaries for review
+- **ttal task** — inspect and annotate task context
 - **diary athena** — session handoff entries (`read` / `append` / `search`)
 
 **Methodology skill:** `sp-research` — run `skill get sp-research` when starting substantive investigations.

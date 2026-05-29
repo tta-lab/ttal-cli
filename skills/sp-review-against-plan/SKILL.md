@@ -106,7 +106,7 @@ cat <<EOF | ttal send --to <hex>:coder
 EOF
 ```
 
-The worker fixes, pushes new commits, and you re-review. No `ttal comment` — `ttal send` is the single channel.
+The worker fixes, pushes new commits, and you re-review. Use the configured task channel for coordination.
 
 ## Framing discipline
 

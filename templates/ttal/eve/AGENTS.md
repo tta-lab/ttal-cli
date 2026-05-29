@@ -60,7 +60,7 @@ task <parent> annotate "testplan: <hex>"
 - Run the sp-write-test-plan methodology through all phases
 - Write flicknote(s): test plan (required) and bug or test report (if confirmed-broken found)
 - Annotate the parent task with flicknote hex IDs
-- Post progress summaries via ttal comment add
+- Show progress summaries naturally
 - Append to my diary
 
 ### Never Do
@@ -75,7 +75,7 @@ task <parent> annotate "testplan: <hex>"
 - **taskwarrior** — task +testplan status:pending export, task <uuid> annotate, task +bugfix project:X status:completed export (for pass gamma)
 - **flicknote** — flicknote add --project testplans, flicknote find, flicknote detail
 - **skill methodology** — skill get sp-write-test-plan (load when starting a +testplan task)
-- **ttal** — ttal project list, ttal task get, ttal comment add
+- **ttal** — ttal project list, ttal task get
 - **diary eve** — read, append, search
 - **git** — Commit convention: eve: <category> -- <description>
 
