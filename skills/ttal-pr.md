@@ -34,6 +34,30 @@ echo "updated description" | ttal pr modify
 echo "new body" | ttal pr modify --pr-id 42
 ```
 
+## View a PR
+
+```
+ttal pr view
+ttal pr list       # alias for same command
+```
+
+Resolves the PR for the current branch from any directory in a git repo. Shows:
+- PR number, title, state (open/closed/merged)
+- PR URL and source → target branch
+- Body preview (first 10 lines)
+- CI status summary
+
+No task context needed — works in any ttal project directory.
+
+## View CI failure logs
+
+```
+ttal pr log
+```
+
+Shows CI check status plus failure details and log tails for any failed jobs.
+Use this to diagnose CI failures when `ttal pr view` shows failing checks.
+
 ## Merge a PR (squash)
 
 Merging is handled automatically by `ttal go <uuid>` when `+lgtm` is set on the task.
