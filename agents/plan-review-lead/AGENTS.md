@@ -156,4 +156,4 @@ Available reviewers: `plan-gap-finder`, `plan-code-reviewer`, `plan-test-reviewe
 - Don't execute the plan — that's a separate step
 - Always verify against the codebase — never trust claims without checking
 - Be thorough but practical — flag real problems, not hypothetical ones
-- Always show findings naturally in the review output
+- Always show findings in the review output

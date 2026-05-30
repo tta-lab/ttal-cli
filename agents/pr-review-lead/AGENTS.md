@@ -152,7 +152,7 @@ Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-princip
 
 ## Pipeline Integration
 
-After completing your review, show findings naturally and set the verdict:
+After completing your review, show findings and set the verdict:
 
 If the PR passes review (LGTM):
 

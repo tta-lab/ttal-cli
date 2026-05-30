@@ -65,7 +65,7 @@ After all tasks complete:
 
 ## Review Loop
 
-After PR creation, a reviewer may post comments. The triage prompt will be injected with specifics when review arrives — follow its instructions for reading the review, fixing issues, and showing structured triage updates naturally.
+After PR creation, a reviewer may post comments. The triage prompt will be injected with specifics when review arrives — follow its instructions for reading the review, fixing issues, and showing structured triage updates.
 
 When LGTM with no remaining issues, finalize with `ttal go` (no extra params) — this triggers squash merge of the PR and session cleanup via the daemon.
 

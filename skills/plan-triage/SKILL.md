@@ -106,7 +106,7 @@ For each fix:
 
 ### Show the Report
 
-Show the triage report naturally so the plan-reviewer can see it and trigger re-review.
+Show the triage report so the plan-reviewer can see it and trigger re-review.
 
 ## Turns
 

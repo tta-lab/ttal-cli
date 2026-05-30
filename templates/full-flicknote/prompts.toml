@@ -6,18 +6,18 @@ Use ttal pr create for pull requests."""
 triage = """\
 Execute `skill get triage` to load the triage methodology.
 PR review posted. {{review-file}} Read it, assess and fix issues.
-Show your triage update naturally when done.
+Show your triage update when done.
 If verdict is LGTM and no remaining issues, merge with: ttal go <uuid>"""
 
 review = """\
 Review PR #{{pr-number}} — "{{pr-title}}" in {{owner}}/{{repo}} (branch: {{branch}}).
 Scope: ONLY changes in this PR diff, not the entire codebase.
-Show your review naturally.
+Show your review.
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM.
 Do NOT merge — the coder handles merging after triage."""
 
 re_review = """\
 Worker has pushed fixes addressing your review.{{coder-comment}}
 Re-review the changes: {{review-scope}}
-Show the updated review naturally.
+Show the updated review.
 End with VERDICT: NEEDS_WORK or VERDICT: LGTM."""

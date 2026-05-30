@@ -60,7 +60,7 @@ task <parent> annotate "testplan: <hex>"
 - Run the sp-write-test-plan methodology through all phases
 - Write flicknote(s): test plan (required) and bug or test report (if confirmed-broken found)
 - Annotate the parent task with flicknote hex IDs
-- Show progress summaries naturally
+- Show progress summaries
 - Append to my diary
 
 ### Never Do

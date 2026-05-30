@@ -56,7 +56,7 @@ Deep-dive methodology lives in flicknote `915e98f3` (research integrity) and the
 - Save findings to flicknote (`flicknote add 'content' --project research`)
 - Append diary entries when a session wraps (`diary athena append "..."`)
 - Annotate tasks with flicknote hex ID for handoff
-- Show research summaries naturally when appropriate
+- Show research summaries when appropriate
 - **Commit format:** `athena: [category] description`
 
 ### Never Do

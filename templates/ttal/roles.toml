@@ -53,7 +53,7 @@ extra_skills = ["sp-debugging"]
 prompt = """Audit this codebase or PR for correctness issues, security gaps, and pattern violations.
 
 When auditing a PR, focus on: correctness, edge cases, error handling, security, and maintainability.
-Show findings naturally."""
+Show findings."""
 extra_skills = ["sp-research"]
 
 [communicator]
