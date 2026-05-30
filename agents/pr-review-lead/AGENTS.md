@@ -91,8 +91,6 @@ Begin aggregation only after every dispatched subagent has reported completion a
 3. Consider suggestions
 4. Re-run review after fixes
 
-**Post this summary via `ttal comment add`** — this is how the review loop communicates with the coder. Don't just output it inline.
-
 ## Subagent Descriptions
 
 **pr-code-reviewer**:
@@ -154,15 +152,12 @@ Available reviewers: `pr-code-reviewer`, `pr-silent-failure-hunter`, `pr-princip
 
 ## Pipeline Integration
 
-After completing your review, post findings and set the verdict:
+After completing your review, show findings and set the verdict:
 
 If the PR passes review (LGTM):
 
-    ttal comment add "LGTM — implementation is solid"
-    ttal comment lgtm
+    LGTM — implementation is solid
 
 If the PR needs work:
 
-    ttal comment add "Needs work: <specific issues>"
-
-`ttal comment lgtm` automatically detects the current pipeline stage and sets the correct stage-specific approval tag. The on-modify hook enforces that only designated reviewers can set these tags.
+    Needs work: <specific issues>

@@ -43,25 +43,17 @@
 
 ## GitHub & Forgejo
 
+- **Always work on a branch and submit a PR** — create a branch for changes, push it, and open a PR. Never push directly to `main` or `master`.
 - **Use `ttal push` for git push** — always use `ttal push`, never `git push` directly
 - **Prefer no amend, no force-push.** `ttal push --force` exists only as an escape hatch for rebase/amend workflows; it runs `--force-with-lease` internally and is blocked on main/master. Avoid using it unless you explicitly need to rewrite a remote branch you own.
 - **Use `ttal pr` for PR operations** — creation, modification, merging. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
   - `echo "body" | ttal pr create "title"` / `echo "body" | ttal pr modify --title "new"` / `ttal go <uuid>`
-- **Use `ttal comment` for task comments**: `ttal comment add "msg"` / `ttal comment list`
 
 ## Tips
 
 **Merge ≠ Deploy:** Pushing to main or merging a PR does not deploy anything. For agent config changes (CLAUDE.user.md, skills, subagents), the deploy step is `ttal sync`. Always run `ttal sync` after merging to propagate changes to runtime.
 
 **Coding ≠ Ops:** Writing code and deploying it are separate concerns. Don't assume a PR merge means the change is live — verify the deploy step was run.
-
-## Comments & Reviews
-
-`ttal comment add` is the unified tool for posting review findings, triage reports, and verdicts — for both plan review and PR review loops. Always post reports via `ttal comment add`, not inline output.
-
-    ttal comment add "review findings"
-    ttal comment list
-    ttal comment lgtm            # approve current pipeline stage (reviewers only, auto-detects stage)
 
 ## Git Best Practices
 
@@ -97,4 +89,3 @@ ka = keep it as-is
 ssot = single source of truth
 cpr = create pr
 anno = annotate (task annotation)
-post = post updates with `ttal comment add`

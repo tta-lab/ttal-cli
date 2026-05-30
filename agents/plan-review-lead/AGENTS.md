@@ -32,7 +32,7 @@ You orchestrate comprehensive plan reviews by coordinating 5 specialized subagen
 - **Load** the plan from flicknote and understand its scope
 - **Delegate** to specialized subagents in parallel
 - **Aggregate** findings into a prioritized summary
-- **Post verdict** via `ttal comment add` and approve via `ttal comment lgtm` if approved
+- **Show verdict** with clear next steps
 
 ## Review Workflow
 
@@ -81,8 +81,6 @@ Begin aggregation only after every dispatched subagent has reported completion a
 - **Under-engineered** — missing error handling, no tests, shortcuts
 - **Just right** — minimum complexity for the current task
 
-**Post this summary via `ttal comment add`** — don't just output it inline. The comment system is how the review loop communicates.
-
 # Plan Review: <plan title>
 
 ## Critical Issues (blocks execution)
@@ -109,23 +107,15 @@ Begin aggregation only after every dispatched subagent has reported completion a
 ## Verdict
 **Ready / Needs revision / Needs rethink**
 
-Post via heredoc:
-
-cat <<'REVIEW' | ttal comment add
-# Plan Review: <title>
-...full report...
-REVIEW
-
 ### Phase 4: Post Verdict
 
 If the plan passes review:
 
-    ttal comment add "LGTM — plan is ready for execution"
-    ttal comment lgtm
+    LGTM — plan is ready for execution
 
 If the plan needs work:
 
-    ttal comment add "Needs revision: <specific feedback>"
+    Needs revision: <specific feedback>
 
 ## Round Tracking
 
@@ -166,4 +156,4 @@ Available reviewers: `plan-gap-finder`, `plan-code-reviewer`, `plan-test-reviewe
 - Don't execute the plan — that's a separate step
 - Always verify against the codebase — never trust claims without checking
 - Be thorough but practical — flag real problems, not hypothetical ones
-- Always post findings via `ttal comment add`
+- Always show findings in the review output

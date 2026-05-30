@@ -22,10 +22,9 @@ Triage PR review comments: assess each one, fix what's actionable, then post a s
 ### Input
 
 If the reviewer notification includes a file path (e.g., `/tmp/ttal-review-XXXXX.md`),
-read it first — it contains the full review. Skip `ttal comment list` for this review
-round since you already have the content.
+read it first — it contains the full review.
 
-If no file path was provided, fall back to `ttal comment list`.
+If no file path was provided, use the review content already present in context.
 
 Read all review comments and categorize them.
 
@@ -81,14 +80,11 @@ Address all actionable items. Then move to Phase 3.
 
 ## Phase 3: Report
 
-Post a status update to the PR with what's done, what's remaining, and what you're pushing back on.
+Show a status update with what's done, what's remaining, and what you're pushing back on.
 
 ### Gather Evidence
 
 ```
-# View comments
-ttal comment list
-
 # Check what's changed since review
 git log --oneline origin/main..HEAD
 git diff origin/main..HEAD
@@ -96,15 +92,7 @@ git diff origin/main..HEAD
 
 For each item, verify against code: search for implementations, check tests, confirm fixes.
 
-### Post Update
-
-Post your triage update to trigger re-review:
-
-```
-ttal comment add "<markdown>"
-```
-
-This tells the reviewer "I've addressed your feedback, please look again."
+### Show Update
 
 Format:
 
