@@ -331,9 +331,6 @@ func init() {
 	prModifyCmd.Flags().String("title", "", "New PR title")
 	prModifyCmd.Flags().String("pr-id", "", "PR number override (for non-worktree use)")
 
-	prCICmd.Flags().BoolVar(&prCIShowLog, "log", false, "Include failure details and log tails")
-
 	prCmd.AddCommand(prCreateCmd)
 	prCmd.AddCommand(prModifyCmd)
-	prCmd.AddCommand(prCICmd)
 }

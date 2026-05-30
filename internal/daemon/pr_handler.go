@@ -156,7 +156,8 @@ func handlePRGetPR(req PRGetPRRequest) PRGetPRResponse {
 	return PRGetPRResponse{
 		OK: true, HeadSHA: fetchedPR.HeadSHA,
 		Merged: fetchedPR.Merged, Mergeable: fetchedPR.Mergeable,
-		Title: fetchedPR.Title,
+		Title: fetchedPR.Title, Body: fetchedPR.Body,
+		HTMLURL: fetchedPR.HTMLURL, State: fetchedPR.State,
 	}
 }
 

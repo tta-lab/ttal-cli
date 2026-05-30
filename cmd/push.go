@@ -21,8 +21,11 @@ The daemon injects credentials — workers don't need tokens in their environmen
 
 Equivalent to "git push -u origin <branch>" but credential-safe for worker sessions.
 
+Pushes to main or master are blocked unconditionally — all changes must go through
+a feature branch and PR.
+
 With --force, performs a --force-with-lease push (raw --force is never used).
-Force-push to main or master is blocked unconditionally.
+Force-push is also blocked on main/master.
 
 Examples:
   ttal push
@@ -83,6 +86,6 @@ func currentBranch(workDir string) (string, error) {
 }
 
 func init() {
-	pushCmd.Flags().Bool("force", false, "Force push with --force-with-lease. Blocked on main/master.")
+	pushCmd.Flags().Bool("force", false, "Force push with --force-with-lease (blocked on main/master)")
 	rootCmd.AddCommand(pushCmd)
 }
