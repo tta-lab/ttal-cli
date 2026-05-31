@@ -190,6 +190,9 @@ type PRGetPRResponse struct {
 	Merged    bool   `json:"merged,omitempty"`
 	Mergeable bool   `json:"mergeable,omitempty"`
 	Title     string `json:"title,omitempty"`
+	Body      string `json:"body,omitempty"`
+	HTMLURL   string `json:"html_url,omitempty"`
+	State     string `json:"state,omitempty"`
 }
 
 // PRFindResponse is the daemon's response for finding a PR by branch.

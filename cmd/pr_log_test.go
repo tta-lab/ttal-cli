@@ -7,13 +7,13 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 )
 
-func TestPRCICommandExists(t *testing.T) {
-	cmd, _, err := rootCmd.Find([]string{"pr", "ci"})
+func TestPRLogCommandExists(t *testing.T) {
+	cmd, _, err := rootCmd.Find([]string{"pr", "log"})
 	if err != nil {
-		t.Fatalf("pr ci command not found: %v", err)
+		t.Fatalf("pr log command not found: %v", err)
 	}
-	if cmd.Name() != "ci" {
-		t.Errorf("expected command name 'ci', got %q", cmd.Name())
+	if cmd.Name() != "log" {
+		t.Errorf("expected command name 'log', got %q", cmd.Name())
 	}
 }
 

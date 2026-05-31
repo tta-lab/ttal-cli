@@ -498,7 +498,7 @@ func TestHandleGitPush_ForceOnProtectedBranchBlocked(t *testing.T) {
 			if resp.OK {
 				t.Fatalf("expected OK=false for force push to %s", branch)
 			}
-			wantErr := fmt.Sprintf("force push to %s blocked by ttal policy", branch)
+			wantErr := fmt.Sprintf("push to %s blocked — use a feature branch and PR", branch)
 			if resp.Error != wantErr {
 				t.Errorf("error = %q, want %q", resp.Error, wantErr)
 			}
@@ -522,18 +522,18 @@ func TestIsProtectedBranch(t *testing.T) {
 	}
 }
 
-func TestHandleGitPush_NormalPushToMainNotBlockedByPolicy(t *testing.T) {
+func TestHandleGitPush_NormalPushToMainBlockedByPolicy(t *testing.T) {
 	resp := handleGitPush(GitPushRequest{
-		WorkDir: "/tmp/not-a-real-repo", // will fail at RemoteURL, which is fine
+		WorkDir: "/tmp/not-a-real-repo", // will fail at RemoteURL if policy guard is bypassed
 		Branch:  "main",
 		Force:   false,
 	})
 	if resp.OK {
-		return
+		t.Fatal("expected push to main to be blocked regardless of force flag")
 	}
-	policyErr := "force push to main blocked by ttal policy"
-	if resp.Error == policyErr {
-		t.Errorf("expected Force=false+main to bypass policy guard, got policy error: %q", resp.Error)
+	policyErr := "push to main blocked — use a feature branch and PR"
+	if resp.Error != policyErr {
+		t.Errorf("expected policy error, got: %q", resp.Error)
 	}
 }
 

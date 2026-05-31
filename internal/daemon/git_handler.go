@@ -33,8 +33,10 @@ func handleGitPush(req GitPushRequest) GitPushResponse {
 	if req.Branch == "" {
 		return GitPushResponse{Error: "branch must not be empty"}
 	}
-	if req.Force && isProtectedBranch(req.Branch) {
-		return GitPushResponse{Error: fmt.Sprintf("force push to %s blocked by ttal policy", req.Branch)}
+	if isProtectedBranch(req.Branch) {
+		return GitPushResponse{
+			Error: fmt.Sprintf("push to %s blocked — use a feature branch and PR", req.Branch),
+		}
 	}
 
 	// Detect remote URL to pick the right token.

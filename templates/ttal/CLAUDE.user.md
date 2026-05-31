@@ -44,10 +44,11 @@
 ## GitHub & Forgejo
 
 - **Always work on a branch and submit a PR** — create a branch for changes, push it, and open a PR. Never push directly to `main` or `master`.
+- **Never push directly to main or master** — all changes must go through a feature branch and PR. `ttal push` and `ttal push --force` are both blocked on protected branches.
 - **Use `ttal push` for git push** — always use `ttal push`, never `git push` directly
 - **Prefer no amend, no force-push.** `ttal push --force` exists only as an escape hatch for rebase/amend workflows; it runs `--force-with-lease` internally and is blocked on main/master. Avoid using it unless you explicitly need to rewrite a remote branch you own.
-- **Use `ttal pr` for PR operations** — creation, modification, merging. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
-  - `echo "body" | ttal pr create "title"` / `echo "body" | ttal pr modify --title "new"` / `ttal go <uuid>`
+- **Use `ttal pr` for PR operations** — creation, modification, viewing, and merging. Never use `gh`, `tea`, `curl`, or Forgejo MCP for PR work.
+  - `echo "body" | ttal pr create "title"` / `echo "body" | ttal pr modify --title "new"` / `ttal pr view` / `ttal pr log` / `ttal go <uuid>`
 
 ## Tips
 

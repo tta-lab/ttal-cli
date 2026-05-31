@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 )
@@ -18,67 +17,13 @@ const (
 	ciIconCheck    = "✓"
 )
 
-var prCIShowLog bool
-
-var prCICmd = &cobra.Command{
-	Use:   "ci",
-	Short: "Check CI status for the current PR",
-	Long: `Query CI check status for the current PR's HEAD commit.
-
-By default, shows a summary of all checks with pass/fail/pending status.
-Use --log to include failure details and log tails for failed jobs.
-
-Works with both GitHub Actions and Woodpecker CI (auto-detected).
-
-Examples:
-  ttal pr ci          # show CI status summary
-  ttal pr ci --log    # show status + failure logs`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := pr.ResolveContextWithoutProvider()
-		if err != nil {
-			return err
-		}
-
-		// Resolve HEAD SHA — prefer PR's head SHA from API, fall back to local git
-		sha, err := resolveCISHA(ctx)
-		if err != nil {
-			return err
-		}
-
-		// Get combined CI status via daemon
-		statusResp, err := daemon.PRGetCombinedStatus(daemon.PRGetCombinedStatusRequest{
-			ProviderType: string(ctx.Info.Provider),
-			Host:         ctx.Info.Host,
-			Owner:        ctx.Owner,
-			Repo:         ctx.Repo,
-			SHA:          sha,
-			ProjectAlias: ctx.Task.Project,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to get CI status: %w", err)
-		}
-
-		printDaemonCIStatus(statusResp, sha)
-
-		if prCIShowLog && hasDaemonCIFailures(statusResp) {
-			fmt.Println()
-			if err := printDaemonFailureLogs(ctx, sha); err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(),
-					"warning: could not fetch failure logs: %v\n", err)
-			}
-		}
-
-		return nil
-	},
-}
-
 // resolveCISHA gets the SHA to check. Prefers the PR's head SHA (from API),
 // falls back to local git HEAD.
 func resolveCISHA(ctx *pr.Context) (string, error) {
 	if ctx.Task.PRID != "" {
 		idx, err := pr.PRIndex(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: [pr ci] could not resolve PR index: %v — falling back to local HEAD\n", err)
+			fmt.Fprintf(os.Stderr, "warning: [pr log] could not resolve PR index: %v — falling back to local HEAD\n", err)
 		} else {
 			resp, err := daemon.PRGetPR(daemon.PRGetPRRequest{
 				ProviderType: string(ctx.Info.Provider),
@@ -86,14 +31,14 @@ func resolveCISHA(ctx *pr.Context) (string, error) {
 				Owner:        ctx.Owner,
 				Repo:         ctx.Repo,
 				Index:        idx,
-				ProjectAlias: ctx.Task.Project,
+				ProjectAlias: ctx.Alias,
 			})
 			if err == nil && resp.HeadSHA != "" {
 				return resp.HeadSHA, nil
 			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr,
-					"warning: [pr ci] could not fetch PR #%d from daemon: %v — falling back to local HEAD\n", idx, err)
+					"warning: [pr log] could not fetch PR #%d from daemon: %v — falling back to local HEAD\n", idx, err)
 			}
 		}
 	}
@@ -134,7 +79,7 @@ func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
 		Owner:        ctx.Owner,
 		Repo:         ctx.Repo,
 		SHA:          sha,
-		ProjectAlias: ctx.Task.Project,
+		ProjectAlias: ctx.Alias,
 	})
 	if err != nil {
 		return err
