@@ -59,7 +59,7 @@ Examples:
 			}
 		}
 
-		// Find PR by current branch
+		// Find PR by current branch (State: "all" so closed/merged PRs are visible)
 		resp, err := daemonPRFindFn(daemon.PRFindRequest{
 			ProviderType: string(ctx.Info.Provider),
 			Host:         ctx.Info.Host,
@@ -68,6 +68,7 @@ Examples:
 			Head:         branch,
 			HeadSHA:      headSHA,
 			Base:         defaultBranch,
+			State:        "all",
 			ProjectAlias: ctx.Alias,
 		})
 		if err != nil {
