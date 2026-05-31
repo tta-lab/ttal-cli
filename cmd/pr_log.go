@@ -8,6 +8,8 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/pr"
 )
 
+var logTailLines int
+
 var prLogCmd = &cobra.Command{
 	Use:   "log",
 	Short: "Show CI failure logs for the current PR",
@@ -19,7 +21,8 @@ details and log tails for any failed jobs.
 Works with both GitHub Actions and Woodpecker CI (auto-detected).
 
 Examples:
-  ttal pr log`,
+  ttal pr log
+  ttal pr log --tail 200`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContextWithoutProvider()
@@ -48,7 +51,7 @@ Examples:
 
 		if hasDaemonCIFailures(statusResp) {
 			fmt.Println()
-			if err := printDaemonFailureLogs(ctx, sha); err != nil {
+			if err := printDaemonFailureLogs(ctx, sha, logTailLines); err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(),
 					"warning: could not fetch failure logs: %v\n", err)
 			}
@@ -60,4 +63,5 @@ Examples:
 
 func init() {
 	prCmd.AddCommand(prLogCmd)
+	prLogCmd.Flags().IntVar(&logTailLines, "tail", 50, "Number of log tail lines to fetch")
 }

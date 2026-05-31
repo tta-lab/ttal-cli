@@ -43,7 +43,7 @@ func NewWoodpeckerClient() (*WoodpeckerClient, error) {
 }
 
 // GetFailureDetails fetches failed pipeline steps and their logs for a commit SHA.
-func (w *WoodpeckerClient) GetFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
+func (w *WoodpeckerClient) GetFailureDetails(owner, repo, sha string, tailLines int) ([]*JobFailure, error) {
 	fullName := owner + "/" + repo
 	repoObj, err := w.client.RepoLookup(fullName)
 	if err != nil {
@@ -93,7 +93,7 @@ func (w *WoodpeckerClient) GetFailureDetails(owner, repo, sha string) ([]*JobFai
 				if logErr != nil {
 					jf.LogTail = fmt.Sprintf("(log fetch failed: %v)", logErr)
 				} else if len(logs) > 0 {
-					jf.LogTail = formatWoodpeckerLogs(logs, 50)
+					jf.LogTail = formatWoodpeckerLogs(logs, tailLines)
 				}
 
 				failures = append(failures, jf)

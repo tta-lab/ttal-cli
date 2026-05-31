@@ -72,7 +72,7 @@ func printDaemonCIStatus(resp daemon.PRCIStatusResponse, sha string) {
 	}
 }
 
-func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
+func printDaemonFailureLogs(ctx *pr.Context, sha string, tailLines int) error {
 	detailResp, err := daemon.PRGetCIFailureDetails(daemon.PRGetCIFailureDetailsRequest{
 		ProviderType: string(ctx.Info.Provider),
 		Host:         ctx.Info.Host,
@@ -80,6 +80,7 @@ func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
 		Repo:         ctx.Repo,
 		SHA:          sha,
 		ProjectAlias: ctx.Alias,
+		TailLines:    tailLines,
 	})
 	if err != nil {
 		return err

@@ -76,7 +76,7 @@ type Provider interface {
 	CreateComment(owner, repo string, index int64, body string) (*Comment, error)
 	ListComments(owner, repo string, index int64) ([]*Comment, error)
 	GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error)
-	GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error)
+	GetCIFailureDetails(owner, repo, sha string, tailLines int) ([]*JobFailure, error)
 }
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}

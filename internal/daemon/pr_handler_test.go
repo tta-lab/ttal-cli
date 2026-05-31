@@ -51,7 +51,7 @@ func (s *stubProvider) ListComments(_, _ string, _ int64) ([]*gitprovider.Commen
 func (s *stubProvider) GetCombinedStatus(_, _, _ string) (*gitprovider.CombinedStatus, error) {
 	return s.combinedStatus, s.statusErr
 }
-func (s *stubProvider) GetCIFailureDetails(_, _, _ string) ([]*gitprovider.JobFailure, error) {
+func (s *stubProvider) GetCIFailureDetails(_, _, _ string, _ int) ([]*gitprovider.JobFailure, error) {
 	panic("not implemented")
 }
 
@@ -151,7 +151,7 @@ func (s *branchOnlyStubProvider) ListComments(_, _ string, _ int64) ([]*gitprovi
 func (s *branchOnlyStubProvider) GetCombinedStatus(_, _, _ string) (*gitprovider.CombinedStatus, error) {
 	panic("not implemented")
 }
-func (s *branchOnlyStubProvider) GetCIFailureDetails(_, _, _ string) ([]*gitprovider.JobFailure, error) {
+func (s *branchOnlyStubProvider) GetCIFailureDetails(_, _, _ string, _ int) ([]*gitprovider.JobFailure, error) {
 	panic("not implemented")
 }
 
