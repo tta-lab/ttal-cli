@@ -76,7 +76,7 @@ type Provider interface {
 	CreateComment(owner, repo string, index int64, body string) (*Comment, error)
 	ListComments(owner, repo string, index int64) ([]*Comment, error)
 	GetCombinedStatus(owner, repo, ref string) (*CombinedStatus, error)
-	GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error)
+	GetCIFailureDetails(owner, repo, sha string, tailLines int) ([]*JobFailure, error)
 }
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -86,6 +86,9 @@ func isFailedStatus(s string) bool {
 }
 
 func tailString(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
 	lines := strings.Split(s, "\n")
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]

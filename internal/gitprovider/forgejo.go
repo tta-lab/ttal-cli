@@ -166,12 +166,12 @@ func (p *ForgejoProvider) GetCombinedStatus(owner, repo, ref string) (*CombinedS
 //
 // Note: this method requires WOODPECKER_URL and WOODPECKER_TOKEN to be set
 // independently of the Forgejo credentials — Woodpecker is a separate service.
-func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
+func (p *ForgejoProvider) GetCIFailureDetails(owner, repo, sha string, tailLines int) ([]*JobFailure, error) {
 	wc, err := NewWoodpeckerClient()
 	if err != nil {
 		return nil, fmt.Errorf("woodpecker client: %w (set WOODPECKER_URL and WOODPECKER_TOKEN)", err)
 	}
-	return wc.GetFailureDetails(owner, repo, sha)
+	return wc.GetFailureDetails(owner, repo, sha, tailLines)
 }
 
 func toPullRequest(pr *forgejo_sdk.PullRequest) *PullRequest {

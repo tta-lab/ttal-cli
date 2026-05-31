@@ -38,7 +38,7 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		prGetCombinedStatus: func(req PRGetCombinedStatusRequest) PRCIStatusResponse {
 			return PRCIStatusResponse{OK: true}
 		},
-		prGetCIFailureDetails: func(req PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
+		prGetCIFailureDetails: func(_ PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
 			return PRCIFailureDetailsResponse{OK: true}
 		},
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
@@ -437,7 +437,7 @@ func TestHTTPPRCIStatus_HandlerError(t *testing.T) {
 
 func TestHTTPPRCIFailureDetails(t *testing.T) {
 	h := testHandlers(nil)
-	h.prGetCIFailureDetails = func(req PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
+	h.prGetCIFailureDetails = func(_ PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
 		return PRCIFailureDetailsResponse{OK: true, Details: []PRCIFailureDetail{{JobName: "test-job"}}}
 	}
 	r := newDaemonRouter(h)
@@ -461,7 +461,7 @@ func TestHTTPPRCIFailureDetails(t *testing.T) {
 
 func TestHTTPPRCIFailureDetails_HandlerError(t *testing.T) {
 	h := testHandlers(nil)
-	h.prGetCIFailureDetails = func(req PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
+	h.prGetCIFailureDetails = func(_ PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
 		return PRCIFailureDetailsResponse{OK: false, Error: "fetch failed"}
 	}
 	r := newDaemonRouter(h)

@@ -169,6 +169,7 @@ type PRGetCIFailureDetailsRequest struct {
 	Repo         string `json:"repo"`
 	SHA          string `json:"sha"`
 	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
+	TailLines    int    `json:"tail_lines"`              // number of log tail lines to fetch
 }
 
 // PRResponse is the daemon's response for PR operations.

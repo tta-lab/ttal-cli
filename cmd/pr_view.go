@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,22 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pr"
 )
+
+type prViewResult struct {
+	Index        int64                      `json:"index"`
+	Title        string                     `json:"title"`
+	State        string                     `json:"state"`
+	Merged       bool                       `json:"merged"`
+	HTMLURL      string                     `json:"html_url"`
+	Branch       string                     `json:"branch"`
+	Base         string                     `json:"base"`
+	Body         string                     `json:"body"`
+	CI           *daemon.PRCIStatusResponse `json:"ci,omitempty"`
+	HeadSHA      string                     `json:"head_sha,omitempty"`
+	CIFetchError string                     `json:"ci_fetch_error,omitempty"`
+}
+
+var viewJSON bool
 
 var prViewCmd = &cobra.Command{
 	Use:     "view",
@@ -94,6 +111,43 @@ Examples:
 			return fmt.Errorf("get PR #%d: %s", resp.PRIndex, prResp.Error)
 		}
 
+		if viewJSON {
+			result := prViewResult{
+				Index:   resp.PRIndex,
+				Title:   prResp.Title,
+				State:   prResp.State,
+				Merged:  prResp.Merged,
+				HTMLURL: prResp.HTMLURL,
+				Branch:  branch,
+				Base:    defaultBranch,
+				Body:    prResp.Body,
+				HeadSHA: prResp.HeadSHA,
+			}
+			if prResp.HeadSHA != "" {
+				statusResp, err := daemon.PRGetCombinedStatus(daemon.PRGetCombinedStatusRequest{
+					ProviderType: string(ctx.Info.Provider),
+					Host:         ctx.Info.Host,
+					Owner:        ctx.Owner,
+					Repo:         ctx.Repo,
+					SHA:          prResp.HeadSHA,
+					ProjectAlias: ctx.Alias,
+				})
+				if err != nil {
+					result.CIFetchError = err.Error()
+				} else if statusResp.OK {
+					result.CI = &statusResp
+				} else {
+					result.CIFetchError = statusResp.Error
+				}
+			}
+			out, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshal PR view JSON: %w", err)
+			}
+			fmt.Println(string(out))
+			return nil
+		}
+
 		// Print PR header
 		stateLabel := formatPRState(prResp.State, prResp.Merged)
 		fmt.Printf("PR #%d  %s  %s\n", resp.PRIndex, prResp.Title, stateLabel)
@@ -151,4 +205,5 @@ func formatPRState(state string, merged bool) string {
 
 func init() {
 	prCmd.AddCommand(prViewCmd)
+	prViewCmd.Flags().BoolVar(&viewJSON, "json", false, "Output as JSON")
 }

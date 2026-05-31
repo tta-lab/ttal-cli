@@ -189,7 +189,7 @@ func handlePRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) PRCIFailureDe
 	if err != nil {
 		return PRCIFailureDetailsResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
 	}
-	details, err := provider.GetCIFailureDetails(req.Owner, req.Repo, req.SHA)
+	details, err := provider.GetCIFailureDetails(req.Owner, req.Repo, req.SHA, req.TailLines)
 	if err != nil {
 		return PRCIFailureDetailsResponse{OK: false, Error: fmt.Sprintf("get CI failure details: %v", err)}
 	}

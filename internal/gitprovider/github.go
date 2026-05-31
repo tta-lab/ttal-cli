@@ -238,7 +238,7 @@ func checkRunToState(status, conclusion string) string {
 	}
 }
 
-func (p *GitHubProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFailure, error) {
+func (p *GitHubProvider) GetCIFailureDetails(owner, repo, sha string, tailLines int) ([]*JobFailure, error) {
 	ctx := context.Background()
 
 	runs, _, err := p.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repo,
@@ -272,7 +272,7 @@ func (p *GitHubProvider) GetCIFailureDetails(owner, repo, sha string) ([]*JobFai
 
 			logURL, _, logErr := p.client.Actions.GetWorkflowJobLogs(ctx, owner, repo, job.GetID(), 3)
 			if logErr == nil && logURL != nil {
-				jf.LogTail = fetchLogTail(logURL.String(), 50)
+				jf.LogTail = fetchLogTail(logURL.String(), tailLines)
 			}
 
 			failures = append(failures, jf)
