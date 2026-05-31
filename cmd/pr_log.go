@@ -38,7 +38,7 @@ Examples:
 			Owner:        ctx.Owner,
 			Repo:         ctx.Repo,
 			SHA:          sha,
-			ProjectAlias: ctx.Task.Project,
+			ProjectAlias: ctx.Alias,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get CI status: %w", err)

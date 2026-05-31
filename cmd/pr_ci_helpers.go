@@ -31,7 +31,7 @@ func resolveCISHA(ctx *pr.Context) (string, error) {
 				Owner:        ctx.Owner,
 				Repo:         ctx.Repo,
 				Index:        idx,
-				ProjectAlias: ctx.Task.Project,
+				ProjectAlias: ctx.Alias,
 			})
 			if err == nil && resp.HeadSHA != "" {
 				return resp.HeadSHA, nil
