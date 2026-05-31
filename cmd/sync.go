@@ -41,7 +41,7 @@ Configure source paths in ~/.config/ttal/config.toml:
 
 		// Only error if there's nothing to sync.
 		hasNoPaths := len(syncCfg.RulesPaths) == 0 &&
-			syncCfg.GlobalPromptPath == "" && teamPath == "" &&
+			teamPath == "" &&
 			len(syncCfg.WorkerAgentPaths) == 0 &&
 			len(syncCfg.SkillsPaths) == 0
 		if hasNoPaths {
@@ -99,20 +99,6 @@ Configure source paths in ~/.config/ttal/config.toml:
 				fmt.Printf("  %s → %s\n", shortenHome(r.Source), shortenHome(r.Dest))
 			}
 			managerAgentCount = len(managerResults)
-		}
-
-		if syncCfg.GlobalPromptPath != "" {
-			printSyncHeader("global prompt", syncDryRun)
-
-			results, err := syncer.DeployGlobalPrompt(syncCfg.GlobalPromptPath, syncDryRun)
-			if err != nil {
-				return fmt.Errorf("global prompt sync failed: %w", err)
-			}
-
-			for _, r := range results {
-				fmt.Printf("  %s\n", shortenHome(r.Source))
-				fmt.Printf("    → %s (%s)\n", shortenHome(r.Dest), r.Runtime)
-			}
 		}
 
 		// Deploy skills to ~/.agents/skills/

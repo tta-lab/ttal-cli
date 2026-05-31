@@ -275,8 +275,6 @@ type SyncConfig struct {
 	SkillsPaths []string `toml:"skills_paths"`
 	// Destination directory for deployed skills (default: ~/.agents/skills)
 	SkillsDest string `toml:"skills_dest"`
-	// Path to global CLAUDE.md prompt
-	GlobalPromptPath string `toml:"global_prompt_path"`
 	// CC plugin marketplace source — local path or git URL.
 	// Default: resolved from project store ("ttal" alias).
 	MarketplaceSource string `toml:"marketplace_source"`

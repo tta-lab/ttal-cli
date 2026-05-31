@@ -317,7 +317,7 @@ skills/                - Skill directories (each has SKILL.md). Run `ls skills/`
 | Agent identities | `templates/ttal/{name}/` | Per-agent subdir with `AGENTS.md` | `ttal sync` → `~/.claude/agents/{name}.md` |
 | Config TOMLs | `templates/ttal/` | `.toml` files | Managed outside `ttal sync` (for example, by Nix/home-manager) |
 
-**Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy. Configured via `global_prompt_path` in `config.toml`'s `[sync]` section.
+**Global prompt:** `CLAUDE.user.md` is the SSOT for `~/.claude/CLAUDE.md`. All agents see this file as their global instructions. Edit `templates/ttal/CLAUDE.user.md`, then run `ttal sync` to deploy.
 
 **Skills:** Skills are deployed from `skills/` to `~/.agents/skills/` via `ttal sync`. They are accessed at runtime via `skill get` for standalone use. Skills are inlined into `ttal pipeline prompt` output via shell-out to `skill get <name>` per the role's `extra_skills` and `default_skills` in `roles.toml`. Skills on disk retain their YAML frontmatter for metadata; `skill get` strips frontmatter on output.
 
