@@ -106,6 +106,9 @@ func (w *WoodpeckerClient) GetFailureDetails(owner, repo, sha string, tailLines 
 
 // formatWoodpeckerLogs extracts the last N lines from Woodpecker log entries.
 func formatWoodpeckerLogs(entries []*woodpecker.LogEntry, maxLines int) string {
+	if maxLines <= 0 {
+		return ""
+	}
 	var lines []string
 	for _, entry := range entries {
 		// Skip ExitCode, Metadata, Progress — keep only Stdout and Stderr

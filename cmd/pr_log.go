@@ -49,6 +49,10 @@ Examples:
 
 		printDaemonCIStatus(statusResp, sha)
 
+		if logTailLines < 0 {
+			logTailLines = 0
+		}
+
 		if hasDaemonCIFailures(statusResp) {
 			fmt.Println()
 			if err := printDaemonFailureLogs(ctx, sha, logTailLines); err != nil {

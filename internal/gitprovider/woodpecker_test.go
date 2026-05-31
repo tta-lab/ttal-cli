@@ -65,3 +65,48 @@ func TestFormatWoodpeckerLogs_EmptyEntries(t *testing.T) {
 		t.Errorf("expected empty string for empty entries, got %q", got)
 	}
 }
+func TestFormatWoodpeckerLogs_NegativeMaxLines(t *testing.T) {
+	entries := []*woodpecker.LogEntry{
+		{Data: []byte("a"), Type: woodpecker.LogEntryStdout},
+		{Data: []byte("b"), Type: woodpecker.LogEntryStdout},
+	}
+	got := formatWoodpeckerLogs(entries, -1)
+	if got != "" {
+		t.Errorf("expected empty string for negative maxLines, got %q", got)
+	}
+}
+
+func TestFormatWoodpeckerLogs_ZeroMaxLines(t *testing.T) {
+	entries := []*woodpecker.LogEntry{
+		{Data: []byte("a"), Type: woodpecker.LogEntryStdout},
+	}
+	got := formatWoodpeckerLogs(entries, 0)
+	if got != "" {
+		t.Errorf("expected empty string for zero maxLines, got %q", got)
+	}
+}
+
+func TestFormatWoodpeckerLogs_ExactlyMaxLines(t *testing.T) {
+	entries := make([]*woodpecker.LogEntry, 5)
+	for i := range entries {
+		entries[i] = &woodpecker.LogEntry{
+			Data: []byte(strings.Repeat("x", 1)),
+			Type: woodpecker.LogEntryStdout,
+		}
+	}
+	got := formatWoodpeckerLogs(entries, 5)
+	lines := strings.Split(got, "\n")
+	if len(lines) != 5 {
+		t.Errorf("expected 5 lines when maxLines equals count, got %d", len(lines))
+	}
+}
+
+func TestFormatWoodpeckerLogs_MoreThanEntries(t *testing.T) {
+	entries := []*woodpecker.LogEntry{
+		{Data: []byte("a"), Type: woodpecker.LogEntryStdout},
+	}
+	got := formatWoodpeckerLogs(entries, 100)
+	if strings.Count(got, "\n") != 0 {
+		t.Errorf("expected 1 line for 1 entry with maxLines=100, got %q", got)
+	}
+}

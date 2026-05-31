@@ -86,6 +86,9 @@ func isFailedStatus(s string) bool {
 }
 
 func tailString(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
 	lines := strings.Split(s, "\n")
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]

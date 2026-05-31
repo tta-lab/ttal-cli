@@ -23,6 +23,7 @@ type prViewResult struct {
 	Body    string                     `json:"body"`
 	CI      *daemon.PRCIStatusResponse `json:"ci,omitempty"`
 	HeadSHA string                     `json:"head_sha,omitempty"`
+	CIFetchError string               `json:"ci_fetch_error,omitempty"`
 }
 
 var viewJSON bool
@@ -123,7 +124,7 @@ Examples:
 				HeadSHA: prResp.HeadSHA,
 			}
 			if prResp.HeadSHA != "" {
-				statusResp, _ := daemon.PRGetCombinedStatus(daemon.PRGetCombinedStatusRequest{
+				statusResp, err := daemon.PRGetCombinedStatus(daemon.PRGetCombinedStatusRequest{
 					ProviderType: string(ctx.Info.Provider),
 					Host:         ctx.Info.Host,
 					Owner:        ctx.Owner,
@@ -131,11 +132,18 @@ Examples:
 					SHA:          prResp.HeadSHA,
 					ProjectAlias: ctx.Alias,
 				})
-				if statusResp.OK {
+				if err != nil {
+					result.CIFetchError = err.Error()
+				} else if statusResp.OK {
 					result.CI = &statusResp
+				} else {
+					result.CIFetchError = statusResp.Error
 				}
 			}
-			out, _ := json.MarshalIndent(result, "", "  ")
+			out, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshal PR view JSON: %w", err)
+			}
 			fmt.Println(string(out))
 			return nil
 		}
