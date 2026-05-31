@@ -79,7 +79,7 @@ func printDaemonFailureLogs(ctx *pr.Context, sha string) error {
 		Owner:        ctx.Owner,
 		Repo:         ctx.Repo,
 		SHA:          sha,
-		ProjectAlias: ctx.Task.Project,
+		ProjectAlias: ctx.Alias,
 	})
 	if err != nil {
 		return err
