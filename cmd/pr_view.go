@@ -13,17 +13,17 @@ import (
 )
 
 type prViewResult struct {
-	Index   int64                      `json:"index"`
-	Title   string                     `json:"title"`
-	State   string                     `json:"state"`
-	Merged  bool                       `json:"merged"`
-	HTMLURL string                     `json:"html_url"`
-	Branch  string                     `json:"branch"`
-	Base    string                     `json:"base"`
-	Body    string                     `json:"body"`
-	CI      *daemon.PRCIStatusResponse `json:"ci,omitempty"`
-	HeadSHA string                     `json:"head_sha,omitempty"`
-	CIFetchError string               `json:"ci_fetch_error,omitempty"`
+	Index        int64                      `json:"index"`
+	Title        string                     `json:"title"`
+	State        string                     `json:"state"`
+	Merged       bool                       `json:"merged"`
+	HTMLURL      string                     `json:"html_url"`
+	Branch       string                     `json:"branch"`
+	Base         string                     `json:"base"`
+	Body         string                     `json:"body"`
+	CI           *daemon.PRCIStatusResponse `json:"ci,omitempty"`
+	HeadSHA      string                     `json:"head_sha,omitempty"`
+	CIFetchError string                     `json:"ci_fetch_error,omitempty"`
 }
 
 var viewJSON bool
