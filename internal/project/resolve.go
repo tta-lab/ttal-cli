@@ -147,6 +147,11 @@ var runProjectBinary = func(args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
+// SetBinaryFn replaces the shell-out function for testing.
+func SetBinaryFn(fn func(args ...string) ([]byte, error)) {
+	runProjectBinary = fn
+}
+
 func loadProjects() ([]Project, error) {
 	out, err := runProjectBinary("list", "--json")
 	if err != nil {
