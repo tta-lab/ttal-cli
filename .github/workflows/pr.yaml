@@ -31,7 +31,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.11.4
-          args: --new-from-rev=origin/main
+          only-new-issues: true
 
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
