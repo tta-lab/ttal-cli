@@ -30,7 +30,7 @@ Skills are configured per-stage in `pipelines.toml`, not per-role in `roles.toml
 ```toml
 shell = "zsh"           # Shell used by ttal open term (any shell binary; falls back to $SHELL > /bin/sh when unset)
 default_team = "default"
-references_path = "~/code/references"  # Reference repos for ttal jump org/repo
+references_path = "~/code/references"  # Reference repos for project jump org/repo
 
 [teams.default]
 data_dir = "~/.ttal"
@@ -68,7 +68,7 @@ NEIL_CHAT_ID=123456789
 | Field | Type | Description |
 |-------|------|-------------|
 | `shell` | string | Default shell for `ttal open term` (falls back to $SHELL, then /bin/sh) |
-| `references_path` | string | Directory for reference repo clones used by `ttal jump`; defaults to `~/.ttal/references` |
+| `references_path` | string | Directory for reference repo clones used by `project jump`; defaults to `~/.ttal/references` |
 
 ## Team fields
 

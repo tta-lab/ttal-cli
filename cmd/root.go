@@ -50,27 +50,3 @@ func confirmPrompt(message string) bool {
 	}
 	return strings.ToLower(strings.TrimSpace(answer)) == "y"
 }
-
-// deleteEntity checks existence, confirms with user, then deletes.
-// existFn checks if the entity exists, deleteFn performs the deletion.
-func deleteEntity(kind, name string, existFn func() (bool, error), deleteFn func() error) error {
-	exists, err := existFn()
-	if err != nil {
-		return fmt.Errorf("failed to query %s: %w", kind, err)
-	}
-	if !exists {
-		return fmt.Errorf("%s '%s' not found", kind, name)
-	}
-
-	if !confirmPrompt(fmt.Sprintf("Permanently delete %s '%s'? [y/N] ", kind, name)) {
-		fmt.Println("Aborted.")
-		return nil
-	}
-
-	if err := deleteFn(); err != nil {
-		return fmt.Errorf("failed to delete %s: %w", kind, err)
-	}
-
-	fmt.Printf("%s '%s' deleted permanently\n", strings.ToUpper(kind[:1])+kind[1:], name)
-	return nil
-}

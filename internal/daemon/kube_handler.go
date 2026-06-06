@@ -11,10 +11,14 @@ import (
 )
 
 // HandleKubeLog returns a handler that fetches pod logs via kubectl.
-func HandleKubeLog(store *project.Store, kubeCtx string, allowedNS []string) func(KubeLogRequest) KubeLogResponse {
+func HandleKubeLog(
+	getProject func(string) (*project.Project, error),
+	kubeCtx string,
+	allowedNS []string,
+) func(KubeLogRequest) KubeLogResponse {
 	return func(req KubeLogRequest) KubeLogResponse {
 		// Resolve project
-		proj, err := store.Get(req.Alias)
+		proj, err := getProject(req.Alias)
 		if err != nil {
 			return KubeLogResponse{OK: false, Error: fmt.Sprintf("failed to get project: %v", err)}
 		}

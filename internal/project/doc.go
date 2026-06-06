@@ -1,9 +1,9 @@
-// Package project manages the TOML-backed project registry for ttal.
+// Package project resolves ttal project aliases and paths via the `project` CLI binary.
 //
-// Projects are stored in ~/.config/ttal/projects.toml (or a per-team variant) as
-// top-level alias sections with name and path fields; archived projects live under
-// [archived]. The Store type provides CRUD and archive/unarchive operations with
-// atomic writes, while resolve.go resolves project paths from taskwarrior project strings.
+// The `project` binary (from organon) provides a read-only JSON API over
+// ~/.config/ttal/projects.toml. This package wraps it for ttal's internal
+// callers, adding ttal-specific heuristics (contains-fallback, hierarchical
+// fallback, worktree alias extraction) on top.
 //
 // Plane: shared
 package project

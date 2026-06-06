@@ -6,34 +6,32 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
+
+// resolveAliasFn resolves a path to a project alias. Override in tests.
+var resolveAliasFn = project.ResolveProjectAlias
 
 // CompactPath returns a compact representation of cwd for display in the statusline.
 // If cwd matches a registered ttal project, returns "(alias)" or "(alias - jobID)".
 // Otherwise abbreviates intermediate path components to their first character.
 // jobID should be the value of TTAL_JOB_ID (empty if not in a worker session).
 func CompactPath(cwd, jobID string) string {
-	store := project.NewStore(config.ResolveProjectsPath())
-	worktreesRoot := config.WorktreesRoot()
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[statusline] warning: cannot determine home dir: %v\n", err)
 	}
-	return compactPathWith(cwd, jobID, store, worktreesRoot, homeDir)
+	return compactPathWith(cwd, jobID, homeDir)
 }
 
-// compactPathWith is the testable variant of CompactPath that accepts explicit
-// dependencies instead of reading them from config or the environment.
-func compactPathWith(cwd, jobID string, store *project.Store, worktreesRoot, homeDir string) string {
+// compactPathWith is the testable variant that accepts homeDir explicitly.
+func compactPathWith(cwd, jobID, homeDir string) string {
 	if cwd == "" {
 		return ""
 	}
 
 	// 1. Try to resolve a project alias
-	alias := project.ResolveProjectAliasWithStore(cwd, store, worktreesRoot)
-	if alias != "" {
+	if alias := resolveAliasFn(cwd); alias != "" {
 		if jobID != "" {
 			return "(" + alias + " - " + jobID + ")"
 		}

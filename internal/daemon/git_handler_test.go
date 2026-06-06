@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
+	"github.com/tta-lab/ttal-cli/internal/project"
 )
 
 func TestHTTPGitPush_BadJSON(t *testing.T) {
@@ -594,6 +595,9 @@ func TestHandleGitTag_EmptyWorkDir(t *testing.T) {
 }
 
 func TestHandleGitTag_UnregisteredProject(t *testing.T) {
+	project.SetBinaryFn(func(args ...string) ([]byte, error) {
+		return []byte("[]"), nil
+	})
 	resp := handleGitTag(GitTagRequest{WorkDir: "/tmp/not-a-project", Tag: "v1.0.0"})
 	if resp.OK {
 		t.Error("expected OK=false for unregistered project")
@@ -616,6 +620,9 @@ func TestHandleGitTag_PathTraversal(t *testing.T) {
 		{"trailing slash", "/tmp/not-registered/"},
 	}
 
+	project.SetBinaryFn(func(args ...string) ([]byte, error) {
+		return []byte("[]"), nil
+	})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resp := handleGitTag(GitTagRequest{WorkDir: tt.workDir, Tag: "v1.0.0"})

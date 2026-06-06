@@ -1,357 +1,92 @@
 package project
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-const pathTtal = "/path/ttal"
-
-// newTestStoreWithProjects creates a temp store pre-populated with the given projects.
-func newTestStoreWithProjects(t *testing.T, projects []Project) *Store {
+func stubProjects(t *testing.T, projects []Project) {
 	t.Helper()
-	s := NewStore(filepath.Join(t.TempDir(), "projects.toml"))
-	for _, p := range projects {
-		if err := s.Add(p.Alias, p.Alias, p.Path); err != nil {
-			t.Fatalf("Add(%q) error: %v", p.Alias, err)
+	orig := runProjectBinary
+	SetBinaryFn(func(args ...string) ([]byte, error) {
+		if len(args) >= 2 && args[0] == "resolve" {
+			for _, p := range projects {
+				if p.Path == args[1] || p.Alias == args[1] {
+					return json.Marshal(p)
+				}
+			}
+			return []byte("{}"), nil
 		}
-	}
-	return s
+		return json.Marshal(projects)
+	})
+	t.Cleanup(func() { runProjectBinary = orig })
 }
 
-func TestResolveProjectPathWithStore(t *testing.T) {
+func TestExtractWorktreeAlias(t *testing.T) {
+	origRootFn := worktreesRootFn
+	root := "/home/user/.ttal/worktrees"
+	worktreesRootFn = func() string { return root }
+	t.Cleanup(func() { worktreesRootFn = origRootFn })
+
+	proj := Project{Alias: "fb", Path: "/repo/fb"}
+	repoProj := "/repo/fb"
+
 	tests := []struct {
-		name        string
-		projectName string
-		projects    []Project
-		want        string
+		name, cwd string
+		stub      []Project
+		want      string
 	}{
 		{
-			name:        "exact match",
-			projectName: "ttal",
-			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
-			want:        pathTtal,
+			"uuid8-alias",
+			filepath.Join(root, "abc12345-fb"),
+			[]Project{proj},
+			"fb",
 		},
 		{
-			name:        "hierarchical fallback: ttal.pr → ttal",
-			projectName: "ttal.pr",
-			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
-			want:        pathTtal,
+			"subdirectory",
+			filepath.Join(root, "deadbeef-fb", "src"),
+			[]Project{proj},
+			"fb",
 		},
 		{
-			name:        "contains fallback: ttal-cli contains ttal",
-			projectName: "ttal-cli",
-			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
-			want:        pathTtal,
+			"hyphens in alias",
+			filepath.Join(root, "12345678-fb-cli"),
+			[]Project{{Alias: "fb-cli", Path: repoProj}},
+			"fb-cli",
 		},
 		{
-			name:        "empty project name — single-project shortcut",
-			projectName: "",
-			projects:    []Project{{Alias: "ttal", Path: pathTtal}},
-			want:        pathTtal,
+			"unknown alias",
+			filepath.Join(root, "abc12345-unknown"),
+			[]Project{proj},
+			"",
 		},
 		{
-			name:        "unknown project returns empty",
-			projectName: "nonexistent",
-			projects:    []Project{{Alias: "ttal", Path: pathTtal}, {Alias: "other", Path: "/path/other"}},
-			want:        "",
-		},
-		{
-			name:        "empty project name with multiple projects returns empty",
-			projectName: "",
-			projects:    []Project{{Alias: "ttal", Path: pathTtal}, {Alias: "other", Path: "/path/other"}},
-			want:        "",
+			"too-short uuid",
+			filepath.Join(root, "abc-fb"),
+			[]Project{proj},
+			"",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := newTestStoreWithProjects(t, tt.projects)
-			got := resolveProjectPathWithStore(tt.projectName, store)
+			stubProjects(t, tt.stub)
+			got := resolveProjectAliasInner(tt.cwd)
 			if got != tt.want {
-				t.Errorf("resolveProjectPathWithStore(%q) = %q, want %q", tt.projectName, got, tt.want)
+				t.Errorf("resolveProjectAliasInner(%q)=%q want %q", tt.cwd, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestResolveProjectPathOrError(t *testing.T) {
-	t.Run("found returns path", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{{Alias: "ttal", Path: pathTtal}})
-		path, err := resolveProjectPathOrErrorWithStore("ttal", store)
-		if err != nil {
-			t.Fatalf("expected nil error, got: %v", err)
-		}
-		if path != pathTtal {
-			t.Errorf("want %q, got %q", pathTtal, path)
-		}
-	})
-
-	t.Run("empty project name returns task-has-no-project error", func(t *testing.T) {
-		// Use a multi-project store so single-project shortcut doesn't fire
-		store := newTestStoreWithProjects(t, []Project{
-			{Alias: "ttal", Path: pathTtal},
-			{Alias: "other", Path: "/path/other"},
-		})
-		_, err := resolveProjectPathOrErrorWithStore("", store)
-		if err == nil {
-			t.Fatal("expected error for empty project name")
-		}
-		if !strings.Contains(err.Error(), "no project field") {
-			t.Errorf("expected 'no project field' error, got: %v", err)
-		}
-	})
-
-	t.Run("unknown project returns error listing available projects", func(t *testing.T) {
-		store := newTestStoreWithProjects(t, []Project{
-			{Alias: "ttal", Path: pathTtal},
-			{Alias: "flicknote", Path: "/path/flicknote"},
-		})
-		_, err := resolveProjectPathOrErrorWithStore("nonexistent", store)
-		if err == nil {
-			t.Fatal("expected error for unknown project")
-		}
-		msg := err.Error()
-		if !strings.Contains(msg, "nonexistent") {
-			t.Errorf("error should mention alias: %v", msg)
-		}
-		if !strings.Contains(msg, "ttal") || !strings.Contains(msg, "flicknote") {
-			t.Errorf("error should list available projects: %v", msg)
-		}
-		if !strings.Contains(msg, "ttal project list") {
-			t.Errorf("error should include remediation hint: %v", msg)
-		}
-	})
-
-	t.Run("hierarchical alias uses base in error message", func(t *testing.T) {
-		// "ttal.pr" is not registered; error should mention "ttal" not "ttal.pr".
-		// Two projects prevent the single-project shortcut from firing.
-		store := newTestStoreWithProjects(t, []Project{
-			{Alias: "other", Path: "/path/other"},
-			{Alias: "another", Path: "/path/another"},
-		})
-		_, err := resolveProjectPathOrErrorWithStore("ttal.pr", store)
-		if err == nil {
-			t.Fatal("expected error for unregistered hierarchical alias")
-		}
-		msg := err.Error()
-		if !strings.Contains(msg, `"ttal"`) {
-			t.Errorf("error should use base alias 'ttal', got: %v", msg)
-		}
-	})
-}
-
-func TestMatchByContains(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		projects []Project
-		want     string
-	}{
-		{
-			name:  "input contains one alias",
-			input: "ttal-cli",
-			projects: []Project{
-				{Alias: "ttal", Path: pathTtal},
-				{Alias: "flicknote", Path: "/path/flicknote"},
-			},
-			want: pathTtal,
-		},
-		{
-			name:  "input contains multiple aliases - ambiguous",
-			input: "ttal-flicknote-app",
-			projects: []Project{
-				{Alias: "ttal", Path: pathTtal},
-				{Alias: "flicknote", Path: "/path/flicknote"},
-			},
-			want: "",
-		},
-		{
-			name:  "alias contains input but not vice versa - no match",
-			input: "tt",
-			projects: []Project{
-				{Alias: "ttal", Path: pathTtal},
-			},
-			want: "",
-		},
-		{
-			name:  "case insensitive match",
-			input: "TTAL-CLI",
-			projects: []Project{
-				{Alias: "ttal", Path: pathTtal},
-			},
-			want: pathTtal,
-		},
-		{
-			name:  "empty alias skipped",
-			input: "anything",
-			projects: []Project{
-				{Alias: "", Path: "/path/empty"},
-			},
-			want: "",
-		},
-		{
-			name:  "project with no path skipped",
-			input: "ttal-cli",
-			projects: []Project{
-				{Alias: "ttal", Path: ""},
-			},
-			want: "",
-		},
-		{
-			name:     "no projects",
-			input:    "ttal-cli",
-			projects: nil,
-			want:     "",
-		},
-		{
-			name:  "exact alias match via contains",
-			input: "ttal",
-			projects: []Project{
-				{Alias: "ttal", Path: pathTtal},
-			},
-			want: pathTtal,
-		},
+func TestResolveProjectPathOrError_EmptyReturnsError(t *testing.T) {
+	stubProjects(t, []Project{{Alias: "ttal", Path: "/path/ttal"}})
+	_, err := ResolveProjectPathOrError("")
+	if err == nil {
+		t.Fatal("expected error for empty project name")
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := matchByContains(tt.input, tt.projects)
-			if got != tt.want {
-				t.Errorf("matchByContains(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
+	if !strings.Contains(err.Error(), "no project field") {
+		t.Errorf("got %q, want 'no project field'", err.Error())
 	}
-}
-
-func TestResolveProjectAlias_PathMatch(t *testing.T) {
-	const testAlias = "proj"
-
-	t.Run("exact path match", func(t *testing.T) {
-		storeDir := t.TempDir()
-		workDir := filepath.Join(storeDir, "code")
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, workDir); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(workDir, store, "")
-		if got != testAlias {
-			t.Errorf("got %q, want %q", got, testAlias)
-		}
-	})
-
-	t.Run("nested inside registered path", func(t *testing.T) {
-		storeDir := t.TempDir()
-		projPath := filepath.Join(storeDir, "code")
-		subDir := filepath.Join(projPath, "backend", "cmd")
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, projPath); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(subDir, store, "")
-		if got != testAlias {
-			t.Errorf("got %q, want %q", got, testAlias)
-		}
-	})
-}
-
-func TestResolveProjectAlias_WorktreePaths(t *testing.T) {
-	const testAlias = "proj"
-
-	t.Run("worktree path extracts alias from uuid8-alias directory name", func(t *testing.T) {
-		storeDir := t.TempDir()
-		worktreesRoot := filepath.Join(storeDir, "worktrees")
-		worktreeDir := filepath.Join(worktreesRoot, "abc12345-"+testAlias)
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
-		if got != testAlias {
-			t.Errorf("got %q, want %q", got, testAlias)
-		}
-	})
-
-	t.Run("worktree path with subdirectory", func(t *testing.T) {
-		storeDir := t.TempDir()
-		worktreesRoot := filepath.Join(storeDir, "worktrees")
-		worktreeDir := filepath.Join(worktreesRoot, "deadbeef-"+testAlias, "src", "cmd")
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
-		if got != testAlias {
-			t.Errorf("got %q, want %q", got, testAlias)
-		}
-	})
-
-	t.Run("worktree path with alias containing hyphens", func(t *testing.T) {
-		storeDir := t.TempDir()
-		worktreesRoot := filepath.Join(storeDir, "worktrees")
-		const hyphenAlias = "proj-pr"
-		worktreeDir := filepath.Join(worktreesRoot, "12345678-"+hyphenAlias)
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(hyphenAlias, hyphenAlias, "/some/registered/path"); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
-		if got != hyphenAlias {
-			t.Errorf("got %q, want %q", got, hyphenAlias)
-		}
-	})
-
-	t.Run("worktree path with unknown alias returns empty", func(t *testing.T) {
-		storeDir := t.TempDir()
-		worktreesRoot := filepath.Join(storeDir, "worktrees")
-		worktreeDir := filepath.Join(worktreesRoot, "abc12345-unknown")
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
-		if got != "" {
-			t.Errorf("got %q, want %q", got, "")
-		}
-	})
-
-	t.Run("worktree path with too-short uuid8 returns empty", func(t *testing.T) {
-		storeDir := t.TempDir()
-		worktreesRoot := filepath.Join(storeDir, "worktrees")
-		worktreeDir := filepath.Join(worktreesRoot, "abc-"+testAlias)
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, "/some/registered/path"); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(worktreeDir, store, worktreesRoot)
-		if got != "" {
-			t.Errorf("got %q, want %q", got, "")
-		}
-	})
-}
-
-func TestResolveProjectAlias_Fallback(t *testing.T) {
-	const testAlias = "proj"
-
-	t.Run("unregistered path", func(t *testing.T) {
-		storeDir := t.TempDir()
-		workDir := filepath.Join(storeDir, "unregistered")
-		store := NewStore(filepath.Join(storeDir, "projects.toml"))
-		if err := store.Add(testAlias, testAlias, filepath.Join(storeDir, "other")); err != nil {
-			t.Fatalf("Add error: %v", err)
-		}
-		got := resolveProjectAliasWithStore(workDir, store, "")
-		if got != "" {
-			t.Errorf("got %q, want %q", got, "")
-		}
-	})
-
-	t.Run("store error returns empty", func(t *testing.T) {
-		store := NewStore("/nonexistent/projects.toml")
-		got := resolveProjectAliasWithStore("/any/path", store, "")
-		if got != "" {
-			t.Errorf("got %q, want %q", got, "")
-		}
-	})
 }

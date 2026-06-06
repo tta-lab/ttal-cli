@@ -212,7 +212,7 @@ func buildHTTPHandlers(
 		gitTag:                handleGitTag,
 		gitPull:               handleGitPull,
 		kubeLog: HandleKubeLog(
-			project.NewStore(config.ResolveProjectsPath()),
+			project.Get,
 			cfg.Kubernetes.Context,
 			cfg.Kubernetes.AllowedNamespaces,
 		),

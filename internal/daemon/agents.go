@@ -187,13 +187,13 @@ func bridgeAdapterEvents(
 
 // gatherProjectPaths returns all active project paths.
 // Single-team: only "default" team.
-func gatherProjectPaths(_ *config.Config, storePathFn func(string) string) []string {
+var gatherProjectPathsListFn = project.List
+
+func gatherProjectPaths(_ *config.Config) []string {
 	seen := make(map[string]bool)
 	var paths []string
 
-	projectsPath := storePathFn("default")
-	store := project.NewStore(projectsPath)
-	projects, err := store.List(false)
+	projects, err := gatherProjectPathsListFn()
 	if err != nil {
 		log.Printf("[daemon] warning: failed to load projects for team %s: %v", "default", err)
 	} else {
