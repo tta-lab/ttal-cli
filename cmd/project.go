@@ -54,7 +54,7 @@ var projectCmd = &cobra.Command{
 }
 
 var projectListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list", //nolint:goconst
 	Short: "List projects",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
