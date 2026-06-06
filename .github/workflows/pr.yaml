@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -30,6 +31,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.11.4
+          args: --new-from-rev=origin/main
 
       - name: Test
         run: make test
