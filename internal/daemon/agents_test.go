@@ -20,7 +20,7 @@ func TestGatherProjectPaths(t *testing.T) {
 	}
 
 	cfg := &config.Config{}
-	paths := gatherProjectPaths(cfg, nil)
+	paths := gatherProjectPaths(cfg)
 
 	want := []string{"/proj/alpha", "/proj/beta"}
 	if len(paths) != len(want) {
@@ -42,7 +42,7 @@ func TestGatherProjectPaths_EmptyStore(t *testing.T) {
 	}
 
 	cfg := &config.Config{}
-	paths := gatherProjectPaths(cfg, nil)
+	paths := gatherProjectPaths(cfg)
 	if len(paths) != 0 {
 		t.Errorf("expected 0 paths for empty store, got %v", paths)
 	}
@@ -57,7 +57,7 @@ func TestGatherProjectPaths_NoProjects(t *testing.T) {
 	}
 
 	cfg := &config.Config{}
-	paths := gatherProjectPaths(cfg, func(_ string) string { return "/nonexistent" })
+	paths := gatherProjectPaths(cfg)
 	if len(paths) != 0 {
 		t.Errorf("expected 0 paths with no teams, got %v", paths)
 	}

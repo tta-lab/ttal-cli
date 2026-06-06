@@ -22,9 +22,6 @@ type Project struct {
 	K8sNamespace   string `json:"k8s_namespace,omitempty"`
 }
 
-// projectListJSON is the shape returned by `project list --json`.
-type projectListJSON []Project
-
 // Get looks up a project by exact alias and returns its full info.
 // Returns nil if not found or on error.
 func Get(alias string) (*Project, error) {

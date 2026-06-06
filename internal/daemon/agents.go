@@ -189,7 +189,7 @@ func bridgeAdapterEvents(
 // Single-team: only "default" team.
 var gatherProjectPathsListFn = project.List
 
-func gatherProjectPaths(_ *config.Config, storePathFn func(string) string) []string {
+func gatherProjectPaths(_ *config.Config) []string {
 	seen := make(map[string]bool)
 	var paths []string
 

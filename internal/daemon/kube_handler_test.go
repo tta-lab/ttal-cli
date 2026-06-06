@@ -2,22 +2,7 @@ package daemon
 
 import (
 	"testing"
-
-	"github.com/tta-lab/ttal-cli/internal/project"
 )
-
-func testGetProject(t *testing.T) func(string) (*project.Project, error) {
-	t.Helper()
-	return func(alias string) (*project.Project, error) {
-		return &project.Project{
-			Alias:        alias,
-			Name:         "Test",
-			Path:         "/test/path",
-			K8sApp:       "testapp",
-			K8sNamespace: "testns",
-		}, nil
-	}
-}
 
 func TestBuildKubectlArgs(t *testing.T) {
 	args := buildKubectlArgs("myapp", "myns", "myctx", 50, "1h")
