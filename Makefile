@@ -85,7 +85,7 @@ reset: clean
 # Run tests (uses gotestsum for compact output)
 test:
 	@echo "Running tests..."
-	@go test -count=1 -json ./... | gotestsum --format testname --
+	@go test -count=1 -json ./... | gotestsum --format testname
 
 # Tidy go modules
 tidy:
