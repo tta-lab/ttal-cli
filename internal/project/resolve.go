@@ -316,9 +316,22 @@ func resolveProjectAliasInner(workDir string) string {
 
 // extractWorktreeAlias extracts the project alias from a ttal worktree path.
 // Path format: <worktreesRoot>/<uuid8>-<alias>/...
+// worktreesRoot returns the directory where ttal worktrees are stored.
+// Injectable for testing via worktreesRootFn.
+var worktreesRootFn = func() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".ttal", "worktrees")
+}
+
 func extractWorktreeAlias(cleanWork string) string {
-	const worktreesRoot = "~/.ttal/worktrees"
-	prefix := filepath.Clean(worktreesRoot) + string(filepath.Separator)
+	root := worktreesRootFn()
+	if root == "" {
+		return ""
+	}
+	prefix := filepath.Clean(root) + string(filepath.Separator)
 	if !strings.HasPrefix(cleanWork, prefix) {
 		return ""
 	}
