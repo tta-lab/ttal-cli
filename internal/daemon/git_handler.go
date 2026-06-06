@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tta-lab/ttal-cli/internal/config"
 	"github.com/tta-lab/ttal-cli/internal/gitutil"
 	"github.com/tta-lab/ttal-cli/internal/project"
 )
@@ -370,8 +369,7 @@ func isMissingRemoteBranchDelete(output string) bool {
 // config errors instead of the misleading "not a registered project" message.
 func isRegisteredProjectPath(path string) (bool, error) {
 	cleanPath := filepath.Clean(path)
-	store := project.NewStore(config.ResolveProjectsPath())
-	projects, err := store.List(false)
+	projects, err := project.List()
 	if err != nil {
 		return false, err
 	}

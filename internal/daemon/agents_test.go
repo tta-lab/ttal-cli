@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,27 +9,19 @@ import (
 )
 
 func TestGatherProjectPaths(t *testing.T) {
-	// Create a temp project store.
-	team1Dir := t.TempDir()
+	orig := gatherProjectPathsListFn
+	t.Cleanup(func() { gatherProjectPathsListFn = orig })
 
-	store1 := project.NewStore(filepath.Join(team1Dir, "projects.toml"))
-	if err := store1.Add("alpha", "Alpha", "/proj/alpha"); err != nil {
-		t.Fatalf("store1.Add alpha: %v", err)
+	gatherProjectPathsListFn = func() ([]project.Project, error) {
+		return []project.Project{
+			{Alias: "alpha", Name: "Alpha", Path: "/proj/alpha"},
+			{Alias: "beta", Name: "Beta", Path: "/proj/beta"},
+		}, nil
 	}
-	if err := store1.Add("beta", "Beta", "/proj/beta"); err != nil {
-		t.Fatalf("store1.Add beta: %v", err)
-	}
-
-	storeMap := map[string]string{
-		"default": filepath.Join(team1Dir, "projects.toml"),
-	}
-	storePathFn := func(teamName string) string { return storeMap[teamName] }
 
 	cfg := &config.Config{}
+	paths := gatherProjectPaths(cfg, nil)
 
-	paths := gatherProjectPaths(cfg, storePathFn)
-
-	// Expect sorted paths.
 	want := []string{"/proj/alpha", "/proj/beta"}
 	if len(paths) != len(want) {
 		t.Fatalf("expected %d paths, got %d: %v", len(want), len(paths), paths)
@@ -43,25 +34,35 @@ func TestGatherProjectPaths(t *testing.T) {
 }
 
 func TestGatherProjectPaths_EmptyStore(t *testing.T) {
-	tmpDir := t.TempDir()
-	// Store exists but has no projects.
-	storePathFn := func(_ string) string { return filepath.Join(tmpDir, "projects.toml") }
+	orig := gatherProjectPathsListFn
+	t.Cleanup(func() { gatherProjectPathsListFn = orig })
+
+	gatherProjectPathsListFn = func() ([]project.Project, error) {
+		return nil, nil
+	}
 
 	cfg := &config.Config{}
-
-	paths := gatherProjectPaths(cfg, storePathFn)
+	paths := gatherProjectPaths(cfg, nil)
 	if len(paths) != 0 {
 		t.Errorf("expected 0 paths for empty store, got %v", paths)
 	}
 }
 
 func TestGatherProjectPaths_NoProjects(t *testing.T) {
+	orig := gatherProjectPathsListFn
+	t.Cleanup(func() { gatherProjectPathsListFn = orig })
+
+	gatherProjectPathsListFn = func() ([]project.Project, error) {
+		return nil, nil
+	}
+
 	cfg := &config.Config{}
 	paths := gatherProjectPaths(cfg, func(_ string) string { return "/nonexistent" })
 	if len(paths) != 0 {
 		t.Errorf("expected 0 paths with no teams, got %v", paths)
 	}
 }
+
 func TestBuildManagerAgentEnv(t *testing.T) {
 	t.Run("includes identity and 1h prompt cache flag", func(t *testing.T) {
 		cfg := &config.Config{}
@@ -75,5 +76,4 @@ func TestBuildManagerAgentEnv(t *testing.T) {
 			t.Errorf("ENABLE_PROMPT_CACHING_1H=1 missing from %v — 1h TTL opt-in is required for manager sessions", vars)
 		}
 	})
-
 }

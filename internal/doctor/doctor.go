@@ -655,10 +655,7 @@ func GenerateSyncCredentials(dataDir, syncURL string) error {
 
 func checkDatabase() Section {
 	section := Section{Name: "Projects"}
-	projectsPath := config.ResolveProjectsPath()
-
-	store := project.NewStore(projectsPath)
-	projects, err := store.List(false)
+	projects, err := project.List()
 	if err != nil {
 		section.add(LevelWarn, "projects", fmt.Sprintf("could not read projects: %v", err))
 		return section
@@ -667,7 +664,7 @@ func checkDatabase() Section {
 	if len(projects) == 0 {
 		section.add(LevelWarn, "projects", "no projects found (run: ttal project add)")
 	} else {
-		section.add(LevelOK, "projects", fmt.Sprintf("%d active projects in %s", len(projects), projectsPath))
+		section.add(LevelOK, "projects", fmt.Sprintf("%d active projects", len(projects)))
 	}
 
 	// Count agents from filesystem (team_path)
