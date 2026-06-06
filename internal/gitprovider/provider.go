@@ -1,6 +1,7 @@
 package gitprovider
 
 import (
+	"bufio"
 	"io"
 	"net/http"
 	"strings"
@@ -86,14 +87,7 @@ func isFailedStatus(s string) bool {
 }
 
 func tailString(s string, n int) string {
-	if n <= 0 {
-		return ""
-	}
-	lines := strings.Split(s, "\n")
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
-	}
-	return strings.Join(lines, "\n")
+	return tailReader(strings.NewReader(s), n)
 }
 
 func fetchLogTail(url string, lines int) string {
@@ -102,6 +96,31 @@ func fetchLogTail(url string, lines int) string {
 		return ""
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-	return tailString(string(data), lines)
+	return tailReader(resp.Body, lines)
+}
+
+func tailReader(r io.Reader, maxLines int) string {
+	if maxLines <= 0 {
+		return ""
+	}
+
+	recent := make([]string, 0, maxLines)
+	reader := bufio.NewReader(r)
+	for {
+		line, err := reader.ReadString('\n')
+		if line != "" {
+			line = strings.TrimRight(line, "\r\n")
+			if len(recent) == maxLines {
+				copy(recent, recent[1:])
+				recent[len(recent)-1] = line
+			} else {
+				recent = append(recent, line)
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	return strings.Join(recent, "\n")
 }
