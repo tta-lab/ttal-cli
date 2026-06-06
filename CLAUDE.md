@@ -140,16 +140,10 @@ full lifecycle: close session, remove worktree, mark task done.
 `ttal doctor --fix` installs taskwarrior hooks (`on-add-ttal`, `on-modify-ttal`) and flicknote hooks.
 `ttal context` is the agent wake-orientation orchestrator; agents run it via spawn-trigger instruction.
 
-### Modify Command Syntax
+### Project Management
 
-The `modify` command supports field updates:
-
-**Field Updates**: `field:value`
-- Project fields: `alias`, `name`, `path`
-
-```
-ttal project modify clawd name:'New Name' path:/new/path
-```
+Projects are managed by editing `~/.config/ttal/projects.toml` directly — no CLI commands for writes.
+Use `ttal project list` or `project list` to view.
 
 ## CI/CD
 

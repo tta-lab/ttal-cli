@@ -5,11 +5,21 @@ description: Manage projects in your team.
 
 # ttal project
 
-Manage projects in your team.
+Read-only project management. Writes go directly to `~/.config/ttal/projects.toml`.
 
 ```
 ttal project list              # list all active projects
-ttal project add <alias>      # add a new project
-ttal project modify <alias>   # modify project fields
-ttal project archive <alias>  # archive a project
+ttal project resolve [path]    # resolve alias from filesystem path
+ttal project resolve --json    # enriched JSON with task info
+```
+
+Or use the standalone `project` CLI:
+
+```
+project list                    # table with alias, org, name
+project list --json             # full JSON with k8s fields
+project get <alias>             # get path by alias
+project get --json <alias>      # full project JSON
+project resolve <alias|path>    # resolve alias or path
+project jump <alias|org/repo>   # print filesystem path for cd
 ```

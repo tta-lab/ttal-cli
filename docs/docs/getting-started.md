@@ -95,8 +95,12 @@ Onboarding walks through:
 
 ### Register a project
 
-```
-ttal project add myapp --path=/path/to/project
+Edit `~/.config/ttal/projects.toml`:
+
+```toml
+[myapp]
+name = "My Application"
+path = "/path/to/project"
 ```
 
 ### Start the daemon

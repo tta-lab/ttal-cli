@@ -145,7 +145,7 @@ Your agents:
 
 Next steps:
   • Start your agents: ttal team start
-  • Add a project: ttal project add myapp --path /path/to/repo
+  • Add a project by editing ~/.config/ttal/projects.toml directly
   • Create a task: ttal task add --project myapp "Build the thing"
 ```
 

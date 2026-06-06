@@ -87,6 +87,6 @@ ttal pushes behavior into configuration, not source code.
 
 **Skills as files** — agent capabilities are markdown files deployed via `ttal sync`. Drop a file into `~/clawd/docs/skills/`, sync, and every agent gains that capability.
 
-**Project store as TOML** — add a project with `ttal project add alias name /path`. Remove it with `ttal project remove`. No database, no migrations.
+**Project store as TOML** — projects are defined in `~/.config/ttal/projects.toml`. Read with `project list` or `ttal project list`. No database, no migrations.
 
 The principle: the people who use ttal daily — agents and their human — should be able to change behavior without touching Go code. The binary is plumbing. The config is the product. When an agent needs a new capability, the answer is a new skill file, not a pull request to the CLI.
