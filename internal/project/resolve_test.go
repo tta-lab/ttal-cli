@@ -3,6 +3,7 @@ package project
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -76,5 +77,16 @@ func TestExtractWorktreeAlias(t *testing.T) {
 				t.Errorf("resolveProjectAliasInner(%q)=%q want %q", tt.cwd, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestResolveProjectPathOrError_EmptyReturnsError(t *testing.T) {
+	stubProjects(t, []Project{{Alias: "ttal", Path: "/path/ttal"}})
+	_, err := ResolveProjectPathOrError("")
+	if err == nil {
+		t.Fatal("expected error for empty project name")
+	}
+	if !strings.Contains(err.Error(), "no project field") {
+		t.Errorf("got %q, want 'no project field'", err.Error())
 	}
 }

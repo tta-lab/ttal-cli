@@ -35,7 +35,7 @@ func Get(alias string) (*Project, error) {
 // Resolution order:
 //  1. If projectName matches an alias (with hierarchical fallback: "ttal.pr" → "ttal") → use that project's path
 //  2. If projectName contains exactly one alias ("ttal-cli" contains "ttal") → use that project's path
-//  3. If no match but only ONE project exists → use it (single-project shortcut)
+//  3. If no match → returns ""
 //  4. Otherwise → return empty (no match)
 func ResolveProjectPath(projectName string) string {
 	return resolveProjectPathInner(projectName)
@@ -113,7 +113,7 @@ func ValidateProjectAlias(alias string) error {
 // Resolution order (same as ResolveProjectPath):
 //  1. Hierarchical candidates: "ttal.pr" → try "ttal.pr", then "ttal"
 //  2. Contains fallback: "ttal-cli" matches alias "ttal"
-//  3. Single-project shortcut
+//  3. Falls back to contains match
 func ResolveProject(projectName string) *Project {
 	return resolveProjectInner(projectName)
 }
@@ -237,11 +237,6 @@ func resolveProjectPathInner(projectName string) string {
 		}
 	}
 
-	// Single-project shortcut
-	if len(allProjects) == 1 && allProjects[0].Path != "" {
-		return allProjects[0].Path
-	}
-
 	return ""
 }
 
@@ -273,11 +268,6 @@ func resolveProjectInner(projectName string) *Project {
 		if p := matchProjectByContains(projectName, allProjects); p != nil {
 			return p
 		}
-	}
-
-	// Single-project shortcut
-	if len(allProjects) == 1 && allProjects[0].Path != "" {
-		return &allProjects[0]
 	}
 
 	return nil
