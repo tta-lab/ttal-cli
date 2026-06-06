@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tta-lab/ttal-cli/internal/config"
-	"github.com/tta-lab/ttal-cli/internal/project"
-	"github.com/tta-lab/ttal-cli/internal/reporef"
 )
 
 // Shell functions installed via --init. command ttal prevents alias recursion.
@@ -31,7 +29,7 @@ var jumpFlags struct {
 }
 
 var jumpCmd = &cobra.Command{
-	Use:   "jump <alias|reponame>",
+	Use:   "jump <alias|org/repo>",
 	Short: "Print path to a project or cloned repo directory",
 	Long: `Print the filesystem path for a project alias or cloned repo name.
 
@@ -45,10 +43,7 @@ Designed to be wrapped in a shell function that performs the cd:
 
 Then use: t <alias> or t <org/repo>   (e.g. t ttal, t crush, t charmbracelet/crush)
 
-Resolution order:
-  1. Exact project alias match (projects.toml)
-  2. Bare repo name in ~/.ttal/references/ (already-cloned repos)
-  3. GitHub org/repo in ~/.ttal/references/github.com/ (clone if missing)`,
+Delegates to the project CLI binary for all resolution logic.`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runJump,
 }
@@ -72,39 +67,16 @@ func runJump(cmd *cobra.Command, args []string) error {
 	}
 	target := args[0]
 
-	// 1. Try project alias (exact match).
-	projPath, err := project.GetProjectPath(target)
-	if err == nil {
-		fmt.Println(projPath)
-		return nil
-	}
-
-	// 2. Try reference repo. Bare names must already exist; org/repo clones on miss.
-	// ResolvedReferencesPath handles the default (~/.ttal/references/) on a zero-value Config,
-	// so this works even when config.toml doesn't exist.
-	cfg, cfgErr := config.Load()
-	if cfgErr != nil {
-		cfg = &config.Config{}
-		if !strings.Contains(cfgErr.Error(), "config not found") {
-			fmt.Fprintf(cmd.ErrOrStderr(), "warning: config load failed, using default references path: %v\n", cfgErr)
+	out, err := exec.Command("project", "jump", target).Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("%s", strings.TrimSpace(string(exitErr.Stderr)))
 		}
-	}
-	refsPath := cfg.ResolvedReferencesPath()
-
-	repoPath, repoErr := reporef.ResolveOrCloneRepo(target, refsPath)
-	if repoErr == nil {
-		fmt.Println(repoPath)
-		return nil
+		return fmt.Errorf("project jump: %w", err)
 	}
 
-	// Surface repo lookup failure to help debug references path issues.
-	fmt.Fprintf(cmd.ErrOrStderr(), "note: repo lookup also failed: %v\n", repoErr)
-	if strings.Contains(target, "/") {
-		return repoErr
-	}
-
-	// Return the project error — more actionable than the repo error.
-	return err
+	fmt.Print(string(out))
+	return nil
 }
 
 func init() {
