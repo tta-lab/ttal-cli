@@ -81,7 +81,7 @@ The table key IS the alias. Active projects are top-level `[alias]`, archived un
 // Resolution order for taskwarrior project matching:
 // 1. Exact alias match (with "." hierarchical fallback)
 // 2. Contains fallback ("ttal-cli" matches alias "ttal")
-// 3. Single-project shortcut (if only one project exists)
+// 3. If no match → returns ""
 path := project.ResolveProjectPath("ttal.pr")
 ```
 
