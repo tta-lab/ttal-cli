@@ -304,6 +304,33 @@ func resolveProjectAliasInner(workDir string) string {
 		}
 	}
 
+	// Worktree path: <worktreesRoot>/<uuid8>-<alias>/ → extract alias
+	if alias := extractWorktreeAlias(cleanWork); alias != "" {
+		if proj, err := getProjectByAlias(alias); err == nil && proj != nil {
+			return alias
+		}
+	}
+
+	return ""
+}
+
+// extractWorktreeAlias extracts the project alias from a ttal worktree path.
+// Path format: <worktreesRoot>/<uuid8>-<alias>/...
+func extractWorktreeAlias(cleanWork string) string {
+	const worktreesRoot = "~/.ttal/worktrees"
+	prefix := filepath.Clean(worktreesRoot) + string(filepath.Separator)
+	if !strings.HasPrefix(cleanWork, prefix) {
+		return ""
+	}
+	rel := strings.TrimPrefix(cleanWork, prefix)
+	parts := strings.SplitN(rel, string(filepath.Separator), 2)
+	if len(parts) < 1 {
+		return ""
+	}
+	dir := parts[0]
+	if len(dir) > 9 && dir[8] == '-' {
+		return dir[9:]
+	}
 	return ""
 }
 
