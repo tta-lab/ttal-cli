@@ -140,14 +140,15 @@ func ResolveGitHubToken(projectAlias string) string {
 
 // --- shell-out helpers ---
 
-func runProjectJSON(args ...string) ([]byte, error) {
+// runProjectBinary is the shell-out function, injectable for testing.
+var runProjectBinary = func(args ...string) ([]byte, error) {
 	cmd := exec.Command("project", args...)
 	cmd.Stderr = nil // suppress stderr
 	return cmd.Output()
 }
 
 func loadProjects() ([]Project, error) {
-	out, err := runProjectJSON("list", "--json")
+	out, err := runProjectBinary("list", "--json")
 	if err != nil {
 		return nil, fmt.Errorf("project list failed: %w", err)
 	}
@@ -159,7 +160,7 @@ func loadProjects() ([]Project, error) {
 }
 
 func getProjectByAlias(alias string) (*Project, error) {
-	out, err := runProjectJSON("resolve", alias)
+	out, err := runProjectBinary("resolve", alias)
 	if err != nil {
 		return nil, fmt.Errorf("project %q not found", alias)
 	}
@@ -174,7 +175,7 @@ func getProjectByAlias(alias string) (*Project, error) {
 }
 
 func getProjectByPath(targetPath string) (*Project, error) {
-	out, err := runProjectJSON("resolve", targetPath)
+	out, err := runProjectBinary("resolve", targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("project for path %q not found", targetPath)
 	}
