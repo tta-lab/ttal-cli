@@ -166,6 +166,8 @@ func setupBumpTestRepo(t *testing.T) (dir string, runGit func(...string)) {
 		}
 	}
 	runGit("init")
+	runGit("config", "user.name", "test")
+	runGit("config", "user.email", "test@test")
 	runGit("commit", "--allow-empty", "-m", "init")
 	return dir, runGit
 }
