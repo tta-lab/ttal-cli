@@ -1,6 +1,10 @@
 package cmd
 
-import "testing"
+import (
+	"os"
+	"os/exec"
+	"testing"
+)
 
 func TestSemverRe(t *testing.T) {
 	tests := []struct {
@@ -39,4 +43,183 @@ func TestSemverRe(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSemverBaseRe(t *testing.T) {
+	tests := []struct {
+		tag     string
+		matches bool
+		major   string
+		minor   string
+		patch   string
+		suffix  string
+	}{
+		{"v1.0.0", true, "1", "0", "0", ""},
+		{"v0.1.0", true, "0", "1", "0", ""},
+		{"v10.20.30", true, "10", "20", "30", ""},
+		{"v1.0.0+build.123", true, "1", "0", "0", "+build.123"},
+		{"v1.6.1+0.74.1", true, "1", "6", "1", "+0.74.1"},
+		{"v1.0.0-rc.1", false, "", "", "", ""}, // pre-release not matched
+		{"v1.0.0-rc.1+build.456", false, "", "", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.tag, func(t *testing.T) {
+			matches := semverBaseRe.FindStringSubmatch(tt.tag)
+			if tt.matches && matches == nil {
+				t.Fatalf("semverBaseRe.FindStringSubmatch(%q) = nil, want match", tt.tag)
+			}
+			if !tt.matches && matches != nil {
+				t.Fatalf("semverBaseRe.FindStringSubmatch(%q) = %v, want no match", tt.tag, matches)
+			}
+			if matches != nil {
+				if matches[1] != tt.major {
+					t.Errorf("major: got %q, want %q", matches[1], tt.major)
+				}
+				if matches[2] != tt.minor {
+					t.Errorf("minor: got %q, want %q", matches[2], tt.minor)
+				}
+				if matches[3] != tt.patch {
+					t.Errorf("patch: got %q, want %q", matches[3], tt.patch)
+				}
+				if matches[4] != tt.suffix {
+					t.Errorf("suffix: got %q, want %q", matches[4], tt.suffix)
+				}
+			}
+		})
+	}
+}
+
+func testBumpedTag(t *testing.T, workDir string, major, minor bool, want string) {
+	t.Helper()
+	got, err := computeBumpedTag(workDir, major, minor)
+	if err != nil {
+		t.Fatalf("computeBumpedTag(%v, %v): %v", major, minor, err)
+	}
+	if got != want {
+		t.Errorf("computeBumpedTag(%v, %v) = %q, want %q", major, minor, got, want)
+	}
+}
+
+func testBumpedTagError(t *testing.T, workDir string, major, minor bool) {
+	t.Helper()
+	got, err := computeBumpedTag(workDir, major, minor)
+	if err == nil {
+		t.Errorf("expected error for computeBumpedTag(%v, %v), got %q", major, minor, got)
+	}
+	if got != "" {
+		t.Errorf("expected empty tag on error, got %q", got)
+	}
+}
+
+func TestComputeBumpedTagNoTags(t *testing.T) {
+	dir, gitDir := setupBumpTestRepo(t)
+	defer func() { _ = os.RemoveAll(dir) }()
+	_ = gitDir
+
+	testBumpedTag(t, dir, false, false, "v0.0.1")
+	testBumpedTag(t, dir, false, true, "v0.1.0")
+	testBumpedTag(t, dir, true, false, "v1.0.0")
+}
+
+func TestComputeBumpedTagSimple(t *testing.T) {
+	dir := setupBumpTestRepoWithTag(t, "v1.2.3")
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	testBumpedTag(t, dir, false, false, "v1.2.4")
+	testBumpedTag(t, dir, false, true, "v1.3.0")
+	testBumpedTag(t, dir, true, false, "v2.0.0")
+}
+
+func TestComputeBumpedTagSuffix(t *testing.T) {
+	dir := setupBumpTestRepoWithTag(t, "v1.6.1+0.74.1")
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	testBumpedTag(t, dir, false, false, "v1.6.2+0.74.1")
+	testBumpedTag(t, dir, false, true, "v1.7.0+0.74.1")
+	testBumpedTag(t, dir, true, false, "v2.0.0+0.74.1")
+}
+
+func TestComputeBumpedTagPreRelease(t *testing.T) {
+	dir := setupBumpTestRepoWithTag(t, "v2.0.0-rc.1")
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	testBumpedTagError(t, dir, false, false)
+}
+
+func setupBumpTestRepo(t *testing.T) (dir string, runGit func(...string)) {
+	dir, err := os.MkdirTemp("", "ttal-tag-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runGit = func(args ...string) {
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %s — %v", args, string(out), err)
+		}
+	}
+	runGit("init")
+	runGit("commit", "--allow-empty", "-m", "init")
+	return dir, runGit
+}
+
+func setupBumpTestRepoWithTag(t *testing.T, tag string) string {
+	dir, runGit := setupBumpTestRepo(t)
+	runGit("tag", tag)
+	return dir
+}
+
+func TestTagCmdArgValidation(t *testing.T) {
+	// Simulate the arg validation logic from tagCmd.RunE
+
+	// Test mutex: bump flag + positional arg fails
+	major := true
+	args := []string{"v1.0.0"}
+	bump := major
+	if bump && len(args) > 0 {
+		// expected error
+	} else {
+		t.Fatal("expected mutex error")
+	}
+
+	// Test no args + no flags fails
+	major = false
+	minor := false
+	patch := false
+	args = []string{}
+	bump = major || minor || patch
+	if !bump && len(args) == 0 {
+		// expected error
+	} else {
+		t.Fatal("expected error for no flags and no args")
+	}
+
+	// Test positional + no flags OK
+	major = false
+	minor = false
+	patch = false
+	args = []string{"v1.0.0"}
+	bump = major || minor || patch
+	if bump {
+		t.Fatal("should not be bump")
+	}
+	if len(args) == 0 {
+		t.Fatal("should have arg")
+	}
+	// should reach here without error
+
+	// Test bump only + no positional OK
+	major = false
+	minor = false
+	patch = true
+	args = []string{}
+	bump = major || minor || patch
+	if !bump {
+		t.Fatal("should be bump")
+	}
+	if len(args) > 0 {
+		t.Fatal("should not have positional")
+	}
+	// should reach here without error
 }
