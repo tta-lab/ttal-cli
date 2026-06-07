@@ -68,7 +68,7 @@ Examples:
 
 		if isBump {
 			switch bump {
-			case "major", "minor", "patch":
+			case bumpMajor, bumpMinor, bumpPatch:
 			default:
 				return fmt.Errorf("invalid --bump value %q — must be major, minor, or patch", bump)
 			}
@@ -126,6 +126,10 @@ const (
 	initialMajor = "v1.0.0"
 	initialMinor = "v0.1.0"
 	initialPatch = "v0.0.1"
+
+	bumpMajor = "major"
+	bumpMinor = "minor"
+	bumpPatch = "patch"
 )
 
 // computeBumpedTag finds the largest tag, bumps the specified level, and returns the new tag.
@@ -137,9 +141,9 @@ func computeBumpedTag(workDir, level string) (string, error) {
 	}
 	if latest == "" {
 		switch level {
-		case "major":
+		case bumpMajor:
 			return initialMajor, nil
-		case "minor":
+		case bumpMinor:
 			return initialMinor, nil
 		default:
 			return initialPatch, nil
@@ -159,11 +163,11 @@ func computeBumpedTag(workDir, level string) (string, error) {
 	suffix := matches[4] // includes leading +, or "" if absent
 
 	switch level {
-	case "major":
+	case bumpMajor:
 		maj++
 		min = 0
 		pat = 0
-	case "minor":
+	case bumpMinor:
 		min++
 		pat = 0
 	default:

@@ -116,34 +116,34 @@ func TestComputeBumpedTagNoTags(t *testing.T) {
 	dir, _ := setupBumpTestRepo(t)
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTag(t, dir, "patch", "v0.0.1")
-	testBumpedTag(t, dir, "minor", "v0.1.0")
-	testBumpedTag(t, dir, "major", "v1.0.0")
+	testBumpedTag(t, dir, bumpPatch, "v0.0.1")
+	testBumpedTag(t, dir, bumpMinor, "v0.1.0")
+	testBumpedTag(t, dir, bumpMajor, "v1.0.0")
 }
 
 func TestComputeBumpedTagSimple(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v1.2.3")
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTag(t, dir, "patch", "v1.2.4")
-	testBumpedTag(t, dir, "minor", "v1.3.0")
-	testBumpedTag(t, dir, "major", "v2.0.0")
+	testBumpedTag(t, dir, bumpPatch, "v1.2.4")
+	testBumpedTag(t, dir, bumpMinor, "v1.3.0")
+	testBumpedTag(t, dir, bumpMajor, "v2.0.0")
 }
 
 func TestComputeBumpedTagSuffix(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v1.6.1+0.74.1")
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTag(t, dir, "patch", "v1.6.2+0.74.1")
-	testBumpedTag(t, dir, "minor", "v1.7.0+0.74.1")
-	testBumpedTag(t, dir, "major", "v2.0.0+0.74.1")
+	testBumpedTag(t, dir, bumpPatch, "v1.6.2+0.74.1")
+	testBumpedTag(t, dir, bumpMinor, "v1.7.0+0.74.1")
+	testBumpedTag(t, dir, bumpMajor, "v2.0.0+0.74.1")
 }
 
 func TestComputeBumpedTagPreRelease(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v2.0.0-rc.1")
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTagError(t, dir, "patch")
+	testBumpedTagError(t, dir, bumpPatch)
 }
 
 func TestComputeBumpedTagInvalidLevel(t *testing.T) {
@@ -180,7 +180,7 @@ func TestTagCmdArgValidation(t *testing.T) {
 	// Simulate the arg validation logic from tagCmd.RunE
 
 	// Test mutex: --bump + positional arg fails
-	bump := "patch"
+	bump := bumpPatch
 	args := []string{"v1.0.0"}
 	isBump := bump != ""
 	if isBump && len(args) > 0 {
@@ -211,7 +211,7 @@ func TestTagCmdArgValidation(t *testing.T) {
 	}
 
 	// Test bump only OK
-	bump = "patch"
+	bump = bumpPatch
 	args = []string{}
 	isBump = bump != ""
 	if !isBump {
