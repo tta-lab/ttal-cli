@@ -23,23 +23,24 @@ var semverRe = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)
 var semverBaseRe = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$`)
 
 var tagCmd = &cobra.Command{
-	Use:   "tag [<version> | --major | --minor | --patch]",
+	Use:   "tag [<version> | --bump <major|minor|patch>]",
 	Short: "Create and push a git tag via daemon (no credentials needed in worker)",
 	Long: `Creates a lightweight git tag and pushes it to origin through the daemon.
 The daemon injects credentials — workers don't need tokens in their environment.
 
 Resolves the project from the current working directory. No --project flag needed.
 
-With --major, --minor, or --patch, automatically bumps the largest existing version
-tag in the repo. Existing +suffix (e.g. +0.74.1) is preserved on bump.
+With --bump, automatically bumps the largest existing version tag in the repo.
+Existing +suffix (e.g. +0.74.1) is preserved on bump.
 
 With a positional version argument, tags that exact version directly.
 
 Examples:
-  ttal tag --patch              # v1.2.3 → v1.2.4
-  ttal tag --minor              # v1.2.3 → v1.3.0
-  ttal tag v2.0.0               # explicit version
-  ttal tag v1.6.1+0.74.1        # explicit with +suffix`,
+  ttal tag --bump patch          # v1.2.3 → v1.2.4
+  ttal tag --bump minor          # v1.2.3 → v1.3.0
+  ttal tag --bump major          # v1.2.3 → v2.0.0
+  ttal tag v2.0.0                # explicit version
+  ttal tag v1.6.1+0.74.1         # explicit with +suffix`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
@@ -56,25 +57,28 @@ Examples:
 			return err
 		}
 
-		major, _ := cmd.Flags().GetBool("major")
-		minor, _ := cmd.Flags().GetBool("minor")
-		patch, _ := cmd.Flags().GetBool("patch")
-		bump := major || minor || patch
+		bump, _ := cmd.Flags().GetString("bump")
+		isBump := bump != ""
+
+		if isBump && len(args) > 0 {
+			return fmt.Errorf("--bump and a positional version are mutually exclusive")
+		}
 
 		var tag string
 
-		if bump && len(args) > 0 {
-			return fmt.Errorf("--major/--minor/--patch and a positional version are mutually exclusive")
-		}
-
-		if bump {
-			tag, err = computeBumpedTag(projectPath, major, minor)
+		if isBump {
+			switch bump {
+			case "major", "minor", "patch":
+			default:
+				return fmt.Errorf("invalid --bump value %q — must be major, minor, or patch", bump)
+			}
+			tag, err = computeBumpedTag(projectPath, bump)
 			if err != nil {
 				return err
 			}
 		} else {
 			if len(args) == 0 {
-				return fmt.Errorf("either a version argument or one of --major/--minor/--patch is required")
+				return fmt.Errorf("either a version argument or --bump is required")
 			}
 			tag = args[0]
 			if !semverRe.MatchString(tag) {
@@ -100,9 +104,7 @@ Examples:
 }
 
 func init() {
-	tagCmd.Flags().Bool("major", false, "bump major version")
-	tagCmd.Flags().Bool("minor", false, "bump minor version")
-	tagCmd.Flags().Bool("patch", false, "bump patch version")
+	tagCmd.Flags().String("bump", "", "bump version: major, minor, or patch")
 	rootCmd.AddCommand(tagCmd)
 }
 
@@ -126,21 +128,22 @@ const (
 	initialPatch = "v0.0.1"
 )
 
-// computeBumpedTag finds the largest tag, bumps the specified segment, and returns the new tag.
+// computeBumpedTag finds the largest tag, bumps the specified level, and returns the new tag.
 // The +suffix from the latest tag is preserved.
-func computeBumpedTag(workDir string, major, minor bool) (string, error) {
+func computeBumpedTag(workDir, level string) (string, error) {
 	latest, err := latestTag(workDir)
 	if err != nil {
 		return "", err
 	}
 	if latest == "" {
-		if major {
+		switch level {
+		case "major":
 			return initialMajor, nil
-		}
-		if minor {
+		case "minor":
 			return initialMinor, nil
+		default:
+			return initialPatch, nil
 		}
-		return initialPatch, nil
 	}
 
 	matches := semverBaseRe.FindStringSubmatch(latest)
@@ -155,14 +158,15 @@ func computeBumpedTag(workDir string, major, minor bool) (string, error) {
 	pat, _ := strconv.Atoi(matches[3])
 	suffix := matches[4] // includes leading +, or "" if absent
 
-	if major {
+	switch level {
+	case "major":
 		maj++
 		min = 0
 		pat = 0
-	} else if minor {
+	case "minor":
 		min++
 		pat = 0
-	} else {
+	default:
 		pat++
 	}
 

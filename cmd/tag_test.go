@@ -90,22 +90,22 @@ func TestSemverBaseRe(t *testing.T) {
 	}
 }
 
-func testBumpedTag(t *testing.T, workDir string, major, minor bool, want string) {
+func testBumpedTag(t *testing.T, workDir, level, want string) {
 	t.Helper()
-	got, err := computeBumpedTag(workDir, major, minor)
+	got, err := computeBumpedTag(workDir, level)
 	if err != nil {
-		t.Fatalf("computeBumpedTag(%v, %v): %v", major, minor, err)
+		t.Fatalf("computeBumpedTag(%q): %v", level, err)
 	}
 	if got != want {
-		t.Errorf("computeBumpedTag(%v, %v) = %q, want %q", major, minor, got, want)
+		t.Errorf("computeBumpedTag(%q) = %q, want %q", level, got, want)
 	}
 }
 
-func testBumpedTagError(t *testing.T, workDir string, major, minor bool) {
+func testBumpedTagError(t *testing.T, workDir, level string) {
 	t.Helper()
-	got, err := computeBumpedTag(workDir, major, minor)
+	got, err := computeBumpedTag(workDir, level)
 	if err == nil {
-		t.Errorf("expected error for computeBumpedTag(%v, %v), got %q", major, minor, got)
+		t.Errorf("expected error for computeBumpedTag(%q), got %q", level, got)
 	}
 	if got != "" {
 		t.Errorf("expected empty tag on error, got %q", got)
@@ -113,38 +113,44 @@ func testBumpedTagError(t *testing.T, workDir string, major, minor bool) {
 }
 
 func TestComputeBumpedTagNoTags(t *testing.T) {
-	dir, gitDir := setupBumpTestRepo(t)
+	dir, _ := setupBumpTestRepo(t)
 	defer func() { _ = os.RemoveAll(dir) }()
-	_ = gitDir
 
-	testBumpedTag(t, dir, false, false, "v0.0.1")
-	testBumpedTag(t, dir, false, true, "v0.1.0")
-	testBumpedTag(t, dir, true, false, "v1.0.0")
+	testBumpedTag(t, dir, "patch", "v0.0.1")
+	testBumpedTag(t, dir, "minor", "v0.1.0")
+	testBumpedTag(t, dir, "major", "v1.0.0")
 }
 
 func TestComputeBumpedTagSimple(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v1.2.3")
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTag(t, dir, false, false, "v1.2.4")
-	testBumpedTag(t, dir, false, true, "v1.3.0")
-	testBumpedTag(t, dir, true, false, "v2.0.0")
+	testBumpedTag(t, dir, "patch", "v1.2.4")
+	testBumpedTag(t, dir, "minor", "v1.3.0")
+	testBumpedTag(t, dir, "major", "v2.0.0")
 }
 
 func TestComputeBumpedTagSuffix(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v1.6.1+0.74.1")
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTag(t, dir, false, false, "v1.6.2+0.74.1")
-	testBumpedTag(t, dir, false, true, "v1.7.0+0.74.1")
-	testBumpedTag(t, dir, true, false, "v2.0.0+0.74.1")
+	testBumpedTag(t, dir, "patch", "v1.6.2+0.74.1")
+	testBumpedTag(t, dir, "minor", "v1.7.0+0.74.1")
+	testBumpedTag(t, dir, "major", "v2.0.0+0.74.1")
 }
 
 func TestComputeBumpedTagPreRelease(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v2.0.0-rc.1")
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	testBumpedTagError(t, dir, false, false)
+	testBumpedTagError(t, dir, "patch")
+}
+
+func TestComputeBumpedTagInvalidLevel(t *testing.T) {
+	_, err := computeBumpedTag("/tmp", "foo")
+	if err == nil {
+		t.Fatal("expected error for invalid level")
+	}
 }
 
 func setupBumpTestRepo(t *testing.T) (dir string, runGit func(...string)) {
@@ -173,53 +179,45 @@ func setupBumpTestRepoWithTag(t *testing.T, tag string) string {
 func TestTagCmdArgValidation(t *testing.T) {
 	// Simulate the arg validation logic from tagCmd.RunE
 
-	// Test mutex: bump flag + positional arg fails
-	major := true
+	// Test mutex: --bump + positional arg fails
+	bump := "patch"
 	args := []string{"v1.0.0"}
-	bump := major
-	if bump && len(args) > 0 {
+	isBump := bump != ""
+	if isBump && len(args) > 0 {
 		// expected error
 	} else {
 		t.Fatal("expected mutex error")
 	}
 
-	// Test no args + no flags fails
-	major = false
-	minor := false
-	patch := false
+	// Test no args + no bump fails
+	bump = ""
 	args = []string{}
-	bump = major || minor || patch
-	if !bump && len(args) == 0 {
+	isBump = bump != ""
+	if !isBump && len(args) == 0 {
 		// expected error
 	} else {
-		t.Fatal("expected error for no flags and no args")
+		t.Fatal("expected error for no bump and no args")
 	}
 
-	// Test positional + no flags OK
-	major = false
-	minor = false
-	patch = false
+	// Test positional + no bump OK
+	bump = ""
 	args = []string{"v1.0.0"}
-	bump = major || minor || patch
-	if bump {
+	isBump = bump != ""
+	if isBump {
 		t.Fatal("should not be bump")
 	}
 	if len(args) == 0 {
 		t.Fatal("should have arg")
 	}
-	// should reach here without error
 
-	// Test bump only + no positional OK
-	major = false
-	minor = false
-	patch = true
+	// Test bump only OK
+	bump = "patch"
 	args = []string{}
-	bump = major || minor || patch
-	if !bump {
+	isBump = bump != ""
+	if !isBump {
 		t.Fatal("should be bump")
 	}
 	if len(args) > 0 {
 		t.Fatal("should not have positional")
 	}
-	// should reach here without error
 }
