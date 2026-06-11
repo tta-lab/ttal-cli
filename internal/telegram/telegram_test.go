@@ -7,7 +7,7 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
-func TestSplitMessage_Short(t *testing.T) {
+func TestRenderMessageChunks_Short(t *testing.T) {
 	text := "hello world"
 	parts := renderMessageTexts(text)
 	if len(parts) != 1 || parts[0] != text {
@@ -15,7 +15,7 @@ func TestSplitMessage_Short(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_Exact4096(t *testing.T) {
+func TestRenderMessageChunks_Exact4096(t *testing.T) {
 	text := strings.Repeat("a", 4096)
 	parts := renderMessageTexts(text)
 	if len(parts) != 1 {
@@ -23,7 +23,7 @@ func TestSplitMessage_Exact4096(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_ParagraphBreak(t *testing.T) {
+func TestRenderMessageChunks_ParagraphBreak(t *testing.T) {
 	half := strings.Repeat("a", 2500)
 	text := half + "\n\n" + half
 	parts := renderMessageTexts(text)
@@ -37,7 +37,7 @@ func TestSplitMessage_ParagraphBreak(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_SingleNewline(t *testing.T) {
+func TestRenderMessageChunks_SingleNewline(t *testing.T) {
 	line := strings.Repeat("a", 100) + "\n"
 	text := strings.Repeat(line, 50) // 5050 chars
 	parts := renderMessageTexts(text)
@@ -51,7 +51,7 @@ func TestSplitMessage_SingleNewline(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_Space(t *testing.T) {
+func TestRenderMessageChunks_Space(t *testing.T) {
 	word := strings.Repeat("a", 50) + " "
 	text := strings.Repeat(word, 98) // ~4998 chars, no newlines
 	parts := renderMessageTexts(text)
@@ -65,7 +65,7 @@ func TestSplitMessage_Space(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_MultiChunk(t *testing.T) {
+func TestRenderMessageChunks_MultiChunk(t *testing.T) {
 	text := strings.Repeat("x\n", 4001) // 8002 chars
 	parts := renderMessageTexts(text)
 	if len(parts) < 2 {
@@ -78,7 +78,7 @@ func TestSplitMessage_MultiChunk(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_HardCut(t *testing.T) {
+func TestRenderMessageChunks_HardCut(t *testing.T) {
 	const textLen = 5000
 	text := strings.Repeat("a", textLen)
 	parts := renderMessageTexts(text)
@@ -94,14 +94,14 @@ func TestSplitMessage_HardCut(t *testing.T) {
 	}
 }
 
-func TestSplitMessage_Empty(t *testing.T) {
+func TestRenderMessageChunks_Empty(t *testing.T) {
 	parts := renderMessageTexts("")
 	if len(parts) != 1 {
 		t.Errorf("expected 1 part for empty string, got %d", len(parts))
 	}
 }
 
-func TestSplitMessage_AllWhitespaceOverLimit(t *testing.T) {
+func TestRenderMessageChunks_AllWhitespaceOverLimit(t *testing.T) {
 	text := strings.Repeat("\n", 5000)
 	parts := renderMessageTexts(text)
 	// verifies no panic or infinite loop; all whitespace trims to nothing so
@@ -110,7 +110,7 @@ func TestSplitMessage_AllWhitespaceOverLimit(t *testing.T) {
 	_ = parts
 }
 
-func TestSplitMessage_NonASCII(t *testing.T) {
+func TestRenderMessageChunks_NonASCII(t *testing.T) {
 	// Each emoji is 4 bytes — 4096 runes = 16384 bytes.
 	// Byte-based slicing would corrupt at char boundaries; rune-based is safe.
 	text := strings.Repeat("😀", 5000)
