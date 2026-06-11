@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	tgmd "github.com/eekstunt/telegramify-markdown-go"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
@@ -25,38 +26,38 @@ func ParseChatID(s string) (int64, error) {
 
 const maxMessageLen = 4096
 
-// splitMessage splits text into chunks that fit within Telegram's 4096-rune limit.
-// Splits at natural boundaries: paragraph breaks > newlines > spaces > hard cut.
-func splitMessage(text string) []string {
-	runes := []rune(text)
-	if len(runes) <= maxMessageLen {
-		return []string{text}
+type messageChunk struct {
+	Text     string
+	Entities []models.MessageEntity
+}
+
+func renderMessageChunks(text string) []messageChunk {
+	messages := tgmd.ConvertAndSplit(text, tgmd.WithMaxMessageLen(maxMessageLen))
+	chunks := make([]messageChunk, 0, len(messages))
+	for _, msg := range messages {
+		chunks = append(chunks, messageChunk{
+			Text:     msg.Text,
+			Entities: telegramMessageEntities(msg.Entities),
+		})
 	}
+	return chunks
+}
 
-	var parts []string
-	for len(runes) > 0 {
-		if len(runes) <= maxMessageLen {
-			parts = append(parts, string(runes))
-			break
-		}
-
-		chunk := string(runes[:maxMessageLen])
-		cutAt := maxMessageLen // in runes
-		if i := strings.LastIndex(chunk, "\n\n"); i > 0 {
-			cutAt = len([]rune(chunk[:i]))
-		} else if i := strings.LastIndex(chunk, "\n"); i > 0 {
-			cutAt = len([]rune(chunk[:i]))
-		} else if i := strings.LastIndex(chunk, " "); i > 0 {
-			cutAt = len([]rune(chunk[:i]))
-		}
-
-		part := strings.TrimRight(string(runes[:cutAt]), " \n")
-		if part != "" {
-			parts = append(parts, part)
-		}
-		runes = []rune(strings.TrimLeft(string(runes[cutAt:]), " \n"))
+func telegramMessageEntities(entities []tgmd.Entity) []models.MessageEntity {
+	if len(entities) == 0 {
+		return nil
 	}
-	return parts
+	out := make([]models.MessageEntity, len(entities))
+	for i, e := range entities {
+		out[i] = models.MessageEntity{
+			Type:     models.MessageEntityType(e.Type),
+			Offset:   e.Offset,
+			Length:   e.Length,
+			URL:      e.URL,
+			Language: e.Language,
+		}
+	}
+	return out
 }
 
 // SendMessage sends a text message to a chat via the Telegram Bot API.
@@ -76,14 +77,15 @@ func SendMessage(botToken, chatID, text string) error {
 		return err
 	}
 
-	chunks := splitMessage(text)
+	chunks := renderMessageChunks(text)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(len(chunks)+1)*15*time.Second)
 	defer cancel()
 
 	for i, chunk := range chunks {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: id,
-			Text:   chunk,
+			ChatID:   id,
+			Text:     chunk.Text,
+			Entities: chunk.Entities,
 		}); err != nil {
 			return fmt.Errorf("telegram send (chunk %d/%d): %w", i+1, len(chunks), err)
 		}

@@ -142,7 +142,7 @@ func persistMsg(msgSvc *message.Service, p message.CreateParams) {
 // applyOverflow truncates oversize message bodies and writes the full content
 // to the overflow directory. Only applied to agent/worker (tmux) channels —
 // human channels (Telegram) pass through untouched since Telegram already
-// handles chunking via splitMessage().
+// handles message chunking.
 func applyOverflow(msg string) string {
 	dir := filepath.Join(config.ResolveDataDir(), "files", "default")
 	return overflow.Write(msg, overflow.DefaultThreshold, dir)

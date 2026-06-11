@@ -28,6 +28,7 @@ require (
 
 require (
 	github.com/charmbracelet/x/ansi v0.11.6
+	github.com/eekstunt/telegramify-markdown-go v0.2.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/tta-lab/codex-server-go v0.1.0
 	golang.org/x/term v0.42.0
@@ -78,6 +79,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	github.com/yuin/goldmark v1.8.2 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	go.mau.fi/util v0.9.6 // indirect
