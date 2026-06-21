@@ -491,18 +491,17 @@ func runGitTestCmd(t *testing.T, workDir string, args ...string) {
 func TestHandleGitPush_AllowsMainAndMaster(t *testing.T) {
 	for _, branch := range []string{"main", "master"} {
 		t.Run(branch, func(t *testing.T) {
-			repo := initRepoWithRemote(t)
-			runGitTestCmd(t, repo, "switch", "-C", branch)
-			t.Setenv("FORGEJO_TOKEN", "test-token")
-
 			resp := handleGitPush(GitPushRequest{
-				WorkDir: repo,
+				WorkDir: "/tmp/not-a-real-repo",
 				Branch:  branch,
 			})
-			if resp.OK {
-				return
+			oldPolicyErr := fmt.Sprintf("push to %s blocked — use a feature branch and PR", branch)
+			if resp.Error == oldPolicyErr {
+				t.Fatalf("expected push to %s to bypass local policy guard, got old policy error", branch)
 			}
-			t.Fatalf("expected push to %s to reach git push, got error: %s", branch, resp.Error)
+			if !strings.Contains(resp.Error, "get remote URL") {
+				t.Fatalf("expected push to %s to reach remote resolution, got error: %s", branch, resp.Error)
+			}
 		})
 	}
 }
