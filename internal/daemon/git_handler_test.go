@@ -637,30 +637,36 @@ func TestHandleGitTag_PathTraversal(t *testing.T) {
 }
 
 func TestHandleGitTag_PushesExistingLocalTag(t *testing.T) {
+	const (
+		tag          = "v1.2.3"
+		projectAlias = "test"
+		ref          = "refs/tags/" + tag
+	)
+
 	repo := initRepoWithRemote(t)
-	runGitTestCmd(t, repo, "tag", "v1.2.3")
+	runGitTestCmd(t, repo, "tag", tag)
 
 	project.SetBinaryFn(func(args ...string) ([]byte, error) {
-		return []byte(fmt.Sprintf(`[{"alias":"test","path":%q}]`, repo)), nil
+		return []byte(fmt.Sprintf(`[{"alias":%q,"path":%q}]`, projectAlias, repo)), nil
 	})
 	t.Setenv("FORGEJO_TOKEN", "test-token")
 
 	resp := handleGitTag(GitTagRequest{
 		WorkDir:      repo,
-		Tag:          "v1.2.3",
-		ProjectAlias: "test",
+		Tag:          tag,
+		ProjectAlias: projectAlias,
 	})
 	if !resp.OK {
 		t.Fatalf("expected OK=true, got error: %s", resp.Error)
 	}
 
-	out := exec.Command("git", "-C", repo, "ls-remote", "--tags", "origin", "refs/tags/v1.2.3")
+	out := exec.Command("git", "-C", repo, "ls-remote", "--tags", "origin", ref)
 	got, err := out.CombinedOutput()
 	if err != nil {
 		t.Fatalf("ls-remote failed: %v\n%s", err, got)
 	}
-	if !strings.Contains(string(got), "refs/tags/v1.2.3") {
-		t.Fatalf("expected remote tag v1.2.3, got %q", got)
+	if !strings.Contains(string(got), ref) {
+		t.Fatalf("expected remote tag %s, got %q", tag, got)
 	}
 }
 
