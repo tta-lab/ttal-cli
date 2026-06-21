@@ -124,9 +124,9 @@ func latestTag(workDir string) (string, error) {
 	return lines[0], nil
 }
 
-// remoteTagExists reports whether origin already has tag.
+// shouldBumpLatestTag reports whether --bump should create a new tag from latest.
 // Repos without an origin keep the old local-only bump behavior.
-func remoteTagExists(workDir, tag string) (bool, error) {
+func shouldBumpLatestTag(workDir, tag string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -173,11 +173,11 @@ func computeBumpedTag(workDir, level string) (string, error) {
 		}
 	}
 
-	exists, err := remoteTagExists(workDir, latest)
+	shouldBump, err := shouldBumpLatestTag(workDir, latest)
 	if err != nil {
 		return "", err
 	}
-	if !exists {
+	if !shouldBump {
 		return latest, nil
 	}
 
