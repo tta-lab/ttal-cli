@@ -130,6 +130,24 @@ func TestComputeBumpedTagSimple(t *testing.T) {
 	testBumpedTag(t, dir, bumpMajor, "v2.0.0")
 }
 
+func TestComputeBumpedTagReturnsLocalLatestWhenMissingFromRemote(t *testing.T) {
+	dir, runGit := setupBumpTestRepo(t)
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	remote, err := os.MkdirTemp("", "ttal-tag-remote-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(remote) }()
+
+	runGit("init", "--bare", remote)
+	runGit("remote", "add", "origin", remote)
+	runGit("push", "-u", "origin", "HEAD")
+	runGit("tag", "v1.2.3")
+
+	testBumpedTag(t, dir, bumpPatch, "v1.2.3")
+}
+
 func TestComputeBumpedTagSuffix(t *testing.T) {
 	dir := setupBumpTestRepoWithTag(t, "v1.6.1+0.74.1")
 	defer func() { _ = os.RemoveAll(dir) }()
