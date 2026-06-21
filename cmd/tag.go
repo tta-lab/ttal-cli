@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tta-lab/ttal-cli/internal/daemon"
@@ -122,6 +124,27 @@ func latestTag(workDir string) (string, error) {
 	return lines[0], nil
 }
 
+// remoteTagExists reports whether origin already has tag.
+// Repos without an origin keep the old local-only bump behavior.
+func remoteTagExists(workDir, tag string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := exec.CommandContext(ctx, "git", "-C", workDir, "remote", "get-url", "origin").Run(); err != nil {
+		return true, nil
+	}
+
+	ref := "refs/tags/" + tag
+	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "ls-remote", "--exit-code", "--tags", "origin", ref)
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 2 {
+			return false, nil
+		}
+		return false, fmt.Errorf("check remote tag %q: %w", tag, err)
+	}
+	return true, nil
+}
+
 const (
 	initialMajor = "v1.0.0"
 	initialMinor = "v0.1.0"
@@ -148,6 +171,14 @@ func computeBumpedTag(workDir, level string) (string, error) {
 		default:
 			return initialPatch, nil
 		}
+	}
+
+	exists, err := remoteTagExists(workDir, latest)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return latest, nil
 	}
 
 	matches := semverBaseRe.FindStringSubmatch(latest)

@@ -103,17 +103,25 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 	}
 	credEnv := gitutil.GitCredEnv(remoteURL, req.ProjectAlias)
 
-	// Create the tag locally. "--" prevents tag names from being parsed as flags.
-	// If tag already exists, git exits 128 — we surface this as an error (no overwrite).
-	ctxTag, cancelTag := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelTag()
+	tagExists, err := localTagExists(req.WorkDir, req.Tag)
+	if err != nil {
+		return GitTagResponse{Error: fmt.Sprintf("check local tag: %v", err)}
+	}
 
-	tagCmd := exec.CommandContext(ctxTag, "git", "-C", req.WorkDir, "tag", "--", req.Tag)
-	var tagOut bytes.Buffer
-	tagCmd.Stdout = &tagOut
-	tagCmd.Stderr = &tagOut
-	if err := tagCmd.Run(); err != nil {
-		return GitTagResponse{Error: fmt.Sprintf("git tag: %v\n%s", err, strings.TrimSpace(tagOut.String()))}
+	createdTag := false
+	if !tagExists {
+		// Create the tag locally. "--" prevents tag names from being parsed as flags.
+		ctxTag, cancelTag := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelTag()
+
+		tagCmd := exec.CommandContext(ctxTag, "git", "-C", req.WorkDir, "tag", "--", req.Tag)
+		var tagOut bytes.Buffer
+		tagCmd.Stdout = &tagOut
+		tagCmd.Stderr = &tagOut
+		if err := tagCmd.Run(); err != nil {
+			return GitTagResponse{Error: fmt.Sprintf("git tag: %v\n%s", err, strings.TrimSpace(tagOut.String()))}
+		}
+		createdTag = true
 	}
 
 	// Push the tag to origin with credential injection.
@@ -127,16 +135,18 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 	pushCmd.Stderr = &pushOut
 
 	if err := pushCmd.Run(); err != nil {
-		// Tag was created locally but push failed — delete the local tag to avoid stale state.
-		// "--" prevents tag names like "-v1.0.0" from being parsed as flags.
-		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cleanCancel()
-		cleanCmd := exec.CommandContext(cleanCtx, "git", "-C", req.WorkDir, "tag", "-d", "--", req.Tag)
-		if cleanErr := cleanCmd.Run(); cleanErr != nil {
-			log.Printf("[daemon] git tag cleanup failed (tag %s may be stale in %s): %v",
-				req.Tag, req.WorkDir, cleanErr)
-		} else {
-			log.Printf("[daemon] git tag rolled back: deleted local tag %s", req.Tag)
+		if createdTag {
+			// Tag was created locally but push failed — delete the local tag to avoid stale state.
+			// "--" prevents tag names like "-v1.0.0" from being parsed as flags.
+			cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cleanCancel()
+			cleanCmd := exec.CommandContext(cleanCtx, "git", "-C", req.WorkDir, "tag", "-d", "--", req.Tag)
+			if cleanErr := cleanCmd.Run(); cleanErr != nil {
+				log.Printf("[daemon] git tag cleanup failed (tag %s may be stale in %s): %v",
+					req.Tag, req.WorkDir, cleanErr)
+			} else {
+				log.Printf("[daemon] git tag rolled back: deleted local tag %s", req.Tag)
+			}
 		}
 
 		log.Printf("[daemon] git tag push failed for %s: %v — %s", req.WorkDir, err, pushOut.String())
@@ -145,6 +155,21 @@ func handleGitTag(req GitTagRequest) GitTagResponse {
 
 	log.Printf("[daemon] git tag ok: %s → %s", req.Tag, req.WorkDir)
 	return GitTagResponse{OK: true}
+}
+
+func localTagExists(workDir, tag string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ref := "refs/tags/" + tag
+	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "show-ref", "--verify", "--quiet", ref)
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // handleGitPull runs the pull workflow selected by the CLI.

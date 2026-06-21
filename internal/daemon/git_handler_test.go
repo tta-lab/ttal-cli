@@ -635,3 +635,51 @@ func TestHandleGitTag_PathTraversal(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleGitTag_PushesExistingLocalTag(t *testing.T) {
+	repo := initRepoWithRemote(t)
+	runGitTestCmd(t, repo, "tag", "v1.2.3")
+
+	project.SetBinaryFn(func(args ...string) ([]byte, error) {
+		return []byte(fmt.Sprintf(`[{"alias":"test","path":%q}]`, repo)), nil
+	})
+	t.Setenv("FORGEJO_TOKEN", "test-token")
+
+	resp := handleGitTag(GitTagRequest{
+		WorkDir:      repo,
+		Tag:          "v1.2.3",
+		ProjectAlias: "test",
+	})
+	if !resp.OK {
+		t.Fatalf("expected OK=true, got error: %s", resp.Error)
+	}
+
+	out := exec.Command("git", "-C", repo, "ls-remote", "--tags", "origin", "refs/tags/v1.2.3")
+	got, err := out.CombinedOutput()
+	if err != nil {
+		t.Fatalf("ls-remote failed: %v\n%s", err, got)
+	}
+	if !strings.Contains(string(got), "refs/tags/v1.2.3") {
+		t.Fatalf("expected remote tag v1.2.3, got %q", got)
+	}
+}
+
+func initRepoWithRemote(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	remote := filepath.Join(dir, "origin.git")
+	repo := filepath.Join(dir, "repo")
+
+	runGitTestCmd(t, dir, "init", "--bare", remote)
+	runGitTestCmd(t, dir, "clone", remote, repo)
+	runGitTestCmd(t, repo, "config", "user.email", "test@example.com")
+	runGitTestCmd(t, repo, "config", "user.name", "Test User")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatalf("write base file: %v", err)
+	}
+	runGitTestCmd(t, repo, "add", "file.txt")
+	runGitTestCmd(t, repo, "commit", "-m", "base")
+	runGitTestCmd(t, repo, "push", "-u", "origin", "HEAD")
+
+	return repo
+}
