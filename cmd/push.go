@@ -21,15 +21,13 @@ The daemon injects credentials — workers don't need tokens in their environmen
 
 Equivalent to "git push -u origin <branch>" but credential-safe for worker sessions.
 
-Pushes to main or master are blocked unconditionally — all changes must go through
-a feature branch and PR.
+Branch protection is enforced by the remote repository, not by ttal.
 
 With --force, performs a --force-with-lease push (raw --force is never used).
-Force-push is also blocked on main/master.
 
 Examples:
   ttal push
-  ttal push --force    # force-with-lease; blocked on main/master`,
+  ttal push --force    # force-with-lease`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := pr.ResolveContextWithoutProvider()
@@ -86,6 +84,6 @@ func currentBranch(workDir string) (string, error) {
 }
 
 func init() {
-	pushCmd.Flags().Bool("force", false, "Force push with --force-with-lease (blocked on main/master)")
+	pushCmd.Flags().Bool("force", false, "Force push with --force-with-lease")
 	rootCmd.AddCommand(pushCmd)
 }

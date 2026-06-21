@@ -488,53 +488,22 @@ func runGitTestCmd(t *testing.T, workDir string, args ...string) {
 	}
 }
 
-func TestHandleGitPush_ForceOnProtectedBranchBlocked(t *testing.T) {
+func TestHandleGitPush_AllowsMainAndMaster(t *testing.T) {
 	for _, branch := range []string{"main", "master"} {
 		t.Run(branch, func(t *testing.T) {
+			repo := initRepoWithRemote(t)
+			runGitTestCmd(t, repo, "switch", "-C", branch)
+			t.Setenv("FORGEJO_TOKEN", "test-token")
+
 			resp := handleGitPush(GitPushRequest{
-				WorkDir: "/tmp/whatever", // never reached
+				WorkDir: repo,
 				Branch:  branch,
-				Force:   true,
 			})
 			if resp.OK {
-				t.Fatalf("expected OK=false for force push to %s", branch)
+				return
 			}
-			wantErr := fmt.Sprintf("push to %s blocked — use a feature branch and PR", branch)
-			if resp.Error != wantErr {
-				t.Errorf("error = %q, want %q", resp.Error, wantErr)
-			}
+			t.Fatalf("expected push to %s to reach git push, got error: %s", branch, resp.Error)
 		})
-	}
-}
-
-func TestIsProtectedBranch(t *testing.T) {
-	protected := []string{"main", "master"}
-	allowed := []string{"develop", "feature/x", "release/v1", ""}
-
-	for _, b := range protected {
-		if !isProtectedBranch(b) {
-			t.Errorf("isProtectedBranch(%q) = false, want true", b)
-		}
-	}
-	for _, b := range allowed {
-		if isProtectedBranch(b) {
-			t.Errorf("isProtectedBranch(%q) = true, want false", b)
-		}
-	}
-}
-
-func TestHandleGitPush_NormalPushToMainBlockedByPolicy(t *testing.T) {
-	resp := handleGitPush(GitPushRequest{
-		WorkDir: "/tmp/not-a-real-repo", // will fail at RemoteURL if policy guard is bypassed
-		Branch:  "main",
-		Force:   false,
-	})
-	if resp.OK {
-		t.Fatal("expected push to main to be blocked regardless of force flag")
-	}
-	policyErr := "push to main blocked — use a feature branch and PR"
-	if resp.Error != policyErr {
-		t.Errorf("expected policy error, got: %q", resp.Error)
 	}
 }
 
