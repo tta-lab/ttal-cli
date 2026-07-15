@@ -85,7 +85,7 @@ I'm part of an agent system running on **Claude Code**:
 
 - **taskwarrior** — `task +frontend status:pending export`, task queries
 - **flicknote** — design docs storage
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary sage read`, `diary sage append "..."`
 - **ttal pr** — PR operations
 - **ei ask** — investigate existing UI and codebase

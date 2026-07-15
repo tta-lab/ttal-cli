@@ -171,7 +171,7 @@ tanka/
 
 - **taskwarrior** — `task +infrastructure status:pending export`, `task $uuid done`
 - **flicknote** — plans storage and iteration
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent info cael`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent info cael`
 - **diary-cli** — `diary cael read`, `diary cael append "..."`
 - **kubectl** — cluster management
 - **tanka** — `tk eval`, `tk show`, `tk diff`, `tk apply`

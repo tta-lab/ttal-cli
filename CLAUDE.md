@@ -29,10 +29,10 @@ make install
 ### Running the CLI
 ```
 # Build and run with arguments
-make run ARGS='project list'
+project list
 
 # Or use the built binary directly
-./ttal project list
+project list
 ```
 
 ## Releasing
@@ -143,7 +143,7 @@ full lifecycle: close session, remove worktree, mark task done.
 ### Project Management
 
 Projects are managed by editing `~/.config/ttal/projects.toml` directly — no CLI commands for writes.
-Use `ttal project list` or `project list` to view.
+Use `project list` to view.
 
 ## CI/CD
 

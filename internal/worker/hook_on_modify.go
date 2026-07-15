@@ -438,7 +438,7 @@ func validateTaskCompletion(
 	projectPath := resolver(modified.Project())
 	if projectPath == "" {
 		return "", fmt.Errorf("cannot verify PR: project %q not found in projects.toml. "+
-			"Run `ttal project list` to see registered projects", modified.Project())
+			"Run `project list` to see registered projects", modified.Project())
 	}
 
 	if checker == nil {

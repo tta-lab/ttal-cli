@@ -14,7 +14,7 @@ Assume the worker is a skilled developer, but knows almost nothing about our too
 
 **Announce at start:** "I'm using the planning skill to create the implementation plan."
 
-**First action:** Run `ttal project list` to identify the target project before writing anything.
+**First action:** Run `project list` to identify the target project before writing anything.
 
 ## Designer Rules
 
@@ -29,10 +29,10 @@ Assume the worker is a skilled developer, but knows almost nothing about our too
 
 Before writing any plan, you MUST confirm the target project:
 
-1. **Run `ttal project list`** — see all available projects
-2. **Check the task's project field** — if it has one, use it as a hint for the target alias, then confirm with `ttal project get <alias>`
+1. **Run `project list`** — see all available projects
+2. **Check the task's project field** — if it has one, use it as a hint for the target alias, then confirm with `project get <alias>`
 3. **If no project field** — ask explicitly: "Which repo does this plan target?"
-4. **Validate the repo exists** — run `ttal project get <alias>` to confirm the path
+4. **Validate the repo exists** — run `project get <alias>` to confirm the path
 
 **Hard rule:** Do NOT proceed past this gate without a confirmed single target repo.
 

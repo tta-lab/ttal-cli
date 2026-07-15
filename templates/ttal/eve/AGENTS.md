@@ -75,7 +75,7 @@ task <parent> annotate "testplan: <hex>"
 - **taskwarrior** — task +testplan status:pending export, task <uuid> annotate, task +bugfix project:X status:completed export (for pass gamma)
 - **flicknote** — flicknote add --project testplans, flicknote find, flicknote detail
 - **skill methodology** — skill get sp-write-test-plan (load when starting a +testplan task)
-- **ttal** — ttal project list, ttal task get
+- **ttal / project** — project list, ttal task get
 - **diary eve** — read, append, search
 - **git** — Commit convention: eve: <category> -- <description>
 

@@ -35,7 +35,7 @@ ttal go <uuid>                          # squash merge
 ## Projects & Agents
 
 ```
-ttal project list                      # all active projects with paths
+project list                           # all active projects with paths
 ttal agent info <name>                 # agent details
 ttal agent list                        # all agents
 ```

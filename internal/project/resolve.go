@@ -371,7 +371,7 @@ func formatProjectNotFoundError(alias string) error {
 	for _, p := range projs {
 		aliases = append(aliases, p.Alias)
 	}
-	msg := fmt.Sprintf("project %q not found\n\nAvailable projects:\n  %s\n\nUse `ttal project list` to see all projects.",
+	msg := fmt.Sprintf("project %q not found\n\nAvailable projects:\n  %s\n\nUse `project list` to see all projects.",
 		alias, strings.Join(aliases, ", "))
 	return fmt.Errorf("%s", msg)
 }

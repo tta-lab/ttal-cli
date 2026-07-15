@@ -14,7 +14,7 @@ Assume the worker is a skilled test writer, but knows almost nothing about the d
 
 **Announce at start:** "I am using sp-write-test-plan to author the integration test plan."
 
-**First action:** Run `ttal project list` to identify the target project before writing anything.
+**First action:** Run `project list` to identify the target project before writing anything.
 
 ## When to Use
 
@@ -34,9 +34,9 @@ Do NOT use this skill for unit-level TDD loops (use sp-tdd for RED-GREEN-REFACTO
 
 Before writing any test plan, confirm the target project:
 
-1. **Run `ttal project list`** — see all available projects
+1. **Run `project list`** — see all available projects
 2. **Check the task project field** — if it has one, use it as a hint for the target alias
-3. **Validate the repo exists** — run `ttal project get <alias>` to confirm the path
+3. **Validate the repo exists** — run `project get <alias>` to confirm the path
 4. **Disambiguate scope when the task description references multiple feature or table names.** Wording like "sub command + neuron consume" or "purchases + consumptions" can map to different code surfaces (e.g., `neuron_purchases` writes vs `neuron_consumptions` writes — different services). If the description is ambiguous, ask the requester to confirm the exact scope BEFORE Phase 1. Ambiguous scope confirmed late costs more than confirmed early.
 
 **Hard rule:** Do NOT proceed past this gate without a confirmed single target repo AND an unambiguous feature scope.
