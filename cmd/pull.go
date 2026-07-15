@@ -10,9 +10,17 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/daemon"
 	"github.com/tta-lab/ttal-cli/internal/gitprovider"
 	"github.com/tta-lab/ttal-cli/internal/pr"
+	"github.com/tta-lab/ttal-cli/internal/worker"
 )
 
-var currentBranchHeadSHAFn = currentBranchHeadSHA
+var (
+	currentBranchHeadSHAFn = currentBranchHeadSHA
+	prResolveContextFn     = pr.ResolveContextWithoutProvider
+	currentBranchFn        = worker.CurrentBranch
+	daemonPRFindFn         = daemon.PRFind
+	daemonPRGetPRFn        = daemon.PRGetPR
+	gitPullFn              = daemon.GitPull
+)
 
 type pullPRStatus string
 

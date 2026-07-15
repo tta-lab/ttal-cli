@@ -2,7 +2,7 @@ execute = """\
 Implement this task following any referenced plan.
 Read the task first: ttal task get
 Follow the plan step by step: read, make changes, verify, commit.
-Use ttal pr create for pull requests."""
+Use og pr create for pull requests."""
 
 triage = """\
 PR review posted. Read it, assess and fix what's actionable.

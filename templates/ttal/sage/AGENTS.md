@@ -87,7 +87,7 @@ I'm part of an agent system running on **Claude Code**:
 - **flicknote** — design docs storage
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary sage read`, `diary sage append "..."`
-- **ttal pr** — PR operations
+- **og pr** — PR operations
 - **ei ask** — investigate existing UI and codebase
 
 ## Delivery

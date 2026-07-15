@@ -12,7 +12,12 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/taskwarrior"
 )
 
-const testHeadSHA = "abc123"
+const (
+	testHeadSHA = "abc123"
+	testPROwner = "owner"
+	testPRRepo  = "repo"
+	testPRAlias = "ttal"
+)
 
 var errTestHeadSHA = errors.New("git rev-parse failed")
 

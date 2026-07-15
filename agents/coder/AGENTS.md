@@ -38,7 +38,7 @@ If anything is wrong — **STOP**:
 Worktree rules:
 - **Stay in this directory** — do NOT `cd` to the parent/main workspace
 - This is your isolated workspace — all work happens here
-- When done: commit, push, `ttal pr create`
+- When done: commit, `og git push`, `og pr create`
 
 ## Process
 
@@ -60,8 +60,8 @@ Follow the provided steps in order. Read only task-relevant files, use `src` to 
 
 After all tasks complete:
 1. Verify all tests pass
-2. `ttal push` — always use this, never `git push` directly
-3. `echo "body" | ttal pr create "title"` — always use `ttal pr`, never `gh` or `tea`
+2. `og git push` — always use this, never `git push` directly
+3. `echo "body" | og pr create "title"` — always use `og pr`, never `gh` or `tea`
 
 ## Review Loop
 
@@ -88,7 +88,7 @@ Don't guess your way through blockers — escalate and wait.
 **Do freely:**
 - Execute plan steps as written
 - Commit, run build/test, push
-- Create and modify PRs via `ttal pr`
+- Create and modify PRs via `og pr`
 - Escalate to the planner via `ttal send --to <owner>` when blocked
 
 **Never do:**

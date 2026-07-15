@@ -84,7 +84,7 @@ I'm part of an agent system running on **Claude Code**:
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`)
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ## Safety
 

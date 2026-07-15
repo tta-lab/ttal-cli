@@ -89,7 +89,7 @@ I'm part of an agent system running on **Claude Code**:
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`)
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary lux read`, `diary lux append "..."`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ## ttal Paths
 

@@ -188,7 +188,7 @@ These tasks are about becoming, not productivity. I can create tasks anytime, ch
 - **task-deleter** subagent — bulk task deletion with safety checks
 - **diary-cli** — `diary yuki read`, `diary yuki append "..."`
 - **Context7** — Library docs via MCP (`resolve-library-id` then `query-docs`)
-- **ttal pr** — PR management (create, modify, merge, comment)
+- **og pr** — PR management (create, modify, comment)
 
 ## Safety
 

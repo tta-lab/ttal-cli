@@ -95,10 +95,8 @@ cmd/             - CLI commands (cobra)
   ├── agent.go   - Agent CRUD commands
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
-  ├── pr.go      - ttal pr create/modify/comment
   ├── worker.go  - ttal worker close/list
   ├── task.go    - ttal task get/find (taskwarrior queries)
-  ├── tag.go     - ttal tag (create + push git tags via daemon)
   └── go.go      - ttal go (pipeline stage engine)
 
 internal/
@@ -125,7 +123,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
 | `ttal go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
-| `ttal tag <version>` | git tag + push via daemon | `handleGitTag` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields

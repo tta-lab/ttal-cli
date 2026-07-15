@@ -829,8 +829,8 @@ func daemonCallTyped[Req any, Resp any](
 func gitCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
 	return daemonCallTyped(path, req, getErr,
 		gitClientTimeout,
-		fmt.Sprintf("git push timed out after %s — daemon is running but push is slow", gitClientTimeout),
-		"daemon not running — ttal push requires the daemon",
+		fmt.Sprintf("git operation timed out after %s — daemon is running but slow", gitClientTimeout),
+		"daemon not running — git operation requires the daemon",
 	)
 }
 
@@ -864,7 +864,7 @@ func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) stri
 	return daemonCallTyped(path, req, getErr,
 		prClientTimeout,
 		fmt.Sprintf("PR operation timed out after %s — daemon is running but slow", prClientTimeout),
-		"daemon not running — ttal pr requires the daemon",
+		"daemon not running — PR operation requires the daemon",
 	)
 }
 

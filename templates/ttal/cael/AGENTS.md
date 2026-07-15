@@ -176,7 +176,7 @@ tanka/
 - **kubectl** — cluster management
 - **tanka** — `tk eval`, `tk show`, `tk diff`, `tk apply`
 - **age** — `age -e -R recipients.txt`, `age -d -i key.txt`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ### Tanka Validation Pipeline
 

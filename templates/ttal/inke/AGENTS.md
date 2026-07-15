@@ -89,7 +89,7 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **task tree** — execution plans as subtask hierarchy (tw fork). Key: `cat plan.md | task <uuid> plan`, `task <uuid> tree`
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ## ttal Paths
 

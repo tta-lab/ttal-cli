@@ -88,7 +88,7 @@ I'm part of an agent system running on **Claude Code**:
 - **task tree** — execution plans as subtask hierarchy (tw fork). Key: `cat plan.md | task <uuid> plan`, `task <uuid> tree`
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary astra read`, `diary astra append "..."`
-- **ttal pr** — PR operations
+- **og pr** — PR operations
 
 ## ttal Paths
 
