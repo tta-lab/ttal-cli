@@ -265,6 +265,24 @@ Example:
 	},
 }
 
+// parseModifyArgs parses field:value arguments for agent metadata updates.
+func parseModifyArgs(args []string) (fieldUpdates map[string]string, err error) {
+	fieldUpdates = make(map[string]string)
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "+") || strings.HasPrefix(arg, "-") {
+			return nil, fmt.Errorf("tag operations (+tag/-tag) are no longer supported; tags are managed in config file")
+		} else if strings.Contains(arg, ":") {
+			parts := strings.SplitN(arg, ":", 2)
+			if len(parts) == 2 {
+				field := strings.ToLower(strings.TrimSpace(parts[0]))
+				value := strings.TrimSpace(parts[1])
+				fieldUpdates[field] = value
+			}
+		}
+	}
+	return
+}
+
 func printAgentInfo(teamPath string, ag *agentfs.AgentInfo) error {
 	displayName := ag.Name
 	if ag.Emoji != "" {

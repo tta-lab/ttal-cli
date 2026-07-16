@@ -7,11 +7,7 @@ description: Manage projects in your team.
 
 Read-only project management. Writes go directly to `~/.config/ttal/projects.toml`.
 
-```
-ttal project resolve --json    # enriched JSON with task info
-```
-
-Or use the standalone `project` CLI:
+Use the standalone `project` CLI:
 
 ```
 project list                    # table with alias, org, name
