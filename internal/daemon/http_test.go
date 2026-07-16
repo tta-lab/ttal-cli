@@ -27,19 +27,11 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 			writeHTTPJSON(w, http.StatusServiceUnavailable, AskHumanResponse{Error: "not configured in test"})
 		},
 		// PR handlers — always wired to avoid nil dereference when tests exercise the router.
-		prCreate:         func(req PRCreateRequest) PRResponse { return PRResponse{OK: true} },
-		prModify:         func(req PRModifyRequest) PRResponse { return PRResponse{OK: true} },
 		prFind:           func(req PRFindRequest) PRFindResponse { return PRFindResponse{OK: true} },
 		prMerge:          func(req PRMergeRequest) PRResponse { return PRResponse{OK: true} },
 		prCheckMergeable: func(req PRCheckMergeableRequest) PRResponse { return PRResponse{OK: true} },
 		prGetPR: func(req PRGetPRRequest) PRGetPRResponse {
 			return PRGetPRResponse{OK: true}
-		},
-		prGetCombinedStatus: func(req PRGetCombinedStatusRequest) PRCIStatusResponse {
-			return PRCIStatusResponse{OK: true}
-		},
-		prGetCIFailureDetails: func(_ PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
-			return PRCIFailureDetailsResponse{OK: true}
 		},
 		pipelineAdvance: func(w http.ResponseWriter, r *http.Request) {
 			writeHTTPJSON(w, http.StatusOK, AdvanceResponse{Status: AdvanceStatusNoPipeline, Message: "not configured in test"})
@@ -52,15 +44,6 @@ func testHandlers(sendFn func(SendRequest) error) httpHandlers {
 		},
 		commentGet: func(req CommentGetRequest) CommentGetResponse {
 			return CommentGetResponse{OK: true}
-		},
-		gitPush: func(req GitPushRequest) GitPushResponse {
-			return GitPushResponse{OK: true}
-		},
-		gitTag: func(req GitTagRequest) GitTagResponse {
-			return GitTagResponse{OK: true}
-		},
-		gitPull: func(req GitPullRequest) GitPullResponse {
-			return GitPullResponse{OK: true}
 		},
 		notify: func(_, _ string) error { return nil },
 	}
@@ -302,57 +285,6 @@ func TestHTTPStatusUpdate_NilHandler(t *testing.T) {
 	}
 }
 
-// PR route tests — verify HTTP status codes and request routing for the 9 PR endpoints.
-
-func TestHTTPPRCreate(t *testing.T) {
-	var received PRCreateRequest
-	h := testHandlers(nil)
-	h.prCreate = func(req PRCreateRequest) PRResponse {
-		received = req
-		return PRResponse{OK: true, PRURL: "https://example.com/pr/1"}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRCreateRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Title: "t"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/create", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-	if received.Title != "t" {
-		t.Errorf("expected Title=t, got %q", received.Title)
-	}
-}
-
-func TestHTTPPRCreate_HandlerError(t *testing.T) {
-	h := testHandlers(nil)
-	h.prCreate = func(req PRCreateRequest) PRResponse {
-		return PRResponse{OK: false, Error: "create failed"}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRCreateRequest{ProviderType: "forgejo"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/create", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
-	}
-}
-
-func TestHTTPPRCreate_BadJSON(t *testing.T) {
-	r := newDaemonRouter(testHandlers(nil))
-	req := httptest.NewRequest(http.MethodPost, "/pr/create", bytes.NewReader([]byte("not json")))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-}
-
 func TestHTTPPRGetPR(t *testing.T) {
 	h := testHandlers(nil)
 	h.prGetPR = func(req PRGetPRRequest) PRGetPRResponse {
@@ -391,112 +323,6 @@ func TestHTTPPRGetPR_HandlerError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", w.Code)
-	}
-}
-
-func TestHTTPPRCIStatus(t *testing.T) {
-	h := testHandlers(nil)
-	h.prGetCombinedStatus = func(req PRGetCombinedStatusRequest) PRCIStatusResponse {
-		return PRCIStatusResponse{OK: true, State: "success"}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRGetCombinedStatusRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", SHA: "abc"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/ci/status", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-	var resp PRCIStatusResponse
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if resp.State != "success" {
-		t.Errorf("expected State=success, got %q", resp.State)
-	}
-}
-
-func TestHTTPPRCIStatus_HandlerError(t *testing.T) {
-	h := testHandlers(nil)
-	h.prGetCombinedStatus = func(req PRGetCombinedStatusRequest) PRCIStatusResponse {
-		return PRCIStatusResponse{OK: false, Error: "fetch failed"}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRGetCombinedStatusRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", SHA: "abc"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/ci/status", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
-	}
-}
-
-func TestHTTPPRCIFailureDetails(t *testing.T) {
-	h := testHandlers(nil)
-	h.prGetCIFailureDetails = func(_ PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
-		return PRCIFailureDetailsResponse{OK: true, Details: []PRCIFailureDetail{{JobName: "test-job"}}}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRGetCIFailureDetailsRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", SHA: "abc"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/ci/failure-details", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-	var resp PRCIFailureDetailsResponse
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(resp.Details) != 1 || resp.Details[0].JobName != "test-job" {
-		t.Errorf("unexpected details: %+v", resp.Details)
-	}
-}
-
-func TestHTTPPRCIFailureDetails_HandlerError(t *testing.T) {
-	h := testHandlers(nil)
-	h.prGetCIFailureDetails = func(_ PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
-		return PRCIFailureDetailsResponse{OK: false, Error: "fetch failed"}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRGetCIFailureDetailsRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", SHA: "abc"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/ci/failure-details", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
-	}
-}
-
-// Smoke tests for remaining PR routes — verify router wiring and error→500 contract.
-
-func TestHTTPPRModify_Smoke(t *testing.T) {
-	var received PRModifyRequest
-	h := testHandlers(nil)
-	h.prModify = func(req PRModifyRequest) PRResponse {
-		received = req
-		return PRResponse{OK: true}
-	}
-	r := newDaemonRouter(h)
-
-	body, _ := json.Marshal(PRModifyRequest{ProviderType: "forgejo", Owner: "o", Repo: "r", Index: 1, Title: "new"})
-	req := httptest.NewRequest(http.MethodPost, "/pr/modify", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-	if received.Title != "new" {
-		t.Errorf("expected Title=new, got %q", received.Title)
 	}
 }
 

@@ -55,8 +55,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 **Usage:**
 ```
-git tag v1.0.0
-git push origin v1.0.0
+og git tag v1.0.0
 # Release is automatically created
 ```
 
@@ -187,7 +186,7 @@ make ci
 git commit -m "feat(scope): description"
 
 # 5. Push and create PR
-git push origin feature-branch
+og git push
 ```
 
 ### PR Requirements

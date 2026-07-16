@@ -14,30 +14,6 @@ func resolveProvider(projectAlias, providerType, host string) (gitprovider.Provi
 	return gitprovider.NewProviderByNameWithToken(providerType, token, host)
 }
 
-func handlePRCreate(req PRCreateRequest) PRResponse {
-	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
-	}
-	result, err := provider.CreatePR(req.Owner, req.Repo, req.Head, req.Base, req.Title, req.Body)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("create PR: %v", err)}
-	}
-	return PRResponse{OK: true, PRURL: result.HTMLURL, PRIndex: result.Index}
-}
-
-func handlePRModify(req PRModifyRequest) PRResponse {
-	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
-	}
-	result, err := provider.EditPR(req.Owner, req.Repo, req.Index, req.Title, req.Body)
-	if err != nil {
-		return PRResponse{OK: false, Error: fmt.Sprintf("modify PR: %v", err)}
-	}
-	return PRResponse{OK: true, PRURL: result.HTMLURL, PRIndex: result.Index}
-}
-
 func handlePRFind(req PRFindRequest) PRFindResponse {
 	provider, err := resolveProvider(req.ProjectAlias, req.ProviderType, req.Host)
 	if err != nil {
@@ -159,50 +135,6 @@ func handlePRGetPR(req PRGetPRRequest) PRGetPRResponse {
 		Title: fetchedPR.Title, Body: fetchedPR.Body,
 		HTMLURL: fetchedPR.HTMLURL, State: fetchedPR.State,
 	}
-}
-
-func handlePRGetCombinedStatus(req PRGetCombinedStatusRequest) PRCIStatusResponse {
-	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
-	if err != nil {
-		return PRCIStatusResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
-	}
-	cs, err := provider.GetCombinedStatus(req.Owner, req.Repo, req.SHA)
-	if err != nil {
-		return PRCIStatusResponse{OK: false, Error: fmt.Sprintf("get combined status: %v", err)}
-	}
-	statuses := make([]PRCIStatus, len(cs.Statuses))
-	for i, s := range cs.Statuses {
-		statuses[i] = PRCIStatus{
-			Context:     s.Context,
-			State:       s.State,
-			Description: s.Description,
-			TargetURL:   s.TargetURL,
-		}
-	}
-	return PRCIStatusResponse{OK: true, State: cs.State, Statuses: statuses}
-}
-
-func handlePRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse {
-	token := project.ResolveGitHubToken(req.ProjectAlias)
-	provider, err := gitprovider.NewProviderByNameWithToken(req.ProviderType, token, req.Host)
-	if err != nil {
-		return PRCIFailureDetailsResponse{OK: false, Error: fmt.Sprintf("create provider: %v", err)}
-	}
-	details, err := provider.GetCIFailureDetails(req.Owner, req.Repo, req.SHA, req.TailLines)
-	if err != nil {
-		return PRCIFailureDetailsResponse{OK: false, Error: fmt.Sprintf("get CI failure details: %v", err)}
-	}
-	results := make([]PRCIFailureDetail, len(details))
-	for i, d := range details {
-		results[i] = PRCIFailureDetail{
-			JobName:      d.JobName,
-			WorkflowName: d.WorkflowName,
-			HTMLURL:      d.HTMLURL,
-			LogTail:      d.LogTail,
-		}
-	}
-	return PRCIFailureDetailsResponse{OK: true, Details: results}
 }
 
 // diagnosePRMergeFailure queries CI status and returns a human-readable explanation

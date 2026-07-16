@@ -82,31 +82,6 @@ type StatusResponse struct {
 	Error  string               `json:"error,omitempty"`
 }
 
-// PRCreateRequest asks the daemon to create a PR via the authenticated provider.
-type PRCreateRequest struct {
-	ProviderType string `json:"provider_type"`  // "forgejo" or "github"
-	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	Head         string `json:"head"` // source branch
-	Base         string `json:"base"` // target branch
-	Title        string `json:"title"`
-	Body         string `json:"body"`
-	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
-}
-
-// PRModifyRequest asks the daemon to edit a PR title/body.
-type PRModifyRequest struct {
-	ProviderType string `json:"provider_type"`
-	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	Index        int64  `json:"index"`
-	Title        string `json:"title,omitempty"`
-	Body         string `json:"body,omitempty"`
-	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
-}
-
 // PRFindRequest asks the daemon to find an open PR by source and target branch.
 type PRFindRequest struct {
 	ProviderType string `json:"provider_type"`  // "forgejo" or "github"
@@ -151,27 +126,6 @@ type PRGetPRRequest struct {
 	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
 }
 
-// PRGetCombinedStatusRequest asks the daemon to fetch CI status for a commit.
-type PRGetCombinedStatusRequest struct {
-	ProviderType string `json:"provider_type"`
-	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	SHA          string `json:"sha"`
-	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
-}
-
-// PRGetCIFailureDetailsRequest asks the daemon to fetch CI failure details.
-type PRGetCIFailureDetailsRequest struct {
-	ProviderType string `json:"provider_type"`
-	Host         string `json:"host,omitempty"` // Forgejo hostname (e.g. "forgejo.example.com"); ignored for GitHub
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	SHA          string `json:"sha"`
-	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
-	TailLines    int    `json:"tail_lines"`              // number of log tail lines to fetch
-}
-
 // PRResponse is the daemon's response for PR operations.
 type PRResponse struct {
 	OK            bool   `json:"ok"`
@@ -203,37 +157,6 @@ type PRFindResponse struct {
 	PRURL   string `json:"pr_url,omitempty"`
 	PRIndex int64  `json:"pr_index,omitempty"`
 	Merged  bool   `json:"merged,omitempty"`
-}
-
-// PRCIStatusResponse is the daemon's response for GetCombinedStatus.
-type PRCIStatusResponse struct {
-	OK       bool         `json:"ok"`
-	Error    string       `json:"error,omitempty"`
-	State    string       `json:"state,omitempty"`
-	Statuses []PRCIStatus `json:"statuses,omitempty"`
-}
-
-// PRCIStatus is a single CI check status.
-type PRCIStatus struct {
-	Context     string `json:"context"`
-	State       string `json:"state"`
-	Description string `json:"description"`
-	TargetURL   string `json:"target_url"`
-}
-
-// PRCIFailureDetailsResponse is the daemon's response for GetCIFailureDetails.
-type PRCIFailureDetailsResponse struct {
-	OK      bool                `json:"ok"`
-	Error   string              `json:"error,omitempty"`
-	Details []PRCIFailureDetail `json:"details,omitempty"`
-}
-
-// PRCIFailureDetail is a single CI failure entry.
-type PRCIFailureDetail struct {
-	JobName      string `json:"job_name"`
-	WorkflowName string `json:"workflow_name"`
-	HTMLURL      string `json:"html_url"`
-	LogTail      string `json:"log_tail"`
 }
 
 // BreatheRequest asks the daemon to restart an agent with a fresh context window.
@@ -305,65 +228,6 @@ type CloseWindowRequest struct {
 	Window  string `json:"window"`  // tmux window name (reviewer agent name from pipelines.toml)
 }
 
-// GitPushRequest asks the daemon to push a branch to origin using daemon-held credentials.
-type GitPushRequest struct {
-	WorkDir      string `json:"work_dir"`                // absolute path to the git worktree
-	Branch       string `json:"branch"`                  // branch name to push
-	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
-	Force        bool   `json:"force,omitempty"`         // true ⇒ push with --force-with-lease
-}
-
-// GitPushResponse is the daemon's response for a git push operation.
-type GitPushResponse struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
-}
-
-// GitTagRequest asks the daemon to create and push a git tag using daemon-held credentials.
-type GitTagRequest struct {
-	WorkDir      string `json:"work_dir"`                // absolute path to the project repo
-	Tag          string `json:"tag"`                     // tag name (e.g. "v2.1.0")
-	ProjectAlias string `json:"project_alias,omitempty"` // for per-project GitHub token resolution
-}
-
-// GitTagResponse is the daemon's response for a git tag operation.
-type GitTagResponse struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
-}
-
-type GitPullMode string
-
-const (
-	GitPullModeDefault       GitPullMode = "default"
-	GitPullModeBranch        GitPullMode = "branch"
-	GitPullModeCleanupMerged GitPullMode = "cleanup_merged"
-)
-
-type GitPullAction string
-
-const (
-	GitPullActionPulledDefault       GitPullAction = "pulled_default"
-	GitPullActionPulledBranch        GitPullAction = "pulled_branch"
-	GitPullActionCleanedMergedBranch GitPullAction = "cleaned_merged_branch"
-)
-
-// GitPullRequest asks the daemon to pull through daemon-held credentials.
-type GitPullRequest struct {
-	WorkDir       string      `json:"work_dir"`
-	Branch        string      `json:"branch"`
-	DefaultBranch string      `json:"default_branch"`
-	ProjectAlias  string      `json:"project_alias,omitempty"`
-	Mode          GitPullMode `json:"mode"`
-}
-
-// GitPullResponse is the daemon's response for a git pull workflow.
-type GitPullResponse struct {
-	OK     bool          `json:"ok"`
-	Error  string        `json:"error,omitempty"`
-	Action GitPullAction `json:"action,omitempty"`
-}
-
 // NotifyRequest sends a pre-rendered notification string through the daemon's frontend.
 // This is the correct way for CLI commands and workers to send notifications
 // without coupling to a specific transport (Telegram, Matrix, etc).
@@ -403,18 +267,10 @@ type httpHandlers struct {
 	// Window lifecycle
 	closeWindow func(CloseWindowRequest) SendResponse
 	// PR operations (daemon-proxied for token isolation)
-	prCreate              func(PRCreateRequest) PRResponse
-	prModify              func(PRModifyRequest) PRResponse
-	prFind                func(PRFindRequest) PRFindResponse
-	prMerge               func(PRMergeRequest) PRResponse
-	prCheckMergeable      func(PRCheckMergeableRequest) PRResponse
-	prGetPR               func(PRGetPRRequest) PRGetPRResponse
-	prGetCombinedStatus   func(PRGetCombinedStatusRequest) PRCIStatusResponse
-	prGetCIFailureDetails func(PRGetCIFailureDetailsRequest) PRCIFailureDetailsResponse
-	// Git operations (daemon-proxied for credential isolation)
-	gitPush func(GitPushRequest) GitPushResponse
-	gitTag  func(GitTagRequest) GitTagResponse
-	gitPull func(GitPullRequest) GitPullResponse
+	prFind           func(PRFindRequest) PRFindResponse
+	prMerge          func(PRMergeRequest) PRResponse
+	prCheckMergeable func(PRCheckMergeableRequest) PRResponse
+	prGetPR          func(PRGetPRRequest) PRGetPRResponse
 	// Kubernetes log proxy
 	kubeLog func(KubeLogRequest) KubeLogResponse
 	// notify routes a pre-rendered notification string through the frontend abstraction.
@@ -442,18 +298,10 @@ func newDaemonRouter(handlers httpHandlers) *chi.Mux {
 	// Window lifecycle
 	r.Post("/window/close", handleHTTPCloseWindow(handlers))
 	// PR routes (proxied through daemon for token isolation)
-	r.Post("/pr/create", handleHTTPPR("prCreate", handlers.prCreate))
-	r.Post("/pr/modify", handleHTTPPR("prModify", handlers.prModify))
 	r.Post("/pr/find", handleHTTPPRFind(handlers))
 	r.Post("/pr/merge", handleHTTPPR("prMerge", handlers.prMerge))
 	r.Post("/pr/check-mergeable", handleHTTPPR("prCheckMergeable", handlers.prCheckMergeable))
 	r.Post("/pr/get", handleHTTPPRGetPR(handlers))
-	r.Post("/pr/ci/status", handleHTTPPRCIStatus(handlers))
-	r.Post("/pr/ci/failure-details", handleHTTPPRCIFailureDetails(handlers))
-	// Git operations (proxied through daemon for credential isolation)
-	r.Post("/git/push", handleHTTPGitPush(handlers))
-	r.Post("/git/tag", handleHTTPGitTag(handlers))
-	r.Post("/git/pull", handleHTTPGitPull(handlers))
 	// Kubernetes log proxy
 	r.Post("/kube/log", handleHTTPKubeLog(handlers))
 	// Notify routes a pre-rendered message through the frontend abstraction.
@@ -657,83 +505,6 @@ func handleHTTPPRFind(handlers httpHandlers) http.HandlerFunc {
 	}
 }
 
-func handleHTTPPRCIStatus(handlers httpHandlers) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req PRGetCombinedStatusRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeHTTPJSON(w, http.StatusBadRequest,
-				PRCIStatusResponse{OK: false, Error: "invalid prGetCombinedStatus JSON: " + err.Error()})
-			return
-		}
-		result := handlers.prGetCombinedStatus(req)
-		writeHTTPJSON(w, prOKStatus(result.OK), result)
-	}
-}
-
-func handleHTTPPRCIFailureDetails(handlers httpHandlers) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req PRGetCIFailureDetailsRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeHTTPJSON(w, http.StatusBadRequest,
-				PRCIFailureDetailsResponse{OK: false, Error: "invalid prGetCIFailureDetails JSON: " + err.Error()})
-			return
-		}
-		result := handlers.prGetCIFailureDetails(req)
-		writeHTTPJSON(w, prOKStatus(result.OK), result)
-	}
-}
-
-func handleHTTPGitPush(handlers httpHandlers) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req GitPushRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeHTTPJSON(w, http.StatusBadRequest,
-				GitPushResponse{OK: false, Error: "invalid gitPush JSON: " + err.Error()})
-			return
-		}
-		result := handlers.gitPush(req)
-		code := http.StatusOK
-		if !result.OK {
-			code = http.StatusInternalServerError
-		}
-		writeHTTPJSON(w, code, result)
-	}
-}
-
-func handleHTTPGitTag(handlers httpHandlers) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req GitTagRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeHTTPJSON(w, http.StatusBadRequest,
-				GitTagResponse{OK: false, Error: "invalid gitTag JSON: " + err.Error()})
-			return
-		}
-		result := handlers.gitTag(req)
-		code := http.StatusOK
-		if !result.OK {
-			code = http.StatusInternalServerError
-		}
-		writeHTTPJSON(w, code, result)
-	}
-}
-
-func handleHTTPGitPull(handlers httpHandlers) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req GitPullRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeHTTPJSON(w, http.StatusBadRequest,
-				GitPullResponse{OK: false, Error: "invalid gitPull JSON: " + err.Error()})
-			return
-		}
-		result := handlers.gitPull(req)
-		code := http.StatusOK
-		if !result.OK {
-			code = http.StatusInternalServerError
-		}
-		writeHTTPJSON(w, code, result)
-	}
-}
-
 func handleHTTPKubeLog(handlers httpHandlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req KubeLogRequest
@@ -749,29 +520,6 @@ func handleHTTPKubeLog(handlers httpHandlers) http.HandlerFunc {
 		}
 		writeHTTPJSON(w, code, result)
 	}
-}
-
-// gitClientTimeout is the total request timeout for git push operations.
-// Larger than prClientTimeout (30s) to accommodate large repos.
-const gitClientTimeout = 90 * time.Second
-
-// GitPush asks the daemon to push the current branch to origin via daemon-held credentials.
-func GitPush(req GitPushRequest) (GitPushResponse, error) {
-	return gitCallTyped("/git/push", req, func(r GitPushResponse) string { return r.Error })
-}
-
-// GitTag asks the daemon to create and push a git tag via daemon-held credentials.
-func GitTag(req GitTagRequest) (GitTagResponse, error) {
-	return gitCallTyped("/git/tag", req, func(r GitTagResponse) string { return r.Error })
-}
-
-// GitPull asks the daemon to pull or clean up a merged branch via daemon-held credentials.
-func GitPull(req GitPullRequest) (GitPullResponse, error) {
-	return daemonCallTyped("/git/pull", req, func(r GitPullResponse) string { return r.Error },
-		gitClientTimeout,
-		fmt.Sprintf("git pull timed out after %s — daemon is running but pull is slow", gitClientTimeout),
-		"daemon not running — ttal pull requires the daemon",
-	)
 }
 
 // daemonCallTyped is the shared retry-with-backoff HTTP helper for long-running daemon operations.
@@ -825,15 +573,6 @@ func daemonCallTyped[Req any, Resp any](
 	return result, nil
 }
 
-// gitCallTyped wraps daemonCallTyped with git-specific timeout and error messages.
-func gitCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) string) (Resp, error) {
-	return daemonCallTyped(path, req, getErr,
-		gitClientTimeout,
-		fmt.Sprintf("git operation timed out after %s — daemon is running but slow", gitClientTimeout),
-		"daemon not running — git operation requires the daemon",
-	)
-}
-
 // kubeClientTimeout is the total request timeout for kubectl log operations.
 const kubeClientTimeout = 30 * time.Second
 
@@ -868,16 +607,6 @@ func prCallTyped[Req any, Resp any](path string, req Req, getErr func(Resp) stri
 	)
 }
 
-// PRCreate asks the daemon to create a PR via the authenticated provider.
-func PRCreate(req PRCreateRequest) (PRResponse, error) {
-	return prCall("/pr/create", req)
-}
-
-// PRModify asks the daemon to edit a PR title/body.
-func PRModify(req PRModifyRequest) (PRResponse, error) {
-	return prCall("/pr/modify", req)
-}
-
 // PRFind asks the daemon to find an open PR by branch.
 func PRFind(req PRFindRequest) (PRFindResponse, error) {
 	return prCallTyped("/pr/find", req, func(r PRFindResponse) string { return r.Error })
@@ -896,16 +625,6 @@ func PRCheckMergeable(req PRCheckMergeableRequest) (PRResponse, error) {
 // PRGetPR asks the daemon to fetch a PR.
 func PRGetPR(req PRGetPRRequest) (PRGetPRResponse, error) {
 	return prCallTyped("/pr/get", req, func(r PRGetPRResponse) string { return r.Error })
-}
-
-// PRGetCombinedStatus asks the daemon to fetch CI status for a commit.
-func PRGetCombinedStatus(req PRGetCombinedStatusRequest) (PRCIStatusResponse, error) {
-	return prCallTyped("/pr/ci/status", req, func(r PRCIStatusResponse) string { return r.Error })
-}
-
-// PRGetCIFailureDetails asks the daemon to fetch CI failure details.
-func PRGetCIFailureDetails(req PRGetCIFailureDetailsRequest) (PRCIFailureDetailsResponse, error) {
-	return prCallTyped("/pr/ci/failure-details", req, func(r PRCIFailureDetailsResponse) string { return r.Error })
 }
 
 // CommentAdd asks the daemon to add a comment to a task.

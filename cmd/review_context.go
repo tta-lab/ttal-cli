@@ -8,8 +8,6 @@ import (
 	"github.com/tta-lab/ttal-cli/internal/runtime"
 )
 
-const defaultBranchName = "main"
-
 // writeReviewFile writes review content to a temporary file for agent prompts.
 func writeReviewFile(body string) (string, error) {
 	f, err := os.CreateTemp("", "ttal-review-*.md")

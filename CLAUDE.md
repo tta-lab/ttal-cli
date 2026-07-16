@@ -40,8 +40,7 @@ project list
 Tag a version to trigger the release workflow:
 
 ```
-git tag v0.1.0
-git push origin v0.1.0
+og git tag v0.1.0
 ```
 
 GoReleaser builds binaries, creates a GitHub release, and pushes the
@@ -55,7 +54,7 @@ Requires `HOMEBREW_TAP_TOKEN` secret in GitHub repo settings (a PAT with repo sc
 
 Projects are stored in a plain TOML file at `~/.config/ttal/projects.toml`. No database dependencies.
 
-**Store Location**: `internal/project/store.go`
+**Store Access**: `internal/project/resolve.go` delegates to the `project` CLI.
 
 **TOML Format**:
 ```toml
@@ -91,7 +90,7 @@ path := project.ResolveProjectPath("ttal.pr")
 ```
 cmd/             - CLI commands (cobra)
   ├── root.go    - Root command and .env loading
-  ├── project.go - Project CRUD commands (TOML-backed)
+  ├── project.go - TTAL-specific project task context
   ├── agent.go   - Agent CRUD commands
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
@@ -105,7 +104,7 @@ internal/
   ├── promptrender/ - Unified prompt template renderer ($ cmd syntax)
   ├── daemon/       - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/      - Forgejo SDK client and repo helpers
-  ├── pr/           - PR operations (create, modify, merge, comment)
+  ├── pr/           - PR lifecycle context and task metadata
   ├── worker/       - Worker lifecycle (hook, spawn, close)
   ├── gitutil/      - Git/worktree utilities (dump state, cleanup)
   ├── tmux/         - tmux session management and send-keys delivery

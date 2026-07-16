@@ -199,18 +199,11 @@ func buildHTTPHandlers(
 		commentGet: func(req CommentGetRequest) CommentGetResponse {
 			return handleCommentGet(commentSvc, defaultTeamName, req)
 		},
-		closeWindow:           handleCloseWindow,
-		prCreate:              handlePRCreate,
-		prModify:              handlePRModify,
-		prFind:                handlePRFind,
-		prMerge:               handlePRMerge,
-		prCheckMergeable:      handlePRCheckMergeable,
-		prGetPR:               handlePRGetPR,
-		prGetCombinedStatus:   handlePRGetCombinedStatus,
-		prGetCIFailureDetails: handlePRGetCIFailureDetails,
-		gitPush:               handleGitPush,
-		gitTag:                handleGitTag,
-		gitPull:               handleGitPull,
+		closeWindow:      handleCloseWindow,
+		prFind:           handlePRFind,
+		prMerge:          handlePRMerge,
+		prCheckMergeable: handlePRCheckMergeable,
+		prGetPR:          handlePRGetPR,
 		kubeLog: HandleKubeLog(
 			project.Get,
 			cfg.Kubernetes.Context,

@@ -249,17 +249,6 @@ func TestDiagnosePRMergeFailure_CIPending(t *testing.T) {
 	}
 }
 
-func TestHandlePRCreateMissingFields(t *testing.T) {
-	// Missing provider type should fail at provider creation
-	resp := handlePRCreate(PRCreateRequest{Owner: "o", Repo: "r", Title: "t"})
-	if resp.OK {
-		t.Error("expected error for missing provider_type")
-	}
-	if resp.Error == "" {
-		t.Error("expected non-empty error message")
-	}
-}
-
 func TestHandlePRMergeDeleteBranch(t *testing.T) {
 	// Verify DeleteBranch field is wired correctly.
 	// Fails at provider creation (no token in test env) — confirms request structure compiles.
@@ -288,20 +277,6 @@ func TestHandlePRCheckMergeableMissingProvider(t *testing.T) {
 
 func TestHandlePRGetPRMissingProvider(t *testing.T) {
 	resp := handlePRGetPR(PRGetPRRequest{Owner: "o", Repo: "r", Index: 1})
-	if resp.OK {
-		t.Error("expected error for missing provider_type")
-	}
-}
-
-func TestHandlePRGetCombinedStatusMissingProvider(t *testing.T) {
-	resp := handlePRGetCombinedStatus(PRGetCombinedStatusRequest{Owner: "o", Repo: "r", SHA: "abc"})
-	if resp.OK {
-		t.Error("expected error for missing provider_type")
-	}
-}
-
-func TestHandlePRGetCIFailureDetailsMissingProvider(t *testing.T) {
-	resp := handlePRGetCIFailureDetails(PRGetCIFailureDetailsRequest{Owner: "o", Repo: "r", SHA: "abc"})
 	if resp.OK {
 		t.Error("expected error for missing provider_type")
 	}
