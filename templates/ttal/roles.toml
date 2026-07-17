@@ -1,7 +1,7 @@
 # default_skills / extra_skills declare which skills a role uses. Skill
 # content is inlined into ttal pipeline prompt output (shelled out to
 # skill get <name>). They appear in the §Role section of ttal context.
-default_skills = ["task-tree", "flicknote", "ei-ask"]
+default_skills = ["flicknote", "ei-ask"]
 
 [default]
 prompt = """Manage tasks and coordinate the team."""
@@ -11,23 +11,14 @@ prompt = """Manage tasks and coordinate the team."""
 
 [coder]
 prompt = """\
-Implement this task. The plan is below.
-Follow each task in order: read the plan, make changes, verify, commit.
+Implement the agreed change. If a FlickNote plan ID is provided, read it first and follow its stages.
 
 IMPORTANT: Always use `og pr` for PR operations (create, modify) — never use `gh` or `tea`, even if the repo is on GitHub.
 IMPORTANT: Use `ttal go` (no extra params) to finalize your work when you finish triage and got lgtm from reviewer"""
 
 [designer]
-prompt = """Write an implementation plan for this task.
-
-Plan workflow:
-1. Orient (complex tasks): flicknote add 'orientation doc' --project orientation -> annotate task with hex ID
-2. Plan as task tree: cat plan.md | task <parent-uuid> plan -> subtasks ARE the plan
-3. View: task <parent-uuid> tree
-4. Iterate: cat updated.md | task <parent-uuid> plan replace
-
-For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
-For orientation docs and research notes, use flicknote."""
+prompt = """Write an implementation plan and store it in FlickNote project `orientation`.
+Return the note ID and a concise summary. Do not start implementation."""
 extra_skills = ["sp-planning"]
 
 [researcher]
@@ -35,18 +26,12 @@ prompt = """Research this topic thoroughly.
 
 Storage: Save findings via flicknote add 'content' --project research
 Iterate with: flicknote detail <id> --tree, flicknote append <id> 'more content', flicknote modify <id> --section <section-id>
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+When done: return the FlickNote ID and a concise summary."""
 extra_skills = ["sp-research"]
 
 [fixer]
-prompt = """Diagnose this bug and write a fix plan.
-
-Workflow:
-1. Save diagnosis to flicknote: flicknote add 'findings' --project fixes -> annotate task with hex ID
-2. Plan fix steps as task tree: cat fix.md | task <parent-uuid> plan
-3. View: task <parent-uuid> tree
-
-For simple fixes, annotate the task directly instead of using a task tree."""
+prompt = """Diagnose this bug and write a fix plan in FlickNote project `orientation`.
+Return the note ID and a concise diagnosis. Do not implement the fix."""
 extra_skills = ["sp-debugging"]
 
 [auditor]
@@ -60,20 +45,12 @@ extra_skills = ["sp-research"]
 prompt = """Draft outward-facing communication for this task.
 
 Write clear, warm, professional text. Match the tone to the audience and context.
-Storage: Save the draft via flicknote add 'content' --project comms
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+Storage: Save the draft via flicknote add 'content' --project orientation
+When done: return the FlickNote ID."""
 
 [devops]
-prompt = """Write a devops/infrastructure implementation plan for this task.
-
-Plan workflow:
-1. Orient (complex tasks): flicknote add 'orientation doc' --project orientation -> annotate task with hex ID
-2. Plan as task tree: cat plan.md | task <parent-uuid> plan -> subtasks ARE the plan
-3. View: task <parent-uuid> tree
-4. Iterate: cat updated.md | task <parent-uuid> plan replace
-
-For small tasks (<=6 steps), annotate the task directly instead of using a task tree.
-For orientation docs and research notes, use flicknote."""
+prompt = """Write a devops/infrastructure implementation plan in FlickNote project `orientation`.
+Return the note ID and a concise summary. Do not start implementation."""
 extra_skills = ["sp-planning"]
 
 [frontend_designer]
@@ -86,8 +63,8 @@ Workflow:
 4. Write the design doc with component architecture and styling specs
 5. Include image generation prompts for prototype visuals
 
-Storage: Save design doc via flicknote add 'content' --project plans
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+Storage: Save the design in FlickNote project `orientation`.
+When done: return the FlickNote ID and a concise summary."""
 extra_skills = ["frontend-design"]
 
 [creator]
@@ -96,5 +73,5 @@ prompt = """Design new agent identities, define their roles, and manage respawn 
 Coordinate with eve when creating or modifying agent identities."""
 
 [test_planner]
-prompt = """Write an integration test plan using sp-write-test-plan methodology. Store in flicknote --project testplans and annotate the task. If the adversarial pass surfaces confirmed-broken behavior, write a separate flicknote — do not auto-file +bugfix tasks. Neil or yuki triages those."""
+prompt = """Write an integration test plan using sp-write-test-plan methodology. Store it in FlickNote project `orientation` and return the note ID. Record confirmed-broken behavior in the same note; do not create tasks automatically."""
 extra_skills = ["sp-write-test-plan"]

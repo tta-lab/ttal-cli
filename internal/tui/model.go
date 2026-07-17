@@ -75,10 +75,6 @@ type Model struct {
 	teamName       string
 	loadingSpinner spinner.Model
 
-	// Heatmap
-	heatmapModel heatmapModel
-	heatmapReady bool
-
 	// Child cache for detail view
 	childrenCache map[string][]Task // parent UUID → loaded children
 
@@ -132,7 +128,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case configLoadedMsg, autocompleteLoadedMsg, tasksLoadedMsg,
-		actionResultMsg, execFinishedMsg, heatmapLoadedMsg, childrenLoadedMsg:
+		actionResultMsg, execFinishedMsg, childrenLoadedMsg:
 		return m.handleDataMsg(msg)
 	case spinner.TickMsg:
 		if !m.loading {
@@ -143,7 +139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case refreshTickMsg:
 		// Only reload when the task list is visible. Other views (detail, search,
-		// modify, annotate, confirm, help, heatmap) own their own data state.
+		// modify, annotate, confirm, help) own their own data state.
 		if m.state != stateTaskList {
 			return m, nil
 		}
@@ -192,15 +188,6 @@ func (m Model) handleDataMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.statusMsg = "Error: " + msg.err.Error()
 		}
-		return m, nil
-	case heatmapLoadedMsg:
-		if msg.err != nil {
-			m.statusMsg = fmt.Sprintf("Error: %v", msg.err)
-			m.state = stateTaskList
-			return m, nil
-		}
-		m.heatmapModel = msg.model
-		m.heatmapReady = true
 		return m, nil
 	}
 	return m, nil
@@ -257,8 +244,6 @@ func (m Model) View() tea.View {
 		content = m.viewTaskList() // show list behind overlay
 	case stateHelp:
 		content = m.viewHelp()
-	case stateHeatmap:
-		content = m.viewHeatmap()
 	}
 
 	// Overlays
@@ -288,8 +273,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleAnnotateKey(msg)
 	case stateConfirmDelete:
 		return m.handleConfirmDeleteKey(msg)
-	case stateHeatmap:
-		return m.handleHeatmapKey(msg)
 	case stateHelp:
 		return m.handleHelpKey(msg)
 	}
@@ -400,10 +383,6 @@ func (m *Model) handleAction(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.reloadTasks()
-	case key.Matches(msg, m.keys.Heatmap):
-		m.heatmapReady = false
-		m.state = stateHeatmap
-		return m, loadHeatmapCmd()
 	}
 	return m.handleTaskAction(msg)
 }
@@ -461,23 +440,6 @@ func (m *Model) handleHelpKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.helpViewport, cmd = m.helpViewport.Update(msg)
 		return m, cmd
 	}
-}
-
-func (m *Model) handleHeatmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.Heatmap), key.Matches(msg, m.keys.Esc):
-		m.state = stateTaskList
-		return m, nil
-	case key.Matches(msg, m.keys.Up):
-		m.heatmapModel.handleKey("up")
-	case key.Matches(msg, m.keys.Down):
-		m.heatmapModel.handleKey("down")
-	case msg.String() == "h", msg.String() == "left":
-		m.heatmapModel.handleKey("left")
-	case msg.String() == "l", msg.String() == "right":
-		m.heatmapModel.handleKey("right")
-	}
-	return m, nil
 }
 
 func (m *Model) handleConfirmDeleteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {

@@ -29,22 +29,17 @@ Only add context Claude doesn't already have. Challenge each piece of informatio
 
 **Good example: Concise** (approximately 50 tokens):
 
-````markdown  theme={null}
 ## Extract PDF text
 
 Use pdfplumber for text extraction:
 
-```python
 import pdfplumber
 
 with pdfplumber.open("file.pdf") as pdf:
     text = pdf.pages[0].extract_text()
-```
-````
 
 **Bad example: Too verbose** (approximately 150 tokens):
 
-```markdown  theme={null}
 ## Extract PDF text
 
 PDF (Portable Document Format) files are a common file format that contains
@@ -52,7 +47,6 @@ text, images, and other content. To extract text from a PDF, you'll need to
 use a library. There are many libraries available for PDF processing, but we
 recommend pdfplumber because it's easy to use and handles most cases well.
 First, you'll need to install it using pip. Then you can use the code below...
-```
 
 The concise version assumes Claude knows what PDFs are and how libraries work.
 
@@ -70,14 +64,12 @@ Use when:
 
 Example:
 
-```markdown  theme={null}
 ## Code review process
 
 1. Analyze the code structure and organization
 2. Check for potential bugs or edge cases
 3. Suggest improvements for readability and maintainability
 4. Verify adherence to project conventions
-```
 
 **Medium freedom** (pseudocode or scripts with parameters):
 
@@ -89,18 +81,14 @@ Use when:
 
 Example:
 
-````markdown  theme={null}
 ## Generate report
 
 Use this template and customize as needed:
 
-```python
 def generate_report(data, format="markdown", include_charts=True):
     # Process data
     # Generate output in specified format
     # Optionally include visualizations
-```
-````
 
 **Low freedom** (specific scripts, few or no parameters):
 
@@ -112,17 +100,13 @@ Use when:
 
 Example:
 
-````markdown  theme={null}
 ## Database migration
 
 Run exactly this script:
 
-```
 python scripts/migrate.py --verify --backup
-```
 
 Do not modify the command or add additional flags.
-````
 
 **Analogy**: Think of Claude as a robot exploring a path:
 
@@ -202,35 +186,23 @@ Effective examples:
 
 **PDF Processing skill:**
 
-```yaml  theme={null}
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
-```
 
 **Excel Analysis skill:**
 
-```yaml  theme={null}
 description: Analyze Excel spreadsheets, create pivot tables, generate charts. Use when analyzing Excel files, spreadsheets, tabular data, or .xlsx files.
-```
 
 **Git Commit Helper skill:**
 
-```yaml  theme={null}
 description: Generate descriptive commit messages by analyzing git diffs. Use when the user asks for help writing commit messages or reviewing staged changes.
-```
 
 Avoid vague descriptions like these:
 
-```yaml  theme={null}
 description: Helps with documents
-```
 
-```yaml  theme={null}
 description: Processes data
-```
 
-```yaml  theme={null}
 description: Does stuff with files
-```
 
 ### Progressive disclosure patterns
 
@@ -254,7 +226,6 @@ As your Skill grows, you can bundle additional content that Claude loads only wh
 
 The complete Skill directory structure might look like this:
 
-```
 pdf/
 ├── SKILL.md              # Main instructions (loaded when triggered)
 ├── FORMS.md              # Form-filling guide (loaded as needed)
@@ -264,11 +235,9 @@ pdf/
     ├── analyze_form.py   # Utility script (executed, not loaded)
     ├── fill_form.py      # Form filling script
     └── validate.py       # Validation script
-```
 
 #### Pattern 1: High-level guide with references
 
-````markdown  theme={null}
 ---
 name: PDF Processing
 description: Extracts text and tables from PDF files, fills forms, and merges documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
@@ -279,18 +248,15 @@ description: Extracts text and tables from PDF files, fills forms, and merges do
 ## Quick start
 
 Extract text with pdfplumber:
-```python
 import pdfplumber
 with pdfplumber.open("file.pdf") as pdf:
     text = pdf.pages[0].extract_text()
-```
 
 ## Advanced features
 
 **Form filling**: See [FORMS.md](FORMS.md) for complete guide
 **API reference**: See [REFERENCE.md](REFERENCE.md) for all methods
 **Examples**: See [EXAMPLES.md](EXAMPLES.md) for common patterns
-````
 
 Claude loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
 
@@ -298,7 +264,6 @@ Claude loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
 
 For Skills with multiple domains, organize content by domain to avoid loading irrelevant context. When a user asks about sales metrics, Claude only needs to read sales-related schemas, not finance or marketing data. This keeps token usage low and context focused.
 
-```
 bigquery-skill/
 ├── SKILL.md (overview and navigation)
 └── reference/
@@ -306,9 +271,7 @@ bigquery-skill/
     ├── sales.md (opportunities, pipeline)
     ├── product.md (API usage, features)
     └── marketing.md (campaigns, attribution)
-```
 
-````markdown SKILL.md theme={null}
 # BigQuery Data Analysis
 
 ## Available datasets
@@ -322,18 +285,14 @@ bigquery-skill/
 
 Find specific metrics using grep:
 
-```
 grep -i "revenue" reference/finance.md
 grep -i "pipeline" reference/sales.md
 grep -i "api usage" reference/product.md
-```
-````
 
 #### Pattern 3: Conditional details
 
 Show basic content, link to advanced content:
 
-```markdown  theme={null}
 # DOCX Processing
 
 ## Creating documents
@@ -346,7 +305,6 @@ For simple edits, modify the XML directly.
 
 **For tracked changes**: See [REDLINING.md](REDLINING.md)
 **For OOXML details**: See [OOXML.md](OOXML.md)
-```
 
 Claude reads REDLINING.md or OOXML.md only when the user needs those features.
 
@@ -358,7 +316,6 @@ Claude may partially read files when they're referenced from other referenced fi
 
 **Bad example: Too deep**:
 
-```markdown  theme={null}
 # SKILL.md
 See [advanced.md](advanced.md)...
 
@@ -367,18 +324,15 @@ See [details.md](details.md)...
 
 # details.md
 Here's the actual information...
-```
 
 **Good example: One level deep**:
 
-```markdown  theme={null}
 # SKILL.md
 
 **Basic usage**: [instructions in SKILL.md]
 **Advanced features**: See [advanced.md](advanced.md)
 **API reference**: See [reference.md](reference.md)
 **Examples**: See [examples.md](examples.md)
-```
 
 ### Structure longer reference files with table of contents
 
@@ -386,7 +340,6 @@ For reference files longer than 100 lines, include a table of contents at the to
 
 **Example**:
 
-```markdown  theme={null}
 # API Reference
 
 ## Contents
@@ -401,7 +354,6 @@ For reference files longer than 100 lines, include a table of contents at the to
 
 ## Core methods
 ...
-```
 
 Claude can then read the complete file or jump to specific sections as needed.
 
@@ -415,19 +367,16 @@ Break complex operations into clear, sequential steps. For particularly complex 
 
 **Example 1: Research synthesis workflow** (for Skills without code):
 
-````markdown  theme={null}
 ## Research synthesis workflow
 
 Copy this checklist and track your progress:
 
-```
 Research Progress:
 - [ ] Step 1: Read all source documents
 - [ ] Step 2: Identify key themes
 - [ ] Step 3: Cross-reference claims
 - [ ] Step 4: Create structured summary
 - [ ] Step 5: Verify citations
-```
 
 **Step 1: Read all source documents**
 
@@ -451,25 +400,21 @@ Organize findings by theme. Include:
 **Step 5: Verify citations**
 
 Check that every claim references the correct source document. If citations are incomplete, return to Step 3.
-````
 
 This example shows how workflows apply to analysis tasks that don't require code. The checklist pattern works for any complex, multi-step process.
 
 **Example 2: PDF form filling workflow** (for Skills with code):
 
-````markdown  theme={null}
 ## PDF form filling workflow
 
 Copy this checklist and check off items as you complete them:
 
-```
 Task Progress:
 - [ ] Step 1: Analyze the form (run analyze_form.py)
 - [ ] Step 2: Create field mapping (edit fields.json)
 - [ ] Step 3: Validate mapping (run validate_fields.py)
 - [ ] Step 4: Fill the form (run fill_form.py)
 - [ ] Step 5: Verify output (run verify_output.py)
-```
 
 **Step 1: Analyze the form**
 
@@ -496,7 +441,6 @@ Run: `python scripts/fill_form.py input.pdf fields.json output.pdf`
 Run: `python scripts/verify_output.py output.pdf`
 
 If verification fails, return to Step 2.
-````
 
 Clear steps prevent Claude from skipping critical validation. The checklist helps both Claude and you track progress through multi-step workflows.
 
@@ -508,7 +452,6 @@ This pattern greatly improves output quality.
 
 **Example 1: Style guide compliance** (for Skills without code):
 
-```markdown  theme={null}
 ## Content review process
 
 1. Draft your content following the guidelines in STYLE_GUIDE.md
@@ -522,13 +465,11 @@ This pattern greatly improves output quality.
    - Review the checklist again
 4. Only proceed when all requirements are met
 5. Finalize and save the document
-```
 
 This shows the validation loop pattern using reference documents instead of scripts. The "validator" is STYLE\_GUIDE.md, and Claude performs the check by reading and comparing.
 
 **Example 2: Document editing process** (for Skills with code):
 
-```markdown  theme={null}
 ## Document editing process
 
 1. Make your edits to `word/document.xml`
@@ -540,7 +481,6 @@ This shows the validation loop pattern using reference documents instead of scri
 4. **Only proceed when validation passes**
 5. Rebuild: `python ooxml/scripts/pack.py unpacked_dir/ output.docx`
 6. Test the output document
-```
 
 The validation loop catches errors early.
 
@@ -552,14 +492,11 @@ Don't include information that will become outdated:
 
 **Bad example: Time-sensitive** (will become wrong):
 
-```markdown  theme={null}
 If you're doing this before August 2025, use the old API.
 After August 2025, use the new API.
-```
 
 **Good example** (use "old patterns" section):
 
-```markdown  theme={null}
 ## Current method
 
 Use the v2 API endpoint: `api.example.com/v2/messages`
@@ -573,7 +510,6 @@ The v1 API used: `api.example.com/v1/messages`
 
 This endpoint is no longer supported.
 </details>
-```
 
 The old patterns section provides historical context without cluttering the main content.
 
@@ -603,12 +539,10 @@ Provide templates for output format. Match the level of strictness to your needs
 
 **For strict requirements** (like API responses or data formats):
 
-````markdown  theme={null}
 ## Report structure
 
 ALWAYS use this exact template structure:
 
-```markdown
 # [Analysis Title]
 
 ## Executive summary
@@ -622,17 +556,13 @@ ALWAYS use this exact template structure:
 ## Recommendations
 1. Specific actionable recommendation
 2. Specific actionable recommendation
-```
-````
 
 **For flexible guidance** (when adaptation is useful):
 
-````markdown  theme={null}
 ## Report structure
 
 Here is a sensible default format, but use your best judgment based on the analysis:
 
-```markdown
 # [Analysis Title]
 
 ## Executive summary
@@ -643,16 +573,13 @@ Here is a sensible default format, but use your best judgment based on the analy
 
 ## Recommendations
 [Tailor to the specific context]
-```
 
 Adjust sections as needed for the specific analysis type.
-````
 
 ### Examples pattern
 
 For Skills where output quality depends on seeing examples, provide input/output pairs just like in regular prompting:
 
-````markdown  theme={null}
 ## Commit message format
 
 Generate commit messages following these examples:
@@ -660,33 +587,26 @@ Generate commit messages following these examples:
 **Example 1:**
 Input: Added user authentication with JWT tokens
 Output:
-```
 feat(auth): implement JWT-based authentication
 
 Add login endpoint and token validation middleware
-```
 
 **Example 2:**
 Input: Fixed bug where dates displayed incorrectly in reports
 Output:
-```
 fix(reports): correct date formatting in timezone conversion
 
 Use UTC timestamps consistently across report generation
-```
 
 **Example 3:**
 Input: Updated dependencies and refactored error handling
 Output:
-```
 chore: update dependencies and refactor error handling
 
 - Upgrade lodash to 4.17.21
 - Standardize error response format across endpoints
-```
 
 Follow this style: type(scope): brief description, then detailed explanation.
-````
 
 Examples help Claude understand the desired style and level of detail more clearly than descriptions alone.
 
@@ -694,7 +614,6 @@ Examples help Claude understand the desired style and level of detail more clear
 
 Guide Claude through decision points:
 
-```markdown  theme={null}
 ## Document modification workflow
 
 1. Determine the modification type:
@@ -712,7 +631,6 @@ Guide Claude through decision points:
    - Modify XML directly
    - Validate after each change
    - Repack when complete
-```
 
 <Tip>
   If workflows become large or complicated with many steps, consider pushing them into separate files and tell Claude to read the appropriate file based on the task at hand.
@@ -736,7 +654,6 @@ This approach ensures you're solving actual problems rather than anticipating re
 
 **Evaluation structure**:
 
-```json  theme={null}
 {
   "skills": ["pdf-processing"],
   "query": "Extract all text from this PDF file and save it to output.txt",
@@ -747,7 +664,6 @@ This approach ensures you're solving actual problems rather than anticipating re
     "Saves the extracted text to a file named output.txt in a clear, readable format"
   ]
 }
-```
 
 <Note>
   This example demonstrates a data-driven evaluation with a simple testing rubric. We do not currently provide a built-in way to run these evaluations. Users can create their own evaluation system. Evaluations are your source of truth for measuring Skill effectiveness.
@@ -835,18 +751,14 @@ Unix-style paths work across all platforms, while Windows-style paths cause erro
 
 Don't present multiple approaches unless necessary:
 
-````markdown  theme={null}
 **Bad example: Too many choices** (confusing):
 "You can use pypdf, or pdfplumber, or PyMuPDF, or pdf2image, or..."
 
 **Good example: Provide a default** (with escape hatch):
 "Use pdfplumber for text extraction:
-```python
 import pdfplumber
-```
 
 For scanned PDFs requiring OCR, use pdf2image with pytesseract instead."
-````
 
 ## Advanced: Skills with executable code
 
@@ -858,7 +770,6 @@ When writing scripts for Skills, handle error conditions rather than punting to 
 
 **Good example: Handle errors explicitly**:
 
-```python  theme={null}
 def process_file(path):
     """Process a file, creating it if it doesn't exist."""
     try:
@@ -874,21 +785,17 @@ def process_file(path):
         # Provide alternative instead of failing
         print(f"Cannot access {path}, using default")
         return ''
-```
 
 **Bad example: Punt to Claude**:
 
-```python  theme={null}
 def process_file(path):
     # Just fail and let Claude figure it out
     return open(path).read()
-```
 
 Configuration parameters should also be justified and documented to avoid "voodoo constants" (Ousterhout's law). If you don't know the right value, how will Claude determine it?
 
 **Good example: Self-documenting**:
 
-```python  theme={null}
 # HTTP requests typically complete within 30 seconds
 # Longer timeout accounts for slow connections
 REQUEST_TIMEOUT = 30
@@ -896,14 +803,11 @@ REQUEST_TIMEOUT = 30
 # Three retries balances reliability vs speed
 # Most intermittent failures resolve by the second retry
 MAX_RETRIES = 3
-```
 
 **Bad example: Magic numbers**:
 
-```python  theme={null}
 TIMEOUT = 47  # Why 47?
 RETRIES = 5   # Why 5?
-```
 
 ### Provide utility scripts
 
@@ -929,52 +833,38 @@ For most utility scripts, execution is preferred because it's more reliable and 
 
 **Example**:
 
-````markdown  theme={null}
 ## Utility scripts
 
 **analyze_form.py**: Extract all form fields from PDF
 
-```
 python scripts/analyze_form.py input.pdf > fields.json
-```
 
 Output format:
-```json
 {
   "field_name": {"type": "text", "x": 100, "y": 200},
   "signature": {"type": "sig", "x": 150, "y": 500}
 }
-```
 
 **validate_boxes.py**: Check for overlapping bounding boxes
 
-```
 python scripts/validate_boxes.py fields.json
 # Returns: "OK" or lists conflicts
-```
 
 **fill_form.py**: Apply field values to PDF
 
-```
 python scripts/fill_form.py input.pdf fields.json output.pdf
-```
-````
 
 ### Use visual analysis
 
 When inputs can be rendered as images, have Claude analyze them:
 
-````markdown  theme={null}
 ## Form layout analysis
 
 1. Convert PDF to images:
-   ```
    python scripts/pdf_to_images.py form.pdf
-   ```
 
 2. Analyze each page image to identify form fields
 3. Claude can see field locations and types visually
-````
 
 <Note>
   In this example, you'd need to write the `pdf_to_images.py` script.
@@ -1037,14 +927,12 @@ Skills run in a code execution environment with filesystem access, bash commands
 
 **Example:**
 
-```
 bigquery-skill/
 ├── SKILL.md (overview, points to reference files)
 └── reference/
     ├── finance.md (revenue metrics)
     ├── sales.md (pipeline data)
     └── product.md (usage analytics)
-```
 
 When the user asks about revenue, Claude reads SKILL.md, sees the reference to `reference/finance.md`, and invokes bash to read just that file. The sales.md and product.md files remain on the filesystem, consuming zero context tokens until needed. This filesystem-based model is what enables progressive disclosure. Claude can navigate and selectively load exactly what each task requires.
 
@@ -1058,10 +946,8 @@ If your Skill uses MCP (Model Context Protocol) tools, always use fully qualifie
 
 **Example**:
 
-```markdown  theme={null}
 Use the BigQuery:bigquery_schema tool to retrieve table schemas.
 Use the GitHub:create_issue tool to create issues.
-```
 
 Where:
 
@@ -1074,7 +960,6 @@ Without the server prefix, Claude may fail to locate the tool, especially when m
 
 Don't assume packages are available:
 
-````markdown  theme={null}
 **Bad example: Assumes installation**:
 "Use the pdf library to process the file."
 
@@ -1082,11 +967,8 @@ Don't assume packages are available:
 "Install required package: `pip install pypdf`
 
 Then use it:
-```python
 from pypdf import PdfReader
 reader = PdfReader("file.pdf")
-```"
-````
 
 ## Technical notes
 

@@ -57,8 +57,7 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 
 ### Never Do
 - Task prioritization (Yuki's domain)
-- Write implementation plans (Inke's domain) — if research reveals a design need, use `ttal task add` to create a `+design` task
-- **Mark tasks as done** — don't re-tag tasks directly. Use `ttal go <uuid>` to advance through pipeline stages for handoff
+- Write implementation plans (Inke's domain) — if research reveals a design need, surface it for Neil to decide
 - Delete tasks without confirmation (use the **task-deleter** subagent if needed)
 
 ## Critical Rules
@@ -71,9 +70,7 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 
 ## Tools
 
-- **taskwarrior** — `task +research status:pending export`, `task $uuid done`
-- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`)
-- **task-deleter** subagent — delegate task deletion when needed
+- **flicknote** — store findings in project `research`
 - **flicknote** — research storage and iteration
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary quill read`, `diary quill append "..."`

@@ -23,16 +23,12 @@ $ project list
 ---
 § Role
 $ ttal pipeline prompt
-§ Task
-$ ttal task get
 """
 
 context_worker = """
 ---
 § Role
 $ ttal pipeline prompt
-§ Task
-$ ttal task get
 """
 
 triage = "Execute `skill get triage`\n\nPR review posted. Read {{review-file}}, assess and fix issues."
@@ -59,10 +55,9 @@ $ diary {{agent-name}} read
 $ ttal agent list
 ---
 
-## New Task Assignment
+## Current Assignment
 
-Read the task and do your best based on the context.
-Run `ttal task get` (no extra arguments) to retrieve task details.
+Use the supplied conversation and FlickNote references as the source of truth.
 $ ttal pipeline prompt
 """
 ```
@@ -105,9 +100,9 @@ PR review posted. Read it, assess and fix issues.
 ### `context_manager` / `context_worker`
 
 `ttal context` picks the template by checking agentfs for an `AGENTS.md` under the team path.
-Manager template includes diary, agent list, project list. Worker template is leaner — just
-pairing, role prompt, and task. Both templates shell out to `$ ttal pipeline prompt` for the
-role-specific prompt with inlined skills, and `$ ttal task get` for the task body.
+Manager template includes diary, agent list, and project list. Worker template is leaner.
+Both templates shell out to `$ ttal pipeline prompt` for the role-specific prompt with
+inlined skills. Durable design and plan context lives in FlickNote.
 
 Lines starting with `$ ` are executed as shell commands. The `§` prefix marks section headers
 and is passed through verbatim.
@@ -117,19 +112,19 @@ and is passed through verbatim.
 The coder role prompt is rendered by `ttal pipeline prompt` and injected via the context
 template. Configure it in `roles.toml` under `[coder]`.
 
-Default: instructs the coder agent to implement the task using the plan from the task context.
+Default: instructs the coder agent to implement the agreed change and read a supplied FlickNote plan ID.
 
 ### `designer`
 
-Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: designer`. The agent receives this prompt with the task UUID, reads the task details, and writes an implementation plan.
+Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: designer`.
 
-Default: asks the agent to write a plan document and annotate the task with its path.
+Default: asks the agent to store an implementation plan in FlickNote project `orientation` and return its ID.
 
 ### `researcher`
 
 Controls what gets sent when you run `ttal go <uuid>` where the agent has `role: researcher`. The agent receives this prompt, investigates the topic, and writes findings.
 
-Default: asks the agent to research the topic and annotate the task with the findings path.
+Default: asks the agent to store findings in FlickNote project `research` and return its ID.
 
 ### `triage`
 
@@ -158,8 +153,6 @@ $ project list
 ---
 § Role
 $ ttal pipeline prompt
-§ Task
-$ ttal task get
 """
 ```
 

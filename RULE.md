@@ -13,14 +13,13 @@ message
 EOF
 ```
 
-## Tasks
+## Notes & Pipeline
 
 ```
-ttal task add --project <alias> "description" --tag <tag> --priority M --annotate "note"
-ttal task get                           # rich prompt with inlined docs
-ttal task find <keyword>                # search pending tasks
-ttal task find <keyword> --completed    # search completed tasks
-ttal go <uuid>                    # advance task through pipeline stage
+flicknote add "content" --project orientation
+flicknote find <keyword>
+flicknote detail <id>
+ttal go <uuid>                          # advance an existing pipeline job
 ```
 
 ## PRs

@@ -1,82 +1,55 @@
 ---
 name: sp-complete-design
-description: "Completion phase for a written plan. Self-review, gather missing input, update state, and request review — with explicit output-channel partitioning so only summaries and open questions reach the human."
-category: methodology
+description: Use when the user asks to finalize and hand back an existing design or implementation plan stored in FlickNote.
 ---
 
-# Complete a Design Plan
+# Complete a Design
 
-## Overview
+Finalize an existing FlickNote design or plan without starting review or implementation.
 
-After a plan is written (by sp-planning or sp-debugging), this skill handles the final handoff phase: self-review, open questions, external research, state updates, and review routing.
+## 1. Load the Note
 
-Follow each step in order. Steps tagged **(→ persist)** write to state without surfacing to Neil. Steps tagged **(→ human)** output to Neil's context window.
+Read the full note and its structure:
 
----
+flicknote detail <id>
+flicknote detail <id> --tree
 
-## Step 1: Worker's-Eye Self-Review  (→ persist)
+The note must live in the `orientation` project. Move it there if needed.
 
-Re-read the plan as the worker who has to execute it. For every step ask:
+## 2. Review as the Implementer
 
-- Could a worker execute this without asking?
-- Are file paths, commands, and expected outputs exact?
-- Are there hidden assumptions?
+Check:
 
-Note gaps to yourself only. Fix them in-place (edit the task tree / flicknote). No human-channel output from this step.
+- Could someone execute it without asking for missing context?
+- Are file paths, commands, expected results, and ordering accurate?
+- Are goal, anti-goals, exit criteria, tests, risks, and dependencies clear?
+- Does any stage still hide a design decision?
+- Should an oversized plan be split into deliverable phases?
 
-### Step 2: Identify Open Questions for Neil  (→ persist, then → human)
+Write fixes directly back with `flicknote modify`, `replace`, `append`, or section operations.
 
-List decisions that genuinely need Neil's input (trade-offs you can't resolve, scope ambiguities, close architecture calls).
+## 3. Resolve Missing Context
 
-Write the list to persist first (annotate the task or append the orientation flicknote).
+Search the repository, prior notes, or external sources for facts that do not require user judgment. Fold useful findings into the note.
 
-Then surface **only the questions** to the human channel — no reasoning, no alternatives, no self-review findings.
+Ask the user only for decisions that materially change scope, behavior, or trade-offs. Persist the answer in FlickNote before continuing.
 
-If there are no open questions, skip the human surface entirely.
+## 4. Final Check
 
-### Step 3: Gather External Context If Needed  (→ persist)
+Re-read the updated note from top to bottom. Confirm that:
 
-If the plan needs cross-project reference, docs lookup, or web research, dispatch async:
+- The note is the single source of truth
+- No required work is stored only in chat
+- No Taskwarrior task, annotation, or task tree is required
+- No unresolved question blocks execution
 
-```
-ei ask --async "…" --project <alias>
-ei ask --async "…" --web
-```
+## 5. Hand Back
 
-Results land in `~/.einai/outputs/`. Fold findings back into the plan. Do not narrate the research to Neil.
+Return:
 
-### Step 4: Update the Plan with Review Findings and Answers  (→ persist)
+- FlickNote ID
+- One paragraph describing what and why
+- Major stages
+- Remaining risks, if any
 
-Apply everything from steps 1–3 directly to the task tree / flicknote / annotations. Silent persist work:
-
-```
-task <uuid> plan
-flicknote modify <id>
-task <uuid> annotate '<note>'
-```
-
-### Step 5: Present the Summary  (→ human)
-
-Surface only a concise summary of the finalized plan to Neil:
-
-- One-paragraph what + why
-- Bullet list of the major steps (not the details — those live in the tree)
-- Any remaining risks or trade-offs
-
-Keep it under ~200 words. No code blocks, no file paths, no step-by-step detail.
-
-### Step 6: Request Review  (→ persist)
-
-Run `ttal go <uuid>` to route the task to the plan reviewer. No human-channel output — the command itself is the handoff.
-
----
-
-### Channel Discipline Checklist
-
-- [ ] Self-review stayed in persist — no leakage to human channel
-- [ ] Only open questions hit human in step 2 — no reasoning or alternatives surfaced
-- [ ] Research dispatched async and folded into persist — no narrated findings to Neil
-- [ ] Human-channel summary ≤200 words with no execution detail or file paths
-- [ ] `ttal go <uuid>` ran cleanly in step 6
-
-> **Reminder:** If persist-bound content leaked to the human channel, you burned Neil's context window.
+Keep the summary under 200 words. Stop there. Do not invoke review, `ttal go`, `goal-impl`, or any other next phase.

@@ -5,10 +5,6 @@ shell = "fish"
 
 references_path = "~/code/references"
 
-[flicknote]
-  # "plan" and "fix" kept for backward compat with existing annotated tasks
-  inline_projects = ["plan", "fix", "orientation"]
-
 [sync]
   worker_agent_paths = ["/Users/neil/Code/guion-opensource/ttal-cli/agents"]
   skills_paths = ["/Users/neil/Code/guion-opensource/ttal-cli/skills"]

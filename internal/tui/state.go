@@ -10,5 +10,4 @@ const (
 	stateAnnotate
 	stateHelp
 	stateConfirmDelete
-	stateHeatmap
 )

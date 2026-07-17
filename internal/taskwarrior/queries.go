@@ -33,32 +33,6 @@ func ExportTaskByHexID(hexID, status string) (*Task, error) {
 	return task, nil
 }
 
-func FindTasks(keywords []string, status string) ([]Task, error) {
-	parts := make([]string, len(keywords))
-	for i, kw := range keywords {
-		quoted := `"` + strings.ReplaceAll(kw, `"`, `\"`) + `"`
-		parts[i] = "description.contains:" + quoted
-	}
-	filter := "(" + strings.Join(parts, " or ") + ")"
-
-	args := []string{filter}
-	if status != "" {
-		args = append(args, fmt.Sprintf("status:%s", status))
-	}
-	args = append(args, "export")
-
-	out, err := runTask(args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search tasks: %w", err)
-	}
-
-	var tasks []Task
-	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &tasks); err != nil {
-		return nil, fmt.Errorf("failed to parse task JSON (output: %q): %w", out, err)
-	}
-	return tasks, nil
-}
-
 // exportTasks runs a task export query and unmarshals the JSON result.
 // Returns nil, nil when there are no matching tasks.
 func exportTasks(args ...string) ([]Task, error) {

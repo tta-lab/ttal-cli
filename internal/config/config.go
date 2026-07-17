@@ -45,15 +45,6 @@ func AgentSessionName(agent string) string {
 	return sessionPrefix + agent
 }
 
-// DefaultInlineProjects is the default set of flicknote project keywords to inline.
-var DefaultInlineProjects = []string{"plan"}
-
-// FlicknoteConfig holds flicknote-related settings.
-type FlicknoteConfig struct {
-	// Project substrings to inline (default: plan)
-	InlineProjects []string `toml:"inline_projects" jsonschema:"description=Project substrings to inline (default: plan)"`
-}
-
 // KubernetesConfig holds kubectl/k8s settings for ttal log.
 type KubernetesConfig struct {
 	// Context is the kubectl context name to use (e.g. "do-sgp1-guion-k8s")
@@ -99,7 +90,6 @@ type Config struct {
 	Prompts PromptsConfig
 	// Local path for cloned reference repos (default: ~/.ttal/references/).
 	ReferencesPath string
-	Flicknote      FlicknoteConfig
 	Kubernetes     KubernetesConfig
 	Roles          *RolesConfig
 
@@ -445,7 +435,6 @@ func Load() (*Config, error) {
 		Shell:             raw.Shell,
 		Sync:              raw.Sync,
 		ReferencesPath:    raw.ReferencesPath,
-		Flicknote:         raw.Flicknote,
 		Kubernetes:        raw.Kubernetes,
 	}
 
@@ -490,11 +479,6 @@ func Load() (*Config, error) {
 	// Validate merge mode
 	if err := validateMergeMode(cfg.MergeMode); err != nil {
 		return nil, err
-	}
-
-	// Default flicknote inline projects
-	if len(cfg.Flicknote.InlineProjects) == 0 {
-		cfg.Flicknote.InlineProjects = DefaultInlineProjects
 	}
 
 	// Side-loaded files

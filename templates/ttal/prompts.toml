@@ -9,16 +9,12 @@ $ project list
 ---
 § Role
 $ ttal pipeline prompt
-§ Task
-$ ttal task get
 """
 
 context_worker = """
 ---
 § Role
 $ ttal pipeline prompt
-§ Task
-$ ttal task get
 """
 
 triage = """\
@@ -65,9 +61,7 @@ Use this format:
 """
 
 plan_review = """\
-Review the plan.
-
-If the plan uses a task tree, also run `task <uuid> tree` to see the subtask structure.
+Review the FlickNote plan supplied in the current context.
 Investigate the codebase as needed to verify assumptions.
 
 Show your review.
@@ -83,9 +77,8 @@ Use this format:
 """
 
 plan_re_review = """\
-The designer has updated the plan for the task based on your previous review.
+The designer has updated the FlickNote plan based on your previous review.
 {{designer-comment}}
-If the plan uses a task tree, also run `task <uuid> tree` to see the updated subtask structure.
 Check whether the issues you raised have been addressed.
 
 Show your updated review.

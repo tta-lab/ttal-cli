@@ -1,96 +1,49 @@
 ---
 title: Research → Design → Execute
-description: The standard ttal task pipeline
+description: A FlickNote-based workflow with user-controlled execution
 ---
 
-The typical ttal workflow follows three phases: research the problem, design the solution, then execute the implementation. Each phase produces artifacts that flow automatically to the next.
+The workflow has three distinct phases. FlickNote carries durable context between them; moving to implementation is a user decision.
 
-## The pipeline
+## 1. Research
 
-### 1. Research
-
-```
-ttal go {uuid}
-```
-
-The research agent investigates the problem, explores options, and writes a findings document. It then annotates the task:
+Investigate the problem and store findings in the `research` project:
 
 ```
-Research: ~/clawd/docs/research/2026-03-01-auth-options.md
+flicknote add "research findings" --project research
 ```
 
-### 2. Design
+Return the note ID. Research does not create tasks or start design automatically.
+
+## 2. Design and planning
+
+Use the research note as input. Brainstorm the direction, then store the agreed design or implementation plan in `orientation`:
 
 ```
-ttal go {uuid}
+flicknote add "agreed design or plan" --project orientation
 ```
 
-The design agent reads the task (including the research findings via the annotation), writes an implementation plan, and annotates the task:
+The note is the source of truth for goals, anti-goals, approach, implementation stages, tests, exit criteria, and risks.
+
+## 3. Execute
+
+When the goal is ready, the user explicitly starts `goal-impl` with the FlickNote plan ID. No planning skill starts implementation automatically.
+
+The implementation agent reads the note, works on a branch, verifies the result, and submits a PR. `goal-review` checks the implementation against the same note.
+
+## Existing TTAL pipelines
+
+Existing Taskwarrior-backed jobs can still advance with:
 
 ```
-Plan: ~/clawd/docs/plans/2026-03-01-auth-implementation.md
+ttal go <uuid>
 ```
 
-### 3. Execute
-
-```
-ttal go {uuid}
-```
-
-This spawns a worker in a tmux window (ttal-default-{owner}:coder) with a git worktree. The worker receives the full task context — including the research findings and implementation plan, automatically inlined from annotations.
-
-## Automatic context flow
-
-The key feature: **`ttal task get` inlines all annotation paths**.
-
-When a task has annotations like:
-```
-Plan: ~/clawd/docs/plans/auth-implementation.md
-Research: ~/clawd/docs/research/auth-options.md
-```
-
-The worker's prompt automatically includes the full content of those files. No manual copy-paste — context flows from research → design → worker automatically.
-
-## Example: Adding authentication
-
-### Step 1: Create the task
-
-```
-ttal task add --project myapp "Add JWT authentication to the API"
-```
-
-### Step 2: Research
-
-```
-ttal go {uuid}
-```
-
-Athena (the research agent) investigates JWT libraries, compares options, and writes findings.
-
-### Step 3: Design
-
-```
-ttal go {uuid}
-```
-
-Inke (the design agent) reads Athena's research, writes an implementation plan with specific files to modify, and annotates the task.
-
-### Step 4: Execute
-
-```
-ttal go {uuid}
-```
-
-A worker spawns with full context: the task description, Athena's research, and Inke's plan — all inlined in the prompt. The worker follows the plan, implements the feature, creates a PR.
-
-### Step 5: Review and merge
-
-The PR goes through automated review (6 specialized review agents), the worker triages feedback, and you merge from Telegram.
+TTAL no longer exposes task creation, search, prompt export, or task heatmap commands.
 
 ## When to skip phases
 
-Not every task needs all three phases:
-
-- **Simple bug fix** — skip research and design, go straight to `ttal go`
-- **Well-understood feature** — skip research, go straight to design stage with `ttal go {uuid}`, then execute
-- **Exploratory work** — research only, then decide next steps based on findings
+- Mechanical change: implement directly with proportionate verification.
+- Clear but non-trivial change: write an `orientation` plan, then let the user start implementation.
+- Unclear problem: research or brainstorm first.
+- Large plan: split it into independently deliverable phases in the FlickNote note.

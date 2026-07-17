@@ -53,8 +53,8 @@ This creates a concrete constraint on design: ttal must be ergonomic for both hu
 # An agent running ttal to spawn another agent's work
 ttal go a1b2c3d4
 
-# An agent querying its own task queue
-ttal task find refactor --completed
+# An agent finding prior design context
+flicknote find refactor
 ```
 
 The goal is a system where improving the tool and using the tool are the same activity.

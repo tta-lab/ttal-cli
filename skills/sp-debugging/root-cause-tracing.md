@@ -8,7 +8,6 @@ Bugs often manifest deep in the call stack (git init in wrong directory, file cr
 
 ## When to Use
 
-```dot
 digraph when_to_use {
     "Bug appears deep in stack?" [shape=diamond];
     "Can trace backwards?" [shape=diamond];
@@ -21,7 +20,6 @@ digraph when_to_use {
     "Can trace backwards?" -> "Fix at symptom point" [label="no - dead end"];
     "Trace to original trigger" -> "BETTER: Also add defense-in-depth";
 }
-```
 
 **Use when:**
 - Error happens deep in execution (not at entry point)
@@ -32,23 +30,17 @@ digraph when_to_use {
 ## The Tracing Process
 
 ### 1. Observe the Symptom
-```
 Error: git init failed in /Users/jesse/project/packages/core
-```
 
 ### 2. Find Immediate Cause
 **What code directly causes this?**
-```typescript
 await execFileAsync('git', ['init'], { cwd: projectDir });
-```
 
 ### 3. Ask: What Called This?
-```typescript
 WorktreeManager.createSessionWorktree(projectDir, sessionId)
   → called by Session.initializeWorkspace()
   → called by Session.create()
   → called by test at Project.create()
-```
 
 ### 4. Keep Tracing Up
 **What value was passed?**
@@ -58,16 +50,13 @@ WorktreeManager.createSessionWorktree(projectDir, sessionId)
 
 ### 5. Find Original Trigger
 **Where did empty string come from?**
-```typescript
 const context = setupCoreTest(); // Returns { tempDir: '' }
 Project.create('name', context.tempDir); // Accessed before beforeEach!
-```
 
 ## Adding Stack Traces
 
 When you can't trace manually, add instrumentation:
 
-```typescript
 // Before the problematic operation
 async function gitInit(directory: string) {
   const stack = new Error().stack;
@@ -80,14 +69,11 @@ async function gitInit(directory: string) {
 
   await execFileAsync('git', ['init'], { cwd: directory });
 }
-```
 
 **Critical:** Use `console.error()` in tests (not logger - may not show)
 
 **Run and capture:**
-```
 npm test 2>&1 | grep 'DEBUG git init'
-```
 
 **Analyze stack traces:**
 - Look for test file names
@@ -100,9 +86,7 @@ If something appears during tests but you don't know which test:
 
 Use the bisection script `find-polluter.sh` in this directory:
 
-```
 ./find-polluter.sh '.git' 'src/**/*.test.ts'
-```
 
 Runs tests one-by-one, stops at first polluter. See script for usage.
 
@@ -129,7 +113,6 @@ Runs tests one-by-one, stops at first polluter. See script for usage.
 
 ## Key Principle
 
-```dot
 digraph principle {
     "Found immediate cause" [shape=ellipse];
     "Can trace one level up?" [shape=diamond];
@@ -149,7 +132,6 @@ digraph principle {
     "Fix at source" -> "Add validation at each layer";
     "Add validation at each layer" -> "Bug impossible";
 }
-```
 
 **NEVER fix just where the error appears.** Trace back to find the original trigger.
 

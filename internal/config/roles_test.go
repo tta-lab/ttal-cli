@@ -5,6 +5,11 @@ import (
 	"testing"
 )
 
+const (
+	flicknoteSkill = "flicknote"
+	eiAskSkill     = "ei-ask"
+)
+
 func TestRolesConfig_RoleSkills(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -22,38 +27,38 @@ func TestRolesConfig_RoleSkills(t *testing.T) {
 		{
 			name: "unknown role returns default_skills",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{"task-tree", "flicknote", "ei-ask"},
+				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
 				ExtraSkills: map[string][]string{
 					"designer": {"sp-planning"},
 				},
 			},
 			role:         "unknown-role",
-			wantLen:      3,
-			wantContains: []string{"task-tree", "flicknote", "ei-ask"},
+			wantLen:      2,
+			wantContains: []string{flicknoteSkill, eiAskSkill},
 		},
 		{
 			name: "designer gets default plus extra_skills deduped",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{"task-tree", "flicknote", "ei-ask"},
+				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
 				ExtraSkills: map[string][]string{
 					"designer": {"sp-planning"},
 				},
 			},
 			role:         "designer",
-			wantLen:      4,
-			wantContains: []string{"task-tree", "flicknote", "ei-ask", "sp-planning"},
+			wantLen:      3,
+			wantContains: []string{flicknoteSkill, eiAskSkill, "sp-planning"},
 		},
 		{
 			name: "fixer gets sp-debugging extra",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{"task-tree", "flicknote", "ei-ask"},
+				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
 				ExtraSkills: map[string][]string{
 					"fixer": {"sp-debugging"},
 				},
 			},
 			role:         "fixer",
-			wantLen:      4,
-			wantContains: []string{"task-tree", "flicknote", "ei-ask", "sp-debugging"},
+			wantLen:      3,
+			wantContains: []string{flicknoteSkill, eiAskSkill, "sp-debugging"},
 		},
 		{
 			name: "empty default_skills returns extra only",
@@ -70,12 +75,12 @@ func TestRolesConfig_RoleSkills(t *testing.T) {
 		{
 			name: "no extra_skills for role returns default only",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{"task-tree", "flicknote", "ei-ask"},
+				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
 				ExtraSkills:   map[string][]string{},
 			},
 			role:         "manager",
-			wantLen:      3,
-			wantContains: []string{"task-tree", "flicknote", "ei-ask"},
+			wantLen:      2,
+			wantContains: []string{flicknoteSkill, eiAskSkill},
 		},
 	}
 

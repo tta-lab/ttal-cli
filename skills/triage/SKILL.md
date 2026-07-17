@@ -84,11 +84,9 @@ Show a status update with what's done, what's remaining, and what you're pushing
 
 ### Gather Evidence
 
-```
 # Check what's changed since review
 git log --oneline origin/main..HEAD
 git diff origin/main..HEAD
-```
 
 For each item, verify against code: search for implementations, check tests, confirm fixes.
 
@@ -96,7 +94,6 @@ For each item, verify against code: search for implementations, check tests, con
 
 Format:
 
-```markdown
 ## Triage Update
 
 ### Fixed
@@ -111,7 +108,6 @@ Format:
 
 ### Remaining
 - [ ] Item — *[what's still needed]*
-```
 
 ## Guidelines
 

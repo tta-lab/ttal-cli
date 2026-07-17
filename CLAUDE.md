@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus. It uses TOML-based project storage and taskwarrior integration for task management.
+TTAL is a CLI tool for coordinating agents, workers, messaging, and pipeline execution. Projects come from the standalone `project` CLI; durable plans and research live in FlickNote. Existing worker pipelines still use Taskwarrior internally.
 
 ## Essential Commands
 
@@ -90,12 +90,10 @@ path := project.ResolveProjectPath("ttal.pr")
 ```
 cmd/             - CLI commands (cobra)
   ├── root.go    - Root command and .env loading
-  ├── project.go - TTAL-specific project task context
   ├── agent.go   - Agent CRUD commands
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
   ├── worker.go  - ttal worker close/list
-  ├── task.go    - ttal task get/find (taskwarrior queries)
   └── go.go      - ttal go (pipeline stage engine)
 
 internal/
@@ -108,7 +106,7 @@ internal/
   ├── worker/       - Worker lifecycle (hook, spawn, close)
   ├── gitutil/      - Git/worktree utilities (dump state, cleanup)
   ├── tmux/         - tmux session management and send-keys delivery
-  └── taskwarrior/  - Shared taskwarrior helpers (export, find, prompt, UDAs)
+  └── taskwarrior/  - Shared pipeline/reminder helpers and UDAs
 ```
 
 ### Daemon Architecture

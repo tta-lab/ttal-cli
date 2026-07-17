@@ -10,7 +10,7 @@ living showcase of how a real team is structured and managed with ttal.
 
 | Agent | Role | Creature/Object |
 |-------|------|----------------|
-| **Yuki** 🐱 | Task orchestrator — creates, routes, and manages work via taskwarrior | Black Cat |
+| **Yuki** 🐱 | Work coordinator — preserves context and routes approved work | Black Cat |
 | **Athena** 🦉 | Researcher — conducts multi-source deep dives, writes findings to flicknote | Owl |
 | **Inke** 🐙 | Design architect — writes executable implementation plans (ttal domain) | Octopus |
 | **Kestrel** 🦅 | Bug fix designer — diagnoses root causes and writes fix plans | Kestrel |

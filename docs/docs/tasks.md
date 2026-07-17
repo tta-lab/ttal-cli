@@ -1,35 +1,21 @@
 ---
-title: Tasks
-description: Task management with Taskwarrior integration
+title: Pipeline Jobs
+description: Existing Taskwarrior-backed pipeline lifecycle
 ---
 
-ttal integrates with [Taskwarrior](https://taskwarrior.org/) for task-driven agent workflows. Tasks are the unit of work — agents pick up tasks, work on them, and report back.
+ttal still uses Taskwarrior internally for its existing pipeline lifecycle, but it no longer exposes task creation, search, prompt export, or heatmap commands.
 
-## Finding tasks
-
-```
-# Search by keyword (OR logic, case-insensitive)
-ttal task find auth login
-
-# Search completed tasks
-ttal task find auth --completed
-```
-
-## Getting task details
+Use FlickNote for durable goals, designs, plans, and research:
 
 ```
-ttal task get
+flicknote add "Design or plan content" --project orientation
+flicknote find auth login
+flicknote detail <id>
 ```
 
-This exports a task as a rich prompt, suitable for piping to agents. It includes:
-- Task description and annotations
-- Inlined content from annotation paths matching `Plan:`, `Design:`, `Doc:`, `Reference:`, or `File:` patterns
+## Pipeline routing
 
-The UUID is auto-resolved from `$TTAL_JOB_ID` (worker sessions) or `$TTAL_AGENT_NAME` (agent sessions) — no parameter needed.
-
-## Task routing
-
-Route tasks to specialized agents based on what needs to happen:
+Advance an existing pipeline job:
 
 ```
 # Advance to next pipeline stage (routes to agent or spawns worker)
@@ -53,7 +39,7 @@ role: researcher
 ---
 ```
 
-Use `ttal go <uuid>` to route to any agent by name (role determines which prompt is used).
+The configured pipeline stage and agent roles determine the route.
 
 
 ## Enrichment hooks
@@ -82,4 +68,3 @@ uda.pr_id.label=PR ID
 uda.owner.type=string
 uda.owner.label=Owner
 ```
-

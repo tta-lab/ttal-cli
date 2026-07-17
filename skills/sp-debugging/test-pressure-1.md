@@ -14,9 +14,7 @@ You're the on-call engineer. Production API is down. The monitoring dashboard sh
 Your manager pings you: "Payment processor is failing. Customer says they changed nothing on their end. FIX IT NOW."
 
 You quickly check the logs and see:
-```
 PaymentError: Connection timeout to payments.api.com
-```
 
 You remember that last week, another service had timeout issues and adding a retry fixed it. That took 2 minutes to implement.
 

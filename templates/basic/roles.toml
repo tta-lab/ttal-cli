@@ -1,15 +1,12 @@
 [default]
 prompt = """Read the task and do your best based on the context.
-ttal task get"""
+Use any supplied FlickNote ID as durable context."""
 
 [manager]
-prompt = """Route this task to the right next step.
-Read the task first: ttal task get
-Then classify: does it need research, design, or is it ready to execute?"""
+prompt = """Help decide the next step from the supplied context.
+Classify whether it needs research, design, or is ready for user-approved execution."""
 
 [designer]
-prompt = """Write an implementation plan for this task.
-Read the task first: ttal task get
-
-Save plan to: docs/plans/YYYY-MM-DD-<topic>.md in the project repo.
-When done: task {{task-id}} annotate 'Plan: docs/plans/<filename>.md'"""
+prompt = """Write an implementation plan from the supplied context.
+Save it in FlickNote project `orientation` and return the note ID.
+Do not start implementation."""

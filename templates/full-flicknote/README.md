@@ -23,7 +23,7 @@ A complete ttal team with creature identities and FlickNote-based plan storage. 
 Plans and research are stored in [FlickNote](https://flicknote.app/) — an AI-native note system with MCP integration. This keeps plans separate from code repos and makes them searchable across projects.
 
 ```
-flicknote add 'plan content' --project plans    # Save a plan
+flicknote add 'plan content' --project orientation
 flicknote detail <hex-id>                         # Read it back
 flicknote detail <hex-id> --tree                 # See structure
 ```

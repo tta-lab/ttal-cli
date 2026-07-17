@@ -75,7 +75,7 @@ Before starting research, align on what you're investigating.
 3. **Deep dive** — `ei ask --repo`, Context7 for library docs, read source code directly when docs are unclear.
 4. **Synthesize** — connect findings, identify trade-offs, form a recommendation. Apply claim tags along the way.
 5. **Write findings** — structured document with clear sections.
-6. **Save and annotate** — save findings using the storage method configured for your team, annotate the task.
+6. **Save and return** — store findings in FlickNote project `research` and return the note ID.
 
 ## Framing-Pivot Sensitivity
 
@@ -89,7 +89,6 @@ Requests reshape mid-session. A "binary verdict: integrate or stay?" can sharpen
 
 Every research doc should have:
 
-```markdown
 # Research: [Topic]
 
 ## Value Stance
@@ -115,7 +114,6 @@ Every research doc should have:
 
 ## Sources
 - [Source name](url) — [license if OSS] — brief note on contribution
-```
 
 Skip sections that don't apply. **Question**, **Findings**, and **Recommendation** are always required. **Value Stance** is required when the research compares external options.
 

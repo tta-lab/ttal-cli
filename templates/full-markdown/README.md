@@ -6,7 +6,7 @@ agents: manager, designer, researcher, debugger
 
 # Full (Markdown) — 4-Agent Team
 
-A complete ttal team with task management, research, design, and bug diagnosis. Plans and research are stored as markdown files in your project repos.
+A complete ttal team with agent coordination, research, design, and bug diagnosis. Durable plans and research are stored in FlickNote.
 
 ## Agents
 

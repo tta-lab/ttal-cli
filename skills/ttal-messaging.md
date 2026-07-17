@@ -9,15 +9,12 @@ description: Send messages to humans, agents, or workers through ttal send.
 
 ## Send
 
-```
 cat <<'EOF' | ttal send --to <recipient>
 message
 EOF
-```
 
 Examples:
 
-```
 cat <<'EOF' | ttal send --to <human-alias>
 done, PR ready
 EOF
@@ -29,7 +26,6 @@ EOF
 cat <<'EOF' | ttal send --to 1234abcd:coder
 check the failing test in auth_test.go
 EOF
-```
 
 ## Worker Sessions
 
@@ -37,19 +33,15 @@ Worker addresses use `job_id:agent_name` format. The daemon resolves the task ow
 
 ## Stdin (preferred: heredoc)
 
-```
 cat <<'EOF' | ttal send --to kestrel
 done
 EOF
-```
 
 For longer messages, use the same heredoc form:
 
-```
 cat <<'ENDBASH' | ttal send --to kestrel
 ## Status Update
 Auth module review complete. Two issues found:
 1. Token expiry not checked
 2. Missing rate limit
 ENDBASH
-```

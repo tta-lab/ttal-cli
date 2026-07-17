@@ -15,22 +15,12 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 var uuidPrefixPattern = regexp.MustCompile(`^[0-9a-f]{8}$`)
 var uuidFindPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
-// HexIDPattern finds a flicknote hex ID (8+ lowercase hex chars) anywhere in an annotation.
-// Matches bare IDs ("e8fd0fe0"), prefixed ("Plan: e8fd0fe0"), or multi-word
-// ("Plan: flicknote b7b61e89"). If the ID doesn't exist in flicknote, ReadFlicknoteJSON
-// returns nil and the annotation is suppressed from the prompt.
-var HexIDPattern = regexp.MustCompile(`\b([a-f0-9]{8,})\b`)
-
 // IsHexID returns true if s looks like a bare flicknote/UUID hex prefix (8+ hex chars).
 func IsHexID(s string) bool {
 	return regexp.MustCompile(`^[a-f0-9]{8,}$`).MatchString(s)
 }
 
 const cmdTimeout = 5 * time.Second
-
-// flicknoteTimeout is longer than cmdTimeout because flicknote may need to
-// fetch from a remote API on first access (cache miss).
-const flicknoteTimeout = 10 * time.Second
 
 // UserError is an error with a user-facing message intended for CLI display.
 // The message may contain newlines and formatting.

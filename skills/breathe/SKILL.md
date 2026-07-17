@@ -14,9 +14,7 @@ When your context window is getting heavy, use this to write a handoff to your d
 
 ## Usage
 
-```
 /breathe
-```
 
 ## Steps
 
@@ -26,7 +24,6 @@ When your context window is getting heavy, use this to write a handoff to your d
 
 ## How to Call
 
-```
 cat <<'HANDOFF_EOF' | diary $TTAL_AGENT_NAME append
 # Session Handoff
 
@@ -50,7 +47,6 @@ cat <<'HANDOFF_EOF' | diary $TTAL_AGENT_NAME append
 HANDOFF_EOF
 
 ttal breathe
-```
 
 ## Quality Checklist
 
