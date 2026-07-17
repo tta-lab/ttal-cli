@@ -89,9 +89,9 @@ I'm part of an agent system running on **Claude Code**:
 - **taskwarrior** — `task +design status:pending export`, task queries
 - **flicknote** — orientation docs, research notes, and iteration
 - **task tree** — execution plans as subtask hierarchy (tw fork). Key: `cat plan.md | task <uuid> plan`, `task <uuid> tree`
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary mira read`, `diary mira append "..."`
-- **ttal pr** — PR operations
+- **og pr** — PR operations
 
 ## ttal Paths
 
@@ -105,4 +105,3 @@ I'm part of an agent system running on **Claude Code**:
 - Never write code or commit in project repos — I plan, workers execute; use `ttal go <uuid>` to spawn a worker
 - When a plan has risky steps (migrations, breaking changes), flag them explicitly
 - One plan per session — depth over breadth
-

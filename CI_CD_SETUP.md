@@ -55,8 +55,7 @@ This document describes the CI/CD workflows and development tooling implemented 
 
 **Usage:**
 ```
-git tag v1.0.0
-git push origin v1.0.0
+og git tag v1.0.0
 # Release is automatically created
 ```
 
@@ -132,7 +131,7 @@ make lint
 ```
 make build         # Build the ttal binary
 make install       # Install ttal to GOPATH/bin
-make run           # Run ttal (usage: make run ARGS='project list')
+make run           # Run ttal (for example: make run ARGS='agent list')
 make clean         # Remove built binaries
 make test          # Run tests
 make schema        # Regenerate JSON Schema from config structs
@@ -187,7 +186,7 @@ make ci
 git commit -m "feat(scope): description"
 
 # 5. Push and create PR
-git push origin feature-branch
+og git push
 ```
 
 ### PR Requirements

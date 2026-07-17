@@ -18,7 +18,7 @@ ttal task add --project ttal "Fix auth bug" --tag bugfix --tag urgent --priority
   --annotate "Stack trace in #general" --annotate "Repo: /Users/neil/Code/..."
 ```
 
-`ttal task add` validates the project against the ttal project database — use `ttal project list` to see valid aliases. The on-add hook handles `project_path` and `branch` UDAs automatically.
+`ttal task add` validates the project against the ttal project database — use `project list` to see valid aliases. The on-add hook handles `project_path` and `branch` UDAs automatically.
 
 ## Search and export tasks
 

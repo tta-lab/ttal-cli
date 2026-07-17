@@ -19,7 +19,7 @@ $ diary {{agent-name}} read
 § Agents
 $ ttal agent list
 § Projects
-$ ttal project list
+$ project list
 ---
 § Role
 $ ttal pipeline prompt
@@ -154,7 +154,7 @@ context_manager = """
 § Diary
 $ diary {{agent-name}} read
 § Projects
-$ ttal project list
+$ project list
 ---
 § Role
 $ ttal pipeline prompt

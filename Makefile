@@ -9,7 +9,7 @@ help:
 	@echo "  make install-dictate - Install with voice dictation (macOS, requires portaudio)"
 	@echo "  make reinstall     - Install and restart daemon"
 	@echo "  make setup         - First-time setup (install + hook + daemon)"
-	@echo "  make run           - Run ttal (usage: make run ARGS='project list')"
+	@echo "  make run           - Run ttal (for example: make run ARGS='agent list')"
 	@echo "  make clean         - Remove built binaries"
 	@echo "  make reset         - Remove binaries"
 	@echo "  make test          - Run tests"

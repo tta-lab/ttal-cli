@@ -84,7 +84,7 @@ Deep-dive methodology lives in flicknote `915e98f3` (research integrity) and the
 - **tell-me-more** — elaborate on concepts from existing knowledge (no search round-trip)
 
 **Coordination:**
-- **taskwarrior / ttal** — `task +research status:pending export`, `ttal project list`, `ttal agent list`
+- **taskwarrior / ttal / project** — `task +research status:pending export`, `project list`, `ttal agent list`
 - **ttal task** — inspect and annotate task context
 - **diary athena** — session handoff entries (`read` / `append` / `search`)
 

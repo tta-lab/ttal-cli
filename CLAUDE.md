@@ -29,10 +29,10 @@ make install
 ### Running the CLI
 ```
 # Build and run with arguments
-make run ARGS='project list'
+project list
 
 # Or use the built binary directly
-./ttal project list
+project list
 ```
 
 ## Releasing
@@ -40,8 +40,7 @@ make run ARGS='project list'
 Tag a version to trigger the release workflow:
 
 ```
-git tag v0.1.0
-git push origin v0.1.0
+og git tag v0.1.0
 ```
 
 GoReleaser builds binaries, creates a GitHub release, and pushes the
@@ -55,7 +54,7 @@ Requires `HOMEBREW_TAP_TOKEN` secret in GitHub repo settings (a PAT with repo sc
 
 Projects are stored in a plain TOML file at `~/.config/ttal/projects.toml`. No database dependencies.
 
-**Store Location**: `internal/project/store.go`
+**Store Access**: `internal/project/resolve.go` delegates to the `project` CLI.
 
 **TOML Format**:
 ```toml
@@ -91,14 +90,12 @@ path := project.ResolveProjectPath("ttal.pr")
 ```
 cmd/             - CLI commands (cobra)
   ├── root.go    - Root command and .env loading
-  ├── project.go - Project CRUD commands (TOML-backed)
+  ├── project.go - TTAL-specific project task context
   ├── agent.go   - Agent CRUD commands
   ├── daemon.go  - ttal daemon run/install/uninstall/status
   ├── send.go    - ttal send --to (messaging)
-  ├── pr.go      - ttal pr create/modify/comment
   ├── worker.go  - ttal worker close/list
   ├── task.go    - ttal task get/find (taskwarrior queries)
-  ├── tag.go     - ttal tag (create + push git tags via daemon)
   └── go.go      - ttal go (pipeline stage engine)
 
 internal/
@@ -107,7 +104,7 @@ internal/
   ├── promptrender/ - Unified prompt template renderer ($ cmd syntax)
   ├── daemon/       - Long-running daemon (socket, Telegram, delivery, launchd)
   ├── forgejo/      - Forgejo SDK client and repo helpers
-  ├── pr/           - PR operations (create, modify, merge, comment)
+  ├── pr/           - PR lifecycle context and task metadata
   ├── worker/       - Worker lifecycle (hook, spawn, close)
   ├── gitutil/      - Git/worktree utilities (dump state, cleanup)
   ├── tmux/         - tmux session management and send-keys delivery
@@ -125,7 +122,6 @@ inter-agent and human-agent messaging. **Do not add fallback logic** — each pa
 | `ttal send --to kestrel` (with TTAL_AGENT_NAME) | tmux send-keys + attribution | `handleAgentToAgent` |
 | on-add hook (task created) | Inline enrichment (project_path, branch) | `HookOnAdd` → `enrichInline` |
 | `ttal go <uuid>` | Pipeline advance via CLI | `handlePipelineAdvance` → `advanceToStage` |
-| `ttal tag <version>` | git tag + push via daemon | `handleGitTag` |
 | Cleanup watcher (fsnotify) | Close worker + mark done | `startCleanupWatcher` → `worker.Close` → `MarkDone` |
 
 Socket protocol uses `SendRequest{From, To, Message}` — direction is inferred from which fields
@@ -143,7 +139,7 @@ full lifecycle: close session, remove worktree, mark task done.
 ### Project Management
 
 Projects are managed by editing `~/.config/ttal/projects.toml` directly — no CLI commands for writes.
-Use `ttal project list` or `project list` to view.
+Use `project list` to view.
 
 ## CI/CD
 

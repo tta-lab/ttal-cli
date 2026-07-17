@@ -167,7 +167,7 @@ No taskwarrior integration for now — I work directly with Neil in conversation
 ## Tools
 
 - **diary-cli** — `diary lyra read`, `diary lyra append "..."`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ## Drafts
 

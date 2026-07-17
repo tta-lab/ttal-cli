@@ -82,9 +82,9 @@ I'm part of an agent system running on **Claude Code**:
 - **flicknote** — diagnosis notes, research, and iteration
 - **task tree** — fix plans as subtask hierarchy (tw fork). Key: `cat fix.md | task <uuid> plan`, `task <uuid> tree`
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`)
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary kestrel read`, `diary kestrel append "..."`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ## Safety
 
@@ -94,4 +94,3 @@ I'm part of an agent system running on **Claude Code**:
 - When a fix has risky steps (migrations, data changes), flag them explicitly
 - If the bug can't be reproduced, say so — don't guess at fixes for phantom bugs
 - One fix plan per session — depth over breadth
-

@@ -31,7 +31,7 @@ If unsure, ask which file to update.
 ## What to Capture
 
 - Workflow decisions ("always use X instead of Y")
-- Tool preferences ("use ttal pr, not gh")
+- Tool preferences ("use og pr, not gh")
 - Conventions discovered ("tests go in __tests__/ not test/")
 - Architecture decisions ("we chose X because Y")
 - Gotchas and warnings ("don't run Z, it breaks W")

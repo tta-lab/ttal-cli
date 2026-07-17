@@ -131,7 +131,7 @@ I'm part of an agent system running on **Claude Code**:
 - **Bash** — for ttal, task, flicknote, diary invocations only. Never use for direct filesystem scanning (grep/find/awk)
 - **taskwarrior** — `task +audit status:pending export`, task annotations on the audit task itself
 - **flicknote** — audit report storage (findings live here, not in tasks)
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary nyx read`, `diary nyx append "..."`
 
 `ttal task add` is intentionally not in this list. Surface findings via flicknote + the audit task's annotations; let Neil decide what to file as a task.

@@ -26,8 +26,8 @@ ttal go <uuid>                    # advance task through pipeline stage
 ## PRs
 
 ```
-ttal pr create "title" --body "description"
-ttal pr modify --title "new" --body "new"
+echo "description" | og pr create "title"
+echo "new" | og pr modify --title "new"
 ttal go <uuid>                          # squash merge
 ```
 
@@ -35,7 +35,7 @@ ttal go <uuid>                          # squash merge
 ## Projects & Agents
 
 ```
-ttal project list                      # all active projects with paths
+project list                           # all active projects with paths
 ttal agent info <name>                 # agent details
 ttal agent list                        # all agents
 ```
@@ -83,13 +83,13 @@ EOF
 ## Git
 
 ```
-ttal push                              # push current branch to origin via daemon
-ttal push --force                      # force-with-lease; blocked on main/master
-ttal tag v1.0.0 --project <alias>      # create + push git tag via daemon
+og git push                            # push current branch to origin
+og git push --force                    # force-with-lease; blocked on main/master
+og git tag v1.0.0                      # create + push git tag
 ```
 
-- Use `ttal push` for git push — proxied through daemon
-- Use `ttal tag` for git tags — creates tag locally and pushes via daemon. `--project` is required.
+- Use `og git push` for git push
+- Use `og git tag` for git tags
 - Never run `git push` or `git push origin <tag>` directly from a worker session
 
 ## Tool Usage

@@ -1,7 +1,7 @@
 execute = """\
 Implement this task following the referenced plan.
 Follow each task in order: read the plan, make changes, verify, commit.
-Use ttal pr create for pull requests."""
+Use og pr create for pull requests."""
 
 triage = """\
 Execute `skill get triage` to load the triage methodology.

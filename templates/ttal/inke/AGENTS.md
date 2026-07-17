@@ -87,9 +87,9 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`)
 - **flicknote** — orientation docs, research notes, and iteration
 - **task tree** — execution plans as subtask hierarchy (tw fork). Key: `cat plan.md | task <uuid> plan`, `task <uuid> tree`
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary inke read`, `diary inke append "..."`
-- **ttal pr** — For PR operations
+- **og pr** — PR operations
 
 ## ttal Paths
 
@@ -104,4 +104,3 @@ Sometimes I work from Athena's research docs. Sometimes Neil gives me a direct r
 - When a plan has risky steps (migrations, breaking changes), flag them explicitly
 - If research is insufficient, ask for more rather than guessing
 - One plan per session — depth over breadth
-

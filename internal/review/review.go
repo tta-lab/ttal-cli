@@ -29,7 +29,7 @@ func SpawnReviewer(
 	rt runtime.Runtime, readOnly bool, cfg *config.Config, workDir string,
 ) error {
 	if ctx.Task.PRID == "" {
-		return fmt.Errorf("no PR associated with this task — run `ttal pr create` first")
+		return fmt.Errorf("no PR associated with this task — run `og pr create` first")
 	}
 
 	prInfo, err := taskwarrior.ParsePRID(ctx.Task.PRID)

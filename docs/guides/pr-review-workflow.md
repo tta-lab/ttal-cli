@@ -10,7 +10,7 @@ ttal supports an owner-first PR workflow where the task owner reviews before spe
 ```
 Worker implements task
     ↓
-ttal pr create "feat: add auth"
+og pr create "feat: add auth"
     ↓
 Owner notified via ttal send
     ↓
@@ -37,10 +37,10 @@ From a worker window (ttal-default-{owner}:coder):
 
 ```
 # Create PR with title
-ttal pr create "feat: add user authentication"
+og pr create "feat: add user authentication"
 
 # Create PR with body from stdin
-echo "Fixes #42" | ttal pr create "fix: timeout bug"
+echo "Fixes #42" | og pr create "fix: timeout bug"
 ```
 
 The PR context is auto-resolved from the worktree path (hex ID in directory name).

@@ -3,17 +3,11 @@ name: ttal-project
 description: Manage projects in your team.
 ---
 
-# ttal project
+# Project commands
 
 Read-only project management. Writes go directly to `~/.config/ttal/projects.toml`.
 
-```
-ttal project list              # list all active projects
-ttal project resolve [path]    # resolve alias from filesystem path
-ttal project resolve --json    # enriched JSON with task info
-```
-
-Or use the standalone `project` CLI:
+Use the standalone `project` CLI:
 
 ```
 project list                    # table with alias, org, name

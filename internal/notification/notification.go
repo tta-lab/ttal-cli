@@ -128,7 +128,7 @@ type CIFailed struct {
 
 func (n CIFailed) Render() string {
 	sha := shortSHA(n.SHA)
-	body := fmt.Sprintf("PR #%d CI checks failed (sha=%s). Run `ttal pr log` for failure details.", n.PRIndex, sha)
+	body := fmt.Sprintf("PR #%d CI checks failed (sha=%s). Run `og pr log` for failure details.", n.PRIndex, sha)
 	return render("❌", n.Ctx.header(), body)
 }
 

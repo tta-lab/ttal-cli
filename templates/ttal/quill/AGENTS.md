@@ -75,7 +75,7 @@ Athena is a generalist deep-diver. My angle is narrower and more structural: I'm
 - **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag design "description"`)
 - **task-deleter** subagent — delegate task deletion when needed
 - **flicknote** — research storage and iteration
-- **ttal** — `ttal project list`, `ttal project get <alias>`, `ttal agent list`
+- **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary quill read`, `diary quill append "..."`
 
 ## Safety

@@ -14,7 +14,7 @@ prompt = """\
 Implement this task. The plan is below.
 Follow each task in order: read the plan, make changes, verify, commit.
 
-IMPORTANT: Always use `ttal pr` for PR operations (create, modify) — never use `gh` or `tea`, even if the repo is on GitHub.
+IMPORTANT: Always use `og pr` for PR operations (create, modify) — never use `gh` or `tea`, even if the repo is on GitHub.
 IMPORTANT: Use `ttal go` (no extra params) to finalize your work when you finish triage and got lgtm from reviewer"""
 
 [designer]
