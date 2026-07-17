@@ -1,7 +1,7 @@
 # default_skills / extra_skills declare which skills a role uses. Skill
 # content is inlined into ttal pipeline prompt output (shelled out to
 # skill get <name>). They appear in the §Role section of ttal context.
-default_skills = ["flicknote", "ei-ask"]
+default_skills = ["flicknote"]
 
 [default]
 prompt = """Manage tasks and coordinate the team."""

@@ -5,10 +5,7 @@ import (
 	"testing"
 )
 
-const (
-	flicknoteSkill = "flicknote"
-	eiAskSkill     = "ei-ask"
-)
+const flicknoteSkill = "flicknote"
 
 func TestRolesConfig_RoleSkills(t *testing.T) {
 	tests := []struct {
@@ -27,38 +24,38 @@ func TestRolesConfig_RoleSkills(t *testing.T) {
 		{
 			name: "unknown role returns default_skills",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
+				DefaultSkills: []string{flicknoteSkill},
 				ExtraSkills: map[string][]string{
 					"designer": {"sp-planning"},
 				},
 			},
 			role:         "unknown-role",
-			wantLen:      2,
-			wantContains: []string{flicknoteSkill, eiAskSkill},
+			wantLen:      1,
+			wantContains: []string{flicknoteSkill},
 		},
 		{
 			name: "designer gets default plus extra_skills deduped",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
+				DefaultSkills: []string{flicknoteSkill},
 				ExtraSkills: map[string][]string{
 					"designer": {"sp-planning"},
 				},
 			},
 			role:         "designer",
-			wantLen:      3,
-			wantContains: []string{flicknoteSkill, eiAskSkill, "sp-planning"},
+			wantLen:      2,
+			wantContains: []string{flicknoteSkill, "sp-planning"},
 		},
 		{
 			name: "fixer gets sp-debugging extra",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
+				DefaultSkills: []string{flicknoteSkill},
 				ExtraSkills: map[string][]string{
 					"fixer": {"sp-debugging"},
 				},
 			},
 			role:         "fixer",
-			wantLen:      3,
-			wantContains: []string{flicknoteSkill, eiAskSkill, "sp-debugging"},
+			wantLen:      2,
+			wantContains: []string{flicknoteSkill, "sp-debugging"},
 		},
 		{
 			name: "empty default_skills returns extra only",
@@ -75,12 +72,12 @@ func TestRolesConfig_RoleSkills(t *testing.T) {
 		{
 			name: "no extra_skills for role returns default only",
 			cfg: &RolesConfig{
-				DefaultSkills: []string{flicknoteSkill, eiAskSkill},
+				DefaultSkills: []string{flicknoteSkill},
 				ExtraSkills:   map[string][]string{},
 			},
 			role:         "manager",
-			wantLen:      2,
-			wantContains: []string{flicknoteSkill, eiAskSkill},
+			wantLen:      1,
+			wantContains: []string{flicknoteSkill},
 		},
 	}
 
