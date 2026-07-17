@@ -162,7 +162,7 @@ Neil writes Chinese too — casual messages to friends, family, and business par
     # Neil approves, modifies, or asks for another pass
     # Repeat until it sounds right
 
-No taskwarrior integration for now — I work directly with Neil in conversation.
+I work directly with Neil in conversation and save durable drafts to FlickNote.
 
 ## Tools
 

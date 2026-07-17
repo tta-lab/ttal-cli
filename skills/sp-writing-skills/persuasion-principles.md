@@ -22,10 +22,8 @@ LLMs respond to the same persuasion principles as humans. Understanding this psy
 - Established best practices
 
 **Example:**
-```markdown
 ✅ Write code before test? Delete it. Start over. No exceptions.
 ❌ Consider writing tests first when feasible.
-```
 
 ### 2. Commitment
 **What it is:** Consistency with prior actions, statements, or public declarations.
@@ -41,10 +39,8 @@ LLMs respond to the same persuasion principles as humans. Understanding this psy
 - Accountability mechanisms
 
 **Example:**
-```markdown
 ✅ When you find a skill, you MUST announce: "I'm using [Skill Name]"
 ❌ Consider letting your partner know which skill you're using.
-```
 
 ### 3. Scarcity
 **What it is:** Urgency from time limits or limited availability.
@@ -60,10 +56,8 @@ LLMs respond to the same persuasion principles as humans. Understanding this psy
 - Preventing "I'll do it later"
 
 **Example:**
-```markdown
 ✅ After completing a task, IMMEDIATELY request code review before proceeding.
 ❌ You can review code when convenient.
-```
 
 ### 4. Social Proof
 **What it is:** Conformity to what others do or what's considered normal.
@@ -79,10 +73,8 @@ LLMs respond to the same persuasion principles as humans. Understanding this psy
 - Reinforcing standards
 
 **Example:**
-```markdown
 ✅ Checklists without TodoWrite tracking = steps get skipped. Every time.
 ❌ Some people find TodoWrite helpful for checklists.
-```
 
 ### 5. Unity
 **What it is:** Shared identity, "we-ness", in-group belonging.
@@ -97,10 +89,8 @@ LLMs respond to the same persuasion principles as humans. Understanding this psy
 - Non-hierarchical practices
 
 **Example:**
-```markdown
 ✅ We're colleagues working together. I need your honest technical judgment.
 ❌ You should probably tell me if I'm wrong.
-```
 
 ### 6. Reciprocity
 **What it is:** Obligation to return benefits received.

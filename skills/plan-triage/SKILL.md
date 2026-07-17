@@ -18,9 +18,7 @@ You already have the plan and its review issues in context. No need to search or
 
 ## Usage
 
-```
 /plan-triage
-```
 
 Run this after `ttal go <uuid>` has identified issues. The plans and issues are already in your conversation context.
 
@@ -62,7 +60,6 @@ Format: `[ASK] <summary> — <question for Neil>`
 
 Address all `[FIX]` items directly in the plan using flicknote:
 
-```
 # Update a section
 echo "updated content" | flicknote modify <id> --section <section-id>
 
@@ -71,7 +68,6 @@ echo "new content" | flicknote append <id>
 
 # Insert before/after a section
 echo "content" | flicknote insert <id> --after <section-id>
-```
 
 For each fix:
 - Make the change in the flicknote plan
@@ -80,7 +76,6 @@ For each fix:
 
 ## Phase 3: Report
 
-```markdown
 # Plan Triage: <plan title>
 
 ## Fixed
@@ -97,7 +92,6 @@ For each fix:
 
 ## Verdict
 **Ready / Needs Revision / Needs Rethink**
-```
 
 **Verdict rules:**
 - **Ready** — all actionable items fixed, no `[ASK]` items remaining
@@ -112,13 +106,11 @@ Show the triage report so the plan-reviewer can see it and trigger re-review.
 
 Triage is iterative. After Neil answers `[ASK]` items or a designer revises:
 
-```
 plan-review → plan-triage (round 1) → fix + ask
   → Neil answers / designer revises
 plan-review → plan-triage (round 2) → fix
   → all clear
 plan-triage (round 3) → ready
-```
 
 Include the **round number** in the header. Track how the verdict changed:
 - **Ready** (was Needs Revision) — issues addressed

@@ -31,9 +31,7 @@ Thinking "skip TDD just this once"? Stop. That's rationalization.
 
 ## The Iron Law
 
-```
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
-```
 
 Write code before the test? Delete it. Start over.
 
@@ -47,7 +45,6 @@ Implement fresh from tests. Period.
 
 ## Red-Green-Refactor
 
-```dot
 digraph tdd_cycle {
     rankdir=LR;
     red [label="RED\nWrite failing test", shape=box, style=filled, fillcolor="#ffcccc"];
@@ -67,14 +64,12 @@ digraph tdd_cycle {
     verify_green -> next;
     next -> red;
 }
-```
 
 ### RED - Write Failing Test
 
 Write one minimal test showing what should happen.
 
 <Good>
-```typescript
 test('retries failed operations 3 times', async () => {
   let attempts = 0;
   const operation = () => {
@@ -88,12 +83,10 @@ test('retries failed operations 3 times', async () => {
   expect(result).toBe('success');
   expect(attempts).toBe(3);
 });
-```
 Clear name, tests real behavior, one thing
 </Good>
 
 <Bad>
-```typescript
 test('retry works', async () => {
   const mock = jest.fn()
     .mockRejectedValueOnce(new Error())
@@ -102,7 +95,6 @@ test('retry works', async () => {
   await retryOperation(mock);
   expect(mock).toHaveBeenCalledTimes(3);
 });
-```
 Vague name, tests mock not code
 </Bad>
 
@@ -115,9 +107,7 @@ Vague name, tests mock not code
 
 **MANDATORY. Never skip.**
 
-```
 npm test path/to/test.test.ts
-```
 
 Confirm:
 - Test fails (not errors)
@@ -133,7 +123,6 @@ Confirm:
 Write simplest code to pass the test.
 
 <Good>
-```typescript
 async function retryOperation<T>(fn: () => Promise<T>): Promise<T> {
   for (let i = 0; i < 3; i++) {
     try {
@@ -144,12 +133,10 @@ async function retryOperation<T>(fn: () => Promise<T>): Promise<T> {
   }
   throw new Error('unreachable');
 }
-```
 Just enough to pass
 </Good>
 
 <Bad>
-```typescript
 async function retryOperation<T>(
   fn: () => Promise<T>,
   options?: {
@@ -160,7 +147,6 @@ async function retryOperation<T>(
 ): Promise<T> {
   // YAGNI
 }
-```
 Over-engineered
 </Bad>
 
@@ -170,9 +156,7 @@ Don't add features, refactor other code, or "improve" beyond the test.
 
 **MANDATORY.**
 
-```
 npm test path/to/test.test.ts
-```
 
 Confirm:
 - Test passes
@@ -293,34 +277,26 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 **Bug:** Empty email accepted
 
 **RED**
-```typescript
 test('rejects empty email', async () => {
   const result = await submitForm({ email: '' });
   expect(result.error).toBe('Email required');
 });
-```
 
 **Verify RED**
-```
 $ npm test
 FAIL: expected 'Email required', got undefined
-```
 
 **GREEN**
-```typescript
 function submitForm(data: FormData) {
   if (!data.email?.trim()) {
     return { error: 'Email required' };
   }
   // ...
 }
-```
 
 **Verify GREEN**
-```
 $ npm test
 PASS
-```
 
 **REFACTOR**
 Extract validation for multiple fields if needed.
@@ -364,9 +340,7 @@ When adding mocks or test utilities, read @testing-anti-patterns.md to avoid com
 
 ## Final Rule
 
-```
 Production code → test exists and failed first
 Otherwise → not TDD
-```
 
 No exceptions without your human partner's permission.

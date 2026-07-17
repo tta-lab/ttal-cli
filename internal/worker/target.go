@@ -46,7 +46,7 @@ func ResolveTmuxTarget(task *taskwarrior.Task) (TmuxTarget, error) {
 	if task.Owner == "" {
 		return TmuxTarget{}, fmt.Errorf(
 			"task %s has no owner set: cannot resolve tmux target without task owner; "+
-				"run `ttal task modify <uuid> owner:<agent>` or ensure the pipeline sets owner via ensureWorkerStageOwner",
+				"run `task <uuid> modify owner:<agent>` or ensure the pipeline sets owner via ensureWorkerStageOwner",
 			task.HexID())
 	}
 

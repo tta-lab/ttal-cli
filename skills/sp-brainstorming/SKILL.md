@@ -1,51 +1,42 @@
 ---
 name: sp-brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
-category: methodology
+description: Use when a request needs collaborative exploration of intent, constraints, alternatives, or design before the direction is settled.
 ---
 
-# Brainstorming Ideas Into Designs
+# Brainstorming
 
-## Overview
+Turn an unclear idea into an agreed design through conversation. This skill ends when the design is recorded; it never starts planning or implementation.
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+## Process
 
-Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design in small sections (200-300 words), checking after each section whether it looks right so far.
+1. Inspect the current project, prior FlickNote notes, and relevant code.
+2. Ask one focused question at a time. Clarify purpose, constraints, success criteria, and anti-goals.
+3. Offer two or three viable approaches with trade-offs and a recommendation.
+4. Present the design in small sections and confirm each section before continuing.
+5. Cover architecture, data flow, failure handling, testing, and rollout when relevant.
 
-## The Process
+## Persist the Design
 
-**Understanding the idea:**
-- Check out the current project state first (files, docs, recent commits)
-- Ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
-- Only one question per message - if a topic needs more exploration, break it into multiple questions
-- Focus on understanding: purpose, constraints, success criteria
+After the user approves the direction, save the agreed design to the `orientation` project:
 
-**Exploring approaches:**
-- Propose 2-3 different approaches with trade-offs
-- Present options conversationally with your recommendation and reasoning
-- Lead with your recommended option and explain why
+flicknote add --project orientation
 
-**Presenting the design:**
-- Once you believe you understand what you're building, present the design
-- Break it into sections of 200-300 words
-- Ask after each section whether it looks right so far
-- Cover: architecture, components, data flow, error handling, testing
-- Be ready to go back and clarify if something doesn't make sense
+The note should contain:
 
-## After the Design
+- What and why
+- Chosen approach and rejected alternatives
+- Constraints and anti-goals
+- Success criteria
+- Open risks
 
-Once the design is validated with Neil, chain into the planning skill — it will turn the design into a concrete, executable task-tree plan and then into sp-complete-design for handoff:
+Return the FlickNote ID and a short summary. Stop there. Do not invoke or recommend another skill automatically.
 
-    skill get sp-planning
+For a small or mechanical change where the conversation itself is enough, skip the note and state the agreed direction.
 
-Do not write a separate design document or duplicate planning logic here. The brainstorming → planning → completion chain is the path.
+## Rules
 
-## Key Principles
-
-- **One question at a time** - Don't overwhelm with multiple questions
-- **Multiple choice preferred** - Easier to answer than open-ended when possible
-- **YAGNI ruthlessly** - Remove unnecessary features from all designs
-- **Explore alternatives** - Always propose 2-3 approaches before settling
-- **Incremental validation** - Present design in sections, validate each
-- **Be flexible** - Go back and clarify when something doesn't make sense
+- One question per turn
+- Search before asking for discoverable facts
+- Prefer the smallest design that meets the goal
+- Do not implement while brainstorming
+- Do not assume the user wants a plan or execution next

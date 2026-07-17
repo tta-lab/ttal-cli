@@ -19,10 +19,10 @@ task → research → design → implement → review → merge → cleanup
 - **One command drives everything** — `ttal go` advances any task through its pipeline
 
 ```
-# Create a task
-ttal task add --project myapp "Add JWT authentication to the API"
+# Record durable context
+flicknote add "Add JWT authentication to the API" --project orientation
 
-# One command drives every transition
+# Existing pipeline jobs still advance with ttal go
 ttal go abc12345
 
 # Pipeline routes it: research → design → implement → review → merge
@@ -107,8 +107,6 @@ Each agent runs in its own tmux session. Workers get isolated git worktrees. The
 ## Built with TTal
 
 We built TTal with TTal. 476 PRs merged, 42k lines of Go — last 30 days. Then we pointed it at flicknote-cli — 55 PRs merged in 15 days, Rust. Same pipeline, different repo, same velocity.
-
-![Heatmap](docs/public/screenshots/heatmap.png)
 
 ## Install
 

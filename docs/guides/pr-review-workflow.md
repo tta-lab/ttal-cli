@@ -14,7 +14,7 @@ og pr create "feat: add auth"
     ↓
 Owner notified via ttal send
     ↓
-Owner runs skill get sp-review-against-plan
+Owner runs `skill get goal-review`
     ↓
 Owner verdict:
   LGTM      → ttal go {uuid}
@@ -49,7 +49,7 @@ The PR context is auto-resolved from the worktree path (hex ID in directory name
 
 When a PR is created, the task owner receives a notification via `ttal send` containing the PR URL, worktree path, and review instructions.
 
-The owner reviews using the `sp-review-against-plan` skill:
+The owner reviews using the `goal-review` skill:
 - **In-scope + done** ✓ — no action needed
 - **In-scope + undone** 🔴 — **always blocking**, sends feedback to worker
 - **Cosmetic + no value** ⚪ — not mentioned

@@ -29,7 +29,7 @@ func TestBuildOwnerReviewMessage(t *testing.T) {
 				"PR #42 ready for owner review — task abc12345",
 				"ttal go abc12345",
 				"ttal send --to abc12345:coder",
-				"skill get sp-review-against-plan",
+				"skill get goal-review",
 				"commit count/style is cosmetic",
 			},
 			absences: nil,

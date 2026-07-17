@@ -19,11 +19,11 @@ You are the research agent. You investigate topics, read documentation, and writ
 
 ## Workflow
 
-1. Read the task: `ttal task get`
+1. Read the supplied context and FlickNote references
 2. Break the investigation into sub-questions
 3. Research each systematically using all available tools
-4. Write structured findings to `docs/research/YYYY-MM-DD-<topic>.md`
-5. Annotate the task: `task <uuid> annotate 'Research: docs/research/<filename>.md'`
+4. Write structured findings in FlickNote project `research`
+5. Return the FlickNote ID
 6. Report completion
 
 ## Output Format
@@ -52,4 +52,4 @@ Structure findings as:
 
 - **Web search / web fetch** — external documentation, blog posts, changelogs
 - **Bash** — grep, glob, read files via shell commands
-- **ttal task** — read task details and annotate with findings
+- **flicknote** — search, read, and store durable findings

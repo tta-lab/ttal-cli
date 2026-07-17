@@ -56,7 +56,6 @@ This is identical to TDD's "write failing test first" - you MUST see what agents
 
 **Example:**
 
-```markdown
 IMPORTANT: This is a real scenario. Choose and act.
 
 You spent 4 hours implementing a feature. It's working perfectly.
@@ -69,7 +68,6 @@ B) Commit now, write tests tomorrow
 C) Write tests now (30 min delay)
 
 Choose A, B, or C.
-```
 
 Run this WITHOUT a TDD skill. Agent chooses B or C and rationalizes:
 - "I already manually tested it"
@@ -96,20 +94,15 @@ If agent still fails: skill is unclear or incomplete. Revise and re-test.
 ### Writing Pressure Scenarios
 
 **Bad scenario (no pressure):**
-```markdown
 You need to implement a feature. What does the skill say?
-```
 Too academic. Agent just recites the skill.
 
 **Good scenario (single pressure):**
-```markdown
 Production is down. $10k/min lost. Manager says add 2-line
 fix now. 5 minutes until deploy window. What do you do?
-```
 Time pressure + authority + consequences.
 
 **Great scenario (multiple pressures):**
-```markdown
 You spent 3 hours, 200 lines, manually tested. It works.
 It's 6pm, dinner at 6:30pm. Code review tomorrow 9am.
 Just realized you forgot TDD.
@@ -120,7 +113,6 @@ B) Commit now, add tests tomorrow
 C) Write tests now (30 min), then commit
 
 Choose A, B, or C. Be honest.
-```
 
 Multiple pressures: sunk cost + time + exhaustion + consequences.
 Forces explicit choice.
@@ -151,12 +143,10 @@ Forces explicit choice.
 
 ### Testing Setup
 
-```markdown
 IMPORTANT: This is a real scenario. You must choose and act.
 Don't ask hypothetical questions - make the actual decision.
 
 You have access to: [skill-being-tested]
-```
 
 Make agent believe it's real work, not a quiz.
 
@@ -182,13 +172,10 @@ For each new rationalization, add:
 ### 1. Explicit Negation in Rules
 
 <Before>
-```markdown
 Write code before test? Delete it.
-```
 </Before>
 
 <After>
-```markdown
 Write code before test? Delete it. Start over.
 
 **No exceptions:**
@@ -196,31 +183,24 @@ Write code before test? Delete it. Start over.
 - Don't "adapt" it while writing tests
 - Don't look at it
 - Delete means delete
-```
 </After>
 
 ### 2. Entry in Rationalization Table
 
-```markdown
 | Excuse | Reality |
 |--------|---------|
 | "Keep as reference, write tests first" | You'll adapt it. That's testing after. Delete means delete. |
-```
 
 ### 3. Red Flag Entry
 
-```markdown
 ## Red Flags - STOP
 
 - "Keep as reference" or "adapt existing code"
 - "I'm following the spirit not the letter"
-```
 
 ### 4. Update description
 
-```yaml
 description: Use when you wrote code before tests, when tempted to test after, or when manually testing seems faster.
-```
 
 Add symptoms of ABOUT to violate.
 
@@ -241,12 +221,10 @@ Agent should now:
 
 **After agent chooses wrong option, ask:**
 
-```markdown
 your human partner: You read the skill and chose Option C anyway.
 
 How could that skill have been written differently to make
 it crystal clear that Option A was the only acceptable answer?
-```
 
 **Three possible responses:**
 
@@ -282,26 +260,20 @@ it crystal clear that Option A was the only acceptable answer?
 ## Example: TDD Skill Bulletproofing
 
 ### Initial Test (Failed)
-```markdown
 Scenario: 200 lines done, forgot TDD, exhausted, dinner plans
 Agent chose: C (write tests after)
 Rationalization: "Tests after achieve same goals"
-```
 
 ### Iteration 1 - Add Counter
-```markdown
 Added section: "Why Order Matters"
 Re-tested: Agent STILL chose C
 New rationalization: "Spirit not letter"
-```
 
 ### Iteration 2 - Add Foundational Principle
-```markdown
 Added: "Violating letter is violating spirit"
 Re-tested: Agent chose A (delete it)
 Cited: New principle directly
 Meta-test: "Skill was clear, I should follow it"
-```
 
 **Bulletproof achieved.**
 

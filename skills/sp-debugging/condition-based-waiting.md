@@ -8,7 +8,6 @@ Flaky tests often guess at timing with arbitrary delays. This creates race condi
 
 ## When to Use
 
-```dot
 digraph when_to_use {
     "Test uses setTimeout/sleep?" [shape=diamond];
     "Testing timing behavior?" [shape=diamond];
@@ -19,7 +18,6 @@ digraph when_to_use {
     "Testing timing behavior?" -> "Document WHY timeout needed" [label="yes"];
     "Testing timing behavior?" -> "Use condition-based waiting" [label="no"];
 }
-```
 
 **Use when:**
 - Tests have arbitrary delays (`setTimeout`, `sleep`, `time.sleep()`)
@@ -33,7 +31,6 @@ digraph when_to_use {
 
 ## Core Pattern
 
-```typescript
 // ❌ BEFORE: Guessing at timing
 await new Promise(r => setTimeout(r, 50));
 const result = getResult();
@@ -43,7 +40,6 @@ expect(result).toBeDefined();
 await waitFor(() => getResult() !== undefined);
 const result = getResult();
 expect(result).toBeDefined();
-```
 
 ## Quick Patterns
 
@@ -58,7 +54,6 @@ expect(result).toBeDefined();
 ## Implementation
 
 Generic polling function:
-```typescript
 async function waitFor<T>(
   condition: () => T | undefined | null | false,
   description: string,
@@ -77,7 +72,6 @@ async function waitFor<T>(
     await new Promise(r => setTimeout(r, 10)); // Poll every 10ms
   }
 }
-```
 
 See `condition-based-waiting-example.ts` in this directory for complete implementation with domain-specific helpers (`waitForEvent`, `waitForEventCount`, `waitForEventMatch`) from actual debugging session.
 
@@ -94,12 +88,10 @@ See `condition-based-waiting-example.ts` in this directory for complete implemen
 
 ## When Arbitrary Timeout IS Correct
 
-```typescript
 // Tool ticks every 100ms - need 2 ticks to verify partial output
 await waitForEvent(manager, 'TOOL_STARTED'); // First: wait for condition
 await new Promise(r => setTimeout(r, 200));   // Then: wait for timed behavior
 // 200ms = 2 ticks at 100ms intervals - documented and justified
-```
 
 **Requirements:**
 1. First wait for triggering condition

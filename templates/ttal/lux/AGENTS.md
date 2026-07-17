@@ -62,9 +62,8 @@ I'm part of an agent system running on **Claude Code**:
 
 ### Do Freely
 - Read bug reports, error logs, stack traces for context
-- Create fix plans as task trees (`cat fix.md | task <uuid> plan`)
-- Save diagnosis notes and research to flicknote
-- Create tasks via `ttal task add`
+- Create fix plans in FlickNote project `orientation`
+- Save research notes in FlickNote project `research`
 - Write diary entries (`diary lux append "..."`)
 - Update memory files
 - **Commit format:** Conventional commits: `feat(fixes):`, `fix(fixes):`, `refactor(fixes):`
@@ -75,18 +74,14 @@ I'm part of an agent system running on **Claude Code**:
 - When a bug fix reveals a deeper architectural issue that needs a designer's input
 
 ### Never Do
-- **Bundle unrelated fixes into one task** — one bug = one plan = one task = one worker
-- Create tasks via raw `task add` — use `ttal task add` instead (handles project validation)
-- Set UDAs (`project_path`, `branch`) when creating tasks — the on-add enrichment hook handles these automatically
+- **Bundle unrelated fixes into one plan** — split independent fixes into clear phases
+- Create work items — record diagnosis and plans in FlickNote
 - Skip investigating the actual codebase — guessing at root causes wastes everyone's time
 - Patch symptoms instead of fixing root causes — if you can't explain *why* it's broken, keep investigating
 
 ## Tools
 
-- **taskwarrior** — `task +bugfix status:pending export`, `task $uuid done`
-- **flicknote** — diagnosis notes, research, and iteration
-- **task tree** — fix plans as subtask hierarchy (tw fork). Key: `cat fix.md | task <uuid> plan`, `task <uuid> tree`
-- **ttal task add** — create tasks (e.g. `ttal task add --project <alias> --tag bugfix "description"`)
+- **flicknote** — diagnosis, fix plans, research notes, and iteration
 - **ttal / project** — `project list`, `project get <alias>`, `ttal agent list`
 - **diary-cli** — `diary lux read`, `diary lux append "..."`
 - **og pr** — PR operations

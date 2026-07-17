@@ -33,7 +33,6 @@ type KeyMap struct {
 	ToggleNext   key.Binding
 	Copy         key.Binding
 	Delete       key.Binding
-	Heatmap      key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for the TUI.
@@ -68,7 +67,6 @@ func DefaultKeyMap() KeyMap {
 		ToggleNext:   key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "toggle +next")),
 		Copy:         key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy")),
 		Delete:       key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "delete")),
-		Heatmap:      key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "heatmap")),
 	}
 }
 
@@ -83,6 +81,6 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Top, k.Bottom, k.PageUp, k.PageDown, k.HalfPageUp, k.HalfPageDown},
 		{k.Enter, k.Advance, k.Done, k.Modify, k.Annotate, k.Delete, k.ToggleNext, k.Copy},
 		{k.OpenPR, k.OpenSession, k.OpenTerm, k.OpenEditor},
-		{k.AddToday, k.RemoveToday, k.FilterNext, k.FilterPrev, k.Search, k.Refresh, k.Heatmap, k.Help},
+		{k.AddToday, k.RemoveToday, k.FilterNext, k.FilterPrev, k.Search, k.Refresh, k.Help},
 	}
 }

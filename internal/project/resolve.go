@@ -97,16 +97,6 @@ func GetProjectPath(alias string) (string, error) {
 	return "", formatProjectNotFoundError(alias)
 }
 
-// ValidateProjectAlias checks that a project alias exists (exact match, active only).
-// Returns a user-friendly error listing available projects if not found.
-func ValidateProjectAlias(alias string) error {
-	_, err := getProjectByAlias(alias)
-	if err != nil {
-		return formatProjectNotFoundError(alias)
-	}
-	return nil
-}
-
 // ResolveProject looks up a project by taskwarrior project name using hierarchical resolution.
 // Returns the full Project struct (not just path). Returns nil if no match found.
 //

@@ -15,7 +15,7 @@ var goCmd = &cobra.Command{
 	Short: "Advance a task to the next pipeline stage",
 	Long: `Advance a task through its pipeline stages based on pipelines.toml configuration.
 
-This command replaces "ttal task route" and "ttal task execute" with a single,
+This command replaces the old route and execute commands with a single,
 config-driven operation. The appropriate action (route to agent or spawn worker)
 is determined by the task's pipeline stage definition.
 

@@ -1,26 +1,25 @@
 ---
 name: Basic
-description: Get started with task management and planning
+description: Get started with agent coordination and FlickNote planning
 agents: manager, designer
 ---
 
 # Basic — Manager + Designer
 
-A minimal ttal setup with two agents: one manages tasks, one designs implementation plans. Workers (coders and reviewers) are spawned on-demand.
+A minimal ttal setup with two agents: one coordinates work, one designs implementation plans. Workers (coders and reviewers) are spawned on demand.
 
 ## Agents
 
-- **manager** — task orchestrator. Manages taskwarrior tasks, routes work, handles daily focus.
+- **manager** — work coordinator. Preserves context, reports status, and helps route approved work.
 - **designer** — context enricher. Reads the codebase and writes implementation plans so workers can execute without guessing.
 
 ## The core loop
 
 ```
-You create a task
-  → manager advances it: ttal go <uuid>
-  → designer writes an implementation plan
+You describe a goal
+  → designer writes a FlickNote implementation plan
   → you approve
-  → manager spawns a worker: ttal go <uuid>
+  → you explicitly start implementation
   → worker executes the plan, creates a PR
 ```
 

@@ -274,7 +274,7 @@ func TestRefreshTickMsg_GuardsNonTaskListStates(t *testing.T) {
 
 	nonTaskListStates := []viewState{
 		stateTaskDetail, stateSearch, stateModify, stateAnnotate,
-		stateConfirmDelete, stateHelp, stateHeatmap,
+		stateConfirmDelete, stateHelp,
 	}
 	for _, s := range nonTaskListStates {
 		m := Model{state: s}

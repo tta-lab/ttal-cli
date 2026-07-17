@@ -41,7 +41,7 @@ export default defineConfig({
             { text: 'Agents', link: '/docs/agents' },
             { text: 'Messaging', link: '/docs/messaging' },
             { text: 'Workers', link: '/docs/workers' },
-            { text: 'Tasks', link: '/docs/tasks' },
+            { text: 'Pipeline Jobs', link: '/docs/tasks' },
             { text: 'Prompts', link: '/docs/prompts' },
             { text: 'Daemon', link: '/docs/daemon' },
             { text: 'Runtimes', link: '/docs/runtimes' },

@@ -120,4 +120,4 @@ ttal daemon
 - [Configuration](/docs/configuration) — config file reference
 - [Agents](/docs/agents) — agent management and identity
 - [Messaging](/docs/messaging) — Telegram bridge setup
-- [Tasks](/docs/tasks) — task-driven workflows
+- [Pipeline Jobs](/docs/tasks) — existing pipeline lifecycle

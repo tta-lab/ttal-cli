@@ -1,6 +1,5 @@
 execute = """\
-Implement this task following the referenced plan.
-Read the task first: ttal task get
+Implement the agreed change. Read any supplied FlickNote plan ID first.
 Follow the plan step by step: read, make changes, verify, commit.
 Use og pr create for pull requests."""
 

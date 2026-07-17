@@ -1,26 +1,20 @@
 [default]
 prompt = """Read the task and do your best based on the context.
-ttal task get"""
+Use any supplied FlickNote ID as durable context."""
 
 [designer]
-prompt = """Write an implementation plan for this task.
-Read the task first: ttal task get
-
-Storage: Save the plan via flicknote add 'content' --project plans
+prompt = """Write an implementation plan from the supplied context.
+Storage: Save the plan via flicknote add 'content' --project orientation
 Iterate with: flicknote detail <id> --tree, flicknote modify <id> --section <section-id>
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+When done: return the FlickNote ID. Do not start implementation."""
 
 [researcher]
-prompt = """Research this topic thoroughly.
-Read the task first: ttal task get
-
+prompt = """Research this topic thoroughly from the supplied context.
 Storage: Save findings via flicknote add 'content' --project research
 Iterate with: flicknote detail <id> --tree, flicknote append <id> 'more content'
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+When done: return the FlickNote ID."""
 
 [fixer]
-prompt = """Diagnose this bug and write a fix plan.
-Read the task first: ttal task get
-
-Storage: Save findings via flicknote add 'content' --project fixes
-When done: annotate the task with the flicknote hex ID: task {{task-id}} annotate '<hex-id>'"""
+prompt = """Diagnose this bug and write a fix plan from the supplied context.
+Storage: Save the diagnosis and plan via flicknote add 'content' --project orientation
+When done: return the FlickNote ID. Do not implement the fix."""

@@ -41,8 +41,6 @@ var (
 
 	styleToday = lipgloss.NewStyle().
 			Background(colorTodayBg)
-
-	styleHeatmapTitle = lipgloss.NewStyle().Bold(true)
 )
 
 func priorityStyle(p string) lipgloss.Style {

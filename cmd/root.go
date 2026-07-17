@@ -14,8 +14,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "ttal",
 	Short: "TTAL - Task & Team Agent Lifecycle Manager",
-	Long: `TTAL is a CLI tool for managing projects, agents, workers, tasks, and daily focus.
-It provides taskwarrior-like syntax for tag management and agent routing.
+	Long: `TTAL is a CLI tool for coordinating agents, workers, messaging, and existing pipelines.
 
 Running ttal with no subcommand launches the interactive TUI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {

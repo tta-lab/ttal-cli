@@ -7,7 +7,7 @@ import "fmt"
 
 // BuildOwnerReviewMessage renders the notification sent to the task owner when
 // a worker creates a PR. The owner reviews the PR against their plan using the
-// sp-review-against-plan skill, then either advances the pipeline (LGTM → ttal go)
+// goal-review skill, then either advances the pipeline (LGTM → ttal go)
 // or sends blockers back to the worker (NEED_WORK → ttal send).
 func BuildOwnerReviewMessage(prNum int64, prURL, title, worktree, hex, assignee string) string {
 	return fmt.Sprintf(`📋 PR #%d ready for owner review — task %s
@@ -17,7 +17,7 @@ URL:      %s
 Worktree: %s
 
 Review the PR against your plan:
-  skill get sp-review-against-plan
+  skill get goal-review
   # in-scope undone = BLOCKING; cosmetic no-value = don't mention;
   # commit count/style is cosmetic (we squash-merge)
 

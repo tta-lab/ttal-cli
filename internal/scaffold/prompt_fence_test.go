@@ -25,7 +25,7 @@ func TestPromptSourcesDoNotContainCopyableFences(t *testing.T) {
 		t.Fatalf("bash fences in markdown/templates:\n%s", strings.Join(bashFenceOffenders, "\n"))
 	}
 	if len(promptFenceOffenders) > 0 {
-		t.Fatalf("copyable fences in prompt files:\n%s", strings.Join(promptFenceOffenders, "\n"))
+		t.Fatalf("fenced blocks in skills or prompt files:\n%s", strings.Join(promptFenceOffenders, "\n"))
 	}
 }
 
@@ -69,6 +69,9 @@ func findCopyableFenceOffenders(root string) ([]string, []string, error) {
 }
 
 func isPromptSource(rel string) bool {
+	if strings.HasPrefix(rel, "skills/") {
+		return true
+	}
 	if strings.HasPrefix(rel, "agents/") {
 		return true
 	}

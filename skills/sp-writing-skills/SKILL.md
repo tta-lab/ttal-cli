@@ -73,12 +73,10 @@ API docs, syntax guides, tool documentation (office docs)
 ## Directory Structure
 
 
-```
 skills/
   skill-name/
     SKILL.md              # Main reference (required)
     supporting-file.*     # Only if needed
-```
 
 **Flat namespace** - all skills in one searchable namespace
 
@@ -90,6 +88,10 @@ skills/
 - Principles and concepts
 - Code patterns (< 50 lines)
 - Everything else
+
+**Markdown format:**
+- Do not use fenced blocks in skills or supporting Markdown.
+- Put commands and examples on plain lines, with one command per line.
 
 ## SKILL.md Structure
 
@@ -103,7 +105,6 @@ skills/
   - **NEVER summarize the skill's process or workflow** (see CSO section for why)
   - Keep under 500 characters if possible
 
-```markdown
 ---
 name: Skill-Name-With-Hyphens
 description: Use when [specific triggering conditions and symptoms]
@@ -135,7 +136,6 @@ What goes wrong + fixes
 
 ## Real-World Impact (optional)
 Concrete results
-```
 
 
 ## Claude Search Optimization (CSO)
@@ -158,7 +158,6 @@ When the description was changed to just "Use when executing implementation plan
 
 **The trap:** Descriptions that summarize workflow create a shortcut Claude will take. The skill body becomes documentation Claude skips.
 
-```yaml
 # ❌ BAD: Summarizes workflow - Claude may follow this instead of reading skill
 description: Use when executing plans - dispatches subagent per task with code review between tasks
 
@@ -170,7 +169,6 @@ description: Use when executing implementation plans with independent tasks in t
 
 # ✅ GOOD: Triggering conditions only
 description: Use when implementing any feature or bugfix, before writing implementation code
-```
 
 **Content:**
 - Use concrete triggers, symptoms, and situations that signal this skill applies
@@ -180,7 +178,6 @@ description: Use when implementing any feature or bugfix, before writing impleme
 - Write in third person (injected into system prompt)
 - **NEVER summarize the skill's process or workflow**
 
-```yaml
 # ❌ BAD: Too abstract, vague, doesn't include when to use
 description: For async testing
 
@@ -195,7 +192,6 @@ description: Use when tests have race conditions, timing dependencies, or pass/f
 
 # ✅ GOOD: Technology-specific skill with explicit trigger
 description: Use when using React Router and handling authentication redirects
-```
 
 ### 2. Keyword Coverage
 
@@ -223,26 +219,21 @@ Use words Claude would search for:
 **Techniques:**
 
 **Move details to tool help:**
-```
 # ❌ BAD: Document all flags in SKILL.md
 search-conversations supports --text, --both, --after DATE, --before DATE, --limit N
 
 # ✅ GOOD: Reference --help
 search-conversations supports multiple modes and filters. Run --help for details.
-```
 
 **Use cross-references:**
-```markdown
 # ❌ BAD: Repeat workflow details
 When searching, dispatch subagent with template...
 [20 lines of repeated instructions]
 
 # ✅ GOOD: Reference other skill
 Always use subagents (50-100x context savings). REQUIRED: Use [other-skill-name] for workflow.
-```
 
 **Compress examples:**
-```markdown
 # ❌ BAD: Verbose example (42 words)
 your human partner: "How did we handle authentication errors in React Router before?"
 You: I'll search past conversations for React Router authentication patterns.
@@ -252,7 +243,6 @@ You: I'll search past conversations for React Router authentication patterns.
 Partner: "How did we handle auth errors in React Router?"
 You: Searching...
 [Dispatch subagent → synthesis]
-```
 
 **Eliminate redundancy:**
 - Don't repeat what's in cross-referenced skills
@@ -260,11 +250,9 @@ You: Searching...
 - Don't include multiple examples of same pattern
 
 **Verification:**
-```
 wc -w skills/path/SKILL.md
 # getting-started workflows: aim for <150 each
 # Other frequently-loaded: aim for <200 total
-```
 
 **Name by what you DO or core insight:**
 - ✅ `condition-based-waiting` > `async-test-helpers`
@@ -290,7 +278,6 @@ Use skill name only, with explicit requirement markers:
 
 ## Flowchart Usage
 
-```dot
 digraph when_flowchart {
     "Need to show information?" [shape=diamond];
     "Decision where I might go wrong?" [shape=diamond];
@@ -301,7 +288,6 @@ digraph when_flowchart {
     "Decision where I might go wrong?" -> "Small inline flowchart" [label="yes"];
     "Decision where I might go wrong?" -> "Use markdown" [label="no"];
 }
-```
 
 **Use flowcharts ONLY for:**
 - Non-obvious decision points
@@ -317,10 +303,8 @@ digraph when_flowchart {
 See @graphviz-conventions.dot for graphviz style rules.
 
 **Visualizing for your human partner:** Use `render-graphs.js` in this directory to render a skill's flowcharts to SVG:
-```
 ./render-graphs.js ../some-skill           # Each diagram separately
 ./render-graphs.js ../some-skill --combine # All diagrams in one SVG
-```
 
 ## Code Examples
 
@@ -348,35 +332,27 @@ You're good at porting - one great example is enough.
 ## File Organization
 
 ### Self-Contained Skill
-```
 defense-in-depth/
   SKILL.md    # Everything inline
-```
 When: All content fits, no heavy reference needed
 
 ### Skill with Reusable Tool
-```
 condition-based-waiting/
   SKILL.md    # Overview + patterns
   example.ts  # Working helpers to adapt
-```
 When: Tool is reusable code, not just narrative
 
 ### Skill with Heavy Reference
-```
 pptx/
   SKILL.md       # Overview + workflows
   pptxgenjs.md   # 600 lines API reference
   ooxml.md       # 500 lines XML structure
   scripts/       # Executable tools
-```
 When: Reference material too large for inline
 
 ## The Iron Law (Same as TDD)
 
-```
 NO SKILL WITHOUT A FAILING TEST FIRST
-```
 
 This applies to NEW skills AND EDITS to existing skills.
 
@@ -468,13 +444,10 @@ Skills that enforce discipline (like TDD) need to resist rationalization. Agents
 Don't just state the rule - forbid specific workarounds:
 
 <Bad>
-```markdown
 Write code before test? Delete it.
-```
 </Bad>
 
 <Good>
-```markdown
 Write code before test? Delete it. Start over.
 
 **No exceptions:**
@@ -482,16 +455,13 @@ Write code before test? Delete it. Start over.
 - Don't "adapt" it while writing tests
 - Don't look at it
 - Delete means delete
-```
 </Good>
 
 ### Address "Spirit vs Letter" Arguments
 
 Add foundational principle early:
 
-```markdown
 **Violating the letter of the rules is violating the spirit of the rules.**
-```
 
 This cuts off entire class of "I'm following the spirit" rationalizations.
 
@@ -499,19 +469,16 @@ This cuts off entire class of "I'm following the spirit" rationalizations.
 
 Capture rationalizations from baseline testing (see Testing section below). Every excuse agents make goes in the table:
 
-```markdown
 | Excuse | Reality |
 |--------|---------|
 | "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
 | "I'll test after" | Tests passing immediately prove nothing. |
 | "Tests after achieve same goals" | Tests-after = "what does this do?" Tests-first = "what should this do?" |
-```
 
 ### Create Red Flags List
 
 Make it easy for agents to self-check when rationalizing:
 
-```markdown
 ## Red Flags - STOP and Start Over
 
 - Code before test
@@ -521,15 +488,12 @@ Make it easy for agents to self-check when rationalizing:
 - "This is different because..."
 
 **All of these mean: Delete code. Start over with TDD.**
-```
 
 ### Update CSO for Violation Symptoms
 
 Add to description: symptoms of when you're ABOUT to violate the rule:
 
-```yaml
 description: use when implementing any feature or bugfix, before writing implementation code
-```
 
 ## RED-GREEN-REFACTOR for Skills
 
@@ -571,10 +535,8 @@ example-js.js, example-py.py, example-go.go
 **Why bad:** Mediocre quality, maintenance burden
 
 ### ❌ Code in Flowcharts
-```dot
 step1 [label="import fs"];
 step2 [label="read file"];
-```
 **Why bad:** Can't copy-paste, hard to read
 
 ### ❌ Generic Labels

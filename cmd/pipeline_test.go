@@ -206,7 +206,7 @@ prompt = """You are a designer."""
 	if !strings.Contains(got, "You are a designer.") {
 		t.Errorf("expected role prompt in output, got: %q", got)
 	}
-	// NO ## Task block (task moved to ttal task get).
+	// NO ## Task block (task context is supplied separately).
 	if strings.Contains(got, "## Task") {
 		t.Errorf("expected no '## Task' in output, got: %q", got)
 	}
@@ -223,12 +223,12 @@ func TestResolvePipelinePrompt_SkillInlineHappyPath(t *testing.T) {
 	cfg := &config.Config{
 		Roles: &config.RolesConfig{
 			ExtraSkills: map[string][]string{
-				"coder": {"task-tree"},
+				"coder": {"flicknote"},
 			},
 		},
 	}
 	// Fake skill binary that outputs skill body.
-	fakeSkill := "#!/bin/sh\necho '# sp-task-tree'\necho 'Task tree usage.'\n"
+	fakeSkill := "#!/bin/sh\necho '# flicknote'\necho 'FlickNote usage.'\n"
 	os.WriteFile(binDir+"/skill", []byte(fakeSkill), 0o755) //nolint:errcheck
 
 	got := inlineSkills("You are a coder.", "coder", cfg)
@@ -238,10 +238,10 @@ func TestResolvePipelinePrompt_SkillInlineHappyPath(t *testing.T) {
 		t.Errorf("expected role prompt in output, got: %q", got)
 	}
 	// Skill body inlined.
-	if !strings.Contains(got, "sp-task-tree") {
+	if !strings.Contains(got, "# flicknote") {
 		t.Errorf("expected inlined skill body, got: %q", got)
 	}
-	if !strings.Contains(got, "Task tree usage.") {
+	if !strings.Contains(got, "FlickNote usage.") {
 		t.Errorf("expected skill body content, got: %q", got)
 	}
 }
@@ -257,7 +257,7 @@ func TestResolvePipelinePrompt_SkillInlineGracefulFailure(t *testing.T) {
 	cfg := &config.Config{
 		Roles: &config.RolesConfig{
 			ExtraSkills: map[string][]string{
-				"coder": {"task-tree"},
+				"coder": {"flicknote"},
 			},
 		},
 	}
